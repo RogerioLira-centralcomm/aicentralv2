@@ -229,7 +229,8 @@ def prepare(data):
     conversation_id = str(data.get("conversation_id") or uuid4())
     current = resolve(conversation_id=conversation_id,
                       surface=str(data.get("surface") or "conversations"),
-                      active_object=data.get("active_object"))
+                      active_object=data.get("active_object"),
+                      project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))
     current = replace(current, selected_context=_selected_context(data.get("selected_context")))
     file_ids = validate_files(data.get("files"))
     uploads = repository.rows(
@@ -340,6 +341,7 @@ def stream(run):
     answer_chunks, usage, provider_id, task_id = [], {}, None, None
     state, assistant_id = "failed", None
     terminal_message = None
+    terminal_error_code = None
     _journal(run["run_id"], "run.started", {"conversation_id": run["conversation_id"],
              "execution_mode": execution_mode})
     yield _event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"], execution_mode=execution_mode)
@@ -379,9 +381,10 @@ def stream(run):
             response = normalize_response("".join(answer_chunks), run["policy"])
             response = _enrich_source_blocks(response, run)
             artifact = None
-            artifact_type = run["route"].get("artifact_type") or (
-                "document" if response.artifact_patch else None
-            )
+            # A response patch is only materialized when the route explicitly
+            # requested an artifact. General answers must never silently turn
+            # into a document just because a provider returned dense text.
+            artifact_type = run["route"].get("artifact_type")
             if artifact_type and (response.artifact_patch or artifact_type == "project_map"):
                 artifact_content = response.artifact_patch or {}
                 if artifact_type == "project_map":
@@ -468,12 +471,21 @@ def stream(run):
                     # The answer is already durable. Billing reconciliation uses
                     # the idempotency key and must not corrupt the customer turn.
                     current_app.logger.exception("Falha de cobrança no run V2 %s", run["run_id"])
+    except provider.ProviderUnavailable:
+        if _run_was_cancelled(run["run_id"]):
+            state = "cancelled"
+        else:
+            current_app.logger.exception("Runtime Cadu indisponível; run=%s", run["run_id"])
+            terminal_error_code = "provider_unavailable"
+            _complete_step(run["run_id"], "generate", error_code=terminal_error_code)
+            terminal_message = "O agente desta conversa está temporariamente indisponível. Tente novamente em instantes."
     except Exception:
         if _run_was_cancelled(run["run_id"]):
             state = "cancelled"
         else:
             current_app.logger.exception("Falha no runtime Cadu Conversations V2; run=%s", run["run_id"])
-            _complete_step(run["run_id"], "generate", error_code="provider_failed")
+            terminal_error_code = "provider_failed"
+            _complete_step(run["run_id"], "generate", error_code=terminal_error_code)
             terminal_message = "A execução foi interrompida. Tente novamente."
     finally:
         total_duration_ms = round((perf_counter() - run_started) * 1000)
@@ -486,10 +498,11 @@ def stream(run):
                                    task_id = COALESCE(%s, task_id), finished_at = NOW(),
                                    first_token_ms=%s, total_duration_ms=%s, provider_duration_ms=%s,
                                    input_tokens=%s, output_tokens=%s,
-                                   terminal_error_code=CASE WHEN %s='failed' THEN 'provider_failed' ELSE NULL END
+                                   terminal_error_code=CASE WHEN %s='failed' THEN %s ELSE NULL END
                                WHERE id = %s""", (state, task_id, first_token_ms, total_duration_ms,
                                   provider_duration_ms, max(0, int(usage.get("prompt_tokens") or 0)),
-                                  max(0, int(usage.get("completion_tokens") or 0)), state, run["run_id"]))
+                                  max(0, int(usage.get("completion_tokens") or 0)), state,
+                                  terminal_error_code or "provider_failed", run["run_id"]))
             conn.commit()
         except Exception:
             conn.rollback()
@@ -503,7 +516,7 @@ def stream(run):
     }
     if terminal_message:
         terminal_payload["message"] = terminal_message
-        terminal_payload["code"] = "provider_failed"
+        terminal_payload["code"] = terminal_error_code or "provider_failed"
     _journal(run["run_id"], terminal_event, terminal_payload,
              item_type="error" if state == "failed" else "activity")
     yield _event(terminal_event, **terminal_payload)

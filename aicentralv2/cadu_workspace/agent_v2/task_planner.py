@@ -22,10 +22,30 @@ def _link_test_step(message: str):
     }
 
 
+def _create_project_step(message: str):
+    """Create only when the user supplied a usable name; never infer one from a task."""
+    match = re.search(r"\b(?:crie|criar|novo)\s+(?:(?:um|o)\s+)?projeto\s*(?:chamado|nomeado|:)?\s*[\"“]?([^\"”\n.]{2,150})",
+                      str(message or ""), re.IGNORECASE)
+    if not match:
+        return None
+    name = " ".join(match.group(1).split()).strip(' -:;,."')
+    if len(name) < 2:
+        return None
+    return {
+        "kind": "action", "name": "workspace.create_project", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"name": name[:150]}, "effect": "write",
+        "summary": f"Criar o projeto “{name[:150]}” no Workspace.",
+    }
+
+
 def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
     steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:budget.max_tool_calls]]
     if route.action == "link_test":
         action = _link_test_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "create_project":
+        action = _create_project_step(message)
         if action:
             steps.append(action)
     if route.artifact_type:

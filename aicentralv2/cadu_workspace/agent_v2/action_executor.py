@@ -2,7 +2,7 @@
 
 from ..mcp.registry import ToolError, ToolInputError, load_builtin_tools
 
-ALLOWED_ACTION_TOOLS = frozenset({"planner.link_test"})
+ALLOWED_ACTION_TOOLS = frozenset({"planner.link_test", "workspace.create_project"})
 
 
 def execute(step: dict, context) -> dict:

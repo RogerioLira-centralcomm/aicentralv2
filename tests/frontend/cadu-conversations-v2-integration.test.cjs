@@ -85,6 +85,13 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /Trecho selecionado/);
   assert.match(conversation, /Adicionar ao briefing/);
   assert.match(conversation, /composerContext/);
+  assert.match(conversation, /Escolher modo e recursos/);
+  assert.match(conversation, /Skills e integrações disponíveis/);
+  assert.match(styles, /cv-attachment-chip\.is-image/);
+  assert.match(conversation, /Anexar arquivo/);
+  assert.doesNotMatch(conversation, /contextLabel/);
+  assert.match(app, /execution_mode: executionMode/);
+  assert.match(app, /setExecutionMode\(event\.policy\.execution_mode\)/);
   assert.match(app, /selected_context/);
   assert.match(responseBlocks, /Usar esta opção/);
   assert.match(responseBlocks, /Continuar com/);

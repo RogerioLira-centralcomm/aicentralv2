@@ -329,8 +329,14 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     citations = _clean_citations(value.get("citations"))
     actions = _clean_actions(value.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
     blocks = _clean_blocks(value.get("blocks"))
+    # Failing closed is important here: only the executor may opt into an
+    # artifact after the router selected a concrete artifact type.
+    can_materialize_artifact = bool(policy.get("allow_artifact", False))
     patch = _clean_patch(value.get("artifact_patch"))
-    artifact_first = policy.get("mode") == "artifact_first" and policy.get("artifact_type") not in {None, "html", "project_map"}
+    if not can_materialize_artifact:
+        patch = None
+    artifact_first = (can_materialize_artifact and policy.get("mode") == "artifact_first"
+                      and policy.get("artifact_type") not in {None, "html", "project_map"})
     if artifact_first and not patch:
         patch = _fallback_artifact(answer, policy)
     dense_answer = len(answer) > int(policy.get("max_answer_chars") or 1800) or len(re.findall(r"(?m)^\s*(?:#{1,6}|[-*+]\s|\d+[.)]\s)", answer)) > 3
@@ -338,7 +344,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         blocks = _fallback_blocks(answer, policy)
     if artifact_first and dense_answer:
         answer = str(policy.get("artifact_chat_message") or "Organizei o resultado no artefato ao lado para você revisar e editar.")
-    elif dense_answer and not blocks and policy.get("mode") != "clarification":
+    elif dense_answer and not blocks and policy.get("mode") != "clarification" and can_materialize_artifact:
         patch = patch or _fallback_artifact(answer, policy)
         answer = "Organizei os detalhes no artefato ao lado para você revisar e editar."
     elif blocks:
@@ -350,6 +356,10 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
             answer = answer[:max_answer_chars].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
     confidence = str(value.get("confidence") or "medium").lower()
     if confidence not in {"low", "medium", "high"}:
+        confidence = "medium"
+    # Provider-produced source blocks are presentation data, not evidence. A
+    # high-confidence assertion needs a validated citation in the response.
+    if confidence == "high" and not citations:
         confidence = "medium"
     return AgentResponse(answer=answer, confidence=confidence, assumptions=assumptions,
                          questions=questions, actions=actions, artifact_patch=patch,

@@ -6,6 +6,8 @@ from types import SimpleNamespace
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext, execution_mode_for
 from aicentralv2.cadu_workspace.agent_v2.response_policy import budget_for, policy_for
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
+from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness
+from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
 from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import build_payload
 from aicentralv2.cadu_workspace.mcp.registry import (
@@ -116,6 +118,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
         context(capabilities=("workspace", "artifacts")), "internal",
     )}
     assert {"brands.create", "brands.start_audit"} <= internal_names
+    assert "workspace.create_project" in internal_names
     assert not {"brands.create", "brands.start_audit"} & names
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
@@ -237,6 +240,37 @@ def test_prepare_project_upload_seals_request_id_in_intent(monkeypatch):
     assert captured["use_as_knowledge"] is True
 
 
+def test_project_commands_route_to_real_registry_capabilities():
+    listing = route_request("Liste os links e arquivos deste projeto", has_project=True)
+    sources = route_request("Mostre as fontes indexadas do projeto", has_project=True)
+    creation = route_request('Crie um projeto chamado "Campanha Primavera"')
+
+    assert listing.action == "list_project_resources"
+    assert listing.needs_tools == ("projects.list_resources",)
+    assert sources.needs_tools == ("projects.list_sources",)
+    assert creation.response_mode == "decision"
+    assert creation.artifact_type is None
+    action = next(step for step in build_task_plan(creation, budget_for(creation), 'Crie um projeto chamado "Campanha Primavera"')
+                  if step["kind"] == "action")
+    assert action["name"] == "workspace.create_project"
+    assert action["requires_confirmation"] is True
+
+
+def test_create_project_tool_writes_canonical_project_only_after_confirmation(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import workspace
+
+    captured = {}
+    monkeypatch.setattr(workspace.repository, "create_entity", lambda client_id, user_id, payload: captured.update(
+        client_id=client_id, user_id=user_id, payload=payload) or "ci:project-1")
+    monkeypatch.setattr(workspace.operations, "execute", lambda request_id, current, tool_name, payload, operation: operation())
+    result = load_builtin_tools().execute("workspace.create_project", {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "name": "Campanha Primavera", "confirmed": True,
+    }, context(), "internal")
+
+    assert result == {"project_ref": "ci:project-1", "name": "Campanha Primavera", "status": "created"}
+    assert captured["payload"]["kind"] == "project"
+
+
 def test_mcp_brand_logo_upload_uses_signed_principal_context(monkeypatch):
     app = Flask(__name__)
     app.secret_key = "test-secret"
@@ -271,14 +305,62 @@ def test_brand_audit_requires_current_tenant_admin(monkeypatch):
     assert getattr(error.value, "code", None) == 403
 
 
-def test_brief_creation_is_artifact_first_and_bounded():
+def test_brief_creation_starts_with_a_bounded_discovery():
     route = route_request("Estruture um briefing para esse projeto", has_project=True)
     assert route.action == "create_brief"
-    assert route.response_mode == "artifact_first"
-    assert route.artifact_type == "brief"
+    assert route.response_mode == "clarification"
+    assert route.artifact_type is None
     assert route.needs_context == ("project", "brand")
     assert policy_for(route)["max_questions"] == 1
     assert budget_for(route).max_llm_calls == 1
+
+
+def test_brief_readiness_requires_four_of_five_campaign_inputs_before_artifact():
+    incomplete = briefing_readiness("Quero uma campanha para a marca.")
+    complete = briefing_readiness(
+        "Objetivo: gerar leads para o produto. Público: gestores B2B. "
+        "Oferta: demonstração gratuita. Canais: LinkedIn e Google. Prazo: outubro."
+    )
+    assert incomplete["complete"] is False
+    assert incomplete["percent"] < 80
+    assert complete["complete"] is True
+    assert complete["percent"] >= 80
+
+
+def test_brief_discovery_discards_a_provider_artifact_before_readiness():
+    response = normalize_response({
+        "answer": "Vamos começar pelo resultado que a campanha precisa gerar.",
+        "artifact_patch": {"title": "Briefing vazio", "fields": [{"key": "Objetivo", "value": "", "state": "missing"}]},
+    }, {"mode": "clarification", "max_questions": 1, "max_next_steps": 1,
+        "max_answer_chars": 360, "allow_artifact": False})
+    assert response.artifact_patch is None
+
+
+def test_payload_asks_to_resolve_a_missing_project_brand_before_using_it():
+    route = route_request("Analise este criativo", has_project=True)
+    payload = build_payload(
+        message="Analise este criativo", request=context(project_ref="ci:42", brand_ref=None), route=route,
+        resolved={}, policy={"mode": "analysis"}, user_label="user-12",
+    )
+    assert "vincular uma marca existente ou criar uma nova" in payload["inputs"]["core"]
+
+
+def test_direct_dense_answer_never_becomes_an_implicit_artifact():
+    response = normalize_response("""A resposta possui detalhes suficientes para ser longa.
+
+- Primeiro ponto relevante.
+- Segundo ponto relevante.
+- Terceiro ponto relevante.
+- Quarto ponto relevante.
+""", {
+        "mode": "direct",
+        "max_answer_chars": 360,
+        "max_questions": 0,
+        "max_next_steps": 0,
+        "allow_artifact": False,
+    })
+    assert response.artifact_patch is None
+    assert "artefato ao lado" not in response.answer.lower()
 
 
 def test_project_search_uses_one_semantic_tool():
@@ -358,7 +440,7 @@ def test_execution_modes_are_bounded_by_route():
     brief = route_request("Crie um briefing para o projeto", has_project=True)
     assert execution_mode_for(simple, "") == "fast"
     assert execution_mode_for(simple, "agentic") == "analysis"
-    assert execution_mode_for(brief, "") == "agentic"
+    assert execution_mode_for(brief, "") == "analysis"
     assert budget_for(simple, "fast").max_tool_calls == 1
     assert budget_for(brief, "agentic").max_duration_ms == 240000
 
@@ -658,14 +740,13 @@ def test_response_blocks_normalize_single_source_output():
     assert response.blocks[0]["items"][0]["kind"] == "artifact"
 
 
-def test_dense_plain_answer_becomes_editable_artifact_instead_of_truncated_chat():
+def test_dense_plain_answer_without_an_artifact_route_stays_in_chat():
     response = normalize_response("Um diagnóstico longo sem estrutura " * 40, {
         "mode": "analysis", "max_answer_chars": 320, "max_questions": 0,
         "max_next_steps": 0, "artifact_fallback_title": "Diagnóstico",
     })
-    assert response.answer == "Organizei os detalhes no artefato ao lado para você revisar e editar."
-    assert response.artifact_patch["title"] == "Diagnóstico"
-    assert "diagnóstico longo" in response.artifact_patch["summary"]
+    assert response.artifact_patch is None
+    assert "artefato ao lado" not in response.answer.lower()
 
 
 def test_plain_decision_list_becomes_an_interactive_decision_block():
@@ -686,7 +767,7 @@ def test_normalizer_bounds_artifact_fields_and_citations():
             "fields": [{"key": " público ", "value": " moradores locais ", "state": "unknown"}],
         },
         "citations": [{"title": " Fonte ", "url": " https://example.com ", "excerpt": " Trecho "}],
-    }, {"max_questions": 0, "max_next_steps": 0, "artifact_in_chat": False})
+    }, {"max_questions": 0, "max_next_steps": 0, "artifact_in_chat": False, "allow_artifact": True})
     assert response.artifact_patch["fields"] == [
         {"key": "público", "value": "moradores locais", "state": "inferred"}
     ]
@@ -713,6 +794,7 @@ def test_artifact_first_recovers_dense_markdown_into_editable_sections():
         "max_answer_chars": 420,
         "max_questions": 1,
         "max_next_steps": 2,
+        "allow_artifact": True,
     })
     assert response.answer == "Concluí a leitura inicial. Veja o artefato ao lado."
     assert response.artifact_patch["title"] == "Leitura inicial do projeto"
@@ -754,7 +836,15 @@ def test_normalizer_accepts_fenced_json_without_showing_the_envelope():
     {"answer":"Conclusão objetiva.","questions":[],"confidence":"high"}
     ```''', {"max_questions": 1, "artifact_in_chat": False})
     assert response.answer == "Conclusão objetiva."
-    assert response.confidence == "high"
+    assert response.confidence == "medium"
+
+
+def test_provider_source_block_does_not_upgrade_confidence_without_a_citation():
+    response = normalize_response({
+        "answer": "Resposta com fonte declarada.", "confidence": "high",
+        "blocks": [{"type": "source_group", "title": "Fonte", "items": [{"title": "Não verificada"}]}],
+    }, {"max_questions": 0, "max_next_steps": 0, "max_answer_chars": 320})
+    assert response.confidence == "medium"
 
 
 def test_v2_lab_and_migration_are_wired_for_deploy():
@@ -943,7 +1033,8 @@ def test_failed_v2_stream_emits_only_one_terminal_event(monkeypatch):
 
     assert output.count('"event": "run.failed"') == 1
     assert '"event": "run.completed"' not in output
-    assert '"code": "provider_failed"' in output
+    assert '"code": "provider_unavailable"' in output
+    assert "temporariamente indisponível" in output
 
 
 def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fallback(monkeypatch):

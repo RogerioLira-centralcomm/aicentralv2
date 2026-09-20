@@ -6,7 +6,48 @@ from ....cadu_family import repository
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
 from ...project_portfolio_service import attach_summaries
+from .. import operations
 from ..registry import ToolInputError, register_tool
+
+
+@register_tool(
+    name="workspace.create_project", capability="workspace", effect="write",
+    description="Cria um projeto nativo no Workspace. Só pode ser executado após confirmação explícita.",
+    exposures=("internal",),
+    input_schema={
+        "type": "object",
+        "required": ["request_id", "name"],
+        "properties": {
+            "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+            "name": {"type": "string", "minLength": 2, "maxLength": 150},
+            "description": {"type": "string", "maxLength": 4000},
+            "instructions": {"type": "string", "maxLength": 12000},
+            "confirmed": {"type": "boolean"},
+        },
+        "additionalProperties": False,
+    },
+)
+def create_project(context: RequestContext, arguments: dict) -> dict:
+    """Keep project creation in the family repository, never as a chat artifact."""
+    if arguments.get("confirmed") is not True:
+        raise ToolInputError("Confirme a criação do projeto antes de continuar.")
+    name = " ".join(str(arguments.get("name") or "").split())
+    if len(name) < 2:
+        raise ToolInputError("Informe um nome de projeto com ao menos dois caracteres.")
+    payload = {
+        "kind": "project", "name": name[:150],
+        "description": str(arguments.get("description") or "").strip()[:4000],
+        "instructions": str(arguments.get("instructions") or "").strip()[:12000],
+    }
+
+    def create():
+        try:
+            project_ref = repository.create_entity(context.client_id, context.user_id, payload)
+        except ValueError as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {"project_ref": project_ref, "name": payload["name"], "status": "created"}
+
+    return operations.execute(arguments["request_id"], context, "workspace.create_project", payload, create)
 
 
 @register_tool(

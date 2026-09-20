@@ -17,8 +17,10 @@ export default function App({bootstrap}) {
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
+  const [executionMode, setExecutionMode] = useState('analysis');
   const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
+  const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const [artifact, setArtifact] = useState(null);
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [artifactDirty, setArtifactDirty] = useState(false);
@@ -160,7 +162,7 @@ export default function App({bootstrap}) {
     try {
       const data = await request(bootstrap.endpoints.context, {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-        body: JSON.stringify({project_ref: projectRef || null, brand_ref: context.brand_ref || null}),
+        body: JSON.stringify({project_ref: projectRef || null, brand_ref: null}),
       });
       setContext(data.context || {});
       reset();
@@ -169,7 +171,7 @@ export default function App({bootstrap}) {
       trace('Falha ao alterar contexto', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, context.brand_ref, reset, trace, projects, loadContext]);
+  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
 
   const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || '');
   useEffect(() => {
@@ -190,11 +192,11 @@ export default function App({bootstrap}) {
         if (!file.size || file.size > 15 * 1024 * 1024 || !/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json|docx|xlsx|pptx)$/i.test(file.name)) {
           trace('Arquivo não aceito', 'Use imagem, PDF, texto ou Office de até 15 MB.', 'error'); continue;
         }
-        next.push({name: file.name, file, previewUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : '', id: null, uploading: false, error: false});
+        next.push({name: file.name, file, previewUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : '', id: null, source: null, destination: attachmentDestination, uploading: false, error: false});
       }
       return next;
     });
-  }, [trace]);
+  }, [trace, attachmentDestination]);
 
   const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
   const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
@@ -206,14 +208,33 @@ export default function App({bootstrap}) {
   const uploadFiles = async () => {
     const staged = [...attachments];
     for (let index = 0; index < staged.length; index += 1) {
-      if (staged[index].id) continue;
+      if (staged[index].id || staged[index].source) continue;
       staged[index] = {...staged[index], uploading: true, error: false}; setAttachments([...staged]);
-      const body = new FormData(); body.append('file', staged[index].file);
       try {
-        const response = await fetch(bootstrap.endpoints.uploads, {method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrf()}, body});
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.file?.id) throw new Error(data.error || 'Não foi possível anexar o arquivo.');
-        staged[index] = {...staged[index], id: data.file.id, uploading: false};
+        if (staged[index].destination === 'conversation') {
+          const body = new FormData(); body.append('file', staged[index].file);
+          const response = await fetch(bootstrap.endpoints.uploads, {method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrf()}, body});
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.file?.id) throw new Error(data.error || 'Não foi possível anexar o arquivo.');
+          staged[index] = {...staged[index], id: data.file.id, uploading: false};
+        } else {
+          if (!context.project_ref) throw new Error('Escolha um projeto antes de adicionar arquivos a ele.');
+          const prepared = await request('/workspace/mcp', {
+            method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+            body: JSON.stringify({jsonrpc: '2.0', id: crypto.randomUUID(), method: 'tools/call', params: {
+              name: 'projects.prepare_source_upload', surface: 'conversations', project_ref: context.project_ref, arguments: {
+                request_id: crypto.randomUUID(), use_as_knowledge: staged[index].destination === 'knowledge',
+              },
+            }}),
+          });
+          const intent = prepared.result?.structuredContent;
+          if (prepared.result?.isError || !intent?.upload_token) throw new Error(prepared.result?.content?.[0]?.text || 'Não foi possível preparar o arquivo para o projeto.');
+          const body = new FormData(); body.append('upload_token', intent.upload_token); body.append('file', staged[index].file);
+          const response = await fetch(intent.upload_url, {method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrf()}, body});
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.source?.source_id) throw new Error(data.error || 'Não foi possível adicionar o arquivo ao projeto.');
+          staged[index] = {...staged[index], source: data.source, uploading: false};
+        }
       } catch (error) {
         staged[index] = {...staged[index], uploading: false, error: true}; setAttachments([...staged]); throw error;
       }
@@ -233,7 +254,8 @@ export default function App({bootstrap}) {
     let staged;
     try { staged = attachments.length ? await uploadFiles() : []; }
     catch (error) { setRunning(false); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
-    const files = staged.map(item => ({id: item.id, name: item.name}));
+    const files = staged.map(item => ({id: item.id, name: item.name, source: item.source || null}));
+    const providerFileIds = files.map(item => item.id).filter(Boolean);
     const turnId = uid();
     setMessages(items => [...items, {id: uid(), turnId, role: 'user', content: clean, files}]);
     setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
@@ -248,7 +270,9 @@ export default function App({bootstrap}) {
         headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
         body: JSON.stringify({
           message: clean, request_id: crypto.randomUUID(), conversation_id: conversationRef.current,
-          surface: 'conversations', files: files.map(item => item.id),
+          surface: 'conversations', files: providerFileIds,
+          execution_mode: executionMode,
+          project_ref: context.project_ref || null, brand_ref: context.brand_ref || null,
           selected_context: composerContext ? {type: composerContext.type, text: composerContext.text} : null,
           active_object: artifactRef.current?.id ? {type: `artifact:${artifactRef.current.type}`, id: artifactRef.current.id} : null,
         }),
@@ -260,7 +284,10 @@ export default function App({bootstrap}) {
           setConversationId(event.conversation_id); conversationRef.current = event.conversation_id;
           runRef.current = event.run_id; runStartedRef.current = Date.now();
           trace('Execução iniciada', event.run_id);
-        } else if (kind === 'route.selected') trace('Preparando trabalho', event.route?.action || '');
+        } else if (kind === 'route.selected') {
+          if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
+          trace('Preparando trabalho', event.route?.action || '');
+        }
         else if (kind === 'tool.completed') trace('Consulta concluída', event.name || '');
         else if (kind === 'tool.unavailable') trace('Recurso indisponível', event.code || '', 'error');
         else if (kind === 'action.proposed') setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: runRef.current}]);
@@ -303,7 +330,7 @@ export default function App({bootstrap}) {
       }
       setRunning(false); runRef.current = null; await loadRecent();
     }
-  }, [input, running, artifactDirty, confirmDiscard, attachments, composerContext, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews]);
+  }, [input, running, artifactDirty, confirmDiscard, attachments, attachmentDestination, context.project_ref, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews]);
 
   const initialPromptRef = useRef(new URLSearchParams(window.location.search).get('prompt') || '');
   useEffect(() => {
@@ -374,7 +401,7 @@ export default function App({bootstrap}) {
     {!bootstrap.homeMode && <Sidebar bootstrap={bootstrap} conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} loading={historyLoading} openingId={openingId}/>}
     {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
     <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={removeAttachment} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
+      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
       {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
     </div>
     <input ref={fileRef} type="file" hidden multiple accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx" onChange={event => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }}/>

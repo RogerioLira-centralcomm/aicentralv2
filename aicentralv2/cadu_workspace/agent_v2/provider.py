@@ -111,6 +111,8 @@ def events(payload, execution_mode="analysis"):
                         return
                     value = json.loads(raw)
                     if isinstance(value, dict):
+                        if value.get("event") == "error":
+                            raise ProviderUnavailable("O runtime V2 retornou um erro durante a resposta.")
                         yield value
     except (requests.RequestException, ValueError) as exc:
         raise ProviderUnavailable("A conexão com o runtime V2 foi interrompida.") from exc

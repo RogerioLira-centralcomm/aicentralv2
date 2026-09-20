@@ -27,9 +27,12 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", f"update_{active_artifact_type}", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), active_artifact_type)
     if _has(text, r"\b(cri(e|ar)|mont(e|ar)|estrutur(e|ar)|transform(e|ar)).{0,30}\bbriefing\b|\bbriefing\b.{0,20}\b(cri|mont|estrutur)"):
-        return IntentRoute("planner", "create_brief", "medium", "artifact_first",
+        # A request to structure a briefing begins a short discovery, not an
+        # empty document. The executor promotes it to an artifact only after
+        # enough concrete campaign data has been gathered.
+        return IntentRoute("planner", "create_brief", "medium", "clarification",
                            ("project", "brand") if has_project else (),
-                           ("planner.get_brief",), "brief")
+                           ("planner.get_brief",), None)
     if _has(text, r"\b(revis(e|ar)|melhor(e|ar)|atualiz(e|ar)|corrig).{0,30}\bbriefing\b"):
         return IntentRoute("planner", "update_brief", "medium", "artifact_first",
                            ("project", "brief"), ("planner.get_brief",), "brief")
@@ -64,6 +67,10 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             or _has(text, r"\b(arquivo|documento|recurso|fonte)s?\b.{0,45}\b(mapa|organiz|agrupe|agrupar|visualiz)")):
         return IntentRoute("workspace", "organize_project_resources", "high", "artifact_first",
                            ("project",), ("projects.list_resources",), "project_map")
+    if has_project and _has(text, r"\b(list|liste|mostrar|mostre|ver|quais).{0,45}\b(fontes?|arquivos?|documentos?|links?|recursos?)\b"):
+        needs_tool = "projects.list_sources" if _has(text, r"\b(fontes?|base de conhecimento|indexad[oa])\b") else "projects.list_resources"
+        return IntentRoute("workspace", "list_project_resources", "low", "analysis",
+                           ("project",), (needs_tool,))
     if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz).{0,45}\b(html|landing page|p[aá]gina|site|interface)\b"):
         return IntentRoute("workspace", "update_html", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), "html")
@@ -75,7 +82,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "search_project", "medium", "analysis",
                            ("project",), ("workspace.search_project_content",))
     if _has(text, r"\b(cri(e|ar)|novo).{0,20}\bprojeto\b"):
-        return IntentRoute("workspace", "create_project", "medium", "artifact_first", (), (), "project", True)
+        return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
     if _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b"):
         return IntentRoute("workspace", "save_to_project", "medium", "artifact_first",
                            ("project",), (), "document", True)

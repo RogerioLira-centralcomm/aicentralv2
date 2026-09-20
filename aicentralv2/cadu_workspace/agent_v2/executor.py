@@ -1,6 +1,8 @@
 """Compose a V2 run without coupling orchestration to Flask routes or Dify."""
 
-from dataclasses import asdict
+import re
+from dataclasses import asdict, replace
+from typing import Optional
 
 from .context_resolver import resolve_context
 from .prompt_assembler import build_payload
@@ -11,24 +13,53 @@ from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 
 
+_BRIEFING_FIELDS = (
+    ("objective", "objetivo", r"\b(objetivo|resultado|vendas?|leads?|convers[ãa]o|awareness|lan[çc]amento|reten[çc][ãa]o)\b"),
+    ("audience", "público", r"\b(p[uú]blico|audi[êe]ncia|clientes?|b2b|b2c|segmento|idade|faixa et[áa]ria)\b"),
+    ("offer", "oferta", r"\b(oferta|produto|servi[çc]o|marca|cta|pre[çc]o|benef[ií]cio|diferencial)\b"),
+    ("distribution", "canais e entregas", r"\b(canais?|instagram|google|meta|youtube|linkedin|tiktok|m[ií]dia|pe[çc]as?|formatos?)\b"),
+    ("constraints", "prazo ou investimento", r"\b(prazo|data|m[eê]s|semana|or[çc]amento|verba|r\$|restri[çc][õo]es?)\b"),
+)
+
+
+def briefing_readiness(message: str, history: str = "", context: Optional[dict] = None) -> dict:
+    """Measure campaign facts conservatively before opening an editable brief."""
+    evidence = " ".join((str(message or ""), str(history or ""), str(context or "")))
+    completed = [key for key, _label, pattern in _BRIEFING_FIELDS if re.search(pattern, evidence, re.IGNORECASE)]
+    missing = [label for key, label, _pattern in _BRIEFING_FIELDS if key not in completed]
+    total = len(_BRIEFING_FIELDS)
+    percent = round((len(completed) / total) * 100) if total else 0
+    return {"percent": percent, "complete": percent >= 80, "completed": completed, "missing": missing}
+
+
 def prepare_execution(message, request, history="", requested_mode=""):
     route = route_request(
         message, request.surface, bool(request.project_ref),
         request.active_object.type if request.active_object else "",
     )
+    readiness = None
+    if route.action == "create_brief":
+        readiness = briefing_readiness(message, history)
+        if readiness["complete"]:
+            route = replace(route, response_mode="artifact_first", artifact_type="brief")
+        else:
+            route = replace(route, response_mode="clarification", artifact_type=None)
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
     policy["execution_mode"] = execution_mode
     policy["max_output_tokens"] = budget.max_output_tokens
     policy["max_duration_ms"] = budget.max_duration_ms
     policy["artifact_type"] = route.artifact_type
+    policy["allow_artifact"] = route.artifact_type is not None
+    if readiness:
+        policy["briefing_readiness"] = readiness
     policy["artifact_fallback_title"] = {
         "project_readout": "Leitura inicial do projeto",
         "create_brief": "Briefing do projeto",
     }.get(route.action, "Resultado do trabalho")
     policy["artifact_chat_message"] = {
         "project_readout": "Concluí a leitura inicial. Organizei objetivos, entregas, riscos e decisões no artefato ao lado.",
-        "create_brief": "Estruturei o briefing no artefato ao lado. Os pontos em aberto continuam editáveis.",
+        "create_brief": "Estruturei o briefing no artefato ao lado. Os poucos pontos em aberto continuam editáveis.",
     }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
     resolved = resolve_context(route, request, message, load_builtin_tools())
     payload = build_payload(message=message, request=request, route=route,

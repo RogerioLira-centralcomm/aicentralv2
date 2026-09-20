@@ -82,7 +82,8 @@ def mcp_token():
         abort(400, description="Perfil de agente inválido.")
     current = resolve(conversation_id=data.get("conversation_id"),
                       surface=str(data.get("surface") or "conversations"),
-                      active_object=data.get("active_object"))
+                      active_object=data.get("active_object"),
+                      project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))
     return jsonify(token=issue(current, exposure), expires_in=MAX_AGE_SECONDS,
                    endpoint="/workspace/mcp", exposure=exposure, context=current.to_dict())
 
@@ -95,7 +96,8 @@ def route_preview():
         abort(400, description="Informe uma mensagem de até 20.000 caracteres.")
     current = resolve(conversation_id=data.get("conversation_id"),
                       surface=str(data.get("surface") or "conversations"),
-                      active_object=data.get("active_object"))
+                      active_object=data.get("active_object"),
+                      project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))
     route = route_request(
         message, current.surface, bool(current.project_ref),
         current.active_object.type if current.active_object else "",

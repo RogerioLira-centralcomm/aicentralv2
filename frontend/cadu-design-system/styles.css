@@ -135,13 +135,25 @@
 .cadu-ds-resume-card.is-featured .cadu-ds-resume-preview { min-height:194px; aspect-ratio:auto; }
 .cadu-ds-resume-card.is-featured .cadu-ds-resume-copy b { font-size:17px; }
 .cadu-ds-home-account-wrap { position:relative; flex:0 0 auto; }
-.cadu-ds-account-menu { position:absolute; top:calc(100% + 10px); right:0; z-index:var(--cadu-z-popover); width:min(360px,calc(100vw - 32px)); padding:14px; border:1px solid var(--cadu-line); border-radius:16px; background:var(--cadu-surface-raised); color:var(--cadu-ink); box-shadow:0 18px 46px rgba(0,0,0,.24); }
+.cadu-ds-account-menu { position:absolute; top:calc(100% + 10px); right:0; z-index:var(--cadu-z-popover); width:min(390px,calc(100vw - 32px)); max-height:calc(100dvh - 28px); overflow:auto; padding:14px; border:1px solid var(--cadu-line); border-radius:16px; background:var(--cadu-surface-raised); color:var(--cadu-ink); box-shadow:0 18px 46px rgba(0,0,0,.24); }
 .cadu-ds-account-menu header { display:flex; align-items:start; justify-content:space-between; gap:16px; padding:2px 4px 12px; border-bottom:1px solid var(--cadu-line); }
 .cadu-ds-account-menu__identity { display:grid; gap:3px; min-width:0; }
 .cadu-ds-account-menu__identity b { overflow:hidden; font-size:15px; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-account-menu__identity small { overflow:hidden; color:var(--cadu-muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-account-menu__label { color:var(--cadu-muted); font-size:10px; }
-.cadu-ds-account-menu__usage { display:grid; gap:8px; margin:12px 0 8px; padding:11px 10px; border-radius:11px; background:var(--cadu-surface-soft); }
+.cadu-ds-account-menu__catalog { display:grid; gap:12px; margin-top:12px; padding-top:12px; border-top:1px solid var(--cadu-line); }
+.cadu-ds-account-menu__catalog-group { display:grid; gap:3px; }
+.cadu-ds-account-menu__catalog-group>header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 4px 6px; border-bottom:0; }
+.cadu-ds-account-menu__catalog-group>header b { color:var(--cadu-muted); font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+.cadu-ds-account-menu__catalog-group>header a { color:var(--cadu-accent-strong); font-size:10px; font-weight:700; text-decoration:none; }
+.cadu-ds-account-menu__catalog-item { display:grid; grid-template-columns:30px minmax(0,1fr); gap:9px; align-items:center; min-width:0; padding:7px 6px; border-radius:9px; color:var(--cadu-ink); text-decoration:none; }
+.cadu-ds-account-menu__catalog-item:hover,.cadu-ds-account-menu__catalog-item:focus-visible { background:var(--cadu-surface-soft); outline:0; }
+.cadu-ds-account-menu__catalog-item .cadu-ds-visual-identity { width:30px; height:30px; border-radius:8px; }
+.cadu-ds-account-menu__catalog-item>span { display:grid; min-width:0; gap:2px; }
+.cadu-ds-account-menu__catalog-item b,.cadu-ds-account-menu__catalog-item small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-account-menu__catalog-item b { font-size:12px; }
+.cadu-ds-account-menu__catalog-item small { color:var(--cadu-muted); font-size:10px; }
+.cadu-ds-account-menu__usage { display:grid; gap:8px; margin:14px 0 0; padding:12px 4px 2px; border-top:1px solid var(--cadu-line); background:transparent; }
 .cadu-ds-account-menu__usage>div:first-child { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--cadu-muted); font-size:11px; }
 .cadu-ds-account-menu__usage strong { color:var(--cadu-ink); font-size:12px; }
 .cadu-ds-account-menu__progress { height:5px; overflow:hidden; border-radius:99px; background:color-mix(in srgb,var(--cadu-ink) 12%,transparent); }
@@ -800,6 +812,14 @@ body.portal--workspace .cadu-ds-dock:has(.cadu-ds-solution-switcher[open]) {
   z-index:1000;
 }
 body.portal--workspace .cadu-ds-dock:has(.cadu-ds-solution-switcher[open]) .cadu-ds-solution-switcher nav {
+  z-index:1001;
+}
+/* The account menu belongs to the dock, but must paint above the scrollable
+   workspace cards when it opens from the fixed rail. */
+body.portal--workspace .cadu-ds-dock:has(.cadu-ds-dock-avatar-button[aria-expanded="true"]) {
+  z-index:1000;
+}
+body.portal--workspace .cadu-ds-dock:has(.cadu-ds-dock-avatar-button[aria-expanded="true"]) .cadu-ds-account-menu {
   z-index:1001;
 }
 @media (max-width:760px) {

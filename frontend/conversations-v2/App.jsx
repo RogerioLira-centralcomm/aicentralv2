@@ -110,7 +110,10 @@ export default function App({bootstrap}) {
     try {
       const data = await request(bootstrap.endpoints.context);
       setContext(data.context || {});
-      setProjects((data.entities || []).filter(item => item.kind === 'project'));
+      setProjects(current => (data.entities || []).filter(item => item.kind === 'project').map(item => ({
+        ...item,
+        ...(current.find(existing => (existing.ref || existing.projectRef || existing.id) === item.ref) || {}),
+      })));
       setBrands(current => {
         const fromContext = (data.entities || []).filter(item => item.kind === 'brand').map(item => ({
           ...item, logoUrl: item.logo_url, visualInitials: item.name, visualColor: '#176b5e',
@@ -543,7 +546,7 @@ export default function App({bootstrap}) {
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} onReorderShortcuts={canReorderDock ? reorderDockShortcuts : undefined} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} onReorderShortcuts={canReorderDock ? reorderDockShortcuts : undefined} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
         <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeId={conversationId} onOpen={openConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">

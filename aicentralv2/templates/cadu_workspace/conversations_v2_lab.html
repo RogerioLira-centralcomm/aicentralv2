@@ -17,6 +17,7 @@
   'logo': url_for('static', filename='images/cadu/brand-icons/workspace-192.png'),
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'brands': chat_brands,
+  'projects': chat_projects|default([]),
   'dock': {'items': dock_items|default([])},
   'usagePercent': usage_percent|default(0),
   'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', ''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge', '')},

@@ -33,6 +33,7 @@ export function WorkspaceHome({bootstrap}) {
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const projects = home.projects || [];
   const brands = home.brands || [];
+  const catalogBrands = home.catalogBrands || brands;
   const [dockItems, setDockItems] = useState(home.dock?.items || []);
   const selectedProject = useMemo(() => projects.find(item => item.id === projectRef), [projects, projectRef]);
   const selectedBrand = useMemo(() => brands.find(item => item.id === brandRef || `studio:${item.id}` === brandRef), [brands, brandRef]);
@@ -155,7 +156,7 @@ export function WorkspaceHome({bootstrap}) {
   return <div className="cadu-ds-home-shell">
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea">
-      <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
+      <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={catalogBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-context-tools">
           <span className="cadu-ds-agency-label">{home.agency?.name || 'Minha agência'}</span>

@@ -4,7 +4,7 @@ import re
 import secrets
 from uuid import uuid4
 
-from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, session, stream_with_context
+from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, session, stream_with_context, url_for
 from werkzeug.exceptions import HTTPException
 
 from ...cadu_family import repository
@@ -40,6 +40,7 @@ def conversations_v2_lab():
     # Workspace hook that normally creates the shared Cadu CSRF token.
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
     dock_brands = []
+    menu_projects = []
     try:
         current = resolve()
         from ..routes import _workspace_brands, _workspace_common_dock_items, _workspace_projects
@@ -57,15 +58,23 @@ def conversations_v2_lab():
             "logoUrl": str(brand.get("display_logo") or ""),
             "visualInitials": str(brand.get("display_initials") or "M"),
             "visualColor": str(brand.get("display_color") or "#176b5e"),
+            "href": url_for("cadu_workspace.clean_brand_detail", brand_id=int(brand["id"])),
             "projectCount": project_counts.get(f"studio:{brand['id']}", 0),
-        } for brand in brands if brand.get("display_logo")]
+        } for brand in brands]
+        menu_projects = [{
+            "id": f"ci:{project.get('id')}", "kind": "project", "projectRef": f"ci:{project.get('id')}",
+            "title": str(project.get("nome") or "Projeto"), "name": str(project.get("nome") or "Projeto"),
+            "href": url_for("cadu_workspace.clean_project_detail", project_id=str(project.get("id"))),
+            "previewUrl": str(project.get("thumbnail_url") or ""), "dockLogoUrl": str(project.get("brand_logo_url") or ""),
+            "brandName": str(project.get("thumbnail_label") or ""),
+        } for project in projects]
         dock_items = _workspace_common_dock_items(current.client_id, int(session.get("user_id") or 0), projects=projects, brands=brands)
         usage_percent = round(float((credit_position(current.client_id) or {}).get('monthly_usage_percentage') or 0), 1)
     except Exception:
         current_app.logger.exception("Não foi possível preparar marcas para a dock do Chat")
         dock_items = []
         usage_percent = 0
-    return render_template("cadu_workspace/conversations_v2_lab.html", chat_brands=dock_brands, dock_items=dock_items, usage_percent=usage_percent)
+    return render_template("cadu_workspace/conversations_v2_lab.html", chat_brands=dock_brands, chat_projects=menu_projects, dock_items=dock_items, usage_percent=usage_percent)
 
 
 @lab_bp.get("/workspace/observabilidade")

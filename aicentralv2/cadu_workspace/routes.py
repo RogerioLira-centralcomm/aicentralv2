@@ -2559,13 +2559,14 @@ def dashboard():
         brand_name = str(project.get('thumbnail_label') or '').casefold()
         if brand_name:
             brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
-    visible_brands = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
-                       'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
-                       'visualInitials': str(item.get('display_initials') or 'M'),
-                       'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
-                       'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
-                       'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)}
-                      for item in brands if item.get('display_logo')][:8]
+    brand_items = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
+                    'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+                    'visualInitials': str(item.get('display_initials') or 'M'),
+                    'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+                    'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
+                    'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)}
+                   for item in brands]
+    visible_brands = [item for item in brand_items if item.get('logoUrl')][:8]
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
                       'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
                       'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
@@ -2608,6 +2609,7 @@ def dashboard():
         # is preferred, but the approved initials and color are a deliberate
         # fallback when a logo is still being prepared or cannot be loaded.
         'brands': visible_brands,
+        'catalogBrands': brand_items,
         'projects': project_items,
         'dock': {'items': dock_items, 'isSuggested': not any(item.get('shortcutId') for item in dock_items)},
         'resources': dock_resource_items,
@@ -4689,18 +4691,17 @@ def account_page(section):
     # The agency identity belongs to the whole Account journey, not only to
     # the profile editor. These are canonical PHP records, never a copy.
     account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0)))
-    if section == 'agencia':
-        projects = _workspace_projects(client_id)
-        brands = _workspace_brands(client_id)
-        account['agency_context'] = {
-            'projects': [{'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'),
-                          'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'),
-                          'sources': int(item.get('fontes_prontas') or 0),
-                          'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in projects[:12]],
-            'brands': [{'id': str(item.get('id')), 'name': str(item.get('name') or 'Marca'),
-                        'assetCount': int(item.get('asset_count') or 0),
-                        'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in brands[:12]],
-        }
+    projects = _workspace_projects(client_id)
+    brands = _workspace_brands(client_id)
+    account['agency_context'] = {
+        'projects': [{'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'),
+                      'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'),
+                      'sources': int(item.get('fontes_prontas') or 0),
+                      'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in projects],
+        'brands': [{'id': str(item.get('id')), 'name': str(item.get('name') or 'Marca'),
+                    'assetCount': int(item.get('asset_count') or 0),
+                    'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in brands],
+    }
     if section == 'faturamento':
         account.update(_workspace_billing_data(client_id))
     try:

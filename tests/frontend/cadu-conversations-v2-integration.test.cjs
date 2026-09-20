@@ -286,6 +286,12 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(sidebar, /activeProjectRef/);
   assert.match(sidebar, /leftActive/);
   assert.match(sidebar, /Chats recentes/);
+  assert.match(sidebar, /Conversas do projeto/);
+  assert.match(sidebar, /Últimas 5/);
+  assert.match(sidebar, /Biblioteca do projeto/);
+  assert.match(sidebar, /RESOURCE_GROUPS/);
+  assert.match(sidebar, /projectResourcesEndpoint/);
+  assert.match(template, /'projectResources': '\/workspace\/api\/v2\/projects'/);
   assert.doesNotMatch(sidebar, /secondaryNav|Áreas principais|Workspace e conta/);
   assert.match(app, /let runStarted = false/);
   assert.match(app, /if \(runStarted\)/);

@@ -6,7 +6,7 @@ from time import perf_counter
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
-from flask import abort, current_app, has_app_context
+from flask import abort, current_app, has_app_context, url_for
 from psycopg.types.json import Json
 
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
@@ -123,6 +123,9 @@ def _project_map_content(run: dict, suggested=None) -> dict:
             "external" if locator.startswith("https://") else
             "read_only"
         )
+        public_locator = locator if locator.startswith(("https://", "/")) else ""
+        if source_system == "workspace_images" and source_id.isdigit() and project_id and has_app_context():
+            public_locator = url_for("cadu_workspace.project_image", project_id=project_id, image_id=int(source_id))
         record = {
             "id": str(item["id"])[:120],
             "title": str(item.get("title") or "Arquivo")[:220],
@@ -135,7 +138,7 @@ def _project_map_content(run: dict, suggested=None) -> dict:
             "version": max(1, int(item.get("version") or 1)),
             "group_id": group_id,
             "possible_duplicate": bool(item.get("possible_duplicate")),
-            "url": locator[:500] if locator.startswith("https://") else "",
+            "url": public_locator[:500],
             "editor_url": editor_url,
             "download_url": download_url,
             "editable_copy_url": f"/workspace/api/v2/resources/{str(item['id'])[:120]}/editable-copy" if download_url else "",

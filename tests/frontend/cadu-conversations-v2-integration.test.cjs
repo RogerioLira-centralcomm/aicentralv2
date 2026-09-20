@@ -54,16 +54,17 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/workspace_home_chat.html'), 'utf8');
   assert.match(home, /window\.location\.assign\(bootstrap\.urls\.newConversation\)/);
   assert.match(home, /WorkspaceAccountMenu/);
-  assert.match(home, /WorkspaceNavbar/);
+  assert.match(home, /<CaduDock/);
+  assert.doesNotMatch(home, /WorkspaceNavbar/);
   assert.match(feedback, /WorkspaceAccountControl/);
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
   assert.match(home, /matchedProjects/);
-  assert.match(home, /workspaceSolutionItems\(bootstrap\)/);
+  assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
   assert.match(home, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(brands, /onOpenResource=\{openWorkspaceDetail\}/);
-  assert.match(sidebar, /Projeto —/);
-  assert.match(sidebar, /Marca —/);
+  assert.match(sidebar, /Projeto ativo/);
+  assert.match(sidebar, /Cadu Chat/);
   assert.match(navigation, /target\.searchParams\.set\('project_ref', projectRef\)/);
   assert.match(navigation, /target\.searchParams\.set\('history', '1'\)/);
   assert.match(dock, /DockTooltip/);
@@ -93,7 +94,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
   assert.match(project, /cadu-ds-project-library/);
   assert.match(project, /Editar contexto/);
-  assert.match(project, /Enviar arquivo/);
+  assert.match(project, /Fontes e arquivos/);
   assert.match(project, /Criar primeira entrega/);
   assert.match(project, /WorkspaceAccountMenu/);
   assert.match(project, /cadu-ds-home-workarea cadu-ds-project-workarea/);
@@ -101,6 +102,8 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(styles, /\.cadu-ds-home-content \{ width:100%; max-width:none; margin:0;/);
   assert.match(styles, /\.cadu-ds-home-content \.cadu-ds-composer,[\s\S]*width:100%; max-width:none;/);
   assert.match(styles, /\.cadu-ds-project-content \{ width:100%; max-width:none;/);
+  assert.match(styles, /\.cadu-ds-project-workarea,[\s\S]*display:flex; min-height:100dvh/);
+  assert.match(styles, /\.cadu-ds-project-workarea \.cadu-ds-dock,[\s\S]*position:sticky/);
   assert.match(template, /'projectMode': True/);
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
@@ -146,7 +149,7 @@ test('Cadu primitives own icons, accessible dialogs, selectors and persistent do
   assert.match(entry, /WorkspaceBrands/);
   assert.match(entry, /WorkspaceProjects/);
   assert.doesNotMatch(dock, /conversations-v2\/lib\/icons/);
-  assert.match(dock, /const canReorder = typeof onReorderShortcuts === 'function'/);
+  assert.match(dock, /const canReorder = isControlled \|\| isWorkspaceSurface/);
   assert.match(dock, /draggable=\{draggable\}/);
   assert.match(feedback, /<CaduDialog className="cadu-ds-activity-drawer"/);
   assert.doesNotMatch(selectors, /role="menuitem"/);
@@ -156,7 +159,7 @@ test('Cadu primitives own icons, accessible dialogs, selectors and persistent do
   assert.match(studio, /<CaduDialog/);
 });
 
-test('Workspace shares navbar and catalog primitives and bridges legacy Jinja pages into React chrome', () => {
+test('Workspace shares catalog primitives and bridges legacy Jinja pages into React chrome', () => {
   const navbar = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceNavbar.jsx'), 'utf8');
   const catalog = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceCatalog.jsx'), 'utf8');
   const legacy = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceLegacyChrome.jsx'), 'utf8');
@@ -164,7 +167,8 @@ test('Workspace shares navbar and catalog primitives and bridges legacy Jinja pa
   const partial = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/_app_sidebar.html'), 'utf8');
   for (const file of ['WorkspaceHome.jsx', 'WorkspaceProject.jsx', 'WorkspaceProjects.jsx', 'WorkspaceBrands.jsx']) {
     const source = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components', file), 'utf8');
-    assert.match(source, /<WorkspaceNavbar/);
+    assert.match(source, /<CaduDock/);
+    assert.doesNotMatch(source, /<WorkspaceNavbar/);
   }
   for (const file of ['WorkspaceProjects.jsx', 'WorkspaceBrands.jsx']) {
     const source = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components', file), 'utf8');
@@ -188,7 +192,6 @@ test('Workspace account routes render the new React account surface', () => {
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/account_react.html'), 'utf8');
   const routes = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
   assert.match(account, /export function WorkspaceAccount/);
-  assert.match(account, /<WorkspaceNavbar/);
   assert.match(account, /<CaduDock/);
   assert.match(account, /function DataTable/);
   assert.match(entry, /bootstrap\.accountMode \? <WorkspaceAccount/);
@@ -211,7 +214,7 @@ test('Workspace React surfaces share one product navigation catalog', () => {
   assert.match(solutions, /'skills', 'Skills'/);
   for (const file of ['WorkspaceHome.jsx', 'WorkspaceProject.jsx', 'WorkspaceProjects.jsx', 'WorkspaceBrands.jsx']) {
     const source = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components', file), 'utf8');
-    assert.match(source, /workspaceSolutionItems\(bootstrap\)/);
+    assert.match(source, /<CaduDock/);
   }
 });
 
@@ -251,6 +254,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   const contextModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs'), 'utf8');
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
@@ -271,7 +275,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /active: item\.kind === 'project' && String\(item\.projectRef \|\| ''\) === activeProjectRef/);
   assert.match(dock, /active=\{item\.active\}/);
   assert.match(dock, /aria-current=\{active \? 'page' : undefined\}/);
-  assert.match(app, /cadu-ds-home-navbar cv-conversations-navbar/);
+  assert.match(app, /<CaduDock/);
+  assert.doesNotMatch(app, /cadu-ds-home-navbar cv-conversations-navbar/);
   assert.match(app, /\[historyOpen, setHistoryOpen\] = useState\(\(\) => !window\.matchMedia/);
   assert.match(app, /requestedHistoryOpen/);
   assert.match(app, /changeProject\(item\.projectRef, \{showHistory: true\}\)/);
@@ -280,7 +285,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /recentConversations\(data\.conversations, 500\)/);
   assert.match(app, /changeBrand\(item\.brandRef \|\| `studio:\$\{item\.id\}`\)/);
   assert.match(app, /loadBrandIdentity/);
-  assert.match(app, /reset\(\); setHistoryOpen\(false\)/);
+  assert.match(app, /reset\(\);\s*setHistoryOpen\(false\)/);
   assert.match(app, /if \(!conversationRef\.current && window\.matchMedia\('\(max-width: 900px\)'\)\.matches\) setHistoryOpen\(false\)/);
   assert.match(sidebar, /cv-recent-sidebar/);
   assert.match(sidebar, /activeProjectRef/);
@@ -306,9 +311,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /Ver resposta completa/);
   assert.match(conversation, /ResponseBlocks/);
   assert.match(conversation, /cv-conversation-title/);
-  assert.match(conversation, /cv-composer-shell/);
+  assert.match(composer, /cv-composer-shell/);
   assert.match(conversation, /cv-thread-content/);
-  assert.match(conversation, /COMPOSER_MAX_HEIGHT = 260/);
+  assert.match(composer, /COMPOSER_MAX_HEIGHT = 260/);
   assert.match(conversation, /data-cv-answer/);
   assert.match(conversation, /Trecho selecionado/);
   assert.match(conversation, /cv-chat-failure/);
@@ -316,9 +321,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /Ver créditos/);
   assert.match(conversation, /Adicionar ao briefing/);
   assert.match(conversation, /composerContext/);
-  assert.match(conversation, /Escolher modo e recursos/);
-  assert.doesNotMatch(conversation, /Anexar arquivo/);
-  assert.match(conversation, /Skills e integrações disponíveis/);
+  assert.match(composer, /Escolher modo e recursos/);
+  assert.match(composer, /Anexar arquivo/);
+  assert.match(composer, /Skills e integrações disponíveis/);
   assert.match(styles, /cv-attachment-chip\.is-image/);
   assert.match(app, /Solte para anexar ao chat/);
   assert.doesNotMatch(conversation, /contextLabel/);
@@ -343,15 +348,15 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /\.cv-composer-actions[\s\S]*border-top: 0 !important/);
   assert.match(styles, /\.cv-composer-shell \{[\s\S]*overflow: visible/);
   assert.match(styles, /bottom: calc\(100% \+ 10px\)/);
-  assert.match(styles, /padding-bottom: 204px !important/);
+  assert.match(styles, /padding-bottom: 164px !important/);
   assert.match(styles, /@media \(max-width: 1080px\)[\s\S]*\.cv-artifact-overlay/);
   assert.match(template, /cadu-conversations-v2-root/);
   assert.match(template, /cadu-conversations-v2-bootstrap/);
   assert.match(template, /react\/app\.js/);
   assert.match(template, /'solutions': \{'workspace'/);
   assert.match(template, /'solutionIcons'/);
-  assert.match(template, /react\/app\.css'\) }}\?v=\d+/);
-  assert.match(template, /react\/app\.js'\) }}\?v=\d+/);
+  assert.match(template, /react\/app\.css'\) }}\?v=\{\{ cadu_workspace_asset_version \}\}/);
+  assert.match(template, /react\/app\.js'\) }}\?v=\{\{ cadu_workspace_asset_version \}\}/);
   assert.doesNotMatch(template, /_app_sidebar\.html/);
   assert.doesNotMatch(template, /v2-lab\.js/);
   assert.match(base, /request\.endpoint not in \('cadu_workspace\.dashboard', 'cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab', 'cadu_workspace\.account_page'\)/);

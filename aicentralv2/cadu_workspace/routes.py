@@ -1640,26 +1640,46 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
     """Project dossiers retained from Cadu, always isolated by organization."""
     status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
     status_clause = "p.status = 'ativo'" if status == 'ativos' else "p.status = 'arquivado'" if status == 'arquivados' else "p.status <> 'deletado'"
-    try:
-        with get_db().cursor() as cursor:
-            cursor.execute(
-                """SELECT p.id, p.nome, p.descricao, p.tipo, p.cor, p.status,
-                          p.instrucoes, p.tom_de_voz, p.publico, p.posicionamento,
-                          p.total_arquivos, p.total_conversas, p.updated_at,
-                          COUNT(DISTINCT a.id) FILTER (WHERE a.indexing_status = 'completed') AS fontes_prontas,
-                          COUNT(DISTINCT a.id) AS fontes_total, COUNT(DISTINCT ch.id) AS chunks_total
-                     FROM cadu_ci_projetos p
-                LEFT JOIN cadu_ci_projeto_arquivos a ON a.projeto_id = p.id
-                LEFT JOIN cadu_ci_chunks ch ON ch.projeto_id = p.id
-                    WHERE p.id_cliente = %s AND """ + status_clause + """
-                      AND (p.nome ILIKE %s OR COALESCE(p.descricao, '') ILIKE %s)
-                 GROUP BY p.id ORDER BY p.updated_at DESC""",
-                (client_id, '%' + query[:100] + '%', '%' + query[:100] + '%'),
-            )
-            return _attach_project_identity(client_id, [dict(row) for row in cursor.fetchall()])
-    except Exception:
-        # Older Cadu databases may still be missing narrative/RAG migrations.
-        # Keep the dossier visible and let its missing capabilities read as empty.
+    params = (client_id, '%' + query[:100] + '%', '%' + query[:100] + '%')
+
+    def retry_database_connection() -> None:
+        # A long-lived worker can retain a connection closed by PostgreSQL or
+        # by an intermediate network. Drop it before the second read so the
+        # request gets a fresh connection instead of repeating the same error.
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        close_db()
+
+    for attempt in range(2):
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute(
+                    """SELECT p.id, p.nome, p.descricao, p.tipo, p.cor, p.status,
+                              p.instrucoes, p.tom_de_voz, p.publico, p.posicionamento,
+                              p.total_arquivos, p.total_conversas, p.updated_at,
+                              COUNT(DISTINCT a.id) FILTER (WHERE a.indexing_status = 'completed') AS fontes_prontas,
+                              COUNT(DISTINCT a.id) AS fontes_total, COUNT(DISTINCT ch.id) AS chunks_total
+                         FROM cadu_ci_projetos p
+                    LEFT JOIN cadu_ci_projeto_arquivos a ON a.projeto_id = p.id
+                    LEFT JOIN cadu_ci_chunks ch ON ch.projeto_id = p.id
+                        WHERE p.id_cliente = %s AND """ + status_clause + """
+                          AND (p.nome ILIKE %s OR COALESCE(p.descricao, '') ILIKE %s)
+                     GROUP BY p.id ORDER BY p.updated_at DESC""",
+                    params,
+                )
+                records = [dict(row) for row in cursor.fetchall()]
+            return _attach_project_identity(client_id, records)
+        except Exception:
+            if attempt == 0:
+                retry_database_connection()
+                continue
+            break
+
+    # Older Cadu databases may still be missing narrative/RAG migrations.
+    # Keep the dossier visible and let its missing capabilities read as empty.
+    for attempt in range(2):
         try:
             with get_db().cursor() as cursor:
                 cursor.execute(
@@ -1670,13 +1690,16 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
                         WHERE id_cliente = %s AND """ + status_clause.replace('p.', '') + """
                           AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s)
                      ORDER BY updated_at DESC""",
-                    (client_id, '%' + query[:100] + '%', '%' + query[:100] + '%'),
+                    params,
                 )
                 records = [dict(row) for row in cursor.fetchall()]
-                for record in records:
-                    record.update({'tom_de_voz': '', 'publico': '', 'posicionamento': ''})
-                return _attach_project_identity(client_id, records)
+            for record in records:
+                record.update({'tom_de_voz': '', 'publico': '', 'posicionamento': ''})
+            return _attach_project_identity(client_id, records)
         except Exception:
+            if attempt == 0:
+                retry_database_connection()
+                continue
             if raise_on_error:
                 raise
             return []

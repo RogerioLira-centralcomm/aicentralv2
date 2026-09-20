@@ -50,6 +50,7 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="libraryContent"' in html
     assert 'id="studioSidebarProject"' in html
     assert 'aria-controls="libraryContent"' in html
+    assert 'class="brand-identity-preview__actions"' in html
 
 
 def test_create_v2_keeps_manual_review_and_progress_recoverable():
@@ -88,6 +89,8 @@ def test_create_v2_keeps_manual_review_and_progress_recoverable():
     assert "rgbToHex" in source
     assert "project_id: state.projectId, colors: paletteChoice" in source
     assert "if (!isLogo)" in source
+    assert '.brand-identity-preview:has(#brandIdentityLogo[hidden])>div' in styles
+    assert '.brand-identity-preview__actions{display:flex!important' in styles
 
 
 def test_quick_creation_uses_canonical_client_and_recovers_optional_history_failure():
@@ -194,8 +197,11 @@ def test_studio_desks_keep_context_and_stage_controls_aligned():
     assert ".studio-chat .studio-new-draft" in create_css
 
 
-def test_trocr_editor_uses_a_versioned_stylesheet_for_the_full_height_desk():
+def test_trocr_editor_uses_the_react_workspace_assets():
     root = Path(__file__).resolve().parents[1]
     template = (root / "aicentralv2" / "templates" / "cadu_studio" / "trocr.html").read_text(encoding="utf-8")
 
-    assert "css/trocr-editor.css') }}?v=16" in template
+    assert "cadu_studio/editor/react/app.css') }}?v=1" in template
+    assert "cadu_studio/editor/react/app.js') }}?v=1" in template
+    assert 'id="cadu-studio-editor-root"' in template
+    assert "trocr-editor.css" not in template

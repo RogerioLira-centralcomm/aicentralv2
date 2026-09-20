@@ -503,3 +503,14 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 .studio-v2 .studio-rail.is-references-collapsed .library-content{display:none!important}
 .studio-v2 #backToDirection,.studio-v2 .result-discard{display:none!important}
 .studio-v2 .rail-project-context{padding:0 14px 14px}.studio-v2 .rail-project-context label{display:grid;gap:6px}.studio-v2 .rail-project-context label>span{font-size:10px;font-weight:700;color:#93a5b6;text-transform:uppercase;letter-spacing:.04em}.studio-v2 .rail-project-context select{width:100%;min-height:36px;padding:0 30px 0 10px;border:1px solid rgba(119,151,180,.28);border-radius:8px;background:#162532;color:#eef4f8;font:inherit;font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+
+/* The project identity belongs to the same vertical grid as the references.
+   A missing logo must not keep an empty image column and squeeze its actions. */
+.studio-v2 .rail-project-context{padding:0 0 12px}
+.studio-v2 .brand-identity-preview{grid-template-columns:minmax(0,1fr);align-items:start;gap:7px;margin:10px 0 0;padding-top:10px}
+.studio-v2 .brand-identity-preview:has(#brandIdentityLogo:not([hidden])){grid-template-columns:34px minmax(0,1fr)}
+.studio-v2 .brand-identity-preview:has(#brandIdentityLogo[hidden])>div{grid-column:1}
+.studio-v2 .brand-identity-preview small{max-width:26ch}
+.studio-v2 #brandIdentityPalette:empty{display:none}
+.studio-v2 .brand-identity-preview .brand-identity-preview__actions{display:flex!important;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:2px}
+.studio-v2 .brand-identity-preview .brand-identity-preview__actions button{min-height:24px;padding:2px 0;color:#c4adff;font-size:11px;line-height:1.2;white-space:nowrap}

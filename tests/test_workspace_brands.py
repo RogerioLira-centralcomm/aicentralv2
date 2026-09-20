@@ -6,7 +6,8 @@ from flask import Flask
 from werkzeug.exceptions import BadRequest
 
 from aicentralv2.cadu_workspace.routes import (
-    _authorized_dock_target, _brand_review_is_stale, _merge_brand_analysis, _normalized_website_url,
+    _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
+    _normalized_website_url, _user_dock_shortcuts,
     _save_brand_review_job, bp,
 )
 
@@ -26,6 +27,12 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db', side_effect=RuntimeError('database unavailable'))
+    def test_dock_database_failure_does_not_break_workspace_home(self, _get_db):
+        with _app().app_context():
+            self.assertFalse(_dock_shortcuts_available())
+            self.assertEqual(_user_dock_shortcuts(12, 7), [])
+
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects')
     def test_dock_project_target_requires_the_current_agency_project(self, projects):
         projects.return_value = [{'id': 'p-1', 'nome': 'Projeto permitido'}]

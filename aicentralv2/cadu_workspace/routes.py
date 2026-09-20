@@ -470,22 +470,34 @@ def _workspace_api_csrf() -> bool:
 
 def _dock_shortcuts_available() -> bool:
     """Allow the Workspace to keep rendering while the migration is rolling out."""
-    with get_db().cursor() as cursor:
-        cursor.execute("SELECT to_regclass('public.cadu_workspace_dock_shortcuts') AS relation")
-        return bool(cursor.fetchone().get('relation'))
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("SELECT to_regclass('public.cadu_workspace_dock_shortcuts') AS relation")
+            return bool((cursor.fetchone() or {}).get('relation'))
+    except Exception:
+        # The dock is a progressive enhancement. A stale connection or a
+        # partially applied migration must never take down the Workspace home.
+        current_app.logger.warning('Workspace dock indisponível; seguindo sem atalhos pessoais', exc_info=True)
+        return False
 
 
 def _user_dock_shortcuts(client_id: int, user_id: int) -> list[dict]:
     """Explicit preferences only; automatic shortcuts are never persisted."""
-    if not _dock_shortcuts_available():
+    try:
+        if not _dock_shortcuts_available():
+            return []
+        with get_db().cursor() as cursor:
+            cursor.execute("""SELECT id::text, shortcut_type, target_ref, project_ref, brand_ref,
+                                     position, metadata
+                                FROM cadu_workspace_dock_shortcuts
+                               WHERE client_id=%s AND user_id=%s
+                            ORDER BY position, updated_at DESC""", (client_id, user_id))
+            return [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        # Personal shortcuts are not required to render the home surface. Keep
+        # the suggested dock available while the database catches up.
+        current_app.logger.warning('Workspace dock pessoal não pôde ser carregada', exc_info=True)
         return []
-    with get_db().cursor() as cursor:
-        cursor.execute("""SELECT id::text, shortcut_type, target_ref, project_ref, brand_ref,
-                                 position, metadata
-                            FROM cadu_workspace_dock_shortcuts
-                           WHERE client_id=%s AND user_id=%s
-                        ORDER BY position, updated_at DESC""", (client_id, user_id))
-        return [dict(row) for row in cursor.fetchall()]
 
 
 @bp.get('/workspace/api/dock/shortcuts')

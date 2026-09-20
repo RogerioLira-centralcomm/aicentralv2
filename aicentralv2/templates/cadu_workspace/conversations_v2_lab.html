@@ -2,7 +2,7 @@
 {% block title %}Cadu Chat — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block content_class %}portal-content--workspace-react{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=16">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" aria-label="Cadu Chat"><noscript>Ative o JavaScript para usar o Cadu Chat.</noscript></div>
@@ -19,13 +19,14 @@
   'brands': chat_brands,
   'dock': {'items': dock_items|default([])},
   'usagePercent': usage_percent|default(0),
-  'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': session.get('user_photo_url', '')},
+  'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '')},
   'urls': {
     'home': url_for('cadu_workspace.dashboard'),
     'newConversation': url_for('cadu_agent_v2_lab.conversations_v2_lab'),
     'projects': url_for('cadu_workspace.clean_projects'),
     'docs': url_for('cadu_workspace.documents'),
     'brands': url_for('cadu_workspace.clean_brands'),
+    'agency': url_for('cadu_workspace.account_page', section='agencia'),
     'profile': url_for('cadu_workspace.account_page', section='perfil'),
     'credits': url_for('cadu_workspace.account_page', section='creditos'),
     'usage': url_for('cadu_workspace.account_page', section='creditos'),
@@ -47,4 +48,4 @@
   }
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=16"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

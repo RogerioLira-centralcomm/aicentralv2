@@ -11,8 +11,7 @@ import {recentConversations, restoreConversationMessages} from './lib/historyMod
 import {brandContextPayload, conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {Icon} from './lib/icons';
-import {CaduDock, CaduSolutionSwitcher, WorkspaceAccountControl, WorkspaceAccountMenu} from '../cadu-design-system';
-import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
+import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
 
 const emptyTitle = 'Novo chat';
 
@@ -521,7 +520,6 @@ export default function App({bootstrap}) {
   const openHistory = useCallback(() => setHistoryOpen(true), []);
   const closeHistory = useCallback(() => setHistoryOpen(false), []);
 
-  const solutions = workspaceSolutionItems(bootstrap);
   const dockProjects = projects.slice(0, 6).map(item => ({id: item.ref, projectRef: item.ref, kind: 'project', title: item.name, name: item.name, visualInitials: String(item.name || 'P').slice(0, 2).toUpperCase()}));
   const activeProjectRef = String(context?.project_ref || '');
   const activeBrandRef = String(context?.brand_ref || '');
@@ -532,9 +530,8 @@ export default function App({bootstrap}) {
   }));
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
-      <header className="cadu-ds-home-navbar cv-conversations-navbar"><CaduSolutionSwitcher logo={bootstrap.caduMark || bootstrap.logo} solutions={solutions} activeId="workspace"/><strong>Cadu Chat</strong><div className="cadu-ds-project-navbar__spacer"/><div className="cv-conversations-mobile-account"><WorkspaceAccountControl user={bootstrap.user} open={accountOpen} onOpen={() => setAccountOpen(true)}/></div></header>
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
         <Sidebar conversations={conversations} projects={projects} brands={brands} activeId={conversationId} onOpen={openConversation} onNew={newConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">

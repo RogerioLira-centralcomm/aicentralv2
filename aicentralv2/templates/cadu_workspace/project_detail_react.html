@@ -2,7 +2,7 @@
 {% block title %}{{ project_data.name }} — Projetos — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block content_class %}portal-content--workspace-react{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=16">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" class="cv-home-root cadu-project-root" aria-label="{{ project_data.name }} — projeto no Workspace"><noscript>Ative o JavaScript para usar o projeto no Workspace.</noscript></div>
@@ -18,7 +18,7 @@
   'dock': {'items': dock_items},
   'urls': {
     'home': url_for('cadu_workspace.dashboard'), 'projects': url_for('cadu_workspace.clean_projects'),
-    'profile': url_for('cadu_workspace.account_page', section='perfil'), 'usage': url_for('cadu_workspace.account_page', section='creditos'),
+    'agency': url_for('cadu_workspace.account_page', section='agencia'), 'profile': url_for('cadu_workspace.account_page', section='perfil'), 'usage': url_for('cadu_workspace.account_page', section='creditos'),
     'plans': url_for('cadu_workspace.account_page', section='planos'), 'team': url_for('cadu_workspace.account_page', section='equipe'),
     'observability': url_for('cadu_agent_v2_lab.observability_page') if session.get('user_type') in ('admin', 'superadmin') else '',
     'logout': product_url('auth', '/logout'),
@@ -40,4 +40,4 @@
   }
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=16"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

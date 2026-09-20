@@ -5,7 +5,6 @@
 <div class="workspace-app-shell workspace-brand-shell">
   {% include 'cadu_workspace/_app_sidebar.html' %}
   <main class="workspace-app-main">
-    <nav class="workspace-brand-navbar" aria-label="Contexto da marca"><a class="workspace-brand-navbar__home" href="{{ url_for('cadu_workspace.dashboard') }}"><img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt=""><span>Workspace</span></a><a href="{{ url_for('cadu_workspace.clean_brands') }}">Marcas</a><span aria-hidden="true">/</span><strong>{{ brand.name }}</strong><i></i><a href="{{ url_for('cadu_workspace.clean_projects') }}">Projetos</a><a class="workspace-brand-navbar__account" href="{{ url_for('cadu_workspace.account_page', section='perfil') }}">{{ session.get('user_name', 'Minha conta') }}</a></nav>
     {% set brand_is_empty = not brand.assets and not brand.analysis_metadata and not brand.brand_profile.get('tone_of_voice') and not brand.brand_profile.get('brand_summary') %}
     {% set linked_project = linked_projects|first %}
     {% set review_pack=brand.review_pack or {} %}

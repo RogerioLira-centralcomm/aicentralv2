@@ -522,35 +522,70 @@ export default function App({bootstrap}) {
 
   const activeProjectRef = String(context?.project_ref || '');
   const activeBrandRef = String(context?.brand_ref || '');
+  const starterProject = projects.find(item => String(item.ref || item.projectRef || item.id) === activeProjectRef);
+  const starterBrand = brands.find(item => String(item.ref || item.brandRef || (item.id ? `studio:${item.id}` : '')) === activeBrandRef);
   const dockItems = conversationDockItems;
   const sharedDockItems = dockItems.map(item => ({
     ...item,
     active: item.kind === 'project' && String(item.projectRef || '') === activeProjectRef || item.kind === 'brand' && String(item.brandRef || (item.id ? `studio:${item.id}` : '')) === activeBrandRef,
   }));
-  const canReorderDock = dockItems.length > 0 && dockItems.every(item => item.shortcutId);
   const dockShortcutEndpoint = bootstrap.endpoints?.dockShortcuts || '/workspace/api/dock/shortcuts';
+  const createDockShortcut = useCallback(async item => {
+    const isResource = Boolean(item?.resourceRef) || ['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link'].includes(String(item?.kind || '').toLowerCase());
+    const kind = item?.kind === 'brand' ? 'brand' : isResource ? 'resource' : 'project';
+    const targetRef = kind === 'brand' ? item.id : kind === 'resource' ? item.resourceRef || item.id : item.projectRef || item.id;
+    if (!targetRef) throw new Error('Não foi possível identificar este atalho.');
+    const data = await request(dockShortcutEndpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+      body: JSON.stringify({shortcut_type: kind, target_ref: targetRef, project_ref: item.projectRef || null, brand_ref: item.brandRef || null}),
+    });
+    if (!data.shortcut?.id) throw new Error('Não foi possível salvar este atalho.');
+    return {...item, shortcutId: data.shortcut?.id, pinned: true};
+  }, [dockShortcutEndpoint]);
   const reorderDockShortcuts = useCallback(async next => {
     const before = conversationDockItems;
     setConversationDockItems(next);
     try {
+      const explicit = [];
+      for (const item of next) explicit.push(item.shortcutId ? item : await createDockShortcut(item));
+      setConversationDockItems(explicit);
       await request(`${dockShortcutEndpoint}/order`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-        body: JSON.stringify({ids: next.map(item => item.shortcutId)}),
+        body: JSON.stringify({ids: explicit.map(item => item.shortcutId)}),
       });
     } catch (error) {
       setConversationDockItems(before);
       trace('Falha ao ordenar atalhos', error.message, 'error');
     }
-  }, [conversationDockItems, dockShortcutEndpoint, trace]);
+  }, [conversationDockItems, createDockShortcut, dockShortcutEndpoint, trace]);
+  const addDroppedDockItem = useCallback(async payload => {
+    if (!payload || payload.dockSource === 'dock') return;
+    const isResource = Boolean(payload.resourceRef) || payload.type === 'resource' || ['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link'].includes(String(payload.kind || '').toLowerCase());
+    const candidate = isResource
+      ? {...payload, kind: 'resource', id: payload.id || `resource:${payload.resourceRef}`, title: payload.title || 'Recurso'}
+      : payload.type === 'brand'
+        ? brands.find(item => String(item.id) === String(payload.id) || String(item.brandRef || `studio:${item.id}`) === String(payload.brandRef))
+        : projects.find(item => String(item.id || item.ref || item.projectRef) === String(payload.id || payload.projectRef));
+    if (!candidate || !['brand', 'project', 'resource'].includes(candidate.kind)) {
+      trace('Atalho não adicionado', 'A dock aceita apenas marcas, projetos e recursos.', 'error');
+      return;
+    }
+    if (conversationDockItems.some(item => item.shortcutId && (item.id === candidate.id || item.projectRef === candidate.projectRef || item.resourceRef === candidate.resourceRef))) return;
+    try {
+      const item = await createDockShortcut(candidate);
+      setConversationDockItems(current => [...current, item]);
+    } catch (error) { trace('Falha ao fixar atalho', error.message, 'error'); }
+  }, [brands, conversationDockItems, createDockShortcut, projects, trace]);
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} onReorderShortcuts={canReorderDock ? reorderDockShortcuts : undefined} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
-        <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeId={conversationId} onOpen={openConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+        <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
+          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} projectResourcesEndpoint={bootstrap.endpoints?.projectResources || '/workspace/api/v2/projects'} activeId={conversationId} onOpen={openConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation title={title} context={context} projects={projects} brands={brands} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
+          <Conversation title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
           {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>

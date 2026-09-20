@@ -66,3 +66,25 @@
   --cadu-text-secondary: var(--cadu-muted);
   --cadu-border: var(--cadu-line);
 }
+
+/* The Workspace is the clear, operational surface. Conversations keep their
+   own dark skin, even when an older persisted theme value says otherwise. */
+[data-cadu-skin="workspace"] {
+  --cadu-nav-bg: #ffffff;
+  --cadu-nav-surface: #edf4f2;
+  --cadu-nav-ink: #17302c;
+  --cadu-nav-muted: #617773;
+  --cadu-nav-line: #d9e4e1;
+  --cadu-canvas: #f6f8fa;
+  --cadu-surface: #ffffff;
+  --cadu-surface-raised: #ffffff;
+  --cadu-surface-soft: #eef3f2;
+  --cadu-ink: #172d31;
+  --cadu-muted: #5f7673;
+  --cadu-line: #d9e4e1;
+  --cadu-bg: var(--cadu-canvas);
+  --cadu-bg-subtle: #eef3f2;
+  --cadu-text: var(--cadu-ink);
+  --cadu-text-secondary: var(--cadu-muted);
+  --cadu-border: var(--cadu-line);
+}

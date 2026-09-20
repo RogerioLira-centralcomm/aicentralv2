@@ -121,14 +121,14 @@ export function DockUsageRing({percent, onOpen}) {
   return <DockTooltip label="Créditos e consumo"><button type="button" className="cadu-ds-usage-ring" style={{'--cadu-usage': `${value * 3.6}deg`}} onClick={onOpen} aria-label={`Utilização de créditos: ${formatted}%`}><span>{formatted}%</span></button></DockTooltip>;
 }
 
-export function CaduDock({logo, homeUrl, bootstrap, userName = 'Minha conta', userAvatar, userInitials, accountOpen = false, accountMenu, onOpenAccount, onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
+export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName = 'Minha conta', userAvatar, userInitials, accountOpen = false, accountMenu, onOpenAccount, onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
   const writePayload = (event, payload) => {
     const serialized = JSON.stringify({...payload, dockSource: 'dock'});
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/x-cadu-item', serialized);
     event.dataTransfer.setData('text/plain', serialized);
   };
-  const isWorkspaceSurface = Boolean(bootstrap?.homeMode || bootstrap?.projectMode || bootstrap?.brandsMode || bootstrap?.projectsMode || bootstrap?.accountMode);
+  const isWorkspaceSurface = sharedDock || Boolean(bootstrap?.homeMode || bootstrap?.projectMode || bootstrap?.brandsMode || bootstrap?.projectsMode || bootstrap?.accountMode);
   const isControlled = typeof onReorderShortcuts === 'function';
   const [managedItems, setManagedItems] = useState(() => shortcutItems);
   useEffect(() => {

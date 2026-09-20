@@ -16,6 +16,7 @@
 <script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
   'logo': url_for('static', filename='images/cadu/brand-icons/workspace-192.png'),
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
+  'sharedDock': True,
   'brands': chat_brands,
   'projects': chat_projects|default([]),
   'dock': {'items': dock_items|default([])},
@@ -44,7 +45,9 @@
     'history': url_for('cadu_family.conversation_history'),
     'uploads': url_for('cadu_agent_v2.upload'),
     'artifacts': '/workspace/api/v2/artifacts',
-    'runs': '/workspace/api/v2/runs'
+    'runs': '/workspace/api/v2/runs',
+    'projectResources': '/workspace/api/v2/projects',
+    'dockShortcuts': '/workspace/api/dock/shortcuts'
   }
 }|tojson }}</script>
 {% endblock %}

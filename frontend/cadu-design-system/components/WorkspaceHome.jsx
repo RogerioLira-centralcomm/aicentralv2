@@ -3,6 +3,8 @@ import {ProjectSelector} from './WorkspaceSelectors';
 import {CaduDock} from './CaduDock';
 import {WorkspaceChatComposer} from './WorkspaceChatComposer';
 import {WorkspaceHomeWidgets} from './WorkspaceHomeWidgets';
+import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
+import {WorkspacePromptSuggestions} from './WorkspacePromptSuggestions';
 import {ActivityDrawer, ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {csrf, request} from '../../conversations-v2/lib/api';
@@ -89,10 +91,10 @@ export function WorkspaceHome({bootstrap}) {
     if (payload.projectRef || payload.type === 'project') { setProjectRef(payload.projectRef || payload.id); setBrandRef(''); setAttachmentDestination('conversation'); }
     if (payload.type === 'brand') { setBrandRef(payload.brandRef || (payload.id ? `studio:${payload.id}` : '')); setProjectRef(''); setAttachmentDestination('conversation'); }
   };
-  // The dock is a visual brand shelf. Keep the manager on the same catalog as
-  // the server, so a project without the linked brand's primary logo can never
-  // be manually reintroduced as initials.
-  const shortcutCandidates = [...(home.brands || []), ...projects.filter(item => item.dockLogoUrl), ...(home.resources || []).filter(isDockResource)]
+  // Automatic items remain limited to brands with a visible logo. Projects
+  // are available in the manager because an explicit user choice may use the
+  // project's initials when there is no linked brand mark.
+  const shortcutCandidates = [...(home.brands || []), ...projects, ...(home.resources || []).filter(isDockResource)]
     .map(item => item.kind === 'project' ? {...item, previewUrl: item.dockLogoUrl, title: item.title || item.name} : {...item, title: item.title || item.name});
   const explicitDockItems = dockItems.filter(item => item.shortcutId);
   const managerItems = [
@@ -157,6 +159,7 @@ export function WorkspaceHome({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea">
       <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={catalogBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
+      <WorkspaceContextSidebar mode="home" active="home" links={bootstrap.urls} resources={home.resources || []}/>
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-context-tools">
           <span className="cadu-ds-agency-label">{home.agency?.name || 'Minha agência'}</span>
@@ -166,6 +169,7 @@ export function WorkspaceHome({bootstrap}) {
         <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace</p><h1>{normalizedSearch ? 'Contextos encontrados' : selectedProject ? selectedProject.name : 'O que vamos resolver hoje?'}</h1><p>{normalizedSearch ? `${matchedProjects.length} projeto${matchedProjects.length === 1 ? '' : 's'} encontrado${matchedProjects.length === 1 ? '' : 's'} para “${searchValue.trim()}”.` : selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Comece uma conversa ou escolha um contexto para trabalhar.'}</p></div>
         {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <>
           <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} embedded homeMode/>
+          {!value.trim() && <WorkspacePromptSuggestions project={selectedProject} brand={selectedBrand} home={home} onSelect={setValue}/>}
           {!value.trim() && <WorkspaceHomeWidgets home={home} projects={projects} brands={home.brands || []} links={bootstrap.urls} onOpen={openItem} onPrompt={setValue} onOpenActivity={() => setActivityOpen(true)} onFeedback={setToast}/>}</>}
         </section>
       </div>

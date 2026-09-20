@@ -5,6 +5,7 @@ import {safeUrl} from '../lib/api';
 import {ResponseBlocks} from './ResponseBlocks';
 import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
 import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
+import {WorkspacePromptSuggestions} from '../../cadu-design-system/components/WorkspacePromptSuggestions';
 
 function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   const needsCredits = failure?.kind === 'credits';
@@ -59,7 +60,7 @@ function SelectionTools({text, onPrompt, onClear}) {
   </div>;
 }
 
-function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime}) {
+function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime, starterProject, starterBrand, starterHome}) {
   const end = useRef(null);
   const thread = useRef(null);
   const [selection, setSelection] = useState('');
@@ -81,11 +82,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
       <span className="cv-mx-auto cv-grid cv-h-10 cv-w-10 cv-place-items-center cv-rounded-xl cv-bg-teal/10 cv-text-lg cv-font-bold cv-text-teal">C</span>
       <h2 className="cv-mb-2 cv-mt-5 cv-text-2xl cv-font-semibold cv-tracking-[-.025em]">Em que vamos trabalhar?</h2>
       <p className="cv-mx-auto cv-mb-8 cv-max-w-[520px] cv-text-sm cv-leading-6 cv-text-mist">Converse, analise arquivos ou crie algo usando o contexto do projeto.</p>
-      <div className="cv-flex cv-flex-wrap cv-justify-center cv-gap-2">{[
-        ['Criar um briefing', 'Estruture um briefing para esta campanha e destaque somente o que ainda precisa ser decidido.'],
-        ['Pesquisar no projeto', 'Pesquise nos documentos do projeto o que já definimos sobre orçamento e prazo.'],
-        ['Comparar opções', 'Compare as opções disponíveis e recomende a melhor com uma justificativa curta.'],
-      ].map(([label, prompt]) => <button key={label} type="button" onClick={() => onPrompt(prompt)} className="cv-rounded-full cv-border cv-border-white/10 cv-bg-white/[.025] cv-px-4 cv-py-2.5 cv-text-xs cv-text-[#bdcfcc] hover:cv-bg-white/[.06] hover:cv-text-white">{label}</button>)}</div>
+      <WorkspacePromptSuggestions project={starterProject} brand={starterBrand} home={starterHome} onSelect={onPrompt} compact/>
     </div>
   </div>;
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[820px] cv-px-6 cv-pt-10 md:cv-px-10">
@@ -96,9 +93,9 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
   </div>;
 }
 
-export function Conversation({title, context, projects, brands, onProjectChange, onBrandChange, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, notice, onDismissNotice, composerContext, onClearContext, onAttach, onContextDrop}) {
+export function Conversation({title, context, projects, brands, starterProject, starterBrand, starterHome, onProjectChange, onBrandChange, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, notice, onDismissNotice, composerContext, onClearContext, onAttach, onContextDrop}) {
   const details = useRef(null);
-  return <section className="cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink">
+  return <section className={`cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink ${!messages.length && !running ? 'cv-conversation--empty' : ''}`}>
     <header className="cv-conversation-header cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-border-b cv-border-white/[.07] cv-px-4 md:cv-px-6">
       {!historyOpen && <button type="button" onClick={onOpenHistory} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Abrir conversas recentes" aria-controls="cv-recent-sidebar" aria-expanded="false"><Icon name="menu"/></button>}
       <h1 className={`cv-conversation-title cv-m-0 cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap ${artifactOpen ? 'cv-hidden 2xl:cv-block' : ''}`} title={title}>{title}</h1>
@@ -113,7 +110,7 @@ export function Conversation({title, context, projects, brands, onProjectChange,
       </details>
     </header>
     {notice && <div className="cv-absolute cv-right-5 cv-top-[78px] cv-z-30 cv-flex cv-w-[min(390px,calc(100%-40px))] cv-items-start cv-gap-3 cv-rounded-xl cv-border cv-border-[#ff7d83]/25 cv-bg-[#28191b]/95 cv-p-3 cv-shadow-2xl cv-backdrop-blur" role="alert"><span className="cv-mt-1 cv-h-2 cv-w-2 cv-flex-none cv-rounded-full cv-bg-[#ff7d83]"/><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-xs cv-font-semibold">{notice.title}</strong>{notice.detail && <span className="cv-mt-1 cv-block cv-text-[11px] cv-leading-5 cv-text-[#d8b5b7]">{notice.detail}</span>}</div><button type="button" onClick={onDismissNotice} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#c99b9e]" aria-label="Fechar aviso"><Icon name="close" size={14}/></button></div>}
-    <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
+    <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;

@@ -3,6 +3,7 @@ import {CaduDock} from './CaduDock';
 import {WorkspaceNavbar} from './WorkspaceNavbar';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {workspaceSolutionItems} from '../workspaceSolutions';
+import {openWorkspaceDetail} from '../workspaceNavigation';
 
 export function WorkspaceLegacyChrome({bootstrap}) {
   const [accountOpen, setAccountOpen] = useState(false);
@@ -21,17 +22,9 @@ export function WorkspaceLegacyChrome({bootstrap}) {
       delete main.dataset.workspaceSurface;
     };
   }, [bootstrap.active, bootstrap.surface]);
-  const navigation = [
-    ['home', 'Início', bootstrap.urls.home],
-    ['projects', 'Projetos', bootstrap.urls.projects],
-    ['brands', 'Marcas', bootstrap.urls.brands],
-    ['docs', 'Docs', bootstrap.urls.docs],
-    ['skills', 'Skills', bootstrap.urls.skills],
-  ].filter(([, , href]) => href).map(([id, title, href]) => ({id, kind: 'navigation', title, href, active: active === id}));
-  const open = item => item?.href && window.location.assign(item.href);
   return <>
     <WorkspaceNavbar className="cadu-ds-legacy-navbar" logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} onOpenAccount={() => setAccountOpen(true)}><strong>{bootstrap.title || 'Workspace'}</strong></WorkspaceNavbar>
-    <CaduDock shortcutItems={navigation} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenResource={open} onOpenUsage={() => setAccountOpen(true)}/>
+    <CaduDock shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>
     <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>
   </>;
 }

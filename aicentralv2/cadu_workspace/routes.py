@@ -500,6 +500,51 @@ def _user_dock_shortcuts(client_id: int, user_id: int) -> list[dict]:
         return []
 
 
+def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Optional[list[dict]] = None,
+                                  brands: Optional[list[dict]] = None) -> list[dict]:
+    """Return the one shared visual dock used by every Workspace surface.
+
+    Pages may add their own secondary navigation, but the dock itself is a
+    persistent workspace shelf. Keeping its catalog here prevents account,
+    conversation and legacy pages from replacing projects and brands with
+    page-specific links.
+    """
+    project_rows = _workspace_projects(client_id) if projects is None else projects
+    brand_rows = _workspace_brands(client_id) if brands is None else brands
+    brand_project_counts: dict[str, int] = {}
+    for project in project_rows:
+        brand_name = str(project.get('thumbnail_label') or '').casefold()
+        if brand_name:
+            brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
+
+    brand_items = [{
+        'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
+        'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+        'visualInitials': str(item.get('display_initials') or 'M'),
+        'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+        'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
+        'brandRef': f"studio:{item.get('id')}",
+        'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0),
+    } for item in brand_rows if item.get('display_logo')]
+    project_items = [{
+        'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
+        'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
+        'previewUrl': str(item.get('brand_logo_url') or ''), 'projectRef': f"ci:{item.get('id')}",
+        'brandName': str(item.get('thumbnail_label') or ''),
+        'visualInitials': str(item.get('thumbnail_initials') or 'P'),
+        'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+    } for item in project_rows if item.get('brand_logo_url')]
+
+    catalog = {('brand', item['id']): item for item in brand_items}
+    catalog.update({('project', item['projectRef']): item for item in project_items})
+    explicit = [{**catalog[(row['shortcut_type'], row['target_ref'])], 'shortcutId': row['id'], 'pinned': True}
+                for row in _user_dock_shortcuts(client_id, user_id)
+                if (row['shortcut_type'], row['target_ref']) in catalog]
+    if explicit:
+        return explicit
+    return (brand_items[:3] + project_items)[:8]
+
+
 @bp.get('/workspace/api/dock/shortcuts')
 @login_required
 def list_dock_shortcuts():
@@ -1537,7 +1582,19 @@ def workspace_sidebar_context():
     if not session.get('user_id'):
         return {}
     client_id = int(session.get('cliente_id') or 0)
-    return {'workspace_sidebar_projects': _workspace_sidebar_projects(client_id)}
+    try:
+        usage = credit_position(client_id) or {}
+        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+        usage_percent = round(float(usage.get('monthly_usage_percentage') or 0), 1)
+    except Exception:
+        current_app.logger.exception('Não foi possível preparar o shell compartilhado do Workspace')
+        dock_items = []
+        usage_percent = 0
+    return {
+        'workspace_sidebar_projects': _workspace_sidebar_projects(client_id),
+        'workspace_dock_items': dock_items,
+        'workspace_usage_percent': usage_percent,
+    }
 
 
 def _project_context_health(project: dict) -> dict:
@@ -2262,20 +2319,9 @@ def dashboard():
                       'brandName': str(item.get('thumbnail_label') or ''),
                       'visualInitials': str(item.get('thumbnail_initials') or 'P'),
                       'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e')} for item in projects]
-    user_shortcuts = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
-    dock_catalog = {('brand', item['id']): item for item in visible_brands}
-    dock_project_items = [{**item, 'previewUrl': item['dockLogoUrl']}
-                          for item in project_items if item.get('dockLogoUrl')]
-    dock_catalog.update({('project', item['projectRef']): item for item in dock_project_items})
-    explicit_dock_items = [{**dock_catalog[(row['shortcut_type'], row['target_ref'])], 'shortcutId': row['id'], 'pinned': True}
-                           for row in user_shortcuts if (row['shortcut_type'], row['target_ref']) in dock_catalog]
-    # A small team gets useful visual starting points. They disappear as soon
-    # as the user makes an explicit personal selection.
-    suggested_dock_items = []
-    if not explicit_dock_items and len(project_items) <= 8:
-        # The automatic dock is a starting point, never an unbounded list.
-        suggested_dock_items = (visible_brands[:3] + dock_project_items)[:8]
-    dock_items = explicit_dock_items or suggested_dock_items
+    dock_items = _workspace_common_dock_items(
+        client_id, int(session.get('user_id') or 0), projects=projects, brands=brands,
+    )
     home_data = {
         'agency': {'id': str(client_id), 'name': str(session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Minha agência')},
         # Every brand has a visual identity in the React shell. A principal logo
@@ -2283,7 +2329,7 @@ def dashboard():
         # fallback when a logo is still being prepared or cannot be loaded.
         'brands': visible_brands,
         'projects': project_items,
-        'dock': {'items': dock_items, 'isSuggested': bool(suggested_dock_items)},
+        'dock': {'items': dock_items, 'isSuggested': not any(item.get('shortcutId') for item in dock_items)},
         'resources': project_items[:8],
         'resumeCards': _workspace_continuity_feed(client_id, projects, {
             'id': int(session.get('user_id') or 0),
@@ -2369,13 +2415,7 @@ def brands():
                           'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('brand_logo_url') or ''),
                           'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
                           'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects]
-        shortcut_rows = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
-        all_brand_items = {item['id']: item for item in [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'), 'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in all_brands]}
-        project_catalog = {item['projectRef']: item for item in project_items if item.get('previewUrl')}
-        dock_items = [{**all_brand_items[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'brand' and row['target_ref'] in all_brand_items]
-        dock_items += [{**project_catalog[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'project' and row['target_ref'] in project_catalog]
-        if not dock_items:
-            dock_items = (list(all_brand_items.values())[:3] + project_items)[:8]
+        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
         return render_template('cadu_workspace/brands_react.html', brand_items=brand_items, project_items=project_items, dock_items=dock_items,
                                query=query, filter_name=filter_name, catalog_error=catalog_error,
                                usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1))
@@ -2623,13 +2663,7 @@ def projects():
             catalog_error = 'Os projetos estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
         items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
         brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
-        shortcut_rows = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
-        project_catalog = {item['projectRef']: {**item, 'previewUrl': item['dockLogoUrl']} for item in items if item.get('dockLogoUrl')}
-        brand_catalog = {item['id']: item for item in brands}
-        dock_items = [{**brand_catalog[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'brand' and row['target_ref'] in brand_catalog]
-        dock_items += [{**project_catalog[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'project' and row['target_ref'] in project_catalog]
-        if not dock_items:
-            dock_items = brands[:3] + list(project_catalog.values())[:5]
+        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
         return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items,
                                query=query, status=status, catalog_error=catalog_error,
                                usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1))
@@ -2708,13 +2742,7 @@ def project_detail(project_id):
             'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
             'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
         } for item in brands]
-        shortcuts = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
-        catalog = {('brand', item['id']): item for item in brand_items}
-        catalog.update({('project', item['projectRef']): item for item in project_items if item.get('previewUrl')})
-        dock_items = [{**catalog[(row['shortcut_type'], row['target_ref'])], 'shortcutId': row['id'], 'pinned': True}
-                      for row in shortcuts if (row['shortcut_type'], row['target_ref']) in catalog]
-        if not dock_items:
-            dock_items = (brand_items[:3] + [item for item in project_items if item.get('previewUrl')])[:8]
+        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
         active_brand = next(iter(project.get('brands') or []), {})
         project_data = {
             'id': str(project.get('id')), 'name': str(project.get('nome') or 'Projeto'),

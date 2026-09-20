@@ -9,6 +9,7 @@
 <script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
   'accountMode': True,
   'section': section,
+  'dock': {'items': dock_items|default(workspace_dock_items|default([]))},
   'csrf': session.get('family_csrf',''),
   'admin': session.get('user_type') in ('admin','superadmin'),
   'usagePercent': account.position.usage_percentage if account.position else 0,

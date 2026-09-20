@@ -507,11 +507,12 @@ export default function App({bootstrap}) {
 
   const solutions = workspaceSolutionItems(bootstrap);
   const dockProjects = projects.slice(0, 6).map(item => ({id: item.ref, projectRef: item.ref, kind: 'project', title: item.name, name: item.name, visualInitials: String(item.name || 'P').slice(0, 2).toUpperCase()}));
+  const sharedDockItems = bootstrap.dock ? (bootstrap.dock.items || []) : [...(bootstrap.brands || []), ...dockProjects];
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
       <header className="cadu-ds-home-navbar cv-conversations-navbar"><CaduSolutionSwitcher logo={bootstrap.caduMark || bootstrap.logo} solutions={solutions} activeId="workspace"/><strong>Conversas</strong><div className="cadu-ds-project-navbar__spacer"/><WorkspaceAccountControl user={bootstrap.user} onOpen={() => setAccountOpen(true)}/></header>
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock brands={bootstrap.brands || []} resources={dockProjects} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock shortcutItems={sharedDockItems} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
         <Sidebar conversations={conversations} projects={projects} brands={brands} activeId={conversationId} onOpen={openConversation} onNew={newConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">

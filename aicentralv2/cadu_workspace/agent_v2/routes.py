@@ -42,12 +42,15 @@ def conversations_v2_lab():
     dock_brands = []
     try:
         current = resolve()
-        from ..routes import _workspace_brands
+        from ..routes import _workspace_brands, _workspace_common_dock_items, _workspace_projects
+        from ...cadu_skills.repository import credit_position
         links = repository.project_brand_links(current.client_id)
         project_counts = {}
         for link in links:
             ref = str(link.get("brand_ref") or "")
             project_counts[ref] = project_counts.get(ref, 0) + 1
+        brands = _workspace_brands(current.client_id)
+        projects = _workspace_projects(current.client_id)
         dock_brands = [{
             "id": str(brand["id"]), "kind": "brand", "brandRef": f"studio:{brand['id']}",
             "title": str(brand.get("name") or "Marca"), "name": str(brand.get("name") or "Marca"),
@@ -55,10 +58,14 @@ def conversations_v2_lab():
             "visualInitials": str(brand.get("display_initials") or "M"),
             "visualColor": str(brand.get("display_color") or "#176b5e"),
             "projectCount": project_counts.get(f"studio:{brand['id']}", 0),
-        } for brand in _workspace_brands(current.client_id) if brand.get("display_logo")]
+        } for brand in brands if brand.get("display_logo")]
+        dock_items = _workspace_common_dock_items(current.client_id, int(session.get("user_id") or 0), projects=projects, brands=brands)
+        usage_percent = round(float((credit_position(current.client_id) or {}).get('monthly_usage_percentage') or 0), 1)
     except Exception:
         current_app.logger.exception("Não foi possível preparar marcas para a dock do Chat")
-    return render_template("cadu_workspace/conversations_v2_lab.html", chat_brands=dock_brands)
+        dock_items = []
+        usage_percent = 0
+    return render_template("cadu_workspace/conversations_v2_lab.html", chat_brands=dock_brands, dock_items=dock_items, usage_percent=usage_percent)
 
 
 @lab_bp.get("/workspace/observabilidade")

@@ -14,7 +14,8 @@
   'active': legacy_active,
   'surface': legacy_surface,
   'title': legacy_titles.get(legacy_active, 'Workspace'),
-  'usagePercent': none,
+  'usagePercent': workspace_usage_percent|default(none),
+  'dock': {'items': workspace_dock_items|default([])},
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '')},
   'urls': {

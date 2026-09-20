@@ -367,7 +367,7 @@ def search(context, arguments: dict) -> dict:
         "searched_at": datetime.now(timezone.utc).isoformat(),
         "search_mode": "firecrawl_discovery_with_selected_source_reading",
         "evidence_policy": "Use as fontes para responder ao pedido atual; diferencie fato, interpretação e lacuna.",
-        "review_stage": "python_cleanup_quality_gate_then_agent_review",
+        "review_stage": "python_cleanup_quality_gate_before_agent_synthesis",
     }
 
 
@@ -413,5 +413,5 @@ def read(context, arguments: dict) -> dict:
         "searched_at": datetime.now(timezone.utc).isoformat(),
         "search_mode": "firecrawl_direct_page_with_selected_source_reading",
         "evidence_policy": "Use somente o conteúdo limpo deste link; diferencie fato, interpretação e lacuna.",
-        "review_stage": "python_cleanup_quality_gate_then_agent_review",
+        "review_stage": "python_cleanup_quality_gate_before_agent_synthesis",
     }

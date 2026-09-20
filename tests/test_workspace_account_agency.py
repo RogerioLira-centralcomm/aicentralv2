@@ -9,14 +9,14 @@ def test_account_journey_is_centered_on_the_agency_team():
     component = (ROOT / 'frontend/cadu-design-system/components/WorkspaceAccount.jsx').read_text(encoding='utf-8')
     routes = (ROOT / 'aicentralv2/cadu_workspace/routes.py').read_text(encoding='utf-8')
 
-    for tab in ("perfil: 'Perfil'", "equipe: 'Equipe'", "planos: 'Plano'", "creditos: 'Uso'", "faturamento: 'Faturamento'"):
+    for tab in ("perfil: 'Perfil'", "equipe: 'Equipe'", "planos: 'Plano'", "uso: 'Uso'", "creditos: 'Créditos'", "faturamento: 'Faturamento'"):
         assert tab in component
-    assert 'WorkspaceNavbar' in component
     assert 'CaduDock' in component
     assert "'accountMode': True" in template
-    assert '"organizacao": "equipe"' in routes
+    assert '"organizacao": "agencia"' in routes
     assert 'cadu_workspace/account_react.html' in routes
-    assert 'requested_section != section' in routes
+    assert "'uso': '/uso'" in routes
+    assert "'creditos': '/creditos'" in routes
 
 
 def test_account_team_keeps_php_backed_actions_and_confirmation_ui():

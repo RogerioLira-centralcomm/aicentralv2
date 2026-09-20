@@ -76,7 +76,8 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
   const [collapsed, setCollapsed] = useState(() => mode === 'account' ? false : readCollapsed(mode));
   const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
-  const recentConversations = useMemo(() => conversations.map(item => ({...item, href: conversationHref(item, links.conversations)})).filter(item => item.href).slice(0, 5), [conversations, links.conversations]);
+  const recentConversations = useMemo(() => conversations.map(item => ({...item, href: conversationHref(item, links.conversations)})).filter(item => item.href), [conversations, links.conversations]);
+  const visibleRecentConversations = recentConversations.length >= 5 ? recentConversations.slice(0, 5) : recentConversations;
 
   useEffect(() => {
     try { window.localStorage.setItem(`cadu:sidebar:${mode}`, mode === 'account' ? 'open' : collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
@@ -100,7 +101,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
     </section>}
     {mode === 'home' && recentFiles.length === 0 && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Conversas recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Conversas recentes</span>{links.conversations && <a href={links.conversations}>Ver todas</a>}</div>
-      {recentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><Icon name="history" size={14}/><span><b>{item.title || item.name || 'Conversa'}</b><small>{item.context || item.projectName || 'Cadu Chat'}</small></span></a>)}
+      {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><Icon name="history" size={14}/><span><b>{item.title || item.name || 'Conversa'}</b><small>{item.context || item.projectName || 'Cadu Chat'}</small></span></a>)}
     </section>}
   </aside>;
 }

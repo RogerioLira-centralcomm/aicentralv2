@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import json
 from unittest import TestCase, mock
 
 from aicentralv2.cadu_workspace.routes import _workspace_account_insights
@@ -52,6 +53,12 @@ def _account_fixture():
     }
 
 
+def _account_bootstrap(html):
+    marker = '<script id="cadu-conversations-v2-bootstrap" type="application/json">'
+    payload = html.split(marker, 1)[1].split('</script>', 1)[0]
+    return json.loads(payload)
+
+
 class WorkspaceAccountUsageTest(TestCase):
     def test_insights_normalize_features_limits_and_validity(self):
         future = date.today() + timedelta(days=12)
@@ -86,13 +93,13 @@ class WorkspaceAccountUsageTest(TestCase):
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Tokens neste ciclo", html)
-        self.assertIn("250", html)
-        self.assertIn("Gerenciar equipe", html)
-        self.assertIn("Consulte o atendimento", html)
+        bootstrap = _account_bootstrap(html)
+        self.assertEqual(bootstrap["section"], "planos")
+        self.assertEqual(bootstrap["account"]["plan"]["plan_definition_name"], "Equipe")
+        self.assertEqual(bootstrap["account"]["insights"]["tokens"]["used"], 250)
 
     @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
-    def test_credit_view_preserves_auditable_context(self, _account):
+    def test_usage_view_preserves_auditable_context(self, _account):
         client = _app().test_client()
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, user_name="Apolo")
@@ -101,13 +108,23 @@ class WorkspaceAccountUsageTest(TestCase):
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Geração da campanha Primavera", html)
-        self.assertIn("−7", html)
-        self.assertIn("Pacote 25", html)
-        self.assertIn("Créditos disponíveis", html)
-        self.assertIn("últimas 1 execuções confirmadas", html)
-        self.assertNotIn("R$ 250,00", html)
-        self.assertNotIn("Comprar créditos", html)
+        bootstrap = _account_bootstrap(html)
+        self.assertEqual(bootstrap["section"], "uso")
+        self.assertEqual(bootstrap["account"]["movements"][0]["reason"], "Geração da campanha Primavera")
+        self.assertEqual(bootstrap["account"]["movements"][0]["amount"], 7)
+
+    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
+    def test_credits_view_exposes_balance_lots_without_becoming_usage(self, _account):
+        client = _app().test_client()
+        with client.session_transaction() as session:
+            session.update(user_id=7, cliente_id=12, user_name="Apolo")
+
+        response = client.get("/creditos", headers={"Host": "workspace.centralcomm.media"})
+        bootstrap = _account_bootstrap(response.get_data(as_text=True))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(bootstrap["section"], "creditos")
+        self.assertEqual(bootstrap["account"]["purchases"][0]["package_name"], "Pacote 25")
 
     @mock.patch("aicentralv2.cadu_workspace.routes._workspace_settings_data", return_value={
         "organization": {}, "states": [],

@@ -60,7 +60,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(home, /WorkspaceHomeWidgets/);
   assert.match(contextSidebar, /SidebarCollection/);
   assert.match(contextSidebar, /variant=\{item\.visualVariant\}/);
-  assert.match(contextSidebar, /recentConversations.length >= 5/);
+  assert.match(contextSidebar, /recentConversations.*slice\(0, 5\)/);
   assert.match(contextSidebar, /recentFiles.length > 0/);
   assert.doesNotMatch(contextSidebar, /Atalhos de trabalho/);
   assert.doesNotMatch(contextSidebar, /\{id: 'recent'/);
@@ -83,6 +83,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /DockTooltip/);
   assert.match(dock, /createPortal/);
   assert.match(dock, /role="tooltip"/);
+  assert.match(dock, /const resolvedAccountUrl = accountUrl;/);
+  assert.match(dock, /const openUsage = \(\) =>/);
   assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
   assert.match(dock, /Abrir uso e conta de \$\{userName\}/);
   assert.match(dock, /onReorderShortcuts/);

@@ -514,6 +514,8 @@ def public_artifact(artifact_id):
         f"--cadu-brand-primary:{primary_color}" if primary_color else "",
         f"--cadu-brand-secondary:{secondary_color}" if secondary_color else "",
     ) if item)
+    public_origin = request.host_url.rstrip("/")
+    artifact_stylesheet = f"{public_origin}/static/css/tailwind/artifact.css"
     favicon = f'<link rel="icon" href="{logo}">' if logo else ""
     brand_name = html_escape(str(content.get("title") or title or "Cadu"), quote=True)
     brand_header = ""
@@ -522,11 +524,11 @@ def public_artifact(artifact_id):
     document = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title>
-<meta http-equiv="Content-Security-Policy" content="sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
-{favicon}<link rel="stylesheet" href="/static/css/tailwind/artifact.css"><style>:root{{{theme}}}html,body{{margin:0;min-height:100%;background:#f8fafc}}{css}</style></head>
+<meta http-equiv="Content-Security-Policy" content="sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' {public_origin}; script-src 'unsafe-inline'; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+{favicon}<link rel="stylesheet" href="{artifact_stylesheet}"><style>:root{{{theme}}}html,body{{margin:0;min-height:100%;background:#f8fafc}}{css}</style></head>
 <body>{brand_header}{body}<script>{javascript}</script></body></html>"""
     response = Response(document, mimetype="text/html")
-    response.headers["Content-Security-Policy"] = "sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    response.headers["Content-Security-Policy"] = f"sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' {public_origin}; script-src 'unsafe-inline'; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response

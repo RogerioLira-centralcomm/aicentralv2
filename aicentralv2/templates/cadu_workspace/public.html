@@ -8,7 +8,7 @@
 <meta property="og:type" content="website"><meta property="og:title" content="Cadu Workspace"><meta property="og:description" content="{{ description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ product_url('workspace', '/assets/workspace-icon-192.png') }}">
 <script type="application/ld+json">{{ {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Cadu Workspace","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":canonical,"description":description}|tojson }}</script>
 {% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=11">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block content %}
 <div class="ws-public-shell" id="inicio">
   <aside class="ws-public-rail" aria-label="Navegação pública do Workspace">
@@ -75,4 +75,4 @@
   </div>
 </div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/cadu-workspace-public.js') }}?v=1"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/cadu-workspace-public.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

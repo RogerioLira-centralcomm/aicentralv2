@@ -3,10 +3,10 @@
 {% block title %}{{ brand.name }} — Sistema de marca — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=11">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-system.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v={{ cadu_workspace_asset_version }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v={{ cadu_workspace_asset_version }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-system.css') }}?v={{ cadu_workspace_asset_version }}">
 {% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
@@ -41,6 +41,6 @@
     };
   })();
 </script>
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=58" defer></script>
-<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v={{ cadu_workspace_asset_version }}" defer></script>
+<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v={{ cadu_workspace_asset_version }}" defer></script>
 {% endblock %}

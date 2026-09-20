@@ -1,7 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Agents e MCP — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=9"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-mcp.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-mcp.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}{% set workspace_active='integracoes' %}
 <div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<div class="workspace-app-main">

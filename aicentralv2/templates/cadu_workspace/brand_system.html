@@ -1,7 +1,7 @@
 {% extends "cadu_family/page.html" %}
 
 {% block product_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v={{ cadu_workspace_asset_version }}">
 {% endblock %}
 
 {% block product_content %}
@@ -13,6 +13,6 @@
 {% endblock %}
 
 {% block product_scripts %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=58" defer></script>
-<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v={{ cadu_workspace_asset_version }}" defer></script>
+<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v={{ cadu_workspace_asset_version }}" defer></script>
 {% endblock %}

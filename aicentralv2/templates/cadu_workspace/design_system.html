@@ -2,7 +2,7 @@
 {% block title %}Design system CentralX / CADU — Workspace{% endblock %}
 {% block product_id %}workspace-public{% endblock %}
 {% block meta %}<meta name="robots" content="noindex,nofollow"><meta name="description" content="Referência interna da linguagem atual do Cadu Workspace."><link rel="canonical" href="{{ canonical }}">{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-design-system.css') }}?v=3">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-design-system.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block content %}
 <article class="wsds">
   <header class="wsds-hero">

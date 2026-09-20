@@ -1,7 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Minhas skills — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=9">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 {% set workspace_active = 'skills' %}<div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<div class="workspace-app-main"><section class="workspace-page-head"><a href="{{ url_for('cadu_workspace.dashboard') }}">← Workspace</a><h1>Skills personalizadas</h1><p>Os vínculos com cliente, projeto e marca são privados. Compartilhamentos só existem quando um link não listado é criado.</p></section>

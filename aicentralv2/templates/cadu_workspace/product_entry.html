@@ -2,7 +2,7 @@
 {% block title %}{{ entry.name }} — Cadu{% endblock %}
 {% block product_id %}{{ product }}{% endblock %}
 {% block meta %}<link rel="canonical" href="{{ canonical }}"><link rel="icon" type="image/png" href="{{ url_for('cadu_maintenance_product_icon', family=entry.icon_family, size=32) }}">{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=6">{% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-hero.css') }}?v=1">{% endif %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v={{ cadu_workspace_asset_version }}">{% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-hero.css') }}?v={{ cadu_workspace_asset_version }}">{% endif %}{% endblock %}
 {% block content %}
 {% if product == 'planner' %}
 <section class="planner-public-hero" aria-labelledby="planner-public-title">

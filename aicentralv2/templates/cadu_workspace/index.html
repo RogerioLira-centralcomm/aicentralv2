@@ -1,7 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Workspace — Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=9"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-dashboard.css') }}?v=6"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-dashboard-identity.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-availability.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-dashboard.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-dashboard-identity.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-availability.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 {% set workspace_active = 'inicio' %}

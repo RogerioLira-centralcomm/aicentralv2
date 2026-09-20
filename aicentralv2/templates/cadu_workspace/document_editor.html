@@ -2,7 +2,7 @@
 {% block title %}{{ document.title }} — Docs Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block navigation %}{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block content %}{% set workspace_active = 'docs' %}
 <div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}
   <main class="workspace-app-main workspace-doc-editor" data-doc-editor data-document-id="{{ document.id }}" data-csrf="{{ session.get('family_csrf', '') }}" data-public-root="{{ product_url('planner', '/docs/public') }}">
@@ -15,4 +15,4 @@
   </main>
 </div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/cadu-workspace-document-editor.js') }}"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/cadu-workspace-document-editor.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

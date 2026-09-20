@@ -3,6 +3,7 @@ import {CaduDock} from './CaduDock';
 import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {VisualIdentity} from './VisualIdentity';
 import {WorkspaceAccountControl, WorkspaceAccountMenu} from './WorkspaceFeedback';
+import {CaduDialog} from './CaduDialog';
 
 function ProjectIcon({name}) {
   const paths = {
@@ -15,10 +16,10 @@ function ProjectIcon({name}) {
 }
 
 function ProjectDialog({title, detail, onClose, children}) {
-  return <dialog open className="cadu-ds-dialog cadu-ds-project-dialog" aria-label={title}>
+  return <CaduDialog className="cadu-ds-project-dialog" label={title} onClose={onClose}>
     <header><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
     {children}
-  </dialog>;
+  </CaduDialog>;
 }
 
 function IdentityDialog({project, urls, csrfToken, onClose}) {

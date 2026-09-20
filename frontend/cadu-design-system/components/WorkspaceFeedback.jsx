@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {VisualIdentity} from './VisualIdentity';
+import {CaduDialog} from './CaduDialog';
 
 export function AgentActionDrop({action, onOpen, onDragStart}) {
   if (!action) return null;
@@ -23,14 +24,14 @@ export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onRe
     pinned.splice(to, 0, pinned.splice(from, 1)[0]);
     onReorder?.(pinned);
   };
-  return <dialog open className="cadu-ds-dialog cadu-ds-shortcut-dialog" aria-label="Personalizar dock"><header><div><h2>Atalhos da dock</h2><p>Arraste para ordenar. Marcas e projetos com logo aparecem na barra.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-grid">{items.map(item => <article key={item.id} draggable={item.pinned} onDragStart={() => setDraggedId(item.id)} onDragEnd={() => setDraggedId('')} onDragOver={event => item.pinned && event.preventDefault()} onDrop={() => dropOn(item)} className={item.pinned ? 'is-pinned' : ''}><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials} label={item.title} color={item.visualColor}/><b>{item.title}</b><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Adicionar'}</button></article>)}</div></dialog>;
+  return <CaduDialog className="cadu-ds-shortcut-dialog" label="Personalizar dock" onClose={onClose}><header><div><h2>Atalhos da dock</h2><p>Arraste para ordenar. Marcas e projetos com logo aparecem na barra.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-grid">{items.map(item => <article key={item.id} draggable={item.pinned} onDragStart={() => setDraggedId(item.id)} onDragEnd={() => setDraggedId('')} onDragOver={event => item.pinned && event.preventDefault()} onDrop={() => dropOn(item)} className={item.pinned ? 'is-pinned' : ''}><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials} label={item.title} color={item.visualColor}/><b>{item.title}</b><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Adicionar'}</button></article>)}</div></CaduDialog>;
 }
 
 export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, onManageShortcuts}) {
   if (!open) return null;
-  return <dialog open className="cadu-ds-dialog cadu-ds-account-menu" aria-label="Conta e gestão"><header><div className="cadu-ds-account-menu__identity"><b>{user.name || 'Minha conta'}</b>{user.email && <small>{user.email}</small>}</div><button type="button" onClick={onClose} aria-label="Fechar conta">×</button></header><nav aria-label="Conta e gestão">
+  return <CaduDialog className="cadu-ds-account-menu" label="Conta e gestão" onClose={onClose}><header><div className="cadu-ds-account-menu__identity"><b>{user.name || 'Minha conta'}</b>{user.email && <small>{user.email}</small>}</div><button type="button" onClick={onClose} aria-label="Fechar conta">×</button></header><nav aria-label="Conta e gestão">
     <a href={links.profile}>Perfil</a><a href={links.usage}>Créditos e consumo</a><a href={links.plans}>Planos</a><a href={links.team}>Equipe</a>{links.observability && <a href={links.observability}>Observabilidade</a>}
-  </nav><footer><button type="button" onClick={onManageShortcuts}>Personalizar atalhos</button><a href={links.logout}>Sair</a></footer></dialog>;
+  </nav><footer><button type="button" onClick={onManageShortcuts}>Personalizar atalhos</button><a href={links.logout}>Sair</a></footer></CaduDialog>;
 }
 
 export function WorkspaceAccountControl({user = {}, onOpen}) {

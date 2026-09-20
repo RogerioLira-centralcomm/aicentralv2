@@ -193,6 +193,9 @@ body.portal--workspace:has(#cadu-conversations-v2-root .cadu-ds-home-shell) main
 .cadu-ds-composer-capabilities button:hover { background:var(--cadu-surface-soft); }
 .cadu-ds-composer-hint { min-width:0; margin-right:auto; overflow:hidden; color:var(--cadu-muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-composer-send { width:36px; height:36px; border-radius:12px; font-size:18px; }
+.cadu-ds-dialog { position:fixed; inset:0; width:min(560px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; overflow:auto; }
+.cadu-ds-shortcut-dialog { width:min(700px,calc(100vw - 32px)); }
+.cadu-ds-project-dialog { max-height:calc(100dvh - 32px); }
 .cadu-ds-resume-collection { max-width:1040px; }
 .cadu-ds-resume-collection>header { display:flex; align-items:baseline; justify-content:space-between; gap:18px; margin-bottom:13px; }
 .cadu-ds-resume-collection>header h2 { margin:0; font-size:22px; letter-spacing:-.035em; }

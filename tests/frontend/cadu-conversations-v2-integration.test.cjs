@@ -84,6 +84,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /DockTooltip/);
   assert.match(dock, /createPortal/);
   assert.match(dock, /role="tooltip"/);
+  assert.match(dock, /const resolvedAccountUrl = accountUrl;/);
+  assert.match(dock, /const openUsage = \(\) =>/);
   assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
   assert.match(dock, /Abrir uso e conta de \$\{userName\}/);
   assert.match(dock, /onReorderShortcuts/);

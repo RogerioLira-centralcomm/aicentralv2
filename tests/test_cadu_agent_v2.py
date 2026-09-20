@@ -1100,6 +1100,7 @@ def test_public_html_artifact_does_not_require_a_session_and_keeps_tailwind_runt
     assert b"/static/css/tailwind/artifact.css" in response.data
     assert b"data-cadu-brand-header" in response.data
     assert "sandbox allow-scripts" in response.headers["Content-Security-Policy"]
+    assert "style-src 'self' 'unsafe-inline' http://localhost" in response.headers["Content-Security-Policy"]
     assert b"--cadu-brand-primary:#176b5e" in response.data
     assert b"/static/logo.svg" in response.data
     assert b"alert(2)" not in response.data
@@ -1122,6 +1123,15 @@ def test_html_runtime_markup_keeps_tailwind_classes_and_removes_script_tags():
     assert "onclick" not in html
     assert "<script" not in html
     assert response.artifact_patch["logo_url"] == "/static/logo.svg"
+
+
+def test_chat_answer_keeps_all_short_sentences_in_one_natural_sentence():
+    response = normalize_response(
+        {"answer": "A Nike combina performance e cultura. A oportunidade está em comunidade."},
+        {"mode": "analysis", "max_questions": 0, "max_next_steps": 0},
+    )
+
+    assert response.answer == "A Nike combina performance e cultura; A oportunidade está em comunidade."
 
 
 def test_html_artifact_publish_returns_public_url_with_csrf(monkeypatch):

@@ -181,7 +181,9 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName
   const solutions = bootstrap ? workspaceSolutionItems(bootstrap) : [];
   const resolvedAvatar = avatarSource(userAvatar, bootstrap);
   const fallbackAvatar = avatarFallbackSource(bootstrap, userName);
-  const resolvedAccountUrl = accountUrl || bootstrap?.urls?.usage;
+  // The avatar owns the account menu. A direct account URL is opt-in so the
+  // presence of the usage route cannot bypass Perfil, Agência and Créditos.
+  const resolvedAccountUrl = accountUrl;
   const openUsage = () => {
     const usageUrl = bootstrap?.urls?.usage || bootstrap?.urls?.credits;
     if (usageUrl) {

@@ -396,8 +396,13 @@ def _single_sentence(value):
     text = " ".join(raw.split())
     if not text:
         return text
-    match = re.match(r"(.+?[.!?])(?:\s|$)", text)
-    return (match.group(1) if match else text).strip()
+    # Keep the concise chat contract without silently dropping the rest of a
+    # useful answer: join sentence boundaries into one readable sentence.
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ0-9])", text)
+    if len(parts) == 1:
+        return text.strip()
+    joined = "; ".join(part.strip().rstrip(".!?") for part in parts if part.strip())
+    return (joined + ".").strip()
 
 
 def _fallback_artifact(answer, policy):
@@ -446,7 +451,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
-    if policy.get("mode") in {"direct", "analysis", "decision", "artifact_first"}:
+    if policy.get("mode") in {"direct", "analysis", "decision", "clarification", "artifact_first"}:
         answer = _single_sentence(answer)
     questions = [str(item).strip()[:500] for item in value.get("questions", []) if str(item).strip()]
     questions = questions[:max(0, int(policy.get("max_questions", 1)))]

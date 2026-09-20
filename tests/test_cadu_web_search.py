@@ -64,6 +64,7 @@ def test_web_search_uses_firecrawl_v2_and_reads_selected_sources(monkeypatch):
     assert result["sources_read"] == 1
     assert result["sources"][0]["content"].startswith("Conteúdo principal")
     assert result["sources"][0]["favicon"].endswith("favicon.ico")
+    assert result["review_stage"] == "python_cleanup_quality_gate_before_agent_synthesis"
 
 
 def test_web_search_rejects_conflicting_domain_filters():

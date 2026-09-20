@@ -390,7 +390,10 @@ def _plain_multiline(value, limit=4000):
 
 
 def _single_sentence(value):
-    text = " ".join(str(value or "").split())
+    raw = str(value or "")
+    if re.search(r"(?m)^\s*(?:#{1,6}\s|[-*+]\s|\d+[.)]\s)", raw):
+        return raw.strip()
+    text = " ".join(raw.split())
     if not text:
         return text
     match = re.match(r"(.+?[.!?])(?:\s|$)", text)
@@ -443,7 +446,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
-    if policy.get("single_sentence"):
+    if policy.get("mode") in {"direct", "analysis", "decision", "artifact_first"}:
         answer = _single_sentence(answer)
     questions = [str(item).strip()[:500] for item in value.get("questions", []) if str(item).strip()]
     questions = questions[:max(0, int(policy.get("max_questions", 1)))]

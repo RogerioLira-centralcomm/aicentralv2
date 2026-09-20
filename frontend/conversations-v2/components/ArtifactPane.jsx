@@ -19,7 +19,7 @@ function EditableTextarea({value, onChange, className = '', ...props}) {
   return <textarea ref={ref} className={className} value={value} onChange={event => onChange(event.target.value)} {...props}/>;
 }
 
-function htmlDocument(content) {
+function htmlDocument(content, artifactTitle = '') {
   const css = String(content.css || '').replace(/<\/style/gi, '<\\/style');
   const javascript = String(content.js || '').replace(/<\/script/gi, '<\\/script');
   const origin = window.location.origin;
@@ -27,7 +27,11 @@ function htmlDocument(content) {
   const color = value => /^#[0-9a-f]{3,8}$/i.test(String(value || '').trim()) ? String(value).trim() : '';
   const theme = [color(content.primary_color) && `--cadu-brand-primary:${color(content.primary_color)}`, color(content.secondary_color) && `--cadu-brand-secondary:${color(content.secondary_color)}`].filter(Boolean).join(';');
   const favicon = logo ? `<link rel="icon" href="${escapeHtml(logo)}">` : '';
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${favicon}<meta http-equiv="Content-Security-Policy" content="sandbox allow-scripts; default-src 'none'; img-src https: data: blob: ${origin}; style-src 'unsafe-inline' https://cdn.tailwindcss.com; font-src https: data: ${origin}; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; connect-src 'none'; media-src https: data: blob: ${origin}; form-action 'none'; base-uri 'none'"><script src="https://cdn.tailwindcss.com"></script><style>:root{${theme}}html,body{margin:0;min-height:100%;background:#fff}${css}</style></head><body>${String(content.html || '')}<script>${javascript}<\/script></body></html>`;
+  const artifactStylesheet = `${origin}/static/css/tailwind/artifact.css`;
+  const body = String(content.html || '');
+  const brandName = escapeHtml(content.title || artifactTitle || 'Cadu');
+  const brandHeader = logo && !/<img\b/i.test(body) ? `<header data-cadu-brand-header class="mx-auto flex w-full max-w-6xl items-center gap-3 border-b border-slate-200 px-6 py-4" style="border-bottom-color:var(--cadu-brand-primary,#176b5e)"><img src="${escapeHtml(logo)}" alt="" class="h-8 w-auto object-contain"><span class="text-sm font-semibold text-slate-700">${brandName}</span></header>` : '';
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${favicon}<link rel="stylesheet" href="${artifactStylesheet}"><meta http-equiv="Content-Security-Policy" content="sandbox allow-scripts; default-src 'none'; img-src https: data: blob: ${origin}; style-src 'self' 'unsafe-inline' ${origin}; font-src https: data: ${origin}; script-src 'unsafe-inline'; connect-src 'none'; media-src https: data: blob: ${origin}; form-action 'none'; base-uri 'none'"><style>:root{${theme}}html,body{margin:0;min-height:100%;background:#fff}${css}</style></head><body>${brandHeader}${body}<script>${javascript}<\/script></body></html>`;
 }
 
 function StructuredArtifact({artifact, onChange}) {
@@ -93,7 +97,7 @@ function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
 }
 
 function HtmlArtifact({artifact}) {
-  return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={htmlDocument(artifact.content || {})} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
+  return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={htmlDocument(artifact.content || {}, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
 }
 
 function ImageArtifact({artifact}) {
@@ -185,7 +189,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, onChange, onTitleChange, projectRef, onSaveToProject, onPublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion}) {
+export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, onChange, onTitleChange, projectRef, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -222,7 +226,7 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
   return <aside className={`cv-artifact-panel cv-artifact-overlay cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${closing ? 'cv-is-closing' : ''}`} aria-label="Artefato">
     <header className="cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-border-b cv-border-white/[.07] cv-px-5">
       <div className="cv-min-w-0 cv-flex-1"><span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span><h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{artifact.title || artifact.content?.title || 'Trabalho em andamento'}</h2></div>
-      {type === 'html' && artifact.id && <button type="button" onClick={onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? 'Publicando…' : saving ? 'Salvando…' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}
+      {type === 'html' && artifact.id && <button type="button" onClick={artifact.status === 'published' && onUnpublish ? onUnpublish : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? artifact.status === 'published' ? 'Retirando…' : 'Publicando…' : saving ? 'Salvando…' : artifact.status === 'published' ? 'Despublicar' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}
       {artifact.id && <button type="button" onClick={openVersions} className="cv-flex cv-h-8 cv-items-center cv-gap-1.5 cv-rounded-lg cv-border-0 cv-bg-white/[.05] cv-px-2.5 cv-text-[11px] cv-text-[#a8bfbb] hover:cv-bg-white/[.08]" title="Histórico de versões"><Icon name="history" size={14}/>v{artifact.current_version || 1}</button>}
       <button type="button" onClick={requestClose} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Fechar artefato"><Icon name="close" size={17}/></button>
     </header>

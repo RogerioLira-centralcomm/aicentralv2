@@ -1090,18 +1090,38 @@ def test_public_html_artifact_does_not_require_a_session_and_keeps_tailwind_runt
     app.register_blueprint(v2_routes.public_bp)
     monkeypatch.setattr(v2_routes, "get_public_artifact", lambda _artifact_id: {
         "id": _artifact_id, "type": "html", "title": "Relatório público", "status": "published",
-        "content": {"html": "<main class='min-h-screen p-6'>Dados</main>", "css": ".x{color:red}", "js": "document.body.dataset.ready='1'", "logo_url": "/static/logo.svg", "primary_color": "#176b5e"},
+        "content": {"html": "<main class='min-h-screen p-6'>Dados<script>alert(2)</script></main>", "css": ".x{color:red}", "js": "document.body.dataset.ready='1'", "logo_url": "/static/logo.svg", "primary_color": "#176b5e"},
     })
 
     response = app.test_client().get("/public/cadu/artifacts/11111111-1111-4111-8111-111111111111")
 
     assert response.status_code == 200
     assert response.mimetype == "text/html"
-    assert b"cdn.tailwindcss.com" in response.data
+    assert b"/static/css/tailwind/artifact.css" in response.data
+    assert b"data-cadu-brand-header" in response.data
+    assert "sandbox allow-scripts" in response.headers["Content-Security-Policy"]
     assert b"--cadu-brand-primary:#176b5e" in response.data
     assert b"/static/logo.svg" in response.data
+    assert b"alert(2)" not in response.data
     assert b"Relat\xc3\xb3rio p\xc3\xbablico" in response.data
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_html_runtime_markup_keeps_tailwind_classes_and_removes_script_tags():
+    response = normalize_response({
+        "answer": "Página pronta.",
+        "artifact_patch": {
+            "title": "Página", "html": "<main class='p-6' onclick='alert(1)'><script>alert(2)</script><h1>OK</h1></main>",
+            "css": ".x{color:red}", "js": "document.body.dataset.ready='1'", "logo_url": "/static/logo.svg",
+            "primary_color": "#176b5e",
+        },
+    }, {"allow_artifact": True, "artifact_type": "html", "mode": "artifact_first", "max_questions": 0, "max_next_steps": 0})
+
+    html = response.artifact_patch["html"]
+    assert "class=\"p-6\"" in html
+    assert "onclick" not in html
+    assert "<script" not in html
+    assert response.artifact_patch["logo_url"] == "/static/logo.svg"
 
 
 def test_html_artifact_publish_returns_public_url_with_csrf(monkeypatch):
@@ -1127,6 +1147,29 @@ def test_html_artifact_publish_returns_public_url_with_csrf(monkeypatch):
     assert response.status_code == 200
     assert response.json["artifact"]["status"] == "published"
     assert response.json["url"].endswith("/public/cadu/artifacts/11111111-1111-4111-8111-111111111111")
+
+
+def test_html_artifact_unpublish_revokes_public_status_with_csrf(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.bp)
+    scoped = context(conversation_id="conversation")
+    monkeypatch.setattr(v2_routes, "resolve", lambda **_: scoped)
+    monkeypatch.setattr(v2_routes, "unpublish_artifact", lambda _current, artifact_id: {
+        "id": artifact_id, "type": "html", "status": "draft", "title": "Página",
+    })
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["user_id"] = 7
+        session["family_csrf"] = "csrf"
+
+    response = client.post(
+        "/workspace/api/v2/artifacts/11111111-1111-4111-8111-111111111111/unpublish",
+        json={"conversation_id": "conversation"}, headers={"X-CSRF-Token": "csrf"},
+    )
+
+    assert response.status_code == 200
+    assert response.json["artifact"]["status"] == "draft"
 
 
 def test_brand_identity_route_accepts_the_brand_id_and_returns_context(monkeypatch):

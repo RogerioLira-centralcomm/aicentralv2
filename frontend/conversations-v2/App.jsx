@@ -584,6 +584,23 @@ export default function App({bootstrap}) {
     } finally { setPublishing(false); }
   }, [artifact, artifactDirty, bootstrap.endpoints.artifacts, conversationId, publishedUrl, publishing, saving, trace]);
 
+  const unpublishArtifact = useCallback(async () => {
+    if (!artifact?.id || publishing || saving) return;
+    setPublishing(true);
+    try {
+      const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}/unpublish`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({conversation_id: conversationId}),
+      });
+      setArtifact(data.artifact || {...artifact, status: 'draft'});
+      artifactRef.current = data.artifact || {...artifact, status: 'draft'};
+      setPublishedUrl('');
+      trace('Página retirada da publicação', 'O artefato continua salvo e pode ser publicado novamente.');
+    } catch (error) {
+      trace('Falha ao retirar página da publicação', error.message, 'error');
+    } finally { setPublishing(false); }
+  }, [artifact, bootstrap.endpoints.artifacts, conversationId, publishing, saving, trace]);
+
   useEffect(() => {
     if (!artifact?.id || !artifactDirty || saving) return undefined;
     const timer = window.setTimeout(() => saveArtifact(), 900);
@@ -693,7 +710,7 @@ export default function App({bootstrap}) {
           {artifactOpen && <ArtifactPane
             artifact={artifact} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
             onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
-            onSaveToProject={saveArtifactToProject} onPublish={publishArtifact} onClose={() => setArtifactOpen(false)}
+            onSaveToProject={saveArtifactToProject} onPublish={publishArtifact} onUnpublish={unpublishArtifact} onClose={() => setArtifactOpen(false)}
             onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}
           />}
         </div>

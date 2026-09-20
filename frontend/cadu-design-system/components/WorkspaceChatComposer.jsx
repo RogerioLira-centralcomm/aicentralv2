@@ -35,8 +35,10 @@ export function WorkspaceChatComposer({
   const fileInput = useRef(null);
   const recognitionRef = useRef(null);
   const voiceBaseRef = useRef('');
+  const voiceNoticeTimer = useRef(null);
   const [contextActive, setContextActive] = React.useState(false);
   const [voiceState, setVoiceState] = React.useState('idle');
+  const [voiceNotice, setVoiceNotice] = React.useState('');
   const currentMode = MODE_OPTIONS.find(option => option.id === executionMode) || MODE_OPTIONS[1];
   const selectCapability = capability => {
     onChange?.(capability.prompt);
@@ -46,7 +48,13 @@ export function WorkspaceChatComposer({
   const chooseFiles = () => fileInput.current?.click();
   const toggleVoice = () => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) return;
+    if (!Recognition) {
+      setVoiceState('unsupported');
+      setVoiceNotice('Ditado por voz não está disponível neste navegador.');
+      window.clearTimeout(voiceNoticeTimer.current);
+      voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200);
+      return;
+    }
     if (voiceState === 'listening') {
       recognitionRef.current?.stop();
       return;
@@ -61,12 +69,22 @@ export function WorkspaceChatComposer({
       const transcript = Array.from(event.results).map(result => result[0]?.transcript || '').join(' ').trim();
       onChange?.([voiceBaseRef.current, transcript].filter(Boolean).join(voiceBaseRef.current ? ' ' : ''));
     };
-    recognition.onerror = () => setVoiceState('error');
+    recognition.onerror = event => {
+      setVoiceState('error');
+      setVoiceNotice(event?.error === 'not-allowed' ? 'Permita o microfone para usar o ditado.' : 'Não foi possível iniciar o ditado.');
+      window.clearTimeout(voiceNoticeTimer.current);
+      voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200);
+    };
     recognition.onend = () => { recognitionRef.current = null; setVoiceState('idle'); };
     recognitionRef.current = recognition;
-    try { recognition.start(); } catch (_) { setVoiceState('error'); }
+    try { recognition.start(); } catch (_) {
+      setVoiceState('error');
+      setVoiceNotice('Não foi possível iniciar o ditado.');
+      window.clearTimeout(voiceNoticeTimer.current);
+      voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200);
+    }
   };
-  useEffect(() => () => recognitionRef.current?.stop(), []);
+  useEffect(() => () => { recognitionRef.current?.stop(); window.clearTimeout(voiceNoticeTimer.current); }, []);
   useEffect(() => {
     if (!textarea.current) return;
     textarea.current.style.height = 'auto';
@@ -115,9 +133,10 @@ export function WorkspaceChatComposer({
               {MODE_OPTIONS.map(option => <button key={option.id} type="button" role="menuitemradio" aria-checked={executionMode === option.id} className={executionMode === option.id ? 'is-active' : ''} onClick={() => { onExecutionModeChange?.(option.id); intensityMenu.current?.removeAttribute('open'); }}><span><b>{option.label}</b><small>{option.detail}</small></span>{executionMode === option.id && <Icon name="check" size={15}/>}</button>)}
             </div>
           </details>
-          <button type="button" onClick={toggleVoice} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'listening' ? 'is-listening' : ''}`} aria-label={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'} title={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'}><Icon name="audio" size={17}/></button>
+          <button type="button" onClick={toggleVoice} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'listening' ? 'is-listening' : ''} ${voiceState === 'unsupported' ? 'is-unavailable' : ''}`} aria-label={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'} title={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'}><Icon name="audio" size={17}/></button>
           {running ? <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button> : <button type="submit" disabled={!value.trim() || attachments.some(item => item.uploading)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label="Enviar mensagem"><Icon name="arrowUp" size={17}/></button>}
         </div>
+        {voiceNotice && <span className="cv-composer-audio-status" role="status">{voiceNotice}</span>}
       </div>
     </form>
   </div>;

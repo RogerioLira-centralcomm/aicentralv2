@@ -378,7 +378,11 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(artifact, /resource\.editor_url/);
   assert.match(artifact, /resource\.download_url/);
   assert.match(artifact, /sandbox="allow-scripts"/);
-  assert.match(artifact, /Content-Security-Policy/);
+  assert.match(artifact, /Despublicar/);
+  assert.match(app, /\/unpublish/);
+  assert.match(composer, /Ditado por voz não está disponível neste navegador/);
+  assert.match(artifact, /static\/css\/tailwind\/artifact\.css/);
+  assert.match(artifact, /data-cadu-brand-header/);
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
   assert.match(conversation, /Ver resposta completa/);
   assert.match(conversation, /ResponseBlocks/);

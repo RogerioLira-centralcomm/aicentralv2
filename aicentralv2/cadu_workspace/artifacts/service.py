@@ -226,6 +226,27 @@ def publish_artifact(context: RequestContext, artifact_id: str) -> dict:
     return get_artifact(context, artifact_id)
 
 
+def unpublish_artifact(context: RequestContext, artifact_id: str) -> dict:
+    """Revoke the public URL while keeping the HTML artifact and its versions."""
+    artifact = get_artifact(context, artifact_id)
+    if artifact.get("type") != "html":
+        raise BadRequest("Somente artefatos HTML podem ser retirados da publicação.")
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE cadu_workspace_artifacts
+                              SET status = 'draft', updated_at = NOW()
+                            WHERE id = %s AND organization_id = %s AND client_id = %s""",
+                        (str(artifact_id), context.organization_id, context.client_id))
+            if cur.rowcount != 1:
+                raise NotFound("Artefato indisponível.")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return get_artifact(context, artifact_id)
+
+
 def get_public_artifact(artifact_id: str) -> dict:
     """Read only published HTML; intentionally has no session or tenant input."""
     with get_db().cursor() as cur:

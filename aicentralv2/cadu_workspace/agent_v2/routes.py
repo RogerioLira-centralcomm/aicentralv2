@@ -13,10 +13,11 @@ from ...cadu_family import context as family_context, repository
 from .request_context import resolve
 from .response_policy import budget_for, policy_for
 from .router import route_request
+from .guardrails import _clean_runtime_html
 from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
-from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, patch_artifact, publish_artifact
+from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, patch_artifact, publish_artifact, unpublish_artifact
 from .service import prepare as prepare_message, stream as stream_message
 from .provider import ProviderUnavailable
 from . import journal, observability
@@ -483,6 +484,15 @@ def artifact_publish(artifact_id):
     return jsonify(artifact=artifact, url=public_url)
 
 
+@bp.post("/artifacts/<uuid:artifact_id>/unpublish")
+def artifact_unpublish(artifact_id):
+    data = request.get_json(silent=True) or {}
+    current = resolve(conversation_id=data.get("conversation_id"),
+                      surface=str(data.get("surface") or "conversations"))
+    artifact = unpublish_artifact(current, str(artifact_id))
+    return jsonify(artifact=artifact)
+
+
 @public_bp.get("/public/cadu/artifacts/<uuid:artifact_id>")
 def public_artifact(artifact_id):
     artifact = get_public_artifact(str(artifact_id))
@@ -490,7 +500,7 @@ def public_artifact(artifact_id):
     title = html_escape(str(artifact.get("title") or "Cadu"), quote=True)
     css = str(content.get("css") or "").replace("</style", "<\\/style")
     javascript = str(content.get("js") or "").replace("</script", "<\\/script")
-    body = str(content.get("html") or "")
+    body = _clean_runtime_html(content.get("html"), 100_000)
     logo = str(content.get("logo_url") or "").strip()
     if not (logo.startswith("https://") or logo.startswith("/")):
         logo = ""
@@ -505,14 +515,18 @@ def public_artifact(artifact_id):
         f"--cadu-brand-secondary:{secondary_color}" if secondary_color else "",
     ) if item)
     favicon = f'<link rel="icon" href="{logo}">' if logo else ""
+    brand_name = html_escape(str(content.get("title") or title or "Cadu"), quote=True)
+    brand_header = ""
+    if logo and not re.search(r"<img\b", body, flags=re.IGNORECASE):
+        brand_header = f'<header data-cadu-brand-header class="mx-auto flex w-full max-w-6xl items-center gap-3 border-b border-slate-200 px-6 py-4" style="border-bottom-color:var(--cadu-brand-primary,#176b5e)"><img src="{logo}" alt="" class="h-8 w-auto object-contain"><span class="text-sm font-semibold text-slate-700">{brand_name}</span></header>'
     document = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title>
-<meta http-equiv="Content-Security-Policy" content="sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
-{favicon}<script src="https://cdn.tailwindcss.com"></script><style>:root{{{theme}}}html,body{{margin:0;min-height:100%;background:#f8fafc}}{css}</style></head>
-<body>{body}<script>{javascript}</script></body></html>"""
+<meta http-equiv="Content-Security-Policy" content="sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+{favicon}<link rel="stylesheet" href="/static/css/tailwind/artifact.css"><style>:root{{{theme}}}html,body{{margin:0;min-height:100%;background:#f8fafc}}{css}</style></head>
+<body>{brand_header}{body}<script>{javascript}</script></body></html>"""
     response = Response(document, mimetype="text/html")
-    response.headers["Content-Security-Policy"] = "sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    response.headers["Content-Security-Policy"] = "sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response

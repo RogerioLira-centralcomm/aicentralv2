@@ -4,7 +4,7 @@ import {VisualIdentity} from './VisualIdentity';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {CaduDialog} from './CaduDialog';
 import {workspaceSolutionItems} from '../workspaceSolutions';
-import {openProjectChat} from '../workspaceNavigation';
+import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceNavbar} from './WorkspaceNavbar';
 
 function ProjectIcon({name}) {
@@ -91,7 +91,7 @@ export function WorkspaceProject({bootstrap}) {
     <main className="cadu-ds-home-main">
       <WorkspaceNavbar className="cadu-ds-project-navbar" logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} actions={<a className="cadu-ds-project-quiet-link" href={projectLinks.legacy}>Mais opções</a>} onOpenAccount={() => setAccountOpen(true)}><a href={bootstrap.urls.projects}>Projetos</a><span aria-hidden="true">/</span><strong>{project.name}</strong></WorkspaceNavbar>
       <div className="cadu-ds-home-workarea cadu-ds-project-workarea">
-        <CaduDock brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={startConversation} onOpenBrand={item => item.href && window.location.assign(item.href)} onOpenResource={item => openProjectChat(bootstrap.urls.newConversation || projectLinks.conversation, item)} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>
         <section className="cadu-ds-project-content">
         <header className="cadu-ds-project-hero"><div className="cadu-ds-project-hero__identity"><VisualIdentity src={project.brand?.logoUrl} initials={project.brand?.initials || project.name} label={project.brand?.name || project.name} color={project.brand?.color || project.color}/></div><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}<span>{project.description || 'Organize a direção, as fontes e as decisões que vão sustentar este trabalho.'}</span></div><div className="cadu-ds-project-hero__actions"><button type="button" className="is-primary" onClick={startConversation}>Conversar no projeto</button><details><summary>Criar</summary><div><a href={projectLinks.createPlan}>Plano de mídia</a><a href={projectLinks.createImage}>Imagem</a><a href={projectLinks.createVideo}>Vídeo</a></div></details></div></header>
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta.</span><form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Reativar projeto</button></form></aside>}

@@ -9,3 +9,7 @@ export function openProjectChat(chatUrl, item) {
   target.searchParams.set('history', '1');
   window.location.assign(target.pathname + target.search);
 }
+
+export function openWorkspaceDetail(item) {
+  if (item?.href) window.location.assign(item.href);
+}

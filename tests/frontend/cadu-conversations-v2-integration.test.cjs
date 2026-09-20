@@ -42,6 +42,9 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   const cards = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/ResumeCards.jsx'), 'utf8');
   const selectors = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceSelectors.jsx'), 'utf8');
   const navigation = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/workspaceNavigation.js'), 'utf8');
+  const projects = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProjects.jsx'), 'utf8');
+  const brands = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrands.jsx'), 'utf8');
+  const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/workspace_home_chat.html'), 'utf8');
   assert.match(home, /window\.location\.assign\(bootstrap\.urls\.newConversation\)/);
   assert.match(home, /WorkspaceAccountMenu/);
@@ -50,7 +53,11 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
   assert.match(home, /matchedProjects/);
   assert.match(home, /workspaceSolutionItems\(bootstrap\)/);
-  assert.match(home, /openProjectChat\(bootstrap\.urls\.newConversation, item\)/);
+  assert.match(home, /onOpenResource=\{openWorkspaceDetail\}/);
+  assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);
+  assert.match(brands, /onOpenResource=\{openWorkspaceDetail\}/);
+  assert.match(sidebar, /Projeto —/);
+  assert.match(sidebar, /Marca —/);
   assert.match(navigation, /target\.searchParams\.set\('project_ref', projectRef\)/);
   assert.match(navigation, /target\.searchParams\.set\('history', '1'\)/);
   assert.match(dock, /DockTooltip/);

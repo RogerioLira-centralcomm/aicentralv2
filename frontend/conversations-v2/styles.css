@@ -58,7 +58,9 @@ body:has(#cadu-conversations-v2-root.cv-account-root) > #content,
 #cadu-conversations-v2-root .cv-recent-list>button:hover { background:rgba(127,207,194,.08); color:#e2efec; }
 #cadu-conversations-v2-root .cv-recent-list>button:disabled { cursor:wait; opacity:.62; }
 #cadu-conversations-v2-root .cv-recent-list>button[aria-current="page"] { background:#1d4541; color:#f0f8f6; }
-#cadu-conversations-v2-root .cv-recent-list>button span { min-width:0; flex:1; overflow:hidden; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+#cadu-conversations-v2-root .cv-recent-list>button span { display:grid; min-width:0; flex:1; gap:2px; overflow:hidden; }
+#cadu-conversations-v2-root .cv-recent-list>button span b { overflow:hidden; color:inherit; font-size:11px; font-weight:550; text-overflow:ellipsis; white-space:nowrap; }
+#cadu-conversations-v2-root .cv-recent-list>button span small { overflow:hidden; color:#6f8b85; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-recent-list>button i { width:6px; height:6px; border-radius:50%; background:var(--cv-accent); animation:cv-pulse 1s infinite; }
 #cadu-conversations-v2-root .cv-recent-list>p { padding:16px 10px; color:#738b87; font-size:11px; line-height:1.5; }
 #cadu-conversations-v2-root .cv-recent-loading { display:grid; gap:6px; }

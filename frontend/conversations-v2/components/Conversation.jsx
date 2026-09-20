@@ -108,7 +108,7 @@ const CAPABILITIES = [
 
 const COMPOSER_MAX_HEIGHT = 260;
 
-function Composer({value, onChange, onSubmit, onAttach, attachments, onRemoveAttachment, attachmentDestination, onAttachmentDestinationChange, hasProject, executionMode, onExecutionModeChange, running, onStop, composerContext, onClearContext}) {
+function Composer({value, onChange, onSubmit, attachments, onRemoveAttachment, attachmentDestination, onAttachmentDestinationChange, hasProject, executionMode, onExecutionModeChange, running, onStop, composerContext, onClearContext}) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
   const selectCapability = capability => {
@@ -141,7 +141,6 @@ function Composer({value, onChange, onSubmit, onAttach, attachments, onRemoveAtt
               <p>Skills e integrações disponíveis para esta conta aparecerão aqui.</p>
             </div>
           </details>
-          <button type="button" onClick={onAttach} className="cv-composer-attach cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-full cv-border-0 cv-bg-transparent cv-text-mist" aria-label="Anexar arquivo" title="Anexar arquivo"><Icon name="attach" size={16}/></button>
         </div>
         {running ? <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button> : <button type="submit" disabled={!value.trim() || attachments.some(item => item.uploading)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label="Enviar mensagem"><Icon name="arrowUp" size={17}/></button>}
       </div>
@@ -149,7 +148,7 @@ function Composer({value, onChange, onSubmit, onAttach, attachments, onRemoveAtt
   </div>;
 }
 
-export function Conversation({title, context, projects, onProjectChange, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, onAttach, attachments, onRemoveAttachment, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onNew, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, mobileMenu, artifactOpen, notice, onDismissNotice, composerContext, onClearContext}) {
+export function Conversation({title, context, projects, onProjectChange, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onNew, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, mobileMenu, artifactOpen, notice, onDismissNotice, composerContext, onClearContext}) {
   const details = useRef(null);
   return <section className="cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink">
     <header className="cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-border-b cv-border-white/[.07] cv-px-4 md:cv-px-6">
@@ -168,7 +167,7 @@ export function Conversation({title, context, projects, onProjectChange, context
     </header>
     {notice && <div className="cv-absolute cv-right-5 cv-top-[78px] cv-z-30 cv-flex cv-w-[min(390px,calc(100%-40px))] cv-items-start cv-gap-3 cv-rounded-xl cv-border cv-border-[#ff7d83]/25 cv-bg-[#28191b]/95 cv-p-3 cv-shadow-2xl cv-backdrop-blur" role="alert"><span className="cv-mt-1 cv-h-2 cv-w-2 cv-flex-none cv-rounded-full cv-bg-[#ff7d83]"/><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-xs cv-font-semibold">{notice.title}</strong>{notice.detail && <span className="cv-mt-1 cv-block cv-text-[11px] cv-leading-5 cv-text-[#d8b5b7]">{notice.detail}</span>}</div><button type="button" onClick={onDismissNotice} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#c99b9e]" aria-label="Fechar aviso"><Icon name="close" size={14}/></button></div>}
     <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
-    <Composer value={input} onChange={setInput} onSubmit={onSubmit} onAttach={onAttach} attachments={attachments} onRemoveAttachment={onRemoveAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext}/>
+    <Composer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;
 }

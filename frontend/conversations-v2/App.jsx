@@ -18,7 +18,7 @@ export default function App({bootstrap}) {
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
-  const [executionMode, setExecutionMode] = useState('analysis');
+  const [executionMode, setExecutionMode] = useState(() => new URLSearchParams(window.location.search).get('mode') || 'analysis');
   const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
@@ -41,7 +41,6 @@ export default function App({bootstrap}) {
   const artifactRef = useRef(null);
   const runRef = useRef(null);
   const runStartedRef = useRef(0);
-  const fileRef = useRef(null);
   const discardResolverRef = useRef(null);
   const dragDepthRef = useRef(0);
 
@@ -412,10 +411,9 @@ export default function App({bootstrap}) {
     {!bootstrap.homeMode && <Sidebar bootstrap={bootstrap} conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} loading={historyLoading} openingId={openingId}/>}
     {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
     <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
+      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
       {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
     </div>
-    <input ref={fileRef} type="file" hidden multiple accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx" onChange={event => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }}/>
     <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
   </div>;
 }

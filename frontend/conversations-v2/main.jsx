@@ -16,7 +16,7 @@ if (root && bootstrapNode) {
   try {
     const bootstrap = JSON.parse(bootstrapNode.textContent);
     const workspaceMode = bootstrap.homeMode || bootstrap.projectMode || bootstrap.brandsMode || bootstrap.projectsMode;
-    createRoot(root).render(<ThemeProvider skin={workspaceMode ? 'workspace' : 'conversations'} theme={workspaceMode ? 'light' : 'dark'}>{bootstrap.homeMode ? <WorkspaceHome bootstrap={bootstrap}/> : bootstrap.projectMode ? <WorkspaceProject bootstrap={bootstrap}/> : bootstrap.brandsMode ? <WorkspaceBrands bootstrap={bootstrap}/> : bootstrap.projectsMode ? <WorkspaceProjects bootstrap={bootstrap}/> : <App bootstrap={bootstrap}/>}</ThemeProvider>);
+    createRoot(root).render(<ThemeProvider skin={workspaceMode ? 'workspace' : 'conversations'} theme={workspaceMode ? 'light' : 'dark'} persistKey={workspaceMode ? 'cadu-workspace-theme' : 'cadu-conversations-theme'}>{bootstrap.homeMode ? <WorkspaceHome bootstrap={bootstrap}/> : bootstrap.projectMode ? <WorkspaceProject bootstrap={bootstrap}/> : bootstrap.brandsMode ? <WorkspaceBrands bootstrap={bootstrap}/> : bootstrap.projectsMode ? <WorkspaceProjects bootstrap={bootstrap}/> : <App bootstrap={bootstrap}/>}</ThemeProvider>);
   } catch (error) {
     root.innerHTML = '<p role="alert" style="padding:24px;color:#edf7f5">Não foi possível abrir a Conversas 2.0. Atualize a página.</p>';
     console.error(error);

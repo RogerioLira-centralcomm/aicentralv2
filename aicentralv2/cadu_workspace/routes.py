@@ -573,10 +573,20 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         brand_name = str(project.get('thumbnail_label') or '').casefold()
         if brand_name:
             brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
+    # A brand logo can be resolved while attaching project identity even when
+    # the brand row itself has no direct display_logo. Reuse that canonical
+    # project-linked mark so the shared dock never regresses to initials.
+    brand_logo_by_name: dict[str, str] = {}
+    for project in project_rows:
+        brand_name = str(project.get('thumbnail_label') or '').casefold()
+        brand_logo = str(project.get('brand_logo_url') or '').strip()
+        if brand_name and brand_logo:
+            brand_logo_by_name.setdefault(brand_name, brand_logo)
 
     brand_items = [{
         'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
-        'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+        'name': str(item.get('name') or 'Marca'),
+        'logoUrl': str(item.get('display_logo') or brand_logo_by_name.get(str(item.get('name') or '').casefold()) or ''),
         'visualInitials': str(item.get('display_initials') or 'M'),
         'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
         'visualVariant': _dock_visual_variant('brand', item.get('id')),
@@ -587,7 +597,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     project_items = [{
         'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
         'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
-        'previewUrl': '', 'projectRef': f"ci:{item.get('id')}",
+        'previewUrl': str(item.get('thumbnail_url') or item.get('brand_logo_url') or ''), 'projectRef': f"ci:{item.get('id')}",
         'brandName': str(item.get('thumbnail_label') or ''),
         'visualInitials': str(item.get('thumbnail_initials') or 'P'),
         'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),

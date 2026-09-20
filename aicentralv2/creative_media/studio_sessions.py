@@ -701,6 +701,23 @@ class PostgresSessionRepository:
         self.connection.commit()
         return self.read(client_id, user_id, ident)
 
+    def queue_session_receipt(self, client_id, user_id, ident, payload):
+        """Queue the one receipt for an open edit session without blocking it."""
+        recipient = clean_text(payload.get("recipient_email"), 320).lower()
+        if not recipient:
+            return
+        with self.connection.cursor() as cursor:
+            session = self._owned(cursor, client_id, user_id, ident)
+            cursor.execute("""
+                INSERT INTO cx_studio_delivery_outbox
+                    (id,root_session_id,finalization_id,session_id,recipient_email,recipient_name,kind,payload)
+                VALUES (%s,%s,NULL,%s,%s,%s,'session_saved',%s)
+                ON CONFLICT (root_session_id,kind) DO NOTHING
+            """, (new_id(), session["root_session_id"], ident, recipient,
+                  clean_text(payload.get("recipient_name"), 160), Json(payload.get("email_payload") or {})))
+            self._event(cursor, ident, "session_receipt_queued", payload={"recipient": recipient})
+        self.connection.commit()
+
     def listing(self, client_id, user_id, project_id=None, status=None, limit=100, include_all=False):
         values = [int(client_id)]
         where = ["client_id=%s"]

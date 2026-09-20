@@ -912,7 +912,34 @@ def studio_sessions():
         client_id = data.get('client_id') or session.get('cliente_id')
         store = _session_store(client_id)
         try:
-            return ok(store.create(client_id, user_id, data))
+            created = store.create(client_id, user_id, data)
+            # A mesa de edição fica aberta por padrão. O primeiro salvamento
+            # recebe um único recibo resumível; autosaves posteriores não
+            # disparam e-mail nem interrompem a criação.
+            if str(data.get('studio_type') or '').lower() == 'edit':
+                editor = ((data.get('metadata') or {}).get('editor') or {})
+                stage = editor.get('current_asset') if isinstance(editor.get('current_asset'), dict) else {}
+                stage_url = str(stage.get('url') or '')
+                recipient = str(session.get('user_email') or '').strip().lower()
+                if recipient and stage_url and hasattr(store, 'queue_session_receipt'):
+                    try:
+                        versions = editor.get('versions') if isinstance(editor.get('versions'), list) else []
+                        director = editor.get('director') if isinstance(editor.get('director'), dict) else {}
+                        review_points = [
+                            f"Formato em edição: {editor.get('format') or 'original'}.",
+                            f"{len(versions)} versão(ões) disponível(is) para revisão.",
+                        ]
+                        if director.get('objective'):
+                            review_points.append(f"Direção: {str(director['objective'])[:180]}")
+                        from urllib.parse import urlencode, urljoin
+                        query = urlencode({'session_id': created.get('id'), 'client_id': client_id, 'project_id': data.get('project_id') or ''})
+                        store.queue_session_receipt(client_id, user_id, created['id'], {
+                            'recipient_email': recipient, 'recipient_name': str(session.get('user_name') or ''),
+                            'email_payload': {'title': str(created.get('title') or 'Mesa de edição'), 'stage_image_url': urljoin(request.url_root, stage_url), 'session_url': f"{request.url_root.rstrip('/')}/studio/imagem?{query}", 'edits': max(0, len(versions) - 1), 'estimated_credits': int(((editor.get('estimate') or {}).get('estimated_tokens') or 0)), 'estimated_minutes': 0, 'review_points': review_points},
+                        })
+                    except Exception:
+                        logger.exception('Studio session receipt could not be queued')
+            return ok(created)
         except SessionConflict as error:
             return jsonify(success=False, error=str(error), code='revision_conflict'), 409
 

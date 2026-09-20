@@ -138,6 +138,30 @@ def send_piece_ready(*, recipient_email: str, recipient_name: str, title: str, u
     )
 
 
+def send_studio_session_saved(*, recipient_email: str, recipient_name: str, title: str,
+                              session_url: str, stage_image_url: str = "", edits: int = 0,
+                              estimated_credits: int = 0, estimated_minutes: int = 0,
+                              review_points: list[str] | None = None) -> dict:
+    """Send one resumable-work receipt when an edit session is first saved.
+
+    Autosaves do not call this function: the Studio route emits it only after
+    creating the session, so routine editing never turns into e-mail noise.
+    """
+    if not recipient_email or not _enabled():
+        return {"success": True, "skipped": True}
+    points = [str(item).strip() for item in (review_points or []) if str(item).strip()][:4]
+    return send_cadu_event(product="studio", event="studio.session_saved", template="studio-sessao-salva.html",
+        recipient=recipient_email, recipient_name=recipient_name or "Pessoa criadora",
+        subject=f"Sua mesa “{title or 'Studio'}” está salva para continuar",
+        params={
+            "BRAND": product_email_brand("studio"), "TITLE": title or "Mesa de edição salva",
+            "SESSION_URL": session_url, "STAGE_IMAGE_URL": stage_image_url,
+            "EDIT_COUNT": max(0, int(edits or 0)), "ESTIMATED_CREDITS": max(0, int(estimated_credits or 0)),
+            "ESTIMATED_MINUTES": max(0, int(estimated_minutes or 0)), "REVIEW_POINTS": points,
+        },
+    )
+
+
 def send_studio_work_completed(*, recipient_email: str, recipient_name: str, title: str,
                                asset_url: str, studio_url: str, metrics: dict,
                                public_url: str = "", session_url: str = "") -> dict:

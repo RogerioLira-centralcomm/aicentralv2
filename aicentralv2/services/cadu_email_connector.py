@@ -24,6 +24,7 @@ CADU_EMAIL_EVENTS: dict[str, dict[str, str]] = {
     "planner.quote_request_internal": {"product": "planner", "status": "active"},
     "planner.new_user_internal": {"product": "planner", "status": "active"},
     "studio.piece_ready": {"product": "studio", "status": "active"},
+    "studio.session_saved": {"product": "studio", "status": "active"},
     "studio.work_completed": {"product": "studio", "status": "active"},
 }
 

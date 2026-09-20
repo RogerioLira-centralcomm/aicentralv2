@@ -1,25 +1,25 @@
 {% extends "cadu_portals/base.html" %}
-{% block title %}Trocr — edição de criativos{% endblock %}
+{% block title %}Cadu Studio Editor{% endblock %}
 {% block product_id %}studio{% endblock %}
 {% block navigation %}{% endblock %}
-{% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/studio-legacy-compat.css') }}?v=1">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=13">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=16">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-standalone.css') }}?v=6">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-frame.css') }}?v=6">
-{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/editor/react/app.css') }}?v=1">{% endblock %}
 {% block content %}
-<div class="trocr-product" id="mcApp" data-mc-page="trocar">
-  {% include "cadu_studio/_context_bar.html" %}
-  <section class="trocr-product-workspace" data-panel="trocar">{% include panel %}</section>
-</div>
+<div id="cadu-studio-editor-root" aria-label="Cadu Studio Editor"><noscript>Ative o JavaScript para usar o Cadu Studio Editor.</noscript></div>
+<script id="cadu-studio-editor-bootstrap" type="application/json">{{ {
+  'csrf': mc_trocr_csrf,
+  'apiRoot': '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api',
+  'clientId': request.args.get('client_id') or request.args.get('creative_client_id') or '',
+  'projectId': request.args.get('project_id') or '',
+  'sessionId': request.args.get('session_id') or '',
+  'projectName': request.args.get('project_name') or '',
+  'links': {
+    'home': studio_url('modelagem_criativos'),
+    'create': studio_url('modelagem_criar'),
+    'editor': studio_url('modelagem_trocar'),
+    'videos': studio_url('modelagem_video'),
+    'analyzer': product_url('studio', '/analyzer'),
+    'library': studio_url('modelagem_criativos') ~ '#studioLibrary'
+  }
+}|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}
-<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
-<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/cadu-studio-edit-context.js') }}?v=2" defer></script>
-<script src="{{ url_for('static', filename='js/mc-viewer-shell.js') }}?v=1" defer></script>
-<script src="{{ url_for('static', filename='js/trocr/editor.js') }}?v=4" defer></script>
-<script src="{{ url_for('static', filename='js/mc-trocar.js') }}?v=97" defer></script>
-{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_studio/editor/react/app.js') }}?v=1"></script>{% endblock %}

@@ -348,12 +348,20 @@ def swap_input_references(payload=None, brand=None):
         image = str(value or "").strip()
         if image.startswith(("https://", "http://", "data:image/")) and image not in refs:
             refs.append(image)
-        if len(refs) >= 2:
+        if len(refs) >= 5:
+            break
+    for item in (payload or {}).get("reference_inputs") or []:
+        if not isinstance(item, dict):
+            continue
+        image = str(item.get("image") or item.get("url") or "").strip()
+        if image.startswith(("https://", "http://", "data:image/")) and image not in refs:
+            refs.append(image)
+        if len(refs) >= 5:
             break
     initial_reference = str((payload or {}).get("initial_reference") or "").strip()
-    if initial_reference and initial_reference not in refs and len(refs) < 2:
+    if initial_reference and initial_reference not in refs and len(refs) < 5:
         refs.append(initial_reference)
-    return refs[:2]
+    return refs[:5]
 
 
 def has_composition_reference(payload=None):
@@ -380,6 +388,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
     cta = str(payload.get("cta") or "").strip()
     note = str(payload.get("note") or payload.get("message") or payload.get("instruction") or "").strip()
     original_instruction = str(payload.get("original_instruction") or note).strip()
+    director_instruction = str(payload.get("director_instruction") or "").strip()
     color = str(
         payload.get("color")
         or brand.get("primary_color")
@@ -440,6 +449,15 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
             "The FIRST attachment is the source creative. The SECOND attachment may guide only the explicitly selected item. "
             "It is not permission to replace the source advertiser, logo, wordmark, copy, people or layout.",
         )
+    director = payload.get("director_context") if isinstance(payload.get("director_context"), dict) else {}
+    reference_roles = director.get("references") if isinstance(director.get("references"), list) else []
+    if reference_roles:
+        labels = []
+        for item in reference_roles[:4]:
+            if isinstance(item, dict):
+                labels.append(f"{item.get('source') or 'user'}:{item.get('role') or 'reference'}")
+        if labels:
+            lines.append("Additional visual references are similarity guides only (" + ", ".join(labels) + "). Preserve the source creative's advertiser, logo, people, copy and campaign identity.")
     selection = payload.get("selection_context") if isinstance(payload.get("selection_context"), dict) else {}
     box = selection.get("bbox_px")
     if isinstance(box, (list, tuple)) and len(box) == 4:
@@ -451,6 +469,8 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         lines.append(f"Literal user request (source of truth; do not expand it): {original_instruction}")
     if note and note != original_instruction:
         lines.append(f"Organized wording (may clarify structure but never override the literal request): {note}")
+    if director_instruction and director_instruction not in {note, original_instruction}:
+        lines.append(f"Editing director constraints (apply after the literal request): {director_instruction}")
     if variation in {"A", "B"}:
         lines.append(
             f"Create controlled test variation {variation}. Keep the same campaign, message and locked elements; vary only composition emphasis and visual treatment enough for an A/B comparison."

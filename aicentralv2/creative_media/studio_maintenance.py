@@ -79,6 +79,16 @@ class PostgresStudioMaintenance:
         return dict(row) if row else None
 
     def _email_payload(self, row):
+        snapshot = _mapping(row.get("payload"))
+        if row.get("kind") == "session_saved":
+            return {
+                "kind": "session_saved", "recipient_email": row.get("recipient_email") or "",
+                "recipient_name": row.get("recipient_name") or "", "title": snapshot.get("title") or "Mesa de edição salva",
+                "stage_image_url": absolute_studio_url(snapshot.get("stage_image_url"), self.base_url),
+                "session_url": absolute_studio_url(snapshot.get("session_url"), self.base_url),
+                "edits": snapshot.get("edits", 0), "estimated_credits": snapshot.get("estimated_credits", 0),
+                "estimated_minutes": snapshot.get("estimated_minutes", 0), "review_points": snapshot.get("review_points") or [],
+            }
         with self.connection.cursor() as cursor:
             cursor.execute("""
                 SELECT f.generation_count,f.edit_count,f.format_count,f.handoff_count,
@@ -89,7 +99,6 @@ class PostgresStudioMaintenance:
                  WHERE f.id=%s
             """, (row["finalization_id"],))
             detail = dict(cursor.fetchone() or {})
-        snapshot = _mapping(row.get("payload"))
         asset = _mapping(snapshot.get("asset"))
         usage = _mapping(snapshot.get("usage"))
         detail.update({
@@ -176,7 +185,9 @@ class PostgresStudioMaintenance:
 
     @staticmethod
     def _send_email(payload):
-        from ..services.cadu_product_emails import send_studio_work_completed
+        from ..services.cadu_product_emails import send_studio_session_saved, send_studio_work_completed
+        if payload.pop("kind", "") == "session_saved":
+            return send_studio_session_saved(**payload)
         return send_studio_work_completed(**payload)
 
     @staticmethod

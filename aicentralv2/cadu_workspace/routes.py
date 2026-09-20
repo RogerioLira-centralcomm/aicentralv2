@@ -2151,13 +2151,17 @@ def dashboard():
             brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
     visible_brands = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
                        'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+                       'visualInitials': str(item.get('display_initials') or 'M'),
+                       'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
                        'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
                        'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)}
-                      for item in brands if item.get('display_logo')][:8]
+                      for item in brands][:8]
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
                       'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
                       'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
-                      'brandName': str(item.get('thumbnail_label') or '')} for item in projects]
+                      'brandName': str(item.get('thumbnail_label') or ''),
+                      'visualInitials': str(item.get('thumbnail_initials') or 'P'),
+                      'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e')} for item in projects]
     user_shortcuts = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
     dock_catalog = {('brand', item['id']): item for item in visible_brands}
     dock_catalog.update({('project', item['projectRef']): item for item in project_items})
@@ -2172,14 +2176,14 @@ def dashboard():
     dock_items = explicit_dock_items or suggested_dock_items
     home_data = {
         'agency': {'id': str(client_id), 'name': str(session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Minha agência')},
-        # The dock is visual navigation: a brand belongs there only after a
-        # principal logo has been chosen.  Brands without a logo remain in the
-        # contextual selectors and search, never as generated initials.
+        # Every brand has a visual identity in the React shell. A principal logo
+        # is preferred, but the approved initials and color are a deliberate
+        # fallback when a logo is still being prepared or cannot be loaded.
         'brands': visible_brands,
         'projects': project_items,
         'dock': {'items': dock_items, 'isSuggested': bool(suggested_dock_items)},
         'resources': project_items[:8],
-        'resumeCards': [{'id': f"ci:{item.get('id')}", 'title': str(item.get('nome') or 'Projeto'), 'context': str(item.get('thumbnail_label') or 'Projeto'), 'status': f"{int(item.get('total_conversas') or 0)} conversa(s)", 'previewUrl': str(item.get('thumbnail_url') or ''), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects[:3]],
+        'resumeCards': [{'id': f"ci:{item.get('id')}", 'title': str(item.get('nome') or 'Projeto'), 'context': str(item.get('thumbnail_label') or 'Projeto'), 'status': f"{int(item.get('total_conversas') or 0)} conversa(s)", 'previewUrl': str(item.get('thumbnail_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects[:3]],
         'usagePercent': round(usage),
     }
     return render_template(
@@ -2233,6 +2237,34 @@ def brands():
         records = [brand for brand in records if brand.get('analysis_metadata')]
     elif filter_name == 'com-ativos':
         records = [brand for brand in records if int(brand.get('asset_count') or 0)]
+    if request.args.get('legacy') != '1':
+        projects = _workspace_projects(client_id)
+        all_brands = _workspace_brands(client_id)
+        catalog_records = all_brands
+        if filter_name == 'auditadas':
+            catalog_records = [brand for brand in catalog_records if brand.get('analysis_metadata')]
+        elif filter_name == 'com-ativos':
+            catalog_records = [brand for brand in catalog_records if int(brand.get('asset_count') or 0)]
+        brand_items = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'),
+                        'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+                        'visualInitials': str(item.get('display_initials') or 'M'),
+                        'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+                        'sector': str(item.get('sector') or ''), 'summary': str(item.get('display_summary') or ''),
+                        'assetCount': int(item.get('asset_count') or 0), 'audited': bool(item.get('analysis_metadata')),
+                        'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in catalog_records]
+        project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
+                          'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''),
+                          'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+                          'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects]
+        shortcut_rows = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
+        all_brand_items = {item['id']: item for item in [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'), 'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in all_brands]}
+        project_catalog = {item['projectRef']: item for item in project_items}
+        dock_items = [{**all_brand_items[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'brand' and row['target_ref'] in all_brand_items]
+        dock_items += [{**project_catalog[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'project' and row['target_ref'] in project_catalog]
+        if not dock_items:
+            dock_items = (list(all_brand_items.values())[:3] + project_items)[:8]
+        return render_template('cadu_workspace/brands_react.html', brand_items=brand_items, project_items=project_items, dock_items=dock_items,
+                               query=query, filter_name=filter_name, usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
     return render_template('cadu_workspace/brands.html', brands=records, query=query, filter_name=filter_name)
 
 
@@ -2465,8 +2497,21 @@ def projects():
     client_id = int(session.get('cliente_id') or 0)
     query = request.args.get('q', '')
     status = request.args.get('status', 'ativos')
-    return render_template('cadu_workspace/projects.html', projects=_workspace_projects(client_id, query, status), query=query,
-                           status=status if status in {'ativos', 'arquivados', 'todos'} else 'ativos')
+    status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
+    records = _workspace_projects(client_id, query, status)
+    if request.args.get('legacy') != '1':
+        catalog_records = _workspace_projects(client_id, status=status)
+        items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
+        brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
+        shortcut_rows = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
+        project_catalog = {item['projectRef']: item for item in items}
+        brand_catalog = {item['id']: item for item in brands}
+        dock_items = [{**brand_catalog[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'brand' and row['target_ref'] in brand_catalog]
+        dock_items += [{**project_catalog[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'project' and row['target_ref'] in project_catalog]
+        if not dock_items:
+            dock_items = brands[:3] + items[:5]
+        return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items, query=query, status=status, usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
+    return render_template('cadu_workspace/projects.html', projects=records, query=query, status=status)
 
 
 @bp.get('/projetos')
@@ -2518,6 +2563,81 @@ def project_detail(project_id):
     if not project:
         abort(404)
     _remember_workspace_project(project_id)
+    # Keep the established dossier available as a continuity surface while the
+    # React view becomes the default. This makes the migration reversible for
+    # the few administrative flows that are still being consolidated.
+    if request.args.get('legacy') != '1':
+        projects = _workspace_projects(client_id)
+        brands = _workspace_brands(client_id)
+        project_items = [{
+            'id': f"ci:{item.get('id')}", 'kind': 'project',
+            'title': str(item.get('nome') or 'Projeto'),
+            'previewUrl': str(item.get('thumbnail_url') or ''),
+            'visualInitials': str(item.get('thumbnail_initials') or 'P'),
+            'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+            'projectRef': f"ci:{item.get('id')}",
+            'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
+        } for item in projects]
+        brand_items = [{
+            'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
+            'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+            'visualInitials': str(item.get('display_initials') or 'M'),
+            'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
+        } for item in brands]
+        shortcuts = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
+        catalog = {('brand', item['id']): item for item in brand_items}
+        catalog.update({('project', item['projectRef']): item for item in project_items})
+        dock_items = [{**catalog[(row['shortcut_type'], row['target_ref'])], 'shortcutId': row['id'], 'pinned': True}
+                      for row in shortcuts if (row['shortcut_type'], row['target_ref']) in catalog]
+        if not dock_items:
+            dock_items = (brand_items[:3] + project_items)[:8]
+        active_brand = next(iter(project.get('brands') or []), {})
+        project_data = {
+            'id': str(project.get('id')), 'name': str(project.get('nome') or 'Projeto'),
+            'description': str(project.get('descricao') or ''),
+            'instructions': str(project.get('instrucoes') or ''),
+            'status': str(project.get('status') or 'ativo'),
+            'color': str(project.get('cor') or '#176b5e'),
+            'identity': {field: str(project.get(field) or '') for field in ('publico', 'tom_de_voz', 'posicionamento')},
+            'brand': {
+                'id': str(active_brand.get('id') or ''),
+                'name': str(active_brand.get('name') or ''),
+                'crmClientId': str(active_brand.get('crm_client_id') or ''),
+                'href': url_for('cadu_workspace.clean_brand_detail', brand_id=active_brand['id']) if active_brand else '',
+                'logoUrl': str(active_brand.get('display_logo') or ''),
+                'initials': str(active_brand.get('display_initials') or 'M'),
+                'color': str(active_brand.get('display_color') or active_brand.get('primary_color') or '#176b5e'),
+            },
+            'files': [{'id': str(item.get('id')), 'title': str(item.get('nome_arquivo') or 'Fonte'),
+                       'mime': str(item.get('mime') or 'Arquivo'), 'status': str(item.get('indexing_status') or 'queued'),
+                       'words': int(item.get('word_count') or 0)} for item in project.get('files') or []],
+            'deliveries': ([{'id': f"plan:{item.get('id')}", 'title': str(item.get('title') or 'Plano de mídia'),
+                             'kind': 'Planejamento', 'status': str(item.get('status') or ''),
+                             'href': product_url('planner', f"/planos/{item.get('id')}")} for item in project.get('plans') or []] +
+                           [{'id': f"image:{item.get('id')}", 'title': str(item.get('title') or 'Imagem do projeto'),
+                             'kind': 'Criação visual', 'status': 'Prévia disponível' if item.get('preview_url') else 'Registro visual',
+                             'href': str(item.get('preview_url') or '')} for item in project.get('images') or []] +
+                           [{'id': f"analysis:{item.get('public_id')}", 'title': str(item.get('original_name') or 'Criativo analisado'),
+                             'kind': 'Análise criativa', 'status': str(item.get('status') or ''),
+                             'href': product_url('studio', f"/analyzer/{item.get('public_id')}")} for item in project.get('creative_analyses') or []]),
+            'resources': [{'id': str(item.get('id') or item.get('resource_id') or item.get('title')), 'title': str(item.get('title') or 'Recurso'),
+                           'kind': str(item.get('category') or item.get('resource_type') or 'Recurso'),
+                           'status': str(item.get('status') or '')} for item in project.get('resources') or []],
+            'resourceRegistryAvailable': bool(project.get('resource_registry_available')),
+            'memory': [{'id': str(item.get('id')), 'kind': str(item.get('kind') or 'Memória'),
+                        'summary': str(item.get('summary') or '')} for item in (project.get('memory') or {}).get('confirmed', [])],
+            'activity': [{'id': f"{index}:{item.get('title')}", 'title': str(item.get('title') or 'Atualização'),
+                          'detail': str(item.get('detail') or '')} for index, item in enumerate(project.get('activity') or [])],
+            'links': [{'id': str(item.get('id')), 'title': str(item.get('titulo') or 'Atalho'), 'url': str(item.get('url') or ''),
+                       'provider': str(item.get('provider') or '')} for item in project.get('links') or []],
+            'health': project.get('context_health') or {},
+        }
+        return render_template(
+            'cadu_workspace/project_detail_react.html', project_data=project_data,
+            project_items=project_items, brand_items=brand_items, dock_items=dock_items,
+            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)),
+        )
     return render_template('cadu_workspace/project_detail.html', project=project, brands=_workspace_brands(client_id),
                            can_manage_brand=session.get('user_type') in {'admin', 'superadmin'})
 

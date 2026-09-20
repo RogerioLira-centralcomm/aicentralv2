@@ -16,6 +16,13 @@ export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onMo
   return <dialog open className="cadu-ds-dialog" aria-label="Personalizar dock"><header><div><h2>Personalizar dock</h2><p>Fixe, remova ou reorganize seus atalhos.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-list">{items.map((item, index) => <div key={item.id}><span>{item.title}</span><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Fixar'}</button><button type="button" disabled={!item.pinned || !index} onClick={() => onMove?.(item, -1)} aria-label={`Mover ${item.title} para cima`}>↑</button><button type="button" disabled={!item.pinned || index === pinnedCount - 1} onClick={() => onMove?.(item, 1)} aria-label={`Mover ${item.title} para baixo`}>↓</button></div>)}</div></dialog>;
 }
 
+export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, onManageShortcuts}) {
+  if (!open) return null;
+  return <dialog open className="cadu-ds-dialog cadu-ds-account-menu" aria-label="Conta e gestão"><header><div className="cadu-ds-account-menu__identity"><b>{user.name || 'Minha conta'}</b>{user.email && <small>{user.email}</small>}</div><button type="button" onClick={onClose} aria-label="Fechar conta">×</button></header><nav aria-label="Conta e gestão">
+    <a href={links.profile}>Perfil</a><a href={links.usage}>Créditos e consumo</a><a href={links.plans}>Planos</a><a href={links.team}>Equipe</a>{links.observability && <a href={links.observability}>Observabilidade</a>}
+  </nav><footer><button type="button" onClick={onManageShortcuts}>Personalizar atalhos</button><a href={links.logout}>Sair</a></footer></dialog>;
+}
+
 export function UndoToast({message, actionLabel = 'Desfazer', onUndo, onDismiss}) {
   if (!message) return null;
   return <div className="cadu-ds-undo-toast" role="status"><span>{message}</span>{onUndo && <button type="button" onClick={onUndo}>{actionLabel}</button>}<button type="button" onClick={onDismiss} aria-label="Fechar">×</button></div>;

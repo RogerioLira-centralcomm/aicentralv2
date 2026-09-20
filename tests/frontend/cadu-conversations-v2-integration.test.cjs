@@ -35,6 +35,49 @@ test('official conversation screen wires v2 without removing legacy fallback', (
   assert.match(chat, /\/familia\/api\/conversations\/send/);
 });
 
+test('Workspace home keeps a functional product switcher and resilient visual dock', () => {
+  const home = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceHome.jsx'), 'utf8');
+  const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
+  const cards = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/ResumeCards.jsx'), 'utf8');
+  const selectors = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceSelectors.jsx'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/workspace_home_chat.html'), 'utf8');
+  assert.match(home, /window\.location\.assign\(bootstrap\.urls\.newConversation\)/);
+  assert.match(home, /WorkspaceAccountMenu/);
+  assert.match(home, /matchedProjects/);
+  assert.match(home, /id: 'skills'/);
+  assert.match(dock, /data-tooltip/);
+  assert.match(dock, /Organizar atalhos/);
+  assert.doesNotMatch(dock, /Arquivos e documentos/);
+  assert.match(dock, /VisualIdentity/);
+  assert.match(cards, /VisualIdentity/);
+  assert.match(cards, /is-featured/);
+  assert.doesNotMatch(cards, /Visualização indisponível/);
+  assert.match(selectors, /href=\{solution\.href\}/);
+  assert.match(template, /'avatar': \(perfil_contato or \{\}\)\.get\('foto_url'\)/);
+  assert.match(template, /'planner': product_url\('planner', '\/'\)/);
+  assert.match(template, /'skills': product_url\('skills', '\/'\)/);
+  assert.match(template, /'logout': product_url\('auth', '\/logout'\)/);
+});
+
+test('project dossier reuses the React workspace shell while retaining project actions', () => {
+  const project = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProject.jsx'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/project_detail_react.html'), 'utf8');
+  const route = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
+  const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
+  assert.match(project, /cadu-ds-project-library/);
+  assert.match(project, /Editar contexto/);
+  assert.match(project, /Enviar arquivo/);
+  assert.match(project, /Criar primeira entrega/);
+  assert.match(project, /WorkspaceAccountMenu/);
+  assert.match(template, /'projectMode': True/);
+  assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
+  assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
+  assert.match(template, /'legacy': url_for\('cadu_workspace\.project_detail'/);
+  assert.match(route, /request\.args\.get\('legacy'\) != '1'/);
+  assert.match(route, /project_detail_react\.html/);
+  assert.match(entry, /bootstrap\.projectMode \? <WorkspaceProject/);
+});
+
 test('v2 artifact surface uses optimistic version checks', () => {
   const artifact = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/artifacts-v2.js'), 'utf8');
   assert.match(artifact, /expected_version/);

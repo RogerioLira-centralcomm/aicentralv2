@@ -1,0 +1,42 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}{{ project_data.name }} — Projetos — Workspace{% endblock %}
+{% block product_id %}workspace{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=6">{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content %}
+<div id="cadu-conversations-v2-root" class="cv-home-root" aria-label="{{ project_data.name }} — projeto no Workspace"><noscript>Ative o JavaScript para usar o projeto no Workspace.</noscript></div>
+<script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
+  'projectMode': True,
+  'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
+  'csrf': session.get('family_csrf', ''),
+  'usagePercent': usage_percent,
+  'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '')},
+  'project': project_data,
+  'projects': project_items,
+  'brands': brand_items,
+  'dock': {'items': dock_items},
+  'urls': {
+    'home': url_for('cadu_workspace.dashboard'), 'projects': url_for('cadu_workspace.clean_projects'),
+    'profile': url_for('cadu_workspace.account_page', section='perfil'), 'usage': url_for('cadu_workspace.account_page', section='creditos'),
+    'plans': url_for('cadu_workspace.account_page', section='planos'), 'team': url_for('cadu_workspace.account_page', section='equipe'),
+    'observability': url_for('cadu_agent_v2_lab.observability_page') if session.get('user_type') in ('admin', 'superadmin') else '',
+    'logout': product_url('auth', '/logout'),
+    'solutions': {'workspace': url_for('cadu_workspace.dashboard'), 'planner': product_url('planner', '/'), 'studio': product_url('studio', '/'), 'connect': product_url('connect', '/'), 'skills': product_url('skills', '/')}
+  },
+  'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')},
+  'projectLinks': {
+    'conversation': url_for('cadu_workspace.conversations', project='ci:' ~ project_data.id, prompt='Quero trabalhar no projeto ' ~ project_data.name ~ '.'),
+    'createPlan': product_url('planner', '/novo?project_id=' ~ project_data.id ~ ('&cliente_id=' ~ project_data.brand.crmClientId ~ '&cliente_name=' ~ (project_data.brand.name|urlencode) ~ '&brand_id=' ~ project_data.brand.id ~ '&brand_name=' ~ (project_data.brand.name|urlencode) if project_data.brand.id else '')),
+    'createImage': product_url('studio', '/studio/modelagem-criativos/criar?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),
+    'createVideo': product_url('studio', '/studio/modelagem-criativos/video?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),
+    'updateContext': url_for('cadu_workspace.update_project_context', project_id=project_data.id),
+    'createNote': url_for('cadu_workspace.create_project_note', project_id=project_data.id),
+    'uploadSource': url_for('cadu_workspace.upload_project_source', project_id=project_data.id),
+    'importUrl': url_for('cadu_workspace.import_project_url', project_id=project_data.id),
+    'createLink': url_for('cadu_workspace.create_project_link', project_id=project_data.id),
+    'toggleStatus': url_for('cadu_workspace.update_project_status', project_id=project_data.id),
+    'legacy': url_for('cadu_workspace.project_detail', project_id=project_data.id, legacy=1)
+  }
+}|tojson }}</script>
+{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=6"></script>{% endblock %}

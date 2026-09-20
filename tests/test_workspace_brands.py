@@ -1,10 +1,13 @@
 from io import BytesIO
 import json
+from pathlib import Path
 from unittest import TestCase, mock
 
 from flask import Flask
+from jinja2 import FileSystemLoader
 from werkzeug.exceptions import BadRequest
 
+from aicentralv2.product_domains import product_url
 from aicentralv2.cadu_workspace.routes import (
     _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
     _normalized_website_url, _user_dock_shortcuts,
@@ -400,6 +403,35 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(params[-2:], (81, 12))
         connection.commit.assert_called_once_with()
 
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._brand_linked_projects', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_brand_detail_renders_the_hero_action_only_after_approval(
+            self, workspace_brand, linked_projects, projects):
+        workspace_brand.return_value = {
+            'id': 81, 'name': 'Marca aprovada', 'sector': 'Serviços',
+            'website_url': 'https://example.com', 'primary_color': '#176b5e',
+            'secondary_color': '#dcece6', 'display_logo': '', 'display_initials': 'MA',
+            'seed_visuals': {'hero': ''}, 'assets': [], 'brand_profile': {},
+            'analysis_metadata': {'review_pack': {'status': 'approved'}},
+            'readiness': {'score': 100, 'missing': []}, 'crm_client_id': 12,
+            'tone_of_voice': '',
+        }
+
+        client = _client()
+        client.application.jinja_loader = FileSystemLoader(
+            str(Path(__file__).resolve().parents[1] / 'aicentralv2' / 'templates')
+        )
+        client.application.jinja_env.globals['product_url'] = product_url
+        client.application.add_url_rule(
+            '/observabilidade', endpoint='cadu_agent_v2_lab.observability_page',
+            view_func=lambda: '',
+        )
+        response = client.get('/marcas/81')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Criar hero', response.get_data(as_text=True))
+
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes.CaduCreditConnector')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={
@@ -430,3 +462,20 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn('referências recentes', response.get_data(as_text=True))
         search.assert_called_once()
+
+    @mock.patch('aicentralv2.creative_brand_analysis.search_recent_brand_creatives')
+    @mock.patch('aicentralv2.services.integration_credentials.resolve_firecrawl_api_key', return_value='key')
+    @mock.patch('aicentralv2.cadu_credit_connector.CaduCreditConnector')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81, 'name': 'Marca'})
+    def test_recent_brand_references_expose_insufficient_credits(
+            self, _brand, credits, _key, search):
+        from aicentralv2.cadu_tool_billing import InsufficientToolCredits
+
+        credits.return_value.authorize_firecrawl.side_effect = InsufficientToolCredits('Saldo insuficiente.')
+        response = _client().post('/workspace/app/marcas/81/ativos/referencias-recentes', data={
+            '_csrf': 'known-token',
+        })
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('Saldo insuficiente', response.get_data(as_text=True))
+        search.assert_not_called()

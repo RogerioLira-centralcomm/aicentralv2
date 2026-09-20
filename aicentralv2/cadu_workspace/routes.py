@@ -3547,6 +3547,7 @@ def find_recent_brand_creatives(brand_id):
         abort(404)
     from ..creative_brand_analysis import search_recent_brand_creatives
     from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+    from ..cadu_tool_billing import InsufficientToolCredits
     from ..creative_modeling_service import CreativeModelingService
     from ..services.integration_credentials import resolve_firecrawl_api_key
     user_id = int(session.get('user_id') or 0)
@@ -3572,7 +3573,7 @@ def find_recent_brand_creatives(brand_id):
         )
     except HTTPException:
         raise
-    except CaduCreditUnavailable as exc:
+    except (CaduCreditUnavailable, InsufficientToolCredits) as exc:
         abort(409, description=str(exc))
     except Exception:
         current_app.logger.exception('Não foi possível buscar referências recentes da marca %s', brand_id)

@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useId, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {VisualIdentity} from './VisualIdentity';
+import {Icon} from '../../conversations-v2/lib/icons';
 
 function DockTooltip({label, children}) {
   const anchorRef = useRef(null);
@@ -10,7 +11,9 @@ function DockTooltip({label, children}) {
   const updatePosition = useCallback(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setPosition({left: Math.round(rect.right + 12), top: Math.round(rect.top + rect.height / 2)});
+    // The dock is a compact vertical shelf. Its label belongs above the item,
+    // not beside it where it competes with the workspace content.
+    setPosition({left: Math.round(rect.left + rect.width / 2), top: Math.round(rect.top - 9)});
   }, []);
   const open = event => {
     children.props.onPointerEnter?.(event);
@@ -98,7 +101,7 @@ export function CaduDock({onNewConversation, brands = [], resources = [], shortc
     } catch (_) { /* The outer drop zone handles items originating elsewhere. */ }
   };
   return <aside className="cadu-ds-dock" aria-label="Atalhos do Workspace">
-    <DockTooltip label="Nova conversa"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Nova conversa">+</button></DockTooltip>
+    <DockTooltip label="Novo chat"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Novo chat"><Icon name="compose" size={18}/></button></DockTooltip>
     <div className="cadu-ds-dock-context" aria-label="Marcas e projetos fixados"><DockDropZone onDropItem={onDropItem}>{dockBrands.slice(0, 6).map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={writePayload} onDropShortcut={reorder}/>)}</DockDropZone>
       <div className="cadu-ds-dock-resources">{dockResources.slice(0, 6).map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} onOpen={onOpenResource} onDragStart={writePayload} onDropShortcut={reorder}/>)}</div></div>
     <div className="cadu-ds-dock-bottom"><DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/><DockTooltip label="Conta e perfil"><button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenUsage} aria-label="Abrir conta">{userAvatar ? <img className="cadu-ds-dock-avatar" src={userAvatar} alt=""/> : <span className="cadu-ds-dock-avatar cadu-ds-dock-avatar--fallback">{userInitials}</span>}</button></DockTooltip></div>

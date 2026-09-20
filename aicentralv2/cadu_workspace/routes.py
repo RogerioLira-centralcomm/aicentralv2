@@ -28,7 +28,7 @@ from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, 
 from ..db import close_db, get_db
 from ..product_domains import product_url
 from ..smart_planner.logos import public_logo
-from . import project_index_service, project_knowledge, project_sources
+from . import project_index_service, project_knowledge, project_resource_service, project_sources
 
 
 def _utc_timestamp() -> str:
@@ -1636,6 +1636,53 @@ def _project_recent_activity(project: dict) -> list[dict]:
     return activity[:10]
 
 
+def _workspace_continuity_feed(client_id: int, projects: list[dict], user: dict) -> list[dict]:
+    """Return recent work from the Registry and Conversations in one bounded feed."""
+    feed = []
+    projects_by_ref = {f"ci:{project.get('id')}": project for project in projects if project.get('id')}
+    labels = {'file': 'Fonte', 'artifact': 'Artefato', 'media_plan': 'Plano de mídia', 'report': 'Relatório', 'image': 'Imagem', 'video': 'Vídeo', 'analysis': 'Análise', 'link': 'Link'}
+    try:
+        resources = project_resource_service.list_recent_resources(client_id, list(projects_by_ref), limit=24)
+    except Exception:
+        current_app.logger.warning('Não foi possível montar recursos recentes do workspace do cliente %s', client_id, exc_info=True)
+        resources = []
+    for resource in resources:
+        updated = resource.get('source_updated_at') or resource.get('source_created_at') or resource.get('last_seen_at')
+        if not updated:
+            continue
+        project = projects_by_ref.get(str(resource.get('project_ref') or ''), {})
+        kind = str(resource.get('resource_type') or 'artifact')
+        label = labels.get(kind, 'Recurso')
+        feed.append({'id': str(resource.get('id')), 'kind': kind,
+                     'title': str(resource.get('title') or label), 'context': str(project.get('thumbnail_label') or project.get('nome') or 'Projeto'),
+                     'status': str(resource.get('status') or 'Atualizado'), 'updatedAt': updated,
+                     # The resource inspector lives inside the canonical project surface.
+                     # It preserves the exact Registry record instead of opening the project
+                     # with no indication of which item the user selected.
+                     'href': url_for('cadu_workspace.project_detail', project_id=str(project.get('id')), resource=str(resource.get('id'))),
+                     'resourceRef': str(resource.get('id')), 'projectRef': str(resource.get('project_ref') or ''),
+                     'previewUrl': '', 'visualColor': str(project.get('thumbnail_color') or project.get('cor') or '#176b5e')})
+    try:
+        conversations = family_repository.conversation_history(user, client_id, limit=16)
+    except Exception:
+        current_app.logger.warning('Não foi possível montar conversas recentes do workspace do cliente %s', client_id, exc_info=True)
+        conversations = []
+    for conversation in conversations:
+        updated = conversation.get('updated_at')
+        if not updated:
+            continue
+        project = projects_by_ref.get(str(conversation.get('project_ref') or ''), {})
+        feed.append({'id': f"conversation:{conversation.get('id')}", 'kind': 'conversation',
+                     'title': str(conversation.get('title') or 'Conversa sem título'),
+                     'context': str(project.get('thumbnail_label') or project.get('nome') or 'Conversa pessoal'),
+                     'status': 'Conversa atualizada', 'updatedAt': updated,
+                     'href': url_for('cadu_agent_v2_lab.conversations_v2_lab', conversation_id=str(conversation.get('id'))),
+                     'conversationId': str(conversation.get('id')), 'projectRef': str(conversation.get('project_ref') or ''),
+                     'previewUrl': '', 'visualColor': str(project.get('thumbnail_color') or project.get('cor') or '#176b5e')})
+    feed.sort(key=lambda item: item.get('updatedAt') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return feed[:8]
+
+
 def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
     """Compatibility wrapper kept for tests and callers of the first native slice."""
     return project_sources.chunks(content, limit)
@@ -2190,9 +2237,12 @@ def dashboard():
         'projects': project_items,
         'dock': {'items': dock_items, 'isSuggested': bool(suggested_dock_items)},
         'resources': project_items[:8],
-        # A continuity item represents work that actually happened. Empty
-        # projects must not become oversized placeholder cards on the home.
-        'resumeCards': [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'), 'context': str(item.get('thumbnail_label') or 'Projeto'), 'status': f"{int(item.get('total_conversas') or 0)} conversa(s)", 'previewUrl': str(item.get('thumbnail_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects if int(item.get('total_conversas') or 0) > 0][:5],
+        'resumeCards': _workspace_continuity_feed(client_id, projects, {
+            'id': int(session.get('user_id') or 0),
+            # Older Workspace sessions do not carry organization_id. In that
+            # case the client is the organization boundary used by Cadu Family.
+            'organization_id': int(session.get('organization_id') or session.get('organizacao_id') or client_id),
+        }),
         'usagePercent': round(usage),
     }
     return render_template(
@@ -2632,7 +2682,8 @@ def project_detail(project_id):
                              'href': product_url('studio', f"/analyzer/{item.get('public_id')}")} for item in project.get('creative_analyses') or []]),
             'resources': [{'id': str(item.get('id') or item.get('resource_id') or item.get('title')), 'title': str(item.get('title') or 'Recurso'),
                            'kind': str(item.get('category') or item.get('resource_type') or 'Recurso'),
-                           'status': str(item.get('status') or '')} for item in project.get('resources') or []],
+                           'resourceType': str(item.get('resource_type') or ''), 'mime': str(item.get('mime_type') or ''),
+                           'locator': str(item.get('locator') or ''), 'status': str(item.get('status') or '')} for item in project.get('resources') or []],
             'resourceRegistryAvailable': bool(project.get('resource_registry_available')),
             'memory': [{'id': str(item.get('id')), 'kind': str(item.get('kind') or 'Memória'),
                         'summary': str(item.get('summary') or '')} for item in (project.get('memory') or {}).get('confirmed', [])],

@@ -140,15 +140,16 @@
 .cadu-ds-selector select { min-width:158px; padding:0 24px 0 2px; color-scheme:dark; }
 .cadu-ds-selector select option { background:#102124; color:#edf7f5; }
 .cadu-ds-selector--project { padding-left:2px; }
-.cadu-ds-dock { flex-basis:64px; padding:12px 0 10px; border-right:0; }
-.cadu-ds-dock-new { width:32px; height:32px; margin:0 0 14px; border-radius:11px; }
+.cadu-ds-dock { flex-basis:64px; padding:12px 0 10px; border:0; }
+.cadu-ds-dock-new { width:32px; height:32px; margin:0 0 14px; border:0; border-radius:10px; background:transparent; color:#a8e5da; }
+.cadu-ds-dock-new:hover,.cadu-ds-dock-new:focus-visible { background:rgba(127,207,194,.13); color:#f4fffd; }
 .cadu-ds-dock-context { gap:8px; padding-bottom:4px; }
 .cadu-ds-dock-drop,.cadu-ds-dock-resources { gap:7px; }
 .cadu-ds-dock-brand,.cadu-ds-dock-resource { width:38px; height:38px; border-radius:11px; }
 .cadu-ds-dock-brand .cadu-ds-visual-identity,.cadu-ds-dock-resource .cadu-ds-visual-identity { border-radius:10px; }
 .cadu-ds-dock-brand:hover,.cadu-ds-dock-brand:focus-visible,.cadu-ds-dock-resource:hover,.cadu-ds-dock-resource:focus-visible { border-color:transparent; background:rgba(127,207,194,.12); }
-.cadu-ds-dock-tooltip { position:fixed; z-index:10000; max-width:220px; padding:7px 9px; transform:translateY(-50%); border:1px solid rgba(181,218,211,.14); border-radius:8px; background:#102124; color:#eaf5f2; box-shadow:0 10px 26px rgba(0,0,0,.28); font:600 11px/1.15 var(--cadu-font-sans); pointer-events:none; }
-.cadu-ds-dock-bottom { gap:7px; padding-top:8px; border-top:0; }
+.cadu-ds-dock-tooltip { position:fixed; z-index:10000; max-width:220px; padding:7px 9px; transform:translate(-50%,-100%); border:1px solid rgba(181,218,211,.14); border-radius:8px; background:#102124; color:#eaf5f2; box-shadow:0 10px 26px rgba(0,0,0,.28); font:600 11px/1.15 var(--cadu-font-sans); pointer-events:none; }
+.cadu-ds-dock-bottom { gap:7px; padding-top:8px; border:0; }
 .cadu-ds-shortcut-dialog { width:min(700px,calc(100vw - 32px)); }
 .cadu-ds-shortcut-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px; margin-top:22px; }
 .cadu-ds-shortcut-grid article { display:grid; gap:8px; min-height:144px; align-content:start; padding:11px; border:1px solid var(--cadu-line); border-radius:13px; background:var(--cadu-surface-soft); }
@@ -157,6 +158,8 @@
 .cadu-ds-shortcut-grid .cadu-ds-visual-identity { width:42px; height:42px; border-radius:11px; }
 .cadu-ds-shortcut-grid b { overflow:hidden; color:var(--cadu-ink); font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-shortcut-grid button { justify-self:start; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 11px var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-project-resource-strip button { overflow:hidden; max-width:180px; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:600 12px var(--cadu-font-sans); text-align:left; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+.cadu-ds-project-resource-inspector { display:grid; gap:16px; }.cadu-ds-project-resource-inspector img { width:100%; max-height:320px; border-radius:12px; object-fit:contain; background:var(--cadu-surface-soft); }.cadu-ds-project-resource-inspector dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:0; }.cadu-ds-project-resource-inspector dl div { padding:10px; border-radius:10px; background:var(--cadu-surface-soft); }.cadu-ds-project-resource-inspector dt { color:var(--cadu-muted); font-size:11px; }.cadu-ds-project-resource-inspector dd { margin:4px 0 0; color:var(--cadu-ink); font-size:13px; font-weight:650; }.cadu-ds-project-resource-inspector>a { justify-self:start; text-decoration:none; }
 
 /* The top navigation owns the complete horizontal edge. The dock begins in
    the workspace body, like a compact working shelf rather than a sidebar. */

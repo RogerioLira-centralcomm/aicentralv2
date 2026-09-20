@@ -245,6 +245,35 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
     }}
 
 
+def list_recent_resources(client_id: int, project_refs: list[str], *, limit: int = 24) -> list[dict]:
+    """Return a bounded, cross-project Registry timeline for operational surfaces.
+
+    The workspace home must not reconcile projects or perform one query per
+    project merely to render its continuity feed.  This read is deliberately
+    small and leaves resource detail, relations and reconciliation to the
+    project surface that the user opens next.
+    """
+    refs = [str(project_ref) for project_ref in project_refs if str(project_ref).startswith("ci:")]
+    if not refs or limit < 1:
+        return []
+    with get_db().cursor() as cursor:
+        if not _relation(cursor, "cadu_project_resources"):
+            return []
+        cursor.execute(
+            """SELECT id::text, project_ref, source_system, source_id, resource_type,
+                      title, mime_type, purpose, category, status, version, locator,
+                      source_created_at, source_updated_at, last_seen_at
+                 FROM cadu_project_resources
+                WHERE client_id = %s
+                  AND project_ref = ANY(%s)
+                  AND status <> 'archived'
+             ORDER BY COALESCE(source_updated_at, source_created_at, last_seen_at) DESC, id DESC
+                LIMIT %s""",
+            (client_id, refs, min(int(limit), 100)),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
 def list_for_context(context: RequestContext) -> dict:
     # MCP reads use the materialized registry. Mutations enqueue reconciliation;
     # the project-detail UI retains an explicit repair-on-open path for rollout.

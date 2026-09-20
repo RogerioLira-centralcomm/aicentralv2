@@ -8,7 +8,7 @@ import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult} from './lib/responseModel.mjs';
 import {Icon} from './lib/icons';
 
-const emptyTitle = 'Nova conversa';
+const emptyTitle = 'Novo chat';
 
 export default function App({bootstrap}) {
   const [context, setContext] = useState({});
@@ -174,6 +174,7 @@ export default function App({bootstrap}) {
   }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
 
   const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || '');
+  const requestedConversationId = useRef(new URLSearchParams(window.location.search).get('conversation_id') || '');
   useEffect(() => {
     if (!requestedProjectRef.current || contextLoading || running) return;
     const projectRef = requestedProjectRef.current;
@@ -183,6 +184,15 @@ export default function App({bootstrap}) {
       body: JSON.stringify({project_ref: projectRef, brand_ref: null}),
     }).then(data => setContext(data.context || {})).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
   }, [contextLoading, running, bootstrap.endpoints.context, trace]);
+
+  useEffect(() => {
+    if (!requestedConversationId.current || historyLoading || running) return;
+    const id = requestedConversationId.current;
+    requestedConversationId.current = '';
+    const item = conversations.find(conversation => String(conversation.id) === id);
+    if (item) openConversation(id, item.title);
+    else trace('Conversa não encontrada', 'Ela pode ter sido arquivada ou não estar disponível para esta conta.', 'error');
+  }, [conversations, historyLoading, running, openConversation, trace]);
 
   const addFiles = useCallback(files => {
     setAttachments(current => {

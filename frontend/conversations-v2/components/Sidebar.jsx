@@ -3,7 +3,7 @@ import {Icon} from '../lib/icons';
 
 const primary = [
   ['home', 'Início', 'home'],
-  ['plus', 'Nova conversa', 'newConversation'],
+  ['compose', 'Novo chat', 'newChat'],
   ['folder', 'Projetos', 'projects'],
   ['file', 'Docs', 'docs'],
   ['brand', 'Marcas', 'brands'],
@@ -31,24 +31,24 @@ export function Sidebar({bootstrap, conversations, activeId, onOpen, onNew, mobi
       </header>
 
       <nav className="cv-grid cv-gap-1 cv-px-3" aria-label="Áreas principais">
-        {primary.map(([icon, label, key]) => key === 'newConversation' ?
+        {primary.map(([icon, label, key]) => key === 'newChat' ?
           <button key={key} type="button" onClick={onNew} className={`cv-flex cv-h-10 cv-items-center cv-gap-3 cv-rounded-xl cv-border-0 cv-bg-transparent cv-px-3 cv-text-left cv-text-[13px] cv-font-medium hover:cv-bg-[#e8efed] ${collapsed ? 'cv-justify-center' : ''}`}><Icon name={icon}/>{!collapsed && label}</button>
           : <a key={key} href={bootstrap.urls[key]} className={`cv-flex cv-h-10 cv-items-center cv-gap-3 cv-rounded-xl cv-px-3 cv-text-[13px] cv-font-medium cv-text-inherit cv-no-underline hover:cv-bg-[#e8efed] ${collapsed ? 'cv-justify-center' : ''}`}><Icon name={icon}/>{!collapsed && label}</a>)}
       </nav>
 
-      {!collapsed && <section className="cv-mt-6 cv-flex cv-min-h-0 cv-flex-1 cv-flex-col cv-px-3" aria-label="Conversas recentes">
+      {!collapsed && <section className="cv-mt-6 cv-flex cv-min-h-0 cv-flex-1 cv-flex-col cv-px-3" aria-label="Chats recentes">
         <div className="cv-mb-2 cv-flex cv-items-center cv-justify-between cv-px-2">
-          <span className="cv-text-xs cv-font-semibold cv-text-[#6f8581]">Conversas recentes</span>
-          <button type="button" onClick={onNew} className="cv-grid cv-h-7 cv-w-7 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-[#238f83] hover:cv-bg-[#dcebe8]" aria-label="Nova conversa"><Icon name="plus" size={15}/></button>
+          <span className="cv-text-xs cv-font-semibold cv-text-[#6f8581]">Chats recentes</span>
+          <button type="button" onClick={onNew} className="cv-grid cv-h-7 cv-w-7 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-[#238f83] hover:cv-bg-[#dcebe8]" aria-label="Novo chat"><Icon name="compose" size={15}/></button>
         </div>
         {conversations.length > 6 && <label className="cv-relative cv-mb-2 cv-block">
           <Icon name="search" size={14} className="cv-pointer-events-none cv-absolute cv-left-3 cv-top-1/2 cv--translate-y-1/2 cv-text-[#80928f]"/>
-          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar conversa" aria-label="Buscar conversa" className="cv-h-9 cv-w-full cv-rounded-lg cv-border-0 cv-bg-[#e9efed] cv-pl-9 cv-pr-3 cv-text-xs cv-text-[#17302d] placeholder:cv-text-[#7e918d]"/>
+          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar chat" aria-label="Buscar chat" className="cv-h-9 cv-w-full cv-rounded-lg cv-border-0 cv-bg-[#e9efed] cv-pl-9 cv-pr-3 cv-text-xs cv-text-[#17302d] placeholder:cv-text-[#7e918d]"/>
         </label>}
         <div className="cv-scroll cv-min-h-0 cv-overflow-y-auto">
-          {filtered.slice(0, 20).map(item => <button key={item.id} type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined} className={`cv-mb-1 cv-flex cv-w-full cv-items-center cv-gap-2 cv-rounded-lg cv-border-0 cv-px-3 cv-py-2.5 cv-text-left cv-text-[12px] disabled:cv-cursor-wait ${String(item.id) === String(activeId) ? 'cv-bg-[#173b36] cv-font-semibold cv-text-white' : 'cv-bg-transparent cv-text-[#607a76] hover:cv-bg-[#e8efed] hover:cv-text-[#17302d]'}`}><span className="cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap">{item.title || 'Conversa sem título'}</span>{String(item.id) === String(openingId) && <i className="cv-h-1.5 cv-w-1.5 cv-flex-none cv-animate-pulse cv-rounded-full cv-bg-[#20a797]"/>}</button>)}
-          {loading && !conversations.length && <div className="cv-grid cv-gap-2 cv-px-2 cv-py-1" aria-label="Carregando conversas"><i className="cv-h-8 cv-animate-pulse cv-rounded-lg cv-bg-[#e7eceb]"/><i className="cv-h-8 cv-animate-pulse cv-rounded-lg cv-bg-[#e7eceb]"/><i className="cv-h-8 cv-animate-pulse cv-rounded-lg cv-bg-[#e7eceb]"/></div>}
-          {!loading && !filtered.length && <p className="cv-px-3 cv-text-xs cv-leading-5 cv-text-[#829590]">Suas conversas aparecerão aqui.</p>}
+          {filtered.slice(0, 20).map(item => <button key={item.id} type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined} className={`cv-mb-1 cv-flex cv-w-full cv-items-center cv-gap-2 cv-rounded-lg cv-border-0 cv-px-3 cv-py-2.5 cv-text-left cv-text-[12px] disabled:cv-cursor-wait ${String(item.id) === String(activeId) ? 'cv-bg-[#173b36] cv-font-semibold cv-text-white' : 'cv-bg-transparent cv-text-[#607a76] hover:cv-bg-[#e8efed] hover:cv-text-[#17302d]'}`}><span className="cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap">{item.title || 'Chat sem título'}</span>{String(item.id) === String(openingId) && <i className="cv-h-1.5 cv-w-1.5 cv-flex-none cv-animate-pulse cv-rounded-full cv-bg-[#20a797]"/>}</button>)}
+          {loading && !conversations.length && <div className="cv-grid cv-gap-2 cv-px-2 cv-py-1" aria-label="Carregando chats"><i className="cv-h-8 cv-animate-pulse cv-rounded-lg cv-bg-[#e7eceb]"/><i className="cv-h-8 cv-animate-pulse cv-rounded-lg cv-bg-[#e7eceb]"/><i className="cv-h-8 cv-animate-pulse cv-rounded-lg cv-bg-[#e7eceb]"/></div>}
+          {!loading && !filtered.length && <p className="cv-px-3 cv-text-xs cv-leading-5 cv-text-[#829590]">Seus chats aparecerão aqui.</p>}
         </div>
       </section>}
 

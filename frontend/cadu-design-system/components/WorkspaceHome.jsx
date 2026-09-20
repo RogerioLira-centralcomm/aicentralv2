@@ -28,6 +28,10 @@ export function WorkspaceHome({bootstrap}) {
   const normalizedSearch = searchValue.trim().toLocaleLowerCase('pt-BR');
   const matchedProjects = useMemo(() => !normalizedSearch ? [] : projects.filter(project => `${project.name || ''} ${project.brandName || ''}`.toLocaleLowerCase('pt-BR').includes(normalizedSearch)), [projects, normalizedSearch]);
   const selectProject = projectId => { setProjectRef(projectId); setSearchValue(''); };
+  const openItem = item => {
+    if (item?.href) window.location.assign(item.href);
+    else if (item?.projectRef) openProject(projects.find(project => project.id === item.projectRef));
+  };
   const openProject = project => { if (project?.href) window.location.assign(project.href); };
   const submit = () => {
     const prompt = value.trim();
@@ -122,11 +126,11 @@ export function WorkspaceHome({bootstrap}) {
         <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace {home.agency?.name ? `da ${home.agency.name}` : ''}</p><h1>{normalizedSearch ? 'Contextos encontrados' : selectedProject ? selectedProject.name : 'O que vamos resolver hoje?'}</h1><p>{normalizedSearch ? `${matchedProjects.length} projeto${matchedProjects.length === 1 ? '' : 's'} encontrado${matchedProjects.length === 1 ? '' : 's'} para “${searchValue.trim()}”.` : selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Comece uma conversa ou escolha um contexto para trabalhar.'}</p></div>
         {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <><WorkspaceComposer value={value} onChange={setValue} onSubmit={submit} context={selectedProject ? {label: selectedProject.name} : null} onClearContext={() => setProjectRef('')} onAttach={() => setToast('Arraste um arquivo para anexar ao chat.')} onContextDrop={dropContext}/>
         {!value.trim() && contextVisuals.length > 0 && <section className="cadu-ds-home-context-strip" aria-label="Projetos com identidade"><div><span>Projetos com identidade</span><b>{projects.length} projeto{projects.length === 1 ? '' : 's'}</b><small>Escolha um projeto para levar sua base para a conversa.</small></div><div className="cadu-ds-home-context-strip__visuals">{contextVisuals.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)} aria-label={`Usar ${project.name} como contexto`}><VisualIdentity src={project.previewUrl} initials="" label="" color={project.visualColor}/></button>)}</div><a href={bootstrap.urls.projects}>Ver projetos</a></section>}
-        {!value.trim() && <ResumeCardCollection items={home.resumeCards || []} onOpen={openProject} onOpenActivity={() => setActivityOpen(true)}/>}</>}
+        {!value.trim() && <ResumeCardCollection items={home.resumeCards || []} onOpen={openItem} onOpenActivity={() => setActivityOpen(true)}/>}</>}
         </section>
       </div>
     </main>
-    <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} items={(home.resumeCards || []).map(item => ({...item, detail: item.context, time: item.status}))} onOpenItem={openProject}/>
+    <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} items={(home.resumeCards || []).map(item => ({...item, detail: item.context, time: item.status}))} onOpenItem={openItem}/>
     <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>
     <ShortcutManagerDialog open={shortcutsOpen} onClose={() => { setShortcutsOpen(false); if (window.location.hash === '#atalhos') window.history.replaceState(null, '', window.location.pathname + window.location.search); }} items={managerItems} onToggle={toggleShortcut} onReorder={reorderShortcuts}/>
     <UndoToast message={toast} onDismiss={() => setToast('')}/>

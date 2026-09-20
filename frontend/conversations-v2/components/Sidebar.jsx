@@ -10,15 +10,16 @@ const RESOURCE_GROUPS = [
 ];
 
 function contextLabel(item, projects, brands) {
-  const project = projects.find(candidate => candidate.ref === item.project_ref);
-  if (project) return `Projeto — ${project.name}`;
+  const project = projects.find(candidate => (candidate.ref || candidate.projectRef || candidate.id) === item.project_ref);
+  if (project) return project.name;
   const brand = brands.find(candidate => (candidate.ref || candidate.brandRef || `studio:${candidate.id}`) === item.brand_ref);
-  return brand ? `Marca — ${brand.name}` : '';
+  return brand ? brand.name : '';
 }
 
 export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', projectResourcesEndpoint = '/workspace/api/v2/projects', activeId, onOpen, open, onClose, loading, openingId}) {
   const [query, setQuery] = useState('');
   const [resourceState, setResourceState] = useState({projectRef: '', loading: false, resources: [], error: ''});
+  const [rendered, setRendered] = useState(open);
   const ordered = useMemo(() => {
     const active = String(activeProjectRef || '');
     if (!active) return conversations;
@@ -35,9 +36,18 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   useEffect(() => setQuery(''), [activeProjectRef]);
 
   useEffect(() => {
+    if (open) {
+      setRendered(true);
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => setRendered(false), 190);
+    return () => window.clearTimeout(timeout);
+  }, [open]);
+
+  useEffect(() => {
     let cancelled = false;
-    if (!activeProjectRef) {
-      setResourceState({projectRef: '', loading: false, resources: [], error: ''});
+    if (!activeProjectRef || !open) {
+      if (!activeProjectRef) setResourceState({projectRef: '', loading: false, resources: [], error: ''});
       return undefined;
     }
     setResourceState({projectRef: activeProjectRef, loading: true, resources: [], error: ''});
@@ -51,7 +61,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
         setResourceState({projectRef: activeProjectRef, loading: false, resources: [], error: error.message || 'Não foi possível carregar os recursos.'});
       });
     return () => { cancelled = true; };
-  }, [activeProjectRef, projectResourcesEndpoint]);
+  }, [activeProjectRef, projectResourcesEndpoint, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -60,7 +70,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!rendered) return null;
   const activeProject = projects.find(item => String(item.ref || item.projectRef || item.id) === String(activeProjectRef));
   const projectConversations = filtered.filter(item => String(item.project_ref || '') === String(activeProjectRef)).slice(0, 5);
   const otherConversations = filtered.filter(item => String(item.project_ref || '') !== String(activeProjectRef));
@@ -68,9 +78,20 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const resourceLink = resource => safeUrl(resource.editor_url || resource.download_url || resource.url);
   const resourceLabel = resource => resource.type === 'media_plan' ? 'Plano de mídia' : resource.type === 'artifact' ? 'Artefato' : resource.type === 'analysis' ? 'Análise' : resource.mime_type || resource.category || 'Recurso';
   const conversationList = items => items.map(item => <button key={item.id} type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined}><span><b>{item.title || 'Conversa sem título'}</b>{contextLabel(item, projects, brands) && <small>{contextLabel(item, projects, brands)}</small>}</span>{String(item.id) === String(openingId) && <i/>}</button>);
+  const resourceGroup = group => <details key={group.id} open className="cv-project-library__group">
+    <summary><span>{group.label}</span><b>{group.resources.length}</b></summary>
+    <div>
+      {group.resources.slice(0, 6).map(resource => {
+        const href = resourceLink(resource);
+        const content = <><span className={`cv-project-resource-thumb is-${resource.type || 'file'}`}>{resource.type === 'image' && href ? <img src={href} alt=""/> : resource.type === 'video' ? '▶' : resource.type === 'file' ? '⌁' : '↗'}</span><span><b>{resource.title || 'Recurso sem título'}</b><small>{resourceLabel(resource)}</small></span></>;
+        return href ? <a key={resource.id} href={href} target={resource.type === 'link' || resource.url ? '_blank' : undefined} rel="noreferrer">{content}</a> : <span key={resource.id} className="cv-project-resource-row">{content}</span>;
+      })}
+      {group.resources.length > 6 && activeProject?.href && <a className="cv-project-library__more" href={activeProject.href}>Ver todos</a>}
+    </div>
+  </details>;
   return <>
-    <button type="button" onClick={onClose} aria-label="Fechar chats recentes" className="cv-recent-backdrop"/>
-    <aside id="cv-recent-sidebar" className="cv-recent-sidebar" aria-label="Chats recentes">
+    <button type="button" onClick={onClose} aria-label="Fechar chats recentes" tabIndex={open ? 0 : -1} className={`cv-recent-backdrop ${open ? 'is-visible' : 'is-closing'}`}/>
+    <aside id="cv-recent-sidebar" className={`cv-recent-sidebar ${open ? 'is-open' : 'is-closing'}`} aria-hidden={!open} inert={!open ? true : undefined} aria-label="Chats recentes">
       <header className="cv-recent-sidebar__header">
         <div><span>{activeProject ? 'Projeto ativo' : 'Cadu Chat'}</span><strong>{activeProject?.name || activeProject?.title || 'Recentes'}</strong></div>
         <div><button type="button" onClick={onClose} aria-label="Recolher chats recentes"><Icon name="chevron" size={16}/></button></div>
@@ -78,7 +99,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
       {conversations.length > 6 && <label className="cv-recent-search"><Icon name="search" size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar conversa" aria-label="Buscar conversa"/></label>}
       <div className="cv-recent-list">
         {activeProject && <section className="cv-recent-project-section"><header><span>Conversas do projeto</span><b>Últimas 5</b></header>{conversationList(projectConversations)}{!loading && !projectConversations.length && <p>{query.trim() ? 'Nenhuma conversa deste projeto corresponde à busca.' : 'Ainda não há conversas neste projeto.'}</p>}</section>}
-        {activeProject && <section className="cv-project-library" aria-label={`Biblioteca de ${activeProject.name || activeProject.title}`}><header><span>Biblioteca do projeto</span><b>{resourceState.loading ? 'Carregando…' : `${resourceState.resources.length} itens`}</b></header>{resourceState.error && <p>{resourceState.error}</p>}{!resourceState.loading && !resourceState.error && groupedResources.map(group => <details key={group.id} open className="cv-project-library__group"><summary><span>{group.label}</span><b>{group.resources.length}</b></summary><div>{group.resources.slice(0, 6).map(resource => { const href = resourceLink(resource); const content = <><span className={`cv-project-resource-thumb is-${resource.type || 'file'}`}>{resource.type === 'image' && href ? <img src={href} alt=""/> : resource.type === 'video' ? '▶' : resource.type === 'file' ? '⌁' : '↗'}</span><span><b>{resource.title || 'Recurso sem título'}</b><small>{resourceLabel(resource)}</small></span></>; return href ? <a key={resource.id} href={href} target={resource.type === 'link' || resource.url ? '_blank' : undefined} rel="noreferrer">{content}</a> : <span key={resource.id} className="cv-project-resource-row">{content}</span>; })}</div></details>)}{!resourceState.loading && !resourceState.error && !groupedResources.length && <p>Arquivos, imagens, vídeos e entregas aparecerão aqui quando forem adicionados ao projeto.</p>}</section>}
+        {activeProject && <section className="cv-project-library" aria-label={`Biblioteca de ${activeProject.name || activeProject.title}`}><header><span>Biblioteca do projeto</span><b>{resourceState.loading ? 'Carregando…' : `${resourceState.resources.length} itens`}</b></header>{resourceState.error && <p>{resourceState.error}</p>}{!resourceState.loading && !resourceState.error && groupedResources.map(resourceGroup)}{!resourceState.loading && !resourceState.error && !groupedResources.length && <p>Arquivos, imagens, vídeos e entregas aparecerão aqui quando forem adicionados ao projeto.</p>}</section>}
         {!activeProject && <section className="cv-recent-project-section"><header><span>Conversas recentes</span><b>Todos os projetos</b></header>{conversationList(filtered.slice(0, 30))}{loading && !conversations.length && <div className="cv-recent-loading" aria-label="Carregando conversas"><i/><i/><i/></div>}{!loading && !filtered.length && <p>{query.trim() ? 'Nenhuma conversa corresponde à busca.' : 'Suas conversas aparecerão aqui.'}</p>}</section>}
         {activeProject && <details className="cv-recent-all-section"><summary>Outras conversas <b>{otherConversations.length}</b></summary><div>{conversationList(otherConversations.slice(0, 30))}</div></details>}
       </div>

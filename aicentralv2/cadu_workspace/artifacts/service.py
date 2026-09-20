@@ -203,3 +203,40 @@ def attach_to_project(context: RequestContext, artifact_id: str, project_ref: st
     except Exception:
         pass
     return get_artifact(context, artifact_id)
+
+
+def publish_artifact(context: RequestContext, artifact_id: str) -> dict:
+    """Make an HTML artifact available through its opaque public UUID URL."""
+    artifact = get_artifact(context, artifact_id)
+    if artifact.get("type") != "html":
+        raise BadRequest("Somente artefatos HTML podem ser publicados como página pública.")
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE cadu_workspace_artifacts
+                              SET status = 'published', updated_at = NOW()
+                            WHERE id = %s AND organization_id = %s AND client_id = %s""",
+                        (str(artifact_id), context.organization_id, context.client_id))
+            if cur.rowcount != 1:
+                raise NotFound("Artefato indisponível.")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return get_artifact(context, artifact_id)
+
+
+def get_public_artifact(artifact_id: str) -> dict:
+    """Read only published HTML; intentionally has no session or tenant input."""
+    with get_db().cursor() as cur:
+        cur.execute("""SELECT a.id, a.type, a.title, a.status, a.current_version,
+                              a.created_at, a.updated_at, v.content
+                         FROM cadu_workspace_artifacts a
+                         JOIN cadu_workspace_artifact_versions v
+                           ON v.artifact_id = a.id AND v.version = a.current_version
+                        WHERE a.id = %s AND a.type = 'html' AND a.status = 'published'""",
+                    (str(artifact_id),))
+        row = cur.fetchone()
+    if not row:
+        raise NotFound("Página pública indisponível.")
+    return dict(row)

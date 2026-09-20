@@ -133,6 +133,7 @@ def test_router_distinguishes_web_research_from_project_search():
     project_route = route_request("Pesquise no projeto os arquivos sobre Nike", has_project=True)
     project_sources_route = route_request("Pesquise as fontes do projeto sobre Nike", has_project=True)
     direct_route = route_request("Entenda este link: https://example.com/article", has_project=True)
+    draft_route = route_request("Crie um rascunho editável a partir das fontes selecionadas", has_project=True)
     current_route = route_request("Quais são os concorrentes atuais da Nike?", has_project=True)
     simple_route = route_request("Resuma a identidade da Nike", has_project=True)
 
@@ -143,6 +144,8 @@ def test_router_distinguishes_web_research_from_project_search():
     assert project_sources_route.action == "search_project"
     assert direct_route.action == "read_web_page"
     assert direct_route.needs_tools == ("web.read",)
+    assert draft_route.action == "create_text_draft"
+    assert draft_route.artifact_type == "document"
     assert current_route.action == "search_web"
     assert simple_route.needs_tools == ()
 

@@ -225,6 +225,24 @@ def _markdown_blocks(value) -> list[dict]:
     return blocks
 
 
+def _review_blocks(blocks) -> list[dict]:
+    """Apply a deterministic quality gate after extraction and before the LLM."""
+    reviewed = []
+    seen = set()
+    for block in blocks if isinstance(blocks, list) else []:
+        text = _clean_text((block or {}).get("text"), 1200) if isinstance(block, dict) else ""
+        key = text.casefold()
+        if not text or _is_noise_copy(text) or key in seen:
+            continue
+        if len(text) < 18 and (block.get("kind") if isinstance(block, dict) else "") != "heading":
+            continue
+        seen.add(key)
+        reviewed.append({"kind": "heading" if block.get("kind") == "heading" else "paragraph", "text": text})
+        if len(reviewed) >= MAX_CONTENT_BLOCKS:
+            break
+    return reviewed
+
+
 def _read_source(url: str) -> dict:
     """Read one page, then keep only clean article-like text for the agent."""
     try:
@@ -246,7 +264,7 @@ def _read_source(url: str) -> dict:
             logger.info("HTML da fonte não pôde ser limpo: %s", url, exc_info=True)
     if not blocks:
         blocks = _markdown_blocks(data.get("markdown") or data.get("content") or "")
-    blocks = blocks[:MAX_CONTENT_BLOCKS]
+    blocks = _review_blocks(blocks)
     content = "\n\n".join(block["text"] for block in blocks)
     content = _clean_text(content, MAX_CONTENT_CHARS)
     if len(content) < 80:
@@ -262,6 +280,7 @@ def _read_source(url: str) -> dict:
             metadata.get("publishedTime") or metadata.get("publishedDate") or data.get("published_at"), 60
         ),
         "cleaning": "firecrawl_main_content_plus_python_html_cleanup",
+        "quality_gate": "passed",
     }
 
 
@@ -348,6 +367,7 @@ def search(context, arguments: dict) -> dict:
         "searched_at": datetime.now(timezone.utc).isoformat(),
         "search_mode": "firecrawl_discovery_with_selected_source_reading",
         "evidence_policy": "Use as fontes para responder ao pedido atual; diferencie fato, interpretação e lacuna.",
+        "review_stage": "python_cleanup_quality_gate_then_agent_review",
     }
 
 
@@ -393,4 +413,5 @@ def read(context, arguments: dict) -> dict:
         "searched_at": datetime.now(timezone.utc).isoformat(),
         "search_mode": "firecrawl_direct_page_with_selected_source_reading",
         "evidence_policy": "Use somente o conteúdo limpo deste link; diferencie fato, interpretação e lacuna.",
+        "review_stage": "python_cleanup_quality_gate_then_agent_review",
     }

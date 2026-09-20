@@ -129,7 +129,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,40}\b(html|landing page|p[aá]gina|site|interface)\b")
             or _has(text, r"\b(html|landing page|p[aá]gina|site)\b.{0,35}\b(cri|mont|ger|prototip)")):
         return IntentRoute("workspace", "create_html", "high", "artifact_first",
-                           ("project", "brand") if has_project else (), (), "html")
+                           ("project", "brand") if has_project else (),
+                           ("workspace.get_project_context",) if has_project else (), "html")
     if _has(text, r"\b(pesquis|busqu|procur|encontr|localiz).{0,30}\b(projeto|arquivo|documento|nota|conte[uú]do)|\bo que (temos|existe|foi definido)\b"):
         return IntentRoute("workspace", "search_project", "medium", "analysis",
                            ("project",), ("workspace.search_project_content",))

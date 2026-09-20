@@ -58,7 +58,7 @@ def _selected_context(value):
     if not isinstance(value, dict):
         return None
     text = " ".join(str(value.get("text") or "").split())
-    if not 3 <= len(text) <= 1200:
+    if not 3 <= len(text) <= 12000:
         return None
     kind = str(value.get("type") or "selection")[:40]
     label = str(value.get("label") or "Contexto selecionado")[:80]
@@ -246,6 +246,7 @@ def _enrich_source_blocks(response, run):
             "title": str(source.get("title") or parsed.hostname or "Fonte")[:220],
             "url": url,
             "excerpt": " ".join(str(source.get("content_excerpt") or source.get("excerpt") or "").split())[:500],
+            "content": " ".join(str(source.get("content") or source.get("content_excerpt") or source.get("excerpt") or "").split())[:6000],
             "published_at": str(source.get("published_at") or "")[:60],
             "kind": "web",
             "favicon": str(source.get("favicon") or "")[:2000],
@@ -277,6 +278,7 @@ def _enrich_source_blocks(response, run):
                         "id": source["id"], "title": source["title"], "url": source["url"],
                         "kind": "web", "favicon": source["favicon"],
                         "detail": str(item.get("detail") or source["excerpt"] or "")[:700],
+                        "content": source["content"],
                     })
         has_web_block = any(
             block.get("type") == "source_group" and any(
@@ -294,8 +296,8 @@ def _enrich_source_blocks(response, run):
                 ),
                 "items": [{
                     "id": source["id"], "title": source["title"],
-                    "detail": source["excerpt"], "kind": source["kind"], "url": source["url"], "favicon": source["favicon"],
-                } for source in safe_web_sources[:5]],
+                    "detail": source["excerpt"], "content": source["content"], "kind": source["kind"], "url": source["url"], "favicon": source["favicon"],
+                } for source in safe_web_sources[:8]],
             }]
     return response
 

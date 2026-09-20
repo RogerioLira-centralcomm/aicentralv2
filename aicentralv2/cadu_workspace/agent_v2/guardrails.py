@@ -128,11 +128,58 @@ def _resource_url(value):
         return ''
 
 
+def _brand_asset_url(value):
+    value = _clean_text(value, 2000)
+    if value.startswith('/') and not value.startswith('//'):
+        return value
+    try:
+        parsed = urlsplit(value)
+        return value if parsed.scheme == 'https' and parsed.hostname and not parsed.username and not parsed.password else ''
+    except ValueError:
+        return ''
+
+
 def _clean_uuid(value):
     try:
         return str(UUID(str(value or "")))
     except (TypeError, ValueError, AttributeError):
         return ""
+
+
+def _clean_brand_color(value):
+    color = str(value or "").strip()
+    return color if re.fullmatch(r"#[0-9a-fA-F]{3,8}", color) else ""
+
+
+def _clean_runtime_html(value, limit=100_000):
+    """Keep Tailwind-friendly markup while removing executable HTML attributes."""
+    html = str(value or "")
+    html = re.sub(r"<!--.*?-->|<\s*(?:script|iframe|object|embed|form|style|base)\b[^>]*>.*?<\s*/\s*(?:script|iframe|object|embed|form|style|base)\s*>", "",
+                  html, flags=re.IGNORECASE | re.DOTALL)
+    html = re.sub(r"<\s*script\b[^>]*>.*$", "", html, flags=re.IGNORECASE | re.DOTALL)
+    allowed = {"main", "section", "article", "header", "footer", "nav", "div", "span", "p", "br", "strong", "b", "em", "i", "u",
+               "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "table", "thead", "tbody", "tfoot", "tr", "th", "td",
+               "a", "img", "figure", "figcaption", "hr", "dl", "dt", "dd", "button", "label", "input"}
+
+    def tag(match):
+        closing, name, attrs = match.group(1), match.group(2).lower(), match.group(3) or ""
+        if name not in allowed:
+            return ""
+        if closing:
+            return f"</{name}>"
+        safe_attrs = []
+        for attr, quote, raw in re.findall(r"([a-zA-Z:-]+)\s*=\s*(['\"])(.*?)\2", attrs, re.DOTALL):
+            attr = attr.lower()
+            value = str(raw or "").strip()
+            if attr.startswith("on") or attr in {"style", "srcdoc", "formaction"}:
+                continue
+            if attr in {"href", "src", "action"} and not (value.startswith("https://") or value.startswith("http://") or value.startswith("/") and not value.startswith("//") or value.startswith("data:image/")):
+                continue
+            if attr in {"class", "id", "role", "alt", "title", "target", "rel", "href", "src", "action", "type", "name", "value", "placeholder", "aria-label"} or attr.startswith("aria-") or attr.startswith("data-"):
+                safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")[:2000]}"')
+        return f"<{name}{''.join(safe_attrs)}>"
+
+    return re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)[:limit]
 
 
 def _as_bool(value):
@@ -318,9 +365,14 @@ def _clean_patch(value):
     if any(key in value for key in ("html", "css", "js")):
         patch.update({
             "fields": [],
-            "html": _clean_editor_html(value.get("html"), 100_000),
+            "html": (_clean_runtime_html(value.get("html"), 100_000)
+                     if value.get("css") or value.get("js") else
+                     _clean_editor_html(value.get("html"), 100_000)),
             "css": str(value.get("css") or "")[:30_000],
             "js": str(value.get("js") or "")[:40_000],
+            "logo_url": _brand_asset_url(value.get("logo_url")),
+            "primary_color": _clean_brand_color(value.get("primary_color")),
+            "secondary_color": _clean_brand_color(value.get("secondary_color")),
         })
     return patch
 
@@ -335,6 +387,14 @@ def _plain_multiline(value, limit=4000):
         if line:
             lines.append(line)
     return "\n".join(lines)[:limit].rstrip()
+
+
+def _single_sentence(value):
+    text = " ".join(str(value or "").split())
+    if not text:
+        return text
+    match = re.match(r"(.+?[.!?])(?:\s|$)", text)
+    return (match.group(1) if match else text).strip()
 
 
 def _fallback_artifact(answer, policy):
@@ -383,6 +443,8 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
+    if policy.get("single_sentence"):
+        answer = _single_sentence(answer)
     questions = [str(item).strip()[:500] for item in value.get("questions", []) if str(item).strip()]
     questions = questions[:max(0, int(policy.get("max_questions", 1)))]
     assumptions = [str(item).strip()[:500] for item in value.get("assumptions", []) if str(item).strip()][:10]

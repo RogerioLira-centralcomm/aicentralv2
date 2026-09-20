@@ -1966,7 +1966,7 @@ def _project_context_health(project: dict) -> dict:
         score += 15
     else:
         missing.append('conversas de trabalho')
-    if project.get('smartdocs') or project.get('images'):
+    if project.get('images'):
         score += 10
     else:
         missing.append('referências produzidas')
@@ -2072,8 +2072,6 @@ def _project_recent_activity(project: dict) -> list[dict]:
         activity.append({'title': 'Fonte adicionada', 'detail': item.get('nome_arquivo') or 'Arquivo', 'at': item.get('created_at')})
     for item in project.get('conversations', [])[:3]:
         activity.append({'title': 'Conversa atualizada', 'detail': item.get('titulo') or 'Conversa sem título', 'at': item.get('updated_at')})
-    for item in project.get('smartdocs', [])[:3]:
-        activity.append({'title': 'SmartDoc atualizado', 'detail': item.get('titulo') or 'Documento sem título', 'at': item.get('updated_at')})
     for item in project.get('images', [])[:3]:
         activity.append({'title': 'Referência visual adicionada', 'detail': item.get('title') or 'Imagem sem título', 'at': item.get('created_at')})
     for item in project.get('plans', [])[:3]:
@@ -2425,29 +2423,52 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
                 (project_id, client_id),
             )
             project['files'] = [dict(row) for row in cursor.fetchall()]
-            cursor.execute(
-                """SELECT id, titulo, total_mensagens, updated_at FROM cadu_conversations
-                    WHERE projeto_id = %s AND id_cliente = %s ORDER BY updated_at DESC LIMIT 8""",
-                (project_id, client_id),
-            )
+            cursor.execute("SELECT to_regclass('public.cadu_family_conversation_context') IS NOT NULL AS available")
+            context_table_available = bool(cursor.fetchone()['available'])
+            if context_table_available:
+                cursor.execute(
+                    """SELECT c.id, c.titulo, c.total_mensagens, c.updated_at,
+                              COALESCE(x.project_ref, CASE WHEN c.projeto_id IS NOT NULL
+                                  THEN 'ci:' || c.projeto_id::text END) AS project_ref
+                         FROM cadu_conversations c
+                    LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
+                        WHERE c.id_cliente = %s
+                          AND (c.projeto_id = %s OR x.project_ref = %s)
+                          AND (x.conversation_id IS NULL OR
+                               (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
+                     ORDER BY c.updated_at DESC LIMIT 50""",
+                    (client_id, project_id, f'ci:{project_id}', session.get('user_id'), client_id, client_id),
+                )
+            else:
+                cursor.execute(
+                    """SELECT id, titulo, total_mensagens, updated_at,
+                              CASE WHEN projeto_id IS NOT NULL THEN 'ci:' || projeto_id::text END AS project_ref
+                         FROM cadu_conversations
+                        WHERE projeto_id = %s AND id_cliente = %s ORDER BY updated_at DESC LIMIT 50""",
+                    (project_id, client_id),
+                )
             project['conversations'] = [dict(row) for row in cursor.fetchall()]
     except Exception:
         project['files'] = []
         project['conversations'] = []
-    # SmartDocs and visual references were part of the original dossier.  They
-    # live in optional legacy tables, so each lookup degrades independently.
+    # The PHP SmartDocs projection is intentionally not part of the new
+    # project experience. Its data remains available to legacy routes, while
+    # the React dossier uses only versioned V2 artifacts below.
+    project['smartdocs'] = []
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT id, titulo, tipo, status, updated_at
-                     FROM cadu_artifacts
-                    WHERE projeto_id = %s AND id_cliente = %s
-                 ORDER BY updated_at DESC LIMIT 12""",
-                (project_id, client_id),
+                """SELECT id::text, type, title, status, current_version, conversation_id, updated_at
+                     FROM cadu_workspace_artifacts
+                    WHERE client_id = %s AND project_ref = %s
+                 ORDER BY updated_at DESC LIMIT 50""",
+                (client_id, f'ci:{project_id}'),
             )
-            project['smartdocs'] = [dict(row) for row in cursor.fetchall()]
+            project['workspace_artifacts'] = [dict(row) for row in cursor.fetchall()]
     except Exception:
-        project['smartdocs'] = []
+        # The V2 artifact migration is additive. Older installations can still
+        # render the project dossier using its legacy documents and resources.
+        project['workspace_artifacts'] = []
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
@@ -3478,6 +3499,100 @@ def project_detail(project_id):
         } for item in brands]
         dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
         active_brand = next(iter(project.get('brands') or []), {})
+        project_conversation_url = url_for(
+            'cadu_agent_v2_lab.conversations_v2_lab',
+            project_ref=f'ci:{project_id}', history='1',
+        )
+        conversation_items = []
+        for item in project.get('conversations') or []:
+            conversation_id = str(item.get('id') or '').strip()
+            if not conversation_id:
+                continue
+            message_count = int(item.get('total_mensagens') or 0)
+            conversation_items.append({
+                'id': conversation_id,
+                'title': str(item.get('titulo') or 'Conversa sem título'),
+                'detail': f"{message_count} mensagem{'s' if message_count != 1 else ''}",
+                'updatedAt': item.get('updated_at'),
+                'href': url_for(
+                    'cadu_agent_v2_lab.conversations_v2_lab',
+                    conversation_id=conversation_id, project_ref=f'ci:{project_id}', history='1',
+                ),
+            })
+
+        artifact_items = []
+        workspace_artifact_labels = {
+            'html': ('html', 'HTML'), 'note': ('text', 'Texto'), 'brief': ('text', 'Briefing'),
+            'document': ('text', 'Documento'), 'executive_summary': ('text', 'Resumo'),
+            'meeting_summary': ('text', 'Resumo de reunião'), 'meeting_agenda': ('text', 'Pauta'),
+            'media_plan': ('plan', 'Plano de mídia'), 'scenario': ('text', 'Cenário'),
+            'research': ('text', 'Pesquisa'), 'project_map': ('text', 'Mapa do projeto'),
+        }
+        status_labels = {'draft': 'Rascunho', 'active': 'Ativo', 'published': 'Publicado', 'archived': 'Arquivado'}
+        source_status_labels = {'completed': 'Pronta para consulta', 'indexing': 'Indexando', 'queued': 'Na fila', 'error': 'Requer atenção', 'paused': 'Somente anexo'}
+        for item in project.get('workspace_artifacts') or []:
+            artifact_id = str(item.get('id') or '').strip()
+            if not artifact_id:
+                continue
+            artifact_type = str(item.get('type') or 'document').lower()
+            kind, kind_label = workspace_artifact_labels.get(artifact_type, ('text', 'Documento'))
+            conversation_id = str(item.get('conversation_id') or '').strip()
+            artifact_items.append({
+                'id': f'workspace-artifact:{artifact_id}',
+                'kind': kind,
+                'kindLabel': kind_label,
+                'title': str(item.get('title') or 'Artefato sem título'),
+                'detail': f"{kind_label} · v{int(item.get('current_version') or 1)} · {status_labels.get(str(item.get('status') or ''), 'Salvo')}"
+                          + (" · Retomar no projeto" if not conversation_id else ''),
+                'status': str(item.get('status') or 'saved'),
+                'updatedAt': item.get('updated_at'),
+                'href': url_for(
+                    'cadu_agent_v2_lab.conversations_v2_lab',
+                    conversation_id=conversation_id, project_ref=f'ci:{project_id}', history='1',
+                ) if conversation_id else project_conversation_url,
+            })
+        for item in project.get('files') or []:
+            source_id = str(item.get('id') or '').strip()
+            if not source_id:
+                continue
+            mime = str(item.get('mime') or '').lower()
+            filename = str(item.get('nome_arquivo') or '')
+            suffix = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            if mime == 'application/pdf' or suffix == 'pdf':
+                kind, kind_label = 'pdf', 'PDF'
+            elif mime.startswith('image/'):
+                kind, kind_label = 'image', 'Imagem'
+            elif 'html' in mime or suffix in {'htm', 'html'}:
+                kind, kind_label = 'html', 'HTML'
+            elif mime.startswith('text/') or suffix in {'md', 'txt', 'csv', 'json'}:
+                kind, kind_label = 'text', 'Texto'
+            else:
+                kind, kind_label = 'file', 'Arquivo'
+            artifact_items.append({
+                'id': f'file:{source_id}', 'kind': kind, 'kindLabel': kind_label,
+                'title': filename or 'Arquivo do projeto',
+                'detail': f"{kind_label} · {source_status_labels.get(str(item.get('indexing_status') or ''), 'Arquivo preservado')}",
+                'status': str(item.get('indexing_status') or 'saved'),
+                'updatedAt': item.get('created_at'),
+                'href': url_for('cadu_workspace.download_project_source', project_id=project_id, source_id=source_id)
+                if str(item.get('storage_path') or '').startswith('workspace_project_sources/') else '',
+            })
+        for item in project.get('images') or []:
+            image_id = str(item.get('id') or '').strip()
+            if not image_id:
+                continue
+            artifact_items.append({
+                'id': f'image:{image_id}', 'kind': 'image', 'kindLabel': 'Imagem',
+                'title': str(item.get('title') or 'Imagem do projeto'),
+                'detail': f"Imagem · {item.get('mime') or 'prévia indisponível'}",
+                'status': 'available' if item.get('preview_url') else 'saved',
+                'updatedAt': item.get('created_at'), 'href': str(item.get('preview_url') or ''),
+            })
+        artifact_items.sort(key=lambda item: str(item.get('updatedAt') or ''), reverse=True)
+        project_resources = [
+            item for item in project.get('resources') or []
+            if str(item.get('source_system') or '') != 'planner_docs'
+        ]
         project_data = {
             'id': str(project.get('id')), 'name': str(project.get('nome') or 'Projeto'),
             'description': str(project.get('descricao') or ''),
@@ -3513,6 +3628,8 @@ def project_detail(project_id):
                        'requiresReview': str(item.get('purpose') or 'project_attachment') == 'project_attachment' and str(item.get('indexing_status') or '') == 'paused' and str(item.get('classification_status') or '') in {'pending', 'classified', 'needs_review'},
                        'confirmUrl': url_for('cadu_workspace.confirm_project_source', project_id=project_id, source_id=item.get('id')),
                        'words': int(item.get('word_count') or 0)} for item in project.get('files') or []],
+            'conversations': conversation_items,
+            'artifacts': artifact_items,
             'deliveries': ([{'id': f"plan:{item.get('id')}", 'title': str(item.get('title') or 'Plano de mídia'),
                              'kind': 'Planejamento', 'status': str(item.get('status') or ''),
                              'href': product_url('planner', f"/planos/{item.get('id')}")} for item in project.get('plans') or []] +
@@ -3525,7 +3642,7 @@ def project_detail(project_id):
             'resources': [{'id': str(item.get('id') or item.get('resource_id') or item.get('title')), 'title': str(item.get('title') or 'Recurso'),
                            'kind': str(item.get('category') or item.get('resource_type') or 'Recurso'),
                            'resourceType': str(item.get('resource_type') or ''), 'mime': str(item.get('mime_type') or ''),
-                           'locator': str(item.get('locator') or ''), 'status': str(item.get('status') or '')} for item in project.get('resources') or []],
+                           'locator': str(item.get('locator') or ''), 'status': str(item.get('status') or '')} for item in project_resources],
             'resourceRegistryAvailable': bool(project.get('resource_registry_available')),
             'memory': [{'id': str(item.get('id')), 'kind': str(item.get('kind') or 'Memória'),
                         'summary': str(item.get('summary') or '')} for item in (project.get('memory') or {}).get('confirmed', [])],

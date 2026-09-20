@@ -122,6 +122,12 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /cadu-ds-project-brand-feature/);
   assert.match(project, /Criar e auditar marca/);
   assert.match(project, /Definir marca do projeto/);
+  assert.match(project, /cadu-ds-project-continuity/);
+  assert.match(project, /Conversas do projeto/);
+  assert.match(project, /Artefatos salvos/);
+  assert.match(project, /Ver todas as/);
+  assert.match(project, /Ver todos os/);
+  assert.match(project, /cadu-ds-project-library-summary/);
   assert.match(project, /cadu-ds-project-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-project-content/);
   assert.match(styles, /\.cadu-ds-home-content \{ width:100%; max-width:none; margin:0;/);
   assert.match(styles, /\.cadu-ds-home-content \.cadu-ds-composer,[\s\S]*width:100%; max-width:none;/);
@@ -131,6 +137,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(styles, /body\.portal--workspace \.cadu-ds-project-workarea,[\s\S]*padding-left:76px/);
   assert.match(styles, /\.cadu-ds-project-page-drop__card/);
   assert.match(styles, /\.cadu-ds-project-source-section/);
+  assert.match(styles, /\.cadu-ds-project-continuity__columns/);
   assert.match(template, /'projectMode': True/);
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
@@ -143,6 +150,11 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(route, /project_detail_react\.html/);
   assert.match(route, /'colorPalette':/);
   assert.match(route, /'fonts':/);
+  assert.match(route, /cadu_workspace_artifacts/);
+  assert.match(route, /'conversations': conversation_items/);
+  assert.match(route, /'artifacts': artifact_items/);
+  assert.match(route, /project\['smartdocs'\] = \[\]/);
+  assert.doesNotMatch(project, /smartdoc/i);
   assert.match(entry, /bootstrap\.projectMode \? <WorkspaceProject/);
 });
 

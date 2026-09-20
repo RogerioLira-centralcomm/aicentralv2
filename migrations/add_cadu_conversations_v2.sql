@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS cadu_workspace_artifacts (
     client_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente),
     project_ref TEXT,
     conversation_id TEXT REFERENCES cadu_conversations(id),
-    type TEXT NOT NULL CHECK (type IN ('brief', 'document', 'note', 'executive_summary', 'media_plan', 'scenario', 'research')),
+    type TEXT NOT NULL CHECK (type IN ('brief', 'document', 'note', 'executive_summary', 'media_plan', 'scenario', 'research', 'project_map', 'html', 'meeting_summary', 'meeting_agenda')),
     title TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'published', 'archived')),
     current_version INTEGER NOT NULL DEFAULT 1 CHECK (current_version > 0),
@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS cadu_workspace_artifacts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE cadu_workspace_artifacts DROP CONSTRAINT IF EXISTS cadu_workspace_artifacts_type_check;
+ALTER TABLE cadu_workspace_artifacts ADD CONSTRAINT cadu_workspace_artifacts_type_check
+    CHECK (type IN ('brief', 'document', 'note', 'executive_summary', 'media_plan', 'scenario', 'research', 'project_map', 'html', 'meeting_summary', 'meeting_agenda'));
 CREATE INDEX IF NOT EXISTS cadu_workspace_artifacts_scope
     ON cadu_workspace_artifacts (organization_id, client_id, project_ref, updated_at DESC);
 CREATE INDEX IF NOT EXISTS cadu_workspace_artifacts_conversation

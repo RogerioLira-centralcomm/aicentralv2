@@ -268,7 +268,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
     packet = {'projeto_ref': project_ref, 'projeto': projects[0]}
     if isinstance(brand_ref, str) and brand_ref.startswith('studio:'):
         try:
-            brands = repository.rows('''SELECT name, sector, website_url, brand_profile
+            brands = repository.rows('''SELECT name, sector, website_url, logo_url, primary_color, secondary_color, brand_profile
                                            FROM cx_clients
                                           WHERE id = %s AND crm_client_id = %s''',
                                      (brand_ref[7:], client_id))
@@ -326,7 +326,9 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
             # Indexing is additive. A missing legacy chunks table must never
             # suppress the explicitly saved project context.
             packet['fontes_verificadas'] = []
-    return json.dumps(packet, ensure_ascii=False, default=str)[:24000]
+    # The payload assembler applies the context budget while preserving valid
+    # JSON; slicing here could truncate the packet in the middle of a string.
+    return json.dumps(packet, ensure_ascii=False, default=str)
 
 
 def _project_evidence(row, client_id, project_ref):

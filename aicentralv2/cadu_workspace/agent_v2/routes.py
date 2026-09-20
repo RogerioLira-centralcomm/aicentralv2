@@ -3,6 +3,7 @@
 import re
 import secrets
 from dataclasses import replace
+from html import escape as html_escape
 from uuid import uuid4
 
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, session, stream_with_context, url_for
@@ -15,7 +16,7 @@ from .router import route_request
 from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
-from ..artifacts import attach_to_project, create_draft, get_artifact, get_version, list_versions, patch_artifact
+from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, patch_artifact, publish_artifact
 from .service import prepare as prepare_message, stream as stream_message
 from .provider import ProviderUnavailable
 from . import journal, observability
@@ -27,6 +28,7 @@ from ...cadu_planner import docs
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
 lab_bp = Blueprint("cadu_agent_v2_lab", __name__)
+public_bp = Blueprint("cadu_public_artifacts", __name__)
 _CREDIT_ERROR = re.compile(
     r"Saldo insuficiente:\s*(?:esta execução estima|a execução usou)\s*(\d+)\s+tokens?\s+e há\s*(\d+)\s+disponíveis\.?",
     re.IGNORECASE,
@@ -469,3 +471,48 @@ def artifact_save_project(artifact_id):
         abort(404, description="Projeto não encontrado neste ambiente.")
     artifact = attach_to_project(replace(current, project_ref=project_ref), str(artifact_id), project_ref)
     return jsonify(artifact=artifact)
+
+
+@bp.post("/artifacts/<uuid:artifact_id>/publish")
+def artifact_publish(artifact_id):
+    data = request.get_json(silent=True) or {}
+    current = resolve(conversation_id=data.get("conversation_id"),
+                      surface=str(data.get("surface") or "conversations"))
+    artifact = publish_artifact(current, str(artifact_id))
+    public_url = url_for("cadu_public_artifacts.public_artifact", artifact_id=str(artifact_id), _external=True)
+    return jsonify(artifact=artifact, url=public_url)
+
+
+@public_bp.get("/public/cadu/artifacts/<uuid:artifact_id>")
+def public_artifact(artifact_id):
+    artifact = get_public_artifact(str(artifact_id))
+    content = artifact.get("content") if isinstance(artifact.get("content"), dict) else {}
+    title = html_escape(str(artifact.get("title") or "Cadu"), quote=True)
+    css = str(content.get("css") or "").replace("</style", "<\\/style")
+    javascript = str(content.get("js") or "").replace("</script", "<\\/script")
+    body = str(content.get("html") or "")
+    logo = str(content.get("logo_url") or "").strip()
+    if not (logo.startswith("https://") or logo.startswith("/")):
+        logo = ""
+    logo = html_escape(logo, quote=True)
+    def brand_color(value):
+        value = str(value or "").strip()
+        return value if re.fullmatch(r"#[0-9a-fA-F]{3,8}", value) else ""
+    primary_color = brand_color(content.get("primary_color"))
+    secondary_color = brand_color(content.get("secondary_color"))
+    theme = ";".join(item for item in (
+        f"--cadu-brand-primary:{primary_color}" if primary_color else "",
+        f"--cadu-brand-secondary:{secondary_color}" if secondary_color else "",
+    ) if item)
+    favicon = f'<link rel="icon" href="{logo}">' if logo else ""
+    document = f"""<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title>
+<meta http-equiv="Content-Security-Policy" content="sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+{favicon}<script src="https://cdn.tailwindcss.com"></script><style>:root{{{theme}}}html,body{{margin:0;min-height:100%;background:#f8fafc}}{css}</style></head>
+<body>{body}<script>{javascript}</script></body></html>"""
+    response = Response(document, mimetype="text/html")
+    response.headers["Content-Security-Policy"] = "sandbox allow-scripts; default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; connect-src 'none'; font-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response

@@ -28,6 +28,8 @@ from aicentralv2.cadu_workspace import project_resource_jobs
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def context(**overrides):
     values = {
@@ -88,6 +90,13 @@ def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):
     assert artifact["client_id"] == 12
     assert connection.committed is True
     assert connection.rolled_back is False
+
+
+def test_artifact_schema_matches_runtime_types():
+    sql = (ROOT / "migrations" / "add_cadu_conversations_v2.sql").read_text(encoding="utf-8")
+    for artifact_type in ("project_map", "html", "meeting_summary", "meeting_agenda"):
+        assert artifact_type in sql
+    assert "cadu_workspace_artifacts_type_check" in sql
 
 
 def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
@@ -1073,6 +1082,51 @@ def test_v2_page_creates_csrf_token_when_opened_directly(monkeypatch):
     assert client.get("/workspace/conversas-v2-lab").status_code == 200
     with client.session_transaction() as session:
         assert len(session["family_csrf"]) >= 32
+
+
+def test_public_html_artifact_does_not_require_a_session_and_keeps_tailwind_runtime(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.public_bp)
+    monkeypatch.setattr(v2_routes, "get_public_artifact", lambda _artifact_id: {
+        "id": _artifact_id, "type": "html", "title": "Relatório público", "status": "published",
+        "content": {"html": "<main class='min-h-screen p-6'>Dados</main>", "css": ".x{color:red}", "js": "document.body.dataset.ready='1'", "logo_url": "/static/logo.svg", "primary_color": "#176b5e"},
+    })
+
+    response = app.test_client().get("/public/cadu/artifacts/11111111-1111-4111-8111-111111111111")
+
+    assert response.status_code == 200
+    assert response.mimetype == "text/html"
+    assert b"cdn.tailwindcss.com" in response.data
+    assert b"--cadu-brand-primary:#176b5e" in response.data
+    assert b"/static/logo.svg" in response.data
+    assert b"Relat\xc3\xb3rio p\xc3\xbablico" in response.data
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_html_artifact_publish_returns_public_url_with_csrf(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.public_bp)
+    app.register_blueprint(v2_routes.bp)
+    scoped = context(conversation_id="conversation")
+    monkeypatch.setattr(v2_routes, "resolve", lambda **_: scoped)
+    monkeypatch.setattr(v2_routes, "publish_artifact", lambda _current, artifact_id: {
+        "id": artifact_id, "type": "html", "status": "published", "title": "Página",
+    })
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["user_id"] = 7
+        session["family_csrf"] = "csrf"
+
+    response = client.post(
+        "/workspace/api/v2/artifacts/11111111-1111-4111-8111-111111111111/publish",
+        json={"conversation_id": "conversation"}, headers={"X-CSRF-Token": "csrf"},
+    )
+
+    assert response.status_code == 200
+    assert response.json["artifact"]["status"] == "published"
+    assert response.json["url"].endswith("/public/cadu/artifacts/11111111-1111-4111-8111-111111111111")
 
 
 def test_brand_identity_route_accepts_the_brand_id_and_returns_context(monkeypatch):

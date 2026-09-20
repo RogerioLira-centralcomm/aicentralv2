@@ -30,9 +30,12 @@ function SourcesBlock({block, onPrompt}) {
   const [selected, setSelected] = useState([]);
   const [copied, setCopied] = useState(false);
   if (!items.length) return null;
-  const visible = items.slice(0, 6);
+  const visible = items.slice(0, 8);
   const selectedItems = visible.filter(item => selected.includes(item.id));
-  const compiledText = selectedItems.map(item => `${item.title || 'Fonte'}\n${item.detail || ''}\n${item.url || ''}`).join('\n\n').slice(0, 1150);
+  const compiledText = JSON.stringify(selectedItems.map(item => ({
+    source_id: item.id, title: item.title || 'Fonte', url: item.url || '',
+    content: item.content || item.detail || '',
+  }))).slice(0, 12000);
   const toggle = item => setSelected(current => current.includes(item.id) ? current.filter(id => id !== item.id) : [...current, item.id]);
   const compile = () => onPrompt?.('Compile os trechos selecionados em um texto limpo, indique o que é fato e o que é interpretação e me pergunte antes de adicionar ao projeto.', {type: 'web_sources', label: 'Fontes selecionadas', text: compiledText});
   const draft = () => onPrompt?.('Crie um rascunho editável a partir das fontes selecionadas. Organize um título e os parágrafos em texto fiel ao conteúdo, sem inventar informações.', {type: 'web_sources', label: 'Fontes para o rascunho', text: compiledText});

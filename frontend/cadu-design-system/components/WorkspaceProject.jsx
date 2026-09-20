@@ -12,6 +12,15 @@ function ProjectIcon({name}) {
     source: <><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v5h5M8 12h8M8 16h6"/></>,
     delivery: <><path d="M5 4h14v16H5z"/><path d="m8 13 3 3 5-6"/></>,
     spark: <><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></>,
+    conversation: <><path d="M5 5h14v10H9l-4 4z"/><path d="M8 9h8M8 12h5"/></>,
+    artifact: <><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></>,
+    file: <><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 12h6M9 16h4"/></>,
+    pdf: <><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M8 15h2a1.5 1.5 0 0 0 0-3H8v6M13 12h1.5a2 2 0 0 1 0 4H13z"/></>,
+    image: <><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.3"/><path d="m5 17 4-4 3 3 2-2 5 4"/></>,
+    html: <><path d="m8 7-4 5 4 5M16 7l4 5-4 5M14 4l-4 16"/></>,
+    text: <><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></>,
+    plan: <><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h5M8 16h7"/><path d="M8 2v4M16 2v4"/></>,
+    analysis: <><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4M8 10.5h5M10.5 8v5"/></>,
   };
   return <svg className="cadu-ds-project-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name] || paths.context}</svg>;
 }
@@ -208,6 +217,31 @@ function deliveryStatus(item) {
   return item.status ? item.status.replace(/_/g, ' ') : 'Disponível';
 }
 
+function artifactIconName(kind) {
+  return ({conversation: 'conversation', artifact: 'artifact', html: 'html', text: 'text', file: 'file', pdf: 'pdf', image: 'image', plan: 'plan', analysis: 'analysis'})[kind] || 'artifact';
+}
+
+function ProjectContinuitySection({project, onStartConversation}) {
+  const conversations = Array.isArray(project.conversations) ? project.conversations : [];
+  const artifacts = Array.isArray(project.artifacts) ? project.artifacts : [];
+  const [showAllConversations, setShowAllConversations] = useState(false);
+  const [showAllArtifacts, setShowAllArtifacts] = useState(false);
+  const renderItem = entry => entry.href ? <a className="cadu-ds-project-continuity__item" href={entry.href} key={entry.id}>
+    <span className={`cadu-ds-project-continuity__icon is-${entry.kind || 'artifact'}`}><ProjectIcon name={entry.kind === 'conversation' ? 'conversation' : artifactIconName(entry.kind)}/></span>
+    <span className="cadu-ds-project-continuity__copy"><b>{entry.title}</b><small>{entry.detail}</small></span><i aria-hidden="true">›</i>
+  </a> : <div className="cadu-ds-project-continuity__item" key={entry.id}>
+    <span className={`cadu-ds-project-continuity__icon is-${entry.kind || 'artifact'}`}><ProjectIcon name={artifactIconName(entry.kind)}/></span>
+    <span className="cadu-ds-project-continuity__copy"><b>{entry.title}</b><small>{entry.detail}</small></span>
+  </div>;
+  return <section className="cadu-ds-project-continuity" aria-labelledby="project-continuity-title">
+    <header><div><p>Continuidade do projeto</p><h2 id="project-continuity-title">Conversas e artefatos salvos</h2><span>Retome uma conversa ou encontre o material que já foi produzido para este contexto.</span></div></header>
+    <div className="cadu-ds-project-continuity__columns">
+      <article><div className="cadu-ds-project-section-title"><ProjectIcon name="conversation"/><h3>Conversas do projeto</h3><em>{conversations.length}</em></div>{conversations.length ? <>{(showAllConversations ? conversations : conversations.slice(0, 8)).map(renderItem)}{conversations.length > 8 && <button type="button" className="cadu-ds-project-continuity__more" onClick={() => setShowAllConversations(current => !current)}>{showAllConversations ? 'Mostrar menos' : `Ver todas as ${conversations.length} conversas`}</button>}</> : <div className="cadu-ds-project-empty"><p>As conversas iniciadas neste projeto aparecerão aqui.</p><button type="button" onClick={onStartConversation}>Começar uma conversa</button></div>}</article>
+      <article><div className="cadu-ds-project-section-title"><ProjectIcon name="artifact"/><h3>Artefatos salvos</h3><em>{artifacts.length}</em></div>{artifacts.length ? <>{(showAllArtifacts ? artifacts : artifacts.slice(0, 12)).map(renderItem)}{artifacts.length > 12 && <button type="button" className="cadu-ds-project-continuity__more" onClick={() => setShowAllArtifacts(current => !current)}>{showAllArtifacts ? 'Mostrar menos' : `Ver todos os ${artifacts.length} artefatos`}</button>}</> : <div className="cadu-ds-project-empty"><p>HTML, textos, arquivos, PDFs e imagens salvos aparecerão aqui.</p><button type="button" onClick={onStartConversation}>Criar no projeto</button></div>}</article>
+    </div>
+  </section>;
+}
+
 export function WorkspaceProject({bootstrap}) {
   const project = bootstrap.project || {};
   const [dialog, setDialog] = useState('');
@@ -293,7 +327,8 @@ export function WorkspaceProject({bootstrap}) {
           <article className="cadu-ds-project-context"><header><div><p>Direção do trabalho</p><h2>O que deve permanecer consistente</h2></div>{canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar contexto</button>}</header><p className="cadu-ds-project-context__lead">{project.description || 'Ainda não há uma direção registrada. Comece pelo resultado esperado para dar uma base às próximas decisões.'}</p><dl><div><dt>Público</dt><dd>{project.identity?.publico || 'A definir'}</dd></div><div><dt>Tom de voz</dt><dd>{project.identity?.tom_de_voz || 'A definir'}</dd></div><div><dt>Posicionamento</dt><dd>{project.identity?.posicionamento || 'A definir'}</dd></div></dl>{project.instructions && <aside><b>Orientações para o Cadu</b><p>{project.instructions}</p></aside>}</article>
           <aside className="cadu-ds-project-next"><p>Próximo passo</p><h2>{missing.length ? 'Fortaleça a base antes da próxima entrega' : 'A base do projeto está pronta para avançar'}</h2>{missing.length ? <ul>{missing.map(item => <li key={item}>{item.charAt(0).toUpperCase() + item.slice(1)}</li>)}</ul> : <span>Use a conversa, o Planner ou o Studio com este contexto.</span>}<button type="button" onClick={() => setDialog(missing.includes('fontes') ? 'sources' : 'identity')}>{missing.includes('fontes') ? 'Adicionar fontes' : 'Revisar contexto'}</button></aside>
         </div>
-        <section className="cadu-ds-project-library"><header><div><p>Biblioteca do projeto</p><h2>Fontes, entregas e recursos em um só lugar</h2></div>{canEdit && <button type="button" onClick={() => setDialog('sources')}>Gerenciar fontes</button>}</header><div className="cadu-ds-project-library__columns"><article><div className="cadu-ds-project-section-title"><ProjectIcon name="source"/><h3>Fontes e referências</h3></div>{project.files?.slice(0, 5).map(file => <div className="cadu-ds-project-row" key={file.id}><span><b>{file.title}</b><small>{file.mime}</small></span><em className={`is-${file.status}`}>{sourceStatus(file.status)}</em></div>)}{!project.files?.length && <div className="cadu-ds-project-empty"><p>Nenhuma fonte foi adicionada.</p>{canEdit && <button type="button" onClick={() => setDialog('sources')}>Adicionar a primeira fonte</button>}</div>}</article><article><div className="cadu-ds-project-section-title"><ProjectIcon name="delivery"/><h3>Entregas</h3></div>{project.deliveries?.slice(0, 5).map(item => item.href ? <a className="cadu-ds-project-row cadu-ds-project-row--link" href={item.href} key={item.id}><span><b>{item.title}</b><small>{item.kind}</small></span><em>{deliveryStatus(item)}</em></a> : <div className="cadu-ds-project-row" key={item.id}><span><b>{item.title}</b><small>{item.kind}</small></span><em>{deliveryStatus(item)}</em></div>)}{!project.deliveries?.length && <div className="cadu-ds-project-empty"><p>As próximas criações e planos aparecerão aqui.</p><button type="button" onClick={startConversation}>Criar primeira entrega</button></div>}</article></div>{project.resources?.length > 0 && <div className="cadu-ds-project-resource-strip"><b>{project.resources.length} recursos conectados</b>{project.resources.slice(0, 4).map(item => <button type="button" key={item.id} onClick={() => setResourceId(item.id)}>{item.title}</button>)}</div>}</section>
+        <ProjectContinuitySection project={project} onStartConversation={startConversation}/>
+        <section className="cadu-ds-project-library"><header><div><p>Biblioteca do projeto</p><h2>Entregas e recursos em um só lugar</h2></div>{canEdit && <button type="button" onClick={() => setDialog('sources')}>Gerenciar fontes</button>}</header><div className="cadu-ds-project-library__columns"><article><div className="cadu-ds-project-section-title"><ProjectIcon name="source"/><h3>Fontes e arquivos</h3></div><div className="cadu-ds-project-library-summary"><b>{project.files?.length || 0} fontes preservadas</b><p>Os detalhes de HTML, textos, PDFs, imagens e outros arquivos ficam na seção de artefatos acima.</p>{canEdit && <button type="button" onClick={() => setDialog('sources')}>Gerenciar fontes</button>}</div></article><article><div className="cadu-ds-project-section-title"><ProjectIcon name="delivery"/><h3>Entregas</h3></div>{project.deliveries?.slice(0, 5).map(item => item.href ? <a className="cadu-ds-project-row cadu-ds-project-row--link" href={item.href} key={item.id}><span><b>{item.title}</b><small>{item.kind}</small></span><em>{deliveryStatus(item)}</em></a> : <div className="cadu-ds-project-row" key={item.id}><span><b>{item.title}</b><small>{item.kind}</small></span><em>{deliveryStatus(item)}</em></div>)}{!project.deliveries?.length && <div className="cadu-ds-project-empty"><p>As próximas criações e planos aparecerão aqui.</p><button type="button" onClick={startConversation}>Criar primeira entrega</button></div>}</article></div>{project.resources?.length > 0 && <div className="cadu-ds-project-resource-strip"><b>{project.resources.length} recursos conectados</b>{project.resources.slice(0, 4).map(item => <button type="button" key={item.id} onClick={() => setResourceId(item.id)}>{item.title}</button>)}</div>}</section>
         <section className="cadu-ds-project-memory"><article><header><div><p>Memória do projeto</p><h2>O que já foi confirmado</h2></div></header>{project.memory?.slice(0, 4).map(item => <div key={item.id}><b>{item.kind.replace(/_/g, ' ')}</b><p>{item.summary}</p></div>)}{!project.memory?.length && <p className="cadu-ds-project-empty-copy">Sínteses confirmadas nas conversas aparecerão aqui.</p>}</article><article><header><div><p>Atalhos e atividade</p><h2>Onde o trabalho continua</h2></div>{canEdit && <button type="button" onClick={() => setDialog('link')}>Adicionar atalho</button>}</header><div className="cadu-ds-project-link-list">{project.links?.slice(0, 4).map(item => <a href={item.url} target="_blank" rel="noreferrer" key={item.id}><b>{item.title}</b><small>{item.provider || item.url.replace(/^https?:\/\//, '')}</small></a>)}{!project.links?.length && <p className="cadu-ds-project-empty-copy">Conecte a pasta, o quadro ou a ferramenta usada pelo time.</p>}</div>{project.activity?.slice(0, 3).map(item => <div className="cadu-ds-project-activity" key={item.id}><span/><p><b>{item.title}</b><small>{item.detail}</small></p></div>)}</article></section>
         {canEdit && <form className="cadu-ds-project-archive" method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Arquivar projeto</button></form>}
         </section>

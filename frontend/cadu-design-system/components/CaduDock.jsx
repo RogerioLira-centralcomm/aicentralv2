@@ -124,10 +124,40 @@ export function CaduDock({logo, homeUrl, bootstrap, userName = 'Minha conta', us
     event.dataTransfer.setData('application/x-cadu-item', serialized);
     event.dataTransfer.setData('text/plain', serialized);
   };
-  const items = shortcutItems.length ? shortcutItems : [...brands, ...resources];
+  const isWorkspaceSurface = Boolean(bootstrap?.homeMode || bootstrap?.projectMode || bootstrap?.brandsMode || bootstrap?.projectsMode || bootstrap?.accountMode);
+  const isControlled = typeof onReorderShortcuts === 'function';
+  const [managedItems, setManagedItems] = useState(() => shortcutItems.length ? shortcutItems : [...brands, ...resources]);
+  useEffect(() => {
+    if (!isControlled) setManagedItems(shortcutItems.length ? shortcutItems : [...brands, ...resources]);
+  }, [brands, isControlled, resources, shortcutItems]);
+  const items = isControlled ? (shortcutItems.length ? shortcutItems : [...brands, ...resources]) : managedItems;
   const dockBrands = items.filter(item => item.kind === 'brand');
   const dockResources = items.filter(item => item.kind !== 'brand');
-  const canReorder = typeof onReorderShortcuts === 'function';
+  const canReorder = isControlled || isWorkspaceSurface;
+  const persistManagedOrder = async next => {
+    const before = managedItems;
+    setManagedItems(next);
+    const endpoint = bootstrap?.endpoints?.dockShortcuts || '/workspace/api/dock/shortcuts';
+    const token = bootstrap?.csrf || document.querySelector('meta[name="csrf-token"]')?.content || '';
+    try {
+      const explicit = [];
+      for (const item of next) {
+        if (item.shortcutId) { explicit.push(item); continue; }
+        const kind = item.kind === 'brand' ? 'brand' : 'project';
+        const targetRef = kind === 'brand' ? item.id : item.projectRef || item.id;
+        const response = await fetch(endpoint, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': token}, body: JSON.stringify({shortcut_type: kind, target_ref: targetRef, project_ref: item.projectRef || null, brand_ref: item.brandRef || null})});
+        if (!response.ok) throw new Error('Não foi possível salvar a ordem da dock.');
+        const data = await response.json();
+        explicit.push({...item, shortcutId: data.shortcut?.id, pinned: true});
+      }
+      setManagedItems(explicit);
+      const response = await fetch(`${endpoint}/order`, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': token}, body: JSON.stringify({ids: explicit.map(item => item.shortcutId)})});
+      if (!response.ok) throw new Error('Não foi possível salvar a ordem da dock.');
+    } catch (_) {
+      setManagedItems(before);
+    }
+  };
+  const handleReorder = next => isControlled ? onReorderShortcuts?.(next) : persistManagedOrder(next);
   const reorder = (event, target) => {
     const source = readDockPayload(event);
     if (!source?.id || source.id === target.id) return;
@@ -139,7 +169,7 @@ export function CaduDock({logo, homeUrl, bootstrap, userName = 'Minha conta', us
     const to = next.findIndex(item => identity(item) === targetIdentity);
     if (from < 0 || to < 0) return;
     next.splice(to, 0, next.splice(from, 1)[0]);
-    onReorderShortcuts?.(next);
+    handleReorder(next);
   };
   const solutions = bootstrap ? workspaceSolutionItems(bootstrap) : [];
   const resolvedAvatar = avatarSource(userAvatar, bootstrap);

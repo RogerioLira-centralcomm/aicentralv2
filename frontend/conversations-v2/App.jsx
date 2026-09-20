@@ -82,6 +82,14 @@ export default function App({bootstrap}) {
   const discardResolverRef = useRef(null);
   const dragDepthRef = useRef(0);
 
+  const rememberContext = useCallback(next => {
+    setContext(next || {});
+    try {
+      if (next?.project_ref || next?.brand_ref) localStorage.setItem('cadu:workspace-chat-context', JSON.stringify(next));
+      else localStorage.removeItem('cadu:workspace-chat-context');
+    } catch (_) { /* storage can be unavailable in private browsing */ }
+  }, []);
+
   useEffect(() => { conversationRef.current = conversationId; }, [conversationId]);
   useEffect(() => { artifactRef.current = artifact; }, [artifact]);
 
@@ -131,7 +139,9 @@ export default function App({bootstrap}) {
     setContextLoading(true);
     try {
       const data = await request(bootstrap.endpoints.context);
-      setContext(data.context || {});
+      // The server is authoritative: an empty context means an intentional
+      // free session and must not resurrect a stale project from the browser.
+      rememberContext(data.context || {});
       setProjects(current => (data.entities || []).filter(item => item.kind === 'project').map(item => ({
         ...item,
         ...(current.find(existing => (existing.ref || existing.projectRef || existing.id) === item.ref) || {}),
@@ -145,7 +155,7 @@ export default function App({bootstrap}) {
     } catch (error) {
       trace('Contexto indisponível', error.message, 'error');
     } finally { setContextLoading(false); }
-  }, [bootstrap.endpoints.context, trace]);
+  }, [bootstrap.endpoints.context, rememberContext, trace]);
 
   useEffect(() => { loadContext(); loadRecent(); }, [loadContext, loadRecent]);
 
@@ -227,7 +237,7 @@ export default function App({bootstrap}) {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
         body: JSON.stringify(projectContextPayload(projectRef)),
       });
-      setContext(data.context || {});
+      rememberContext(data.context || {});
       reset();
       setHistoryOpen(showHistory);
       trace('Contexto alterado', projects.find(item => item.ref === projectRef)?.name || 'Contexto pessoal');
@@ -256,7 +266,7 @@ export default function App({bootstrap}) {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
         body: JSON.stringify(brandContextPayload(brandRef)),
       });
-      setContext(data.context || {}); reset(); setHistoryOpen(true);
+      rememberContext(data.context || {}); reset(); setHistoryOpen(true);
       await loadBrandIdentity(brandRef);
       trace('Marca aplicada à conversa');
     } catch (error) {

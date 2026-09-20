@@ -85,7 +85,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
 
   return <aside className={`cadu-ds-context-sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
-      <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span><strong>{agencyName || 'Minha agência'}</strong></div>
+      <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span><strong>{agencyName || 'Cliente'}</strong></div>
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={!collapsed}>{collapsed ? '›' : '‹'}</button>
     </header>
     <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
@@ -101,7 +101,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
     </section>}
     {mode === 'home' && recentFiles.length === 0 && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Conversas recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Conversas recentes</span>{links.conversations && <a href={links.conversations}>Ver todas</a>}</div>
-      {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><Icon name="history" size={14}/><span><b>{item.title || item.name || 'Conversa'}</b><small>{item.context || item.projectName || 'Cadu Chat'}</small></span></a>)}
+      {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><span><b>{item.title || item.name || 'Conversa'}</b><small>{item.context || item.projectName || 'Cadu Chat'}</small></span></a>)}
     </section>}
   </aside>;
 }

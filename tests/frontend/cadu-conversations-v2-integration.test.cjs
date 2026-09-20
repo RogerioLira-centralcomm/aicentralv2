@@ -71,7 +71,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(home, /matchedProjects|ProjectSelector|Buscar projetos/);
   assert.match(home, /agencyName=\{home\.agency\?\.name\}/);
   assert.match(contextSidebar, /agencyName = ''/);
-  assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Minha agência'\}<\/strong>/);
+  assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Cliente'\}<\/strong>/);
   assert.match(contextSidebar, /id: 'integracoes', label: 'Integrações'/);
   assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
   assert.match(home, /onOpenResource=\{openWorkspaceDetail\}/);
@@ -429,7 +429,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /#cadu-conversations-v2-root \.cv-composer-input/);
   assert.match(styles, /--cadu-nav-bg: #0b171a/);
-  assert.match(styles, /\.cv-recent-list \.cv-conversation-card \{[\s\S]*background:#17282c/);
+  assert.match(styles, /\.cv-recent-list \.cv-conversation-card \{[\s\S]*background:transparent !important/);
   assert.match(styles, /\.cv-composer-stage \{[\s\S]*background: transparent/);
   assert.match(styles, /max-height: min\(260px, 38dvh\) !important/);
   assert.match(styles, /\.cv-composer-actions[\s\S]*border-top: 0 !important/);

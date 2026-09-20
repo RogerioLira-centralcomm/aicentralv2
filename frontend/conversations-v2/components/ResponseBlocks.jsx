@@ -145,6 +145,10 @@ function FilesBlock({block, onOpenResource}) {
   return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-gap-1">{block.items.map(item => <button key={item.id} type="button" onClick={() => onOpenResource?.(item)} className="cv-flex cv-w-full cv-items-center cv-gap-3 cv-rounded-xl cv-border-0 cv-bg-transparent cv-p-2 cv-text-left hover:cv-bg-white/[.035]"><span className="cv-grid cv-h-9 cv-w-9 cv-flex-none cv-place-items-center cv-rounded-lg cv-bg-white/[.05] cv-text-[#79b9b1]"><Icon name="file" size={16}/></span><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-sm cv-font-medium">{item.title}</strong><small className="cv-mt-0.5 cv-block cv-text-[11px] cv-text-[#78918d]">{item.kind || 'Arquivo'}{item.detail ? ` · ${item.detail}` : ''}</small></span><span className="cv-text-[10px] cv-font-semibold cv-text-teal">Abrir</span></button>)}</div></section>;
 }
 
+function ImagesBlock({block}) {
+  return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-grid-cols-1 cv-gap-3 sm:cv-grid-cols-2 lg:cv-grid-cols-3">{(block.items || []).map(item => { const image = safeUrl(item.url); const source = safeUrl(item.source_url); return image ? <figure key={item.id} className="cv-m-0 cv-overflow-hidden cv-rounded-xl cv-border cv-border-white/[.08] cv-bg-white/[.03]"><img src={image} alt={item.title || 'Imagem relacionada'} loading="lazy" className="cv-aspect-[4/3] cv-w-full cv-object-cover"/><figcaption className="cv-p-2"><strong className="cv-block cv-truncate cv-text-xs">{item.title}</strong>{source && <a href={source} target="_blank" rel="noreferrer" className="cv-mt-1 cv-block cv-text-[10px] cv-text-teal">Ver fonte</a>}</figcaption></figure> : null; })}</div></section>;
+}
+
 function StepsBlock({block, onPrompt}) {
   return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><ol className="cv-m-0 cv-list-none cv-p-0">{block.items.map((item, index) => <li key={item.id} className="cv-relative cv-flex cv-gap-3 cv-pb-4 last:cv-pb-0">{index < block.items.length - 1 && <i className="cv-absolute cv-left-[7px] cv-top-5 cv-h-[calc(100%-16px)] cv-w-px cv-bg-white/10"/>}<span className={`cv-mt-1 cv-h-4 cv-w-4 cv-flex-none cv-rounded-full cv-border-2 ${item.state === 'done' ? 'cv-border-teal cv-bg-teal' : item.state === 'active' ? 'cv-animate-pulse cv-border-teal' : item.state === 'blocked' ? 'cv-border-[#ff7d83]' : 'cv-border-white/20'}`}/><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm cv-font-medium">{item.title}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#819b97]">{item.detail}</small>}{item.prompt && item.state !== 'done' && <button type="button" onClick={() => onPrompt(item.prompt)} className="cv-mt-2 cv-border-0 cv-bg-transparent cv-p-0 cv-text-[10px] cv-font-semibold cv-text-teal">Continuar esta etapa</button>}</span></li>)}</ol></section>;
 }
@@ -163,6 +167,7 @@ export function ResponseBlocks({blocks, onPrompt, onOpenResource}) {
     if (block.type === 'insights') return <InsightsBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'metrics') return <MetricsBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'files') return <FilesBlock key={key} block={block} onOpenResource={onOpenResource}/>;
+    if (block.type === 'images') return <ImagesBlock key={key} block={block}/>;
     if (block.type === 'steps') return <StepsBlock key={key} block={block} onPrompt={onPrompt}/>;
     return null;
   })}</>;

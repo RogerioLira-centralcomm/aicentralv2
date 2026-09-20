@@ -114,13 +114,14 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            ("project", "brand") if has_project else (), (), "document")
     web_request = _has(text, r"\b(pesquis|busqu|procure|encontre|verifi)\w*\b")
     web_signal = _has(text, r"\b(internet|web|online|fontes? externas?|fontes? online|not[ií]cias?|recente|recentes|atual|atualizado|hoje|mercado|concorrentes?)\b")
+    history_signal = _has(text, r"\b(hist[oó]ria|trajet[oó]ria|legado|evolu[cç][aã]o|origem)\b") and _has(text, r"\b(marca|campanha|empresa|artista|pessoa|obra|case)\b")
     project_only = (
         _has(text, r"\b(no|na|nos|nas|dentro do|dentro da)\b.{0,60}\b(projeto|arquivo|documento|nota|base)\b")
         or _has(text, r"\b(as|os)\s+(fontes?|arquivos?|documentos?)\s+(do|da|dos|das)\s+projeto\b")
     )
     freshness_request = _has(text, r"\b(atualiz|acompanhe)\w*\b") and web_signal
     web_question = web_signal and _has(text, r"\b(qual|quais|como|o que|traga|mostre|resuma|compare|quanto|quem)\b")
-    if (web_request or freshness_request or web_question) and not project_only:
+    if (web_request or freshness_request or web_question or history_signal) and not project_only:
         return IntentRoute("research", "search_web", "high", "analysis",
                            ("project", "brand") if has_project else (), ("web.search",))
     if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz).{0,45}\b(html|landing page|p[aá]gina|site|interface)\b"):

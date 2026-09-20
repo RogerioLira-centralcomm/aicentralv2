@@ -13,6 +13,7 @@
   'csrf': session.get('family_csrf',''),
   'admin': session.get('user_type') in ('admin','superadmin'),
   'usagePercent': account.position.usage_percentage if account.position else 0,
+  'contextName': account.organization.nome_fantasia or account.organization.razao_social or session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Cliente',
   'account': account,
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'user': {'id': session.get('user_id'), 'name': session.get('user_name','Minha conta'), 'email': session.get('user_email',''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url',''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge','')},

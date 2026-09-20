@@ -30,6 +30,18 @@ def repair_metadata_answer(value):
     """Turn a leaked routing summary into a customer-facing sentence."""
     original = str(value or "").strip()
     text = " ".join(original.split()).strip()
+
+    # Some providers wrap the actual answer in an orchestration report. Keep
+    # only the customer-facing response and discard the internal next-action
+    # instruction before streaming or persisting it.
+    response_match = re.search(r"(?is)(?:^|\s)resposta\s*:?(.*?)(?=\s+pr[oó]xima a[cç][aã]o\s*:|$)", text)
+    if response_match:
+        response = response_match.group(1).strip()
+        if response:
+            return response
+    text = re.sub(r"(?is)^\s*(?:projeto usado|decis[aã]o proposta|confian[cç]a|pr[oó]ximo passo)\s*:[^.]*\.\s*", "", text)
+    if text != original:
+        return text.strip()
     match = _LEAKED_DECISION_PATTERN.match(text)
     if not match:
         return original
@@ -194,7 +206,7 @@ def _clean_blocks(values):
     allowed = {
         "summary", "activity", "progress", "source", "sources", "source_group",
         "assumption", "warning", "error", "question", "questions",
-        "decision", "checklist", "insights", "metrics", "files", "steps",
+        "decision", "checklist", "insights", "metrics", "files", "steps", "images",
     }
     allowed_states = {"pending", "active", "done", "blocked"}
     for value in values if isinstance(values, list) else []:
@@ -257,6 +269,11 @@ def _clean_blocks(values):
                 clean.update({
                     "state": state if state in allowed_states else "pending",
                     "prompt": _clean_text(item.get("prompt"), 1000),
+                })
+            elif block_type == "images":
+                clean.update({
+                    "url": _resource_url(item.get("url")),
+                    "source_url": _resource_url(item.get("source_url")),
                 })
             elif block_type in {"insights", "metrics"}:
                 clean["prompt"] = _clean_text(item.get("prompt"), 1000)

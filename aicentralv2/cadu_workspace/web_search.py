@@ -207,6 +207,7 @@ def _search(query: str, *, limit: int, include_domains: list[str],
             "published_at": _clean_text(item.get("date") or item.get("publishedDate"), 60),
             "source_type": _clean_text(item.get("category") or "web", 40),
             "favicon": _safe_favicon(item.get("favicon") or item.get("faviconUrl") or metadata.get("favicon"), url),
+            "image_url": _safe_url(item.get("image_url") or item.get("imageUrl") or item.get("image") or metadata.get("image") or metadata.get("image_url")),
             "rank": index,
         })
     return sources

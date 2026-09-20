@@ -675,10 +675,15 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     project_rows = _workspace_projects(client_id) if projects is None else projects
     brand_rows = _workspace_brands(client_id) if brands is None else brands
     brand_project_counts: dict[str, int] = {}
-    for project in project_rows:
-        brand_name = str(project.get('thumbnail_label') or '').casefold()
-        if brand_name:
-            brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
+    try:
+        project_brand_links = family_repository.project_brand_links(client_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar contagens de vínculos de marcas do cliente %s', client_id, exc_info=True)
+        project_brand_links = []
+    for link in project_brand_links:
+        brand_ref = str(link.get('brand_ref') or '')
+        if brand_ref.startswith('studio:'):
+            brand_project_counts[brand_ref] = brand_project_counts.get(brand_ref, 0) + 1
     # A brand logo can be resolved while attaching project identity even when
     # the brand row itself has no direct display_logo. Reuse that canonical
     # project-linked mark so the shared dock never regresses to initials.
@@ -698,7 +703,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'visualVariant': _dock_visual_variant('brand', item.get('id')),
         'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
         'brandRef': f"studio:{item.get('id')}",
-        'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0),
+        'projectCount': brand_project_counts.get(f"studio:{item.get('id')}", 0),
     } for item in brand_rows]
     # Keep logo-less brands in the shared dock too; React supplies the stable
     # initials/gradient identity when no custom mark is available.
@@ -2999,6 +3004,19 @@ def workspace_icon(size):
 @login_required
 def dashboard():
     client_id = int(session.get("cliente_id") or 0)
+    try:
+        from .. import db
+        organization = dict(db.obter_cliente_por_id(client_id) or {})
+    except Exception:
+        organization = {}
+    client_name = str(
+        organization.get('nome_fantasia')
+        or organization.get('razao_social')
+        or session.get('client_name')
+        or session.get('cliente_nome')
+        or session.get('organization_name')
+        or f'Cliente {client_id}'
+    ).strip()
     projects = _workspace_projects(client_id)
     brands = _workspace_brands(client_id)
     # New authenticated organizations start with a focused setup instead of
@@ -3022,17 +3040,22 @@ def dashboard():
     credit = credit_position(client_id)
     usage = float(credit.get('monthly_usage_percentage') or 0)
     brand_project_counts: dict[str, int] = {}
-    for project in projects:
-        brand_name = str(project.get('thumbnail_label') or '').casefold()
-        if brand_name:
-            brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
+    try:
+        project_brand_links = family_repository.project_brand_links(client_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar contagens de vínculos de marcas do cliente %s', client_id, exc_info=True)
+        project_brand_links = []
+    for link in project_brand_links:
+        brand_ref = str(link.get('brand_ref') or '')
+        if brand_ref.startswith('studio:'):
+            brand_project_counts[brand_ref] = brand_project_counts.get(brand_ref, 0) + 1
     brand_items = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
                     'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
                     'visualInitials': str(item.get('display_initials') or 'M'),
                     'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
                     'visualVariant': _dock_visual_variant('brand', item.get('id')),
                     'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
-                    'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)}
+                    'projectCount': brand_project_counts.get(f"studio:{item.get('id')}", 0)}
                    for item in brands]
     # The dock and the workspace sidebar both render a deterministic initials
     # fallback when a brand has no usable logo. Do not hide those brands here.
@@ -3075,7 +3098,7 @@ def dashboard():
             'projectRef': f'ci:{project_id}',
         })
     home_data = {
-        'agency': {'id': str(client_id), 'name': str(session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Minha agência')},
+        'agency': {'id': str(client_id), 'name': client_name},
         # Every brand has a visual identity in the React shell. A principal logo
         # is preferred, but the approved initials and color are a deliberate
         # fallback when a logo is still being prepared or cannot be loaded.

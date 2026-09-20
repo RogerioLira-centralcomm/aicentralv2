@@ -137,6 +137,16 @@ def test_all_conversations_receive_a_concise_evidence_led_reading_contract():
     assert directives.endswith('Ajude com clareza.')
 
 
+def test_provider_orchestration_report_is_not_shown_to_the_customer():
+    from aicentralv2.cadu_workspace.agent_v2.guardrails import repair_metadata_answer
+    leaked = (
+        'Projeto usado: nenhum. Decisão proposta: ele morreu por complicações de um melanoma. '
+        'Confiança: alta. Resposta: Bob Marley morreu em 11 de maio de 1981. '
+        'Próxima ação: se quiser, posso resumir a linha do tempo.'
+    )
+    assert repair_metadata_answer(leaked) == 'Bob Marley morreu em 11 de maio de 1981.'
+
+
 def test_deep_depth_is_visible_to_the_agent_as_a_customer_selected_posture():
     from aicentralv2.cadu_workspace.conversations.service import build_run
     run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},

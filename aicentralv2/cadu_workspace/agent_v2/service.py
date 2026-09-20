@@ -250,10 +250,26 @@ def _enrich_source_blocks(response, run):
             "published_at": str(source.get("published_at") or "")[:60],
             "kind": "web",
             "favicon": str(source.get("favicon") or "")[:2000],
+            "image_url": str(source.get("image_url") or "")[:2000],
         })
         if len(safe_web_sources) >= 8:
             break
     if safe_web_sources:
+        execution_mode = str(run.get("execution_mode") or "analysis")
+        query = str(run.get("payload", {}).get("query") or "").lower()
+        person_or_work_query = any(token in query for token in (
+            "quem é", "quem foi", "morreu", "biografia", "história", "historia", "carreira", "obra", "artista", "cantor", "autor",
+            "marca", "campanha", "campanhas", "case", "trajetória", "trajetoria", "legado", "lançamento", "lancamento",
+        ))
+        image_limit = 0 if execution_mode == "fast" else 1 if execution_mode == "analysis" else 3
+        image_items = [source for source in safe_web_sources if source.get("image_url")][:image_limit] if person_or_work_query else []
+        if image_items:
+            response.blocks = [*response.blocks, {
+                "type": "images", "title": "Imagens relacionadas",
+                "summary": "Imagens encontradas em fontes públicas consultadas.",
+                "items": [{"id": f"image-{index}", "title": item["title"], "url": item["image_url"], "source_url": item["url"]}
+                          for index, item in enumerate(image_items, 1)],
+            }, *response.blocks[2:]]
         existing_urls = {
             str(citation.get("url") or "") for citation in response.citations
             if isinstance(citation, dict)

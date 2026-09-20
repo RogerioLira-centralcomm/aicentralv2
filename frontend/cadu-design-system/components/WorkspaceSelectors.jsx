@@ -69,13 +69,13 @@ export function ChatContextSelector({context = {}, projects = [], brands = [], o
   });
   const chooseProject = ref => { onProjectChange?.(ref); setOpen(false); };
   const chooseBrand = ref => { onBrandChange?.(ref); setOpen(false); };
-  const label = selectedProject?.name || selectedBrand?.name || (loading ? 'Carregando contexto…' : 'Contexto pessoal');
+  const label = selectedProject?.name || selectedBrand?.name || (loading ? 'Carregando contexto…' : 'Sessão livre');
   const orderedGroups = [...groups.entries()].sort(([left], [right]) => (left === context.brand_ref ? -1 : right === context.brand_ref ? 1 : 0));
   return <details ref={root} open={open} onToggle={event => setOpen(event.currentTarget.open)} className="cv-context-selector">
     <summary aria-label="Selecionar contexto da conversa" aria-busy={loading}><span className="cv-context-selector__label">{label}</span><i aria-hidden="true">⌄</i></summary>
     <div className="cv-context-selector__menu" aria-label="Contextos disponíveis">
-      <header><span>Contexto da conversa</span><p>Escolha uma marca ou um projeto para orientar o chat.</p></header>
-      <button type="button" className={!context.project_ref && !context.brand_ref ? 'is-active' : ''} onClick={() => chooseProject('')} disabled={disabled}><span className="cv-context-selector__personal">C</span><span><b>Contexto pessoal</b><small>Sem projeto ou marca selecionados</small></span>{!context.project_ref && !context.brand_ref && <em>✓</em>}</button>
+      <header><span>Onde esta conversa acontece</span><p>Escolha um projeto ou continue em uma sessão livre.</p></header>
+      <button type="button" className={!context.project_ref && !context.brand_ref ? 'is-active' : ''} onClick={() => chooseProject('')} disabled={disabled}><span className="cv-context-selector__personal">↗</span><span><b>Sessão livre</b><small>Conversa sem projeto definido</small></span>{!context.project_ref && !context.brand_ref && <em>✓</em>}</button>
       {orderedGroups.map(([brandRef, entries]) => {
         const brand = brandByRef.get(brandRef);
         return <section key={brandRef || 'unlinked'}><div className="cv-context-selector__group">{brand ? <button type="button" onClick={() => chooseBrand(brandRef)} disabled={disabled} className={context.brand_ref === brandRef && !context.project_ref ? 'is-active' : ''}><VisualIdentity src={brand.logoUrl || brand.logo_url} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor}/><span><b>{brand.name}</b><small>{entries.length} projeto{entries.length === 1 ? '' : 's'}</small></span>{context.brand_ref === brandRef && !context.project_ref && <em>✓</em>}</button> : <span>Projetos sem marca</span>}</div><div className="cv-context-selector__projects">{entries.map(project => <button type="button" key={project.ref} onClick={() => chooseProject(project.ref)} disabled={disabled} className={context.project_ref === project.ref ? 'is-active' : ''}><VisualIdentity src={project.previewUrl} initials={project.visualInitials || project.name} label={project.name} color={project.visualColor}/><span>{project.name}</span>{context.project_ref === project.ref && <em>✓</em>}</button>)}</div></section>;

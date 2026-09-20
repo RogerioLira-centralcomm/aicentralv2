@@ -167,10 +167,10 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-recent-search input { width:100%; height:34px; padding:0 10px 0 32px; border:1px solid transparent; border-radius:9px; background:#192a2e; color:#e2eeeb; font-size:11px; outline:none; }
 #cadu-conversations-v2-root .cv-recent-search input:focus { border-color:transparent; background:#1d3235; }
 #cadu-conversations-v2-root .cv-recent-list { min-height:0; flex:1; overflow-y:auto; padding:8px 10px 18px; }
-#cadu-conversations-v2-root .cv-recent-list .cv-conversation-card { display:flex !important; width:100% !important; min-height:46px !important; height:46px !important; align-items:center; gap:8px; margin:0 0 4px; padding:7px 10px !important; overflow:hidden; border:1px solid rgba(181,218,211,.10) !important; border-radius:9px !important; background:#17282c !important; color:#d5e5e1 !important; text-align:left; cursor:pointer; }
-#cadu-conversations-v2-root .cv-recent-list .cv-conversation-card:hover { background:#1c3638 !important; color:#f0f8f6 !important; }
+#cadu-conversations-v2-root .cv-recent-list .cv-conversation-card { display:flex !important; width:100% !important; min-height:42px !important; height:42px !important; align-items:center; gap:8px; margin:0; padding:7px 10px !important; overflow:hidden; border:0 !important; border-bottom:1px solid rgba(181,218,211,.10) !important; border-radius:0 !important; background:transparent !important; color:#d5e5e1 !important; text-align:left; cursor:pointer; }
+#cadu-conversations-v2-root .cv-recent-list .cv-conversation-card:hover { background:rgba(85,216,198,.07) !important; color:#f0f8f6 !important; }
 #cadu-conversations-v2-root .cv-recent-list .cv-conversation-card:disabled { cursor:wait; opacity:.62; }
-#cadu-conversations-v2-root .cv-recent-list .cv-conversation-card[aria-current="page"] { background:#205048 !important; border-color:rgba(112,226,212,.28) !important; color:#f0f8f6 !important; }
+#cadu-conversations-v2-root .cv-recent-list .cv-conversation-card[aria-current="page"] { background:rgba(32,80,72,.62) !important; border-bottom-color:rgba(112,226,212,.34) !important; color:#f0f8f6 !important; }
 #cadu-conversations-v2-root .cv-conversation-card__copy { display:grid; min-width:0; flex:1; gap:2px; overflow:hidden; }
 #cadu-conversations-v2-root .cv-conversation-card__copy b { display:block; overflow:hidden; color:inherit !important; font-size:11px !important; font-weight:650; line-height:1.3; text-overflow:ellipsis; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-conversation-card__copy small { display:block; overflow:hidden; color:#9db8b2 !important; font-size:9px !important; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }

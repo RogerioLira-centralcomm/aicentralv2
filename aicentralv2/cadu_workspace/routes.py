@@ -561,6 +561,12 @@ def _user_dock_shortcuts(client_id: int, user_id: int) -> list[dict]:
         return []
 
 
+def _dock_visual_variant(kind: str, value: object) -> int:
+    """Pick one of the fixed avatar treatments without storing presentation state."""
+    digest = sha256(f'{kind}:{value}'.encode('utf-8')).digest()
+    return int.from_bytes(digest[:2], 'big') % 10
+
+
 def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Optional[list[dict]] = None,
                                   brands: Optional[list[dict]] = None) -> list[dict]:
     """Return the one shared visual dock used by every Workspace surface.
@@ -583,18 +589,20 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
         'visualInitials': str(item.get('display_initials') or 'M'),
         'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+        'visualVariant': _dock_visual_variant('brand', item.get('id')),
         'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
         'brandRef': f"studio:{item.get('id')}",
         'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0),
-    } for item in brand_rows if item.get('display_logo')]
+    } for item in brand_rows]
     project_items = [{
         'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
         'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
-        'previewUrl': str(item.get('brand_logo_url') or ''), 'projectRef': f"ci:{item.get('id')}",
+        'previewUrl': '', 'projectRef': f"ci:{item.get('id')}",
         'brandName': str(item.get('thumbnail_label') or ''),
         'visualInitials': str(item.get('thumbnail_initials') or 'P'),
         'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
-    } for item in project_rows if item.get('brand_logo_url')]
+        'visualVariant': _dock_visual_variant('project', item.get('id')),
+    } for item in project_rows]
 
     catalog = {('brand', item['id']): item for item in brand_items}
     catalog.update({('project', item['projectRef']): item for item in project_items})
@@ -614,14 +622,11 @@ def list_dock_shortcuts():
 
 def _authorized_dock_target(client_id: int, kind: str, target_ref: str) -> Optional[dict]:
     if kind == 'project':
-        # The dock is deliberately a visual collection of brand contexts. A
-        # project image is useful in the project itself, but must never become
-        # a substitute for the primary logo of its linked brand here.
         return next((item for item in _workspace_projects(client_id, status='todos')
-                     if f"ci:{item.get('id')}" == target_ref and item.get('brand_logo_url')), None)
+                     if f"ci:{item.get('id')}" == target_ref), None)
     if kind == 'brand':
         return next((item for item in _workspace_brands(client_id)
-                     if str(item.get('id')) == target_ref and item.get('display_logo')), None)
+                     if str(item.get('id')) == target_ref), None)
     return None
 
 

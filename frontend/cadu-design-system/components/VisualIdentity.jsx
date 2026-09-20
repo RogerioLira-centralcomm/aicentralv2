@@ -13,10 +13,12 @@ function initialsFor(value, fallback = 'P') {
 }
 
 /** A resilient visual identity shared by brands, projects and people. */
-export function VisualIdentity({src, initials, label, color, className = '', imageAlt = ''}) {
+export function VisualIdentity({src, initials, label, color, variant, className = '', imageAlt = ''}) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(src) && !imageFailed;
-  return <span className={`cadu-ds-visual-identity ${className}`} style={{'--cadu-identity-color': color || '#176b5e'}} title={label || undefined}>
+  const variantNumber = Number.isFinite(Number(variant)) ? ((Number(variant) % 10) + 10) % 10 : null;
+  const variantClass = !showImage && variantNumber !== null ? ` cadu-ds-visual-identity--v${variantNumber + 1}` : '';
+  return <span className={`cadu-ds-visual-identity${variantClass} ${className}`} style={{'--cadu-identity-color': color || '#176b5e'}} title={label || undefined}>
     {showImage
       ? <img src={src} alt={imageAlt} onError={() => setImageFailed(true)}/>
       : <span aria-hidden="true">{initialsFor(initials || label)}</span>}

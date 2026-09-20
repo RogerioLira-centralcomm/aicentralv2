@@ -769,7 +769,9 @@ body.portal--workspace :is(.cadu-ds-home-shell,.workspace-app-shell) {
   height:100dvh;
   max-height:100dvh;
   box-sizing:border-box;
-  overflow:hidden;
+  /* The rail stays fixed, but popovers such as the profile menu must be
+     allowed to escape its bounds. The shortcut list owns its own scroll. */
+  overflow:visible;
   border-radius:0;
 }
 .cadu-ds-dock-context,
@@ -779,6 +781,10 @@ body.portal--workspace :is(.cadu-ds-home-shell,.workspace-app-shell) {
   grid-auto-rows:max-content;
 }
 .cadu-ds-dock-context { overflow-y:auto; }
+.cadu-ds-dock-account-wrap .cadu-ds-account-menu {
+  max-height:calc(100dvh - 28px);
+  overflow:auto;
+}
 .cadu-ds-dock-bottom { flex:0 0 auto; margin-top:auto; }
 @media (max-width:760px) {
   .cadu-ds-home-workarea .cadu-ds-dock,

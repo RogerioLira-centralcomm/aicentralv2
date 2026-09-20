@@ -7,6 +7,7 @@ from html import escape
 from io import BytesIO
 from hashlib import sha256
 import json
+import os
 import re
 import threading
 from typing import Optional
@@ -425,6 +426,7 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
     google = {
         'connection': None,
         'resources': [],
+        'meet_artifacts': [],
         'projects': [],
         'services': [],
         'summary': {'enabled_count': 0, 'total_count': 0, 'pending_count': 0},
@@ -439,6 +441,7 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
             **google,
             'connection': connection,
             'resources': google_workspace.list_resources(organization_id, limit=120),
+            'meet_artifacts': google_workspace.list_meet_artifacts(organization_id, limit=80),
             'configured': bool(connection and connection.get('status') == 'connected'),
             **google_workspace.service_matrix(organization_id),
         }
@@ -460,6 +463,8 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
         'connected_count': sum(str(item.get('status') or '').lower() in {'active', 'connected', 'ready'}
                                for item in accounts),
         'google': google,
+        'slack_configured': bool(_slack_config('SLACK_CLIENT_ID') and _slack_config('SLACK_CLIENT_SECRET') and _slack_config('SLACK_SIGNING_SECRET')),
+        'slack_connect_url': url_for('cadu_workspace.slack_connect'),
         # These are product capabilities, not tenant connections.  A connector
         # only becomes an account in the list above after its authorization is
         # completed in Reports, where credentials stay isolated from Workspace.
@@ -495,21 +500,6 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
                 'name': 'Slack', 'icon': 'fa-brands fa-slack',
                 'summary': 'Alertas e contexto de projetos perto da equipe.',
                 'scope': 'Comunicação e alertas',
-            },
-            {
-                'name': 'Figma', 'icon': 'fa-brands fa-figma',
-                'summary': 'Arquivos de design, protótipos e comentários no projeto.',
-                'scope': 'Criação colaborativa',
-            },
-            {
-                'name': 'Asana', 'icon': 'fa-brands fa-asana',
-                'summary': 'Projetos, responsáveis e prazos em uma visão operacional.',
-                'scope': 'Gestão de produção',
-            },
-            {
-                'name': 'Dropbox', 'icon': 'fa-brands fa-dropbox',
-                'summary': 'Arquivos legados e pastas de clientes em migração.',
-                'scope': 'Arquivos e migração',
             },
         ),
     }
@@ -610,7 +600,17 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
                 for row in _user_dock_shortcuts(client_id, user_id)
                 if (row['shortcut_type'], row['target_ref']) in catalog]
     if explicit:
-        return explicit
+        explicit_keys = {(item['kind'], item.get('brandRef') if item['kind'] == 'brand' else item.get('projectRef')) for item in explicit}
+        # Keep personal order first, then add project destinations so a dock
+        # made of brand pins never loses the project's route on other pages.
+        suggestions = [item for item in project_items + brand_items
+                       if (item['kind'], item.get('brandRef') if item['kind'] == 'brand' else item.get('projectRef')) not in explicit_keys]
+        combined = explicit + suggestions
+        if project_items and not any(item['kind'] == 'project' for item in combined[:8]):
+            project = next((item for item in project_items if item not in explicit), None)
+            if project:
+                combined = combined[:7] + [project] + combined[8:]
+        return combined[:8]
     return (brand_items[:3] + project_items)[:8]
 
 
@@ -4555,6 +4555,7 @@ def brand_system(brand_id):
     return render_template('cadu_workspace/brand_system_app.html', brand=brand)
 
 
+@bp.get('/agencia', defaults={'section': 'agencia'})
 @bp.get('/perfil', defaults={'section': 'perfil'})
 @bp.get('/equipe', defaults={'section': 'equipe'})
 @bp.get('/plano', defaults={'section': 'planos'})
@@ -4564,7 +4565,7 @@ def brand_system(brand_id):
 @login_required
 def account_page(section):
     aliases = {
-        "conta": "perfil", "perfil": "perfil", "organizacao": "equipe",
+        "conta": "perfil", "perfil": "perfil", "agencia": "agencia", "organizacao": "agencia",
         "usuarios": "equipe", "equipe": "equipe", "planos": "planos", "creditos": "creditos",
         "financeiro": "faturamento", "faturamento": "faturamento",
     }
@@ -4572,6 +4573,7 @@ def account_page(section):
     if section is None:
         abort(404)
     canonical_paths = {
+        'agencia': '/agencia',
         'perfil': '/perfil',
         'equipe': '/equipe',
         'planos': '/plano',
@@ -4588,6 +4590,18 @@ def account_page(section):
     # The agency identity belongs to the whole Account journey, not only to
     # the profile editor. These are canonical PHP records, never a copy.
     account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0)))
+    if section == 'agencia':
+        projects = _workspace_projects(client_id)
+        brands = _workspace_brands(client_id)
+        account['agency_context'] = {
+            'projects': [{'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'),
+                          'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'),
+                          'sources': int(item.get('fontes_prontas') or 0),
+                          'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in projects[:12]],
+            'brands': [{'id': str(item.get('id')), 'name': str(item.get('name') or 'Marca'),
+                        'assetCount': int(item.get('asset_count') or 0),
+                        'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in brands[:12]],
+        }
     if section == 'faturamento':
         account.update(_workspace_billing_data(client_id))
     try:
@@ -4655,7 +4669,12 @@ def google_workspace_sync():
     try:
         results = []
         errors = []
-        for operation in (google_workspace.sync_drive, google_workspace.sync_ads):
+        for operation in (
+            google_workspace.sync_drive,
+            google_workspace.sync_calendar_events,
+            google_workspace.discover_meet_artifacts,
+            google_workspace.sync_ads,
+        ):
             try:
                 results.append(operation(organization_id))
             except google_workspace.GoogleWorkspaceError as exc:
@@ -4703,6 +4722,142 @@ def google_workspace_link_resource(resource_id):
         return jsonify({'success': True, **result})
     except google_workspace.GoogleWorkspaceError as exc:
         return jsonify({'success': False, 'error': str(exc)}), 400
+
+
+@bp.post('/integracoes/google/meet/artifacts/<uuid:artifact_id>/fetch')
+@login_required
+def google_workspace_fetch_meet_artifact(artifact_id):
+    """Fetch transcript text only after an explicit user action."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    from ..services import google_workspace
+    organization_id = int(session.get('organization_id') or session.get('cliente_id') or 0)
+    try:
+        result = google_workspace.fetch_meet_transcript_content(
+            organization_id, str(artifact_id), limit=2000,
+        )
+        return jsonify({'success': True, **result})
+    except google_workspace.GoogleWorkspaceError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+
+
+def _slack_config(name: str, default: str = '') -> str:
+    return str(current_app.config.get(name) or os.getenv(name, '') or default).strip()
+
+
+@bp.get('/integracoes/slack/connect')
+@login_required
+def slack_connect():
+    from ..services import cadu_slack_connector
+    client_id = _slack_config('SLACK_CLIENT_ID')
+    redirect_uri = _slack_config('SLACK_REDIRECT_URI', product_url('workspace', '/integracoes/slack/callback'))
+    if not client_id:
+        return jsonify({'success': False, 'error': 'Configure SLACK_CLIENT_ID antes de conectar o Slack.'}), 400
+    state = secrets.token_urlsafe(32)
+    session['cadu_slack_oauth_state'] = state
+    return redirect(cadu_slack_connector.authorization_url(
+        client_id=client_id, redirect_uri=redirect_uri, state=state,
+    ))
+
+
+@bp.get('/integracoes/slack/callback')
+@login_required
+def slack_callback():
+    from ..services import cadu_slack_connector
+    expected = session.pop('cadu_slack_oauth_state', '')
+    if not expected or not secrets.compare_digest(expected, str(request.args.get('state') or '')):
+        abort(400, description='Estado OAuth do Slack inválido.')
+    try:
+        payload = cadu_slack_connector.exchange_code(
+            code=str(request.args.get('code') or ''),
+            client_id=_slack_config('SLACK_CLIENT_ID'),
+            client_secret=_slack_config('SLACK_CLIENT_SECRET'),
+            redirect_uri=_slack_config('SLACK_REDIRECT_URI', product_url('workspace', '/integracoes/slack/callback')),
+        )
+        signing_secret = _slack_config('SLACK_SIGNING_SECRET')
+        if not signing_secret:
+            raise cadu_slack_connector.SlackConnectorError('Configure SLACK_SIGNING_SECRET antes de conectar o Slack.')
+        client_id = int(session.get('cliente_id') or 0)
+        organization_id = int(session.get('organization_id') or client_id)
+        connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO cadu_slack_connections
+                    (id, organization_id, client_id, team_id, team_name,
+                     encrypted_bot_token, encrypted_signing_secret, granted_scopes, created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (organization_id) DO UPDATE SET
+                    team_id=EXCLUDED.team_id, team_name=EXCLUDED.team_name,
+                    encrypted_bot_token=EXCLUDED.encrypted_bot_token,
+                    encrypted_signing_secret=EXCLUDED.encrypted_signing_secret,
+                    granted_scopes=EXCLUDED.granted_scopes, status='connected', updated_at=NOW()""",
+                (uuid4(), organization_id, client_id, str((payload.get('team') or {}).get('id') or ''),
+                 str((payload.get('team') or {}).get('name') or ''),
+                 cadu_slack_connector.encrypt_secret(str(payload.get('access_token') or '')),
+                 cadu_slack_connector.encrypt_secret(signing_secret), str(payload.get('scope') or ''),
+                 int(session.get('user_id') or 0)),
+            )
+        connection.commit()
+        return redirect(url_for('cadu_workspace.integrations'))
+    except (cadu_slack_connector.SlackConnectorError, KeyError, ValueError) as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+
+
+@bp.post('/integracoes/slack/events')
+def slack_events():
+    """Acknowledge verified Slack events; indexing remains project-scoped."""
+    from ..services import cadu_slack_connector
+    body = request.get_data(cache=True)
+    payload = request.get_json(silent=True) or {}
+    if payload.get('type') == 'url_verification':
+        # Slack sends this challenge before the installation is persisted.
+        # Validate it with the app-level signing secret, then allow setup to
+        # complete without requiring a pre-existing team row.
+        signing_secret = _slack_config('SLACK_SIGNING_SECRET')
+        if not signing_secret or not cadu_slack_connector.verify_signature(
+            signing_secret=signing_secret,
+            timestamp=str(request.headers.get('X-Slack-Request-Timestamp') or ''),
+            body=body,
+            signature=str(request.headers.get('X-Slack-Signature') or ''),
+        ):
+            return jsonify({'error': 'Assinatura Slack inválida.'}), 401
+        return jsonify({'challenge': payload.get('challenge')})
+    team_id = str(payload.get('team_id') or (payload.get('authorizations') or [{}])[0].get('team_id') or '')
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT id, encrypted_signing_secret FROM cadu_slack_connections
+                WHERE team_id=%s AND status='connected'""",
+            (team_id,),
+        )
+        connection = cursor.fetchone()
+    if not connection:
+        return jsonify({'error': 'Slack team não conectado.'}), 401
+    try:
+        secret = cadu_slack_connector.decrypt_secret(connection['encrypted_signing_secret'])
+    except cadu_slack_connector.SlackConnectorError:
+        return jsonify({'error': 'Segredo Slack indisponível.'}), 503
+    if not cadu_slack_connector.verify_signature(
+        signing_secret=secret,
+        timestamp=str(request.headers.get('X-Slack-Request-Timestamp') or ''),
+        body=body,
+        signature=str(request.headers.get('X-Slack-Signature') or ''),
+    ):
+        return jsonify({'error': 'Assinatura Slack inválida.'}), 401
+    event = cadu_slack_connector.normalize_event(payload)
+    event_id = event['event_id'] or f"event:{sha256(body).hexdigest()}"
+    connection_db = get_db()
+    try:
+        with connection_db.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO cadu_slack_events (connection_id, event_id, event_type, payload)
+                VALUES (%s,%s,%s,%s) ON CONFLICT (connection_id, event_id) DO NOTHING""",
+                (connection['id'], event_id, event['type'], json.dumps(event, ensure_ascii=False)),
+            )
+        connection_db.commit()
+    except Exception:
+        connection_db.rollback()
+        raise
+    return jsonify({'ok': True})
 
 
 @bp.post('/workspace/app/perfil')
@@ -4821,7 +4976,7 @@ def update_organization():
         connection.rollback()
         current_app.logger.exception('Não foi possível atualizar a organização')
         abort(503, description='Não foi possível salvar a organização agora.')
-    return redirect(url_for('cadu_workspace.account_page', section='equipe', saved='1'), code=303)
+    return redirect(url_for('cadu_workspace.account_page', section='agencia', saved='1'), code=303)
 
 
 @bp.post('/workspace/app/equipe/convites')

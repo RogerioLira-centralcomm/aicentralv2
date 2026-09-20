@@ -122,6 +122,12 @@ def _ocr_image(data: bytes) -> tuple[str, str]:
         image.load()
     except Exception:
         return '', 'metadata_only'
+    try:
+        import pytesseract
+        text = str(pytesseract.image_to_string(image, lang='por+eng') or '').strip()
+        return text, 'ocr' if text else 'metadata_only'
+    except Exception:
+        return '', 'metadata_only'
 
 
 def _ocr_pdf(data: bytes) -> str:
@@ -140,12 +146,6 @@ def _ocr_pdf(data: bytes) -> str:
         return '\n'.join(parts).strip()
     except Exception:
         return ''
-    try:
-        import pytesseract
-        text = str(pytesseract.image_to_string(image, lang='por+eng') or '').strip()
-        return text, 'ocr'
-    except Exception:
-        return '', 'metadata_only'
 
 
 def _classify_source(name: str, suffix: str, text: str) -> dict:

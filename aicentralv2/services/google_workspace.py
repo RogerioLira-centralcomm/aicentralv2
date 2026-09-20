@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 from uuid import UUID, uuid4
 
@@ -23,6 +23,13 @@ from ..db import get_db
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
+DRIVE_CHANGES_URL = "https://www.googleapis.com/drive/v3/changes"
+DRIVE_START_PAGE_TOKEN_URL = "https://www.googleapis.com/drive/v3/changes/startPageToken"
+CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+MEET_CONFERENCE_RECORDS_URL = "https://meet.googleapis.com/v2/conferenceRecords"
+MEET_TRANSCRIPTS_SUFFIX = "/transcripts"
+MEET_RECORDINGS_SUFFIX = "/recordings"
+MEET_SMART_NOTES_SUFFIX = "/smartNotes"
 
 # The consent is deliberately broad for the Workspace connector. The UI still
 # exposes each capability separately, while one organization connection keeps
@@ -374,14 +381,24 @@ def _available() -> bool:
         return False
 
 
+def _connection_columns(cursor) -> set[str]:
+    cursor.execute(
+        """SELECT column_name FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='google_workspace_connections'"""
+    )
+    return {row["column_name"] for row in cursor.fetchall()}
+
+
 def get_connection(organization_id: int, *, include_secret: bool = False) -> dict | None:
     if not _available():
         return None
     with get_db().cursor() as cursor:
+        columns = _connection_columns(cursor)
+        sync_state = "COALESCE(sync_state, '{}'::jsonb) AS sync_state" if "sync_state" in columns else "'{}'::jsonb AS sync_state"
         cursor.execute(
             f"""SELECT id, organization_id, client_id, google_sub, google_email,
                       google_domain, granted_scopes, status, last_sync_at,
-                      last_error, created_at, updated_at
+                      last_error, created_at, updated_at, {sync_state}
                       {', encrypted_refresh_token' if include_secret else ''}
                  FROM google_workspace_connections
                 WHERE organization_id = %s""",
@@ -486,28 +503,40 @@ def list_resources(organization_id: int, *, project_ref: str | None = None, limi
         return [dict(row) for row in cursor.fetchall()]
 
 
-def sync_drive(organization_id: int, *, limit: int = 200) -> dict:
+def _sync_drive_full(organization_id: int, *, limit: int = 200, page_token: str | None = None) -> dict:
     connection = get_connection(organization_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Drive.")
     token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
-    response = requests.get(
-        DRIVE_FILES_URL,
-        headers={"Authorization": f"Bearer {token}"},
-        params={
-            "pageSize": min(max(int(limit), 1), 1000),
-            "q": "trashed = false",
-            "orderBy": "modifiedTime desc",
-            "spaces": "drive",
-            "includeItemsFromAllDrives": "true",
-            "supportsAllDrives": "true",
-            "fields": "files(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description),nextPageToken",
-        },
-        timeout=30,
-    )
-    if not response.ok:
-        raise GoogleWorkspaceError("Não foi possível consultar os arquivos do Google Drive.")
-    files = (response.json() or {}).get("files") or []
+    params = {
+        "pageSize": min(max(int(limit), 1), 1000),
+        "q": "trashed = false",
+        "orderBy": "modifiedTime desc",
+        "spaces": "drive",
+        "includeItemsFromAllDrives": "true",
+        "supportsAllDrives": "true",
+        "fields": "files(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description),nextPageToken",
+    }
+    files = []
+    next_page_token = str(page_token or "") or None
+    # A first snapshot can span many pages. Keep the snapshot bounded while
+    # retaining a token so the next run can continue without losing files.
+    for _ in range(100):
+        if next_page_token:
+            params["pageToken"] = next_page_token
+        response = requests.get(
+            DRIVE_FILES_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            params=params,
+            timeout=30,
+        )
+        if not response.ok:
+            raise GoogleWorkspaceError("Não foi possível consultar os arquivos do Google Drive.")
+        payload = response.json() or {}
+        files.extend(payload.get("files") or [])
+        next_page_token = payload.get("nextPageToken")
+        if not next_page_token:
+            break
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -537,7 +566,451 @@ def sync_drive(organization_id: int, *, limit: int = 200) -> dict:
     except Exception:
         conn.rollback()
         raise
-    return {"provider": "google_drive", "synced": len(files), "next_page_token": (response.json() or {}).get("nextPageToken")}
+    return {"provider": "google_drive", "synced": len(files), "next_page_token": next_page_token}
+
+
+def _upsert_drive_changes(connection_id, files: list[dict], removed_ids: list[str]) -> None:
+    """Apply a Drive changes page to the provider resource table."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            for item in files:
+                cursor.execute(
+                    """INSERT INTO google_workspace_resources
+                        (id, connection_id, provider, external_id, name, mime_type,
+                         external_url, parent_external_id, metadata, source_created_at,
+                         source_updated_at, last_synced_at)
+                    VALUES (%s,%s,'google_drive',%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+                    ON CONFLICT (connection_id, provider, external_id) DO UPDATE SET
+                        name=EXCLUDED.name, mime_type=EXCLUDED.mime_type,
+                        external_url=EXCLUDED.external_url, parent_external_id=EXCLUDED.parent_external_id,
+                        metadata=EXCLUDED.metadata, source_created_at=EXCLUDED.source_created_at,
+                        source_updated_at=EXCLUDED.source_updated_at, last_synced_at=NOW(),
+                        updated_at=NOW(), status='active'""",
+                    (uuid4(), connection_id, str(item.get("id")), str(item.get("name") or "Arquivo Google")[:500],
+                     item.get("mimeType"), item.get("webViewLink"), (item.get("parents") or [None])[0],
+                     Json({"drive_id": item.get("driveId"), "description": item.get("description")} ),
+                     _timestamp(item.get("createdTime")), _timestamp(item.get("modifiedTime"))),
+                )
+            if removed_ids:
+                cursor.execute(
+                    """UPDATE google_workspace_resources SET status='archived', updated_at=NOW()
+                          WHERE connection_id=%s AND provider='google_drive' AND external_id = ANY(%s)""",
+                    (connection_id, removed_ids),
+                )
+            cursor.execute(
+                "UPDATE google_workspace_connections SET last_sync_at=NOW(), last_error=NULL, updated_at=NOW() WHERE id=%s",
+                (connection_id,),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _persist_drive_sync_state(connection_id, state: dict) -> None:
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if "sync_state" not in _connection_columns(cursor):
+                return
+            cursor.execute(
+                "UPDATE google_workspace_connections SET sync_state=%s, updated_at=NOW() WHERE id=%s",
+                (Json(state), connection_id),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def sync_drive(organization_id: int, *, limit: int = 200) -> dict:
+    """Synchronize Drive incrementally after the first bounded snapshot."""
+    connection = get_connection(organization_id)
+    if not connection:
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Drive.")
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    headers = {"Authorization": f"Bearer {token}"}
+    state = dict(connection.get("sync_state") or {})
+    change_token = str(state.get("drive_change_token") or "")
+    page_size = min(max(int(limit), 1), 1000)
+    if not change_token:
+        result = _sync_drive_full(
+            organization_id,
+            limit=page_size,
+            page_token=state.get("drive_full_page_token"),
+        )
+        if result.get("next_page_token"):
+            state["drive_full_page_token"] = str(result["next_page_token"])
+            _persist_drive_sync_state(connection["id"], state)
+            return {**result, "mode": "full_page"}
+        state.pop("drive_full_page_token", None)
+        if not result.get("next_page_token"):
+            start = requests.get(
+                DRIVE_START_PAGE_TOKEN_URL,
+                headers=headers,
+                params={"supportsAllDrives": "true"},
+                timeout=30,
+            )
+            if start.ok and (start.json() or {}).get("startPageToken"):
+                state["drive_change_token"] = str(start.json()["startPageToken"])
+                _persist_drive_sync_state(connection["id"], state)
+        return {**result, "mode": "full"}
+
+    response = requests.get(
+        DRIVE_CHANGES_URL,
+        headers=headers,
+        params={
+            "pageToken": change_token, "pageSize": page_size,
+            "includeRemoved": "true", "includeItemsFromAllDrives": "true",
+            "supportsAllDrives": "true",
+            "fields": "changes(fileId,removed,file(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description)),nextPageToken,newStartPageToken",
+        },
+        timeout=30,
+    )
+    if not response.ok:
+        if response.status_code in {400, 410}:
+            state.pop("drive_change_token", None)
+            _persist_drive_sync_state(connection["id"], state)
+            return {**_sync_drive_full(organization_id, limit=page_size), "mode": "full_reset"}
+        raise GoogleWorkspaceError("Não foi possível consultar as alterações do Google Drive.")
+    payload = response.json() or {}
+    changes = payload.get("changes") or []
+    files = [item["file"] for item in changes if item.get("file") and not item.get("removed")]
+    removed = [str(item.get("fileId")) for item in changes if item.get("removed") and item.get("fileId")]
+    _upsert_drive_changes(connection["id"], files, removed)
+    state["drive_change_token"] = str(payload.get("nextPageToken") or payload.get("newStartPageToken") or change_token)
+    _persist_drive_sync_state(connection["id"], state)
+    return {
+        "provider": "google_drive", "mode": "incremental", "synced": len(files),
+        "archived": len(removed), "next_page_token": payload.get("nextPageToken"),
+    }
+
+
+def list_calendar_events(organization_id: int, *, limit: int = 50, time_min: str | None = None) -> list[dict]:
+    """Read upcoming primary-calendar events through the shared connection."""
+    connection = get_connection(organization_id)
+    if not connection:
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Calendar.")
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    response = requests.get(
+        CALENDAR_EVENTS_URL,
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "maxResults": min(max(int(limit), 1), 100),
+            "singleEvents": "true", "orderBy": "startTime",
+            "timeMin": time_min or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "fields": "items(id,summary,description,htmlLink,start,end,attendees,conferenceData),nextSyncToken",
+        },
+        timeout=30,
+    )
+    if not response.ok:
+        raise GoogleWorkspaceError("Não foi possível consultar os eventos do Google Calendar.")
+    return (response.json() or {}).get("items") or []
+
+
+def list_meet_conference_records(organization_id: int, *, limit: int = 50) -> list[dict]:
+    """List recent Meet conference records without fetching transcript content."""
+    connection = get_connection(organization_id)
+    if not connection:
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    response = requests.get(
+        MEET_CONFERENCE_RECORDS_URL,
+        headers={"Authorization": f"Bearer {token}"},
+        params={"pageSize": min(max(int(limit), 1), 100), "orderBy": "startTime desc"},
+        timeout=30,
+    )
+    if not response.ok:
+        raise GoogleWorkspaceError("Não foi possível consultar os registros do Google Meet.")
+    return (response.json() or {}).get("conferenceRecords") or []
+
+
+def _list_meet_collection(
+    organization_id: int,
+    parent: str,
+    suffix: str,
+    response_key: str,
+    *,
+    limit: int = 50,
+) -> list[dict]:
+    """Read one Meet artifact collection using the shared org connection."""
+    connection = get_connection(organization_id)
+    if not connection:
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
+    parent = str(parent or "").strip().strip("/")
+    if not parent.startswith("conferenceRecords/"):
+        raise GoogleWorkspaceError("Registro do Meet inválido.")
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    response = requests.get(
+        f"https://meet.googleapis.com/v2/{parent}{suffix}",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"pageSize": min(max(int(limit), 1), 100)},
+        timeout=30,
+    )
+    if not response.ok:
+        raise GoogleWorkspaceError("Não foi possível consultar os artefatos do Google Meet.")
+    return (response.json() or {}).get(response_key) or []
+
+
+def list_meet_transcripts(organization_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
+    return _list_meet_collection(
+        organization_id, conference_record, MEET_TRANSCRIPTS_SUFFIX, "transcripts", limit=limit,
+    )
+
+
+def list_meet_transcript_entries(organization_id: int, transcript: str, *, limit: int = 100) -> list[dict]:
+    transcript = str(transcript or "").strip().strip("/")
+    if not transcript.startswith("conferenceRecords/") or "/transcripts/" not in transcript:
+        raise GoogleWorkspaceError("Transcrição do Meet inválida.")
+    return _list_meet_collection(
+        organization_id, transcript, "/entries", "transcriptEntries", limit=limit,
+    )
+
+
+def list_meet_recordings(organization_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
+    return _list_meet_collection(
+        organization_id, conference_record, MEET_RECORDINGS_SUFFIX, "recordings", limit=limit,
+    )
+
+
+def list_meet_smart_notes(organization_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
+    return _list_meet_collection(
+        organization_id, conference_record, MEET_SMART_NOTES_SUFFIX, "smartNotes", limit=limit,
+    )
+
+
+def discover_meet_artifacts(organization_id: int, *, limit: int = 25) -> dict:
+    """Discover Meet transcripts, recordings and smart notes without content fetch."""
+    records = list_meet_conference_records(organization_id, limit=limit)
+    connection = get_connection(organization_id)
+    if not connection:
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
+    artifacts: list[dict] = []
+    for record in records[: min(max(int(limit), 1), 50)]:
+        conference = str(record.get("name") or "").strip()
+        if not conference:
+            continue
+        collections = (
+            ("transcript", list_meet_transcripts(organization_id, conference, limit=50)),
+            ("recording", list_meet_recordings(organization_id, conference, limit=50)),
+            ("smart_note", list_meet_smart_notes(organization_id, conference, limit=50)),
+        )
+        for artifact_type, values in collections:
+            for item in values:
+                name = str(item.get("name") or item.get("id") or "").strip()
+                if not name:
+                    continue
+                artifact = _upsert_meet_artifact(
+                    connection["id"], conference, artifact_type, item, name,
+                )
+                artifacts.append(artifact)
+    return {"provider": "google_meet", "records": len(records), "artifacts": artifacts}
+
+
+def list_meet_artifacts(organization_id: int, *, limit: int = 50) -> list[dict]:
+    """Return discovered Meet artifacts and their canonical resource IDs."""
+    if not _available():
+        return []
+    with get_db().cursor() as cursor:
+        cursor.execute("SELECT to_regclass('public.google_workspace_meeting_artifacts') AS table_name")
+        if not (cursor.fetchone() or {}).get("table_name"):
+            return []
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT a.id, a.conference_record, a.artifact_type, a.external_name,
+                      a.title, a.locator, a.metadata, a.content, a.content_hash, a.status,
+                      a.source_created_at, a.source_updated_at, r.id AS resource_id
+                 FROM google_workspace_meeting_artifacts a
+                 JOIN google_workspace_connections c ON c.id=a.connection_id
+            LEFT JOIN google_workspace_resources r
+                   ON r.connection_id=a.connection_id AND r.provider='google_meet'
+                  AND r.external_id=a.external_name
+                WHERE c.organization_id=%s AND a.status <> 'archived'
+             ORDER BY a.source_created_at DESC NULLS LAST, a.updated_at DESC
+                LIMIT %s""",
+            (int(organization_id), min(max(int(limit), 1), 200)),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def _upsert_meet_artifact(connection_id, conference_record: str, artifact_type: str, item: dict, external_name: str) -> dict:
+    title = item.get("title") or item.get("displayName") or external_name.rsplit("/", 1)[-1]
+    locator = item.get("webViewLink") or item.get("downloadUri") or item.get("uri")
+    created = _timestamp(item.get("createTime") or item.get("startTime"))
+    updated = _timestamp(item.get("updateTime") or item.get("endTime"))
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """INSERT INTO google_workspace_meeting_artifacts
+                (id, connection_id, conference_record, artifact_type, external_name,
+                 title, locator, metadata, source_created_at, source_updated_at)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (connection_id, artifact_type, external_name) DO UPDATE SET
+                title=EXCLUDED.title, locator=EXCLUDED.locator, metadata=EXCLUDED.metadata,
+                source_created_at=EXCLUDED.source_created_at, source_updated_at=EXCLUDED.source_updated_at,
+                updated_at=NOW()
+            RETURNING id, connection_id, conference_record, artifact_type, external_name,
+                      title, locator, metadata, content, content_hash, status,
+                      source_created_at, source_updated_at""",
+            (uuid4(), connection_id, conference_record, artifact_type, external_name,
+             str(title)[:500], locator, Json(item), created, updated),
+        )
+        row = dict(cursor.fetchone())
+        resource_id = uuid4()
+        mime_type = {
+            "transcript": "text/plain",
+            "recording": "video/mp4",
+            "smart_note": "text/markdown",
+        }.get(artifact_type, "application/octet-stream")
+        cursor.execute(
+            """INSERT INTO google_workspace_resources
+                (id, connection_id, provider, external_id, name, mime_type,
+                 external_url, metadata, source_created_at, source_updated_at, last_synced_at)
+            VALUES (%s,%s,'google_meet',%s,%s,%s,%s,%s,%s,%s,NOW())
+            ON CONFLICT (connection_id, provider, external_id) DO UPDATE SET
+                name=EXCLUDED.name, mime_type=EXCLUDED.mime_type, external_url=EXCLUDED.external_url,
+                metadata=EXCLUDED.metadata, source_created_at=EXCLUDED.source_created_at,
+                source_updated_at=EXCLUDED.source_updated_at, last_synced_at=NOW(),
+                updated_at=NOW(), status='active'
+            RETURNING id""",
+            (resource_id, connection_id, external_name, str(title)[:500], mime_type, locator,
+             Json({"meeting_artifact_id": str(row["id"]), "conference_record": conference_record, **item}),
+             created, updated),
+        )
+        row["resource_id"] = str(cursor.fetchone()["id"])
+    conn.commit()
+    return row
+
+
+def fetch_meet_transcript_content(organization_id: int, artifact_id: str, *, limit: int = 1000) -> dict:
+    """Fetch transcript entries after an explicit indexing decision."""
+    connection = get_connection(organization_id)
+    if not connection:
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """SELECT id, conference_record, artifact_type, external_name, metadata
+                 FROM google_workspace_meeting_artifacts
+                WHERE id=%s AND connection_id=%s""",
+            (UUID(str(artifact_id)), connection["id"]),
+        )
+        artifact = cursor.fetchone()
+    if not artifact or artifact["artifact_type"] != "transcript":
+        raise GoogleWorkspaceError("Artefato de transcrição não encontrado.")
+    entries = list_meet_transcript_entries(organization_id, artifact["external_name"], limit=limit)
+    text_parts = []
+    for entry in entries:
+        text = entry.get("text") or entry.get("transcriptEntry", {}).get("text") or ""
+        if text:
+            text_parts.append(str(text).strip())
+    content = "\n".join(part for part in text_parts if part)
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """UPDATE google_workspace_meeting_artifacts
+                      SET content=%s, content_hash=%s, status='fetched', updated_at=NOW()
+                    WHERE id=%s AND connection_id=%s""",
+                (content, digest, artifact["id"], connection["id"]),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return {"artifact_id": str(artifact["id"]), "entries": len(entries), "characters": len(content), "content_hash": digest}
+
+
+def sync_calendar_events(organization_id: int, *, limit: int = 100) -> dict:
+    """Synchronize Calendar with the API sync token, preserving cancellations."""
+    connection = get_connection(organization_id)
+    if not connection:
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Calendar.")
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    state = dict(connection.get("sync_state") or {})
+    sync_token = str(state.get("calendar_sync_token") or "")
+    params = {
+        "maxResults": min(max(int(limit), 1), 2500),
+        "singleEvents": "true",
+        "fields": "items(id,status,summary,description,htmlLink,start,end,attendees,conferenceData,created,updated),nextPageToken,nextSyncToken",
+    }
+    if sync_token:
+        params["syncToken"] = sync_token
+    else:
+        params.update({
+            "orderBy": "startTime",
+            "timeMin": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        })
+    pages = []
+    next_page = None
+    for _ in range(20):
+        if next_page:
+            params["pageToken"] = next_page
+        response = requests.get(
+            CALENDAR_EVENTS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            params=params,
+            timeout=30,
+        )
+        if not response.ok:
+            if response.status_code == 410 and sync_token:
+                state.pop("calendar_sync_token", None)
+                _persist_drive_sync_state(connection["id"], state)
+                return {**sync_calendar_events(organization_id, limit=limit), "mode": "full_reset"}
+            raise GoogleWorkspaceError("Não foi possível sincronizar os eventos do Google Calendar.")
+        payload = response.json() or {}
+        pages.extend(payload.get("items") or [])
+        next_page = payload.get("nextPageToken")
+        if not next_page:
+            next_sync = payload.get("nextSyncToken")
+            if next_sync:
+                state["calendar_sync_token"] = str(next_sync)
+            break
+    _upsert_calendar_events(connection["id"], pages)
+    _persist_drive_sync_state(connection["id"], state)
+    return {
+        "provider": "google_calendar",
+        "mode": "incremental" if sync_token else "full",
+        "synced": sum(1 for item in pages if item.get("status") != "cancelled"),
+        "archived": sum(1 for item in pages if item.get("status") == "cancelled"),
+    }
+
+
+def _upsert_calendar_events(connection_id, events: list[dict]) -> None:
+    if not events:
+        return
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            for item in events:
+                event_id = str(item.get("id") or "").strip()
+                if not event_id:
+                    continue
+                status = "archived" if item.get("status") == "cancelled" else "active"
+                cursor.execute(
+                    """INSERT INTO google_workspace_resources
+                        (id, connection_id, provider, external_id, name, mime_type,
+                         external_url, metadata, source_created_at, source_updated_at,
+                         status, last_synced_at)
+                    VALUES (%s,%s,'google_calendar',%s,%s,'application/x-google-calendar-event',%s,%s,%s,%s,%s,NOW())
+                    ON CONFLICT (connection_id, provider, external_id) DO UPDATE SET
+                        name=EXCLUDED.name, external_url=EXCLUDED.external_url,
+                        metadata=EXCLUDED.metadata, source_created_at=EXCLUDED.source_created_at,
+                        source_updated_at=EXCLUDED.source_updated_at, status=EXCLUDED.status,
+                        last_synced_at=NOW(), updated_at=NOW()""",
+                    (uuid4(), connection_id, event_id, str(item.get("summary") or "Evento Google Calendar")[:500],
+                     item.get("htmlLink"), Json(item), _timestamp(item.get("created")),
+                     _timestamp(item.get("updated")), status),
+                )
+            cursor.execute(
+                "UPDATE google_workspace_connections SET last_sync_at=NOW(), last_error=NULL, updated_at=NOW() WHERE id=%s",
+                (connection_id,),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def sync_ads(organization_id: int, *, limit: int = 100) -> dict:
@@ -664,7 +1137,7 @@ def link_resource(*, organization_id: int, client_id: int, resource_id: str, pro
                     (registry_id, int(organization_id), int(client_id), project_ref,
                      resource["provider"], resource["external_id"], resource_type,
                      resource["name"], resource["mime_type"], purpose,
-                     "google_drive", resource["external_url"],
+                     "google_meet" if resource["provider"] == "google_meet" else "google_drive", resource["external_url"],
                      Json({"google_resource_id": str(resource["id"]), **(resource["metadata"] or {})}),
                      int(user_id), resource["source_created_at"], resource["source_updated_at"]),
                 )

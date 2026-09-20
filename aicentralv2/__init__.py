@@ -311,9 +311,11 @@ def create_app(config_class=Config):
         # adapter. Both are backend-only during the parallel rollout.
         from .cadu_workspace.agent_v2.routes import bp as cadu_agent_v2_bp, lab_bp as cadu_agent_v2_lab_bp
         from .cadu_workspace.mcp import bp as cadu_workspace_mcp_bp
+        from .cadu_public_mcp import bp as cadu_public_mcp_bp
         app.register_blueprint(cadu_agent_v2_bp)
         app.register_blueprint(cadu_agent_v2_lab_bp)
         app.register_blueprint(cadu_workspace_mcp_bp)
+        app.register_blueprint(cadu_public_mcp_bp)
 
         # Apresentação institucional é uma superfície pública isolada: não
         # herda a navegação, sessão ou chrome operacional do CentralX.

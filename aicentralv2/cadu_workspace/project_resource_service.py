@@ -44,13 +44,21 @@ def _columns(cursor, table: str) -> set[str]:
 
 
 def _record(source_system, source_id, resource_type, title, **values):
+    purpose = values.get("purpose") or "project_resource"
+    status = values.get("status") or "active"
+    metadata = values.get("metadata") or {}
     return {
         "source_system": source_system, "source_id": str(source_id),
         "resource_type": resource_type, "title": str(title or RESOURCE_TYPES.get(resource_type, "Recurso"))[:500],
-        "mime_type": values.get("mime_type"), "purpose": values.get("purpose") or "project_resource",
-        "category": values.get("category") or "other", "status": values.get("status") or "active",
+        "mime_type": values.get("mime_type"), "purpose": purpose,
+        "category": values.get("category") or "other", "status": status,
         "version": max(1, int(values.get("version") or 1)), "content_hash": values.get("content_hash"),
-        "locator": values.get("locator"), "metadata": values.get("metadata") or {},
+        "locator": values.get("locator"), "metadata": metadata,
+        "permission_snapshot": values.get("permission_snapshot") or {},
+        "capability_snapshot": values.get("capability_snapshot") or {},
+        "index_status": values.get("index_status") or ("indexed" if purpose == "knowledge_source" and status in {"completed", "indexed"} else "not_requested"),
+        "ocr_status": values.get("ocr_status") or metadata.get("ocr_status") or "not_requested",
+        "embedding_status": values.get("embedding_status") or ("ready" if purpose == "knowledge_source" and status in {"completed", "indexed"} else "not_requested"),
         "created_by": values.get("created_by"), "source_created_at": values.get("source_created_at"),
         "source_updated_at": values.get("source_updated_at") or values.get("source_created_at"),
     }
@@ -176,6 +184,7 @@ def reconcile(client_id: int, project_ref: str, actor_id=None) -> dict:
                 raise ValueError("Projeto indisponível.")
             if not _relation(cursor, "cadu_project_resources"):
                 return {"available": False, "resources": [], "summary": {}}
+            registry_columns = _columns(cursor, "cadu_project_resources")
             cursor.execute("SELECT clock_timestamp() AS started_at")
             started_at = cursor.fetchone()["started_at"]
             records = _collect(cursor, client_id, project_ref)
@@ -197,6 +206,20 @@ def reconcile(client_id: int, project_ref: str, actor_id=None) -> dict:
                      item["version"], item["content_hash"], item["locator"], Json(item["metadata"]), item["created_by"],
                      item["source_created_at"], item["source_updated_at"]))
                 persisted_id = str(cursor.fetchone()["id"])
+                state_columns = {
+                    "permission_snapshot", "capability_snapshot", "index_status",
+                    "ocr_status", "embedding_status",
+                } & registry_columns
+                if state_columns:
+                    assignments = ", ".join(f"{column}=%s" for column in sorted(state_columns))
+                    state_values = []
+                    for column in sorted(state_columns):
+                        value = item[column]
+                        state_values.append(Json(value) if column.endswith("_snapshot") else value)
+                    cursor.execute(
+                        f"UPDATE cadu_project_resources SET {assignments} WHERE id=%s",
+                        tuple(state_values) + (persisted_id,),
+                    )
                 cursor.execute("""INSERT INTO cadu_project_resource_events
                 (resource_id, client_id, project_ref, event_type, fingerprint, actor_id, details)
                 VALUES (%s,%s,%s,'reconciled',%s,%s,%s) ON CONFLICT DO NOTHING""",
@@ -219,9 +242,15 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
     with get_db().cursor() as cursor:
         if not _relation(cursor, "cadu_project_resources"):
             return {"resources": [], "summary": {}}
-        cursor.execute("""SELECT id::text, source_system, source_id, resource_type, title, mime_type,
+        columns = _columns(cursor, "cadu_project_resources")
+        optional = [column for column in (
+            "permission_snapshot", "capability_snapshot", "index_status",
+            "ocr_status", "embedding_status", "deleted_at",
+        ) if column in columns]
+        optional_sql = ", " + ", ".join(optional) if optional else ""
+        cursor.execute(f"""SELECT id::text, source_system, source_id, resource_type, title, mime_type,
                                   purpose, category, status, version, content_hash, locator, metadata,
-                                  source_created_at, source_updated_at, last_seen_at
+                                  source_created_at, source_updated_at, last_seen_at{optional_sql}
                              FROM cadu_project_resources
                             WHERE client_id=%s AND project_ref=%s AND status <> 'archived'
                          ORDER BY COALESCE(source_updated_at, source_created_at, last_seen_at) DESC, title""",
@@ -279,6 +308,74 @@ def list_for_context(context: RequestContext) -> dict:
     # the project-detail UI retains an explicit repair-on-open path for rollout.
     return list_resources(context.client_id, context.project_ref or "", reconcile_first=False,
                           actor_id=context.user_id)
+
+
+def get_resource(client_id: int, project_ref: str, resource_id: str) -> dict | None:
+    """Read one canonical resource without reaching back to its provider."""
+    if not str(project_ref or "").startswith("ci:"):
+        raise ValueError("O registro de recursos exige um projeto nativo do Cadu.")
+    with get_db().cursor() as cursor:
+        if not _relation(cursor, "cadu_project_resources"):
+            return None
+        cursor.execute(
+            """SELECT * FROM cadu_project_resources
+                WHERE id=%s AND client_id=%s AND project_ref=%s""",
+            (str(resource_id), int(client_id), project_ref),
+        )
+        row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def search_resources(client_id: int, project_ref: str, query: str, *, limit: int = 20,
+                     resource_type: str | None = None) -> list[dict]:
+    """Search canonical resource metadata within one project boundary."""
+    query = " ".join(str(query or "").split()).casefold()
+    if len(query) < 2:
+        raise ValueError("Informe o que deve ser pesquisado nos recursos do projeto.")
+    result = list_resources(client_id, project_ref, reconcile_first=False).get("resources", [])
+    terms = [item for item in query.split() if item]
+    if resource_type:
+        result = [item for item in result if str(item.get("resource_type") or "") == resource_type]
+
+    def matches(item: dict) -> bool:
+        haystack = " ".join(
+            str(item.get(key) or "") for key in
+            ("title", "resource_type", "category", "purpose", "source_system", "locator")
+        ).casefold()
+        metadata = item.get("metadata") or {}
+        haystack = f"{haystack} {json.dumps(metadata, ensure_ascii=False, default=str)}".casefold()
+        return all(term in haystack for term in terms)
+
+    return [item for item in result if matches(item)][:max(1, min(int(limit), 100))]
+
+
+def resource_capabilities(resource: dict) -> dict:
+    """Expose honest actions supported by the current Cadu integration layer."""
+    source = str(resource.get("source_system") or "")
+    status = str(resource.get("status") or "")
+    mime = str(resource.get("mime_type") or "").lower()
+    active = status not in {"archived", "deleted", "permission_lost"}
+    is_google = source in {"google_drive", "google_docs", "google_sheets", "google_slides"}
+    text_capable = mime.startswith(("text/", "application/pdf", "application/json"))
+    return {
+        "resource_id": str(resource.get("id") or ""),
+        "source_system": source,
+        "actions": {
+            "read": active,
+            "search": active,
+            "link_to_project": active,
+            "index": active and (text_capable or is_google),
+            "native_edit": False,
+            "move": False,
+            "share": False,
+            "comments": False,
+            "versions": bool(resource.get("version")),
+            "export_pdf": is_google and mime != "application/pdf",
+        },
+        "limitations": [
+            "Ações de escrita no provedor ainda exigem um adapter específico."
+        ] if active else ["O recurso não está ativo na origem."],
+    }
 
 
 def notify_change(client_id: int, project_ref: str, event_type: str, *, source_system="", source_id="", actor_id=None) -> None:

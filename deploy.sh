@@ -104,6 +104,8 @@ restore_generated_file() {
 restore_generated_file "aicentralv2/static/css/video-studio.css"
 restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.css"
 restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.js"
+restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.css"
+restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.js"
 git pull origin main >> "$DEPLOY_LOG" 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true
@@ -226,6 +228,10 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_convert_interactive_formats_to_image_carousels.py
 "$VENV_PYTHON" migrations/run_add_google_calendar_meet.py
 "$VENV_PYTHON" migrations/run_add_system_integration_credentials.py
+"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_connections.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_sync_state.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_meet_artifacts.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_slack_connector.sql
 "$VENV_PYTHON" migrations/run_add_openrouter_integration_credential.py
 "$VENV_PYTHON" migrations/run_add_openrouter_gpt_image_2.py
 "$VENV_PYTHON" migrations/run_add_openai_integration_credential.py
@@ -258,6 +264,10 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_projects.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_file_classification.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_resource_registry.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_ingestion_and_dock.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_resource_state.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_public_mcp.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_public_mcp_scopes.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_home_preferences.sql
 # Planner: a tabela de planos é a base das migrações de documentos,
 # alocações, revisões e compartilhamento. Aplique a cadeia completa nesta

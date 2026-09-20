@@ -753,3 +753,41 @@ body.portal--workspace > main#content.portal-content--workspace-react .cadu-ds-c
   .cadu-workspace-legacy-chrome-root .cadu-ds-dock { grid-column:1; grid-row:1; }
   .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) > .workspace-app-main { grid-column:1; grid-row:1; padding-bottom:82px!important; }
 }
+
+/* Final rail geometry: keep the dock flush with the viewport, compact its
+   shortcuts, and reserve a stable bottom slot for usage and account access. */
+body.portal--workspace :is(.cadu-ds-home-shell,.workspace-app-shell) {
+  overflow:visible;
+  border-radius:0;
+  box-shadow:none;
+}
+.cadu-ds-home-workarea .cadu-ds-dock,
+.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) .cadu-ds-dock {
+  position:sticky;
+  top:0;
+  align-self:flex-start;
+  height:100dvh;
+  max-height:100dvh;
+  box-sizing:border-box;
+  overflow:hidden;
+  border-radius:0;
+}
+.cadu-ds-dock-context,
+.cadu-ds-dock-drop,
+.cadu-ds-dock-resources {
+  align-content:start;
+  grid-auto-rows:max-content;
+}
+.cadu-ds-dock-context { overflow-y:auto; }
+.cadu-ds-dock-bottom { flex:0 0 auto; margin-top:auto; }
+@media (max-width:760px) {
+  .cadu-ds-home-workarea .cadu-ds-dock,
+  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) .cadu-ds-dock {
+    position:fixed;
+    top:auto;
+    height:58px;
+    max-height:none;
+    overflow:visible;
+    border-radius:0;
+  }
+}

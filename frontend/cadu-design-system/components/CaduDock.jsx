@@ -11,9 +11,9 @@ function DockTooltip({label, children}) {
   const updatePosition = useCallback(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
-    // The dock is a compact vertical shelf. Its label belongs above the item,
-    // not beside it where it competes with the workspace content.
-    setPosition({left: Math.round(rect.left + rect.width / 2), top: Math.round(rect.top - 9)});
+    // Keep labels in the open space beside the dock so they never cover the
+    // workspace or get clipped by the compact vertical shelf.
+    setPosition({left: Math.round(rect.right + 10), top: Math.round(rect.top + rect.height / 2)});
   }, []);
   const open = event => {
     children.props.onPointerEnter?.(event);

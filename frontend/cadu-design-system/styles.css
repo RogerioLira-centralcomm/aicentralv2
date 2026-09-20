@@ -74,7 +74,7 @@
 .cadu-ds-dock [data-tooltip]:hover::after,.cadu-ds-dock [data-tooltip]:focus-visible::after { transform:translateX(0); opacity:1; }
 .cadu-ds-dock-new { width:34px; height:34px; margin:0 0 10px; border:1px solid rgba(127,207,194,.34); border-radius:10px; background:rgba(127,207,194,.11); color:#a8e5da; font-size:22px; font-weight:360; }
 .cadu-ds-dock-new:hover,.cadu-ds-dock-new:focus-visible { background:rgba(127,207,194,.21); color:#fff; outline:0; }
-.cadu-ds-dock-context { display:grid; gap:12px; width:100%; justify-items:center; overflow:auto; padding:0 0 6px; scrollbar-width:none; }
+.cadu-ds-dock-context { display:grid; flex:1 1 auto; min-height:0; gap:12px; width:100%; justify-items:center; overflow:auto; padding:0 0 6px; scrollbar-width:none; }
 .cadu-ds-dock-context::-webkit-scrollbar { display:none; }
 .cadu-ds-dock-drop,.cadu-ds-dock-resources { gap:9px; }
 .cadu-ds-dock-brand,.cadu-ds-dock-resource { width:44px; height:44px; border:1px solid transparent; border-radius:13px; background:transparent; }
@@ -171,7 +171,7 @@
 .cadu-ds-dock-brand,.cadu-ds-dock-resource { width:38px; height:38px; border-radius:11px; }
 .cadu-ds-dock-brand .cadu-ds-visual-identity,.cadu-ds-dock-resource .cadu-ds-visual-identity { border-radius:10px; }
 .cadu-ds-dock-brand:hover,.cadu-ds-dock-brand:focus-visible,.cadu-ds-dock-resource:hover,.cadu-ds-dock-resource:focus-visible { border-color:transparent; background:rgba(127,207,194,.12); }
-.cadu-ds-dock-tooltip { position:fixed; z-index:10000; max-width:220px; padding:7px 9px; transform:translate(-50%,-100%); border:1px solid rgba(181,218,211,.14); border-radius:8px; background:#102124; color:#eaf5f2; box-shadow:0 10px 26px rgba(0,0,0,.28); font:600 11px/1.15 var(--cadu-font-sans); pointer-events:none; }
+.cadu-ds-dock-tooltip { position:fixed; z-index:10000; max-width:220px; padding:7px 9px; transform:translateY(-50%); border:1px solid rgba(181,218,211,.14); border-radius:8px; background:#102124; color:#eaf5f2; box-shadow:0 10px 26px rgba(0,0,0,.28); font:600 11px/1.15 var(--cadu-font-sans); pointer-events:none; }
 .cadu-ds-dock-bottom { gap:7px; padding-top:8px; border:0; }
 .cadu-ds-dock-account-wrap { position:relative; z-index:var(--cadu-z-popover); }
 .cadu-ds-dock-account-wrap .cadu-ds-account-menu { top:auto; right:auto; bottom:calc(100% + 10px); left:calc(100% + 10px); }

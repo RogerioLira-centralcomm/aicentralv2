@@ -1663,6 +1663,32 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
         raise
 
 
+def _persist_project_source_index_error(client_id: int, project_id: str, title: str, content: str,
+                                        mime: str, size: int, storage_path: str, source: str,
+                                        error: Exception, user_id: Optional[int] = None) -> int:
+    """Keep an accepted source when embeddings are temporarily unavailable."""
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            source_id = project_index_service.persist_pending_source(
+                cursor, project_id=project_id, client_id=client_id,
+                user_id=user_id if user_id is not None else session.get('user_id'),
+                name=title, mime=mime, size=size, storage_path=storage_path,
+                content=content, metadata={'source': source, 'indexing_deferred': True},
+            )
+            cursor.execute(
+                """UPDATE cadu_ci_projeto_arquivos
+                      SET indexing_status = 'error', erro_msg = %s, updated_at = NOW()
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
+                (str(error)[:500], source_id, project_id, client_id),
+            )
+        connection.commit()
+        return int(source_id)
+    except Exception:
+        connection.rollback()
+        raise
+
+
 def _try_queue_project_source(client_id: int, project_id: str, title: str, content: str,
                               mime: str, size: int, storage_path: str, source: str,
                               user_id: Optional[int] = None) -> Optional[dict]:
@@ -1689,8 +1715,17 @@ def _try_queue_project_source(client_id: int, project_id: str, title: str, conte
             )
         connection.commit()
 
-        from .project_index_jobs import enqueue
-        job_id = enqueue(client_id, project_id, source_id, int(effective_user_id or 0))
+        try:
+            from .project_index_jobs import enqueue
+            job_id = enqueue(client_id, project_id, source_id, int(effective_user_id or 0))
+        except Exception:
+            # A queue migration can be present but temporarily unhealthy. The
+            # source is still valid, so let the caller use the synchronous path.
+            current_app.logger.warning(
+                'Não foi possível enfileirar a fonte %s; tentando indexação síncrona',
+                source_id, exc_info=True,
+            )
+            job_id = None
         if job_id:
             return {'source_id': int(source_id), 'job_id': str(job_id)}
 
@@ -2676,8 +2711,7 @@ def update_project_brands(project_id):
     client_id = int(session.get('cliente_id') or 0)
     _editable_workspace_project(client_id, project_id)
     valid_ids = {str(item['id']) for item in _workspace_brands(client_id)}
-    wanted = {next((value for value in request.form.getlist('brand_ids') if value in valid_ids), '')}
-    wanted.discard('')
+    wanted = {value for value in request.form.getlist('brand_ids') if value in valid_ids}
     project_ref = f'ci:{project_id}'
     try:
         existing = {str(item.get('brand_ref') or '') for item in family_repository.project_brand_links(client_id)
@@ -2803,6 +2837,18 @@ def create_project_note(project_id):
             client_id, project_id, title, content, 'text/markdown',
             len(content.encode('utf-8')), storage_path, 'workspace_note',
         )
+    except project_knowledge.KnowledgeIndexError as exc:
+        try:
+            source_id = _persist_project_source_index_error(
+                client_id, project_id, title, content, 'text/markdown',
+                len(content.encode('utf-8')), storage_path, 'workspace_note', exc,
+            )
+        except Exception:
+            current_app.logger.exception('Não foi possível preservar a nota pendente no projeto %s', project_id)
+            abort(503, description='Não foi possível adicionar a fonte agora. Tente novamente.')
+        if request.accept_mimetypes.best == 'application/json':
+            return jsonify({'ok': True, 'source_id': source_id, 'status': 'error', 'error': str(exc)}), 202
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
     except CaduCreditUnavailable as exc:
         abort(409, description=str(exc))
     except Exception:
@@ -2841,6 +2887,19 @@ def upload_project_source(project_id):
             client_id, project_id, source['name'], source['text'], source['mime'],
             len(source['data']), storage_path, 'workspace_upload',
         )
+    except project_knowledge.KnowledgeIndexError as exc:
+        try:
+            source_id = _persist_project_source_index_error(
+                client_id, project_id, source['name'], source['text'], source['mime'],
+                len(source['data']), storage_path, 'workspace_upload', exc,
+            )
+        except Exception:
+            target.unlink(missing_ok=True)
+            current_app.logger.exception('Não foi possível preservar o arquivo pendente no projeto %s', project_id)
+            abort(503, description='Não foi possível adicionar o arquivo agora. Tente novamente.')
+        if request.accept_mimetypes.best == 'application/json':
+            return jsonify({'ok': True, 'source_id': source_id, 'status': 'error', 'error': str(exc)}), 202
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
     except CaduCreditUnavailable as exc:
         target.unlink(missing_ok=True)
         abort(409, description=str(exc))
@@ -2942,16 +3001,15 @@ def reprocess_project_source(project_id, source_id):
         abort(404)
     storage_path = str(source.get('storage_path') or '')
     if storage_path.startswith(('workspace://project-notes/', 'workspace_project_sources/')):
+        job_id = None
         try:
             from .project_index_jobs import enqueue
             job_id = enqueue(client_id, project_id, source_id, int(session.get('user_id') or 0))
-        except Exception as exc:
-            try:
-                get_db().rollback()
-            except Exception:
-                pass
-            current_app.logger.exception('Não foi possível enfileirar a reindexação da fonte %s', source_id)
-            abort(503, description='Não foi possível enfileirar essa fonte agora.')
+        except Exception:
+            current_app.logger.warning(
+                'Não foi possível enfileirar a reindexação da fonte %s; tentando modo síncrono',
+                source_id, exc_info=True,
+            )
         if not job_id:
             # The queue migration is additive. Older deployments keep the
             # existing synchronous reprocessing path until it is applied.
@@ -3497,23 +3555,37 @@ def find_recent_brand_creatives(brand_id):
     run_id = uuid4().hex
     # Without a Firecrawl credential the lookup returns no web results and no
     # customer credit is reserved or charged.
-    firecrawl_enabled = bool(resolve_firecrawl_api_key())
-    if firecrawl_enabled:
-        credits.authorize_firecrawl(actor, 'search', results=8)
+    try:
+        firecrawl_enabled = bool(resolve_firecrawl_api_key())
+        if firecrawl_enabled:
+            credits.authorize_firecrawl(actor, 'search', results=8)
 
-    def charge_search(result_count):
-        credits.charge_firecrawl(
-            actor=actor, idempotency_key=f'workspace-brand:{brand_id}:recent-search:{run_id}',
-            operation='search', results=result_count, app='Marca', stage='referencias_recentes',
-            metadata={'brand_id': brand_id, 'run_id': run_id, 'query_brand': brand.get('name')},
+        def charge_search(result_count):
+            credits.charge_firecrawl(
+                actor=actor, idempotency_key=f'workspace-brand:{brand_id}:recent-search:{run_id}',
+                operation='search', results=result_count, app='Marca', stage='referencias_recentes',
+                metadata={'brand_id': brand_id, 'run_id': run_id, 'query_brand': brand.get('name')},
+            )
+
+        candidates = search_recent_brand_creatives(
+            brand.get('name'), limit=8, billing_callback=charge_search if firecrawl_enabled else None,
         )
-
-    candidates = search_recent_brand_creatives(
-        brand.get('name'), limit=8, billing_callback=charge_search if firecrawl_enabled else None,
-    )
+    except HTTPException:
+        raise
+    except CaduCreditUnavailable as exc:
+        abort(409, description=str(exc))
+    except Exception:
+        current_app.logger.exception('Não foi possível buscar referências recentes da marca %s', brand_id)
+        abort(503, description='Não foi possível buscar referências recentes agora. Tente novamente mais tarde.')
     if not candidates:
         abort(503, description='Não encontramos referências recentes utilizáveis agora. Tente novamente mais tarde.')
-    imported = CreativeModelingService().import_website_brand_assets(brand_id, candidates)
+    try:
+        imported = CreativeModelingService().import_website_brand_assets(brand_id, candidates)
+    except HTTPException:
+        raise
+    except Exception:
+        current_app.logger.exception('Não foi possível importar referências recentes da marca %s', brand_id)
+        abort(503, description='As referências foram encontradas, mas não puderam ser salvas agora. Tente novamente.')
     if request.accept_mimetypes.best == 'application/json':
         return jsonify(ok=True, imported=len(imported)), 201
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, assets='recent'), code=303)
@@ -3531,6 +3603,8 @@ def generate_brand_hero(brand_id):
     brand = _workspace_brand(client_id, brand_id)
     if not brand:
         abort(404)
+    if _brand_review_pack(brand).get('status') != 'approved':
+        abort(409, description='Aprove a identidade da marca antes de criar o hero.')
     from ..cadu_credit_connector import CreditActor
     from ..creative_modeling_service import CreativeModelingService
     credits = CaduCreditConnector()

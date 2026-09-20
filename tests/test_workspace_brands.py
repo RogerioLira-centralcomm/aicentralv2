@@ -399,3 +399,34 @@ class WorkspaceBrandsTest(TestCase):
         self.assertIn('approved', params[8])
         self.assertEqual(params[-2:], (81, 12))
         connection.commit.assert_called_once_with()
+
+    @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
+    @mock.patch('aicentralv2.cadu_workspace.routes.CaduCreditConnector')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={
+        'id': 81, 'analysis_metadata': {'review_pack': {'status': 'pending_approval'}},
+    })
+    def test_brand_hero_requires_an_approved_identity(self, _brand, credits, service):
+        response = _client().post('/workspace/app/marcas/81/hero/gerar', data={
+            '_csrf': 'known-token',
+        })
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('Aprove a identidade', response.get_data(as_text=True))
+        credits.assert_not_called()
+        service.assert_not_called()
+
+    @mock.patch('aicentralv2.creative_brand_analysis.search_recent_brand_creatives',
+                side_effect=RuntimeError('serviço externo indisponível'))
+    @mock.patch('aicentralv2.services.integration_credentials.resolve_firecrawl_api_key', return_value='key')
+    @mock.patch('aicentralv2.cadu_credit_connector.CaduCreditConnector')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81, 'name': 'Marca'})
+    def test_recent_brand_references_return_service_unavailable_instead_of_500(
+            self, _brand, credits, _key, search):
+        credits.return_value.authorize_firecrawl.return_value = 1
+        response = _client().post('/workspace/app/marcas/81/ativos/referencias-recentes', data={
+            '_csrf': 'known-token',
+        })
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('referências recentes', response.get_data(as_text=True))
+        search.assert_called_once()

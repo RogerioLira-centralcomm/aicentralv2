@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest import TestCase, mock
 
 from flask import Flask
@@ -52,7 +53,11 @@ class WorkspaceProjectNotesTest(TestCase):
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
     @mock.patch('aicentralv2.cadu_workspace.routes.charge_project_rag')
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
-    def test_note_is_stored_as_completed_source_and_searchable_chunks(self, get_db, charged, _project):
+    @mock.patch('aicentralv2.cadu_workspace.routes.project_index_service.indexed_content', return_value=(
+        [SimpleNamespace(order=0, section='', content='Conteúdo indexado.',
+                         content_hash='a' * 64, embedding=[0.1], tokens=3)], 3, 'test-model'))
+    def test_note_is_stored_as_completed_source_and_searchable_chunks(
+            self, indexed_content, get_db, charged, _project):
         connection = mock.MagicMock()
         cursor = connection.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = {'id': 91}

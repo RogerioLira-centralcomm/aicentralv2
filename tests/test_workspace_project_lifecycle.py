@@ -82,3 +82,17 @@ class WorkspaceProjectLifecycleTest(TestCase):
         })
         self.assertEqual(response.status_code, 303)
         set_link.assert_called_once_with(12, 7, 'ci:p-1', 'studio:5', True)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.set_project_brand_link')
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.project_brand_links', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brands', return_value=[{'id': 5}, {'id': 8}])
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
+    def test_multiple_organization_brands_can_be_linked(self, _project, _brands, _links, set_link):
+        response = _client().post('/workspace/app/projetos/p-1/marcas', data={
+            '_csrf': 'known-token', 'brand_ids': ['5', '8'],
+        })
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(sorted(set_link.call_args_list, key=repr), sorted([
+            mock.call(12, 7, 'ci:p-1', 'studio:5', True),
+            mock.call(12, 7, 'ci:p-1', 'studio:8', True),
+        ], key=repr))

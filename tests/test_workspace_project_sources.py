@@ -180,6 +180,52 @@ class WorkspaceProjectSourcesTest(TestCase):
         persist.assert_called_once()
         remove_pending.assert_called_once_with(12, 'p-1', 43)
 
+    def test_note_falls_back_to_sync_when_queue_enqueue_fails(self):
+        app = _app()
+        app.config['CADU_PROJECT_INDEX_ASYNC_ENABLED'] = True
+        with mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id': 'p-1'}), \
+             mock.patch('aicentralv2.cadu_workspace.routes._persist_project_source', return_value=43) as persist, \
+             mock.patch('aicentralv2.cadu_workspace.routes.project_index_service.persist_pending_source', return_value=43), \
+             mock.patch('aicentralv2.cadu_workspace.routes.get_db') as get_db, \
+             mock.patch('aicentralv2.cadu_workspace.project_index_jobs.enqueue', side_effect=RuntimeError('fila indisponível')), \
+             mock.patch('aicentralv2.cadu_workspace.routes._remove_pending_project_source') as remove_pending:
+            get_db.return_value = mock.MagicMock()
+            client = app.test_client()
+            with client.session_transaction() as session:
+                session.update(user_id=7, cliente_id=12, family_csrf='known-token')
+            response = client.post('/workspace/app/projetos/p-1/fontes/notas', data={
+                '_csrf': 'known-token',
+                'title': 'Diretriz com fila instável',
+                'content': 'Contexto aprovado para o fallback quando a fila está indisponível.',
+            })
+
+        self.assertEqual(response.status_code, 303)
+        persist.assert_called_once()
+        remove_pending.assert_called_once_with(12, 'p-1', 43)
+
+    def test_note_is_preserved_for_reprocessing_when_embeddings_are_unavailable(self):
+        from aicentralv2.cadu_workspace.project_knowledge import KnowledgeIndexError
+
+        app = _app()
+        with mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id': 'p-1'}), \
+             mock.patch('aicentralv2.cadu_workspace.routes.project_index_service.indexed_content',
+                         side_effect=KnowledgeIndexError('Embeddings indisponíveis.')), \
+             mock.patch('aicentralv2.cadu_workspace.routes._persist_project_source_index_error', return_value=44) as preserve:
+            client = app.test_client()
+            with client.session_transaction() as session:
+                session.update(user_id=7, cliente_id=12, family_csrf='known-token')
+            response = client.post('/workspace/app/projetos/p-1/fontes/notas', data={
+                '_csrf': 'known-token',
+                'title': 'Diretriz pendente',
+                'content': 'Contexto aprovado para orientar o reprocessamento posterior.',
+            }, headers={'Accept': 'application/json'})
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.get_json(), {
+            'ok': True, 'source_id': 44, 'status': 'error', 'error': 'Embeddings indisponíveis.',
+        })
+        preserve.assert_called_once()
+
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project')
     def test_status_projection_does_not_expose_private_paths(self, project):
         project.return_value = {'id': 'p-1', 'files': [{

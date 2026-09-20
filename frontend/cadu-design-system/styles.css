@@ -193,6 +193,16 @@ body.portal--workspace:has(#cadu-conversations-v2-root .cadu-ds-home-shell) main
 .cadu-ds-composer-capabilities button:hover { background:var(--cadu-surface-soft); }
 .cadu-ds-composer-hint { min-width:0; margin-right:auto; overflow:hidden; color:var(--cadu-muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-composer-send { width:36px; height:36px; border-radius:12px; font-size:18px; }
+.cadu-ds-selector { position:relative; display:block; min-width:170px; }
+.cadu-ds-selector::after { display:none; }
+.cadu-ds-selector summary { display:flex; min-height:36px; align-items:center; gap:8px; padding:0 9px; border:1px solid transparent; border-radius:9px; color:var(--cadu-nav-ink); cursor:pointer; list-style:none; font:600 12px var(--cadu-font-sans); }
+.cadu-ds-selector summary::-webkit-details-marker { display:none; }
+.cadu-ds-selector summary span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-selector summary i { margin-left:auto; color:var(--cadu-nav-muted); font-size:13px; font-style:normal; }
+.cadu-ds-selector[open] summary,.cadu-ds-selector summary:hover { border-color:var(--cadu-nav-line); background:rgba(255,255,255,.045); }
+.cadu-ds-selector-menu { position:absolute; top:calc(100% + 8px); left:0; z-index:40; display:grid; width:min(310px,calc(100vw - 32px)); max-height:min(360px,50dvh); overflow:auto; padding:6px; border:1px solid var(--cadu-nav-line); border-radius:12px; background:var(--cadu-nav-bg); box-shadow:0 18px 46px rgba(0,0,0,.32); }
+.cadu-ds-selector-menu button { width:100%; min-height:36px; padding:0 9px; border:0; border-radius:8px; background:transparent; color:var(--cadu-nav-ink); text-align:left; font:500 12px var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-selector-menu button:hover,.cadu-ds-selector-menu button[aria-current="true"] { background:rgba(127,207,194,.13); color:#fff; }
 .cadu-ds-dialog { position:fixed; inset:0; width:min(560px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; overflow:auto; }
 .cadu-ds-shortcut-dialog { width:min(700px,calc(100vw - 32px)); }
 .cadu-ds-project-dialog { max-height:calc(100dvh - 32px); }

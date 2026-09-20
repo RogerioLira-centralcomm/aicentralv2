@@ -1,13 +1,16 @@
-import React from 'react';
+import React, {useRef} from 'react';
 
 function Selector({label, value, items = [], onChange, emptyLabel, className = ''}) {
-  return <label className={`cadu-ds-selector ${className}`}>
-    <span className="cadu-ds-sr-only">{label}</span>
-    <select value={value || ''} onChange={event => onChange?.(event.target.value)} aria-label={label}>
-      <option value="">{emptyLabel}</option>
-      {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select>
-  </label>;
+  const menu = useRef(null);
+  const selected = items.find(item => String(item.id) === String(value));
+  const choose = id => { onChange?.(id); menu.current?.removeAttribute('open'); };
+  return <details ref={menu} className={`cadu-ds-selector ${className}`}>
+    <summary aria-label={label}><span>{selected?.name || emptyLabel}</span><i aria-hidden="true">⌄</i></summary>
+    <div className="cadu-ds-selector-menu" role="menu" aria-label={label}>
+      <button type="button" role="menuitem" aria-current={!value || undefined} onClick={() => choose('')}>{emptyLabel}</button>
+      {items.map(item => <button key={item.id} type="button" role="menuitem" aria-current={String(item.id) === String(value) ? 'true' : undefined} onClick={() => choose(item.id)}>{item.name}</button>)}
+    </div>
+  </details>;
 }
 
 export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect}) {

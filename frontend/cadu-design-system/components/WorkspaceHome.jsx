@@ -19,7 +19,7 @@ export function WorkspaceHome({bootstrap}) {
   const [searchValue, setSearchValue] = useState('');
   const [projectRef, setProjectRef] = useState('');
   const [activityOpen, setActivityOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(() => window.location.hash === '#atalhos');
   const [accountOpen, setAccountOpen] = useState(false);
   const [toast, setToast] = useState('');
   const projects = home.projects || [];
@@ -128,7 +128,7 @@ export function WorkspaceHome({bootstrap}) {
     </main>
     <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} items={(home.resumeCards || []).map(item => ({...item, detail: item.context, time: item.status}))} onOpenItem={openProject}/>
     <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>
-    <ShortcutManagerDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} items={managerItems} onToggle={toggleShortcut} onReorder={reorderShortcuts}/>
+    <ShortcutManagerDialog open={shortcutsOpen} onClose={() => { setShortcutsOpen(false); if (window.location.hash === '#atalhos') window.history.replaceState(null, '', window.location.pathname + window.location.search); }} items={managerItems} onToggle={toggleShortcut} onReorder={reorderShortcuts}/>
     <UndoToast message={toast} onDismiss={() => setToast('')}/>
   </div>;
 }

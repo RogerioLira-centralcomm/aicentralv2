@@ -20,7 +20,8 @@ from ..registry import ToolError, ToolInputError, register_tool
         "properties": {
             "query": {"type": "string", "minLength": 3, "maxLength": 400},
             "request_id": {"type": ["string", "null"], "maxLength": 120},
-            "limit": {"type": "integer", "minimum": 3, "maximum": 8},
+            "limit": {"type": "integer", "minimum": 3, "maximum": 12},
+            "depth": {"type": "string", "enum": ["fast", "analysis", "agentic"]},
             "recency": {"type": "string", "enum": ["", "day", "week", "month", "year"]},
             "include_domains": {"type": "array", "items": {"type": "string", "maxLength": 180}, "maxItems": 10},
             "exclude_domains": {"type": "array", "items": {"type": "string", "maxLength": 180}, "maxItems": 10},
@@ -44,5 +45,43 @@ def search_web(context: RequestContext, arguments: dict) -> dict:
         return web_search.search(context, arguments)
     except web_search.WebSearchUnavailable as exc:
         raise ToolError("A pesquisa online não ficou disponível nesta resposta.") from exc
+    except ValueError as exc:
+        raise ToolInputError(str(exc)) from exc
+
+
+@register_tool(
+    name="web.read",
+    capability="research",
+    effect="read",
+    description=(
+        "Lê um único link HTTPS fornecido pelo usuário, remove o ruído da página e devolve o conteúdo "
+        "principal com metadados para análise, citação ou refinamento na conversa."
+    ),
+    exposures=("internal", "customer_agent"),
+    input_schema={
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+            "url": {"type": "string", "minLength": 12, "maxLength": 2000},
+            "request_id": {"type": ["string", "null"], "maxLength": 120},
+        },
+        "additionalProperties": False,
+    },
+    output_schema={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string"},
+            "sources": {"type": "array"},
+            "source_count": {"type": "integer"},
+            "sources_read": {"type": "integer"},
+            "result_type": {"type": "string"},
+        },
+    },
+)
+def read_web(context: RequestContext, arguments: dict) -> dict:
+    try:
+        return web_search.read(context, arguments)
+    except web_search.WebSearchUnavailable as exc:
+        raise ToolError("Não consegui extrair conteúdo legível deste link.") from exc
     except ValueError as exc:
         raise ToolInputError(str(exc)) from exc

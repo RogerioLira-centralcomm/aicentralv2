@@ -10,7 +10,10 @@ from __future__ import annotations
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from html import unescape
+from html.parser import HTMLParser
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -23,12 +26,87 @@ from ..services.integration_credentials import resolve_firecrawl_api_key
 
 logger = logging.getLogger(__name__)
 MAX_QUERY = 400
-MAX_SOURCES = 8
-MAX_HYDRATED_SOURCES = 3
+MAX_SOURCES = 12
+MAX_HYDRATED_SOURCES = 5
+MAX_CONTENT_CHARS = 6000
+MAX_CONTENT_BLOCKS = 18
+
+SEARCH_DEPTHS = {
+    "fast": {"limit": 4, "hydrate": 1},
+    "analysis": {"limit": 7, "hydrate": 3},
+    "agentic": {"limit": 10, "hydrate": 5},
+}
+
+_NOISE_TAGS = {"script", "style", "noscript", "template", "svg", "canvas", "nav", "footer", "header", "aside", "form"}
+_CONTENT_TAGS = {"p", "li", "blockquote", "pre", "dt", "dd", "h1", "h2", "h3", "h4", "h5", "h6"}
+_NOISE_MARKERS = re.compile(
+    r"(?:^|[-_ ])(?:ad|ads|advert|advertisement|banner|breadcrumb|cookie|footer|header|menu|nav|newsletter|popup|sidebar|social|subscribe)(?:$|[-_ ])",
+    re.IGNORECASE,
+)
+_NOISE_COPY = re.compile(
+    r"^(?:menu|navigation|home|início|entrar|login|assine|assinar|subscribe|advertisement|publicidade|todos os direitos reservados|all rights reserved)$",
+    re.IGNORECASE,
+)
 
 
 class WebSearchUnavailable(RuntimeError):
     """Raised when the optional external search cannot produce evidence."""
+
+
+class _ReadableHTMLParser(HTMLParser):
+    """Keep article-like text while dropping page chrome and embedded code."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.skip_depth = 0
+        self.current_tag = ""
+        self.current = []
+        self.blocks = []
+
+    @staticmethod
+    def _is_noise(attrs) -> bool:
+        values = " ".join(str(value or "") for name, value in attrs if name in {"id", "class", "role", "aria-label"})
+        return bool(_NOISE_MARKERS.search(values))
+
+    def _flush(self):
+        text = _clean_text(" ".join(self.current), 1200)
+        self.current = []
+        if not text or _is_noise_copy(text):
+            return
+        kind = "heading" if self.current_tag in {"h1", "h2", "h3", "h4", "h5", "h6"} else "paragraph"
+        self.blocks.append({"kind": kind, "text": text})
+
+    def handle_starttag(self, tag, attrs):
+        tag = str(tag or "").lower()
+        if self.skip_depth:
+            self.skip_depth += 1
+            return
+        if tag in _NOISE_TAGS or self._is_noise(attrs):
+            self._flush()
+            self.skip_depth = 1
+            return
+        if tag in _CONTENT_TAGS:
+            self._flush()
+            self.current_tag = tag
+        elif tag == "br":
+            self.current.append(" ")
+
+    def handle_endtag(self, tag):
+        if self.skip_depth:
+            self.skip_depth = max(0, self.skip_depth - 1)
+            return
+        if str(tag or "").lower() in _CONTENT_TAGS:
+            self._flush()
+            self.current_tag = ""
+
+    def handle_data(self, data):
+        if not self.skip_depth and str(data or "").strip():
+            self.current.append(str(data))
+
+
+def _is_noise_copy(value: str) -> bool:
+    text = " ".join(str(value or "").split())
+    return bool(_NOISE_COPY.fullmatch(text)) or len(text) < 3
 
 
 def _clean_text(value, limit: int) -> str:
@@ -54,6 +132,14 @@ def _host(value: str) -> str:
 def _safe_url(value: str) -> str:
     value = str(value or "").strip()
     return value[:2000] if _host(value) else ""
+
+
+def _safe_favicon(value, page_url: str) -> str:
+    candidate = _safe_url(value)
+    if candidate:
+        return candidate
+    host = _host(page_url)
+    return f"https://{host}/favicon.ico" if host else ""
 
 
 def _endpoint() -> str:
@@ -107,7 +193,8 @@ def _search(query: str, *, limit: int, include_domains: list[str],
         if not isinstance(item, dict):
             continue
         url = _safe_url(item.get("url") or item.get("sourceURL"))
-        title = _clean_text(item.get("title") or item.get("metadata", {}).get("title"), 220)
+        metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        title = _clean_text(item.get("title") or metadata.get("title"), 220)
         description = _clean_text(item.get("description") or item.get("snippet"), 900)
         if not url or not (title or description):
             continue
@@ -119,23 +206,63 @@ def _search(query: str, *, limit: int, include_domains: list[str],
             "excerpt": description,
             "published_at": _clean_text(item.get("date") or item.get("publishedDate"), 60),
             "source_type": _clean_text(item.get("category") or "web", 40),
+            "favicon": _safe_favicon(item.get("favicon") or item.get("faviconUrl") or metadata.get("favicon"), url),
             "rank": index,
         })
     return sources
 
 
-def _read_source(url: str) -> str:
-    """Read only the main markdown content of one selected result."""
+def _markdown_blocks(value) -> list[dict]:
+    blocks = []
+    for raw in str(value or "").replace("\r\n", "\n").split("\n"):
+        line = _clean_text(unescape(raw), 1200)
+        if not line or line.startswith("```") or _is_noise_copy(line):
+            continue
+        if re.search(r"(?:cookie|accept all|subscribe|advertisement|publicidade|all rights reserved)", line, re.IGNORECASE) and len(line) < 160:
+            continue
+        kind = "heading" if re.match(r"^#{1,6}\s", raw.strip()) else "paragraph"
+        blocks.append({"kind": kind, "text": line})
+    return blocks
+
+
+def _read_source(url: str) -> dict:
+    """Read one page, then keep only clean article-like text for the agent."""
     try:
         from ..crm_v3_web_scout import _firecrawl_scrape
-        data = _firecrawl_scrape(url, formats=["markdown"], timeout_s=35, only_main_content=True)
+        data = _firecrawl_scrape(url, formats=["markdown", "html"], timeout_s=35, only_main_content=True)
     except Exception:
         logger.info("Fonte web não pôde ser lida: %s", url, exc_info=True)
-        return ""
+        return {}
     if not isinstance(data, dict):
-        return ""
-    content = data.get("markdown") or data.get("content") or ""
-    return _clean_text(content, 4200) if len(str(content or "").strip()) >= 80 else ""
+        return {}
+    blocks = []
+    html = data.get("html") or ""
+    if html:
+        parser = _ReadableHTMLParser()
+        try:
+            parser.feed(str(html))
+            blocks = parser.blocks
+        except Exception:
+            logger.info("HTML da fonte não pôde ser limpo: %s", url, exc_info=True)
+    if not blocks:
+        blocks = _markdown_blocks(data.get("markdown") or data.get("content") or "")
+    blocks = blocks[:MAX_CONTENT_BLOCKS]
+    content = "\n\n".join(block["text"] for block in blocks)
+    content = _clean_text(content, MAX_CONTENT_CHARS)
+    if len(content) < 80:
+        return {}
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    return {
+        "content": content,
+        "content_blocks": blocks,
+        "content_excerpt": content[:520],
+        "page_title": _clean_text(metadata.get("title") or data.get("title"), 220),
+        "favicon": _safe_favicon(metadata.get("favicon") or data.get("favicon"), url),
+        "published_at": _clean_text(
+            metadata.get("publishedTime") or metadata.get("publishedDate") or data.get("published_at"), 60
+        ),
+        "cleaning": "firecrawl_main_content_plus_python_html_cleanup",
+    }
 
 
 def _domains(values) -> list[str]:
@@ -157,7 +284,11 @@ def search(context, arguments: dict) -> dict:
     query = " ".join(str(arguments.get("query") or "").split())[:MAX_QUERY]
     if len(query) < 3:
         raise ValueError("Informe o que deve ser pesquisado na internet.")
-    limit = min(MAX_SOURCES, max(3, int(arguments.get("limit") or 6)))
+    depth = str(arguments.get("depth") or "analysis").strip().lower()
+    if depth not in SEARCH_DEPTHS:
+        raise ValueError("Profundidade inválida. Use fast, analysis ou agentic.")
+    depth_config = SEARCH_DEPTHS[depth]
+    limit = min(MAX_SOURCES, max(3, int(arguments.get("limit") or depth_config["limit"])))
     include_domains = _domains(arguments.get("include_domains"))
     exclude_domains = _domains(arguments.get("exclude_domains"))
     if include_domains and exclude_domains:
@@ -166,7 +297,7 @@ def search(context, arguments: dict) -> dict:
     if recency not in {"", "day", "week", "month", "year"}:
         raise ValueError("Recência inválida.")
     include_content = arguments.get("include_content", True) is not False
-    hydrate_limit = min(MAX_HYDRATED_SOURCES, limit) if include_content else 0
+    hydrate_limit = min(MAX_HYDRATED_SOURCES, limit, depth_config["hydrate"]) if include_content else 0
     actor = CreditActor.from_values(context.client_id, context.user_id)
     credits = CaduCreditConnector()
     try:
@@ -179,10 +310,16 @@ def search(context, arguments: dict) -> dict:
     sources = _search(query, limit=limit, include_domains=include_domains,
                       exclude_domains=exclude_domains, recency=recency)
     hydrated = 0
-    for source in sources[:hydrate_limit]:
-        content = _read_source(source["url"])
-        if content:
-            source["content"] = content
+    selected = sources[:hydrate_limit]
+    # Source reads are independent. Parallelizing them keeps the deep mode useful
+    # without making the first response wait for a serial chain of page loads.
+    with ThreadPoolExecutor(max_workers=min(4, len(selected) or 1)) as executor:
+        extracted_sources = list(executor.map(lambda item: _read_source(item["url"]), selected))
+    for source, extracted in zip(selected, extracted_sources):
+        if extracted:
+            source.update(extracted)
+            source["title"] = extracted.get("page_title") or source["title"]
+            source["excerpt"] = extracted.get("content_excerpt") or source["excerpt"]
             hydrated += 1
     try:
         credits.charge_firecrawl(
@@ -201,11 +338,59 @@ def search(context, arguments: dict) -> dict:
         # the failure is logged and never exposed as provider detail.
         logger.exception("Falha ao registrar cobrança da pesquisa web")
     return {
+        "result_type": "search",
         "query": query,
         "sources": sources,
         "source_count": len(sources),
         "sources_read": hydrated,
+        "research_depth": depth,
+        "sites_requested": limit,
         "searched_at": datetime.now(timezone.utc).isoformat(),
         "search_mode": "firecrawl_discovery_with_selected_source_reading",
         "evidence_policy": "Use as fontes para responder ao pedido atual; diferencie fato, interpretação e lacuna.",
+    }
+
+
+def read(context, arguments: dict) -> dict:
+    """Read exactly one user-provided URL through the same clean evidence pipeline."""
+    url = _safe_url(arguments.get("url"))
+    if not url:
+        raise ValueError("Informe um link HTTPS válido para analisar.")
+    actor = CreditActor.from_values(context.client_id, context.user_id)
+    credits = CaduCreditConnector()
+    try:
+        credits.authorize_firecrawl(actor, "scrape", pages=1)
+    except InsufficientToolCredits as exc:
+        raise ValueError("Não há saldo suficiente para ler este link agora.") from exc
+    extracted = _read_source(url)
+    if not extracted:
+        raise WebSearchUnavailable("Não consegui extrair conteúdo legível deste link.")
+    request_id = str(arguments.get("request_id") or getattr(context, "request_id", "") or uuid4())[:120]
+    source = {
+        "id": "web-direct-1",
+        "title": extracted.get("page_title") or _host(url),
+        "url": url,
+        "domain": _host(url),
+        "excerpt": extracted.get("content_excerpt") or "",
+        "source_type": "direct_url",
+        "rank": 1,
+        **extracted,
+    }
+    try:
+        credits.charge_firecrawl(
+            actor=actor, idempotency_key=f"web-read:{request_id}:scrape",
+            operation="scrape", pages=1, app="Cadu Pesquisa", stage="web_direct_read",
+            metadata={"conversation_id": str(context.conversation_id or ""), "url_host": _host(url)},
+        )
+    except Exception:
+        logger.exception("Falha ao registrar cobrança da leitura direta")
+    return {
+        "result_type": "direct_read",
+        "query": url,
+        "sources": [source],
+        "source_count": 1,
+        "sources_read": 1,
+        "searched_at": datetime.now(timezone.utc).isoformat(),
+        "search_mode": "firecrawl_direct_page_with_selected_source_reading",
+        "evidence_policy": "Use somente o conteúdo limpo deste link; diferencie fato, interpretação e lacuna.",
     }

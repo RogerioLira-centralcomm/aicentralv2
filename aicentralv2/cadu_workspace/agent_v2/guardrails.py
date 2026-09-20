@@ -49,6 +49,35 @@ def _clean_text(value, limit):
     return " ".join(str(value or "").split())[:limit]
 
 
+def _clean_editor_html(value, limit=100000):
+    """Keep a small rich-text vocabulary; never persist executable markup."""
+    html = str(value or "")
+    html = re.sub(r"<!--.*?-->|<\s*(?:script|style|iframe|object|embed|form)\b[^>]*>.*?<\s*/\s*(?:script|style|iframe|object|embed|form)\s*>", "", html,
+                  flags=re.IGNORECASE | re.DOTALL)
+    allowed = {"p", "br", "strong", "b", "em", "i", "u", "h1", "h2", "h3", "ul", "ol", "li",
+               "blockquote", "a", "img", "figure", "figcaption", "hr", "div", "span"}
+
+    def tag(match):
+        closing, name, attrs = match.group(1), match.group(2).lower(), match.group(3) or ""
+        if name not in allowed:
+            return ""
+        if closing:
+            return f"</{name}>"
+        safe_attrs = []
+        for attr, quote, raw in re.findall(r"([a-zA-Z:-]+)\s*=\s*(['\"])(.*?)\2", attrs, re.DOTALL):
+            attr = attr.lower()
+            value = str(raw or "").strip()
+            if attr.startswith("on") or attr in {"style", "srcdoc"}:
+                continue
+            if attr in {"href", "src"} and not (value.startswith("https://") or value.startswith("http://") or value.startswith("data:image/")):
+                continue
+            if attr in {"href", "src", "alt", "title", "target", "rel"}:
+                safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")[:2000]}"')
+        return f"<{name}{''.join(safe_attrs)}>"
+
+    return re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)[:limit]
+
+
 def _clean_actions(values, limit):
     actions = []
     for item in values if isinstance(values, list) else []:
@@ -167,6 +196,8 @@ def _clean_blocks(values):
                 clean.update({
                     "kind": _clean_text(item.get("kind"), 80),
                     "url": _resource_url(item.get("url")),
+                    "favicon": _resource_url(item.get("favicon")),
+                    "published_at": _clean_text(item.get("published_at"), 60),
                     "resource_id": _clean_text(item.get("resource_id"), 120),
                 })
             elif block_type == "decision":
@@ -287,7 +318,7 @@ def _clean_patch(value):
     if any(key in value for key in ("html", "css", "js")):
         patch.update({
             "fields": [],
-            "html": str(value.get("html") or "")[:100_000],
+            "html": _clean_editor_html(value.get("html"), 100_000),
             "css": str(value.get("css") or "")[:30_000],
             "js": str(value.get("js") or "")[:40_000],
         })

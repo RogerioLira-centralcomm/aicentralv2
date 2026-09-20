@@ -173,3 +173,33 @@ def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, 
         except Exception:
             pass
     return get_artifact(context, artifact_id)
+
+
+def attach_to_project(context: RequestContext, artifact_id: str, project_ref: str) -> dict:
+    """Attach a session draft to an already authorized project without changing its text."""
+    project_ref = " ".join(str(project_ref or "").split())[:120]
+    if not project_ref.startswith("ci:"):
+        raise BadRequest("Selecione um projeto válido para salvar este documento.")
+    # The caller resolves project membership before reaching this service. The
+    # artifact lookup still enforces the tenant boundary before any mutation.
+    get_artifact(context, artifact_id)
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE cadu_workspace_artifacts
+                              SET project_ref = %s, updated_at = NOW()
+                            WHERE id = %s AND organization_id = %s AND client_id = %s""",
+                        (project_ref, str(artifact_id), context.organization_id, context.client_id))
+            if cur.rowcount != 1:
+                raise NotFound("Artefato indisponível.")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    try:
+        from ..project_resource_service import notify_change
+        notify_change(context.client_id, project_ref, "attached", source_system="cadu_workspace_artifacts",
+                      source_id=str(artifact_id), actor_id=context.user_id)
+    except Exception:
+        pass
+    return get_artifact(context, artifact_id)

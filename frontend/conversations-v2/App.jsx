@@ -399,8 +399,15 @@ export default function App({bootstrap}) {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
           trace('Preparando trabalho', event.route?.action || '');
         }
-        else if (kind === 'tool.completed') trace('Consulta concluída', event.name || '');
-        else if (kind === 'tool.unavailable') trace('Recurso indisponível', event.code || '', 'error');
+        else if (kind === 'tool.completed') {
+          const isWeb = event.name === 'web.search' || event.name === 'web.read';
+          setRuntime(isWeb ? 'Fontes organizadas' : 'Trabalhando');
+          trace(isWeb ? 'Fontes consultadas' : 'Consulta concluída', event.name || '');
+        }
+        else if (kind === 'tool.unavailable') {
+          setRuntime(event.name === 'web.search' || event.name === 'web.read' ? 'Pesquisa indisponível' : 'Trabalhando');
+          trace('Recurso indisponível', event.code || '', 'error');
+        }
         else if (kind === 'action.proposed') setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: runRef.current}]);
         else if (kind === 'artifact.created') {
           latestArtifact = event.artifact || null;
@@ -475,6 +482,11 @@ export default function App({bootstrap}) {
     setArtifactDirty(true);
   }, []);
 
+  const changeArtifactTitle = useCallback(title => {
+    setArtifact(current => current ? {...current, title: String(title || '').slice(0, 180)} : current);
+    setArtifactDirty(true);
+  }, []);
+
   const saveArtifact = useCallback(async () => {
     if (!artifact?.id) return;
     setSaving(true);
@@ -485,6 +497,27 @@ export default function App({bootstrap}) {
       trace(error.status === 409 ? 'Artefato alterado em outra sessão' : 'Falha ao salvar artefato', error.message, 'error');
     } finally { setSaving(false); }
   }, [artifact, bootstrap.endpoints.artifacts, conversationId, trace]);
+
+  const saveArtifactToProject = useCallback(async () => {
+    if (!artifact?.id || !context.project_ref) return;
+    setSaving(true);
+    try {
+      const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}/save-project`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({conversation_id: conversationId, project_ref: context.project_ref}),
+      });
+      setArtifact(data.artifact); artifactRef.current = data.artifact; setArtifactDirty(false);
+      trace('Rascunho salvo no projeto', data.artifact?.title || 'Documento');
+    } catch (error) {
+      trace('Falha ao salvar no projeto', error.message, 'error');
+    } finally { setSaving(false); }
+  }, [artifact, bootstrap.endpoints.artifacts, conversationId, context.project_ref, trace]);
+
+  useEffect(() => {
+    if (!artifact?.id || !artifactDirty || saving) return undefined;
+    const timer = window.setTimeout(() => saveArtifact(), 900);
+    return () => window.clearTimeout(timer);
+  }, [artifact?.id, artifactDirty, saving, saveArtifact]);
 
   const loadVersions = useCallback(async () => {
     if (!artifact?.id) return;
@@ -586,7 +619,7 @@ export default function App({bootstrap}) {
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
           <Conversation title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
-          {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
+          {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef} onSaveToProject={saveArtifactToProject} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>} 
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
       </div>

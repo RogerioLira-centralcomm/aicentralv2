@@ -220,7 +220,11 @@ def _enrich_source_blocks(response, run):
                 "url": str(resource.get("locator") or item.get("url") or "")[:2000],
                 "source_system": str(resource.get("source_system") or "")[:80],
             })
-    web_result = run["resolved_context"].values.get("web.search") or {}
+    web_result = (
+        run["resolved_context"].values.get("web.search")
+        or run["resolved_context"].values.get("web.read")
+        or {}
+    )
     web_sources = web_result.get("sources") if isinstance(web_result, dict) else []
     safe_web_sources = []
     seen_urls = set()
@@ -241,8 +245,10 @@ def _enrich_source_blocks(response, run):
             "id": str(source.get("id") or f"web-{len(safe_web_sources) + 1}")[:100],
             "title": str(source.get("title") or parsed.hostname or "Fonte")[:220],
             "url": url,
-            "excerpt": " ".join(str(source.get("excerpt") or "").split())[:500],
+            "excerpt": " ".join(str(source.get("content_excerpt") or source.get("excerpt") or "").split())[:500],
+            "published_at": str(source.get("published_at") or "")[:60],
             "kind": "web",
+            "favicon": str(source.get("favicon") or "")[:2000],
         })
         if len(safe_web_sources) >= 8:
             break
@@ -260,9 +266,21 @@ def _enrich_source_blocks(response, run):
                 "excerpt": source["excerpt"],
             })
             existing_urls.add(source["url"])
+        for block in response.blocks:
+            if block.get("type") not in {"source", "sources", "source_group"}:
+                continue
+            for item in block.get("items") or []:
+                item_url = str(item.get("url") or "")
+                source = next((candidate for candidate in safe_web_sources if candidate["url"] == item_url), None)
+                if source:
+                    item.update({
+                        "id": source["id"], "title": source["title"], "url": source["url"],
+                        "kind": "web", "favicon": source["favicon"],
+                        "detail": str(item.get("detail") or source["excerpt"] or "")[:700],
+                    })
         has_web_block = any(
             block.get("type") == "source_group" and any(
-                item.get("kind") == "web" for item in block.get("items") or []
+                item.get("kind") == "web" and item.get("url") in seen_urls for item in block.get("items") or []
             ) for block in response.blocks
         )
         if not has_web_block:
@@ -276,7 +294,7 @@ def _enrich_source_blocks(response, run):
                 ),
                 "items": [{
                     "id": source["id"], "title": source["title"],
-                    "detail": source["excerpt"], "kind": source["kind"], "url": source["url"],
+                    "detail": source["excerpt"], "kind": source["kind"], "url": source["url"], "favicon": source["favicon"],
                 } for source in safe_web_sources[:5]],
             }]
     return response
@@ -468,7 +486,9 @@ def stream(run):
                     )
                 else:
                     artifact = create_draft(
-                        run["context"], artifact_type, artifact_content,
+                        replace(run["context"], project_ref=None)
+                        if run["policy"].get("artifact_scope") == "session" else run["context"],
+                        artifact_type, artifact_content,
                         title=artifact_title,
                         conversation_id=run["conversation_id"],
                     )

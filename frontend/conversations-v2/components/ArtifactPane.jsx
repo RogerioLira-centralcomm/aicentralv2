@@ -26,7 +26,7 @@ function htmlDocument(content) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: ${origin}; style-src 'unsafe-inline'; font-src data: ${origin}; script-src 'unsafe-inline'; connect-src 'none'; media-src data: blob: ${origin}; form-action 'none'; base-uri 'none'"><style>html,body{margin:0;min-height:100%;background:#fff}${css}</style></head><body>${String(content.html || '')}<script>${javascript}<\/script></body></html>`;
 }
 
-function DocumentArtifact({artifact, onChange}) {
+function StructuredArtifact({artifact, onChange}) {
   const content = artifact.content || {};
   const updateField = (index, value) => onChange({...content, fields: (content.fields || []).map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
   return <article className="cv-artifact-editor cv-mx-auto cv-w-full cv-max-w-[780px] cv-p-6 md:cv-p-10">
@@ -35,6 +35,56 @@ function DocumentArtifact({artifact, onChange}) {
       <span className="cv-mb-2 cv-block cv-text-xs cv-font-semibold cv-text-[#78918d]">{field.key || `Seção ${index + 1}`}</span>
       <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/>
     </label>)}</div>
+  </article>;
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
+}
+
+function documentHtml(content) {
+  if (content.html) return String(content.html);
+  const sections = [];
+  if (content.summary) sections.push(`<p>${escapeHtml(content.summary)}</p>`);
+  (content.fields || []).forEach(field => {
+    if (field?.key) sections.push(`<h2>${escapeHtml(field.key)}</h2>`);
+    if (field?.value) sections.push(`<p>${escapeHtml(field.value).replace(/\n/g, '<br/>')}</p>`);
+  });
+  return sections.join('') || '<p><br/></p>';
+}
+
+function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
+  const content = artifact.content || {};
+  const canvas = useRef(null);
+  const html = documentHtml(content);
+  useEffect(() => {
+    if (!canvas.current || canvas.current.innerHTML === html) return;
+    if (document.activeElement !== canvas.current) canvas.current.innerHTML = html;
+  }, [artifact.id, html]);
+  const emit = () => onChange({...content, html: canvas.current?.innerHTML || ''});
+  const command = (name, value = null) => {
+    canvas.current?.focus();
+    document.execCommand(name, false, value);
+    emit();
+  };
+  const addImage = () => {
+    const url = window.prompt('Cole o endereço HTTPS da imagem');
+    if (!url || !safeUrl(url)) return;
+    command('insertImage', safeUrl(url));
+  };
+  return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[820px] cv-p-6 md:cv-p-10">
+    <input className="cv-rich-document__title" value={artifact.title || content.title || ''} onChange={event => onTitleChange?.(event.target.value)} placeholder="Título do documento" aria-label="Título do documento"/>
+    <input className="cv-rich-document__summary" value={content.summary || ''} onChange={event => onChange({...content, summary: event.target.value})} placeholder="Uma linha para orientar a leitura (opcional)" aria-label="Resumo do documento"/>
+    <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento">
+      <button type="button" onClick={() => command('bold')} aria-label="Negrito"><b>B</b></button>
+      <button type="button" onClick={() => command('italic')} aria-label="Itálico"><i>I</i></button>
+      <button type="button" onClick={() => command('formatBlock', 'h2')} aria-label="Título de seção">H2</button>
+      <button type="button" onClick={() => command('formatBlock', 'blockquote')} aria-label="Citação">“</button>
+      <button type="button" onClick={() => command('insertUnorderedList')} aria-label="Lista">•</button>
+      <button type="button" onClick={addImage} aria-label="Adicionar imagem">Imagem</button>
+    </div>
+    <div ref={canvas} className="cv-rich-document__canvas" contentEditable suppressContentEditableWarning onInput={emit} onBlur={emit} dangerouslySetInnerHTML={{__html: html}} role="textbox" aria-label="Texto do documento"/>
+    <p className="cv-rich-document__hint">Editor visual · texto e imagens inline · o rascunho é salvo automaticamente</p>
   </article>;
 }
 
@@ -131,7 +181,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, dirty, saving, onChange, onClose, onSave, onLoadVersions, versions, onRestoreVersion}) {
+export function ArtifactPane({artifact, dirty, saving, onChange, onTitleChange, projectRef, onSaveToProject, onClose, onSave, onLoadVersions, versions, onRestoreVersion}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -144,8 +194,10 @@ export function ArtifactPane({artifact, dirty, saving, onChange, onClose, onSave
     if (type === 'image') return <ImageArtifact artifact={artifact}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
-    return <DocumentArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, onChange]);
+    return type === 'document'
+      ? <RichDocumentArtifact artifact={artifact} onChange={onChange} onTitleChange={onTitleChange}/>
+      : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
+  }, [artifact, type, onChange, onTitleChange]);
   useEffect(() => {
     setClosing(false);
     if (dialog.current?.open) dialog.current.close();
@@ -170,7 +222,7 @@ export function ArtifactPane({artifact, dirty, saving, onChange, onClose, onSave
       <button type="button" onClick={requestClose} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Fechar artefato"><Icon name="close" size={17}/></button>
     </header>
     <div className="cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-auto">{contentView}</div>
-    {dirty && artifact.id && <footer className="cv-flex cv-flex-none cv-items-center cv-justify-between cv-border-t cv-border-white/[.07] cv-bg-[#0d191c] cv-px-5 cv-py-3"><span className="cv-text-xs cv-text-[#8fa5a1]">Alterações não salvas</span><button type="button" onClick={onSave} disabled={saving} className="cv-rounded-lg cv-border-0 cv-bg-teal cv-px-4 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#052522] disabled:cv-opacity-50">{saving ? 'Salvando…' : 'Salvar'}</button></footer>}
+    {artifact.id && <footer className="cv-artifact-actions"><span>{dirty ? 'Salvando rascunho automaticamente' : artifact.project_ref ? 'Salvo no projeto' : 'Rascunho salvo na sessão'}</span><div>{projectRef && !artifact.project_ref && <button type="button" onClick={onSaveToProject} disabled={saving} className="cv-artifact-actions__project">Salvar no projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">{saving ? 'Salvando…' : 'Salvar agora'}</button>}</div></footer>}
     <dialog ref={dialog} className="cv-dialog cv-w-[min(540px,calc(100vw-32px))] cv-p-0">
       <section><header className="cv-flex cv-items-center cv-justify-between cv-border-b cv-border-white/10 cv-p-5"><div><h2 className="cv-m-0 cv-text-base">Versões</h2><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-text-mist">Restaure uma revisão anterior.</p></div><button type="button" onClick={() => dialog.current?.close()} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent"><Icon name="close" size={16}/></button></header>
         <div className="cv-scroll cv-max-h-[55vh] cv-overflow-y-auto cv-p-3">{loadingVersions ? <p className="cv-p-3 cv-text-sm cv-text-mist">Carregando…</p> : versions.length ? versions.map(item => <article key={item.version} className="cv-flex cv-items-center cv-gap-4 cv-rounded-xl cv-p-3 hover:cv-bg-white/[.04]"><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm">Versão {item.version}</strong><small className="cv-mt-1 cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-xs cv-text-mist">{item.change_summary || 'Revisão do artefato'}</small></div><button type="button" disabled={Number(item.version) === Number(artifact.current_version)} onClick={async () => { await onRestoreVersion(item.version); dialog.current?.close(); }} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{Number(item.version) === Number(artifact.current_version) ? 'Atual' : 'Restaurar'}</button></article>) : <p className="cv-p-3 cv-text-sm cv-text-mist">Nenhuma versão disponível.</p>}</div>

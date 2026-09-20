@@ -25,16 +25,55 @@ function ActivityBlock({block}) {
   </div>;
 }
 
-function SourcesBlock({block, onOpenResource}) {
+function SourcesBlock({block, onPrompt}) {
   const items = Array.isArray(block.items) ? block.items : block.resource ? [block.resource] : [];
+  const [selected, setSelected] = useState([]);
+  const [copied, setCopied] = useState(false);
   if (!items.length) return null;
-  return <section className="cv-mt-5">
-    <button type="button" className="cv-border-0 cv-bg-transparent cv-p-0 cv-text-[10px] cv-font-semibold cv-text-[#819b97]" onClick={event => { const list = event.currentTarget.nextElementSibling; if (list) list.hidden = !list.hidden; }}>
-      {block.title || 'Fontes usadas'} · {items.length}
-    </button>
-    <div className="cv-mt-2 cv-flex cv-flex-wrap cv-gap-1.5">
-      {items.slice(0, 6).map((item, index) => <button key={item.id || index} type="button" onClick={() => onOpenResource?.(item)} className="cv-max-w-full cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-rounded-full cv-border cv-border-white/[.09] cv-bg-transparent cv-px-2.5 cv-py-1 cv-text-[11px] cv-text-[#a9c0bc] hover:cv-border-teal/40 hover:cv-text-[#d9e7e4]">{item.title || item.name || item.label || 'Fonte'}</button>)}
+  const visible = items.slice(0, 6);
+  const selectedItems = visible.filter(item => selected.includes(item.id));
+  const compiledText = selectedItems.map(item => `${item.title || 'Fonte'}\n${item.detail || ''}\n${item.url || ''}`).join('\n\n').slice(0, 1150);
+  const toggle = item => setSelected(current => current.includes(item.id) ? current.filter(id => id !== item.id) : [...current, item.id]);
+  const compile = () => onPrompt?.('Compile os trechos selecionados em um texto limpo, indique o que é fato e o que é interpretação e me pergunte antes de adicionar ao projeto.', {type: 'web_sources', label: 'Fontes selecionadas', text: compiledText});
+  const draft = () => onPrompt?.('Crie um rascunho editável a partir das fontes selecionadas. Organize um título e os parágrafos em texto fiel ao conteúdo, sem inventar informações.', {type: 'web_sources', label: 'Fontes para o rascunho', text: compiledText});
+  const copy = async () => {
+    try { await navigator.clipboard?.writeText(compiledText); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch (_) {}
+  };
+  return <section className="cv-source-group cv-mt-5">
+    <div className="cv-source-group__header">
+      <div><strong>{block.title || 'Fontes consultadas'}</strong><span>{items.length} resultado{items.length === 1 ? '' : 's'} · selecione trechos para continuar</span></div>
+      {selectedItems.length > 0 && <span className="cv-source-group__count">{selectedItems.length} selecionada{selectedItems.length === 1 ? '' : 's'}</span>}
     </div>
+    <div className="cv-source-group__list">
+      {visible.map((item, index) => {
+        const href = safeUrl(item?.url);
+        const active = selected.includes(item.id);
+        let domain = '';
+        try { domain = href ? new URL(href).hostname.replace(/^www\./, '') : ''; } catch (_) {}
+        return <div key={item.id || index} className={`cv-source-result ${active ? 'is-selected' : ''}`}>
+          <button type="button" className="cv-source-result__select" onClick={() => toggle(item)} aria-pressed={active}>
+            <span className="cv-source-result__check" aria-hidden="true">{active ? '✓' : ''}</span>
+            <span className="cv-source-result__select-label">{active ? 'Selecionada' : 'Selecionar'}</span>
+          </button>
+          <details className="cv-source-card">
+            <summary>
+              <span className="cv-source-result__favicon">{item.favicon ? <img src={safeUrl(item.favicon)} alt="" loading="lazy"/> : <span>{(domain || 'F').slice(0, 1).toUpperCase()}</span>}</span>
+              <span className="cv-source-result__copy"><b>{item.title || item.name || item.label || 'Fonte'}</b><small>{domain || item.kind || 'Fonte externa'}</small></span>
+              <span className="cv-source-card__chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div className="cv-source-card__body">
+              <p>{item.detail || 'Conteúdo selecionado para responder ao pedido atual.'}</p>
+              {item.published_at && <small className="cv-source-card__date">Atualizado em {item.published_at}</small>}
+              <footer className="cv-source-card__footer">
+                <span>{active ? 'Incluída na seleção' : 'Fonte pública'}</span>
+                {href && <a href={href} target="_blank" rel="noreferrer" className="cv-source-result__open" aria-label={`Abrir ${item.title || 'fonte'}`} title="Abrir fonte">Abrir fonte <Icon name="external" size={12}/></a>}
+              </footer>
+            </div>
+          </details>
+        </div>;
+      })}
+    </div>
+    {selectedItems.length > 0 && <div className="cv-source-group__actions"><button type="button" onClick={draft} className="is-primary">Criar rascunho</button><button type="button" onClick={compile}>Compilar no chat</button><button type="button" onClick={copy}>{copied ? 'Copiado' : 'Copiar texto'}</button></div>}
   </section>;
 }
 
@@ -112,7 +151,7 @@ export function ResponseBlocks({blocks, onPrompt, onOpenResource}) {
     const key = `${block.type}-${index}`;
     if (block.type === 'summary') return <SummaryBlock key={key} block={block}/>;
     if (block.type === 'activity' || block.type === 'progress') return <ActivityBlock key={key} block={block}/>;
-    if (block.type === 'source' || block.type === 'sources' || block.type === 'source_group') return <SourcesBlock key={key} block={block} onOpenResource={onOpenResource}/>;
+    if (block.type === 'source' || block.type === 'sources' || block.type === 'source_group') return <SourcesBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'assumption') return <NoteBlock key={key} block={block}/>;
     if (block.type === 'warning' || block.type === 'error') return <NoteBlock key={key} block={block} tone="warning"/>;
     if (block.type === 'question' || block.type === 'questions') return <QuestionsBlock key={key} block={block} onPrompt={onPrompt}/>;

@@ -114,6 +114,14 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /Criar primeira entrega/);
   assert.match(project, /WorkspaceAccountMenu/);
   assert.match(project, /cadu-ds-home-workarea cadu-ds-project-workarea/);
+  assert.match(project, /dragDepth = useRef/);
+  assert.match(project, /Solte para adicionar ao projeto/);
+  assert.match(project, /cadu-ds-project-page-drop__card/);
+  assert.match(project, /Preserve primeiro; decida depois/);
+  assert.match(project, /sourceErrorMessage/);
+  assert.match(project, /cadu-ds-project-brand-feature/);
+  assert.match(project, /Criar e auditar marca/);
+  assert.match(project, /Definir marca do projeto/);
   assert.match(project, /cadu-ds-project-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-project-content/);
   assert.match(styles, /\.cadu-ds-home-content \{ width:100%; max-width:none; margin:0;/);
   assert.match(styles, /\.cadu-ds-home-content \.cadu-ds-composer,[\s\S]*width:100%; max-width:none;/);
@@ -121,14 +129,20 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(styles, /\.cadu-ds-project-workarea,[\s\S]*display:flex; min-height:100dvh/);
   assert.match(styles, /body\.portal--workspace \.cadu-ds-project-workarea \.cadu-ds-dock,[\s\S]*position:fixed/);
   assert.match(styles, /body\.portal--workspace \.cadu-ds-project-workarea,[\s\S]*padding-left:76px/);
+  assert.match(styles, /\.cadu-ds-project-page-drop__card/);
+  assert.match(styles, /\.cadu-ds-project-source-section/);
   assert.match(template, /'projectMode': True/);
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
+  assert.match(template, /'updateBrands': url_for\('cadu_workspace\.update_project_brands'/);
+  assert.match(template, /'importBrand': url_for\('cadu_workspace\.import_project_brand'/);
   assert.match(template, /'legacy': url_for\('cadu_workspace\.project_detail'/);
   assert.match(template, /'conversation': url_for\('cadu_workspace\.conversations', project_ref='ci:' ~ project_data\.id, history='1'\)/);
   assert.doesNotMatch(template, /'conversation':[^\n]*prompt=/);
   assert.match(route, /request\.args\.get\('legacy'\) != '1'/);
   assert.match(route, /project_detail_react\.html/);
+  assert.match(route, /'colorPalette':/);
+  assert.match(route, /'fonts':/);
   assert.match(entry, /bootstrap\.projectMode \? <WorkspaceProject/);
 });
 

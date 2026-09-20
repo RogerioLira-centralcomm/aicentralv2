@@ -1,6 +1,7 @@
 """Resolve only the context explicitly requested by an IntentRoute."""
 
 from dataclasses import dataclass, field
+import re
 from typing import Any
 from time import perf_counter
 
@@ -15,9 +16,16 @@ class ResolvedContext:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
 
 
-def _arguments(tool_name: str, request: RequestContext, message: str) -> dict[str, Any]:
+def _arguments(tool_name: str, request: RequestContext, message: str, execution_mode: str = "analysis") -> dict[str, Any]:
     if tool_name == "web.search":
-        arguments = {"query": message[:400], "limit": 6, "include_content": True}
+        depth = {"fast": "fast", "analysis": "analysis", "agentic": "agentic"}.get(execution_mode, "analysis")
+        arguments = {"query": message[:400], "depth": depth, "include_content": True}
+        if request.request_id:
+            arguments["request_id"] = request.request_id
+        return arguments
+    if tool_name == "web.read":
+        match = re.search(r"https://[^\s<>{}\[\]\\\"']+", message, re.IGNORECASE)
+        arguments = {"url": (match.group(0).rstrip(".,;:)") if match else "")}
         if request.request_id:
             arguments["request_id"] = request.request_id
         return arguments
@@ -38,10 +46,10 @@ def _arguments(tool_name: str, request: RequestContext, message: str) -> dict[st
 
 
 def resolve_context(route: IntentRoute, request: RequestContext, message: str,
-                    registry: ToolRegistry) -> ResolvedContext:
+                    registry: ToolRegistry, execution_mode: str = "analysis") -> ResolvedContext:
     result = ResolvedContext(values={"current_context": request.to_dict()})
     for tool_name in route.needs_tools:
-        arguments = _arguments(tool_name, request, message)
+        arguments = _arguments(tool_name, request, message, execution_mode)
         started = perf_counter()
         try:
             value = registry.execute(tool_name, arguments, request)
@@ -54,4 +62,9 @@ def resolve_context(route: IntentRoute, request: RequestContext, message: str,
             result.missing.append(tool_name)
             result.tool_calls.append({"name": tool_name, "status": "unavailable", "code": getattr(exc, "code", "invalid"),
                                       "duration_ms": round((perf_counter() - started) * 1000)})
+    if result.missing:
+        result.values["tool_status"] = {
+            "unavailable": list(result.missing),
+            "message": "A evidência externa solicitada não ficou disponível nesta resposta.",
+        }
     return result

@@ -105,6 +105,13 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "create_project_note" if has_note_payload else "clarify_project_note",
                            "medium", "decision" if has_note_payload else "clarification",
                            ("project",), (), None, has_note_payload)
+    direct_url = re.search(r"https://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE)
+    if direct_url:
+        return IntentRoute("research", "read_web_page", "high", "analysis",
+                           ("project", "brand") if has_project else (), ("web.read",))
+    if _has(text, r"\b(cri|fa[çc]|ger|transform|monte|montar)\w*\b.{0,45}\b(rascunho|documento|texto)\b"):
+        return IntentRoute("workspace", "create_text_draft", "high", "artifact_first",
+                           ("project", "brand") if has_project else (), (), "document")
     web_request = _has(text, r"\b(pesquis|busqu|procure|encontre|verifi)\w*\b")
     web_signal = _has(text, r"\b(internet|web|online|fontes? externas?|fontes? online|not[ií]cias?|recente|recentes|atual|atualizado|hoje|mercado|concorrentes?)\b")
     project_only = (

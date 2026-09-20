@@ -58,14 +58,17 @@ def prepare_execution(message, request, history="", requested_mode=""):
         "create_brief": "Briefing do projeto",
         "create_meeting_summary": "Resumo da reunião",
         "create_meeting_agenda": "Pauta da reunião",
+        "create_text_draft": "Rascunho de pesquisa",
     }.get(route.action, "Resultado do trabalho")
     policy["artifact_chat_message"] = {
         "project_readout": "Concluí a leitura inicial. Organizei objetivos, entregas, riscos e decisões no artefato ao lado.",
         "create_brief": "Estruturei o briefing no artefato ao lado. Os poucos pontos em aberto continuam editáveis.",
         "create_meeting_summary": "Organizei a reunião no artefato ao lado. Revise decisões e pendências antes de salvar no projeto.",
         "create_meeting_agenda": "Preparei a pauta no artefato ao lado. Ajuste os temas e o resultado esperado de cada bloco.",
+        "create_text_draft": "Preparei um rascunho editável com o conteúdo encontrado. Revise antes de salvar no projeto.",
     }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
-    resolved = resolve_context(route, request, message, load_builtin_tools())
+    policy["artifact_scope"] = "session" if route.action == "create_text_draft" else "context"
+    resolved = resolve_context(route, request, message, load_builtin_tools(), execution_mode)
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,

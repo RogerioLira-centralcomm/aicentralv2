@@ -14,6 +14,9 @@ INTERNAL_PATTERN = re.compile(
     r"\b(api[_ -]?key|bearer token|stack trace|traceback|dify unavailable|http 5\d\d|system prompt)\b",
     re.IGNORECASE,
 )
+ORCHESTRATOR_METADATA_PATTERN = re.compile(
+    r"(?im)^\s*(?:projeto usado|decis[aã]o proposta|confian[cç]a|pr[oó]ximo passo)\s*:",
+)
 
 
 def _clean_text(value, limit):
@@ -321,7 +324,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     answer = str(value.get("answer") or "").strip()
     if not answer:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
-    if INTERNAL_PATTERN.search(answer):
+    if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
     questions = [str(item).strip()[:500] for item in value.get("questions", []) if str(item).strip()]
     questions = questions[:max(0, int(policy.get("max_questions", 1)))]

@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 
 function initialsFor(value, fallback = 'P') {
   const words = String(value || '')
@@ -15,6 +15,10 @@ function initialsFor(value, fallback = 'P') {
 export function VisualIdentity({src, initials, label, color, variant, className = '', imageAlt = '', fallbackSrc = ''}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [fallbackFailed, setFallbackFailed] = useState(false);
+  useEffect(() => {
+    setImageFailed(false);
+    setFallbackFailed(false);
+  }, [src, fallbackSrc]);
   const showImage = Boolean(src) && !imageFailed;
   const showFallbackImage = Boolean(fallbackSrc) && !fallbackFailed;
   const variantNumber = Number.isFinite(Number(variant)) ? ((Number(variant) % 10) + 10) % 10 : null;

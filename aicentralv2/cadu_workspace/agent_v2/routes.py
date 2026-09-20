@@ -156,6 +156,43 @@ def brand_identity(brand_id):
     if isinstance(fonts, str):
         fonts = [fonts]
     fonts = [str(font).strip() for font in fonts if str(font).strip()][:6]
+    analysis = brand.get("analysis_metadata") or {}
+    review_pack = analysis.get("review_pack") if isinstance(analysis, dict) else {}
+    review_pack = review_pack if isinstance(review_pack, dict) else {}
+    analysis_profile = review_pack.get("analysis") if isinstance(review_pack.get("analysis"), dict) else {}
+
+    def identity_value(value):
+        if isinstance(value, dict):
+            preferred = value.get("name") or value.get("label") or value.get("family") or value.get("text")
+            if preferred:
+                return str(preferred).strip()
+            return "; ".join(f"{key}: {item}" for key, item in value.items() if item not in (None, ""))[:1200]
+        if isinstance(value, (list, tuple)):
+            values = [identity_value(item) for item in value]
+            return " · ".join(item for item in values if item)[:1200]
+        return str(value or "").strip()[:1200]
+
+    detail_sources = [
+        ("Segmento", "sector", brand),
+        ("Posicionamento", "positioning", profile),
+        ("Tom de voz", "tone_of_voice", {**brand, **profile}),
+        ("Público prioritário", "target_audience", profile),
+        ("Valores", "brand_values", profile),
+        ("Produtos e serviços", "products_services", profile),
+        ("Diferenciais", "differentiators", profile),
+        ("Direção criativa", "creative_guidelines", profile),
+        ("Elementos obrigatórios", "mandatory_elements", profile),
+        ("O que evitar", "forbidden_elements", profile),
+        ("Arquétipo", "archetype", profile),
+        ("Personas", "personas", profile),
+    ]
+    details = []
+    for label, key, source in detail_sources:
+        value = source.get(key) or analysis_profile.get(key)
+        rendered = identity_value(value)
+        if rendered and rendered.lower() not in {"ainda não definido", "ainda não definido."}:
+            details.append({"label": label, "value": rendered})
+    website = str(brand.get("website_url") or "").strip()
     project_refs = {str(link.get("project_ref") or "") for link in repository.project_brand_links(current.client_id)
                     if str(link.get("brand_ref") or "") == brand_ref}
     projects = [{"ref": f"ci:{item.get('id')}", "name": str(item.get("nome") or "Projeto")}
@@ -168,13 +205,10 @@ def brand_identity(brand_id):
             "content": {
                 "name": brand.get("name"), "logo_url": brand.get("display_logo"), "summary": profile.get("brand_summary") or profile.get("positioning") or brand.get("display_summary") or "Identidade da marca disponível para orientar esta conversa.",
                 "colors": colors, "fonts": fonts,
+                "website_url": website, "asset_count": int(brand.get("asset_count") or 0),
                 "audit_url": f"/workspace/marcas/{brand_id}#brand-status",
                 "audit_status": str((brand.get("analysis_metadata") or {}).get("review_pack", {}).get("status") or ""),
-                "details": [
-                    {"label": "Posicionamento", "value": profile.get("positioning") or "Ainda não definido."},
-                    {"label": "Tom de voz", "value": profile.get("tone_of_voice") or brand.get("tone_of_voice") or "Ainda não definido."},
-                    {"label": "Público", "value": profile.get("target_audience") or "Ainda não definido."},
-                ],
+                "details": details,
                 "projects": projects,
             },
         },

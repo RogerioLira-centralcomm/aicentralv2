@@ -16,6 +16,7 @@ import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
 const emptyTitle = 'Novo chat';
 
 export default function App({bootstrap}) {
+  const initialQuery = new URLSearchParams(window.location.search);
   const [context, setContext] = useState({});
   const [projects, setProjects] = useState([]);
   const [brands, setBrands] = useState(() => bootstrap.brands || []);
@@ -23,7 +24,7 @@ export default function App({bootstrap}) {
   const [conversationId, setConversationId] = useState(null);
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
+  const [input, setInput] = useState(() => initialQuery.get('auto_send') === '1' ? initialQuery.get('prompt') || '' : '');
   const [homeAttachments, setHomeAttachments] = useState(() => {
     try {
       const raw = sessionStorage.getItem('cadu:home-pending-attachments');
@@ -32,7 +33,7 @@ export default function App({bootstrap}) {
       return Array.isArray(parsed) ? parsed.filter(item => item?.id) : [];
     } catch (_) { return []; }
   });
-  const [executionMode, setExecutionMode] = useState(() => new URLSearchParams(window.location.search).get('mode') || 'analysis');
+  const [executionMode, setExecutionMode] = useState(() => initialQuery.get('mode') || 'analysis');
   const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
@@ -98,7 +99,7 @@ export default function App({bootstrap}) {
     setHistoryLoading(true);
     try {
       const data = await request(bootstrap.endpoints.history);
-      setConversations(recentConversations(data.conversations));
+      setConversations(recentConversations(data.conversations, 500));
     } catch (_) {
       setConversations([]);
     } finally { setHistoryLoading(false); }
@@ -192,17 +193,7 @@ export default function App({bootstrap}) {
     } finally { setOpeningId(null); }
   }, [running, confirmDiscard, bootstrap.endpoints.history, fetchArtifact, trace, releasePreviews]);
 
-  const loadProjectResources = useCallback(async projectRef => {
-    if (!projectRef) return;
-    const base = bootstrap.endpoints.projectResources || '/workspace/api/v2/projects';
-    const data = await request(`${base}/${encodeURIComponent(projectRef)}/resources`);
-    if (data.artifact) {
-      setArtifact(data.artifact); artifactRef.current = data.artifact;
-      setArtifactDirty(false); setArtifactOpen(true);
-    }
-  }, [bootstrap.endpoints.projectResources]);
-
-  const changeProject = useCallback(async (projectRef, {showHistory = false} = {}) => {
+  const changeProject = useCallback(async (projectRef, {showHistory = true} = {}) => {
     if (running || !(await confirmDiscard())) return;
     setContextLoading(true);
     setRuntime('Atualizando contexto');
@@ -214,13 +205,12 @@ export default function App({bootstrap}) {
       setContext(data.context || {});
       reset();
       setHistoryOpen(showHistory);
-      await loadProjectResources(projectRef);
       trace('Contexto alterado', projects.find(item => item.ref === projectRef)?.name || 'Contexto pessoal');
     } catch (error) {
       trace('Falha ao alterar contexto', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext, loadProjectResources]);
+  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
 
   const loadBrandIdentity = useCallback(async brandRef => {
     const brandId = String(brandRef || '').replace(/^studio:/, '');
@@ -273,9 +263,8 @@ export default function App({bootstrap}) {
       setContext(data.context || {});
       if (requestedHistoryOpen.current) setHistoryOpen(true);
       requestedHistoryOpen.current = false;
-      await loadProjectResources(projectRef);
     }).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
-  }, [contextLoading, running, bootstrap.endpoints.context, loadProjectResources, trace]);
+  }, [contextLoading, running, bootstrap.endpoints.context, trace]);
 
   useEffect(() => {
     if (!requestedBrandRef.current || contextLoading || running) return;
@@ -367,7 +356,7 @@ export default function App({bootstrap}) {
       try { await fetchArtifact(artifactRef.current.id); } catch (error) { trace('Não foi possível restaurar o artefato', error.message, 'error'); return; }
     }
     setRunning(true); setRuntime(attachments.length ? 'Enviando arquivos' : 'Trabalhando');
-    if (!conversationRef.current) setHistoryOpen(false);
+    if (!conversationRef.current && window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
     let staged;
     try { staged = attachments.length ? await uploadFiles() : []; }
     catch (error) { setRunning(false); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
@@ -448,7 +437,7 @@ export default function App({bootstrap}) {
     }
   }, [input, running, artifactDirty, confirmDiscard, attachments, homeAttachments, context, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
 
-  const initialPromptRef = useRef(new URLSearchParams(window.location.search).get('prompt') || '');
+  const initialPromptRef = useRef(initialQuery.get('auto_send') === '1' ? initialQuery.get('prompt') || '' : '');
   useEffect(() => {
     if (!initialPromptRef.current || running || contextLoading) return;
     const prompt = initialPromptRef.current;

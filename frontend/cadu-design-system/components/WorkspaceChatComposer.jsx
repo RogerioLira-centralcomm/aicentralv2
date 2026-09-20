@@ -49,7 +49,7 @@ export function WorkspaceChatComposer({
     onChange?.(`Adicione este link ao projeto: ${detectedUrl}`);
     textarea.current?.focus();
   };
-  const stageClass = embedded ? 'cadu-ds-home-chat-stage' : 'cv-composer-stage cv-pointer-events-none cv-flex-none cv-px-4 md:cv-px-8';
+  const stageClass = embedded ? 'cadu-ds-home-chat-stage' : 'cv-composer-stage cv-flex-none cv-px-4 md:cv-px-8';
   const shellClass = homeMode ? 'cv-composer-shell cadu-ds-home-chat-shell' : 'cv-composer-shell';
   const handleDrop = event => {
     event.preventDefault();

@@ -28,6 +28,7 @@ class RequestContext:
     user_id: int
     conversation_id: str | None
     surface: str
+    request_id: str | None = None
     project_ref: str | None = None
     brand_ref: str | None = None
     active_object: ActiveObject | None = None

@@ -19,6 +19,7 @@ from . import memory
 from . import working_memory
 from . import research
 from .legacy_results import readable_documents
+from ..agent_v2.guardrails import repair_metadata_answer
 
 
 # Provider and tool diagnostics are operational data. They must be observable
@@ -755,7 +756,7 @@ def stream(run):
                 yield event(item['event'], **{key: value for key, value in item.items() if key != 'event'})
         if state != 'completed':
             raise dify.DifyUnavailable('A geração terminou antes da confirmação do Dify.')
-        answer = readable_documents(answer)
+        answer = repair_metadata_answer(readable_documents(answer))
         if is_operational_failure_leak(answer):
             current_app.logger.warning('Resposta do provedor continha diagnóstico interno; conversa=%s run=%s',
                                        run['conversation_id'], run['run_id'])

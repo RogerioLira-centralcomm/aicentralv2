@@ -1,0 +1,18 @@
+{% extends 'emails/externos/workspace-base.html' %}
+{% set eyebrow = 'Primeiro acesso · base pronta' %}
+{% block title %}Sua primeira base está pronta no Cadu Workspace{% endblock %}
+{% block preheader %}{{ primeiro_nome }}, sua organização, marca e projeto já estão preparados para começar.{% endblock %}
+{% block headline %}Você já pode começar.{% endblock %}
+{% block content %}
+  <p style="margin:0">Olá, {{ primeiro_nome }}. Sua base no Cadu Workspace foi preparada para você continuar o trabalho com contexto.</p>
+  <p style="margin:16px 0 0">{% if perfil == 'agencia' %}A operação da agência{% else %}A operação da sua organização{% endif %} começa com estes três pontos já conectados:</p>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 0;border:1px solid #dceae6;border-radius:12px;overflow:hidden;background:#f8fbfa">
+    <tr><td style="padding:14px 16px;border-bottom:1px solid #dceae6"><span style="display:block;color:#6a827d;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Organização</span><strong style="display:block;margin-top:4px;color:#173843;font-size:15px">{{ empresa }}</strong></td></tr>
+    <tr><td style="padding:14px 16px;border-bottom:1px solid #dceae6"><span style="display:block;color:#6a827d;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Marca</span><strong style="display:block;margin-top:4px;color:#173843;font-size:15px">{{ marca }}</strong></td></tr>
+    <tr><td style="padding:14px 16px"><span style="display:block;color:#6a827d;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Primeiro projeto</span><strong style="display:block;margin-top:4px;color:#173843;font-size:15px">{{ projeto }}</strong></td></tr>
+  </table>
+  <p style="margin:20px 0 0">Agora você pode revisar a identidade, importar referências e usar as ferramentas do Workspace — Conversas, Planner, Studio, Skills e Reports — todas no mesmo contexto.</p>
+  <p style="margin:28px 0 0"><a class="button" href="{{ workspace_url }}" style="display:inline-block;padding:14px 19px;border-radius:9px;background:#007d6d;color:#fff;font-size:14px;font-weight:700;text-decoration:none">Abrir meu Workspace&nbsp; →</a></p>
+  <p style="margin:18px 0 0;color:#668079;font-size:12px;line-height:1.55">Próximo passo recomendado: confira a marca e o projeto antes de iniciar sua primeira conversa ou planejamento.</p>
+{% endblock %}
+{% block footer_note %}Seu contexto de trabalho acompanha cada ferramenta do Cadu Workspace.{% endblock %}

@@ -519,6 +519,78 @@ def _workspace_api_csrf() -> bool:
     return bool(token and secrets.compare_digest(token, supplied))
 
 
+def _workspace_onboarding_table_available() -> bool:
+    """Return whether the additive Workspace onboarding migration is ready."""
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("SELECT to_regclass('public.cadu_workspace_onboarding') AS relation")
+            return bool((cursor.fetchone() or {}).get('relation'))
+    except Exception:
+        # The migration is deployed separately from the application. Existing
+        # Workspace users must continue to access their account while it rolls
+        # out, instead of being blocked by a progressive enhancement.
+        current_app.logger.warning('Tabela de onboarding do Workspace indisponível', exc_info=True)
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        return False
+
+
+def _workspace_onboarding_record(contact_id: int, client_id: int) -> Optional[dict]:
+    """Load the setup record without changing the current client boundary."""
+    if not contact_id or not client_id or not _workspace_onboarding_table_available():
+        return None
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT id, contato_id, id_cliente, operation_type,
+                          organization_name, client_name, brand_id,
+                          project_id::text AS project_id, current_step, status,
+                          metadata, created_at, updated_at, completed_at
+                     FROM cadu_workspace_onboarding
+                    WHERE contato_id=%s AND id_cliente=%s""",
+                (contact_id, client_id),
+            )
+            row = cursor.fetchone()
+        return dict(row) if row else None
+    except Exception:
+        current_app.logger.warning('Não foi possível ler o onboarding do Workspace', exc_info=True)
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        return None
+
+
+def _workspace_onboarding_form(record: Optional[dict] = None) -> dict:
+    """Build a safe form state from the existing organization and setup row."""
+    values = dict((record or {}).get('metadata') or {})
+    operation_type = str((record or {}).get('operation_type') or values.get('operation_type') or 'client')
+    if operation_type not in {'client', 'agency'}:
+        operation_type = 'client'
+    return {
+        'operation_type': operation_type,
+        'organization_name': str((record or {}).get('organization_name') or values.get('organization_name') or ''),
+        'client_name': str((record or {}).get('client_name') or values.get('client_name') or ''),
+        'brand_name': str(values.get('brand_name') or ''),
+        'website_url': str(values.get('website_url') or ''),
+        'project_name': str(values.get('project_name') or ''),
+        'project_description': str(values.get('project_description') or ''),
+    }
+
+
+def _workspace_onboarding_render(form: dict, *, error: str = '', organization: Optional[dict] = None, status_code: int = 200):
+    """Render the compact setup flow while retaining submitted values."""
+    response = render_template(
+        'cadu_workspace/onboarding.html',
+        form=form,
+        error=error,
+        organization=organization or {},
+    )
+    return response, status_code
+
+
 def _dock_shortcuts_available() -> bool:
     """Allow the Workspace to keep rendering while the migration is rolling out."""
     try:
@@ -628,7 +700,8 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'brandRef': f"studio:{item.get('id')}",
         'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0),
     } for item in brand_rows]
-    brand_items = [item for item in brand_items if item['logoUrl']]
+    # Keep logo-less brands in the shared dock too; React supplies the stable
+    # initials/gradient identity when no custom mark is available.
     project_items = [{
         'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
         'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
@@ -2057,7 +2130,10 @@ def _workspace_continuity_feed(client_id: int, projects: list[dict], user: dict)
                      'conversationId': str(conversation.get('id')), 'projectRef': str(conversation.get('project_ref') or ''),
                      'previewUrl': '', 'visualColor': str(project.get('thumbnail_color') or project.get('cor') or '#176b5e')})
     feed.sort(key=lambda item: item.get('updatedAt') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-    return feed[:8]
+    # Keep enough history for the compact sidebar to decide whether it has a
+    # meaningful five-conversation fallback, while the home widgets still
+    # render only their own small slices.
+    return feed[:max(8, len(conversations) + 3)]
 
 
 def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
@@ -2530,6 +2606,342 @@ def product_entry(product):
     return render_template("cadu_workspace/product_entry.html", product=product, entry=entry, canonical=product_url(entry_host, f"/entrada/{product}"))
 
 
+@bp.route('/workspace/onboarding', methods=['GET', 'POST'])
+@login_required
+def workspace_onboarding():
+    """Create the first Workspace context inside the already logged-in client."""
+    client_id = int(session.get('cliente_id') or 0)
+    contact_id = int(session.get('user_id') or 0)
+    if not client_id or not contact_id:
+        abort(403)
+    if not _workspace_onboarding_table_available():
+        abort(503, description='A configuração inicial do Workspace ainda está sendo publicada. Tente novamente em instantes.')
+
+    from .. import db
+
+    organization = {}
+    try:
+        organization = db.obter_cliente_por_id(client_id) or {}
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar o nome da organização %s', client_id, exc_info=True)
+    record = _workspace_onboarding_record(contact_id, client_id)
+    if record and record.get('project_id') and record.get('brand_id'):
+        return redirect(url_for('cadu_workspace.project_detail', project_id=str(record['project_id']), onboarding='1'), code=303)
+
+    default_operation = 'agency' if (
+        organization.get('agencia_key') is True
+        or str(organization.get('agencia_display') or '').strip().lower() in {'sim', 's', 'true'}
+    ) else 'client'
+    form = _workspace_onboarding_form(record)
+    if not (record or form.get('organization_name')):
+        form['organization_name'] = str(
+            organization.get('nome_fantasia')
+            or organization.get('razao_social')
+            or session.get('client_name')
+            or session.get('cliente_nome')
+            or ''
+        )[:180]
+    if not record and form.get('operation_type') == 'client' and default_operation == 'agency':
+        form['operation_type'] = default_operation
+
+    if request.method == 'GET':
+        return _workspace_onboarding_render(form, organization=organization)
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+
+    form.update({
+        'operation_type': str(request.form.get('operation_type') or '').strip(),
+        'organization_name': ' '.join((request.form.get('organization_name') or '').split())[:180],
+        'client_name': ' '.join((request.form.get('client_name') or '').split())[:180],
+        'brand_name': ' '.join((request.form.get('brand_name') or '').split())[:150],
+        'website_url': str(request.form.get('website_url') or '').strip()[:2000],
+        'project_name': ' '.join((request.form.get('project_name') or '').split())[:150],
+        'project_description': str(request.form.get('project_description') or '').strip()[:4000],
+    })
+    error = ''
+    if form['operation_type'] not in {'client', 'agency'}:
+        error = 'Escolha se esta conta representa uma empresa ou uma agência.'
+    elif len(form['organization_name']) < 2:
+        error = 'Informe o nome da empresa, agência ou marca.'
+    elif len(form['brand_name']) < 2:
+        error = 'Informe o nome da primeira marca.'
+    elif len(form['project_name']) < 2:
+        error = 'Informe o nome do primeiro projeto.'
+    try:
+        website_url = _normalized_website_url(form['website_url'])
+    except HTTPException as exc:
+        website_url = ''
+        error = error or str(exc.description)
+    files = [item for item in request.files.getlist('images') if item and item.filename][:4]
+    image_payload = []
+    for item in files:
+        image_payload.append({
+            'filename': item.filename,
+            'content_type': item.mimetype,
+            'content': item.read(),
+        })
+        item.stream.seek(0)
+    if not error and not website_url and not image_payload:
+        error = 'Informe o site oficial ou envie ao menos uma referência visual para iniciar a auditoria.'
+    if error:
+        return _workspace_onboarding_render(form, error=error, organization=organization, status_code=400)
+
+    # The audit is optional only when its shared credit balance is unavailable:
+    # organization/brand/project creation should not be lost for that reason.
+    audit_job_id = ''
+    audit_error = ''
+    if website_url or image_payload:
+        try:
+            _ensure_brand_audit_credit(client_id)
+            audit_job_id = uuid4().hex
+        except HTTPException as exc:
+            audit_error = str(exc.description or 'A auditoria ficará disponível quando houver créditos.')[:360]
+        except Exception:
+            audit_error = 'A auditoria ficará disponível quando os créditos da organização puderem ser consultados.'
+            current_app.logger.exception('Não foi possível preparar a auditoria do onboarding da organização %s', client_id)
+
+    audit_metadata = {}
+    if audit_job_id:
+        audit_metadata = {'review_pack': {
+            'job_id': audit_job_id,
+            'status': 'queued',
+            'stage': 'queued',
+            'index': 0,
+            'total': 4,
+            'message': 'A auditoria entrou na fila.',
+            'error': '',
+            'created_at': _utc_timestamp(),
+            'input': {'website_url': website_url, 'has_images': bool(image_payload)},
+            'analysis': {},
+            'reviews': [],
+        }}
+    connection = get_db()
+    brand_id = None
+    project_id = None
+    brand_was_created = False
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT id, website_url, analysis_metadata
+                     FROM cx_clients
+                    WHERE crm_client_id=%s AND LOWER(name)=LOWER(%s)
+                    ORDER BY id
+                    LIMIT 1""",
+                (client_id, form['brand_name']),
+            )
+            existing_brand = cursor.fetchone() or {}
+            if existing_brand:
+                brand_id = int(existing_brand['id'])
+                current_metadata = existing_brand.get('analysis_metadata') or {}
+                if isinstance(current_metadata, str):
+                    current_metadata = json.loads(current_metadata or '{}')
+                if not isinstance(current_metadata, dict):
+                    current_metadata = {}
+                if audit_job_id:
+                    # Avoid resetting an already-running or approved audit when
+                    # a browser retries the final onboarding submit.
+                    current_pack = dict(current_metadata.get('review_pack') or {})
+                    if current_pack.get('status') in {'queued', 'running', 'pending_approval', 'approved'}:
+                        # The existing worker already owns this audit. Do not
+                        # start a second thread from a repeated form submit.
+                        audit_job_id = ''
+                        audit_metadata = {}
+                if website_url and not existing_brand.get('website_url'):
+                    cursor.execute(
+                        """UPDATE cx_clients SET website_url=%s
+                             WHERE id=%s AND crm_client_id=%s""",
+                        (website_url, brand_id, client_id),
+                    )
+            else:
+                brand_metadata = audit_metadata or {'onboarding': {'source': 'workspace'}}
+                cursor.execute(
+                    """INSERT INTO cx_clients
+                           (crm_client_id, name, website_url, primary_color, secondary_color,
+                            brand_profile, analysis_metadata, price_policy)
+                        VALUES (%s, %s, %s, '#176b5e', '#dcece6', '{}'::jsonb, %s::jsonb, 'hide_price')
+                     RETURNING id""",
+                    (client_id, form['brand_name'], website_url, json.dumps(brand_metadata)),
+                )
+                brand_id = int(cursor.fetchone()['id'])
+                brand_was_created = True
+
+            if audit_metadata:
+                cursor.execute(
+                    """UPDATE cx_clients SET analysis_metadata=%s::jsonb
+                         WHERE id=%s AND crm_client_id=%s""",
+                    (json.dumps(audit_metadata), brand_id, client_id),
+                )
+            cursor.execute(
+                """SELECT id::text AS id
+                     FROM cadu_ci_projetos
+                    WHERE id_cliente=%s AND LOWER(nome)=LOWER(%s)
+                    ORDER BY created_at
+                    LIMIT 1""",
+                (client_id, form['project_name']),
+            )
+            existing_project = cursor.fetchone()
+            if existing_project:
+                project_id = str(existing_project['id'])
+            else:
+                project_id = str(uuid4())
+                cursor.execute(
+                    """INSERT INTO cadu_ci_projetos
+                           (id, id_cliente, criado_por, nome, descricao, instrucoes, tipo, cor, status)
+                        VALUES (%s, %s, %s, %s, %s, %s, 'projeto', '#176b5e', 'ativo')""",
+                    (
+                        project_id,
+                        client_id,
+                        contact_id,
+                        form['project_name'],
+                        form['project_description'] or f"Primeiro projeto de {form['brand_name']}.",
+                        'Use este projeto para concentrar briefing, fontes, decisões e entregas da marca.',
+                    ),
+                )
+
+            metadata = {
+                'source': 'workspace_onboarding',
+                'operation_type': form['operation_type'],
+                'organization_name': form['organization_name'],
+                'client_name': form['client_name'],
+                # This is intentionally the agency's own CRM id. A managed
+                # client is a later context, never a replacement for it.
+                'agency_client_id': client_id if form['operation_type'] == 'agency' else None,
+                'brand_name': form['brand_name'],
+                'website_url': website_url,
+                'project_name': form['project_name'],
+                'project_description': form['project_description'],
+                'audit_error': audit_error,
+            }
+            status = 'audit_pending' if audit_job_id else 'completed'
+            cursor.execute(
+                """INSERT INTO cadu_workspace_onboarding
+                       (contato_id, id_cliente, operation_type, organization_name, client_name,
+                        brand_id, project_id, current_step, status, metadata, updated_at, completed_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'complete', %s, %s::jsonb, NOW(), NOW())
+                    ON CONFLICT (contato_id, id_cliente) DO UPDATE
+                       SET operation_type=EXCLUDED.operation_type,
+                           organization_name=EXCLUDED.organization_name,
+                           client_name=EXCLUDED.client_name,
+                           brand_id=EXCLUDED.brand_id,
+                           project_id=EXCLUDED.project_id,
+                           current_step=EXCLUDED.current_step,
+                           status=EXCLUDED.status,
+                           metadata=EXCLUDED.metadata,
+                           updated_at=NOW(),
+                           completed_at=EXCLUDED.completed_at""",
+                (
+                    contact_id,
+                    client_id,
+                    form['operation_type'],
+                    form['organization_name'],
+                    form['client_name'] or None,
+                    brand_id,
+                    project_id,
+                    status,
+                    json.dumps(metadata),
+                ),
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível concluir o onboarding do Workspace para %s', client_id)
+        return _workspace_onboarding_render(
+            form,
+            error='Não foi possível criar sua primeira base agora. Atualize a página e tente novamente.',
+            organization=organization,
+            status_code=503,
+        )
+
+    if files and brand_id and brand_was_created:
+        try:
+            from ..creative_modeling_service import CreativeModelingService
+            CreativeModelingService().upload_client_brand_assets(
+                brand_id, files, True, 'reference',
+            )
+        except ValueError as exc:
+            current_app.logger.warning('Marca inicial %s criada sem todos os ativos: %s', brand_id, exc)
+        except Exception:
+            current_app.logger.exception('Marca inicial %s criada, mas não foi possível salvar os ativos', brand_id)
+    try:
+        family_repository.set_project_brand_link(
+            client_id, contact_id, f'ci:{project_id}', f'studio:{brand_id}', True,
+        )
+    except Exception:
+        current_app.logger.exception('Não foi possível vincular marca %s ao projeto %s', brand_id, project_id)
+    if audit_job_id:
+        try:
+            _start_brand_review_job(
+                client_id, contact_id, int(brand_id), audit_job_id,
+                website_url, image_payload,
+            )
+        except Exception:
+            current_app.logger.exception('Não foi possível iniciar a auditoria da marca inicial %s', brand_id)
+
+    # The Workspace setup is also the commercial qualification checkpoint. It
+    # reuses the same CRM lead/onboarding records as the legacy flow and keeps
+    # Demetrius as owner without changing the current agency client_id.
+    try:
+        from .. import db
+        from ..services.onboarding_comercial import (
+            enviar_email_onboarding_usuario,
+            enviar_notificacao_demetrius,
+            obter_executivo_comercial,
+        )
+
+        usuario = db.obter_contato_por_id(contact_id) or {
+            'id_contato_cliente': contact_id,
+            'nome_completo': session.get('user_name') or 'Pessoa do Workspace',
+            'email': session.get('user_email') or '',
+        }
+        executivo = obter_executivo_comercial()
+        onboarding = {
+            'perfil': 'agencia' if form['operation_type'] == 'agency' else 'cliente_final',
+            'empresa': form['organization_name'],
+            'cargo': '',
+            'telefone': '',
+            'site_url': website_url,
+            'objetivo': form['project_description'],
+        }
+        if executivo and executivo.get('id_contato_cliente'):
+            lead_id = db.criar_cadu_lead({
+                'nome': usuario.get('nome_completo'),
+                'email': usuario.get('email'),
+                'empresa': form['organization_name'],
+                'mensagem': form['project_description'],
+                'origem': 'onboarding_workspace',
+                'canal': 'produto',
+                'interesse': 'Cadu Workspace',
+                'fonte': 'cadastro',
+                'status': 'inbox',
+                'qualificacao_score': 1,
+                'qualificacao_notas': f"Perfil declarado: {onboarding['perfil']}. Marca: {form['brand_name']}. Projeto: {form['project_name']}.",
+                'id_executivo': executivo['id_contato_cliente'],
+                'atribuido_em': datetime.now(),
+            })
+            db.salvar_onboarding_comercial(
+                contato_id=contact_id, executivo_id=executivo['id_contato_cliente'],
+                lead_id=lead_id, **onboarding,
+            )
+            try:
+                enviar_notificacao_demetrius(usuario=usuario, onboarding=onboarding, executivo=executivo)
+            except Exception:
+                current_app.logger.exception('Workspace criado, mas a notificação interna de onboarding falhou')
+        try:
+            enviar_email_onboarding_usuario(
+                usuario=usuario,
+                organization_name=form['organization_name'],
+                brand_name=form['brand_name'],
+                project_name=form['project_name'],
+                perfil=onboarding['perfil'],
+            )
+        except Exception:
+            current_app.logger.exception('Workspace criado, mas o e-mail de onboarding ao usuário falhou')
+    except Exception:
+        # Commercial CRM/email must not undo a completed Workspace setup.
+        current_app.logger.exception('Workspace criado, mas o fluxo comercial pós-onboarding falhou')
+    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, onboarding='1'), code=303)
+
+
 @bp.get("/workspace/design-system")
 @bp.get("/design-system")
 def public_design_system():
@@ -2566,6 +2978,15 @@ def dashboard():
     client_id = int(session.get("cliente_id") or 0)
     projects = _workspace_projects(client_id)
     brands = _workspace_brands(client_id)
+    # New authenticated organizations start with a focused setup instead of
+    # landing on an empty enterprise shell. Existing records remain untouched.
+    if (
+        _workspace_onboarding_table_available()
+        and not projects
+        and not brands
+        and not _workspace_onboarding_record(int(session.get('user_id') or 0), client_id)
+    ):
+        return redirect(url_for('cadu_workspace.workspace_onboarding'), code=302)
     customizations = list_customizations(client_id=client_id)
     sections = (
         ("Usuários e equipe", "Pessoas, convites e permissões da organização.", url_for("cadu_workspace.account_page", section="equipe"), "Workspace"),
@@ -2586,17 +3007,21 @@ def dashboard():
                     'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
                     'visualInitials': str(item.get('display_initials') or 'M'),
                     'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+                    'visualVariant': _dock_visual_variant('brand', item.get('id')),
                     'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
                     'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)}
                    for item in brands]
-    visible_brands = [item for item in brand_items if item.get('logoUrl')][:8]
+    # The dock and the workspace sidebar both render a deterministic initials
+    # fallback when a brand has no usable logo. Do not hide those brands here.
+    visible_brands = brand_items[:8]
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
                       'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
                       'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
                       'dockLogoUrl': str(item.get('brand_logo_url') or ''),
                       'brandName': str(item.get('thumbnail_label') or ''),
                       'visualInitials': str(item.get('thumbnail_initials') or 'P'),
-                      'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e')} for item in projects]
+                      'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+                      'visualVariant': _dock_visual_variant('project', item.get('id'))} for item in projects]
     dock_items = _workspace_common_dock_items(
         client_id, int(session.get('user_id') or 0), projects=projects, brands=brands,
     )
@@ -2636,6 +3061,7 @@ def dashboard():
         'projects': project_items,
         'dock': {'items': dock_items, 'isSuggested': not any(item.get('shortcutId') for item in dock_items)},
         'resources': dock_resource_items,
+        'recentConversations': [item for item in continuity_feed if item.get('kind') == 'conversation'],
         'resumeCards': continuity_feed,
         'decisions': decisions,
         'activity': continuity_feed,
@@ -2712,12 +3138,14 @@ def brands():
                         'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
                         'visualInitials': str(item.get('display_initials') or 'M'),
                         'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+                        'visualVariant': _dock_visual_variant('brand', item.get('id')),
                         'sector': str(item.get('sector') or ''), 'summary': str(item.get('display_summary') or ''),
                         'assetCount': int(item.get('asset_count') or 0), 'audited': bool(item.get('analysis_metadata')),
                         'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in catalog_records]
         project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
                           'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('brand_logo_url') or ''),
                           'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+                          'visualVariant': _dock_visual_variant('project', item.get('id')),
                           'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects]
         dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
         return render_template('cadu_workspace/brands_react.html', brand_items=brand_items, project_items=project_items, dock_items=dock_items,
@@ -2965,8 +3393,8 @@ def projects():
             current_app.logger.exception('Não foi possível carregar o catálogo de projetos do cliente %s', client_id)
             catalog_records = []
             catalog_error = 'Os projetos estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
-        items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
-        brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
+        items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'visualVariant': _dock_visual_variant('project', item.get('id')), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
+        brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'visualVariant': _dock_visual_variant('brand', item.get('id')), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
         dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
         return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items,
                                query=query, status=status, catalog_error=catalog_error,
@@ -3036,6 +3464,7 @@ def project_detail(project_id):
             'previewUrl': str(item.get('brand_logo_url') or ''),
             'visualInitials': str(item.get('thumbnail_initials') or 'P'),
             'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+            'visualVariant': _dock_visual_variant('project', item.get('id')),
             'projectRef': f"ci:{item.get('id')}",
             'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
         } for item in projects]
@@ -3044,6 +3473,7 @@ def project_detail(project_id):
             'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
             'visualInitials': str(item.get('display_initials') or 'M'),
             'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'visualVariant': _dock_visual_variant('brand', item.get('id')),
             'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
         } for item in brands]
         dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
@@ -3054,6 +3484,7 @@ def project_detail(project_id):
             'instructions': str(project.get('instrucoes') or ''),
             'status': str(project.get('status') or 'ativo'),
             'color': str(project.get('cor') or '#176b5e'),
+            'visualVariant': _dock_visual_variant('project', project.get('id')),
             'identity': {field: str(project.get(field) or '') for field in ('publico', 'tom_de_voz', 'posicionamento')},
             'brand': {
                 'id': str(active_brand.get('id') or ''),
@@ -3063,6 +3494,7 @@ def project_detail(project_id):
                 'logoUrl': str(active_brand.get('display_logo') or ''),
                 'initials': str(active_brand.get('display_initials') or 'M'),
                 'color': str(active_brand.get('display_color') or active_brand.get('primary_color') or '#176b5e'),
+                'visualVariant': _dock_visual_variant('brand', active_brand.get('id')) if active_brand else 0,
             },
             'files': [{'id': str(item.get('id')), 'title': str(item.get('nome_arquivo') or 'Fonte'),
                        'mime': str(item.get('mime') or 'Arquivo'), 'status': str(item.get('indexing_status') or 'queued'),
@@ -4083,6 +4515,7 @@ def brand_detail(brand_id):
     brand.setdefault('activity', [])
     brand.setdefault('readiness', {'score': 0, 'missing': ['diretrizes de identidade']})
     brand['review_pack'] = _brand_review_pack(brand)
+    brand['visualVariant'] = _dock_visual_variant('brand', brand_id)
     can_manage_brand = session.get('user_type') in {'admin', 'superadmin'}
     studio_base = product_url('studio', '/studio/modelagem-criativos')
     if request.args.get('legacy') != '1':
@@ -4097,6 +4530,7 @@ def brand_detail(brand_id):
             'name': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}",
             'previewUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'),
             'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+            'visualVariant': _dock_visual_variant('project', item.get('id')),
             'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
         } for item in projects]
         brand_items = [{
@@ -4104,6 +4538,7 @@ def brand_detail(brand_id):
             'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
             'visualInitials': str(item.get('display_initials') or 'M'),
             'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'visualVariant': _dock_visual_variant('brand', item.get('id')),
             'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
         } for item in brands]
         available_project_items = [{

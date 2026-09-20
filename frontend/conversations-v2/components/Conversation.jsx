@@ -25,6 +25,50 @@ function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   </section>;
 }
 
+const MODE_LABELS = {fast: 'Rápido', analysis: 'Equilibrado', agentic: 'Profundo'};
+
+function entityName(items, ref) {
+  if (!ref || !Array.isArray(items)) return '';
+  const item = items.find(candidate => String(candidate?.ref || candidate?.projectRef || candidate?.brandRef || candidate?.id || candidate?.slug || '') === String(ref));
+  return item?.name || item?.title || '';
+}
+
+function ConversationSupport({context, projects, brands, messages, diagnostics, executionMode, running, runtime, onPrompt}) {
+  const lastUser = [...(messages || [])].reverse().find(message => message.role === 'user');
+  const projectName = entityName(projects, context?.project_ref);
+  const brandName = entityName(brands, context?.brand_ref);
+  const contextLabel = projectName || brandName || (context?.project_ref ? 'Projeto selecionado' : context?.brand_ref ? 'Marca selecionada' : 'Conversa livre');
+  const contextDetail = projectName ? 'Projeto ativo' : brandName ? 'Marca ativa' : 'Sem contexto obrigatório';
+  const latestRequest = String(lastUser?.content || '').replace(/\s+/g, ' ').trim();
+  const requestPreview = latestRequest.length > 180 ? `${latestRequest.slice(0, 180).replace(/\s+\S*$/, '')}…` : latestRequest;
+  const state = running ? (runtime || 'Gerando resposta') : messages?.length ? 'Pronto para continuar' : 'Aguardando seu primeiro pedido';
+  const suggestions = latestRequest ? [
+    ['Aprofundar', 'Aprofunde a última resposta considerando o pedido atual.'],
+    ['Virar decisão', 'Transforme a última resposta em uma decisão prática.'],
+    ['Validar lacunas', 'O que ainda falta validar para responder bem ao pedido atual?'],
+  ] : [
+    ['Começar conversa', 'Ajude-me a organizar o que preciso fazer.'],
+    ['Explorar contexto', 'O que é relevante no contexto selecionado?'],
+  ];
+  return <div className="cv-conversation-support">
+    <div className="cv-conversation-support__intro">
+      <div>
+        <strong>Apoio à conversa</strong>
+        <span>Contexto vivo para o próximo passo</span>
+      </div>
+      <span className={`cv-conversation-support__status ${running ? 'is-running' : ''}`}><i/>{running ? 'Em andamento' : 'Pronto'}</span>
+    </div>
+    <div className="cv-conversation-support__meta">
+      <div><span>Contexto</span><b>{contextLabel}</b><small>{contextDetail}</small></div>
+      <div><span>Intensidade</span><b>{MODE_LABELS[executionMode] || 'Equilibrado'}</b><small>Controle no campo de mensagem</small></div>
+      <div><span>Estado</span><b>{state}</b><small>{diagnostics?.length ? `${diagnostics.length} evento${diagnostics.length === 1 ? '' : 's'} registrado${diagnostics.length === 1 ? '' : 's'}` : 'Sem eventos técnicos'}</small></div>
+    </div>
+    {requestPreview && <div className="cv-conversation-support__request"><span>Último pedido</span><p>“{requestPreview}”</p></div>}
+    <div className="cv-conversation-support__next"><span>Próximos movimentos</span>{suggestions.map(([label, prompt]) => <button key={label} type="button" onClick={() => onPrompt(prompt)}>{label}<Icon name="chevron" size={13}/></button>)}</div>
+    {!!diagnostics?.length && <details className="cv-conversation-support__technical"><summary>Ver atividade técnica</summary><div>{diagnostics.slice(-6).map(item => <div key={item.id} className="cv-conversation-support__event"><i className={item.tone === 'error' ? 'is-error' : ''}/><span><b>{item.title}</b>{item.detail && <small>{item.detail}</small>}</span></div>)}</div></details>}
+  </div>;
+}
+
 function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl}) {
   const response = message.response || {answer: message.content};
   const text = String(response.answer || '');
@@ -86,7 +130,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
     </div>
   </div>;
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
-    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-mb-7 cv-flex cv-justify-end"><div className="cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? <button key={message.id} type="button" onClick={onOpenDiagnostics} className="cv-mb-3 cv-border-0 cv-bg-transparent cv-p-0 cv-text-xs cv-text-[#718b87] hover:cv-text-[#a9bfbb]">Trabalhou por {message.seconds} s ›</button> : <article key={message.id} data-cv-answer="true" className="cv-mb-7"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article>)}
+    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-mb-7 cv-flex cv-justify-end"><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <article key={message.id} data-cv-answer="true" className="cv-mb-7"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article>)}
     {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
     {running && <div className="cv-mb-10 cv-flex cv-items-center cv-gap-3 cv-text-xs cv-text-[#86a29e]" role="status"><span className="cv-flex cv-gap-1" aria-hidden="true"><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal"/><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal" style={{animationDelay: '160ms'}}/><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal" style={{animationDelay: '320ms'}}/></span>{runtime || 'Cadu está trabalhando'}</div>}
     <div ref={end}/>
@@ -101,17 +145,16 @@ export function Conversation({title, context, projects, brands, starterProject, 
     if (wasHistoryOpen.current && !historyOpen) window.requestAnimationFrame(() => historyTrigger.current?.focus());
     wasHistoryOpen.current = historyOpen;
   }, [historyOpen]);
-  return <section className={`cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink ${!messages.length && !running ? 'cv-conversation--empty' : ''}`}>
-    <header className="cv-conversation-header cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-px-4 md:cv-px-6">
+  return <section className={`cv-conversation-shell cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink ${!messages.length && !running ? 'cv-conversation--empty' : ''}`}>
+    <header className="cv-conversation-header cv-relative cv-z-50 cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-px-4 md:cv-px-6">
       {!historyOpen && <button ref={historyTrigger} type="button" onClick={onOpenHistory} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Abrir conversas recentes" aria-controls="cv-recent-sidebar" aria-expanded={historyOpen}><Icon name="menu"/></button>}
       <h1 className={`cv-conversation-title cv-m-0 cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap ${artifactOpen ? 'cv-hidden 2xl:cv-block' : ''}`} title={title}>{title}</h1>
       <span className="cv-ml-auto cv-flex cv-items-center cv-gap-2"><span className="cv-hidden cv-text-[11px] cv-text-[#78908c] sm:cv-inline">Contexto</span><ChatContextSelector context={context} projects={projects} brands={brands} onProjectChange={onProjectChange} onBrandChange={onBrandChange} disabled={running} loading={contextLoading}/></span>
       {runtime && <span className="cv-hidden cv-max-w-40 cv-items-center cv-gap-2 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[11px] cv-text-[#85aaa5] lg:cv-flex"><i className={`cv-h-1.5 cv-w-1.5 cv-flex-none cv-rounded-full ${running ? 'cv-animate-pulse cv-bg-teal' : 'cv-bg-[#6f8884]'}`}/>{runtime}</span>}
-      <details ref={details} className="cv-relative">
-        <summary className="cv-grid cv-h-9 cv-w-9 cv-cursor-pointer cv-list-none cv-place-items-center cv-rounded-lg cv-text-mist hover:cv-bg-white/[.05]" aria-label="Detalhes da execução"><Icon name="pulse" size={17}/></summary>
-        <div className="cv-absolute cv-right-0 cv-top-11 cv-z-50 cv-w-[320px] cv-rounded-xl cv-border cv-border-white/10 cv-bg-[#122124] cv-p-4 cv-shadow-2xl">
-          <strong className="cv-block cv-text-sm">Detalhes da execução</strong><span className="cv-mt-1 cv-block cv-text-[11px] cv-text-[#79918d]">Eventos técnicos desta conversa</span>
-          <div className="cv-scroll cv-mt-4 cv-max-h-72 cv-overflow-y-auto">{diagnostics.length ? diagnostics.map(item => <div key={item.id} className="cv-mb-3 cv-flex cv-gap-2"><i className={`cv-mt-1.5 cv-h-1.5 cv-w-1.5 cv-flex-none cv-rounded-full ${item.tone === 'error' ? 'cv-bg-[#ff7d83]' : 'cv-bg-teal'}`}/><div><b className="cv-block cv-text-xs cv-font-medium">{item.title}</b>{item.detail && <small className="cv-mt-0.5 cv-block cv-text-[10px] cv-text-[#79918d]">{item.detail}</small>}</div></div>) : <p className="cv-text-xs cv-text-[#79918d]">Nenhuma execução iniciada.</p>}</div>
+      <details ref={details} className="cv-conversation-support-popover cv-relative">
+        <summary className="cv-grid cv-h-9 cv-w-9 cv-cursor-pointer cv-list-none cv-place-items-center cv-rounded-lg cv-text-mist hover:cv-bg-white/[.05]" aria-label="Apoio à conversa" title="Apoio à conversa"><Icon name="pulse" size={17}/></summary>
+        <div className="cv-conversation-support-popover__panel">
+          <ConversationSupport context={context} projects={projects} brands={brands} messages={messages} diagnostics={diagnostics} executionMode={executionMode} running={running} runtime={runtime} onPrompt={onPrompt}/>
         </div>
       </details>
     </header>

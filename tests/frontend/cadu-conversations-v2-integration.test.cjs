@@ -59,6 +59,9 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(home, /WorkspaceNavbar/);
   assert.doesNotMatch(home, /WorkspaceHomeWidgets/);
   assert.match(contextSidebar, /SidebarCollection/);
+  assert.match(contextSidebar, /variant=\{item\.visualVariant\}/);
+  assert.match(contextSidebar, /recentConversations.length >= 5/);
+  assert.match(contextSidebar, /recentFiles.length > 0/);
   assert.doesNotMatch(contextSidebar, /Atalhos de trabalho/);
   assert.doesNotMatch(contextSidebar, /\{id: 'recent'/);
   assert.doesNotMatch(contextSidebar, /context-sidebar__footer/);
@@ -68,6 +71,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(home, /agencyName=\{home\.agency\?\.name\}/);
   assert.match(contextSidebar, /agencyName = ''/);
   assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Minha agência'\}<\/strong>/);
+  assert.match(contextSidebar, /id: 'integracoes', label: 'Integrações'/);
   assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
   assert.match(home, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);
@@ -86,6 +90,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(dock, /Organizar atalhos/);
   assert.doesNotMatch(dock, /Arquivos e documentos/);
   assert.match(dock, /VisualIdentity/);
+  assert.match(dock, /variant=\{item\.visualVariant\}/);
   assert.match(cards, /VisualIdentity/);
   assert.match(cards, /cadu-ds-resume-row/);
   assert.match(cards, /typeLabel/);
@@ -114,7 +119,8 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(styles, /\.cadu-ds-home-content \.cadu-ds-composer,[\s\S]*width:100%; max-width:none;/);
   assert.match(styles, /\.cadu-ds-project-content \{ width:100%; max-width:none;/);
   assert.match(styles, /\.cadu-ds-project-workarea,[\s\S]*display:flex; min-height:100dvh/);
-  assert.match(styles, /\.cadu-ds-project-workarea \.cadu-ds-dock,[\s\S]*position:sticky/);
+  assert.match(styles, /body\.portal--workspace \.cadu-ds-project-workarea \.cadu-ds-dock,[\s\S]*position:fixed/);
+  assert.match(styles, /body\.portal--workspace \.cadu-ds-project-workarea,[\s\S]*padding-left:76px/);
   assert.match(template, /'projectMode': True/);
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
@@ -231,8 +237,12 @@ test('Workspace account routes render the new React account surface', () => {
   assert.match(entry, /bootstrap\.accountMode \? <WorkspaceAccount/);
   assert.match(template, /'accountMode': True/);
   assert.match(template, /cv-account-root/);
-  assert.match(template, /'avatarBadge': session\.get\('cadu_avatar_badge'/);
+  assert.match(template, /'avatarBadge': .*session\.get\('cadu_avatar_badge'/);
+  assert.match(template, /perfil_contato.*cadu_avatar_badge/);
+  assert.match(template, /'integracoes': url_for\('cadu_workspace\.integrations'\)/);
   assert.match(styles, /#cadu-conversations-v2-root\.cv-account-root[\s\S]*?overflow-y:auto/);
+  assert.match(styles, /#cadu-conversations-v2-root:not\(\.cv-home-root\):not\(\.cv-account-root\)/);
+  assert.match(styles, /#cadu-conversations-v2-root:is\(\.cv-home-root, \.cv-account-root\)[\s\S]*?--cadu-nav-bg: #ffffff/);
   assert.match(account, /timeZone: 'UTC'/);
   assert.match(account, /person\.cadu_avatar_badge \|\| bootstrap\.user\.avatarBadge/);
   assert.match(account, /invoiceStatuses\[invoice\.status_normalized\]/);
@@ -357,12 +367,17 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /Ver créditos/);
   assert.match(conversation, /Adicionar ao briefing/);
   assert.match(conversation, /composerContext/);
-  assert.match(composer, /Escolher modo e recursos/);
+  assert.match(composer, /Mais recursos/);
+  assert.match(composer, /Pesquisar na internet/);
+  assert.match(composer, /Intensidade do agente/);
+  assert.match(composer, /Ditado por voz/);
   assert.match(composer, /Anexar arquivo/);
   assert.match(composer, /Skills e integrações disponíveis/);
   assert.match(styles, /cv-attachment-chip\.is-image/);
   assert.match(app, /Solte para anexar ao chat/);
-  assert.doesNotMatch(conversation, /contextLabel/);
+  assert.match(conversation, /contextLabel/);
+  assert.match(conversation, /Apoio à conversa/);
+  assert.match(conversation, /Próximos movimentos/);
   assert.match(app, /conversationPayload\(/);
   assert.match(contextModel, /execution_mode: executionMode/);
   assert.match(app, /setExecutionMode\(event\.policy\.execution_mode\)/);
@@ -381,7 +396,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /#cadu-conversations-v2-root \.cv-composer-input/);
   assert.match(styles, /--cadu-nav-bg: #0b171a/);
-  assert.match(styles, /\.cv-recent-list>button \{[\s\S]*background:#17282c/);
+  assert.match(styles, /\.cv-recent-list \.cv-conversation-card \{[\s\S]*background:#17282c/);
   assert.match(styles, /\.cv-composer-stage \{[\s\S]*background: transparent/);
   assert.match(styles, /max-height: min\(260px, 38dvh\) !important/);
   assert.match(styles, /\.cv-composer-actions[\s\S]*border-top: 0 !important/);

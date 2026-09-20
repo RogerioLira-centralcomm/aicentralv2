@@ -196,7 +196,7 @@ def _project_map_content(run: dict, suggested=None) -> dict:
 
 
 def _enrich_source_blocks(response, run):
-    """Resolve provider source references against the canonical project registry."""
+    """Resolve project and web source references without trusting provider URLs."""
     registry = run["resolved_context"].values.get("projects.list_resources") or {}
     resources = registry.get("resources") if isinstance(registry, dict) else []
     by_id = {}
@@ -220,6 +220,65 @@ def _enrich_source_blocks(response, run):
                 "url": str(resource.get("locator") or item.get("url") or "")[:2000],
                 "source_system": str(resource.get("source_system") or "")[:80],
             })
+    web_result = run["resolved_context"].values.get("web.search") or {}
+    web_sources = web_result.get("sources") if isinstance(web_result, dict) else []
+    safe_web_sources = []
+    seen_urls = set()
+    for source in web_sources if isinstance(web_sources, list) else []:
+        if not isinstance(source, dict):
+            continue
+        url = str(source.get("url") or "").strip()[:2000]
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            continue
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+            continue
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        safe_web_sources.append({
+            "id": str(source.get("id") or f"web-{len(safe_web_sources) + 1}")[:100],
+            "title": str(source.get("title") or parsed.hostname or "Fonte")[:220],
+            "url": url,
+            "excerpt": " ".join(str(source.get("excerpt") or "").split())[:500],
+            "kind": "web",
+        })
+        if len(safe_web_sources) >= 8:
+            break
+    if safe_web_sources:
+        existing_urls = {
+            str(citation.get("url") or "") for citation in response.citations
+            if isinstance(citation, dict)
+        }
+        for source in safe_web_sources:
+            if source["url"] in existing_urls:
+                continue
+            response.citations.append({
+                "title": source["title"],
+                "url": source["url"],
+                "excerpt": source["excerpt"],
+            })
+            existing_urls.add(source["url"])
+        has_web_block = any(
+            block.get("type") == "source_group" and any(
+                item.get("kind") == "web" for item in block.get("items") or []
+            ) for block in response.blocks
+        )
+        if not has_web_block:
+            response.blocks = [*response.blocks[:2], {
+                "type": "source_group",
+                "title": "Fontes consultadas",
+                "summary": (
+                    f"Consultei {len(safe_web_sources)} fonte"
+                    f"{'s' if len(safe_web_sources) != 1 else ''} pública"
+                    f"{'s' if len(safe_web_sources) != 1 else ''} e li seletivamente os resultados mais relevantes."
+                ),
+                "items": [{
+                    "id": source["id"], "title": source["title"],
+                    "detail": source["excerpt"], "kind": source["kind"], "url": source["url"],
+                } for source in safe_web_sources[:5]],
+            }]
     return response
 
 
@@ -230,7 +289,7 @@ def prepare(data):
     except (TypeError, ValueError):
         abort(400, description="Identificador de envio inválido.")
     conversation_id = str(data.get("conversation_id") or uuid4())
-    current = resolve(conversation_id=conversation_id,
+    current = resolve(conversation_id=conversation_id, request_id=run_id,
                       surface=str(data.get("surface") or "conversations"),
                       active_object=data.get("active_object"),
                       project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))

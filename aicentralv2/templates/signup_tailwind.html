@@ -15,10 +15,14 @@
   'brandName': 'Cadu Workspace',
   'brandUrl': product_url('workspace'),
   'logoUrl': url_for('static', filename='images/cadu/products/cadu-icon.png'),
-  'imageUrl': url_for('static', filename='images/cadu/home-heroes/workspace-hero-v1.jpg'),
+  'imageUrl': url_for('static', filename='images/cadu/workspace-headers/app-team-v2.jpg'),
   'googleUrl': url_for('cadu_identity.google_signup', next=next_target),
+  'formAction': url_for('signup', next=next_target),
   'loginUrl': url_for('login', next=next_target),
   'next': request.values.get('next', ''),
+  'signupErrors': signup_errors or [],
+  'signupName': signup_name or '',
+  'signupEmail': signup_email or '',
   'messages': get_flashed_messages(with_categories=true),
   'tools': auth_tools
 }|tojson }}

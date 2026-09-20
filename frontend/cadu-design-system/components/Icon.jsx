@@ -14,6 +14,7 @@ export function Icon({name, size = 18, className = ''}) {
     close: <path d="m6 6 12 12M18 6 6 18"/>,
     arrowUp: <path d="M12 19V5M6 11l6-6 6 6"/>,
     pulse: <path d="M3 12h4l2-6 4 12 2-6h6"/>,
+    audio: <><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></>,
     history: <><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8"/><path d="M4 4v4h4M12 8v5l3 2"/></>,
     external: <><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></>,
     download: <><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></>,

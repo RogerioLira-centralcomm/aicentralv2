@@ -1,0 +1,104 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Prepare seu Workspace — Cadu{% endblock %}
+{% block product_id %}workspace-onboarding{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-onboarding.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
+{% block content %}
+<main class="ws-onboarding" data-onboarding-root>
+  <header class="ws-onboarding__header">
+    <a class="ws-onboarding__brand" href="{{ url_for('cadu_workspace.index') }}" aria-label="Cadu Workspace">
+      <img src="{{ url_for('static', filename='images/cadu/products/workspace-192.png') }}" alt="" width="32" height="32">
+      <span>Cadu <b>Workspace</b></span>
+    </a>
+    <span class="ws-onboarding__secure"><i aria-hidden="true">✓</i> Configuração privada</span>
+  </header>
+
+  <div class="ws-onboarding__layout">
+    <section class="ws-onboarding__main" aria-labelledby="onboarding-title">
+      <div class="ws-onboarding__intro">
+        <span class="ws-onboarding__eyebrow">Primeiro acesso</span>
+        <h1 id="onboarding-title">Vamos preparar seu Workspace.</h1>
+        <p>Em poucos passos, criamos a base para sua primeira decisão: organização, marca, projeto e uma auditoria inicial.</p>
+      </div>
+
+      {% if error %}<div class="ws-onboarding__error" role="alert">{{ error }}</div>{% endif %}
+
+      <ol class="ws-onboarding__progress" aria-label="Etapas da configuração">
+        <li class="is-active" data-progress-step="1"><b>1</b><span>Contexto</span></li>
+        <li data-progress-step="2"><b>2</b><span>Marca e projeto</span></li>
+        <li data-progress-step="3"><b>3</b><span>Revisar e criar</span></li>
+      </ol>
+
+      <form method="post" enctype="multipart/form-data" class="ws-onboarding__form" data-onboarding-form>
+        <input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}">
+
+        <fieldset class="ws-onboarding__step is-visible" data-step="1">
+          <legend>Como sua operação trabalha?</legend>
+          <p class="ws-onboarding__hint">Isso ajuda o Workspace a organizar permissões e o catálogo de trabalho.</p>
+          <div class="ws-onboarding__choice-grid">
+            <label class="ws-onboarding__choice">
+              <input type="radio" name="operation_type" value="client" {% if form.operation_type != 'agency' %}checked{% endif %}>
+              <span><b>Minha empresa</b><small>Vou organizar as marcas e projetos da minha própria operação.</small></span>
+            </label>
+            <label class="ws-onboarding__choice">
+              <input type="radio" name="operation_type" value="agency" {% if form.operation_type == 'agency' %}checked{% endif %}>
+              <span><b>Minha agência</b><small>Atendo clientes e quero manter cada operação organizada.</small></span>
+            </label>
+          </div>
+          <label class="ws-onboarding__field">Nome da empresa, agência ou marca
+            <input name="organization_name" required minlength="2" maxlength="180" value="{{ form.organization_name }}" placeholder="Ex.: Agência Horizonte">
+          </label>
+          <label class="ws-onboarding__field" data-agency-only {% if form.operation_type != 'agency' %}hidden{% endif %}>Nome do cliente inicial <span>(opcional)</span>
+            <input name="client_name" maxlength="180" value="{{ form.client_name }}" placeholder="Ex.: Marca atendida pela agência">
+          </label>
+          <p class="ws-onboarding__ownership" data-agency-only {% if form.operation_type != 'agency' %}hidden{% endif %}><i aria-hidden="true">↳</i> O <strong>client_id atual da sua agência</strong> continua sendo a conta principal. Os clientes serão adicionados depois, sem substituir esse vínculo.</p>
+        </fieldset>
+
+        <fieldset class="ws-onboarding__step" data-step="2" hidden>
+          <legend>Qual é a primeira marca e o primeiro projeto?</legend>
+          <p class="ws-onboarding__hint">A marca vira a base da identidade. O projeto concentra o briefing e as próximas decisões.</p>
+          <div class="ws-onboarding__fields-two">
+            <label class="ws-onboarding__field">Nome da marca
+              <input name="brand_name" required minlength="2" maxlength="150" value="{{ form.brand_name }}" placeholder="Ex.: Horizonte Café">
+            </label>
+            <label class="ws-onboarding__field">Site oficial <span>(recomendado)</span>
+              <input name="website_url" type="text" inputmode="url" maxlength="2000" value="{{ form.website_url }}" placeholder="horizontecafe.com.br">
+            </label>
+          </div>
+          <label class="ws-onboarding__field">Nome do projeto
+            <input name="project_name" required minlength="2" maxlength="150" value="{{ form.project_name }}" placeholder="Ex.: Campanha de lançamento">
+          </label>
+          <label class="ws-onboarding__field">O que este projeto precisa resolver? <span>(opcional)</span>
+            <textarea name="project_description" rows="3" maxlength="4000" placeholder="Uma frase de contexto para orientar o time.">{{ form.project_description }}</textarea>
+          </label>
+          <label class="ws-onboarding__upload"><span><b>Referências visuais</b><small>Logo, peças ou imagens da marca. Até 4 arquivos.</small></span><input name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>
+        </fieldset>
+
+        <fieldset class="ws-onboarding__step" data-step="3" hidden>
+          <legend>Revise sua primeira base</legend>
+          <p class="ws-onboarding__hint">Ao confirmar, o Cadu cria os registros no seu Workspace e inicia a auditoria quando houver site ou referências.</p>
+          <div class="ws-onboarding__summary">
+            <div><span>Organização</span><b data-summary="organization">—</b></div>
+            <div><span>Marca</span><b data-summary="brand">—</b></div>
+            <div><span>Projeto</span><b data-summary="project">—</b></div>
+          </div>
+          <div class="ws-onboarding__included"><b>Incluído no Workspace</b><span>Marcas</span><span>Projetos</span><span>Planner</span><span>Studio</span><span>Skills</span><span>Reports</span></div>
+          <div class="ws-onboarding__privacy"><i aria-hidden="true">✦</i><span><b>Sua base permanece privada.</b> A auditoria gera uma proposta revisável; nada é aplicado à marca sem sua aprovação.</span></div>
+        </fieldset>
+
+        <footer class="ws-onboarding__actions">
+          <button type="button" class="ws-onboarding__back" data-onboarding-back hidden>Voltar</button>
+          <span class="ws-onboarding__actions-spacer"></span>
+          <button type="button" class="ws-onboarding__next" data-onboarding-next>Continuar <span aria-hidden="true">→</span></button>
+          <button type="submit" class="ws-onboarding__submit" data-onboarding-submit hidden>Criar meu Workspace <span aria-hidden="true">→</span></button>
+        </footer>
+      </form>
+    </section>
+
+    <aside class="ws-onboarding__visual" aria-label="Visão do Workspace">
+      <img src="{{ url_for('static', filename='images/cadu/workspace-headers/app-team-v3.jpg') }}" alt="Time organizando projetos de uma agência">
+      <div class="ws-onboarding__visual-copy"><span>Um sistema para o trabalho inteiro</span><b>Contexto que acompanha cada decisão.</b></div>
+    </aside>
+  </div>
+</main>
+{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/cadu-workspace-onboarding.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

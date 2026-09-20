@@ -133,7 +133,7 @@ def mcp_token():
     exposure = str(data.get("exposure") or "internal")
     if exposure not in {"internal", "customer_agent"}:
         abort(400, description="Perfil de agente inválido.")
-    current = resolve(conversation_id=data.get("conversation_id"),
+    current = resolve(conversation_id=data.get("conversation_id"), request_id=data.get("request_id"),
                       surface=str(data.get("surface") or "conversations"),
                       active_object=data.get("active_object"),
                       project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))

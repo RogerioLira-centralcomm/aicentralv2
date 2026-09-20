@@ -21,6 +21,7 @@ function Icon({name, size = 18}) {
     check: <path d="m5 12 4 4L19 6"/>,
     lock: <><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
     mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></>,
+    user: <><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.2 3-5 7-5s6.3 1.8 7 5"/></>,
   };
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
@@ -39,9 +40,9 @@ function GoogleButton({href, label}) {
   </a>;
 }
 
-function Field({label, id, type = 'text', icon, value, onChange, placeholder, autoComplete, name, required = true, minLength, autoCapitalize, inputMode, action, hint}) {
+function Field({label, id, type = 'text', icon, value, onChange, placeholder, autoComplete, name, required = true, minLength, autoCapitalize, inputMode, action, hint, labelAction}) {
   return <div className="cadu-auth-field">
-    <label htmlFor={id}>{label}</label>
+    {labelAction ? <div className="cadu-auth-field-row"><label htmlFor={id}>{label}</label>{labelAction}</div> : <label htmlFor={id}>{label}</label>}
     <div className="cadu-auth-input-wrap">
       {icon && <span className="cadu-auth-input-icon"><Icon name={icon} size={17}/></span>}
       <input id={id} name={name || id} type={type} value={value} onChange={onChange} placeholder={placeholder} autoComplete={autoComplete} required={required} minLength={minLength} autoCapitalize={autoCapitalize} inputMode={inputMode} />
@@ -51,9 +52,9 @@ function Field({label, id, type = 'text', icon, value, onChange, placeholder, au
   </div>;
 }
 
-function PasswordField({label = 'Senha', id = 'password', value, onChange, autoComplete = 'current-password', hint}) {
+function PasswordField({label = 'Senha', id = 'password', value, onChange, autoComplete = 'current-password', hint, labelAction}) {
   const [visible, setVisible] = useState(false);
-  return <Field label={label} id={id} name={id} type={visible ? 'text' : 'password'} icon="lock" value={value} onChange={onChange} placeholder={label === 'Senha' ? 'Digite sua senha' : 'Digite uma senha'} autoComplete={autoComplete} hint={hint} action={<button className="cadu-auth-input-action" type="button" onClick={() => setVisible(current => !current)} aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}>{<Icon name={visible ? 'eyeOff' : 'eye'} size={17}/>}</button>} />;
+  return <Field label={label} id={id} name={id} type={visible ? 'text' : 'password'} icon="lock" value={value} onChange={onChange} placeholder={label === 'Senha' ? 'Digite sua senha' : 'Digite uma senha'} autoComplete={autoComplete} hint={hint} labelAction={labelAction} action={<button className="cadu-auth-input-action" type="button" onClick={() => setVisible(current => !current)} aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}>{<Icon name={visible ? 'eyeOff' : 'eye'} size={17}/>}</button>} />;
 }
 
 function SubmitButton({children, loading = false, icon = 'arrow'}) {
@@ -62,6 +63,14 @@ function SubmitButton({children, loading = false, icon = 'arrow'}) {
     <span>{loading ? 'Aguarde…' : children}</span>
     {!loading && <Icon name={icon} size={17}/>}
   </button>;
+}
+
+function AuthTransition({bootstrap}) {
+  return <div className="cadu-auth-transition" role="status" aria-live="polite">
+    <div className="cadu-auth-transition-mark"><img src={bootstrap.caduLogoUrl || '/static/images/cadu/products/cadu-icon.png'} alt="" /></div>
+    <strong>Entrando no Cadu Workspace</strong>
+    <span>Preparando seu espaço de trabalho…</span>
+  </div>;
 }
 
 function ToolRail({tools, compact = false}) {
@@ -89,7 +98,7 @@ function VisualPanel({bootstrap, signup = false}) {
   </aside>;
 }
 
-function AuthFrame({bootstrap, children, visual = true, signup = false}) {
+function AuthFrame({bootstrap, children, visual = true, signup = false, loading = false}) {
   const tools = bootstrap.tools?.length ? bootstrap.tools : DEFAULT_TOOLS;
   const sideContent = signup
     ? <aside className="cadu-auth-signup-rail"><VisualPanel bootstrap={bootstrap} signup/><ToolRail tools={tools}/></aside>
@@ -97,10 +106,14 @@ function AuthFrame({bootstrap, children, visual = true, signup = false}) {
   return <div className={`cadu-auth-page ${signup ? 'is-signup' : ''} ${visual ? 'has-visual' : ''}`}>
     <header className="cadu-auth-header"><Brand bootstrap={bootstrap}/></header>
     <main className="cadu-auth-main">
-      <section className="cadu-auth-card">{children}</section>
+      <section className="cadu-auth-card">
+        <FlashMessages messages={bootstrap.messages}/>
+        {children}
+      </section>
       {sideContent}
     </main>
     {signup && <details className="cadu-auth-mobile-tools"><summary>Ferramentas incluídas no Cadu</summary><ToolRail tools={tools} compact/></details>}
+    {loading && <AuthTransition bootstrap={bootstrap}/>}
   </div>;
 }
 
@@ -117,8 +130,17 @@ function Login({bootstrap}) {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState(bootstrap.email || '');
   const isCorporate = Boolean(bootstrap.isCorporate);
-  const handleSubmit = () => setLoading(true);
-  return <AuthFrame bootstrap={bootstrap}>
+  const handleSubmit = event => {
+    if (loading) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    const form = event.currentTarget;
+    setLoading(true);
+    window.setTimeout(() => form.submit(), 2000);
+  };
+  return <AuthFrame bootstrap={bootstrap} loading={loading}>
     <PageHeading title="Entre na sua conta" description="Continue de onde parou no Cadu Workspace." />
     <GoogleButton href={bootstrap.googleUrl} label="Continuar com Google" />
     <div className="cadu-auth-divider"><span>ou entre com email</span></div>
@@ -128,8 +150,7 @@ function Login({bootstrap}) {
         <Field label="Email" id="email_local" name="email_local" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="seu.nome" autoComplete="username" inputMode="email" autoCapitalize="none" hint="Use seu acesso CentralComm." />
         <input type="hidden" name="email" value="" />
       </> : <Field label="Email" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="voce@empresa.com" autoComplete="username" inputMode="email" autoCapitalize="none" />}
-      <div className="cadu-auth-field-row"><label htmlFor="password">Senha</label><a href={bootstrap.forgotUrl}>Esqueci minha senha</a></div>
-      <PasswordField value={password} onChange={event => setPassword(event.target.value)} />
+      <PasswordField value={password} onChange={event => setPassword(event.target.value)} labelAction={<a href={bootstrap.forgotUrl}>Esqueci minha senha</a>} />
       <SubmitButton loading={loading}>Entrar</SubmitButton>
     </form>
     {!isCorporate && <p className="cadu-auth-switch">Ainda não tem uma conta? <a href={bootstrap.signupUrl}>Criar conta</a></p>}
@@ -137,10 +158,37 @@ function Login({bootstrap}) {
 }
 
 function Signup({bootstrap}) {
-  return <AuthFrame bootstrap={bootstrap} signup>
+  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState(bootstrap.signupName || '');
+  const [email, setEmail] = useState(bootstrap.signupEmail || '');
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const mismatch = confirmation.length > 0 && password !== confirmation;
+  const handleSubmit = event => {
+    if (mismatch || loading) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    const form = event.currentTarget;
+    setLoading(true);
+    window.setTimeout(() => form.submit(), 2000);
+  };
+  const errors = (bootstrap.signupErrors || []).map(message => ['error', message]);
+  return <AuthFrame bootstrap={{...bootstrap, messages: [...(bootstrap.messages || []), ...errors]}} signup loading={loading}>
     <PageHeading eyebrow="Comece pelo essencial" title="Crie sua conta" description="Uma conta para planejar, criar e acompanhar sua operação de mídia." />
     <GoogleButton href={bootstrap.googleUrl} label="Criar conta com Google" />
     <p className="cadu-auth-google-note">Use sua conta Google para entrar sem criar mais uma senha.</p>
+    <div className="cadu-auth-divider"><span>ou crie com email</span></div>
+    <form action={bootstrap.formAction} method="POST" onSubmit={handleSubmit} className="cadu-auth-form">
+      {bootstrap.next && <input type="hidden" name="next" value={bootstrap.next}/>}
+      <Field label="Nome completo" id="name" name="name" icon="user" value={name} onChange={event => setName(event.target.value)} placeholder="Seu nome" autoComplete="name" />
+      <Field label="Email" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="voce@empresa.com" autoComplete="email" inputMode="email" autoCapitalize="none" />
+      <PasswordField label="Senha" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" />
+      <PasswordField label="Confirmar senha" id="confirm_password" value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="new-password" />
+      {mismatch && <p className="cadu-auth-error" role="alert">As senhas não coincidem.</p>}
+      <SubmitButton loading={loading} icon="check">Criar conta</SubmitButton>
+    </form>
     <p className="cadu-auth-switch cadu-auth-switch--signup">Já tem uma conta? <a href={bootstrap.loginUrl}>Entrar</a></p>
   </AuthFrame>;
 }
@@ -184,18 +232,18 @@ function ResetPassword({bootstrap}) {
 }
 
 function FlashMessages({messages = []}) {
-  if (!messages.length) return null;
-  return <div className="cadu-auth-flashes" aria-live="polite">{messages.map(([category, message], index) => <div className={`cadu-auth-flash is-${category}`} key={`${category}-${index}`}>{message}</div>)}</div>;
+  const readableMessages = messages
+    .map(([category, message]) => [category, message === 'Email ou senha incorretos.' ? 'Não foi possível entrar. Confira seu email e sua senha e tente novamente.' : message])
+    .filter((entry, index, all) => all.findIndex(item => item[0] === entry[0] && item[1] === entry[1]) === index);
+  if (!readableMessages.length) return null;
+  return <div className="cadu-auth-flashes" aria-live="assertive">{readableMessages.map(([category, message], index) => <div className={`cadu-auth-flash is-${category}`} role={category === 'error' ? 'alert' : 'status'} key={`${category}-${message}-${index}`}>{message}</div>)}</div>;
 }
 
 function App({bootstrap}) {
   const page = bootstrap.page || 'login';
   const tools = useMemo(() => bootstrap.tools?.length ? bootstrap.tools : DEFAULT_TOOLS, [bootstrap.tools]);
   const pageBootstrap = {...bootstrap, tools};
-  return <>
-    <FlashMessages messages={bootstrap.messages}/>
-    {page === 'signup' ? <Signup bootstrap={pageBootstrap}/> : page === 'forgot-password' ? <ForgotPassword bootstrap={pageBootstrap}/> : page === 'reset-password' ? <ResetPassword bootstrap={pageBootstrap}/> : <Login bootstrap={pageBootstrap}/>}
-  </>;
+  return page === 'signup' ? <Signup bootstrap={pageBootstrap}/> : page === 'forgot-password' ? <ForgotPassword bootstrap={pageBootstrap}/> : page === 'reset-password' ? <ResetPassword bootstrap={pageBootstrap}/> : <Login bootstrap={pageBootstrap}/>;
 }
 
 const node = document.getElementById('cadu-auth-root');

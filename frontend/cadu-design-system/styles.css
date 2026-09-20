@@ -386,6 +386,9 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) { display:grid; grid-template-columns:76px minmax(0,1fr); grid-template-rows:minmax(100dvh,auto); }
 .cadu-workspace-legacy-chrome-root .cadu-ds-dock { grid-column:1; grid-row:1; min-height:100dvh; }
 .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) > .workspace-app-main { grid-column:2; grid-row:1; }
+.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface) { grid-template-columns:76px 224px minmax(0,1fr); }
+.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar { grid-column:2; grid-row:1; }
+.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface) > .workspace-app-main { grid-column:3; grid-row:1; }
 
 @media (max-width:760px) {
   .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) { grid-template-columns:minmax(0,1fr); grid-template-rows:auto; }
@@ -1081,8 +1084,12 @@ body.portal--workspace .cadu-ds-home-brand-grid > button:focus-visible {
 @media (min-width:761px) {
   body.portal--workspace .cadu-ds-home-workarea .cadu-ds-dock,
   body.portal--workspace .cadu-ds-project-workarea .cadu-ds-dock,
-  body.portal--workspace .cadu-ds-catalog-workarea .cadu-ds-dock {
-    position:sticky;
+  body.portal--workspace .cadu-ds-catalog-workarea .cadu-ds-dock,
+  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) .cadu-ds-dock {
+    position:fixed;
+    inset:0 auto 0 0;
+    z-index:var(--cadu-z-navbar);
+    width:76px;
     top:0;
     align-self:flex-start;
     height:100dvh;
@@ -1098,6 +1105,8 @@ body.portal--workspace .cadu-ds-home-brand-grid > button:focus-visible {
   body.portal--workspace .cadu-ds-project-workarea,
   body.portal--workspace .cadu-ds-catalog-workarea {
     gap:0;
+    padding-left:76px;
+    box-sizing:border-box;
   }
 }
 
@@ -1234,6 +1243,23 @@ body.portal--workspace .cadu-ds-home-workarea {
   flex:0 0 26px;
   border-radius:7px;
   font-size:9px;
+}
+
+.cadu-ds-context-sidebar__collection-identity {
+  display:flex!important;
+  flex:0 0 42px;
+  align-items:center;
+  gap:4px;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  white-space:normal!important;
+}
+
+.cadu-ds-context-sidebar__collection-index {
+  color:var(--cadu-muted);
+  font-size:9px;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
 }
 
 .cadu-ds-context-sidebar__collection-item > span {
@@ -1802,3 +1828,10 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
 .cadu-ds-brand-project-picker { display:grid; gap:4px; margin-top:20px; }.cadu-ds-brand-project-picker form { border-bottom:1px solid var(--cadu-line); }.cadu-ds-brand-project-picker button { display:flex; width:100%; justify-content:space-between; gap:12px; align-items:center; padding:11px 4px; border:0; background:transparent; color:var(--cadu-ink); text-align:left; cursor:pointer; }.cadu-ds-brand-project-picker button:hover { color:var(--cadu-accent-strong); }.cadu-ds-brand-project-picker button span { display:grid; gap:3px; min-width:0; }.cadu-ds-brand-project-picker button b,.cadu-ds-brand-project-picker button small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.cadu-ds-brand-project-picker button b { font-size:12px; }.cadu-ds-brand-project-picker button small { color:var(--cadu-muted); font-size:10px; }.cadu-ds-brand-project-picker button i { color:var(--cadu-accent-strong); font-size:20px; font-style:normal; }
 .cadu-ds-brand-reviews { display:grid; gap:12px; margin-top:20px; }.cadu-ds-brand-reviews article { padding:14px; border:1px solid var(--cadu-line); background:var(--cadu-surface-soft); }.cadu-ds-brand-reviews article>header { display:flex; justify-content:space-between; gap:12px; }.cadu-ds-brand-reviews article>header>div { display:grid; gap:3px; }.cadu-ds-brand-reviews article small,.cadu-ds-brand-reviews article>header>span { color:var(--cadu-muted); font-size:10px; }.cadu-ds-brand-reviews article p { color:var(--cadu-ink); font-size:12px; line-height:1.5; }.cadu-ds-brand-reviews article ul { margin:7px 0 0; padding-left:17px; color:var(--cadu-muted); font-size:11px; line-height:1.45; }.cadu-ds-brand-reviews article>div strong { color:var(--cadu-ink); font-size:10px; }.cadu-ds-brand-reviews article .is-concern { margin-top:12px; }
 @media(max-width:760px){.cadu-ds-brand-content{padding:28px 18px 54px}.cadu-ds-brand-hero{grid-template-columns:58px minmax(0,1fr);gap:14px}.cadu-ds-brand-hero__identity{width:58px;height:58px;border-radius:17px}.cadu-ds-brand-hero__identity .cadu-ds-visual-identity{border-radius:17px;font-size:18px}.cadu-ds-brand-hero h1{font-size:34px}.cadu-ds-brand-hero__actions{grid-column:1/-1;justify-content:flex-start}.cadu-ds-brand-review{align-items:flex-start;flex-direction:column}.cadu-ds-brand-review>div:last-child{justify-content:flex-start}.cadu-ds-brand-grid,.cadu-ds-brand-lower-grid,.cadu-ds-brand-token-columns{grid-template-columns:1fr;gap:32px}.cadu-ds-brand-next{padding:22px 0 0;border-top:1px solid var(--cadu-line);border-left:0}.cadu-ds-brand-reading{grid-template-columns:1fr}.cadu-ds-brand-form__grid{grid-template-columns:1fr}.cadu-ds-brand-upload{align-items:stretch;flex-direction:column}.cadu-ds-brand-upload button{align-self:flex-start}.cadu-ds-brand-token>small{grid-column:auto}}
+
+/* Account navigation stays visible on account surfaces, including the legacy
+   integrations page. The content column then uses the remaining width. */
+.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:76px 224px minmax(0,1fr)!important;grid-template-rows:minmax(100dvh,auto)!important}
+.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{grid-column:2;grid-row:1;min-height:100dvh}
+.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface)> .workspace-app-main{grid-column:3!important;grid-row:1!important;min-width:0}
+@media(max-width:760px){.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto!important}.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{grid-column:1;grid-row:1;min-height:0;max-height:none}.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface)> .workspace-app-main{grid-column:1!important;grid-row:2!important;padding-top:18px!important}}

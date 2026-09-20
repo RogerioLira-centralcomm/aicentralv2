@@ -48,7 +48,7 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
             'Canva', 'Google Drive', 'ERP da agência',
         ])
         self.assertEqual([item['name'] for item in data['coming_soon_connectors']], [
-            'ClickUp', 'Trello', 'Slack', 'Figma', 'Asana', 'Dropbox',
+            'ClickUp', 'Trello', 'Slack',
         ])
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_billing_data', return_value={

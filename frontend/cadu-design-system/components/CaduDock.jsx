@@ -68,10 +68,11 @@ function allowDockDrop(event) {
 }
 
 function avatarSource(value, bootstrap) {
-  const raw = String(value || bootstrap?.user?.photoUrl || bootstrap?.user?.photo_url || bootstrap?.user?.foto_url || '').trim();
+  const raw = String(value || bootstrap?.user?.avatar || bootstrap?.user?.photoUrl || bootstrap?.user?.photo_url || bootstrap?.user?.foto_url || '').trim();
   if (raw) {
     if (/^static\//i.test(raw)) return `/${raw}`;
-    return raw;
+    if (/^(?:https?:|data:|blob:|\/)/i.test(raw)) return raw;
+    return `/${raw}`;
   }
   return '';
 }
@@ -101,7 +102,7 @@ export function DockBrandShortcut({brand, projectCount = 0, active = false, onOp
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
   return <DockTooltip label={brand.name}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, brand) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, brand); } : undefined} onClick={() => onOpen?.(brand)} aria-label={`Abrir marca ${brand.name}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-brand ${active ? 'is-active' : ''}`}>
-    <VisualIdentity src={brand.logoUrl || brand.logo_url || brand.dockLogoUrl || brand.previewUrl} initials={brand.visualInitials} label={brand.name} color={brand.visualColor} variant={brand.visualVariant}/>
+    <VisualIdentity src={brand.logoUrl || brand.logo_url || brand.dockLogoUrl || brand.previewUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant}/>
     {projectCount > 1 && <i aria-label={`${projectCount} projetos fixados`}>{projectCount}</i>}
   </button></DockTooltip>;
 }
@@ -111,7 +112,7 @@ export function DockResourceShortcut({item, pinned = false, active = false, onOp
   const droppable = typeof onDropShortcut === 'function';
   const resource = isDockResource(item);
   return <DockTooltip label={item.title}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-resource ${resource ? 'cadu-ds-dock-resource--file' : ''} ${active ? 'is-active' : ''}`}>
-    <VisualIdentity src={item.logoUrl || item.logo_url || item.dockLogoUrl || item.previewUrl} initials={item.visualInitials} label={item.title} color={item.visualColor} variant={item.visualVariant}/>{pinned && <i aria-label="Fixado">●</i>}
+    <VisualIdentity src={item.logoUrl || item.logo_url || item.dockLogoUrl || item.previewUrl} initials={item.visualInitials || item.title || item.name} label={item.title || item.name} color={item.visualColor} variant={item.visualVariant}/>{pinned && <i aria-label="Fixado">●</i>}
   </button></DockTooltip>;
 }
 

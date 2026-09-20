@@ -7,10 +7,10 @@ from ...cadu_family import repository
 from .contracts import ActiveObject, RequestContext, SURFACES
 
 
-CAPABILITIES = ("workspace", "planner", "studio", "reports", "artifacts")
+CAPABILITIES = ("workspace", "planner", "studio", "reports", "artifacts", "research")
 
 
-def resolve(*, conversation_id=None, surface="conversations", active_object=None,
+def resolve(*, conversation_id=None, request_id=None, surface="conversations", active_object=None,
             project_ref=None, brand_ref=None) -> RequestContext:
     if surface not in SURFACES:
         raise ValueError("Superfície inválida.")
@@ -50,6 +50,7 @@ def resolve(*, conversation_id=None, surface="conversations", active_object=None
     return RequestContext(
         organization_id=int(actor["organization_id"]), client_id=int(selected["client_id"]),
         user_id=int(actor["id"]), conversation_id=str(conversation_id) if conversation_id else None,
+        request_id=str(request_id) if request_id else None,
         surface=surface, project_ref=resolved_project, brand_ref=resolved_brand,
         active_object=current, capabilities=CAPABILITIES,
     )

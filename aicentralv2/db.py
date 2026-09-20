@@ -18597,7 +18597,7 @@ def criar_cadu_lead(dados):
 # ==================== ONBOARDING COMERCIAL ====================
 
 def obter_executivo_demetrius():
-    """Localiza o executivo responsável pelo onboarding sem depender de um ID fixo."""
+    """Localiza Demetrius Decottignies sem depender de um ID fixo."""
     conn = get_db()
     with conn.cursor() as cursor:
         cursor.execute('''
@@ -18605,7 +18605,8 @@ def obter_executivo_demetrius():
             FROM tbl_contato_cliente c
             WHERE c.status = TRUE
               AND lower(c.nome_completo) LIKE 'demetrius%'
-            ORDER BY c.id_contato_cliente
+            ORDER BY CASE WHEN lower(c.nome_completo) LIKE '%decottignies%' THEN 0 ELSE 1 END,
+                     c.id_contato_cliente
             LIMIT 1
         ''')
         return cursor.fetchone()

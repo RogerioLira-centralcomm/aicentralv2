@@ -8,9 +8,10 @@
 {% elif legacy_active in ('conversas','conversas-v2') %}{% set legacy_surface = 'conversation' %}
 {% elif legacy_active in ('marcas','projetos') %}{% set legacy_surface = 'detail' %}{% endif %}
 <link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">
-<div id="cadu-workspace-legacy-chrome-root" class="cadu-workspace-legacy-chrome-root" aria-label="Navegação do Workspace"><noscript>Ative o JavaScript para usar a navegação do Workspace.</noscript></div>
+<div id="cadu-workspace-legacy-chrome-root" class="cadu-workspace-legacy-chrome-root{% if legacy_active == 'integracoes' %} is-account-surface{% endif %}" aria-label="Navegação do Workspace"><noscript>Ative o JavaScript para usar a navegação do Workspace.</noscript></div>
 <script id="cadu-workspace-legacy-chrome-bootstrap" type="application/json">{{ {
   'legacyMode': True,
+  'accountSurface': legacy_active == 'integracoes',
   'active': legacy_active,
   'surface': legacy_surface,
   'title': legacy_titles.get(legacy_active, 'Workspace'),
@@ -22,6 +23,7 @@
     'home': url_for('cadu_workspace.dashboard'), 'newConversation': '/workspace/conversas-v2-lab',
     'projects': url_for('cadu_workspace.clean_projects'), 'brands': url_for('cadu_workspace.clean_brands'),
     'docs': url_for('cadu_workspace.documents'), 'skills': url_for('cadu_workspace.my_skills'),
+    'agencia': url_for('cadu_workspace.account_page', section='agencia'), 'equipe': url_for('cadu_workspace.account_page', section='equipe'), 'faturamento': url_for('cadu_workspace.account_page', section='faturamento'), 'integracoes': url_for('cadu_workspace.integrations'), 'planos': url_for('cadu_workspace.account_page', section='planos'), 'perfil': url_for('cadu_workspace.account_page', section='perfil'), 'creditos': url_for('cadu_workspace.account_page', section='creditos'),
     'agency': url_for('cadu_workspace.account_page', section='agencia'), 'profile': url_for('cadu_workspace.account_page', section='perfil'), 'usage': url_for('cadu_workspace.account_page', section='creditos'),
     'plans': url_for('cadu_workspace.account_page', section='planos'), 'team': url_for('cadu_workspace.account_page', section='equipe'),
     'observability': url_for('cadu_agent_v2_lab.observability_page') if session.get('user_type') in ('admin', 'superadmin') else '',

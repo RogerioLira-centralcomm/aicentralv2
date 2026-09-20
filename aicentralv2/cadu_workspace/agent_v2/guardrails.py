@@ -17,6 +17,32 @@ INTERNAL_PATTERN = re.compile(
 ORCHESTRATOR_METADATA_PATTERN = re.compile(
     r"(?im)^\s*(?:projeto usado|decis[aã]o proposta|confian[cç]a|pr[oó]ximo passo)\s*:",
 )
+_LEAKED_DECISION_PATTERN = re.compile(
+    r"^\s*Projeto usado:\s*(?P<project>.+?)\.\s*"
+    r"Decisão proposta:\s*(?P<decision>.+?)"
+    r"(?:\.\s*Confiança:\s*(?P<confidence>[^,.]+)"
+    r"(?:,\s*pois\s*(?P<reason>.+?))?)?\.?\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def repair_metadata_answer(value):
+    """Turn a leaked routing summary into a customer-facing sentence."""
+    original = str(value or "").strip()
+    text = " ".join(original.split()).strip()
+    match = _LEAKED_DECISION_PATTERN.match(text)
+    if not match:
+        return original
+    project = match.group("project").strip().rstrip(".")
+    decision = re.sub(r"\s*\+\s*", ", ", match.group("decision").strip()).rstrip(".")
+    reason = (match.group("reason") or "").strip().rstrip(".")
+    if decision.lower().startswith("posicionar "):
+        sentence = f"A oportunidade para {project} é {decision}"
+    else:
+        sentence = f"A direção inicial para {project} é {decision}"
+    if reason:
+        sentence += ", mas essa é uma hipótese inicial porque " + reason[0].lower() + reason[1:]
+    return sentence.rstrip(".") + "."
 
 
 def _clean_text(value, limit):
@@ -54,7 +80,7 @@ def _clean_citations(values):
             continue
         citations.append({
             "title": title,
-            "url": _clean_text(item.get("url"), 2000),
+            "url": _resource_url(item.get("url")),
             "excerpt": _clean_text(item.get("excerpt"), 1000),
         })
         if len(citations) >= 20:
@@ -321,7 +347,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         value = raw
     else:
         raise BadRequest("O provider retornou uma resposta inválida.")
-    answer = str(value.get("answer") or "").strip()
+    answer = repair_metadata_answer(value.get("answer"))
     if not answer:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):

@@ -1202,13 +1202,13 @@ def init_routes(app):
     
     # ==================== AUTHENTICATION ====================
 
-    @app.route('/signup', methods=['GET'])
+    @app.route('/signup', methods=['GET', 'POST'])
     def signup():
         """Public Cadu account creation entry point.
 
-        Account provisioning is intentionally delegated to the existing Google
-        identity flow. This keeps the signup surface simple while preserving
-        the product-owned SSO and its existing tenant/account rules.
+        Form signup and Google signup converge on the same public account
+        provisioning contract: one CRM client, one contact and Demetrius as
+        the commercial owner.
         """
         from aicentralv2.product_domains import is_centralx_request, product_url, safe_product_target
 
@@ -1216,7 +1216,62 @@ def init_routes(app):
             return redirect(url_for('login'), code=302)
         destination = 'workspace' if app.config.get('CADU_GOOGLE_NATIVE_ENABLED', False) else 'cadu'
         next_target = safe_product_target(request.args.get('next'), product_url(destination))
-        return render_template('signup_tailwind.html', next_target=next_target)
+        if request.method == 'POST':
+            from aicentralv2.auth import normalize_login_email, persist_login_session
+            nome = ' '.join((request.form.get('name') or '').split())[:180]
+            email = normalize_login_email(request.form.get('email') or '')
+            senha = request.form.get('password') or ''
+            confirmacao = request.form.get('confirm_password') or ''
+            errors = []
+            if len(nome) < 3:
+                errors.append('Informe seu nome completo.')
+            if not email:
+                errors.append('Informe um email válido.')
+            if len(senha) < 8:
+                errors.append('A senha deve ter pelo menos 8 caracteres.')
+            if senha != confirmacao:
+                errors.append('As senhas não conferem.')
+            if errors:
+                return render_template('signup_tailwind.html', next_target=next_target, signup_errors=errors,
+                                       signup_name=nome, signup_email=request.form.get('email') or '')
+            try:
+                from aicentralv2.services.onboarding_comercial import (
+                    enviar_notificacao_cadastro, provisionar_conta_publica,
+                )
+                user, executivo = provisionar_conta_publica(nome=nome, email=email, senha=senha)
+            except ValueError as exc:
+                return render_template('signup_tailwind.html', next_target=next_target,
+                                       signup_errors=[str(exc)], signup_name=nome,
+                                       signup_email=request.form.get('email') or ''), 400
+            except Exception:
+                app.logger.exception('Erro ao criar conta pública do Cadu')
+                return render_template('signup_tailwind.html', next_target=next_target,
+                                       signup_errors=['Não foi possível criar sua conta agora. Tente novamente.'],
+                                       signup_name=nome, signup_email=request.form.get('email') or ''), 503
+
+            session.clear()
+            persist_login_session()
+            session.update(
+                user_id=user['id_contato_cliente'], user_name=user.get('nome_completo') or nome,
+                user_email=user.get('email') or email, cliente_id=user['pk_id_tbl_cliente'],
+                user_type=user.get('user_type') or 'client', is_centralcomm=False,
+                user_photo_url='', auth_method='form', new_account_signup=True,
+            )
+            try:
+                send_welcome_email(
+                    user_email=email, user_name=nome, cliente_nome=nome,
+                    login_link=product_url('workspace'), client_id=user['pk_id_tbl_cliente'],
+                )
+                send_launch_bonus_email(
+                    user_email=email, user_name=nome, cliente_nome=nome,
+                    client_id=user['pk_id_tbl_cliente'],
+                )
+                enviar_notificacao_cadastro(usuario=user, executivo=executivo, auth_method='form')
+            except Exception:
+                app.logger.exception('Conta %s criada, mas o fluxo inicial de e-mails falhou', email)
+            flash('Conta criada com sucesso! Vamos preparar seu Workspace.', 'success')
+            return redirect(next_target, code=303)
+        return render_template('signup_tailwind.html', next_target=next_target, signup_errors=[], signup_name='', signup_email='')
 
     # ==================== LOGIN ====================
     
@@ -3074,6 +3129,17 @@ def init_routes(app):
                 enviar_notificacao_demetrius(usuario=contato, onboarding=onboarding, executivo=executivo)
             except Exception:
                 current_app.logger.exception('Falha ao notificar Demétrius sobre onboarding')
+            try:
+                from aicentralv2.services.onboarding_comercial import enviar_email_onboarding_usuario
+                enviar_email_onboarding_usuario(
+                    usuario=contato,
+                    organization_name=empresa,
+                    brand_name=empresa,
+                    project_name='Primeiro projeto do Workspace',
+                    perfil=perfil,
+                )
+            except Exception:
+                current_app.logger.exception('Falha ao enviar confirmação de onboarding para o usuário')
             flash('Tudo certo. Seu Workspace está pronto.', 'success')
             return redirect(url_for('index'))
         return render_template('onboarding_comercial.html', errors=[], form={})

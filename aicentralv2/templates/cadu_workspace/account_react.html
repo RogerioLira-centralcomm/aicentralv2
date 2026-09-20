@@ -15,10 +15,10 @@
   'usagePercent': account.position.usage_percentage if account.position else 0,
   'account': account,
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
-  'user': {'id': session.get('user_id'), 'name': session.get('user_name','Minha conta'), 'email': session.get('user_email',''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url',''), 'avatarBadge': session.get('cadu_avatar_badge','')},
+  'user': {'id': session.get('user_id'), 'name': session.get('user_name','Minha conta'), 'email': session.get('user_email',''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url',''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge','')},
   'urls': {
     'home': url_for('cadu_workspace.dashboard'), 'newConversation': '/workspace/conversas-v2-lab', 'projects': url_for('cadu_workspace.clean_projects'), 'brands': url_for('cadu_workspace.clean_brands'),
-    'agencia': url_for('cadu_workspace.account_page', section='agencia'), 'perfil': url_for('cadu_workspace.account_page', section='perfil'), 'equipe': url_for('cadu_workspace.account_page', section='equipe'),
+    'agencia': url_for('cadu_workspace.account_page', section='agencia'), 'perfil': url_for('cadu_workspace.account_page', section='perfil'), 'equipe': url_for('cadu_workspace.account_page', section='equipe'), 'integracoes': url_for('cadu_workspace.integrations'),
     'planos': url_for('cadu_workspace.account_page', section='planos'), 'creditos': url_for('cadu_workspace.account_page', section='creditos'),
     'faturamento': url_for('cadu_workspace.account_page', section='faturamento'),
     'agency': url_for('cadu_workspace.account_page', section='agencia'), 'profile': url_for('cadu_workspace.account_page', section='perfil'), 'usage': url_for('cadu_workspace.account_page', section='creditos'),

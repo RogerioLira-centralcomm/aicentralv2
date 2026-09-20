@@ -26,17 +26,15 @@ class NativeIdentityTest(TestCase):
             self.assertEqual(response.location, 'https://accounts.google.com/oauth')
             authorize.assert_called_once_with('cadu')
 
-    def test_google_signup_uses_php_provisioning_even_with_native_login(self):
-        response = self.client.get(
-            '/auth/google/signup?next=https://workspace.centralcomm.media/',
-            base_url='https://auth.centralcomm.media',
-        )
+    def test_google_signup_uses_native_provider_when_enabled(self):
+        with mock.patch('aicentralv2.cadu_identity.routes.google_authorization_url', return_value='https://accounts.google.com/oauth') as authorize:
+            response = self.client.get(
+                '/auth/google/signup?next=https://workspace.centralcomm.media/',
+                base_url='https://auth.centralcomm.media',
+            )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.location,
-            'https://cadu.centralcomm.media/google-login.php'
-            '?v3=1&nav=%2Fv3&return_to=https%3A%2F%2Fworkspace.centralcomm.media%2F&signup=1',
-        )
+        self.assertEqual(response.location, 'https://accounts.google.com/oauth')
+        authorize.assert_called_once_with('cadu')
 
     def test_callback_rotates_session_and_shares_cookie_between_products(self):
         with self.client.session_transaction(base_url='https://auth.centralcomm.media') as current:

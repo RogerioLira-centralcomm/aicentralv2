@@ -23,6 +23,8 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("inputMode=\"email\"", app)
         self.assertIn("cadu-auth-mobile-tools", app)
         self.assertIn("cadu-auth-noscript", base)
+        self.assertIn("cadu-auth-transition", app)
+        self.assertNotIn(".cadu-auth-flashes { position: fixed", css)
 
     def test_login_e_recuperacao_sem_autofocus(self):
         login = (TEMPLATES / "login_tailwind.html").read_text(encoding="utf-8")
@@ -36,6 +38,7 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("'page': 'login'", login)
         self.assertIn("'signupUrl'", login)
         self.assertIn("'forgotUrl'", login)
+        self.assertIn("'caduLogoUrl'", login)
         self.assertIn("base_auth_react.html", forgot)
         self.assertIn("base_auth_react.html", reset)
 
@@ -67,6 +70,9 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("'page': 'signup'", signup)
         self.assertIn("Criar conta com Google", app)
         self.assertIn("cadu_identity.google_signup", signup)
+        self.assertIn("'formAction'", signup)
+        self.assertIn('name="confirm_password"', app)
+        self.assertIn('Nome completo', app)
         self.assertIn("Ferramentas incluídas no Cadu", app)
         for tool in ("Workspace", "Planner", "Studio", "Reports", "Skills"):
             self.assertIn(tool, app)

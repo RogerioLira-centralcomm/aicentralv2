@@ -67,6 +67,20 @@ def _resolve_google_user(identity: dict) -> dict:
     return user
 
 
+def _provision_google_user(identity: dict) -> tuple[dict, dict]:
+    """Provision a new public Cadu account and return its commercial owner."""
+    from ..services.onboarding_comercial import provisionar_conta_publica
+
+    try:
+        return provisionar_conta_publica(
+            nome=str(identity.get('name') or identity.get('given_name') or identity['email'].split('@')[0]),
+            email=identity['email'],
+            senha=None,
+        )
+    except ValueError as exc:
+        raise GoogleLoginError(str(exc)) from exc
+
+
 @bp.get("")
 @bp.get("/")
 def index():
@@ -111,13 +125,19 @@ def google_login():
 
 @bp.get("/google/signup")
 def google_signup():
-    """Start the Cadu-owned Google signup/provisioning flow.
-
-    Native identity currently resolves existing users only. New account
-    provisioning remains owned by the Cadu PHP application, so signup must
-    use that flow even when native login is enabled for existing users.
-    """
-    target = safe_product_target(request.args.get("next"), product_url("cadu"))
+    """Start the Cadu-owned Google signup/provisioning flow."""
+    target = safe_product_target(
+        request.args.get("next"),
+        product_url("workspace" if current_app.config.get("CADU_GOOGLE_NATIVE_ENABLED", False) else "cadu"),
+    )
+    if current_app.config.get("CADU_GOOGLE_NATIVE_ENABLED", False):
+        try:
+            session["google_auth_next"] = target
+            session["google_auth_signup"] = True
+            return redirect(google_authorization_url("cadu"), code=302)
+        except GoogleLoginError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("login", next=target), code=302)
     login_url = str(
         current_app.config.get("CADU_GOOGLE_LOGIN_URL")
         or product_url("cadu", "/google-login.php")
@@ -130,6 +150,7 @@ def google_signup():
 @bp.get("/google/callback")
 def google_callback():
     target = safe_product_target(session.pop("google_auth_next", ""), product_url("centralx"))
+    signup = bool(session.pop("google_auth_signup", False))
     if request.args.get("error"):
         session.pop("google_auth_state", None)
         session.pop("google_auth_nonce", None)
@@ -139,13 +160,35 @@ def google_callback():
         return redirect(url_for("login", next=target), code=302)
     try:
         identity = exchange_code(request.args.get("code") or "", request.args.get("state") or "")
-        user = _resolve_google_user(identity)
+        executive = None
+        if signup:
+            user, executive = _provision_google_user(identity)
+        else:
+            user = _resolve_google_user(identity)
         _start_flask_session(
             user,
             auth_method="google",
             google_picture=str(identity.get("picture") or ""),
         )
         session["google_identity_sub"] = identity["sub"]
+        if signup:
+            session["new_account_signup"] = True
+            try:
+                from ..email_service import send_launch_bonus_email, send_welcome_email
+                from ..services.onboarding_comercial import enviar_notificacao_cadastro
+
+                send_welcome_email(
+                    user_email=user.get('email'), user_name=user.get('nome_completo'),
+                    cliente_nome=user.get('nome_completo'), login_link=product_url('workspace'),
+                    client_id=user.get('pk_id_tbl_cliente'),
+                )
+                send_launch_bonus_email(
+                    user_email=user.get('email'), user_name=user.get('nome_completo'),
+                    cliente_nome=user.get('nome_completo'), client_id=user.get('pk_id_tbl_cliente'),
+                )
+                enviar_notificacao_cadastro(usuario=user, executivo=executive, auth_method='google')
+            except Exception:
+                current_app.logger.exception('Conta Google criada, mas o fluxo inicial de e-mails falhou')
         return redirect(_authenticated_destination(target), code=303)
     except GoogleLoginError as exc:
         current_app.logger.warning("Login Google recusado: %s", exc)

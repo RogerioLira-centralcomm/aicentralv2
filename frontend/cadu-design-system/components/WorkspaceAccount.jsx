@@ -5,7 +5,7 @@ import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 
-const labels = {agencia: 'Agência', perfil: 'Perfil', equipe: 'Equipe', planos: 'Plano', creditos: 'Uso', faturamento: 'Faturamento'};
+const labels = {agencia: 'Agência', equipe: 'Equipe', faturamento: 'Faturamento', integracoes: 'Integrações', planos: 'Plano', perfil: 'Perfil', creditos: 'Uso'};
 const descriptions = {agencia: 'Identidade, pessoas e contextos compartilhados.', perfil: 'Como você aparece para o time.', equipe: 'Quem move a operação da agência.', planos: 'Capacidade para o ritmo da agência.', creditos: 'O que a equipe consumiu.', faturamento: 'Histórico financeiro da operação.'};
 const number = value => new Intl.NumberFormat('pt-BR').format(Number(value) || 0);
 const money = value => new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(Number(value) || 0);

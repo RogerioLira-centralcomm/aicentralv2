@@ -69,14 +69,20 @@ a { color: var(--cadu-accent-strong); }
 .cadu-auth-mobile-tools { display: none; }
 .cadu-auth-noscript { display: grid; gap: 6px; max-width: 420px; margin: 32px auto; padding: 18px; border: 1px solid var(--cadu-line); border-radius: var(--cadu-radius-md); background: var(--cadu-surface); color: var(--cadu-ink); font: 14px/1.45 var(--cadu-font-sans); }
 .cadu-auth-noscript span { color: var(--cadu-muted); font-size: 12px; }
-.cadu-auth-flashes { position: fixed; top: 16px; right: 18px; z-index: 10; display: grid; gap: 8px; width: min(360px, calc(100vw - 36px)); }
-.cadu-auth-flash { padding: 11px 13px; border: 1px solid var(--cadu-line); border-radius: var(--cadu-radius-sm); background: #fff; box-shadow: 0 12px 30px rgba(18,43,40,.12); color: var(--cadu-ink); font-size: 12px; }
-.cadu-auth-flash.is-error { border-color: #e6b6ad; color: #8c3022; }
+.cadu-auth-flashes { display: grid; gap: 8px; width: 100%; margin: 0 0 18px; }
+.cadu-auth-flash { padding: 12px 14px; border: 1px solid var(--cadu-line); border-radius: var(--cadu-radius-sm); background: var(--cadu-surface); color: var(--cadu-ink); font-size: 12px; line-height: 1.45; }
+.cadu-auth-flash.is-error { border-color: #e2b2a8; background: #fff7f5; color: #8c3022; }
 .cadu-auth-flash.is-success { border-color: #a6d8c4; color: #176046; }
 .cadu-auth-fallback { padding: 24px; color: var(--cadu-ink); }
+.cadu-auth-transition { position: fixed; inset: 0; z-index: 20; display: grid; place-content: center; gap: 10px; padding: 24px; background: rgba(243,246,248,.98); color: var(--cadu-ink); text-align: center; }
+.cadu-auth-transition-mark { display: grid; width: 76px; height: 76px; margin: 0 auto 8px; place-items: center; border-radius: 24px; background: var(--cadu-accent-soft); box-shadow: 0 18px 44px rgba(9,111,96,.18); animation: cadu-auth-logo-enter 2s cubic-bezier(.22,.8,.24,1) both; }
+.cadu-auth-transition-mark img { width: 48px; height: 48px; object-fit: contain; }
+.cadu-auth-transition strong { font-size: 18px; letter-spacing: -.035em; }
+.cadu-auth-transition span { color: var(--cadu-muted); font-size: 12px; }
 .cadu-auth-brand:focus-visible, .cadu-auth-google:focus-visible, .cadu-auth-submit:focus-visible, .cadu-auth-switch a:focus-visible, .cadu-auth-back:focus-visible, .cadu-auth-input-action:focus-visible { outline: 3px solid color-mix(in srgb, var(--cadu-accent) 55%, #fff); outline-offset: 3px; }
 .cadu-auth-mobile-tools summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--cadu-accent) 55%, #fff); outline-offset: -3px; }
 @keyframes cadu-auth-spin { to { transform: rotate(360deg); } }
+@keyframes cadu-auth-logo-enter { 0% { opacity: 0; transform: translateY(24px) scale(.78); } 40% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 
 @media (max-width: 960px) {
   .cadu-auth-main { grid-template-columns: minmax(390px, 1fr) minmax(290px, 36vw); }
@@ -118,4 +124,5 @@ a { color: var(--cadu-accent-strong); }
 @media (prefers-reduced-motion: reduce) {
   .cadu-auth-submit, .cadu-auth-google, .cadu-auth-input-wrap input { transition: none; }
   .cadu-auth-spinner { animation: none; }
+  .cadu-auth-transition-mark { animation: none; }
 }

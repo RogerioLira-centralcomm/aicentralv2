@@ -1,6 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./frontend/conversations-v2/**/*.{js,jsx}'],
+  // The conversation composer is shared with the workspace home. Keep both
+  // component trees in the scan so imported JSX utility classes are emitted
+  // into the conversations bundle as well.
+  content: [
+    './frontend/conversations-v2/**/*.{js,jsx}',
+    './frontend/cadu-design-system/**/*.{js,jsx}',
+  ],
   prefix: 'cv-',
   corePlugins: {preflight: false},
   theme: {

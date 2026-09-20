@@ -46,6 +46,7 @@ export default function App({bootstrap}) {
   const [diagnostics, setDiagnostics] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(() => !window.matchMedia('(max-width: 900px)').matches);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [conversationDockItems, setConversationDockItems] = useState(() => bootstrap.dock?.items || []);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [contextLoading, setContextLoading] = useState(true);
   const [openingId, setOpeningId] = useState(null);
@@ -97,10 +98,7 @@ export default function App({bootstrap}) {
     setHistoryLoading(true);
     try {
       const data = await request(bootstrap.endpoints.history);
-      // Keep the complete recent window in memory. The sidebar can then
-      // prioritize the selected project without hiding conversations from
-      // other projects.
-      setConversations(recentConversations(data.conversations, 500));
+      setConversations(recentConversations(data.conversations));
     } catch (_) {
       setConversations([]);
     } finally { setHistoryLoading(false); }
@@ -194,7 +192,17 @@ export default function App({bootstrap}) {
     } finally { setOpeningId(null); }
   }, [running, confirmDiscard, bootstrap.endpoints.history, fetchArtifact, trace, releasePreviews]);
 
-  const changeProject = useCallback(async (projectRef, {showHistory = true} = {}) => {
+  const loadProjectResources = useCallback(async projectRef => {
+    if (!projectRef) return;
+    const base = bootstrap.endpoints.projectResources || '/workspace/api/v2/projects';
+    const data = await request(`${base}/${encodeURIComponent(projectRef)}/resources`);
+    if (data.artifact) {
+      setArtifact(data.artifact); artifactRef.current = data.artifact;
+      setArtifactDirty(false); setArtifactOpen(true);
+    }
+  }, [bootstrap.endpoints.projectResources]);
+
+  const changeProject = useCallback(async (projectRef, {showHistory = false} = {}) => {
     if (running || !(await confirmDiscard())) return;
     setContextLoading(true);
     setRuntime('Atualizando contexto');
@@ -206,18 +214,23 @@ export default function App({bootstrap}) {
       setContext(data.context || {});
       reset();
       setHistoryOpen(showHistory);
+      await loadProjectResources(projectRef);
       trace('Contexto alterado', projects.find(item => item.ref === projectRef)?.name || 'Contexto pessoal');
     } catch (error) {
       trace('Falha ao alterar contexto', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
+  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext, loadProjectResources]);
 
   const loadBrandIdentity = useCallback(async brandRef => {
     const brandId = String(brandRef || '').replace(/^studio:/, '');
     if (!/^\d+$/.test(brandId)) return;
     const data = await request(`/workspace/api/v2/brands/${brandId}/identity`);
     if (Array.isArray(data.projects)) setProjects(data.projects);
+    if (data.artifact) {
+      setArtifact(data.artifact); artifactRef.current = data.artifact;
+      setArtifactDirty(false); setArtifactOpen(true);
+    }
   }, []);
 
   const changeBrand = useCallback(async brandRef => {
@@ -260,8 +273,9 @@ export default function App({bootstrap}) {
       setContext(data.context || {});
       if (requestedHistoryOpen.current) setHistoryOpen(true);
       requestedHistoryOpen.current = false;
+      await loadProjectResources(projectRef);
     }).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
-  }, [contextLoading, running, bootstrap.endpoints.context, trace]);
+  }, [contextLoading, running, bootstrap.endpoints.context, loadProjectResources, trace]);
 
   useEffect(() => {
     if (!requestedBrandRef.current || contextLoading || running) return;
@@ -434,9 +448,7 @@ export default function App({bootstrap}) {
     }
   }, [input, running, artifactDirty, confirmDiscard, attachments, homeAttachments, context, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
 
-  const initialPromptRef = useRef(new URLSearchParams(window.location.search).get('auto_send') === '1'
-    ? new URLSearchParams(window.location.search).get('prompt') || ''
-    : '');
+  const initialPromptRef = useRef(new URLSearchParams(window.location.search).get('prompt') || '');
   useEffect(() => {
     if (!initialPromptRef.current || running || contextLoading) return;
     const prompt = initialPromptRef.current;
@@ -518,15 +530,31 @@ export default function App({bootstrap}) {
 
   const activeProjectRef = String(context?.project_ref || '');
   const activeBrandRef = String(context?.brand_ref || '');
-  const dockItems = bootstrap.dock?.items || [];
+  const dockItems = conversationDockItems;
   const sharedDockItems = dockItems.map(item => ({
     ...item,
     active: item.kind === 'project' && String(item.projectRef || '') === activeProjectRef || item.kind === 'brand' && String(item.brandRef || (item.id ? `studio:${item.id}` : '')) === activeBrandRef,
   }));
+  const canReorderDock = dockItems.length > 0 && dockItems.every(item => item.shortcutId);
+  const dockShortcutEndpoint = bootstrap.endpoints?.dockShortcuts || '/workspace/api/dock/shortcuts';
+  const reorderDockShortcuts = useCallback(async next => {
+    const before = conversationDockItems;
+    setConversationDockItems(next);
+    try {
+      await request(`${dockShortcutEndpoint}/order`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({ids: next.map(item => item.shortcutId)}),
+      });
+    } catch (error) {
+      setConversationDockItems(before);
+      trace('Falha ao ordenar atalhos', error.message, 'error');
+    }
+  }, [conversationDockItems, dockShortcutEndpoint, trace]);
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} onReorderShortcuts={canReorderDock ? reorderDockShortcuts : undefined} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
         <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeId={conversationId} onOpen={openConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">

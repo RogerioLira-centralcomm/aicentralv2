@@ -8,11 +8,22 @@ function contextLabel(item, projects, brands) {
   return brand ? `Marca — ${brand.name}` : '';
 }
 
-export function Sidebar({conversations, projects = [], brands = [], activeId, onOpen, open, onClose, loading, openingId}) {
+export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', activeId, onOpen, open, onClose, loading, openingId}) {
   const [query, setQuery] = useState('');
-  const filtered = useMemo(() => conversations.filter(item =>
+  const ordered = useMemo(() => {
+    const active = String(activeProjectRef || '');
+    if (!active) return conversations;
+    return [...conversations].sort((left, right) => {
+      const leftActive = String(left.project_ref || '') === active;
+      const rightActive = String(right.project_ref || '') === active;
+      return Number(rightActive) - Number(leftActive);
+    });
+  }, [conversations, activeProjectRef]);
+  const filtered = useMemo(() => ordered.filter(item =>
     `${item.title || ''} ${contextLabel(item, projects, brands)}`.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR'))
-  ), [conversations, projects, brands, query]);
+  ), [ordered, projects, brands, query]);
+
+  useEffect(() => setQuery(''), [activeProjectRef]);
 
   useEffect(() => {
     if (!open) return undefined;

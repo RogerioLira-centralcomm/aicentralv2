@@ -38,7 +38,7 @@ class WorkspaceBrandsTest(TestCase):
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects')
     def test_dock_project_target_requires_the_current_agency_project(self, projects):
-        projects.return_value = [{'id': 'p-1', 'nome': 'Projeto permitido'}]
+        projects.return_value = [{'id': 'p-1', 'nome': 'Projeto permitido', 'brand_logo_url': '/logo.png'}]
         self.assertEqual(_authorized_dock_target(12, 'project', 'ci:p-1')['id'], 'p-1')
         self.assertIsNone(_authorized_dock_target(12, 'project', 'ci:outro-projeto'))
         projects.assert_called_with(12, status='todos')

@@ -133,6 +133,18 @@ test('v2 attachments require an explicit project usage choice', () => {
   assert.match(attachments, /use_as_knowledge/);
 });
 
+test('Workspace catalogs expose server-backed filters and preserve personalized dock items', () => {
+  const brands = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrands.jsx'), 'utf8');
+  const projects = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProjects.jsx'), 'utf8');
+  const brandsTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/brands_react.html'), 'utf8');
+  const projectsTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/projects_react.html'), 'utf8');
+  assert.match(brands, /Todas.*Analisadas.*Com ativos/s);
+  assert.match(projects, /Ativos.*Arquivados.*Todos/s);
+  assert.match(brandsTemplate, /'filterName':filter_name/);
+  assert.match(projectsTemplate, /'dock':\{'items':dock_items\}/);
+  assert.doesNotMatch(projectsTemplate, /'dock':\{'items':brand_items\[:3\]\+project_items\[:5\]\}/);
+});
+
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');

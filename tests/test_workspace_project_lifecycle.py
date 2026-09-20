@@ -16,6 +16,11 @@ def _client():
 
 
 class WorkspaceProjectLifecycleTest(TestCase):
+    def test_legacy_project_redirect_preserves_the_requested_view(self):
+        response = _client().get('/workspace/app/projetos/p-1?legacy=1')
+        self.assertEqual(response.status_code, 308)
+        self.assertEqual(response.headers['Location'], '/projetos/p-1?legacy=1')
+
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     def test_project_creation_requires_csrf(self, get_db):
         response = _client().post('/workspace/app/projetos', data={'name': 'Projeto novo'})

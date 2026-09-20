@@ -669,7 +669,7 @@ def _cadu_area(config_key: str, path: str) -> str:
     return str(current_app.config.get(config_key) or product_url("cadu", path))
 
 
-def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
+def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool = False) -> list[dict]:
     """Read brand records owned by the active Workspace organization."""
     try:
         with get_db().cursor() as cursor:
@@ -728,6 +728,8 @@ def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
                 brand['display_color'] = brand.get('primary_color') or '#176b5e'
             return brands
     except Exception:
+        if raise_on_error:
+            raise
         return []
 
 
@@ -1296,7 +1298,7 @@ def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int
             current_app.logger.exception('Não foi possível projetar a marca %s no projeto %s', brand_id, project_id)
 
 
-def _workspace_projects(client_id: int, query: str = "", status: str = "ativos") -> list[dict]:
+def _workspace_projects(client_id: int, query: str = "", status: str = "ativos", *, raise_on_error: bool = False) -> list[dict]:
     """Project dossiers retained from Cadu, always isolated by organization."""
     status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
     status_clause = "p.status = 'ativo'" if status == 'ativos' else "p.status = 'arquivado'" if status == 'arquivados' else "p.status <> 'deletado'"
@@ -1337,6 +1339,8 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos")
                     record.update({'tom_de_voz': '', 'publico': '', 'posicionamento': ''})
                 return _attach_project_identity(client_id, records)
         except Exception:
+            if raise_on_error:
+                raise
             return []
 
 
@@ -2298,7 +2302,13 @@ def brands():
         records = [brand for brand in records if int(brand.get('asset_count') or 0)]
     if request.args.get('legacy') != '1':
         projects = _workspace_projects(client_id)
-        all_brands = _workspace_brands(client_id)
+        catalog_error = ''
+        try:
+            all_brands = _workspace_brands(client_id, raise_on_error=True)
+        except Exception:
+            current_app.logger.exception('Não foi possível carregar o catálogo de marcas do cliente %s', client_id)
+            all_brands = []
+            catalog_error = 'As marcas estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
         catalog_records = all_brands
         if filter_name == 'auditadas':
             catalog_records = [brand for brand in catalog_records if brand.get('analysis_metadata')]
@@ -2323,7 +2333,8 @@ def brands():
         if not dock_items:
             dock_items = (list(all_brand_items.values())[:3] + project_items)[:8]
         return render_template('cadu_workspace/brands_react.html', brand_items=brand_items, project_items=project_items, dock_items=dock_items,
-                               query=query, filter_name=filter_name, usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
+                               query=query, filter_name=filter_name, catalog_error=catalog_error,
+                               usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
     return render_template('cadu_workspace/brands.html', brands=records, query=query, filter_name=filter_name)
 
 
@@ -2559,7 +2570,13 @@ def projects():
     status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
     records = _workspace_projects(client_id, query, status)
     if request.args.get('legacy') != '1':
-        catalog_records = _workspace_projects(client_id, status=status)
+        catalog_error = ''
+        try:
+            catalog_records = _workspace_projects(client_id, status=status, raise_on_error=True)
+        except Exception:
+            current_app.logger.exception('Não foi possível carregar o catálogo de projetos do cliente %s', client_id)
+            catalog_records = []
+            catalog_error = 'Os projetos estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
         items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
         brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
         shortcut_rows = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
@@ -2569,7 +2586,9 @@ def projects():
         dock_items += [{**project_catalog[row['target_ref']], 'shortcutId': row['id'], 'pinned': True} for row in shortcut_rows if row['shortcut_type'] == 'project' and row['target_ref'] in project_catalog]
         if not dock_items:
             dock_items = brands[:3] + list(project_catalog.values())[:5]
-        return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items, query=query, status=status, usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
+        return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items,
+                               query=query, status=status, catalog_error=catalog_error,
+                               usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
     return render_template('cadu_workspace/projects.html', projects=records, query=query, status=status)
 
 
@@ -2616,7 +2635,8 @@ def create_project():
 @login_required
 def project_detail(project_id):
     if request.path.startswith('/workspace/app/'):
-        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=308)
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
+                                **request.args.to_dict(flat=True)), code=308)
     client_id = int(session.get('cliente_id') or 0)
     project = _workspace_project(client_id, project_id)
     if not project:

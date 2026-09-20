@@ -108,7 +108,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(template, /react\/app\.js'\) }}\?v=4/);
   assert.doesNotMatch(template, /_app_sidebar\.html/);
   assert.doesNotMatch(template, /v2-lab\.js/);
-  assert.match(base, /request\.endpoint not in \('cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab'\)/);
+  assert.match(base, /request\.endpoint not in \('cadu_workspace\.dashboard', 'cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab'\)/);
 });
 
 test('conversation response model preserves execution order and explicit checklist selection', async () => {

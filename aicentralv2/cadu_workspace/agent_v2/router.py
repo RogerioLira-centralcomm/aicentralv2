@@ -22,10 +22,16 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("planner", "link_test", "medium", "decision", (), (), None, True)
     active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
     if active_artifact_type in {
-        "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html",
+        "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html", "meeting_summary", "meeting_agenda",
     } and _has(text, r"\b(ajust|alter|mud|troqu|revis|atualiz|corrig|edit|refin|melhore\b|melhorar\b)"):
         return IntentRoute("workspace", f"update_{active_artifact_type}", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), active_artifact_type)
+    if _has(text, r"\b(resumo|ata|s[ií]ntese).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(resumo|ata|s[ií]ntese)\b"):
+        return IntentRoute("workspace", "create_meeting_summary", "medium", "artifact_first",
+                           ("project",) if has_project else (), (), "meeting_summary")
+    if _has(text, r"\b(pauta|agenda).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(pauta|agenda)\b"):
+        return IntentRoute("workspace", "create_meeting_agenda", "medium", "artifact_first",
+                           ("project",) if has_project else (), (), "meeting_agenda")
     if _has(text, r"\b(cri(e|ar)|mont(e|ar)|estrutur(e|ar)|transform(e|ar)).{0,30}\bbriefing\b|\bbriefing\b.{0,20}\b(cri|mont|estrutur)"):
         # A request to structure a briefing begins a short discovery, not an
         # empty document. The executor promotes it to an artifact only after

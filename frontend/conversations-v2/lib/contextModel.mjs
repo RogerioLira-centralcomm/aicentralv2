@@ -2,6 +2,10 @@ export function projectContextPayload(projectRef) {
   return {project_ref: projectRef || null, brand_ref: null};
 }
 
+export function brandContextPayload(brandRef) {
+  return {project_ref: null, brand_ref: brandRef || null};
+}
+
 export function conversationPayload({
   message,
   requestId,

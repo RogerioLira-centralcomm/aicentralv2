@@ -98,7 +98,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     assert {
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
         "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.inspect_file_support",
-        "projects.prepare_source_upload",
+        "projects.prepare_source_upload", "projects.classify_intake",
         "brands.list", "brands.prepare_logo_upload",
         "brands.audit_status",
     } <= names
@@ -242,6 +242,19 @@ def test_prepare_project_upload_seals_request_id_in_intent(monkeypatch):
     assert result == {"upload_token": "signed"}
     assert captured["request_id"] == "be777b36-a973-419c-802a-886bf1d125b0"
     assert captured["use_as_knowledge"] is True
+
+
+def test_intake_classification_keeps_links_and_chat_text_out_of_the_index():
+    link = project_source_service.classify_intake(url="https://example.com/reuniao")
+    note = project_source_service.classify_intake(text="Ata da reunião: decisões e próximos passos.")
+    brief = project_source_service.classify_intake(filename="briefing-campanha.pdf", mime_type="application/pdf")
+
+    assert link["purpose"] == "project_attachment"
+    assert link["index_recommended"] is False
+    assert note["artifact_type"] == "meeting_summary"
+    assert note["purpose"] == "artifact"
+    assert brief["category"] == "brief"
+    assert brief["purpose"] == "knowledge_source"
 
 
 def test_project_commands_route_to_real_registry_capabilities():

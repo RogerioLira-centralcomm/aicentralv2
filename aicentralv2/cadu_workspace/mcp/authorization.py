@@ -75,4 +75,6 @@ def authorize(params: dict) -> MCPPrincipal:
         conversation_id=params.get("conversation_id"),
         surface=str(params.get("surface") or "conversations"),
         active_object=params.get("active_object"),
+        project_ref=params.get("project_ref"),
+        brand_ref=params.get("brand_ref"),
     ))

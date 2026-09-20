@@ -42,6 +42,8 @@ export async function uploadAttachments({
         }
         const body = new FormData();
         body.append('upload_token', intent.upload_token);
+        body.append('surface', 'conversations');
+        body.append('project_ref', projectRef);
         body.append('file', staged[index].file);
         const response = await fetchFn(intent.upload_url, {
           method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrfToken()}, body,

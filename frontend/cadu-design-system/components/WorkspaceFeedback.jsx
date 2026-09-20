@@ -9,7 +9,7 @@ export function AgentActionDrop({action, onOpen, onDragStart}) {
 
 export function ActivityDrawer({open, title = 'Atividade recente', items = [], onClose, onOpenItem}) {
   if (!open) return null;
-  return <aside className="cadu-ds-activity-drawer" role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button type="button" onClick={onClose} aria-label="Fechar atividade">×</button></header><div>{items.map(item => <button key={item.id} type="button" onClick={() => onOpenItem?.(item)}><span>{item.icon || '•'}</span><p><b>{item.title}</b><small>{item.detail}</small></p><time>{item.time}</time></button>)}</div></aside>;
+  return <CaduDialog className="cadu-ds-activity-drawer" label={title} closeOnBackdrop onClose={onClose}><header><h2>{title}</h2><button type="button" onClick={onClose} aria-label="Fechar atividade">×</button></header><div>{items.map(item => <button key={item.id} type="button" onClick={() => onOpenItem?.(item)}><span>{item.icon || '•'}</span><p><b>{item.title}</b><small>{item.detail}</small></p><time>{item.time}</time></button>)}</div></CaduDialog>;
 }
 
 export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onReorder}) {

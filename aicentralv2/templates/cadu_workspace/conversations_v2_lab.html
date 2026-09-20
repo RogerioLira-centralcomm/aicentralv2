@@ -1,7 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Conversas 2.0 — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=10">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=14">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" aria-label="Conversas 2.0"><noscript>Ative o JavaScript para usar a Conversas 2.0.</noscript></div>
@@ -15,6 +15,7 @@
 <script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
   'logo': url_for('static', filename='images/cadu/brand-icons/workspace-192.png'),
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
+  'brands': chat_brands,
   'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': session.get('user_photo_url', '')},
   'urls': {
     'home': url_for('cadu_workspace.dashboard'),
@@ -37,9 +38,10 @@
     'context': url_for('cadu_family.get_context'),
     'history': url_for('cadu_family.conversation_history'),
     'uploads': url_for('cadu_agent_v2.upload'),
+    'projectResources': '/workspace/api/v2/projects',
     'artifacts': '/workspace/api/v2/artifacts',
     'runs': '/workspace/api/v2/runs'
   }
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=10"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=14"></script>{% endblock %}

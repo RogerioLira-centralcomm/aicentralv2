@@ -23,6 +23,7 @@ export function validateAttachment(file) {
 
 export function createStagedAttachment(file, destination, previewUrl = '') {
   return {
+    localId: crypto.randomUUID(),
     name: file.name,
     file,
     previewUrl,
@@ -31,5 +32,6 @@ export function createStagedAttachment(file, destination, previewUrl = '') {
     destination,
     uploading: false,
     error: false,
+    intake: {state: 'pending'},
   };
 }

@@ -53,6 +53,52 @@ def inspect_file_support(filename: str, mime_type: str = "") -> dict:
             "reason": "O formato ainda não possui um adapter seguro no upload MCP."}
 
 
+def classify_intake(*, filename: str = "", mime_type: str = "", url: str = "", text: str = "",
+                    requested_purpose: str = "") -> dict:
+    """Classify a proposed Chat input before any file, URL or text is persisted.
+
+    This is deliberately deterministic and read-only. Rich extraction, OCR and
+    transcription are later jobs; the first decision must be fast, explainable
+    and safe about indexing.
+    """
+    requested_purpose = str(requested_purpose or "").strip().lower()
+    if requested_purpose not in {"", "conversation", "knowledge_source", "project_attachment", "artifact"}:
+        raise BadRequest("Finalidade de entrada inválida.")
+    normalized_url = str(url or "").strip()
+    normalized_text = str(text or "").strip()
+    if normalized_url:
+        if not re.match(r"^https?://[^\s/$.?#][^\s]*$", normalized_url, re.IGNORECASE):
+            raise BadRequest("Informe uma URL http ou https válida.")
+        return {
+            "input_type": "link", "purpose": requested_purpose or "project_attachment",
+            "category": "reference", "index_recommended": False,
+            "processing": "link_extraction_pending", "requires_confirmation": True,
+            "reason": "Links são salvos como referência primeiro; a extração e a indexação exigem confirmação.",
+        }
+    if filename:
+        support = inspect_file_support(filename, mime_type)
+        source = {"name": support["filename"], "suffix": support.get("extension"), "mime": support.get("mime_type")}
+        classification = _classify(source, None)
+        can_index = bool(support.get("can_index"))
+        purpose = requested_purpose or ("knowledge_source" if can_index and classification["category"] in {"brief", "research", "report", "media_plan"} else "project_attachment")
+        return {
+            "input_type": "file", "purpose": purpose, "category": classification["category"],
+            "classification": classification, "index_recommended": bool(purpose == "knowledge_source" and can_index),
+            "processing": support.get("processing"), "support": support,
+            "requires_confirmation": purpose == "knowledge_source",
+        }
+    if normalized_text:
+        haystack = normalized_text[:5000].casefold()
+        artifact_type = "meeting_summary" if any(token in haystack for token in ("reunião", "reuniao", "ata", "decisões", "decisoes")) else "meeting_agenda" if any(token in haystack for token in ("pauta", "agenda")) else "note"
+        return {
+            "input_type": "text", "purpose": requested_purpose or "artifact", "category": "reference",
+            "artifact_type": artifact_type, "index_recommended": False,
+            "processing": "structured_artifact", "requires_confirmation": False,
+            "reason": "Texto do chat deve começar como artifact editável; salvar como fonte é uma decisão separada.",
+        }
+    raise BadRequest("Informe um arquivo, link ou texto para classificar.")
+
+
 def _serializer():
     return URLSafeTimedSerializer(current_app.secret_key, salt="cadu-mcp-project-upload-v1")
 

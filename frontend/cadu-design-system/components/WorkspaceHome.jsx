@@ -1,12 +1,14 @@
 import React, {useMemo, useState} from 'react';
-import {CaduSolutionSwitcher, ProjectSelector} from './WorkspaceSelectors';
+import {ProjectSelector} from './WorkspaceSelectors';
 import {CaduDock} from './CaduDock';
 import {WorkspaceComposer} from './WorkspaceComposer';
 import {ResumeCardCollection} from './ResumeCards';
-import {ActivityDrawer, ShortcutManagerDialog, UndoToast, WorkspaceAccountControl, WorkspaceAccountMenu} from './WorkspaceFeedback';
+import {ActivityDrawer, ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {csrf, request} from '../../conversations-v2/lib/api';
 import {workspaceSolutionItems} from '../workspaceSolutions';
+import {openProjectChat} from '../workspaceNavigation';
+import {WorkspaceNavbar} from './WorkspaceNavbar';
 
 function withQuery(url, values) {
   const target = new URL(url, window.location.origin);
@@ -108,15 +110,13 @@ export function WorkspaceHome({bootstrap}) {
   const contextVisuals = projects.filter(project => project.previewUrl).slice(0, 4);
   return <div className="cadu-ds-home-shell">
     <main className="cadu-ds-home-main">
-      <header className="cadu-ds-home-navbar">
-        <CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={solutions} activeId="workspace"/>
+      <WorkspaceNavbar logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} onOpenAccount={() => setAccountOpen(true)}>
         <span className="cadu-ds-agency-label">{home.agency?.name || 'Minha agência'}</span>
         <ProjectSelector agencyName={home.agency?.name} value={projectRef} items={projects} onChange={selectProject}/>
         <label className="cadu-ds-home-search"><span className="cadu-ds-sr-only">Buscar projetos no workspace</span><input value={searchValue} onChange={event => setSearchValue(event.target.value)} placeholder="Buscar projetos"/></label>
-        <WorkspaceAccountControl user={bootstrap.user} onOpen={() => setAccountOpen(true)}/>
-      </header>
+      </WorkspaceNavbar>
       <div className="cadu-ds-home-workarea">
-        <CaduDock brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={brand => { if (brand.href) window.location.assign(brand.href); }} onOpenResource={item => openProject(projects.find(project => project.id === item.projectRef))} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={brand => { if (brand.href) window.location.assign(brand.href); }} onOpenResource={item => openProjectChat(bootstrap.urls.newConversation, item)} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace {home.agency?.name ? `da ${home.agency.name}` : ''}</p><h1>{normalizedSearch ? 'Contextos encontrados' : selectedProject ? selectedProject.name : 'O que vamos resolver hoje?'}</h1><p>{normalizedSearch ? `${matchedProjects.length} projeto${matchedProjects.length === 1 ? '' : 's'} encontrado${matchedProjects.length === 1 ? '' : 's'} para “${searchValue.trim()}”.` : selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Comece uma conversa ou escolha um contexto para trabalhar.'}</p></div>
         {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <><WorkspaceComposer value={value} onChange={setValue} onSubmit={submit} context={selectedProject ? {label: selectedProject.name} : null} onClearContext={() => setProjectRef('')} onAttach={() => setToast('Arraste um arquivo para anexar ao chat.')} onContextDrop={dropContext}/>

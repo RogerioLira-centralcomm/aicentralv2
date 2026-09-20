@@ -1,10 +1,12 @@
 import React, {useMemo, useState} from 'react';
 import {CaduDock} from './CaduDock';
-import {WorkspaceAccountControl, WorkspaceAccountMenu} from './WorkspaceFeedback';
+import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
-import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {CaduDialog} from './CaduDialog';
 import {workspaceSolutionItems} from '../workspaceSolutions';
+import {openProjectChat} from '../workspaceNavigation';
+import {WorkspaceNavbar} from './WorkspaceNavbar';
+import {WorkspaceCatalog} from './WorkspaceCatalog';
 
 function catalogHref(base, key, value, query) {
   const params = new URLSearchParams();
@@ -24,16 +26,10 @@ export function WorkspaceProjects({bootstrap}) {
 
   return <div className="cadu-ds-home-shell cadu-ds-brands-shell">
     <main className="cadu-ds-home-main">
-      <header className="cadu-ds-home-navbar"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={solutions} activeId="workspace"/><strong>Projetos</strong><a className="cadu-ds-brands-nav" href={bootstrap.urls.brands}>Marcas</a><div className="cadu-ds-project-navbar__spacer"/><WorkspaceAccountControl user={bootstrap.user} onOpen={() => setAccount(true)}/></header>
+      <WorkspaceNavbar logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} onOpenAccount={() => setAccount(true)}><strong>Projetos</strong><a className="cadu-ds-brands-nav" href={bootstrap.urls.brands}>Marcas</a></WorkspaceNavbar>
       <div className="cadu-ds-home-workarea cadu-ds-catalog-workarea">
-        <CaduDock brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onManageShortcuts={() => window.location.assign(bootstrap.urls.home)} onOpenBrand={item => item.href && window.location.assign(item.href)} onOpenResource={item => item.href && window.location.assign(item.href)} onOpenUsage={() => setAccount(true)}/>
-        <section className="cadu-ds-brands-content">
-          <header><div><p>Trabalho em contexto</p><h1>Projetos que continuam com a equipe</h1><span>Direção, fontes e entregas organizadas para a próxima decisão.</span></div><button className="is-primary" onClick={() => setCreating(true)}>Novo projeto</button></header>
-          {bootstrap.catalogError && <div className="cadu-ds-catalog-error" role="alert"><b>Não foi possível carregar os projetos.</b><span>{bootstrap.catalogError}</span><button type="button" onClick={() => window.location.reload()}>Tentar novamente</button></div>}
-          <div className="cadu-ds-catalog-filters" aria-label="Filtrar projetos">{[['ativos', 'Ativos'], ['arquivados', 'Arquivados'], ['todos', 'Todos']].map(([value, label]) => <a key={value} href={catalogHref(bootstrap.urls.projects, 'status', value, query)} aria-current={bootstrap.status === value ? 'page' : undefined}>{label}</a>)}</div>
-          <div className="cadu-ds-brands-tools"><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar projeto, marca ou contexto" aria-label="Buscar projetos"/><span>{projects.length} projeto{projects.length === 1 ? '' : 's'}</span></div>
-          {!bootstrap.catalogError && <div className="cadu-ds-brands-grid">{projects.map(project => <a href={project.href} key={project.id}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><div><small>{project.status === 'arquivado' ? 'Arquivado' : project.brandName || 'Projeto'}</small><b>{project.name}</b><p>{project.description || 'Reúna o briefing, as fontes e as decisões que orientam este trabalho.'}</p><em>{project.sources} fonte{project.sources === 1 ? '' : 's'} pronta{project.sources === 1 ? '' : 's'}</em></div></a>)}{!projects.length && <div className="cadu-ds-brands-empty"><b>{query.trim() ? 'Nenhum projeto corresponde à busca.' : bootstrap.status === 'arquivados' ? 'Nenhum projeto arquivado.' : 'Comece criando o primeiro projeto.'}</b>{!query.trim() && bootstrap.status !== 'arquivados' && <button type="button" onClick={() => setCreating(true)}>Criar projeto</button>}</div>}</div>}
-        </section>
+        <CaduDock brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={item => item.href && window.location.assign(item.href)} onOpenResource={item => openProjectChat(bootstrap.urls.newConversation, item)} onOpenUsage={() => setAccount(true)}/>
+        <WorkspaceCatalog eyebrow="Trabalho em contexto" title="Projetos que continuam com a equipe" description="Direção, fontes e entregas organizadas para a próxima decisão." actionLabel="Novo projeto" onAction={() => setCreating(true)} error={bootstrap.catalogError} filters={[["ativos", "Ativos"], ["arquivados", "Arquivados"], ["todos", "Todos"]].map(([value, label]) => ({value, label, active: bootstrap.status === value, href: catalogHref(bootstrap.urls.projects, 'status', value, query)}))} query={query} onQueryChange={setQuery} queryLabel="Buscar projeto, marca ou contexto" countLabel={`${projects.length} projeto${projects.length === 1 ? '' : 's'}`}><div className="cadu-ds-brands-grid">{projects.map(project => <a href={project.href} key={project.id}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><div><small>{project.status === 'arquivado' ? 'Arquivado' : project.brandName || 'Projeto'}</small><b>{project.name}</b><p>{project.description || 'Reúna o briefing, as fontes e as decisões que orientam este trabalho.'}</p><em>{project.sources} fonte{project.sources === 1 ? '' : 's'} pronta{project.sources === 1 ? '' : 's'}</em></div></a>)}{!projects.length && <div className="cadu-ds-brands-empty"><b>{query.trim() ? 'Nenhum projeto corresponde à busca.' : bootstrap.status === 'arquivados' ? 'Nenhum projeto arquivado.' : 'Comece criando o primeiro projeto.'}</b>{!query.trim() && bootstrap.status !== 'arquivados' && <button type="button" onClick={() => setCreating(true)}>Criar projeto</button>}</div>}</div></WorkspaceCatalog>
       </div>
     </main>
     <WorkspaceAccountMenu open={account} onClose={() => setAccount(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>

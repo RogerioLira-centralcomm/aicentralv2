@@ -1,10 +1,12 @@
 import React, {useMemo, useState} from 'react';
 import {CaduDock} from './CaduDock';
-import {WorkspaceAccountControl, WorkspaceAccountMenu} from './WorkspaceFeedback';
+import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
-import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {CaduDialog} from './CaduDialog';
 import {workspaceSolutionItems} from '../workspaceSolutions';
+import {openProjectChat} from '../workspaceNavigation';
+import {WorkspaceNavbar} from './WorkspaceNavbar';
+import {WorkspaceCatalog} from './WorkspaceCatalog';
 
 function catalogHref(base, key, value, query) {
   const params = new URLSearchParams();
@@ -24,16 +26,10 @@ export function WorkspaceBrands({bootstrap}) {
 
   return <div className="cadu-ds-home-shell cadu-ds-brands-shell">
     <main className="cadu-ds-home-main">
-      <header className="cadu-ds-home-navbar"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={solutions} activeId="workspace"/><a className="cadu-ds-brands-nav" href={bootstrap.urls.projects}>Projetos</a><strong>Marcas</strong><div className="cadu-ds-project-navbar__spacer"/><WorkspaceAccountControl user={bootstrap.user} onOpen={() => setAccountOpen(true)}/></header>
+      <WorkspaceNavbar logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} onOpenAccount={() => setAccountOpen(true)}><a className="cadu-ds-brands-nav" href={bootstrap.urls.projects}>Projetos</a><strong>Marcas</strong></WorkspaceNavbar>
       <div className="cadu-ds-home-workarea cadu-ds-catalog-workarea">
-        <CaduDock brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onManageShortcuts={() => window.location.assign(bootstrap.urls.home)} onOpenBrand={item => item.href && window.location.assign(item.href)} onOpenResource={item => item.href && window.location.assign(item.href)} onOpenUsage={() => setAccountOpen(true)}/>
-        <section className="cadu-ds-brands-content">
-          <header><div><p>Gestão de marca</p><h1>Identidades que orientam o trabalho</h1><span>Reúna marca, referências e direção antes de levar o contexto para um projeto.</span></div><button className="is-primary" onClick={() => setCreating(true)}>Nova marca</button></header>
-          {bootstrap.catalogError && <div className="cadu-ds-catalog-error" role="alert"><b>Não foi possível carregar as marcas.</b><span>{bootstrap.catalogError}</span><button type="button" onClick={() => window.location.reload()}>Tentar novamente</button></div>}
-          <div className="cadu-ds-catalog-filters" aria-label="Filtrar marcas">{[['todas', 'Todas'], ['auditadas', 'Analisadas'], ['com-ativos', 'Com ativos']].map(([value, label]) => <a key={value} href={catalogHref(bootstrap.urls.brands, 'filtro', value, query)} aria-current={bootstrap.filterName === value ? 'page' : undefined}>{label}</a>)}</div>
-          <div className="cadu-ds-brands-tools"><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar marca" aria-label="Buscar marcas"/><span>{brands.length} marca{brands.length === 1 ? '' : 's'}</span></div>
-          {!bootstrap.catalogError && <div className="cadu-ds-brands-grid">{brands.map(brand => <a href={brand.href} key={brand.id}><VisualIdentity src={brand.logoUrl} initials={brand.visualInitials} label={brand.name} color={brand.visualColor}/><div><small>{brand.sector || 'Marca'}</small><b>{brand.name}</b><p>{brand.summary || (brand.audited ? 'Identidade analisada e disponível.' : 'Adicione referências para construir a identidade.')}</p><em>{brand.audited ? 'Analisada' : 'Em construção'} · {brand.assetCount} ativo{brand.assetCount === 1 ? '' : 's'}</em></div></a>)}{!brands.length && <div className="cadu-ds-brands-empty"><b>{query.trim() ? 'Nenhuma marca corresponde à busca.' : bootstrap.filterName === 'todas' ? 'Comece registrando a primeira marca.' : 'Nenhuma marca neste filtro.'}</b>{!query.trim() && bootstrap.filterName === 'todas' && <button type="button" onClick={() => setCreating(true)}>Criar marca</button>}</div>}</div>}
-        </section>
+        <CaduDock brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={item => item.href && window.location.assign(item.href)} onOpenResource={item => openProjectChat(bootstrap.urls.newConversation, item)} onOpenUsage={() => setAccountOpen(true)}/>
+        <WorkspaceCatalog eyebrow="Gestão de marca" title="Identidades que orientam o trabalho" description="Reúna marca, referências e direção antes de levar o contexto para um projeto." actionLabel="Nova marca" onAction={() => setCreating(true)} error={bootstrap.catalogError} filters={[["todas", "Todas"], ["auditadas", "Analisadas"], ["com-ativos", "Com ativos"]].map(([value, label]) => ({value, label, active: bootstrap.filterName === value, href: catalogHref(bootstrap.urls.brands, 'filtro', value, query)}))} query={query} onQueryChange={setQuery} queryLabel="Buscar marcas" countLabel={`${brands.length} marca${brands.length === 1 ? '' : 's'}`}><div className="cadu-ds-brands-grid">{brands.map(brand => <a href={brand.href} key={brand.id}><VisualIdentity src={brand.logoUrl} initials={brand.visualInitials} label={brand.name} color={brand.visualColor}/><div><small>{brand.sector || 'Marca'}</small><b>{brand.name}</b><p>{brand.summary || (brand.audited ? 'Identidade analisada e disponível.' : 'Adicione referências para construir a identidade.')}</p><em>{brand.audited ? 'Analisada' : 'Em construção'} · {brand.assetCount} ativo{brand.assetCount === 1 ? '' : 's'}</em></div></a>)}{!brands.length && <div className="cadu-ds-brands-empty"><b>{query.trim() ? 'Nenhuma marca corresponde à busca.' : bootstrap.filterName === 'todas' ? 'Comece registrando a primeira marca.' : 'Nenhuma marca neste filtro.'}</b>{!query.trim() && bootstrap.filterName === 'todas' && <button type="button" onClick={() => setCreating(true)}>Criar marca</button>}</div>}</div></WorkspaceCatalog>
       </div>
     </main>
     <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>

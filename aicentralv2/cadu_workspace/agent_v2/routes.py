@@ -39,7 +39,26 @@ def conversations_v2_lab():
     # This screen belongs to its own blueprint, so it does not pass through the
     # Workspace hook that normally creates the shared Cadu CSRF token.
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
-    return render_template("cadu_workspace/conversations_v2_lab.html")
+    dock_brands = []
+    try:
+        current = resolve()
+        from ..routes import _workspace_brands
+        links = repository.project_brand_links(current.client_id)
+        project_counts = {}
+        for link in links:
+            ref = str(link.get("brand_ref") or "")
+            project_counts[ref] = project_counts.get(ref, 0) + 1
+        dock_brands = [{
+            "id": str(brand["id"]), "kind": "brand", "brandRef": f"studio:{brand['id']}",
+            "title": str(brand.get("name") or "Marca"), "name": str(brand.get("name") or "Marca"),
+            "logoUrl": str(brand.get("display_logo") or ""),
+            "visualInitials": str(brand.get("display_initials") or "M"),
+            "visualColor": str(brand.get("display_color") or "#176b5e"),
+            "projectCount": project_counts.get(f"studio:{brand['id']}", 0),
+        } for brand in _workspace_brands(current.client_id) if brand.get("display_logo")]
+    except Exception:
+        current_app.logger.exception("Não foi possível preparar marcas para a dock do Chat")
+    return render_template("cadu_workspace/conversations_v2_lab.html", chat_brands=dock_brands)
 
 
 @lab_bp.get("/workspace/observabilidade")
@@ -81,6 +100,8 @@ def api_error(exc):
         current_app.logger.exception("Runtime Cadu indisponível")
         return jsonify(error="O agente desta conversa está temporariamente indisponível. Tente novamente em instantes."), 503
     current_app.logger.exception("Falha na API Cadu Conversations V2")
+    if request.path.endswith("/uploads"):
+        return jsonify(error="Não foi possível anexar o arquivo agora. Tente novamente em instantes."), 503
     return jsonify(error="Não foi possível concluir a operação."), 503
 
 
@@ -102,6 +123,72 @@ def mcp_token():
                       project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))
     return jsonify(token=issue(current, exposure), expires_in=MAX_AGE_SECONDS,
                    endpoint="/workspace/mcp", exposure=exposure, context=current.to_dict())
+
+
+@bp.get("/brands/<int:brand_id>/identity")
+def brand_identity():
+    """Return a read-only identity artifact for a brand selected in Chat."""
+    current = resolve(surface=request.args.get("surface") or "conversations")
+    brand_ref = f"studio:{brand_id}"
+    allowed = {item["ref"] for item in repository.entities(current.client_id)}
+    if brand_ref not in allowed:
+        abort(404, description="Marca não encontrada neste ambiente.")
+    from ..routes import _workspace_brands, _workspace_projects
+    brand = next((item for item in _workspace_brands(current.client_id) if int(item.get("id") or 0) == brand_id), None)
+    if not brand:
+        abort(404, description="Identidade da marca indisponível.")
+    profile = brand.get("brand_profile") or {}
+    colors = profile.get("color_palette") or []
+    if not isinstance(colors, list):
+        colors = []
+    colors = [str(color).strip() for color in colors if str(color).strip()][:8]
+    for color in (brand.get("primary_color"), brand.get("secondary_color")):
+        if color and color not in colors:
+            colors.append(str(color))
+    fonts = profile.get("fonts") or []
+    if isinstance(fonts, str):
+        fonts = [fonts]
+    fonts = [str(font).strip() for font in fonts if str(font).strip()][:6]
+    project_refs = {str(link.get("project_ref") or "") for link in repository.project_brand_links(current.client_id)
+                    if str(link.get("brand_ref") or "") == brand_ref}
+    projects = [{"ref": f"ci:{item.get('id')}", "name": str(item.get("nome") or "Projeto")}
+                for item in _workspace_projects(current.client_id, status="ativos")
+                if f"ci:{item.get('id')}" in project_refs]
+    return jsonify(
+        projects=projects,
+        artifact={
+            "type": "brand_identity", "title": f"Identidade — {brand.get('name') or 'Marca'}",
+            "content": {
+                "name": brand.get("name"), "logo_url": brand.get("display_logo"), "summary": profile.get("brand_summary") or profile.get("positioning") or brand.get("display_summary") or "Identidade da marca disponível para orientar esta conversa.",
+                "colors": colors, "fonts": fonts,
+                "details": [
+                    {"label": "Posicionamento", "value": profile.get("positioning") or "Ainda não definido."},
+                    {"label": "Tom de voz", "value": profile.get("tone_of_voice") or brand.get("tone_of_voice") or "Ainda não definido."},
+                    {"label": "Público", "value": profile.get("target_audience") or "Ainda não definido."},
+                ],
+                "projects": projects,
+            },
+        },
+    )
+
+
+@bp.get("/projects/<path:project_ref>/resources")
+def project_resource_map(project_ref):
+    """Expose the canonical Resource Registry as a navigable Chat artifact."""
+    current = resolve(surface=request.args.get("surface") or "conversations", project_ref=project_ref)
+    if current.project_ref != project_ref:
+        abort(404, description="Projeto não encontrado neste ambiente.")
+    from types import SimpleNamespace
+    from .. import project_resource_service
+    from .service import _project_map_content
+    registry = project_resource_service.list_for_context(current)
+    entities = {item["ref"]: item for item in repository.entities(current.client_id)}
+    project_name = str((entities.get(project_ref) or {}).get("name") or "Projeto")
+    content = _project_map_content({
+        "context": current,
+        "resolved_context": SimpleNamespace(values={"projects.list_resources": registry}),
+    }, {"title": f"Recursos — {project_name}"})
+    return jsonify(artifact={"type": "project_map", "title": content["title"], "content": content})
 
 
 @bp.post("/route")

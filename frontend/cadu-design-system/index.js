@@ -1,4 +1,6 @@
 export {ThemeProvider, useCaduTheme} from './ThemeProvider';
+export {Icon} from './components/Icon';
+export {CaduDialog} from './components/CaduDialog';
 export {CaduSidebar} from './components/CaduSidebar';
 export {CaduTopbar} from './components/CaduTopbar';
 export {CaduSurface} from './components/CaduSurface';
@@ -6,8 +8,14 @@ export {CaduSolutionSwitcher, AgencySwitcher, ProjectSelector} from './component
 export {CaduDock, DockDropZone, DockBrandShortcut, DockResourceShortcut, DockUsageRing} from './components/CaduDock';
 export {VisualIdentity} from './components/VisualIdentity';
 export {WorkspaceComposer, ContextDropZone} from './components/WorkspaceComposer';
+export {WorkspaceNavbar} from './components/WorkspaceNavbar';
+export {WorkspaceCatalog, CatalogError, CatalogFilters} from './components/WorkspaceCatalog';
+export {WorkspaceLegacyChrome} from './components/WorkspaceLegacyChrome';
+export {WorkspaceAccount} from './components/WorkspaceAccount';
 export {ResumeCard, ResumeCardCollection} from './components/ResumeCards';
-export {AgentActionDrop, ActivityDrawer, ShortcutManagerDialog, WorkspaceAccountMenu, UndoToast, PermissionState, LoadingSkeleton} from './components/WorkspaceFeedback';
+export {AgentActionDrop, ActivityDrawer, ShortcutManagerDialog, WorkspaceAccountControl, WorkspaceAccountMenu, UndoToast, PermissionState, LoadingSkeleton} from './components/WorkspaceFeedback';
 export {WorkspaceHome} from './components/WorkspaceHome';
 export {WorkspaceProject} from './components/WorkspaceProject';
+export {WorkspaceBrands} from './components/WorkspaceBrands';
+export {WorkspaceProjects} from './components/WorkspaceProjects';
 export {workspaceSolutionItems} from './workspaceSolutions';

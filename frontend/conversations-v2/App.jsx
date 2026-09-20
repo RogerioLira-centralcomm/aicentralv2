@@ -8,12 +8,10 @@ import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult} from './lib/responseModel.mjs';
 import {attachmentIssues, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
 import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
-import {conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
+import {brandContextPayload, conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {Icon} from './lib/icons';
-import {CaduDock} from '../cadu-design-system/components/CaduDock';
-import {CaduSolutionSwitcher} from '../cadu-design-system/components/WorkspaceSelectors';
-import {WorkspaceAccountControl, WorkspaceAccountMenu} from '../cadu-design-system/components/WorkspaceFeedback';
+import {CaduDock, CaduSolutionSwitcher, WorkspaceAccountControl, WorkspaceAccountMenu} from '../cadu-design-system';
 import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
 
 const emptyTitle = 'Novo chat';
@@ -21,6 +19,7 @@ const emptyTitle = 'Novo chat';
 export default function App({bootstrap}) {
   const [context, setContext] = useState({});
   const [projects, setProjects] = useState([]);
+  const [brands, setBrands] = useState(() => bootstrap.brands || []);
   const [conversations, setConversations] = useState([]);
   const [conversationId, setConversationId] = useState(null);
   const [title, setTitle] = useState(emptyTitle);
@@ -103,6 +102,12 @@ export default function App({bootstrap}) {
       const data = await request(bootstrap.endpoints.context);
       setContext(data.context || {});
       setProjects((data.entities || []).filter(item => item.kind === 'project'));
+      setBrands(current => {
+        const fromContext = (data.entities || []).filter(item => item.kind === 'brand').map(item => ({
+          ...item, logoUrl: item.logo_url, visualInitials: item.name, visualColor: '#176b5e',
+        }));
+        return fromContext.map(item => ({...item, ...(current.find(existing => (existing.ref || existing.brandRef) === item.ref) || {})}));
+      });
     } catch (error) {
       trace('Contexto indisponível', error.message, 'error');
     } finally { setContextLoading(false); }
@@ -172,7 +177,17 @@ export default function App({bootstrap}) {
     } finally { setOpeningId(null); }
   }, [running, confirmDiscard, bootstrap.endpoints.history, fetchArtifact, trace, releasePreviews]);
 
-  const changeProject = useCallback(async projectRef => {
+  const loadProjectResources = useCallback(async projectRef => {
+    if (!projectRef) return;
+    const base = bootstrap.endpoints.projectResources || '/workspace/api/v2/projects';
+    const data = await request(`${base}/${encodeURIComponent(projectRef)}/resources`);
+    if (data.artifact) {
+      setArtifact(data.artifact); artifactRef.current = data.artifact;
+      setArtifactDirty(false); setArtifactOpen(true);
+    }
+  }, [bootstrap.endpoints.projectResources]);
+
+  const changeProject = useCallback(async (projectRef, {showHistory = false} = {}) => {
     if (running || !(await confirmDiscard())) return;
     setContextLoading(true);
     setRuntime('Atualizando contexto');
@@ -183,15 +198,46 @@ export default function App({bootstrap}) {
       });
       setContext(data.context || {});
       reset();
-      setHistoryOpen(false);
+      setHistoryOpen(showHistory);
+      await loadProjectResources(projectRef);
       trace('Contexto alterado', projects.find(item => item.ref === projectRef)?.name || 'Contexto pessoal');
     } catch (error) {
       trace('Falha ao alterar contexto', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
+  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext, loadProjectResources]);
+
+  const loadBrandIdentity = useCallback(async brandRef => {
+    const brandId = String(brandRef || '').replace(/^studio:/, '');
+    if (!/^\d+$/.test(brandId)) return;
+    const data = await request(`/workspace/api/v2/brands/${brandId}/identity`);
+    if (Array.isArray(data.projects)) setProjects(data.projects);
+    if (data.artifact) {
+      setArtifact(data.artifact); artifactRef.current = data.artifact;
+      setArtifactDirty(false); setArtifactOpen(true);
+    }
+  }, []);
+
+  const changeBrand = useCallback(async brandRef => {
+    if (running || !(await confirmDiscard())) return;
+    setContextLoading(true); setRuntime('Atualizando marca');
+    try {
+      const data = await request(bootstrap.endpoints.context, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify(brandContextPayload(brandRef)),
+      });
+      setContext(data.context || {}); reset(); setHistoryOpen(true);
+      await loadBrandIdentity(brandRef);
+      trace('Marca aplicada à conversa');
+    } catch (error) {
+      trace('Falha ao abrir a marca', error.message, 'error');
+      await loadContext();
+    } finally { setRuntime(''); setContextLoading(false); }
+  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, loadBrandIdentity, trace, loadContext]);
 
   const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || '');
+  const requestedBrandRef = useRef(new URLSearchParams(window.location.search).get('brand_ref') || '');
+  const requestedHistoryOpen = useRef(new URLSearchParams(window.location.search).get('history') === '1');
   const requestedConversationId = useRef(new URLSearchParams(window.location.search).get('conversation_id') || '');
   useEffect(() => {
     if (!requestedProjectRef.current || contextLoading || running) return;
@@ -200,8 +246,28 @@ export default function App({bootstrap}) {
     request(bootstrap.endpoints.context, {
       method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
       body: JSON.stringify(projectContextPayload(projectRef)),
-    }).then(data => setContext(data.context || {})).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
-  }, [contextLoading, running, bootstrap.endpoints.context, trace]);
+    }).then(async data => {
+      setContext(data.context || {});
+      if (requestedHistoryOpen.current) setHistoryOpen(true);
+      requestedHistoryOpen.current = false;
+      await loadProjectResources(projectRef);
+    }).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
+  }, [contextLoading, running, bootstrap.endpoints.context, loadProjectResources, trace]);
+
+  useEffect(() => {
+    if (!requestedBrandRef.current || contextLoading || running) return;
+    const brandRef = requestedBrandRef.current;
+    requestedBrandRef.current = '';
+    request(bootstrap.endpoints.context, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+      body: JSON.stringify(brandContextPayload(brandRef)),
+    }).then(async data => {
+      setContext(data.context || {});
+      if (requestedHistoryOpen.current) setHistoryOpen(true);
+      requestedHistoryOpen.current = false;
+      await loadBrandIdentity(brandRef);
+    }).catch(error => trace('Não foi possível aplicar a marca selecionada', error.message, 'error'));
+  }, [contextLoading, running, bootstrap.endpoints.context, loadBrandIdentity, trace]);
 
   useEffect(() => {
     if (!requestedConversationId.current || historyLoading || running) return;
@@ -212,7 +278,22 @@ export default function App({bootstrap}) {
     else trace('Conversa não encontrada', 'Ela pode ter sido arquivada ou não estar disponível para esta conta.', 'error');
   }, [conversations, historyLoading, running, openConversation, trace]);
 
-  const addFiles = useCallback(files => {
+  const classifyAttachment = useCallback(async file => {
+    try {
+      const data = await request('/workspace/mcp', {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({jsonrpc: '2.0', id: crypto.randomUUID(), method: 'tools/call', params: {
+          name: 'projects.classify_intake', surface: 'conversations', arguments: {
+            filename: file.name, mime_type: file.type || '',
+          },
+        }}),
+      });
+      return data.result?.structuredContent || {state: 'unavailable'};
+    } catch (_) { return {state: 'unavailable'}; }
+  }, []);
+
+  const addFiles = useCallback(async files => {
+    const staged = [];
     setAttachments(current => {
       const next = [...current];
       for (const file of files) {
@@ -226,13 +307,19 @@ export default function App({bootstrap}) {
           continue;
         }
         const previewUrl = file.type?.startsWith('image/') ? URL.createObjectURL(file) : '';
-        next.push(createStagedAttachment(file, attachmentDestination, previewUrl));
+        const item = createStagedAttachment(file, attachmentDestination, previewUrl);
+        staged.push(item); next.push(item);
       }
       return next;
     });
-  }, [trace, attachmentDestination]);
+    await Promise.all(staged.map(async item => {
+      const intake = await classifyAttachment(item.file);
+      setAttachments(current => current.map(candidate => candidate.localId === item.localId ? {...candidate, intake} : candidate));
+    }));
+  }, [trace, attachmentDestination, classifyAttachment]);
 
   const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
+  const setAttachmentPurpose = useCallback((index, destination) => setAttachments(items => items.map((item, itemIndex) => itemIndex === index ? {...item, destination} : item)), []);
   const handleDragEnter = useCallback(event => { if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return; event.preventDefault(); dragDepthRef.current += 1; setDropActive(true); }, []);
   const handleDragOver = useCallback(event => { if (event.dataTransfer?.types?.includes('Files')) event.preventDefault(); }, []);
   const handleDragLeave = useCallback(event => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDropActive(false); }, []);
@@ -424,11 +511,11 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <header className="cadu-ds-home-navbar cv-conversations-navbar"><CaduSolutionSwitcher logo={bootstrap.caduMark || bootstrap.logo} solutions={solutions} activeId="workspace"/><strong>Conversas</strong><div className="cadu-ds-project-navbar__spacer"/><WorkspaceAccountControl user={bootstrap.user} onOpen={() => setAccountOpen(true)}/></header>
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock resources={dockProjects} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={newConversation} onOpenResource={item => item.projectRef && changeProject(item.projectRef)} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock brands={bootstrap.brands || []} resources={dockProjects} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
         <Sidebar conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
+          <Conversation title={title} context={context} projects={projects} brands={brands} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
           {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>

@@ -12,7 +12,7 @@ from ..agent_v2.contracts import RequestContext
 
 ALLOWED_TYPES = {
     "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research",
-    "project_map", "html",
+    "project_map", "html", "meeting_summary", "meeting_agenda",
 }
 ALLOWED_STATUS = {"draft", "active", "published", "archived"}
 MAX_CONTENT_BYTES = 256_000

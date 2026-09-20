@@ -1,5 +1,5 @@
 import React from 'react';
-import {Icon} from '../../conversations-v2/lib/icons';
+import {Icon} from './Icon';
 
 export function CaduSidebar({brand = 'Cadu', subtitle = 'Workspace', items = [], active, footer, collapsed = false, onToggle}) {
   return <aside className={`cadu-ds-sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label="Navegação principal">

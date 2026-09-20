@@ -6,7 +6,7 @@ const labels = {
   brief: 'Briefing', document: 'Documento', note: 'Nota', executive_summary: 'Resumo executivo',
   media_plan: 'Plano de mídia', scenario: 'Cenário', research: 'Pesquisa', project_map: 'Mapa do projeto',
   html: 'Página interativa', image: 'Imagem', spreadsheet: 'Planilha', report: 'Relatório',
-  resource: 'Arquivo',
+  resource: 'Arquivo', brand_identity: 'Marca', meeting_summary: 'Resumo de reunião', meeting_agenda: 'Pauta',
 };
 
 function EditableTextarea({value, onChange, className = '', ...props}) {
@@ -81,6 +81,19 @@ function ResourceArtifact({artifact}) {
   </article>;
 }
 
+function BrandIdentityArtifact({artifact}) {
+  const content = artifact.content || {};
+  const logo = safeUrl(content.logo_url);
+  return <article className="cv-mx-auto cv-w-full cv-max-w-[720px] cv-p-8 md:cv-p-12">
+    <header className="cv-flex cv-items-center cv-gap-4"><span className="cv-grid cv-h-16 cv-w-16 cv-place-items-center cv-overflow-hidden cv-rounded-2xl cv-bg-white cv-p-1">{logo ? <img src={logo} alt="" className="cv-h-full cv-w-full cv-object-contain"/> : <b className="cv-text-xl cv-text-[#174c45]">{String(content.name || 'M').slice(0, 1)}</b>}</span><div><p className="cv-m-0 cv-text-xs cv-font-medium cv-text-[#78918d]">Marca ativa no chat</p><h3 className="cv-m-0 cv-mt-1 cv-text-xl cv-font-semibold">{content.name || artifact.title}</h3></div></header>
+    <p className="cv-mb-0 cv-mt-7 cv-text-sm cv-leading-6 cv-text-[#c3d3d0]">{content.summary}</p>
+    {!!content.colors?.length && <section className="cv-mt-8"><h4 className="cv-m-0 cv-text-xs cv-font-semibold cv-text-[#8da6a1]">Cores</h4><div className="cv-mt-3 cv-flex cv-flex-wrap cv-gap-2">{content.colors.map(color => <span key={color} className="cv-flex cv-items-center cv-gap-2 cv-rounded-lg cv-bg-white/[.05] cv-p-2 cv-text-[11px] cv-text-[#bbceca]"><i className="cv-h-5 cv-w-5 cv-rounded-md cv-border cv-border-white/15" style={{background: color}}/>{color}</span>)}</div></section>}
+    {!!content.fonts?.length && <section className="cv-mt-7"><h4 className="cv-m-0 cv-text-xs cv-font-semibold cv-text-[#8da6a1]">Fontes</h4><div className="cv-mt-3 cv-flex cv-flex-wrap cv-gap-2">{content.fonts.map(font => <span key={font} className="cv-rounded-lg cv-bg-white/[.05] cv-px-3 cv-py-2 cv-text-xs cv-text-[#d4e1df]">{font}</span>)}</div></section>}
+    <dl className="cv-mt-8 cv-grid cv-gap-4">{(content.details || []).map(detail => <div key={detail.label} className="cv-border-t cv-border-white/[.08] cv-pt-4"><dt className="cv-text-[11px] cv-font-semibold cv-text-[#78918d]">{detail.label}</dt><dd className="cv-m-0 cv-mt-1 cv-text-sm cv-leading-6 cv-text-[#d6e2df]">{detail.value}</dd></div>)}</dl>
+    {!!content.projects?.length && <p className="cv-mb-0 cv-mt-8 cv-text-xs cv-leading-5 cv-text-[#8da6a1]">{content.projects.length} projeto{content.projects.length === 1 ? '' : 's'} recente{content.projects.length === 1 ? '' : 's'} desta marca disponível{content.projects.length === 1 ? '' : 'is'} no seletor do chat.</p>}
+  </article>;
+}
+
 function ProjectMap({artifact, onChange}) {
   const content = artifact.content || {};
   const [zoom, setZoom] = useState(Number(content.layout?.zoom || 1));
@@ -121,6 +134,7 @@ export function ArtifactPane({artifact, dirty, saving, onChange, onClose, onSave
     if (type === 'project_map') return <ProjectMap artifact={artifact} onChange={onChange}/>;
     if (type === 'image') return <ImageArtifact artifact={artifact}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
+    if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     return <DocumentArtifact artifact={artifact} onChange={onChange}/>;
   }, [artifact, type, onChange]);
   useEffect(() => {

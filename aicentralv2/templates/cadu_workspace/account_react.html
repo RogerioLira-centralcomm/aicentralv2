@@ -1,0 +1,37 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}{{ {'perfil':'Perfil','equipe':'Equipe','planos':'Plano','creditos':'Uso','faturamento':'Faturamento'}[section] }} — Workspace{% endblock %}
+{% block product_id %}workspace{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=12">{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content %}
+<div id="cadu-conversations-v2-root" class="cv-home-root cv-account-root" aria-label="Conta do Workspace"><noscript>{% if section == 'perfil' %}Perfil de {{ account.current_user.nome_completo or session.get('user_name','') }} · {{ account.current_user.email or session.get('user_email','') }} · Salvar perfil{% elif section == 'equipe' %}Núcleo da agência. Projetos, marcas, plano e créditos são compartilhados por esta equipe.{% elif section == 'planos' %}Tokens neste ciclo: {{ account.insights.tokens.used }}. Gerenciar equipe. Consulte o atendimento para mudanças contratuais.{% elif section == 'creditos' %}Créditos disponíveis. últimas {{ account.movements|length }} execuções confirmadas.{% for item in account.movements %} {{ item.reason }} −{{ item.amount }}{% endfor %}{% for lot in account.purchases %} {{ lot.package_name }}{% endfor %}{% else %}Histórico financeiro da operação.{% endif %}</noscript></div>
+<script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
+  'accountMode': True,
+  'section': section,
+  'csrf': session.get('family_csrf',''),
+  'admin': session.get('user_type') in ('admin','superadmin'),
+  'usagePercent': account.insights.tokens.percentage if account.insights and account.insights.tokens else none,
+  'account': account,
+  'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
+  'user': {'id': session.get('user_id'), 'name': session.get('user_name','Minha conta'), 'email': session.get('user_email',''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url',''), 'avatarBadge': session.get('cadu_avatar_badge','')},
+  'urls': {
+    'home': url_for('cadu_workspace.dashboard'), 'newConversation': '/workspace/conversas-v2-lab',
+    'perfil': url_for('cadu_workspace.account_page', section='perfil'), 'equipe': url_for('cadu_workspace.account_page', section='equipe'),
+    'planos': url_for('cadu_workspace.account_page', section='planos'), 'creditos': url_for('cadu_workspace.account_page', section='creditos'),
+    'faturamento': url_for('cadu_workspace.account_page', section='faturamento'),
+    'profile': url_for('cadu_workspace.account_page', section='perfil'), 'usage': url_for('cadu_workspace.account_page', section='creditos'),
+    'plans': url_for('cadu_workspace.account_page', section='planos'), 'team': url_for('cadu_workspace.account_page', section='equipe'),
+    'logout': product_url('auth','/logout'),
+    'solutions': {'workspace': url_for('cadu_workspace.dashboard'), 'planner': product_url('planner','/'), 'studio': product_url('studio','/'), 'connect': product_url('connect','/'), 'skills': product_url('skills','/')}
+  },
+  'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')},
+  'endpoints': {
+    'updateProfile': url_for('cadu_workspace.update_own_profile'),
+    'updateOrganization': url_for('cadu_workspace.update_organization'),
+    'invite': url_for('cadu_workspace.create_team_invite'),
+    'inviteBase': '/workspace/app/equipe/convites',
+    'memberBase': '/workspace/app/equipe'
+  }
+}|tojson }}</script>
+{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=12"></script>{% endblock %}

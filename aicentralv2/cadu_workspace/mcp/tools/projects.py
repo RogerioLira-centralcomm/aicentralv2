@@ -57,6 +57,22 @@ def inspect_file_support(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="projects.classify_intake", capability="workspace", effect="read",
+    description="Classifica arquivo, link ou texto antes de salvar: sugere destino, categoria e se indexação precisa de confirmação.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {
+        "filename": {"type": "string", "maxLength": 220},
+        "mime_type": {"type": "string", "maxLength": 160},
+        "url": {"type": "string", "maxLength": 2000},
+        "text": {"type": "string", "maxLength": 5000},
+        "requested_purpose": {"type": "string", "enum": ["conversation", "knowledge_source", "project_attachment", "artifact"]},
+    }, "additionalProperties": False},
+)
+def classify_intake(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: project_source_service.classify_intake(**arguments))
+
+
+@register_tool(
     name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
     description="Prepara upload privado de arquivo. O usuário escolhe se ele será indexado como fonte de dados.",
     exposures=("internal", "customer_agent"),

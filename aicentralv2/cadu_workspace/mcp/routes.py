@@ -22,6 +22,14 @@ def _error(request_id, code, message, data=None):
 def protect_internal_mcp():
     payload = request.get_json(silent=True) or {}
     params = payload.get("params") if isinstance(payload, dict) else {}
+    # Multipart upload intents do not carry JSON-RPC bodies. Preserve the same
+    # project context used to create the intent for its companion upload call.
+    if not isinstance(params, dict) or not params:
+        params = {
+            "surface": request.form.get("surface") or "conversations",
+            "project_ref": request.form.get("project_ref"),
+            "brand_ref": request.form.get("brand_ref"),
+        }
     protocol = request.headers.get("MCP-Protocol-Version", "")
     if protocol.startswith("2026-"):
         if request.headers.get("Mcp-Method") != payload.get("method"):

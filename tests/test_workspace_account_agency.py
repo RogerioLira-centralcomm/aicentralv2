@@ -5,39 +5,36 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_account_journey_is_centered_on_the_agency_team():
-    template = (ROOT / 'aicentralv2/templates/cadu_workspace/account_agency.html').read_text(encoding='utf-8')
-    sidebar = (ROOT / 'aicentralv2/templates/cadu_workspace/_app_sidebar.html').read_text(encoding='utf-8')
+    template = (ROOT / 'aicentralv2/templates/cadu_workspace/account_react.html').read_text(encoding='utf-8')
+    component = (ROOT / 'frontend/cadu-design-system/components/WorkspaceAccount.jsx').read_text(encoding='utf-8')
     routes = (ROOT / 'aicentralv2/cadu_workspace/routes.py').read_text(encoding='utf-8')
 
-    for tab in ('>Perfil</a>', '>Equipe</a>', '>Plano</a>', '>Uso</a>', '>Faturamento</a>'):
-        assert tab in template
-    assert 'Organização</a>' not in template
-    assert '>Perfil</span></a>' in sidebar
+    for tab in ("perfil: 'Perfil'", "equipe: 'Equipe'", "planos: 'Plano'", "creditos: 'Uso'", "faturamento: 'Faturamento'"):
+        assert tab in component
+    assert 'WorkspaceNavbar' in component
+    assert 'CaduDock' in component
+    assert "'accountMode': True" in template
     assert '"organizacao": "equipe"' in routes
-    assert 'cadu_workspace/account_agency.html' in routes
+    assert 'cadu_workspace/account_react.html' in routes
     assert 'requested_section != section' in routes
 
 
 def test_account_team_keeps_php_backed_actions_and_confirmation_ui():
-    template = (ROOT / 'aicentralv2/templates/cadu_workspace/account_agency.html').read_text(encoding='utf-8')
-    script = (ROOT / 'aicentralv2/static/js/cadu-workspace-account-agency.js').read_text(encoding='utf-8')
+    component = (ROOT / 'frontend/cadu-design-system/components/WorkspaceAccount.jsx').read_text(encoding='utf-8')
 
-    for endpoint in ('create_team_invite', 'update_team_member_role', 'update_team_member_status', 'resend_team_invite', 'cancel_team_invite', 'update_organization'):
-        assert endpoint in template
-    assert 'data-invite-dialog' in template
-    assert 'data-details-dialog' in template
-    assert 'data-team-sensitive' in template
-    assert "document.querySelectorAll('[data-team-sensitive]')" in script
-    assert 'protect(form' in script
-    assert 'cloneNode' not in script
+    for endpoint in ('endpoints.invite', 'endpoints.updateOrganization', 'endpoints.memberBase', 'endpoints.inviteBase'):
+        assert endpoint in component
+    for action in ('/papel', '/status', '/reenviar', '/cancelar'):
+        assert action in component
+    assert 'window.confirm' in component
 
 
 def test_account_profile_lists_transactional_email_sources():
-    template = (ROOT / 'aicentralv2/templates/cadu_workspace/account_agency.html').read_text(encoding='utf-8')
+    component = (ROOT / 'frontend/cadu-design-system/components/WorkspaceAccount.jsx').read_text(encoding='utf-8')
     routes = (ROOT / 'aicentralv2/cadu_workspace/routes.py').read_text(encoding='utf-8')
 
-    assert 'E-mails disparados por página' in template
-    assert 'account.email_catalog' in template
+    assert 'E-mails disparados por página' in component
+    assert 'account.email_catalog' in component
     for subject in (
         'Você foi convidado',
         'Sua conta está pronta',

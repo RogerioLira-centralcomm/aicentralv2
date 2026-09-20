@@ -1,40 +1,35 @@
 {% if session.get('user_id') %}
-<button class="cadu-sidebar-mobile-toggle" type="button" data-cadu-sidebar-mobile-toggle aria-label="Abrir navegação"><img src="{{ url_for('static', filename='images/cadu/brand-icons/workspace-192.png') }}" alt=""><span>Cadu</span><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-<div class="cadu-sidebar-overlay" data-cadu-sidebar-overlay></div>
-<aside class="workspace-app-sidebar" data-workspace-sidebar aria-label="Navegação">
-  <div class="workspace-app-family workspace-app-sidebar__top">
-    {% set cadu_active_product = 'workspace' %}{% include 'cadu/_product_switch.html' %}
-    <button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-  </div>
-  <nav class="workspace-sidebar-primary" aria-label="Áreas principais">
-    <a href="{{ url_for('cadu_workspace.dashboard') }}" {% if workspace_active == 'inicio' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-house"></i></span><span class="workspace-nav-text">Início</span></a>
-    <a href="{{ url_for('cadu_workspace.conversations') }}" {% if workspace_active == 'conversas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-plus"></i></span><span class="workspace-nav-text">Nova conversa</span></a>
-    <a href="/workspace/conversas-v2-lab" {% if workspace_active == 'conversas-v2' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-sparkles"></i></span><span class="workspace-nav-text">Conversas 2.0</span></a>
-    <a href="{{ url_for('cadu_workspace.clean_projects') }}" {% if workspace_active == 'projetos' and project is not defined %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-folder-open"></i></span><span class="workspace-nav-text">Projetos</span></a>
-    {% if workspace_sidebar_projects %}<div class="workspace-recent-projects">{% for sidebar_project in workspace_sidebar_projects[:5] %}<a href="{{ url_for('cadu_workspace.clean_project_detail', project_id=sidebar_project.id) }}" {% if project is defined and project.id|string == sidebar_project.id|string %}aria-current="page"{% endif %}>{{ sidebar_project.nome }}</a>{% endfor %}</div>{% endif %}
-    <a href="{{ url_for('cadu_workspace.documents') }}" {% if workspace_active == 'docs' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-regular fa-file-lines"></i></span><span class="workspace-nav-text">Docs</span></a>
-    <a href="{{ url_for('cadu_workspace.clean_brands') }}" {% if workspace_active == 'marcas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-fingerprint"></i></span><span class="workspace-nav-text">Marcas</span></a>
-  </nav>
-  {% if workspace_active in ('conversas', 'conversas-v2') %}
-  {% set sidebar_new_conversation_url = '/workspace/conversas-v2-lab' if workspace_active == 'conversas-v2' else url_for('cadu_workspace.conversations') %}
-  <section class="workspace-sidebar-conversations" aria-label="Conversas recentes">
-    <div class="workspace-sidebar-section-head"><span>Conversas recentes</span><a href="{{ sidebar_new_conversation_url }}" aria-label="Nova conversa" title="Nova conversa"><i class="fa-solid fa-plus"></i></a></div>
-    <nav id="workspace-sidebar-recent-conversations" aria-label="Lista de conversas recentes"><span class="workspace-sidebar-conversations-loading">Carregando…</span></nav>
-  </section>
-  {% endif %}
-  <footer class="workspace-sidebar-footer">
-    <nav class="workspace-sidebar-management" aria-label="Gestão e conta">
-      <a href="{{ url_for('cadu_workspace.account_page', section='creditos') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-chart-pie"></i></span><span class="workspace-nav-text">Uso</span></a>
-      {% if session.get('user_type') in ('admin', 'superadmin') %}<a href="{{ url_for('cadu_agent_v2_lab.observability_page') }}" {% if workspace_active == 'observabilidade' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-wave-square"></i></span><span class="workspace-nav-text">Observabilidade</span></a>{% endif %}
-      <a href="{{ url_for('cadu_workspace.account_page', section='planos') }}"><span class="workspace-nav-icon"><i class="fa-regular fa-credit-card"></i></span><span class="workspace-nav-text">Planos</span></a>
-      <a href="{{ url_for('cadu_workspace.account_page', section='equipe') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-users"></i></span><span class="workspace-nav-text">Equipe</span></a>
-      <a href="{{ url_for('cadu_workspace.account_page', section='perfil') }}"><span class="workspace-nav-icon"><i class="fa-regular fa-user"></i></span><span class="workspace-nav-text">Perfil</span></a>
-    </nav>
-    {% set credit_meter_class = 'workspace-sidebar-balance' %}{% set credit_meter_href = url_for('cadu_workspace.account_page', section='creditos') %}{% include 'cadu/_credit_meter.html' %}
-    <details class="workspace-app-user"><summary><span class="workspace-sidebar-avatar">{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ session.get('user_name', 'usuário') %}{% include 'cadu/_user_avatar_image.html' %}</span><span class="workspace-sidebar-identity"><strong>{{ session.get('user_name', 'Minha conta') }}</strong><small>{{ session.get('user_email', '') }}</small></span></summary><div>{% include 'cadu/_theme_control.html' %}<a href="{{ product_url('auth', '/logout') }}" class="workspace-sidebar-logout">Sair</a></div></details>
-    <a class="workspace-sidebar-account-shortcut" href="{{ url_for('cadu_workspace.account_page', section='perfil') }}" aria-label="Abrir conta e perfil" title="Conta e perfil"><i class="fa-regular fa-user"></i><span>Perfil</span></a>
-  </footer>
-</aside>
+{% set legacy_active = workspace_active|default('inicio') %}
+{% set legacy_titles = {'inicio':'Início','conversas':'Conversas','conversas-v2':'Conversas','projetos':'Projetos','docs':'Docs','marcas':'Marcas','skills':'Skills','observabilidade':'Observabilidade'} %}
+{% set legacy_surface = 'settings' %}
+{% if legacy_active == 'docs' and document is defined %}{% set legacy_surface = 'editor' %}
+{% elif legacy_active in ('docs','observabilidade') %}{% set legacy_surface = 'table' %}
+{% elif legacy_active in ('integracoes','skills') %}{% set legacy_surface = 'catalog' %}
+{% elif legacy_active in ('conversas','conversas-v2') %}{% set legacy_surface = 'conversation' %}
+{% elif legacy_active in ('marcas','projetos') %}{% set legacy_surface = 'detail' %}{% endif %}
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=11">
+<div id="cadu-workspace-legacy-chrome-root" class="cadu-workspace-legacy-chrome-root" aria-label="Navegação do Workspace"><noscript>Ative o JavaScript para usar a navegação do Workspace.</noscript></div>
+<script id="cadu-workspace-legacy-chrome-bootstrap" type="application/json">{{ {
+  'legacyMode': True,
+  'active': legacy_active,
+  'surface': legacy_surface,
+  'title': legacy_titles.get(legacy_active, 'Workspace'),
+  'usagePercent': none,
+  'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
+  'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '')},
+  'urls': {
+    'home': url_for('cadu_workspace.dashboard'), 'newConversation': '/workspace/conversas-v2-lab',
+    'projects': url_for('cadu_workspace.clean_projects'), 'brands': url_for('cadu_workspace.clean_brands'),
+    'docs': url_for('cadu_workspace.documents'), 'skills': url_for('cadu_workspace.my_skills'),
+    'profile': url_for('cadu_workspace.account_page', section='perfil'), 'usage': url_for('cadu_workspace.account_page', section='creditos'),
+    'plans': url_for('cadu_workspace.account_page', section='planos'), 'team': url_for('cadu_workspace.account_page', section='equipe'),
+    'observability': url_for('cadu_agent_v2_lab.observability_page') if session.get('user_type') in ('admin', 'superadmin') else '',
+    'logout': product_url('auth', '/logout'),
+    'solutions': {'workspace': url_for('cadu_workspace.dashboard'), 'planner': product_url('planner', '/'), 'studio': product_url('studio', '/'), 'connect': product_url('connect', '/'), 'skills': product_url('skills', '/')}
+  },
+  'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')}
+}|tojson }}</script>
+<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=11"></script>
 {% else %}
   {% set cadu_active_product = 'workspace' %}{% include 'cadu/_product_switch.html' %}
 {% endif %}

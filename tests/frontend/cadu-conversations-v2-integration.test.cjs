@@ -51,11 +51,17 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   const projects = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProjects.jsx'), 'utf8');
   const brands = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrands.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
+  const contextSidebar = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceContextSidebar.jsx'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/workspace_home_chat.html'), 'utf8');
   assert.match(home, /window\.location\.assign\(bootstrap\.urls\.newConversation\)/);
   assert.match(home, /WorkspaceAccountMenu/);
   assert.match(home, /<CaduDock/);
   assert.doesNotMatch(home, /WorkspaceNavbar/);
+  assert.doesNotMatch(home, /WorkspaceHomeWidgets/);
+  assert.match(contextSidebar, /SidebarCollection/);
+  assert.doesNotMatch(contextSidebar, /Atalhos de trabalho/);
+  assert.doesNotMatch(contextSidebar, /\{id: 'recent'/);
+  assert.doesNotMatch(contextSidebar, /context-sidebar__footer/);
   assert.match(feedback, /WorkspaceAccountControl/);
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
   assert.match(home, /matchedProjects/);

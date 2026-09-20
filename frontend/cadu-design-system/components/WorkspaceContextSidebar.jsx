@@ -1,11 +1,9 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Icon} from './Icon';
+import {VisualIdentity} from './VisualIdentity';
 
 const HOME_ITEMS = [
   {id: 'home', label: 'Início', key: 'home', icon: 'home'},
-  {id: 'projects', label: 'Projetos', key: 'projects', icon: 'folder'},
-  {id: 'brands', label: 'Marcas', key: 'brands', icon: 'brand'},
-  {id: 'recent', label: 'Arquivos recentes', key: 'docs', icon: 'file'},
 ];
 
 const ACCOUNT_ITEMS = [
@@ -21,7 +19,18 @@ function readCollapsed(mode) {
   try { return window.localStorage.getItem(`cadu:sidebar:${mode}`) === 'collapsed'; } catch (_) { return false; }
 }
 
-export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'home', resources = []}) {
+function SidebarCollection({label, href, items, kind}) {
+  if (!items.length) return null;
+  return <section className="cadu-ds-context-sidebar__collection" aria-label={label}>
+    <div className="cadu-ds-context-sidebar__section-label"><span>{label}</span>{href && <a href={href}>Ver todos</a>}</div>
+    {items.slice(0, 5).map(item => <a key={item.id || item.ref || item.href} className="cadu-ds-context-sidebar__collection-item" href={item.href} title={item.name || item.title}>
+      <VisualIdentity src={kind === 'brand' ? item.logoUrl : item.previewUrl || item.dockLogoUrl} initials={item.visualInitials || item.name || item.title} label={item.name || item.title} color={item.visualColor}/>
+      <span><b>{item.name || item.title || (kind === 'brand' ? 'Marca' : 'Projeto')}</b>{kind === 'project' && item.brandName && <small>{item.brandName}</small>}</span>
+    </a>)}
+  </section>;
+}
+
+export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'home', resources = [], projects = [], brands = []}) {
   const [collapsed, setCollapsed] = useState(() => readCollapsed(mode));
   const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
@@ -32,16 +41,19 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
 
   return <aside className={`cadu-ds-context-sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
-      <div className="cadu-ds-context-sidebar__heading"><span>Workspace</span><strong>{mode === 'account' ? 'Conta' : 'Atalhos de trabalho'}</strong></div>
+      <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span></div>
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={!collapsed}>{collapsed ? '›' : '‹'}</button>
     </header>
     <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
       {items.map(item => { const href = links[item.key]; if (!href) return null; return <a key={item.id} href={href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon} size={16}/><span>{item.label}</span></a>; })}
     </nav>
+    {mode === 'home' && <>
+      <SidebarCollection label="Projetos" href={links.projects} items={projects} kind="project" />
+      <SidebarCollection label="Marcas" href={links.brands} items={brands} kind="brand" />
+    </>}
     {mode === 'home' && <section className="cadu-ds-context-sidebar__recent" aria-label="Arquivos recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>
       {recentFiles.length ? recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>) : <p>Nenhum arquivo recente.</p>}
     </section>}
-    <footer className="cadu-ds-context-sidebar__footer"><span>{mode === 'account' ? 'Configurações da conta' : 'Acesso rápido'}</span></footer>
   </aside>;
 }

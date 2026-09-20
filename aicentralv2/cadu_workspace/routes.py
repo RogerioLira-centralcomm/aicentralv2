@@ -744,9 +744,11 @@ def _validated_home_preferences(payload: dict) -> tuple[list[str], list[str]]:
     order = payload.get('order')
     visible = payload.get('visible')
     allowed = set(_WORKSPACE_HOME_WIDGETS)
-    if not isinstance(order, list) or set(order) != allowed or len(order) != len(_WORKSPACE_HOME_WIDGETS):
+    if (not isinstance(order, list) or any(not isinstance(item, str) for item in order)
+            or set(order) != allowed or len(order) != len(_WORKSPACE_HOME_WIDGETS)):
         abort(400, description='A ordem dos blocos da Home é inválida.')
-    if not isinstance(visible, list) or any(item not in allowed for item in visible) or len(visible) != len(set(visible)):
+    if (not isinstance(visible, list) or any(not isinstance(item, str) or item not in allowed for item in visible)
+            or len(visible) != len(set(visible))):
         abort(400, description='A visibilidade dos blocos da Home é inválida.')
     return [str(item) for item in order], [str(item) for item in visible]
 
@@ -2477,6 +2479,25 @@ def dashboard():
         # case the client is the organization boundary used by Cadu Family.
         'organization_id': int(session.get('organization_id') or session.get('organizacao_id') or client_id),
     })
+    decisions = []
+    for item in projects[:8]:
+        missing = []
+        if not item.get('descricao'):
+            missing.append('descrever o contexto')
+        if not int(item.get('fontes_prontas') or 0):
+            missing.append('adicionar fontes')
+        if not any(item.get(field) for field in ('publico', 'tom_de_voz', 'posicionamento', 'instrucoes')):
+            missing.append('definir orientações')
+        project_id = str(item.get('id') or '')
+        project_name = str(item.get('nome') or 'Projeto')
+        decisions.append({
+            'id': f'project-decision:{project_id}',
+            'title': f"{'Complete' if missing else 'Revise'} o contexto de {project_name}",
+            'context': ', '.join(missing[:2]) if missing else 'Escolha o próximo resultado para este projeto.',
+            'detail': ', '.join(missing),
+            'href': url_for('cadu_workspace.project_detail', project_id=project_id),
+            'projectRef': f'ci:{project_id}',
+        })
     home_data = {
         'agency': {'id': str(client_id), 'name': str(session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Minha agência')},
         # Every brand has a visual identity in the React shell. A principal logo
@@ -2487,6 +2508,7 @@ def dashboard():
         'dock': {'items': dock_items, 'isSuggested': not any(item.get('shortcutId') for item in dock_items)},
         'resources': project_items[:8],
         'resumeCards': continuity_feed,
+        'decisions': decisions,
         'activity': continuity_feed,
         'usagePercent': round(usage, 1),
         'preferences': _user_home_preferences(client_id, int(session.get('user_id') or 0)),

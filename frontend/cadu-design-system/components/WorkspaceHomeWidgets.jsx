@@ -1,5 +1,6 @@
 import React, {useMemo, useRef, useState} from 'react';
 import {VisualIdentity} from './VisualIdentity';
+import {CaduDialog} from './CaduDialog';
 import {csrf, request} from '../../conversations-v2/lib/api';
 
 const WIDGETS = [
@@ -26,13 +27,13 @@ function Widget({id, title, action, children, className = ''}) {
 }
 
 function WidgetSettings({order, visible, saveState, onToggle, onMove, onReset, onClose}) {
-  return <dialog open className="cadu-ds-home-widget-settings" aria-labelledby="home-widget-settings-title">
+  return <CaduDialog className="cadu-ds-home-widget-settings" label="Personalização da Home" closeOnBackdrop onClose={onClose}>
     <div className="cadu-ds-home-widget-settings__panel">
       <header><div><span>Personalização</span><h2 id="home-widget-settings-title">Organize sua Home</h2><p>Mostre o que ajuda seu trabalho agora. Você pode mudar isso quando quiser.</p></div><button type="button" onClick={onClose} aria-label="Fechar personalização">×</button></header>
       <div className="cadu-ds-home-widget-settings__list">{order.map((id, index) => { const item = WIDGETS.find(widget => widget.id === id); return <div key={id}><label><input type="checkbox" checked={visible.includes(id)} onChange={() => onToggle(id)}/><span>{item.label}</span></label><div><button type="button" disabled={index === 0} onClick={() => onMove(id, -1)} aria-label={`Mover ${item.label} para cima`}>↑</button><button type="button" disabled={index === order.length - 1} onClick={() => onMove(id, 1)} aria-label={`Mover ${item.label} para baixo`}>↓</button></div></div>; })}</div>
       <footer><span className={`cadu-ds-home-widget-settings__status is-${saveState}`}>{saveState === 'saving' ? 'Salvando…' : saveState === 'saved' ? 'Salvo na sua conta' : saveState === 'error' ? 'Não foi possível salvar' : 'Preferência da conta'}</span><button type="button" onClick={onReset}>Restaurar padrão</button><button type="button" className="is-primary" onClick={onClose}>Concluir</button></footer>
     </div>
-  </dialog>;
+  </CaduDialog>;
 }
 
 export function WorkspaceHomeWidgets({home = {}, projects = [], brands = [], links = {}, onOpen, onPrompt, onOpenActivity, onFeedback}) {

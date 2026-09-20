@@ -25,6 +25,14 @@ export default function App({bootstrap}) {
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
+  const [homeAttachments, setHomeAttachments] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('cadu:home-pending-attachments');
+      sessionStorage.removeItem('cadu:home-pending-attachments');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter(item => item?.id) : [];
+    } catch (_) { return []; }
+  });
   const [executionMode, setExecutionMode] = useState(() => new URLSearchParams(window.location.search).get('mode') || 'analysis');
   const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
@@ -348,12 +356,12 @@ export default function App({bootstrap}) {
     let staged;
     try { staged = attachments.length ? await uploadFiles() : []; }
     catch (error) { setRunning(false); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
-    const files = staged.map(item => ({id: item.id, name: item.name, source: item.source || null}));
+    const files = [...staged.map(item => ({id: item.id, name: item.name, source: item.source || null})), ...homeAttachments];
     const providerFileIds = files.map(item => item.id).filter(Boolean);
     const turnId = uid();
     setMessages(items => [...items, {id: uid(), turnId, role: 'user', content: clean, files}]);
     setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
-    setInput(''); setComposerContext(null); setAttachments(items => { releasePreviews(items); return []; }); setRuntime('Trabalhando');
+    setInput(''); setComposerContext(null); setHomeAttachments([]); setAttachments(items => { releasePreviews(items); return []; }); setRuntime('Trabalhando');
     let terminal = false;
     let runStarted = false;
     let latestArtifact = null;
@@ -423,7 +431,7 @@ export default function App({bootstrap}) {
       }
       setRunning(false); runRef.current = null; await loadRecent();
     }
-  }, [input, running, artifactDirty, confirmDiscard, attachments, context, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
+  }, [input, running, artifactDirty, confirmDiscard, attachments, homeAttachments, context, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
 
   const initialPromptRef = useRef(new URLSearchParams(window.location.search).get('prompt') || '');
   useEffect(() => {

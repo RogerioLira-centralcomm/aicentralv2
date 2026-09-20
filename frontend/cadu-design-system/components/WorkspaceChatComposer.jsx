@@ -26,16 +26,18 @@ export function WorkspaceChatComposer({
   value = '', onChange, onSubmit, attachments = [], onRemoveAttachment, onAttachmentPurposeChange,
   attachmentDestination = 'conversation', onAttachmentDestinationChange, hasProject = false,
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
-  composerContext, onClearContext, onContextDrop, embedded = false, homeMode = false,
+  composerContext, onClearContext, onContextDrop, onAttach, embedded = false, homeMode = false,
 }) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
+  const fileInput = useRef(null);
   const [contextActive, setContextActive] = React.useState(false);
   const selectCapability = capability => {
     onChange?.(capability.prompt);
     capabilityMenu.current?.removeAttribute('open');
     textarea.current?.focus();
   };
+  const chooseFiles = () => fileInput.current?.click();
   useEffect(() => {
     if (!textarea.current) return;
     textarea.current.style.height = 'auto';
@@ -52,7 +54,7 @@ export function WorkspaceChatComposer({
   const handleDrop = event => {
     event.preventDefault();
     setContextActive(false);
-    const raw = event.dataTransfer?.getData('application/json') || event.dataTransfer?.getData('text/plain');
+    const raw = event.dataTransfer?.getData('application/x-cadu-item') || event.dataTransfer?.getData('application/json') || event.dataTransfer?.getData('text/plain');
     if (!raw) return;
     try { onContextDrop?.(JSON.parse(raw)); } catch (_) { /* Ignore non-context drops. */ }
   };
@@ -70,11 +72,13 @@ export function WorkspaceChatComposer({
               <div className="cv-capability-heading">Como trabalhar</div>
               {MODE_OPTIONS.map(option => <button key={option.id} type="button" role="menuitemradio" aria-checked={executionMode === option.id} className={executionMode === option.id ? 'is-active' : ''} onClick={() => { onExecutionModeChange?.(option.id); capabilityMenu.current?.removeAttribute('open'); }}><span><b>{option.label}</b><small>{option.detail}</small></span>{executionMode === option.id && <Icon name="check" size={15}/>}</button>)}
               <div className="cv-capability-heading cv-capability-heading--resources">Recursos</div>
+              {onAttach && <button type="button" role="menuitem" onClick={() => { chooseFiles(); capabilityMenu.current?.removeAttribute('open'); }}><span><b>Anexar arquivo</b><small>Imagem, PDF, texto ou Office</small></span><Icon name="file" size={14}/></button>}
               {CAPABILITIES.map(capability => <button key={capability.label} type="button" role="menuitem" onClick={() => selectCapability(capability)}><span><b>{capability.label}</b></span><Icon name="arrowUp" size={14}/></button>)}
-              {!homeMode && <><div className="cv-capability-heading cv-capability-heading--resources">Destino dos anexos</div>{[['conversation', 'Usar só nesta conversa'], ['knowledge', 'Adicionar como fonte do projeto'], ['attachment', 'Anexar ao projeto sem indexar']].map(([id, label]) => <button key={id} type="button" role="menuitemradio" aria-checked={attachmentDestination === id} disabled={id !== 'conversation' && !hasProject} className={attachmentDestination === id ? 'is-active' : ''} onClick={() => onAttachmentDestinationChange?.(id)}><span><b>{label}</b>{id !== 'conversation' && !hasProject && <small>Selecione um projeto primeiro</small>}</span>{attachmentDestination === id && <Icon name="check" size={15}/>}</button>)}</>}
+              <div className="cv-capability-heading cv-capability-heading--resources">Destino dos anexos</div>{[['conversation', 'Usar só nesta conversa'], ['knowledge', 'Adicionar como fonte do projeto'], ['attachment', 'Anexar ao projeto sem indexar']].map(([id, label]) => <button key={id} type="button" role="menuitemradio" aria-checked={attachmentDestination === id} disabled={id !== 'conversation' && !hasProject} className={attachmentDestination === id ? 'is-active' : ''} onClick={() => onAttachmentDestinationChange?.(id)}><span><b>{label}</b>{id !== 'conversation' && !hasProject && <small>Selecione um projeto primeiro</small>}</span>{attachmentDestination === id && <Icon name="check" size={15}/>}</button>)}
               <p>Skills e integrações disponíveis para esta conta aparecerão aqui.</p>
             </div>
           </details>
+          {onAttach && <><input ref={fileInput} type="file" multiple accept="image/*,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx" className="cv-sr-only" onChange={event => { onAttach(Array.from(event.target.files || [])); event.target.value = ''; }} /><button type="button" className="cv-composer-add cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-full cv-border-0 cv-bg-transparent cv-text-mist" onClick={chooseFiles} aria-label="Anexar arquivo" title="Anexar arquivo"><Icon name="file" size={16}/></button></>}
         </div>
         {running ? <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button> : <button type="submit" disabled={!value.trim() || attachments.some(item => item.uploading)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label="Enviar mensagem"><Icon name="arrowUp" size={17}/></button>}
       </div>

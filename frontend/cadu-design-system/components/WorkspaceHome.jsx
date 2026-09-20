@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {ProjectSelector} from './WorkspaceSelectors';
 import {CaduDock} from './CaduDock';
 import {WorkspaceChatComposer} from './WorkspaceChatComposer';
@@ -6,6 +6,8 @@ import {WorkspaceHomeWidgets} from './WorkspaceHomeWidgets';
 import {ActivityDrawer, ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {csrf, request} from '../../conversations-v2/lib/api';
+import {attachmentIssues, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from '../../conversations-v2/lib/attachmentModel.mjs';
+import {uploadAttachments} from '../../conversations-v2/lib/attachmentUpload.mjs';
 import {workspaceSolutionItems} from '../workspaceSolutions';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceNavbar} from './WorkspaceNavbar';
@@ -26,25 +28,65 @@ export function WorkspaceHome({bootstrap}) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [executionMode, setExecutionMode] = useState('analysis');
+  const [brandRef, setBrandRef] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const projects = home.projects || [];
+  const brands = home.brands || [];
   const [dockItems, setDockItems] = useState(home.dock?.items || []);
   const selectedProject = useMemo(() => projects.find(item => item.id === projectRef), [projects, projectRef]);
+  const selectedBrand = useMemo(() => brands.find(item => item.id === brandRef || `studio:${item.id}` === brandRef), [brands, brandRef]);
+  const composerContext = selectedProject ? {label: selectedProject.name, text: selectedProject.brandName || 'projeto'} : selectedBrand ? {label: 'Marca', text: selectedBrand.name} : null;
   const normalizedSearch = searchValue.trim().toLocaleLowerCase('pt-BR');
   const matchedProjects = useMemo(() => !normalizedSearch ? [] : projects.filter(project => `${project.name || ''} ${project.brandName || ''}`.toLocaleLowerCase('pt-BR').includes(normalizedSearch)), [projects, normalizedSearch]);
-  const selectProject = projectId => { setProjectRef(projectId); setSearchValue(''); };
+  const selectProject = projectId => { setProjectRef(projectId); setBrandRef(''); setAttachmentDestination('conversation'); setSearchValue(''); };
   const openItem = item => {
     if (item?.href) window.location.assign(item.href);
     else if (item?.projectRef) openProject(projects.find(project => project.id === item.projectRef));
   };
   const openProject = project => { if (project?.href) window.location.assign(project.href); };
-  const submit = () => {
+  const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
+  const classifyAttachment = useCallback(async file => {
+    try {
+      const data = await request('/workspace/mcp', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({jsonrpc: '2.0', id: crypto.randomUUID(), method: 'tools/call', params: {name: 'projects.classify_intake', surface: 'conversations', arguments: {filename: file.name, mime_type: file.type || ''}}})});
+      return data.result?.structuredContent || {state: 'unavailable'};
+    } catch (_) { return {state: 'unavailable'}; }
+  }, []);
+  const addFiles = useCallback(async files => {
+    const staged = [];
+    setAttachments(current => {
+      const next = [...current];
+      for (const file of files) {
+        if (next.length >= MAX_ATTACHMENTS) { setToast(attachmentIssues.limit.detail); break; }
+        const issue = validateAttachment(file);
+        if (issue) { setToast(issue.detail); continue; }
+        const previewUrl = file.type?.startsWith('image/') ? URL.createObjectURL(file) : '';
+        const item = createStagedAttachment(file, attachmentDestination, previewUrl);
+        staged.push(item); next.push(item);
+      }
+      return next;
+    });
+    await Promise.all(staged.map(async item => {
+      const intake = await classifyAttachment(item.file);
+      setAttachments(current => current.map(candidate => candidate.localId === item.localId ? {...candidate, intake} : candidate));
+    }));
+  }, [attachmentDestination, classifyAttachment]);
+  const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
+  const setAttachmentPurpose = useCallback((index, destination) => setAttachments(items => items.map((item, itemIndex) => itemIndex === index ? {...item, destination} : item)), []);
+  const submit = async () => {
     const prompt = value.trim();
     if (!prompt) return;
-    window.location.assign(withQuery(bootstrap.urls.newConversation, {prompt, project_ref: projectRef}));
+    try {
+      const staged = attachments.length ? await uploadAttachments({attachments, projectRef, uploadsEndpoint: bootstrap.endpoints.uploads, requestFn: request, fetchFn: fetch, csrfToken: csrf, uuid: () => crypto.randomUUID(), onProgress: setAttachments}) : [];
+      const pending = staged.filter(item => item.id).map(item => ({id: item.id, name: item.name}));
+      if (pending.length) sessionStorage.setItem('cadu:home-pending-attachments', JSON.stringify(pending));
+      setAttachments(items => { releasePreviews(items); return []; });
+      window.location.assign(withQuery(bootstrap.urls.newConversation, {prompt, project_ref: projectRef, brand_ref: brandRef, mode: executionMode}));
+    } catch (error) { setToast(error.message || 'Não foi possível preparar os anexos.'); }
   };
   const dropContext = payload => {
-    if (payload.projectRef || payload.type === 'project') setProjectRef(payload.projectRef || payload.id);
-    if (payload.type === 'brand') setToast('Marca adicionada ao contexto da conversa.');
+    if (payload.projectRef || payload.type === 'project') { setProjectRef(payload.projectRef || payload.id); setBrandRef(''); setAttachmentDestination('conversation'); }
+    if (payload.type === 'brand') { setBrandRef(payload.brandRef || (payload.id ? `studio:${payload.id}` : '')); setProjectRef(''); setAttachmentDestination('conversation'); }
   };
   // The dock is a visual brand shelf. Keep the manager on the same catalog as
   // the server, so a project without the linked brand's primary logo can never
@@ -120,7 +162,7 @@ export function WorkspaceHome({bootstrap}) {
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace {home.agency?.name ? `da ${home.agency.name}` : ''}</p><h1>{normalizedSearch ? 'Contextos encontrados' : selectedProject ? selectedProject.name : 'O que vamos resolver hoje?'}</h1><p>{normalizedSearch ? `${matchedProjects.length} projeto${matchedProjects.length === 1 ? '' : 's'} encontrado${matchedProjects.length === 1 ? '' : 's'} para “${searchValue.trim()}”.` : selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Comece uma conversa ou escolha um contexto para trabalhar.'}</p></div>
         {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <>
-          <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={selectedProject ? {label: selectedProject.name, text: selectedProject.brandName || 'projeto'} : null} onClearContext={() => setProjectRef('')} onContextDrop={dropContext} embedded homeMode/>
+          <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} embedded homeMode/>
           {!value.trim() && <WorkspaceHomeWidgets home={home} projects={projects} brands={home.brands || []} links={bootstrap.urls} onOpen={openItem} onPrompt={setValue} onOpenActivity={() => setActivityOpen(true)} onFeedback={setToast}/>}</>}
         </section>
       </div>

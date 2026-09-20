@@ -2291,7 +2291,7 @@ def dashboard():
             # case the client is the organization boundary used by Cadu Family.
             'organization_id': int(session.get('organization_id') or session.get('organizacao_id') or client_id),
         }),
-        'usagePercent': round(usage),
+        'usagePercent': round(usage, 1),
     }
     return render_template(
         "cadu_workspace/workspace_home_chat.html", sections=sections, projects=projects, brands=brands,
@@ -2378,7 +2378,7 @@ def brands():
             dock_items = (list(all_brand_items.values())[:3] + project_items)[:8]
         return render_template('cadu_workspace/brands_react.html', brand_items=brand_items, project_items=project_items, dock_items=dock_items,
                                query=query, filter_name=filter_name, catalog_error=catalog_error,
-                               usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
+                               usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1))
     return render_template('cadu_workspace/brands.html', brands=records, query=query, filter_name=filter_name)
 
 
@@ -2632,7 +2632,7 @@ def projects():
             dock_items = brands[:3] + list(project_catalog.values())[:5]
         return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items,
                                query=query, status=status, catalog_error=catalog_error,
-                               usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)))
+                               usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1))
     return render_template('cadu_workspace/projects.html', projects=records, query=query, status=status)
 
 
@@ -2760,7 +2760,7 @@ def project_detail(project_id):
         return render_template(
             'cadu_workspace/project_detail_react.html', project_data=project_data,
             project_items=project_items, brand_items=brand_items, dock_items=dock_items,
-            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0)),
+            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1),
         )
     return render_template('cadu_workspace/project_detail.html', project=project, brands=_workspace_brands(client_id),
                            can_manage_brand=session.get('user_type') in {'admin', 'superadmin'})

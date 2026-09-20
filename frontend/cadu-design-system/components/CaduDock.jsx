@@ -84,10 +84,11 @@ export function DockResourceShortcut({item, pinned = false, onOpen, onDragStart,
 
 export function DockUsageRing({percent, onOpen}) {
   const value = Math.max(0, Math.min(100, Number(percent) || 0));
-  return <DockTooltip label="Créditos e consumo"><button type="button" className="cadu-ds-usage-ring" style={{'--cadu-usage': `${value * 3.6}deg`}} onClick={onOpen} aria-label={`Utilização de créditos: ${value}%`}><span>{value}%</span></button></DockTooltip>;
+  const formatted = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(value);
+  return <DockTooltip label="Créditos e consumo"><button type="button" className="cadu-ds-usage-ring" style={{'--cadu-usage': `${value * 3.6}deg`}} onClick={onOpen} aria-label={`Utilização de créditos: ${formatted}%`}><span>{formatted}%</span></button></DockTooltip>;
 }
 
-export function CaduDock({onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, userAvatar, userInitials = 'C', onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
+export function CaduDock({onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
   const writePayload = (event, payload) => { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-cadu-item', JSON.stringify(payload)); };
   const items = shortcutItems.length ? shortcutItems : [...brands, ...resources];
   const dockBrands = items.filter(item => item.kind === 'brand');
@@ -110,6 +111,6 @@ export function CaduDock({onNewConversation, brands = [], resources = [], shortc
     <DockTooltip label="Novo chat"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Novo chat"><Icon name="compose" size={18}/></button></DockTooltip>
     <div className="cadu-ds-dock-context" aria-label="Marcas e projetos fixados"><DockDropZone onDropItem={onDropItem}>{dockBrands.slice(0, 6).map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</DockDropZone>
       <div className="cadu-ds-dock-resources">{dockResources.slice(0, 6).map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</div></div>
-    <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/>}<DockTooltip label="Conta e perfil"><button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenUsage} aria-label="Abrir conta">{userAvatar ? <img className="cadu-ds-dock-avatar" src={userAvatar} alt=""/> : <span className="cadu-ds-dock-avatar cadu-ds-dock-avatar--fallback">{userInitials}</span>}</button></DockTooltip></div>
+    <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/>}</div>
   </aside>;
 }

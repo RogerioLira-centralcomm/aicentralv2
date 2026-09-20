@@ -1,6 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}{{ {'perfil':'Perfil','equipe':'Equipe','planos':'Plano','creditos':'Uso','faturamento':'Faturamento'}[section] }} — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
+{% block content_class %}portal-content--workspace-react{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=12">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
@@ -10,7 +11,7 @@
   'section': section,
   'csrf': session.get('family_csrf',''),
   'admin': session.get('user_type') in ('admin','superadmin'),
-  'usagePercent': account.insights.tokens.percentage if account.insights and account.insights.tokens else none,
+  'usagePercent': account.position.usage_percentage if account.position else 0,
   'account': account,
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'user': {'id': session.get('user_id'), 'name': session.get('user_name','Minha conta'), 'email': session.get('user_email',''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url',''), 'avatarBadge': session.get('cadu_avatar_badge','')},

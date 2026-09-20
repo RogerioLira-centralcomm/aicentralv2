@@ -174,7 +174,8 @@
 /* Workspace home — the same quiet, two-line composer language used by
    Conversations. The page is a starting point for work, never a dashboard
    with a second, improvised chat control. */
-body.portal--workspace:has(#cadu-conversations-v2-root .cadu-ds-home-shell) main#content { width:100%; max-width:none; min-height:100dvh; margin:0; }
+body.portal--workspace > main#content.portal-content--workspace-react,
+body.portal--workspace > main#content:has(> #cadu-conversations-v2-root) { width:100%; max-width:none; min-height:100dvh; margin:0; }
 #cadu-conversations-v2-root.cv-home-root { width:100%; min-height:100dvh; }
 .cadu-ds-home-shell { min-height:100dvh; background:var(--cadu-canvas); }
 .cadu-ds-home-navbar { position:relative; z-index:var(--cadu-z-navbar); flex:none; min-height:72px; height:72px; padding-inline:24px; border-bottom:1px solid var(--cadu-nav-line); }

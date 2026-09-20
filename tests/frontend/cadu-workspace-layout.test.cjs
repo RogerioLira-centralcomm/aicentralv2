@@ -16,7 +16,7 @@ function documentFor(contentClass) {
   <html data-cadu-theme="light" data-cadu-skin="workspace">
     <head><meta charset="utf-8"><style>html,body{margin:0}\n${tokens}\n${styles}</style></head>
     <body class="portal--workspace">
-      <main id="content">
+      <main id="content" class="portal-content--workspace-react">
         <div id="cadu-conversations-v2-root" class="cv-home-root">
           <div class="cadu-ds-home-shell">
             <main class="cadu-ds-home-main">

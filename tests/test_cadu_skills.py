@@ -35,13 +35,15 @@ class CaduSkillsTest(TestCase):
         cursor.fetchone.side_effect = [
             {"granted": 100, "used": 37, "available": 63},
             {"?column?": 1},
+            {"monthly_limit": 1000, "monthly_used": 250},
         ]
         db.return_value.cursor.return_value.__enter__.return_value = cursor
 
-        self.assertEqual(
-            credit_position(12),
-            {"available": 63, "monthly": 100, "configured": True},
-        )
+        position = credit_position(12)
+        self.assertEqual(position["available"], 63)
+        self.assertEqual(position["monthly"], 100)
+        self.assertTrue(position["configured"])
+        self.assertEqual(position["monthly_usage_percentage"], 37.0)
 
     @mock.patch("aicentralv2.cadu_skills.repository._db")
     def test_credit_position_sums_every_active_shared_lot(self, db):
@@ -49,13 +51,15 @@ class CaduSkillsTest(TestCase):
         cursor.fetchone.side_effect = [
             {"granted": 100, "used": 42, "available": 58},
             {"?column?": 1},
+            {"monthly_limit": 1000, "monthly_used": 250},
         ]
         db.return_value.cursor.return_value.__enter__.return_value = cursor
 
-        self.assertEqual(
-            credit_position(12),
-            {"available": 58, "monthly": 100, "configured": True},
-        )
+        position = credit_position(12)
+        self.assertEqual(position["available"], 58)
+        self.assertEqual(position["monthly"], 100)
+        self.assertTrue(position["configured"])
+        self.assertEqual(position["monthly_usage_percentage"], 42.0)
 
     @mock.patch("aicentralv2.cadu_skills.repository._db")
     def test_credit_position_does_not_invent_tokens_for_an_empty_plan(self, db):
@@ -63,13 +67,15 @@ class CaduSkillsTest(TestCase):
         cursor.fetchone.side_effect = [
             {"granted": 0, "used": 0, "available": 0},
             {"?column?": 1},
+            {"monthly_limit": 1000, "monthly_used": 250},
         ]
         db.return_value.cursor.return_value.__enter__.return_value = cursor
 
-        self.assertEqual(
-            credit_position(12),
-            {"available": 0, "monthly": 0, "configured": True},
-        )
+        position = credit_position(12)
+        self.assertEqual(position["available"], 0)
+        self.assertEqual(position["monthly"], 0)
+        self.assertTrue(position["configured"])
+        self.assertEqual(position["monthly_usage_percentage"], 0)
 
     def test_catalog_promotes_ten_and_defers_ninety(self):
         self.assertEqual(len(TOP_SKILLS), 10)

@@ -26,7 +26,7 @@
 <body class="portal portal--{{ portal_product }}" data-product="{{ portal_product }}" data-authenticated="{{ 'true' if session.get('user_id') else 'false' }}">
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
   {% block navigation %}{% set cadu_active_product = portal_product %}{% include 'cadu/_product_nav.html' %}{% endblock %}
-  <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
+  <main id="content" class="{% block content_class %}{% endblock %}" tabindex="-1">{% block content %}{% endblock %}</main>
   {% if portal_product != 'studio' %}
     {% if portal_product == 'workspace-public' %}
       <footer class="cadu-public-footer" aria-label="Cadu Media e conteúdos públicos">

@@ -363,15 +363,19 @@ def credit_position(client_id: int) -> dict:
             plan_usage = cursor.fetchone() or {}
             monthly_limit = max(0, int(plan_usage.get("monthly_limit") or 0))
             monthly_used = max(0, int(plan_usage.get("monthly_used") or 0))
+            lot_granted = max(0, int(lots.get("granted") or 0))
+            lot_used = max(0, int(lots.get("used") or 0))
             return {
                 "available": max(0, int(lots.get("available") or 0)),
                 # Kept for existing shells; this is the total of active credit
                 # lots, not a monthly plan allowance.
-                "monthly": int(lots.get("granted") or 0),
+                "monthly": lot_granted,
                 "configured": configured,
                 "monthly_limit": monthly_limit,
                 "monthly_used": monthly_used,
-                "monthly_usage_percentage": round(min(100, (monthly_used * 100) / monthly_limit), 1) if monthly_limit else 0,
+                # Workspace usage is shared across Cadu products and must use
+                # active credit lots, not the legacy plan allowance.
+                "monthly_usage_percentage": round(min(100, (lot_used * 100) / lot_granted), 1) if lot_granted else 0,
             }
     except Exception:
         return {"available": 0, "monthly": 0, "configured": False, "monthly_limit": 0, "monthly_used": 0, "monthly_usage_percentage": 0}

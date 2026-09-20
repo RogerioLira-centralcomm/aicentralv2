@@ -1057,13 +1057,16 @@ body.portal--workspace .cadu-ds-home-brand-grid > button:focus-visible {
 
 @media (min-width:761px) {
   body.portal--workspace .cadu-ds-home-workarea .cadu-ds-dock {
-    top:14px;
-    height:calc(100dvh - 28px);
-    min-height:0;
-    margin:14px 0 14px 14px;
-    border:1px solid rgba(181,218,211,.18);
-    border-radius:22px;
-    box-shadow:0 16px 34px rgba(0,0,0,.20);
+    position:sticky;
+    top:0;
+    align-self:flex-start;
+    height:100dvh;
+    min-height:100dvh;
+    margin:0;
+    border:0;
+    border-right:1px solid var(--cadu-nav-line);
+    border-radius:0;
+    box-shadow:none;
   }
 
   body.portal--workspace .cadu-ds-home-workarea {

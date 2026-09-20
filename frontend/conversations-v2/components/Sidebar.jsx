@@ -27,7 +27,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeId, on
     <aside id="cv-recent-sidebar" className="cv-recent-sidebar" aria-label="Conversas recentes">
       <header className="cv-recent-sidebar__header">
         <div><span>Conversas</span><strong>Recentes</strong></div>
-        <div><button type="button" onClick={onNew} aria-label="Novo chat"><Icon name="compose" size={16}/></button><button type="button" onClick={onClose} aria-label="Recolher conversas recentes"><Icon name="chevron" size={16}/></button></div>
+        <div><button type="button" onClick={onNew} aria-label="Novo chat"><Icon name="newChat" size={16}/></button><button type="button" onClick={onClose} aria-label="Recolher conversas recentes"><Icon name="chevron" size={16}/></button></div>
       </header>
       {conversations.length > 6 && <label className="cv-recent-search"><Icon name="search" size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar conversa" aria-label="Buscar conversa"/></label>}
       <div className="cv-recent-list">

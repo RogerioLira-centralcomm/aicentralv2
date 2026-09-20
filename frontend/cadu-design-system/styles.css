@@ -786,6 +786,14 @@ body.portal--workspace :is(.cadu-ds-home-shell,.workspace-app-shell) {
   overflow:auto;
 }
 .cadu-ds-dock-bottom { flex:0 0 auto; margin-top:auto; }
+/* Opening the solutions menu must lift the whole rail above conversation
+   surfaces; a child z-index alone cannot escape the dock stacking context. */
+body.portal--workspace .cadu-ds-dock:has(.cadu-ds-solution-switcher[open]) {
+  z-index:1000;
+}
+body.portal--workspace .cadu-ds-dock:has(.cadu-ds-solution-switcher[open]) .cadu-ds-solution-switcher nav {
+  z-index:1001;
+}
 @media (max-width:760px) {
   .cadu-ds-home-workarea .cadu-ds-dock,
   .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) .cadu-ds-dock {

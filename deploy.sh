@@ -111,16 +111,42 @@ git pull origin main >> "$DEPLOY_LOG" 2>&1
 git checkout -- . 2>/dev/null || true
 echo "  > OK"
 
-# 2b. Build Tailwind (output.css nao e versionado — sempre gerado aqui)
+# 2b. Build frontend (artefatos gerados somente quando a camada visual mudou)
 echo ""
 echo "[2b/8] Build frontend (Tailwind)..."
-if [ -x "./build_frontend.sh" ]; then
+FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
+FRONTEND_REVISION="$(git rev-parse HEAD)"
+RUN_FRONTEND_BUILD=1
+if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; then
+    LAST_FRONTEND_REVISION="$(head -n 1 "$FRONTEND_STATE_FILE")"
+    if git cat-file -e "${LAST_FRONTEND_REVISION}^{commit}" 2>/dev/null && \
+       git diff --quiet "$LAST_FRONTEND_REVISION" "$FRONTEND_REVISION" -- \
+           frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
+           aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
+           package-lock.json build_frontend.sh postcss.config.js \
+           tailwind.config.js vite.auth.config.mjs vite.conversations.config.mjs \
+           vite.studio-editor.config.mjs && \
+       [ -f "aicentralv2/static/css/tailwind/output.css" ] && \
+       [ -f "aicentralv2/static/css/tailwind/output-legacy.css" ]; then
+        RUN_FRONTEND_BUILD=0
+    fi
+fi
+
+if [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
     bash ./build_frontend.sh >> "$DEPLOY_LOG" 2>&1
-    echo "  > OK"
-elif command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
+    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
+    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
+    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
+    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
+elif [ "$RUN_FRONTEND_BUILD" = "1" ] && command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
     npm install --no-audit --no-fund >> "$DEPLOY_LOG" 2>&1
     npm run build >> "$DEPLOY_LOG" 2>&1
-    echo "  > OK"
+    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
+    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
+    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
+    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
+elif [ "$RUN_FRONTEND_BUILD" = "0" ]; then
+    echo "  > Frontend sem alteracoes; pulando build."
 else
     echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
     exit 1
@@ -159,10 +185,23 @@ cleanup_pip_orphans() {
 }
 
 cleanup_pip_orphans "$VENV_PIP"
-$VENV_PIP install --upgrade pip --quiet 2>&1
-cleanup_pip_orphans "$VENV_PIP"
-$VENV_PIP install -r requirements.txt --upgrade --quiet 2>&1
-cleanup_pip_orphans "$VENV_PIP"
+VENV_NAME="$(basename "$(dirname "$VENV_PIP")")"
+REQUIREMENTS_STATE_FILE="${REQUIREMENTS_STATE_FILE:-logs/.requirements-${VENV_NAME}.sha256}"
+if command -v sha256sum >/dev/null 2>&1; then
+    REQUIREMENTS_HASH="$(sha256sum requirements.txt | awk '{print $1}')"
+else
+    REQUIREMENTS_HASH="$(shasum -a 256 requirements.txt | awk '{print $1}')"
+fi
+if [ ! -f "$REQUIREMENTS_STATE_FILE" ] || [ "$(cat "$REQUIREMENTS_STATE_FILE")" != "$REQUIREMENTS_HASH" ]; then
+    echo "  > requirements.txt mudou; atualizando ambiente Python..."
+    "$VENV_PIP" install --upgrade pip --quiet 2>&1
+    cleanup_pip_orphans "$VENV_PIP"
+    "$VENV_PIP" install -r requirements.txt --upgrade --quiet 2>&1
+    cleanup_pip_orphans "$VENV_PIP"
+    printf '%s\n' "$REQUIREMENTS_HASH" > "$REQUIREMENTS_STATE_FILE"
+else
+    echo "  > requirements.txt sem alteracoes; pulando instalacao Python."
+fi
 echo "  > OK"
 
 # 4. Criar diretorios e dependencias do sistema
@@ -181,8 +220,12 @@ fi
 # 5. Limpar cache Python
 echo ""
 echo "[4/7] Limpando cache..."
-find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-find . -type f -name "*.pyc" -delete 2>/dev/null || true
+if [ "${CLEAN_PYTHON_CACHE:-0}" = "1" ]; then
+    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find . -type f -name "*.pyc" -delete 2>/dev/null || true
+else
+    echo "  > Cache preservado (use CLEAN_PYTHON_CACHE=1 para limpar manualmente)."
+fi
 echo "  > OK"
 
 # 6. Recarregar systemd (o unit principal e gerenciado no servidor)
@@ -200,6 +243,20 @@ echo "  > OK"
 # 8. Atualizar schema e dados idempotentes
 echo ""
 echo "[7/9] Atualizando schemas e dados..."
+MIGRATION_STATE_FILE="${MIGRATION_STATE_FILE:-logs/.last-migrations-revision}"
+MIGRATION_REVISION="$(git rev-parse HEAD)"
+RUN_MIGRATIONS=1
+if [ "${FORCE_MIGRATIONS:-0}" != "1" ] && [ -s "$MIGRATION_STATE_FILE" ]; then
+    LAST_MIGRATION_REVISION="$(head -n 1 "$MIGRATION_STATE_FILE")"
+    if git cat-file -e "${LAST_MIGRATION_REVISION}^{commit}" 2>/dev/null && \
+       git diff --quiet "$LAST_MIGRATION_REVISION" "$MIGRATION_REVISION" -- \
+           migrations deploy.sh scripts/seed_creative_formats.py \
+           scripts/seed_creative_viewer_profiles.py scripts/import_centralcomm_interactives.py; then
+        RUN_MIGRATIONS=0
+    fi
+fi
+
+if [ "$RUN_MIGRATIONS" = "1" ]; then
 {
 "$VENV_PYTHON" migrations/run_add_tipo_comercial_to_cotacoes.py
 "$VENV_PYTHON" migrations/run_add_cotacao_grupo_plano.py
@@ -282,14 +339,24 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql
+} >> "$DEPLOY_LOG" 2>&1
+    mkdir -p "$(dirname "$MIGRATION_STATE_FILE")"
+    printf '%s\n' "$MIGRATION_REVISION" > "${MIGRATION_STATE_FILE}.tmp"
+    mv "${MIGRATION_STATE_FILE}.tmp" "$MIGRATION_STATE_FILE"
+    echo "  > OK (migrações executadas para $MIGRATION_REVISION)"
+else
+    echo "  > Nenhuma migração alterada desde $LAST_MIGRATION_REVISION; pulando bloco de migrações."
+fi
+
+# O catálogo pode ser montado fora do Git em qualquer momento. Mantemos esta
+# importação independente do marcador de migrations para não ignorar um novo
+# catálogo depois de um deploy que não alterou o schema.
 INTERACTIVES_SOURCE="${CENTRALCOMM_INTERACTIVES_SOURCE:-/var/www/aicentralv2/data/html-slides-pt}"
 if [ -f "$INTERACTIVES_SOURCE/creative-format-overview.html" ]; then
-    "$VENV_PYTHON" scripts/import_centralcomm_interactives.py --source "$INTERACTIVES_SOURCE"
+    "$VENV_PYTHON" scripts/import_centralcomm_interactives.py --source "$INTERACTIVES_SOURCE" >> "$DEPLOY_LOG" 2>&1
 else
-    echo "Catálogo CentralComm ausente; importação de interativos ignorada: $INTERACTIVES_SOURCE"
+    echo "Catálogo CentralComm ausente; importação de interativos ignorada: $INTERACTIVES_SOURCE" >> "$DEPLOY_LOG"
 fi
-} >> "$DEPLOY_LOG" 2>&1
-echo "  > OK"
 
 # Worker de mídia: dependências, modelo local e serviço supervisionado.
 MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1

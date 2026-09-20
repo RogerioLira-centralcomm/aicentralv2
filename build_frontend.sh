@@ -37,20 +37,30 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 need_ci=0
+lock_hash_file="$NODE_DIR/node_modules/.package-lock.sha256"
+if command -v sha256sum >/dev/null 2>&1; then
+  lock_hash="$(sha256sum "$NODE_DIR/package-lock.json" | awk '{print $1}')"
+else
+  lock_hash="$(shasum -a 256 "$NODE_DIR/package-lock.json" | awk '{print $1}')"
+fi
 if [ "$FORCE_CI" = "1" ]; then
   need_ci=1
 elif [ ! -d "$NODE_DIR/node_modules" ]; then
   need_ci=1
 elif [ ! -f "$NODE_DIR/node_modules/.bin/tailwindcss" ] && [ ! -f "$NODE_DIR/node_modules/.bin/tailwindcss.cmd" ]; then
   need_ci=1
+elif [ ! -f "$lock_hash_file" ] || [ "$(cat "$lock_hash_file")" != "$lock_hash" ]; then
+  need_ci=1
 fi
 
 if [ "$need_ci" = "1" ]; then
   echo "[INFO] Instalando dependências (npm ci)..."
-  npm ci
+  npm ci --no-audit --no-fund --prefer-offline
 else
   echo "[INFO] Dependências já instaladas, pulando npm ci."
 fi
+
+printf '%s\n' "$lock_hash" > "$lock_hash_file"
 
 # Audit fica fora do build: as deps são só de compilação do CSS
 # (não vão para produção) e npm audit/fix costuma ser lento e falhar
@@ -67,4 +77,3 @@ else
   echo "[ERRO] Falha ao gerar um dos bundles CSS."
   exit 1
 fi
-

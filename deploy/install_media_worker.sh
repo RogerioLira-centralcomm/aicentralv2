@@ -10,9 +10,17 @@ command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null || { echo 'Instale
 studio_user="$(systemctl show aicentralv2 --property=User --value)"
 [[ -n "$studio_user" ]] || { echo 'Usuário do serviço aicentralv2 não identificado.' >&2; exit 1; }
 studio_model="$studio_root/instance/media-models/whisper-small"
-"$studio_python" -m pip install -r "$studio_root/requirements-media.txt"
+if ! "$studio_python" -c 'import faster_whisper, pywebpush' >/dev/null 2>&1; then
+    echo 'Dependências do worker de mídia ausentes; instalando requirements-media.txt...'
+    "$studio_python" -m pip install -r "$studio_root/requirements-media.txt"
+else
+    echo 'Dependências do worker de mídia já disponíveis; pulando instalação.'
+fi
 mkdir -p "$studio_model"
-"$studio_python" - "$studio_model" <<'PY'
+if [[ -f "$studio_model/config.json" && -f "$studio_model/model.bin" ]]; then
+    echo 'Modelo Whisper já preparado; pulando download e carregamento inicial.'
+else
+    "$studio_python" - "$studio_model" <<'PY'
 import sys
 from faster_whisper.utils import download_model
 from faster_whisper import WhisperModel
@@ -20,6 +28,7 @@ path=download_model('small',output_dir=sys.argv[1])
 WhisperModel(path,device='cpu',compute_type='int8',local_files_only=True)
 print('Modelo de transcrição preparado.')
 PY
+fi
 studio_unit_dir="$(mktemp -d)"
 studio_unit="$studio_unit_dir/cadu-media-worker.service"
 trap 'rm -rf "$studio_unit_dir"' EXIT

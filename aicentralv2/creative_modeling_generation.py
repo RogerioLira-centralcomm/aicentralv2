@@ -476,10 +476,15 @@ class CreativeGenerationClient:
         resolution="2K",
         background="opaque",
         model=None,
+        max_input_references=2,
     ):
         raw_references = list(input_references or [])
-        if len(raw_references) > 2:
-            raise ValueError("Use no máximo duas imagens de referência.")
+        try:
+            reference_limit = max(1, min(int(max_input_references), 4))
+        except (TypeError, ValueError):
+            reference_limit = 2
+        if len(raw_references) > reference_limit:
+            raise ValueError(f"Use no máximo {reference_limit} imagens de referência.")
         requested_aspect_ratio = aspect_ratio
         provider_aspect_ratio = normalize_image_aspect_ratio(aspect_ratio)
         image_model = str(model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
@@ -492,6 +497,7 @@ class CreativeGenerationClient:
             background=background,
             model=image_model,
             input_references=raw_references,
+            max_input_references=reference_limit,
             http_client=self.http,
         )
         result.setdefault("actual_cost_usd", _usage_cost(result.get("usage")))

@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+from decimal import Decimal
 from uuid import uuid4
 
 from PIL import Image, ImageFilter, ImageOps
@@ -20,6 +21,9 @@ MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_MODEL", "openai/gpt-5-nano")
 DIRECTOR_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTOR_MODEL", MODEL.removeprefix("openai/"))
 REDUNDANCY_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_FALLBACK_MODEL", "openai/gpt-4o-mini")
 IMAGE_MODEL = os.getenv("CREATIVE_STUDIO_IMAGE_MODEL", "openai/gpt-image-2")
+MAX_IMAGE_REFERENCES = 3
+REFERENCE_DIRECTION_TOKENS = 180
+REFERENCE_IMAGE_COST_FACTOR = Decimal("0.12")
 IMAGE_ROLES = {
     "primary": "the primary/base image whose unrequested content must be preserved",
     "insert": "an element source to integrate naturally into the primary image",
@@ -30,12 +34,17 @@ IMAGE_ROLES = {
     "identity": "an identity reference whose product, person or package details must remain faithful",
 }
 _REQUEST_ID = re.compile(r"^[a-zA-Z0-9_-]{8,160}$")
+_HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
-def estimated_tokens(count):
+def estimated_tokens(count, reference_count=0):
     # Reserve the complete, bounded prompt and completion budget before making
-    # a billable provider call. The actual usage is charged afterwards.
-    return 1300 + max(1, min(int(count or 1), 5)) * 320
+    # a billable provider call. Visual inputs make the director's multimodal
+    # inspection more expensive, so the estimate must rise before the call;
+    # actual provider usage remains the source of truth at charge time.
+    directions = max(1, min(int(count or 1), 5))
+    references = max(0, min(int(reference_count or 0), MAX_IMAGE_REFERENCES))
+    return 1300 + directions * 320 + references * REFERENCE_DIRECTION_TOKENS
 
 
 def suggestions(document):
@@ -131,8 +140,9 @@ def create(payload, text_callable):
 
 def clean_context(raw, count):
     data = raw if isinstance(raw, dict) else {}
-    references = [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:2]) if isinstance(item, dict)]
+    references = [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)]
     raw_brand = data.get("brand_context") if isinstance(data.get("brand_context"), dict) else {}
+    brand_assets = raw_brand.get("assets") if isinstance(raw_brand.get("assets"), dict) else {}
     brand_context = {
         "name": text(raw_brand.get("name"), 120),
         "logo_url": text(raw_brand.get("logo_url"), 500),
@@ -144,10 +154,12 @@ def clean_context(raw, count):
         "forbidden_elements": [text(item, 160) for item in raw_brand.get("forbidden_elements", [])[:8]],
         "creative_guidelines": text(raw_brand.get("creative_guidelines"), 700),
         "assets": {
-            "logo": [text(item, 500) for item in (raw_brand.get("assets") or {}).get("logo", [])[:3]],
-            "references": [text(item, 500) for item in (raw_brand.get("assets") or {}).get("references", [])[:8]],
+            "logo": [text(item, 500) for item in brand_assets.get("logo", [])[:3]],
+            "references": [text(item, 500) for item in brand_assets.get("references", [])[:8]],
         },
     }
+    brand_context["readiness"] = brand_identity_readiness(brand_context)
+    references = references_with_brand_logo(references, brand_context)
     return {key: text(data.get(key), limit) for key, limit in (("project_name", 120), ("brand", 120), ("brief", 1800), ("objective", 300), ("audience", 300), ("purpose", 24), ("format", 24))} | {
         "channels": [text(item, 24) for item in data.get("channels", []) if text(item, 24)][:5],
         "iab_formats": [text(item, 32) for item in data.get("formats", []) if text(item, 32)][:6],
@@ -158,15 +170,166 @@ def clean_context(raw, count):
         "requested_directions": count,
         "auto_generate_next": data.get("auto_generate_next") is True,
         "generation_round": max(0, integer(data.get("generation_round"), 0)),
+        "requested_palette": clean_palette(data.get("requested_palette")),
         "references": references,
-        "reference_mode": "visual_references_selected" if references else "briefing_only",
+        "reference_mode": reference_mode(references),
         "brand_context": brand_context if brand_context.get("name") else {},
     }
 
 
+def clean_palette(raw):
+    values = raw if isinstance(raw, list) else []
+    colors = []
+    for value in values[:6]:
+        color = str(value or "").strip().upper()
+        if _HEX_COLOR.fullmatch(color) and color not in colors:
+            colors.append(color)
+    return colors
+
+
+def reference_mode(references):
+    """Describe whether the user supplied a visual source for a fast remix.
+
+    A Studio composition mask and a user image are complementary: the first
+    controls the ad's spatial architecture, while the second supplies the
+    visual language.  This must be explicit so a missing project logo or
+    palette does not incorrectly turn a reference-led edit into a blank,
+    neutral brand exercise.
+    """
+    items = references if isinstance(references, list) else []
+    has_user_visual = any(
+        item.get("source") == "user" and item.get("role") == "reference"
+        for item in items if isinstance(item, dict)
+    )
+    has_global_mask = any(item.get("source") == "global" for item in items if isinstance(item, dict))
+    if has_user_visual and has_global_mask:
+        return "visual_remix"
+    if has_user_visual:
+        return "user_visual_reference"
+    return "visual_references_selected" if items else "briefing_only"
+
+
+def uses_user_visual_reference(references):
+    return reference_mode(references) in {"visual_remix", "user_visual_reference"}
+
+
+def brand_identity_readiness(brand_context):
+    """Return a server-derived guard against invented visual identities."""
+    brand = brand_context if isinstance(brand_context, dict) else {}
+    assets = brand.get("assets") if isinstance(brand.get("assets"), dict) else {}
+    has_logo = bool(text(brand.get("logo_url"), 500) or any(assets.get("logo") or []))
+    has_palette = bool([item for item in brand.get("palette", []) if text(item, 16)])
+    missing = []
+    if not has_logo:
+        missing.append("logo")
+    if not has_palette:
+        missing.append("cores")
+    return {
+        "status": "ready" if not missing else "partial" if len(missing) == 1 else "missing",
+        "has_logo": has_logo,
+        "has_palette": has_palette,
+        "missing": missing,
+    }
+
+
+def brand_identity_guard(raw_brand, visual_reference=False):
+    brand = raw_brand if isinstance(raw_brand, dict) else {}
+    if visual_reference:
+        logo = official_logo_reference(brand)
+        return (
+            "VISUAL REFERENCE MODE: A user-supplied image is the visual source for this request. "
+            "Use its observable palette, materials, lighting and subject treatment together with any global composition mask. "
+            "Those visual cues are not official brand identity: do not invent or claim a logo, wordmark or color system for the project."
+            + (
+                " An approved logo was supplied separately. Preserve that exact logo, make it fully visible within the safe margin, and do not redraw or crop it."
+                if logo else ""
+            )
+        )
+    readiness = brand_identity_readiness(brand)
+    if readiness["status"] == "ready":
+        palette = ", ".join(text(item, 16) for item in brand.get("palette", []) if text(item, 16))
+        return (
+            "BRAND IDENTITY GUARD: Official logo and palette are available. "
+            "Use only supplied identity assets; do not alter or reinterpret them. "
+            f"Official color tokens: {palette}."
+        )
+    missing = ", ".join(readiness["missing"])
+    return (
+        f"BRAND IDENTITY GUARD: This project is missing official {missing}. "
+        "Do not invent, infer or stylize a logo, monogram, lettermark, initials, wordmark, icon or color system from the brand name. "
+        "Keep a clean neutral safe area for identity to be applied later, and never present arbitrary colors as official brand colors."
+    )
+
+
+def official_logo_reference(raw_brand):
+    """Return the first provider-safe official logo, never a generated proxy."""
+    brand = raw_brand if isinstance(raw_brand, dict) else {}
+    assets = brand.get("assets") if isinstance(brand.get("assets"), dict) else {}
+    candidates = [brand.get("logo_url"), *(assets.get("logo") or [])]
+    for candidate in candidates:
+        url = text(candidate, 500)
+        if url.startswith(("https://", "http://", "/static/")):
+            return {
+                "id": "brand:official-logo",
+                "url": url,
+                "role": "identity",
+                "source": "project",
+                "label": f"{text(brand.get('name'), 120) or 'Marca'} · logo oficial",
+            }
+    return None
+
+
+def references_with_brand_logo(raw_references, raw_brand):
+    """Append an approved logo without displacing the selected visual sources.
+
+    Studio V2 intentionally sends up to three high-fidelity image inputs:
+    global composition, user or project source, and approved identity. This
+    gives complex creatives their full visual contract instead of silently
+    choosing between layout, subject and brand.
+    """
+    references = [dict(item) for item in raw_references if isinstance(item, dict)][:MAX_IMAGE_REFERENCES]
+    global_references = [
+        item for item in references
+        if item.get("source") == "global" or str(item.get("url") or "").startswith("/static/images/cadu/studio/references/")
+    ]
+    if len(global_references) > 1:
+        raise ValueError("Escolha somente uma referência global de composição por criação.")
+    logo = official_logo_reference(raw_brand)
+    if not logo or any(str(item.get("url") or "") == logo["url"] for item in references):
+        return references
+    if len(references) >= MAX_IMAGE_REFERENCES:
+        raise ValueError("Remova uma referência para incluir o logo oficial: a criação aceita até três imagens visuais.")
+    return [*references, logo]
+
+
 def direction_user_content(request, context):
     """Send stored references as URLs so the director can inspect their pixels."""
-    blocks = [{"type": "text", "text": json.dumps({"pedido": request, "contexto": context}, ensure_ascii=False)}]
+    from ..creative_modeling_storage import public_studio_asset_url
+
+    provider_context = dict(context)
+    provider_context["references"] = [
+        {**reference, "url": public_studio_asset_url(reference.get("url"))}
+        for reference in context.get("references", [])
+        if isinstance(reference, dict) and str(reference.get("url") or "") not in {"", "inline upload"}
+    ]
+    brand = context.get("brand_context") if isinstance(context.get("brand_context"), dict) else {}
+    if brand:
+        provider_brand = dict(brand)
+        if provider_brand.get("logo_url"):
+            provider_brand["logo_url"] = public_studio_asset_url(provider_brand["logo_url"])
+        assets = provider_brand.get("assets") if isinstance(provider_brand.get("assets"), dict) else {}
+        if assets:
+            provider_assets = dict(assets)
+            provider_assets["logo"] = [
+                public_studio_asset_url(url) for url in assets.get("logo", []) if isinstance(url, str)
+            ]
+            provider_assets["logos"] = [
+                {**logo, "url": public_studio_asset_url(logo.get("url"))}
+                for logo in assets.get("logos", []) if isinstance(logo, dict) and logo.get("url")
+            ]
+            provider_brand["assets"] = provider_assets
+        provider_context["brand_context"] = provider_brand
+    blocks = [{"type": "text", "text": json.dumps({"pedido": request, "contexto": provider_context}, ensure_ascii=False)}]
     for index, reference in enumerate(context.get("references", []), start=1):
         url = str(reference.get("url") or "")
         if not url or url == "inline upload":
@@ -176,20 +339,32 @@ def direction_user_content(request, context):
             f"source={reference.get('source', 'user')}; role={reference.get('role', 'reference')}. "
             "Inspecione os pixels e aplique o contrato descrito no contexto."
         )})
-        blocks.append({"type": "image_url", "image_url": {"url": url}})
+        blocks.append({"type": "image_url", "image_url": {"url": public_studio_asset_url(url)}})
+    logo = official_logo_reference(context.get("brand_context"))
+    if logo and not any(
+        str(reference.get("url") or "") == logo["url"]
+        for reference in context.get("references", []) if isinstance(reference, dict)
+    ):
+        blocks.append({"type": "text", "text": (
+            f"Logo oficial da marca {context.get('brand_context', {}).get('name') or 'do projeto'}: "
+            "inspecione os pixels, preserve o desenho e use-o apenas como identidade da peça. "
+            "Não redesenhe, simplifique ou substitua esta marca."
+        )})
+        blocks.append({"type": "image_url", "image_url": {"url": public_studio_asset_url(logo["url"])}})
     return blocks
 
 
 def clean_direction_reference(item, index):
+    raw_url = str(item.get("url") or "")
+    source = "global" if raw_url.startswith("/static/images/cadu/studio/references/") else str(item.get("source") or "user")
     role = str(item.get("role") or ("primary" if index == 0 else "insert"))
     # The Studio UI uses the neutral label "reference" for a selected
-    # composition reference. The image contract needs a concrete role.
-    if role == "reference":
+    # composition reference. Only protected global masks become composition;
+    # a user upload remains a visual source for a fast remix.
+    if role == "reference" and source == "global":
         role = "composition"
     if role not in IMAGE_ROLES:
         role = "insert"
-    raw_url = str(item.get("url") or "")
-    source = "global" if raw_url.startswith("/static/images/cadu/studio/references/") else str(item.get("source") or "user")
     if source not in {"global", "user", "project"}:
         source = "user"
     return {
@@ -209,9 +384,9 @@ Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary
 REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, anunciante, produto, público, cenário, ação, texto literal, preço, volume, logo solicitado e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual. Se o usuário informar explicitamente uma marca, preço, volume, slogan ou pedido de logo, isso é requisito obrigatório e deve aparecer no prompt final exatamente como informado.
 ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único prompt contínuo, nesta sequência: (1) objetivo e tipo de peça; (2) produto/assunto principal e o que precisa estar visível; (3) público, pessoas e ação; (4) cenário, praça ou contexto cultural brasileiro, momento e atmosfera; (5) composição, enquadramento, hierarquia, posição dos elementos e área segura; (6) como cada referência selecionada deve orientar a peça; (7) iluminação, materiais e paleta; (8) canal e formato controlados pelo Studio; (9) texto literal solicitado e posição reservada; (10) restrições e checagens finais. Não comece pelo formato nem pelas referências: eles orientam a execução, mas não substituem a ideia do usuário.
 FORMATO É CONTROLADO PELO STUDIO: o campo contexto.format, contexto.format_key, contexto.width e contexto.height é a fonte de verdade do output selecionado na interface. Se o texto do pedido mencionar outra dimensão ou proporção, trate isso apenas como descrição do pedido e ignore a dimensão conflitante. Nunca escreva 300x300, 1080x1080 ou outra medida no prompt final quando o formato selecionado for diferente. Sempre repita o formato controlado pelo contexto no prompt final.
-MARCA E PROJETO: quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos. Ativos de marca podem ser aplicados na peça; referências de composição continuam sendo apenas guias de posição e hierarquia.
+MARCA E PROJETO: quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos. Ativos de marca podem ser aplicados na peça; referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Se contexto.brand_context.readiness indicar ausência de logo ou cores, trate o nome apenas como contexto verbal: nunca invente logotipo, monograma, inicial, símbolo, wordmark ou paleta de marca. Reserve uma área neutra e segura para a identidade ser aplicada posteriormente. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
 
-REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
+REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Quando reference_mode="visual_remix", una a imagem do usuário e a máscara global: a imagem do usuário define a linguagem visual e a máscara global define a estrutura, zonas e respiro. Gere uma nova peça coerente, não uma cópia literal, e não transforme cores vistas no anexo em identidade oficial. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
@@ -226,20 +401,21 @@ def credit_context(modeling, client_id, user_id):
     return credits, CreditActor.from_values(payer, user_id)
 
 
-def assert_available(client_id, user_id, count):
+def assert_available(client_id, user_id, count, reference_count=0):
     from ..creative_modeling_service import CreativeModelingService
     modeling = CreativeModelingService()
     credits, actor = credit_context(modeling, client_id, user_id)
-    credits.authorize(actor, estimated_tokens(count))
+    credits.authorize(actor, estimated_tokens(count, reference_count))
     return actor.client_id
 
 
 def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
+           reference_count=0,
            studio_session_id="", studio_root_session_id=""):
     from ..creative_modeling_service import CreativeModelingService
     modeling = CreativeModelingService()
     credits, actor = credit_context(modeling, client_id, user_id)
-    credits.authorize(actor, estimated_tokens(count))
+    credits.authorize(actor, estimated_tokens(count, reference_count))
     run_id = str(run_id or uuid4().hex)
     charged = credits.charge_provider(
         actor=actor, idempotency_key=f"studio:directions:{run_id}",
@@ -247,6 +423,7 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
         model=str(provider_result.get("model") or MODEL) if isinstance(provider_result, dict) else MODEL,
         metadata={
             "project_id": str(project_id or ""), "directions": int(count), "run_id": run_id,
+            "reference_count": max(0, min(int(reference_count or 0), MAX_IMAGE_REFERENCES)),
             "studio_session_id": str(studio_session_id or ""),
             "studio_root_session_id": str(studio_root_session_id or studio_session_id or ""),
             # Direction drafting and the final prompt review happen inside the
@@ -273,8 +450,16 @@ def create_image(payload, modeling, client_id, user_id):
                 raise ValueError
         except (TypeError, ValueError, ZeroDivisionError):
             raise ValueError("Formato de imagem inválido.")
+    raw_references = data.get("references") if isinstance(data.get("references"), list) else []
+    visual_reference = uses_user_visual_reference([
+        clean_direction_reference(item, index)
+        for index, item in enumerate(raw_references[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)
+    ])
     try:
-        references = normalize_image_references(data.get("references"), modeling.storage)
+        provider_source_references = references_with_brand_logo(
+            raw_references, data.get("brand_context"),
+        )
+        references = normalize_image_references(provider_source_references, modeling.storage)
     except Exception as error:
         setattr(error, "studio_phase", "image_reference")
         raise
@@ -290,7 +475,17 @@ def create_image(payload, modeling, client_id, user_id):
     # Fail before a paid provider call whenever the request cannot be billed or
     # composed.  Masked edits need a local source because the original pixels
     # are used as the preservation layer after generation.
-    estimate = modeling._estimate("image", "draft", IMAGE_MODEL)
+    requested_quality = str(data.get("quality") or "Padrão").strip().lower()
+    quality_map = {
+        "econômica": ("low", "1K", "draft"), "economica": ("low", "1K", "draft"),
+        "padrão": ("medium", "1K", "draft"), "padrao": ("medium", "1K", "draft"),
+        "alta": ("high", "2K", "publish"),
+    }
+    provider_quality, provider_resolution, billing_fidelity = quality_map.get(
+        requested_quality, ("medium", "1K", "draft"),
+    )
+    estimate = Decimal(str(modeling._estimate("image", billing_fidelity, IMAGE_MODEL)))
+    estimate *= Decimal("1") + REFERENCE_IMAGE_COST_FACTOR * len(references)
     from ..cadu_tool_billing import cost_token_equivalent
     credits, actor = credit_context(modeling, client_id, user_id)
     try:
@@ -342,9 +537,21 @@ def create_image(payload, modeling, client_id, user_id):
         raise ValueError("Informe largura e altura do formato.")
     if (width and not 120 <= width <= 7680) or (height and not 80 <= height <= 7680):
         raise ValueError("Dimensões do formato fora do limite permitido.")
+    supplied_logo = official_logo_reference(data.get("brand_context"))
+    identity_safe_area = (
+        "VISUAL REMIX IDENTITY CHECK: Use the supplied approved logo exactly as provided, fully inside the safe margin, without redrawing or cropping it."
+        if visual_reference and supplied_logo else
+        "VISUAL REMIX IDENTITY CHECK: The user reference is sufficient visual evidence for this remix. "
+        "Do not reserve a project-logo area or invent a project logo unless the briefing explicitly requests one."
+        if visual_reference else
+        "SAFE AREA CHECK: Keep all requested logos, brand marks, headline text and product packaging fully inside the selected format with visible breathing room on every side. Never place a logo partially outside the frame or crop it at the top, bottom or side. If no official logo asset is supplied, leave a clean intentional logo-safe area instead of generating a guessed mark."
+    )
+    requested_palette = clean_palette(data.get("requested_palette"))
     technical_prompt = "\n".join([
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop Reserva, R$ 599, 50 ml, 1 Million or any other named fact.",
+        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference),
+        f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece only; they are not a claim about official brand identity." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
@@ -352,8 +559,9 @@ def create_image(payload, modeling, client_id, user_id):
         *(plan_lines or ["Apply the reference contract directly and preserve the declared source boundaries."]),
         edit_guard,
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels.",
-        "SAFE AREA CHECK: Keep all requested logos, brand marks, headline text and product packaging fully inside the selected format with visible breathing room on every side. Never place a logo partially outside the frame or crop it at the top, bottom or side. If no official logo asset is supplied, leave a clean intentional logo-safe area instead of generating a guessed mark.",
+        identity_safe_area,
         "GLOBAL COMPOSITION CHECK: When a global composition mask is supplied, treat its spatial architecture as binding: preserve the indicated subject/product zone, background field, headline band, support/price/CTA band, layer order, alignment and safe margins. Replace only the mask's placeholder subject with the product and facts from the briefing. Do not center or resize the product arbitrarily if that changes the reference hierarchy.",
+        "VISUAL REMIX CHECK: When a user-supplied visual reference is present, make its observable visual language materially visible in the new piece. Combine it with the global mask's layout rather than choosing one reference and ignoring the other. Do not call the reference palette official brand colors or fabricate a brand mark from it.",
         "FORMAT AUTHORITY: The selected Studio format below overrides any conflicting dimension written in the user briefing. Compose and deliver only in this selected format.",
         f"Output channel: {channel or 'unspecified'}.",
         f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
@@ -361,9 +569,6 @@ def create_image(payload, modeling, client_id, user_id):
         f"Output aspect ratio: {aspect_ratio}.",
     ])
     provider_references = provider_image_references(references, mask)
-    requested_quality = str(data.get("quality") or "Padrão").strip().lower()
-    quality_map = {"econômica": ("low", "1K"), "economica": ("low", "1K"), "padrão": ("medium", "1K"), "padrao": ("medium", "1K"), "alta": ("high", "2K")}
-    provider_quality, provider_resolution = quality_map.get(requested_quality, ("medium", "1K"))
     try:
         provider = modeling.generator.generate_image(
             technical_prompt,
@@ -372,6 +577,7 @@ def create_image(payload, modeling, client_id, user_id):
             quality=provider_quality,
             resolution=provider_resolution,
             model=IMAGE_MODEL,
+            max_input_references=MAX_IMAGE_REFERENCES,
         )
     except Exception as error:
         setattr(error, "studio_phase", "image_provider")
@@ -405,6 +611,8 @@ def create_image(payload, modeling, client_id, user_id):
                 "project_id": str(data.get("project_id") or ""),
                 "aspect_ratio": aspect_ratio,
                 "reference_roles": [item["role"] for item in references],
+                "reference_count": len(references),
+                "estimate_includes_references": True,
                 "masked": bool(mask),
                 "studio_session_id": text(data.get("studio_session_id"), 80),
                 "studio_root_session_id": text(
@@ -430,14 +638,16 @@ def create_image(payload, modeling, client_id, user_id):
 
 def normalize_image_references(raw, storage):
     references = raw if isinstance(raw, list) else []
-    if len(references) > 2:
-        raise ValueError("Use no máximo duas imagens neste pedido.")
+    if len(references) > MAX_IMAGE_REFERENCES:
+        raise ValueError(f"Use no máximo {MAX_IMAGE_REFERENCES} imagens neste pedido.")
     cleaned = []
     for index, item in enumerate(references):
         if not isinstance(item, dict):
             continue
+        value = str(item.get("url") or "")
+        source = "global" if value.startswith("/static/images/cadu/studio/references/") else str(item.get("source") or "user")
         role = str(item.get("role") or ("primary" if index == 0 else "insert"))
-        if role == "reference":
+        if role == "reference" and source == "global":
             role = "composition"
         if role not in IMAGE_ROLES:
             raise ValueError("A função de uma das imagens é inválida.")
@@ -462,8 +672,11 @@ def normalize_image_references(raw, storage):
                 raise ValueError("Imagem de referência não encontrada.")
             image_data = value
         elif value.startswith(("https://", "http://")):
-            from ..creative_modeling_storage import _validated_public_asset_url
-            image_data = _validated_public_asset_url(value)
+            from ..creative_modeling_storage import _validated_public_asset_url, studio_owned_static_path
+            # A just-uploaded piece is already a canonical Studio URL. Keep it
+            # URL-first without DNS validation or an accidental conversion to
+            # base64; only third-party URLs take the public-host validation path.
+            image_data = value if studio_owned_static_path(value) else _validated_public_asset_url(value)
         else:
             raise ValueError("Uma das imagens relacionadas não está disponível.")
         cleaned.append({
@@ -485,6 +698,11 @@ def materialize_reference(value, storage):
     multi-megabyte base64 strings merely to pass an already public asset on.
     """
     raw = str(value or "")
+    # Uploaded pieces travel through Studio as public URLs after persistence.
+    # A mask still needs pixels locally, so map only our own canonical URL back
+    # to its trusted static path; arbitrary remote URLs remain remote.
+    from ..creative_modeling_storage import studio_owned_static_path
+    raw = studio_owned_static_path(raw) or raw
     if raw.startswith("data:image/"):
         return raw
     if raw.startswith("/static/uploads/creative_generated/"):
@@ -525,8 +743,8 @@ def validate_mask(source_data_url, mask_data_url):
 
 
 def provider_image_references(references, mask):
-    """Represent the selection inside the provider's two-reference limit."""
-    values = [item["data"] for item in references[:2]]
+    """Prepare up to three high-fidelity provider inputs for Studio V2."""
+    values = [item["data"] for item in references[:MAX_IMAGE_REFERENCES]]
     if not mask or not references:
         return [compact_provider_reference(value) for value in values]
     primary = references[0]["data"]
@@ -536,7 +754,7 @@ def provider_image_references(references, mask):
         return [compact_provider_reference(primary), mask]
     return [
         compact_provider_reference(marked_reference(primary, mask)),
-        compact_provider_reference(values[1]),
+        *[compact_provider_reference(value) for value in values[1:]],
     ]
 
 

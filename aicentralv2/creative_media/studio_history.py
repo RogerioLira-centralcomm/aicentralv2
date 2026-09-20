@@ -29,7 +29,7 @@ class StudioCreationHistory:
     def add_references(self, project_id, client_id, user_id, references):
         references = references if isinstance(references, list) else []
         with self.connection.cursor() as cursor:
-            for reference in references[:2]:
+            for reference in references[:3]:
                 if not isinstance(reference, dict):
                     continue
                 asset_url = str(reference.get('url') or '')[:2000]

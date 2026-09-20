@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -85,13 +86,26 @@ def test_direction_director_receives_reference_pixels_without_base64():
             "reference_plan": [{"label": "Máscara feed", "source": "global", "use": "Aplicar a arquitetura.", "layout": {"subject_zone": "centro-direita", "safe_margin": "interna"}}],
         }]}}, "usage": {}}
 
-    result, _ = studio_create.create({
-        "count": 1, "prompt": "Criar anúncio para Reserva.",
-        "context": {"references": [{"name": "Máscara feed", "source": "global", "role": "composition", "url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp"}]},
-    }, provider)
+    app = Flask(__name__)
+    app.config.update(STUDIO_URL="https://studio.test")
+    with app.app_context():
+        result, _ = studio_create.create({
+            "count": 1, "prompt": "Criar anúncio para Reserva.",
+            "context": {
+                "references": [{"name": "Máscara feed", "source": "global", "role": "composition", "url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp"}],
+                "brand_context": {"name": "Reserva", "logo_url": "/static/uploads/creative_references/reserva-logo.png", "palette": ["#152f4e", "#ffffff"]},
+            },
+        }, provider)
 
     content = captured["messages"][1]["content"]
-    assert any(block.get("type") == "image_url" for block in content)
+    image_urls = [block["image_url"]["url"] for block in content if block.get("type") == "image_url"]
+    assert image_urls == [
+        "https://studio.test/static/images/cadu/studio/references/feed/feed-mask-01.webp",
+        "https://studio.test/static/uploads/creative_references/reserva-logo.png",
+    ]
+    provider_context = json.loads(content[0]["text"])["contexto"]
+    assert provider_context["references"][0]["url"] == image_urls[0]
+    assert provider_context["brand_context"]["logo_url"] == image_urls[1]
     assert all("base64" not in str(block) for block in content)
     assert result["directions"][0]["reference_plan"][0]["layout"]["subject_zone"] == "centro-direita"
 
@@ -100,7 +114,9 @@ def test_direction_logs_both_provider_failures_without_leaking_the_brief(caplog)
     def provider(*_args, **_kwargs):
         raise studio_create.OpenRouterError("reference image URL is invalid")
 
-    with caplog.at_level("WARNING", logger="aicentralv2.creative_media.studio_create"):
+    app = Flask(__name__)
+    app.config.update(STUDIO_URL="https://studio.test")
+    with app.app_context(), caplog.at_level("WARNING", logger="aicentralv2.creative_media.studio_create"):
         try:
             studio_create.create({
                 "count": 1,
@@ -122,6 +138,29 @@ def test_direction_logs_both_provider_failures_without_leaking_the_brief(caplog)
 def test_direction_estimate_grows_with_requested_options():
     assert studio_create.estimated_tokens(1) < studio_create.estimated_tokens(5)
     assert studio_create.estimated_tokens(5) >= 2_900
+    assert studio_create.estimated_tokens(1, 0) < studio_create.estimated_tokens(1, 3)
+
+
+def test_reference_contract_allows_one_global_plus_base_plus_logo_only():
+    global_reference = {"url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp", "source": "global", "role": "composition"}
+    base_reference = {"url": "/static/uploads/creative_references/base.webp", "source": "user", "role": "reference"}
+    brand = {"name": "Reserva", "logo_url": "/static/uploads/creative_references/reserva-logo.png"}
+
+    references = studio_create.references_with_brand_logo([global_reference, base_reference], brand)
+
+    assert [item["role"] for item in references] == ["composition", "reference", "identity"]
+    try:
+        studio_create.references_with_brand_logo([global_reference, dict(global_reference, url="/static/images/cadu/studio/references/feed/feed-mask-02.webp")], {})
+    except ValueError as error:
+        assert "somente uma referência global" in str(error)
+    else:
+        raise AssertionError("Duas referências globais não podem disputar a mesma composição.")
+    try:
+        studio_create.references_with_brand_logo([global_reference, base_reference, {"url": "/static/uploads/creative_references/style.webp", "source": "user"}], brand)
+    except ValueError as error:
+        assert "incluir o logo oficial" in str(error)
+    else:
+        raise AssertionError("O logo não pode ser removido silenciosamente do contrato visual.")
 
 
 def test_direction_prompt_requires_a_specific_advertising_brief():
@@ -151,6 +190,75 @@ def test_direction_context_preserves_reference_roles_without_embedding_data_urls
     cleaned = studio_create.clean_context({"brand_context": {"name": "Reserva", "palette": ["#6b21a8"], "assets": {"logo": ["/logo.svg"]}}}, 1)
     assert cleaned["brand_context"]["name"] == "Reserva"
     assert cleaned["brand_context"]["assets"]["logo"] == ["/logo.svg"]
+    assert cleaned["brand_context"]["readiness"]["status"] == "ready"
+
+
+def test_missing_brand_identity_is_explicit_and_never_becomes_an_invented_mark():
+    cleaned = studio_create.clean_context({"brand_context": {"name": "Centralcomm"}}, 1)
+
+    assert cleaned["brand_context"]["readiness"] == {
+        "status": "missing", "has_logo": False, "has_palette": False, "missing": ["logo", "cores"],
+    }
+    assert "nunca invente logotipo, monograma, inicial" in studio_create.system_prompt(1)
+    assert "Do not invent, infer or stylize a logo" in studio_create.brand_identity_guard(cleaned["brand_context"])
+
+
+def test_user_visual_and_global_mask_activate_fast_visual_remix_without_brand_identity():
+    context = studio_create.clean_context({"references": [
+        {"name": "Peça anexada", "source": "user", "role": "reference", "url": "/static/uploads/creative_references/piece.webp"},
+        {"name": "Máscara feed", "source": "global", "role": "reference", "url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp"},
+    ], "brand_context": {"name": "Marca sem kit"}}, 1)
+
+    assert context["reference_mode"] == "visual_remix"
+    assert context["references"][0]["role"] == "reference"
+    assert context["references"][1]["role"] == "composition"
+    guard = studio_create.brand_identity_guard(context["brand_context"], visual_reference=True)
+    assert "user-supplied image is the visual source" in guard
+    assert "Keep a clean neutral safe area" not in guard
+    assert "quando contexto.reference_mode for \"visual_remix\"" in studio_create.system_prompt(1)
+
+
+def test_user_visual_reference_does_not_consume_a_slot_with_project_logo():
+    user_reference = {"url": "/static/uploads/creative_references/piece.webp", "source": "user", "role": "reference"}
+    assert studio_create.uses_user_visual_reference([user_reference]) is True
+    assert studio_create.reference_mode([user_reference]) == "user_visual_reference"
+
+
+def test_requested_palette_is_task_specific_and_validated_before_the_director_sees_it():
+    context = studio_create.clean_context({"requested_palette": ["#6d4aff", "#FFFFFF", "invalid", "#6D4AFF"]}, 1)
+
+    assert context["requested_palette"] == ["#6D4AFF", "#FFFFFF"]
+    assert "contexto.requested_palette" in studio_create.system_prompt(1)
+
+
+def test_official_logo_is_added_to_image_provider_when_a_reference_slot_is_free():
+    references = studio_create.references_with_brand_logo([{
+        "url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp",
+        "role": "composition", "source": "global", "label": "Composição",
+    }], {
+        "name": "Reserva",
+        "logo_url": "/static/uploads/creative_references/reserva-logo.png",
+        "palette": ["#152f4e", "#ffffff"],
+    })
+
+    assert [item["role"] for item in references] == ["composition", "identity"]
+    assert references[-1]["url"].endswith("reserva-logo.png")
+    assert "Official color tokens: #152f4e, #ffffff." in studio_create.brand_identity_guard({
+        "logo_url": "/static/uploads/creative_references/reserva-logo.png",
+        "palette": ["#152f4e", "#ffffff"],
+    })
+
+
+def test_global_mask_base_piece_and_logo_keep_three_provider_slots_during_visual_remix():
+    references = studio_create.references_with_brand_logo([
+        {"url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp", "role": "composition", "source": "global"},
+        {"url": "/static/uploads/creative_references/base-piece.webp", "role": "reference", "source": "user"},
+    ], {"name": "Reserva", "logo_url": "/static/uploads/creative_references/reserva-logo.png"})
+
+    assert [item["role"] for item in references] == ["composition", "reference", "identity"]
+    assert references[0]["url"].endswith("feed-mask-01.webp")
+    assert references[1]["url"].endswith("base-piece.webp")
+    assert references[2]["url"].endswith("reserva-logo.png")
 
 
 def image_data(color, size=(4, 4), mask_box=None):
@@ -186,12 +294,18 @@ def test_global_feed_reference_stays_url_first_for_image_providers():
 
 
 def test_uploaded_reference_stays_url_first_until_pixels_are_needed():
-    references = studio_create.normalize_image_references([{
-        "url": "/static/uploads/creative_references/product.webp",
-        "role": "identity",
-    }], SimpleNamespace())
+    app = Flask(__name__)
+    app.config.update(STUDIO_URL="https://studio.test")
+    with app.app_context():
+        references = studio_create.normalize_image_references([{
+            "url": "https://studio.test/static/uploads/creative_references/product.webp",
+            "role": "identity",
+        }], SimpleNamespace())
 
-    assert references[0]["data"] == "/static/uploads/creative_references/product.webp"
+    provider_references = studio_create.provider_image_references(references, "")
+    assert references[0]["data"] == "https://studio.test/static/uploads/creative_references/product.webp"
+    assert provider_references == [references[0]["data"]]
+    assert not any("base64" in item for item in provider_references)
 
 
 def test_generated_output_is_fitted_to_exact_selected_dimensions():
@@ -252,12 +366,14 @@ def test_image_generation_keeps_reference_roles_in_provider_prompt():
             {"url": source, "role": "primary", "label": "Cenário"},
             {"url": image_data("green"), "role": "insert", "label": "Produto"},
         ],
+        "brand_context": {"name": "Centralcomm"},
     }, modeling, 10, 20)
 
     assert "IMAGE 1" in captured["prompt"]
     assert "primary/base image" in captured["prompt"]
     assert "IMAGE 2" in captured["prompt"]
     assert "element source" in captured["prompt"]
+    assert "Do not invent, infer or stylize a logo" in captured["prompt"]
     assert captured["kwargs"]["aspect_ratio"] == "4:5"
     assert result["image_url"].endswith("result.png")
     assert result["remaining_credits"] == 988

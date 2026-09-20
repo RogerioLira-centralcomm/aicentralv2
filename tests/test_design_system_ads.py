@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Flask
 
-from aicentralv2.creative_format_lab.brand_context import build_brand_context
+from aicentralv2.creative_format_lab.brand_context import build_brand_context, select_brand_logo
 from aicentralv2.creative_modeling_routes import register_modeling_ux_lab
 from aicentralv2.design_system_ads.centralcomm import (
     CENTRALCOMM_TOKENS,
@@ -30,6 +30,33 @@ from aicentralv2.design_system_ads.service import payload_for, read_preset
 
 
 class DesignSystemAdsContractTest(unittest.TestCase):
+    def test_brand_context_exposes_classified_logo_options_and_selection(self):
+        context = build_brand_context({
+            "id": 18, "name": "Marca", "brand_assets": [
+                {"id": 1, "role": "logo", "asset_path": "/static/logo-white-horizontal.png", "width": 400, "height": 100, "is_primary": True, "metadata": {"original_name": "logo-white-horizontal.png"}},
+                {"id": 2, "role": "logo", "asset_path": "/static/favicon.png", "width": 32, "height": 32, "metadata": {"original_name": "favicon.png"}},
+            ],
+        })
+
+        logos = context["assets"]["logos"]
+        self.assertEqual(logos[0]["classification"], {"shape": "horizontal", "variant": "branca", "background": "fundo escuro"})
+        self.assertEqual(logos[1]["classification"]["shape"], "favicon")
+        selected = select_brand_logo(context, "2")
+        self.assertEqual(selected["selected_logo_id"], "2")
+        self.assertTrue(selected["logo_url"].endswith("favicon.png"))
+
+    def test_brand_context_recovers_a_legacy_logo_named_as_reference(self):
+        context = build_brand_context({
+            "id": 18, "name": "Marca", "brand_assets": [{
+                "id": 3, "role": "reference", "asset_path": "/static/brand-logo-vertical.png",
+                "width": 160, "height": 320, "metadata": {"original_name": "brand-logo-vertical.png"},
+            }],
+        })
+
+        logo = context["assets"]["logos"][0]
+        self.assertEqual(logo["id"], "3")
+        self.assertEqual(logo["classification"]["shape"], "vertical")
+
     def test_centralcomm_nasce_do_tailwind(self):
         system = centralcomm_preset()
         self.assertEqual(system.tokens["ink"], CENTRALCOMM_TOKENS["ink"])
@@ -358,6 +385,8 @@ class DesignSystemAdsContractTest(unittest.TestCase):
             }
         )
         self.assertEqual(context["design_system_ads"]["framework"], "design-system-ads")
+        self.assertEqual(context["readiness"]["status"], "missing")
+        self.assertFalse(context["readiness"]["has_logo"])
 
     def test_rota_specimen_registrada(self):
         from flask import Blueprint, url_for

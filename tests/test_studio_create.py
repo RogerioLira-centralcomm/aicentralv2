@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from flask import Flask, render_template
+from unittest.mock import patch
+
+from flask import Flask, render_template, session
+
+from aicentralv2.creative_media import studio
 
 
 def test_create_screen_exposes_unified_visual_workspace():
@@ -32,13 +36,15 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="creationProgressTitle"' in html
     assert 'id="composerFeedback"' in html
     assert 'id="resultsView"' in html
-    assert 'href="/static/css/cadu-studio-create-v2.css?v=35"' in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=33"' in html
+    assert 'href="/static/css/cadu-studio-create-v2.css?v=39"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=37"' in html
     assert 'data-group="variations"><button class="is-selected" type="button">1</button><button type="button">2</button><button type="button">4</button>' in html
     assert "Inclui direção criativa e revisão final do prompt" in html
     assert "A peça gerada terá uma estrutura similar" in html
     assert "Formatos para Social" in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=33"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=37"' in html
+    assert 'id="brandLogoDialog"' in html
+    assert 'id="brandPaletteDialog"' in html
     assert 'aria-describedby="referencePreviewDescription"' in html
     assert 'id="creationProgressTime">7s' in html
     assert 'id="libraryContent"' in html
@@ -69,13 +75,19 @@ def test_create_v2_keeps_manual_review_and_progress_recoverable():
     assert 'grid-template-columns:minmax(0,1fr) auto' in styles
     assert 'minimumVariationMs = 7000' in source
     assert 'creation-progress__mark' not in template
+    assert 'Uma referência global define a direção de composição' in source
     assert 'const semanticRatioFor' in source
     assert 'state.originalPrompt' in source
     assert 'Requisitos obrigatórios do briefing original do usuário' in source
-    assert '2: 1700' in source
+    assert 'const activeReferenceCount' in source
+    assert 'referenceCount * 220' in source
     assert '.reference-card .reference-check i' in styles
     assert 'height:100dvh' in styles
     assert '.reference-preview-frame{min-height:0;margin:0;padding:0;border:0' in styles
+    assert "normalizePromptHex" in source
+    assert "rgbToHex" in source
+    assert "project_id: state.projectId, colors: paletteChoice" in source
+    assert "if (!isLogo)" in source
 
 
 def test_quick_creation_uses_canonical_client_and_recovers_optional_history_failure():
@@ -85,6 +97,27 @@ def test_quick_creation_uses_canonical_client_and_recovers_optional_history_fail
     assert "modeling.repository.resolve_client_id(crm_client_id, 'crm')" in source
     assert "Studio quick image history claim unavailable" in source
     assert "history.connection.rollback()" in source
+
+
+def test_project_brand_guard_rejects_a_project_not_linked_to_the_current_account():
+    app = Flask(__name__)
+    app.secret_key = "test"
+    with app.test_request_context("/"):
+        session["cliente_id"] = 91
+        with patch("aicentralv2.creative_media.project_contexts.linked_project_contexts", return_value=[{"id": 7, "client_id": 12}]):
+            studio._assert_project_brand_access("7", 12)
+            try:
+                studio._assert_project_brand_access("7", 13)
+            except ValueError as error:
+                assert str(error) == "Projeto não encontrado nesta marca."
+            else:
+                raise AssertionError("O projeto não pode ser usado com outra marca.")
+
+
+def test_create_contract_binds_palette_and_image_to_the_project_context():
+    source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
+    assert source.count("_assert_project_brand_access(project_id, client_id)") >= 2
+    assert "_assert_project_brand_access(data.get('project_id'), client_id)" in source
 
 
 def test_global_feed_references_are_compact_webp_assets():

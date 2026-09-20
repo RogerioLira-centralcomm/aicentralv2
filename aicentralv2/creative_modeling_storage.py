@@ -118,6 +118,62 @@ def _validated_public_asset_url(raw):
     return value
 
 
+def public_studio_asset_url(raw):
+    """Return the canonical public URL for a Studio-owned static asset.
+
+    Studio stores asset paths relative to the application so moving between
+    environments does not make history records stale.  Provider-facing
+    requests, however, must never receive that internal relative path (nor a
+    browser ``blob:`` URL): the creative director and routed image providers
+    need an HTTPS URL they can fetch independently.
+    """
+    value = str(raw or "").strip()
+    if value.startswith(("https://", "http://")):
+        return value
+    if not value.startswith("/static/"):
+        raise ValueError("O ativo do Studio não possui uma URL pública.")
+
+    try:
+        from flask import has_app_context
+        base = str(current_app.config.get("STUDIO_URL") or "").strip() if has_app_context() else ""
+    except RuntimeError:
+        base = ""
+    if not base:
+        try:
+            from flask import has_request_context, request
+            base = request.url_root if has_request_context() else ""
+        except RuntimeError:
+            base = ""
+    if not base:
+        base = os.getenv("STUDIO_URL", "").strip()
+    parsed = urlparse(base)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("A URL pública do Studio não está configurada para enviar referências.")
+    return urljoin(base.rstrip("/") + "/", value.lstrip("/"))
+
+
+def studio_owned_static_path(raw):
+    """Resolve a canonical Studio URL back to its trusted static path.
+
+    This is only used for server-side pixel operations such as an edit mask.
+    It deliberately does not turn arbitrary public URLs into filesystem paths.
+    """
+    value = str(raw or "").strip()
+    if value.startswith("/static/"):
+        return value
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or not parsed.path.startswith("/static/"):
+        return ""
+    try:
+        from flask import has_app_context
+        configured = str(current_app.config.get("STUDIO_URL") or "").strip() if has_app_context() else ""
+    except RuntimeError:
+        configured = ""
+    configured = configured or os.getenv("STUDIO_URL", "").strip()
+    configured_host = urlparse(configured).netloc.lower()
+    return parsed.path if configured_host and parsed.netloc.lower() == configured_host else ""
+
+
 def _remote_extension(content_type):
     return {
         "image/jpeg": ".jpg",

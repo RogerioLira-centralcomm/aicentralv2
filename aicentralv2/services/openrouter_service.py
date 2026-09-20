@@ -562,24 +562,16 @@ def _absolute_provider_reference(value: str) -> str:
     if not raw.startswith("/static/"):
         return raw
     try:
-        from flask import current_app, has_app_context, has_request_context, request
-
-        base = str(current_app.config.get("STUDIO_URL") or "").strip() if has_app_context() else ""
-        if not base and has_request_context():
-            base = request.url_root
-    except RuntimeError:
-        base = ""
-    if not base:
-        base = os.getenv("STUDIO_URL", "").strip()
-    if not base:
-        raise OpenRouterError("A URL pública do Studio não está configurada para enviar referências.")
-    return urljoin(base.rstrip("/") + "/", raw.lstrip("/"))
+        from ..creative_modeling_storage import public_studio_asset_url
+        return public_studio_asset_url(raw)
+    except ValueError as exc:
+        raise OpenRouterError(str(exc)) from exc
 
 
 def _openrouter_reference_payload(payload):
     clean = dict(payload or {})
     references = []
-    for item in list(clean.get("input_references") or [])[:2]:
+    for item in list(clean.get("input_references") or []):
         normalized = image_reference(item)
         image_url = normalized["image_url"]["url"]
         normalized["image_url"]["url"] = _absolute_provider_reference(image_url)
@@ -599,6 +591,7 @@ def build_image_payload(
     background: str = "opaque",
     model: Optional[str] = None,
     input_references=None,
+    max_input_references: int = 2,
 ) -> Dict[str, Any]:
     resolved = resolve_image_model(model)
     payload = sanitize_image_payload({
@@ -613,8 +606,12 @@ def build_image_payload(
     if "gemini-3" in resolved or "seedream" in resolved:
         payload.pop("quality", None)
         payload.pop("background", None)
+    try:
+        reference_limit = max(1, min(int(max_input_references), 4))
+    except (TypeError, ValueError):
+        reference_limit = 2
     refs = []
-    for item in list(input_references or [])[:2]:
+    for item in list(input_references or [])[:reference_limit]:
         try:
             refs.append(image_reference(item))
         except ValueError as exc:
@@ -686,7 +683,7 @@ def _openai_edit_image(
         raise OpenRouterError("OpenAI não está configurada.")
     try:
         files = []
-        for index, item in enumerate(list(input_references or [])[:2]):
+        for index, item in enumerate(list(input_references or [])):
             raw, mime, name = _reference_bytes(item, index, http_client=http_client)
             files.append(("image[]", (name, raw, mime)))
     except OpenRouterError:
@@ -882,6 +879,7 @@ def generate_image(
     model: Optional[str] = None,
     timeout: int = 180,
     input_references=None,
+    max_input_references: int = 2,
     http_client=None,
 ) -> Dict[str, Any]:
     """Gera imagem com OpenAI direta e OpenRouter como rotas redundantes."""
@@ -895,6 +893,7 @@ def generate_image(
         background=background,
         model=model,
         input_references=input_references,
+        max_input_references=max_input_references,
     )
     image_model = payload.get("model") or resolve_image_model(model)
     direct_error = None

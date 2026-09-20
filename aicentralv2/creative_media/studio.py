@@ -29,6 +29,7 @@ _POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="studio-export")
 _SLOTS = threading.BoundedSemaphore(2)
 _MAX_UPLOAD = 25 * 1024 * 1024
 _ID = re.compile(r"^[a-f0-9]{32}$")
+_HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 def _api_root():
@@ -109,6 +110,34 @@ def _scope(client):
     root = media_root() / "studio" / key
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+def _assert_project_brand_access(project_id, client_id):
+    """Bind every project-led creation write to the signed-in tenant.
+
+    ``client_id`` is deliberately treated as untrusted input on Studio APIs.
+    The project/brand link is the durable permission fact for a Studio account;
+    an administrator without a tenant session keeps the legacy back-office
+    access path.
+    """
+    project_key = str(project_id or "").strip()
+    if not project_key:
+        raise ValueError('Selecione um projeto antes de criar uma imagem.')
+    try:
+        account_id = int(session.get('cliente_id') or 0)
+        brand_id = int(client_id)
+    except (TypeError, ValueError):
+        raise ValueError('Projeto não encontrado nesta marca.')
+    if not account_id:
+        return
+    from .project_contexts import linked_project_contexts
+    allowed = {
+        str(item.get('id')): int(item.get('client_id'))
+        for item in linked_project_contexts(account_id)
+        if item.get('id') is not None and item.get('client_id') is not None
+    }
+    if allowed.get(project_key) != brand_id:
+        raise ValueError('Projeto não encontrado nesta marca.')
 
 
 def _studio_reference_masks():
@@ -194,6 +223,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/reference-uploads', view_func=studio_reference_uploads, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/brand-palette', view_func=studio_brand_palette, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/personal-assets', view_func=studio_personal_assets, methods=['DELETE'])
     blueprint.add_url_rule('/api/format-lab/studio/project-contexts', view_func=studio_project_contexts, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
@@ -318,16 +348,22 @@ def studio_create_directions():
         _scope(client_id)
         count = max(1, min(int(data.get('count') or 1), 5))
         project_id = str(data.get('project_id') or '')
-        if not project_id and not quick_mode:
-            raise ValueError('Selecione um projeto antes de gerar direções.')
         if not quick_mode:
-            from ..creative_format_lab.brand_context import build_brand_context
+            _assert_project_brand_access(project_id, client_id)
+        if not quick_mode:
+            from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
             project_context = data.get('context') if isinstance(data.get('context'), dict) else {}
-            project_context['brand_context'] = build_brand_context(modeling.get_client(client_id))
+            project_context['brand_context'] = select_brand_logo(
+                build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
+            )
             project_context['project_id'] = project_id
             data['context'] = project_context
         # The balance gate occurs before the provider receives the request.
-        studio_create.assert_available(client_id, user_id, count)
+        # Use the same image contract as the director: selected references plus
+        # the official logo, limited to three visual inputs.
+        estimate_context = studio_create.clean_context(data.get('context'), count)
+        reference_count = len(estimate_context.get('references') or [])
+        studio_create.assert_available(client_id, user_id, count, reference_count)
         history = _creation_history()
         run_id = history.start(project_id, client_id, user_id, data.get('prompt'), data.get('context'), count) if history and project_id else None
         try:
@@ -336,6 +372,7 @@ def studio_create_directions():
             result, provider = studio_create.create(data, chat_completion)
             charged, remaining = studio_create.charge(
                 provider, int(client_id), int(user_id), result['count'], project_id, run_id,
+                reference_count=reference_count,
                 studio_session_id=data.get('studio_session_id'),
                 studio_root_session_id=data.get('studio_root_session_id'),
             )
@@ -383,9 +420,17 @@ def studio_create_image():
         if not user_id:
             raise ValueError('Entre novamente para gerar a imagem.')
         _scope(client_id)
+        project_id = str(data.get('project_id') or '')
+        if not quick_mode:
+            _assert_project_brand_access(project_id, client_id)
+            # Rehydrate identity server-side. The browser only carries display
+            # metadata and must never decide whether a brand asset is usable.
+            from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
+            data['brand_context'] = select_brand_logo(
+                build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
+            )
         request_id = studio_create.image_request_id(data)
         data['request_id'] = request_id
-        project_id = str(data.get('project_id') or '')
         request_hash = hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
         studio_phase = 'history_claim'
         try:
@@ -484,6 +529,49 @@ def studio_create_image():
                 result['history_sync_pending'] = True
         result.pop('model', None)
         return ok(result)
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_brand_palette():
+    """Persist an explicit palette before a brand-led Studio generation.
+
+    This is intentionally a narrow write.  The creation desk can fill the one
+    missing piece required for a faithful image without being allowed to
+    overwrite the rest of the brand dossier.
+    """
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id')
+        _scope(client_id)
+        _assert_project_brand_access(data.get('project_id'), client_id)
+        raw_colors = data.get('colors') if isinstance(data.get('colors'), list) else []
+        colors = []
+        for value in raw_colors[:6]:
+            color = str(value or '').strip().upper()
+            if not _HEX_COLOR.fullmatch(color):
+                raise ValueError('Escolha cores no formato hexadecimal #RRGGBB.')
+            if color not in colors:
+                colors.append(color)
+        if len(colors) < 3:
+            raise ValueError('Escolha uma paleta com ao menos três cores.')
+        modeling = service()
+        client = modeling.get_client(client_id)
+        profile = dict(client.get('brand_profile') or {})
+        profile['color_palette'] = [
+            {'hex': color, 'name': f'Cor {index + 1}', 'confidence': 1.0}
+            for index, color in enumerate(colors)
+        ]
+        writer = getattr(modeling.repository, 'update_client_brand_profile', None)
+        if not callable(writer):
+            raise ValueError('Não foi possível salvar a paleta desta marca.')
+        writer(int(client_id), profile)
+        from ..creative_format_lab.brand_context import build_brand_context
+        return ok({'brand_context': build_brand_context(modeling.get_client(client_id))})
 
     return execute(run)
 
@@ -594,8 +682,8 @@ def studio_reference_uploads():
         files = [item for item in request.files.getlist('files') if item and item.filename]
         if not files:
             raise ValueError('Selecione ao menos uma imagem.')
-        if len(files) > 2:
-            raise ValueError('Use no máximo duas referências por envio.')
+        if len(files) > 3:
+            raise ValueError('Use no máximo três referências por envio.')
         history = _creation_history()
         if not history:
             raise ValueError('A biblioteca persistente do Studio não está disponível nesta sessão.')
@@ -608,28 +696,35 @@ def studio_reference_uploads():
                 cursor.execute('SELECT id FROM cx_studio_projects WHERE id=%s AND client_id=%s', (project_id, int(client_id)))
                 if not cursor.fetchone():
                     raise ValueError('Projeto não encontrado nesta marca.')
-        from ..creative_modeling_storage import CreativeAssetStorage
+        from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asset_url
         storage = CreativeAssetStorage()
         saved = []
+        saved_paths = []
         try:
             for file_storage in files:
                 item = storage.save_reference(file_storage)
+                asset_path = item.get('asset_path')
+                saved_paths.append(asset_path)
                 asset_id = history.save_reference_asset(
                     client_id, user_id, project_id, item.get('original_name'),
-                    item.get('asset_path'), item.get('asset_path'),
+                    asset_path, asset_path,
                     {'role': 'reference', 'original_name': item.get('original_name'), 'sha256': item.get('sha256')},
                 )
+                public_url = public_studio_asset_url(asset_path)
                 saved.append({
                     'id': f'reference:{asset_id}', 'asset_id': asset_id,
-                    'url': item.get('asset_path'), 'image_url': item.get('asset_path'),
-                    'thumb_url': item.get('asset_path'), 'label': item.get('original_name') or 'Referência visual',
+                    # Keep the database path relative, but give the browser and
+                    # both AI stages the same fetchable public URL immediately.
+                    'url': public_url, 'image_url': public_url,
+                    'thumb_url': public_url,
+                    'label': item.get('original_name') or 'Referência visual',
                     'role': 'reference', 'visibility': 'personal',
                 })
             history.connection.commit()
         except Exception:
             history.connection.rollback()
-            for item in saved:
-                storage.delete(item.get('url'))
+            for asset_path in saved_paths:
+                storage.delete(asset_path)
             raise
         return ok({'items': saved})
 

@@ -158,9 +158,16 @@ export default function App({bootstrap}) {
     setDiagnostics([]); setRuntime(''); runRef.current = null;
   }, [releasePreviews]);
 
+  const focusComposer = useCallback(() => {
+    window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
+  }, []);
+
   const newConversation = useCallback(async () => {
-    if (!running && await confirmDiscard()) { reset(); setHistoryOpen(false); }
-  }, [running, confirmDiscard, reset]);
+    if (running || !(await confirmDiscard())) return;
+    reset();
+    setHistoryOpen(false);
+    focusComposer();
+  }, [running, confirmDiscard, reset, focusComposer]);
 
   const openConversation = useCallback(async (id, conversationTitle) => {
     if (running || !(await confirmDiscard())) return;
@@ -532,10 +539,10 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={sharedDockItems} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
-        <Sidebar conversations={conversations} projects={projects} brands={brands} activeId={conversationId} onOpen={openConversation} onNew={newConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+        <Sidebar conversations={conversations} projects={projects} brands={brands} activeId={conversationId} onOpen={openConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation title={title} context={context} projects={projects} brands={brands} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
+          <Conversation title={title} context={context} projects={projects} brands={brands} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
           {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>

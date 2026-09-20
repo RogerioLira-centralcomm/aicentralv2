@@ -8,7 +8,7 @@ function contextLabel(item, projects, brands) {
   return brand ? `Marca — ${brand.name}` : '';
 }
 
-export function Sidebar({conversations, projects = [], brands = [], activeId, onOpen, onNew, open, onClose, loading, openingId}) {
+export function Sidebar({conversations, projects = [], brands = [], activeId, onOpen, open, onClose, loading, openingId}) {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => conversations.filter(item =>
     `${item.title || ''} ${contextLabel(item, projects, brands)}`.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR'))
@@ -27,7 +27,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeId, on
     <aside id="cv-recent-sidebar" className="cv-recent-sidebar" aria-label="Chats recentes">
       <header className="cv-recent-sidebar__header">
         <div><span>Cadu Chat</span><strong>Recentes</strong></div>
-        <div><button type="button" onClick={onNew} aria-label="Novo chat"><Icon name="newChat" size={16}/></button><button type="button" onClick={onClose} aria-label="Recolher chats recentes"><Icon name="chevron" size={16}/></button></div>
+        <div><button type="button" onClick={onClose} aria-label="Recolher chats recentes"><Icon name="chevron" size={16}/></button></div>
       </header>
       {conversations.length > 6 && <label className="cv-recent-search"><Icon name="search" size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar conversa" aria-label="Buscar conversa"/></label>}
       <div className="cv-recent-list">

@@ -206,7 +206,7 @@ def create_app(config_class=Config):
             cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,
             product_url=product_url,
-            cadu_workspace_asset_version=app.config.get('CADU_WORKSPACE_ASSET_VERSION', '28'),
+            cadu_workspace_asset_version=app.config.get('CADU_WORKSPACE_ASSET_VERSION', '29'),
         )
 
     # Registrar teardown (fechar conexão)

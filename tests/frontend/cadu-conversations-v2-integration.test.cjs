@@ -79,6 +79,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /DockTooltip/);
   assert.match(dock, /createPortal/);
   assert.match(dock, /role="tooltip"/);
+  assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
+  assert.match(dock, /Abrir uso e conta de \$\{userName\}/);
   assert.match(dock, /onReorderShortcuts/);
   assert.match(dock, /onDropShortcut/);
   assert.doesNotMatch(dock, /Organizar atalhos/);
@@ -161,6 +163,8 @@ test('Cadu primitives own icons, accessible dialogs, selectors and persistent do
   assert.match(dock, /const canReorder = isControlled \|\| isWorkspaceSurface/);
   assert.match(dock, /draggable=\{draggable\}/);
   assert.match(feedback, /<CaduDialog className="cadu-ds-activity-drawer"/);
+  assert.match(feedback, /const firstName = nameParts\.shift\(\)/);
+  assert.match(feedback, /<strong>\{firstName\}<\/strong>/);
   assert.doesNotMatch(selectors, /role="menuitem"/);
   assert.match(selectors, /aria-pressed/);
   assert.match(selectors, /event\.key === 'Escape'/);

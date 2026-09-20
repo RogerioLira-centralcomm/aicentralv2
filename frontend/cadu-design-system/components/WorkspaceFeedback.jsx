@@ -50,8 +50,11 @@ export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, proj
   const brandItems = Array.isArray(brands) ? brands.filter(item => item?.href || item?.url) : [];
   const itemHref = item => item.href || item.url;
   const itemLabel = (item, fallback) => item.name || item.title || fallback;
+  const nameParts = String(user.name || 'Minha conta').trim().split(/\s+/);
+  const firstName = nameParts.shift() || 'Minha conta';
+  const lastName = nameParts.join(' ');
   return <div ref={menuRef} className="cadu-ds-account-menu" role="menu" aria-label="Conta e gestão">
-    <header><div className="cadu-ds-account-menu__identity"><b>{user.name || 'Minha conta'}</b>{user.email && <small>{user.email}</small>}</div><span className="cadu-ds-account-menu__label">Conta</span></header>
+    <header><div className="cadu-ds-account-menu__identity"><div><b>{firstName}</b>{lastName && <em> {lastName}</em>}</div>{user.email && <small>{user.email}</small>}</div><span className="cadu-ds-account-menu__label">Conta</span></header>
     <nav aria-label="Conta e gestão">
       {links.agency && <a role="menuitem" href={links.agency}>Agência</a>}<a role="menuitem" href={links.profile}>Perfil</a><a role="menuitem" href={links.team}>Equipe</a><a role="menuitem" href={links.plans}>Planos</a><a role="menuitem" href={usageLink}>Créditos e consumo</a><a role="menuitem" href={billingLink}>Faturamento</a><a role="menuitem" href={integrationsLink}>Integrações</a>{links.observability && <a role="menuitem" href={links.observability}>Observabilidade</a>}
     </nav>
@@ -66,9 +69,12 @@ export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, proj
 
 export function WorkspaceAccountControl({user = {}, open = false, onOpen}) {
   const name = user.name || 'Minha conta';
+  const nameParts = String(name).trim().split(/\s+/);
+  const firstName = nameParts.shift() || 'Minha conta';
+  const lastName = nameParts.join(' ');
   return <button type="button" className="cadu-ds-home-account cadu-ds-home-account--identity" onClick={onOpen} aria-label={`Abrir conta de ${name}`} aria-haspopup="menu" aria-expanded={open}>
     <VisualIdentity src={user.avatar} initials={name} label={name} color="#1b6d64"/>
-    <span><strong>{name}</strong><small>{user.email || 'Conta e perfil'}</small></span>
+    <span><strong>{firstName}</strong>{lastName && <em> {lastName}</em>}<small>{user.email || 'Conta e perfil'}</small></span>
     <i aria-hidden="true">⌄</i>
   </button>;
 }

@@ -138,9 +138,10 @@ export function WorkspaceHome({bootstrap}) {
   };
   const reorderShortcuts = async next => {
     const before = dockItems;
+    // Move immediately so the dock responds to the drop even while the
+    // server is creating first-time personal shortcuts.
+    setDockItems(next);
     try {
-      const isFirstPersonalOrder = !before.some(item => item.shortcutId);
-      if (isFirstPersonalOrder && !window.confirm('Ao reorganizar esta dock, você passa a usar esta ordem como preferência pessoal. Continuar?')) return;
       const explicit = [];
       for (const item of next) explicit.push(item.shortcutId ? item : await createShortcut(item));
       setDockItems(explicit);

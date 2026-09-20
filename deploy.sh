@@ -74,19 +74,36 @@ if git status --porcelain -- node_modules 2>/dev/null | grep -q .; then
         git restore -- node_modules 2>/dev/null || true
 fi
 
-# video-studio.css e gerado pelo build Tailwind. Uma versao gerada no servidor
-# pode divergir do arquivo versionado e impedir o pull; preservamos uma copia
-# para auditoria e o build abaixo recria o arquivo a partir da fonte atualizada.
-STUDIO_CSS="aicentralv2/static/css/video-studio.css"
-if ! git diff --quiet -- "$STUDIO_CSS"; then
-    backup_dir="logs/deploy-backups"
+# Artefatos gerados no servidor podem ficar diferentes do commit e bloquear o
+# pull. Guardamos uma cópia para auditoria e restauramos a versão do Git; os
+# builds abaixo recriam os artefatos a partir do código atualizado.
+restore_generated_file() {
+    local generated_file="$1"
+    local backup_dir="logs/deploy-backups"
+    local backup_name
+    local backup_file
+
+    if git diff --quiet -- "$generated_file"; then
+        return 0
+    fi
+
     mkdir -p "$backup_dir"
-    backup_file="$backup_dir/video-studio.$(date +%Y%m%d-%H%M%S).css"
-    cp "$STUDIO_CSS" "$backup_file"
-    echo "  > CSS gerado localmente salvo em $backup_file; restaurando versao do Git..."
-    git restore --source=HEAD --worktree -- "$STUDIO_CSS" 2>/dev/null || \
-        git checkout -- "$STUDIO_CSS"
-fi
+    backup_name="$(basename "$generated_file")"
+    backup_file="$backup_dir/${backup_name}.$(date +%Y%m%d-%H%M%S)"
+    if [ -f "$generated_file" ]; then
+        cp "$generated_file" "$backup_file"
+    else
+        git diff -- "$generated_file" > "$backup_file.patch"
+        backup_file="$backup_file.patch"
+    fi
+    echo "  > Artefato gerado salvo em $backup_file; restaurando versao do Git..."
+    git restore --source=HEAD --worktree -- "$generated_file" 2>/dev/null || \
+        git checkout -- "$generated_file"
+}
+
+restore_generated_file "aicentralv2/static/css/video-studio.css"
+restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.css"
+restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.js"
 git pull origin main >> "$DEPLOY_LOG" 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true

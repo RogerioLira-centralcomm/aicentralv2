@@ -1947,3 +1947,93 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
   .cadu-ds-account-shell .cadu-ds-plan-grid { grid-template-columns:1fr; }
   .cadu-ds-legacy-account-page { padding:28px 18px 54px; }
 }
+
+/* Home start: a quieter, centered entry point with the Workspace wave field
+   behind the prompt. The dock remains an anchored rail; only this surface
+   owns the vertical composition. */
+body.portal--workspace .cadu-ds-home-workarea {
+  min-height:100dvh;
+  background:var(--cadu-canvas);
+}
+
+body.portal--workspace .cadu-ds-home-content {
+  position:relative;
+  isolation:isolate;
+  display:flex;
+  min-height:100dvh;
+  flex-direction:column;
+  justify-content:center;
+  overflow:hidden;
+  padding:clamp(28px,7vh,82px) clamp(18px,5vw,76px);
+}
+
+body.portal--workspace .cadu-ds-home-content::before {
+  position:absolute;
+  z-index:-1;
+  inset:-12% -8% -8%;
+  background:
+    repeating-radial-gradient(ellipse 112% 48% at 70% 112%, transparent 0 24px, color-mix(in srgb,var(--cadu-accent) 13%,transparent) 25px 26px, transparent 27px 64px),
+    repeating-radial-gradient(ellipse 78% 38% at -8% 96%, transparent 0 28px, color-mix(in srgb,var(--cadu-accent) 9%,transparent) 29px 30px, transparent 31px 76px);
+  content:"";
+  opacity:.8;
+  pointer-events:none;
+  transform:rotate(-4deg);
+}
+
+body.portal--workspace .cadu-ds-home-content > * {
+  position:relative;
+  z-index:1;
+}
+
+body.portal--workspace .cadu-ds-home-intro {
+  max-width:760px;
+  margin:0 auto 20px;
+  text-align:center;
+}
+
+body.portal--workspace .cadu-ds-home-intro h1 {
+  max-width:720px;
+  margin:0 auto;
+  font-size:clamp(30px,3.2vw,44px);
+  line-height:1.08;
+}
+
+body.portal--workspace .cadu-ds-home-intro>p:last-child {
+  max-width:560px;
+  margin:10px auto 0;
+  font-size:15px;
+}
+
+body.portal--workspace .cadu-ds-home-content .cadu-ds-home-chat-stage {
+  width:min(900px,100%);
+  margin:0 auto;
+}
+
+body.portal--workspace .cadu-ds-home-content .cadu-ds-home-chat-shell {
+  border-color:color-mix(in srgb,var(--cadu-accent) 27%,var(--cadu-line));
+  border-radius:24px;
+  background:color-mix(in srgb,var(--cadu-surface) 96%,transparent);
+  box-shadow:0 22px 48px color-mix(in srgb,var(--cadu-ink) 10%,transparent), 0 0 0 6px color-mix(in srgb,var(--cadu-accent) 5%,transparent);
+  backdrop-filter:blur(8px);
+}
+
+body.portal--workspace .cadu-ds-home-content .cadu-ds-home-chat-shell:focus-within {
+  border-color:color-mix(in srgb,var(--cadu-accent) 65%,var(--cadu-line));
+  box-shadow:0 24px 54px color-mix(in srgb,var(--cadu-ink) 13%,transparent), 0 0 0 5px color-mix(in srgb,var(--cadu-accent) 12%,transparent);
+}
+
+body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
+  width:min(900px,100%);
+  margin:18px auto 0;
+}
+
+@media (max-width:760px) {
+  body.portal--workspace .cadu-ds-home-content {
+    min-height:calc(100dvh - 20px);
+    padding:34px 18px 42px;
+  }
+
+  body.portal--workspace .cadu-ds-home-intro h1 {
+    font-size:clamp(29px,8vw,38px);
+  }
+}

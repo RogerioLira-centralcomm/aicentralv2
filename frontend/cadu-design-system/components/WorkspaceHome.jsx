@@ -17,9 +17,43 @@ function withQuery(url, values) {
 
 const isDockResource = item => Boolean(item?.resourceRef) || item?.kind === 'resource';
 
+const HOME_TITLES = [
+  'Por onde começamos?',
+  'O que merece atenção hoje?',
+  'Qual é o próximo passo?',
+  'Vamos tirar isso do papel?',
+  'O que você quer resolver?',
+  'Que ideia vamos organizar?',
+  'Qual decisão está na mesa?',
+  'Vamos dar forma ao trabalho?',
+  'Onde faz sentido começar?',
+  'Qual é a prioridade agora?',
+  'Vamos transformar contexto em ação?',
+  'O que precisa avançar?',
+  'Qual frente você quer destravar?',
+  'Que caminho seguimos hoje?',
+  'O que podemos simplificar?',
+  'Vamos encontrar o fio da meada?',
+  'Qual pergunta abre o trabalho?',
+  'Por onde seguimos?',
+  'O que está pedindo clareza?',
+  'Qual projeto chama agora?',
+  'Vamos organizar o próximo movimento?',
+  'O que você quer colocar em ordem?',
+  'Qual tarefa merece foco?',
+  'Vamos construir a próxima versão?',
+  'O que falta para avançar?',
+  'Qual contexto vamos explorar?',
+  'Vamos começar pelo que importa?',
+  'O que podemos decidir juntos?',
+  'Que trabalho começa agora?',
+  'Qual é o seu próximo movimento?',
+];
+
 export function WorkspaceHome({bootstrap}) {
   const home = bootstrap.home || {};
   const [value, setValue] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
+  const [homeTitle] = useState(() => HOME_TITLES[Math.floor(Math.random() * HOME_TITLES.length)]);
   const [projectRef, setProjectRef] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(() => window.location.hash === '#atalhos');
   const [accountOpen, setAccountOpen] = useState(false);
@@ -148,7 +182,7 @@ export function WorkspaceHome({bootstrap}) {
       <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={catalogBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
       <WorkspaceContextSidebar mode="home" active="home" links={bootstrap.urls} agencyName={home.agency?.name} projects={projects} brands={home.catalogBrands || home.brands || []} resources={home.resources || []} conversations={home.recentConversations || home.conversations || []}/>
         <section className="cadu-ds-home-content">
-        <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace</p><h1>{selectedProject ? selectedProject.name : 'Por onde começamos?'}</h1><p>{selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Escreva uma demanda ou escolha uma sugestão para começar.'}</p></div>
+        <div className="cadu-ds-home-intro"><h1>{selectedProject ? selectedProject.name : homeTitle}</h1><p>{selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Escreva uma demanda ou escolha uma sugestão para começar.'}</p></div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} embedded homeMode/>
         {!value.trim() && (
           <WorkspacePromptSuggestions project={selectedProject} brand={selectedBrand} home={home} onSelect={setValue}/>

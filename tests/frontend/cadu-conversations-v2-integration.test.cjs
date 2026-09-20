@@ -60,7 +60,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(home, /WorkspaceHomeWidgets/);
   assert.match(contextSidebar, /SidebarCollection/);
   assert.match(contextSidebar, /variant=\{item\.visualVariant\}/);
-  assert.match(contextSidebar, /recentConversations.length >= 5/);
+  assert.match(contextSidebar, /recentConversations = useMemo/);
+  assert.match(contextSidebar, /recentConversations[\s\S]*?slice\(0, 5\)/);
   assert.match(contextSidebar, /recentFiles.length > 0/);
   assert.doesNotMatch(contextSidebar, /Atalhos de trabalho/);
   assert.doesNotMatch(contextSidebar, /\{id: 'recent'/);

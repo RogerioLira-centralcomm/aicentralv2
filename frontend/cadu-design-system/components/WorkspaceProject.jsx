@@ -139,7 +139,8 @@ export function WorkspaceProject({bootstrap}) {
   const [dropQueue, setDropQueue] = useState([]);
   const [resourceId, setResourceId] = useState(() => new URLSearchParams(window.location.search).get('resource') || '');
   const [accountOpen, setAccountOpen] = useState(false);
-  const [dockItems, setDockItems] = useState(bootstrap.dock?.items || []);
+  const initialDockItems = bootstrap.dock?.items?.length ? bootstrap.dock.items : [...(bootstrap.brands || []), ...(bootstrap.projects || [])];
+  const [dockItems, setDockItems] = useState(initialDockItems);
   const canEdit = project.status !== 'arquivado';
   const missing = project.health?.missing || [];
   const projectLinks = bootstrap.projectLinks || {};

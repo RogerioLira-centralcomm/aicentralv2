@@ -247,6 +247,8 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
   const projectsTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/projects_react.html'), 'utf8');
   assert.match(brands, /Todas.*Analisadas.*Com ativos/s);
   assert.match(projects, /Ativos.*Arquivados.*Todos/s);
+  assert.match(brands, /bootstrap\.dock\?\.items\?\.length \? bootstrap\.dock\.items : \[\.\.\.\(bootstrap\.brands \|\| \[\]\), \.\.\.\(bootstrap\.projects \|\| \[\]\)\]/);
+  assert.match(projects, /bootstrap\.dock\?\.items\?\.length \? bootstrap\.dock\.items : \[\.\.\.\(bootstrap\.brands \|\| \[\]\), \.\.\.\(bootstrap\.projects \|\| \[\]\)\]/);
   assert.match(brandsTemplate, /'filterName':filter_name/);
   assert.match(projectsTemplate, /'dock':\{'items':dock_items\}/);
   assert.doesNotMatch(projectsTemplate, /'dock':\{'items':brand_items\[:3\]\+project_items\[:5\]\}/);
@@ -350,6 +352,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /cv-artifact-open/);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /#cadu-conversations-v2-root \.cv-composer-input/);
+  assert.match(styles, /--cadu-nav-bg: #0b171a/);
+  assert.match(styles, /\.cv-recent-list>button \{[\s\S]*background:#17282c/);
+  assert.match(styles, /\.cv-composer-stage \{[\s\S]*background: transparent/);
   assert.match(styles, /max-height: min\(260px, 38dvh\) !important/);
   assert.match(styles, /\.cv-composer-actions[\s\S]*border-top: 0 !important/);
   assert.match(styles, /\.cv-composer-shell \{[\s\S]*overflow: visible/);

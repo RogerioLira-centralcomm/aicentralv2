@@ -67,11 +67,16 @@ echo "  > OK"
 # 2. Atualizar codigo
 echo ""
 echo "[2/7] Atualizando codigo..."
-# node_modules/.bin alterado por npm no servidor bloqueia git pull
-if git status --porcelain -- node_modules 2>/dev/null | grep -q .; then
-    echo "  > Descartando alteracoes locais em node_modules (reinstalado no build frontend)..."
-    git checkout -- node_modules 2>/dev/null || \
-        git restore -- node_modules 2>/dev/null || true
+# Compatibilidade de transição: a primeira atualização após o commit que
+# remove node_modules do Git precisa descartar alterações antigas para que a
+# remoção dos arquivos rastreados não bloqueie o pull. Depois do primeiro
+# pull bem-sucedido, git ls-files não encontra mais esse diretório.
+if git ls-files --error-unmatch node_modules >/dev/null 2>&1; then
+    if git status --porcelain -- node_modules 2>/dev/null | grep -q .; then
+        echo "  > Limpando node_modules ainda rastreado no checkout antigo..."
+        git checkout -- node_modules 2>/dev/null || \
+            git restore -- node_modules 2>/dev/null || true
+    fi
 fi
 
 # Artefatos gerados no servidor podem ficar diferentes do commit e bloquear o

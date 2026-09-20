@@ -11,6 +11,7 @@ from flask import Blueprint, Response, abort, current_app, jsonify, redirect, re
 
 from ..auth import admin_required, admin_required_api, login_required, login_required_api
 from ..services.openrouter_service import OpenRouterError
+from ..product_domains import workspace_public_url
 from .catalog import (
     CADU_GOLD, CADU_MEDIA_PLANNING, CADU_OFFICIAL_SKILLS, CATALOG_SKILLS,
     DEFERRED_SKILLS, DIRECTORY_SKILLS, MARKET_SKILLS, TOP_SKILLS,
@@ -68,6 +69,20 @@ def prepare_shared_cadu_chat():
             if request.method in {"GET", "HEAD"}:
                 return redirect(product_url("centralx", request.full_path.rstrip("?")), code=302)
             abort(404)
+    # Skills keeps its pages and public delivery links, but it no longer owns
+    # an unauthenticated product entrance. Visitors start at Workspace.
+    if (
+        request.method in {"GET", "HEAD"}
+        and not session.get("user_id")
+        and not (
+            request.path.startswith("/skills/assets/")
+            or request.path.startswith("/skills/s/")
+            or request.path.startswith("/skills/install/")
+            or request.path.startswith("/skills/api/")
+            or request.path.endswith("/download")
+        )
+    ):
+        return redirect(workspace_public_url(), code=302)
     if session.get("user_id"):
         session.setdefault("family_csrf", secrets.token_urlsafe(32))
 

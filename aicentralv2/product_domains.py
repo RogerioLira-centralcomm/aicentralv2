@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from flask import abort, current_app, make_response, redirect, render_template, request, send_file, url_for
+from flask import abort, current_app, make_response, redirect, render_template, request, send_file, session, url_for
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.routing import BuildError
 
@@ -35,6 +35,18 @@ def product_url(product: str, path: str = "/") -> str:
     if str(product).strip().lower() == "workspace":
         clean_path = canonical_workspace_app_path(clean_path)
     return f"{base}{clean_path}" if base else clean_path
+
+
+def workspace_public_url() -> str:
+    """Return the single unauthenticated entry point for Cadu products.
+
+    Product hosts use the configured absolute Workspace URL in production.
+    The local fallback keeps lightweight blueprint fixtures and development
+    mounts usable without inventing a second public product page.
+    """
+    if str(current_app.config.get("WORKSPACE_URL") or "").strip():
+        return product_url("workspace", "/")
+    return "/workspace/"
 
 
 _WORKSPACE_LEGACY_SECTIONS = {
@@ -274,13 +286,16 @@ def register_product_host_routing(app) -> None:
         ):
             legacy_path = legacy_entry[2]
             if legacy_entry[1] == "workspace":
-                legacy_path = canonical_workspace_legacy_path(
-                    request.path,
-                    request.args.get("creative_client_id")
-                    or request.args.get("brand_id")
-                    or request.args.get("crm_client_id")
-                    or request.args.get("client_id"),
-                )
+                if not session.get("user_id"):
+                    legacy_path = "/"
+                else:
+                    legacy_path = canonical_workspace_legacy_path(
+                        request.path,
+                        request.args.get("creative_client_id")
+                        or request.args.get("brand_id")
+                        or request.args.get("crm_client_id")
+                        or request.args.get("client_id"),
+                    )
             target = product_url(legacy_entry[1], legacy_path)
             if request.query_string:
                 target = f"{target}?{request.query_string.decode('utf-8')}"

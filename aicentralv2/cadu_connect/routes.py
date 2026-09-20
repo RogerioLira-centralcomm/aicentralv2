@@ -1,12 +1,13 @@
 """Área autenticada do produto Cadu Agentes."""
 from typing import Optional
 
-from flask import Blueprint, current_app, jsonify, render_template, request, session
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session
 
 from ..auth import login_required, login_required_api
 from ..cadu_skills.repository import customization_targets
 from ..cadu_family import repository as family_repository
 from ..services import integration_credentials
+from ..product_domains import workspace_public_url
 from .repository import accounts_for_workspace_context, campaigns_for_client, files_for_workspace_context, link_campaign_project
 
 
@@ -14,6 +15,18 @@ bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 
 from .report_workspace import register as register_report_workspace
 register_report_workspace(bp)
+
+
+@bp.before_request
+def route_guest_connect_pages():
+    """Use Workspace as the only guest entry for Reports pages."""
+    if (
+        request.method in {"GET", "HEAD"}
+        and not session.get("user_id")
+        and not request.path.startswith("/connect/r/")
+        and not request.path.startswith("/connect/api/")
+    ):
+        return redirect(workspace_public_url(), code=302)
 
 
 def workspace_project_context(projects: list[dict]) -> Optional[dict]:
@@ -80,14 +93,10 @@ def workspace_projects(client_id: int, legacy_projects: list[dict]) -> list[dict
 @bp.get("")
 @bp.get("/")
 def index():
-    # A entrada pública explica o produto sem consultar inventário, contas ou
-    # relatórios. A aplicação operacional continua disponível só após login.
+    # Reports keeps its own authenticated page, but the product family has a
+    # single unauthenticated entry point: the public Workspace page.
     if not session.get("user_id"):
-        return render_template(
-            "cadu_connect/entry.html",
-            projects=[], selected_project=None, accounts=[], campaigns=[], files=[], reports=[], mcp_catalog=[],
-            connected_count=0, active_client=None, is_portfolio_operator=False, account_name="Reports",
-        )
+        return redirect(workspace_public_url(), code=302)
     targets = customization_targets()
     is_portfolio_operator = bool(session.get("is_centralcomm") or session.get("user_type") == "superadmin")
     session_client_id = int(session.get("cliente_id") or 0)

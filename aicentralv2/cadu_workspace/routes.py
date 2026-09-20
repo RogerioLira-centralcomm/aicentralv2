@@ -27,7 +27,7 @@ from ..cadu_connect.repository import accounts_for_workspace_context
 from ..cadu_credit_connector import CaduCreditConnector
 from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, credit_position, list_customizations
 from ..db import close_db, get_db
-from ..product_domains import product_url
+from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
 from . import project_index_service, project_knowledge, project_resource_service, project_sources
 
@@ -2405,6 +2405,8 @@ WORKSPACE_APP_HEROES = (
 
 @bp.get("/entrada/<product>")
 def product_entry(product):
+    if not session.get("user_id"):
+        return redirect(workspace_public_url(), code=302)
     product = str(product or "").lower()
     if product == 'cadu':
         return redirect(url_for('cadu_workspace.index'), code=301)

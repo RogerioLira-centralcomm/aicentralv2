@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 
 from flask import Blueprint, abort, current_app, redirect, render_template, request, session
 
-from ..auth import login_url
+from ..product_domains import workspace_public_url
 
 bp = Blueprint('planner_marketplace', __name__)
 
@@ -23,7 +23,7 @@ def planner_only():
 def audiences():
     """Keep the public Planner URL while using its canonical app shell."""
     if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
+        return redirect(workspace_public_url(), code=302)
     return current_app.view_functions['cadu_family.page']('planner', 'audiencias')
 
 
@@ -37,7 +37,7 @@ def audience_detail(audience_id):
 def channel_detail(channel_id):
     """Render a channel dossier from the Planner catalog, not a generic Family card."""
     if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
+        return redirect(workspace_public_url(), code=302)
     from . import channels
     channel = channels.detail(channel_id)
     gallery, ads = channels.related_media(channel)

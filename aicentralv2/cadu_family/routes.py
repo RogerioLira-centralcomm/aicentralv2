@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from ..auth import login_url
 from ..cadu_tool_billing import InsufficientToolCredits
-from ..product_domains import canonical_workspace_legacy_path, product_url
+from ..product_domains import canonical_workspace_legacy_path, product_url, workspace_public_url
 from . import context, repository
 from .catalog import ADMIN_MODULES, LANDINGS, PRODUCTS, PROFILES
 from . import product_pages
@@ -70,6 +70,19 @@ def protect():
     # CentralX 404 shell instead of its own product experience.
     if not current_app.config.get('CADU_FAMILY_ENABLED') and not (planner_surface or workspace_chat_surface):
         abort(404)
+    family_product = request.path.removeprefix('/familia/').split('/', 1)[0]
+    if (
+        request.method in ('GET', 'HEAD')
+        and not session.get('user_id')
+        and family_product in PRODUCTS
+        and not request.path.startswith('/familia/api/')
+        and not (
+            request.path.startswith('/familia/public/link-tester/')
+            or request.path.startswith('/familia/planner/docs/public/')
+            or request.path.startswith('/familia/planner/planos/public/')
+        )
+    ):
+        return redirect(workspace_public_url(), code=302)
     if request.method not in ('GET', 'HEAD', 'OPTIONS'):
         if not session.get('user_id'):
             abort(401)
@@ -531,7 +544,7 @@ def planner_doc_public(token):
 def planner_audience_detail(audience_id):
     """Customer-facing decision page; the catalog modal remains a quick preview."""
     if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
+        return redirect(workspace_public_url(), code=302)
     from ..cadu_planner import catalog
     user = context.identity()
     selected = context.resolve()
@@ -549,7 +562,7 @@ def planner_audience_detail(audience_id):
 @bp.get('/planner/planos/<plan_id>')
 def planner_plan_media_desk(plan_id):
     if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
+        return redirect(workspace_public_url(), code=302)
     from ..cadu_planner import plans
     user = context.identity()
     selected = context.resolve()
@@ -581,7 +594,7 @@ def planner_catalog_detail_page(kind, item_id):
     if kind not in {'canais', 'formatos', 'interativos'}:
         abort(404)
     if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
+        return redirect(workspace_public_url(), code=302)
     from ..cadu_planner import catalog
     user = context.identity()
     selected = context.resolve()
@@ -601,7 +614,7 @@ def planner_catalog_detail_page(kind, item_id):
 def planner_place_detail_page(slug):
     """Private marketplace fiche with the full curated Place gallery."""
     if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
+        return redirect(workspace_public_url(), code=302)
     from ..cadu_planner import places
     user = context.identity()
     selected = context.resolve()
@@ -855,10 +868,17 @@ def page(product, module=None):
     if product not in PRODUCTS:
         abort(404)
     if product == 'workspace':
+        if not session.get('user_id'):
+            return redirect(workspace_public_url(), code=302)
         target = product_url('workspace', canonical_workspace_legacy_path(module or ''))
         if request.query_string:
             target = f"{target}?{request.query_string.decode('utf-8')}"
         return redirect(target, code=302)
+    # The product family no longer maintains separate guest landing pages.
+    # Unauthenticated visitors start with the shared Workspace context page;
+    # public shares have dedicated routes above and do not pass through here.
+    if not session.get('user_id'):
+        return redirect(workspace_public_url(), code=302)
     spec = PRODUCTS[product]
     module = module or next(iter(spec['modules']))
     if module not in spec['modules']:

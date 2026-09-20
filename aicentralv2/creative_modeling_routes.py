@@ -25,7 +25,7 @@ from .creative_modeling_repository import (
 )
 from .creative_modeling_service import CreativeModelingService
 from .creative_modeling_storage import ClientLogoStorage, CreativeAssetStorage
-from .product_domains import product_url
+from .product_domains import product_url, workspace_public_url
 
 
 logger = logging.getLogger(__name__)
@@ -126,6 +126,12 @@ def studio_or_admin_required(view):
     """Cadu Studio has its own login; CentralX keeps the internal guard."""
     @wraps(view)
     def wrapped(*args, **kwargs):
+        if (
+            request.method in {"GET", "HEAD"}
+            and not session.get("user_id")
+            and (_studio_client_scope() or _workspace_brand_scope())
+        ):
+            return redirect(workspace_public_url(), code=302)
         guard = login_required if (_studio_client_scope() or _workspace_brand_scope()) else admin_required
         return guard(view)(*args, **kwargs)
     return wrapped

@@ -9,7 +9,8 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 .se-app.is-read-only .se-main .se-workspace,.se-app.is-read-only .se-main .se-composer { pointer-events:none; opacity:.62; }
 .se-topbar { display:flex; height:58px; flex:none; align-items:center; gap:24px; padding:0 24px; border-bottom:1px solid var(--se-line); background:var(--se-nav); }
 .se-brand { display:flex; min-width:180px; align-items:center; gap:6px; color:var(--se-text); font-size:14px; text-decoration:none; }
-.se-brand span { display:grid; width:30px; height:30px; place-items:center; border-radius:9px; background:linear-gradient(135deg,#fff 0 34%,#8257ff 34% 65%,#e8d5ff 65%); color:#19222c; font-size:12px; }
+.se-brand img { width:30px; height:30px; border-radius:9px; object-fit:contain; }
+.se-brand > span { color:#b6c8c4; font-size:12px; }
 .se-brand strong { font-size:15px; }
 .se-topbar nav { display:flex; align-self:stretch; align-items:center; gap:8px; }
 .se-topbar nav a { display:grid; min-width:88px; height:36px; place-items:center; padding:0 12px; border-radius:9px; color:#b3c6c2; font-size:12px; font-weight:650; text-decoration:none; }
@@ -46,17 +47,17 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 .se-rail-footer button { padding:9px 0; border:0; background:transparent; color:#b9cbc8; cursor:pointer; font-size:12px; text-align:left; }
 .se-rail-footer button::before { margin-right:8px; color:var(--se-teal); content:'›'; }
 .se-main { position:relative; display:flex; min-width:0; min-height:0; flex-direction:column; overflow:hidden; padding:18px 28px 20px; }
-.se-workspace { display:flex; min-height:0; flex:1; flex-direction:column; }
+.se-workspace { display:flex; min-height:0; flex:0 0 clamp(430px,62vh,710px); flex-direction:column; }
 .se-toolbar { display:flex; width:fit-content; max-width:100%; align-self:center; align-items:center; gap:4px; margin-bottom:16px; overflow:auto; padding:5px; border:1px solid #ffffff0a; border-radius:11px; background:#142126; }
 .se-toolbar span { width:1px; height:23px; margin:0 4px; background:var(--se-line); }
 .se-toolbar button { flex:none; padding:9px 12px; border:0; border-radius:7px; background:transparent; color:#c4d6d2; cursor:pointer; font-size:12px; }
 .se-toolbar button:hover,.se-toolbar button.is-active { background:#8257ff2e; color:#f8fbfa; }
-.se-stage { position:relative; display:grid; min-height:260px; flex:1; place-items:center; overflow:hidden; border-radius:14px; background-color:#0a151b; background-image:radial-gradient(#31504d60 1px,transparent 1px); background-size:18px 18px; }
+.se-stage { position:relative; display:grid; min-height:0; flex:1; place-items:center; overflow:hidden; border-radius:16px; background-color:#09161b; background-image:radial-gradient(#31504d52 1px,transparent 1px); background-size:20px 20px; }
 .se-stage.has-asset { padding:24px; }
 .se-artboard { position:relative; width:auto; height:min(100%,calc(100dvh - 280px),690px); max-width:100%; overflow:hidden; background:#15262c; box-shadow:0 28px 60px #00000042; }
 .se-artboard img { display:block; width:100%; height:100%; object-fit:cover; }
-.se-upload-stage { display:grid; width:min(440px,90%); min-height:180px; place-items:center; gap:8px; border:1px dashed #5f858070; border-radius:14px; background:#142126b8; color:var(--se-muted); cursor:pointer; }
-.se-upload-stage strong { color:#dce8e5; font-size:16px; }
+.se-upload-stage { display:grid; width:min(520px,82%); min-height:220px; place-items:center; gap:8px; border:1px dashed #5f858080; border-radius:15px; background:linear-gradient(145deg,#13262bda,#0d1d22c9); color:var(--se-muted); cursor:pointer; }
+.se-upload-stage strong { color:#e5f0ed; font-size:18px; }
 .se-mask-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; touch-action:none; }
 .se-mask-canvas.is-active { pointer-events:auto; cursor:crosshair; background:rgba(7,18,20,.12); }
 .se-mask-note,.se-crop-note { position:absolute; top:14px; right:14px; padding:6px 9px; border-radius:7px; background:#0d2425e8; color:var(--se-teal); font-size:11px; }

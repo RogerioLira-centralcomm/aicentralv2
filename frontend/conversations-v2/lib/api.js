@@ -1,12 +1,18 @@
 export const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
 
+function responseError(data, status) {
+  const error = new Error(data.error || `Não foi possível concluir (${status}).`);
+  error.status = status;
+  error.code = String(data.code || '');
+  error.details = data.details && typeof data.details === 'object' ? data.details : {};
+  return error;
+}
+
 export async function request(url, options = {}) {
   const response = await fetch(url, {credentials: 'same-origin', ...options});
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(data.error || `Não foi possível concluir (${response.status}).`);
-    error.status = response.status;
-    throw error;
+    throw responseError(data, response.status);
   }
   return data;
 }
@@ -14,7 +20,7 @@ export async function request(url, options = {}) {
 export async function streamEvents(response, onEvent) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || `Não foi possível concluir (${response.status}).`);
+    throw responseError(data, response.status);
   }
   if (!response.body) throw new Error('A resposta não pôde ser transmitida.');
   const reader = response.body.getReader();

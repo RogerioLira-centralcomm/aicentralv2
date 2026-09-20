@@ -4,6 +4,7 @@ import {Conversation} from './components/Conversation';
 import {ArtifactPane} from './components/ArtifactPane';
 import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
+import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult} from './lib/responseModel.mjs';
 import {Icon} from './lib/icons';
 
@@ -305,7 +306,7 @@ export default function App({bootstrap}) {
           trace('Resposta concluída', responseData.confidence || '');
         } else if (kind === 'run.failed') {
           terminal = true; setRuntime('Não foi possível concluir'); trace('Execução interrompida', event.message || '', 'error');
-          setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', response: {answer: event.message || 'O agente não conseguiu concluir esta solicitação. Tente novamente em instantes.'}}]);
+          setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'failure', failure: chatFailure({message: event.message, status: 503}), prompt: clean}]);
           setInput(clean);
         } else if (kind === 'run.cancelled' || (kind === 'run.completed' && event.status === 'cancelled')) {
           terminal = true; setRuntime('Interrompido'); trace('Execução interrompida');
@@ -316,11 +317,8 @@ export default function App({bootstrap}) {
       if (!terminal) throw new Error('A conexão terminou antes da conclusão.');
     } catch (error) {
       const detail = String(error?.message || '').trim();
-      const answer = detail && !/^HTTP\s+\d+/i.test(detail)
-        ? detail
-        : 'O agente desta conversa está temporariamente indisponível. Tente novamente em instantes.';
       setRuntime('Não foi possível concluir'); trace('Falha na conversa', detail, 'error');
-      setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', response: {answer}}]);
+      setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'failure', failure: chatFailure(error), prompt: clean}]);
       setInput(clean);
     } finally {
       if (runStarted) {
@@ -405,11 +403,16 @@ export default function App({bootstrap}) {
     setArtifactDirty(false); setArtifactOpen(true);
   }, [confirmDiscard, fetchArtifact, trace]);
 
+  const revisitFailedPrompt = useCallback(prompt => {
+    setInput(prompt || '');
+    window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
+  }, []);
+
   return <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className={`cv-flex cv-h-full cv-min-h-0 cv-w-full cv-overflow-hidden cv-bg-ink ${bootstrap.homeMode ? 'cv-home-mode' : ''}`}>
     {!bootstrap.homeMode && <Sidebar bootstrap={bootstrap} conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} loading={historyLoading} openingId={openingId}/>}
     {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
     <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
+      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
       {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
     </div>
     <input ref={fileRef} type="file" hidden multiple accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx" onChange={event => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }}/>

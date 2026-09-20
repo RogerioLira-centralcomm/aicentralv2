@@ -1,5 +1,6 @@
 """Versioned backend contract consumed by the React Conversations V2 UI."""
 
+import re
 import secrets
 from uuid import uuid4
 
@@ -25,6 +26,10 @@ from ...cadu_planner import docs
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
 lab_bp = Blueprint("cadu_agent_v2_lab", __name__)
+_CREDIT_ERROR = re.compile(
+    r"Saldo insuficiente:\s*(?:esta execução estima|a execução usou)\s*(\d+)\s+tokens?\s+e há\s*(\d+)\s+disponíveis\.?",
+    re.IGNORECASE,
+)
 
 
 @lab_bp.get("/workspace/conversas-v2-lab")
@@ -60,7 +65,18 @@ def protect():
 @bp.errorhandler(Exception)
 def api_error(exc):
     if isinstance(exc, HTTPException):
-        return jsonify(error=exc.description), exc.code
+        message = str(exc.description or "Não foi possível concluir a operação.")
+        payload = {"error": message}
+        credit_error = _CREDIT_ERROR.search(message)
+        if credit_error:
+            payload.update(
+                code="credits_insufficient",
+                details={
+                    "required_tokens": int(credit_error.group(1)),
+                    "available_tokens": int(credit_error.group(2)),
+                },
+            )
+        return jsonify(**payload), exc.code
     if isinstance(exc, ProviderUnavailable):
         current_app.logger.exception("Runtime Cadu indisponível")
         return jsonify(error="O agente desta conversa está temporariamente indisponível. Tente novamente em instantes."), 503

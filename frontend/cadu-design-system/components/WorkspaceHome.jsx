@@ -1,5 +1,5 @@
 import React, {useMemo, useState} from 'react';
-import {AgencySwitcher, CaduSolutionSwitcher, ProjectSelector} from './WorkspaceSelectors';
+import {CaduSolutionSwitcher, ProjectSelector} from './WorkspaceSelectors';
 import {CaduDock} from './CaduDock';
 import {WorkspaceComposer} from './WorkspaceComposer';
 import {ResumeCardCollection} from './ResumeCards';
@@ -38,17 +38,24 @@ export function WorkspaceHome({bootstrap}) {
     if (payload.projectRef || payload.type === 'project') setProjectRef(payload.projectRef || payload.id);
     if (payload.type === 'brand') setToast('Marca adicionada ao contexto da conversa.');
   };
-  const shortcutCandidates = [...(home.brands || []), ...projects].map(item => ({...item, title: item.title || item.name}));
+  // The dock is a visual brand shelf. Keep the manager on the same catalog as
+  // the server, so a project without the linked brand's primary logo can never
+  // be manually reintroduced as initials.
+  const shortcutCandidates = [...(home.brands || []), ...projects.filter(item => item.dockLogoUrl)]
+    .map(item => item.kind === 'project' ? {...item, previewUrl: item.dockLogoUrl, title: item.title || item.name} : {...item, title: item.title || item.name});
   const explicitDockItems = dockItems.filter(item => item.shortcutId);
   const managerItems = [
     ...explicitDockItems,
     ...shortcutCandidates.filter(item => !explicitDockItems.some(dockItem => dockItem.id === item.id)),
   ].map(item => ({...item, pinned: Boolean(item.shortcutId)}));
-  const persistShortcut = async item => {
+  const createShortcut = async item => {
     const kind = item.kind === 'brand' ? 'brand' : 'project';
     const targetRef = kind === 'brand' ? item.id : item.projectRef || item.id;
     const response = await request(bootstrap.endpoints.dockShortcuts, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({shortcut_type: kind, target_ref: targetRef, project_ref: item.projectRef || null, brand_ref: item.brandRef || null})});
-    const next = {...item, shortcutId: response.shortcut.id, pinned: true};
+    return {...item, shortcutId: response.shortcut.id, pinned: true};
+  };
+  const persistShortcut = async item => {
+    const next = await createShortcut(item);
     setDockItems(current => [...current.filter(currentItem => currentItem.shortcutId && currentItem.id !== item.id), next]);
   };
   const addDroppedShortcut = async payload => {
@@ -81,17 +88,15 @@ export function WorkspaceHome({bootstrap}) {
       }
     } catch (error) { setToast(error.message || 'Não foi possível atualizar os atalhos.'); }
   };
-  const moveShortcut = async (item, direction) => {
-    if (!item.shortcutId) { setToast('Fixe este item antes de mudar sua posição.'); return; }
+  const reorderShortcuts = async next => {
     const before = dockItems;
-    const index = before.findIndex(candidate => candidate.shortcutId === item.shortcutId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= before.length) return;
-    const next = [...before];
-    [next[index], next[target]] = [next[target], next[index]];
-    setDockItems(next);
     try {
-      await request(`${bootstrap.endpoints.dockShortcuts}/order`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({ids: next.map(candidate => candidate.shortcutId).filter(Boolean)})});
+      const isFirstPersonalOrder = !before.some(item => item.shortcutId);
+      if (isFirstPersonalOrder && !window.confirm('Ao reorganizar esta dock, você passa a usar esta ordem como preferência pessoal. Continuar?')) return;
+      const explicit = [];
+      for (const item of next) explicit.push(item.shortcutId ? item : await createShortcut(item));
+      setDockItems(explicit);
+      await request(`${bootstrap.endpoints.dockShortcuts}/order`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({ids: explicit.map(candidate => candidate.shortcutId)})});
     } catch (error) { setDockItems(before); setToast(error.message || 'Não foi possível salvar a ordem dos atalhos.'); }
   };
   const solutions = [
@@ -103,25 +108,27 @@ export function WorkspaceHome({bootstrap}) {
   ].map(solution => ({...solution, href: bootstrap.urls.solutions?.[solution.id], icon: bootstrap.solutionIcons?.[solution.id]}));
   const contextVisuals = projects.slice(0, 4);
   return <div className="cadu-ds-home-shell">
-    <CaduDock brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onManageShortcuts={() => setShortcutsOpen(true)} onOpenBrand={brand => { if (brand.href) window.location.assign(brand.href); }} onOpenResource={item => openProject(projects.find(project => project.id === item.projectRef))} onDropItem={addDroppedShortcut} onOpenUsage={() => setAccountOpen(true)}/>
     <main className="cadu-ds-home-main">
       <header className="cadu-ds-home-navbar">
         <CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={solutions} activeId="workspace"/>
-        <AgencySwitcher value={home.agency?.id} items={[home.agency].filter(Boolean)} onChange={() => {}} emptyLabel={home.agency?.name || 'Selecionar agência'}/>
+        <span className="cadu-ds-agency-label">{home.agency?.name || 'Minha agência'}</span>
         <ProjectSelector agencyName={home.agency?.name} value={projectRef} items={projects} onChange={selectProject}/>
         <label className="cadu-ds-home-search"><span className="cadu-ds-sr-only">Buscar projetos no workspace</span><input value={searchValue} onChange={event => setSearchValue(event.target.value)} placeholder="Buscar projetos"/></label>
         <button type="button" className="cadu-ds-home-account" onClick={() => setAccountOpen(true)} aria-label="Abrir conta"><VisualIdentity src={bootstrap.user?.avatar} initials={bootstrap.user?.name} label={bootstrap.user?.name} color="#1b6d64"/></button>
       </header>
-      <section className="cadu-ds-home-content">
+      <div className="cadu-ds-home-workarea">
+        <CaduDock brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={brand => { if (brand.href) window.location.assign(brand.href); }} onOpenResource={item => openProject(projects.find(project => project.id === item.projectRef))} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
+        <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace {home.agency?.name ? `da ${home.agency.name}` : ''}</p><h1>{normalizedSearch ? 'Contextos encontrados' : selectedProject ? selectedProject.name : 'O que vamos resolver hoje?'}</h1><p>{normalizedSearch ? `${matchedProjects.length} projeto${matchedProjects.length === 1 ? '' : 's'} encontrado${matchedProjects.length === 1 ? '' : 's'} para “${searchValue.trim()}”.` : selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Comece uma conversa ou escolha um contexto para trabalhar.'}</p></div>
         {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <><WorkspaceComposer value={value} onChange={setValue} onSubmit={submit} context={selectedProject ? {label: selectedProject.name} : null} onClearContext={() => setProjectRef('')} onAttach={() => setToast('Arraste um arquivo para anexar ao chat.')} onContextDrop={dropContext}/>
         {!value.trim() && contextVisuals.length > 0 && <section className="cadu-ds-home-context-strip" aria-label="Contextos do Workspace"><div><span>Contextos em movimento</span><b>{projects.length} projeto{projects.length === 1 ? '' : 's'}</b><small>Escolha um projeto para levar sua base para a conversa.</small></div><div className="cadu-ds-home-context-strip__visuals">{contextVisuals.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)} aria-label={`Usar ${project.name} como contexto`}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/></button>)}</div><a href={bootstrap.urls.projects}>Ver projetos</a></section>}
         {!value.trim() && <ResumeCardCollection items={home.resumeCards || []} onOpen={openProject} onOpenActivity={() => setActivityOpen(true)}/>}</>}
-      </section>
+        </section>
+      </div>
     </main>
     <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} items={(home.resumeCards || []).map(item => ({...item, detail: item.context, time: item.status}))} onOpenItem={openProject}/>
     <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>
-    <ShortcutManagerDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} items={managerItems} onToggle={toggleShortcut} onMove={moveShortcut}/>
+    <ShortcutManagerDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} items={managerItems} onToggle={toggleShortcut} onReorder={reorderShortcuts}/>
     <UndoToast message={toast} onDismiss={() => setToast('')}/>
   </div>;
 }

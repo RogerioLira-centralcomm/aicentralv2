@@ -46,7 +46,9 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(home, /matchedProjects/);
   assert.match(home, /id: 'skills'/);
   assert.match(dock, /data-tooltip/);
-  assert.match(dock, /Organizar atalhos/);
+  assert.match(dock, /onReorderShortcuts/);
+  assert.match(dock, /onDropShortcut/);
+  assert.doesNotMatch(dock, /Organizar atalhos/);
   assert.doesNotMatch(dock, /Arquivos e documentos/);
   assert.match(dock, /VisualIdentity/);
   assert.match(cards, /VisualIdentity/);
@@ -111,7 +113,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /streamEvents/);
   assert.match(app, /let runStarted = false/);
   assert.match(app, /if \(runStarted\)/);
-  assert.match(app, /event\.message \|\| 'O agente não conseguiu concluir/);
+  assert.match(app, /kind: 'failure'/);
   assert.match(app, /expected_version/);
   assert.match(app, /\/versions\/\$\{version\}/);
   assert.match(artifact, /resource\.editor_url/);
@@ -124,8 +126,12 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-conversation-title/);
   assert.match(conversation, /cv-composer-shell/);
   assert.match(conversation, /cv-thread-content/);
+  assert.match(conversation, /COMPOSER_MAX_HEIGHT = 260/);
   assert.match(conversation, /data-cv-answer/);
   assert.match(conversation, /Trecho selecionado/);
+  assert.match(conversation, /cv-chat-failure/);
+  assert.match(conversation, /Créditos da conta/);
+  assert.match(conversation, /Ver créditos/);
   assert.match(conversation, /Adicionar ao briefing/);
   assert.match(conversation, /composerContext/);
   assert.match(conversation, /Escolher modo e recursos/);
@@ -149,16 +155,34 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /cv-artifact-open/);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /#cadu-conversations-v2-root \.cv-composer-input/);
+  assert.match(styles, /max-height: min\(260px, 38dvh\) !important/);
+  assert.match(styles, /\.cv-composer-actions[\s\S]*border-top: 0 !important/);
   assert.match(styles, /padding-bottom: 204px !important/);
   assert.match(styles, /@media \(max-width: 1080px\)[\s\S]*\.cv-artifact-overlay/);
   assert.match(template, /cadu-conversations-v2-root/);
   assert.match(template, /cadu-conversations-v2-bootstrap/);
   assert.match(template, /react\/app\.js/);
-  assert.match(template, /react\/app\.css'\) }}\?v=4/);
-  assert.match(template, /react\/app\.js'\) }}\?v=4/);
+  assert.match(template, /react\/app\.css'\) }}\?v=5/);
+  assert.match(template, /react\/app\.js'\) }}\?v=5/);
   assert.doesNotMatch(template, /_app_sidebar\.html/);
   assert.doesNotMatch(template, /v2-lab\.js/);
   assert.match(base, /request\.endpoint not in \('cadu_workspace\.dashboard', 'cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab'\)/);
+});
+
+test('conversation failures are converted into an actionable user-facing state', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/errorModel.mjs')).href);
+  const credits = model.chatFailure({
+    code: 'credits_insufficient', status: 409,
+    message: 'Saldo insuficiente: esta execução estima 8000 tokens e há 0 disponíveis.',
+    details: {required_tokens: 8000, available_tokens: 0},
+  });
+  assert.deepEqual(credits, {
+    kind: 'credits',
+    title: 'Créditos insuficientes',
+    detail: 'Esta solicitação precisa de 8.000 créditos. O saldo disponível é 0.',
+    guidance: 'Nenhum crédito foi usado. Adicione créditos à conta antes de enviar novamente.',
+  });
+  assert.equal(model.chatFailure({status: 503}).title, 'Conversas está temporariamente indisponível');
 });
 
 test('conversation response model preserves execution order and explicit checklist selection', async () => {

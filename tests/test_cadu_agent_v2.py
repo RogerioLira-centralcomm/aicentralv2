@@ -1069,6 +1069,23 @@ def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):
     assert stopped == [("task-v2", "user-7", "agentic")]
 
 
+def test_v2_credit_admission_error_is_machine_readable():
+    from werkzeug.exceptions import Conflict
+
+    app = Flask(__name__)
+    with app.app_context():
+        response, status = v2_routes.api_error(Conflict(
+            description="Saldo insuficiente: esta execução estima 8000 tokens e há 0 disponíveis."
+        ))
+
+    assert status == 409
+    assert response.get_json() == {
+        "error": "Saldo insuficiente: esta execução estima 8000 tokens e há 0 disponíveis.",
+        "code": "credits_insufficient",
+        "details": {"required_tokens": 8000, "available_tokens": 0},
+    }
+
+
 def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):
     class Cursor:
         def __init__(self, statements):

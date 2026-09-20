@@ -1,7 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Conversas 2.0 — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=4">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=5">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" aria-label="Conversas 2.0"><noscript>Ative o JavaScript para usar a Conversas 2.0.</noscript></div>
@@ -21,7 +21,8 @@
     'projects': url_for('cadu_workspace.clean_projects'),
     'docs': url_for('cadu_workspace.documents'),
     'brands': url_for('cadu_workspace.clean_brands'),
-    'profile': url_for('cadu_workspace.account_page', section='perfil')
+    'profile': url_for('cadu_workspace.account_page', section='perfil'),
+    'credits': url_for('cadu_workspace.account_page', section='creditos')
   },
   'secondaryNav': secondary_nav,
   'endpoints': {
@@ -34,4 +35,4 @@
   }
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=4"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=5"></script>{% endblock %}

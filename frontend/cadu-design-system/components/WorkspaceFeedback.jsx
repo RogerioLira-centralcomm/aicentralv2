@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useState} from 'react';
+import {VisualIdentity} from './VisualIdentity';
 
 export function AgentActionDrop({action, onOpen, onDragStart}) {
   if (!action) return null;
@@ -10,10 +11,19 @@ export function ActivityDrawer({open, title = 'Atividade recente', items = [], o
   return <aside className="cadu-ds-activity-drawer" role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button type="button" onClick={onClose} aria-label="Fechar atividade">×</button></header><div>{items.map(item => <button key={item.id} type="button" onClick={() => onOpenItem?.(item)}><span>{item.icon || '•'}</span><p><b>{item.title}</b><small>{item.detail}</small></p><time>{item.time}</time></button>)}</div></aside>;
 }
 
-export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onMove}) {
+export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onReorder}) {
+  const [draggedId, setDraggedId] = useState('');
   if (!open) return null;
-  const pinnedCount = items.filter(item => item.pinned).length;
-  return <dialog open className="cadu-ds-dialog" aria-label="Personalizar dock"><header><div><h2>Personalizar dock</h2><p>Fixe, remova ou reorganize seus atalhos.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-list">{items.map((item, index) => <div key={item.id}><span>{item.title}</span><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Fixar'}</button><button type="button" disabled={!item.pinned || !index} onClick={() => onMove?.(item, -1)} aria-label={`Mover ${item.title} para cima`}>↑</button><button type="button" disabled={!item.pinned || index === pinnedCount - 1} onClick={() => onMove?.(item, 1)} aria-label={`Mover ${item.title} para baixo`}>↓</button></div>)}</div></dialog>;
+  const dropOn = target => {
+    if (!draggedId || draggedId === target.id) return;
+    const pinned = items.filter(item => item.pinned);
+    const from = pinned.findIndex(item => item.id === draggedId);
+    const to = pinned.findIndex(item => item.id === target.id);
+    if (from < 0 || to < 0) return;
+    pinned.splice(to, 0, pinned.splice(from, 1)[0]);
+    onReorder?.(pinned);
+  };
+  return <dialog open className="cadu-ds-dialog cadu-ds-shortcut-dialog" aria-label="Personalizar dock"><header><div><h2>Atalhos da dock</h2><p>Arraste para ordenar. Marcas e projetos com logo aparecem na barra.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-grid">{items.map(item => <article key={item.id} draggable={item.pinned} onDragStart={() => setDraggedId(item.id)} onDragEnd={() => setDraggedId('')} onDragOver={event => item.pinned && event.preventDefault()} onDrop={() => dropOn(item)} className={item.pinned ? 'is-pinned' : ''}><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials} label={item.title} color={item.visualColor}/><b>{item.title}</b><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Adicionar'}</button></article>)}</div></dialog>;
 }
 
 export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, onManageShortcuts}) {

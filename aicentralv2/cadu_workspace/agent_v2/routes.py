@@ -168,6 +168,8 @@ def brand_identity(brand_id):
             "content": {
                 "name": brand.get("name"), "logo_url": brand.get("display_logo"), "summary": profile.get("brand_summary") or profile.get("positioning") or brand.get("display_summary") or "Identidade da marca disponível para orientar esta conversa.",
                 "colors": colors, "fonts": fonts,
+                "audit_url": f"/workspace/marcas/{brand_id}#brand-status",
+                "audit_status": str((brand.get("analysis_metadata") or {}).get("review_pack", {}).get("status") or ""),
                 "details": [
                     {"label": "Posicionamento", "value": profile.get("positioning") or "Ainda não definido."},
                     {"label": "Tom de voz", "value": profile.get("tone_of_voice") or brand.get("tone_of_voice") or "Ainda não definido."},

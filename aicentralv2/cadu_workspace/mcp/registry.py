@@ -24,6 +24,10 @@ class ToolInputError(ToolError):
     code = "invalid_tool_input"
 
 
+class ToolOutputError(ToolError):
+    code = "invalid_tool_output"
+
+
 def _matches_type(value: Any, expected: str) -> bool:
     checks = {
         "object": lambda item: isinstance(item, dict),
@@ -55,6 +59,10 @@ def _validate(value: Any, schema: dict[str, Any], path: str = "arguments") -> No
             if name in properties:
                 _validate(item, properties[name], f"{path}.{name}")
     if isinstance(value, list) and isinstance(schema.get("items"), dict):
+        if "minItems" in schema and len(value) < int(schema["minItems"]):
+            raise ToolInputError(f"{path} possui poucos itens.")
+        if "maxItems" in schema and len(value) > int(schema["maxItems"]):
+            raise ToolInputError(f"{path} excede o número de itens permitido.")
         for index, item in enumerate(value):
             _validate(item, schema["items"], f"{path}[{index}]")
     if isinstance(value, str):
@@ -130,7 +138,13 @@ class ToolRegistry:
         if not isinstance(arguments, dict):
             raise ToolInputError("Os argumentos da ferramenta precisam ser um objeto.")
         _validate(arguments, tool.input_schema)
-        return tool.handler(context, arguments)
+        result = tool.handler(context, arguments)
+        if tool.output_schema:
+            try:
+                _validate(result, tool.output_schema, "result")
+            except ToolInputError as exc:
+                raise ToolOutputError("A ferramenta retornou um resultado incompatível com seu contrato.") from exc
+        return result
 
 
 registry = ToolRegistry()

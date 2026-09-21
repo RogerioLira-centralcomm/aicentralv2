@@ -491,6 +491,9 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     answer = str(answer_value or "").strip()
     if not answer:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
+    repaired_answer = repair_metadata_answer(answer)
+    if repaired_answer != answer:
+        answer = repaired_answer
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
     # Analysis is intentionally allowed to be multi-paragraph. Collapsing the

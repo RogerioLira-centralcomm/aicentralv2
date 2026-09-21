@@ -876,10 +876,35 @@ def test_prompt_payload_is_compact_and_does_not_inject_unrequested_domains():
                             resolved={"current_context": context().to_dict()}, policy=policy_for(route),
                             user_label="user-7")
     serialized = __import__("json").dumps(payload, ensure_ascii=False)
-    assert len(serialized) < 4200
+    assert len(serialized) < 8000
     assert "workspace_da_equipe" not in serialized
     assert "catalogo_midia_cadu" not in serialized
-    assert "user_profile_context" not in serialized
+    assert payload["inputs"]["user_profile_context"] == payload["inputs"]["current_context"]
+    assert payload["inputs"]["projeto_context"] == payload["inputs"]["evidence"]
+
+
+def test_prompt_legacy_aliases_are_derived_from_the_v2_contract():
+    route = route_request("Explique CPM")
+    payload = build_payload(
+        message="Explique CPM", request=context(), route=route,
+        resolved={"current_context": context().to_dict()}, policy=policy_for(route),
+        user_label="user-7", history="Assistente: contexto anterior",
+    )
+    inputs = payload["inputs"]
+    assert inputs["skill_context"] == inputs["core"]
+    assert inputs["projeto_context"] == inputs["evidence"]
+    assert inputs["user_profile_context"] == inputs["current_context"]
+    assert inputs["user_memory_context"] == "Assistente: contexto anterior"
+    assert inputs["is_first_message"] == "false"
+
+
+def test_response_repairs_leaked_orchestrator_wrapper_before_display():
+    response = normalize_response({
+        "answer": "Projeto usado: geral. Decisão proposta: explicar CPM. "
+                  "Resposta: CPM é o custo por mil impressões. Próxima ação: perguntar se deseja exemplo."
+    }, {"mode": "analysis", "max_answer_chars": 6000, "max_questions": 0, "max_next_steps": 0})
+    assert response.answer == "CPM é o custo por mil impressões."
+    assert "Projeto usado" not in response.answer
 
 
 def test_prompt_evidence_respects_mode_budget_and_remains_valid_json():
@@ -1120,6 +1145,35 @@ def test_registry_exposure_prevents_internal_tools_from_leaking_to_customer_agen
     assert [item["name"] for item in registry.list(context(), "customer_agent")] == []
     with pytest.raises(ToolForbidden):
         registry.execute("internal.audit", {}, context(), "customer_agent")
+
+
+def test_registry_rejects_tool_output_that_breaks_its_published_contract():
+    from aicentralv2.cadu_workspace.mcp.registry import ToolOutputError
+
+    registry = ToolRegistry()
+    registry.register(ToolDefinition(
+        name="workspace.summary", description="Summary", capability="workspace", effect="read",
+        input_schema={"type": "object", "additionalProperties": False},
+        output_schema={"type": "object", "required": ["title"], "properties": {"title": {"type": "string"}}},
+        handler=lambda *_: {"name": "Contrato antigo"},
+    ))
+    with pytest.raises(ToolOutputError):
+        registry.execute("workspace.summary", {}, context())
+
+
+def test_registry_enforces_array_volume_limits():
+    registry = ToolRegistry()
+    registry.register(ToolDefinition(
+        name="workspace.bounded", description="Bounded", capability="workspace", effect="read",
+        input_schema={
+            "type": "object", "required": ["items"],
+            "properties": {"items": {"type": "array", "maxItems": 2, "items": {"type": "string"}}},
+            "additionalProperties": False,
+        },
+        handler=lambda _context, arguments: arguments,
+    ))
+    with pytest.raises(ToolInputError):
+        registry.execute("workspace.bounded", {"items": ["a", "b", "c"]}, context())
 
 
 def test_normalizer_accepts_fenced_json_without_showing_the_envelope():

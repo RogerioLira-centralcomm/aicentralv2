@@ -385,12 +385,10 @@ def prepare(data):
                             WHERE conversation_id = %s AND status = 'running'""", (conversation_id,))
             if cur.fetchone():
                 abort(409, description="Aguarde a resposta atual ou interrompa a geração.")
-            cur.execute("""SELECT provider_conversation_id FROM cadu_agent_provider_sessions
-                             WHERE conversation_id=%s AND runtime_id=%s AND client_id=%s AND user_id=%s""",
-                        (conversation_id, runtime["id"], current.client_id, current.user_id))
-            provider_session = cur.fetchone()
-            if provider_session:
-                execution["provider_payload"]["conversation_id"] = provider_session["provider_conversation_id"]
+            # CentralX owns the canonical conversation history and sends a
+            # bounded copy in the V2 evidence envelope. Reusing the provider's
+            # conversation id would create a second, invisible memory that can
+            # retain obsolete prompts and conflict with the persisted thread.
             cur.execute("""INSERT INTO cadu_family_chat_runs
                 (id, conversation_id, user_id, client_id, status, runtime_version, execution_mode,
                  runtime_id, provider_config_version, route, request_context, response_policy, context_chars, created_at)
@@ -562,19 +560,6 @@ def stream(run):
                     (run["conversation_id"], max(0, int(usage.get("prompt_tokens") or 0)),
                      max(0, int(usage.get("completion_tokens") or 0)), run["conversation_id"]))
             conn.commit()
-            if provider_id:
-                conn = repository.get_db()
-                with conn.cursor() as cur:
-                    cur.execute("""INSERT INTO cadu_agent_provider_sessions
-                        (conversation_id,client_id,user_id,runtime_id,provider_conversation_id,created_at,updated_at)
-                        VALUES (%s,%s,%s,%s,%s,NOW(),NOW())
-                        ON CONFLICT (conversation_id,runtime_id) DO UPDATE SET
-                            provider_conversation_id=EXCLUDED.provider_conversation_id,updated_at=NOW()
-                        WHERE cadu_agent_provider_sessions.client_id=EXCLUDED.client_id
-                          AND cadu_agent_provider_sessions.user_id=EXCLUDED.user_id""",
-                        (run["conversation_id"], run["context"].client_id, run["context"].user_id,
-                         run["runtime"]["id"], provider_id))
-                conn.commit()
             if usage:
                 try:
                     charge = CaduCreditConnector().charge_provider(

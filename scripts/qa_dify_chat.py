@@ -25,26 +25,39 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
+from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
+from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import build_payload
+from aicentralv2.cadu_workspace.agent_v2.response_policy import policy_for, requested_answer_chars
+from aicentralv2.cadu_workspace.agent_v2.router import route_request
+
 
 CASES = (
     ('curta', 'O que é CPM?', 'baixa'),
     ('media', 'Quais audiências recomendadas para uma campanha de seguros?', 'media'),
     ('alta', 'Monte um plano de mídia de R$ 150 mil para Black Friday, com fases, canais e KPIs.', 'alta'),
     ('mercado', 'Quais notícias e tendências podem impactar uma empresa de telecom?', 'media'),
+    ('texto_longo', 'Crie um resumo sobre o Rock in Rio com cerca de 600 palavras, organizado do começo até 2026.', 'alta'),
 )
 
 
 def stream_case(base_url, api_key, label, query, expected_complexity):
-    payload = {
-        'query': query, 'user': 'qa-cadu-payload', 'response_mode': 'streaming',
-        'inputs': {
-            'nome_usuario': 'QA Cadu', 'nome_cliente': 'Cliente de teste',
-            'skill_id': 'ideias', 'skill_context': 'Teste de regressão. Roteamento interno: complexidade=%s.' % expected_complexity,
-            'files_context': '', 'projeto_context': '', 'is_first_message': 'false',
-            'saudacao_permitida': 'nao', 'turn_index': '1',
-        },
-    }
-    started, first_token, answer_chars, terminal = time.monotonic(), None, 0, None
+    context = RequestContext(
+        organization_id=1, client_id=1, user_id=1, conversation_id=None,
+        surface='conversations', capabilities=('workspace', 'planner', 'reports', 'artifacts'),
+    )
+    route = route_request(query)
+    policy = policy_for(route)
+    requested_chars = requested_answer_chars(query)
+    if requested_chars:
+        policy['max_answer_chars'] = max(policy['max_answer_chars'], requested_chars)
+    payload = build_payload(
+        message=query, request=context, route=route,
+        resolved={'qa': True, 'expected_complexity': expected_complexity},
+        policy=policy, user_label='qa-cadu-v2', execution_mode='analysis',
+        max_context_chars=16000,
+    )
+    started, first_token, answer_chunks, terminal = time.monotonic(), None, [], None
     with requests.post(base_url.rstrip('/') + '/chat-messages', headers={'Authorization': 'Bearer ' + api_key},
                        json=payload, stream=True, timeout=(10, 120)) as response:
         response.raise_for_status()
@@ -55,7 +68,7 @@ def stream_case(base_url, api_key, label, query, expected_complexity):
             kind = event.get('event')
             if kind in ('message', 'agent_message') and isinstance(event.get('answer'), str):
                 first_token = first_token or time.monotonic()
-                answer_chars += len(event['answer'])
+                answer_chunks.append(event['answer'])
             if kind == 'message_end':
                 terminal = 'completed'
                 break
@@ -63,7 +76,23 @@ def stream_case(base_url, api_key, label, query, expected_complexity):
                 terminal = 'failed'
                 break
     finished = time.monotonic()
-    return {'case': label, 'expected_complexity': expected_complexity, 'status': terminal or 'incomplete',
+    answer = ''.join(answer_chunks)
+    contract = 'invalid'
+    error = ''
+    try:
+        normalized = normalize_response(answer, policy)
+        answer_chars = len(normalized.answer)
+        contract = 'valid'
+        if label == 'texto_longo' and answer_chars < 1800:
+            contract = 'too_short'
+    except Exception as exc:
+        answer_chars = len(answer)
+        error = f'{type(exc).__name__}: {exc}'
+    status = terminal or 'incomplete'
+    if contract != 'valid':
+        status = 'failed_contract'
+    return {'case': label, 'expected_complexity': expected_complexity, 'status': status,
+            'contract': contract, 'error': error,
             'first_token_ms': round(((first_token or finished) - started) * 1000),
             'total_ms': round((finished - started) * 1000), 'answer_chars': answer_chars}
 

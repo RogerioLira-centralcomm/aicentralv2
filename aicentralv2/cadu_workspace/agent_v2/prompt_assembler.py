@@ -148,4 +148,16 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "citations": [],
         }, ensure_ascii=False, separators=(",", ":")),
     }
+    # Transitional aliases for the production Dify workflow that predates the
+    # V2 boundary.  The canonical contract is the set above; these values are
+    # derived from it so there is still a single source of truth.  They can be
+    # removed after every runtime advertises the V2 input contract.
+    inputs.update({
+        "skill_context": inputs["core"],
+        "projeto_context": inputs["evidence"],
+        "files_context": "",
+        "user_memory_context": history,
+        "user_profile_context": inputs["current_context"],
+        "is_first_message": "false" if history else "true",
+    })
     return {"query": message, "user": user_label, "inputs": inputs, "response_mode": "streaming"}

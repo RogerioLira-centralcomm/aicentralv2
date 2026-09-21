@@ -51,6 +51,25 @@
   margin-inline: auto;
 }
 
+/* Brand shortcuts behave as icons: one compact control, with the identity
+   centered inside it instead of reading like a loose card. */
+#cadu-conversations-v2-root .cadu-ds-dock-brand,
+#cadu-conversations-v2-root .cadu-ds-dock-resource {
+  width: 36px;
+  height: 36px;
+  margin-left: 8px;
+  margin-right: 0;
+  padding: 2px;
+  border-radius: 10px;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-brand .cadu-ds-visual-identity,
+#cadu-conversations-v2-root .cadu-ds-dock-resource .cadu-ds-visual-identity {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+}
+
 /* The focused account avatar fills the rounded control. */
 #cadu-conversations-v2-root .cadu-ds-dock-avatar-button,
 #cadu-conversations-v2-root .cadu-ds-dock-avatar {

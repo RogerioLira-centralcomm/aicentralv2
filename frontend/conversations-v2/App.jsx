@@ -681,7 +681,7 @@ export default function App({bootstrap}) {
       catch (error) { trace('Não foi possível abrir o artefato', error.message, 'error'); }
       return;
     }
-    const resource = item.kind === 'image'
+    const resource = ['image', 'logo'].includes(String(item.kind || '').toLowerCase())
       ? {type: 'image', title: item.title || 'Imagem do Studio', content: {url: item.url, alt: item.title || 'Imagem do Studio', source: item.source || 'studio'}}
       : item.url ? {type: 'link_reader', title: item.title || 'Link externo', content: item} : {type: 'resource', title: item.title || 'Arquivo', content: item};
     setArtifact(resource); artifactRef.current = resource;

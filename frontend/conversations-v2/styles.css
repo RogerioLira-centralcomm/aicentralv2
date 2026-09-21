@@ -184,7 +184,11 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-recent-search svg { position:absolute; left:10px; pointer-events:none; }
 #cadu-conversations-v2-root .cv-recent-search input { width:100%; height:34px; padding:0 10px 0 32px; border:1px solid transparent; border-radius:9px; background:#192a2e; color:#e2eeeb; font-size:11px; outline:none; }
 #cadu-conversations-v2-root .cv-recent-search input:focus { border-color:transparent; background:#1d3235; }
-#cadu-conversations-v2-root .cv-recent-list { min-height:0; flex:1; overflow-y:auto; padding:8px 10px 18px; }
+#cadu-conversations-v2-root .cv-recent-list { min-height:0; flex:1; overflow-y:auto; padding:8px 10px 18px; scrollbar-width:thin; scrollbar-color:rgba(111,146,139,.38) #132024; }
+#cadu-conversations-v2-root .cv-recent-list::-webkit-scrollbar { width:4px; }
+#cadu-conversations-v2-root .cv-recent-list::-webkit-scrollbar-track { background:#132024; }
+#cadu-conversations-v2-root .cv-recent-list::-webkit-scrollbar-thumb { border-radius:999px; background:rgba(111,146,139,.38); }
+#cadu-conversations-v2-root .cv-recent-list::-webkit-scrollbar-thumb:hover { background:rgba(127,189,178,.56); }
 #cadu-conversations-v2-root .cv-recent-list .cv-conversation-card { display:flex !important; width:100% !important; min-height:29px !important; height:29px !important; align-items:center; gap:6px; margin:0; padding:2px 10px !important; overflow:hidden; border:0 !important; border-bottom:0 !important; border-radius:0 !important; background:transparent !important; color:#d5e5e1 !important; text-align:left; cursor:pointer; }
 #cadu-conversations-v2-root .cv-recent-list .cv-conversation-card:hover { background:rgba(85,216,198,.07) !important; color:#f0f8f6 !important; }
 #cadu-conversations-v2-root .cv-recent-list .cv-conversation-card:disabled { cursor:wait; opacity:.62; }
@@ -241,6 +245,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-studio-library__thumb:hover,
 #cadu-conversations-v2-root .cv-studio-library__thumb:focus-visible { border-color:rgba(127,229,216,.7); outline:0; box-shadow:0 0 0 2px rgba(127,229,216,.18); }
 #cadu-conversations-v2-root .cv-studio-library__thumb img { display:block; width:100%; aspect-ratio:1; object-fit:cover; }
+#cadu-conversations-v2-root .cv-studio-library__group.is-logos .cv-studio-library__thumb { aspect-ratio:1; background:#e9efed; }
+#cadu-conversations-v2-root .cv-studio-library__group.is-logos .cv-studio-library__thumb img { height:100%; object-fit:contain; padding:5px; box-sizing:border-box; }
 #cadu-conversations-v2-root .cv-studio-library__thumb > span:last-child { display:block; overflow:hidden; padding:4px 5px; color:#b7cbc7; font-size:8px; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-studio-library__video { display:grid; aspect-ratio:1; place-items:center; background:linear-gradient(135deg,#173b3a,#243b55); color:#8be9dd; font-size:18px; }
 #cadu-conversations-v2-root .cv-recent-all-section { margin:6px 0; }
@@ -629,9 +635,11 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-composer-audio.is-unavailable { color:#c9a875; }
 #cadu-conversations-v2-root .cv-composer-audio-status { position:absolute; right:0; bottom:calc(100% + 8px); max-width:260px; padding:7px 10px; border:1px solid rgba(201,168,117,.28); border-radius:9px; background:#182829; color:#d9c39d; font-size:10px; line-height:1.35; box-shadow:0 10px 28px rgba(0,0,0,.28); }
 
-.cv-scroll { scrollbar-width: thin; scrollbar-color: rgba(145,170,166,.28) transparent; }
-.cv-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.cv-scroll::-webkit-scrollbar-thumb { background: rgba(145,170,166,.28); border-radius: 10px; }
+.cv-scroll { scrollbar-width: thin; scrollbar-color: rgba(120,155,149,.34) #0d191c; }
+.cv-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.cv-scroll::-webkit-scrollbar-track { background: #0d191c; }
+.cv-scroll::-webkit-scrollbar-thumb { background: rgba(120,155,149,.34); border-radius: 999px; }
+.cv-scroll::-webkit-scrollbar-thumb:hover { background: rgba(127,205,193,.5); }
 
 .cv-prose { color: #d9e7e4; font-size: 15px; line-height: 1.7; max-width: 72ch; }
 .cv-prose > * { margin: 0 0 12px; }
@@ -741,6 +749,17 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   animation: cv-artifact-open 220ms cubic-bezier(.2,.75,.25,1) both;
   transform-origin: right center;
 }
+.cv-artifact-panel:not(.is-light) > header h2,
+.cv-artifact-panel:not(.is-light) .cv-link-reader h3 { color:#e7f2ef; }
+.cv-link-reader button { color:#cfe1dd; }
+.cv-link-reader button:hover,.cv-link-reader button:focus-visible { border-color:rgba(101,216,203,.36); background:rgba(101,216,203,.08); color:#effbf8; outline:0; }
+.cv-image-artifact { display:flex; height:100%; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; background:#0d191c; }
+.cv-image-artifact > img { display:block; max-width:100%; max-height:calc(100% - 52px); border-radius:10px; object-fit:contain; filter:drop-shadow(0 18px 34px rgba(0,0,0,.24)); }
+.cv-image-artifact > p { color:#8fa7a2; font-size:13px; }
+.cv-image-artifact > div { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+.cv-image-artifact a { padding:8px 12px; border:1px solid rgba(181,218,211,.16); border-radius:8px; background:transparent; color:#cfe1dd; font-size:11px; font-weight:650; text-decoration:none; }
+.cv-image-artifact a:first-child { border-color:transparent; background:#65d8cb; color:#052522; }
+.cv-image-artifact a:hover,.cv-image-artifact a:focus-visible { border-color:rgba(101,216,203,.5); outline:0; }
 .cv-artifact-panel--left { order:-1; border-right:1px solid rgba(255,255,255,.08); border-left:0; transform-origin:left center; }
 .cv-artifact-side-toggle { min-height:30px; min-width:30px; padding:0 7px; border:1px solid rgba(181,218,211,.2); border-radius:8px; background:rgba(255,255,255,.05); color:#c4d7d3; font:650 15px/28px Inter,ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
 .cv-artifact-side-toggle:hover,.cv-artifact-side-toggle:focus-visible { border-color:rgba(127,229,216,.55); background:rgba(101,216,203,.12); color:#effffc; outline:0; }

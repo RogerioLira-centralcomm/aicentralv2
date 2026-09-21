@@ -144,7 +144,7 @@ function HtmlArtifact({artifact}) {
 function ImageArtifact({artifact}) {
   const content = artifact.content || {};
   const src = safeUrl(content.url || content.image_url || content.src);
-  return <div className="cv-flex cv-h-full cv-flex-col cv-items-center cv-justify-center cv-gap-4 cv-bg-[#071012] cv-p-6">{src ? <img src={src} alt={content.alt || artifact.title || 'Imagem gerada'} className="cv-max-h-[calc(100%-54px)] cv-max-w-full cv-rounded-xl cv-object-contain"/> : <p className="cv-text-sm cv-text-mist">A imagem ainda não está disponível.</p>}{src && <div className="cv-flex cv-flex-wrap cv-justify-center cv-gap-2"><a href={src} target="_blank" rel="noreferrer" className="cv-rounded-lg cv-bg-teal cv-px-4 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#052522] cv-no-underline">Abrir original</a><a href={src} download className="cv-rounded-lg cv-border cv-border-white/15 cv-bg-white/[.06] cv-px-4 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#d9e7e4] cv-no-underline">Baixar</a></div>}</div>;
+  return <div className="cv-image-artifact">{src ? <img src={src} alt={content.alt || artifact.title || 'Imagem gerada'}/> : <p>A imagem ainda não está disponível.</p>}{src && <div><a href={src} target="_blank" rel="noreferrer">Abrir original</a><a href={src} download>Baixar</a></div>}</div>;
 }
 
 function ResourceArtifact({artifact}) {
@@ -165,7 +165,7 @@ function ResourceArtifact({artifact}) {
     } catch (reason) { setError(reason.message); }
     finally { setCreating(false); }
   };
-  return <article className="cv-mx-auto cv-flex cv-h-full cv-w-full cv-max-w-[720px] cv-flex-col cv-justify-center cv-p-8 md:cv-p-12">
+  return <article className="cv-link-reader cv-mx-auto cv-flex cv-h-full cv-w-full cv-max-w-[720px] cv-flex-col cv-justify-center cv-p-8 md:cv-p-12">
     <span className="cv-grid cv-h-11 cv-w-11 cv-place-items-center cv-rounded-xl cv-bg-teal/10 cv-text-teal"><Icon name="file" size={20}/></span>
     <h3 className="cv-mb-0 cv-mt-5 cv-text-xl cv-font-semibold cv-tracking-[-.02em]">{artifact.title}</h3>
     <p className="cv-mb-0 cv-mt-2 cv-text-sm cv-leading-6 cv-text-[#819b97]">{content.detail || `${content.kind || 'Arquivo'} conectado a esta conversa.`}</p>

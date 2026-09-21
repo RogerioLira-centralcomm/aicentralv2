@@ -21,6 +21,13 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const [resourceState, setResourceState] = useState({projectRef: '', loading: false, resources: [], error: ''});
   const [personalLibrary, setPersonalLibrary] = useState({loading: false, assets: [], error: ''});
   const [rendered, setRendered] = useState(open);
+  const [openLibraryGroups, setOpenLibraryGroups] = useState(() => {
+    try {
+      const raw = document.cookie.match(/(?:^|; )cadu-chat-library-groups=([^;]+)/)?.[1];
+      const parsed = raw ? JSON.parse(decodeURIComponent(raw)) : ['logos'];
+      return new Set(Array.isArray(parsed) ? parsed : ['logos']);
+    } catch (_) { return new Set(['logos']); }
+  });
   const ordered = useMemo(() => {
     const active = String(activeProjectRef || '');
     if (!active) return conversations;
@@ -95,7 +102,8 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const activeProject = projects.find(item => String(item.ref || item.projectRef || item.id) === String(activeProjectRef));
   const projectConversations = filtered.filter(item => String(item.project_ref || '') === String(activeProjectRef)).slice(0, 10);
   const otherConversations = filtered.filter(item => String(item.project_ref || '') !== String(activeProjectRef));
-  const groupedResources = RESOURCE_GROUPS.map(group => ({...group, resources: resourceState.resources.filter(item => group.types.includes(String(item.type || item.resource_type || 'file')))})).filter(group => group.resources.length);
+  const projectResources = resourceState.resources.filter(item => item.source !== 'brand' && item.kind !== 'logo');
+  const groupedResources = RESOURCE_GROUPS.map(group => ({...group, resources: projectResources.filter(item => group.types.includes(String(item.type || item.resource_type || 'file')))})).filter(group => group.resources.length);
   const resourceLink = resource => safeUrl(resource.editor_url || resource.download_url || resource.url);
   const studioAsset = resource => {
     const url = safeUrl(resource.asset_url || resource.locator || resource.url);
@@ -104,9 +112,9 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   };
   const activeBrand = activeProject && brands.find(item => String(item.ref || item.brandRef || `studio:${item.id}`) === String(activeProject.brand_ref || activeProject.brandRef || ''));
   const entityDetailLink = item => item?.href || '';
-  const brandItems = (activeBrand?.assets || []).map(asset => studioAsset({...asset, asset_url: asset.display_url || asset.asset_path || asset.source_url, kind: asset.role === 'logo' ? 'logo' : 'image'})).filter(Boolean);
+  const brandItems = resourceState.resources.filter(item => item.source === 'brand').map(studioAsset).filter(Boolean);
   const libraryItems = activeProject
-    ? [...brandItems, ...resourceState.resources.map(studioAsset).filter(Boolean)]
+    ? [...brandItems, ...projectResources.map(studioAsset).filter(Boolean)]
     : personalLibrary.assets.map(studioAsset).filter(Boolean);
   const libraryGroups = [
     {id: 'logos', label: 'Logos da marca', match: item => item.kind === 'logo'},
@@ -128,11 +136,17 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
       {group.resources.length > 6 && activeProject?.href && <a className="cv-project-library__more" href={activeProject.href}>Ver todos</a>}
     </div>
   </details>;
-  const studioGroup = group => <details key={group.id} className="cv-studio-library__group">
+  const rememberLibraryGroup = (groupId, expanded) => setOpenLibraryGroups(current => {
+    const next = new Set(current);
+    if (expanded) next.add(groupId); else next.delete(groupId);
+    document.cookie = `cadu-chat-library-groups=${encodeURIComponent(JSON.stringify([...next]))}; Max-Age=31536000; Path=/; SameSite=Lax`;
+    return next;
+  });
+  const studioGroup = group => <details key={group.id} open={openLibraryGroups.has(group.id)} onToggle={event => rememberLibraryGroup(group.id, event.currentTarget.open)} className={`cv-studio-library__group is-${group.id}`}>
     <summary><span>{group.label}</span><b>{group.items.length}</b></summary>
     <div className="cv-studio-library__grid">{group.items.slice(0, 12).map(item => <button type="button" key={item.id || item.url} className="cv-studio-library__thumb" onClick={() => onOpenResource?.(item)} title={item.title}>
       {item.kind === 'video' ? <span className="cv-studio-library__video">▶</span> : <img src={item.url} alt="" loading="lazy"/>}
-      <span>{item.title}</span>
+      {group.id !== 'logos' && <span>{item.title}</span>}
     </button>)}</div>
   </details>;
   return <>

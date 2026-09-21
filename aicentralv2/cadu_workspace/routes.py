@@ -1092,6 +1092,14 @@ def _cadu_area(config_key: str, path: str) -> str:
 def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool = False) -> list[dict]:
     """Read brand records owned by the active Workspace organization."""
     try:
+        # A progressive Workspace query may have failed earlier in the same
+        # request. Clear that aborted read transaction before loading the
+        # independent cx_clients catalog; otherwise both the enriched query
+        # and its fallback fail with InFailedSqlTransaction.
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
         with get_db().cursor() as cursor:
             cursor.execute(
                 """SELECT c.id, c.crm_client_id, c.name, c.sector, c.tone_of_voice, c.website_url, c.primary_color,

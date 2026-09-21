@@ -38,6 +38,13 @@ def notify_balance(client_id: int, *, usage_id=None) -> None:
     try:
         conn = get_db()
         with conn.cursor() as cur:
+            # Alerts are auxiliary UX. The global token connector and ledger
+            # must work even when this optional notification migration has not
+            # been deployed yet.
+            cur.execute("SELECT to_regclass('public.cadu_credit_alerts') AS table_name")
+            if not (cur.fetchone() or {}).get('table_name'):
+                conn.rollback()
+                return
             cur.execute("""INSERT INTO cadu_credit_alerts
                 (id_cliente, alert_key, available_tokens, source_usage_id)
                 VALUES (%s,%s,%s,%s) ON CONFLICT (id_cliente, alert_key) DO NOTHING

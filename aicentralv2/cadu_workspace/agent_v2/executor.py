@@ -61,7 +61,7 @@ def prepare_execution(message, request, history="", requested_mode=""):
         "create_brief": "Briefing do projeto",
         "create_meeting_summary": "Resumo da reunião",
         "create_meeting_agenda": "Pauta da reunião",
-        "create_text_draft": "Rascunho de pesquisa",
+        "create_text_draft": "Documento sem título",
         "create_link_summary": "Resumo do site",
     }.get(route.action, "Resultado do trabalho")
     policy["artifact_chat_message"] = {

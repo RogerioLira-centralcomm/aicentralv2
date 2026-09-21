@@ -81,42 +81,26 @@ function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
     if (!url || !safeUrl(url)) return;
     command('insertImage', safeUrl(url));
   };
+  const addLink = () => {
+    const url = window.prompt('Cole o endereço HTTPS do link');
+    if (!url || !safeUrl(url)) return;
+    command('createLink', safeUrl(url));
+  };
+  const pasteIntoDocument = event => {
+    const image = Array.from(event.clipboardData?.items || []).find(item => item.type.startsWith('image/'));
+    if (!image) return;
+    const file = image.getAsFile();
+    if (!file) return;
+    event.preventDefault();
+    const reader = new FileReader();
+    reader.onload = () => command('insertImage', String(reader.result || ''));
+    reader.readAsDataURL(file);
+  };
   const addTable = () => {
     command('insertHTML', '<table><thead><tr><th>Item</th><th>Valor</th><th>Observação</th></tr></thead><tbody><tr><td>Exemplo</td><td>—</td><td>Edite este campo</td></tr><tr><td>Outro item</td><td>—</td><td>Edite este campo</td></tr></tbody></table><p><br></p>');
   };
-  const selectedTable = () => window.getSelection()?.anchorNode?.parentElement?.closest('table');
-  const addTableRow = () => {
-    const table = selectedTable();
-    if (!table) return;
-    const columns = table.rows[0]?.cells.length || 1;
-    const row = table.tBodies[0]?.insertRow() || table.insertRow();
-    for (let index = 0; index < columns; index += 1) row.insertCell().textContent = '—';
-    emit();
-  };
-  const addTableColumn = () => {
-    const table = selectedTable();
-    if (!table) return;
-    Array.from(table.rows).forEach(row => row.insertCell().textContent = '—');
-    emit();
-  };
-  const removeTableRow = () => {
-    const cell = window.getSelection()?.anchorNode?.parentElement?.closest('td,th');
-    const table = cell?.closest('table');
-    if (!cell || !table || table.rows.length <= 2) return;
-    cell.parentElement.remove();
-    emit();
-  };
-  const removeTableColumn = () => {
-    const cell = window.getSelection()?.anchorNode?.parentElement?.closest('td,th');
-    const table = cell?.closest('table');
-    if (!cell || !table || table.rows[0].cells.length <= 1) return;
-    const index = cell.cellIndex;
-    Array.from(table.rows).forEach(row => row.deleteCell(index));
-    emit();
-  };
-  return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[820px] cv-p-6 md:cv-p-10">
+  return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6">
     <input className="cv-rich-document__title" value={artifact.title || content.title || ''} onChange={event => onTitleChange?.(event.target.value)} placeholder="Título do documento" aria-label="Título do documento"/>
-    <input className="cv-rich-document__summary" value={content.summary || ''} onChange={event => onChange({...content, summary: event.target.value})} placeholder="Uma linha para orientar a leitura (opcional)" aria-label="Resumo do documento"/>
     <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento" onMouseDown={event => event.preventDefault()}>
       <button type="button" onClick={() => command('undo')} aria-label="Desfazer última edição">↶</button>
       <button type="button" onClick={() => command('redo')} aria-label="Refazer edição">↷</button>
@@ -125,15 +109,12 @@ function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
       <button type="button" onClick={() => command('formatBlock', 'h2')} aria-label="Título de seção">H2</button>
       <button type="button" onClick={() => command('formatBlock', 'blockquote')} aria-label="Citação">“</button>
       <button type="button" onClick={() => command('insertUnorderedList')} aria-label="Lista">•</button>
-      <button type="button" onClick={addTable} aria-label="Inserir tabela">Tabela</button>
-      <button type="button" onClick={addTableRow} aria-label="Adicionar linha à tabela">Linha +</button>
-      <button type="button" onClick={addTableColumn} aria-label="Adicionar coluna à tabela">Coluna +</button>
-      <button type="button" onClick={removeTableRow} aria-label="Remover linha da tabela">Linha −</button>
-      <button type="button" onClick={removeTableColumn} aria-label="Remover coluna da tabela">Coluna −</button>
-      <button type="button" onClick={addImage} aria-label="Adicionar imagem">Imagem</button>
+      <button type="button" onClick={addLink} aria-label="Adicionar link" title="Adicionar link">Link</button>
+      <button type="button" onClick={addTable} aria-label="Inserir tabela" title="Inserir tabela">Tabela</button>
+      <button type="button" onClick={addImage} aria-label="Adicionar imagem" title="Adicionar imagem">Imagem</button>
     </div>
-    <div ref={canvas} className="cv-rich-document__canvas" contentEditable suppressContentEditableWarning onInput={emit} onBlur={emit} dangerouslySetInnerHTML={{__html: html}} role="textbox" aria-label="Texto do documento"/>
-    <p className="cv-rich-document__hint">Editor visual · texto e imagens inline · o rascunho é salvo automaticamente</p>
+    <div ref={canvas} className="cv-rich-document__canvas" contentEditable suppressContentEditableWarning onInput={emit} onBlur={emit} onPaste={pasteIntoDocument} dangerouslySetInnerHTML={{__html: html}} role="textbox" aria-label="Texto do documento"/>
+    <p className="cv-rich-document__hint">Cole textos, links e imagens diretamente · salvamento automático</p>
   </article>;
 }
 
@@ -313,7 +294,7 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
   };
   if (!artifact) return null;
   return <aside className={`cv-artifact-panel cv-artifact-overlay cv-artifact-panel--${side} cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label="Artefato">
-    <header className="cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-border-b cv-border-white/[.07] cv-px-5">
+    <header className="cv-flex cv-h-[56px] cv-flex-none cv-items-center cv-gap-3 cv-border-b cv-border-white/[.07] cv-px-4">
       <div className="cv-min-w-0 cv-flex-1"><span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span><h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{artifact.title || artifact.content?.title || 'Trabalho em andamento'}</h2></div>
       {type === 'html' && artifact.id && <button type="button" onClick={artifact.status === 'published' && onUnpublish ? onUnpublish : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? artifact.status === 'published' ? 'Retirando…' : 'Publicando…' : saving ? 'Salvando…' : artifact.status === 'published' ? 'Despublicar' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}
       {textArtifact && <button type="button" onClick={toggleTheme} className="cv-artifact-theme-toggle" aria-pressed={lightTheme} title={lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}>{lightTheme ? 'Escuro' : 'Claro'}</button>}

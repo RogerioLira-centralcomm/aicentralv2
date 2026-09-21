@@ -93,8 +93,10 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         draft_instruction = (
             "Você está no modo revisor pontual de um rascunho. Use somente o conteúdo limpo em evidence e selected_context. "
             "Não invente fatos, datas, números, citações ou imagens. Organize o material em um título fiel e HTML simples de editor "
-            "(p, h2, ul, blockquote e img HTTPS apenas quando a fonte fornecer a imagem); preserve lacunas como lacunas. "
-            "Retorne artifact_patch com title, summary e html, sem Markdown, CSS ou JavaScript. "
+            "(p, h2, ul, table, a e img HTTPS apenas quando a fonte fornecer a imagem); preserve lacunas como lacunas. "
+            "O título deve nomear o assunto real solicitado, nunca usar rótulos genéricos como 'Rascunho de pesquisa'. "
+            "Não coloque no documento notas operacionais, confiança, projeto usado, decisão proposta ou perguntas ao usuário. "
+            "Retorne artifact_patch com title e html, sem subtítulo separado, Markdown, CSS ou JavaScript. "
             + ("O resumo será criado como entrega editável do projeto. Quando evidence indicar `google_workspace_authorized`, trate-o como acesso pela conta conectada; quando indicar `firecrawl_public`, deixe claro que o resumo veio apenas do conteúdo público e nunca suponha acesso a itens privados." if route.action == "create_link_summary" else "O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita.")
         )
     if route.artifact_type == "html":
@@ -136,7 +138,7 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "ui": {"confidence": "low|medium|high", "assumptions": [],
                     "questions": [], "actions": [], "blocks": [], "citations": []},
             "artifact_patch": (
-                {"title": "string", "summary": "string", "html": "HTML simples sem Markdown, CSS ou JavaScript"}
+                {"title": "string", "html": "HTML simples sem Markdown, CSS ou JavaScript"}
                 if route.artifact_type == "document" else
                 {"title": "string", "summary": "string", "html": "HTML body fragment", "css": "CSS", "js": "JavaScript", "logo_url": "HTTPS opcional da marca", "primary_color": "HEX opcional", "secondary_color": "HEX opcional"}
                 if route.artifact_type == "html" else

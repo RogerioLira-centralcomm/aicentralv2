@@ -34,6 +34,18 @@ from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asse
 from . import project_index_service, project_knowledge, project_resource_service, project_sources
 
 
+CADU_COMMERCIAL_PRICES = {
+    'extra essencial': 49.0,
+    'extra equipe': 179.0,
+    'extra agência': 299.0,
+    'extra agencia': 299.0,
+    'essencial': 297.0,
+    'equipe': 697.0,
+    'agência': 1497.0,
+    'agencia': 1497.0,
+}
+
+
 def _utc_timestamp() -> str:
     """RFC 3339 UTC timestamp without the deprecated naive ``utcnow`` API."""
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
@@ -990,7 +1002,7 @@ def workspace_credit_summary():
 @bp.post('/workspace/api/creditos/solicitar')
 @login_required
 def request_credit_package():
-    """Registra uma intenção de compra sem checkout e avisa o financeiro."""
+    """Confirma a compra, libera o lote e avisa o financeiro para cobrar."""
     payload = request.get_json(silent=True) or request.form.to_dict()
     try:
         tokens = max(1, int(payload.get('tokens') or 0))
@@ -998,6 +1010,10 @@ def request_credit_package():
     except (TypeError, ValueError):
         return jsonify(success=False, error='Informe créditos e valor válidos.'), 400
     package_name = str(payload.get('package_name') or f'{tokens:,} créditos').strip()[:160]
+    commercial_key = package_name.casefold()
+    if commercial_key not in CADU_COMMERCIAL_PRICES:
+        return jsonify(success=False, error='Escolha um plano ou pacote comercial válido.'), 400
+    price = CADU_COMMERCIAL_PRICES[commercial_key]
     note = str(payload.get('note') or '').strip()[:2000]
     try:
         users = max(1, int(payload.get('users') or 1))
@@ -1017,10 +1033,16 @@ def request_credit_package():
         conn = get_db()
         with conn.cursor() as cur:
             cur.execute("""INSERT INTO cadu_credit_requests
-                (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note)
-                VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'approved') RETURNING id""",
                 (client_id, user_id, package_name, tokens, price, billing_mode, note))
             request_id = cur.fetchone()['id']
+            cur.execute("""INSERT INTO cadu_credits_extras
+                (id_cliente, tokens_amount, tokens_used, purchase_date, expiration_date, purchased_at, expires_at, status)
+                VALUES (%s,%s,0,NOW(),NOW() + INTERVAL '12 months',NOW(),NOW() + INTERVAL '12 months','active')
+                RETURNING id""", (client_id, tokens))
+            credit_lot_id = cur.fetchone()['id']
+            cur.execute("UPDATE cadu_credit_requests SET credit_lot_id=%s WHERE id=%s", (credit_lot_id, request_id))
         conn.commit()
         from ..email_service import send_email
         buyer_email = str(session.get('user_email') or '').strip()
@@ -1036,13 +1058,13 @@ def request_credit_package():
           <div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Financeiro</div><h1 style="margin:8px 0 0;font-size:24px">Novo pedido de compra</h1></div>
           <div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">O pedido <strong>#{request_id}</strong> foi registrado na área de conta.</p>
           <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} créditos</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Uso previsto</td><td style="padding:9px 0;text-align:right"><strong>{users_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Comprador:</strong> {safe_email}</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
-        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Obrigado pelo seu pedido</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">Recebemos sua solicitação de <strong>{safe_name}</strong>. Nosso financeiro vai confirmar a cobrança e a liberação do acesso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os créditos poderão ser usados pela sua conta nas conversas e ações de IA. {('O pedido está indicado para 1 pessoa.' if users == 1 else f'O pedido está indicado para {users} pessoas, com os créditos compartilhados entre elas.') } Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Créditos:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">Você receberá uma nova mensagem quando a confirmação estiver concluída.</p></div></div>'''
+        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Compra confirmada</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">A compra de <strong>{safe_name}</strong> foi confirmada e os créditos já estão disponíveis para uso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os créditos podem ser usados pela sua conta nas conversas e ações de IA. {('O saldo está disponível para 1 pessoa.' if users == 1 else f'O saldo está compartilhado entre {users} pessoas.') } Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Créditos liberados:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">O financeiro recebeu a notificação para registrar a cobrança.</p></div></div>'''
         send_email(internal_subject, recipients,
                    text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} créditos · {users_label} · {price_label} · {billing_label}. Cliente {client_id}.',
                    html_body=internal_html)
         if buyer_email and buyer_email.lower() != 'apolo@centralcomm.media':
-            send_email(f'Recebemos seu pedido Cadu #{request_id}', [buyer_email], text_body=f'Obrigado pelo pedido {package_name}. Recebemos {tokens:,} créditos para {users_label}. O financeiro confirmará a cobrança e a liberação.', html_body=buyer_html)
-        return jsonify(success=True, request_id=request_id, message='Solicitação enviada. O crédito será liberado após a confirmação.'), 201
+            send_email(f'Compra confirmada no Cadu #{request_id}', [buyer_email], text_body=f'Compra confirmada: {package_name} · {tokens:,} créditos liberados · {users_label} · {price_label} · {billing_label}.', html_body=buyer_html)
+        return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id, message='Compra confirmada. Os créditos já estão disponíveis para uso.'), 201
     except Exception:
         try: conn.rollback()
         except Exception: pass

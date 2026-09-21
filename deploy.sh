@@ -320,6 +320,7 @@ if [ "$RUN_MIGRATIONS" = "1" ]; then
 "$VENV_PYTHON" migrations/run_add_cadu_user_memory.py
 "$VENV_PYTHON" migrations/run_add_cadu_tool_token_ledger.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_credit_requests.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_credit_request_lot.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_plan_storage.sql
 "$VENV_PYTHON" migrations/run_upgrade_cadu_tool_token_ledger_compat.py
 # Avatar badge is an optional rollout. Do not make a partial checkout fail

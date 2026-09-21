@@ -16,11 +16,13 @@
   border-top: 0;
 }
 
-#cadu-conversations-v2-root .cadu-ds-dock-solution { order: 1; }
-#cadu-conversations-v2-root .cadu-ds-dock-home { order: 2; }
-#cadu-conversations-v2-root .cadu-ds-dock-new { order: 3; }
-#cadu-conversations-v2-root .cadu-ds-dock-context { order: 4; }
-#cadu-conversations-v2-root .cadu-ds-dock-bottom { order: 5; }
+/* The permanent dock follows the product mental model: identity, action, context. */
+#cadu-conversations-v2-root .cadu-ds-dock > .cadu-ds-dock-solution { order: 1 !important; }
+#cadu-conversations-v2-root .cadu-ds-dock > .cadu-ds-dock-new { order: 2 !important; }
+#cadu-conversations-v2-root .cadu-ds-dock > .cadu-ds-dock-home { order: 3 !important; }
+#cadu-conversations-v2-root .cadu-ds-dock > .cadu-ds-dock-drop { order: 4 !important; }
+#cadu-conversations-v2-root .cadu-ds-dock > .cadu-ds-dock-context { order: 5 !important; }
+#cadu-conversations-v2-root .cadu-ds-dock > .cadu-ds-dock-bottom { order: 6 !important; }
 
 #cadu-conversations-v2-root .cadu-ds-dock-logo,
 #cadu-conversations-v2-root .cadu-ds-dock-home,

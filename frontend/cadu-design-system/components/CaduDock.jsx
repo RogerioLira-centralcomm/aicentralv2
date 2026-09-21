@@ -136,12 +136,12 @@ export function DockBrandShortcut({brand, projectCount = 0, active = false, drop
   </button></DockTooltip>;
 }
 
-export function DockResourceShortcut({item, pinned = false, active = false, dropTarget = false, dropComplete = false, onOpen, onDragStart, onDropShortcut, onDragEnter, onDragLeave}) {
+export function DockResourceShortcut({item, active = false, dropTarget = false, dropComplete = false, onOpen, onDragStart, onDropShortcut, onDragEnter, onDragLeave}) {
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
   const resource = isDockResource(item);
   return <DockTooltip label={item.title}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragEnter={droppable ? event => { allowDockDrop(event); onDragEnter?.(item); } : undefined} onDragLeave={droppable ? () => onDragLeave?.(item) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-resource ${resource ? 'cadu-ds-dock-resource--file' : ''} ${active ? 'is-active' : ''} ${dropTarget ? 'is-drop-target' : ''} ${dropComplete ? 'is-drop-complete' : ''}`}>
-    <VisualIdentity src={item.logoUrl || item.logo_url || item.dockLogoUrl || item.previewUrl} initials={item.visualInitials || item.title || item.name} label={item.title || item.name} color={item.visualColor} variant={item.visualVariant}/>{pinned && <i aria-label="Fixado">●</i>}
+    <VisualIdentity src={item.logoUrl || item.logo_url || item.dockLogoUrl || item.previewUrl} initials={item.visualInitials || item.title || item.name} label={item.title || item.name} color={item.visualColor} variant={item.visualVariant}/>{Number(item.unreadCount || 0) > 0 && <i className="is-unread" aria-label={`${item.unreadCount} notificações não lidas`}>{Number(item.unreadCount) > 9 ? '9+' : item.unreadCount}</i>}
   </button></DockTooltip>;
 }
 
@@ -171,9 +171,13 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
   // kind. Normalize both shapes here so every surface renders one identical
   // dock and every project remains a real project shortcut.
   const items = (isControlled ? shortcutItems : managedItems).map(normalizeDockItem).filter(Boolean);
+  const shortcutIdentity = item => item?.shortcutId || `${item?.kind || 'item'}:${item?.id}`;
   const dockBrands = items.filter(item => item.kind === 'brand');
   const dockProjects = items.filter(item => item.kind !== 'brand' && !isDockResource(item));
   const dockResourceItems = items.filter(item => item.kind !== 'brand' && isDockResource(item));
+  const projectsForBrand = brand => dockProjects.filter(project => String(project.brandRef || '') === String(brand.brandRef || brand.id || ''));
+  const linkedProjectIds = new Set(dockBrands.flatMap(brand => projectsForBrand(brand).map(project => shortcutIdentity(project))));
+  const orphanProjects = dockProjects.filter(project => !linkedProjectIds.has(shortcutIdentity(project)));
   const canReorder = isControlled || isWorkspaceSurface;
   const persistManagedOrder = async next => {
     const before = managedItems;
@@ -231,7 +235,6 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
       }
     } catch (_) { /* feedback is optional */ }
   };
-  const shortcutIdentity = item => item?.shortcutId || `${item?.kind || 'item'}:${item?.id}`;
   const markDropTarget = item => setDropTargetId(shortcutIdentity(item));
   const clearDropTarget = item => setDropTargetId(current => current === shortcutIdentity(item) ? '' : current);
   const solutions = bootstrap ? workspaceSolutionItems(bootstrap) : [];
@@ -255,8 +258,8 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     <DockTooltip label="Novo chat"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Novo chat"><Icon name="newChat" size={18}/></button></DockTooltip>
     {homeUrl && <DockTooltip label="Início"><a href={homeUrl} className="cadu-ds-dock-home" aria-label="Ir para o início"><Icon name="home" size={18}/></a></DockTooltip>}
     <DockDropZone onDropItem={onDropItem} label="Fixar marca, projeto ou recurso"><div className="cadu-ds-dock-context" aria-label="Atalhos do Workspace">
-      <section className="cadu-ds-dock-section cadu-ds-dock-section--brands" aria-label="Marcas fixadas">{!conversationMode && <span className="cadu-ds-dock-section-label" aria-hidden="true">Marcas</span>}{dockBrands.map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} dropTarget={dropTargetId === shortcutIdentity(item)} dropComplete={dropCompleteId === shortcutIdentity(item)} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>
-      <section className="cadu-ds-dock-section cadu-ds-dock-section--projects" aria-label="Projetos fixados">{!conversationMode && <span className="cadu-ds-dock-section-label" aria-hidden="true">Projetos</span>}{dockProjects.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} dropTarget={dropTargetId === shortcutIdentity(item)} dropComplete={dropCompleteId === shortcutIdentity(item)} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>
+      <section className="cadu-ds-dock-section cadu-ds-dock-section--brands" aria-label="Marcas e projetos fixados">{dockBrands.map(brand => <div className="cadu-ds-dock-brand-tree" key={brand.shortcutId || brand.id}><DockBrandShortcut brand={brand} projectCount={brand.projectCount} active={brand.active} dropTarget={dropTargetId === shortcutIdentity(brand)} dropComplete={dropCompleteId === shortcutIdentity(brand)} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>{projectsForBrand(brand).map(project => <DockResourceShortcut key={project.shortcutId || project.id} item={project} pinned={project.pinned} active={project.active} dropTarget={dropTargetId === shortcutIdentity(project)} dropComplete={dropCompleteId === shortcutIdentity(project)} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>)}</div>)}</section>
+      {orphanProjects.length > 0 && <section className="cadu-ds-dock-section cadu-ds-dock-section--projects" aria-label="Projetos fixados">{orphanProjects.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} dropTarget={dropTargetId === shortcutIdentity(item)} dropComplete={dropCompleteId === shortcutIdentity(item)} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>}
       {dockResourceItems.length > 0 && <section className="cadu-ds-dock-section cadu-ds-dock-section--resources" aria-label="Recursos fixados">{dockResourceItems.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} dropTarget={dropTargetId === shortcutIdentity(item)} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>}
     </div></DockDropZone>
     <div className="cadu-ds-dock-bottom"><DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && accountMenu}</div></div>

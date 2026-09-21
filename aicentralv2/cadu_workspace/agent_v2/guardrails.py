@@ -493,7 +493,10 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
-    if policy.get("mode") in {"direct", "analysis", "decision", "clarification", "artifact_first"}:
+    # Analysis is intentionally allowed to be multi-paragraph. Collapsing the
+    # intermediate mode to one sentence discarded requested essays, research
+    # summaries and other substantive answers.
+    if policy.get("mode") in {"direct", "decision", "clarification", "artifact_first"}:
         answer = _single_sentence(answer)
     ui = {**value, **ui_payload}
     questions = [str(item).strip()[:500] for item in ui.get("questions", []) if str(item).strip()]

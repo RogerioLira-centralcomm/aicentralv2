@@ -1,5 +1,7 @@
 """Server-owned output limits; these do not rely on prompt obedience."""
 
+import re
+
 from .contracts import ExecutionBudget, IntentRoute
 
 
@@ -19,9 +21,26 @@ def budget_for(route: IntentRoute, execution_mode: str = "analysis") -> Executio
 def policy_for(route: IntentRoute) -> dict:
     policies = {
         "direct": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 900, "artifact_in_chat": False},
-        "analysis": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 1200, "artifact_in_chat": False},
+        # Intermediate/analysis is the normal working mode. It must have room
+        # for a useful answer even when the user did not request an artifact.
+        "analysis": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 6000, "artifact_in_chat": False},
         "decision": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 320, "artifact_in_chat": False},
         "artifact_first": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 240, "artifact_in_chat": False},
         "clarification": {"max_questions": 1, "max_next_steps": 1, "max_answer_chars": 360, "artifact_in_chat": False},
     }
     return {"mode": route.response_mode, **policies[route.response_mode]}
+
+
+def requested_answer_chars(message: str) -> int:
+    """Translate an explicit user length into a safe character allowance.
+
+    Portuguese prose commonly needs more than six characters per word once
+    spaces and punctuation are included. Eight gives the provider enough room
+    to honor the request without turning the number into an exact quota.
+    """
+    text = " ".join(str(message or "").split())
+    match = re.search(r"\b(?:cerca de|aproximadamente|aprox\.?|at[eé])?\s*(\d{2,5})\s*palavras?\b", text, re.IGNORECASE)
+    if not match:
+        return 0
+    words = min(1500, max(50, int(match.group(1))))
+    return min(12000, words * 8)

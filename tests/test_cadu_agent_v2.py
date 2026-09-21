@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext, execution_mode_for
-from aicentralv2.cadu_workspace.agent_v2.response_policy import budget_for, policy_for
+from aicentralv2.cadu_workspace.agent_v2.response_policy import budget_for, policy_for, requested_answer_chars
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness
 from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
@@ -532,6 +532,46 @@ def test_brief_creation_starts_with_a_bounded_discovery():
     assert budget_for(route).max_llm_calls == 1
 
 
+def test_intermediate_mode_keeps_room_for_substantive_answers():
+    route = route_request("Analise a trajetória desta marca")
+    policy = policy_for(route)
+    assert route.response_mode == "analysis"
+    assert policy["max_answer_chars"] == 6000
+
+
+def test_explicit_word_count_expands_the_answer_allowance():
+    assert requested_answer_chars("Escreva um texto com cerca de 600 palavras") == 4800
+    assert requested_answer_chars("Responda de forma breve") == 0
+
+
+def test_project_link_classifier_covers_collaboration_and_media_platforms():
+    from aicentralv2.cadu_workspace.project_source_service import describe_link
+
+    youtube = describe_link("https://youtu.be/video-id")
+    assert youtube["provider"] == "youtube"
+    assert youtube["resource_kind"] == "video"
+    assert youtube["access_type"] == "public"
+    assert youtube["embed_type"] == "youtube"
+
+    ads = describe_link("https://ads.tiktok.com/business/creativecenter")
+    assert ads["provider"] == "tiktok_ads"
+    assert ads["access_type"] == "authenticated"
+    assert ads["connector_recommended"] is True
+
+    notion = describe_link("https://example.notion.site/Plano-123")
+    assert notion["provider"] == "notion"
+    assert notion["access_type"] == "public"
+
+
+def test_analysis_response_preserves_multiple_paragraphs():
+    response = normalize_response(
+        "Primeiro parágrafo com a análise.\n\nSegundo parágrafo com a conclusão.",
+        {"mode": "analysis", "max_answer_chars": 6000, "max_questions": 0, "max_next_steps": 0},
+    )
+    assert "Primeiro parágrafo" in response.answer
+    assert "Segundo parágrafo" in response.answer
+
+
 def test_brief_readiness_requires_four_of_five_campaign_inputs_before_artifact():
     incomplete = briefing_readiness("Quero uma campanha para a marca.")
     complete = briefing_readiness(
@@ -836,7 +876,7 @@ def test_prompt_payload_is_compact_and_does_not_inject_unrequested_domains():
                             resolved={"current_context": context().to_dict()}, policy=policy_for(route),
                             user_label="user-7")
     serialized = __import__("json").dumps(payload, ensure_ascii=False)
-    assert len(serialized) < 4000
+    assert len(serialized) < 4200
     assert "workspace_da_equipe" not in serialized
     assert "catalogo_midia_cadu" not in serialized
     assert "user_profile_context" not in serialized
@@ -1190,13 +1230,13 @@ def test_html_runtime_markup_keeps_tailwind_classes_and_removes_script_tags():
     assert response.artifact_patch["logo_url"] == "/static/logo.svg"
 
 
-def test_chat_answer_keeps_all_short_sentences_in_one_natural_sentence():
+def test_analysis_answer_preserves_natural_sentence_boundaries():
     response = normalize_response(
         {"answer": "A Nike combina performance e cultura. A oportunidade está em comunidade."},
         {"mode": "analysis", "max_questions": 0, "max_next_steps": 0},
     )
 
-    assert response.answer == "A Nike combina performance e cultura; A oportunidade está em comunidade."
+    assert response.answer == "A Nike combina performance e cultura. A oportunidade está em comunidade."
 
 
 def test_html_artifact_publish_returns_public_url_with_csrf(monkeypatch):

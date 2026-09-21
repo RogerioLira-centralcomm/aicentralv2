@@ -6,6 +6,7 @@ from ...agent_v2.contracts import RequestContext
 from ... import project_source_service
 from ... import project_index_service
 from ... import project_resource_service
+from ... import workspace_ingestion_service
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -73,8 +74,37 @@ def classify_intake(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="projects.inspect_link", capability="workspace", effect="read",
+    description="Identifica plataforma, tipo provável, acesso e possibilidade segura de preview antes de salvar um link.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["url"], "properties": {
+        "url": {"type": "string", "minLength": 8, "maxLength": 2000},
+        "title": {"type": "string", "maxLength": 180},
+    }, "additionalProperties": False},
+)
+def inspect_link(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: project_source_service.describe_link(
+        arguments["url"], arguments.get("title", ""),
+    ))
+
+
+@register_tool(
+    name="projects.ingestion_status", capability="workspace", effect="read", requires_project=True,
+    description="Consulta o andamento real de classificação e extração das entradas recentes do projeto.",
+    exposures=("internal",),
+    input_schema={"type": "object", "properties": {
+        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+    }, "additionalProperties": False},
+)
+def ingestion_status(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: workspace_ingestion_service.list_recent(
+        context, limit=arguments.get("limit", 20),
+    ))
+
+
+@register_tool(
     name="projects.create_link_reference", capability="workspace", effect="write", requires_project=True,
-    description="Salva uma URL como referência do projeto, sem extrair ou indexar seu conteúdo automaticamente.",
+    description="Salva uma URL no projeto e registra sua classificação para enriquecimento pelo pipeline interno.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "url"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
@@ -87,7 +117,9 @@ def create_link_reference(context: RequestContext, arguments: dict) -> dict:
     payload = {key: arguments[key] for key in ("url", "title") if key in arguments}
     return _domain(lambda: operations.execute(
         arguments["request_id"], context, "projects.create_link_reference", payload,
-        lambda: project_source_service.create_link_reference(context, **payload),
+        lambda: workspace_ingestion_service.ingest_link(
+            context, **payload, origin="mcp", request_id=arguments["request_id"],
+        ),
     ))
 
 

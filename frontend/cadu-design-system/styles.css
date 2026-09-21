@@ -223,6 +223,13 @@
 .cadu-ds-home-workarea .cadu-ds-dock,
 .cadu-ds-project-workarea .cadu-ds-dock,
 .cadu-ds-catalog-workarea .cadu-ds-dock { flex:0 0 64px; min-height:100dvh; }
+.cadu-ds-home-workarea > .cadu-ds-dock,
+.cadu-ds-project-workarea > .cadu-ds-dock,
+.cadu-ds-catalog-workarea > .cadu-ds-dock {
+  width:64px;
+  min-width:64px;
+  max-width:64px;
+}
 .cadu-ds-home-workarea .cadu-ds-home-content { flex:1; min-width:0; }
 .cadu-ds-dock-brand .cadu-ds-visual-identity:not([class*="--v"]),.cadu-ds-dock-resource .cadu-ds-visual-identity:not([class*="--v"]) { box-sizing:border-box; padding:5px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.18); }
 .cadu-ds-dock-brand .cadu-ds-visual-identity img,.cadu-ds-dock-resource .cadu-ds-visual-identity img { object-fit:contain; }
@@ -883,7 +890,7 @@ body.portal--workspace :is(.cadu-ds-home-shell,.workspace-app-shell) {
   align-content:start;
   grid-auto-rows:max-content;
 }
-.cadu-ds-dock-context { overflow-y:auto; }
+.cadu-ds-dock-context { overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-gutter:stable; }
 .cadu-ds-dock-account-wrap .cadu-ds-account-menu {
   max-height:calc(100dvh - 28px);
   overflow:auto;

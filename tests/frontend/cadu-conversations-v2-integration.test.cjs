@@ -63,7 +63,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Cliente'\}<\/strong>/);
   assert.match(contextSidebar, /id: 'integracoes', label: 'Integrações'/);
   assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
-  assert.match(home, /onOpenResource=\{openWorkspaceDetail\}/);
+  assert.match(home, /onOpenResource=\{item => \{/);
+  assert.match(home, /setProjectRef\(item\.projectRef/);
   assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(brands, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(sidebar, /Projeto ativo/);

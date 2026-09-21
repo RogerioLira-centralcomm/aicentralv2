@@ -536,7 +536,6 @@
           </div>
           <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-media-open">Balancear mídia</button>
         </section>
-        <button type="button" class="cx-btn cx-btn-primary sp-gen-side" id="sp-gen-open-side">Gerar documentos</button>
         <section class="sp-complete sp-complete-side" data-tom="{{ quality.tom }}" aria-labelledby="sp-complete-title">
           <div class="sp-complete-score">
             {% set ring = [quality_score, 100]|min %}
@@ -557,6 +556,7 @@
             <ul class="sp-complete-gaps" id="sp-complete-gaps" {% if not gaps %}hidden{% endif %}>{% for gap in gaps[:5] %}<li><a href="#sp-objetivo" data-gap="{{ gap }}">{{ gap }}</a></li>{% endfor %}</ul>
           </div>
         </section>
+        <button type="button" class="cx-btn cx-btn-primary sp-gen-side" id="sp-gen-open-side">Gerar documentos</button>
         <script type="application/json" id="sp-mix-spec">{{ (desk.spec or {})|tojson }}</script>
         <script type="application/json" id="sp-pace-boot">{{ (pace or {})|tojson }}</script>
       </div>

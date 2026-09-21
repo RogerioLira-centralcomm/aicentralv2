@@ -5988,6 +5988,19 @@ html.is-sp-media body {
 @media(max-width:1100px){.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair,.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:860px){.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair,.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair{grid-template-columns:1fr}.sp-complete-side{grid-template-columns:auto minmax(0,1fr)}}
 
+/* Acabamento da revisão: ritmo vertical e proteção contra o rodapé fixo. */
+.sp-hi-grid.is-review{padding-bottom:9rem}
+.sp-hi-grid.is-review .sp-hi-plan{gap:1rem}
+.sp-hi-grid.is-review .sp-hi-mix{display:grid;gap:.75rem}
+.sp-hi-grid.is-review .sp-mix-summary{padding-bottom:.85rem}
+.sp-hi-grid.is-review .sp-objective-card{padding-top:.85rem;padding-bottom:.85rem}
+.sp-hi-grid.is-review .sp-complete-side{order:3}
+.sp-hi-grid.is-review .sp-gen-side{order:4}
+.sp-hi-grid.is-review .sp-hi-mix{order:2}
+.sp-hi-grid.is-review .sp-hi-budget{order:1}
+.sp-complete-side .sp-complete-gaps[hidden]{display:none}
+@media(max-width:860px){.sp-hi-grid.is-review{padding-bottom:11rem}.sp-hi-grid.is-review .sp-hi-plan{gap:.8rem}}
+
 /* Sidebar de decisão: campos alinhados e selects estratégicos mais legíveis. */
 .sp-hi-budget .sp-bf{align-items:start}
 .sp-hi-budget .sp-bf>label{align-self:start;min-width:0}

@@ -37,7 +37,10 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 need_ci=0
-lock_hash_file="$NODE_DIR/node_modules/.package-lock.sha256"
+# Keep the dependency marker outside node_modules: npm ci removes and
+# recreates that directory, which otherwise makes every deploy reinstall the
+# complete frontend even when package-lock.json did not change.
+lock_hash_file="${FRONTEND_DEPENDENCY_STATE_FILE:-$NODE_DIR/logs/.frontend-dependencies.sha256}"
 if command -v sha256sum >/dev/null 2>&1; then
   lock_hash="$(sha256sum "$NODE_DIR/package-lock.json" | awk '{print $1}')"
 else
@@ -55,11 +58,12 @@ fi
 
 if [ "$need_ci" = "1" ]; then
   echo "[INFO] Instalando dependências (npm ci)..."
-  npm ci --no-audit --no-fund --prefer-offline
+  npm ci --no-audit --no-fund --prefer-offline --progress=false
 else
   echo "[INFO] Dependências já instaladas, pulando npm ci."
 fi
 
+mkdir -p "$(dirname "$lock_hash_file")"
 printf '%s\n' "$lock_hash" > "$lock_hash_file"
 
 # Audit fica fora do build: as deps são só de compilação do CSS
@@ -68,8 +72,18 @@ printf '%s\n' "$lock_hash" > "$lock_hash_file"
 
 chmod +x node_modules/.bin/* 2>/dev/null || true
 
-echo "[INFO] Gerando CSS vanilla e legado..."
-npm run build
+if [ "${FULL_FRONTEND_BUILD:-0}" = "1" ]; then
+  echo "[INFO] Gerando todos os bundles frontend..."
+  npm run build
+else
+  # Workspace deploys do not need the artifact safelist or the unrelated
+  # Studio/auth/editor bundles. Keeping this path focused avoids the long
+  # Tailwind artifact build while still rebuilding the shared shell and chat.
+  echo "[INFO] Gerando bundles necessários do Workspace..."
+  npm run build:vanilla
+  npm run build:legacy
+  npm run build:conversations
+fi
 
 if [ -f "aicentralv2/static/css/tailwind/output.css" ] && [ -f "aicentralv2/static/css/tailwind/output-legacy.css" ]; then
   echo "[OK] Bundles vanilla e legado gerados com sucesso."

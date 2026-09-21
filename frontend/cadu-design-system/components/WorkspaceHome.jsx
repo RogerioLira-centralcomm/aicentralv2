@@ -75,7 +75,7 @@ export function WorkspaceHome({bootstrap}) {
   const selectedBrand = useMemo(() => brands.find(item => item.id === brandRef || `studio:${item.id}` === brandRef), [brands, brandRef]);
   // On the home surface the title and project selector already establish the
   // active context; repeating it inside the composer adds noise.
-  const composerContext = !homeMode && (selectedProject ? {label: selectedProject.name, text: selectedProject.brandName || 'projeto'} : selectedBrand ? {label: 'Marca', text: selectedBrand.name} : null);
+  const composerContext = null;
   const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
   const classifyAttachment = useCallback(async file => {
     try {

@@ -407,6 +407,33 @@ class WorkspaceBrandsTest(TestCase):
         self.assertIn('queued', params[0])
         connection.commit.assert_called_once_with()
 
+    @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
+    def test_audit_preserves_uploaded_logo_family_as_references(
+            self, service, workspace_brand, _ensure_credit, get_db, _start_job):
+        workspace_brand.return_value = {
+            'id': 81, 'website_url': 'https://example.com', 'analysis_metadata': {},
+        }
+        connection = mock.MagicMock()
+        connection.cursor.return_value.__enter__.return_value.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/auditoria', data={
+            '_csrf': 'known-token', 'website_url': 'https://example.com',
+            'images': [
+                (BytesIO(b'logo-horizontal'), 'logo-horizontal.png'),
+                (BytesIO(b'logo-simbolo'), 'logo-simbolo.png'),
+            ],
+        })
+
+        self.assertEqual(response.status_code, 303)
+        args = service.return_value.upload_client_brand_assets.call_args.args
+        self.assertEqual((args[0], args[2], args[3]), (81, False, 'reference'))
+        self.assertEqual(len(args[1]), 2)
+
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
     @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
     def test_audit_stops_before_queue_when_credits_are_unavailable(self, ensure_credit, _workspace_brand):

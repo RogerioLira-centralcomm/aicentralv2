@@ -5213,6 +5213,7 @@ def audit_brand(brand_id):
                 'content_type': item.mimetype,
                 'content': item.read(),
             })
+            item.stream.seek(0)
         job_id = uuid4().hex
         metadata = dict(brand.get('analysis_metadata') or {})
         metadata['review_pack'] = {
@@ -5250,6 +5251,18 @@ def audit_brand(brand_id):
             connection.rollback()
         current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
         abort(503, description='Não foi possível iniciar a auditoria agora. Tente novamente.')
+    if images:
+        try:
+            from ..creative_modeling_service import CreativeModelingService
+            # A análise guarda a família enviada. A escolha do logo principal
+            # continua explícita na biblioteca da marca, nunca por posição.
+            CreativeModelingService().upload_client_brand_assets(
+                brand_id, images, False, 'reference',
+            )
+        except ValueError as exc:
+            current_app.logger.warning('Auditoria da marca %s seguiu sem todos os ativos: %s', brand_id, exc)
+        except Exception:
+            current_app.logger.exception('Não foi possível preservar os ativos da auditoria da marca %s', brand_id)
     _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({

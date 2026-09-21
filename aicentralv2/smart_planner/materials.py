@@ -19,8 +19,9 @@ REFERENCE_PAPEL = {
     "file": "campanha",
     "image": "visual",
     "search": "mercado",
+    "inventory": "inventario",
 }
-PAPEL_VALIDOS = {"marca", "campanha", "mercado", "visual"}
+PAPEL_VALIDOS = {"marca", "campanha", "mercado", "visual", "inventario"}
 
 
 class _TextExtractor(HTMLParser):

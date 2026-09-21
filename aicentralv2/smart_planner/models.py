@@ -51,6 +51,46 @@ ROLES = {
         "max_tokens": 2000,
         "usd": 0.012,
     },
+    "final_review": {
+        "label": "Revisor final",
+        "model": _env("SMART_PLANNER_FINAL_REVIEW_MODEL", "openai/gpt-5.4"),
+        "temperature": 0.05,
+        "top_k": 15,
+        "max_tokens": 5000,
+        "usd": 0.08,
+    },
+    "strategy": {
+        "label": "Núcleo estratégico · agente GPT-5",
+        "model": _env("SMART_PLANNER_STRATEGY_MODEL", "openai/gpt-5.4"),
+        "temperature": 0.15,
+        "top_k": 25,
+        "max_tokens": 5000,
+        "usd": 0.08,
+    },
+    "media": {
+        "label": "Agente de mídia",
+        "model": _env("SMART_PLANNER_MEDIA_MODEL", "openai/gpt-5.4"),
+        "temperature": 0.1,
+        "top_k": 20,
+        "max_tokens": 5000,
+        "usd": 0.08,
+    },
+    "execution": {
+        "label": "Agente de execução",
+        "model": _env("SMART_PLANNER_EXECUTION_MODEL", "openai/gpt-5-mini"),
+        "temperature": 0.1,
+        "top_k": 20,
+        "max_tokens": 4200,
+        "usd": 0.04,
+    },
+    "defense": {
+        "label": "Agente de defesa",
+        "model": _env("SMART_PLANNER_DEFENSE_MODEL", "openai/gpt-5.4"),
+        "temperature": 0.15,
+        "top_k": 25,
+        "max_tokens": 3500,
+        "usd": 0.06,
+    },
     "vision": {
         "label": "Ler imagem",
         "model": _env("SMART_PLANNER_VISION_MODEL", "openai/gpt-5-mini"),
@@ -159,7 +199,7 @@ COMPLETO_BOARD = (
 def resolve_role(role: str) -> dict:
     spec = dict(ROLES.get(role) or ROLES["draft"])
     override = text(os.getenv("SMART_PLANNER_MODEL"))
-    if override and role in {"draft", "improve", "final", "sheet", "compose"}:
+    if override and role in {"draft", "improve", "final", "sheet", "compose", "strategy", "media", "execution", "defense", "final_review"}:
         spec["model"] = override
     return spec
 
@@ -199,9 +239,9 @@ def preview_steps(mode: str) -> list[dict]:
     # A pesquisa de praça/mercado acontece antes do núcleo quando ainda não há
     # lastro persistido; ela precisa aparecer na prévia para o custo interno
     # acompanhar o pipeline real.
-    steps = [ROLES["market"], ROLES["final"], ROLES["sheet"]]
+    steps = [ROLES["market"], ROLES["strategy"], ROLES["sheet"], ROLES["final_review"]]
     if mode != "one_page":
-        steps.extend([ROLES["final"], ROLES["final"], ROLES["final"], ROLES["final"], ROLES["compose"]])
+        steps.extend([ROLES["strategy"], ROLES["media"], ROLES["execution"], ROLES["defense"], ROLES["final_review"], ROLES["compose"]])
     return [
         {
             "label": item["label"],

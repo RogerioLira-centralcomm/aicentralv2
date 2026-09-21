@@ -230,6 +230,20 @@ def _php_account_data(client_id: int) -> dict:
         purchases = []
     try:
         with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT id, tokens_amount AS amount, purchased_at AS created_at,
+                          status, expires_at, 'Saldo adicionado' AS reason,
+                          CONCAT('Lote #', id::text) AS reference
+                     FROM cadu_credits_extras
+                    WHERE id_cliente = %s
+                 ORDER BY purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
+                (client_id,),
+            )
+            credit_additions = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        credit_additions = []
+    try:
+        with get_db().cursor() as cursor:
             cursor.execute("""SELECT COUNT(DISTINCT p.id) AS projects,
                                     COUNT(f.id) AS files,
                                     COALESCE(SUM(f.tamanho), 0) AS bytes_used,
@@ -254,7 +268,7 @@ def _php_account_data(client_id: int) -> dict:
         email_events = []
     insights = _workspace_account_insights(plan, position, people)
     return {"people": people, "invites": invites, "plan": plan, "credit": credit, "space": space,
-            "position": position, "movements": movements, "purchases": purchases,
+            "position": position, "movements": movements, "credit_additions": credit_additions, "purchases": purchases,
             "insights": insights, "email_catalog": _workspace_account_email_catalog(),
             "email_events": email_events}
 
@@ -6012,11 +6026,13 @@ def brand_detail(brand_id):
             } for item in linked_projects],
         }
         dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+        brand_credit = credit_position(client_id)
         return render_template(
             'cadu_workspace/brand_detail_react.html', brand_data=brand_data, brand_links=brand_links,
             brand_items=brand_items, project_items=project_items, available_project_items=available_project_items,
             dock_items=dock_items, can_manage_brand=can_manage_brand,
-            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1),
+            usage_percent=round(float(brand_credit.get('monthly_usage_percentage') or 0), 1),
+            credit_available=int(brand_credit.get('available') or 0),
         )
     return render_template(
         'cadu_workspace/brand_detail.html', brand=brand,

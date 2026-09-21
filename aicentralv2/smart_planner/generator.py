@@ -37,6 +37,21 @@ from .snapshot import build_evidence, build_snapshot
 
 logger = logging.getLogger(__name__)
 
+FINAL_REVIEW_PROMPT = """Você é o revisor final de um planejamento de mídia brasileiro.
+Audite o material recebido contra as evidências e a configuração da campanha.
+Procure apenas: canal inventado, verba ou percentual divergente, repetição, texto prolixo, afirmação sem fonte, KPI inventado,
+vazamento de anunciante confidencial, texto sobre imagem que não deveria estar no documento e linguagem comercial indevida.
+Não pesquise na internet. Não complete lacunas por plausibilidade.
+Quando houver OOH ou Places, o documento não pode conter preço, cotação, mínimo comercial, compra, negociação, fornecedor,
+ponto, raio, circuito, inventário, disponibilidade comercial ou promessa de veiculação. Pode conter investimento total,
+divisão percentual, público, segmentação, papel estratégico e defesa do plano. Apps e sites de Places só podem aparecer
+como contexto de audiência digital observado no catálogo.
+Remova introduções genéricas, conclusões duplicadas, listas que repetem parágrafos e seções sem decisão útil.
+Preserve a tese, o schema e os títulos obrigatórios. Escreva em português direto, com uma ideia por parágrafo.
+Devolva apenas JSON: {"approved": true|false, "issues": [], "corrected": null ou o documento corrigido}.
+Se houver problema, corrija somente o necessário e preserve o schema ou os títulos das seções.
+"""
+
 GROUP_CONTRACTS = {
     "planner_full_strategy_v2": ("Resumo executivo", "Framework de indicadores", "Estratégia de comunicação"),
     "planner_full_media_v2": ("Estratégia de mídia", "Mix e investimento", "Fases do voo"),
@@ -182,6 +197,7 @@ def _run(token: str, mode: str) -> dict:
         _require_llm("página única")
         mark_step(token, "one_page", "running")
         page = _one_page_v2(snapshot, evidence, core, estimates)
+        page = _review_page(page, snapshot, estimates)
         page["creative_plan"] = _creative_plan(page, snapshot)
         page["material_hash"] = material_hash
         folha = _materialize_folha(token, snapshot, page, core)
@@ -230,6 +246,8 @@ def _run(token: str, mode: str) -> dict:
 
     cover = _cover_markdown(snapshot, core)
     final = normalize_markdown("\n\n".join(part for part in (cover, strategy_md, media_md, execution_md, defense_md) if part))
+    final = _review_document(final, snapshot, page, estimates)
+    _validate_channel_policy(final, snapshot)
     quality = _validate_plan_markdown(final)
     if not quality["valid"]:
         raise ValueError("O documento completo não passou na validação editorial: " + "; ".join(quality["errors"]))
@@ -276,6 +294,70 @@ def _redact_pack(payload: dict, name: str) -> dict:
     return data
 
 
+def _review_page(page: dict, snapshot: dict, estimates: dict) -> dict:
+    if not _has_llm() or not isinstance(page, dict):
+        return page
+    try:
+        result = chat_json(
+            FINAL_REVIEW_PROMPT,
+            json.dumps({
+                "kind": "one_page",
+                "evidence": {
+                    "briefing": text(snapshot.get("briefing"))[:7000],
+                    "campaign": as_dict(snapshot.get("campaign")),
+                    "brand": as_dict(snapshot.get("brand")),
+                    "objective": as_dict(snapshot.get("objective")),
+                    "budget": as_dict(snapshot.get("budget")),
+                    "mix": as_list(snapshot.get("mix")),
+                    "places": as_list(snapshot.get("places")),
+                    "ooh_inventory": as_dict(snapshot.get("ooh_inventory")),
+                    "pace": as_dict(snapshot.get("pace")),
+                    "estimates": estimates,
+                },
+                "document": page,
+            }, ensure_ascii=False, default=str)[:24000],
+            role="final_review",
+            max_tokens=2200,
+        )
+        corrected = as_dict(result.get("corrected"))
+        return corrected if corrected else page
+    except Exception:
+        logger.warning("Revisor final da página única indisponível", exc_info=True)
+        return page
+
+
+def _review_document(document: str, snapshot: dict, page: dict, estimates: dict) -> str:
+    if not _has_llm() or not document:
+        return document
+    try:
+        result = chat_json(
+            FINAL_REVIEW_PROMPT,
+            json.dumps({
+                "kind": "full_plan",
+                "evidence": {
+                    "briefing": text(snapshot.get("briefing"))[:7000],
+                    "campaign": as_dict(snapshot.get("campaign")),
+                    "objective": as_dict(snapshot.get("objective")),
+                    "budget": as_dict(snapshot.get("budget")),
+                    "mix": as_list(snapshot.get("mix")),
+                    "places": as_list(snapshot.get("places")),
+                    "ooh_inventory": as_dict(snapshot.get("ooh_inventory")),
+                    "pace": as_dict(snapshot.get("pace")),
+                    "estimates": estimates,
+                },
+                "page_decision": page,
+                "document": document[:30000],
+            }, ensure_ascii=False, default=str)[:42000],
+            role="final_review",
+            max_tokens=3200,
+        )
+        corrected = text(result.get("corrected"))
+        return normalize_markdown(corrected) if corrected else document
+    except Exception:
+        logger.warning("Revisor final do planejamento indisponível", exc_info=True)
+        return document
+
+
 def _mix_law(snapshot: dict) -> dict:
     mix = [as_dict(row) for row in as_list((snapshot or {}).get("mix")) if as_dict(row).get("id") or as_dict(row).get("label")]
     if not mix:
@@ -286,14 +368,15 @@ def _mix_law(snapshot: dict) -> dict:
     for row in ranked:
         label = text(row.get("label") or row.get("id"))
         pct = row.get("pct")
-        amount = text(row.get("amount_label"))
+        group = text(row.get("group") or (CHANNEL_CATALOG.get(text(row.get("id"))) or {}).get("group"))
+        amount = "" if group in {"ooh", "places"} else text(row.get("amount_label"))
         bit = f"{label}: {pct}%" if pct is not None and pct != "" else label
         if amount:
             bit += f" · {amount}"
         lines.append(bit)
     pace = as_dict((snapshot or {}).get("pace"))
     return {
-        "lei": "O mix abaixo é lei da mesa. channel_roles e criativo só com estes canais. O criativo vai no canal de maior peso. why_this_mix cita % e R$.",
+        "lei": "O mix abaixo é lei da mesa. channel_roles e criativo só com estes canais. O criativo vai no canal de maior peso. why_this_mix cita a divisão percentual e o investimento total, nunca cotação por OOH ou Place.",
         "hero": {
             "id": text(hero.get("id")),
             "label": text(hero.get("label") or hero.get("id")),
@@ -314,15 +397,18 @@ def _places_law(snapshot: dict) -> dict:
     for place in rows:
         title = text(place.get("title") or place.get("slug"))
         metrics = as_dict(place.get("metrics"))
-        lines.append(
-            f"{title} · audiência endereçável: {text(metrics.get('addressable')) or 'A definir'} · "
-            f"média em 4 semanas: {text(metrics.get('four_weeks')) or 'A definir'}"
-        )
+        digital = []
+        for point in as_list(place.get("points")):
+            row = as_dict(point)
+            digital.extend(text(item) for item in as_list(row.get("apps")) + as_list(row.get("portals")) if text(item))
+        digital_note = f" · ambientes digitais observados: {', '.join(sorted(set(digital))[:8])}" if digital else ""
+        lines.append(f"{title} · audiência consolidada: {text(metrics.get('addressable')) or text(metrics.get('four_weeks')) or 'não informada'}{digital_note}")
     interativos = as_dict((snapshot or {}).get("interativos"))
     formats = [text(item) for item in as_list(interativos.get("formats")) if text(item)]
     return {
         "lei": (
-            "Só estes places e suas audiências consolidadas. Raios não se somam internamente; não cite pontos, raios ou apps no plano. "
+            "Só estes ambientes e suas audiências consolidadas. Apps e sites observados no catálogo podem ser usados como contexto de audiência digital, nunca como promessa de compra ou inventário. Não cite preço, mínimo comercial, ponto, raio ou fornecedor. "
+            "Se o catálogo trouxer sinal explícito, separe Places digital (apps e geolocalização) de Places OOH (presença física); sem sinal, use apenas ambiente Place. "
             "Interativos não são Places — só no portal-herói se interativos estiver no mix."
         ),
         "places": lines,
@@ -365,6 +451,13 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
     places_aprovado = _places_law(snap)
     if places_aprovado:
         payload["places_aprovado"] = places_aprovado
+    inventory = as_dict(snap.get("ooh_inventory"))
+    if as_list(inventory.get("points")):
+        payload["ooh_inventory_confirmado"] = {
+            "lei": "Estes pontos foram enviados pelo executivo e devem ser mantidos na mesma ordem somente no plano completo, em um bloco 'Pontos OOH informados'. Não criar ponto, preço, fornecedor, disponibilidade, alcance ou cotação. A página única e a versão pública citam apenas presença em OOH.",
+            "source": text(inventory.get("source")),
+            "points": as_list(inventory.get("points")),
+        }
     pitch = one_page.match_pitch(
         text(as_dict(snap.get("client")).get("name")),
         text(as_dict(snap.get("client")).get("agency")),
@@ -470,7 +563,7 @@ def _audience_model_fallback(snapshot: dict) -> dict:
     return {
         "segments": [{
             "label": "Público informado no briefing",
-            "description": audience or "Público a definir pelo anunciante.",
+            "description": audience or "Público descrito no briefing.",
             "status": "briefing" if audience else "a_validar",
         }],
         "faixa_etaria": {"value": None, "status": "a_validar"},
@@ -488,9 +581,9 @@ def _visual_data_fallback(snapshot: dict) -> list[dict]:
     snap = as_dict(snapshot)
     mix = [as_dict(item) for item in as_list(snap.get("mix")) if as_dict(item).get("label")]
     return [
-        {"id": "universe", "label": "Universo demográfico", "value": "A validar", "status": "a_validar"},
-        {"id": "impact", "label": "Impacto estimado", "value": "A validar", "status": "a_validar"},
-        {"id": "ecosystem", "label": "Ecossistema de mídia", "value": f"{len(mix)} canais" if mix else "A definir", "status": "briefing" if mix else "a_validar"},
+        {"id": "universe", "label": "Universo demográfico", "value": "", "status": "a_validar"},
+        {"id": "impact", "label": "Impacto estimado", "value": "", "status": "a_validar"},
+        {"id": "ecosystem", "label": "Ecossistema de mídia", "value": f"{len(mix)} canais" if mix else "", "status": "briefing" if mix else "a_validar"},
         {"id": "evidence", "label": "Base da leitura", "value": "Briefing + pesquisa", "status": "briefing"},
     ]
 
@@ -665,7 +758,7 @@ def _creative_plan(page: dict, snapshot: dict) -> list[dict]:
             "primary_format": primary["label"],
             "surface": primary.get("surface") or "display",
             "duration_seconds": primary.get("duration_seconds"),
-            "format_rationale": text(proposed.get("format_rationale")) or "Formato principal compatível com o canal; validar especificação de compra antes da produção.",
+            "format_rationale": text(proposed.get("format_rationale")) or "Formato principal compatível com o canal; especificação comercial confirmada na operação.",
             "deliverables": {
                 "concepts": 1,
                 "variations": variations,
@@ -688,6 +781,7 @@ def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
     client_info = as_dict((snapshot or {}).get("client"))
     client = text(client_info.get("name"))
     blob = json.dumps(page or {}, ensure_ascii=False, default=str)
+    _validate_channel_policy(blob, snapshot)
     if thesis_is_meta(thesis):
         raise ValueError("A tese fala do planejamento, não do anunciante. Gere novamente.")
     if client_info.get("confidential") and name_leaks_in(client, blob):
@@ -724,6 +818,26 @@ def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
         expected = PRIMARY_FORMATS.get(text(row.get("channel_id")))
         if expected and text(row.get("primary_format_id")) != text(expected.get("id")):
             raise ValueError("O formato principal não corresponde ao catálogo do canal.")
+
+
+def _validate_channel_policy(content: str, snapshot: dict) -> None:
+    rows = _mix_rows(snapshot)
+    protected = any(
+        text(row.get("id")).lower() == "places"
+        or text(row.get("group") or (CHANNEL_CATALOG.get(text(row.get("id"))) or {}).get("group")).lower() == "ooh"
+        for row in rows
+    )
+    if not protected:
+        return
+    forbidden = re.compile(
+        r"\b(preço|pre[cç]os|cota[cç][aã]o|m[ií]nimo comercial|fornecedor|invent[aá]rio|"
+        r"disponibilidade comercial|ponto[s]? de mídia|raio[s]?|circuito[s]?|compra|negocia[cç][aã]o|"
+        r"acesso ao invent[aá]rio|veicula[cç][aã]o garantida)\b",
+        re.I,
+    )
+    match = forbidden.search(text(content))
+    if match:
+        raise ValueError("O documento contém linguagem comercial indevida para OOH/Places: " + match.group(0))
 
 
 def _group_markdown(

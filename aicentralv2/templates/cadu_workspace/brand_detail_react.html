@@ -11,6 +11,7 @@
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'csrf': session.get('family_csrf', ''),
   'usagePercent': usage_percent,
+  'credit': {'available': credit_available},
   'canManageBrand': can_manage_brand,
   'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', ''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge', '')},
   'brand': brand_data,

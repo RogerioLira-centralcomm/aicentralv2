@@ -20,7 +20,7 @@ from .catalog import (
     review_score,
     score_label,
 )
-from .places_bridge import apply_places_to_campos, planner_place_catalog, places_minimum, resolve_places
+from .places_bridge import apply_places_to_campos, planner_place_catalog, resolve_places
 from .share import public_document_url
 from .mix import (
     METHODS,
@@ -364,18 +364,11 @@ def persist_review(token: str, payload: dict) -> dict:
             payload.get("interativos") if payload.get("interativos") is not None else campos.get("interativos")
         )
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
-    minimum = places_minimum(campos.get("places"))
     review_budget = campaign_verba({
         "verba": campos.get("verba"),
         "verba_valor": campos.get("verba_valor"),
         "verba_base": campos.get("verba_base"),
     })
-    if minimum["minimum_brl"] and review_budget["valor"] and review_budget["valor"] < minimum["minimum_brl"]:
-        raise ValueError(
-            f"Places exige ao menos {format_money(minimum['minimum_brl'])}. "
-            "Aumente a verba, remova Places ou escolha outro local."
-        )
-    campos["places_minimum"] = minimum
     canais = [key for key in as_list(campos.get("canais")) if key in CHANNEL_CATALOG]
     campos["canais"] = canais
     mix_raw = payload.get("mix") if payload.get("mix") is not None else campos.get("mix")
@@ -497,14 +490,6 @@ def persist_canais(token: str, payload: dict) -> dict:
         "interativos": payload.get("interativos") if "interativos" in payload else existing.get("interativos"),
     }
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
-    minimum = places_minimum(campos.get("places"))
-    if minimum["minimum_brl"] and verba["valor"] and verba["valor"] < minimum["minimum_brl"]:
-        places = ", ".join(item["title"] for item in minimum["items"])
-        raise ValueError(
-            f"Places exige ao menos {format_money(minimum['minimum_brl'])} para {places}. "
-            "Aumente a verba, remova Places ou escolha outro local."
-        )
-    campos["places_minimum"] = minimum
     if mix is not None:
         campos["mix"] = mix
     if "dispositivos" in payload:

@@ -6,5 +6,5 @@ Campos imutáveis: cliente, campanha, objetivo, tese, público, verba, período,
 
 Conflito crítico (tese, verba, canal novo, estimativa inventada): reporte.
 Aprofundamento compatível: permitido.
-Novo fato sem fonte: marcar premissa.
+Novo fato sem fonte: conflito; remova do documento final.
 Devolva JSON: {"consistent": true, "conflicts": [], "warnings": []}

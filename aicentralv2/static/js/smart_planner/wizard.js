@@ -671,6 +671,21 @@
         closeCampaignModal();
       });
     }
+    var oohInventoryGo = document.getElementById("sp-ooh-inventory-go");
+    if (oohInventoryGo) {
+      oohInventoryGo.addEventListener("click", function () {
+        var inventoryInput = document.getElementById("sp-ooh-inventory");
+        var inventoryText = inventoryInput ? inventoryInput.value.trim() : "";
+        if (!inventoryText) {
+          setStatus(document.getElementById("sp-ref-status"), "Cole os pontos de OOH para adicioná-los.", "error");
+          if (inventoryInput) inventoryInput.focus();
+          return;
+        }
+        startJob("inventory", { kind: "inventory", text: inventoryText, label: "Pontos de OOH informados" }, "Pontos de OOH informados");
+        if (inventoryInput) inventoryInput.value = "";
+        closeCampaignModal();
+      });
+    }
     var campaignModal = document.getElementById("sp-campaign-modal");
     var sourcesOpen = document.getElementById("sp-sources-open");
     var campaignOpen = document.getElementById("sp-campaign-research-open");
@@ -689,7 +704,7 @@
       campaignModal.querySelectorAll("[data-source-pane]").forEach(function (pane) {
         pane.hidden = pane.getAttribute("data-source-pane") !== mode;
       });
-      var focusId = mode === "url" ? "sp-ref-url" : mode === "campaign" ? "sp-campaign-query" : "";
+      var focusId = mode === "url" ? "sp-ref-url" : mode === "campaign" ? "sp-campaign-query" : mode === "inventory" ? "sp-ooh-inventory" : "";
       var focus = focusId && document.getElementById(focusId);
       if (focus) window.setTimeout(function () { focus.focus(); }, 0);
     }
@@ -1895,6 +1910,8 @@
         var visible = Array.prototype.slice.call(gaps.querySelectorAll("li")).filter(function (li) { return !li.hidden; });
         gaps.hidden = visible.length === 0;
       }
+      var pending = document.getElementById("sp-review-pending");
+      if (pending) pending.textContent = missing.length ? missing.length + (missing.length === 1 ? " ajuste disponível" : " ajustes disponíveis") : "Tudo pronto";
     }
 
     function autoOpen() {
@@ -2069,6 +2086,7 @@
   function setupPlacesDesk() {
     var desk = document.getElementById("sp-places-desk");
     var list = document.getElementById("sp-places-list");
+    var search = document.getElementById("sp-places-search");
     var catalog = readJson("sp-places-catalog", []);
     var boot = readJson("sp-places-boot", []);
     if (!desk || !list) return;
@@ -2083,7 +2101,12 @@
     function paint() {
       desk.hidden = !placeChecked();
       if (desk.hidden) return;
-      list.innerHTML = catalog.map(function (place) {
+      var query = String(search && search.value || "").trim().toLowerCase();
+      var visible = catalog.filter(function (place) {
+        if (!query) return true;
+        return String((place.title || "") + " " + (place.city_label || "") + " " + (place.type_label || "")).toLowerCase().indexOf(query) !== -1;
+      });
+      list.innerHTML = visible.map(function (place) {
         var current = selected[place.slug] || {};
         var on = !!current.slug || !!current.point_ids;
         var metrics = place.metrics || {};
@@ -2092,10 +2115,12 @@
           + escapeHtml(place.title || place.slug) + (place.city_label ? " · " + escapeHtml(place.city_label) : "") + "</label>"
           + (place.type_label ? '<small class="sp-place-type">' + escapeHtml(place.type_label) + '</small>' : '')
           + ((metrics.addressable || metrics.four_weeks) ? '<div class="sp-place-audience">' + (metrics.addressable ? '<span><b>Audiência endereçável</b>' + escapeHtml(metrics.addressable) + '</span>' : '') + (metrics.four_weeks ? '<span><b>Média em 4 semanas</b>' + escapeHtml(metrics.four_weeks) + '</span>' : '') + '</div>' : '')
-          + (place.investment_label ? '<p class="sp-place-investment">Mínimo: ' + escapeHtml(place.investment_label) + '</p>' : '<p class="sp-place-investment is-unknown">Mínimo comercial a confirmar</p>')
+          + '<p class="sp-place-investment">Investimento definido na divisão do plano.</p>'
           + "</article>";
       }).join("");
+      if (!visible.length) list.innerHTML = '<p class="sp-places-empty">Nenhum Place encontrado.</p>';
     }
+    if (search) search.addEventListener("input", paint);
     list.addEventListener("change", function (event) {
       var target = event.target;
       if (!target) return;
@@ -2154,7 +2179,7 @@
       if (!items.length) { list.innerHTML = '<p class="sp-geo-empty">Escolha um estado ou digite ao menos parte do nome de uma cidade.</p>'; return; }
       list.innerHTML = items.map(function (item) {
         var key = cityKey(item);
-        return '<label class="sp-geo-city"><input type="checkbox" data-geo-city="' + escapeHtml(key) + '"' + (selected[key] ? " checked" : "") + '><span><strong>' + escapeHtml(item.nome) + '</strong><small>' + escapeHtml(item.uf + " · Código IBGE " + item.id) + '</small></span><em><b>Total</b> A validar<br><b>Digital</b> A validar</em></label>';
+        return '<label class="sp-geo-city"><input type="checkbox" data-geo-city="' + escapeHtml(key) + '"' + (selected[key] ? " checked" : "") + '><span><strong>' + escapeHtml(item.nome) + '</strong><small>' + escapeHtml(item.uf + " · Código IBGE " + item.id) + '</small></span><em><b>Total</b> —<br><b>Digital</b> —</em></label>';
       }).join("");
     }
     function choose(items) { selected = {}; items.forEach(function (item) { selected[cityKey(item)] = true; }); paint(); }
@@ -2334,8 +2359,9 @@
 
     var genDlg = document.getElementById("sp-gen");
     var genOpen = document.getElementById("sp-gen-open");
-    if (genOpen) {
-      genOpen.addEventListener("click", async function () {
+    var genOpenSide = document.getElementById("sp-gen-open-side");
+    [genOpen, genOpenSide].filter(Boolean).forEach(function (trigger) {
+      trigger.addEventListener("click", async function () {
         var objetivo = document.getElementById("sp-objetivo");
         var hasCanal = document.querySelector('#sp-mix-channels input[name="canais"]:checked');
         var hasKpi = document.querySelector("#sp-kpi-chips button.is-on");
@@ -2348,17 +2374,17 @@
         } else if (!hasCanal) {
           focusField("sp-mix-channels");
         }
-        setLoading(genOpen, true);
+        setLoading(trigger, true);
         try {
           await postJson("/smart-planner/api/" + token + "/revisao", collectReview());
           if (genDlg && typeof genDlg.showModal === "function") genDlg.showModal();
         } catch (error) {
           toast(error.message, "error");
         } finally {
-          setLoading(genOpen, false);
+          setLoading(trigger, false);
         }
       });
-    }
+    });
 
     document.querySelectorAll("[data-gen-mode]").forEach(function (button) {
       button.addEventListener("click", async function () {
@@ -2587,9 +2613,9 @@
       if (helper) helper.textContent = pace.helper || "";
       if (totalEl) totalEl.textContent = pace.total > 0 ? "R$ " + format(pace.total) : "—";
       if (ritmoEl) ritmoEl.textContent = pace.ritmo > 0 ? "~R$ " + format(pace.ritmo) + "/mês" : "—";
-      if (summaryRitmo) summaryRitmo.textContent = pace.como || "A definir";
-      if (summaryPeriodo) summaryPeriodo.textContent = pace.helper || "A definir";
-      if (summaryVerba) summaryVerba.textContent = verbaValor() > 0 ? "R$ " + format(verbaValor()) : "A definir";
+      if (summaryRitmo) summaryRitmo.textContent = pace.como || "Não informado";
+      if (summaryPeriodo) summaryPeriodo.textContent = pace.helper || "Não informado";
+      if (summaryVerba) summaryVerba.textContent = verbaValor() > 0 ? "R$ " + format(verbaValor()) : "Não informada";
       if (note) {
         if (pace.editavel) note.textContent = "Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste pela coluna.";
         else if (pace.granularidade === "semana") note.textContent = "Abertura semanal nos canais. Começa menor e solta no meio e no fim.";

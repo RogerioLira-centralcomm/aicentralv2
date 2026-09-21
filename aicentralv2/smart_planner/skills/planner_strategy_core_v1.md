@@ -14,11 +14,11 @@ Se client.confidential for verdadeiro, não escreva o nome do anunciante. Use �
 4. Escreva a tese em uma frase defensável.
 5. Separe objetivo de negócio, de comunicação e de mídia.
 6. Atribua papel a cada canal aprovado (alcance, intenção, ação, reforço).
-7. Liste outputs, riscos e premissas com source_ids quando houver.
+7. Liste somente outputs, riscos e decisões que mudam a aprovação.
 
 ## Quando o briefing for incompleto
-Pendências (verba, canal, período, KPI) vão para assumptions e pending, não para a tese.
-Se o material nomear serviços, canais oficiais, praça ou place confirmado, a tese começa por esses nomes. Place entra como território (ponto e app), não como slogan de aeroporto genérico.
+Informações que não mudam a decisão ficam fora da tese.
+Se o material nomear serviços, canais oficiais, praça ou Place confirmado, use esse recorte. Apps/sites de Places são contexto de audiência digital; não cite ponto ou raio.
 Não abra a tese com “na ausência de briefing”.
 
 ## Proibido
@@ -26,6 +26,7 @@ Não abra a tese com “na ausência de briefing”.
 - Copiar pitch de outro cliente.
 - Prometer resultado operacional como garantia.
 - Texto que serviria para qualquer marca se o nome fosse removido.
+- Mais de uma frase em `central_thesis` ou mais de cinco itens em qualquer lista.
 
 ## Saída
 JSON apenas:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import re
 from urllib.parse import urlparse
 
 import requests
@@ -87,7 +88,42 @@ def capture_file(path: str, original: str) -> dict:
         kind = "image"
     else:
         raise ValueError("Envie um PDF ou uma imagem (PNG, JPG ou WEBP).")
+    if kind == "image" and _looks_like_ooh_inventory(raw):
+        captured = capture_ooh_inventory(raw, original)
+        return {**captured, "name": original}
     return _captured(kind, original, raw, name=original)
+
+
+def capture_ooh_inventory(raw: str, label: str = "Pontos de OOH informados") -> dict:
+    """Capture points explicitly supplied by the executive without inventing inventory data."""
+    raw = (raw or "").strip()
+    if len(raw) < 8:
+        raise ValueError("Cole ao menos um ponto de OOH.")
+    normalized = re.sub(r"\r\n?", "\n", raw)
+    blocks = [re.sub(r"\s+", " ", block).strip() for block in re.split(r"\n\s*\n+", normalized) if block.strip()]
+    if len(blocks) == 1:
+        blocks = [part.strip() for part in re.split(
+            r"(?=(?:Banca\s+Est[aá]tica|Front\s+Light|Outdoor|Painel(?:\s+Digital)?|Mobili[aá]rio)\s*[-:])",
+            blocks[0], flags=re.I,
+        ) if part.strip()]
+    points = []
+    for index, block in enumerate(blocks[:100], start=1):
+        name, _, _ = block.partition("-")
+        points.append({"id": f"ooh-{index}", "name": name.strip() or f"Ponto OOH {index}", "detail": block})
+    notes = "Inventário OOH informado pelo executivo:\n" + "\n".join(
+        f"{index}. {point['detail']}" for index, point in enumerate(points, start=1)
+    )
+    return normalize_reference({
+        "kind": "inventory", "label": label.strip() or "Pontos de OOH informados",
+        "notas": notes, "papel": "inventario",
+        "fatos": {"inventario_ooh": {"source": "referencia_do_briefing", "points": points}},
+    })
+
+
+def _looks_like_ooh_inventory(raw: str) -> bool:
+    text_lower = text(raw).lower()
+    kinds = re.findall(r"\b(?:banca\s+est[aá]tica|front\s+light|outdoor|painel(?:\s+digital)?|mobili[aá]rio)\b", text_lower)
+    return len(kinds) >= 2 or ("banca estática" in text_lower and "av." in text_lower)
 
 
 def capture_search(query: str, briefing: str = "", scope: str = "mercado") -> dict:

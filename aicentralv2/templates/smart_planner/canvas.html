@@ -65,7 +65,7 @@
           {% if folha_meta.period %}<span><b>Período</b>{{ folha_meta.period }}</span>{% endif %}
           {% if folha_meta.market %}<span><b>Praça</b>{{ folha_meta.market }}</span>{% endif %}
           {% if media_board.channels %}<span><b>Canais</b>{{ media_board.channels|length }}</span>{% endif %}
-          <span class="is-pending"><b>Revisão</b>{{ 'A validar' if audience_model.universo_estimado and audience_model.universo_estimado.status == 'a_validar' else 'Pronta para conferir' }}</span>
+          <span><b>Leitura</b>Pronta para a conversa</span>
         </div>
       </section>
 
@@ -88,7 +88,7 @@
       </section>
 
       <form id="sp-folha-form" class="sp-review" data-folha="1">
-        <details class="sp-acc" data-acc="strategy" open id="sp-acc-strategy">
+        <details class="sp-acc" data-acc="strategy" id="sp-acc-strategy">
           <summary aria-controls="sp-acc-strategy-body">
             <span class="sp-acc-title">Estratégia</span>
             <span class="sp-acc-meta">resumo da decisão</span>
@@ -106,7 +106,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="creative" open id="sp-acc-creative">
+        <details class="sp-acc" data-acc="creative" id="sp-acc-creative">
           <summary aria-controls="sp-acc-creative-body">
             <span class="sp-acc-title">Protótipo visual no canal</span>
             <span class="sp-acc-meta">uma peça conceitual</span>
@@ -221,6 +221,13 @@
             {% else %}
             <p class="sp-acc-note">Ainda sem mix nesta folha. Gere de novo ou ajuste na revisão.</p>
             {% endif %}
+            <div class="sp-media-defense" id="sp-media-defense">
+              <div class="sp-media-defense__head"><span class="sp-readout-kicker">Defesa comercial</span><small>argumento de aprovação</small></div>
+              <label for="sp-field-defense"><span>Por que esta combinação faz sentido</span>
+                <textarea id="sp-field-defense" name="defense_body" rows="4">{{ defense.body or '' }}</textarea>
+              </label>
+              <input type="hidden" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">
+            </div>
           </div>
         </details>
 
@@ -229,7 +236,7 @@
             <span class="sp-acc-title">Mercado</span>
             <span class="sp-acc-meta">dado e leitura</span>
           </summary>
-          <div class="sp-bf is-stack" id="sp-acc-market-body">
+          <div class="sp-bf is-stack sp-market-grid" id="sp-acc-market-body">
             <label for="sp-field-market"><span>Leitura</span>
               <textarea id="sp-field-market" name="market_body" rows="3">{{ market.body or '' }}</textarea>
             </label>
@@ -265,7 +272,7 @@
               <div class="sp-audience-readout__head">
                 <div>
                   <span class="sp-readout-kicker">Audiência modelada</span>
-                  <strong>{{ audience_model.regiao or 'Praça a definir' }}{% if audience_model.bairro %} · {{ audience_model.bairro }}{% endif %}</strong>
+                  <strong>{{ audience_model.regiao or 'Recorte da campanha' }}{% if audience_model.bairro %} · {{ audience_model.bairro }}{% endif %}</strong>
                 </div>
                 <span class="sp-readout-status">{{ audience_model.source_note or 'Base do briefing e pesquisa' }}</span>
               </div>
@@ -273,47 +280,29 @@
               <div class="sp-audience-segment">
                 <span>Segmento prioritário</span>
                 <strong>{{ audience_model.segments[0].label or 'Público do briefing' }}</strong>
-                <p>{{ audience_model.segments[0].description or 'A definir com dados aprovados.' }}</p>
+                <p>{{ audience_model.segments[0].description or 'Definido a partir do briefing.' }}</p>
               </div>
               {% endif %}
               <div class="sp-readout-grid">
                 {% for item in visual_data[:4] %}
-                <div class="sp-readout-meter {% if item.status == 'a_validar' %}is-pending{% endif %}">
+                {% if item.value %}<div class="sp-readout-meter">
                   <span>{{ item.label }}</span>
-                  <strong>{{ item.value or 'A validar' }}</strong>
-                  <i><b style="width: {{ 100 if item.status != 'a_validar' else 22 }}%"></b></i>
+                  <strong>{{ item.value }}</strong>
+                  <i><b style="width: 100%"></b></i>
                 </div>
+                {% endif %}
                 {% endfor %}
               </div>
-              <small class="sp-readout-foot">Faixa etária: {{ (audience_model.faixa_etaria or {}).value or 'a validar' }} · Gênero: {{ (audience_model.genero or {}).value or 'a validar' }} · Classe: {{ (audience_model.classe_social or {}).value or 'a validar' }}</small>
+              {% if (audience_model.faixa_etaria or {}).value or (audience_model.genero or {}).value or (audience_model.classe_social or {}).value %}<small class="sp-readout-foot">{% if (audience_model.faixa_etaria or {}).value %}Faixa etária: {{ (audience_model.faixa_etaria or {}).value }}{% endif %}{% if (audience_model.genero or {}).value %}{% if (audience_model.faixa_etaria or {}).value %} · {% endif %}Gênero: {{ (audience_model.genero or {}).value }}{% endif %}{% if (audience_model.classe_social or {}).value %}{% if (audience_model.faixa_etaria or {}).value or (audience_model.genero or {}).value %} · {% endif %}Classe: {{ (audience_model.classe_social or {}).value }}{% endif %}</small>{% endif %}
             </div>
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="defense" id="sp-acc-defense">
-          <summary aria-controls="sp-acc-defense-body">
-            <span class="sp-acc-title">Defesa comercial</span>
-            <span class="sp-acc-meta">argumento de aprovação</span>
-          </summary>
-          <div class="sp-bf is-stack" id="sp-acc-defense-body">
-            <label for="sp-field-defense"><span>Argumento para aprovação</span>
-              <textarea id="sp-field-defense" name="defense_body" rows="5">{{ defense.body or '' }}</textarea>
-            </label>
-            <details class="sp-field-advanced">
-              <summary>Editar título técnico</summary>
-              <label for="sp-field-defense-title"><span>Título</span>
-                <input id="sp-field-defense-title" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">
-              </label>
-            </details>
-          </div>
-        </details>
-
-        <details class="sp-acc" data-acc="brand" id="sp-acc-brand">
-          <summary aria-controls="sp-acc-brand-body">
-            <span class="sp-acc-title">Marca</span>
-            <span class="sp-acc-meta">Cadu Media Studio</span>
-          </summary>
-          <div id="sp-acc-brand-body" class="sp-brand-panel">
+        <div hidden aria-hidden="true">
+          <input id="sp-field-defense-title" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">
+          <input id="sp-presenter" name="presenter" value="{{ presenter_brand or 'centralcomm' }}">
+        </div>
+          <div id="sp-acc-brand-body" class="sp-brand-panel" hidden>
             <div class="sp-brand-row">
               {% if client.name %}
               <div class="sp-brand-card">
@@ -346,9 +335,9 @@
               {% endfor %}
             </ul>
             {% endif %}
-            <label class="sp-presenter" for="sp-presenter">
+            <label class="sp-presenter" for="sp-presenter-legacy">
               <span>Marca apresentadora da folha</span>
-              <select class="cx-select" id="sp-presenter" name="presenter">
+              <select class="cx-select" id="sp-presenter-legacy" name="presenter_legacy">
                 {% for option in presenter_options %}
                 <option value="{{ option.id }}" {% if presenter_brand == option.id %}selected{% endif %}>{{ option.label }}</option>
                 {% endfor %}
@@ -368,7 +357,6 @@
             <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ brand.marcas_url }}" target="_blank" rel="noopener noreferrer">Abrir no Workspace</a>
             {% endif %}
           </div>
-        </details>
       </form>
     </div>
 

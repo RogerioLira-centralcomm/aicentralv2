@@ -11,11 +11,42 @@ from aicentralv2.smart_planner.materials import (
     normalize_reference,
     scrape_url,
 )
-from aicentralv2.smart_planner.references import capture_file, capture_search, capture_url, review_reference
+from aicentralv2.smart_planner.references import capture_file, capture_ooh_inventory, capture_search, capture_url, review_reference
 from aicentralv2.smart_planner.service import wizard_context
 
 
 class SmartPlannerReferencesTest(unittest.TestCase):
+    def test_ooh_inventory_preserves_order_and_exact_operational_text(self):
+        captured = capture_ooh_inventory(
+            "Banca Estática - Av. Francisco Sá, 787 — Esquina com a Av. Amazonas.\n\n"
+            "Front Light - Av. Portugal, 5503 — Em frente ao Atacadão Pampulha."
+        )
+        points = captured["fatos"]["inventario_ooh"]["points"]
+        self.assertEqual(captured["kind"], "inventory")
+        self.assertEqual(captured["papel"], "inventario")
+        self.assertEqual([point["id"] for point in points], ["ooh-1", "ooh-2"])
+        self.assertIn("Av. Francisco Sá, 787", points[0]["detail"])
+        self.assertIn("Av. Portugal, 5503", points[1]["detail"])
+
+    def test_ooh_inventory_image_is_promoted_to_inventory_reference(self):
+        with patch("aicentralv2.smart_planner.references._read_image", return_value=(
+            "Banca Estática - Av. Francisco Sá, 787\n\n"
+            "Outdoor - Av. Raja Gabáglia, 1740"
+        )):
+            captured = capture_file("/tmp/pontos.png", "pontos.png")
+        self.assertEqual(captured["kind"], "inventory")
+        self.assertEqual(len(captured["fatos"]["inventario_ooh"]["points"]), 2)
+
+    def test_ooh_inventory_is_not_rewritten_by_field_extraction(self):
+        inventory = processor._ooh_inventory_from_references([{
+            "fatos": {"inventario_ooh": {"points": [
+                {"id": "ooh-1", "name": "Outdoor", "detail": "Outdoor - Av. Raja Gabáglia, 1740"},
+                {"id": "ooh-2", "name": "Front Light", "detail": "Front Light - Av. Portugal, 5503"},
+            ]}},
+        }])
+        self.assertEqual([point["detail"] for point in inventory["points"]], [
+            "Outdoor - Av. Raja Gabáglia, 1740", "Front Light - Av. Portugal, 5503",
+        ])
     def test_strip_markdown_removes_headings_and_fences(self):
         cleaned = strip_markdown("```md\n## Menu\n- Home\n**Oferta** relâmpago\n```")
         self.assertNotIn("##", cleaned)

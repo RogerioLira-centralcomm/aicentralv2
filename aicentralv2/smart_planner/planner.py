@@ -14,11 +14,16 @@ from .repository import get_by_token, merge_dados, update_session
 
 
 PLAN_PROMPT = """Você é planejador de mídia sênior no Brasil. Escreve um planejamento executável, white-label.
+O documento é complementar à página única: acrescenta operação e critérios, sem reescrever a mesma decisão em cada capítulo.
 
 Verdade do material:
-- Verba, canais, % e voo mensal da configuração da campanha são lei. Feche a tabela de mix com esses R$.
-- Sem dado: "A definir" ou "Premissa:". Nunca invente prazo de produção, CPM, impressão ou responsável.
+- Verba total, canais, percentuais e voo mensal da configuração são lei. A tabela deve mostrar a divisão estratégica; não trate a divisão de OOH ou Places como cotação.
+- Regra comercial: nunca gere preço, cotação, mínimo, compra, negociação, fornecedor, inventário, ponto, raio ou disponibilidade comercial para OOH ou Places. Use somente investimento total, divisão percentual, público, segmentação, papel estratégico e defesa do plano.
+- Sem dado: omita a afirmação e registre somente a decisão pendente necessária. Nunca invente prazo de produção, CPM, impressão ou responsável.
 - Sem agência, consultoria, ferramenta ou menção a IA.
+- Cada fato deve ter uma única seção de propriedade. Nas demais, não repita.
+- Parágrafos com no máximo 4 linhas; no máximo 5 bullets por seção; não preencha seção sem evidência.
+- Não escreva prompt de imagem nem gere expressão visual. A imagem será decidida depois no editor.
 
 Estrutura obrigatória (##):
 
@@ -26,61 +31,63 @@ Estrutura obrigatória (##):
 Campanha, anunciante, objetivo e período — copiar da configuração. Só inclua investimento se houver verba confirmada.
 
 ## Visão Geral
-Um parágrafo, máximo 4 linhas.
+Um parágrafo, máximo 4 linhas. Não repetir a tabela de mix.
 
 ## Objetivos e KPIs
-SMART. Meta sem lastro vira Premissa.
+SMART. Só inclua metas com lastro; caso contrário, registre a necessidade de definição em Próximos Passos.
 
 ## Território e Praça
-Abrangência do mix. Sem praça: "Praça a definir pelo anunciante".
-Se houver Places confirmados: cite apenas o ambiente/place e sua audiência consolidada. Não cite ponto, raio ou app no plano. Venue não entra como texto solto de praça.
+Abrangência do mix. Se a praça não estiver informada, registre a confirmação em Próximos Passos sem criar texto de preenchimento.
+Se houver Places confirmados: cite apenas o ambiente/place e sua audiência consolidada. Apps e sites observados no catálogo podem ser usados como contexto de audiência digital, nunca como promessa de compra. Separe Places digital (apps e geolocalização) de Places OOH (presença física) somente se o catálogo trouxer esse sinal. Não cite preço, mínimo comercial, ponto, raio, fornecedor ou inventário. Venue não entra como texto solto de praça.
 
 ## Inteligência de Audiência
-Comportamento, hábitos de mídia, jornada e gatilhos do briefing.
+Comportamento, hábitos de mídia, jornada e gatilhos do briefing. Não repetir território ou segmentação.
 
 ## Modelagem e Segmentação
 Tabela: Segmento | Perfil | Universo Praça | % Estimado | Impacto Esperado | Prioridade
 
 ## Estratégia e Mix
-Tabela: Canal | % | R$ | Papel | Justificativa, somente quando a verba estiver confirmada.
-Sem verba confirmada, apresente o papel estratégico e marque valores como "A validar", sem mencionar investimento.
+Tabela: Canal | % de divisão | Investimento do plano | Papel | Justificativa. O investimento é uma referência estratégica do plano, não uma cotação comercial.
+Para OOH/Painéis, informe apenas o papel estratégico e a necessidade de planejamento de rede. Para Places, informe a divisão digital ou OOH apenas quando houver evidência no catálogo.
 
 ## Números e Performance
 Tabela: Canal | Impressões | Alcance | KPI Principal | Meta
-Sem CPM. Volume sem fonte = Premissa.
+Sem CPM. Sem fonte, omita volume e registre a necessidade de uma referência de compra.
 
 ## Direção Criativa
-Formatos e mensagem por canal. Sem cronograma de produção.
+Formatos e mensagem por canal. Sem cronograma de produção, prompt de imagem ou direção visual detalhada.
 
 ## Fases do Voo
 Tabela: Fase | Período | Canais Ativos | Objetivo da Fase
 Use as colunas mensais da configuração. Sem período, não invente semanas.
 
-## Premissas
-Taxas, benchmarks e dependências.
+## Decisões pendentes
+Liste somente decisões que bloqueiam aprovação ou compra. Não use o rótulo "Premissa" como preenchimento.
 
 ## Próximos Passos
-Máximo 5. Responsável: "A definir".
+Máximo 5. Escreva a ação e o responsável somente se estiverem informados; não invente responsável.
 """
 
-IMPROVE_PROMPT = """Você aprofunda um rascunho de planejamento já escrito.
+IMPROVE_PROMPT = """Você edita um rascunho de planejamento já escrito.
 Devolva o documento inteiro em markdown — sem comentários.
 Feche números somente quando houver verba confirmada e respeite o voo mensal da configuração.
-Corte repetição. Não invente o que o briefing não trouxe. Sem agência, sem IA.
+Corte repetição entre capítulos: cada fato deve aparecer uma única vez. Remova jargão e texto genérico. Não invente o que o briefing não trouxe. Sem agência, sem IA.
+Remova prompts de imagem e direção visual detalhada.
 """
 
 FINAL_PROMPT = """Você fecha a versão final do planejamento de mídia.
 Esta é a 3ª passagem — o documento que o anunciante lê.
 Devolva o markdown inteiro, limpo, sem comentários.
-Confira: mix soma a verba quando ela existir; voo respeita as colunas; KPI sem lastro está como Premissa.
-Corte jargão e seção oca. Não invente. Sem agência, sem IA.
+Confira: mix soma a verba quando ela existir e voo respeita as colunas. KPI sem fonte deve ser removido e virar decisão pendente.
+Corte jargão, repetição e seção oca. Nenhum parágrafo com mais de 4 linhas. Não invente. Sem agência, sem IA.
+A página única já contém a decisão executiva; este documento deve acrescentar operação, medição e aprovações, não duplicá-la.
 """
 
 MARKET_PROMPT = """Você é analista de mercado de mídia no Brasil.
 Até 8 bullets: categoria, concorrência típica, consumo de mídia, praça e risco comercial.
-Para cada número, informe fonte e data. Sem fonte, escreva "Premissa — a validar" e não invente audiência.
+Para cada número, informe fonte e data. Sem fonte, omita o número e registre a necessidade de fonte; não invente audiência.
 Não transforme membros cadastrados, alcance de anúncio ou usuários de uma plataforma em pessoas impactadas sem explicar a diferença.
-Quando não houver demografia confiável, escreva "Demografia: a validar".
+Quando não houver demografia confiável, não crie uma frase de preenchimento.
 Sem agência, sem ferramenta, sem inventar audiência.
 """
 
@@ -130,10 +137,12 @@ def _campaign_block(campanha: dict) -> str:
             valor = split.get(key)
             share = shares.get(key)
             extra = ""
-            if valor:
+            if valor and meta.get("group") not in {"ooh", "places"}:
                 extra = f" · {format_money(int(valor or 0))}"
                 if share:
                     extra += f" ({share:g}%)"
+            elif share:
+                extra = f" ({share:g}% da divisão estratégica)"
             lines.append(f"  - {meta.get('label', key)}: {meta.get('desc', '')}{extra}")
     pace = campaign_pace(campanha)
     if pace.get("alocacao"):

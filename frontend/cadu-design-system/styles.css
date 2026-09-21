@@ -191,6 +191,8 @@ body.portal--workspace .cadu-ds-dock-brand.is-drop-complete,
 body.portal--workspace .cadu-ds-dock-resource.is-drop-complete { animation:cadu-dock-drop-bounce 260ms cubic-bezier(.2,.85,.3,1.2); }
 body.portal--workspace .cadu-ds-dock-context:has(.is-drop-target) .cadu-ds-dock-section { row-gap:10px; }
 @keyframes cadu-dock-drop-bounce { 0% { transform:translateY(0) scale(1); } 38% { transform:translateY(-7px) scale(1.04); } 72% { transform:translateY(2px) scale(.99); } 100% { transform:translateY(0) scale(1); } }
+.cadu-ds-dock--conversation .cadu-ds-dock-section-label { display:none; }
+.cadu-ds-dock--conversation .cadu-ds-dock-section + .cadu-ds-dock-section { margin-top:0; padding-top:0; border-top:0; }
 .cadu-ds-home-navbar { gap:14px; }
 .cadu-ds-agency-label { min-width:0; max-width:180px; overflow:hidden; padding-right:14px; border-right:1px solid var(--cadu-nav-line); color:var(--cadu-nav-ink); font-size:13px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-selector { position:relative; display:block; }

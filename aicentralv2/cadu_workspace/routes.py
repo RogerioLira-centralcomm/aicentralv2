@@ -4075,7 +4075,10 @@ def create_visual_identity_version_api(owner_type, owner_ref):
         brand = _workspace_brand(client_id, int(owner_ref))
         if not brand or session.get('user_type') not in {'admin', 'superadmin'}:
             abort(403)
-        source_brand_ref = f'studio:{owner_ref}'
+        # A marca uses its canonical logo/asset as its dock identity. Image 2
+        # is reserved for project-specific identity, so this action must not
+        # create a paid/generated brand avatar or hero.
+        return jsonify({'error': 'A marca usa o próprio logo como ícone. Gere visuais apenas para projetos.'}), 409
     elif owner_type == 'project':
         project = _editable_workspace_project(client_id, owner_ref)
         source_brand_ref = f"studio:{project.get('brand_id')}" if project.get('brand_id') else None
@@ -4111,6 +4114,9 @@ def approve_visual_identity_version_api(version_id):
         return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
     client_id = int(session.get('cliente_id') or 0)
     user_id = int(session.get('user_id') or 0)
+    actor = family_repository.actor(user_id) or {}
+    if family_repository.account_role(actor) != 'admin':
+        abort(403)
     versions = family_repository.rows('SELECT * FROM cadu_visual_identity_versions WHERE client_id=%s AND id=%s', (client_id, version_id))
     if not versions:
         abort(404)
@@ -5502,10 +5508,11 @@ def find_recent_brand_creatives(brand_id):
 @bp.post('/workspace/app/marcas/<int:brand_id>/hero/gerar')
 @login_required
 def generate_brand_hero(brand_id):
-    """Create one low-resolution hero; insufficient credit deliberately stays quiet."""
+    """Legacy endpoint kept for compatibility; brands do not generate heroes."""
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
     _workspace_team_admin()
+    abort(409, description='A marca usa o próprio logo. Heroes são exclusivos de projetos.')
     client_id = int(session.get('cliente_id') or 0)
     user_id = int(session.get('user_id') or 0)
     brand = _workspace_brand(client_id, brand_id)

@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from ..db import get_db
 from flask import g, current_app
+from psycopg.types.json import Json
 from ..product_domains import product_url
 from ..smart_planner.logos import public_logo
 
@@ -13,7 +14,7 @@ def family_table_available(name):
     if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context',
                     'cadu_family_chat_uploads', 'cadu_family_project_brands', 'cadu_family_project_visibility',
                     'cadu_family_project_access', 'cadu_user_memories',
-                    'cadu_working_memories'}:
+                    'cadu_working_memories', 'cadu_visual_identity_versions'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
     if name not in cache:
@@ -222,6 +223,84 @@ def revoke_project_access(client_id, project_ref, user_id):
                            WHERE client_id = %s AND project_ref = %s AND user_id = %s''',
                         (client_id, project_ref, user_id))
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def visual_identity_versions(client_id, owner_type, owner_ref, visual_type=None):
+    if not family_table_available('cadu_visual_identity_versions'):
+        return []
+    params = [client_id, owner_type, owner_ref]
+    visual_filter = ''
+    if visual_type:
+        visual_filter = ' AND visual_type = %s'
+        params.append(visual_type)
+    return rows(f'''SELECT id, owner_type, owner_ref, source_brand_ref, visual_type, version,
+                           status, image_url, vector_url, prompt, model, token_usage,
+                           contrast_metadata, created_by, approved_by, created_at, approved_at
+                      FROM cadu_visual_identity_versions
+                     WHERE client_id = %s AND owner_type = %s AND owner_ref = %s{visual_filter}
+                  ORDER BY visual_type, version DESC, id DESC''', tuple(params))
+
+
+def create_visual_identity_version(client_id, owner_type, owner_ref, visual_type, user_id,
+                                   *, source_brand_ref=None, prompt='', model='', token_usage=0):
+    if owner_type not in {'brand', 'project'} or visual_type not in {'icon', 'avatar', 'background', 'hero'}:
+        raise ValueError('Identidade visual inválida.')
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SELECT pg_advisory_xact_lock(hashtext(%s))',
+                        (f'{client_id}:{owner_type}:{owner_ref}:{visual_type}',))
+            cur.execute('''SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+                             FROM cadu_visual_identity_versions
+                            WHERE client_id = %s AND owner_type = %s AND owner_ref = %s AND visual_type = %s''',
+                        (client_id, owner_type, owner_ref, visual_type))
+            version = int((cur.fetchone() or {}).get('next_version') or 1)
+            cur.execute('''INSERT INTO cadu_visual_identity_versions
+                              (client_id, owner_type, owner_ref, source_brand_ref, visual_type, version,
+                               status, prompt, model, token_usage, created_by)
+                           VALUES (%s,%s,%s,%s,%s,%s,'processing',%s,%s,%s,%s)
+                        RETURNING id, version, status''',
+                        (client_id, owner_type, owner_ref, source_brand_ref, visual_type, version,
+                         prompt, model, int(token_usage or 0), user_id))
+            result = dict(cur.fetchone())
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_visual_identity_version(client_id, version_id, *, status=None, image_url=None,
+                                   vector_url=None, contrast_metadata=None, token_usage=None,
+                                   approved_by=None):
+    changes, params = [], []
+    if status is not None:
+        if status not in {'draft', 'processing', 'ready', 'approved', 'archived', 'failed'}:
+            raise ValueError('Status visual inválido.')
+        changes.append('status = %s'); params.append(status)
+    for column, value in (('image_url', image_url), ('vector_url', vector_url),
+                          ('contrast_metadata', contrast_metadata), ('token_usage', token_usage)):
+        if value is not None:
+            changes.append(f'{column} = %s'); params.append(Json(value) if column == 'contrast_metadata' else value)
+    if approved_by is not None:
+        changes.extend(['approved_by = %s', 'approved_at = NOW()']); params.append(approved_by)
+    if not changes:
+        return None
+    changes.append('updated_at = NOW()')
+    params.extend([client_id, version_id])
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'''UPDATE cadu_visual_identity_versions SET {', '.join(changes)}
+                             WHERE client_id = %s AND id = %s
+                         RETURNING id, owner_type, owner_ref, visual_type, version, status,
+                                   image_url, vector_url, contrast_metadata, approved_by, approved_at''', tuple(params))
+            row = cur.fetchone()
+        conn.commit()
+        return dict(row) if row else None
     except Exception:
         conn.rollback()
         raise

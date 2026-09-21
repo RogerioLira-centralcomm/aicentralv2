@@ -17,6 +17,10 @@ INTERNAL_PATTERN = re.compile(
 ORCHESTRATOR_METADATA_PATTERN = re.compile(
     r"(?im)^\s*(?:projeto usado|decis[aã]o proposta|confian[cç]a|pr[oó]ximo passo)\s*:",
 )
+INLINE_ORCHESTRATOR_PREFIX = re.compile(
+    r"^\s*[^|\n]{1,240}\|\s*confian[cç]a\s*:\s*(?:baixa|m[eé]dia|alta|low|medium|high)\s*",
+    re.IGNORECASE,
+)
 _LEAKED_DECISION_PATTERN = re.compile(
     r"^\s*Projeto usado:\s*(?P<project>.+?)\.\s*"
     r"Decisão proposta:\s*(?P<decision>.+?)"
@@ -494,6 +498,13 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     repaired_answer = repair_metadata_answer(answer)
     if repaired_answer != answer:
         answer = repaired_answer
+    # Some structured-output models prepend a compact decision/confidence
+    # summary to the actual Markdown without a line break. It is UI metadata,
+    # never part of the customer answer.
+    answer = INLINE_ORCHESTRATOR_PREFIX.sub("", answer).strip()
+    # Preserve headings when the provider serialized Markdown into one line.
+    # The direct-mode compactor detects block Markdown by line boundaries.
+    answer = re.sub(r"(?<!\n)\s+(#{2,6}\s+)", r"\n\n\1", answer)
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
     # Analysis is intentionally allowed to be multi-paragraph. Collapsing the

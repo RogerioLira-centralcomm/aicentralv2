@@ -907,6 +907,17 @@ def test_response_repairs_leaked_orchestrator_wrapper_before_display():
     assert "Projeto usado" not in response.answer
 
 
+def test_response_removes_inline_confidence_prefix_and_restores_markdown_blocks():
+    response = normalize_response(
+        "explicar CPM de forma simples e prática | Confiança: alta ## CPM, em português simples "
+        "CPM é o custo para mostrar um anúncio mil vezes. ### Exemplo prático Você investiu R$ 20.",
+        {"mode": "direct", "max_answer_chars": 900, "max_questions": 0, "max_next_steps": 0},
+    )
+    assert response.answer.startswith("## CPM, em português simples")
+    assert "\n\n### Exemplo prático" in response.answer
+    assert "Confiança" not in response.answer
+
+
 def test_prompt_evidence_respects_mode_budget_and_remains_valid_json():
     route = route_request("Melhore este título")
     payload = build_payload(

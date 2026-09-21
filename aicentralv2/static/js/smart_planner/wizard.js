@@ -1310,7 +1310,9 @@
       if (pace.editavel && cols && !cols.children.length) {
         cols.innerHTML = keys.map(function (key, index) {
           var valor = (pace.alocacao && pace.alocacao[key]) || 0;
-          return "<label><span>" + (labels[index] || key) + "</span><input data-chave=\"" + key
+          var unidade = pace.granularidade === "semana" ? "semana" : "mês";
+          return "<label><span>" + escapeHtml(labels[index] || key) + "</span><input data-chave=\"" + escapeHtml(key)
+            + "\" aria-label=\"Valor de " + escapeHtml(unidade) + " " + escapeHtml(labels[index] || key)
             + "\" inputmode=\"numeric\" value=\"" + formatMoney(valor) + "\"></label>";
         }).join("");
       }
@@ -1401,6 +1403,8 @@
       var note = document.getElementById("sp-gantt-note");
       var totalEl = document.getElementById("sp-gantt-total");
       var ritmoEl = document.getElementById("sp-gantt-ritmo");
+      var cols = document.getElementById("sp-gantt-cols");
+      if (cols) cols.setAttribute("data-granularidade", pace.granularidade === "semana" ? "semana" : "mês");
       var helper = document.querySelector(".sp-hi-budget .sp-flight-note");
       if (helper) helper.textContent = pace.helper || "";
       if (totalEl) totalEl.textContent = pace.total > 0 ? "R$ " + formatMoney(pace.total) : "—";

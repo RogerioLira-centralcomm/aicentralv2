@@ -707,7 +707,7 @@
             </div>
             <div class="sp-gantt" id="sp-gantt" {% if not verba.valor or not pace.parseou %}hidden{% endif %}>
               <div class="sp-gantt-track" id="sp-gantt-track"></div>
-              <div class="sp-gantt-cols" id="sp-gantt-cols" {% if not pace.editavel %}hidden{% endif %}></div>
+              <div class="sp-gantt-cols" id="sp-gantt-cols" data-granularidade="{{ 'semana' if pace.granularidade == 'semana' else 'mês' }}" {% if not pace.editavel %}hidden{% endif %}></div>
             </div>
             <p class="sp-cal-empty" id="sp-cal-empty" hidden>Informe período e canais para ver o voo.</p>
             <p class="sp-week-hint" id="sp-week-hint" hidden></p>

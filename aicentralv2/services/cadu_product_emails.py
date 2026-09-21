@@ -205,7 +205,8 @@ def send_studio_work_completed(*, recipient_email: str, recipient_name: str, tit
 
 
 def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_name: str,
-                           summary: str, differentiators: list[str], url: str) -> dict:
+                           summary: str, differentiators: list[str], url: str, logo_url: str = '',
+                           status: str = 'approved', coverage=None, costs=None, effort=None) -> dict:
     """Notify the requester only after a reviewable brand proposal is ready."""
     if not recipient_email or not _enabled():
         return {"success": True, "skipped": True}
@@ -220,7 +221,9 @@ def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_n
             "BRAND": product_email_brand("workspace"),
             "TITLE": f"A proposta de {brand_name or 'marca'} está pronta",
             "DESCRIPTION": description or "Encontramos evidências para você revisar antes de aplicar à marca.",
-            "CTA_LABEL": "Revisar marca", "CTA_URL": url,
+            "CTA_LABEL": "Abrir auditoria", "CTA_URL": url,
+            "BRAND_LOGO_URL": logo_url, "AUDIT_STATUS": status,
+            "AUDIT_COVERAGE": coverage or {}, "AUDIT_COSTS": costs or {}, "AUDIT_EFFORT": effort or {},
         },
     )
 

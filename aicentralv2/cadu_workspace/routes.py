@@ -1536,7 +1536,7 @@ def _auto_apply_brand_analysis(client_id: int, user_id: int, brand_id: int, bran
                           sector = COALESCE(NULLIF(sector, ''), %s), website_url = COALESCE(%s, website_url),
                           logo_url = COALESCE(NULLIF(logo_url, ''), %s), primary_color = COALESCE(NULLIF(primary_color, ''), %s),
                           secondary_color = COALESCE(NULLIF(secondary_color, ''), %s), tone_of_voice = COALESCE(NULLIF(tone_of_voice, ''), %s),
-                          brand_profile = %s::jsonb, analysis_metadata = %s::jsonb, updated_at = NOW()
+                          brand_profile = %s::jsonb, analysis_metadata = %s::jsonb
                     WHERE id = %s AND crm_client_id = %s RETURNING id""",
                 (analysis.get('name'), analysis.get('sector'), analysis.get('website_url'), analysis.get('logo_url'),
                  analysis.get('primary_color'), analysis.get('secondary_color'), analysis.get('tone_of_voice'),
@@ -6146,6 +6146,8 @@ def audit_brand(brand_id):
         request.form.get('website_url') or brand.get('website_url') or '',
     )
     analysis_mode = request.form.get('analysis_mode') if request.form.get('analysis_mode') in {'complete', 'deep'} else 'complete'
+    if request.form.get('confirmed_cost') != 'true':
+        abort(400, description='Confirme a estimativa de créditos antes de iniciar a auditoria.')
     social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '').splitlines() if item.strip()][:12]
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
     if not website_url and not images:

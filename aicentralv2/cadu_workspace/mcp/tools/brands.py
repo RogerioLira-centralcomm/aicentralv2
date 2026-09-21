@@ -47,7 +47,7 @@ def prepare_logo_upload(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(name="brands.start_audit", capability="workspace", effect="write",
                description="Inicia a auditoria paga de uma marca após confirmação explícita do usuário administrador.", exposures=("internal",),
-               input_schema={"type":"object","required":["request_id","confirmed","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000}},"additionalProperties":False})
+               input_schema={"type":"object","required":["request_id","confirmed","confirmed_cost","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"confirmed_cost":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000},"analysis_mode":{"type":"string","enum":["complete","deep"]},"social_links":{"type":"array","items":{"type":"string","maxLength":500},"maxItems":12}},"additionalProperties":False})
 def start_audit(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}
     return _domain(lambda: service.start_audit(context, **values))

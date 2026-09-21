@@ -410,7 +410,7 @@ class WorkspaceBrandsTest(TestCase):
         get_db.return_value = connection
 
         response = _client().post('/workspace/app/marcas/81/auditoria', data={
-            '_csrf': 'known-token', 'website_url': 'https://example.com',
+            '_csrf': 'known-token', 'website_url': 'https://example.com', 'confirmed_cost': 'true',
         })
 
         self.assertEqual(response.status_code, 303)
@@ -443,7 +443,7 @@ class WorkspaceBrandsTest(TestCase):
         get_db.return_value = connection
 
         response = _client().post('/workspace/app/marcas/81/auditoria', data={
-            '_csrf': 'known-token', 'website_url': 'https://example.com',
+            '_csrf': 'known-token', 'website_url': 'https://example.com', 'confirmed_cost': 'true',
             'images': [
                 (BytesIO(b'logo-horizontal'), 'logo-horizontal.png'),
                 (BytesIO(b'logo-simbolo'), 'logo-simbolo.png'),

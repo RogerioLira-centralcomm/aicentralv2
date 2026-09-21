@@ -58,11 +58,14 @@ export function ProjectSelector({agencyName, ...props}) {
 export function ChatContextSelector({context = {}, projects = [], brands = [], onProjectChange, onBrandChange, disabled = false, loading = false}) {
   const {root, open, setOpen} = useDisclosure();
   const brandByRef = new Map(brands.map(brand => [brand.ref || brand.brandRef || `studio:${brand.id}`, brand]));
-  const selectedProject = projects.find(project => project.ref === context.project_ref);
+  const selectedProject = projects.find(project => String(project.ref || project.projectRef || project.id || '') === String(context.project_ref || ''));
   const selectedBrand = brandByRef.get(context.brand_ref);
   const groups = new Map();
   projects.forEach(project => {
-    const related = Array.isArray(project.related_refs) ? project.related_refs.filter(ref => brandByRef.has(ref)) : [];
+    const relatedRefs = Array.isArray(project.related_refs)
+      ? project.related_refs
+      : Array.isArray(project.relatedRefs) ? project.relatedRefs : project.brandRef ? [project.brandRef] : [];
+    const related = relatedRefs.filter(ref => brandByRef.has(ref));
     const ref = related[0] || '';
     if (!groups.has(ref)) groups.set(ref, []);
     groups.get(ref).push(project);

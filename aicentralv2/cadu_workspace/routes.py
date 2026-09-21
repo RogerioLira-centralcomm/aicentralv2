@@ -1895,7 +1895,10 @@ def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]
 
     for project in projects:
         name = str(project.get('nome') or '').strip()
-        brand = next(iter(links_by_project.get(f"ci:{project.get('id')}", [])), None)
+        linked_brands = links_by_project.get(f"ci:{project.get('id')}", [])
+        project['related_refs'] = [f"studio:{brand.get('id')}" for brand in linked_brands if brand.get('id')]
+        project['brand_ref'] = project['related_refs'][0] if project['related_refs'] else ''
+        brand = next(iter(linked_brands), None)
         brand = brand or brands_by_name.get(brand_key(name), {})
         # `_workspace_brands` resolves the primary approved logo from both legacy
         # fields and the brand-assets library. Reusing it here keeps the home
@@ -3128,6 +3131,8 @@ def dashboard():
                       'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
                       'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
                       'updatedAt': str(item.get('updated_at') or ''),
+                      'brandRef': str(item.get('brand_ref') or ''),
+                      'related_refs': list(item.get('related_refs') or []),
                       'dockLogoUrl': str(item.get('brand_logo_url') or ''),
                       'brandName': str(item.get('thumbnail_label') or ''),
                       'visualInitials': str(item.get('thumbnail_initials') or 'P'),

@@ -67,6 +67,8 @@ def conversations_v2_lab():
         } for brand in brands]
         menu_projects = [{
             "id": f"ci:{project.get('id')}", "kind": "project", "projectRef": f"ci:{project.get('id')}",
+            "ref": f"ci:{project.get('id')}", "brandRef": str(project.get('brand_ref') or ""),
+            "related_refs": list(project.get('related_refs') or []),
             "title": str(project.get("nome") or "Projeto"), "name": str(project.get("nome") or "Projeto"),
             "href": url_for("cadu_workspace.clean_project_detail", project_id=str(project.get("id"))),
             "previewUrl": str(project.get("thumbnail_url") or ""), "dockLogoUrl": str(project.get("brand_logo_url") or ""),

@@ -236,6 +236,9 @@
 .cadu-ds-home-workarea .cadu-ds-home-content { flex:1; min-width:0; }
 .cadu-ds-dock-brand .cadu-ds-visual-identity:not([class*="--v"]),.cadu-ds-dock-resource .cadu-ds-visual-identity:not([class*="--v"]) { box-sizing:border-box; padding:3px; background:color-mix(in srgb,var(--cadu-identity-color) 22%,var(--cadu-nav-bg)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-identity-color) 32%,transparent); }
 .cadu-ds-dock-brand .cadu-ds-visual-identity img,.cadu-ds-dock-resource .cadu-ds-visual-identity img { object-fit:contain; object-position:center; }
+.cadu-ds-dock-brand,.cadu-ds-dock-resource { margin-left:3px; }
+.cadu-ds-dock-brand .cadu-ds-visual-identity--brand img { mix-blend-mode:normal; filter:brightness(1.16) contrast(1.08); }
+.cadu-ds-dock-brand .cadu-ds-visual-identity,.cadu-ds-dock-resource .cadu-ds-visual-identity { filter:brightness(1.08); }
 .cadu-ds-project-hero__identity .cadu-ds-visual-identity img,.cadu-ds-brand-hero__identity .cadu-ds-visual-identity img { object-fit:contain; object-position:center; }
 .cadu-ds-project-hero__identity .cadu-ds-visual-identity,.cadu-ds-brand-hero__identity .cadu-ds-visual-identity { background:color-mix(in srgb,var(--cadu-identity-color) 18%,var(--cadu-surface-soft)); }
 .cadu-ds-dock-brand.is-active,.cadu-ds-dock-resource.is-active { border-color:rgba(101,216,203,.72); background:rgba(32,199,181,.16); box-shadow:0 0 0 1px rgba(101,216,203,.16),0 7px 18px rgba(32,199,181,.16); }

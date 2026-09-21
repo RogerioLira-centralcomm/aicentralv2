@@ -798,16 +798,14 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-input { color:var(--cadu-ink)!important; -webkit-text-fill-color:var(--cadu-ink); }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-input::placeholder { color:var(--cadu-muted)!important; -webkit-text-fill-color:var(--cadu-muted); }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-actions { min-height:48px; padding:0 10px 9px; }
-.cadu-ds-home-credit-alert { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:13px; margin:14px 0 0; padding:12px 14px; border:1px solid color-mix(in srgb,var(--cadu-accent) 32%,var(--cadu-line)); border-radius:14px; background:color-mix(in srgb,var(--cadu-accent-soft) 55%,var(--cadu-surface)); box-shadow:0 8px 24px color-mix(in srgb,var(--cadu-ink) 5%,transparent); }
-.cadu-ds-home-credit-alert.is-low { border-color:color-mix(in srgb,#c8893d 42%,var(--cadu-line)); background:color-mix(in srgb,#f3c17c 10%,var(--cadu-surface)); }
-.cadu-ds-home-credit-alert__icon { display:grid; width:30px; height:30px; place-items:center; border-radius:10px; background:color-mix(in srgb,var(--cadu-accent) 16%,transparent); color:var(--cadu-accent-strong,var(--cadu-accent)); font-size:17px; }
-.cadu-ds-home-credit-alert.is-low .cadu-ds-home-credit-alert__icon { background:rgba(200,137,61,.15); color:#a56820; }
+.cadu-ds-home-credit-alert { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:13px; width:min(900px,100%); box-sizing:border-box; margin:14px auto 0; padding:4px 0; border:0; border-radius:0; background:transparent; box-shadow:none; }
 .cadu-ds-home-credit-alert__copy { min-width:0; }
 .cadu-ds-home-credit-alert__copy strong { display:block; color:var(--cadu-ink); font-size:12px; line-height:1.25; }
 .cadu-ds-home-credit-alert__copy p { margin:3px 0 0; color:var(--cadu-muted); font-size:11px; line-height:1.4; }
-.cadu-ds-home-credit-alert__action { display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border:1px solid color-mix(in srgb,var(--cadu-accent) 32%,var(--cadu-line)); border-radius:9px; color:var(--cadu-accent-strong,var(--cadu-accent)); font-size:11px; font-weight:750; text-decoration:none; white-space:nowrap; transition:background .18s ease,border-color .18s ease,transform .18s ease; }
-.cadu-ds-home-credit-alert__action:hover { border-color:var(--cadu-accent); background:color-mix(in srgb,var(--cadu-accent) 10%,transparent); transform:translateY(-1px); }
-@media (max-width:620px) { .cadu-ds-home-credit-alert { grid-template-columns:auto minmax(0,1fr); }.cadu-ds-home-credit-alert__action { grid-column:2; justify-self:start; } }
+.cadu-ds-home-credit-alert__action { display:inline-flex; align-items:center; gap:6px; padding:4px 0; border:0; border-radius:0; background:transparent; color:var(--cadu-accent-strong,var(--cadu-accent)); font-size:11px; font-weight:750; text-decoration:none; white-space:nowrap; transition:color .18s ease,transform .18s ease; }
+.cadu-ds-home-credit-alert__action:hover { background:transparent; color:var(--cadu-ink); transform:translateY(-1px); text-decoration:underline; text-underline-offset:3px; }
+.cadu-ds-home-chat-shell .cv-composer-intensity:not([open]) .cv-composer-intensity__trigger { border:0!important; background:transparent!important; box-shadow:none!important; }
+@media (max-width:620px) { .cadu-ds-home-credit-alert { grid-template-columns:1fr; gap:4px; }.cadu-ds-home-credit-alert__action { justify-self:start; } }
 
 .cadu-ds-home-widgets { margin-top:48px; padding-bottom:56px; }
 .cadu-ds-home-widgets__header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding-bottom:14px; border-bottom:1px solid var(--cadu-line); }

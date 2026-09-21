@@ -21,7 +21,6 @@ const isDockResource = item => Boolean(item?.resourceRef) || item?.kind === 'res
 function HomeCreditAlert({creditAlert}) {
   if (!creditAlert?.visible) return null;
   return <section className={`cadu-ds-home-credit-alert ${creditAlert.isFree ? 'is-free' : 'is-low'}`} aria-live="polite" aria-label="Capacidade de créditos">
-    <span className="cadu-ds-home-credit-alert__icon" aria-hidden="true">✦</span>
     <div className="cadu-ds-home-credit-alert__copy">
       <strong>{creditAlert.title}</strong>
       <p>{creditAlert.description}</p>

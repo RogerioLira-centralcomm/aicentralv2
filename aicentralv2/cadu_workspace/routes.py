@@ -18,6 +18,7 @@ import secrets
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import HTTPException
 from markupsafe import Markup
+from psycopg.types.json import Json
 
 from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect, render_template, request, send_file, session, url_for
 
@@ -743,10 +744,8 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         item = catalog.get(key)
         if item:
             explicit.append({**item, 'shortcutId': row['id'], 'pinned': True})
-    # A blank mark makes the shared dock look broken. Brands without an
-    # approved/resolved logo stay available in the catalog, but never enter
-    # the automatic or personalized dock shelf.
-    explicit = [item for item in explicit if item.get('kind') != 'brand' or item.get('logoUrl')]
+    # Explicitly pinned brands must remain visible even without a logo. React
+    # renders their stable initials and primary color as the dock avatar.
     if explicit:
         return explicit[:8]
     # Before the user personalizes the dock, show only a small shelf of brands
@@ -766,9 +765,7 @@ def _authorized_dock_target(client_id: int, kind: str, target_ref: str) -> Optio
                      if f"ci:{item.get('id')}" == target_ref), None)
     if kind == 'brand':
         return next((item for item in _workspace_brands(client_id)
-                     if str(item.get('id')) == target_ref
-                     and str(item.get('display_logo') or item.get('resolved_logo_path')
-                               or item.get('logo_upload_path') or item.get('logo_url') or '').strip()), None)
+                     if str(item.get('id')) == target_ref), None)
     if kind == 'resource':
         try:
             with get_db().cursor() as cursor:
@@ -801,6 +798,8 @@ def save_dock_shortcut():
     target_ref = str(payload.get('target_ref') or '').strip()[:500]
     if kind in _DOCK_RESOURCE_KINDS:
         kind = 'resource'
+    if kind == 'brand' and target_ref.startswith('studio:'):
+        target_ref = target_ref[7:]
     if kind not in {'brand', 'project', 'resource'} or not target_ref:
         abort(400, description='Atalho inválido.')
     client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
@@ -809,24 +808,19 @@ def save_dock_shortcut():
         abort(403, description='O item não pertence à sua agência ou não está disponível para a dock.')
     project_ref = str(authorized_target.get('project_ref') or payload.get('project_ref') or '')[:500] or None
     brand_ref = str(authorized_target.get('brand_ref') or payload.get('brand_ref') or '')[:500] or None
-    metadata = json.dumps(payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {})
     connection = get_db()
     try:
         with connection.cursor() as cursor:
-            # Do not rely on a particular name for the legacy unique index. Some
-            # installations created the dock table before the named conflict
-            # target was present; a target-less conflict clause works with any
-            # unique constraint on the table and keeps the action idempotent.
             cursor.execute("""INSERT INTO cadu_workspace_dock_shortcuts
                     (id,client_id,user_id,shortcut_type,target_ref,project_ref,brand_ref,position,metadata,created_at,updated_at)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,
                         COALESCE((SELECT MAX(position)+1 FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s),0),
                         %s,NOW(),NOW())
-                ON CONFLICT DO UPDATE
+                ON CONFLICT (client_id,user_id,shortcut_type,target_ref) DO UPDATE
                     SET project_ref=EXCLUDED.project_ref,brand_ref=EXCLUDED.brand_ref,metadata=EXCLUDED.metadata,updated_at=NOW()
                 RETURNING id::text,shortcut_type,target_ref,project_ref,brand_ref,position,metadata""",
                 (str(uuid4()), client_id, user_id, kind, target_ref, project_ref, brand_ref,
-                 client_id, user_id, metadata))
+                 client_id, user_id, Json(payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {})))
             row = cursor.fetchone()
             if not row:
                 raise RuntimeError('O banco não retornou o atalho salvo.')

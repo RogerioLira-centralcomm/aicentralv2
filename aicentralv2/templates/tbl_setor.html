@@ -105,59 +105,58 @@
 </div>
 
 <!-- Modal de Criação/Edição -->
-<dialog id="modal_setor" class="modal">
-  <div class="modal-box w-11/12 max-w-lg bg-white p-0 rounded-lg">
-    <!-- Header fixo -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="modalTitle">Novo Setor</h3>
-      <button onclick="closeModal()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+<dialog id="modal_setor" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-sm">
+    <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4">
+      <h3 id="modalTitle" class="cx-modal-title">Novo Setor</h3>
+      <button type="button" onclick="closeModal()" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Fechar">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
-    
-    <!-- Conteúdo -->
-    <div class="p-6">
+    <div class="cx-modal-content">
       <form id="setorForm" onsubmit="handleSubmit(event)">
         <input type="hidden" id="setorId" name="id_setor">
-        
-        <div class="mb-4">
-          <label for="display" class="block text-sm font-medium text-gray-700 mb-1">
-            Display <span class="text-red-500">*</span>
+
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="display">
+            <span class="cx-label text-xs">Display *</span>
           </label>
-          <input type="text" 
-                 id="display" 
-                 name="display" 
+          <input type="text"
+                 id="display"
+                 name="display"
                  required
-                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                 class="cx-input cx-input-sm w-full">
         </div>
-        
-        <div class="mb-4">
-          <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
-            Status
+
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="status">
+            <span class="cx-label text-xs">Status</span>
           </label>
-          <select id="status" 
-                  name="status" 
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          <select id="status"
+                  name="status"
+                  class="cx-select cx-select-sm w-full">
             <option value="true">Ativo</option>
             <option value="false">Inativo</option>
           </select>
         </div>
-        
-        <div class="mt-6 flex justify-end gap-3">
-          <button type="button" 
+
+        <div class="cx-modal-actions mt-0">
+          <button type="button"
                   onclick="closeModal()"
-                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+                  class="cx-btn cx-btn-sm cx-btn-secondary">
             Cancelar
           </button>
-          <button type="submit" 
-                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <button type="submit"
+                  class="cx-btn cx-btn-sm cx-btn-primary">
             Salvar
           </button>
         </div>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button aria-label="Fechar">close</button>
+  </form>
 </dialog>
 {% endblock %}
 

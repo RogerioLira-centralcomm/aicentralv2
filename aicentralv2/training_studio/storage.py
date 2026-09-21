@@ -12,6 +12,29 @@ from flask import current_app
 GENERATED_PREFIX = "/static/uploads/treinamento_generated/"
 LOGO_PREFIX = "/static/uploads/treinamento_generated/logos/"
 ANEXO_PREFIX = "/static/uploads/treinamento_generated/anexos/"
+STATIC_ROOT = "/static/uploads/treinamento_generated/"
+
+
+def local_path_from_asset_url(url):
+    path = str(url or "").strip()
+    if not path.startswith(STATIC_ROOT):
+        return None
+    relative = path[len(STATIC_ROOT):].lstrip("/")
+    if not relative:
+        return None
+    return Path(current_app.root_path) / "static" / "uploads" / "treinamento_generated" / relative
+
+
+def asset_exists(url):
+    path = str(url or "").strip()
+    if not path:
+        return False
+    if path.startswith(("http://", "https://", "data:")):
+        return True
+    local = local_path_from_asset_url(path)
+    if local is None:
+        return False
+    return local.is_file()
 
 
 def _root(folder=""):

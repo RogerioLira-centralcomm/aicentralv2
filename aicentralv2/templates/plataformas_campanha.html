@@ -1,4 +1,5 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
@@ -20,8 +21,8 @@
       </div>
 
       <div class="flex gap-2">
-        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Nova Plataforma
+        <button type="button" onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1" aria-hidden="true"></i>Nova Plataforma
         </button>
       </div>
     </div>
@@ -29,16 +30,8 @@
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-4 space-y-2">
-        {% for category, message in messages %}
-          <div class="p-3 rounded-lg text-sm
-            {%- if category == 'success' %} bg-green-100 text-green-800
-            {%- elif category == 'error' %} bg-red-100 text-red-800
-            {%- else %} bg-gray-100 text-gray-800
-            {%- endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
+      <div class="mb-4">
+        {{ flash_messages(messages) }}
       </div>
     {% endif %}
   {% endwith %}
@@ -106,7 +99,7 @@
                           onclick='abrirModalEditar({{ {"id": p.id_plataforma, "descricao": p.descricao or "", "categoria": p.categoria or "", "indice": p.indice, "status": true if p.status else false, "tech_partner": p.tech_partner or "", "tech_fee": (p.tech_fee|float) if p.tech_fee is not none else none, "metodo_pagamento": p.metodo_pagamento or "", "detalhe_pagamento": p.detalhe_pagamento or ""} | tojson }})'
                           class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
                           title="Editar">
-                    <i class="fas fa-edit"></i>
+                    <i class="fas fa-edit" aria-hidden="true"></i>
                   </button>
                   <form method="POST"
                         action="{{ url_for('plataforma_campanha_excluir', id_plat=p.id_plataforma) }}"
@@ -115,7 +108,7 @@
                     <button type="submit"
                             class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                             title="Excluir">
-                      <i class="fas fa-trash"></i>
+                      <i class="fas fa-trash" aria-hidden="true"></i>
                     </button>
                   </form>
                 </div>
@@ -126,12 +119,12 @@
         </table>
       </div>
     {% else %}
-      <div class="text-center py-12">
-        <i class="fas fa-layer-group text-6xl text-gray-300 mb-4"></i>
-        <p class="text-gray-500 text-lg mb-4">Nenhuma plataforma de campanha cadastrada.</p>
-        <button onclick="abrirModalNovo()"
-                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Cadastrar Primeira Plataforma
+      <div class="cx-empty-state py-12">
+        <i class="fas fa-layer-group" aria-hidden="true"></i>
+        <h2>Nenhuma plataforma cadastrada</h2>
+        <p>Nenhuma plataforma de campanha foi cadastrada ainda.</p>
+        <button type="button" onclick="abrirModalNovo()" class="cx-btn cx-btn-primary cx-btn-sm">
+          <i class="fas fa-plus mr-1" aria-hidden="true"></i>Cadastrar primeira plataforma
         </button>
       </div>
     {% endif %}
@@ -139,29 +132,31 @@
 </div>
 
 <!-- Modal de Criação/Edição -->
-<dialog id="modal_plataforma" class="modal">
-  <div class="modal-box w-11/12 max-w-lg bg-white p-0 rounded-lg">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Nova Plataforma</h3>
-      <button onclick="modal_plataforma.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+<dialog id="modal_plataforma" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4 sticky top-0 z-10">
+      <h3 id="modal_title" class="cx-modal-title">Nova Plataforma</h3>
+      <button type="button" onclick="modal_plataforma.close()" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Fechar">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
 
-    <div class="p-6">
+    <div class="cx-modal-content">
       <form id="plataformaForm" method="POST" action="{{ url_for('plataforma_campanha_nova') }}">
-        <div class="mb-4">
-          <label for="descricao" class="block text-sm font-medium text-gray-700 mb-1">
-            Descrição <span class="text-red-500">*</span>
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="descricao">
+            <span class="cx-label text-xs">Descrição <span class="text-red-500">*</span></span>
           </label>
           <input type="text" id="descricao" name="descricao" required maxlength="150"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                 class="cx-input cx-input-sm w-full">
         </div>
 
-        <div class="mb-4">
-          <label for="categoria_select" class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="categoria_select">
+            <span class="cx-label text-xs">Categoria</span>
+          </label>
           <select id="categoria_select" onchange="onCategoriaChange()"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                  class="cx-select cx-select-sm w-full">
             <option value="">— Sem categoria —</option>
             {% for c in (categorias_canonicas or []) %}
             <option value="{{ c }}">{{ c }}</option>
@@ -169,35 +164,43 @@
             <option value="__outra__">Outra...</option>
           </select>
           <input type="text" id="categoria_outra" maxlength="80" placeholder="Digite a categoria"
-                 class="mt-2 hidden w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                 class="mt-2 hidden cx-input cx-input-sm w-full">
           <input type="hidden" id="categoria" name="categoria">
         </div>
 
-        <div class="mb-4">
-          <label for="indice" class="block text-sm font-medium text-gray-700 mb-1">Índice</label>
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="indice">
+            <span class="cx-label text-xs">Índice</span>
+          </label>
           <input type="number" id="indice" name="indice"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                 class="cx-input cx-input-sm w-full">
         </div>
 
-        <div class="mb-4">
-          <label for="tech_partner" class="block text-sm font-medium text-gray-700 mb-1">Tech Partner</label>
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="tech_partner">
+            <span class="cx-label text-xs">Tech Partner</span>
+          </label>
           <input type="text" id="tech_partner" name="tech_partner" maxlength="120"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                 class="cx-input cx-input-sm w-full">
         </div>
 
-        <div class="mb-4">
-          <label for="tech_fee" class="block text-sm font-medium text-gray-700 mb-1">Tech fee (%)</label>
-          <div class="flex items-center gap-2">
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="tech_fee">
+            <span class="cx-label text-xs">Tech fee (%)</span>
+          </label>
+          <div class="flex items-center gap-1.5">
             <input type="number" id="tech_fee" name="tech_fee" step="0.01" min="0" max="100" placeholder="0,00"
-                   class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-            <span class="text-sm text-gray-500 shrink-0">%</span>
+                   class="cx-input cx-input-sm min-w-0 flex-1">
+            <span class="text-xs text-gray-500 shrink-0 tabular-nums">%</span>
           </div>
         </div>
 
-        <div class="mb-4">
-          <label for="metodo_pagamento" class="block text-sm font-medium text-gray-700 mb-1">Método de pagamento</label>
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="metodo_pagamento">
+            <span class="cx-label text-xs">Método de pagamento</span>
+          </label>
           <select id="metodo_pagamento" name="metodo_pagamento"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                  class="cx-select cx-select-sm w-full">
             <option value="">—</option>
             <option value="cartao_credito">Cartão de Crédito</option>
             <option value="pix">PIX</option>
@@ -205,34 +208,33 @@
           </select>
         </div>
 
-        <div class="mb-4">
-          <label for="detalhe_pagamento" class="block text-sm font-medium text-gray-700 mb-1">Detalhe do pagamento</label>
-          <textarea id="detalhe_pagamento" name="detalhe_pagamento" rows="2" maxlength="500"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"></textarea>
-        </div>
-
-        <div class="mb-4">
-          <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="status" name="status" checked
-                   class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400">
-            <span class="text-sm font-medium text-gray-700">Ativo</span>
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="detalhe_pagamento">
+            <span class="cx-label text-xs">Detalhe do pagamento</span>
           </label>
+          <textarea id="detalhe_pagamento" name="detalhe_pagamento" rows="2" maxlength="500"
+                    class="cx-textarea cx-textarea-sm w-full"></textarea>
         </div>
 
-        <div class="mt-6 flex justify-end gap-3">
-          <button type="button" onclick="modal_plataforma.close()"
-                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+        <label class="cx-label-row cursor-pointer justify-start gap-2 mb-3">
+          <input type="checkbox" id="status" name="status" checked class="cx-checkbox cx-checkbox-sm">
+          <span class="cx-label text-xs">Ativo</span>
+        </label>
+
+        <div class="cx-modal-actions mt-0">
+          <button type="button" onclick="modal_plataforma.close()" class="cx-btn cx-btn-sm cx-btn-secondary">
             Cancelar
           </button>
-          <button type="submit"
-                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <button type="submit" class="cx-btn cx-btn-sm cx-btn-primary">
             Salvar
           </button>
         </div>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button aria-label="Fechar">close</button>
+  </form>
 </dialog>
 {% endblock %}
 

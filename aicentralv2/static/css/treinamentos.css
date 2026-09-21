@@ -181,26 +181,17 @@
   font-size: 15px;
 }
 
-.ts-enrich {
-  display: block;
-  width: calc(100% - 16px);
-  margin: 14px 8px 0;
-  border: 1px solid var(--cx-border, #e2e8f0);
-  background: var(--cx-surface, #fff);
-  color: var(--cx-brand, #1e4d4f);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: center;
-  text-decoration: none;
-}
-
 a.ts-project {
   background: #071422;
   color: #5eead4;
   border-color: #071422;
+  text-decoration: none;
+  text-align: center;
+}
+
+a.ts-project:hover {
+  background: #0f2a45;
+  color: #5eead4;
 }
 
 .ts-editor-pane {
@@ -234,38 +225,17 @@ a.ts-project {
   color: #94a3b8;
 }
 
-.ts-import input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  font-size: 13px;
-  color: #0f172a;
-  background: transparent;
-}
-
-.ts-import-btn,
-.ts-format button,
-.ts-format select {
+.ts-import .cx-input {
   border: 0;
   background: transparent;
-  color: #475569;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
   font-size: 13px;
-  cursor: pointer;
 }
 
-.ts-import-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 600;
-}
-
-.ts-import-btn:hover,
-.ts-format button:hover {
-  background: #f1f5f9;
+.ts-format .cx-select-sm {
+  max-width: 7.5rem;
 }
 
 .ts-format {
@@ -274,9 +244,11 @@ a.ts-project {
   gap: 2px;
 }
 
-.ts-format button {
+.ts-format .cx-btn-ghost {
   width: 32px;
   height: 32px;
+  min-width: 32px;
+  padding: 0;
   border-radius: 8px;
 }
 
@@ -559,16 +531,6 @@ a.ts-project {
   position: relative;
 }
 
-.ts-icon-btn {
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  background: #fff;
-  color: #475569;
-  cursor: pointer;
-}
-
 .ts-more-menu {
   position: absolute;
   right: 0;
@@ -620,27 +582,12 @@ a.ts-project {
   gap: 8px;
 }
 
-.ts-actions button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  border-radius: 999px;
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #334155;
-  cursor: pointer;
-}
-
-.ts-actions button.is-active {
+.ts-actions .cx-btn.is-active {
   border-color: #5eead4;
   color: #0f766e;
 }
 
-.ts-actions button:disabled {
+.ts-actions .cx-btn:disabled {
   opacity: .45;
   cursor: not-allowed;
 }
@@ -661,23 +608,7 @@ a.ts-project {
   font-size: 14px;
 }
 
-.ts-badge {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.ts-badge[data-tool="edicao"] { background: #e0f2fe; color: #075985; }
-.ts-badge[data-tool="pesquisa"] { background: #fef3c7; color: #92400e; }
-.ts-badge[data-tool="imagem"] { background: #d1fae5; color: #065f46; }
-
-.ts-preview,
-.ts-panel textarea {
+.ts-preview {
   width: 100%;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -714,29 +645,10 @@ a.ts-project {
   border: 1px solid rgba(15, 23, 42, .08);
 }
 
-.ts-btn-primary,
-.ts-import-actions button:first-child {
-  width: 100%;
-  border: 0;
-  border-radius: 8px;
-  background: var(--cx-brand, #1e4d4f);
-  color: #fff;
-  font-weight: 700;
-  padding: 10px 14px;
-  cursor: pointer;
-}
-
 .ts-canal-logo {
   max-width: 72px;
   float: none;
   margin: 0 0 8px;
-}
-
-.ts-btn-ghost {
-  border: 0;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
 }
 
 .ts-image-frame {
@@ -752,7 +664,7 @@ a.ts-project {
   width: 100%;
 }
 
-.ts-image-frame .ts-icon-btn {
+.ts-image-frame .cx-btn {
   position: absolute;
   top: 8px;
   right: 8px;
@@ -841,77 +753,23 @@ a.ts-project {
   pointer-events: none;
 }
 
-.ts-import-modal {
-  width: min(1080px, calc(100vw - 32px));
-  max-height: calc(100vh - 40px);
-  padding: 0;
-  border: 1px solid #123047;
-  border-radius: 18px;
-  background: #f8fafc;
-  color: #071422;
-  box-shadow: 0 32px 80px rgba(7, 20, 34, .35);
-}
-
-.ts-import-modal::backdrop {
-  background: rgba(7, 20, 34, .62);
-}
-
-.ts-import-modal form {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 40px);
-}
-
-.ts-import-modal-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px 0;
-}
-
-.ts-import-modal-head p {
-  margin: 0;
-  color: #0f766e;
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.ts-import-modal-head h2 {
-  margin: 2px 0 0;
-  font-size: 22px;
-  letter-spacing: -.03em;
-}
-
 .ts-import-modal-url {
   display: flex;
+  align-items: center;
   gap: 8px;
-  margin: 14px 20px 0;
+  margin: 0 0 12px;
   padding: 6px 6px 6px 14px;
-  border: 1px solid #d6dee8;
+  border: 1px solid var(--cx-border, #d6dee8);
   border-radius: 999px;
   background: #fff;
 }
 
-.ts-import-modal-url input {
-  flex: 1;
-  min-width: 0;
+.ts-import-modal-url .cx-input {
   border: 0;
-  outline: none;
-  font-size: 14px;
   background: transparent;
-}
-
-.ts-import-modal-url button {
-  border: 0;
-  border-radius: 999px;
-  padding: 8px 16px;
-  background: #071422;
-  color: #f8fafc;
-  font-weight: 700;
-  cursor: pointer;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .ts-import-pipeline {
@@ -1088,33 +946,6 @@ a.ts-project {
   color: #64748b;
   font-size: 14px;
   line-height: 1.5;
-}
-
-.ts-import-modal-foot {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 16px 20px 18px;
-}
-
-.ts-import-modal-foot .ts-btn-primary {
-  width: auto;
-}
-
-.ts-import-modal-foot button:not(.ts-btn-ghost):not(.ts-btn-primary) {
-  border: 0;
-  border-radius: 999px;
-  padding: 8px 14px;
-  background: #e2e8f0;
-  color: #071422;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.ts-import-modal-foot button:disabled {
-  opacity: .45;
-  cursor: not-allowed;
 }
 
 @media (max-width: 820px) {

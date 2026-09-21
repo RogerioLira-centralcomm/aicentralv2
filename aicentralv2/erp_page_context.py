@@ -123,6 +123,20 @@ def resolve_page_context():
     }
 
 
+LEGACY_DAISY_EXCLUDED_ENDPOINTS = frozenset({
+    "logs_auditoria",
+    "tbl_setor",
+    "tbl_cargo_contato",
+    "faixas_calculo_pi_lista",
+    "incentivos_lista",
+    "plataformas_campanha",
+    "parametros.treinamentos",
+})
+
+
 def uses_legacy_daisy():
     """Restringe DaisyUI às áreas antigas explicitamente fora da migração."""
-    return resolve_page_context()["module"] == "parametros"
+    ctx = resolve_page_context()
+    if ctx["module"] != "parametros":
+        return False
+    return ctx["endpoint"] not in LEGACY_DAISY_EXCLUDED_ENDPOINTS

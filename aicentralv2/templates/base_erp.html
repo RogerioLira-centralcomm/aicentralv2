@@ -760,7 +760,8 @@
                 <div class="flex items-center gap-2">
                     <span class="erp-avatar">
                         {% if perfil_contato and perfil_contato.foto_url %}
-                            <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil">
+                            <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                            <span hidden>{{ session.get('user_name', 'U')[:2]|upper }}</span>
                         {% else %}
                             {{ session.get('user_name', 'U')[:2]|upper }}
                         {% endif %}
@@ -881,7 +882,8 @@
                     <button type="button" class="erp-user-trigger" id="erp-user-trigger" aria-haspopup="menu" aria-expanded="false">
                         <span class="erp-avatar">
                             {% if perfil_contato and perfil_contato.foto_url %}
-                                <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil">
+                                <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                                <span hidden>{{ session.get('user_name', 'U')[:2]|upper }}</span>
                             {% else %}
                                 {{ session.get('user_name', 'U')[:2]|upper }}
                             {% endif %}
@@ -936,7 +938,8 @@
                 <div class="flex items-center gap-3">
                     <span class="erp-avatar h-10 w-10">
                         {% if perfil_contato and perfil_contato.foto_url %}
-                            <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil">
+                            <img src="{{ perfil_contato.foto_url }}" alt="Foto de perfil" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                            <span hidden>{{ session.get('user_name', 'U')[:2]|upper }}</span>
                         {% else %}
                             {{ session.get('user_name', 'U')[:2]|upper }}
                         {% endif %}

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=13">
 {% endblock %}
 
 {% block content %}
@@ -16,18 +16,18 @@
     <p class="ts-sessions-kicker">Imersão · 28/set · 9h30–12h30</p>
     <h2>Sessões</h2>
     <ol id="tsSessionList"></ol>
-    <button type="button" id="tsAddSession" class="ts-enrich">+ Sessão</button>
-    <a id="tsProjectBtn" class="ts-enrich ts-project" href="/parametros/treinamentos/projetar">Projetar sessão</a>
-    <a class="ts-enrich ts-project" href="/parametros/treinamentos/projetar">Projetar manhã</a>
-    <button type="button" id="tsIllustrateBtn" class="ts-enrich">Gerar ilustrações</button>
-    <button type="button" id="tsEnrichBtn" class="ts-enrich">Enriquecer canais</button>
+    <button type="button" id="tsAddSession" class="cx-btn cx-btn-sm cx-btn-secondary w-[calc(100%-16px)] mx-2 mt-3.5">+ Sessão</button>
+    <a id="tsProjectBtn" class="ts-project cx-btn cx-btn-sm cx-btn-secondary w-[calc(100%-16px)] mx-2 mt-3.5" href="/parametros/treinamentos/projetar">Projetar sessão</a>
+    <a class="ts-project cx-btn cx-btn-sm cx-btn-secondary w-[calc(100%-16px)] mx-2 mt-3.5" href="/parametros/treinamentos/projetar">Projetar manhã</a>
+    <button type="button" id="tsIllustrateBtn" class="cx-btn cx-btn-sm cx-btn-secondary w-[calc(100%-16px)] mx-2 mt-3.5">Gerar ilustrações</button>
+    <button type="button" id="tsEnrichBtn" class="cx-btn cx-btn-sm cx-btn-secondary w-[calc(100%-16px)] mx-2 mt-3.5">Enriquecer canais</button>
   </nav>
   <section class="ts-editor-pane" aria-label="Editor do treinamento">
     <header class="ts-toolbar">
       <label class="ts-import">
         <i class="fa-solid fa-link" aria-hidden="true"></i>
-        <input id="tsImportUrl" type="url" placeholder="Cole um link — página ou YouTube" autocomplete="off">
-        <button type="button" id="tsImportBtn" class="ts-import-btn">
+        <input id="tsImportUrl" type="url" class="cx-input cx-input-sm min-w-0 flex-1" placeholder="Cole um link — página ou YouTube" autocomplete="off">
+        <button type="button" id="tsImportBtn" class="cx-btn cx-btn-sm cx-btn-primary shrink-0">
           <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
           Importar
         </button>
@@ -38,24 +38,24 @@
         <span>PDF ou imagem</span>
       </label>
       <div class="ts-format" role="toolbar" aria-label="Formatação">
-        <button type="button" data-cmd="bold" title="Negrito"><strong>B</strong></button>
-        <button type="button" data-cmd="italic" title="Itálico"><em>I</em></button>
-        <button type="button" data-cmd="underline" title="Sublinhado"><u>U</u></button>
-        <button type="button" data-cmd="createLink" title="Link"><i class="fa-solid fa-link"></i></button>
-        <button type="button" data-cmd="insertUnorderedList" title="Lista"><i class="fa-solid fa-list-ul"></i></button>
-        <button type="button" data-cmd="insertOrderedList" title="Lista numerada"><i class="fa-solid fa-list-ol"></i></button>
-        <select id="tsBlock" aria-label="Parágrafo">
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" data-cmd="bold" title="Negrito"><strong>B</strong></button>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" data-cmd="italic" title="Itálico"><em>I</em></button>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" data-cmd="underline" title="Sublinhado"><u>U</u></button>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" data-cmd="createLink" title="Link"><i class="fa-solid fa-link" aria-hidden="true"></i></button>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" data-cmd="insertUnorderedList" title="Lista"><i class="fa-solid fa-list-ul" aria-hidden="true"></i></button>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost" data-cmd="insertOrderedList" title="Lista numerada"><i class="fa-solid fa-list-ol" aria-hidden="true"></i></button>
+        <select id="tsBlock" class="cx-select cx-select-sm" aria-label="Parágrafo">
           <option value="P">Parágrafo</option>
           <option value="H2">Título</option>
           <option value="H3">Subtítulo</option>
         </select>
-        <button type="button" id="tsAddPage" title="Nova página">Página</button>
-        <select id="tsPageLayout" aria-label="Layout da página">
+        <button type="button" id="tsAddPage" class="cx-btn cx-btn-sm cx-btn-ghost" title="Nova página">Página</button>
+        <select id="tsPageLayout" class="cx-select cx-select-sm" aria-label="Layout da página">
           <option value="copy">Só texto</option>
           <option value="split">Texto + imagem</option>
           <option value="title">Título</option>
         </select>
-        <button type="button" id="tsSurfaceBtn" title="Roteiro ou palco 16:9">Palco</button>
+        <button type="button" id="tsSurfaceBtn" class="cx-btn cx-btn-sm cx-btn-ghost" title="Roteiro ou palco 16:9">Palco</button>
       </div>
       <div class="ts-cost" id="tsCost" title="Consumo de IA nesta sessão">
         Sessão <strong>R$ 0,00</strong>
@@ -63,49 +63,57 @@
       </div>
     </header>
 
-    <dialog id="tsImportModal" class="ts-import-modal" aria-labelledby="tsImportModalTitle">
-      <form method="dialog" id="tsImportForm">
-        <header class="ts-import-modal-head">
+    <dialog id="tsImportModal" class="cx-modal-shell" aria-labelledby="tsImportModalTitle">
+      <div class="cx-modal-panel cx-modal-panel-md max-w-[1080px] max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4 sticky top-0 z-10">
           <div>
-            <p>Ingestão</p>
-            <h2 id="tsImportModalTitle">Importar fonte</h2>
+            <p class="ts-import-kicker mb-0">Ingestão</p>
+            <h2 id="tsImportModalTitle" class="cx-modal-title mt-0.5">Importar fonte</h2>
           </div>
-          <button type="submit" value="cancel" class="ts-icon-btn" aria-label="Fechar">
-            <i class="fa-solid fa-xmark"></i>
+          <button type="button" onclick="document.getElementById('tsImportModal').close()" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Fechar">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
-        </header>
-        <label class="ts-import-modal-url">
-          <input id="tsImportModalUrl" type="url" placeholder="https://…" autocomplete="off">
-          <button type="button" id="tsImportRun">Ler</button>
-        </label>
-        <ol id="tsImportPipeline" class="ts-import-pipeline" hidden></ol>
-        <div id="tsImportBody" class="ts-import-body" hidden>
-          <aside class="ts-import-stage">
-            <div id="tsImportStageMedia" class="ts-import-stage-media"></div>
-            <p id="tsImportMeta"></p>
-          </aside>
-          <div class="ts-import-board">
-            <nav class="ts-import-tabs" role="tablist" aria-label="Resultado da ingestão">
-              <button type="button" role="tab" data-tab="fonte" aria-selected="true">Fonte</button>
-              <button type="button" role="tab" data-tab="texto" aria-selected="false">Texto</button>
-              <button type="button" role="tab" data-tab="quadros" aria-selected="false">Quadros</button>
-              <button type="button" role="tab" data-tab="briefing" aria-selected="false">Briefing</button>
-            </nav>
-            <section id="tsImportTabFonte" class="ts-import-tab" data-tab="fonte"></section>
-            <section id="tsImportTabTexto" class="ts-import-tab" data-tab="texto" hidden></section>
-            <section id="tsImportTabQuadros" class="ts-import-tab" data-tab="quadros" hidden></section>
-            <section id="tsImportTabBriefing" class="ts-import-tab" data-tab="briefing" hidden></section>
-          </div>
         </div>
-        <p id="tsImportEmpty" class="ts-import-empty">
-          A fonte vira sessão nova. Se for longa, separamos tese, quadros e fala para o instrutor organizar.
-        </p>
-        <p id="tsImportPlan" class="ts-import-plan" hidden></p>
-        <footer class="ts-import-modal-foot">
-          <button type="submit" value="cancel" class="ts-btn-ghost">Descartar</button>
-          <button type="button" id="tsImportApply" disabled>Só contexto</button>
-          <button type="button" id="tsImportApplyRoteiro" class="ts-btn-primary" disabled>Criar sessão</button>
-        </footer>
+
+        <div class="cx-modal-content">
+          <form method="dialog" id="tsImportForm">
+            <label class="ts-import-modal-url">
+              <input id="tsImportModalUrl" type="url" class="cx-input cx-input-sm min-w-0 flex-1" placeholder="https://…" autocomplete="off">
+              <button type="button" id="tsImportRun" class="cx-btn cx-btn-sm cx-btn-primary shrink-0">Ler</button>
+            </label>
+            <ol id="tsImportPipeline" class="ts-import-pipeline" hidden></ol>
+            <div id="tsImportBody" class="ts-import-body" hidden>
+              <aside class="ts-import-stage">
+                <div id="tsImportStageMedia" class="ts-import-stage-media"></div>
+                <p id="tsImportMeta"></p>
+              </aside>
+              <div class="ts-import-board">
+                <nav class="ts-import-tabs" role="tablist" aria-label="Resultado da ingestão">
+                  <button type="button" role="tab" data-tab="fonte" aria-selected="true">Fonte</button>
+                  <button type="button" role="tab" data-tab="texto" aria-selected="false">Texto</button>
+                  <button type="button" role="tab" data-tab="quadros" aria-selected="false">Quadros</button>
+                  <button type="button" role="tab" data-tab="briefing" aria-selected="false">Briefing</button>
+                </nav>
+                <section id="tsImportTabFonte" class="ts-import-tab" data-tab="fonte"></section>
+                <section id="tsImportTabTexto" class="ts-import-tab" data-tab="texto" hidden></section>
+                <section id="tsImportTabQuadros" class="ts-import-tab" data-tab="quadros" hidden></section>
+                <section id="tsImportTabBriefing" class="ts-import-tab" data-tab="briefing" hidden></section>
+              </div>
+            </div>
+            <p id="tsImportEmpty" class="ts-import-empty">
+              A fonte vira sessão nova. Se for longa, separamos tese, quadros e fala para o instrutor organizar.
+            </p>
+            <p id="tsImportPlan" class="ts-import-plan" hidden></p>
+            <div class="cx-modal-actions mt-0">
+              <button type="submit" value="cancel" class="cx-btn cx-btn-sm cx-btn-secondary">Descartar</button>
+              <button type="button" id="tsImportApply" class="cx-btn cx-btn-sm cx-btn-secondary" disabled>Só contexto</button>
+              <button type="button" id="tsImportApplyRoteiro" class="cx-btn cx-btn-sm cx-btn-primary" disabled>Criar sessão</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <form method="dialog" class="cx-modal-dismiss">
+        <button aria-label="Fechar">close</button>
       </form>
     </dialog>
 
@@ -127,13 +135,13 @@
         <strong>Agente</strong>
         <span>Mesa de especialistas</span>
       </div>
-      <label class="ts-web-toggle" title="OpenAI busca na internet">
-        <input type="checkbox" id="tsWebSearch">
-        Buscar na internet
+      <label class="cx-label-row cursor-pointer justify-start gap-2 ts-web-toggle" title="OpenAI busca na internet">
+        <input type="checkbox" id="tsWebSearch" class="cx-checkbox cx-checkbox-sm">
+        <span class="cx-label text-xs">Buscar na internet</span>
       </label>
       <div class="ts-more">
-        <button type="button" id="tsMoreToggle" class="ts-icon-btn" aria-label="Mais ações" aria-expanded="false">
-          <i class="fa-solid fa-ellipsis"></i>
+        <button type="button" id="tsMoreToggle" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Mais ações" aria-expanded="false">
+          <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
         </button>
         <div id="tsMoreMenu" class="ts-more-menu" hidden>
           <button type="button" data-action="resumir">Resumir</button>
@@ -150,64 +158,64 @@
 
     <section id="tsFocus" class="ts-focus" hidden>
       <p id="tsFocusLabel">Nenhuma página em foco</p>
-      <div>
-        <button type="button" data-action="gerar_slide">Gerar palco</button>
-        <button type="button" data-action="reorganizar_slide">Reorganizar</button>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-action="gerar_slide">Gerar palco</button>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-action="reorganizar_slide">Reorganizar</button>
       </div>
     </section>
 
     <div class="ts-actions" role="toolbar" aria-label="Ações do agente">
-      <button type="button" data-action="reescrever" disabled>
-        <i class="fa-solid fa-rotate"></i> Reescrever
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-action="reescrever" disabled>
+        <i class="fa-solid fa-rotate" aria-hidden="true"></i> Reescrever
       </button>
-      <button type="button" data-action="pesquisar">
-        <i class="fa-solid fa-magnifying-glass"></i> Pesquisar
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-action="pesquisar">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Pesquisar
       </button>
-      <button type="button" data-action="gerar_imagem">
-        <i class="fa-regular fa-image"></i> Gerar imagem
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-action="gerar_imagem">
+        <i class="fa-regular fa-image" aria-hidden="true"></i> Gerar imagem
       </button>
-      <button type="button" data-action="expandir" disabled>
-        <i class="fa-solid fa-up-right-and-down-left-from-center"></i> Expandir
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-action="expandir" disabled>
+        <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i> Expandir
       </button>
     </div>
 
     <section id="tsPanelEdit" class="ts-panel" hidden>
       <header>
         <span id="tsPanelEditTitle">Reescrever</span>
-        <span class="ts-badge" data-tool="edicao">edição</span>
+        <span class="cx-badge cx-badge-info" data-tool="edicao">edição</span>
       </header>
       <div id="tsEditPreview" class="ts-preview"></div>
-      <button type="button" id="tsApplyEdit" class="ts-btn-primary">Aplicar no texto</button>
+      <button type="button" id="tsApplyEdit" class="cx-btn cx-btn-sm cx-btn-primary w-full">Aplicar no texto</button>
     </section>
 
     <section id="tsPanelResearch" class="ts-panel" hidden>
       <header>
         <span>Pesquisa de mercado</span>
-        <span class="ts-badge" data-tool="pesquisa">pesquisa</span>
+        <span class="cx-badge cx-badge-warning" data-tool="pesquisa">pesquisa</span>
       </header>
       <div id="tsResearchPreview" class="ts-preview"></div>
-      <button type="button" id="tsApplyResearch" class="ts-btn-primary">Incorporar ao texto</button>
+      <button type="button" id="tsApplyResearch" class="cx-btn cx-btn-sm cx-btn-primary w-full">Incorporar ao texto</button>
     </section>
 
     <section id="tsPanelImage" class="ts-panel" hidden>
       <header>
-        <span><i class="fa-regular fa-image"></i> Gerar imagem</span>
-        <span class="ts-badge" data-tool="imagem">imagem</span>
+        <span><i class="fa-regular fa-image" aria-hidden="true"></i> Gerar imagem</span>
+        <span class="cx-badge cx-badge-success" data-tool="imagem">imagem</span>
       </header>
-      <textarea id="tsImagePrompt" rows="4" placeholder="Descreva a ilustração…"></textarea>
+      <textarea id="tsImagePrompt" rows="4" class="cx-textarea cx-textarea-sm w-full" placeholder="Descreva a ilustração…"></textarea>
       <div class="ts-style-row">
-        <span><i class="fa-solid fa-palette"></i> Guia de estilo do treinamento</span>
+        <span><i class="fa-solid fa-palette" aria-hidden="true"></i> Guia de estilo do treinamento</span>
         <span class="ts-swatches" id="tsSwatches"></span>
       </div>
-      <button type="button" id="tsGenerateImage" class="ts-btn-primary">
-        <i class="fa-solid fa-sparkles"></i> Gerar
+      <button type="button" id="tsGenerateImage" class="cx-btn cx-btn-sm cx-btn-primary w-full">
+        <i class="fa-solid fa-sparkles" aria-hidden="true"></i> Gerar
       </button>
       <div id="tsImageResult" class="ts-image-result" hidden>
         <p>Imagem gerada</p>
         <div class="ts-image-frame">
           <img id="tsImagePreview" alt="Imagem gerada">
-          <button type="button" id="tsInsertImage" class="ts-icon-btn" title="Inserir no texto">
-            <i class="fa-solid fa-border-all"></i>
+          <button type="button" id="tsInsertImage" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Inserir no texto">
+            <i class="fa-solid fa-border-all" aria-hidden="true"></i>
           </button>
         </div>
       </div>
@@ -224,9 +232,9 @@
     </section>
 
     <form id="tsChatForm" class="ts-chat">
-      <input id="tsChatInput" type="text" placeholder="Peça algo ao agente…" autocomplete="off">
-      <button type="submit" class="ts-icon-btn" aria-label="Enviar">
-        <i class="fa-solid fa-arrow-up"></i>
+      <input id="tsChatInput" type="text" class="cx-input cx-input-sm min-w-0 flex-1" placeholder="Peça algo ao agente…" autocomplete="off">
+      <button type="submit" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Enviar">
+        <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
       </button>
     </form>
     <div id="tsChatLog" class="ts-chat-log" aria-live="polite"></div>
@@ -235,5 +243,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=12" defer></script>
+<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=14" defer></script>
 {% endblock %}

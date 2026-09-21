@@ -13,7 +13,7 @@ from .repository import TrainingNotFoundError, TrainingStudioRepository
 from .research import fetch_logo_url, render_channel_html, replace_channel_block, research_channel
 from .slides import deck_from_sessao
 from .youtube import parse_youtube_id
-from .storage import TrainingAssetStorage
+from .storage import TrainingAssetStorage, asset_exists
 from .tools import (
     classify_attachment,
     compose_slide,
@@ -158,7 +158,7 @@ class TrainingStudioService:
         return annotate_consumo(self.repository.consumo(sessao_id))
 
     def list_imagens(self, sessao_id):
-        return self.repository.list_imagens(sessao_id)
+        return self._existing_imagens(self.repository.list_imagens(sessao_id))
 
     def import_url(self, sessao_id, url):
         sessao = self.repository.get_sessao(sessao_id)
@@ -270,7 +270,7 @@ class TrainingStudioService:
                 "criadas": created,
                 "sessoes": self.repository.list_sessoes(sessao["treinamento_id"]),
                 "fontes": self.repository.list_fontes(first.get("id") or sessao_id),
-                "imagens": self.repository.list_imagens(first.get("id") or sessao_id),
+                "imagens": self.list_imagens(first.get("id") or sessao_id),
                 "consumo": self.consumo(sessao_id),
             }
         self.repository.update_importacao(
@@ -289,7 +289,7 @@ class TrainingStudioService:
             "sessao": None,
             "sessoes": self.repository.list_sessoes(sessao["treinamento_id"]),
             "fontes": self.repository.list_fontes(sessao_id),
-            "imagens": self.repository.list_imagens(sessao_id),
+            "imagens": self.list_imagens(sessao_id),
             "consumo": self.consumo(sessao_id),
         }
 
@@ -727,10 +727,18 @@ class TrainingStudioService:
 
     def _public_sessao(self, sessao):
         data = dict(sessao)
+        data["imagens"] = self._existing_imagens(data.get("imagens") or [])
         data["consumo"] = annotate_consumo(sessao.get("consumo") or {})
         data["style_prompt"] = style_prompt(sessao.get("guia_estilo") or {})
         data["mensagens"] = self.repository.list_agent_messages(sessao["id"])
         return data
+
+    def _existing_imagens(self, imagens):
+        return [
+            item
+            for item in (imagens or [])
+            if asset_exists((item or {}).get("asset_url"))
+        ]
 
 
 def _merge_import_payload(data, importacao, fonte):

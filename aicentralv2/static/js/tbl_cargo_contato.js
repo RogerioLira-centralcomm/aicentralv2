@@ -79,14 +79,12 @@ function openCreateModal() {
 }
 
 function openEditModal(cargo) {
-    console.log('Dados do cargo recebidos:', cargo);
     modalTitle.textContent = 'Editar Cargo';
     cargoForm.querySelector('#cargoId').value = cargo.id_cargo_contato;
-    cargoForm.querySelector('#descricao').value = cargo.descricao;
-    cargoForm.querySelector('#setor').value = cargo.pk_id_aux_setor || '';
-    cargoForm.querySelector('#id_centralx').value = cargo.id_centralx || '';
-    cargoForm.querySelector('#indice').value = cargo.indice || '';
-    cargoForm.querySelector('#status').value = cargo.status.toString();
+    cargoForm.querySelector('#descricao').value = cargo.descricao || '';
+    cargoForm.querySelector('#setor').value = cargo.pk_id_aux_setor != null ? String(cargo.pk_id_aux_setor) : '';
+    cargoForm.querySelector('#indice').value = cargo.indice ?? '';
+    cargoForm.querySelector('#status').value = String(Boolean(cargo.status));
     cargoModal.showModal();
 }
 
@@ -113,9 +111,9 @@ async function handleSubmit(e) {
                 },
                 body: JSON.stringify({
                     descricao: formData.get('descricao'),
-                    pk_id_aux_setor: parseInt(formData.get('pk_id_aux_setor')),
-                    id_centralx: formData.get('id_centralx') || null,
-                    indice: formData.get('indice') ? parseInt(formData.get('indice')) : null,
+                    pk_id_aux_setor: parseInt(formData.get('pk_id_aux_setor'), 10),
+                    id_centralx: null,
+                    indice: formData.get('indice') ? parseInt(formData.get('indice'), 10) : null,
                     status: formData.get('status') === 'true'
                 })
             }

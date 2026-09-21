@@ -202,7 +202,10 @@
       var button = document.createElement('button');
       button.type = 'button';
       button.title = item.prompt || 'Inserir imagem';
-      button.innerHTML = '<img src="' + escapeAttr(item.asset_url) + '" alt="">';
+      button.innerHTML = '<img src="' + escapeAttr(item.asset_url) + '" alt="" loading="lazy">';
+      button.querySelector('img').addEventListener('error', function () {
+        button.remove();
+      });
       button.addEventListener('click', function () {
         insertImage(item.asset_url);
       });
@@ -210,11 +213,18 @@
     });
   }
 
+  function badgeClassForTool(tool) {
+    if (tool === 'edicao') return 'cx-badge cx-badge-info';
+    if (tool === 'pesquisa') return 'cx-badge cx-badge-warning';
+    if (tool === 'imagem') return 'cx-badge cx-badge-success';
+    return 'cx-badge cx-badge-muted';
+  }
+
   function appendChat(role, text, tool) {
     var article = document.createElement('article');
     article.innerHTML =
       '<strong>' + (role === 'user' ? 'Você' : 'Agente') + '</strong>' +
-      (tool ? ' <span class="ts-badge" data-tool="' + tool + '">' + tool + '</span>' : '') +
+      (tool ? ' <span class="' + badgeClassForTool(tool) + '" data-tool="' + tool + '">' + tool + '</span>' : '') +
       '<div>' + escapeHtml(text || '') + '</div>';
     chatLog.appendChild(article);
     chatLog.scrollTop = chatLog.scrollHeight;

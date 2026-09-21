@@ -150,6 +150,19 @@ def create_app(config_class=Config):
     except Exception:
         app.config['HAS_TAILWIND_BUILD'] = False
 
+    def resolve_existing_foto_url(foto_url):
+        """Ignora caminhos /static/... ausentes no disco para evitar 404 no avatar."""
+        if not foto_url:
+            return None
+        if foto_url.startswith(('http://', 'https://')):
+            return foto_url
+        if foto_url.startswith('/static/'):
+            from pathlib import Path
+            rel_path = foto_url[len('/static/'):]
+            file_path = Path(app.root_path) / 'static' / rel_path
+            return foto_url if file_path.is_file() else None
+        return foto_url
+
     # Tornar config acessível nos templates
     @app.context_processor
     def inject_config():
@@ -169,9 +182,11 @@ def create_app(config_class=Config):
                 # A foto definida no cadastro é a fonte principal. Quando a
                 # conta ainda não tem uma, o avatar recebido no SSO Google é
                 # mantido apenas na sessão e disponibilizado a todos os shells.
-                if perfil_contato and not perfil_contato.get('foto_url') and session.get('user_photo_url'):
+                if perfil_contato:
                     perfil_contato = dict(perfil_contato)
-                    perfil_contato['foto_url'] = session['user_photo_url']
+                    perfil_contato['foto_url'] = resolve_existing_foto_url(
+                        perfil_contato.get('foto_url')
+                    ) or resolve_existing_foto_url(session.get('user_photo_url'))
                 try:
                     perfil_google = db.obter_conexao_google_usuario(session['user_id'])
                 except Exception:

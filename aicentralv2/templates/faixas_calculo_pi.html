@@ -1,4 +1,5 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
@@ -16,7 +17,7 @@
         <input type="text" id="searchInput" placeholder="Buscar..."
                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
         <button type="button" onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Nova faixa
+          <i class="fas fa-plus mr-1" aria-hidden="true"></i>Nova faixa
         </button>
       </div>
     </div>
@@ -24,16 +25,8 @@
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-4 space-y-2">
-        {% for category, message in messages %}
-          <div class="p-3 rounded-lg text-sm
-            {%- if category == 'success' %} bg-green-100 text-green-800
-            {%- elif category == 'error' %} bg-red-100 text-red-800
-            {%- else %} bg-gray-100 text-gray-800
-            {%- endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
+      <div class="mb-4">
+        {{ flash_messages(messages) }}
       </div>
     {% endif %}
   {% endwith %}
@@ -76,7 +69,7 @@
                           onclick='abrirModalEditar({{ {"id": r.id, "faixa": r.faixa or "", "atingimento": r.atingimento or "", "perc_privado": r.perc_privado or "", "perc_governo": r.perc_governo or "", "fator_gov": r.fator_gov or ""} | tojson }})'
                           class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
                           title="Editar">
-                    <i class="fas fa-edit"></i>
+                    <i class="fas fa-edit" aria-hidden="true"></i>
                   </button>
                   <form method="POST"
                         action="{{ url_for('faixa_calculo_pi_excluir', id_fc=r.id) }}"
@@ -85,7 +78,7 @@
                     <button type="submit"
                             class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                             title="Excluir">
-                      <i class="fas fa-trash"></i>
+                      <i class="fas fa-trash" aria-hidden="true"></i>
                     </button>
                   </form>
                 </div>
@@ -96,79 +89,91 @@
         </table>
       </div>
     {% else %}
-      <div class="text-center py-12">
-        <i class="fas fa-table text-6xl text-gray-300 mb-4"></i>
-        <p class="text-gray-500 text-lg mb-4">Nenhuma faixa cadastrada.</p>
-        <button type="button" onclick="abrirModalNovo()"
-                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Cadastrar primeira faixa
+      <div class="cx-empty-state py-12">
+        <i class="fas fa-table" aria-hidden="true"></i>
+        <h2>Nenhuma faixa cadastrada</h2>
+        <p>Nenhuma faixa de cálculo PI foi cadastrada ainda.</p>
+        <button type="button" onclick="abrirModalNovo()" class="cx-btn cx-btn-primary cx-btn-sm">
+          <i class="fas fa-plus mr-1" aria-hidden="true"></i>Cadastrar primeira faixa
         </button>
       </div>
     {% endif %}
   </div>
 </div>
 
-<dialog id="modal_faixa" class="modal">
-  <div class="modal-box w-11/12 max-w-xl bg-white p-0 rounded-lg max-h-[90vh] overflow-y-auto">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-      <h3 class="font-semibold text-base text-gray-800" id="modal_title">Nova faixa</h3>
-      <button type="button" onclick="modal_faixa.close()" class="p-1.5 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500 text-sm"></i>
+<dialog id="modal_faixa" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4 sticky top-0 z-10">
+      <h3 id="modal_title" class="cx-modal-title">Nova faixa</h3>
+      <button type="button" onclick="modal_faixa.close()" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Fechar">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
 
-    <div class="p-4">
+    <div class="cx-modal-content">
       <form id="faixaForm" method="POST" action="{{ url_for('faixa_calculo_pi_novo') }}">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-          <div class="sm:col-span-1">
-            <label for="faixa" class="block text-xs font-medium text-gray-700 mb-0.5">Faixa <span class="text-red-500">*</span></label>
+          <div class="cx-field sm:col-span-1">
+            <label class="cx-label-row py-0" for="faixa">
+              <span class="cx-label text-xs">Faixa *</span>
+            </label>
             <input type="text" id="faixa" name="faixa" required maxlength="500"
-                   class="w-full py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
+                   class="cx-input cx-input-sm w-full">
           </div>
-          <div class="sm:col-span-1">
-            <label for="atingimento" class="block text-xs font-medium text-gray-700 mb-0.5">Atingimento</label>
+          <div class="cx-field sm:col-span-1">
+            <label class="cx-label-row py-0" for="atingimento">
+              <span class="cx-label text-xs">Atingimento</span>
+            </label>
             <input type="text" id="atingimento" name="atingimento" maxlength="500"
-                   class="w-full py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
+                   class="cx-input cx-input-sm w-full">
           </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-          <div>
-            <label for="perc_privado" class="block text-xs font-medium text-gray-700 mb-0.5">% privado</label>
-            <div class="flex items-center gap-1.5">
-              <input type="text" id="perc_privado" name="perc_privado" maxlength="500"
-                     class="min-w-0 flex-1 py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
-              <span class="text-xs text-gray-500 shrink-0 tabular-nums">%</span>
-            </div>
-          </div>
-          <div>
-            <label for="perc_governo" class="block text-xs font-medium text-gray-700 mb-0.5">% governo</label>
-            <div class="flex items-center gap-1.5">
-              <input type="text" id="perc_governo" name="perc_governo" maxlength="500"
-                     class="min-w-0 flex-1 py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
-              <span class="text-xs text-gray-500 shrink-0 tabular-nums">%</span>
-            </div>
-          </div>
-        </div>
-        <div class="mb-3">
-          <label for="fator_gov" class="block text-xs font-medium text-gray-700 mb-0.5">Fator gov</label>
-          <input type="text" id="fator_gov" name="fator_gov" maxlength="500"
-                 class="w-full py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
         </div>
 
-        <div class="mt-4 flex justify-end gap-2 border-t border-gray-100 pt-3">
-          <button type="button" onclick="modal_faixa.close()"
-                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+          <div class="cx-field">
+            <label class="cx-label-row py-0" for="perc_privado">
+              <span class="cx-label text-xs">% privado</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="perc_privado" name="perc_privado" maxlength="500"
+                     class="cx-input cx-input-sm min-w-0 flex-1">
+              <span class="text-xs text-gray-500 shrink-0 tabular-nums">%</span>
+            </div>
+          </div>
+          <div class="cx-field">
+            <label class="cx-label-row py-0" for="perc_governo">
+              <span class="cx-label text-xs">% governo</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="perc_governo" name="perc_governo" maxlength="500"
+                     class="cx-input cx-input-sm min-w-0 flex-1">
+              <span class="text-xs text-gray-500 shrink-0 tabular-nums">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cx-field mb-3 sm:col-span-2">
+          <label class="cx-label-row py-0" for="fator_gov">
+            <span class="cx-label text-xs">Fator gov</span>
+          </label>
+          <input type="text" id="fator_gov" name="fator_gov" maxlength="500"
+                 class="cx-input cx-input-sm w-full">
+        </div>
+
+        <div class="cx-modal-actions mt-0">
+          <button type="button" onclick="modal_faixa.close()" class="cx-btn cx-btn-sm cx-btn-secondary">
             Cancelar
           </button>
-          <button type="submit"
-                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <button type="submit" class="cx-btn cx-btn-sm cx-btn-primary">
             Salvar
           </button>
         </div>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button aria-label="Fechar">close</button>
+  </form>
 </dialog>
 {% endblock %}
 

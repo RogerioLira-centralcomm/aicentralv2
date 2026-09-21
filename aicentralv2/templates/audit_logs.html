@@ -1,4 +1,5 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
@@ -8,31 +9,25 @@
 <div class="w-full px-2 sm:px-4">
   <div class="flex items-center justify-between mb-3">
     <div>
-      <h1 class="text-lg font-semibold leading-tight">Logs de Auditoria</h1>
-      <p class="text-sm text-base-content/70">Histórico completo de ações administrativas do sistema.</p>
+      <h1 class="text-lg font-semibold leading-tight text-gray-900">Logs de Auditoria</h1>
+      <p class="text-sm text-gray-500">Histórico completo de ações administrativas do sistema.</p>
     </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-6 space-y-2">
-        {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span>{{ message }}</span>
-          </div>
-        {% endfor %}
+      <div class="mb-6">
+        {{ flash_messages(messages) }}
       </div>
     {% endif %}
   {% endwith %}
 
   <!-- Filtros -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+  <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-4">
     <form method="GET" action="{{ url_for('logs_auditoria') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text text-xs font-semibold">Módulo</span>
-        </label>
-        <select name="modulo" class="select select-bordered w-full text-sm font-medium">
+      <div class="cx-field">
+        <label class="cx-label" for="filtro_modulo">Módulo</label>
+        <select id="filtro_modulo" name="modulo" class="cx-select cx-select-sm w-full">
           <option value="">Todos</option>
           <option value="usuarios" {% if filtros.get('modulo') == 'usuarios' %}selected{% endif %}>Usuários</option>
           <option value="clientes" {% if filtros.get('modulo') == 'clientes' %}selected{% endif %}>Clientes</option>
@@ -45,11 +40,9 @@
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text text-xs font-semibold">Ação</span>
-        </label>
-        <select name="acao" class="select select-bordered w-full text-sm font-medium">
+      <div class="cx-field">
+        <label class="cx-label" for="filtro_acao">Ação</label>
+        <select id="filtro_acao" name="acao" class="cx-select cx-select-sm w-full">
           <option value="">Todas</option>
           <option value="criar" {% if filtros.get('acao') == 'criar' %}selected{% endif %}>Criar</option>
           <option value="editar" {% if filtros.get('acao') == 'editar' %}selected{% endif %}>Editar</option>
@@ -57,11 +50,9 @@
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text text-xs font-semibold">Usuário</span>
-        </label>
-        <select name="usuario_id" class="select select-bordered w-full text-sm font-medium">
+      <div class="cx-field">
+        <label class="cx-label" for="filtro_usuario">Usuário</label>
+        <select id="filtro_usuario" name="usuario_id" class="cx-select cx-select-sm w-full">
           <option value="">Todos</option>
           {% for usuario in usuarios_filtro %}
             <option value="{{ usuario.id_contato_cliente }}" {% if filtros.get('usuario_id') == usuario.id_contato_cliente|string %}selected{% endif %}>
@@ -71,11 +62,9 @@
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text text-xs font-semibold">Período (dias)</span>
-        </label>
-        <select name="dias" class="select select-bordered w-full text-sm font-medium">
+      <div class="cx-field">
+        <label class="cx-label" for="filtro_dias">Período (dias)</label>
+        <select id="filtro_dias" name="dias" class="cx-select cx-select-sm w-full">
           <option value="7" {% if filtros.get('dias') == '7' %}selected{% endif %}>Últimos 7 dias</option>
           <option value="30" {% if filtros.get('dias') == '30' or not filtros.get('dias') %}selected{% endif %}>Últimos 30 dias</option>
           <option value="60" {% if filtros.get('dias') == '60' %}selected{% endif %}>Últimos 60 dias</option>
@@ -83,16 +72,14 @@
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text text-xs">&nbsp;</span>
-        </label>
+      <div class="cx-field">
+        <span class="cx-label invisible" aria-hidden="true">&nbsp;</span>
         <div class="flex gap-2">
-          <button type="submit" class="btn btn-primary btn-sm flex-1">
-            <i class="fas fa-filter mr-1"></i>Filtrar
+          <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm flex-1">
+            <i class="fas fa-filter mr-1" aria-hidden="true"></i>Filtrar
           </button>
-          <a href="{{ url_for('logs_auditoria') }}" class="btn btn-ghost btn-sm">
-            <i class="fas fa-times"></i>
+          <a href="{{ url_for('logs_auditoria') }}" class="cx-btn cx-btn-ghost cx-btn-sm" aria-label="Limpar filtros">
+            <i class="fas fa-times" aria-hidden="true"></i>
           </a>
         </div>
       </div>
@@ -102,23 +89,23 @@
   <!-- Estatísticas -->
   {% if stats %}
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+    <div class="bg-white border border-slate-200 rounded-lg p-4">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-xs text-base-content/60 font-semibold uppercase">Total de Ações</p>
-          <p class="text-2xl font-bold text-primary">{{ stats.total_acoes }}</p>
+          <p class="cx-stat-label">Total de Ações</p>
+          <p class="cx-stat-value text-gray-900">{{ stats.total_acoes }}</p>
         </div>
-        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-          <i class="fas fa-list text-primary text-xl"></i>
+        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+          <i class="fas fa-list text-gray-600 text-xl" aria-hidden="true"></i>
         </div>
       </div>
     </div>
 
-    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+    <div class="bg-white border border-slate-200 rounded-lg p-4">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-xs text-base-content/60 font-semibold uppercase">Módulo Mais Usado</p>
-          <p class="text-lg font-bold text-accent">
+          <p class="cx-stat-label">Módulo Mais Usado</p>
+          <p class="cx-stat-value text-gray-900 text-lg">
             {% if stats.por_modulo %}
               {{ stats.por_modulo[0].modulo|title }}
             {% else %}
@@ -126,17 +113,17 @@
             {% endif %}
           </p>
         </div>
-        <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-          <i class="fas fa-layer-group text-accent text-xl"></i>
+        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+          <i class="fas fa-layer-group text-gray-600 text-xl" aria-hidden="true"></i>
         </div>
       </div>
     </div>
 
-    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+    <div class="bg-white border border-slate-200 rounded-lg p-4">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-xs text-base-content/60 font-semibold uppercase">Ação Mais Comum</p>
-          <p class="text-lg font-bold text-info">
+          <p class="cx-stat-label">Ação Mais Comum</p>
+          <p class="cx-stat-value text-blue-600 text-lg">
             {% if stats.por_acao %}
               {{ stats.por_acao[0].acao|title }}
             {% else %}
@@ -144,20 +131,20 @@
             {% endif %}
           </p>
         </div>
-        <div class="w-12 h-12 rounded-full bg-info/10 flex items-center justify-center">
-          <i class="fas fa-bolt text-info text-xl"></i>
+        <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+          <i class="fas fa-bolt text-blue-600 text-xl" aria-hidden="true"></i>
         </div>
       </div>
     </div>
 
-    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+    <div class="bg-white border border-slate-200 rounded-lg p-4">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-xs text-base-content/60 font-semibold uppercase">Usuários Ativos</p>
-          <p class="text-2xl font-bold text-success">{{ stats.usuarios_ativos|length }}</p>
+          <p class="cx-stat-label">Usuários Ativos</p>
+          <p class="cx-stat-value text-green-600">{{ stats.usuarios_ativos|length }}</p>
         </div>
-        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-          <i class="fas fa-users text-success text-xl"></i>
+        <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
+          <i class="fas fa-users text-green-600 text-xl" aria-hidden="true"></i>
         </div>
       </div>
     </div>
@@ -165,134 +152,141 @@
   {% endif %}
 
   <!-- Tabela de Logs -->
-  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+  <div class="cx-table-wrap bg-white border border-slate-200 rounded-xl overflow-hidden">
     {% if logs %}
-      <div class="overflow-x-auto">
-        <table class="table table-xs">
-          <thead class="bg-primary text-white">
+      <div class="cx-table-scroll overflow-x-auto">
+        <table class="cx-table cx-table-dense">
+          <thead>
             <tr>
-              <th class="text-left font-bold uppercase whitespace-nowrap">Data/Hora</th>
-              <th class="text-left font-bold uppercase whitespace-nowrap">Usuário</th>
-              <th class="text-center font-bold uppercase whitespace-nowrap">Ação</th>
-              <th class="text-center font-bold uppercase whitespace-nowrap">Módulo</th>
-              <th class="text-left font-bold uppercase">Descrição</th>
-              <th class="text-center font-bold uppercase whitespace-nowrap">IP</th>
-              <th class="text-center font-bold uppercase whitespace-nowrap">Detalhes</th>
+              <th class="text-left whitespace-nowrap">Data/Hora</th>
+              <th class="text-left whitespace-nowrap">Usuário</th>
+              <th class="text-center whitespace-nowrap">Ação</th>
+              <th class="text-center whitespace-nowrap">Módulo</th>
+              <th class="text-left">Descrição</th>
+              <th class="text-center whitespace-nowrap">IP</th>
+              <th class="text-center whitespace-nowrap">Detalhes</th>
             </tr>
           </thead>
           <tbody>
             {% for log in logs %}
-            <tr class="hover">
+            <tr>
               <td class="text-xs">
                 <div class="font-semibold">{{ log.data_acao.strftime('%d/%m/%Y') if log.data_acao else '-' }}</div>
-                <div class="text-base-content/60">{{ log.data_acao.strftime('%H:%M:%S') if log.data_acao else '-' }}</div>
+                <div class="text-gray-500">{{ log.data_acao.strftime('%H:%M:%S') if log.data_acao else '-' }}</div>
               </td>
               <td>
-                <div class="font-semibold text-base-content">{{ log.usuario_nome or 'Sistema' }}</div>
-                <div class="text-xs text-base-content/60">{{ log.usuario_email or '-' }}</div>
+                <div class="font-semibold text-gray-900">{{ log.usuario_nome or 'Sistema' }}</div>
+                <div class="text-xs text-gray-500">{{ log.usuario_email or '-' }}</div>
               </td>
               <td class="text-center">
-                <span class="badge badge-sm 
-                  {% if log.acao == 'criar' %}badge-success
-                  {% elif log.acao == 'editar' %}badge-info
-                  {% elif log.acao == 'deletar' %}badge-error
-                  {% else %}badge-ghost{% endif %}">
-                  {% if log.acao == 'criar' %}<i class="fas fa-plus mr-1"></i>
-                  {% elif log.acao == 'editar' %}<i class="fas fa-edit mr-1"></i>
-                  {% elif log.acao == 'deletar' %}<i class="fas fa-trash mr-1"></i>
+                <span class="cx-badge
+                  {% if log.acao == 'criar' %}cx-badge-success
+                  {% elif log.acao == 'editar' %}cx-badge-info
+                  {% elif log.acao == 'deletar' %}cx-badge-danger
+                  {% else %}cx-badge-muted{% endif %}">
+                  {% if log.acao == 'criar' %}<i class="fas fa-plus mr-1" aria-hidden="true"></i>
+                  {% elif log.acao == 'editar' %}<i class="fas fa-edit mr-1" aria-hidden="true"></i>
+                  {% elif log.acao == 'deletar' %}<i class="fas fa-trash mr-1" aria-hidden="true"></i>
                   {% endif %}
                   {{ log.acao|title }}
                 </span>
               </td>
               <td class="text-center">
-                <span class="badge badge-sm badge-outline">{{ log.modulo|title }}</span>
+                <span class="cx-badge cx-badge-muted">{{ log.modulo|title }}</span>
               </td>
               <td>
                 <div class="text-sm">{{ log.descricao or '-' }}</div>
                 {% if log.registro_tipo and log.registro_id %}
-                  <div class="text-xs text-base-content/60">
+                  <div class="text-xs text-gray-500">
                     {{ log.registro_tipo|title }} #{{ log.registro_id }}
                   </div>
                 {% endif %}
               </td>
               <td class="text-center text-xs">
-                <span class="tooltip" data-tip="{{ log.user_agent or 'N/A' }}">
+                <span title="{{ log.user_agent or 'N/A' }}">
                   {{ log.ip_address or '-' }}
                 </span>
               </td>
               <td class="text-center">
-                <button data-modal-id="modal_log_{{ log.id_log }}" class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200 show-modal-btn" title="Ver detalhes">
-                  <i class="fas fa-info"></i>
+                <button type="button" data-modal-id="modal_log_{{ log.id_log }}" class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200 show-modal-btn" title="Ver detalhes">
+                  <i class="fas fa-info" aria-hidden="true"></i>
                 </button>
               </td>
             </tr>
 
             <!-- Modal de detalhes -->
-            <dialog id="modal_log_{{ log.id_log }}" class="modal">
-              <div class="modal-box max-w-3xl">
-                <h3 class="font-bold text-lg mb-4">Detalhes do Log #{{ log.id_log }}</h3>
-                
-                <div class="space-y-3">
-                  <div class="grid grid-cols-2 gap-2">
-                    <div>
-                      <p class="text-xs font-semibold text-base-content/60">Data/Hora</p>
-                      <p class="text-sm">{{ log.data_acao.strftime('%d/%m/%Y %H:%M:%S') if log.data_acao else '-' }}</p>
-                    </div>
-                    <div>
-                      <p class="text-xs font-semibold text-base-content/60">Usuário</p>
-                      <p class="text-sm">{{ log.usuario_nome or 'Sistema' }}</p>
-                    </div>
-                    <div>
-                      <p class="text-xs font-semibold text-base-content/60">Ação</p>
-                      <p class="text-sm">{{ log.acao|title }}</p>
-                    </div>
-                    <div>
-                      <p class="text-xs font-semibold text-base-content/60">Módulo</p>
-                      <p class="text-sm">{{ log.modulo|title }}</p>
-                    </div>
-                    <div>
-                      <p class="text-xs font-semibold text-base-content/60">IP</p>
-                      <p class="text-sm font-mono">{{ log.ip_address or '-' }}</p>
-                    </div>
-                    <div>
-                      <p class="text-xs font-semibold text-base-content/60">Registro</p>
-                      <p class="text-sm">{{ log.registro_tipo|title if log.registro_tipo else '-' }} #{{ log.registro_id if log.registro_id else '-' }}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p class="text-xs font-semibold text-base-content/60 mb-1">User Agent</p>
-                    <p class="text-xs font-mono bg-base-200 p-2 rounded">{{ log.user_agent or '-' }}</p>
-                  </div>
-
-                  <div>
-                    <p class="text-xs font-semibold text-base-content/60 mb-1">Descrição</p>
-                    <p class="text-sm">{{ log.descricao or '-' }}</p>
-                  </div>
-
-                  {% if log.dados_anteriores %}
-                  <div>
-                    <p class="text-xs font-semibold text-base-content/60 mb-1">Dados Anteriores</p>
-                    <pre class="text-xs bg-base-200 p-2 rounded overflow-x-auto">{{ log.dados_anteriores|tojson(indent=2) }}</pre>
-                  </div>
-                  {% endif %}
-
-                  {% if log.dados_novos %}
-                  <div>
-                    <p class="text-xs font-semibold text-base-content/60 mb-1">Dados Novos</p>
-                    <pre class="text-xs bg-base-200 p-2 rounded overflow-x-auto">{{ log.dados_novos|tojson(indent=2) }}</pre>
-                  </div>
-                  {% endif %}
+            <dialog id="modal_log_{{ log.id_log }}" class="cx-modal-shell">
+              <div class="cx-modal-panel cx-modal-panel-lg">
+                <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4">
+                  <h3 class="cx-modal-title">Detalhes do Log #{{ log.id_log }}</h3>
+                  <button type="button" onclick="this.closest('dialog').close()" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Fechar">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                  </button>
                 </div>
 
-                <div class="modal-action">
-                  <form method="dialog">
-                    <button class="btn btn-sm">Fechar</button>
-                  </form>
+                <div class="cx-modal-content">
+                  <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <p class="text-xs font-semibold text-gray-500">Data/Hora</p>
+                        <p class="text-sm">{{ log.data_acao.strftime('%d/%m/%Y %H:%M:%S') if log.data_acao else '-' }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-semibold text-gray-500">Usuário</p>
+                        <p class="text-sm">{{ log.usuario_nome or 'Sistema' }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-semibold text-gray-500">Ação</p>
+                        <p class="text-sm">{{ log.acao|title }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-semibold text-gray-500">Módulo</p>
+                        <p class="text-sm">{{ log.modulo|title }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-semibold text-gray-500">IP</p>
+                        <p class="text-sm font-mono">{{ log.ip_address or '-' }}</p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-semibold text-gray-500">Registro</p>
+                        <p class="text-sm">{{ log.registro_tipo|title if log.registro_tipo else '-' }} #{{ log.registro_id if log.registro_id else '-' }}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p class="text-xs font-semibold text-gray-500 mb-1">User Agent</p>
+                      <p class="text-xs font-mono bg-slate-100 p-2 rounded">{{ log.user_agent or '-' }}</p>
+                    </div>
+
+                    <div>
+                      <p class="text-xs font-semibold text-gray-500 mb-1">Descrição</p>
+                      <p class="text-sm">{{ log.descricao or '-' }}</p>
+                    </div>
+
+                    {% if log.dados_anteriores %}
+                    <div>
+                      <p class="text-xs font-semibold text-gray-500 mb-1">Dados Anteriores</p>
+                      <pre class="text-xs bg-slate-100 p-2 rounded overflow-x-auto">{{ log.dados_anteriores|tojson(indent=2) }}</pre>
+                    </div>
+                    {% endif %}
+
+                    {% if log.dados_novos %}
+                    <div>
+                      <p class="text-xs font-semibold text-gray-500 mb-1">Dados Novos</p>
+                      <pre class="text-xs bg-slate-100 p-2 rounded overflow-x-auto">{{ log.dados_novos|tojson(indent=2) }}</pre>
+                    </div>
+                    {% endif %}
+                  </div>
+
+                  <div class="cx-modal-actions mt-4">
+                    <button type="button" onclick="this.closest('dialog').close()" class="cx-btn cx-btn-sm cx-btn-secondary">
+                      Fechar
+                    </button>
+                  </div>
                 </div>
               </div>
-              <form method="dialog" class="modal-backdrop">
-                <button>close</button>
+              <form method="dialog" class="cx-modal-dismiss">
+                <button aria-label="Fechar">close</button>
               </form>
             </dialog>
             {% endfor %}
@@ -302,33 +296,34 @@
 
       <!-- Paginação -->
       {% if total_logs > limit %}
-      <div class="flex items-center justify-between p-4 border-t border-base-300">
-        <div class="text-sm text-base-content/60">
+      <nav class="cx-pagination flex items-center justify-between p-4 border-t border-slate-200" aria-label="Paginação de logs">
+        <span class="cx-help text-sm">
           Mostrando {{ offset + 1 }} - {{ [offset + limit, total_logs]|min }} de {{ total_logs }} registros
-        </div>
-        <div class="join">
+        </span>
+        <div class="flex gap-2">
           {% if offset > 0 %}
-            <a href="{{ url_for('logs_auditoria', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset-limit) }}" class="join-item btn btn-sm">«</a>
+            <a href="{{ url_for('logs_auditoria', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset-limit) }}" class="cx-btn cx-btn-sm cx-btn-secondary" aria-label="Página anterior">« Anterior</a>
           {% else %}
-            <button class="join-item btn btn-sm btn-disabled">«</button>
+            <span class="cx-btn cx-btn-sm cx-btn-secondary opacity-50 pointer-events-none" aria-disabled="true">« Anterior</span>
           {% endif %}
-          
-          <button class="join-item btn btn-sm">Página {{ (offset // limit) + 1 }}</button>
-          
+
+          <span class="cx-btn cx-btn-sm cx-btn-ghost pointer-events-none">Página {{ (offset // limit) + 1 }}</span>
+
           {% if offset + limit < total_logs %}
-            <a href="{{ url_for('logs_auditoria', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset+limit) }}" class="join-item btn btn-sm">»</a>
+            <a href="{{ url_for('logs_auditoria', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset+limit) }}" class="cx-btn cx-btn-sm cx-btn-secondary" aria-label="Próxima página">Próxima »</a>
           {% else %}
-            <button class="join-item btn btn-sm btn-disabled">»</button>
+            <span class="cx-btn cx-btn-sm cx-btn-secondary opacity-50 pointer-events-none" aria-disabled="true">Próxima »</span>
           {% endif %}
         </div>
-      </div>
+      </nav>
       {% endif %}
     {% else %}
-      <div class="text-center py-8">
-        <i class="fas fa-clipboard-list text-6xl text-base-content/20 mb-4"></i>
-        <p class="mb-2 text-base-content/60 text-sm">Nenhum log encontrado para os filtros selecionados.</p>
-        <a href="{{ url_for('logs_auditoria') }}" class="btn btn-ghost btn-sm">
-          <i class="fas fa-redo mr-2"></i>Limpar Filtros
+      <div class="cx-empty-state py-8">
+        <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+        <h2>Nenhum log encontrado</h2>
+        <p>Nenhum log encontrado para os filtros selecionados.</p>
+        <a href="{{ url_for('logs_auditoria') }}" class="cx-btn cx-btn-ghost cx-btn-sm">
+          <i class="fas fa-redo mr-2" aria-hidden="true"></i>Limpar Filtros
         </a>
       </div>
     {% endif %}
@@ -336,7 +331,6 @@
 </div>
 
 <script>
-  // Adicionar event listener para todos os botões de modal
   document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.show-modal-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {

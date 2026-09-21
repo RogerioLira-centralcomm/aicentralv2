@@ -56,6 +56,8 @@
    React Workspace shell; the established product navigation stays untouched. */
 .cadu-ds-visual-identity { display:grid; width:100%; height:100%; place-items:center; overflow:hidden; border-radius:inherit; background:color-mix(in srgb, var(--cadu-identity-color) 16%, var(--cadu-surface-soft)); color:var(--cadu-identity-color); font-size:12px; font-weight:760; letter-spacing:-.04em; line-height:1; }
 .cadu-ds-visual-identity img { display:block; width:100%; height:100%; box-sizing:border-box; padding:5px; object-fit:contain; object-position:center; }
+.cadu-ds-visual-identity--brand { background:color-mix(in srgb,var(--cadu-identity-color) 30%,var(--cadu-surface-soft)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-identity-color) 38%,transparent); }
+.cadu-ds-visual-identity--brand img { mix-blend-mode:multiply; }
 .cadu-ds-visual-identity[class*="--v"] { --cadu-avatar-deep:#071012; --cadu-avatar-accent:#173b43; background:linear-gradient(135deg,var(--cadu-identity-color) 0%,var(--cadu-avatar-accent) 100%); color:#f4fffc; }
 .cadu-ds-visual-identity--v1 { --cadu-avatar-accent:#0d665b; }
 .cadu-ds-visual-identity--v2 { --cadu-avatar-accent:#175b70; }
@@ -2576,6 +2578,10 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
 .cadu-ds-home-project-selector .cadu-ds-selector-menu { top:calc(100% + 12px); left:50%; width:min(420px,calc(100vw - 36px)); transform:translateX(-50%); }
 .cadu-ds-home-project-selector .cadu-ds-selector-menu button { min-height:42px; padding:0 12px; color:var(--cadu-nav-ink); text-align:left; }
 @media (max-width:760px) { .cadu-ds-home-project-selector summary { font-size:clamp(29px,8vw,38px); white-space:normal; } .cadu-ds-home-project-selector summary span { white-space:normal; } }
+
+/* Keep the assistant answer and its progress card on the same reading rail. */
+.cv-thread-content > .cadu-ds-task-progress { width:min(72ch,100%); margin-left:0; margin-right:auto; }
+.cv-message--assistant .cv-assistant-answer { width:min(72ch,100%); max-width:none; }
 
 /* Composer controls: one quiet control row, without competing button chrome. */
 .cadu-ds-home-chat-shell .cv-composer-submit-group {

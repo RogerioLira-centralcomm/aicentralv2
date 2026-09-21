@@ -148,7 +148,7 @@ export default function App({bootstrap}) {
       })));
       setBrands(current => {
         const fromContext = (data.entities || []).filter(item => item.kind === 'brand').map(item => ({
-          ...item, logoUrl: item.logo_url, visualInitials: item.name, visualColor: '#176b5e',
+          ...item, logoUrl: item.logo_url, visualInitials: item.name, visualColor: item.color || item.visualColor || '#176b5e',
         }));
         return fromContext.map(item => ({...item, ...(current.find(existing => (existing.ref || existing.brandRef) === item.ref) || {})}));
       });

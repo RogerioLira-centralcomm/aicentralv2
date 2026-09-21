@@ -62,7 +62,7 @@ function SidebarCollection({label, href, items, kind}) {
       const labelText = item.name || item.title || (kind === 'brand' ? 'Marca' : 'Projeto');
       return <a key={item.id || item.ref || item.href} className="cadu-ds-context-sidebar__collection-item" href={item.href || item.url || '#'} title={labelText} draggable onDragStart={event => writeCollectionPayload(event, item, kind, labelText)}>
         <span className="cadu-ds-context-sidebar__collection-identity">
-          <VisualIdentity src={kind === 'brand' ? item.logoUrl : item.previewUrl || item.dockLogoUrl} initials={item.visualInitials || labelText} label={labelText} color={item.visualColor} variant={item.visualVariant}/>
+          <VisualIdentity src={kind === 'brand' ? item.logoUrl : item.previewUrl || item.dockLogoUrl} initials={item.visualInitials || labelText} label={labelText} color={item.visualColor} variant={item.visualVariant} imageTreatment={kind === 'brand' ? 'brand' : ''}/>
         </span>
         <span><b>{labelText}</b>{kind === 'brand' && item.projectCount > 0 && <small>{item.projectCount} {item.projectCount === 1 ? 'projeto' : 'projetos'}</small>}</span>
       </a>;
@@ -86,7 +86,7 @@ function SidebarBrandProjectGroups({brands, projects, links}) {
     <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
     {groups.map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={brand.id || brand.ref}>
       <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}>
-        <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant}/><b>{brand.name}</b>
+        <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/><b>{brand.name}</b>
       </a>
       {brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url || '#'} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}
       {!brand.projects.length && <span className="cadu-ds-context-sidebar__group-empty">Nenhum projeto vinculado</span>}

@@ -5,12 +5,30 @@ later, but only for messages that fall through these product-level intents.
 """
 
 import re
+from urllib.parse import urlparse
 
 from .contracts import IntentRoute
 
 
 def _has(text: str, pattern: str) -> bool:
     return bool(re.search(pattern, text, re.IGNORECASE))
+
+
+def _usable_public_url(value: str) -> bool:
+    """Accept only complete public HTTP(S) URLs before planning extraction."""
+    try:
+        parsed = urlparse(str(value or '').strip().rstrip('.,;:)'))
+    except ValueError:
+        return False
+    host = (parsed.hostname or '').lower().rstrip('.')
+    return (
+        parsed.scheme in {'http', 'https'}
+        and bool(host)
+        and '.' in host
+        and ' ' not in host
+        and not parsed.username
+        and not parsed.password
+    )
 
 
 def route_request(message: str, surface: str = "conversations", has_project: bool = False,
@@ -78,7 +96,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "list_project_resources", "low", "analysis",
                            ("project",), (needs_tool,))
     if has_project and _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*).{0,45}\b(link|url|refer[eê]ncia)\b"):
-        has_url = bool(re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE))
+        url_match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE)
+        has_url = bool(url_match and _usable_public_url(url_match.group(0)))
         return IntentRoute("workspace", "create_project_link" if has_url else "clarify_project_link",
                            "low", "decision" if has_url else "clarification", ("project",), (), None, has_url)
     if has_project and re.search(r"https://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE) and _has(text, r"\b(resumo|resumir|s[ií]ntese).{0,45}\b(texto|edit[aá]vel|site|conte[uú]do)\b"):
@@ -108,7 +127,9 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "create_project_note" if has_note_payload else "clarify_project_note",
                            "medium", "decision" if has_note_payload else "clarification",
                            ("project",), (), None, has_note_payload)
-    direct_url = re.search(r"https://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE)
+    direct_url = re.search(r"https?://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE)
+    if direct_url and not _usable_public_url(direct_url.group(0)):
+        direct_url = None
     explicit_read = _has(text, r"\b(abri|abra|leia|ler|entend\w*|resum\w*|extraia|extra\w*|analise|analis\w*)\b")
     if direct_url and explicit_read:
         return IntentRoute("research", "read_web_page", "high", "analysis",

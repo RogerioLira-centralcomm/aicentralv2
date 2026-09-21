@@ -23,22 +23,11 @@ test('runtime v2 translates internal events into public UI events', () => {
   assert.equal(runtime.normalize({event:'run.completed', status:'cancelled'}).status, 'stopped');
 });
 
-test('legacy conversation screen stays wired only as a compatibility fallback', () => {
-  const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations.html'), 'utf8');
-  const chat = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/chat.js'), 'utf8');
-  assert.match(template, /data-runtime=/);
-  assert.match(template, /data-v2-endpoint=/);
-  assert.match(template, /runtime-v2\.js/);
-  assert.match(template, /artifacts-v2\.js/);
-  assert.match(chat, /CaduConversationV2\.events/);
-  assert.match(chat, /CaduV2Artifacts/);
-  assert.match(chat, /\/familia\/api\/conversations\/send/);
-});
-
 test('the old conversation entries now hand off to the React V2 screen', () => {
   const routes = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
   assert.match(routes, /Compatibility entry; the customer-facing conversation surface is React V2/);
-  assert.match(routes, /target = '\/workspace\/conversas-v2-lab'/);
+  assert.match(routes, /target = '\/chat'/);
+  assert.doesNotMatch(routes, /render_template\(['"]cadu_workspace\/conversations\.html/);
 });
 
 test('Workspace home keeps a functional product switcher and resilient visual dock', () => {

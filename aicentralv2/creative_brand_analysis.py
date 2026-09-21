@@ -702,6 +702,96 @@ def _normalized_public_links(values, limit=12):
     return result
 
 
+def _source_url(value):
+    """Extract a stable URL from a provider source item.
+
+    Research providers sometimes return ``sources`` as URLs and sometimes as
+    objects containing title, excerpt and URL.  Never feed those objects to a
+    set/dict key: one malformed source must not discard an entire research
+    module with ``unhashable type: dict``.
+    """
+    if isinstance(value, dict):
+        value = value.get("source_url") or value.get("url") or value.get("href") or value.get("link")
+    link = str(value or "").strip()
+    return link if link.startswith(("http://", "https://")) else ""
+
+
+def _merge_source_urls(values, limit=16):
+    result, seen = [], set()
+    for value in values or []:
+        link = _source_url(value)
+        if not link or link in seen:
+            continue
+        seen.add(link)
+        result.append(link)
+        if len(result) >= limit:
+            break
+    return result
+
+
+_CSS_HEX_RE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+_CSS_RGB_RE = re.compile(r"rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[\d.]+)?\s*\)", re.I)
+_STYLESHEET_RE = re.compile(r"<link[^>]+(?:rel=[\"'][^\"']*stylesheet[^\"']*|type=[\"']text/css[\"'])[^>]+>", re.I)
+_STYLESHEET_HREF_RE = re.compile(r"href=[\"']([^\"']+)[\"']", re.I)
+
+
+def _css_color_evidence(url, *, max_stylesheets=8):
+    """Collect recurring colors from first-party HTML/CSS as evidence only.
+
+    CSS is a useful deterministic signal for brand colors, but it is not
+    accepted as identity by itself: the visual reviewer still reconciles it
+    against the logo, screenshot and OCR evidence.
+    """
+    if not url:
+        return []
+    try:
+        parsed = urlparse(url)
+        response = requests.get(url, timeout=12, headers={"User-Agent": "CentralX-Brand-Audit/2026"})
+        response.raise_for_status()
+        html = response.text[:2_000_000]
+    except Exception:
+        return []
+    sources = [(url, html)]
+    host = (parsed.hostname or "").lower()
+    for tag in _STYLESHEET_RE.findall(html):
+        match = _STYLESHEET_HREF_RE.search(tag)
+        href = match.group(1) if match else ""
+        stylesheet_url = urljoin(url, href)
+        sheet_host = (urlparse(stylesheet_url).hostname or "").lower()
+        if not stylesheet_url.startswith(("http://", "https://")) or sheet_host != host:
+            continue
+        if any(item[0] == stylesheet_url for item in sources):
+            continue
+        try:
+            sheet = requests.get(stylesheet_url, timeout=12, headers={"User-Agent": "CentralX-Brand-Audit/2026"})
+            sheet.raise_for_status()
+            sources.append((stylesheet_url, sheet.text[:2_000_000]))
+        except Exception:
+            continue
+        if len(sources) >= max_stylesheets + 1:
+            break
+    counts = {}
+    for source_url, content in sources:
+        colors = []
+        for raw in _CSS_HEX_RE.findall(content):
+            value = raw.upper()
+            if len(value) == 4:
+                value = "#" + "".join(char * 2 for char in value[1:])
+            if len(value) == 9:
+                value = value[:7]
+            colors.append(value)
+        for red, green, blue in _CSS_RGB_RE.findall(content):
+            colors.append("#{:02X}{:02X}{:02X}".format(int(red), int(green), int(blue)))
+        for color in colors:
+            if color in {"#000000", "#FFFFFF"}:
+                continue
+            entry = counts.setdefault(color, {"hex": color, "occurrences": 0, "source_urls": []})
+            entry["occurrences"] += 1
+            if source_url not in entry["source_urls"]:
+                entry["source_urls"].append(source_url)
+    return sorted(counts.values(), key=lambda item: (-item["occurrences"], item["hex"]))[:24]
+
+
 def _firecrawl_image_search(domain, *, deep=False, brand_name=None):
     from .services.integration_credentials import resolve_firecrawl_api_key
 
@@ -955,6 +1045,7 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
             for key in ("colors", "colorScheme", "fonts")
             if branding.get(key) not in (None, "", [], {})
         },
+        "css_color_evidence": _css_color_evidence(effective_url),
     }, record
 
 
@@ -1664,7 +1755,10 @@ class CreativeBrandAnalyzer:
                     for key in fields:
                         if partial.get(key) not in (None, "", [], {}):
                             if key == "sources":
-                                result[key] = list(dict.fromkeys(list(result.get(key) or []) + list(partial.get(key) or [])))[:16]
+                                result[key] = _merge_source_urls(
+                                    list(result.get(key) or []) + list(partial.get(key) or []),
+                                    limit=16,
+                                )
                             else:
                                 result[key] = partial[key]
                     research_models.append(response.get("model") or analysis_model)
@@ -1699,6 +1793,7 @@ class CreativeBrandAnalyzer:
             for page in (evidence.get("pages") or [])[:12]
             if isinstance(page, dict) and page.get("url")
         ]
+        css_colors = evidence.get("css_color_evidence") or _css_color_evidence(normalized_url)
         try:
             normalization_response = self.llm(
                 [
@@ -1714,6 +1809,7 @@ class CreativeBrandAnalyzer:
                             "contacts": evidence.get("deterministic_contacts") or [],
                             "addresses": evidence.get("deterministic_addresses") or [],
                         },
+                        "css_color_evidence": css_colors,
                         "instruction": "Não use uma URL descoberta sem trecho de evidência como prova de um campo.",
                     }, ensure_ascii=False, default=str)},
                 ],
@@ -1793,6 +1889,7 @@ class CreativeBrandAnalyzer:
                                                 "logo_url": evidence.get("logo_url"),
                                                 "description": evidence.get("description"),
                                                 "branding": evidence.get("branding"),
+                                                "css_color_evidence": css_colors,
                                             },
                                         },
                                         ensure_ascii=False,
@@ -1835,7 +1932,7 @@ class CreativeBrandAnalyzer:
         if logo_url and not logo_url.startswith(("http://", "https://")):
             logo_url = None
         confidence = _confidence(result.get("confidence"))
-        sources = _string_list(result.get("sources"), limit=8, item_limit=2000)
+        sources = _merge_source_urls(result.get("sources"), limit=8)
         evidence_sources = [
             page.get("url")
             for page in (evidence.get("pages") or [])

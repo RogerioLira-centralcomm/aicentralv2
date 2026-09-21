@@ -8,6 +8,7 @@ fi
 
 # Script de Deploy - AIcentral v2
 set -e
+set -o pipefail
 SERVICE_STOPPED=0
 mkdir -p logs
 DEPLOY_LOG="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
@@ -138,7 +139,10 @@ if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; the
 fi
 
 if [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
-    bash ./build_frontend.sh >> "$DEPLOY_LOG" 2>&1
+    # Keep the detailed log while streaming progress to the terminal. Without
+    # this, npm ci/Vite can run for several minutes and the deploy appears
+    # frozen at [2b/8].
+    bash ./build_frontend.sh 2>&1 | tee -a "$DEPLOY_LOG"
     mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
     printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
     mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"

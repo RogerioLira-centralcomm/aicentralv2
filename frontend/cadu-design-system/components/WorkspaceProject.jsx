@@ -74,6 +74,22 @@ function IdentityDialog({project, urls, csrfToken, onClose}) {
   </ProjectDialog>;
 }
 
+function ProjectDataIndex({project, onOpenResource}) {
+  const groups = [
+    {key: 'artifacts', label: 'Ativos e entregas', icon: 'delivery', items: [...(project.artifacts || []), ...(project.deliveries || [])].map(item => ({...item, detail: item.detail || item.kind || item.status, href: item.href}))},
+    {key: 'sources', label: 'Fontes indexadas', icon: 'source', items: (project.files || []).map(item => ({...item, detail: `${item.mime || 'Arquivo'} · ${item.status || 'preservado'}`, href: item.href}))},
+    {key: 'links', label: 'Links e plataformas', icon: 'link', items: (project.links || []).map(item => ({...item, detail: item.provider || item.url, href: item.url, external: true}))},
+    {key: 'resources', label: 'Recursos conectados', icon: 'spark', items: (project.resources || []).map(item => ({...item, detail: item.kind || item.resourceType || item.status, resource: true}))},
+    {key: 'memory', label: 'Resumos e decisões', icon: 'context', items: (project.memory || []).map(item => ({...item, title: item.kind?.replace(/_/g, ' ') || 'Resumo', detail: item.summary}))},
+    {key: 'conversations', label: 'Reuniões e conversas', icon: 'conversation', items: (project.conversations || []).map(item => ({...item, detail: item.updatedAt || item.project_ref}))},
+  ].map(group => ({...group, items: group.items.filter(item => item.title || item.name || item.summary)})).filter(group => group.items.length);
+  return <section className="cadu-ds-project-data-index" aria-label="Índice de dados do projeto">
+    <header><div><p>Índice do projeto</p><h2>O trabalho reunido por tipo de dado</h2></div><span>{groups.reduce((total, group) => total + group.items.length, 0)} itens conectados</span></header>
+    <div className="cadu-ds-project-data-index__grid">{groups.map(group => <article key={group.key}><header><ProjectIcon name={group.icon}/><div><h3>{group.label}</h3><small>{group.items.length} item{group.items.length === 1 ? '' : 's'}</small></div></header><div>{group.items.slice(0, 8).map(item => { const content = <><span><b>{item.title || item.name || 'Item sem título'}</b><small>{item.detail || 'Disponível no projeto'}</small></span><em>›</em></>; if (item.resource) return <button type="button" key={item.id} onClick={() => onOpenResource?.(item)}>{content}</button>; if (item.href) return <a key={item.id} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>{content}</a>; return <div key={item.id}>{content}</div>; })}</div></article>)}</div>
+    {!groups.length && <p className="cadu-ds-project-data-index__empty">Adicione fontes, links ou uma conversa para formar o índice deste projeto.</p>}
+  </section>;
+}
+
 const TRIAGE_CATEGORIES = [['brief', 'Briefing'], ['research', 'Pesquisa'], ['media_plan', 'Plano de mídia'], ['report', 'Relatório'], ['brand_asset', 'Ativo de marca'], ['reference', 'Referência'], ['contract', 'Contrato'], ['spreadsheet', 'Planilha'], ['other', 'Outro']];
 
 function SourceSection({title, detail, open = false, children}) {
@@ -356,6 +372,7 @@ export function WorkspaceProject({bootstrap}) {
         {isNewProject && <section className="cadu-ds-project-state"><div className="cadu-ds-project-state__visual" aria-hidden="true"/><div><p>Projeto começando</p><h2>Vamos reunir o contexto deste trabalho</h2><span>Adicione links, arquivos ou uma orientação inicial. Assim o Cadu consegue responder e criar com mais precisão para o seu time.</span><div><button type="button" className="is-primary" onClick={() => setDialog('sources')}>Adicionar fontes</button><button type="button" onClick={() => setDialog('identity')}>Definir contexto</button></div></div></section>}
         <section className="cadu-ds-project-sharing" aria-label="Acesso ao projeto"><div><p>Acesso do projeto</p><h2>{sharing.visibility === 'team' ? 'Toda a equipe' : sharing.visibility === 'restricted' ? 'Pessoas específicas' : 'Privado'}</h2><span>{sharing.members?.length ? `${sharing.members.length} pessoa${sharing.members.length === 1 ? '' : 's'} com acesso direto` : 'Acesso restrito'}</span></div><div className="cadu-ds-project-sharing__members">{(sharing.members || []).slice(0, 4).map(member => <span key={member.id} title={`${member.name} · ${member.role}`}>{member.name.slice(0, 1).toUpperCase()}</span>)}{sharing.members?.length > 4 && <em>+{sharing.members.length - 4}</em>}</div>{bootstrap.canManageSharing && <button type="button" className="cadu-ds-project-sharing__manage" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}</section>
         <ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/>
+        <ProjectDataIndex project={project} onOpenResource={item => setResourceId(item.id)}/>
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta.</span><form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Reativar projeto</button></form></aside>}
         <section className="cadu-ds-project-signals" aria-label="Panorama do projeto"><div><b>{project.files?.length || 0}</b><span>fontes</span></div><div><b>{project.deliveries?.length || 0}</b><span>entregas</span></div><div><b>{project.memory?.length || 0}</b><span>decisões</span></div><div><b>{Math.max(0, 4 - missing.length)} / 4</b><span>base preparada</span></div></section>
         <div className="cadu-ds-project-grid">

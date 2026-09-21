@@ -277,8 +277,10 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { border-radius:10px; }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-input { min-width:0; }
 @media (max-width:760px) {
+  #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-actions,
+  #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group { flex-wrap:wrap; }
   #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-actions { align-items:flex-end; }
-  #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group { min-width:0; }
+  #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group { min-width:0; justify-content:flex-end; }
   #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary span { max-width:96px; overflow:hidden; text-overflow:ellipsis; }
 }
 

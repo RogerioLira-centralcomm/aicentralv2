@@ -1491,7 +1491,8 @@ body.portal--workspace .cadu-ds-home-workarea {
 .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__nav span,
 .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__collection,
 .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__recent,
-.cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__section-label {
+.cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__section-label,
+.cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__empty {
   display:none;
 }
 

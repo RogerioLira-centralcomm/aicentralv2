@@ -25,6 +25,7 @@ from . import action_executor
 from ..mcp.registry import ToolError
 from ..conversations import attachments
 from ...cadu_planner import docs
+from ...creative_modeling_storage import public_studio_asset_url
 
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
@@ -267,6 +268,12 @@ def studio_library():
                                ORDER BY is_primary DESC NULLS LAST, id DESC""",
                                (str(current.brand_ref)[7:],))
                 brand_assets = [dict(row) for row in cursor.fetchall()]
+                for asset in brand_assets:
+                    raw_path = asset.get("asset_path") or asset.get("source_url") or ""
+                    try:
+                        asset["display_url"] = public_studio_asset_url(raw_path)
+                    except ValueError:
+                        asset["display_url"] = ""
         except Exception:
             current_app.logger.exception("Falha ao carregar ativos da marca para a biblioteca do Studio")
     return jsonify(scope="project" if current.project_ref else "personal",

@@ -1423,6 +1423,10 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
         or brand['seed_visuals'].get('logo_url')
         or ''
     )
+    # Every Workspace surface consumes this field: dock, brands, projects and
+    # context sidebars. Normalize the final fallback too, otherwise a logo
+    # captured by the audit can leak as a relative `/static/...` path.
+    brand['display_logo'] = _existing_brand_asset_url(brand['display_logo'])
     if isinstance(profile.get('brand_values'), str):
         profile['brand_values'] = [
             item.strip() for item in re.split(r'[\n,;]+', profile['brand_values']) if item.strip()

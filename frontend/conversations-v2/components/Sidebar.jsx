@@ -55,7 +55,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
     request(`${studioLibraryEndpoint}?project_ref=${encodeURIComponent(activeProjectRef)}`)
       .then(data => {
         if (cancelled) return;
-        const brandResources = (data.brand_assets || []).map(asset => ({...asset, id: `brand:${asset.id}`, title: asset.metadata?.original_name || 'Ativo da marca', asset_url: asset.asset_path || asset.source_url, kind: asset.role === 'logo' ? 'logo' : 'image', source: 'brand'}));
+        const brandResources = (data.brand_assets || []).map(asset => ({...asset, id: `brand:${asset.id}`, title: asset.metadata?.original_name || 'Ativo da marca', asset_url: asset.display_url || asset.asset_path || asset.source_url, kind: asset.role === 'logo' ? 'logo' : 'image', source: 'brand'}));
         setResourceState({projectRef: activeProjectRef, loading: false, resources: [...brandResources, ...(data.resources || [])], error: ''});
       })
       .catch(error => {

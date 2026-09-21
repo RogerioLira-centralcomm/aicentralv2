@@ -205,13 +205,24 @@ function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequ
   </article>;
 }
 
+function tokenValue(value) {
+  if (typeof value === 'string') return {value, label: value};
+  if (!value || typeof value !== 'object') return null;
+  const token = value.hex || value.value || value.color || value.family || value.name;
+  if (!token) return null;
+  return {value: String(token), label: value.role || value.usage || value.name || String(token)};
+}
+
 function BrandIdentityArtifact({artifact}) {
   const content = artifact.content || {};
   const logo = safeUrl(content.logo_url);
   const details = (content.details || []).filter(detail => detail?.value && !/^Ainda não definido\.?$/i.test(String(detail.value).trim()));
+  const colors = (content.colors || []).map(tokenValue).filter(Boolean);
+  const fonts = (content.fonts || []).map(tokenValue).filter(Boolean);
   const hasIdentitySignals = Boolean(logo || content.colors?.length);
   const auditLabel = content.audit_status ? 'Refazer auditoria da marca' : 'Reavaliar auditoria da marca';
   return <article className="cv-brand-identity cv-mx-auto cv-w-full cv-max-w-[720px] cv-p-8 md:cv-p-12">
+    <div className="cv-brand-identity__actions"><span>Ações da marca</span><div>{content.website_url && <a href={safeUrl(content.website_url)} target="_blank" rel="noreferrer">Site</a>}{content.audit_url && <a href={safeUrl(content.audit_url)}>{auditLabel}</a>}</div></div>
     <header className="cv-brand-identity__header cv-flex cv-items-center cv-gap-4"><span className="cv-grid cv-h-16 cv-w-16 cv-place-items-center cv-overflow-hidden cv-rounded-2xl cv-bg-white cv-p-1">{logo ? <img src={logo} alt="" className="cv-h-full cv-w-full cv-object-contain"/> : <b className="cv-text-xl cv-text-[#174c45]">{String(content.name || 'M').slice(0, 1)}</b>}</span><div><p className="cv-m-0 cv-text-xs cv-font-medium cv-text-[#8fbab4]">Marca ativa no chat</p><h3 className="cv-m-0 cv-mt-1 cv-text-xl cv-font-semibold">{content.name || artifact.title}</h3>{content.website_url && <a href={safeUrl(content.website_url)} target="_blank" rel="noreferrer" className="cv-brand-identity__website">{content.website_url}</a>}</div></header>
     <p className="cv-mb-0 cv-mt-7 cv-text-sm cv-leading-6 cv-text-[#d2e1de]">{content.summary}</p>
     <div className="cv-brand-identity__stats cv-mt-7" aria-label="Resumo da identidade">
@@ -219,8 +230,8 @@ function BrandIdentityArtifact({artifact}) {
       <div><b>{content.asset_count || 0}</b><span>ativos aprovados</span></div>
       <div><b>{content.colors?.length || 0}</b><span>cores registradas</span></div>
     </div>
-    {!!content.colors?.length && <section className="cv-mt-8"><h4 className="cv-m-0 cv-text-xs cv-font-semibold cv-text-[#8da6a1]">Cores</h4><div className="cv-mt-3 cv-flex cv-flex-wrap cv-gap-2">{content.colors.map(color => <span key={color} className="cv-flex cv-items-center cv-gap-2 cv-rounded-lg cv-bg-white/[.05] cv-p-2 cv-text-[11px] cv-text-[#bbceca]"><i className="cv-h-5 cv-w-5 cv-rounded-md cv-border cv-border-white/15" style={{background: color}}/>{color}</span>)}</div></section>}
-    {!!content.fonts?.length && <section className="cv-mt-7"><h4 className="cv-m-0 cv-text-xs cv-font-semibold cv-text-[#9ab3ae]">Tipografia</h4><div className="cv-mt-3 cv-flex cv-flex-wrap cv-gap-2">{content.fonts.map(font => <span key={font} className="cv-rounded-lg cv-bg-white/[.06] cv-px-3 cv-py-2 cv-text-xs cv-text-[#dbe8e5]">{font}</span>)}</div></section>}
+    {!!colors.length && <section className="cv-mt-8"><h4 className="cv-m-0 cv-text-xs cv-font-semibold cv-text-[#8da6a1]">Cores</h4><div className="cv-mt-3 cv-flex cv-flex-wrap cv-gap-2">{colors.map((color, index) => <span key={`${color.value}-${index}`} className="cv-flex cv-items-center cv-gap-2 cv-rounded-lg cv-bg-white/[.05] cv-p-2 cv-text-[11px] cv-text-[#bbceca]" title={color.label}><i className="cv-h-5 cv-w-5 cv-rounded-md cv-border cv-border-white/15" style={{background: color.value}}/>{color.value}</span>)}</div></section>}
+    {!!fonts.length && <section className="cv-mt-7"><h4 className="cv-m-0 cv-text-xs cv-font-semibold cv-text-[#9ab3ae]">Tipografia</h4><div className="cv-mt-3 cv-flex cv-flex-wrap cv-gap-2">{fonts.map((font, index) => <span key={`${font.value}-${index}`} className="cv-rounded-lg cv-bg-white/[.06] cv-px-3 cv-py-2 cv-text-xs cv-text-[#dbe8e5]"><b>{font.value}</b>{font.label !== font.value && <small className="cv-ml-2 cv-text-[#91aaa5]">{font.label}</small>}</span>)}</div></section>}
     {!hasIdentitySignals && <section className="cv-mt-8 cv-rounded-2xl cv-border cv-border-[#2c5552] cv-bg-[#102325] cv-p-5"><p className="cv-m-0 cv-text-xs cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#79cfc3]">Identidade incompleta</p><h4 className="cv-mb-0 cv-mt-2 cv-text-base cv-font-semibold cv-text-[#e1efec]">Ainda faltam referências para orientar a marca</h4><p className="cv-mb-0 cv-mt-2 cv-text-sm cv-leading-6 cv-text-[#a9c0bc]">Não há logo, cores ou diretrizes suficientes neste momento. Refaça a auditoria para atualizar a identidade antes de usar este contexto em uma conversa.</p>{content.audit_url && <a href={content.audit_url} className="cv-mt-4 cv-inline-flex cv-items-center cv-rounded-xl cv-bg-teal cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold cv-text-[#052522] cv-no-underline hover:cv-bg-[#72e0d2]">{auditLabel}</a>}</section>}
     {!!details.length && <dl className="cv-brand-identity__details cv-mt-8 cv-grid cv-gap-4">{details.map(detail => <div key={detail.label} className="cv-border-t cv-border-white/[.08] cv-pt-4"><dt className="cv-text-[11px] cv-font-semibold cv-text-[#8fbab4]">{detail.label}</dt><dd className="cv-m-0 cv-mt-1 cv-text-sm cv-leading-6 cv-text-[#dce9e6]">{detail.value}</dd></div>)}</dl>}
     {!!content.projects?.length && <section className="cv-brand-identity__projects cv-mt-8"><h4>Projetos que herdam este contexto</h4><div>{content.projects.map(project => <span key={project.ref}>{project.name}</span>)}</div></section>}
@@ -255,7 +266,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, onChange, onTitleChange, projectRef, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
+export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -301,11 +312,12 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
     setLoadingVersions(false);
   };
   if (!artifact) return null;
-  return <aside className={`cv-artifact-panel cv-artifact-overlay cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label="Artefato">
+  return <aside className={`cv-artifact-panel cv-artifact-overlay cv-artifact-panel--${side} cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label="Artefato">
     <header className="cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-border-b cv-border-white/[.07] cv-px-5">
       <div className="cv-min-w-0 cv-flex-1"><span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span><h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{artifact.title || artifact.content?.title || 'Trabalho em andamento'}</h2></div>
       {type === 'html' && artifact.id && <button type="button" onClick={artifact.status === 'published' && onUnpublish ? onUnpublish : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? artifact.status === 'published' ? 'Retirando…' : 'Publicando…' : saving ? 'Salvando…' : artifact.status === 'published' ? 'Despublicar' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}
       {textArtifact && <button type="button" onClick={toggleTheme} className="cv-artifact-theme-toggle" aria-pressed={lightTheme} title={lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}>{lightTheme ? 'Escuro' : 'Claro'}</button>}
+      <button type="button" onClick={() => onSideChange?.(side === 'right' ? 'left' : 'right')} className="cv-artifact-side-toggle" title={side === 'right' ? 'Mover artefato para a esquerda' : 'Mover artefato para a direita'} aria-label={side === 'right' ? 'Mover artefato para a esquerda' : 'Mover artefato para a direita'}>{side === 'right' ? '←' : '→'}</button>
       {artifact.id && <button type="button" onClick={openVersions} className="cv-flex cv-h-8 cv-items-center cv-gap-1.5 cv-rounded-lg cv-border-0 cv-bg-white/[.05] cv-px-2.5 cv-text-[11px] cv-text-[#a8bfbb] hover:cv-bg-white/[.08]" title="Histórico de versões"><Icon name="history" size={14}/>v{artifact.current_version || 1}</button>}
       <button type="button" onClick={requestClose} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Fechar artefato"><Icon name="close" size={17}/></button>
     </header>

@@ -58,6 +58,7 @@ export default function App({bootstrap}) {
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const [artifact, setArtifact] = useState(null);
   const [artifactOpen, setArtifactOpen] = useState(false);
+  const [artifactSide, setArtifactSide] = useState('right');
   const [artifactDirty, setArtifactDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -72,11 +73,22 @@ export default function App({bootstrap}) {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [contextLoading, setContextLoading] = useState(true);
   const [openingId, setOpeningId] = useState(null);
-  const [notice, setNotice] = useState(null);
   const [discardRequest, setDiscardRequest] = useState(null);
   const [dropActive, setDropActive] = useState(false);
   const conversationRef = useRef(null);
   const artifactRef = useRef(null);
+  useEffect(() => {
+    if (!artifact?.id) return;
+    const key = `cadu-artifact-side:${artifact.id}`;
+    const saved = document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]+)`))?.[1];
+    setArtifactSide(saved === 'left' ? 'left' : 'right');
+  }, [artifact?.id]);
+  useEffect(() => { if (artifactOpen) setHistoryOpen(false); }, [artifactOpen]);
+  const changeArtifactSide = useCallback(side => {
+    const next = side === 'left' ? 'left' : 'right';
+    setArtifactSide(next);
+    if (artifact?.id) document.cookie = `cadu-artifact-side:${artifact.id}=${next}; Max-Age=31536000; Path=/; SameSite=Lax`;
+  }, [artifact?.id]);
   const runRef = useRef(null);
   const runStartedRef = useRef(0);
   const discardResolverRef = useRef(null);
@@ -109,7 +121,6 @@ export default function App({bootstrap}) {
 
   const trace = useCallback((eventTitle, detail = '', tone = '') => {
     setDiagnostics(items => [...items, {id: uid(), title: eventTitle, detail, tone}].slice(-30));
-    if (tone === 'error') setNotice({id: uid(), tone: 'error', title: eventTitle, detail});
   }, []);
 
   const releasePreviews = useCallback(items => items.forEach(item => {
@@ -752,9 +763,10 @@ export default function App({bootstrap}) {
           <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} projectResourcesEndpoint={bootstrap.endpoints?.projectResources || '/workspace/api/v2/projects'} studioLibraryEndpoint={bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library'} activeId={conversationId} onOpen={openConversation} onOpenResource={openResource} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte para anexar</strong></div></div>}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
+          <Conversation title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} onProjectChange={changeProject} onBrandChange={changeBrand} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
           {artifactOpen && <ArtifactPane
             artifact={artifact} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
+            side={artifactSide} onSideChange={changeArtifactSide}
             onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
             onSaveToProject={saveArtifactToProject} onPublish={publishArtifact} onUnpublish={unpublishArtifact} onClose={() => setArtifactOpen(false)}
             onRequestSummary={url => submit(`Abra e resuma este site público em um texto editável: ${url}`, {skipAttachments: true})}

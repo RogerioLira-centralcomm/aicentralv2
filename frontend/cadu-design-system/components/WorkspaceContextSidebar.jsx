@@ -37,6 +37,17 @@ function conversationHref(item, baseHref) {
   }
 }
 
+function projectConversationHref(project, baseHref) {
+  if (!baseHref) return project?.href || project?.url || '#';
+  try {
+    const target = new URL(baseHref, window.location.origin);
+    target.searchParams.set('project_ref', project.projectRef || project.ref || project.id);
+    return `${target.pathname}${target.search}`;
+  } catch (_) {
+    return project?.href || project?.url || '#';
+  }
+}
+
 function writeCollectionPayload(event, item, kind, label) {
   if (!event.dataTransfer) return;
   const payload = {
@@ -88,10 +99,9 @@ function SidebarBrandProjectGroups({brands, projects, links}) {
       <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}>
         <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/><b>{brand.name}</b>
       </a>
-      {brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url || '#'} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}
-      {!brand.projects.length && <span className="cadu-ds-context-sidebar__group-empty">Nenhum projeto vinculado</span>}
+      {brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><VisualIdentity src={project.previewUrl || project.logoUrl || project.dockLogoUrl} initials={project.visualInitials || project.name} label={project.name || project.title} color={project.visualColor || '#176b5e'} variant={project.visualVariant}/><span>{project.name || project.title || 'Projeto'}</span></a>)}
     </section>)}
-    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><b className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</b>{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url || '#'} title={project.name || project.title}><span>{project.name || project.title || 'Projeto'}</span></a>)}</section>}
+    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><span className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</span>{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><VisualIdentity src={project.previewUrl || project.logoUrl || project.dockLogoUrl} initials={project.visualInitials || project.name} label={project.name || project.title} color={project.visualColor || '#176b5e'} variant={project.visualVariant}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</section>}
   </section>;
 }
 

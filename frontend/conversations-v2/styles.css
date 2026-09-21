@@ -731,6 +731,13 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   animation: cv-artifact-open 220ms cubic-bezier(.2,.75,.25,1) both;
   transform-origin: right center;
 }
+.cv-artifact-panel--left { order:-1; border-right:1px solid rgba(255,255,255,.08); border-left:0; transform-origin:left center; }
+.cv-artifact-side-toggle { min-height:30px; min-width:30px; padding:0 7px; border:1px solid rgba(181,218,211,.2); border-radius:8px; background:rgba(255,255,255,.05); color:#c4d7d3; font:650 15px/28px Inter,ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
+.cv-artifact-side-toggle:hover,.cv-artifact-side-toggle:focus-visible { border-color:rgba(127,229,216,.55); background:rgba(101,216,203,.12); color:#effffc; outline:0; }
+.cv-brand-identity__actions { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:-4px 0 16px; padding-bottom:9px; border-bottom:1px solid rgba(181,218,211,.12); color:#789b95; font-size:10px; }
+.cv-brand-identity__actions > div { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.cv-brand-identity__actions a { padding:5px 8px; border:1px solid rgba(101,216,203,.24); border-radius:7px; color:#79d9cd; text-decoration:none; }
+.cv-brand-identity__actions a:hover,.cv-brand-identity__actions a:focus-visible { background:rgba(101,216,203,.1); outline:0; }
 .cv-artifact-panel.cv-is-closing { pointer-events: none; animation: cv-artifact-close 180ms ease-in both; }
 .cv-artifact-publish { min-height:30px; padding:0 10px; border:1px solid rgba(101,216,203,.4); border-radius:8px; background:rgba(101,216,203,.1); color:#79dfd2; font:650 11px/28px Inter,ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
 .cv-artifact-publish:hover { background:rgba(101,216,203,.18); color:#d8fbf5; }
@@ -761,6 +768,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-artifact-panel.is-light .cv-rich-document__canvas td { color:#294740; border-color:#d2e1dd; }
 .cv-artifact-panel.is-light .cv-rich-document__hint { color:#52706b; }
 .cv-artifact-panel.is-light .cv-artifact-actions { border-color:#d7e2df; background:#edf4f1; color:#52706b; }
+.cv-artifact-panel.is-light .cv-artifact-side-toggle { border-color:#b8ccc7; background:#eaf2ef; color:#24564e; }
+.cv-artifact-panel.is-light .cv-brand-identity__actions { border-color:#d7e2df; color:#52706b; }
 .cv-message-enter { animation: cv-message-enter 180ms ease-out both; }
 
 @keyframes cv-artifact-open {

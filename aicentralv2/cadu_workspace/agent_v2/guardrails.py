@@ -44,11 +44,23 @@ def repair_metadata_answer(value):
     # Some providers wrap the actual answer in an orchestration report. Keep
     # only the customer-facing response and discard the internal next-action
     # instruction before streaming or persisting it.
-    response_match = re.search(r"(?is)(?:^|\s)resposta\s*:?(.*?)(?=\s+pr[oó]xima a[cç][aã]o\s*:|$)", text)
+    response_match = re.search(r"(?is)(?:^|\s)resposta\s*:\s*(.*?)(?=\s+pr[oó]xima a[cç][aã]o\s*:|$)", text)
     if response_match:
         response = response_match.group(1).strip()
         if response:
             return response
+    # A compact orchestration report can contain only the decision and
+    # confidence fields (without a separate ``Resposta``/``Fato`` field).
+    # In that case the decision is the useful customer-facing answer; never
+    # expose the routing report itself.
+    compact_match = re.search(
+        r"(?is)decis[aã]o proposta\s*:\s*(.*?)(?=\s+confian[cç]a\s*:|\s+pr[oó]xima\s+a[cç][aã]o\s*:|$)",
+        text,
+    )
+    if compact_match and compact_match.group(1).strip():
+        decision = compact_match.group(1).strip().rstrip(".")
+        return decision[:1].upper() + decision[1:] + "."
+
     text = re.sub(r"(?is)^\s*(?:projeto usado|decis[aã]o proposta|confian[cç]a|pr[oó]ximo passo)\s*:[^.]*\.\s*", "", text)
     match = _LEAKED_DECISION_PATTERN.match(text)
     if not match:

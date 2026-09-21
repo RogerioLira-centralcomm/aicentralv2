@@ -779,7 +779,13 @@ def stream(run):
                 yield event(item['event'], **{key: value for key, value in item.items() if key != 'event'})
         if state != 'completed':
             raise dify.DifyUnavailable('A geração terminou antes da confirmação do Dify.')
-        answer = repair_metadata_answer(readable_documents(answer))
+        raw_answer = readable_documents(answer)
+        answer = repair_metadata_answer(raw_answer)
+        if answer != raw_answer:
+            # The provider may have streamed the unsafe orchestration text
+            # before the final answer was assembled. Replace the visible
+            # message so the browser cannot retain the leaked prefix.
+            yield event('replace', text=answer)
         if is_operational_failure_leak(answer):
             current_app.logger.warning('Resposta do provedor continha diagnóstico interno; conversa=%s run=%s',
                                        run['conversation_id'], run['run_id'])

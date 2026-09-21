@@ -157,6 +157,15 @@ def test_inline_orchestration_report_is_not_shown_to_the_customer():
     assert repair_metadata_answer(leaked) == 'Bob Marley morreu em 11 de maio de 1981.'
 
 
+def test_compact_decision_report_is_reduced_to_the_customer_answer():
+    from aicentralv2.cadu_workspace.agent_v2.guardrails import repair_metadata_answer
+    leaked = (
+        'Projeto usado: resposta conceitual geral. Decisão proposta: conhecer o público antes de criar '
+        'uma campanha. Confiança: alta.'
+    )
+    assert repair_metadata_answer(leaked) == 'Conhecer o público antes de criar uma campanha.'
+
+
 def test_deep_depth_is_visible_to_the_agent_as_a_customer_selected_posture():
     from aicentralv2.cadu_workspace.conversations.service import build_run
     run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},

@@ -173,10 +173,12 @@ def _reviewed_horizontal_prompt(prompt: str, card: dict, meta: dict, hero: dict,
     return (
         f"{prompt}. Create one horizontal 16:9 key visual for display or CTV, not a mockup of a website and not a generic creative. "
         + reference_direction +
-        "Use the supplied logo exactly as provided, with no redraw or invented lettering. Keep the logo in the same fixed safe position: upper-left, with generous clear space. "
-        "Use the campaign's main product or service as the visual hero, with relevant people or context when useful. Prefer photoreal commercial photography, colors close to the logo, and strong tonal contrast so the logo stays readable. "
+        "Use the supplied logo exactly as provided, with no redraw, distortion, recoloring or invented lettering. Extract the logo's dominant and supporting colors and use them as the visual palette and accents; preserve their hue relationships and choose contrasting backgrounds so the logo remains readable. "
+        "If typography is ever needed, use the logo's typographic character as the reference for weight, rhythm and personality; for this first version do not add any headline, slogan, CTA, price, caption or other copy. The only visible brand text may be the original logo artwork. "
+        "Keep the logo in the same fixed safe position: upper-left, with generous clear space. "
+        "Use the campaign's main product or service as the visual hero, with relevant people or context when useful. Prefer photoreal commercial photography and let the logo palette guide wardrobe, props, lighting accents and graphic surfaces without making the image monochromatic. "
         "Treat the logo and uploaded reference as reviewed inputs: the logo controls identity, while the reference may guide only product, scene, light or visual language. "
-        "No extra logos, no agency marks, no watermark, no illegible text, no collage, no portrait crop, no QR code, no price and no invented claim."
+        "No extra logos, no agency marks, no watermark, no generated text, no illegible text, no collage, no portrait crop, no QR code, no price and no invented claim."
     )
 
 

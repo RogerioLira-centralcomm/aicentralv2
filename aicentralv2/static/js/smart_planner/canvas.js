@@ -92,7 +92,7 @@
     var field = document.getElementById("sp-field-image-prompt");
     if (!field) return;
     field.value = reviewedImagePrompt();
-    setImageStatus("Prompt revisado: identidade, posição da logo, referência, contraste e formato conferidos.", "ready");
+      setImageStatus("Prompt revisado: cores e tipografia da logo, posição, referência, contraste e formato conferidos. A primeira versão não terá texto.", "ready");
   }
 
   function escapeHtml(value) {

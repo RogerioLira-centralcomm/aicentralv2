@@ -1503,3 +1503,57 @@ def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fall
         shared = provider.runtime_for("fast")
         assert shared["url"] == "https://vault-dify.example/v1"
         assert shared["source"] == "centralx-integration"
+
+
+def test_provider_preserves_answer_when_dify_errors_after_first_content(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2 import provider
+
+    class Response:
+        status_code = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def iter_lines(self, **_):
+            return iter([
+                'data: {"event":"message","answer":"Resposta útil"}',
+                '',
+                'data: {"event":"error","message":"upstream failed"}',
+                '',
+            ])
+
+    monkeypatch.setattr(provider, "settings", lambda *_: ("https://dify.example/v1", {}))
+    monkeypatch.setattr(provider.requests, "post", lambda *_, **__: Response())
+    app = Flask(__name__)
+    with app.app_context():
+        events = list(provider.events({"query": "teste"}, "analysis"))
+
+    assert events == [{"event": "message", "answer": "Resposta útil"}]
+
+
+def test_provider_fails_when_dify_errors_before_any_content(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2 import provider
+
+    class Response:
+        status_code = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def iter_lines(self, **_):
+            return iter([
+                'data: {"event":"error","message":"upstream failed"}',
+                '',
+            ])
+
+    monkeypatch.setattr(provider, "settings", lambda *_: ("https://dify.example/v1", {}))
+    monkeypatch.setattr(provider.requests, "post", lambda *_, **__: Response())
+    app = Flask(__name__)
+    with app.app_context(), pytest.raises(provider.ProviderUnavailable):
+        list(provider.events({"query": "teste"}, "analysis"))

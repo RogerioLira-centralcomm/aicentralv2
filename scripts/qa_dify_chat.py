@@ -10,9 +10,20 @@ medium and high-complexity Cadu requests.
 """
 import json
 import os
+import sys
 import time
+from pathlib import Path
 
 import requests
+
+
+# Executing ``python scripts/qa_dify_chat.py`` makes ``scripts/`` the first
+# import root. Add the repository root explicitly so the QA uses the same
+# application and credential resolver as Gunicorn, regardless of the caller's
+# current directory.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 CASES = (
@@ -72,8 +83,11 @@ def main():
                 resolved_url, resolved_key = resolve_dify_configuration()
             key = str(resolved_key or '').strip()
             base_url = str(resolved_url or base_url).strip()
-        except Exception:
-            key = ''
+        except Exception as exc:
+            raise SystemExit(
+                'Não foi possível carregar a configuração Dify pela aplicação: '
+                f'{type(exc).__name__}: {exc}'
+            ) from exc
     if not key:
         raise SystemExit('A credencial Dify não está configurada no cofre CentralX nem em CADU_DIFY_API_KEY.')
     results = [stream_case(base_url, key, *case) for case in CASES]

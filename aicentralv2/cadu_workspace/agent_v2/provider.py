@@ -96,6 +96,7 @@ def upload_file(file, user: str, execution_mode="analysis") -> str:
 def events(payload, execution_mode="analysis"):
     url, headers = settings(execution_mode)
     read_timeout = {"fast": 30, "analysis": 120, "agentic": 240}.get(execution_mode, 120)
+    received_answer = False
     try:
         with requests.post(url + "/chat-messages", json=payload, headers=headers, stream=True,
                            timeout=(10, read_timeout), allow_redirects=False) as response:
@@ -112,9 +113,22 @@ def events(payload, execution_mode="analysis"):
                     value = json.loads(raw)
                     if isinstance(value, dict):
                         if value.get("event") == "error":
+                            if received_answer:
+                                current_app.logger.warning(
+                                    "Runtime V2 encerrou o stream após iniciar a resposta; preservando conteúdo recebido."
+                                )
+                                return
                             raise ProviderUnavailable("O runtime V2 retornou um erro durante a resposta.")
+                        if value.get("event") in {"message", "agent_message"} and value.get("answer"):
+                            received_answer = True
                         yield value
     except (requests.RequestException, ValueError) as exc:
+        if received_answer:
+            current_app.logger.warning(
+                "Conexão com o runtime V2 terminou após iniciar a resposta; preservando conteúdo recebido: %s",
+                type(exc).__name__,
+            )
+            return
         raise ProviderUnavailable("A conexão com o runtime V2 foi interrompida.") from exc
 
 

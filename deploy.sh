@@ -108,6 +108,7 @@ restore_generated_file() {
 }
 
 restore_generated_file "aicentralv2/static/css/video-studio.css"
+restore_generated_file "aicentralv2/static/cadu_auth/app.css"
 restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.css"
 restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.js"
 restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.css"

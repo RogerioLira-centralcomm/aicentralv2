@@ -3931,6 +3931,30 @@ def dashboard():
     )
     credit = credit_position(client_id)
     usage = float(credit.get('monthly_usage_percentage') or 0)
+    credit_available = max(0, int(credit.get('available') or 0))
+    credit_total = max(0, int(credit.get('monthly') or 0))
+    # The home warning is intentionally conservative: a paid team only sees
+    # it when the active credit lots are close to exhaustion. A free team gets
+    # an upgrade invitation because it has no active credit capacity yet.
+    is_free_credit_state = credit_total == 0 and int(credit.get('monthly_limit') or 0) == 0
+    is_low_credit = is_free_credit_state or (
+        credit_total > 0 and (usage >= 75 or credit_available <= max(10000, int(credit_total * 0.25)))
+    )
+    credit_alert = {
+        'visible': is_low_credit,
+        'isFree': is_free_credit_state,
+        'available': credit_available,
+        'total': credit_total,
+        'usagePercent': round(usage, 1),
+        'title': 'Dê mais capacidade ao seu time' if is_free_credit_state else 'Seu saldo de créditos está baixo',
+        'description': (
+            'Faça upgrade para liberar o uso de IA no Cadu para uma pessoa ou para toda a equipe.'
+            if is_free_credit_state else
+            f'Você ainda tem {credit_available:,} créditos disponíveis. Adicione um pacote para continuar sem interrupções.'
+        ).replace(',', '.'),
+        'href': url_for('cadu_workspace.account_page', section='planos' if is_free_credit_state else 'creditos'),
+        'cta': 'Ver planos' if is_free_credit_state else 'Comprar créditos',
+    }
     brand_project_counts: dict[str, int] = {}
     try:
         project_brand_links = family_repository.project_brand_links(client_id)
@@ -4007,6 +4031,7 @@ def dashboard():
         'decisions': decisions,
         'activity': continuity_feed,
         'usagePercent': round(usage, 1),
+        'creditAlert': credit_alert,
         'preferences': _user_home_preferences(client_id, int(session.get('user_id') or 0)),
     }
     return render_template(

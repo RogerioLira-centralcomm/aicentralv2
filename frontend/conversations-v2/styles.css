@@ -290,7 +290,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary,
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { min-height:36px; box-sizing:border-box; }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary { display:inline-flex; align-items:center; gap:6px; padding:0 11px; border:1px solid rgba(54,111,104,.26); border-radius:10px; background:rgba(232,242,240,.78); color:#173d39; font-size:12px; font-weight:650; white-space:nowrap; }
-#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { border-radius:10px; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { border:0; border-radius:10px; background:transparent; box-shadow:none; }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-input { min-width:0; }
 @media (max-width:760px) {
   #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-actions,

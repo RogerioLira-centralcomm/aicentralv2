@@ -18,6 +18,18 @@ function withQuery(url, values) {
 
 const isDockResource = item => Boolean(item?.resourceRef) || item?.kind === 'resource';
 
+function HomeCreditAlert({creditAlert}) {
+  if (!creditAlert?.visible) return null;
+  return <section className={`cadu-ds-home-credit-alert ${creditAlert.isFree ? 'is-free' : 'is-low'}`} aria-live="polite" aria-label="Capacidade de créditos">
+    <span className="cadu-ds-home-credit-alert__icon" aria-hidden="true">✦</span>
+    <div className="cadu-ds-home-credit-alert__copy">
+      <strong>{creditAlert.title}</strong>
+      <p>{creditAlert.description}</p>
+    </div>
+    <a className="cadu-ds-home-credit-alert__action" href={creditAlert.href}>{creditAlert.cta}<span aria-hidden="true">↗</span></a>
+  </section>;
+}
+
 const HOME_TITLES = [
   'Por onde começamos?',
   'O que merece atenção hoje?',
@@ -197,6 +209,7 @@ export function WorkspaceHome({bootstrap}) {
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-intro">{selectedProject ? <ProjectSelector label="Projeto da conversa" emptyLabel="Selecionar projeto" items={projects} value={projectRef} onChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} className="cadu-ds-home-project-selector"/> : <h1>{homeTitle}</h1>}<p>{selectedProject ? 'Contexto selecionado para esta conversa.' : 'Escreva uma demanda ou escolha uma sugestão para começar.'}</p></div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} embedded homeMode showProjectSelector={false}/>
+        <HomeCreditAlert creditAlert={home.creditAlert}/>
         {!value.trim() && (
           <WorkspacePromptSuggestions project={selectedProject} brand={selectedBrand} home={home} onSelect={setValue}/>
         )}

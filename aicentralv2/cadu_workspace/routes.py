@@ -2766,6 +2766,42 @@ PUBLIC_PAGES = {
     },
 }
 
+LEGAL_PAGES = {
+    "privacidade": {
+        "title": "Política de privacidade",
+        "description": "Como o Cadu Workspace trata dados de conta, projetos, marcas, arquivos e integrações.",
+        "lead": "Transparência para você entender quais dados usamos, por que usamos e como cuidar deles no Workspace.",
+        "updated": "21 de setembro de 2026",
+        "sections": [
+            ("1. Escopo", "Esta política explica o tratamento de dados no Cadu Workspace, serviço da Centralcomm Comunicação e Tecnologia Ltda. Ela se aplica às páginas públicas, à conta de usuário e aos ambientes de marcas e projetos acessados pelo Workspace."),
+            ("2. Dados que podemos tratar", "Podemos tratar dados de cadastro e acesso, como nome, e-mail, organização e preferências; dados de uso necessários para operar a conta; e conteúdos que você ou sua equipe escolhem incluir, como briefings, arquivos, referências, decisões e instruções de projeto."),
+            ("3. Como usamos os dados", "Usamos esses dados para autenticar usuários, manter marcas e projetos organizados, executar recursos solicitados, preservar histórico e permissões, medir capacidade e créditos, prevenir abuso e prestar suporte. Não usamos o conteúdo privado de um projeto para torná-lo público."),
+            ("4. Google e outras integrações", "Quando você autoriza uma integração, o Workspace acessa somente os serviços e escopos apresentados na autorização. Tokens são usados para manter a conexão solicitada e podem ser revogados por você no Google. Não vendemos dados pessoais nem usamos dados de serviços conectados para publicidade comportamental."),
+            ("5. Compartilhamento e acesso", "O acesso ao conteúdo depende da organização, marca, projeto e papel atribuído à pessoa. Podemos compartilhar dados com provedores técnicos que atuam em nosso nome, sob obrigações de segurança e confidencialidade, ou quando a lei exigir. Não compartilhamos projetos privados para fins comerciais de terceiros."),
+            ("6. Retenção e segurança", "Mantemos dados pelo tempo necessário para fornecer o serviço, cumprir obrigações legais, resolver disputas e proteger a operação. Aplicamos controles de acesso, registro de eventos e medidas técnicas compatíveis com a natureza dos dados. Nenhum serviço conectado à internet elimina todos os riscos, por isso recomendamos proteger sua conta e não inserir segredos em campos de projeto."),
+            ("7. Seus direitos", "Você pode solicitar confirmação de tratamento, acesso, correção, atualização ou exclusão de dados, observadas as obrigações legais e os registros necessários à segurança. Para solicitar atendimento, escreva para contato@centralcomm.media informando a organização e o e-mail usado no Cadu."),
+            ("8. Alterações", "Podemos atualizar esta política para refletir mudanças no produto ou na legislação. A versão publicada nesta página informa a data da atualização mais recente."),
+        ],
+    },
+    "termos": {
+        "title": "Termos de serviço",
+        "description": "Regras de uso do Cadu Workspace para contas, equipes, marcas, projetos e integrações.",
+        "lead": "Condições simples para usar o Workspace com clareza, responsabilidade e respeito ao trabalho da sua equipe.",
+        "updated": "21 de setembro de 2026",
+        "sections": [
+            ("1. Sobre o serviço", "O Cadu Workspace reúne conta, equipe, marcas, projetos, arquivos, créditos e integrações para apoiar o trabalho de comunicação e mídia. Recursos, limites e disponibilidade podem variar conforme o plano contratado ou a configuração da organização."),
+            ("2. Sua conta e sua equipe", "Você é responsável por manter seus dados de acesso corretos, proteger credenciais e garantir que as pessoas convidadas tenham autorização para acessar o conteúdo. A organização também é responsável por administrar papéis, permissões e conexões que autorizar."),
+            ("3. Conteúdo e instruções", "Você mantém os direitos sobre o conteúdo enviado ao Workspace. Você autoriza o processamento necessário para fornecer os recursos solicitados, incluindo organização, indexação, análise e geração de resultados dentro do contexto escolhido. Não envie conteúdo que você não tenha autorização para usar."),
+            ("4. Resultados e revisão humana", "Recursos assistidos por inteligência artificial podem produzir resultados incompletos ou incorretos. Os resultados são apoio ao trabalho e devem ser revisados antes de publicação, investimento, veiculação ou decisão comercial. O Workspace não substitui a aprovação da equipe responsável."),
+            ("5. Integrações e serviços de terceiros", "Ao conectar Google ou outro serviço, você autoriza a troca de dados necessária ao recurso escolhido e aceita também os termos desse terceiro. Você pode revogar a autorização nas configurações do serviço conectado, embora isso possa interromper a integração."),
+            ("6. Uso permitido", "Não use o serviço para violar leis, direitos de terceiros, privacidade, segurança ou propriedade intelectual; tentar obter acesso não autorizado; distribuir malware; contornar limites; ou inserir senhas, chaves e outros segredos em conteúdos destinados a compartilhamento."),
+            ("7. Disponibilidade e mudanças", "Trabalhamos para manter o serviço disponível, mas podem ocorrer manutenção, falhas de terceiros ou mudanças de produto. Podemos atualizar, suspender ou retirar recursos quando necessário para segurança, operação ou evolução do Cadu."),
+            ("8. Atendimento", "Dúvidas sobre acesso, implantação ou suporte podem ser enviadas para contato@centralcomm.media. Para assuntos de privacidade, consulte também a Política de privacidade do Cadu Workspace."),
+        ],
+    },
+}
+
+
 PRODUCT_ENTRIES = {
     "cadu": ("Cadu", "Inteligência de mídia", "Traga a decisão de mídia para um só lugar.", "Pesquise públicos, formatos, canais e ferramentas de campanha a partir do contexto do seu time."),
     "workspace": ("Workspace", "Conta e contexto", "Comece pelo contexto certo.", "Organize o time, os projetos, os créditos e os acessos antes de abrir uma solução especializada."),
@@ -3162,6 +3198,22 @@ def public_page(page):
         canonical=product_url("workspace", f"/{page}"), description=content["description"],
         help_url=_cadu_area("CADU_HELP_URL", "/ajuda"),
     )
+
+
+@bp.get("/privacidade")
+@bp.get("/workspace/privacidade")
+@bp.get("/termos")
+@bp.get("/workspace/termos")
+def legal_page():
+    page = request.path.rstrip("/").split("/")[-1]
+    content = LEGAL_PAGES[page]
+    return render_template(
+        "cadu_workspace/legal_page.html",
+        page=page,
+        content=content,
+        canonical=product_url("workspace", f"/{page}"),
+    )
+
 
 
 @bp.get("/workspace/assets/workspace-icon-<int:size>.png")

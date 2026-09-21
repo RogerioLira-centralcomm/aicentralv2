@@ -1,0 +1,57 @@
+/* Shared icon dock: the history rail is 276px and the dock is 64px. */
+#cadu-conversations-v2-root .cadu-ds-dock,
+#cadu-conversations-v2-root .cv-conversations-workarea > .cadu-ds-dock {
+  flex: 0 0 64px;
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-section-label {
+  display: none;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-section + .cadu-ds-dock-section {
+  padding-top: 0;
+  border-top: 0;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-solution { order: 1; }
+#cadu-conversations-v2-root .cadu-ds-dock-home { order: 2; }
+#cadu-conversations-v2-root .cadu-ds-dock-new { order: 3; }
+#cadu-conversations-v2-root .cadu-ds-dock-context { order: 4; }
+#cadu-conversations-v2-root .cadu-ds-dock-bottom { order: 5; }
+
+#cadu-conversations-v2-root .cadu-ds-dock-logo,
+#cadu-conversations-v2-root .cadu-ds-dock-home,
+#cadu-conversations-v2-root .cadu-ds-dock-new {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  margin-bottom: 10px;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-home,
+#cadu-conversations-v2-root .cadu-ds-dock-new {
+  border-radius: 10px;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-brand .cadu-ds-visual-identity:not([class*="--v"]),
+#cadu-conversations-v2-root .cadu-ds-dock-resource .cadu-ds-visual-identity:not([class*="--v"]) {
+  background: var(--cadu-nav-surface);
+  color: var(--cadu-nav-ink);
+  box-shadow: inset 0 0 0 1px var(--cadu-nav-line);
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-brand img,
+#cadu-conversations-v2-root .cadu-ds-dock-resource img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+@media (max-width: 760px) {
+  #cadu-conversations-v2-root .cadu-ds-dock-logo,
+  #cadu-conversations-v2-root .cadu-ds-dock-home,
+  #cadu-conversations-v2-root .cadu-ds-dock-new { margin-bottom: 0; }
+}

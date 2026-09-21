@@ -17,7 +17,7 @@
 <script type="application/json" id="sp-wait-gen-steps">{{ wait_steps | default({'one_page': [], 'completo': []}) | tojson }}</script>
   <div class="sp-hi-grid {% if step_id == 'revisao' %}is-review{% elif step_id == 'canais' %}is-mix{% elif step_id == 'conclusao' %}is-done{% endif %}">
     <div class="sp-hi-main">
-      <header class="sp-hi-head">
+      <header class="sp-hi-head {% if step_id == 'revisao' %}is-review-head{% endif %}">
         <div>
           <h1>
             {% if step_id == 'briefing' %}
@@ -137,40 +137,6 @@
 
       {% if step_id == 'revisao' %}
       <form id="sp-revisao-form" class="sp-review">
-        <section class="sp-complete" data-tom="{{ quality.tom }}" aria-labelledby="sp-complete-title">
-          <div class="sp-complete-score">
-            {% set ring = [quality_score, 100]|min %}
-            <div class="sp-score-ring" aria-hidden="true">
-              <svg viewBox="0 0 36 36">
-                <circle class="sp-score-track" cx="18" cy="18" r="15"></circle>
-                <circle class="sp-score-fill" id="sp-score-fill" cx="18" cy="18" r="15" stroke-dasharray="{{ (ring * 94.2 / 100)|round(1) }} 94.2"></circle>
-              </svg>
-              <strong id="sp-score-num">{{ quality_score }}<small>/100</small></strong>
-            </div>
-            <label class="sr-only" for="sp-complete-bar">Completude do briefing</label>
-            <progress id="sp-complete-bar" max="100" value="{{ ring }}" hidden></progress>
-          </div>
-          <div>
-            <h2 id="sp-complete-title">{{ quality.titulo }}</h2>
-            <p id="sp-complete-copy">{{ quality.texto }}</p>
-            <ul class="sp-complete-checks" id="sp-complete-checks">
-              <li data-check="campanha">campanha</li>
-              <li data-check="objetivo">objetivo</li>
-              <li data-check="publico">público</li>
-              <li data-check="verba">verba</li>
-              <li data-check="periodo">período</li>
-              <li data-check="praca">praça</li>
-              <li data-check="kpis">kpis</li>
-              <li data-check="canais">canais</li>
-            </ul>
-            <ul class="sp-complete-gaps" id="sp-complete-gaps" {% if not gaps %}hidden{% endif %}>
-              {% for gap in gaps[:5] %}
-              <li><a href="#sp-objetivo" data-gap="{{ gap }}">{{ gap }}</a></li>
-              {% endfor %}
-            </ul>
-          </div>
-        </section>
-
         <input type="hidden" name="cliente_id" value="{{ campos.cliente_id or '' }}">
         <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
         <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
@@ -550,6 +516,11 @@
             </li>
             {% endfor %}
           </ul>
+          <div class="sp-media-detail" aria-label="Resumo estratégico da gestão de mídia">
+            <p><strong>Estratégia</strong> Distribuição do investimento entre os canais selecionados para cumprir o objetivo da campanha.</p>
+            <p><strong>Investimento no período</strong> <span id="sp-media-period-total">{{ 'R$ {:,}'.format(pace.total).replace(',', '.') if pace.total else 'Não informado' }}</span></p>
+            <p><strong>Mapa de gastos</strong> O gráfico abaixo mostra o ritmo mensal e a concentração prevista por canal.</p>
+          </div>
           <div class="sp-cal-mini" id="sp-cal-mini" {% if not pace.editavel %}hidden{% endif %}>
             {% if pace.editavel %}
             <p>{{ pace.meses }} meses · começa menor e solta no meio e no fim</p>
@@ -566,6 +537,26 @@
           <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-media-open">Balancear mídia</button>
         </section>
         <button type="button" class="cx-btn cx-btn-primary sp-gen-side" id="sp-gen-open-side">Gerar documentos</button>
+        <section class="sp-complete sp-complete-side" data-tom="{{ quality.tom }}" aria-labelledby="sp-complete-title">
+          <div class="sp-complete-score">
+            {% set ring = [quality_score, 100]|min %}
+            <div class="sp-score-ring" aria-hidden="true">
+              <svg viewBox="0 0 36 36">
+                <circle class="sp-score-track" cx="18" cy="18" r="15"></circle>
+                <circle class="sp-score-fill" id="sp-score-fill" cx="18" cy="18" r="15" stroke-dasharray="{{ (ring * 94.2 / 100)|round(1) }} 94.2"></circle>
+              </svg>
+              <strong id="sp-score-num">{{ quality_score }}<small>/100</small></strong>
+            </div>
+          </div>
+          <div>
+            <h2 id="sp-complete-title">Completude do briefing</h2>
+            <p id="sp-complete-copy">{{ quality.texto }}</p>
+            <ul class="sp-complete-checks" id="sp-complete-checks">
+              <li data-check="campanha">campanha</li><li data-check="objetivo">objetivo</li><li data-check="publico">público</li><li data-check="verba">verba</li><li data-check="periodo">período</li><li data-check="praca">praça</li><li data-check="kpis">kpis</li><li data-check="canais">canais</li>
+            </ul>
+            <ul class="sp-complete-gaps" id="sp-complete-gaps" {% if not gaps %}hidden{% endif %}>{% for gap in gaps[:5] %}<li><a href="#sp-objetivo" data-gap="{{ gap }}">{{ gap }}</a></li>{% endfor %}</ul>
+          </div>
+        </section>
         <script type="application/json" id="sp-mix-spec">{{ (desk.spec or {})|tojson }}</script>
         <script type="application/json" id="sp-pace-boot">{{ (pace or {})|tojson }}</script>
       </div>

@@ -5967,3 +5967,36 @@ html.is-sp-media body {
 .sp-hi-foot .cx-btn-primary{min-height:2.65rem;padding:.65rem 1rem;border:1px solid #12484b;background:#15585b!important;color:#fff!important;font-weight:800;line-height:1.2;text-shadow:none;white-space:nowrap}
 .sp-hi-foot .cx-btn-primary:hover,.sp-hi-foot .cx-btn-primary:focus-visible{background:#0f4548!important;color:#fff!important;border-color:#0b383b;outline:3px solid rgba(21,88,91,.22);outline-offset:2px}
 @media(max-width:560px){.sp-hi-foot{flex-wrap:wrap}.sp-hi-foot .cx-btn-primary{flex:1 1 100%;order:5}.sp-hi-foot .sp-hi-save,.sp-hi-foot .sp-hi-next{flex:1 1 auto}}
+
+/* Revisão final: menos repetição visual e mais espaço para a decisão. */
+.sp-hi-head.is-review-head{display:none}
+.sp-review>.sp-acc[data-acc="audience"],
+.sp-review>.sp-acc[data-acc="context"]{grid-column:1/-1}
+.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair,
+.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair{grid-template-columns:repeat(2,minmax(280px,1fr));gap:1rem}
+.sp-complete-side{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.7rem;align-items:center;margin:0!important;padding:.65rem .75rem!important;border:1px solid var(--hi-line)!important;background:#fbfdfd!important}
+.sp-complete-side .sp-score-ring{width:3.25rem;height:3.25rem}
+.sp-complete-side .sp-score-ring strong{font-size:.78rem}
+.sp-complete-side .sp-complete-checks{display:none}
+.sp-complete-side h2{margin:0;font-size:.78rem!important}
+.sp-complete-side p{margin:.2rem 0 0;font-size:.68rem!important;line-height:1.3}
+.sp-complete-side .sp-complete-gaps{margin:.3rem 0 0;padding:0;list-style:none;font-size:.66rem}
+.sp-complete-side .sp-complete-gaps a{color:var(--hi-fog);text-decoration:none}
+.sp-media-detail{display:grid;gap:.35rem;margin:.65rem 0;padding:.65rem .7rem;border-top:1px solid var(--hi-line);border-bottom:1px solid var(--hi-line);color:var(--hi-fog);font-size:.68rem;line-height:1.35}
+.sp-media-detail p{margin:0}
+.sp-media-detail strong{display:block;color:var(--hi-ink);font-size:.67rem}
+@media(max-width:1100px){.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair,.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:860px){.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair,.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair{grid-template-columns:1fr}.sp-complete-side{grid-template-columns:auto minmax(0,1fr)}}
+
+/* Sidebar de decisão: campos alinhados e selects estratégicos mais legíveis. */
+.sp-hi-budget .sp-bf{align-items:start}
+.sp-hi-budget .sp-bf>label{align-self:start;min-width:0}
+.sp-hi-budget .sp-bf>label>span{min-height:1.1rem;line-height:1.2}
+.sp-hi-budget .sp-bf .sp-field-hint{min-height:2.5rem;margin-top:.3rem}
+.sp-objective-card>label select,
+.sp-objective-card .sp-plan-kpis select{min-height:3rem!important;padding:.65rem .75rem!important;font-size:1rem!important;font-weight:700;color:var(--hi-ink)!important;background:#fff}
+.sp-objective-card>label select:focus,
+.sp-objective-card .sp-plan-kpis select:focus{outline:3px solid rgba(21,88,91,.18);border-color:var(--hi-go)}
+.sp-objective-card .sp-plan-kpis{gap:.65rem}
+.sp-objective-card .sp-kpi-chips button{font-size:.75rem;padding:.45rem .65rem}
+@media(max-width:560px){.sp-hi-budget .sp-bf{grid-template-columns:1fr}.sp-hi-budget .sp-bf .sp-praca-detalhe-field{grid-column:auto}.sp-hi-budget .sp-bf .sp-field-hint{min-height:0}.sp-objective-card>label select,.sp-objective-card .sp-plan-kpis select{min-height:2.8rem!important}}

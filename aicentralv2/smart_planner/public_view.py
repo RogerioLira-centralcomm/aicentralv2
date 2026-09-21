@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import os
 import logging
@@ -23,23 +22,6 @@ from ..db import normalizar_telefone_whatsapp, obter_contato_por_email, obter_co
 
 logger = logging.getLogger(__name__)
 
-
-def _planning_structure_json(row: dict, dados: dict, folha: dict, plan: dict) -> str:
-    """Snapshot temporário para inspeção da estrutura usada pela página pública."""
-    hidden = {
-        "session_token",
-        "public_token",
-        "visitor_id",
-        "user_id",
-        "user_email",
-        "auth_method",
-        "input_file_path",
-    }
-    registro = {str(key): value for key, value in (row or {}).items() if str(key) not in hidden}
-    registro["dados_detectados"] = dados
-    registro["folha"] = folha
-    registro["plan_content"] = plan
-    return json.dumps(registro, ensure_ascii=False, indent=2, default=str, sort_keys=True)
 
 CHANNEL_COLORS = {
     "google_ads": "#4285F4",
@@ -569,7 +551,6 @@ def format_public_updated(value) -> dict:
 
 
 WATER_MARKERS = ("água", "agua", "reservatório", "reservatorio", "torneira")
-METRIC_UNDEFINED = "A definir após fechar a segmentação e o critério de exposição."
 INVENTORY_DISCLAIMER = (
     "Os veículos, plataformas, portais e aplicativos desta seção são ambientes "
     "A leitura apresenta ambientes e contextos de audiência; a divisão é estratégica e não representa contratação."
@@ -585,12 +566,6 @@ INVENTORY_FILTERS = (
     ("social", "Social"),
     ("programatica", "Programática"),
 )
-
-OPEN_ITEM_LABELS = {
-    "municipios": "Municípios prioritários",
-    "datas": "Datas exatas do voo",
-    "metricas": "Metas de alcance e frequência",
-}
 
 CHANNEL_PLAYBOOK = {
     "youtube": {
@@ -954,8 +929,8 @@ def _inventory(channels: list[dict], praca: str, detalhe: str) -> list[dict]:
             rows.extend([
                 {"name": "Estado de Minas", "kind": "Portal", "scope": "Regional", "role": "Proximidade editorial", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Veículo mineiro potencial."},
                 {"name": "O Tempo", "kind": "Portal", "scope": "Regional", "role": "Cobertura local", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Recomendado para Minas."},
-                {"name": "G1 Minas", "kind": "Portal", "scope": "Regional", "role": "Notícia do estado", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Segmentação geográfica a validar."},
-                {"name": "Portais do interior", "kind": "Portal", "scope": "Regional", "role": "Capilaridade municipal", "buy": "DV360", "formats": "Display", "status": "A validar", "status_tone": "warn", "tags": ["portais", "regional", "programatica"], "note": "Lista final após municípios prioritários."},
+                {"name": "G1 Minas", "kind": "Portal", "scope": "Regional", "role": "Notícia do estado", "buy": "DV360", "formats": "Display, native", "status": "Contexto", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Cobertura regional conforme o recorte da campanha."},
+                {"name": "Portais do interior", "kind": "Portal", "scope": "Regional", "role": "Capilaridade municipal", "buy": "DV360", "formats": "Display", "status": "Contexto", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Contexto regional para ampliar a presença editorial."},
             ])
         rows.extend([
             {"name": "Apps de notícias", "kind": "Aplicativo", "scope": "Nacional", "role": "Presença in-app", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "Categoria de conteúdo, não app nomeado."},
@@ -994,48 +969,6 @@ def _reading(channels: list[dict], months: list[dict]) -> list[dict]:
                 "text": f"{label} concentra a maior intensidade de investimento ({peak.get('amount_label')}).",
             })
     return out[:4]
-
-
-def _assumptions(missing: list[str], has_metrics: bool, has_inventory: bool = False) -> dict:
-    points = [
-        "Valores representam a divisão estratégica inicial do plano.",
-        "Formatos dependem das peças entregues.",
-        "O plano representa uma distribuição estratégica inicial.",
-    ]
-    if "municipios" in missing:
-        points.insert(0, "Municípios prioritários ainda precisam de validação final.")
-    if "datas" in missing:
-        insert_at = 1 if "municipios" in missing else 0
-        points.insert(insert_at, "Datas exatas do voo ainda não foram confirmadas.")
-    if not has_metrics:
-        points.append("Metas de alcance e impressões dependem da segmentação e da estratégia de exposição.")
-
-    open_items = []
-    for key in ("municipios", "datas"):
-        if key in missing:
-            open_items.append({"id": key, "label": OPEN_ITEM_LABELS[key]})
-    if not has_metrics:
-        open_items.append({"id": "metricas", "label": OPEN_ITEM_LABELS["metricas"]})
-
-    steps = []
-    if "municipios" in missing:
-        steps.append("Validar municípios atendidos")
-    if "datas" in missing:
-        steps.append("Confirmar datas exatas")
-    steps.extend(["Aprovar o mix", "Fechar a divisão do plano"])
-    if not has_metrics:
-        steps.append("Definir metas de alcance e frequência")
-    steps.extend([
-        "Receber especificações criativas",
-        "Confirmar formatos por canal",
-        "Consolidar a defesa final do plano",
-    ])
-    return {
-        "points": points,
-        "steps": steps,
-        "missing": list(missing),
-        "open_items": open_items,
-    }
 
 
 def _finance_checks(channels: list[dict], months: list[dict], total: int) -> list[str]:
@@ -1107,7 +1040,21 @@ def _full_groups(chapters: list[dict], board: list[dict]) -> list[dict]:
     board_map = {"context": "strategy", "strategy": "strategy", "media": "media", "execution": "execution"}
     for section in board:
         groups[board_map.get(text(section.get("id")), _chapter_group(section.get("title")))]["sections"].append(section)
-    return list(groups.values())
+    # A leitura externa termina em três atos claros e imprime em até três A4.
+    pages = (
+        ("strategy", "Estratégia e indicadores", ("strategy", "indicators")),
+        ("media", "Mídia e distribuição", ("media",)),
+        ("execution", "Criação e execução", ("creative", "execution")),
+    )
+    return [
+        {
+            "id": page_id,
+            "label": label,
+            "chapters": [chapter for key in keys for chapter in groups[key]["chapters"]],
+            "sections": [section for key in keys for section in groups[key]["sections"]],
+        }
+        for page_id, label, keys in pages
+    ]
 
 
 def public_view(row: dict, document: str | None = None) -> dict:
@@ -1237,13 +1184,6 @@ def public_view(row: dict, document: str | None = None) -> dict:
     )
     funnel = _funnel_from_channels(media.get("channels") or [])
     overview = text(strategy_parts[0] if strategy_parts else tagline)
-    missing = []
-    if "município" in text(strategy.get("body")).lower() or "municipios" in text(strategy.get("body")).lower() or "sem definição" in text(strategy.get("body")).lower():
-        missing.append("municipios")
-    if re.search(r"^\d+\s*meses?$", text(period), re.I) or not re.search(r"\d{4}|/|- ", text(period)):
-        missing.append("datas")
-    if not _is_real_stat(text(as_dict(sheet.get("market")).get("stat"))):
-        missing.append("metricas")
     if not hero_image and _looks_like_water(title, text(strategy.get("body")), concept, support):
         hero_image = "/static/images/smart_planner/hero-water.svg"
     share_image = _public_asset_url(hero_image or "/static/images/smart_planner/share-placeholder.svg")
@@ -1258,7 +1198,6 @@ def public_view(row: dict, document: str | None = None) -> dict:
             {"id": "periodo", "label": "Período e Gantt", "view": "folha"},
             {"id": "canais", "label": "Canais", "view": "folha"},
             {"id": "criativos", "label": "Criativos e formatos", "view": "folha"},
-            {"id": "premissas", "label": "Premissas", "view": "folha"},
         ]
     nav_plano = []
     if tem_completo:
@@ -1292,7 +1231,6 @@ def public_view(row: dict, document: str | None = None) -> dict:
     updated = text(row.get("updated_at") or dados.get("updated_at"))
     updated_display = format_public_updated(row.get("updated_at") or dados.get("updated_at"))
     inventory = _inventory(media.get("channels") or [], praca, praca_detalhe)
-    assumptions = _assumptions(missing, "metricas" not in missing, bool(inventory))
     creative_plan = _creative_plan_for_public(page_v2, media.get("channels") or [])
     proposal_url = public_document_url(token, "proposal")
     full_plan_url = public_document_url(token, "full_plan")
@@ -1343,7 +1281,10 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "media": media,
         "hero": {
             "image": hero_image,
-            "creative_image": creative_image or hero_image,
+            # Só uma expressão visual do criativo deve ativar a atmosfera de
+            # fundo pública. Imagens de tema ou fallback não se passam por
+            # criativo gerado.
+            "creative_image": creative_image,
             "has_image": bool(hero_image),
             "place": praca_line,
             "theme_id": text(theme.get("id")),
@@ -1388,15 +1329,12 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "defense_points": defense_points[:3],
         "creative_plan": creative_plan,
         "full_groups": _full_groups(chapters, board_sections),
-        "planning_structure_json": _planning_structure_json(row, dados, folha, plan),
         "funnel": funnel,
         "inventory": inventory,
         "inventory_filters": _inventory_filters(inventory),
         "inventory_note": INVENTORY_DISCLAIMER,
         "creative_principles": list(CREATIVE_PRINCIPLES),
         "reading_items": _reading(media.get("channels") or [], media.get("months") or []),
-        "assumptions": assumptions,
-        "metric_note": METRIC_UNDEFINED,
         "praca_line": praca_line,
         "brand_logo": text(client_brand.get("logo_url")),
         "executive": executive,

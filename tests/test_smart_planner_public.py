@@ -44,7 +44,7 @@ class PublicPlannerTest(TestCase):
         self.assertTrue(proposal["proposal_url"].endswith("/proposta"))
         self.assertTrue(complete["full_plan_url"].endswith("/plano"))
         self.assertEqual(complete["creative_plan"][0]["primary_format"], "Vídeo horizontal · 15s")
-        self.assertEqual([item["label"] for item in complete["full_groups"]], ["Estratégia", "Mídia", "Indicadores", "Criação", "Execução"])
+        self.assertEqual([item["label"] for item in complete["full_groups"]], ["Estratégia e indicadores", "Mídia e distribuição", "Criação e execução"])
 
         app = Flask(__name__, template_folder=str(ROOT / "aicentralv2" / "templates"), static_folder=str(ROOT / "aicentralv2" / "static"))
         with app.test_request_context("/"):
@@ -53,8 +53,10 @@ class PublicPlannerTest(TestCase):
         self.assertIn("Plano de mídia executivo", proposal_html)
         self.assertNotIn('role="tablist" aria-label="Proposta comercial"', proposal_html)
         self.assertNotIn("Capítulo 1 de 5", proposal_html)
-        self.assertIn("Capítulo 1 de 5", complete_html)
-        self.assertIn("imagem conceito estática", complete_html)
+        self.assertNotIn('role="tablist"', complete_html)
+        self.assertIn("Planejamento completo", complete_html)
+        self.assertNotIn("planning_structure_json", complete_html)
+        self.assertNotIn("Estrutura de dados do planejamento", complete_html)
 
     def test_one_page_only_marks_complete_as_missing(self):
         view = public_view({
@@ -182,7 +184,7 @@ class PublicPlannerTest(TestCase):
         self.assertTrue(view["tem_completo"])
         self.assertEqual(view["default_view"], "folha")
         self.assertEqual(view["nav"][0]["id"], "visao")
-        self.assertEqual(len(view["nav_folha"]), 7)
+        self.assertEqual(len(view["nav_folha"]), 6)
 
     def test_confidential_hides_advertiser_name(self):
         view = public_view({
@@ -216,7 +218,7 @@ class PublicPlannerTest(TestCase):
         self.assertIn('id="canais"', html)
         self.assertNotIn('id="portais"', html)
         self.assertIn('id="criativos"', html)
-        self.assertIn('id="premissas"', html)
+        self.assertNotIn('id="premissas"', html)
         self.assertIn("cc-hero", html)
         self.assertIn("cc-donut", html)
         self.assertIn("cc-gantt", html)
@@ -424,7 +426,7 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["media"]["total"], 250000)
         self.assertEqual(sum(item["amount"] for item in view["media"]["months"]), 250000)
         self.assertEqual(sum(item["pct"] for item in view["media"]["channels"]), 100)
-        self.assertEqual(len(view["nav"]), 7)
+        self.assertEqual(len(view["nav"]), 6)
         self.assertEqual(view["views"], [{"id": "folha", "label": "Página única"}])
         self.assertEqual(view["default_view"], "folha")
         self.assertEqual(view["nav_plano"], [])
@@ -457,11 +459,8 @@ class PublicPlannerTest(TestCase):
         self.assertTrue(view["inventory"])
         self.assertEqual(view["inventory_filters"][0]["id"], "todos")
         self.assertIn("portais", [item["id"] for item in view["inventory_filters"]])
-        open_ids = [item["id"] for item in view["assumptions"]["open_items"]]
-        self.assertIn("datas", open_ids)
-        self.assertIn("metricas", open_ids)
-        self.assertNotIn("Validar municípios atendidos", view["assumptions"]["steps"])
-        self.assertIn("Aprovar o mix", view["assumptions"]["steps"])
+        self.assertNotIn("assumptions", view)
+        self.assertNotIn("metric_note", view)
         self.assertTrue(any(item.get("status_tone") == "soft" for item in view["inventory"]))
 
     def test_history_row_exposes_public_link(self):

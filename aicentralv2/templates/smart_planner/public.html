@@ -466,38 +466,6 @@
       {% endif %}
     </section>
 
-    <section class="cc-section" id="premissas" aria-labelledby="premissas-title">
-      <header>
-        <h2 id="premissas-title">Critérios de execução</h2>
-        <p>Informações que orientam a condução da campanha.</p>
-      </header>
-      {% if assumptions.open_items %}
-      <ul class="cc-open" aria-label="Itens em aberto">
-        {% for item in assumptions.open_items %}
-        <li>{{ item.label }}</li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-      <p class="cc-note">Indicadores de alcance, impressões ou frequência: {{ metric_note }}</p>
-      <div class="cc-split">
-        <article class="cc-card">
-          <h3>Orientações da campanha</h3>
-          <ul class="cc-plain">
-            {% for item in assumptions.points %}
-            <li>{{ item }}</li>
-            {% endfor %}
-          </ul>
-        </article>
-        <article class="cc-card">
-          <h3>Próximos passos</h3>
-          <ol class="cc-plain">
-            {% for item in assumptions.steps %}
-            <li>{{ item }}</li>
-            {% endfor %}
-          </ol>
-        </article>
-      </div>
-    </section>
     {% elif not tem_completo %}
     <section class="cc-section" id="visao">
       <div class="cc-void">

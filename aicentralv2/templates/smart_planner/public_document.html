@@ -1,157 +1,27 @@
 <!doctype html>
-{% macro render_list(block) -%}
-  <{{ 'ol' if block.ordered else 'ul' }}>
-  {% for item in block['items'] %}<li>{{ item.html|safe }}{% for child in item.children %}{{ render_list(child) }}{% endfor %}</li>{% endfor %}
-  </{{ 'ol' if block.ordered else 'ul' }}>
-{%- endmacro %}
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{{ document_label }} · {{ title }} · Centralcomm</title>
-  <link rel="icon" type="image/png" href="{{ house.logo }}">
+{% macro render_list(block) -%}<{{ 'ol' if block.ordered else 'ul' }}>{% for item in block['items'] %}<li>{{ item.html|safe }}{% for child in item.children %}{{ render_list(child) }}{% endfor %}</li>{% endfor %}</{{ 'ol' if block.ordered else 'ul' }}>{%- endmacro %}
+<html lang="pt-BR"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ document_label }} · {{ title }} · Centralcomm</title><link rel="icon" type="image/png" href="{{ house.logo }}">
   <meta name="description" content="{{ title }} — {{ document_label }} preparado no Smart Planner.">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Centralcomm Smart Planner">
-  <meta property="og:title" content="{{ document_label }} · {{ title }}">
-  <meta property="og:description" content="{{ overview or 'Planejamento de mídia preparado no Smart Planner.' }}">
-  <meta property="og:url" content="{{ document_url }}">
-  <meta property="og:image" content="{{ share_image }}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{{ document_label }} · {{ title }}">
-  <meta name="twitter:image" content="{{ share_image }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=4">
-</head>
-<body class="spv3 spv3-{{ document or 'proposal' }}">
-  <header class="spv3-topbar" aria-label="Ferramentas do documento">
-    <a class="spv3-brand" href="{{ house.site }}" target="_blank" rel="noopener">
-      <img src="{{ house.logo }}" alt="{{ house.name }}">
-      <span>{{ house.label }}</span>
-    </a>
-    <div class="spv3-actions">
-      <span class="spv3-updated" title="{{ updated_at_title }}">{{ updated_at }}</span>
-      {% if executive.whatsapp_url %}<a class="spv3-btn is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Falar sobre este plano</a>{% endif %}
-      <button type="button" class="spv3-btn is-quiet" data-copy-link>Copiar link</button>
-      <button type="button" class="spv3-btn" data-print>Salvar PDF</button>
-    </div>
-  </header>
-
+  <meta property="og:type" content="website"><meta property="og:site_name" content="Centralcomm Smart Planner"><meta property="og:title" content="{{ document_label }} · {{ title }}"><meta property="og:description" content="{{ overview or 'Planejamento de mídia preparado no Smart Planner.' }}"><meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{{ document_label }} · {{ title }}"><meta name="twitter:image" content="{{ share_image }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=5">
+</head><body class="spv3 spv3-{{ document or 'proposal' }} spv3-editorial-document{% if hero.creative_image %} has-generated-hero{% endif %}"{% if hero.creative_image %} style="--spv3-generated-bg:url({{ hero.creative_image|tojson }})"{% endif %}>
+  <header class="spv3-topbar" aria-label="Ferramentas do documento"><a class="spv3-brand" href="{{ house.site }}" target="_blank" rel="noopener"><img src="{{ house.logo }}" alt="{{ house.name }}"><span>{{ house.label }}</span></a><div class="spv3-actions"><span class="spv3-updated" title="{{ updated_at_title }}">{{ updated_at }}</span>{% if executive.whatsapp_url %}<a class="spv3-btn is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Falar sobre o plano</a>{% endif %}<button type="button" class="spv3-btn is-quiet" data-copy-link>Copiar link</button><button type="button" class="spv3-btn" data-print>Salvar PDF</button></div></header>
   <main class="spv3-shell">
-    <section class="spv3-titlebar spv3-place-hero" data-scroll-reveal
-      style="--spv3-hero-bg:url({{ hero.image|tojson }});--spv3-hero-ink:{{ hero.theme_ink }};--spv3-hero-paper:{{ hero.theme_paper }};--spv3-hero-accent:{{ hero.theme_accent }}">
-      <div>
-        <span class="spv3-eyebrow">{{ document_label }}</span>
-        <h1>{% if brand_logo %}<img class="spv3-client-logo" src="{{ brand_logo }}" alt="{{ title }}">{% endif %}{{ title }}</h1>
-        <p>{{ client }}{% if praca_line %} · {{ praca_line }}{% endif %}</p>
-        {% if hero.place %}<span class="spv3-place-hero-tag">{{ hero.place }}</span>{% endif %}
-      </div>
-      <div class="spv3-facts" aria-label="Resumo do planejamento">
-        {% for label, value in facts[:4] %}
-        <span><small>{{ label }}</small><strong>{{ value }}</strong></span>
-        {% endfor %}
-      </div>
+    <section class="spv3-editorial-cover" data-scroll-reveal>
+      <div class="spv3-cover-copy"><span class="spv3-eyebrow">{{ document_label }}</span><h1>{% if brand_logo %}<img class="spv3-client-logo" src="{{ brand_logo }}" alt="{{ title }}">{% endif %}{{ title }}</h1><p>{{ client }}{% if praca_line %} · {{ praca_line }}{% endif %}</p>{% if hero.tagline %}<strong class="spv3-cover-thesis">{{ hero.tagline }}</strong>{% endif %}<dl class="spv3-cover-facts">{% for label, value in facts[:4] %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl></div>
+      <figure class="spv3-hero-art{% if not hero.creative_image %} is-empty{% endif %}">{% if hero.creative_image %}<img src="{{ hero.creative_image }}" alt="Expressão visual da campanha">{% else %}<span>Direção visual da campanha</span>{% endif %}</figure>
     </section>
-
-    <section class="spv3-executive" aria-label="Painel executivo" data-scroll-reveal>
-      <div class="spv3-executive-copy">
-        <p class="spv3-executive-label">Leitura executiva</p>
-        <h2>{{ hero.tagline or overview }}</h2>
-        <p>{{ overview or 'A recomendação consolidada está detalhada nos capítulos a seguir.' }}</p>
-      </div>
-      <dl class="spv3-executive-facts">
-        {% for label, value in executive_facts %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}
-      </dl>
-    </section>
-
-    {% if document == 'proposal' %}
-    <section class="spv3-panel spv3-executive-plan" id="plano-executivo" data-scroll-reveal>
-      <div class="spv3-hero spv3-hero-compact">
-        <div class="spv3-hero-copy">
-          <span class="spv3-eyebrow">Direção recomendada</span>
-          <h2>Como a estratégia vira ação</h2>
-          {% if hero.tagline or overview %}<p class="spv3-direction-thesis">{{ hero.tagline or overview }}</p>{% endif %}
-          {% if concept %}<div class="spv3-concept"><small>Conceito recomendado</small><strong>{{ concept }}</strong><p>{{ support }}</p></div>{% endif %}
-        </div>
-        <aside class="spv3-plan-summary" aria-label="Resumo da recomendação">
-          <span class="spv3-eyebrow">Resumo da recomendação</span>
-          {% if audience %}<div><small>Público prioritário</small><p>{{ audience }}</p></div>{% endif %}
-          {% if executive_facts %}<div><small>{{ executive_facts[0][0] }}</small><p>{{ executive_facts[0][1] }}</p></div>{% endif %}
-          {% if support %}<div><small>Por que agora</small><p>{{ support }}</p></div>{% endif %}
-        </aside>
-      </div>
-      <div class="spv3-defense">
-        <div><span class="spv3-eyebrow">Leitura executiva</span><h3>O que sustenta este plano</h3></div>
-        <ol>{% for item in defense_points %}<li>{{ item }}</li>{% endfor %}</ol>
-      </div>
-    </section>
-
-    <section class="spv3-contact" id="contato" data-scroll-reveal aria-label="Contato do executivo responsável">
-      <div class="spv3-contact-person">
-        {% if executive.photo_url %}<img src="{{ executive.photo_url }}" alt="Foto de {{ executive.name }}">{% else %}<span class="spv3-contact-avatar">{{ executive.initials }}</span>{% endif %}
-        <div><span class="spv3-eyebrow">Seu contato no CentralComm</span><strong>{{ executive.name }}</strong><p>Responsável por apresentar este plano e conduzir os próximos passos.</p></div>
-      </div>
-      <div class="spv3-contact-action">
-        <span class="spv3-eyebrow">Pronto para avançar?</span>
-        {% if executive.whatsapp_url %}<a class="spv3-btn is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Conversar no WhatsApp <span aria-hidden="true">↗</span></a><small>A mensagem já identifica o plano “{{ title }}”.</small>{% else %}<p>O WhatsApp deste responsável ainda não está cadastrado.</p>{% endif %}
-      </div>
-    </section>
-
-    {% if has_approved_mix %}
-    <section class="spv3-panel spv3-flow-section" id="mix" data-scroll-reveal>
-      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Mix aprovado</span><h2>O papel de cada canal</h2></div><p>{{ reading.defense }}</p></header>
-      <div class="spv3-mix-layout">
-        <div class="spv3-donut" style="background:{{ media.donut }}"><span><strong>{{ media.total_pct }}%</strong> do mix</span></div>
-        <div class="spv3-channel-list">
-          {% for channel in media.channels %}
-          <article><i style="background:{{ channel.color }}"></i><div><strong>{{ channel.label }}</strong><p>{{ channel.role }}</p></div><b>{{ channel.pct }}%</b><span>{{ channel.amount_label }}</span></article>
-          {% endfor %}
-        </div>
-      </div>
-      {% if media.months %}<div class="spv3-timeline">{% for month in media.months %}<span><small>{{ month.full_label or month.label }}</small><strong>{{ month.amount_label }}</strong><i style="height:{{ month.bar }}px"></i></span>{% endfor %}</div>{% endif %}
-    </section>
+    {% if document == 'proposal' %}<div class="spv3-print-page spv3-proposal-page">
+      <section class="spv3-editorial-lead" data-scroll-reveal><span class="spv3-eyebrow">A decisão</span><h2>{{ overview or hero.tagline }}</h2>{% if support %}<p>{{ support }}</p>{% endif %}</section>
+      {% if concept %}<section class="spv3-editorial-concept" data-scroll-reveal><span class="spv3-eyebrow">Ideia criativa</span><h2>{{ concept }}</h2>{% if audience %}<p>Para {{ audience }}</p>{% endif %}</section>{% endif %}
+      {% if has_approved_mix %}<section class="spv3-editorial-section" id="mix" data-scroll-reveal><header><span class="spv3-eyebrow">Mix de mídia</span><h2>O papel de cada canal</h2>{% if reading.defense %}<p>{{ reading.defense }}</p>{% endif %}</header><div class="spv3-editorial-channels">{% for channel in media.channels %}<article><i style="--channel-color:{{ channel.color }}"></i><div><strong>{{ channel.label }}</strong><p>{{ channel.role }}</p></div><b>{{ channel.pct }}%</b></article>{% endfor %}</div>{% if media.months %}<div class="spv3-editorial-flight"><span class="spv3-eyebrow">Ritmo de campanha</span>{% for month in media.months %}<div><small>{{ month.full_label or month.label }}</small><i style="--flight-height:{{ month.bar }}px"></i><strong>{{ month.amount_label }}</strong></div>{% endfor %}</div>{% endif %}</section>{% endif %}
+      {% if defense_points %}<section class="spv3-editorial-defense" data-scroll-reveal><span class="spv3-eyebrow">Defesa comercial</span><ol>{% for item in defense_points %}<li>{{ item }}</li>{% endfor %}</ol></section>{% endif %}
+      {% if show_market %}<section class="spv3-editorial-market" data-scroll-reveal><span class="spv3-eyebrow">Dado de mercado</span><strong>{{ sheet.market.stat }}</strong><p>{{ sheet.market.body }}</p></section>{% endif %}
+    </div>{% else %}
+      {% for group in full_groups %}{% if group.chapters or group.sections or group.id in ('media', 'creative') %}<section class="spv3-editorial-chapter spv3-print-page spv3-print-{{ loop.index }}" id="{{ group.id }}" data-scroll-reveal><header><span class="spv3-eyebrow">{{ 'Síntese do plano' if loop.first else 'Planejamento completo' }}</span><h2>{{ group.label }}</h2></header>{% if group.id in ('media', 'creative') and creative_plan %}<div class="spv3-editorial-format-list">{% for item in creative_plan %}<article><strong>{{ item.channel }}</strong><span>{{ item.primary_format }}</span><p>{{ item.role }}</p></article>{% endfor %}</div>{% endif %}{% for chapter in group.chapters %}<article class="spv3-editorial-copy"><h3>{{ chapter.title }}</h3>{% for block in chapter.blocks %}{% if block.type == 'p' %}<p>{{ block.html|safe }}</p>{% elif block.type == 'heading' %}<h{{ block.level }}>{{ block.html|safe }}</h{{ block.level }}>{% elif block.type == 'list' %}{{ render_list(block) }}{% elif block.type == 'table' %}<div class="spv3-scroll"><table><thead><tr>{% for cell in block.head %}<th>{{ cell|safe }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.rows %}<tr>{% for cell in row %}<td>{{ cell|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>{% endif %}{% endfor %}</article>{% endfor %}{% for section in group.sections %}<article class="spv3-editorial-board"><h3>{{ section.title }}</h3>{% for card in section.cards %}<div><strong>{{ card.title_html|safe }}</strong><p>{{ card.body_html|safe }}</p></div>{% endfor %}</article>{% endfor %}</section>{% endif %}{% endfor %}
     {% endif %}
-
-    <section class="spv3-panel spv3-flow-section" id="premissas" data-scroll-reveal>
-      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Base de decisão</span><h2>Referências e critérios</h2></div><p>Informações que sustentam a recomendação comercial.</p></header>
-      <div class="spv3-reference-grid">
-        {% if show_market %}<article><span class="spv3-eyebrow">Dado de mercado</span><strong>{{ sheet.market.stat }}</strong><p>{{ sheet.market.body }}</p></article>{% endif %}
-        {% if has_approved_mix %}<article><span class="spv3-eyebrow">Critério do mix</span><strong>{{ media.method_label or 'Recomendação estratégica' }}</strong><p>{{ media.note or media.how }}</p></article>{% endif %}
-        <article><span class="spv3-eyebrow">Critérios de execução</span><ul>{% for item in assumptions.points[:5] %}<li>{{ item }}</li>{% endfor %}</ul></article>
-      </div>
-    </section>
-    {% else %}
-    <nav class="spv3-tabs" role="tablist" aria-label="Planejamento completo">
-      {% for group in full_groups %}<button role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" aria-controls="tab-{{ group.id }}" id="control-{{ group.id }}"{% if not loop.first %} tabindex="-1"{% endif %}>{{ group.label }}</button>{% endfor %}
-    </nav>
-    {% for group in full_groups %}
-    <section class="spv3-panel spv3-full" id="tab-{{ group.id }}" role="tabpanel" aria-labelledby="control-{{ group.id }}"{% if not loop.first %} hidden{% endif %}>
-      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Capítulo {{ loop.index }} de 5</span><h2>{{ group.label }}</h2></div></header>
-      {% if group.id == 'media' %}
-      <div class="spv3-format-table">
-        <div class="is-head"><span>Canal</span><span>Formato principal</span><span>Papel</span><span>Mix</span></div>
-        {% for item in creative_plan %}<div><strong>{{ item.channel }}</strong><span>{{ item.primary_format }}</span><span>{{ item.role }}</span><b>{{ (media.channels|selectattr('id','equalto',item.channel_id)|map(attribute='pct')|first) or '—' }}{% if media.channels|selectattr('id','equalto',item.channel_id)|list %}%{% endif %}</b></div>{% endfor %}
-      </div>
-      {% elif group.id == 'creative' %}
-      <div class="spv3-creative-grid">
-        {% for item in creative_plan %}<article><span class="spv3-eyebrow">{{ item.channel }}</span><h3>{{ item.primary_format }}</h3><p>{{ item.role }}</p><dl><div><dt>Conceito</dt><dd>{{ item.concepts }}</dd></div><div><dt>Variações</dt><dd>{{ item.variations }}</dd></div><div><dt>Arquivos finais</dt><dd>{{ item.final_files }}</dd></div></dl>{% if item.duration_seconds %}<small>O Smart Planner entrega uma imagem conceito estática para orientar a futura produção de {{ item.duration_seconds }}s.</small>{% else %}<small>Entrega atual: imagem conceito estática.</small>{% endif %}</article>{% endfor %}
-      </div>
-      {% endif %}
-      {% for chapter in group.chapters %}<article class="spv3-chapter"><h3>{{ chapter.title }}</h3>{% for block in chapter.blocks %}{% if block.type == 'p' %}<p>{{ block.html|safe }}</p>{% elif block.type == 'heading' %}<h{{ block.level }} class="spv3-content-heading">{{ block.html|safe }}</h{{ block.level }}>{% elif block.type == 'list' %}{{ render_list(block) }}{% elif block.type == 'code' %}<pre><code>{{ block.text }}</code></pre>{% elif block.type == 'table' %}<div class="spv3-scroll"><table><thead><tr>{% for cell in block.head %}<th>{{ cell|safe }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.rows %}<tr>{% for cell in row %}<td>{{ cell|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>{% endif %}{% endfor %}</article>{% endfor %}
-      {% for section in group.sections %}<article class="spv3-chapter"><h3>{{ section.title }}</h3><div class="spv3-board">{% for card in section.cards %}<div><strong>{{ card.title_html|safe }}</strong><p>{{ card.body_html|safe }}</p></div>{% endfor %}</div></article>{% endfor %}
-      {% if not group.chapters and not group.sections and group.id not in ('media','creative') %}<div class="spv3-empty-section">Este capítulo será detalhado na próxima revisão do planejamento.</div>{% endif %}
-    </section>
-    {% endfor %}
-    {% endif %}
-
-    <section class="spv3-panel spv3-data-inspector" id="estrutura-dados" data-scroll-reveal>
-      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Inspeção temporária</span><h2>Estrutura de dados do planejamento</h2></div><p>Snapshot dos dados usados nesta página pública. Identificadores técnicos e credenciais foram ocultados.</p></header>
-      <pre><code>{{ planning_structure_json }}</code></pre>
-    </section>
-  </main>
-  <footer class="spv3-footer"><span>{{ house.name }} · {{ document_label }}</span><span>Documento confidencial de planejamento</span></footer>
-  <script>window.SMART_PLANNER_PUBLIC_URL = {{ document_url|tojson }};</script>
-  <script src="{{ url_for('static', filename='js/smart_planner/public-document.js') }}?v=2"></script>
-</body>
-</html>
+    <section class="spv3-contact" id="contato" data-scroll-reveal><div class="spv3-contact-person">{% if executive.photo_url %}<img src="{{ executive.photo_url }}" alt="Foto de {{ executive.name }}">{% else %}<span class="spv3-contact-avatar">{{ executive.initials }}</span>{% endif %}<div><span class="spv3-eyebrow">Centralcomm</span><strong>{{ executive.name }}</strong><p>Responsável por apresentar este plano.</p></div></div>{% if executive.whatsapp_url %}<a class="spv3-btn is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Conversar sobre este plano ↗</a>{% endif %}</section>
+  </main><footer class="spv3-footer"><span>{{ house.name }} · {{ document_label }}</span><span>Documento confidencial de planejamento</span></footer><script>window.SMART_PLANNER_PUBLIC_URL={{ document_url|tojson }};</script><script src="{{ url_for('static', filename='js/smart_planner/public-document.js') }}?v=3"></script>
+</body></html>

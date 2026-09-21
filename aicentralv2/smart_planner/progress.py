@@ -72,6 +72,11 @@ def finish_progress(token: str, mode: str) -> dict:
     geracao = as_dict(as_dict(row.get("dados_detectados")).get("geracao"))
     steps = list(geracao.get("steps") or [])
     for item in steps:
+        # Compatibility with generations started before image creation was
+        # removed from the document pipeline.
+        if item.get("id") == "images":
+            item["state"] = "skipped"
+            continue
         if item.get("state") not in {"error", "skipped"}:
             item["state"] = "done"
     payload = {
@@ -92,6 +97,9 @@ def progress_view(row: dict) -> dict:
     geracao = as_dict(dados.get("geracao"))
     if not geracao:
         return {"status": "idle", "steps": [], "percent": 0}
+    steps = [item for item in (geracao.get("steps") or []) if item.get("id") != "images"]
+    total = len(steps)
+    index = min(int(geracao.get("index") or 0), max(total - 1, 0)) if total else 0
     return {
         "status": text(geracao.get("status") or "idle"),
         "mode": geracao.get("mode"),
@@ -99,10 +107,10 @@ def progress_view(row: dict) -> dict:
         "skill": geracao.get("skill"),
         "label": geracao.get("label") or skill_label(geracao.get("skill")),
         "title": geracao.get("title"),
-        "index": geracao.get("index") or 0,
-        "total": geracao.get("total") or 0,
+        "index": index,
+        "total": total,
         "percent": geracao.get("percent") or 0,
-        "steps": geracao.get("steps") or [],
+        "steps": steps,
         "engine": geracao.get("engine") or _engine(),
         "error": geracao.get("error") or "",
     }

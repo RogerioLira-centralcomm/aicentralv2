@@ -28,7 +28,7 @@ def test_generation_steps_split_one_page_and_completo():
     one = generation_steps("one_page")
     full = generation_steps("completo")
     assert [item["id"] for item in one] == [
-        "snapshot", "evidence", "market", "core", "estimates", "one_page", "validate", "images", "publish",
+        "snapshot", "evidence", "market", "core", "estimates", "one_page", "validate", "publish",
     ]
     assert "full_strategy" not in {item["id"] for item in one}
     assert {item["id"] for item in full} >= {"full_strategy", "full_media", "full_execution", "full_defense", "compose"}

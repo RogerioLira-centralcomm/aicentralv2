@@ -196,9 +196,6 @@ def _run(token: str, mode: str) -> dict:
     _validate_page(page, snapshot, estimates)
     mark_step(token, "validate", "done")
 
-    # Documents are text-only. Image generation is explicit in the editor.
-    mark_step(token, "images", "skipped")
-
     if mode == "one_page":
         mark_step(token, "publish", "running")
         _publish_folha(token, folha)

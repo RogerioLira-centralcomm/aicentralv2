@@ -127,14 +127,29 @@
             <label for="sp-field-creative"><span>O que o protótipo mostra</span>
               <textarea id="sp-field-creative" name="creative_body" rows="4">{{ creative.body or '' }}</textarea>
             </label>
+            <div class="sp-image-prep" aria-label="Preparação da arte 16 por 9">
+              <div class="sp-image-prep__head">
+                <div><span class="sp-readout-kicker">Imagem do plano</span><strong>Logo aplicada em uma arte horizontal</strong></div>
+                <small>16:9 · display ou CTV · uma peça por plano</small>
+              </div>
+              <div class="sp-image-uploads">
+                <label class="sp-upload-tile" for="sp-logo-upload"><span class="sp-upload-icon">+</span><strong>Logo da marca</strong><small>Arraste ou escolha PNG/JPG</small><input id="sp-logo-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                <label class="sp-upload-tile" for="sp-reference-upload"><span class="sp-upload-icon">+</span><strong>Imagem de referência</strong><small>Opcional · produto, cena ou estilo</small><input id="sp-reference-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
+              </div>
+              <label for="sp-field-image-prompt" class="sp-prompt-review"><span>Prompt revisado antes de gerar</span>
+                <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="4">{{ creative.image_prompt or '' }}</textarea>
+              </label>
+              <div class="sp-image-actions">
+                <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-review-image-prompt">Revisar prompt</button>
+                <span id="sp-image-status" class="sp-image-status" role="status" aria-live="polite">Revise o prompt e gere quando estiver pronto.</span>
+              </div>
+              <p class="sp-image-note">A IA usa foto real, contraste para manter a logo legível e preserva a logo na mesma posição. O custo fica por conta do CentralX.</p>
+            </div>
             <details class="sp-creative-direction sp-field-advanced">
               <summary>Campos avançados da peça</summary>
               <label for="sp-field-creative-title"><span>Título técnico</span>
                 <input id="sp-field-creative-title" name="creative_title" value="{{ creative.title or 'Criativo' }}">
               </label>
-              <label for="sp-field-image-prompt"><span>Orientação para gerar a imagem</span>
-              <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="3">{{ creative.image_prompt or '' }}</textarea>
-            </label>
             </details>
             <input type="hidden" id="sp-field-image-url" name="creative_image_url" value="{{ creative.image_url or '' }}">
             <div class="sp-gallery" id="sp-gallery" aria-label="Imagens geradas">
@@ -165,7 +180,7 @@
               {% endif %}
             </div>
             {% endif %}
-            <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="sp-canvas-image">Gerar outra peça</button>
+            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-canvas-image">Gerar imagem do plano</button>
           </div>
         </details>
 

@@ -106,7 +106,7 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     return plan
 
 
-def regenerate_creative(plan: dict) -> dict:
+def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None) -> dict:
     """Gera só o criativo no canal — sem fundo e sem wallpaper no editor."""
     if not isinstance(plan, dict):
         return plan
@@ -119,10 +119,65 @@ def regenerate_creative(plan: dict) -> dict:
         return plan
     slug = _slug(meta.get("client") or hero.get("name") or theme.get("id") or "folha")
     prompt = text(creative.get("image_prompt")) or _default_creative_prompt(creative, meta, hero)
-    ratio = "4:3" if text(creative.get("surface")) == "app" else "16:9"
-    creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio, references=_brand_references(branding, hero))
+    prompt = _reviewed_horizontal_prompt(prompt, creative, meta, hero, has_uploaded_reference=bool(uploaded_references))
+    ratio = "16:9"
+    references = list(_brand_references(branding, hero))
+    references.extend(
+        text(item) for item in as_list(uploaded_references)
+        if text(item).startswith(("/static/", "https://", "http://"))
+    )
+    creative["image_url"] = _render(
+        prompt,
+        f"{slug}-creative",
+        aspect_ratio=ratio,
+        references=list(dict.fromkeys(references))[:3],
+    )
     creative["image_model"] = resolve_image_model()
     return plan
+
+
+def materialize_uploaded_references(values: list[str] | None = None) -> list[str]:
+    """Persist temporary attachments as bounded local static URLs for providers."""
+    out = []
+    for index, value in enumerate(values or []):
+        if not isinstance(value, str) or not value.startswith("data:image/"):
+            continue
+        header, separator, encoded = value.partition(",")
+        if not separator or len(encoded) > 7_000_000:
+            continue
+        try:
+            raw = base64.b64decode(encoded, validate=True)
+        except (ValueError, base64.binascii.Error):
+            continue
+        if not raw or len(raw) > 5 * 1024 * 1024:
+            continue
+        mime = header.split(";", 1)[0].split(":", 1)[-1]
+        ext = "webp" if mime == "image/webp" else "jpg" if mime in {"image/jpeg", "image/jpg"} else "png"
+        digest = hashlib.sha1(raw).hexdigest()[:12]
+        filename = f"upload-ref-{index}-{digest}.{ext}"
+        path = os.path.join(_art_dir(), filename)
+        if not os.path.exists(path):
+            with open(path, "wb") as handle:
+                handle.write(raw)
+        out.append(f"/static/images/smart_planner/generated/{filename}")
+    return out
+
+
+def _reviewed_horizontal_prompt(prompt: str, card: dict, meta: dict, hero: dict, *, has_uploaded_reference: bool = False) -> str:
+    """Turns the reviewer's direction into the fixed Smart Planner art contract."""
+    reference_direction = (
+        "An uploaded visual reference is available. Act as the art director before rendering: choose whether it should guide the product, composition, lighting, scene or visual language, and use it wherever it improves the campaign. Do not reproduce unrelated branding. "
+        if has_uploaded_reference else
+        "No visual reference was provided beyond the logo; derive the scene only from the approved campaign context. "
+    )
+    return (
+        f"{prompt}. Create one horizontal 16:9 key visual for display or CTV, not a mockup of a website and not a generic creative. "
+        + reference_direction +
+        "Use the supplied logo exactly as provided, with no redraw or invented lettering. Keep the logo in the same fixed safe position: upper-left, with generous clear space. "
+        "Use the campaign's main product or service as the visual hero, with relevant people or context when useful. Prefer photoreal commercial photography, colors close to the logo, and strong tonal contrast so the logo stays readable. "
+        "Treat the logo and uploaded reference as reviewed inputs: the logo controls identity, while the reference may guide only product, scene, light or visual language. "
+        "No extra logos, no agency marks, no watermark, no illegible text, no collage, no portrait crop, no QR code, no price and no invented claim."
+    )
 
 
 def _needs_exclusive_bg(theme: dict) -> bool:

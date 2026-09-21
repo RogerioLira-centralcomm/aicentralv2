@@ -30,7 +30,6 @@ from .helpers import (
     text,
     thesis_is_meta,
 )
-from .images import apply_sheet_art
 from .progress import finish_progress, mark_step, start_progress
 from .repository import get_by_token, merge_dados, update_session
 from .skills import load_skill, skill_role
@@ -197,17 +196,8 @@ def _run(token: str, mode: str) -> dict:
     _validate_page(page, snapshot, estimates)
     mark_step(token, "validate", "done")
 
-    if _has_image_provider():
-        mark_step(token, "images", "running")
-        try:
-            folha = apply_sheet_art(folha)
-            merge_dados(token, {"folha": folha})
-            mark_step(token, "images", "done")
-        except Exception:
-            logger.exception("Imagem da folha falhou; o texto segue.")
-            mark_step(token, "images", "skipped")
-    else:
-        mark_step(token, "images", "skipped")
+    # Documents are text-only. Image generation is explicit in the editor.
+    mark_step(token, "images", "skipped")
 
     if mode == "one_page":
         mark_step(token, "publish", "running")
@@ -910,10 +900,6 @@ def _has_llm() -> bool:
         return bool(resolve_openai_api_key() or resolve_api_key())
     except Exception:
         return False
-
-
-def _has_image_provider() -> bool:
-    return _has_llm()
 
 
 def _require_llm(etapa: str) -> None:

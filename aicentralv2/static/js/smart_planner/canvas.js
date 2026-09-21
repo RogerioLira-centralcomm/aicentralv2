@@ -65,6 +65,36 @@
     if (live) live.textContent = message || "";
   }
 
+  function setImageStatus(message, kind) {
+    var node = document.getElementById("sp-image-status");
+    if (node) {
+      node.textContent = message || "";
+      node.dataset.state = kind || "";
+    }
+  }
+
+  // Contract: POST /canvas/imagem { logo?: dataUrl, reference?: dataUrl }
+  // Response: { success, data: { plan, editor: { gallery } } }
+
+  function reviewedImagePrompt() {
+    var body = val("sp-field-creative") || "o principal produto ou serviço da campanha";
+    var channel = val("sp-field-channel") || "display ou CTV";
+    return "Crie uma arte publicitária horizontal 16:9 para " + channel + ", com fotografia realista e acabamento comercial. " +
+      "Mostre como herói o principal produto ou serviço da campanha: " + body + ". " +
+      "A logo enviada é a fonte exata da identidade: preserve desenho, proporções e cores, sem redesenhar nem inventar texto. " +
+      "Aplique a logo sempre no canto superior esquerdo, dentro de uma área segura, com contraste suficiente e espaço de respiro. " +
+      "Use a imagem de referência apenas para orientar produto, cena, luz ou linguagem visual; não copie marcas de terceiros. " +
+      "Use pessoas e contexto quando ajudarem a explicar a oferta. Harmonize as cores com a logo, priorizando contraste e legibilidade. " +
+      "Não criar mockup de site, interface, colagem, outra logo, marca d’água, agência, QR code, preço ou texto ilegível. Uma única cena, foco claro, sem corte vertical.";
+  }
+
+  function reviewImagePrompt() {
+    var field = document.getElementById("sp-field-image-prompt");
+    if (!field) return;
+    field.value = reviewedImagePrompt();
+    setImageStatus("Prompt revisado: identidade, posição da logo, referência, contraste e formato conferidos.", "ready");
+  }
+
   function escapeHtml(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -126,6 +156,16 @@
       plan.meta.presenter = presenterSelect.value;
     }
     return plan;
+  }
+
+  function readImage(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file) return resolve("");
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
   function refreshGallery(items) {
@@ -376,12 +416,15 @@
 
   async function generateImage() {
     setLive("Gerando imagem…");
+    setImageStatus("Gerando arte 16:9 com a logo aplicada…", "loading");
     await save();
+    var logo = await readImage(document.getElementById("sp-logo-upload")?.files?.[0]);
+    var reference = await readImage(document.getElementById("sp-reference-upload")?.files?.[0]);
     var response = await fetch("/smart-planner/api/" + token + "/canvas/imagem", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ logo, reference }),
     });
     var payload = await response.json();
     if (!payload.success) throw new Error(payload.error || "Falha ao gerar imagem");
@@ -396,6 +439,7 @@
       applyCreativeUrl(card && card.image_url);
     }
     setLive("Imagem atualizada.");
+    setImageStatus("Imagem gerada e aplicada ao plano.", "success");
   }
 
   document.getElementById("sp-canvas-save")?.addEventListener("click", async function () {
@@ -425,12 +469,14 @@
   document.getElementById("sp-canvas-image")?.addEventListener("click", async function () {
     try {
       await generateImage();
-      toast("Nova peça gerada.", "success");
     } catch (error) {
       setLive("");
-      toast(error.message, "error");
+      setImageStatus(error.message || "Não foi possível gerar a imagem.", "error");
     }
   });
+
+  document.getElementById("sp-review-image-prompt")?.addEventListener("click", reviewImagePrompt);
+  if (!val("sp-field-image-prompt")) reviewImagePrompt();
 
   document.getElementById("sp-upgrade-completo")?.addEventListener("click", async function (event) {
     if (!isEditor) return;

@@ -32,7 +32,7 @@ from .materials import save_upload
 from .references import capture_file, capture_search, capture_url, discover_campaigns
 from .brand import brand_for_client, search_parties
 from .editor import editor_context
-from .images import regenerate_creative
+from .images import materialize_uploaded_references, regenerate_creative
 from .logos import lookup_agency_for_client
 from .models import preview_cost
 from .repository import SessionNotFound, SmartPlannerError, get_by_public_token, merge_dados
@@ -581,17 +581,27 @@ def api_canvas_gerar(token):
 @centralcomm_required_api
 def api_canvas_imagem(token):
     try:
-        from .cost import bound_session
         from .repository import update_session
 
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return _error("Payload inválido para geração da imagem.", 400)
+        uploaded_references = [
+            value for value in (payload.get("logo"), payload.get("reference"))
+            if isinstance(value, str) and value.startswith("data:image/")
+        ]
+        uploaded_references = materialize_uploaded_references(uploaded_references)
         row = load_owned(token)
         dados = as_dict(row.get("dados_detectados"))
         folha = as_dict(dados.get("folha")) or as_dict(row.get("plan_content"))
         if not as_list(folha.get("sections")):
             generated = canvas_mod.generate_canvas(token)
             folha = generated["plan"]
+        # The image is platform-funded for the user, but its provider spend is
+        # still part of the plan's internal total AI cost.
+        from .cost import bound_session
         with bound_session(token):
-            folha = regenerate_creative(folha)
+            folha = regenerate_creative(folha, uploaded_references=uploaded_references)
         merge_dados(token, {"folha": folha})
         if (dados.get("plan_mode") or "").strip().lower() != "completo":
             update_session(token, {"plan_content": folha})

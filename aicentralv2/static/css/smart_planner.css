@@ -5814,6 +5814,13 @@ html.is-sp-media body {
 .sp-inline-toast.is-error{background:#7f3425;border-color:#a94d38}
 .sp-inline-toast.is-out{opacity:0;transform:translateY(.35rem)}
 
+.sp-image-prep{display:grid;gap:.8rem;padding:1rem;border:1px solid #d7e5e3;border-radius:10px;background:#f7fbfa}
+.sp-image-prep__head,.sp-image-actions{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.sp-image-prep__head>div{display:grid;gap:.2rem}.sp-image-prep__head strong{font-size:.85rem;color:#173c3e}.sp-image-prep__head small{color:#6a7d80;font-size:.7rem}
+.sp-image-uploads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}
+.sp-upload-tile{display:grid;grid-template-columns:auto 1fr;column-gap:.55rem;align-items:center;padding:.75rem;border:1px dashed #a9c8c4;border-radius:8px;background:#fff;cursor:pointer}.sp-upload-tile:hover{border-color:#2d7771;background:#f1f9f7}.sp-upload-tile input{position:absolute;width:1px;height:1px;opacity:0}.sp-upload-tile strong{font-size:.76rem;color:#244b4e}.sp-upload-tile small{grid-column:2;color:#748689;font-size:.65rem}.sp-upload-icon{grid-row:span 2;display:grid;place-items:center;width:1.7rem;height:1.7rem;border-radius:50%;background:#e1f1ed;color:#216b66;font-size:1.1rem}.sp-prompt-review{display:grid;gap:.35rem}.sp-prompt-review span{font-size:.73rem;font-weight:800;color:#31585a}.sp-prompt-review textarea{min-height:6.2rem;background:#fff}.sp-image-status{color:#667b7e;font-size:.7rem;line-height:1.35}.sp-image-status[data-state="success"]{color:#217063}.sp-image-status[data-state="error"]{color:#a34a35}.sp-image-status[data-state="loading"]{color:#8a6417}.sp-image-actions .cx-btn{flex:0 0 auto}
+@media(max-width:600px){.sp-image-uploads{grid-template-columns:1fr}.sp-image-prep__head,.sp-image-actions{align-items:flex-start;flex-direction:column}}
+
 /* Revisão de briefing: ações contextuais e escolha de praça sem sobrecarregar a coluna. */
 .sp-field-with-action{display:flex;align-items:center;gap:.45rem;min-width:0}
 .sp-field-with-action input{min-width:0;flex:1}

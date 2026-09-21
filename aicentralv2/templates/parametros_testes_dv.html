@@ -5,83 +5,72 @@
 {% block title %}Testes DV360 — CentralComm AI{% endblock %}
 
 {% block styles %}
-<style>
-  /* Ocupa a linha no flex para não cortar o texto dos selects com um max-width artificial. */
-  #adv-select-dv,
-  #adv-select-api {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-  }
-  .dv360-tab-panel {
-    outline: none;
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/testes-dv360.css') }}?v=1">
 {% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-2">
     <h1 class="text-xl font-semibold text-base-content">DV360 — Campanhas</h1>
-    <a href="{{ url_for('dv360_pages.diagnostico') }}" class="link link-primary text-sm">Diagnóstico DV360</a>
+    <a href="{{ url_for('dv360_pages.diagnostico') }}" class="text-[var(--cx-primary)] hover:underline text-sm">Diagnóstico DV360</a>
   </div>
 
-  <div id="dv360-global-msg" class="hidden alert alert-error text-sm"></div>
+  <div id="dv360-global-msg" class="hidden cx-alert cx-alert-error text-sm"></div>
 
-  <div class="card bg-base-100 border border-base-200 shadow-lg overflow-hidden">
+  <div class="border border-slate-200 rounded-xl bg-white shadow-lg overflow-hidden" data-cx-tab-scope>
     <div class="border-b border-base-200 bg-gradient-to-r from-base-200/50 via-base-100 to-base-100 px-3 sm:px-5 pt-4 pb-3">
-      <div role="tablist" aria-label="Secções Testes DV360" id="dv360-tablist" class="tabs tabs-boxed tabs-sm shadow-sm flex-wrap gap-y-2">
-        <button type="button" role="tab" id="tab-dv360-0" aria-selected="true" aria-controls="panel-dv360-0" tabindex="0" class="tab tab-active gap-2 px-3 sm:px-4">
+      <div role="tablist" aria-label="Secções Testes DV360" id="dv360-tablist" class="cx-tabs flex-wrap gap-y-2 shadow-sm">
+        <button type="button" role="tab" data-cx-tab id="tab-dv360-0" aria-selected="true" aria-controls="panel-dv360-0" tabindex="0" class="cx-tab cx-tab-active gap-2 px-3 sm:px-4">
           <i class="fa-solid fa-database text-primary text-xs opacity-90" aria-hidden="true"></i>
           <span class="whitespace-nowrap">Cliente / anunciante</span>
         </button>
-        <button type="button" role="tab" id="tab-dv360-1" aria-selected="false" aria-controls="panel-dv360-1" tabindex="-1" class="tab gap-2 px-3 sm:px-4">
+        <button type="button" role="tab" data-cx-tab id="tab-dv360-1" aria-selected="false" aria-controls="panel-dv360-1" tabindex="-1" class="cx-tab gap-2 px-3 sm:px-4">
           <i class="fa-solid fa-table-list text-primary text-xs opacity-90" aria-hidden="true"></i>
           <span class="whitespace-nowrap">Campanhas</span>
-          <span id="tab-dv360-campaigns-badge" class="badge badge-primary badge-sm font-normal tabular-nums hidden"></span>
+          <span id="tab-dv360-campaigns-badge" class="cx-badge cx-badge-primary cx-badge-sm font-normal tabular-nums hidden"></span>
         </button>
-        <button type="button" role="tab" id="tab-dv360-2" aria-selected="false" aria-controls="panel-dv360-2" tabindex="-1" class="tab gap-2 px-3 sm:px-4">
+        <button type="button" role="tab" data-cx-tab id="tab-dv360-2" aria-selected="false" aria-controls="panel-dv360-2" tabindex="-1" class="cx-tab gap-2 px-3 sm:px-4">
           <i class="fa-solid fa-magnifying-glass-chart text-primary text-xs opacity-90" aria-hidden="true"></i>
           <span class="whitespace-nowrap">Detalhe</span>
         </button>
-        <button type="button" role="tab" id="tab-dv360-3" aria-selected="false" aria-controls="panel-dv360-3" tabindex="-1" class="tab gap-2 px-3 sm:px-4">
+        <button type="button" role="tab" data-cx-tab id="tab-dv360-3" aria-selected="false" aria-controls="panel-dv360-3" tabindex="-1" class="cx-tab gap-2 px-3 sm:px-4">
           <i class="fa-solid fa-rectangle-list text-primary text-xs opacity-90" aria-hidden="true"></i>
           <span class="whitespace-nowrap">Acomp. PI (DV360)</span>
         </button>
-        <button type="button" role="tab" id="tab-dv360-4" aria-selected="false" aria-controls="panel-dv360-4" tabindex="-1" class="tab gap-2 px-3 sm:px-4" disabled title="Selecione uma campanha primeiro">
+        <button type="button" role="tab" data-cx-tab id="tab-dv360-4" aria-selected="false" aria-controls="panel-dv360-4" tabindex="-1" class="cx-tab gap-2 px-3 sm:px-4" disabled title="Selecione uma campanha primeiro">
           <i class="fa-solid fa-layer-group text-primary text-xs opacity-90" aria-hidden="true"></i>
           <span class="whitespace-nowrap">Insertion orders</span>
-          <span id="tab-dv360-io-badge" class="badge badge-primary badge-sm font-normal tabular-nums hidden"></span>
+          <span id="tab-dv360-io-badge" class="cx-badge cx-badge-primary cx-badge-sm font-normal tabular-nums hidden"></span>
         </button>
       </div>
     </div>
 
     <div id="panel-dv360-0" role="tabpanel" aria-labelledby="tab-dv360-0" class="dv360-tab-panel p-4 sm:p-5 space-y-4" aria-hidden="false">
-      <div class="card bg-base-100 border border-base-200 shadow-sm">
-        <div class="card-body gap-4 py-5">
+      <div class="border border-slate-200 rounded-xl bg-white shadow-sm">
+        <div class="p-5 space-y-4">
           <div class="flex flex-col gap-4 w-full min-w-0">
-            <div class="form-control flex-1 min-w-0 w-full gap-2">
-              <label class="label py-0 pb-1.5" for="adv-select-dv">
-                <span class="label-text text-sm font-medium">Cliente / anunciante (dv360_advertisers)</span>
+            <div class="cx-field flex-1 min-w-0 w-full gap-2">
+              <label class="cx-label-row py-0 pb-1.5" for="adv-select-dv">
+                <span class="cx-label text-xs font-medium">Cliente / anunciante (dv360_advertisers)</span>
               </label>
               <div id="dv360-adv-dv-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
                 <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
                 <span>A aguardar mapeamentos…</span>
               </div>
-              <select id="adv-select-dv" class="select select-bordered select-sm w-full min-w-0">
+              <select id="adv-select-dv" class="cx-select cx-select-sm w-full min-w-0">
                 <option value="">Carregando…</option>
               </select>
               <p id="adv-hint-dv" class="text-xs text-base-content/60"></p>
             </div>
-            <div class="form-control flex-1 min-w-0 w-full gap-2">
-              <label class="label py-0 pb-1.5" for="adv-select-api">
-                <span class="label-text text-sm font-medium">Anunciante (API partner DV360)</span>
+            <div class="cx-field flex-1 min-w-0 w-full gap-2">
+              <label class="cx-label-row py-0 pb-1.5" for="adv-select-api">
+                <span class="cx-label text-xs font-medium">Anunciante (API partner DV360)</span>
               </label>
               <div id="dv360-adv-api-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
                 <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
                 <span>A aguardar a API…</span>
               </div>
-              <select id="adv-select-api" class="select select-bordered select-sm w-full min-w-0">
+              <select id="adv-select-api" class="cx-select cx-select-sm w-full min-w-0">
                 <option value="">Carregando…</option>
               </select>
               <p id="adv-hint-api" class="text-xs text-base-content/60"></p>
@@ -91,10 +80,10 @@
                 As campanhas usam o anunciante do select que alterar por último (com valor). Se não mexer nos dois, prioriza dv360_advertisers.
               </p>
               <div class="flex flex-wrap items-center gap-2 order-1 sm:order-2 shrink-0 w-full sm:w-auto justify-end">
-                <button type="button" id="btn-add-dv-mapping" class="btn btn-outline btn-sm btn-square shrink-0" title="Novo mapeamento em dv360_advertisers" aria-label="Novo mapeamento dv360_advertisers">
+                <button type="button" id="btn-add-dv-mapping" class="cx-btn cx-btn-outline cx-btn-sm cx-btn-icon shrink-0" title="Novo mapeamento em dv360_advertisers" aria-label="Novo mapeamento dv360_advertisers">
                   <i class="fa-solid fa-plus" aria-hidden="true"></i>
                 </button>
-                <button type="button" id="btn-load-campaigns" class="btn btn-primary btn-sm shrink-0 gap-2">
+                <button type="button" id="btn-load-campaigns" class="cx-btn cx-btn-primary cx-btn-sm shrink-0 gap-2">
                   <i class="fa-solid fa-download" aria-hidden="true"></i>
                   Carregar campanhas
                 </button>
@@ -104,11 +93,11 @@
         </div>
       </div>
 
-      <details class="collapse collapse-arrow bg-base-100 border border-base-200 shadow-sm rounded-lg">
-        <summary class="collapse-title text-sm font-medium py-3 min-h-0">
+      <details class="border border-slate-200 rounded-xl bg-white shadow-sm">
+        <summary class="text-sm font-medium py-3 px-4 cursor-pointer list-none">
           DV360 · Hierarquia, autenticação e relatórios
         </summary>
-        <div class="collapse-content text-xs text-base-content/80 space-y-2 !pb-4 pt-0">
+        <div class="px-4 pb-4 text-xs text-base-content/80 space-y-2 !pb-4 pt-0">
           <p>
             <strong>Hierarquia:</strong> Campanha → Pedido de inserção (IO) → Line item. Orçamentos, pacing e grande parte do targeting aplicam-se ao IO/LI; a campanha agrupa objectivos.
           </p>
@@ -123,8 +112,8 @@
             <strong>Bid Manager API</strong> — produto e âmbitos OAuth diferentes da Display&nbsp;Video&nbsp;API&nbsp;v4.
           </p>
           <p class="flex flex-wrap gap-x-3 gap-y-1">
-            <a href="https://developers.google.com/display-video/api/guides/getting-started/overview" class="link link-primary text-xs" target="_blank" rel="noopener noreferrer">Display &amp; Video 360 API — overview</a>
-            <a href="https://developers.google.com/bid-manager/guides/reporting/overview" class="link link-primary text-xs" target="_blank" rel="noopener noreferrer">Bid Manager · Reporting</a>
+            <a href="https://developers.google.com/display-video/api/guides/getting-started/overview" class="text-[var(--cx-primary)] hover:underline text-xs" target="_blank" rel="noopener noreferrer">Display &amp; Video 360 API — overview</a>
+            <a href="https://developers.google.com/bid-manager/guides/reporting/overview" class="text-[var(--cx-primary)] hover:underline text-xs" target="_blank" rel="noopener noreferrer">Bid Manager · Reporting</a>
           </p>
         </div>
       </details>
@@ -133,11 +122,11 @@
     <div id="panel-dv360-1" role="tabpanel" aria-labelledby="tab-dv360-1" class="dv360-tab-panel hidden p-4 sm:p-5" tabindex="-1" aria-hidden="true">
       <div class="flex flex-col gap-3 mb-4">
         <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
-          <div class="form-control w-full sm:w-auto sm:min-w-[220px]">
-            <label class="label py-0 pb-1" for="campaign-status-filter">
-              <span class="label-text text-xs font-medium text-base-content/80">Estado na API (<code class="text-[11px]">entityStatus</code>)</span>
+          <div class="cx-field w-full sm:w-auto sm:min-w-[220px]">
+            <label class="cx-label-row py-0 pb-1" for="campaign-status-filter">
+              <span class="cx-label text-xs font-medium text-base-content/80">Estado na API (<code class="text-[11px]">entityStatus</code>)</span>
             </label>
-            <select id="campaign-status-filter" class="select select-bordered select-sm w-full">
+            <select id="campaign-status-filter" class="cx-select cx-select-sm w-full">
               <option value="">Todos os estados</option>
               <option value="ENTITY_STATUS_ACTIVE">Ativa</option>
               <option value="ENTITY_STATUS_PAUSED">Pausada</option>
@@ -152,7 +141,7 @@
         </div>
       </div>
       <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
-        <table class="table table-sm table-zebra">
+        <table class="cx-table cx-table-dense">
           <thead>
             <tr>
               <th>Nome</th>
@@ -180,17 +169,17 @@
         <p class="text-xs text-base-content/55 max-w-sm leading-relaxed">
           Na aba <strong>Cliente / anunciante</strong> carregue as campanhas; depois escolha uma linha na aba <strong>Campanhas</strong> para ver objectivos, geo, IO e line items aqui.
         </p>
-        <button type="button" id="dv360-detail-empty-goto-list" class="btn btn-outline btn-sm gap-2 mt-1">
+        <button type="button" id="dv360-detail-empty-goto-list" class="cx-btn cx-btn-outline cx-btn-sm gap-2 mt-1">
           <i class="fa-solid fa-table-list" aria-hidden="true"></i>
           Ir para campanhas
         </button>
       </div>
 
-      <div id="campaign-detail-wrap" class="hidden card bg-base-100 border border-base-200 shadow-sm">
-        <div class="card-body gap-3 py-4">
+      <div id="campaign-detail-wrap" class="hidden border border-slate-200 rounded-xl bg-white shadow-sm">
+        <div class="p-5 space-y-3 py-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-base font-semibold text-base-content">Detalhe da campanha (DV360)</h2>
-            <button type="button" id="campaign-detail-close" class="btn btn-ghost btn-xs shrink-0">Fechar</button>
+            <button type="button" id="campaign-detail-close" class="cx-btn cx-btn-ghost cx-btn-xs shrink-0">Fechar</button>
           </div>
       <p id="campaign-detail-loading" class="hidden flex items-center gap-2 text-sm text-base-content/60" role="status">
         <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
@@ -219,7 +208,7 @@
           <h3 class="text-sm font-semibold">Métricas registadas (dv360_campaigns)</h3>
           <button
             id="btn-dv360-metrics-sync"
-            class="btn btn-sm gap-1 normal-case bg-primary text-primary-content hover:brightness-95 border-0 shadow-sm"
+            class="cx-btn cx-btn-primary cx-btn-sm gap-1 normal-case"
             type="button"
             disabled
           >
@@ -233,18 +222,18 @@
         </p>
         <p id="dv360-metrics-source" class="text-xs text-base-content/55 mt-1"></p>
         <div class="mt-3 flex flex-wrap items-end gap-3">
-          <div class="form-control">
-            <label class="label py-0" for="dv360-report-start"><span class="label-text text-xs">Início relatório</span></label>
-            <input type="date" id="dv360-report-start" class="input input-bordered input-sm" disabled />
+          <div class="cx-field">
+            <label class="cx-label-row py-0" for="dv360-report-start"><span class="cx-label text-xs text-xs">Início relatório</span></label>
+            <input type="date" id="dv360-report-start" class="cx-input cx-input-sm" disabled />
           </div>
-          <div class="form-control">
-            <label class="label py-0" for="dv360-report-end"><span class="label-text text-xs">Fim relatório</span></label>
-            <input type="date" id="dv360-report-end" class="input input-bordered input-sm" disabled />
+          <div class="cx-field">
+            <label class="cx-label-row py-0" for="dv360-report-end"><span class="cx-label text-xs text-xs">Fim relatório</span></label>
+            <input type="date" id="dv360-report-end" class="cx-input cx-input-sm" disabled />
           </div>
           <button
             type="button"
             id="btn-dv360-period-save"
-            class="btn btn-sm btn-outline normal-case gap-1"
+            class="cx-btn cx-btn-sm cx-btn-outline normal-case gap-1"
             disabled
           >
             <i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>
@@ -283,7 +272,7 @@
           <button
             id="btn-dv360-metrics-save"
             type="button"
-            class="btn btn-sm normal-case bg-success text-success-content hover:brightness-95 border-0 shadow-sm"
+            class="cx-btn cx-btn-success cx-btn-sm normal-case"
             disabled
           >
             Guardar na base
@@ -336,19 +325,19 @@
           Sincroniza gasto, impressões, CPM, cliques e CPC por dia. Requer scope OAuth Bid Manager. Os insertion orders devem estar na BD antes de gravar line items (aba <strong>Insertion orders</strong>).
         </p>
         <div class="mt-3 flex flex-wrap items-end gap-3">
-          <div class="form-control">
-            <label class="label py-0" for="dv360-hist-start"><span class="label-text text-xs">Início</span></label>
-            <input type="date" id="dv360-hist-start" class="input input-bordered input-sm" disabled />
+          <div class="cx-field">
+            <label class="cx-label-row py-0" for="dv360-hist-start"><span class="cx-label text-xs text-xs">Início</span></label>
+            <input type="date" id="dv360-hist-start" class="cx-input cx-input-sm" disabled />
           </div>
-          <div class="form-control">
-            <label class="label py-0" for="dv360-hist-end"><span class="label-text text-xs">Fim</span></label>
-            <input type="date" id="dv360-hist-end" class="input input-bordered input-sm" disabled />
+          <div class="cx-field">
+            <label class="cx-label-row py-0" for="dv360-hist-end"><span class="cx-label text-xs text-xs">Fim</span></label>
+            <input type="date" id="dv360-hist-end" class="cx-input cx-input-sm" disabled />
           </div>
-          <button type="button" id="btn-dv360-hist-sync" class="btn btn-primary btn-sm gap-2" disabled>
+          <button type="button" id="btn-dv360-hist-sync" class="cx-btn cx-btn-primary cx-btn-sm gap-2" disabled>
             <i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i>
             Sincronizar período
           </button>
-          <button type="button" id="btn-dv360-hist-load" class="btn btn-outline btn-sm gap-2" disabled>
+          <button type="button" id="btn-dv360-hist-load" class="cx-btn cx-btn-outline cx-btn-sm gap-2" disabled>
             <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
             Carregar gráfico (BD)
           </button>
@@ -366,9 +355,9 @@
       <div class="flex flex-wrap items-start justify-between gap-3">
         <p class="text-xs text-base-content/70 leading-snug flex-1 min-w-[12rem]">
           Campanhas PI com plataforma <strong>DV360</strong> (mesma lógica que Operação → Acompanhamento), com mapeamento <code class="text-[11px]">dv360_campaigns</code> (campaigns_id).
-          <a href="{{ url_campanhas_pi_lista }}" class="link link-primary">Abrir Acompanhamento completo</a>
+          <a href="{{ url_campanhas_pi_lista }}" class="text-[var(--cx-primary)] hover:underline">Abrir Acompanhamento completo</a>
         </p>
-        <button type="button" id="btn-modal-pi-id-api" class="btn btn-outline btn-sm gap-2 shrink-0" title="Associar campaigns_id DV360 — mesma lista e filtros que a tabela Acompanhamento PI (DV360) abaixo">
+        <button type="button" id="btn-modal-pi-id-api" class="cx-btn cx-btn-outline cx-btn-sm gap-2 shrink-0" title="Associar campaigns_id DV360 — mesma lista e filtros que a tabela Acompanhamento PI (DV360) abaixo">
           <i class="fa-solid fa-link" aria-hidden="true"></i>
           DV360 (PI)
         </button>
@@ -377,26 +366,26 @@
       <p id="dv360-acomp-warn" class="text-sm text-warning hidden" role="status"></p>
       <div class="flex flex-col gap-3">
         <div class="flex flex-col lg:flex-row lg:flex-wrap lg:items-end gap-3">
-          <div class="form-control w-full sm:w-auto sm:min-w-[160px]">
-            <label class="label py-0 pb-1" for="acomp-dv360-mes"><span class="label-text text-xs font-medium">Mês ref.</span></label>
-            <select id="acomp-dv360-mes" class="select select-bordered select-sm w-full">
+          <div class="cx-field w-full sm:w-auto sm:min-w-[160px]">
+            <label class="cx-label-row py-0 pb-1" for="acomp-dv360-mes"><span class="cx-label text-xs font-medium">Mês ref.</span></label>
+            <select id="acomp-dv360-mes" class="cx-select cx-select-sm w-full">
               {% for m in meses_ref %}
                 <option value="{{ m }}" {% if filtros_acompanhamento_dv360.get('mes_ref_comp') == m %}selected{% endif %}>{{ m }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-control w-full sm:w-auto sm:min-w-[160px]">
-            <label class="label py-0 pb-1" for="acomp-dv360-status"><span class="label-text text-xs font-medium">Status</span></label>
-            <select id="acomp-dv360-status" class="select select-bordered select-sm w-full">
+          <div class="cx-field w-full sm:w-auto sm:min-w-[160px]">
+            <label class="cx-label-row py-0 pb-1" for="acomp-dv360-status"><span class="cx-label text-xs font-medium">Status</span></label>
+            <select id="acomp-dv360-status" class="cx-select cx-select-sm w-full">
               <option value="">Todos</option>
               {% for st in statuses %}
                 <option value="{{ st.id }}">{{ st.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-control w-full sm:w-auto sm:min-w-[180px]">
-            <label class="label py-0 pb-1" for="acomp-dv360-exec"><span class="label-text text-xs font-medium">Executivo</span></label>
-            <select id="acomp-dv360-exec" class="select select-bordered select-sm w-full">
+          <div class="cx-field w-full sm:w-auto sm:min-w-[180px]">
+            <label class="cx-label-row py-0 pb-1" for="acomp-dv360-exec"><span class="cx-label text-xs font-medium">Executivo</span></label>
+            <select id="acomp-dv360-exec" class="cx-select cx-select-sm w-full">
               <option value="">Todos</option>
               {% for v in vendedores %}
                 <option value="{{ v.id_contato_cliente }}">{{ v.nome_completo }}</option>
@@ -404,9 +393,9 @@
             </select>
           </div>
           {% if is_dv_acompanhamento_admin and clientes_simples %}
-          <div class="form-control w-full sm:w-auto sm:min-w-[200px]">
-            <label class="label py-0 pb-1" for="acomp-dv360-cliente"><span class="label-text text-xs font-medium">Cliente</span></label>
-            <select id="acomp-dv360-cliente" class="select select-bordered select-sm w-full">
+          <div class="cx-field w-full sm:w-auto sm:min-w-[200px]">
+            <label class="cx-label-row py-0 pb-1" for="acomp-dv360-cliente"><span class="cx-label text-xs font-medium">Cliente</span></label>
+            <select id="acomp-dv360-cliente" class="cx-select cx-select-sm w-full">
               <option value="">Todos</option>
               {% for cl in clientes_simples %}
                 <option value="{{ cl.id_cliente }}">{{ cl.nome_fantasia or cl.razao_social or cl.id_cliente }}</option>
@@ -415,15 +404,15 @@
           </div>
           {% endif %}
           <div class="flex flex-wrap gap-2 pb-1">
-            <button type="button" id="btn-acomp-dv360-reload" class="btn btn-primary btn-sm gap-2">
+            <button type="button" id="btn-acomp-dv360-reload" class="cx-btn cx-btn-primary cx-btn-sm gap-2">
               <i class="fa-solid fa-rotate" aria-hidden="true"></i>
               Carregar
             </button>
           </div>
         </div>
-        <div class="form-control w-full max-w-md">
-          <label class="label py-0 pb-1" for="acomp-dv360-search"><span class="label-text text-xs font-medium">Buscar</span></label>
-          <input type="search" id="acomp-dv360-search" class="input input-bordered input-sm w-full" placeholder="Nome da campanha ou código PI…" autocomplete="off" />
+        <div class="cx-field w-full max-w-md">
+          <label class="cx-label-row py-0 pb-1" for="acomp-dv360-search"><span class="cx-label text-xs font-medium">Buscar</span></label>
+          <input type="search" id="acomp-dv360-search" class="cx-input cx-input-sm w-full" placeholder="Nome da campanha ou código PI…" autocomplete="off" />
         </div>
       </div>
       <p id="acomp-dv360-loading" class="hidden text-sm text-base-content/60 flex items-center gap-2" role="status">
@@ -432,7 +421,7 @@
       </p>
       <p id="acomp-dv360-error" class="hidden text-sm text-error"></p>
       <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
-        <table class="table table-sm table-zebra text-xs">
+        <table class="cx-table cx-table-dense text-xs">
           <thead>
             <tr>
               <th>Período / PI</th>
@@ -466,20 +455,20 @@
             <h2 class="text-base font-semibold text-base-content">Insertion orders (campanha em foco)</h2>
             <p id="dv360-io-tab-campaign-title" class="text-sm text-base-content/80 truncate" title=""></p>
             <div class="flex flex-wrap gap-2 text-xs">
-              <span class="badge badge-outline font-mono">campaign_id: <span id="dv360-io-tab-campaign-id-chip"></span></span>
-              <span class="badge badge-outline font-mono">advertiser_id: <span id="dv360-io-tab-advertiser-chip"></span></span>
+              <span class="cx-badge cx-badge-muted font-mono">campaign_id: <span id="dv360-io-tab-campaign-id-chip"></span></span>
+              <span class="cx-badge cx-badge-muted font-mono">advertiser_id: <span id="dv360-io-tab-advertiser-chip"></span></span>
             </div>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">
-            <button type="button" id="btn-dv360-io-reload" class="btn btn-outline btn-sm gap-2">
+            <button type="button" id="btn-dv360-io-reload" class="cx-btn cx-btn-outline cx-btn-sm gap-2">
               <i class="fa-solid fa-rotate" aria-hidden="true"></i>
               Recarregar
             </button>
-            <button type="button" id="btn-dv360-io-sync" class="btn btn-primary btn-sm gap-2">
+            <button type="button" id="btn-dv360-io-sync" class="cx-btn cx-btn-primary cx-btn-sm gap-2">
               <i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i>
               Sincronizar IO → BD
             </button>
-            <button type="button" id="btn-dv360-li-sync" class="btn btn-secondary btn-sm gap-2">
+            <button type="button" id="btn-dv360-li-sync" class="cx-btn cx-btn-secondary cx-btn-sm gap-2">
               <i class="fa-solid fa-database" aria-hidden="true"></i>
               Sincronizar line items → BD
             </button>
@@ -492,12 +481,12 @@
         <p id="dv360-io-tab-error" class="hidden text-sm text-error"></p>
         <p id="dv360-io-tab-source" class="text-xs text-base-content/55 min-h-[1.25rem] hidden" role="status"></p>
         <p id="dv360-io-sync-msg" class="hidden text-sm min-h-[1.25rem]" role="status"></p>
-        <div id="dv360-io-sync-warn" class="hidden alert alert-warning text-sm py-2">
+        <div id="dv360-io-sync-warn" class="hidden cx-alert cx-alert-warning text-sm py-2">
           <span id="dv360-io-sync-warn-text"></span>
-          <button type="button" id="btn-dv360-io-goto-acomp" class="btn btn-ghost btn-xs ml-2">Ir para Acomp. PI (DV360)</button>
+          <button type="button" id="btn-dv360-io-goto-acomp" class="cx-btn cx-btn-ghost cx-btn-xs ml-2">Ir para Acomp. PI (DV360)</button>
         </div>
         <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
-          <table class="table table-sm table-zebra w-full text-xs">
+          <table class="cx-table cx-table-dense w-full text-xs">
             <thead>
               <tr>
                 <th>Display name</th>
@@ -531,3105 +520,62 @@
     </div>
   </div>
 
-  <dialog id="modal-dv-cliente-mapping" class="modal">
-    <div class="modal-box max-w-md">
+  <dialog id="modal-dv-cliente-mapping" class="cx-modal-shell">
+    <div class="cx-modal-panel cx-modal-panel-md">
       <h3 class="font-semibold text-base text-base-content">Novo mapeamento dv360_advertisers</h3>
       <p class="text-xs text-base-content/60 mt-1">Associa um cliente a um ID de anunciante no DV360.</p>
       <form id="form-dv-cliente-mapping" class="flex flex-col gap-3 mt-4">
-        <div class="form-control w-full">
-          <label class="label py-0 pb-1" for="modal-dv-cliente-id"><span class="label-text text-sm font-medium">Cliente</span></label>
-          <select id="modal-dv-cliente-id" name="cliente_id" class="select select-bordered select-sm w-full" required>
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0 pb-1" for="modal-dv-cliente-id"><span class="cx-label text-xs font-medium">Cliente</span></label>
+          <select id="modal-dv-cliente-id" name="cliente_id" class="cx-select cx-select-sm w-full" required>
             <option value="">A carregar…</option>
           </select>
         </div>
-        <div class="form-control w-full">
-          <label class="label py-0 pb-1" for="modal-dv-anunciante-id"><span class="label-text text-sm font-medium">dv_anunciante_id</span></label>
-          <input type="text" id="modal-dv-anunciante-id" name="dv_anunciante_id" class="input input-bordered input-sm w-full" autocomplete="off" placeholder="Ex.: 1234567890" required />
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0 pb-1" for="modal-dv-anunciante-id"><span class="cx-label text-xs font-medium">dv_anunciante_id</span></label>
+          <input type="text" id="modal-dv-anunciante-id" name="dv_anunciante_id" class="cx-input cx-input-sm w-full" autocomplete="off" placeholder="Ex.: 1234567890" required />
         </div>
         <p id="modal-dv-mapping-msg" class="text-sm hidden min-h-[1.25rem]" role="status"></p>
-        <div class="modal-action mt-2 flex-wrap gap-2">
-          <button type="button" id="modal-dv-mapping-cancel" class="btn btn-ghost btn-sm">Cancelar</button>
-          <button type="submit" id="modal-dv-mapping-save" class="btn btn-primary btn-sm">Guardar</button>
+        <div class="cx-modal-actions mt-2 flex-wrap gap-2">
+          <button type="button" id="modal-dv-mapping-cancel" class="cx-btn cx-btn-ghost cx-btn-sm">Cancelar</button>
+          <button type="submit" id="modal-dv-mapping-save" class="cx-btn cx-btn-primary cx-btn-sm">Guardar</button>
         </div>
       </form>
     </div>
-    <form method="dialog" class="modal-backdrop"><button type="submit" class="cursor-default" aria-label="Fechar">close</button></form>
+    <form method="dialog" class="cx-modal-dismiss"><button type="submit" class="cursor-default" aria-label="Fechar">close</button></form>
   </dialog>
 
-  <dialog id="modal-pi-id-api" class="modal">
-    <div class="modal-box max-w-md">
+  <dialog id="modal-pi-id-api" class="cx-modal-shell">
+    <div class="cx-modal-panel cx-modal-panel-md">
       <h3 class="font-semibold text-base text-base-content">Associar campaigns_id DV360 à campanha PI</h3>
       <p class="text-xs text-base-content/60 mt-1">
         A lista é a <strong>mesma</strong> da aba <strong>Acompanhamento PI (DV360)</strong>: campanhas com plataforma DV360 e os filtros actuais (mês, status, executivo{% if is_dv_acompanhamento_admin %}, cliente{% endif %}). O valor gravado em <strong>dv360_campaigns</strong> (<strong>campaigns_id</strong>) é único globalmente.
       </p>
       <form id="form-pi-id-api" class="flex flex-col gap-3 mt-4">
-        <div class="form-control w-full">
-          <label class="label py-0 pb-1" for="modal-pi-campanha-id"><span class="label-text text-sm font-medium">Campanha PI</span></label>
-          <select id="modal-pi-campanha-id" name="id_campanha" class="select select-bordered select-sm w-full" disabled>
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0 pb-1" for="modal-pi-campanha-id"><span class="cx-label text-xs font-medium">Campanha PI</span></label>
+          <select id="modal-pi-campanha-id" name="id_campanha" class="cx-select cx-select-sm w-full" disabled>
             <option value="">A carregar…</option>
           </select>
         </div>
-        <div class="form-control w-full">
-          <label class="label py-0 pb-1" for="modal-pi-id-api-input"><span class="label-text text-sm font-medium">campaigns_id (DV360)</span></label>
-          <input type="text" id="modal-pi-id-api-input" name="campaigns_id" class="input input-bordered input-sm w-full" autocomplete="off" maxlength="512" placeholder="Identificador (vazio para limpar)" />
+        <div class="cx-field w-full">
+          <label class="cx-label-row py-0 pb-1" for="modal-pi-id-api-input"><span class="cx-label text-xs font-medium">campaigns_id (DV360)</span></label>
+          <input type="text" id="modal-pi-id-api-input" name="campaigns_id" class="cx-input cx-input-sm w-full" autocomplete="off" maxlength="512" placeholder="Identificador (vazio para limpar)" />
         </div>
         <p id="modal-pi-id-api-msg" class="text-sm hidden min-h-[1.25rem]" role="status"></p>
-        <div class="modal-action mt-2 flex-wrap gap-2">
-          <button type="button" id="modal-pi-id-api-cancel" class="btn btn-ghost btn-sm">Cancelar</button>
-          <button type="submit" id="modal-pi-id-api-save" class="btn btn-primary btn-sm" disabled>Guardar</button>
+        <div class="cx-modal-actions mt-2 flex-wrap gap-2">
+          <button type="button" id="modal-pi-id-api-cancel" class="cx-btn cx-btn-ghost cx-btn-sm">Cancelar</button>
+          <button type="submit" id="modal-pi-id-api-save" class="cx-btn cx-btn-primary cx-btn-sm" disabled>Guardar</button>
         </div>
       </form>
     </div>
-    <form method="dialog" class="modal-backdrop"><button type="submit" class="cursor-default" aria-label="Fechar">close</button></form>
+    <form method="dialog" class="cx-modal-dismiss"><button type="submit" class="cursor-default" aria-label="Fechar">close</button></form>
   </dialog>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script>
-(function () {
-  const advSelectDv = document.getElementById('adv-select-dv');
-  const advSelectApi = document.getElementById('adv-select-api');
-  const advLoadingDv = document.getElementById('dv360-adv-dv-loading');
-  const advLoadingApi = document.getElementById('dv360-adv-api-loading');
-  const advHintDv = document.getElementById('adv-hint-dv');
-  const advHintApi = document.getElementById('adv-hint-api');
-  const advHintSource = document.getElementById('adv-hint-source');
-  const btnLoad = document.getElementById('btn-load-campaigns');
-  const btnAddDvMapping = document.getElementById('btn-add-dv-mapping');
-  const modalDvMapping = document.getElementById('modal-dv-cliente-mapping');
-  const formDvMapping = document.getElementById('form-dv-cliente-mapping');
-  const selModalCliente = document.getElementById('modal-dv-cliente-id');
-  const inpModalAdv = document.getElementById('modal-dv-anunciante-id');
-  const modalDvMsg = document.getElementById('modal-dv-mapping-msg');
-  const btnModalDvSave = document.getElementById('modal-dv-mapping-save');
-  const btnModalDvCancel = document.getElementById('modal-dv-mapping-cancel');
-  const tbody = document.getElementById('campaign-rows');
-  const globalMsg = document.getElementById('dv360-global-msg');
-  /** Último select alterado pelo utilizador: 'dv' | 'api' | null (null = prioridade dv360_advertisers se ambos têm valor). */
-  var lastAdvertiserSource = null;
-  const detailWrap = document.getElementById('campaign-detail-wrap');
-  const detailLoading = document.getElementById('campaign-detail-loading');
-  const detailError = document.getElementById('campaign-detail-error');
-  const detailBody = document.getElementById('campaign-detail-body');
-  const detailJson = document.getElementById('campaign-detail-json');
-  const detailPre = document.getElementById('campaign-detail-pre');
-  const detailClose = document.getElementById('campaign-detail-close');
-  const btnModalPiIdApi = document.getElementById('btn-modal-pi-id-api');
-  const modalPiIdApi = document.getElementById('modal-pi-id-api');
-  const formPiIdApi = document.getElementById('form-pi-id-api');
-  const selPiCampanha = document.getElementById('modal-pi-campanha-id');
-  const inpPiIdApi = document.getElementById('modal-pi-id-api-input');
-  const modalPiMsg = document.getElementById('modal-pi-id-api-msg');
-  const btnModalPiSave = document.getElementById('modal-pi-id-api-save');
-  const btnModalPiCancel = document.getElementById('modal-pi-id-api-cancel');
-  const campaignPiIdApiNote = document.getElementById('dv360-acomp-pi-id-api-note');
-  const dv360ApiReportsBody = document.getElementById('dv360-api-reports-body');
-  const dv360ApiReportsPlaceholder = document.getElementById('dv360-api-reports-placeholder');
-  const dv360IoLoading = document.getElementById('dv360-io-loading');
-  const dv360IoError = document.getElementById('dv360-io-error');
-  const dv360IoTableWrap = document.getElementById('dv360-io-table-wrap');
-  const dv360IoJsonDetails = document.getElementById('dv360-io-json-details');
-  const dv360IoJsonPre = document.getElementById('dv360-io-json-pre');
-  const dv360LiLoading = document.getElementById('dv360-li-loading');
-  const dv360LiError = document.getElementById('dv360-li-error');
-  const dv360LiTableWrap = document.getElementById('dv360-li-table-wrap');
-  const dv360LiJsonDetails = document.getElementById('dv360-li-json-details');
-  const dv360LiJsonPre = document.getElementById('dv360-li-json-pre');
-  const dv360CampaignMetricsWrap = document.getElementById('dv360-campaign-metrics-wrap');
-  const btnDv360MetricsSync = document.getElementById('btn-dv360-metrics-sync');
-  const dv360MetricsUnmapped = document.getElementById('dv360-metrics-unmapped');
-  const dv360MetricsSource = document.getElementById('dv360-metrics-source');
-  const dv360MetricsBudget = document.getElementById('dv360-metrics-budget');
-  const dv360MetricsSpent = document.getElementById('dv360-metrics-spent');
-  const dv360MetricsKpiGoal = document.getElementById('dv360-metrics-kpi-goal');
-  const dv360MetricsKpiAtual = document.getElementById('dv360-metrics-kpi-atual');
-  const dv360MetricsKpiType = document.getElementById('dv360-metrics-kpi-type');
-  const dv360MetricsPendingHint = document.getElementById('dv360-metrics-pending-hint');
-  const btnDv360MetricsSave = document.getElementById('btn-dv360-metrics-save');
-  const dv360MetricsMsg = document.getElementById('dv360-metrics-msg');
-  const inpDv360ReportStart = document.getElementById('dv360-report-start');
-  const inpDv360ReportEnd = document.getElementById('dv360-report-end');
-  const btnDv360PeriodSave = document.getElementById('btn-dv360-period-save');
-  var URL_IO_FOR_CAMPAIGN_TMPL = {{ url_for('dv360.campaigns_insertion_orders_for_campaign', campaign_id='__CID__') | tojson }};
-  var URL_IO_SYNC_TMPL = {{ url_for('dv360.campaigns_insertion_orders_sync', campaign_id='__CID__') | tojson }};
-  var URL_LI_FOR_CAMPAIGN_TMPL = {{ url_for('dv360.campaigns_line_items_for_campaign', campaign_id='__CID__') | tojson }};
-  var URL_METRICS_SYNC_TMPL = {{ url_for('dv360.campaign_metrics_sync', campaign_id='__CID__') | tojson }};
-  var URL_METRICS_SAVE_TMPL = {{ url_for('dv360.campaign_metrics_save', campaign_id='__CID__') | tojson }};
-  var URL_PERIOD_SAVE_TMPL = {{ url_for('dv360.campaign_report_period_save', campaign_id='__CID__') | tojson }};
-  var URL_METRICS_HISTORY_SYNC_TMPL = {{ url_for('dv360.campaign_metrics_history_sync', campaign_id='__CID__') | tojson }};
-  var URL_METRICS_HISTORY_GET_TMPL = {{ url_for('dv360.campaign_metrics_history_get', campaign_id='__CID__') | tojson }};
-  var URL_LI_SYNC_TMPL = {{ url_for('dv360.campaigns_line_items_sync', campaign_id='__CID__') | tojson }};
-  var URL_AUDIT_VIEW = {{ url_for('dv360.dv360_audit_view') | tojson }};
-
-  const inpDv360HistStart = document.getElementById('dv360-hist-start');
-  const inpDv360HistEnd = document.getElementById('dv360-hist-end');
-  const btnDv360HistSync = document.getElementById('btn-dv360-hist-sync');
-  const btnDv360HistLoad = document.getElementById('btn-dv360-hist-load');
-  const dv360HistMsg = document.getElementById('dv360-hist-msg');
-  const canvasDv360Hist = document.getElementById('dv360-hist-chart');
-  var dv360HistChartInstance = null;
-  const btnDv360LiSyncTab = document.getElementById('btn-dv360-li-sync');
-
-  const detailEmptyEl = document.getElementById('dv360-detail-empty');
-  const tabIoBtn = document.getElementById('tab-dv360-4');
-  const tabIoBadge = document.getElementById('tab-dv360-io-badge');
-  const dv360IoTabEmpty = document.getElementById('dv360-io-tab-empty');
-  const dv360IoTabContent = document.getElementById('dv360-io-tab-content');
-  const dv360IoTabCampaignTitle = document.getElementById('dv360-io-tab-campaign-title');
-  const dv360IoTabCampaignIdChip = document.getElementById('dv360-io-tab-campaign-id-chip');
-  const dv360IoTabAdvertiserChip = document.getElementById('dv360-io-tab-advertiser-chip');
-  const btnDv360IoReload = document.getElementById('btn-dv360-io-reload');
-  const btnDv360IoSync = document.getElementById('btn-dv360-io-sync');
-  const dv360IoTabLoading = document.getElementById('dv360-io-tab-loading');
-  const dv360IoTabError = document.getElementById('dv360-io-tab-error');
-  const dv360IoTabSource = document.getElementById('dv360-io-tab-source');
-  const dv360IoSyncMsg = document.getElementById('dv360-io-sync-msg');
-  const dv360IoSyncWarn = document.getElementById('dv360-io-sync-warn');
-  const dv360IoSyncWarnText = document.getElementById('dv360-io-sync-warn-text');
-  const btnDv360IoGotoAcomp = document.getElementById('btn-dv360-io-goto-acomp');
-  const dv360IoTabBody = document.getElementById('dv360-io-tab-body');
-  const dv360IoSyncSummary = document.getElementById('dv360-io-sync-summary');
-  const dv360IoSyncCreated = document.getElementById('dv360-io-sync-created');
-  const dv360IoSyncUpdated = document.getElementById('dv360-io-sync-updated');
-  const dv360IoSyncTotalApi = document.getElementById('dv360-io-sync-total-api');
-  const dv360IoSyncTotalDb = document.getElementById('dv360-io-sync-total-db');
-  const dv360IoTabJsonDetails = document.getElementById('dv360-io-tab-json-details');
-  const dv360IoTabJsonPre = document.getElementById('dv360-io-tab-json-pre');
-  const tabCampaignBadge = document.getElementById('tab-dv360-campaigns-badge');
-  const btnDetailEmptyGotoList = document.getElementById('dv360-detail-empty-goto-list');
-  const campaignStatusFilterEl = document.getElementById('campaign-status-filter');
-  const campaignFilterSummaryEl = document.getElementById('campaign-filter-summary');
-
-  /** Abas principais do Testes DV360 (0–4: cliente, campanhas, detalhe, acomp. PI, insertion orders). */
-  function setActiveTab(index) {
-    if (index < 0 || index > 4) return;
-    [0, 1, 2, 3, 4].forEach(function (j) {
-      var btn = document.getElementById('tab-dv360-' + j);
-      var panel = document.getElementById('panel-dv360-' + j);
-      if (!btn || !panel) return;
-      var on = j === index;
-      btn.classList.toggle('tab-active', on);
-      btn.setAttribute('aria-selected', on ? 'true' : 'false');
-      btn.tabIndex = on ? 0 : -1;
-      panel.classList.toggle('hidden', !on);
-      panel.hidden = !on;
-      panel.setAttribute('aria-hidden', on ? 'false' : 'true');
-    });
-  }
-
-  function updateCampaignTabCount(n) {
-    if (!tabCampaignBadge) return;
-    var num = typeof n === 'number' && n >= 0 ? n : 0;
-    if (num > 0) {
-      tabCampaignBadge.textContent = String(num);
-      tabCampaignBadge.classList.remove('hidden');
-    } else {
-      tabCampaignBadge.textContent = '';
-      tabCampaignBadge.classList.add('hidden');
-    }
-  }
-
-  /** Resumo textual (contagem + filtro) acima da tabela de campanhas. */
-  function updateFilterSummary(displayedCount) {
-    if (!campaignFilterSummaryEl) return;
-    if (typeof displayedCount !== 'number' || displayedCount < 0) {
-      campaignFilterSummaryEl.textContent = '';
-      return;
-    }
-    var fv = campaignStatusFilterEl ? (campaignStatusFilterEl.value || '').trim() : '';
-    var label = fv ? entityStatusLabel(fv) : 'Todos os estados';
-    var n =
-      displayedCount === 0
-        ? '0 campanhas'
-        : displayedCount === 1
-          ? '1 campanha'
-          : displayedCount + ' campanhas';
-    campaignFilterSummaryEl.textContent = n + ' · filtro: ' + label;
-  }
-
-  function clearFilterSummary() {
-    if (campaignFilterSummaryEl) campaignFilterSummaryEl.textContent = '';
-  }
-
-  /** URL da rota JSON de campanhas com `advertiser_id` e filtro opcional da API DV360. */
-  function campaignsListUrl(advertiserId) {
-    var q = new URLSearchParams({ advertiser_id: String(advertiserId).trim() });
-    var fv = campaignStatusFilterEl ? (campaignStatusFilterEl.value || '').trim() : '';
-    if (fv) {
-      q.set('filter', 'entityStatus="' + fv + '"');
-    }
-    return "{{ url_for('dv360.campaigns') }}?" + q.toString();
-  }
-
-  function showGlobal(msg, kind) {
-    globalMsg.textContent = msg;
-    globalMsg.classList.remove('hidden', 'alert-error', 'alert-success', 'alert-info');
-    globalMsg.classList.add('alert', kind === 'ok' ? 'alert-success' : kind === 'info' ? 'alert-info' : 'alert-error');
-    globalMsg.classList.remove('hidden');
-  }
-  function hideGlobal() {
-    globalMsg.classList.add('hidden');
-  }
-
-  function jsonFetch(url, opts) {
-    return fetch(url, Object.assign({ credentials: 'same-origin', headers: { Accept: 'application/json' } }, opts || {})).then(
-      function (r) {
-        var ct = (r.headers.get('content-type') || '').toLowerCase();
-        if (ct.indexOf('application/json') === -1) {
-          return r.text().then(function (t) {
-            return {
-              ok: r.ok,
-              status: r.status,
-              body: {
-                success: false,
-                error:
-                  (t && String(t).replace(/\s+/g, ' ').slice(0, 400)) ||
-                  'Resposta não JSON do servidor (HTTP ' + r.status + ').',
-              },
-            };
-          });
-        }
-        return r.text().then(function (txt) {
-          if (!txt || !String(txt).trim()) {
-            return {
-              ok: r.ok,
-              status: r.status,
-              body: { success: false, error: 'Resposta vazia do servidor (HTTP ' + r.status + ').' },
-            };
-          }
-          try {
-            var j = JSON.parse(txt);
-            return { ok: r.ok, status: r.status, body: j };
-          } catch (e) {
-            return {
-              ok: r.ok,
-              status: r.status,
-              body: { success: false, error: 'Resposta JSON inválida do servidor.' },
-            };
-          }
-        });
-      }
-    );
-  }
-
-  function selectedAdvertiserId() {
-    var dvVal = (advSelectDv.value || '').trim();
-    var apiVal = (advSelectApi.value || '').trim();
-    if (!dvVal && !apiVal) return '';
-    if (lastAdvertiserSource === 'dv') {
-      if (dvVal) return dvVal;
-      return apiVal;
-    }
-    if (lastAdvertiserSource === 'api') {
-      if (apiVal) return apiVal;
-      return dvVal;
-    }
-    if (dvVal) return dvVal;
-    return apiVal;
-  }
-
-  function refreshAdvertiserSourceHint() {
-    if (!advHintSource) return;
-    var dvVal = (advSelectDv.value || '').trim();
-    var apiVal = (advSelectApi.value || '').trim();
-    var id = selectedAdvertiserId();
-    if (!id) {
-      advHintSource.textContent =
-        'Escolha um anunciante num dos selects. Se ambos tiverem valor e não alterar nenhum, usa-se primeiro dv360_advertisers.';
-      return;
-    }
-    var src = '—';
-    if (id === dvVal && dvVal) src = 'dv360_advertisers';
-    else if (id === apiVal && apiVal) src = 'API partner';
-    advHintSource.textContent = 'Anunciante activo para pedidos DV360: ' + id + ' (' + src + ').';
-  }
-
-  function campaignName(c) {
-    if (!c || typeof c !== 'object') return '—';
-    return c.displayName || c.name || '—';
-  }
-
-  /**
-   * Estado da campanha na API DV360: campo oficial `entityStatus` (camelCase).
-   * Aceita também `entity_status` (snake_case) por compatibilidade com proxies/SDKs.
-   */
-  function campaignEntityStatusCode(c) {
-    if (!c || typeof c !== 'object') return null;
-    var v = c.entityStatus;
-    if (v == null || v === '') v = c.entity_status;
-    if (v == null || v === '') return null;
-    return String(v).trim();
-  }
-
-  /** Voo planejado já passou (calendário) — alinhado a `lifecycle.code` FINISHED_FLIGHT no servidor. */
-  function campaignLifecycleFlightFinished(c) {
-    var lc = c && c.lifecycle;
-    if (!lc || typeof lc !== 'object') return false;
-    return lc.code === 'FINISHED_FLIGHT';
-  }
-
-  function entityStatusLabel(code) {
-    var m = {
-      ENTITY_STATUS_ACTIVE: 'Ativa',
-      ENTITY_STATUS_PAUSED: 'Pausada',
-      ENTITY_STATUS_DRAFT: 'Rascunho',
-      ENTITY_STATUS_SCHEDULED_FOR_ACTIVE: 'Agendada para ativação',
-      ENTITY_STATUS_SCHEDULED_FOR_DELETION: 'Agendada para eliminação',
-      ENTITY_STATUS_ARCHIVED: 'Arquivada',
-      ENTITY_STATUS_UNSPECIFIED: 'Não especificado',
-    };
-    return m[code] || (code ? String(code) : '—');
-  }
-
-  var URL_PAUSE_TMPL = "{{ url_for('dv360.campaign_pause', campaign_id='__CID__') }}";
-  var URL_ACTIVATE_TMPL = "{{ url_for('dv360.campaign_activate', campaign_id='__CID__') }}";
-  var CLIENT_MAPPINGS_URL = {% if session.get('user_type') in ('admin', 'superadmin') %}{{ url_for('dv360.client_mappings_list', all=1) | tojson }}{% else %}{{ url_for('dv360.client_mappings_list') | tojson }}{% endif %};
-  var URL_CLIENTES_MAPEAMENTO_DV = {{ url_for('dv360.clientes_para_mapeamento_dv') | tojson }};
-  var URL_CLIENT_MAPPINGS_POST = {{ url_for('dv360.client_mappings_create') | tojson }};
-  var URL_CAMPANHA_PI_ID_API = {{ url_for('dv360.campanha_pi_id_api') | tojson }};
-  var URL_ACOMP_PI_DV360 = {{ url_for('dv360.campanhas_pi_acompanhamento_dv360') | tojson }};
-
-  function _z2(n) {
-    return n < 10 ? '0' + n : String(n);
-  }
-
-  /** Instante (objeto Date) no fuso local: dd/mm/yyyy HH:MM:SS. */
-  function formatLocalDateTimeDdMmYyyyHhMmSs(d) {
-    return (
-      _z2(d.getDate()) +
-      '/' +
-      _z2(d.getMonth() + 1) +
-      '/' +
-      d.getFullYear() +
-      ' ' +
-      _z2(d.getHours()) +
-      ':' +
-      _z2(d.getMinutes()) +
-      ':' +
-      _z2(d.getSeconds())
-    );
-  }
-
-  function formatFieldValue(v) {
-    if (v === null || v === undefined) return '—';
-    if (typeof v === 'object') return JSON.stringify(v, null, 2);
-    if (typeof v === 'string') {
-      var t = v.trim();
-      if (/^\d{4}-\d{2}-\d{2}T/.test(t)) {
-        var d = new Date(t);
-        if (!isNaN(d.getTime())) {
-          return formatLocalDateTimeDdMmYyyyHhMmSs(d);
-        }
-      }
-    }
-    return String(v);
-  }
-
-  /** Resumo comercial/resumo de entrega devolvidos por <code>summarize_campaign_commercial_snapshot</code> na API DV360. */
-  function renderDv360ApiReportsPanel(body) {
-    if (!dv360ApiReportsBody) return;
-    if (dv360ApiReportsPlaceholder) dv360ApiReportsPlaceholder.classList.add('hidden');
-    var m = body && body.campaign_metrics ? body.campaign_metrics : {};
-    var parts = [];
-    function line(label, val) {
-      if (val == null || val === '') return;
-      parts.push(
-        '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">' +
-          escapeHtml(label) +
-          '</span><p class="text-sm text-base-content mt-0.5 leading-snug">' +
-          escapeHtml(String(val)) +
-          '</p></div>'
-      );
-    }
-    line('Fonte', 'Google Display & Video 360 API (OAuth + advertisers.campaigns.get)');
-    line('Objetivo (resumo PT)', m.campaign_goal_label_pt);
-    line('Meta de performance (tipo)', m.performance_goal_label_pt);
-    line('Meta / teto', m.performance_target_text);
-    line('Gasto planejado (voo)', m.planned_spend_text);
-    line('Datas planejadas (voo)', m.planned_dates_text);
-    line('Impacto / alcance', m.frequency_cap_text);
-    if (Array.isArray(m.budgets_text) && m.budgets_text.length) {
-      var b =
-        '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm space-y-0.5">';
-      m.budgets_text.forEach(function (t) {
-        b += '<li>' + escapeHtml(String(t)) + '</li>';
-      });
-      b += '</ul></div>';
-      parts.push(b);
-    }
-    if (m.delivery_note_pt) {
-      parts.push(
-        '<p class="text-xs text-base-content/70 leading-snug border-t border-base-300/60 pt-2">' +
-          escapeHtml(String(m.delivery_note_pt)) +
-          '</p>'
-      );
-    }
-    if (!parts.length) {
-      parts.push('<p class="text-xs text-base-content/60">Sem bloco comercial resumido na resposta da API para esta campanha.</p>');
-    }
-    dv360ApiReportsBody.innerHTML = '<div class="space-y-2">' + parts.join('') + '</div>';
-    dv360ApiReportsBody.classList.remove('hidden');
-  }
-
-  function clearDv360ApiReportsPanel() {
-    if (dv360ApiReportsBody) {
-      dv360ApiReportsBody.innerHTML = '';
-      dv360ApiReportsBody.classList.add('hidden');
-    }
-    if (dv360ApiReportsPlaceholder) dv360ApiReportsPlaceholder.classList.remove('hidden');
-  }
-
-  function setDv360HistControlsEnabled(mapped) {
-    var en = !!mapped;
-    if (inpDv360HistStart) inpDv360HistStart.disabled = !en;
-    if (inpDv360HistEnd) inpDv360HistEnd.disabled = !en;
-    if (btnDv360HistSync) btnDv360HistSync.disabled = !en;
-    if (btnDv360HistLoad) btnDv360HistLoad.disabled = !en;
-    if (!en) {
-      if (inpDv360HistStart) inpDv360HistStart.value = '';
-      if (inpDv360HistEnd) inpDv360HistEnd.value = '';
-      destroyDv360HistChart();
-      if (dv360HistMsg) {
-        dv360HistMsg.textContent = '';
-        dv360HistMsg.classList.add('hidden');
-      }
-    }
-  }
-
-  function destroyDv360HistChart() {
-    if (dv360HistChartInstance) {
-      dv360HistChartInstance.destroy();
-      dv360HistChartInstance = null;
-    }
-  }
-
-  /** Gráfico misto: gasto (barras) + impressões/cliques (linhas). Requer Chart.js. */
-  function renderDv360HistChart(rows) {
-    if (typeof Chart === 'undefined' || !canvasDv360Hist) return;
-    destroyDv360HistChart();
-    var labels = [];
-    var spent = [];
-    var imp = [];
-    var clk = [];
-    (rows || []).forEach(function (r) {
-      if (!r || r.metric_date == null) return;
-      var ds = String(r.metric_date).slice(0, 10);
-      if (ds.length < 10) return;
-      labels.push(ds.slice(8, 10) + '/' + ds.slice(5, 7));
-      spent.push(r.spent != null ? Number(r.spent) : null);
-      imp.push(r.impressions != null ? Number(r.impressions) : null);
-      clk.push(r.clicks != null ? Number(r.clicks) : null);
-    });
-    if (!labels.length) {
-      if (dv360HistMsg) {
-        dv360HistMsg.textContent = 'Sem pontos no intervalo.';
-        dv360HistMsg.classList.remove('hidden', 'text-success');
-        dv360HistMsg.classList.add('text-base-content/60');
-      }
-      return;
-    }
-    var ctx = canvasDv360Hist.getContext('2d');
-    dv360HistChartInstance = new Chart(ctx, {
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            type: 'bar',
-            label: 'Gasto',
-            data: spent,
-            yAxisID: 'y',
-            backgroundColor: 'rgba(59,130,246,0.45)',
-            order: 2,
-          },
-          {
-            type: 'line',
-            label: 'Impressões',
-            data: imp,
-            yAxisID: 'y1',
-            borderColor: '#16a34a',
-            backgroundColor: 'rgba(22,163,74,0.1)',
-            fill: false,
-            tension: 0.25,
-            order: 1,
-          },
-          {
-            type: 'line',
-            label: 'Cliques',
-            data: clk,
-            yAxisID: 'y1',
-            borderColor: '#ca8a04',
-            fill: false,
-            tension: 0.25,
-            order: 1,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { boxWidth: 12, font: { size: 11 } } },
-          tooltip: {
-            callbacks: {
-              label: function (ctx) {
-                var v = ctx.parsed.y;
-                if (v == null || !isFinite(v)) return ctx.dataset.label + ': —';
-                if (ctx.datasetIndex === 0) return ctx.dataset.label + ': ' + fmtDv360BRL(v);
-                return ctx.dataset.label + ': ' + v.toLocaleString('pt-BR');
-              },
-            },
-          },
-        },
-        scales: {
-          x: { ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } },
-          y: {
-            position: 'left',
-            title: { display: true, text: 'Gasto' },
-            ticks: {
-              callback: function (val) {
-                return typeof val === 'number' ? val.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : val;
-              },
-            },
-          },
-          y1: {
-            position: 'right',
-            grid: { drawOnChartArea: false },
-            title: { display: true, text: 'Impr. / cliques' },
-            ticks: {
-              callback: function (val) {
-                return typeof val === 'number' ? val.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : val;
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  function clearDv360CampaignMetricsPanel() {
-    window.__dv360MetricsPending = null;
-    setDv360HistControlsEnabled(false);
-    if (dv360MetricsUnmapped) dv360MetricsUnmapped.classList.add('hidden');
-    if (dv360MetricsSource) dv360MetricsSource.textContent = '';
-    if (dv360MetricsPendingHint) dv360MetricsPendingHint.classList.add('hidden');
-    if (dv360MetricsBudget) dv360MetricsBudget.textContent = '—';
-    if (dv360MetricsSpent) dv360MetricsSpent.textContent = '—';
-    if (dv360MetricsKpiGoal) dv360MetricsKpiGoal.textContent = '—';
-    if (dv360MetricsKpiAtual) dv360MetricsKpiAtual.textContent = '—';
-    if (dv360MetricsKpiType) dv360MetricsKpiType.textContent = '';
-    if (btnDv360MetricsSync) btnDv360MetricsSync.disabled = true;
-    if (btnDv360MetricsSave) btnDv360MetricsSave.disabled = true;
-    if (inpDv360ReportStart) {
-      inpDv360ReportStart.value = '';
-      inpDv360ReportStart.disabled = true;
-    }
-    if (inpDv360ReportEnd) {
-      inpDv360ReportEnd.value = '';
-      inpDv360ReportEnd.disabled = true;
-    }
-    if (btnDv360PeriodSave) btnDv360PeriodSave.disabled = true;
-    if (dv360MetricsMsg) {
-      dv360MetricsMsg.textContent = '';
-      dv360MetricsMsg.classList.add('hidden');
-      dv360MetricsMsg.classList.remove('text-success', 'text-error');
-    }
-  }
-
-  function _dv360KpiTypeIsCurrency(kt) {
-    if (!kt || typeof kt !== 'string') return true;
-    return /CPM|CPC|CPA|VCPM|CPIAVC/i.test(kt);
-  }
-
-  function _dv360KpiTypeIsPercent(kt) {
-    if (!kt || typeof kt !== 'string') return false;
-    return /CTR|VIEWABILITY/i.test(kt);
-  }
-
-  function fmtDv360BRL(n) {
-    if (n == null || n === '') return '—';
-    var x = Number(n);
-    if (!isFinite(x)) return '—';
-    return x.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  }
-
-  function fmtDv360KpiValue(val, kpiType) {
-    if (val == null || val === '') return '—';
-    var x = Number(val);
-    if (!isFinite(x)) return '—';
-    if (_dv360KpiTypeIsPercent(kpiType)) return x.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%';
-    if (_dv360KpiTypeIsCurrency(kpiType)) return fmtDv360BRL(x);
-    return String(x);
-  }
-
-  /** Mostra valores do sync (GET Campaign + opcional Bid Manager). metrics = cópia para Guardar na base. */
-  function renderDv360MetricsFromApiPreview(metrics, syncBody) {
-    if (!metrics || typeof metrics !== 'object') return;
-    syncBody = syncBody && typeof syncBody === 'object' ? syncBody : {};
-    window.__dv360MetricsPending = metrics;
-    if (dv360MetricsPendingHint) dv360MetricsPendingHint.classList.remove('hidden');
-    var kt = metrics.kpi_type != null ? String(metrics.kpi_type) : '';
-    if (dv360MetricsKpiType && kt) dv360MetricsKpiType.textContent = '(' + kt + ')';
-    else if (dv360MetricsKpiType) dv360MetricsKpiType.textContent = '';
-    if (dv360MetricsBudget) dv360MetricsBudget.textContent = fmtDv360BRL(metrics.budget);
-    if (dv360MetricsSpent) dv360MetricsSpent.textContent = fmtDv360BRL(metrics.spent);
-    if (dv360MetricsKpiGoal) dv360MetricsKpiGoal.textContent = fmtDv360KpiValue(metrics.kpi_goal, kt);
-    if (dv360MetricsKpiAtual) dv360MetricsKpiAtual.textContent = fmtDv360KpiValue(metrics.kpi_atual, kt);
-    if (dv360MetricsSource) {
-      var hint =
-        syncBody.preview_hint_pt ||
-        (syncBody.metrics_notes && syncBody.metrics_notes.summary) ||
-        '';
-      if (!hint) {
-        if (syncBody.reporting && !syncBody.reporting_error) {
-          hint =
-            'Budget e KPI goal (GET Campaign); spent e KPI entregue (Bid Manager). Ainda não gravado na base.';
-        } else if (syncBody.reporting_error) {
-          hint = 'GET Campaign OK. Relatório: ' + String(syncBody.reporting_error).substring(0, 220);
-        } else {
-          hint =
-            'Budget e KPI goal (GET Campaign). «Guardar» grava na base estes valores e os que vierem preenchidos.';
-        }
-      }
-      var pu = syncBody.period_used;
-      var srcLabels = {
-        body: 'override no pedido',
-        table: 'período guardado na base',
-        flight: 'voo da campanha',
-        last_30d: 'últimos 30 dias',
-      };
-      if (pu && pu.start && pu.end) {
-        var ps =
-          pu.start.slice(8, 10) +
-          '/' +
-          pu.start.slice(5, 7) +
-          '/' +
-          pu.start.slice(2, 4);
-        var pe =
-          pu.end.slice(8, 10) + '/' + pu.end.slice(5, 7) + '/' + pu.end.slice(2, 4);
-        hint +=
-          (hint ? ' ' : '') +
-          'Período: ' +
-          ps +
-          ' a ' +
-          pe +
-          ' (' +
-          (srcLabels[pu.source] || pu.source || '') +
-          ').';
-      }
-      dv360MetricsSource.textContent = hint;
-    }
-    if (btnDv360MetricsSave) btnDv360MetricsSave.disabled = false;
-  }
-
-  /** Cartões a partir da linha gravada em dv360_campaigns (detalhe ou após Guardar). */
-  function renderDv360CampaignMetrics(dbRow) {
-    clearDv360CampaignMetricsPanel();
-    if (!dv360CampaignMetricsWrap) return;
-    var mapped = dbRow && typeof dbRow === 'object' && dbRow.id != null;
-    if (!mapped) {
-      if (dv360MetricsUnmapped) dv360MetricsUnmapped.classList.remove('hidden');
-      return;
-    }
-    if (dv360MetricsUnmapped) dv360MetricsUnmapped.classList.add('hidden');
-    if (dv360MetricsSource) {
-      dv360MetricsSource.textContent =
-        'Use «Atualizar do DV360» para preencher (GET Campaign + relatório Bid Manager). «Guardar na base» grava o que estiver na pré-visualização.';
-    }
-    var kt = dbRow.kpi_type != null ? String(dbRow.kpi_type) : '';
-    if (dv360MetricsKpiType && kt) dv360MetricsKpiType.textContent = '(' + kt + ')';
-    if (dv360MetricsBudget) dv360MetricsBudget.textContent = fmtDv360BRL(dbRow.budget);
-    if (dv360MetricsSpent) dv360MetricsSpent.textContent = fmtDv360BRL(dbRow.spent);
-    if (dv360MetricsKpiGoal) dv360MetricsKpiGoal.textContent = fmtDv360KpiValue(dbRow.kpi_goal, kt);
-    if (dv360MetricsKpiAtual) dv360MetricsKpiAtual.textContent = fmtDv360KpiValue(dbRow.kpi_atual, kt);
-    if (btnDv360MetricsSync) btnDv360MetricsSync.disabled = false;
-    if (btnDv360MetricsSave) btnDv360MetricsSave.disabled = true;
-    if (inpDv360ReportStart) {
-      inpDv360ReportStart.disabled = false;
-      inpDv360ReportStart.value =
-        dbRow.report_start_date && String(dbRow.report_start_date).length >= 10
-          ? String(dbRow.report_start_date).slice(0, 10)
-          : '';
-    }
-    if (inpDv360ReportEnd) {
-      inpDv360ReportEnd.disabled = false;
-      inpDv360ReportEnd.value =
-        dbRow.report_end_date && String(dbRow.report_end_date).length >= 10
-          ? String(dbRow.report_end_date).slice(0, 10)
-          : '';
-    }
-    if (btnDv360PeriodSave) btnDv360PeriodSave.disabled = false;
-    setDv360HistControlsEnabled(true);
-    if (inpDv360HistStart && inpDv360HistEnd) {
-      var rs =
-        dbRow.report_start_date && String(dbRow.report_start_date).length >= 10
-          ? String(dbRow.report_start_date).slice(0, 10)
-          : '';
-      var re_ =
-        dbRow.report_end_date && String(dbRow.report_end_date).length >= 10
-          ? String(dbRow.report_end_date).slice(0, 10)
-          : '';
-      if (rs) inpDv360HistStart.value = rs;
-      if (re_) inpDv360HistEnd.value = re_;
-      if (!inpDv360HistStart.value || !inpDv360HistEnd.value) {
-        var end = new Date();
-        var start = new Date(end.getTime());
-        start.setDate(start.getDate() - 29);
-        var isoEnd = end.toISOString().slice(0, 10);
-        var isoStart = start.toISOString().slice(0, 10);
-        if (!inpDv360HistStart.value) inpDv360HistStart.value = isoStart;
-        if (!inpDv360HistEnd.value) inpDv360HistEnd.value = isoEnd;
-      }
-    }
-  }
-
-  function extractDv360List(body, arrayKey) {
-    var d = body && body.data;
-    if (!d || typeof d !== 'object') return [];
-    var arr = d[arrayKey];
-    return Array.isArray(arr) ? arr : [];
-  }
-
-  function renderIoLiTable(rows, idField) {
-    if (!rows.length) {
-      return '<p class="text-xs text-base-content/60 py-2">Nenhum registo devolvido pela API para este filtro.</p>';
-    }
-    var h =
-      '<table class="table table-xs table-zebra w-full"><thead><tr><th>Nome</th><th>ID</th><th>Estado</th></tr></thead><tbody>';
-    rows.forEach(function (r) {
-      if (!r || typeof r !== 'object') return;
-      var id = r[idField] != null ? String(r[idField]) : '—';
-      var nm = r.displayName || r.name || '—';
-      var st = r.entityStatus != null && r.entityStatus !== '' ? String(r.entityStatus) : '—';
-      h +=
-        '<tr><td class="max-w-[14rem] truncate align-top" title="' +
-        escapeHtml(nm) +
-        '">' +
-        escapeHtml(nm) +
-        '</td><td class="align-top whitespace-nowrap"><code class="text-xs">' +
-        escapeHtml(id) +
-        '</code></td><td class="text-xs align-top">' +
-        escapeHtml(st) +
-        '</td></tr>';
-    });
-    h += '</tbody></table>';
-    return h;
-  }
-
-  function clearHierarchyPanels() {
-    if (dv360IoLoading) dv360IoLoading.classList.add('hidden');
-    if (dv360LiLoading) dv360LiLoading.classList.add('hidden');
-    if (dv360IoError) {
-      dv360IoError.classList.add('hidden');
-      dv360IoError.textContent = '';
-    }
-    if (dv360LiError) {
-      dv360LiError.classList.add('hidden');
-      dv360LiError.textContent = '';
-    }
-    if (dv360IoTableWrap) {
-      dv360IoTableWrap.innerHTML = '';
-      dv360IoTableWrap.classList.add('hidden');
-    }
-    if (dv360LiTableWrap) {
-      dv360LiTableWrap.innerHTML = '';
-      dv360LiTableWrap.classList.add('hidden');
-    }
-    if (dv360IoJsonPre) dv360IoJsonPre.textContent = '';
-    if (dv360LiJsonPre) dv360LiJsonPre.textContent = '';
-    if (dv360IoJsonDetails) dv360IoJsonDetails.classList.add('hidden');
-    if (dv360LiJsonDetails) dv360LiJsonDetails.classList.add('hidden');
-  }
-
-  function loadCampaignHierarchy(advertiserId, campaignId) {
-    if (!advertiserId || !campaignId) return;
-    clearHierarchyPanels();
-    if (dv360IoLoading) dv360IoLoading.classList.remove('hidden');
-    if (dv360LiLoading) dv360LiLoading.classList.remove('hidden');
-    var enc = encodeURIComponent(campaignId);
-    var urlIo = URL_IO_FOR_CAMPAIGN_TMPL.replace('__CID__', enc);
-    var urlLi = URL_LI_FOR_CAMPAIGN_TMPL.replace('__CID__', enc);
-    var q = new URLSearchParams({ advertiser_id: String(advertiserId) });
-    Promise.all([
-      jsonFetch(urlIo + '?' + q.toString()),
-      jsonFetch(urlLi + '?' + q.toString()),
-    ])
-      .then(function (results) {
-        var resIo = results[0];
-        var resLi = results[1];
-        if (dv360IoLoading) dv360IoLoading.classList.add('hidden');
-        if (dv360LiLoading) dv360LiLoading.classList.add('hidden');
-        if (!resIo.ok || !resIo.body.success) {
-          if (dv360IoError) {
-            dv360IoError.textContent =
-              resIo.body && resIo.body.error ? String(resIo.body.error) : 'HTTP ' + resIo.status;
-            dv360IoError.classList.remove('hidden');
-          }
-        } else {
-          var rowsIo = extractDv360List(resIo.body, 'insertionOrders');
-          if (dv360IoTableWrap) {
-            dv360IoTableWrap.innerHTML = renderIoLiTable(rowsIo, 'insertionOrderId');
-            dv360IoTableWrap.classList.remove('hidden');
-          }
-          if (dv360IoJsonPre) dv360IoJsonPre.textContent = JSON.stringify(resIo.body, null, 2);
-          if (dv360IoJsonDetails) dv360IoJsonDetails.classList.remove('hidden');
-        }
-        if (!resLi.ok || !resLi.body.success) {
-          if (dv360LiError) {
-            dv360LiError.textContent =
-              resLi.body && resLi.body.error ? String(resLi.body.error) : 'HTTP ' + resLi.status;
-            dv360LiError.classList.remove('hidden');
-          }
-        } else {
-          var rowsLi = extractDv360List(resLi.body, 'lineItems');
-          if (dv360LiTableWrap) {
-            dv360LiTableWrap.innerHTML = renderIoLiTable(rowsLi, 'lineItemId');
-            dv360LiTableWrap.classList.remove('hidden');
-          }
-          if (dv360LiJsonPre) dv360LiJsonPre.textContent = JSON.stringify(resLi.body, null, 2);
-          if (dv360LiJsonDetails) dv360LiJsonDetails.classList.remove('hidden');
-        }
-      })
-      .catch(function () {
-        if (dv360IoLoading) dv360IoLoading.classList.add('hidden');
-        if (dv360LiLoading) dv360LiLoading.classList.add('hidden');
-        if (dv360IoError) {
-          dv360IoError.textContent = 'Erro de rede ao pedir insertion orders.';
-          dv360IoError.classList.remove('hidden');
-        }
-        if (dv360LiError) {
-          dv360LiError.textContent = 'Erro de rede ao pedir line items.';
-          dv360LiError.classList.remove('hidden');
-        }
-      });
-  }
-
-  function ioBudgetSummary(r) {
-    if (!r || !r.budget || typeof r.budget !== 'object') return '—';
-    var b = r.budget;
-    var unit = b.budgetUnit != null && String(b.budgetUnit).trim() ? String(b.budgetUnit).trim() : '';
-    var segs = b.budgetSegments;
-    var n = Array.isArray(segs) ? segs.length : 0;
-    if (!unit && !n) return '—';
-    return (unit || '—') + (n ? ' · ' + n + ' segmento(s)' : '');
-  }
-
-  function renderIoTabRows(rows) {
-    if (!rows.length) {
-      return '<tr><td colspan="7" class="text-base-content/60">Nenhum pedido de inserção para esta campanha.</td></tr>';
-    }
-    var h = '';
-    rows.forEach(function (r) {
-      if (!r || typeof r !== 'object') return;
-      var id = r.insertionOrderId != null ? String(r.insertionOrderId) : '—';
-      var nm = r.displayName || r.name || '—';
-      var stRaw = r.entityStatus != null && r.entityStatus !== '' ? String(r.entityStatus) : '';
-      var st = stRaw ? entityStatusLabel(stRaw) : '—';
-      var typ = r.insertionOrderType != null && String(r.insertionOrderType).trim() ? String(r.insertionOrderType) : '—';
-      var pac = '—';
-      if (r.pacing && typeof r.pacing === 'object' && r.pacing.pacingType != null && String(r.pacing.pacingType).trim()) {
-        pac = String(r.pacing.pacingType);
-        if (r.pacing.pacingPeriod) pac += ' · ' + String(r.pacing.pacingPeriod);
-      }
-      var bud = ioBudgetSummary(r);
-      var ut = r.updateTime != null && r.updateTime !== '' ? formatFieldValue(r.updateTime) : '—';
-      h +=
-        '<tr><td class="max-w-[12rem] truncate align-top" title="' +
-        escapeHtml(nm) +
-        '">' +
-        escapeHtml(nm) +
-        '</td><td class="align-top whitespace-nowrap"><code class="text-[10px]">' +
-        escapeHtml(id) +
-        '</code></td><td class="text-xs align-top">' +
-        escapeHtml(st) +
-        '</td><td class="text-xs align-top max-w-[10rem] truncate" title="' +
-        escapeHtml(typ) +
-        '">' +
-        escapeHtml(typ) +
-        '</td><td class="text-xs align-top max-w-[10rem] truncate" title="' +
-        escapeHtml(pac) +
-        '">' +
-        escapeHtml(pac) +
-        '</td><td class="text-xs align-top max-w-[12rem] truncate" title="' +
-        escapeHtml(bud) +
-        '">' +
-        escapeHtml(bud) +
-        '</td><td class="text-xs align-top whitespace-nowrap">' +
-        escapeHtml(ut) +
-        '</td></tr>';
-    });
-    return h;
-  }
-
-  function disableInsertionOrdersTab() {
-    window.__dv360IoAdv = undefined;
-    window.__dv360IoCid = undefined;
-    window.__dv360IoName = undefined;
-    if (tabIoBtn) {
-      tabIoBtn.disabled = true;
-      tabIoBtn.setAttribute('title', 'Selecione uma campanha primeiro');
-    }
-    if (tabIoBadge) {
-      tabIoBadge.textContent = '';
-      tabIoBadge.classList.add('hidden');
-    }
-    if (dv360IoTabEmpty) dv360IoTabEmpty.classList.remove('hidden');
-    if (dv360IoTabContent) dv360IoTabContent.classList.add('hidden');
-    if (dv360IoTabLoading) dv360IoTabLoading.classList.add('hidden');
-    if (dv360IoTabError) {
-      dv360IoTabError.classList.add('hidden');
-      dv360IoTabError.textContent = '';
-    }
-    if (dv360IoTabSource) {
-      dv360IoTabSource.classList.add('hidden');
-      dv360IoTabSource.textContent = '';
-    }
-    if (dv360IoSyncMsg) {
-      dv360IoSyncMsg.classList.add('hidden');
-      dv360IoSyncMsg.textContent = '';
-      dv360IoSyncMsg.classList.remove('text-success', 'text-error', 'text-info');
-    }
-    if (dv360IoSyncWarn) dv360IoSyncWarn.classList.add('hidden');
-    if (dv360IoSyncSummary) dv360IoSyncSummary.classList.add('hidden');
-    if (dv360IoTabBody) {
-      dv360IoTabBody.innerHTML =
-        '<tr><td colspan="7" class="text-base-content/50">Carregue após seleccionar uma campanha.</td></tr>';
-    }
-    if (dv360IoTabJsonPre) dv360IoTabJsonPre.textContent = '';
-    if (dv360IoTabJsonDetails) dv360IoTabJsonDetails.classList.add('hidden');
-  }
-
-  function enableInsertionOrdersTab(advertiserId, campaignId, campaignNameStr) {
-    window.__dv360IoAdv = advertiserId;
-    window.__dv360IoCid = campaignId;
-    window.__dv360IoName = campaignNameStr || '';
-    if (tabIoBtn) {
-      tabIoBtn.disabled = false;
-      tabIoBtn.removeAttribute('title');
-    }
-    if (dv360IoTabEmpty) dv360IoTabEmpty.classList.add('hidden');
-    if (dv360IoTabContent) dv360IoTabContent.classList.remove('hidden');
-    if (dv360IoTabCampaignTitle) {
-      dv360IoTabCampaignTitle.textContent = window.__dv360IoName || 'Campanha';
-      dv360IoTabCampaignTitle.setAttribute('title', window.__dv360IoName || '');
-    }
-    if (dv360IoTabCampaignIdChip) dv360IoTabCampaignIdChip.textContent = String(campaignId || '—');
-    if (dv360IoTabAdvertiserChip) dv360IoTabAdvertiserChip.textContent = String(advertiserId || '—');
-    loadInsertionOrdersTab();
-  }
-
-  function loadInsertionOrdersTab(forceApi) {
-    if (!window.__dv360IoAdv || !window.__dv360IoCid) return;
-    if (dv360IoSyncWarn) dv360IoSyncWarn.classList.add('hidden');
-    if (dv360IoTabLoading) dv360IoTabLoading.classList.remove('hidden');
-    var loadSpan = dv360IoTabLoading ? dv360IoTabLoading.querySelector('span:last-child') : null;
-    if (loadSpan) {
-      loadSpan.textContent = forceApi
-        ? 'A aguardar insertion orders (API DV360)…'
-        : 'A aguardar insertion orders…';
-    }
-    if (dv360IoTabError) {
-      dv360IoTabError.classList.add('hidden');
-      dv360IoTabError.textContent = '';
-    }
-    var enc = encodeURIComponent(String(window.__dv360IoCid));
-    var urlIo = URL_IO_FOR_CAMPAIGN_TMPL.replace('__CID__', enc);
-    var q = new URLSearchParams({ advertiser_id: String(window.__dv360IoAdv) });
-    if (forceApi) q.set('force_api', '1');
-    jsonFetch(urlIo + '?' + q.toString())
-      .then(function (resIo) {
-        if (dv360IoTabLoading) dv360IoTabLoading.classList.add('hidden');
-        if (!resIo.ok || !resIo.body || !resIo.body.success) {
-          if (dv360IoTabError) {
-            dv360IoTabError.textContent =
-              resIo.body && resIo.body.error ? String(resIo.body.error) : 'HTTP ' + resIo.status;
-            dv360IoTabError.classList.remove('hidden');
-          }
-          if (dv360IoTabBody) {
-            dv360IoTabBody.innerHTML =
-              '<tr><td colspan="7" class="text-error">Falha ao carregar insertion orders.</td></tr>';
-          }
-          return;
-        }
-        var rowsIo = extractDv360List(resIo.body, 'insertionOrders');
-        var srcNote =
-          resIo.body && resIo.body.source === 'database'
-            ? 'Listagem · Fonte: base de dados local (dv360_insertion_orders). Use «Recarregar» para ir à API DV360.'
-            : resIo.body && resIo.body.source === 'api'
-              ? 'Listagem · Fonte: API DV360 (sem dados locais ou pedido forçado).'
-              : '';
-        if (dv360IoTabSource) {
-          if (srcNote) {
-            dv360IoTabSource.textContent = srcNote;
-            dv360IoTabSource.classList.remove('hidden');
-          } else {
-            dv360IoTabSource.textContent = '';
-            dv360IoTabSource.classList.add('hidden');
-          }
-        }
-        if (tabIoBadge) {
-          if (rowsIo.length > 0) {
-            tabIoBadge.textContent = String(rowsIo.length);
-            tabIoBadge.classList.remove('hidden');
-          } else {
-            tabIoBadge.textContent = '';
-            tabIoBadge.classList.add('hidden');
-          }
-        }
-        if (dv360IoTabBody) dv360IoTabBody.innerHTML = renderIoTabRows(rowsIo);
-        if (dv360IoTabJsonPre) dv360IoTabJsonPre.textContent = JSON.stringify(resIo.body, null, 2);
-        if (dv360IoTabJsonDetails) dv360IoTabJsonDetails.classList.remove('hidden');
-      })
-      .catch(function () {
-        if (dv360IoTabLoading) dv360IoTabLoading.classList.add('hidden');
-        if (dv360IoTabError) {
-          dv360IoTabError.textContent = 'Erro de rede ao pedir insertion orders.';
-          dv360IoTabError.classList.remove('hidden');
-        }
-      });
-  }
-
-  function hideCampaignDetail(opts) {
-    opts = opts || {};
-    detailWrap.classList.add('hidden');
-    if (detailEmptyEl) detailEmptyEl.classList.remove('hidden');
-    detailLoading.classList.add('hidden');
-    detailError.classList.add('hidden');
-    detailError.textContent = '';
-    detailBody.classList.add('hidden');
-    detailJson.classList.add('hidden');
-    clearDv360ApiReportsPanel();
-    clearDv360CampaignMetricsPanel();
-    clearHierarchyPanels();
-    disableInsertionOrdersTab();
-    if (opts.goToCampaignsTab) setActiveTab(1);
-  }
-
-  /** Limpa lista de campanhas e detalhe (ex.: ao mudar o mapeamento dv360_advertisers). */
-  function resetCampaignsView() {
-    hideCampaignDetail();
-    updateCampaignTabCount(0);
-    clearFilterSummary();
-    detailError.textContent = '';
-    detailBody.innerHTML = '';
-    detailPre.textContent = '';
-    window.__dv360DetailAdv = undefined;
-    window.__dv360DetailCid = undefined;
-    window.__dv360DetailName = undefined;
-    var advId = selectedAdvertiserId();
-    if (!advId) {
-      tbody.innerHTML =
-        '<tr><td colspan="4" class="text-base-content/50 text-sm">Escolha um mapeamento (dv360_advertisers) ou um anunciante da API e carregue as campanhas.</td></tr>';
-    } else {
-      tbody.innerHTML =
-        '<tr><td colspan="4" class="text-base-content/50 text-sm">Seleção alterada. Clique em <strong>Carregar campanhas</strong>.</td></tr>';
-    }
-  }
-
-  function showCampaignDetail(advertiserId, campaignId) {
-    setActiveTab(2);
-    if (detailEmptyEl) detailEmptyEl.classList.add('hidden');
-    detailWrap.classList.remove('hidden');
-    clearDv360ApiReportsPanel();
-    clearDv360CampaignMetricsPanel();
-    clearHierarchyPanels();
-    disableInsertionOrdersTab();
-    detailLoading.classList.remove('hidden');
-    detailError.classList.add('hidden');
-    detailError.textContent = '';
-    detailBody.classList.add('hidden');
-    detailJson.classList.add('hidden');
-    window.__dv360DetailAdv = advertiserId;
-    window.__dv360DetailCid = campaignId;
-    var q = new URLSearchParams({ advertiser_id: advertiserId });
-    var url = "{{ url_for('dv360.campaign_detail', campaign_id='__CID__') }}".replace('__CID__', encodeURIComponent(campaignId)) + '?' + q.toString();
-    jsonFetch(url).then(function (res) {
-      detailLoading.classList.add('hidden');
-      if (!res.ok || !res.body.success) {
-        detailError.textContent = (res.body && res.body.error) ? res.body.error : ('HTTP ' + res.status);
-        detailError.classList.remove('hidden');
-        clearDv360ApiReportsPanel();
-        clearDv360CampaignMetricsPanel();
-        clearHierarchyPanels();
-        disableInsertionOrdersTab();
-        return;
-      }
-      var d = res.body.campaign || {};
-      window.__dv360DetailName = campaignName(d);
-      var geoSummary = res.body.geo_summary != null ? String(res.body.geo_summary) : '—';
-      var geoRegions = Array.isArray(res.body.geo_regions) ? res.body.geo_regions : [];
-      var geoErr = res.body.geo_error;
-      var m = res.body.campaign_metrics || {};
-      var stRaw = campaignEntityStatusCode(d);
-      var stCode = stRaw || '—';
-      var stLabel = entityStatusLabel(stRaw);
-      var lc = res.body.lifecycle || {};
-      var lcMain = lc.label_pt || stLabel;
-      detailPre.textContent = JSON.stringify(
-        {
-          campaign: d,
-          lifecycle: res.body.lifecycle,
-          geo_summary: geoSummary,
-          geo_regions: res.body.geo_regions,
-          geo_error: geoErr,
-          campaign_metrics: m,
-          dv360_campaign_db: res.body.dv360_campaign_db,
-        },
-        null,
-        2
-      );
-      detailJson.classList.remove('hidden');
-      function metricLine(label, value) {
-        if (!value) return '';
-        return (
-          '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">' +
-          escapeHtml(label) +
-          '</span>' +
-          '<p class="text-sm text-base-content mt-0.5 leading-snug">' +
-          escapeHtml(String(value)) +
-          '</p></div>'
-        );
-      }
-      var budgetsBlock = '';
-      if (Array.isArray(m.budgets_text) && m.budgets_text.length) {
-        budgetsBlock =
-          '<div class="mt-2"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm text-base-content space-y-0.5">';
-        m.budgets_text.forEach(function (line) {
-          budgetsBlock += '<li>' + escapeHtml(String(line)) + '</li>';
-        });
-        budgetsBlock += '</ul></div>';
-      }
-      var perfBlock = '';
-      if (m.performance_goal_label_pt || m.performance_target_text) {
-        perfBlock =
-          metricLine('Meta de performance (tipo)', m.performance_goal_label_pt || '—') +
-          metricLine('Meta / teto (valor na API)', m.performance_target_text || '—');
-      }
-      var head =
-        '<div class="rounded-lg border border-base-200 bg-base-200/40 p-3 mb-3 space-y-3">' +
-        '<div class="space-y-2 border-b border-base-300/80 pb-3">' +
-        '<p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Objetivo e custo-alvo (CPM / CPA / CPC…)</p>' +
-        metricLine('Objetivo da campanha', m.campaign_goal_label_pt || '—') +
-        perfBlock +
-        metricLine('Gasto planejado (voo)', m.planned_spend_text || '—') +
-        metricLine('Datas planejadas (voo)', m.planned_dates_text || '—') +
-        metricLine('Impacto / alcance (frequência)', m.frequency_cap_text || '—') +
-        budgetsBlock +
-        '</div>' +
-        '<div class="rounded-md bg-base-100/80 border border-base-300/60 p-2 text-xs text-base-content/70 leading-snug">' +
-        escapeHtml(m.delivery_note_pt || '') +
-        '</div>' +
-        formatGeoRegionsHtml(geoSummary, geoRegions, geoErr) +
-        '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Situação</span>' +
-        '<p class="text-sm text-base-content mt-0.5"><strong>' + escapeHtml(String(lcMain)) + '</strong></p>' +
-        '<div class="text-xs text-base-content/60 mt-2 space-y-1 leading-snug">' +
-        formatCampaignStatusMetaHtml({ lifecycle: lc, entityStatus: stRaw }) +
-        '</div></div>' +
-        '<div id="campaign-detail-actions" class="flex flex-wrap gap-2"></div></div>';
-      var rows = [
-        ['displayName', 'Nome'],
-        ['name', 'Nome interno'],
-        ['campaignId', 'ID da campanha'],
-        ['advertiserId', 'ID do anunciante'],
-        ['updateTime', 'Última atualização'],
-        ['createTime', 'Criação'],
-        ['startDate', 'Data de início'],
-        ['endDate', 'Data de fim'],
-      ];
-      var used = {};
-      var parts = [head, '<dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">'];
-      rows.forEach(function (pair) {
-        var key = pair[0];
-        var label = pair[1];
-        if (!(key in d)) return;
-        used[key] = true;
-        var raw = d[key];
-        var val = formatFieldValue(raw);
-        parts.push(
-          '<div class="min-w-0"><dt class="text-xs font-medium text-base-content/60">' + escapeHtml(label) + '</dt><dd class="mt-0.5 text-base-content break-words whitespace-pre-wrap">' + escapeHtml(val) + '</dd></div>'
-        );
-      });
-      Object.keys(d).sort().forEach(function (key) {
-        if (used[key] || key === 'entityStatus') return;
-        var raw = d[key];
-        if (raw !== null && typeof raw === 'object') return;
-        parts.push(
-          '<div class="min-w-0"><dt class="text-xs font-medium text-base-content/60">' + escapeHtml(key) + '</dt><dd class="mt-0.5 text-base-content break-words">' + escapeHtml(formatFieldValue(raw)) + '</dd></div>'
-        );
-      });
-      parts.push('</dl>');
-      detailBody.innerHTML = parts.join('');
-      /* Listagem por vezes devolve entityStatus desatualizado ou vazio; o GET do detalhe é a fonte correta. */
-      var trSync = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
-      if (trSync && trSync.__dv360Campaign) {
-        if (d.entityStatus != null && d.entityStatus !== '') trSync.__dv360Campaign.entityStatus = d.entityStatus;
-        if (res.body.lifecycle) trSync.__dv360Campaign.lifecycle = res.body.lifecycle;
-        var sc = trSync.querySelector('td:nth-child(3)');
-        if (sc) sc.innerHTML = formatCampaignStatusRowHtml(trSync.__dv360Campaign);
-        attachRowActions(trSync.querySelector('td:last-child'), advertiserId, trSync.__dv360Campaign, trSync);
-      }
-      var actEl = detailBody.querySelector('#campaign-detail-actions');
-      if (actEl) {
-        actEl.innerHTML = '';
-        var flightDone = res.body.lifecycle && res.body.lifecycle.code === 'FINISHED_FLIGHT';
-        if (flightDone) {
-          actEl.innerHTML =
-            '<p class="text-xs text-base-content/50 max-w-prose">O período planejado do voo já terminou; pausar ou reativar não está disponível aqui.</p>';
-        } else if (stRaw === 'ENTITY_STATUS_ACTIVE') {
-          var pb = document.createElement('button');
-          pb.type = 'button';
-          pb.className = 'btn btn-warning btn-sm';
-          pb.textContent = 'Pausar campanha';
-          pb.addEventListener('click', function (ev) {
-            ev.preventDefault();
-            pauseCampaignFromDetail(advertiserId, campaignId, campaignName(d));
-          });
-          actEl.appendChild(pb);
-        } else if (stRaw === 'ENTITY_STATUS_PAUSED' || stRaw === 'ENTITY_STATUS_DRAFT') {
-          var ab = document.createElement('button');
-          ab.type = 'button';
-          ab.className = 'btn btn-success btn-sm';
-          ab.textContent = stRaw === 'ENTITY_STATUS_DRAFT' ? 'Ativar campanha' : 'Reativar campanha';
-          ab.addEventListener('click', function (ev) {
-            ev.preventDefault();
-            activateCampaignFromDetail(advertiserId, campaignId, campaignName(d), stRaw === 'ENTITY_STATUS_DRAFT');
-          });
-          actEl.appendChild(ab);
-        }
-      }
-      detailBody.classList.remove('hidden');
-      renderDv360ApiReportsPanel(res.body);
-      renderDv360CampaignMetrics(res.body.dv360_campaign_db);
-      loadCampaignHierarchy(advertiserId, campaignId);
-      enableInsertionOrdersTab(advertiserId, campaignId, campaignName(d));
-    }).catch(function () {
-      detailLoading.classList.add('hidden');
-      detailError.textContent = 'Erro de rede ao obter detalhes.';
-      detailError.classList.remove('hidden');
-      clearDv360ApiReportsPanel();
-      clearDv360CampaignMetricsPanel();
-      clearHierarchyPanels();
-      disableInsertionOrdersTab();
-    });
-  }
-
-  function attachRowActions(tdBtn, advertiserId, campaignObj, tr) {
-    tdBtn.innerHTML = '';
-    var id = campaignObj && campaignObj.campaignId != null ? String(campaignObj.campaignId) : '';
-    if (!id) {
-      tdBtn.innerHTML = '<span class="text-xs text-base-content/40">—</span>';
-      return;
-    }
-    var st = campaignEntityStatusCode(campaignObj);
-    var nm = campaignName(campaignObj);
-    if (campaignLifecycleFlightFinished(campaignObj)) {
-      tdBtn.innerHTML =
-        '<span class="text-xs text-base-content/40" title="Voo planejado já terminou">—</span>';
-      return;
-    }
-    if (st === 'ENTITY_STATUS_ACTIVE') {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className =
-        'btn btn-warning btn-xs h-7 min-h-0 px-2 py-0 text-[11px] font-medium leading-tight normal-case shrink-0';
-      b.textContent = 'Pausar';
-      b.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        pauseCampaign(advertiserId, id, nm, b, tr);
-      });
-      tdBtn.appendChild(b);
-    } else if (st === 'ENTITY_STATUS_PAUSED' || st === 'ENTITY_STATUS_DRAFT') {
-      var b2 = document.createElement('button');
-      b2.type = 'button';
-      b2.className =
-        'btn btn-success btn-xs h-7 min-h-0 px-2 py-0 text-[11px] font-medium leading-tight normal-case shrink-0';
-      b2.textContent = st === 'ENTITY_STATUS_DRAFT' ? 'Ativar' : 'Reativar';
-      b2.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        activateCampaign(advertiserId, id, nm, b2, tr, st === 'ENTITY_STATUS_DRAFT');
-      });
-      tdBtn.appendChild(b2);
-    } else {
-      tdBtn.innerHTML = '<span class="text-xs text-base-content/40">—</span>';
-    }
-  }
-
-  function renderRows(campaigns) {
-    tbody.innerHTML = '';
-    if (!campaigns || !campaigns.length) {
-      var tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="4" class="text-sm text-base-content/50">Nenhuma campanha devolvida pela API.</td>';
-      tbody.appendChild(tr);
-      updateCampaignTabCount(0);
-      updateFilterSummary(0);
-      setActiveTab(1);
-      return;
-    }
-    updateCampaignTabCount(campaigns.length);
-    updateFilterSummary(campaigns.length);
-    setActiveTab(1);
-    var advId = selectedAdvertiserId();
-    campaigns.forEach(function (c) {
-      var id = c.campaignId != null ? String(c.campaignId) : '';
-      var st = campaignEntityStatusCode(c);
-      var tr = document.createElement('tr');
-      tr.className = 'cursor-pointer hover:bg-base-200/60';
-      tr.setAttribute('data-campaign-id', id);
-      tr.setAttribute('tabindex', '0');
-      tr.setAttribute('role', 'button');
-      tr.setAttribute('aria-label', 'Ver detalhes: ' + campaignName(c));
-      tr.__dv360Campaign = Object.assign({}, c);
-      tr.innerHTML =
-        '<td class="min-w-0 align-top break-words whitespace-normal" title="' +
-        campaignName(c).replace(/"/g, '&quot;') +
-        '">' +
-        escapeHtml(campaignName(c)) +
-        '</td>' +
-        '<td><code class="text-xs">' + escapeHtml(id) + '</code></td>' +
-        '<td class="text-xs align-top">' + formatCampaignStatusRowHtml(c) + '</td>' +
-        '<td class="align-top w-20 py-1"></td>';
-      var tdBtn = tr.querySelector('td:last-child');
-      attachRowActions(tdBtn, advId, tr.__dv360Campaign, tr);
-      tbody.appendChild(tr);
-    });
-  }
-
-  function escapeHtml(s) {
-    var d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
-
-  /** Bloco «Praça (geo DV360)» no detalhe: nomes + tipo e assignedTargetingOptionId quando existirem. */
-  function formatGeoRegionsHtml(summary, regions, geoErr) {
-    var bits = [];
-    bits.push(
-      '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Praça (geo DV360)</span>'
-    );
-    if (geoErr) {
-      bits.push('<p class="text-xs text-warning mt-1">Geo: ' + escapeHtml(String(geoErr)) + '</p>');
-    }
-    var sum = summary != null && String(summary).trim() !== '' ? String(summary) : '—';
-    if (Array.isArray(regions) && regions.length) {
-      bits.push('<ul class="mt-1.5 list-none text-sm text-base-content space-y-1.5 pl-0">');
-      regions.forEach(function (r) {
-        if (!r || typeof r !== 'object') return;
-        var name = r.displayName != null ? String(r.displayName) : '—';
-        var tt = r.targetingType != null ? String(r.targetingType) : '';
-        var oid = r.assignedTargetingOptionId != null ? String(r.assignedTargetingOptionId) : '';
-        var meta = [];
-        if (tt) {
-          meta.push(
-            '<span class="text-base-content/50">tipo</span> <code class="text-[11px] bg-base-200 px-0.5 rounded">' +
-              escapeHtml(tt) +
-              '</code>'
-          );
-        }
-        if (oid) {
-          meta.push(
-            '<span class="text-base-content/50">ID</span> <code class="text-[11px] bg-base-200 px-0.5 rounded">' +
-              escapeHtml(oid) +
-              '</code>'
-          );
-        }
-        bits.push(
-          '<li class="border-l-2 border-base-300 pl-2">' +
-            '<span class="font-medium">' +
-            escapeHtml(name) +
-            '</span>' +
-            (meta.length
-              ? '<div class="text-xs text-base-content/60 mt-0.5">' + meta.join(' · ') + '</div>'
-              : '') +
-            '</li>'
-        );
-      });
-      bits.push('</ul>');
-      if (sum && sum !== '—') {
-        bits.push('<p class="text-xs text-base-content/50 mt-2">Resumo: ' + escapeHtml(sum) + '</p>');
-      }
-    } else {
-      bits.push('<p class="text-sm text-base-content mt-0.5 leading-snug">' + escapeHtml(sum) + '</p>');
-    }
-    bits.push('</div>');
-    return bits.join('');
-  }
-
-  function pad2(n) {
-    return n < 10 ? '0' + n : String(n);
-  }
-
-  /** Parse yyyy-mm-dd como meia-noite UTC (evita deslocamento de fuso). */
-  function parseIsoDateUtc(iso) {
-    if (!iso || typeof iso !== 'string') return null;
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
-    if (!m) return null;
-    var y = parseInt(m[1], 10);
-    var mo = parseInt(m[2], 10);
-    var d = parseInt(m[3], 10);
-    return new Date(Date.UTC(y, mo - 1, d));
-  }
-
-  /** Data curta dd/mm/aa a partir de ISO yyyy-mm-dd. */
-  function formatDdMmYy(iso) {
-    var dt = parseIsoDateUtc(iso);
-    if (!dt) return '';
-    var d = dt.getUTCDate();
-    var m = dt.getUTCMonth() + 1;
-    var y = dt.getUTCFullYear() % 100;
-    return pad2(d) + '/' + pad2(m) + '/' + pad2(y);
-  }
-
-  /** Dias de calendário inclusivos entre duas datas ISO; null se inválido ou início &gt; fim. */
-  function inclusiveDays(startIso, endIso) {
-    var a = parseIsoDateUtc(startIso);
-    var b = parseIsoDateUtc(endIso);
-    if (!a || !b) return null;
-    var diff = Math.round((b.getTime() - a.getTime()) / 86400000);
-    if (diff < 0) return null;
-    return diff + 1;
-  }
-
-  /** Segunda linha da coluna Situação: voo + duração (só dias quando início e fim existem). */
-  function formatCampaignFlightDatesSecondaryHtml(lc) {
-    if (!lc || typeof lc !== 'object') return '';
-    var fs = lc.flight_start != null ? String(lc.flight_start).trim() : '';
-    var fe = lc.flight_end != null ? String(lc.flight_end).trim() : '';
-    if (!fs && !fe) return '';
-    var inner;
-    if (fs && fe) {
-      var d1 = formatDdMmYy(fs) || fs;
-      var d2 = formatDdMmYy(fe) || fe;
-      var n = inclusiveDays(fs, fe);
-      inner = escapeHtml(d1) + ' — ' + escapeHtml(d2);
-      if (n != null) {
-        inner += ' · ' + escapeHtml(String(n)) + (n === 1 ? ' dia' : ' dias');
-      }
-    } else {
-      var one = fs ? formatDdMmYy(fs) || fs : formatDdMmYy(fe) || fe;
-      inner = escapeHtml(one);
-    }
-    return '<div class="text-[11px] text-base-content/65 mt-1 leading-snug">' + inner + '</div>';
-  }
-
-  /** Lista: rótulo principal + linha opcional com datas de voo / duração. */
-  function formatCampaignStatusRowHtml(c) {
-    if (!c || typeof c !== 'object') return '—';
-    var lc = c.lifecycle || {};
-    var main = lc.label_pt || entityStatusLabel(campaignEntityStatusCode(c));
-    var bits = ['<span class="font-medium leading-snug">' + escapeHtml(String(main)) + '</span>'];
-    var sub = formatCampaignFlightDatesSecondaryHtml(lc);
-    if (sub) bits.push(sub);
-    return bits.join('');
-  }
-
-  /** Detalhe: API, datas de voo, notas (sem repetir o título principal). */
-  function formatCampaignStatusMetaHtml(c) {
-    if (!c || typeof c !== 'object') return '';
-    var lc = c.lifecycle || {};
-    var api = campaignEntityStatusCode(c) || '—';
-    var bits = [];
-    bits.push(
-      '<p><code class="text-[11px] bg-base-200 px-1 rounded">entityStatus</code> = ' + escapeHtml(String(api)) + '</p>'
-    );
-    bits.push(
-      '<p class="text-base-content/50">“Ativa” na API não implica voo a decorrer se as datas planejadas já passaram.</p>'
-    );
-    if (lc.flight_start && lc.flight_end) {
-      var fs = String(lc.flight_start).trim();
-      var fe = String(lc.flight_end).trim();
-      var d1 = formatDdMmYy(fs) || fs;
-      var d2 = formatDdMmYy(fe) || fe;
-      var n = inclusiveDays(fs, fe);
-      var vp =
-        escapeHtml(d1) +
-        ' — ' +
-        escapeHtml(d2) +
-        (n != null
-          ? ' · ' + escapeHtml(String(n)) + (n === 1 ? ' dia' : ' dias')
-          : '');
-      bits.push('<p class="text-base-content/55">Voo planejado: ' + vp + '</p>');
-    } else if (lc.flight_end) {
-      var feOnly = String(lc.flight_end).trim();
-      var endFmt = formatDdMmYy(feOnly) || feOnly;
-      bits.push('<p class="text-base-content/55">Fim do voo: ' + escapeHtml(endFmt) + '</p>');
-    } else if (lc.flight_start) {
-      var fsOnly = String(lc.flight_start).trim();
-      var startFmt = formatDdMmYy(fsOnly) || fsOnly;
-      bits.push('<p class="text-base-content/55">Início do voo: ' + escapeHtml(startFmt) + '</p>');
-    }
-    if (lc.hint_pt) {
-      bits.push('<p class="text-base-content/50">' + escapeHtml(String(lc.hint_pt)) + '</p>');
-    }
-    return bits.join('');
-  }
-
-  function syncCampaignRowFromApi(campaignId, entityStatus, lifecycle) {
-    var tr = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
-    if (!tr || !tr.__dv360Campaign) return;
-    if (entityStatus) tr.__dv360Campaign.entityStatus = entityStatus;
-    if (lifecycle) tr.__dv360Campaign.lifecycle = lifecycle;
-    if (!entityStatus && !lifecycle) return;
-    var statusCell = tr.querySelector('td:nth-child(3)');
-    if (statusCell) statusCell.innerHTML = formatCampaignStatusRowHtml(tr.__dv360Campaign);
-    attachRowActions(tr.querySelector('td:last-child'), selectedAdvertiserId(), tr.__dv360Campaign, tr);
-  }
-
-  function pauseCampaign(advertiserId, campaignId, campaignDisplayName, btn, row) {
-    function doPause() {
-      btn.disabled = true;
-      hideGlobal();
-      jsonFetch(URL_PAUSE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ advertiser_id: advertiserId }),
-      }).then(function (res) {
-        btn.disabled = false;
-        if (!res.ok || !res.body.success) {
-          var err = (res.body && res.body.error) ? res.body.error : 'HTTP ' + res.status;
-          showGlobal(err, 'err');
-          return;
-        }
-        showGlobal('Campanha pausada com sucesso.', 'ok');
-        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_PAUSED';
-        if (row.__dv360Campaign) {
-          row.__dv360Campaign.entityStatus = ns;
-          if (res.body.lifecycle) row.__dv360Campaign.lifecycle = res.body.lifecycle;
-        }
-        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
-      }).catch(function () {
-        btn.disabled = false;
-        showGlobal('Falha de rede ao pausar.', 'err');
-      });
-    }
-
-    var safeName = escapeHtml(campaignDisplayName || '—');
-    var safeId = escapeHtml(String(campaignId));
-    var msg =
-      'A campanha <strong>' +
-      safeName +
-      '</strong> (ID <strong>' +
-      safeId +
-      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).' +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
-
-    if (typeof window.showConfirm === 'function') {
-      window.showConfirm({
-        theme: 'warning',
-        title: 'Pausar campanha',
-        message: msg,
-        confirmText: 'Pausar',
-        cancelText: 'Cancelar',
-        onConfirm: doPause,
-      });
-      return;
-    }
-    if (
-      !confirm(
-        'Pausar a campanha "' +
-          (campaignDisplayName || campaignId) +
-          '" (ID ' +
-          campaignId +
-          ') no DV360? O estado na API será alterado (entityStatus → PAUSED).'
-      )
-    )
-      return;
-    doPause();
-  }
-
-  function activateCampaign(advertiserId, campaignId, campaignDisplayName, btn, row, isDraft) {
-    function doAct() {
-      btn.disabled = true;
-      hideGlobal();
-      jsonFetch(URL_ACTIVATE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ advertiser_id: advertiserId }),
-      }).then(function (res) {
-        btn.disabled = false;
-        if (!res.ok || !res.body.success) {
-          var err = (res.body && res.body.error) ? res.body.error : 'HTTP ' + res.status;
-          showGlobal(err, 'err');
-          return;
-        }
-        showGlobal(draft ? 'Campanha ativada com sucesso.' : 'Campanha reativada com sucesso.', 'ok');
-        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_ACTIVE';
-        if (row.__dv360Campaign) {
-          row.__dv360Campaign.entityStatus = ns;
-          if (res.body.lifecycle) row.__dv360Campaign.lifecycle = res.body.lifecycle;
-        }
-        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
-      }).catch(function () {
-        btn.disabled = false;
-        showGlobal('Falha de rede ao ativar ou reativar.', 'err');
-      });
-    }
-
-    var draft = !!isDraft;
-    var safeName = escapeHtml(campaignDisplayName || '—');
-    var safeId = escapeHtml(String(campaignId));
-    var lead = draft
-      ? 'A campanha <strong>sairá do rascunho</strong> e será <strong>ativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).'
-      : 'A campanha será <strong>reativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).';
-    var msg =
-      'A campanha <strong>' +
-      safeName +
-      '</strong> (ID <strong>' +
-      safeId +
-      '</strong>): ' +
-      lead +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
-    var titleRow = draft ? 'Ativar campanha (rascunho)' : 'Reativar campanha';
-    var btnTextRow = draft ? 'Ativar' : 'Reativar';
-
-    if (typeof window.showConfirm === 'function') {
-      window.showConfirm({
-        theme: 'success',
-        title: titleRow,
-        message: msg,
-        confirmText: btnTextRow,
-        cancelText: 'Cancelar',
-        onConfirm: doAct,
-      });
-      return;
-    }
-    if (
-      !confirm(
-        btnTextRow +
-          ' a campanha "' +
-          (campaignDisplayName || campaignId) +
-          '" (ID ' +
-          campaignId +
-          ') no DV360? O estado na API será alterado (entityStatus → ACTIVE).'
-      )
-    )
-      return;
-    doAct();
-  }
-
-  function pauseCampaignFromDetail(advertiserId, campaignId, displayName) {
-    function doPause() {
-      hideGlobal();
-      jsonFetch(URL_PAUSE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ advertiser_id: advertiserId }),
-      }).then(function (res) {
-        if (!res.ok || !res.body.success) {
-          showGlobal((res.body && res.body.error) || 'HTTP ' + res.status, 'err');
-          return;
-        }
-        showGlobal('Campanha pausada com sucesso.', 'ok');
-        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_PAUSED';
-        var trD = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
-        if (trD && trD.__dv360Campaign) {
-          trD.__dv360Campaign.entityStatus = ns;
-          if (res.body.lifecycle) trD.__dv360Campaign.lifecycle = res.body.lifecycle;
-        }
-        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
-        showCampaignDetail(advertiserId, campaignId);
-      }).catch(function () {
-        showGlobal('Falha de rede ao pausar.', 'err');
-      });
-    }
-    var safeName = escapeHtml(displayName || '—');
-    var safeId = escapeHtml(String(campaignId));
-    var msg =
-      'A campanha <strong>' +
-      safeName +
-      '</strong> (ID <strong>' +
-      safeId +
-      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).' +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
-    if (typeof window.showConfirm === 'function') {
-      window.showConfirm({
-        theme: 'warning',
-        title: 'Pausar campanha',
-        message: msg,
-        confirmText: 'Pausar',
-        cancelText: 'Cancelar',
-        onConfirm: doPause,
-      });
-      return;
-    }
-    if (
-      !confirm(
-        'Pausar a campanha "' +
-          (displayName || campaignId) +
-          '" (ID ' +
-          campaignId +
-          ') no DV360? O estado na API será alterado (entityStatus → PAUSED).'
-      )
-    )
-      return;
-    doPause();
-  }
-
-  function activateCampaignFromDetail(advertiserId, campaignId, displayName, isDraft) {
-    function doAct() {
-      hideGlobal();
-      jsonFetch(URL_ACTIVATE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ advertiser_id: advertiserId }),
-      }).then(function (res) {
-        if (!res.ok || !res.body.success) {
-          showGlobal((res.body && res.body.error) || 'HTTP ' + res.status, 'err');
-          return;
-        }
-        showGlobal(isDraft ? 'Campanha ativada com sucesso.' : 'Campanha reativada com sucesso.', 'ok');
-        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_ACTIVE';
-        var trD = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
-        if (trD && trD.__dv360Campaign) {
-          trD.__dv360Campaign.entityStatus = ns;
-          if (res.body.lifecycle) trD.__dv360Campaign.lifecycle = res.body.lifecycle;
-        }
-        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
-        showCampaignDetail(advertiserId, campaignId);
-      }).catch(function () {
-        showGlobal('Falha de rede ao ativar.', 'err');
-      });
-    }
-    var safeName = escapeHtml(displayName || '—');
-    var safeId = escapeHtml(String(campaignId));
-    var lead = isDraft
-      ? 'A campanha <strong>sairá do rascunho</strong> e será <strong>ativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).'
-      : 'A campanha será <strong>reativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).';
-    var msg =
-      'A campanha <strong>' +
-      safeName +
-      '</strong> (ID <strong>' +
-      safeId +
-      '</strong>): ' +
-      lead +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
-    var title = isDraft ? 'Ativar campanha (rascunho)' : 'Reativar campanha';
-    var btnText = isDraft ? 'Ativar' : 'Reativar';
-    if (typeof window.showConfirm === 'function') {
-      window.showConfirm({
-        theme: 'success',
-        title: title,
-        message: msg,
-        confirmText: btnText,
-        cancelText: 'Cancelar',
-        onConfirm: doAct,
-      });
-      return;
-    }
-    if (
-      !confirm(
-        (isDraft ? 'Ativar' : 'Reativar') +
-          ' a campanha "' +
-          (displayName || campaignId) +
-          '" (ID ' +
-          campaignId +
-          ') no DV360? O estado na API será alterado (entityStatus → ACTIVE).'
-      )
-    )
-      return;
-    doAct();
-  }
-
-  function loadDvClientMappings() {
-    advSelectDv.innerHTML = '<option value="">Carregando…</option>';
-    hideGlobal();
-    if (advLoadingDv) advLoadingDv.classList.remove('hidden');
-    advSelectDv.disabled = true;
-    return jsonFetch(CLIENT_MAPPINGS_URL)
-      .then(function (res) {
-        advSelectDv.innerHTML = '';
-        if (res.status === 401) {
-          advSelectDv.innerHTML = '<option value="">Não autenticado</option>';
-          showGlobal((res.body && res.body.error) || 'Inicie sessão no mesmo host.', 'err');
-          return;
-        }
-        if (!res.body || !res.body.success) {
-          advSelectDv.innerHTML = '<option value="">Erro ao listar</option>';
-          showGlobal((res.body && res.body.error) || 'Erro ao listar mapeamentos dv360_advertisers.', 'err');
-          return;
-        }
-        var list = res.body.data || [];
-        if (!list.length) {
-          advSelectDv.innerHTML = '<option value="">Nenhum mapeamento</option>';
-          if (advHintDv) advHintDv.textContent = 'Nenhum registo em dv360_advertisers para este contexto.';
-          return;
-        }
-        var opt0 = document.createElement('option');
-        opt0.value = '';
-        opt0.textContent = 'Selecione…';
-        advSelectDv.appendChild(opt0);
-        list.forEach(function (row) {
-          var idAdv = row.dv_anunciante_id != null ? String(row.dv_anunciante_id).trim() : '';
-          if (!idAdv) return;
-          var nome =
-            row.nome_fantasia != null && String(row.nome_fantasia).trim() !== ''
-              ? String(row.nome_fantasia).trim()
-              : '—';
-          var o = document.createElement('option');
-          o.value = idAdv;
-          o.textContent = nome + ' ' + idAdv;
-          advSelectDv.appendChild(o);
-        });
-        if (advHintDv) advHintDv.textContent = list.length + ' mapeamento(s) em dv360_advertisers.';
-      })
-      .catch(function () {
-        advSelectDv.innerHTML = '<option value="">Erro de rede</option>';
-        showGlobal('Erro de rede ao carregar mapeamentos.', 'err');
-      })
-      .finally(function () {
-        if (advLoadingDv) advLoadingDv.classList.add('hidden');
-        advSelectDv.disabled = false;
-        refreshAdvertiserSourceHint();
-      });
-  }
-
-  function clearModalDvMappingMsg() {
-    if (!modalDvMsg) return;
-    modalDvMsg.textContent = '';
-    modalDvMsg.className = 'text-sm hidden min-h-[1.25rem]';
-  }
-
-  function showModalDvMappingMsg(text, kind) {
-    if (!modalDvMsg) return;
-    modalDvMsg.textContent = text;
-    modalDvMsg.classList.remove('hidden', 'text-error', 'text-success', 'text-info');
-    modalDvMsg.classList.add(kind === 'ok' ? 'text-success' : kind === 'info' ? 'text-info' : 'text-error');
-    modalDvMsg.classList.remove('hidden');
-  }
-
-  function clearCampaignPiIdApiNote() {
-    if (!campaignPiIdApiNote) return;
-    campaignPiIdApiNote.textContent = '';
-    campaignPiIdApiNote.classList.add('hidden');
-  }
-
-  function showCampaignPiIdApiNote(text) {
-    if (!campaignPiIdApiNote) return;
-    campaignPiIdApiNote.textContent = text;
-    campaignPiIdApiNote.classList.remove('hidden');
-  }
-
-  function clearModalPiIdApiMsg() {
-    if (!modalPiMsg) return;
-    modalPiMsg.textContent = '';
-    modalPiMsg.className = 'text-sm hidden min-h-[1.25rem]';
-  }
-
-  function showModalPiIdApiMsg(text, kind) {
-    if (!modalPiMsg) return;
-    modalPiMsg.textContent = text;
-    modalPiMsg.classList.remove('hidden', 'text-error', 'text-success', 'text-info');
-    modalPiMsg.classList.add(kind === 'ok' ? 'text-success' : kind === 'info' ? 'text-info' : 'text-error');
-    modalPiMsg.classList.remove('hidden');
-  }
-
-  function closeModalPiIdApi() {
-    if (modalPiIdApi) modalPiIdApi.close();
-  }
-
-  /** Query string igual ao pedido da aba Acompanhamento PI (DV360). */
-  function acompPiDv360QueryParams() {
-    var q = new URLSearchParams();
-    var mesEl = document.getElementById('acomp-dv360-mes');
-    var stEl = document.getElementById('acomp-dv360-status');
-    var exEl = document.getElementById('acomp-dv360-exec');
-    var clEl = document.getElementById('acomp-dv360-cliente');
-    if (mesEl && mesEl.value) q.set('mes_ref_comp', mesEl.value.trim());
-    if (stEl && stEl.value) q.set('id_status', stEl.value.trim());
-    if (exEl && exEl.value) q.set('resp_comercial', exEl.value.trim());
-    if (clEl && clEl.value) q.set('id_cliente', clEl.value.trim());
-    return q;
-  }
-
-  /** Abre o modal e lista as mesmas campanhas PI DV360 que a tabela de Acompanhamento (filtros actuais). */
-  function openModalPiIdApi() {
-    if (!URL_ACOMP_PI_DV360) {
-      showModalPiIdApiMsg('API de Acompanhamento não disponível.', 'err');
-      return;
-    }
-    clearModalPiIdApiMsg();
-    if (inpPiIdApi) inpPiIdApi.value = '';
-    if (selPiCampanha) {
-      selPiCampanha.innerHTML = '<option value="">A carregar campanhas PI…</option>';
-      selPiCampanha.disabled = true;
-    }
-    if (btnModalPiSave) btnModalPiSave.disabled = true;
-    if (modalPiIdApi) modalPiIdApi.showModal();
-
-    var q = acompPiDv360QueryParams();
-    var url = URL_ACOMP_PI_DV360 + (q.toString() ? '?' + q.toString() : '');
-    jsonFetch(url)
-      .then(function (res) {
-        if (!selPiCampanha) return;
-        selPiCampanha.disabled = false;
-        selPiCampanha.innerHTML = '';
-
-        function addOnlyDash() {
-          var o = document.createElement('option');
-          o.value = '';
-          o.textContent = '—';
-          selPiCampanha.appendChild(o);
-        }
-
-        if (res.status === 403) {
-          addOnlyDash();
-          showModalPiIdApiMsg((res.body && res.body.error) || 'Acesso negado.', 'err');
-          return;
-        }
-        if (!res.ok || !res.body || !res.body.success) {
-          addOnlyDash();
-          showModalPiIdApiMsg((res.body && res.body.error) || 'Erro ao listar campanhas PI.', 'err');
-          return;
-        }
-        var warnTxt = res.body.warn ? String(res.body.warn) : '';
-        var list = res.body.data || [];
-        if (warnTxt && list.length === 0) {
-          addOnlyDash();
-          showModalPiIdApiMsg(warnTxt, 'err');
-          return;
-        }
-        if (warnTxt) {
-          showModalPiIdApiMsg(warnTxt, 'info');
-        }
-        var opt0 = document.createElement('option');
-        opt0.value = '';
-        opt0.textContent = list.length
-          ? '— escolha uma campanha PI —'
-          : 'Nenhuma campanha para estes filtros na Acompanhamento';
-        selPiCampanha.appendChild(opt0);
-        list.forEach(function (row) {
-          var o = document.createElement('option');
-          o.value = String(row.id_campanha);
-          var apiVal =
-            row.campaigns_id != null && row.campaigns_id !== ''
-              ? String(row.campaigns_id)
-              : '';
-          o.setAttribute('data-campaigns-id', apiVal);
-          var title = row.nome_campanha ? String(row.nome_campanha) : 'Campanha PI';
-          var bits = '#' + row.id_campanha;
-          if (row.mes_ref_comp) bits += ' · ' + row.mes_ref_comp;
-          if (apiVal) bits += ' · campaigns_id: ' + apiVal;
-          o.textContent = title + ' (' + bits + ')';
-          selPiCampanha.appendChild(o);
-        });
-        if (btnModalPiSave) btnModalPiSave.disabled = list.length === 0;
-        if (list.length) {
-          showModalPiIdApiMsg(
-            'Mesmas linhas que a tabela Acompanhamento (filtros actuais). Escolha a campanha e o campaigns_id (vazio para limpar).',
-            'info'
-          );
-        } else if (!warnTxt) {
-          showModalPiIdApiMsg(
-            'Nenhuma campanha DV360 para estes filtros. Ajuste mês, status ou executivo na aba e use Carregar.',
-            'info'
-          );
-        }
-      })
-      .catch(function () {
-        if (selPiCampanha) {
-          selPiCampanha.disabled = false;
-          selPiCampanha.innerHTML = '';
-          var ox = document.createElement('option');
-          ox.value = '';
-          ox.textContent = '—';
-          selPiCampanha.appendChild(ox);
-        }
-        showModalPiIdApiMsg('Erro de rede ao carregar campanhas PI.', 'err');
-      });
-  }
-
-  function loadModalClientesForSelect() {
-    if (!selModalCliente) return Promise.resolve();
-    selModalCliente.innerHTML = '<option value="">A carregar…</option>';
-    selModalCliente.disabled = true;
-    return jsonFetch(URL_CLIENTES_MAPEAMENTO_DV)
-      .then(function (res) {
-        selModalCliente.innerHTML = '';
-        if (res.status === 401 || !res.body || !res.body.success) {
-          selModalCliente.innerHTML = '<option value="">Erro ao carregar</option>';
-          showModalDvMappingMsg((res.body && res.body.error) || 'Não foi possível carregar a lista de clientes.', 'err');
-          return;
-        }
-        var list = res.body.data || [];
-        if (!list.length) {
-          selModalCliente.innerHTML = '<option value="">Sem clientes</option>';
-          return;
-        }
-        var opt0 = document.createElement('option');
-        opt0.value = '';
-        opt0.textContent = 'Selecione o cliente…';
-        selModalCliente.appendChild(opt0);
-        list.forEach(function (row) {
-          var id = row.id_cliente != null ? String(row.id_cliente) : '';
-          if (!id) return;
-          var nf =
-            row.nome_fantasia != null && String(row.nome_fantasia).trim() !== ''
-              ? String(row.nome_fantasia).trim()
-              : '—';
-          var o = document.createElement('option');
-          o.value = id;
-          o.textContent = nf;
-          selModalCliente.appendChild(o);
-        });
-        if (list.length === 1) selModalCliente.value = String(list[0].id_cliente);
-      })
-      .catch(function () {
-        selModalCliente.innerHTML = '<option value="">Erro de rede</option>';
-        showModalDvMappingMsg('Erro de rede ao carregar clientes.', 'err');
-      })
-      .finally(function () {
-        selModalCliente.disabled = false;
-      });
-  }
-
-  function openModalDvMapping() {
-    if (!modalDvMapping || !formDvMapping || !inpModalAdv) return;
-    clearModalDvMappingMsg();
-    inpModalAdv.value = '';
-    modalDvMapping.showModal();
-    loadModalClientesForSelect();
-  }
-
-  function closeModalDvMapping() {
-    if (modalDvMapping) modalDvMapping.close();
-    clearModalDvMappingMsg();
-  }
-
-  function loadPartnerAdvertisers() {
-    advSelectApi.innerHTML = '<option value="">Carregando…</option>';
-    hideGlobal();
-    if (advLoadingApi) advLoadingApi.classList.remove('hidden');
-    advSelectApi.disabled = true;
-    jsonFetch("{{ url_for('dv360.advertisers') }}")
-      .then(function (res) {
-        advSelectApi.innerHTML = '';
-        if (res.status === 401) {
-          advSelectApi.innerHTML = '<option value="">Não autenticado</option>';
-          showGlobal((res.body && res.body.error) || 'Inicie sessão no mesmo host.', 'err');
-          return;
-        }
-        if (!res.body || !res.body.success) {
-          advSelectApi.innerHTML = '<option value="">Erro ao listar</option>';
-          showGlobal((res.body && res.body.error) || 'Erro ao listar anunciantes.', 'err');
-          return;
-        }
-        var list = (res.body.data && res.body.data.advertisers) || [];
-        if (!list.length) {
-          advSelectApi.innerHTML = '<option value="">Nenhum anunciante</option>';
-          if (advHintApi) advHintApi.textContent = 'Verifique DV360_PARTNER_ID e permissões.';
-          return;
-        }
-        var opt0 = document.createElement('option');
-        opt0.value = '';
-        opt0.textContent = 'Selecione…';
-        advSelectApi.appendChild(opt0);
-        list.forEach(function (a) {
-          var id = a.advertiserId != null ? String(a.advertiserId) : '';
-          if (!id) return;
-          var o = document.createElement('option');
-          o.value = id;
-          o.textContent = (a.displayName || a.name || id) + ' (' + id + ')';
-          advSelectApi.appendChild(o);
-        });
-        if (advHintApi) advHintApi.textContent = list.length + ' anunciante(s) no partner.';
-      })
-      .catch(function () {
-        advSelectApi.innerHTML = '<option value="">Erro de rede</option>';
-        showGlobal('Erro de rede ao carregar anunciantes.', 'err');
-      })
-      .finally(function () {
-        if (advLoadingApi) advLoadingApi.classList.add('hidden');
-        advSelectApi.disabled = false;
-        refreshAdvertiserSourceHint();
-      });
-  }
-
-  function loadCampaigns() {
-    var advId = selectedAdvertiserId();
-    if (!advId) {
-      showGlobal('Selecione um anunciante num dos selects (dv360_advertisers ou API partner).', 'info');
-      return;
-    }
-    hideGlobal();
-    tbody.innerHTML =
-      '<tr><td colspan="4" class="py-8 text-center text-sm text-base-content/70">' +
-      '<span class="inline-flex items-center justify-center gap-2">' +
-      '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>' +
-      '<span>A aguardar a API…</span></span></td></tr>';
-    btnLoad.disabled = true;
-    jsonFetch(campaignsListUrl(advId)).then(function (res) {
-      btnLoad.disabled = false;
-      if (res.status === 401) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">Não autenticado.</td></tr>';
-        clearFilterSummary();
-        updateCampaignTabCount(0);
-        showGlobal((res.body && res.body.error) || 'Inicie sessão.', 'err');
-        return;
-      }
-      if (!res.body || !res.body.success) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">' + escapeHtml((res.body && res.body.error) || 'Erro') + '</td></tr>';
-        clearFilterSummary();
-        updateCampaignTabCount(0);
-        return;
-      }
-      var data = res.body.data || {};
-      var campaigns = data.campaigns || [];
-      renderRows(campaigns);
-    }).catch(function () {
-      btnLoad.disabled = false;
-      tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">Erro de rede.</td></tr>';
-      clearFilterSummary();
-      updateCampaignTabCount(0);
-    });
-  }
-
-  tbody.addEventListener('click', function (ev) {
-    if (ev.target.closest('button')) return;
-    var tr = ev.target.closest('tr[data-campaign-id]');
-    if (!tr) return;
-    var cid = tr.getAttribute('data-campaign-id');
-    if (!cid) return;
-    var advId = selectedAdvertiserId();
-    if (!advId) {
-      showGlobal('Selecione um anunciante num dos selects (dv360_advertisers ou API partner).', 'info');
-      return;
-    }
-    showCampaignDetail(advId, cid);
-  });
-
-  tbody.addEventListener('keydown', function (ev) {
-    if (ev.key !== 'Enter' && ev.key !== ' ') return;
-    if (ev.target.closest('button')) return;
-    var tr = ev.target.closest && ev.target.closest('tr[data-campaign-id]');
-    if (!tr) return;
-    ev.preventDefault();
-    tr.click();
-  });
-
-  detailClose.addEventListener('click', function () {
-    hideCampaignDetail({ goToCampaignsTab: true });
-  });
-
-  var acompDv360LoadedOnce = false;
-  var dv360AcompRawRows = null;
-  function fmtBrl(n) {
-    if (n == null || isNaN(n)) return '—';
-    try {
-      return (
-        'R$ ' +
-        Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      );
-    } catch (e) {
-      return '—';
-    }
-  }
-  function fmtIntPt(n) {
-    if (n == null || isNaN(n)) return '—';
-    try {
-      return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
-    } catch (e) {
-      return '—';
-    }
-  }
-  function renderAcompDv360Rows(rows) {
-    var tbody = document.getElementById('acomp-dv360-tbody');
-    var countEl = document.getElementById('acomp-dv360-count');
-    if (!tbody) return;
-    var searchEl = document.getElementById('acomp-dv360-search');
-    var qtxt = (searchEl && searchEl.value ? searchEl.value : '').trim().toLowerCase();
-    var filtered = rows || [];
-    if (qtxt) {
-      filtered = filtered.filter(function (r) {
-        var a =
-          ((r.nome_campanha || '') +
-            ' ' +
-            (r.codigo_pi || '') +
-            ' ' +
-            (r.cliente_nome || '') +
-            ' ' +
-            (r.campaigns_ids_search || r.campaigns_id || '')).toLowerCase();
-        return a.indexOf(qtxt) !== -1;
-      });
-    }
-    if (countEl) countEl.textContent = String(filtered.length);
-    if (!filtered.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="10" class="text-base-content/50">Nenhuma campanha PI DV360 para estes filtros.</td></tr>';
-      return;
-    }
-    var html = '';
-    filtered.forEach(function (r) {
-          var pi = r.codigo_pi || '—';
-          var pin = r.periodo_inicio && r.periodo_fim ? r.periodo_inicio.slice(8, 10) + '/' + r.periodo_inicio.slice(5, 7) + ' – ' + r.periodo_fim.slice(8, 10) + '/' + r.periodo_fim.slice(5, 7) : '—';
-          var dias = r.dias_restantes != null ? '<span class="text-[10px] text-base-content/45"> / ' + r.dias_restantes + ' d</span>' : '';
-          var metaPct = r.pct_obj != null ? r.pct_obj : 0;
-          var metaCls =
-            metaPct >= 100 ? 'text-success' : metaPct >= 70 ? 'text-warning' : 'text-error';
-          var invPct = r.pct_inv != null ? r.pct_inv : 0;
-          var invCls = invPct > 100 ? 'text-error' : '';
-          var diff = r.diff_gasto != null ? r.diff_gasto : 0;
-          var diffCls = diff > 0 ? 'text-error' : 'text-success';
-          var linkBadge =
-            '<span class="badge badge-sm ' +
-            ((r.link_count || 0) > 0 ? 'badge-primary' : 'badge-ghost') +
-            '">L' +
-            (r.link_count || 0) +
-            '</span>';
-          var dvList = r.dv360_campaigns || [];
-          var dvCell =
-            dvList.length === 0
-              ? '<span class="text-base-content/40">—</span>'
-              : dvList.length === 1
-                ? escapeHtml(dvList[0].campaigns_id || '')
-                : dvList
-                    .map(function (x) {
-                      return escapeHtml(x.campaigns_id || '');
-                    })
-                    .join('<span class="text-base-content/35"> · </span>');
-          var plat = r.plataforma_nome ? '<div class="text-[10px] text-base-content/45 truncate max-w-[5rem]">' + escapeHtml(r.plataforma_nome) + '</div>' : '';
-          var preco =
-            r.preco_metrica_brl != null
-              ? '<span class="font-semibold text-[10px] text-emerald-800">' +
-                escapeHtml(r.preco_metrica_sigla || '') +
-                '</span><div class="font-semibold">' +
-                fmtBrl(r.preco_metrica_brl) +
-                '</div>'
-              : '<span class="text-base-content/40">—</span>';
-          var metaCell =
-            r.obj_val > 0
-              ? '<span class="font-semibold ' +
-                metaCls +
-                '">' +
-                fmtIntPt(r.ating_val) +
-                '/' +
-                fmtIntPt(r.obj_val) +
-                '</span> <span class="text-[10px] text-base-content/45">(' +
-                metaPct +
-                '%)</span>'
-              : '—';
-          var repS = r.report_periodo_inicio;
-          var repE = r.report_periodo_fim;
-          function fmtDdMmAa(iso) {
-            if (!iso || typeof iso !== 'string' || iso.length < 10) return null;
-            return iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(2, 4);
-          }
-          var rs = fmtDdMmAa(repS);
-          var rePart = fmtDdMmAa(repE);
-          var reportPeriodCell =
-            rs && rePart
-              ? '<span class="whitespace-nowrap">' + rs + ' – ' + rePart + '</span>'
-              : rs || rePart
-                ? '<span class="whitespace-nowrap">' + (rs || rePart) + '</span>'
-                : '<span class="text-base-content/40">—</span>';
-          html +=
-            '<tr>' +
-            '<td class="align-top whitespace-nowrap"><div class="font-bold text-primary">' +
-            escapeHtml(pi) +
-            '</div><div class="text-[11px] text-base-content/55">' +
-            pin +
-            '</div><div class="text-[11px] text-base-content/45 truncate max-w-[120px]">' +
-            escapeHtml(r.executivo_nome || '—') +
-            '</div>' +
-            dias +
-            '</td>' +
-            '<td class="align-top max-w-[200px]"><div class="font-semibold truncate">' +
-            escapeHtml(r.nome_campanha || '—') +
-            '</div><div class="text-[11px] text-base-content/45 truncate">' +
-            escapeHtml(r.cliente_nome || '—') +
-            '</div></td>' +
-            '<td class="text-right align-top whitespace-nowrap">' +
-            preco +
-            '</td>' +
-            '<td class="text-center align-top whitespace-nowrap">' +
-            metaCell +
-            '</td>' +
-            '<td class="text-center align-top">' +
-            linkBadge +
-            plat +
-            '</td>' +
-            '<td class="align-top font-mono text-[11px] break-all">' +
-            dvCell +
-            '</td>' +
-            '<td class="text-right align-top"><div class="flex justify-end gap-1"><span class="' +
-            metaCls +
-            ' font-semibold">' +
-            metaPct +
-            '%</span></div><div class="text-[11px]">' +
-            fmtIntPt(r.ating_val) +
-            '</div></td>' +
-            '<td class="text-right align-top"><div class="' +
-            invCls +
-            ' font-semibold">' +
-            invPct +
-            '%</div><div>' +
-            fmtBrl(r.gasto_val) +
-            '</div><div class="text-[10px] ' +
-            diffCls +
-            '">' +
-            (diff >= 0 ? '+' : '') +
-            fmtBrl(diff) +
-            '</div></td>' +
-            '<td class="text-right align-top text-base-content/80">' +
-            fmtBrl(r.prev_val) +
-            '</td>' +
-            '<td class="text-left align-top text-[11px]">' +
-            reportPeriodCell +
-            '</td></tr>';
-    });
-    tbody.innerHTML = html;
-  }
-
-  function loadAcompanhamentoPiDv360() {
-    var tbody = document.getElementById('acomp-dv360-tbody');
-    var loading = document.getElementById('acomp-dv360-loading');
-    var errEl = document.getElementById('acomp-dv360-error');
-    var warnEl = document.getElementById('dv360-acomp-warn');
-    if (!tbody || !URL_ACOMP_PI_DV360) return;
-    if (errEl) {
-      errEl.classList.add('hidden');
-      errEl.textContent = '';
-    }
-    if (warnEl) {
-      warnEl.classList.add('hidden');
-      warnEl.textContent = '';
-    }
-    if (loading) loading.classList.remove('hidden');
-    var q = acompPiDv360QueryParams();
-    jsonFetch(URL_ACOMP_PI_DV360 + (q.toString() ? '?' + q.toString() : ''))
-      .then(function (res) {
-        if (loading) loading.classList.add('hidden');
-        if (!res.ok || !res.body || !res.body.success) {
-          dv360AcompRawRows = null;
-          if (errEl) {
-            errEl.textContent = (res.body && res.body.error) ? res.body.error : ('HTTP ' + res.status);
-            errEl.classList.remove('hidden');
-          }
-          return;
-        }
-        if (res.body.warn && warnEl) {
-          warnEl.textContent = res.body.warn;
-          warnEl.classList.remove('hidden');
-        }
-        dv360AcompRawRows = res.body.data || [];
-        renderAcompDv360Rows(dv360AcompRawRows);
-      })
-      .catch(function () {
-        if (loading) loading.classList.add('hidden');
-        dv360AcompRawRows = null;
-        if (errEl) {
-          errEl.textContent = 'Erro de rede ao carregar.';
-          errEl.classList.remove('hidden');
-        }
-      });
-  }
-
-  var btnAcompDv360Reload = document.getElementById('btn-acomp-dv360-reload');
-  if (btnAcompDv360Reload) btnAcompDv360Reload.addEventListener('click', loadAcompanhamentoPiDv360);
-  var inpAcompDv360Search = document.getElementById('acomp-dv360-search');
-  if (inpAcompDv360Search) {
-    inpAcompDv360Search.addEventListener('input', function () {
-      if (dv360AcompRawRows) renderAcompDv360Rows(dv360AcompRawRows);
-    });
-  }
-
-  [0, 1, 2, 3, 4].forEach(function (idx) {
-    var tBtn = document.getElementById('tab-dv360-' + idx);
-    if (tBtn) {
-      tBtn.addEventListener('click', function () {
-        setActiveTab(idx);
-        if (idx === 3 && !acompDv360LoadedOnce) {
-          acompDv360LoadedOnce = true;
-          loadAcompanhamentoPiDv360();
-        }
-        if (idx === 4 && window.__dv360IoAdv && window.__dv360IoCid) {
-          loadInsertionOrdersTab();
-        }
-      });
-    }
-  });
-  if (btnDetailEmptyGotoList) {
-    btnDetailEmptyGotoList.addEventListener('click', function () {
-      setActiveTab(1);
-    });
-  }
-
-  if (btnDv360IoReload) {
-    btnDv360IoReload.addEventListener('click', function () {
-      loadInsertionOrdersTab(true);
-    });
-  }
-  if (btnDv360IoSync) {
-    btnDv360IoSync.addEventListener('click', function () {
-      if (!window.__dv360IoAdv || !window.__dv360IoCid) return;
-      if (dv360IoSyncWarn) dv360IoSyncWarn.classList.add('hidden');
-      if (dv360IoSyncMsg) {
-        dv360IoSyncMsg.classList.add('hidden');
-        dv360IoSyncMsg.textContent = '';
-        dv360IoSyncMsg.classList.remove('text-success', 'text-error', 'text-info');
-      }
-      btnDv360IoSync.disabled = true;
-      var syncUrl = URL_IO_SYNC_TMPL.replace('__CID__', encodeURIComponent(String(window.__dv360IoCid)));
-      jsonFetch(syncUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ advertiser_id: String(window.__dv360IoAdv) }),
-      })
-        .then(function (res) {
-          if (res.status === 409 && res.body && res.body.missing_mapping) {
-            if (dv360IoSyncWarn && dv360IoSyncWarnText) {
-              dv360IoSyncWarnText.textContent =
-                (res.body.error && String(res.body.error)) ||
-                'Mapeamento dv360_campaigns em falta. Associe campaigns_id na aba Acomp. PI (DV360).';
-              dv360IoSyncWarn.classList.remove('hidden');
-            }
-            return;
-          }
-          if (!res.ok || !res.body || !res.body.success) {
-            if (dv360IoSyncMsg) {
-              dv360IoSyncMsg.textContent =
-                res.body && res.body.error
-                  ? String(res.body.error)
-                  : 'Sincronização falhou (HTTP ' + res.status + ').';
-              dv360IoSyncMsg.classList.remove('hidden', 'text-success');
-              dv360IoSyncMsg.classList.add('text-error');
-            }
-            return;
-          }
-          if (dv360IoSyncCreated) {
-            dv360IoSyncCreated.textContent = String(res.body.created != null ? res.body.created : 0);
-          }
-          if (dv360IoSyncUpdated) {
-            dv360IoSyncUpdated.textContent = String(res.body.updated != null ? res.body.updated : 0);
-          }
-          if (dv360IoSyncTotalApi) {
-            dv360IoSyncTotalApi.textContent = String(res.body.total_api != null ? res.body.total_api : 0);
-          }
-          if (dv360IoSyncTotalDb) {
-            dv360IoSyncTotalDb.textContent = String(res.body.total_db != null ? res.body.total_db : 0);
-          }
-          if (dv360IoSyncSummary) dv360IoSyncSummary.classList.remove('hidden');
-          if (dv360IoSyncMsg) {
-            dv360IoSyncMsg.textContent =
-              'Sincronização concluída: ' +
-              (res.body.created || 0) +
-              ' criado(s), ' +
-              (res.body.updated || 0) +
-              ' actualizado(s).';
-            dv360IoSyncMsg.classList.remove('hidden', 'text-error');
-            dv360IoSyncMsg.classList.add('text-success');
-          }
-          loadInsertionOrdersTab();
-        })
-        .catch(function () {
-          if (dv360IoSyncMsg) {
-            dv360IoSyncMsg.textContent = 'Erro de rede ao sincronizar.';
-            dv360IoSyncMsg.classList.remove('hidden', 'text-success');
-            dv360IoSyncMsg.classList.add('text-error');
-          }
-        })
-        .finally(function () {
-          if (btnDv360IoSync) btnDv360IoSync.disabled = false;
-        });
-    });
-  }
-
-  function loadDv360HistFromDb() {
-    var cid = window.__dv360DetailCid;
-    if (!cid || !URL_METRICS_HISTORY_GET_TMPL) return;
-    var qs = new URLSearchParams();
-    if (inpDv360HistStart && inpDv360HistStart.value)
-      qs.set('start_date', String(inpDv360HistStart.value).trim());
-    if (inpDv360HistEnd && inpDv360HistEnd.value)
-      qs.set('end_date', String(inpDv360HistEnd.value).trim());
-    var url =
-      URL_METRICS_HISTORY_GET_TMPL.replace('__CID__', encodeURIComponent(String(cid))) +
-      (qs.toString() ? '?' + qs.toString() : '');
-    if (dv360HistMsg) {
-      dv360HistMsg.textContent = 'A carregar série…';
-      dv360HistMsg.classList.remove('hidden', 'text-error', 'text-success');
-      dv360HistMsg.classList.add('text-base-content/60');
-    }
-    jsonFetch(url)
-      .then(function (res) {
-        if (!res.ok || !res.body || !res.body.success) {
-          if (dv360HistMsg) {
-            dv360HistMsg.textContent =
-              res.body && res.body.error ? String(res.body.error) : 'HTTP ' + res.status;
-            dv360HistMsg.classList.remove('hidden', 'text-success');
-            dv360HistMsg.classList.add('text-error');
-          }
-          return;
-        }
-        var data = res.body.data;
-        if (!Array.isArray(data)) data = [];
-        if (dv360HistMsg) {
-          dv360HistMsg.textContent = data.length + ' dia(s) na base.';
-          dv360HistMsg.classList.remove('hidden', 'text-error');
-          dv360HistMsg.classList.add('text-success');
-        }
-        renderDv360HistChart(data);
-      })
-      .catch(function () {
-        if (dv360HistMsg) {
-          dv360HistMsg.textContent = 'Erro de rede ao carregar série.';
-          dv360HistMsg.classList.remove('hidden', 'text-success');
-          dv360HistMsg.classList.add('text-error');
-        }
-      });
-  }
-
-  if (btnDv360HistLoad) {
-    btnDv360HistLoad.addEventListener('click', function () {
-      if (btnDv360HistLoad.disabled) return;
-      loadDv360HistFromDb();
-    });
-  }
-
-  if (btnDv360HistSync) {
-    btnDv360HistSync.addEventListener('click', function () {
-      var adv = window.__dv360DetailAdv;
-      var cid = window.__dv360DetailCid;
-      if (!adv || !cid || btnDv360HistSync.disabled) return;
-      var rs = inpDv360HistStart && inpDv360HistStart.value ? String(inpDv360HistStart.value).trim() : '';
-      var re_ = inpDv360HistEnd && inpDv360HistEnd.value ? String(inpDv360HistEnd.value).trim() : '';
-      if (!rs || !re_) {
-        if (dv360HistMsg) {
-          dv360HistMsg.textContent = 'Indique data de início e fim.';
-          dv360HistMsg.classList.remove('hidden', 'text-success');
-          dv360HistMsg.classList.add('text-error');
-        }
-        return;
-      }
-      if (dv360HistMsg) {
-        dv360HistMsg.textContent = 'A sincronizar com Bid Manager…';
-        dv360HistMsg.classList.remove('hidden', 'text-error', 'text-success');
-        dv360HistMsg.classList.add('text-base-content/60');
-      }
-      btnDv360HistSync.disabled = true;
-      var syncUrl = URL_METRICS_HISTORY_SYNC_TMPL.replace('__CID__', encodeURIComponent(String(cid)));
-      jsonFetch(syncUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          advertiser_id: String(adv),
-          start_date: rs,
-          end_date: re_,
-        }),
-      })
-        .then(function (res) {
-          if (!res.ok || !res.body || !res.body.success) {
-            if (dv360HistMsg) {
-              dv360HistMsg.textContent =
-                res.body && res.body.error
-                  ? String(res.body.error)
-                  : 'Sincronização falhou (HTTP ' + res.status + ').';
-              dv360HistMsg.classList.remove('hidden', 'text-success');
-              dv360HistMsg.classList.add('text-error');
-            }
-            return;
-          }
-          var n = res.body.rows_written != null ? res.body.rows_written : 0;
-          if (dv360HistMsg) {
-            dv360HistMsg.textContent =
-              'Gravados ' + n + ' dia(s). Origem: ' + String(res.body.source || 'bid_manager') + '.';
-            dv360HistMsg.classList.remove('hidden', 'text-error');
-            dv360HistMsg.classList.add('text-success');
-          }
-          var prev = res.body.daily_preview;
-          if (Array.isArray(prev) && prev.length) {
-            renderDv360HistChart(prev);
-          }
-          loadDv360HistFromDb();
-        })
-        .catch(function () {
-          if (dv360HistMsg) {
-            dv360HistMsg.textContent = 'Erro de rede ao sincronizar histórico.';
-            dv360HistMsg.classList.remove('hidden', 'text-success');
-            dv360HistMsg.classList.add('text-error');
-          }
-        })
-        .finally(function () {
-          if (btnDv360HistSync) btnDv360HistSync.disabled = false;
-        });
-    });
-  }
-
-  if (btnDv360LiSyncTab) {
-    btnDv360LiSyncTab.addEventListener('click', function () {
-      if (!window.__dv360IoAdv || !window.__dv360IoCid) return;
-      if (dv360IoSyncMsg) {
-        dv360IoSyncMsg.classList.remove('hidden');
-        dv360IoSyncMsg.textContent = 'A sincronizar line items…';
-        dv360IoSyncMsg.classList.remove('text-success');
-        dv360IoSyncMsg.classList.add('text-info');
-      }
-      btnDv360LiSyncTab.disabled = true;
-      var liUrl = URL_LI_SYNC_TMPL.replace('__CID__', encodeURIComponent(String(window.__dv360IoCid)));
-      jsonFetch(liUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ advertiser_id: String(window.__dv360IoAdv) }),
-      })
-        .then(function (res) {
-          if (res.status === 409 && res.body && res.body.missing_mapping) {
-            if (dv360IoSyncMsg) {
-              dv360IoSyncMsg.textContent =
-                (res.body.error && String(res.body.error)) || 'Mapeamento dv360_campaigns em falta.';
-              dv360IoSyncMsg.classList.remove('text-success', 'text-info');
-              dv360IoSyncMsg.classList.add('text-error');
-            }
-            return;
-          }
-          if (!res.ok || !res.body || !res.body.success) {
-            if (dv360IoSyncMsg) {
-              dv360IoSyncMsg.textContent =
-                res.body && res.body.error
-                  ? String(res.body.error)
-                  : 'HTTP ' + res.status;
-              dv360IoSyncMsg.classList.remove('text-success', 'text-info');
-              dv360IoSyncMsg.classList.add('text-error');
-            }
-            return;
-          }
-          var sk = res.body.skipped && res.body.skipped.length;
-          var msg =
-            'Line items: ' +
-            (res.body.created || 0) +
-            ' novo(s), ' +
-            (res.body.updated || 0) +
-            ' actualizado(s). Total BD: ' +
-            (res.body.total_db != null ? res.body.total_db : '—');
-          if (sk) msg += ' · ' + sk + ' ignorado(s) (IO em falta na BD).';
-          if (dv360IoSyncMsg) {
-            dv360IoSyncMsg.textContent = msg;
-            dv360IoSyncMsg.classList.remove('text-error', 'text-info');
-            dv360IoSyncMsg.classList.add('text-success');
-          }
-        })
-        .catch(function () {
-          if (dv360IoSyncMsg) {
-            dv360IoSyncMsg.textContent = 'Erro de rede ao sincronizar line items.';
-            dv360IoSyncMsg.classList.remove('text-success', 'text-info');
-            dv360IoSyncMsg.classList.add('text-error');
-          }
-        })
-        .finally(function () {
-          if (btnDv360LiSyncTab) btnDv360LiSyncTab.disabled = false;
-        });
-    });
-  }
-
-  if (btnDv360MetricsSync) {
-    btnDv360MetricsSync.addEventListener('click', function () {
-      var adv = window.__dv360DetailAdv;
-      var cid = window.__dv360DetailCid;
-      if (!adv || !cid || btnDv360MetricsSync.disabled) return;
-      if (dv360MetricsMsg) {
-        dv360MetricsMsg.classList.add('hidden');
-        dv360MetricsMsg.textContent = '';
-        dv360MetricsMsg.classList.remove('text-success', 'text-error');
-      }
-      btnDv360MetricsSync.disabled = true;
-      var syncUrl = URL_METRICS_SYNC_TMPL.replace('__CID__', encodeURIComponent(String(cid)));
-      var syncPayload = { advertiser_id: String(adv) };
-      var rs = inpDv360ReportStart && inpDv360ReportStart.value ? String(inpDv360ReportStart.value).trim() : '';
-      var re_ = inpDv360ReportEnd && inpDv360ReportEnd.value ? String(inpDv360ReportEnd.value).trim() : '';
-      if (rs && re_) {
-        syncPayload.start_date = rs;
-        syncPayload.end_date = re_;
-      }
-      jsonFetch(syncUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(syncPayload),
-      })
-        .then(function (res) {
-          if (res.status === 409 && res.body && res.body.missing_mapping) {
-            if (dv360MetricsMsg) {
-              dv360MetricsMsg.textContent =
-                (res.body.error && String(res.body.error)) ||
-                'Mapeamento em falta. Associe na aba Acomp. PI (DV360).';
-              dv360MetricsMsg.classList.remove('hidden', 'text-success');
-              dv360MetricsMsg.classList.add('text-error');
-            }
-            return;
-          }
-          if (!res.ok || !res.body || !res.body.success) {
-            if (dv360MetricsMsg) {
-              dv360MetricsMsg.textContent =
-                res.body && res.body.error
-                  ? String(res.body.error)
-                  : 'Sincronização de métricas falhou (HTTP ' + res.status + ').';
-              dv360MetricsMsg.classList.remove('hidden', 'text-success');
-              dv360MetricsMsg.classList.add('text-error');
-            }
-            return;
-          }
-          renderDv360MetricsFromApiPreview(res.body.metrics || {}, res.body);
-          if (dv360MetricsMsg) {
-            var baseMsg =
-              'Dados obtidos. Guardar grava na base os campos preenchidos.';
-            if (res.body.reporting_error) {
-              baseMsg +=
-                ' Relatório DV360: ' +
-                String(res.body.reporting_error).substring(0, 280) +
-                (String(res.body.reporting_error).length > 280 ? '…' : '');
-              dv360MetricsMsg.classList.remove('text-success');
-              dv360MetricsMsg.classList.add('text-error');
-            } else if (res.body.reporting && res.body.reporting.rows_used != null) {
-              baseMsg += ' Spent/kpi_atual alinhados ao relatório (período ' + (res.body.reporting_date_start || '') + ' a ' + (res.body.reporting_date_end || '') + ').';
-              dv360MetricsMsg.classList.remove('text-error');
-              dv360MetricsMsg.classList.add('text-success');
-            } else {
-              dv360MetricsMsg.classList.remove('text-error');
-              dv360MetricsMsg.classList.add('text-success');
-            }
-            dv360MetricsMsg.textContent = baseMsg;
-            dv360MetricsMsg.classList.remove('hidden');
-          }
-        })
-        .catch(function () {
-          if (dv360MetricsMsg) {
-            dv360MetricsMsg.textContent = 'Erro de rede ao sincronizar métricas.';
-            dv360MetricsMsg.classList.remove('hidden', 'text-success');
-            dv360MetricsMsg.classList.add('text-error');
-          }
-        })
-        .finally(function () {
-          if (btnDv360MetricsSync) btnDv360MetricsSync.disabled = false;
-        });
-    });
-  }
-
-  if (btnDv360PeriodSave) {
-    btnDv360PeriodSave.addEventListener('click', function () {
-      var cid = window.__dv360DetailCid;
-      if (!cid || btnDv360PeriodSave.disabled) return;
-      if (dv360MetricsMsg) {
-        dv360MetricsMsg.classList.add('hidden');
-        dv360MetricsMsg.textContent = '';
-        dv360MetricsMsg.classList.remove('text-success', 'text-error');
-      }
-      btnDv360PeriodSave.disabled = true;
-      var periodUrl = URL_PERIOD_SAVE_TMPL.replace('__CID__', encodeURIComponent(String(cid)));
-      var rs0 = inpDv360ReportStart && inpDv360ReportStart.value ? String(inpDv360ReportStart.value).trim() : '';
-      var re0 = inpDv360ReportEnd && inpDv360ReportEnd.value ? String(inpDv360ReportEnd.value).trim() : '';
-      jsonFetch(periodUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          report_start_date: rs0 || null,
-          report_end_date: re0 || null,
-        }),
-      })
-        .then(function (res) {
-          if (!res.ok || !res.body || !res.body.success) {
-            if (dv360MetricsMsg) {
-              dv360MetricsMsg.textContent =
-                res.body && res.body.error ? String(res.body.error) : 'HTTP ' + res.status;
-              dv360MetricsMsg.classList.remove('hidden', 'text-success');
-              dv360MetricsMsg.classList.add('text-error');
-            }
-            return;
-          }
-          if (res.body.dv360_campaign_db) renderDv360CampaignMetrics(res.body.dv360_campaign_db);
-          if (dv360MetricsMsg) {
-            dv360MetricsMsg.textContent = 'Período do relatório gravado.';
-            dv360MetricsMsg.classList.remove('hidden', 'text-error');
-            dv360MetricsMsg.classList.add('text-success');
-            dv360MetricsMsg.classList.remove('hidden');
-          }
-        })
-        .catch(function () {
-          if (dv360MetricsMsg) {
-            dv360MetricsMsg.textContent = 'Erro de rede ao gravar período.';
-            dv360MetricsMsg.classList.remove('hidden', 'text-success');
-            dv360MetricsMsg.classList.add('text-error');
-          }
-        })
-        .finally(function () {
-          if (btnDv360PeriodSave && window.__dv360DetailCid) btnDv360PeriodSave.disabled = false;
-        });
-    });
-  }
-
-  if (btnDv360MetricsSave) {
-    btnDv360MetricsSave.addEventListener('click', function () {
-      var cid = window.__dv360DetailCid;
-      if (!cid || btnDv360MetricsSave.disabled) return;
-      var pending = window.__dv360MetricsPending;
-      if (!pending || typeof pending !== 'object') {
-        if (dv360MetricsMsg) {
-          dv360MetricsMsg.textContent =
-            'Primeiro clique em «Atualizar do DV360» para carregar as métricas da API.';
-          dv360MetricsMsg.classList.remove('hidden', 'text-success');
-          dv360MetricsMsg.classList.add('text-error');
-        }
-        return;
-      }
-      if (dv360MetricsMsg) {
-        dv360MetricsMsg.classList.add('hidden');
-        dv360MetricsMsg.textContent = '';
-        dv360MetricsMsg.classList.remove('text-success', 'text-error');
-      }
-      btnDv360MetricsSave.disabled = true;
-      var saveUrl = URL_METRICS_SAVE_TMPL.replace('__CID__', encodeURIComponent(String(cid)));
-      jsonFetch(saveUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ metrics: pending }),
-      })
-        .then(function (res) {
-          if (res.status === 409 && res.body && res.body.missing_mapping) {
-            if (dv360MetricsMsg) {
-              dv360MetricsMsg.textContent =
-                (res.body.error && String(res.body.error)) || 'Mapeamento em falta.';
-              dv360MetricsMsg.classList.remove('hidden', 'text-success');
-              dv360MetricsMsg.classList.add('text-error');
-            }
-            return;
-          }
-          if (!res.ok || !res.body || !res.body.success) {
-            if (dv360MetricsMsg) {
-              dv360MetricsMsg.textContent =
-                res.body && res.body.error
-                  ? String(res.body.error)
-                  : 'Guardar falhou (HTTP ' + res.status + ').';
-              dv360MetricsMsg.classList.remove('hidden', 'text-success');
-              dv360MetricsMsg.classList.add('text-error');
-            }
-            return;
-          }
-          if (dv360MetricsMsg) {
-            dv360MetricsMsg.textContent = 'Métricas gravadas em dv360_campaigns.';
-            dv360MetricsMsg.classList.remove('hidden', 'text-error');
-            dv360MetricsMsg.classList.add('text-success');
-          }
-          renderDv360CampaignMetrics(res.body.dv360_campaign_db);
-        })
-        .catch(function () {
-          if (dv360MetricsMsg) {
-            dv360MetricsMsg.textContent = 'Erro de rede ao guardar.';
-            dv360MetricsMsg.classList.remove('hidden', 'text-success');
-            dv360MetricsMsg.classList.add('text-error');
-          }
-        })
-        .finally(function () {
-          if (btnDv360MetricsSave) {
-            btnDv360MetricsSave.disabled = !window.__dv360MetricsPending;
-          }
-        });
-  });
-  }
-
-  if (btnDv360IoGotoAcomp) {
-    btnDv360IoGotoAcomp.addEventListener('click', function () {
-      setActiveTab(3);
-      if (!acompDv360LoadedOnce) {
-        acompDv360LoadedOnce = true;
-        loadAcompanhamentoPiDv360();
-      }
-    });
-  }
-
-  advSelectDv.addEventListener('change', function () {
-    lastAdvertiserSource = 'dv';
-    hideGlobal();
-    resetCampaignsView();
-    refreshAdvertiserSourceHint();
-  });
-  advSelectApi.addEventListener('change', function () {
-    lastAdvertiserSource = 'api';
-    hideGlobal();
-    resetCampaignsView();
-    refreshAdvertiserSourceHint();
-  });
-
-  if (campaignStatusFilterEl) {
-    campaignStatusFilterEl.addEventListener('change', function () {
-      var advId = selectedAdvertiserId();
-      if (!advId) {
-        clearFilterSummary();
-        return;
-      }
-      loadCampaigns();
-    });
-  }
-
-  if (btnAddDvMapping) btnAddDvMapping.addEventListener('click', openModalDvMapping);
-  if (btnModalDvCancel) btnModalDvCancel.addEventListener('click', closeModalDvMapping);
-  if (modalDvMapping) {
-    modalDvMapping.addEventListener('close', function () {
-      clearModalDvMappingMsg();
-      if (inpModalAdv) inpModalAdv.value = '';
-    });
-  }
-  if (formDvMapping) {
-    formDvMapping.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      clearModalDvMappingMsg();
-      var cidStr = (selModalCliente && selModalCliente.value ? selModalCliente.value : '').trim();
-      var advRaw = (inpModalAdv && inpModalAdv.value ? inpModalAdv.value : '').trim();
-      var clienteId = parseInt(cidStr, 10);
-      if (!cidStr || !advRaw) {
-        showModalDvMappingMsg('Preencha cliente e dv_anunciante_id.', 'err');
-        return;
-      }
-      if (isNaN(clienteId)) {
-        showModalDvMappingMsg('Cliente inválido.', 'err');
-        return;
-      }
-      if (btnModalDvSave) btnModalDvSave.disabled = true;
-      jsonFetch(URL_CLIENT_MAPPINGS_POST, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ cliente_id: clienteId, dv_anunciante_id: advRaw }),
-      })
-        .then(function (res) {
-          if (res.status === 409) {
-            showModalDvMappingMsg(
-              (res.body && res.body.error) ||
-                'Este dv_anunciante_id já está em uso noutro mapeamento.',
-              'err'
-            );
-            return;
-          }
-          if (res.status === 403) {
-            showModalDvMappingMsg((res.body && res.body.error) || 'Acesso negado para este cliente.', 'err');
-            return;
-          }
-          if (res.status === 400) {
-            showModalDvMappingMsg((res.body && res.body.error) || 'Dados inválidos.', 'err');
-            return;
-          }
-          if (res.status === 201 && res.body && res.body.success) {
-            var newAdv =
-              res.body.data && res.body.data.dv_anunciante_id != null
-                ? String(res.body.data.dv_anunciante_id).trim()
-                : advRaw;
-            showModalDvMappingMsg('Mapeamento criado com sucesso.', 'ok');
-            loadDvClientMappings()
-              .then(function () {
-                if (newAdv && advSelectDv) {
-                  advSelectDv.value = newAdv;
-                  lastAdvertiserSource = 'dv';
-                  refreshAdvertiserSourceHint();
-                  resetCampaignsView();
-                }
-              })
-              .catch(function () {
-                showGlobal('Mapeamento criado, mas falhou ao atualizar a lista. Recarregue a página ou abra de novo o select.', 'info');
-              });
-            setTimeout(closeModalDvMapping, 900);
-            return;
-          }
-          showModalDvMappingMsg((res.body && res.body.error) || 'Pedido falhou (HTTP ' + res.status + ').', 'err');
-        })
-        .catch(function () {
-          showModalDvMappingMsg('Erro de rede ao guardar.', 'err');
-        })
-        .finally(function () {
-          if (btnModalDvSave) btnModalDvSave.disabled = false;
-        });
-    });
-  }
-
-  if (selPiCampanha) {
-    selPiCampanha.addEventListener('change', function () {
-      var opt = selPiCampanha.selectedOptions && selPiCampanha.selectedOptions[0];
-      var v = opt ? opt.getAttribute('data-campaigns-id') : '';
-      if (inpPiIdApi && v != null) inpPiIdApi.value = v || '';
-    });
-  }
-  if (btnModalPiCancel) btnModalPiCancel.addEventListener('click', closeModalPiIdApi);
-  if (modalPiIdApi) {
-    modalPiIdApi.addEventListener('close', function () {
-      clearModalPiIdApiMsg();
-      if (inpPiIdApi) inpPiIdApi.value = '';
-    });
-  }
-  if (btnModalPiIdApi) btnModalPiIdApi.addEventListener('click', openModalPiIdApi);
-  if (formPiIdApi) {
-    formPiIdApi.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      clearModalPiIdApiMsg();
-      var idCampStr = (selPiCampanha && selPiCampanha.value ? selPiCampanha.value : '').trim();
-      var idCamp = parseInt(idCampStr, 10);
-      if (!idCampStr || isNaN(idCamp)) {
-        showModalPiIdApiMsg('Seleccione uma campanha PI.', 'err');
-        return;
-      }
-      var rawApi = inpPiIdApi ? (inpPiIdApi.value || '').trim() : '';
-      if (rawApi.length > 512) {
-        showModalPiIdApiMsg('campaigns_id demasiado longo (máx. 512).', 'err');
-        return;
-      }
-      if (btnModalPiSave) btnModalPiSave.disabled = true;
-      jsonFetch(URL_CAMPANHA_PI_ID_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ id_campanha: idCamp, campaigns_id: rawApi }),
-      })
-        .then(function (res) {
-          if (res.status === 409) {
-            showModalPiIdApiMsg(
-              (res.body && res.body.error) ||
-                'Este campaigns_id já está em uso noutro mapeamento.',
-              'err'
-            );
-            return;
-          }
-          if (res.status === 403) {
-            showModalPiIdApiMsg((res.body && res.body.error) || 'Acesso negado.', 'err');
-            return;
-          }
-          if (res.status === 404) {
-            showModalPiIdApiMsg((res.body && res.body.error) || 'Campanha PI não encontrada.', 'err');
-            return;
-          }
-          if (res.status === 400) {
-            showModalPiIdApiMsg((res.body && res.body.error) || 'Dados inválidos.', 'err');
-            return;
-          }
-          if (res.ok && res.body && res.body.success) {
-            var savedApi =
-              res.body.data && res.body.data.campaigns_id != null
-                ? String(res.body.data.campaigns_id)
-                : '';
-            showModalPiIdApiMsg('campaigns_id gravado com sucesso.', 'ok');
-            showCampaignPiIdApiNote(
-              'Campanha PI #' +
-                idCamp +
-                ': campaigns_id ' +
-                (savedApi ? '"' + savedApi + '" gravado.' : 'removido.')
-            );
-            if (typeof loadAcompanhamentoPiDv360 === 'function') {
-              loadAcompanhamentoPiDv360();
-            }
-            setTimeout(closeModalPiIdApi, 650);
-            return;
-          }
-          showModalPiIdApiMsg((res.body && res.body.error) || 'Pedido falhou (HTTP ' + res.status + ').', 'err');
-        })
-        .catch(function () {
-          showModalPiIdApiMsg('Erro de rede ao guardar.', 'err');
-        })
-        .finally(function () {
-          if (btnModalPiSave) btnModalPiSave.disabled = false;
-        });
-    });
-  }
-
-  btnLoad.addEventListener('click', loadCampaigns);
-  setActiveTab(0);
-  loadDvClientMappings();
-  loadPartnerAdvertisers();
-  if (URL_AUDIT_VIEW) {
-    jsonFetch(URL_AUDIT_VIEW, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ resource: 'testes_dv', resource_key: 'page' }),
-    }).catch(function () {});
-  }
-})();
-</script>
+{% include 'partials/testes_dv360_config.html' %}
+<script src="{{ url_for('static', filename='js/testes-dv360.js') }}?v=1"></script>
 {% endblock %}

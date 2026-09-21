@@ -131,6 +131,16 @@ LEGACY_DAISY_EXCLUDED_ENDPOINTS = frozenset({
     "incentivos_lista",
     "plataformas_campanha",
     "parametros.treinamentos",
+    "parametros.integracoes",
+    "intelligence.index",
+    "intelligence.view",
+    "parametros.lista_old_kpi",
+    "parametros.monitoramento_servidor",
+    "cadu_pi_com_vendas_lista",
+    "brevo_test.formulario_teste_brevo",
+    "brevo_test.teste_cadu_growth_emails",
+    "parametros.testes_dv",
+    "parametros.testes_dv_legado",
 })
 
 

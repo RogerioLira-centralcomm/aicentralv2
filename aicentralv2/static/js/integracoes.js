@@ -5,6 +5,11 @@
   if (!root) return;
   var apiBase = '/parametros/api/integrations';
   var feedback = root.querySelector('[data-integration-feedback]');
+  var confirmDialog = document.getElementById('integrationConfirmModal');
+  var confirmAccept = confirmDialog ? confirmDialog.querySelector('[data-integration-confirm-accept]') : null;
+  var confirmCancel = confirmDialog ? confirmDialog.querySelector('[data-integration-confirm-cancel]') : null;
+  var confirmClose = confirmDialog ? confirmDialog.querySelector('[data-integration-confirm-close]') : null;
+  var pendingConfirm = null;
 
   function request(path, options) {
     options = options || {};
@@ -24,12 +29,18 @@
   }
 
   function notify(message, error) {
+    if (!feedback) return;
     feedback.hidden = false;
     feedback.textContent = message;
-    feedback.classList.toggle('is-error', Boolean(error));
+    feedback.className = 'cx-alert ' + (error ? 'cx-alert-danger' : 'cx-alert-success');
     if (typeof window.showToast === 'function') {
       window.showToast(message, error ? 'error' : 'success');
     }
+  }
+
+  function setStatusBadge(node, configured) {
+    node.textContent = configured ? 'Configurado' : 'Configuração pendente';
+    node.className = 'cx-badge ' + (configured ? 'cx-badge-success' : 'cx-badge-warning');
   }
 
   function renderSummary(summary) {
@@ -43,9 +54,7 @@
       form.elements.ambiente.value = 'producao';
     }
     var status = form.querySelector('[data-integration-status]');
-    status.textContent = summary.configured ? 'Configurado' : 'Configuração pendente';
-    status.classList.toggle('is-ready', summary.configured);
-    status.classList.toggle('is-missing', !summary.configured);
+    if (status) setStatusBadge(status, summary.configured);
     var secretState = form.querySelector('[data-secret-state]');
     if (secretState) {
       secretState.textContent = summary.unreadable_secret
@@ -99,6 +108,39 @@
     });
   }
 
+  function closeConfirm() {
+    pendingConfirm = null;
+    if (confirmDialog && confirmDialog.open) confirmDialog.close();
+  }
+
+  function showRemoveConfirm(onConfirm) {
+    if (!confirmDialog || typeof confirmDialog.showModal !== 'function') {
+      if (typeof window.showConfirm === 'function') {
+        window.showConfirm({
+          title: 'Remover credencial',
+          message: 'A integração voltará a usar apenas a configuração do ambiente, quando disponível.',
+          theme: 'danger',
+          confirmText: 'Remover',
+          onConfirm: onConfirm
+        });
+      }
+      return;
+    }
+    pendingConfirm = onConfirm;
+    confirmDialog.showModal();
+  }
+
+  if (confirmDialog && confirmAccept && confirmCancel) {
+    confirmAccept.addEventListener('click', function () {
+      var action = pendingConfirm;
+      closeConfirm();
+      if (typeof action === 'function') action();
+    });
+    confirmCancel.addEventListener('click', closeConfirm);
+    if (confirmClose) confirmClose.addEventListener('click', closeConfirm);
+    confirmDialog.addEventListener('cancel', closeConfirm);
+  }
+
   root.querySelectorAll('[data-integration-form]').forEach(function (form) {
     var provider = form.dataset.integrationForm;
     form.addEventListener('submit', function (event) {
@@ -142,22 +184,16 @@
     });
 
     form.querySelector('[data-integration-action="remove"]').addEventListener('click', function () {
-      window.showConfirm({
-        title: 'Remover credencial',
-        message: 'A integração voltará a usar apenas a configuração do ambiente, quando disponível.',
-        theme: 'danger',
-        confirmText: 'Remover',
-        onConfirm: function () {
-          request('/' + encodeURIComponent(provider), { method: 'DELETE' })
-            .then(function () {
-              Array.prototype.forEach.call(form.elements, function (element) {
-                if (element.tagName === 'INPUT') element.value = '';
-              });
-              notify('Credencial removida do banco.');
-              load();
-            })
-            .catch(function (error) { notify(error.message, true); });
-        }
+      showRemoveConfirm(function () {
+        request('/' + encodeURIComponent(provider), { method: 'DELETE' })
+          .then(function () {
+            Array.prototype.forEach.call(form.elements, function (element) {
+              if (element.tagName === 'INPUT') element.value = '';
+            });
+            notify('Credencial removida do banco.');
+            load();
+          })
+          .catch(function (error) { notify(error.message, true); });
       });
     });
   });

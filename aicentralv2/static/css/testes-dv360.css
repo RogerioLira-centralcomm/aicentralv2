@@ -1,0 +1,11 @@
+/* Testes DV360 — layout (Design System Enterprise) */
+/* Ocupa a linha no flex para não cortar o texto dos selects com um max-width artificial. */
+  #adv-select-dv,
+  #adv-select-api {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+  .dv360-tab-panel {
+    outline: none;
+  }

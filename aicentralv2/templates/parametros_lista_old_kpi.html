@@ -1,4 +1,5 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
@@ -7,78 +8,79 @@
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-3 pb-6">
+<div class="w-full px-2 sm:px-4 pb-6">
 
-  <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
-    <div class="flex items-center gap-3 flex-wrap">
-      <h1 class="text-sm font-semibold text-gray-800 mr-1">Lista Campanhas (OLD KPI)</h1>
-      <div class="relative">
-        <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-        <select id="filtroMesRef" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 170px;">
-          <option value="" {% if not filtros.get('mes_ref_comp') %}selected{% endif %}>Todos os meses</option>
-          {% for m in meses_ref %}
-            {% set mp = (m|string).split('/') %}
-            <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>
-              {% if mp|length >= 2 %}{{ nomes_meses.get(mp[0], mp[0]) }}/{{ mp[1] }}{% else %}{{ m }}{% endif %}
-            </option>
-          {% endfor %}
-        </select>
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40 erp-content-sticky">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-3 flex-wrap min-w-0">
+        <h1 class="text-lg font-semibold text-gray-800 shrink-0">KPIs (legado)</h1>
+        <span class="text-xs text-gray-500 shrink-0">
+          (<span id="totalVisivel">{{ campanhas|length if campanhas else 0 }}</span> campanha{{ 's' if (campanhas|length if campanhas else 0) != 1 }})
+        </span>
       </div>
-      <div class="relative">
-        <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-        <input type="text" id="searchInput" placeholder="Buscar campanha, cliente, PI..."
-               class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 220px;">
+      <div class="flex items-end gap-3 flex-wrap">
+        <div class="cx-field" style="min-width: 170px;">
+          <label class="cx-label" for="filtroMesRef">Mês de referência</label>
+          <select id="filtroMesRef" onchange="aplicarFiltros()" class="cx-select cx-select-sm w-full">
+            <option value="" {% if not filtros.get('mes_ref_comp') %}selected{% endif %}>Todos os meses</option>
+            {% for m in meses_ref %}
+              {% set mp = (m|string).split('/') %}
+              <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>
+                {% if mp|length >= 2 %}{{ nomes_meses.get(mp[0], mp[0]) }}/{{ mp[1] }}{% else %}{{ m }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="cx-field" style="min-width: 220px;">
+          <label class="cx-label" for="searchInput">Buscar</label>
+          <div class="cx-drawer-input-wrap">
+            <i class="fa-solid fa-search cx-drawer-input-icon" aria-hidden="true"></i>
+            <input type="text" id="searchInput" placeholder="Campanha, cliente, PI..."
+                   class="cx-input cx-input-sm w-full">
+          </div>
+        </div>
+        <div class="cx-field">
+          <span class="cx-label invisible" aria-hidden="true">&nbsp;</span>
+          <a href="{{ url_for('parametros.lista_old_kpi_export', **filtros) }}"
+             class="cx-btn cx-btn-sm cx-btn-success inline-flex items-center gap-1.5">
+            <i class="fas fa-file-excel text-xs" aria-hidden="true"></i> Exportar Excel
+          </a>
+        </div>
       </div>
-      <a href="{{ url_for('parametros.lista_old_kpi_export', **filtros) }}"
-         class="text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg px-4 py-1.5 transition-colors shadow-sm flex items-center gap-1.5">
-        <i class="fas fa-file-excel text-xs"></i> Exportar Excel
-      </a>
-    </div>
-    <div class="text-sm text-gray-500">
-      <span id="totalVisivel">{{ campanhas|length if campanhas else 0 }}</span> campanha{{ 's' if (campanhas|length if campanhas else 0) != 1 }}
     </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-4 space-y-2">
-        {% for category, message in messages %}
-          <div class="p-3 rounded-lg text-sm
-            {%- if category == 'success' %} bg-green-100 text-green-800
-            {%- elif category == 'error' %} bg-red-100 text-red-800
-            {%- else %} bg-gray-100 text-gray-800
-            {%- endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
+      <div class="mb-4">
+        {{ flash_messages(messages) }}
       </div>
     {% endif %}
   {% endwith %}
 
   {% if campanhas and campanhas|length > 0 %}
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm" id="tabelaCampanhasOldKpi">
+  <div class="cx-table-wrap bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <div class="cx-table-scroll overflow-x-auto">
+      <table class="cx-table cx-table-dense" id="tabelaCampanhasOldKpi">
         <thead>
-          <tr class="bg-gray-50 border-b border-gray-200">
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">PI</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Período</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Campanha</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Agência</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Praça</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Formato</th>
-            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">KPI</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-700 uppercase tracking-wider bg-emerald-50/60">Volume - Meta</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-700 uppercase tracking-wider bg-emerald-50/60">Volume - Atingido</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-800 uppercase tracking-wider bg-emerald-50">Volume usado (KPI)</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-800 uppercase tracking-wider bg-emerald-50">Investimento mídia (KPI)</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">ValorKPI</th>
-            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Status PI</th>
+          <tr>
+            <th class="text-left whitespace-nowrap">PI</th>
+            <th class="text-left whitespace-nowrap">Período</th>
+            <th class="text-left whitespace-nowrap">Campanha</th>
+            <th class="text-left whitespace-nowrap">Cliente</th>
+            <th class="text-left whitespace-nowrap">Agência</th>
+            <th class="text-left whitespace-nowrap">Praça</th>
+            <th class="text-left whitespace-nowrap">Formato</th>
+            <th class="text-center whitespace-nowrap">KPI</th>
+            <th class="text-right whitespace-nowrap text-emerald-700 bg-emerald-50/60">Volume - Meta</th>
+            <th class="text-right whitespace-nowrap text-emerald-700 bg-emerald-50/60">Volume - Atingido</th>
+            <th class="text-right whitespace-nowrap text-emerald-800 bg-emerald-50">Volume usado (KPI)</th>
+            <th class="text-right whitespace-nowrap text-emerald-800 bg-emerald-50">Investimento mídia (KPI)</th>
+            <th class="text-right whitespace-nowrap">ValorKPI</th>
+            <th class="text-center whitespace-nowrap">Status PI</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
+        <tbody id="campanhasTableBody">
           {% for c in campanhas %}
             {% set meta_val = c.obj_contratados|parse_volume_campanha %}
             {% set ating_val = c.totalizador_atingido|parse_volume_campanha %}
@@ -86,65 +88,65 @@
             {% set inv_kpi_val = c.investimento_kpi_brl %}
             {% set status_pi = c.sub_status_pi_nome or c.status_pi_nome or '—' %}
             {% set mp = ((c.mes_ref_comp or '')|string).split('/') %}
-          <tr class="hover:bg-gray-50 data-row"
+          <tr class="data-row"
               data-search="{{ (c.codigo_pi or '') ~ ' ' ~ (c.mes_ref_comp or '') ~ ' ' ~ (c.nome_campanha or '') ~ ' ' ~ (c.cliente_nome or '') ~ ' ' ~ (c.agencia_nome or '') ~ ' ' ~ (c.praca or '') ~ ' ' ~ (c.formato or '') ~ ' ' ~ (c.kpi_nome or '') ~ ' ' ~ status_pi }}">
-            <td class="py-2 px-3 align-top whitespace-nowrap">
+            <td class="align-top whitespace-nowrap">
               <div class="text-xs font-bold text-indigo-600">{{ c.codigo_pi or '—' }}</div>
             </td>
-            <td class="py-2 px-3 align-top whitespace-nowrap text-xs text-gray-600">
+            <td class="align-top whitespace-nowrap text-xs text-gray-600">
               {% if c.mes_ref_comp %}
                 {% if mp|length >= 2 %}{{ nomes_meses.get(mp[0], mp[0]) }}/{{ mp[1] }}{% else %}{{ c.mes_ref_comp }}{% endif %}
               {% else %}
                 <span class="text-gray-400">—</span>
               {% endif %}
             </td>
-            <td class="py-2 px-3 align-top max-w-[200px]">
+            <td class="align-top max-w-[200px]">
               <div class="text-xs font-semibold text-gray-800 truncate" title="{{ c.nome_campanha or '' }}">{{ c.nome_campanha or '—' }}</div>
             </td>
-            <td class="py-2 px-3 align-top max-w-[160px]">
+            <td class="align-top max-w-[160px]">
               <div class="text-xs text-gray-700 truncate" title="{{ c.cliente_nome or '' }}">{{ c.cliente_nome or '—' }}</div>
             </td>
-            <td class="py-2 px-3 align-top max-w-[140px]">
+            <td class="align-top max-w-[140px]">
               <div class="text-xs text-gray-600 truncate" title="{{ c.agencia_nome or '' }}">{{ c.agencia_nome or '—' }}</div>
             </td>
-            <td class="py-2 px-3 align-top max-w-[120px]">
+            <td class="align-top max-w-[120px]">
               <div class="text-xs text-gray-600 truncate" title="{{ c.praca or '' }}">{{ c.praca or '—' }}</div>
             </td>
-            <td class="py-2 px-3 align-top max-w-[120px]">
+            <td class="align-top max-w-[120px]">
               <div class="text-xs text-gray-600 truncate" title="{{ c.formato or '' }}">{{ c.formato or '—' }}</div>
             </td>
-            <td class="py-2 px-3 text-center align-top whitespace-nowrap">
-              <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700">{{ c.kpi_nome or c.objetivo_nome or '—' }}</span>
+            <td class="text-center align-top whitespace-nowrap">
+              <span class="cx-badge cx-badge-info">{{ c.kpi_nome or c.objetivo_nome or '—' }}</span>
             </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800 bg-emerald-50/30">
+            <td class="text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800 bg-emerald-50/30">
               {% if meta_val > 0 %}
                 {{ '{:,.0f}'.format(meta_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
               {% else %}
                 <span class="text-gray-400">—</span>
               {% endif %}
             </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800 bg-emerald-50/30">
+            <td class="text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800 bg-emerald-50/30">
               {% if ating_val > 0 %}
                 {{ '{:,.0f}'.format(ating_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
               {% else %}
                 <span class="text-gray-400">—</span>
               {% endif %}
             </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-bold text-emerald-900 bg-emerald-50/50">
+            <td class="text-right align-top whitespace-nowrap text-xs font-bold text-emerald-900 bg-emerald-50/50">
               {% if vol_kpi_val > 0 %}
                 {{ '{:,.0f}'.format(vol_kpi_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
               {% else %}
                 <span class="text-gray-400">—</span>
               {% endif %}
             </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-bold text-emerald-900 bg-emerald-50/50">
+            <td class="text-right align-top whitespace-nowrap text-xs font-bold text-emerald-900 bg-emerald-50/50">
               {% if inv_kpi_val and inv_kpi_val > 0 %}
                 {{ inv_kpi_val|format_brl }}
               {% else %}
                 <span class="text-gray-400">—</span>
               {% endif %}
             </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800">
+            <td class="text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800">
               {% if c.preco_metrica_brl is not none %}
                 {% set kpi_ref = c.objetivo_nome or c.kpi_nome %}
                 {% set sigla_kpi = sigla_metrica_preco(kpi_ref, c.preco_metrica_modalidade) %}
@@ -158,7 +160,7 @@
                 <span class="text-gray-400">—</span>
               {% endif %}
             </td>
-            <td class="py-2 px-3 text-center align-top whitespace-nowrap">
+            <td class="text-center align-top whitespace-nowrap">
               <span class="text-[10px] font-medium text-gray-700">{{ status_pi }}</span>
             </td>
           </tr>
@@ -209,8 +211,8 @@
     </div>
   </div>
   {% else %}
-  <div class="bg-white border border-gray-200 rounded-xl p-8 text-center">
-    <i class="fas fa-bullhorn text-3xl text-gray-300 mb-3"></i>
+  <div class="bg-white border border-slate-200 rounded-xl p-8 text-center">
+    <i class="fas fa-bullhorn text-3xl text-gray-300 mb-3" aria-hidden="true"></i>
     <p class="text-gray-600 text-sm">Nenhuma campanha encontrada{% if filtros.get('mes_ref_comp') %} para o período selecionado{% endif %}.</p>
   </div>
   {% endif %}

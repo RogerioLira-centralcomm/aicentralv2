@@ -5,41 +5,122 @@
 {% block page_subtitle %}Saúde do ambiente CentralX{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/server-monitor.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/server-monitor.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
 <main class="server-monitor" data-server-monitor data-api-url="{{ url_for('parametros.api_server_monitor') }}">
-  <header class="monitor-head">
+  <header class="server-monitor-head">
     <div>
-      <a class="monitor-back" href="{{ url_for('parametros.integracoes') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Parâmetros</a>
-      <div class="monitor-title-line"><span class="monitor-pulse" aria-hidden="true"></span><h1>Centro de operações</h1></div>
+      <a href="{{ url_for('parametros.integracoes') }}" class="cx-btn cx-btn-ghost cx-btn-sm">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Parâmetros
+      </a>
+      <div class="server-monitor-title-line">
+        <span class="server-monitor-pulse" aria-hidden="true"></span>
+        <h1>Centro de operações</h1>
+      </div>
       <p>Uma leitura única da infraestrutura que mantém o CentralX disponível.</p>
     </div>
-    <div class="monitor-head-actions">
-      <span class="monitor-updated" data-monitor-updated>Atualizando dados…</span>
-      <button class="cx-btn cx-btn-primary" type="button" data-monitor-refresh><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Atualizar agora</button>
+    <div class="server-monitor-head-actions">
+      <span class="server-monitor-updated" data-monitor-updated>Atualizando dados…</span>
+      <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-monitor-refresh>
+        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Atualizar agora
+      </button>
     </div>
   </header>
 
-  <section class="monitor-command" aria-label="Estado do ambiente">
-    <div class="monitor-command-status"><span class="monitor-status-dot" data-server-dot></span><div><span>Ambiente de produção</span><strong data-server-status>Carregando status</strong></div></div>
-    <dl><div><dt>Servidor</dt><dd data-server-name>—</dd></div><div><dt>Disponível há</dt><dd data-server-uptime>—</dd></div><div><dt>Sistema</dt><dd data-server-platform>—</dd></div></dl>
-  </section>
-
-  <section class="monitor-section">
-    <div class="monitor-section-title"><div><h2>Capacidade do ambiente</h2><p>O limite de atenção começa em 80%; a intervenção, em 85%.</p></div><span>Atualização em tempo real</span></div>
-    <div class="resource-grid">
-      <article class="resource-card"><div class="resource-icon is-cpu"><i class="fa-solid fa-microchip" aria-hidden="true"></i></div><div class="resource-copy"><span>Processamento</span><strong data-resource-cpu>—</strong><small data-resource-cpu-detail>—</small></div><div class="resource-meter"><i data-resource-cpu-bar></i></div></article>
-      <article class="resource-card"><div class="resource-icon is-memory"><i class="fa-solid fa-memory" aria-hidden="true"></i></div><div class="resource-copy"><span>Memória</span><strong data-resource-memory>—</strong><small data-resource-memory-detail>—</small></div><div class="resource-meter"><i data-resource-memory-bar></i></div></article>
-      <article class="resource-card"><div class="resource-icon is-disk"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i></div><div class="resource-copy"><span>Espaço em disco</span><strong data-resource-disk>—</strong><small data-resource-disk-detail>—</small></div><div class="resource-meter"><i data-resource-disk-bar></i></div></article>
+  <section class="cx-section server-monitor-hero" aria-label="Estado do ambiente">
+    <div class="server-monitor-hero-body">
+      <div class="server-monitor-hero-status">
+        <span class="server-monitor-status-dot" data-server-dot aria-hidden="true"></span>
+        <div>
+          <span class="cx-stat-label">Ambiente de produção</span>
+          <strong class="server-monitor-status-text" data-server-status>Carregando status</strong>
+        </div>
+      </div>
+      <dl class="server-monitor-meta">
+        <div>
+          <dt class="cx-stat-label">Servidor</dt>
+          <dd class="cx-stat-value text-base" data-server-name>—</dd>
+        </div>
+        <div>
+          <dt class="cx-stat-label">Disponível há</dt>
+          <dd class="cx-stat-value text-base" data-server-uptime>—</dd>
+        </div>
+        <div>
+          <dt class="cx-stat-label">Sistema</dt>
+          <dd class="cx-stat-value text-base" data-server-platform>—</dd>
+        </div>
+      </dl>
     </div>
   </section>
 
-  <div class="monitor-columns">
-    <section class="monitor-panel monitor-domains"><header><div><h2>Domínios conectados</h2><p>DNS e TLS validados a cada atualização.</p></div><span class="monitor-counter" data-domain-count>0 domínios</span></header><div class="domain-list" data-domain-list></div><footer>Produtos CentralComm são carregados da configuração do ambiente. Para incluir serviços extras, use <code>CENTRALX_MONITOR_DOMAINS</code>.</footer></section>
-    <section class="monitor-panel monitor-alerts"><header><div><h2>Sinais que pedem atenção</h2><p>O que precisa de ação antes de impactar pessoas.</p></div></header><div class="alert-list" data-alert-list></div></section>
+  <section class="cx-section server-monitor-capacity">
+    <header class="cx-section-header">
+      <div>
+        <h2 class="cx-section-title">Capacidade do ambiente</h2>
+        <p class="cx-section-description">O limite de atenção começa em 80%; a intervenção, em 85%.</p>
+      </div>
+      <span class="cx-badge cx-badge-muted">Atualização em tempo real</span>
+    </header>
+    <div class="cx-section-body">
+      <div class="server-monitor-resource-grid">
+        <article class="cx-section server-monitor-resource-card">
+          <div class="cx-section-body">
+            <div class="resource-icon is-cpu"><i class="fa-solid fa-microchip" aria-hidden="true"></i></div>
+            <p class="cx-stat-label">Processamento</p>
+            <p class="cx-stat-value" data-resource-cpu>—</p>
+            <p class="cx-help" data-resource-cpu-detail>—</p>
+            <progress class="cx-progress cx-progress-success" data-resource-cpu-bar value="0" max="100" aria-label="Uso de CPU"></progress>
+          </div>
+        </article>
+        <article class="cx-section server-monitor-resource-card">
+          <div class="cx-section-body">
+            <div class="resource-icon is-memory"><i class="fa-solid fa-memory" aria-hidden="true"></i></div>
+            <p class="cx-stat-label">Memória</p>
+            <p class="cx-stat-value" data-resource-memory>—</p>
+            <p class="cx-help" data-resource-memory-detail>—</p>
+            <progress class="cx-progress cx-progress-success" data-resource-memory-bar value="0" max="100" aria-label="Uso de memória"></progress>
+          </div>
+        </article>
+        <article class="cx-section server-monitor-resource-card">
+          <div class="cx-section-body">
+            <div class="resource-icon is-disk"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i></div>
+            <p class="cx-stat-label">Espaço em disco</p>
+            <p class="cx-stat-value" data-resource-disk>—</p>
+            <p class="cx-help" data-resource-disk-detail>—</p>
+            <progress class="cx-progress cx-progress-success" data-resource-disk-bar value="0" max="100" aria-label="Uso de disco"></progress>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <div class="server-monitor-columns">
+    <section class="cx-section">
+      <header class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Domínios conectados</h2>
+          <p class="cx-section-description">DNS e TLS validados a cada atualização.</p>
+        </div>
+        <span class="cx-badge cx-badge-muted" data-domain-count>0 domínios</span>
+      </header>
+      <div class="cx-section-body server-monitor-domain-list" data-domain-list></div>
+      <footer class="server-monitor-domain-footer">
+        Produtos CentralComm são carregados da configuração do ambiente. Para incluir serviços extras, use <code>CENTRALX_MONITOR_DOMAINS</code>.
+      </footer>
+    </section>
+
+    <section class="cx-section">
+      <header class="cx-section-header">
+        <div>
+          <h2 class="cx-section-title">Sinais que pedem atenção</h2>
+          <p class="cx-section-description">O que precisa de ação antes de impactar pessoas.</p>
+        </div>
+      </header>
+      <div class="cx-section-body server-monitor-alert-list" data-alert-list></div>
+    </section>
   </div>
 </main>
-<script src="{{ url_for('static', filename='js/server-monitor.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/server-monitor.js') }}?v=2" defer></script>
 {% endblock %}

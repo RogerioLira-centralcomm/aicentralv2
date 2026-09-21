@@ -1,11 +1,44 @@
 {% extends 'base_erp.html' %}
 
+{% macro cx_text_field(name, label, type='text', wide=false, optional=false, placeholder='', value='', readonly=false, autocomplete='off', list='') %}
+<div class="cx-field{% if wide %} is-wide{% endif %}">
+  <label class="cx-label-row py-0">
+    <span class="cx-label text-xs">{{ label }}{% if optional %} <em class="cx-integration-optional">opcional</em>{% endif %}</span>
+  </label>
+  <input name="{{ name }}" type="{{ type }}" autocomplete="{{ autocomplete }}"
+         class="cx-input cx-input-sm w-full"
+         {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+         {% if value %}value="{{ value }}"{% endif %}
+         {% if readonly %}readonly{% endif %}
+         {% if list %}list="{{ list }}"{% endif %}>
+</div>
+{% endmacro %}
+
+{% macro cx_secret_field(name, label, placeholder, empty_label='Nenhum segredo armazenado.') %}
+<div class="cx-field{% if name in ['api_key', 'token_api'] %} is-wide{% endif %}">
+  <label class="cx-label-row py-0">
+    <span class="cx-label text-xs">{{ label }}</span>
+  </label>
+  <input name="{{ name }}" type="password" autocomplete="new-password"
+         class="cx-input cx-input-sm w-full" placeholder="{{ placeholder }}">
+  <small class="cx-help" data-secret-state>{{ empty_label }}</small>
+</div>
+{% endmacro %}
+
+{% macro integration_footer(save_label) %}
+<footer class="cx-integration-card-footer">
+  <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-integration-action="validate">Validar configuração</button>
+  <button type="button" class="cx-btn cx-btn-sm cx-btn-danger" data-integration-action="remove">Remover</button>
+  <button type="submit" class="cx-btn cx-btn-sm cx-btn-primary">{{ save_label }}</button>
+</footer>
+{% endmacro %}
+
 {% block title %}Integrações — CentralX{% endblock %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Credenciais de integrações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=7">
 {% endblock %}
 
 {% block content %}
@@ -22,7 +55,7 @@
     </div>
   </header>
 
-  <div class="cx-integrations-feedback" data-integration-feedback hidden role="status"></div>
+  <div class="cx-alert cx-alert-info" data-integration-feedback hidden role="status"></div>
 
   <section class="cx-integrations-grid" aria-label="Provedores">
     {% for provider, title, description, domain in [
@@ -30,23 +63,35 @@
       ('google_login_centralx', 'Google Login — CentralX', 'Entrada interna, restrita às contas corporativas da CentralComm.', 'centralcomm.media')
     ] %}
     <form class="cx-integration-card" data-integration-form="{{ provider }}">
-      <header><span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span><div><h2>{{ title }}</h2><p>{{ description }}</p></div><span class="cx-integration-status" data-integration-status>Carregando…</span></header>
+      <header>
+        <span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span>
+        <div><h2>{{ title }}</h2><p>{{ description }}</p></div>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
+      </header>
       <div class="cx-integration-fields">
-        <label><span>Client ID</span><input name="client_id" type="text" autocomplete="off" placeholder="000000.apps.googleusercontent.com"></label>
-        <label><span>Client secret</span><input name="client_secret" type="password" autocomplete="new-password" placeholder="Deixe vazio para manter"><small data-secret-state>Nenhum segredo armazenado.</small></label>
-        <label class="is-wide"><span>Redirect URI</span><input name="redirect_uri" type="url" value="https://auth.centralcomm.media/auth/google/callback"></label>
-        {% if domain %}<label class="is-wide"><span>Domínio permitido</span><input name="allowed_domain" placeholder="centralcomm.media" readonly></label>{% endif %}
+        {{ cx_text_field('client_id', 'Client ID', placeholder='000000.apps.googleusercontent.com') }}
+        {{ cx_secret_field('client_secret', 'Client secret', 'Deixe vazio para manter') }}
+        {{ cx_text_field('redirect_uri', 'Redirect URI', type='url', wide=true, value='https://auth.centralcomm.media/auth/google/callback', autocomplete='off') }}
+        {% if domain %}{{ cx_text_field('allowed_domain', 'Domínio permitido', wide=true, placeholder='centralcomm.media', readonly=true) }}{% endif %}
       </div>
       <aside><strong>{% if domain %}Gestão interna{% else %}Família Cadu{% endif %}</strong><span>Login usa somente identidade Google; Calendar e APIs são autorizados separadamente.</span></aside>
-      <footer><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button><button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Google</button></footer>
+      {{ integration_footer('Salvar Google') }}
     </form>
     {% endfor %}
 
     <form class="cx-integration-card" data-integration-form="google_workspace">
-      <header><span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span><div><h2>Google Workspace — dados do cliente</h2><p>Uma aplicação OAuth compartilhada para Drive, Calendar, Meet, Analytics, Search Console e Google Ads.</p></div><span class="cx-integration-status" data-integration-status>Carregando…</span></header>
-      <div class="cx-integration-fields"><label><span>Client ID</span><input name="client_id" type="text" autocomplete="off" placeholder="000000.apps.googleusercontent.com"></label><label><span>Client secret</span><input name="client_secret" type="password" autocomplete="new-password" placeholder="Deixe vazio para manter"><small data-secret-state>Nenhum segredo armazenado.</small></label><label class="is-wide"><span>Redirect URI</span><input name="redirect_uri" type="url" value="https://auth.centralcomm.media/auth/google/workspace/callback"></label></div>
+      <header>
+        <span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span>
+        <div><h2>Google Workspace — dados do cliente</h2><p>Uma aplicação OAuth compartilhada para Drive, Calendar, Meet, Analytics, Search Console e Google Ads.</p></div>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
+      </header>
+      <div class="cx-integration-fields">
+        {{ cx_text_field('client_id', 'Client ID', placeholder='000000.apps.googleusercontent.com') }}
+        {{ cx_secret_field('client_secret', 'Client secret', 'Deixe vazio para manter') }}
+        {{ cx_text_field('redirect_uri', 'Redirect URI', type='url', wide=true, value='https://auth.centralcomm.media/auth/google/workspace/callback', autocomplete='off') }}
+      </div>
       <aside><strong>Conta da organização</strong><span>O token fica criptografado por organização. A página do Workspace controla autorização, sincronização e vínculos com projetos.</span></aside>
-      <footer><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button><button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Google Workspace</button></footer>
+      {{ integration_footer('Salvar Google Workspace') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="google_calendar">
@@ -56,38 +101,18 @@
           <h2>Google Calendar e Meet</h2>
           <p>Credencial OAuth global usada para conectar a agenda de cada usuário.</p>
         </div>
-        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
-
       <div class="cx-integration-fields">
-        <label>
-          <span>Client ID</span>
-          <input name="client_id" type="text" autocomplete="off"
-                 placeholder="000000.apps.googleusercontent.com">
-        </label>
-        <label>
-          <span>Client secret</span>
-          <input name="client_secret" type="password" autocomplete="new-password"
-                 placeholder="Deixe vazio para manter o segredo atual">
-          <small data-secret-state>Nenhum segredo armazenado.</small>
-        </label>
-        <label class="is-wide">
-          <span>Redirect URI</span>
-          <input name="redirect_uri" type="url" autocomplete="off"
-                 placeholder="https://seu-dominio/perfil/google/callback">
-        </label>
+        {{ cx_text_field('client_id', 'Client ID', placeholder='000000.apps.googleusercontent.com') }}
+        {{ cx_secret_field('client_secret', 'Client secret', 'Deixe vazio para manter o segredo atual') }}
+        {{ cx_text_field('redirect_uri', 'Redirect URI', type='url', wide=true, placeholder='https://seu-dominio/perfil/google/callback', autocomplete='off') }}
       </div>
-
       <aside>
         <strong>Conta da aplicação</strong>
         <span>Depois desta configuração, cada executivo conecta sua própria conta Google em “Meu perfil”.</span>
       </aside>
-
-      <footer>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
-        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Google</button>
-      </footer>
+      {{ integration_footer('Salvar Google') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="openai">
@@ -97,38 +122,18 @@
           <h2>OpenAI</h2>
           <p>Chave direta (sk-proj). GPT e GPT Image 2 saem de api.openai.com — Smart Planner, Agente e Modelagem.</p>
         </div>
-        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
-
       <div class="cx-integration-fields">
-        <label class="is-wide">
-          <span>API key</span>
-          <input name="api_key" type="password" autocomplete="new-password"
-                 placeholder="sk-proj-… — deixe vazio para manter a chave atual">
-          <small data-secret-state>Nenhuma chave armazenada.</small>
-        </label>
-        <label>
-          <span>Modelo de texto <em>opcional</em></span>
-          <input name="default_model" type="text" autocomplete="off"
-                 placeholder="gpt-5-mini">
-        </label>
-        <label>
-          <span>Modelo de imagem</span>
-          <input name="image_model" type="text" autocomplete="off"
-                 placeholder="gpt-image-2">
-        </label>
+        {{ cx_secret_field('api_key', 'API key', 'sk-proj-… — deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+        {{ cx_text_field('default_model', 'Modelo de texto', optional=true, placeholder='gpt-5-mini') }}
+        {{ cx_text_field('image_model', 'Modelo de imagem', placeholder='gpt-image-2') }}
       </div>
-
       <aside>
         <strong>Direto, sem OpenRouter</strong>
         <span>A chave fica criptografada no PostgreSQL. Modelos da família GPT usam esta conta. Os demais provedores continuam no OpenRouter.</span>
       </aside>
-
-      <footer>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
-        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar OpenAI</button>
-      </footer>
+      {{ integration_footer('Salvar OpenAI') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="openrouter">
@@ -138,38 +143,18 @@
           <h2>OpenRouter</h2>
           <p>Chave global do Agente, da Mesa, das placas, do CRM e da página única (GPT Image 2).</p>
         </div>
-        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
-
       <div class="cx-integration-fields">
-        <label class="is-wide">
-          <span>API key</span>
-          <input name="api_key" type="password" autocomplete="new-password"
-                 placeholder="Deixe vazio para manter a chave atual">
-          <small data-secret-state>Nenhuma chave armazenada.</small>
-        </label>
-        <label class="is-wide">
-          <span>Modelo padrão <em>opcional</em></span>
-          <input name="default_model" type="text" autocomplete="off"
-                 placeholder="openai/gpt-4o-mini">
-        </label>
-        <label class="is-wide">
-          <span>Modelo de imagem</span>
-          <input name="image_model" type="text" autocomplete="off"
-                 placeholder="openai/gpt-image-2">
-        </label>
+        {{ cx_secret_field('api_key', 'API key', 'Deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+        {{ cx_text_field('default_model', 'Modelo padrão', wide=true, optional=true, placeholder='openai/gpt-4o-mini') }}
+        {{ cx_text_field('image_model', 'Modelo de imagem', wide=true, placeholder='openai/gpt-image-2') }}
       </div>
-
       <aside>
         <strong>Uma chave só</strong>
         <span>A mesa deixa de depender só do .env. Se o banco não tiver chave, o ambiente continua como reserva.</span>
       </aside>
-
-      <footer>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
-        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar OpenRouter</button>
-      </footer>
+      {{ integration_footer('Salvar OpenRouter') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="firecrawl">
@@ -179,28 +164,16 @@
           <h2>Firecrawl</h2>
           <p>Busca e scrape de referências reais — Places, Smart Planner, CRM e Modelagem.</p>
         </div>
-        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
-
       <div class="cx-integration-fields">
-        <label class="is-wide">
-          <span>API key</span>
-          <input name="api_key" type="password" autocomplete="new-password"
-                 placeholder="fc-… — deixe vazio para manter a chave atual">
-          <small data-secret-state>Nenhuma chave armazenada.</small>
-        </label>
+        {{ cx_secret_field('api_key', 'API key', 'fc-… — deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
       </div>
-
       <aside>
         <strong>Fotos e páginas reais</strong>
         <span>A chave fica criptografada no PostgreSQL. Sem ela, Places gera só com texto e o Planner cai no resumo de IA.</span>
       </aside>
-
-      <footer>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
-        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Firecrawl</button>
-      </footer>
+      {{ integration_footer('Salvar Firecrawl') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="dify">
@@ -210,32 +183,17 @@
           <h2>Dify — Conversas Cadu</h2>
           <p>Motor do chat contextual do Workspace. O perfil, o projeto e a marca seguem no payload do servidor.</p>
         </div>
-        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
-
       <div class="cx-integration-fields">
-        <label class="is-wide">
-          <span>API key</span>
-          <input name="api_key" type="password" autocomplete="new-password"
-                 placeholder="app-… — deixe vazio para manter a chave atual">
-          <small data-secret-state>Nenhuma chave armazenada.</small>
-        </label>
-        <label class="is-wide">
-          <span>URL da API</span>
-          <input name="base_url" type="url" autocomplete="off" placeholder="https://api.dify.ai/v1">
-        </label>
+        {{ cx_secret_field('api_key', 'API key', 'app-… — deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+        {{ cx_text_field('base_url', 'URL da API', type='url', wide=true, placeholder='https://api.dify.ai/v1', autocomplete='off') }}
       </div>
-
       <aside>
         <strong>Contexto protegido</strong>
         <span>A chave é criptografada no PostgreSQL. O Workspace usa esta integração e mantém o .env apenas como reserva de implantação.</span>
       </aside>
-
-      <footer>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
-        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Dify</button>
-      </footer>
+      {{ integration_footer('Salvar Dify') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="higgsfield">
@@ -245,37 +203,18 @@
           <h2>Higgsfield</h2>
           <p>Credencial global do motor de vídeo da Modelagem de Criativos.</p>
         </div>
-        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
-
       <div class="cx-integration-fields">
-        <label class="is-wide">
-          <span>API key</span>
-          <input name="api_key" type="password" autocomplete="new-password"
-                 placeholder="Deixe vazio para manter a chave atual">
-          <small data-secret-state>Nenhuma chave armazenada.</small>
-        </label>
-        <label>
-          <span>Workspace ID <em>opcional</em></span>
-          <input name="workspace_id" type="text" autocomplete="off">
-        </label>
-        <label>
-          <span>Modelo padrão <em>opcional</em></span>
-          <input name="default_model" type="text" autocomplete="off"
-                 placeholder="Definido pelo fluxo de vídeo">
-        </label>
+        {{ cx_secret_field('api_key', 'API key', 'Deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+        {{ cx_text_field('workspace_id', 'Workspace ID', optional=true) }}
+        {{ cx_text_field('default_model', 'Modelo padrão', optional=true, placeholder='Definido pelo fluxo de vídeo') }}
       </div>
-
       <aside>
         <strong>Modelagem de Criativos</strong>
         <span>A preparação de payloads continua disponível; este status informa se o provedor está pronto para execução.</span>
       </aside>
-
-      <footer>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
-        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Higgsfield</button>
-      </footer>
+      {{ integration_footer('Salvar Higgsfield') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="d4sign">
@@ -285,62 +224,70 @@
           <h2>D4Sign</h2>
           <p>Motor jurídico da mesa de assinaturas em Operação. A assinatura acontece dentro do CentralX.</p>
         </div>
-        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
-
       <div class="cx-integration-fields">
-        <label class="is-wide">
-          <span>Token API</span>
-          <input name="token_api" type="password" autocomplete="new-password"
-                 placeholder="Deixe vazio para manter o token atual">
-          <small data-secret-state>Nenhum token armazenado.</small>
-        </label>
-        <label class="is-wide">
-          <span>Crypt key</span>
+        {{ cx_secret_field('token_api', 'Token API', 'Deixe vazio para manter o token atual', 'Nenhum token armazenado.') }}
+        <div class="cx-field is-wide">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs">Crypt key</span></label>
           <input name="crypt_key" type="password" autocomplete="new-password"
-                 placeholder="Deixe vazio para manter a chave atual">
-        </label>
-        <label>
-          <span>UUID do cofre</span>
-          <input name="uuid_safe" type="text" autocomplete="off" list="d4sign-safes"
-                 placeholder="Preenchido ao validar">
-          <datalist id="d4sign-safes" data-safes-list></datalist>
-        </label>
-        <label>
-          <span>Ambiente</span>
-          <select name="ambiente">
+                 class="cx-input cx-input-sm w-full" placeholder="Deixe vazio para manter a chave atual">
+        </div>
+        {{ cx_text_field('uuid_safe', 'UUID do cofre', placeholder='Preenchido ao validar', list='d4sign-safes') }}
+        <div class="cx-field">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs">Ambiente</span></label>
+          <select name="ambiente" class="cx-select cx-select-sm w-full">
             <option value="producao">Produção</option>
             <option value="sandbox">Sandbox</option>
           </select>
-        </label>
-        <label class="is-wide">
-          <span>Webhook secret <em>gerado automaticamente</em></span>
+        </div>
+        <div class="cx-field is-wide">
+          <label class="cx-label-row py-0">
+            <span class="cx-label text-xs">Webhook secret <em class="cx-integration-optional">gerado automaticamente</em></span>
+          </label>
           <input name="webhook_secret" type="password" autocomplete="new-password"
-                 placeholder="Deixe vazio para manter o segredo atual">
-        </label>
-        <label class="is-wide">
-          <span>POSTBack da D4Sign</span>
+                 class="cx-input cx-input-sm w-full" placeholder="Deixe vazio para manter o segredo atual">
+        </div>
+        <div class="cx-field is-wide">
+          <label class="cx-label-row py-0"><span class="cx-label text-xs">POSTBack da D4Sign</span></label>
           <input type="text" readonly data-webhook-url autocomplete="off"
+                 class="cx-input cx-input-sm w-full"
                  placeholder="Validar a configuração registra esta URL no cofre">
-        </label>
+        </div>
       </div>
-
+      <datalist id="d4sign-safes" data-safes-list></datalist>
       <aside>
         <strong>Webhook do cofre</strong>
         <span>A D4Sign avisa https://ai.centralcomm.media/assinaturas/api/webhook quando alguém assina. Isso atualiza a mesa, o badge e o financeiro do PI.</span>
       </aside>
-
-      <footer>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
-        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
-        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar D4Sign</button>
-      </footer>
+      {{ integration_footer('Salvar D4Sign') }}
     </form>
   </section>
 </main>
+
+<dialog id="integrationConfirmModal" class="cx-modal-shell" aria-labelledby="integrationConfirmTitle">
+  <div class="cx-modal-panel cx-modal-panel-sm">
+    <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4">
+      <h2 id="integrationConfirmTitle" class="cx-modal-title">Remover credencial</h2>
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" data-integration-confirm-close aria-label="Fechar">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="cx-modal-content">
+      <p class="text-sm text-[var(--cx-text-muted)]">A integração voltará a usar apenas a configuração do ambiente, quando disponível.</p>
+    </div>
+    <div class="cx-modal-actions">
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-integration-confirm-cancel>Cancelar</button>
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-danger" data-integration-confirm-accept>Remover</button>
+    </div>
+  </div>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button aria-label="Fechar">close</button>
+  </form>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=7"></script>
 {% endblock %}

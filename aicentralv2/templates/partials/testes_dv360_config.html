@@ -1,0 +1,24 @@
+<script type="application/json" id="dv360-test-config">
+{
+  "urlIoForCampaignTmpl": {{ url_for('dv360.campaigns_insertion_orders_for_campaign', campaign_id='__CID__') | tojson }},
+  "urlIoSyncTmpl": {{ url_for('dv360.campaigns_insertion_orders_sync', campaign_id='__CID__') | tojson }},
+  "urlLiForCampaignTmpl": {{ url_for('dv360.campaigns_line_items_for_campaign', campaign_id='__CID__') | tojson }},
+  "urlMetricsSyncTmpl": {{ url_for('dv360.campaign_metrics_sync', campaign_id='__CID__') | tojson }},
+  "urlMetricsSaveTmpl": {{ url_for('dv360.campaign_metrics_save', campaign_id='__CID__') | tojson }},
+  "urlPeriodSaveTmpl": {{ url_for('dv360.campaign_report_period_save', campaign_id='__CID__') | tojson }},
+  "urlMetricsHistorySyncTmpl": {{ url_for('dv360.campaign_metrics_history_sync', campaign_id='__CID__') | tojson }},
+  "urlMetricsHistoryGetTmpl": {{ url_for('dv360.campaign_metrics_history_get', campaign_id='__CID__') | tojson }},
+  "urlLiSyncTmpl": {{ url_for('dv360.campaigns_line_items_sync', campaign_id='__CID__') | tojson }},
+  "urlAuditView": {{ url_for('dv360.dv360_audit_view') | tojson }},
+  "urlCampaigns": {{ url_for('dv360.campaigns') | tojson }},
+  "urlPauseTmpl": {{ url_for('dv360.campaign_pause', campaign_id='__CID__') | tojson }},
+  "urlActivateTmpl": {{ url_for('dv360.campaign_activate', campaign_id='__CID__') | tojson }},
+  "clientMappingsUrl": {% if session.get('user_type') in ('admin', 'superadmin') %}{{ url_for('dv360.client_mappings_list', all=1) | tojson }}{% else %}{{ url_for('dv360.client_mappings_list') | tojson }}{% endif %},
+  "urlClientesMapeamentoDv": {{ url_for('dv360.clientes_para_mapeamento_dv') | tojson }},
+  "urlClientMappingsPost": {{ url_for('dv360.client_mappings_create') | tojson }},
+  "urlCampanhaPiIdApi": {{ url_for('dv360.campanha_pi_id_api') | tojson }},
+  "urlAcompPiDv360": {{ url_for('dv360.campanhas_pi_acompanhamento_dv360') | tojson }},
+  "urlCampaignDetail": {{ url_for('dv360.campaign_detail', campaign_id='__CID__') | tojson }},
+  "urlAdvertisers": {{ url_for('dv360.advertisers') | tojson }}
+}
+</script>

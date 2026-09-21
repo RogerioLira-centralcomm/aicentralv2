@@ -5,57 +5,82 @@
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-5">
   <div class="max-w-xl">
-    <h1 class="text-xl font-semibold">Testar modelos de e-mail</h1>
-    <p class="text-sm text-base-content/70 mt-1">Escolha as peças. O teste real vai somente para <strong>{{ recipient }}</strong>.</p>
+    <h1 class="text-xl font-semibold text-gray-900">Testar modelos de e-mail</h1>
+    <p class="text-sm text-gray-600 mt-1">Escolha as peças. O teste real vai somente para <strong>{{ recipient }}</strong>.</p>
   </div>
 
   <form id="growth-form" method="post" class="space-y-4">
-    <fieldset class="border border-base-200 rounded-xl bg-base-100 overflow-hidden">
+    <fieldset class="border border-slate-200 rounded-xl bg-white overflow-hidden">
       <legend class="sr-only">Modelos para testar</legend>
-      <div class="px-5 pt-4 pb-3 border-b border-base-200">
+      <div class="px-5 pt-4 pb-3 border-b border-slate-200">
         <p class="font-medium text-sm">Peças</p>
-        <p class="text-sm text-base-content/60 mt-0.5">Marque apenas o que quer revisar ou enviar.</p>
+        <p class="text-sm text-gray-500 mt-0.5">Marque apenas o que quer revisar ou enviar.</p>
       </div>
-      <div class="divide-y divide-base-200">
+      <div class="divide-y divide-slate-200">
         {% for key, label in model_choices %}
-        <label class="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-base-200/40 transition-colors">
-          <input type="checkbox" name="models" value="{{ key }}" class="checkbox checkbox-sm checkbox-primary" {% if key in selected_models %}checked{% endif %}>
+        <label class="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-slate-50 transition-colors">
+          <input type="checkbox" name="models" value="{{ key }}" class="rounded border-slate-300 text-[var(--cx-primary)] focus:ring-[var(--cx-primary)]" {% if key in selected_models %}checked{% endif %}>
           <span class="text-sm font-medium">{{ label }}</span>
         </label>
         {% endfor %}
       </div>
     </fieldset>
 
-    <div id="selection-message" class="hidden text-sm text-error" role="status"></div>
+    <div id="selection-message" class="hidden cx-alert cx-alert-error text-sm" role="status"></div>
     <div class="flex flex-wrap gap-2">
-      <button type="submit" name="mode" value="preview" class="btn btn-ghost btn-sm">Gerar prévia</button>
-      <button id="open-send-confirmation" type="button" class="btn btn-primary btn-sm gap-2"><i class="fa-solid fa-paper-plane"></i>Enviar testes</button>
+      <button type="submit" name="mode" value="preview" class="cx-btn cx-btn-ghost cx-btn-sm">Gerar prévia</button>
+      <button id="open-send-confirmation" type="button" class="cx-btn cx-btn-primary cx-btn-sm gap-2"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar testes</button>
     </div>
   </form>
 
   {% if result %}
-  <section class="border border-base-200 rounded-xl bg-base-100 p-5" aria-live="polite">
+  <section class="border border-slate-200 rounded-xl bg-white p-5" aria-live="polite">
     <div class="flex flex-wrap items-start justify-between gap-2">
-      <div><h2 class="font-medium">Resultado</h2><p class="text-sm text-base-content/65 mt-1">{{ result.notice }}</p></div>
-      {% if result.success %}<span class="badge badge-success badge-sm">Concluído</span>{% else %}<span class="badge badge-error badge-sm">Revisar</span>{% endif %}
+      <div><h2 class="font-medium">Resultado</h2><p class="text-sm text-gray-500 mt-1">{{ result.notice }}</p></div>
+      {% if result.success %}<span class="cx-badge cx-badge-success">Concluído</span>{% else %}<span class="cx-badge cx-badge-error">Revisar</span>{% endif %}
     </div>
     {% if result.results %}
-    <div class="overflow-x-auto mt-4"><table class="table table-sm"><thead><tr><th>Peça</th><th>Assunto</th><th>Status</th></tr></thead><tbody>{% for item in result.results %}<tr><td>{{ item.label }}</td><td>{{ item.subject|default('—') }}</td><td>{% if item.success %}<span class="text-success">{% if result.dry_run %}Prévia pronta{% else %}Enviado{% endif %}</span>{% else %}<span class="text-error">Falhou</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    <div class="cx-table-wrap mt-4">
+      <div class="cx-table-scroll overflow-x-auto">
+        <table class="cx-table cx-table-dense">
+          <thead><tr><th>Peça</th><th>Assunto</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for item in result.results %}
+            <tr>
+              <td>{{ item.label }}</td>
+              <td>{{ item.subject|default('—') }}</td>
+              <td>
+                {% if item.success %}
+                <span class="text-emerald-700">{% if result.dry_run %}Prévia pronta{% else %}Enviado{% endif %}</span>
+                {% else %}
+                <span class="text-red-600">Falhou</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
     {% endif %}
   </section>
   {% endif %}
 </div>
 
-<dialog id="send-confirmation" class="modal">
-  <div class="modal-box max-w-md">
-    <h2 class="text-lg font-semibold">Enviar testes para Apolo?</h2>
-    <p id="confirmation-copy" class="text-sm text-base-content/70 mt-2">Os modelos selecionados serão enviados exclusivamente para {{ recipient }}.</p>
-    <div class="modal-action">
-      <button type="button" id="close-send-confirmation" class="btn btn-ghost btn-sm">Cancelar</button>
-      <button type="submit" form="growth-form" name="mode" value="send" class="btn btn-primary btn-sm">Confirmar envio</button>
+<dialog id="send-confirmation" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md max-w-md">
+    <div class="cx-modal-content">
+      <h2 class="cx-modal-title">Enviar testes para Apolo?</h2>
+      <p id="confirmation-copy" class="text-sm text-gray-600 mt-2">Os modelos selecionados serão enviados exclusivamente para {{ recipient }}.</p>
+      <div class="cx-modal-actions mt-4">
+        <button type="button" id="close-send-confirmation" class="cx-btn cx-btn-sm cx-btn-secondary">Cancelar</button>
+        <button type="submit" form="growth-form" name="mode" value="send" class="cx-btn cx-btn-sm cx-btn-primary">Confirmar envio</button>
+      </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>Fechar</button></form>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button aria-label="Fechar">Fechar</button>
+  </form>
 </dialog>
 
 <script>

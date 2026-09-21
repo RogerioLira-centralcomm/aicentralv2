@@ -1339,6 +1339,7 @@ def _merge_brand_analysis(brand: dict, analysis: dict) -> dict:
         'mandatory_elements': 'mandatory_elements',
         'forbidden_elements': 'forbidden_elements',
         'color_palette': 'color_palette',
+        'product_palettes': 'product_palettes',
         'fonts': 'fonts',
     }
     for source, target in field_map.items():
@@ -1394,7 +1395,8 @@ def _brand_analysis_proposal(analysis: dict) -> dict:
         'products_services', 'differentiators', 'proof_points',
         'ad_segments', 'creative_guidelines', 'campaign_opportunities',
         'visual_motifs', 'mandatory_elements', 'forbidden_elements', 'fonts',
-        'confidence', 'sources', 'social_links',
+        'confidence', 'sources', 'social_links', 'product_palettes',
+        'contacts', 'addresses', 'digital_policies', 'evidence_ledger',
     }
     return {key: value for key, value in analysis.items() if key in allowed}
 
@@ -1494,6 +1496,86 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
         raise
 
 
+def _save_brand_audit_history(client_id: int, brand_id: int, job_id: str, *, analysis_mode='complete', status='queued', input_data=None, analysis=None, reviews=None, costs=None, error=''):
+    """Persist a compact, source-aware audit trail without affecting the active proposal."""
+    input_data = dict(input_data or {})
+    analysis = dict(analysis or {})
+    metadata = dict(analysis.get('analysis_metadata') or {})
+    source_urls = list(dict.fromkeys([str(item) for item in metadata.get('sources') or [] if item]))[:30]
+    evidence_pages = [item for item in metadata.get('evidence_pages') or [] if isinstance(item, dict)][:24]
+    sources = [{'url': url, 'kind': 'official'} for url in source_urls]
+    sources.extend({'url': str(item.get('url')), 'title': str(item.get('title') or ''), 'kind': 'page'} for item in evidence_pages if item.get('url'))
+    review_items = list(reviews or [])[:6]
+    pending_reviews = sum(1 for item in review_items if str(item.get('status') or '') in {'review', 'needs_review'})
+    collected = {
+        'fields': [key for key in ('brand_summary', 'tone_of_voice', 'target_audience', 'products_services', 'differentiators', 'proof_points', 'color_palette', 'social_links', 'product_palettes') if analysis.get(key) not in (None, '', [], {})],
+        'pages_analyzed': int(metadata.get('pages_analyzed') or 0),
+        'assets_found': int(metadata.get('assets_found') or 0),
+        'visual_evidence_count': int(metadata.get('visual_evidence_count') or 0),
+        'social_links': list(analysis.get('social_links') or input_data.get('social_links') or [])[:12],
+        'deep_collection': list(metadata.get('deep_collection') or []),
+        'coherence': 'needs_review' if pending_reviews else ('reviewed' if review_items else 'pending'),
+        'error': str(error or '')[:360],
+    }
+    effort = {'estimated_person_hours': 8 if analysis_mode == 'deep' else 4, 'comparison': 'Pesquisa, leitura, extração, consolidação e revisão humana.'}
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                '''INSERT INTO cadu_workspace_brand_audit_runs
+                   (job_id, client_id, brand_id, analysis_mode, status, input, sources, collected_data, costs, reviews, human_effort, completed_at)
+                   VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
+                           CASE WHEN %s IN ('pending_approval', 'approved', 'failed') THEN NOW() ELSE NULL END)
+                   ON CONFLICT (job_id) DO UPDATE SET
+                     status = EXCLUDED.status, input = EXCLUDED.input, sources = EXCLUDED.sources,
+                     collected_data = EXCLUDED.collected_data, costs = EXCLUDED.costs, reviews = EXCLUDED.reviews,
+                     human_effort = EXCLUDED.human_effort, updated_at = NOW(),
+                     completed_at = COALESCE(cadu_workspace_brand_audit_runs.completed_at, EXCLUDED.completed_at)''',
+                (job_id, client_id, brand_id, analysis_mode, status, json.dumps(input_data), json.dumps(sources),
+                 json.dumps(collected), json.dumps(costs or {}), json.dumps(review_items), json.dumps(effort), status),
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível registrar o histórico da auditoria %s', job_id)
+
+
+def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
+    """Best-effort history for the low-priority audit section on the brand page."""
+    try:
+        connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                '''SELECT job_id, analysis_mode, status, sources, collected_data, costs, reviews, human_effort,
+                          created_at, updated_at, completed_at
+                     FROM cadu_workspace_brand_audit_runs
+                    WHERE client_id = %s AND brand_id = %s
+                    ORDER BY created_at DESC LIMIT 12''', (client_id, brand_id))
+            rows = cursor.fetchall()
+        history = []
+        for row in rows:
+            item = dict(row)
+            for key in ('sources', 'collected_data', 'costs', 'reviews', 'human_effort'):
+                value = item.get(key)
+                if isinstance(value, str):
+                    try:
+                        item[key] = json.loads(value)
+                    except (TypeError, ValueError):
+                        item[key] = [] if key in {'sources', 'reviews'} else {}
+            for key in ('created_at', 'updated_at', 'completed_at'):
+                value = item.get(key)
+                if hasattr(value, 'isoformat'):
+                    item[key] = value.isoformat()
+            history.append(item)
+        return history
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        return []
+
+
 def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True, analysis_mode='complete', social_links=None):
     """Run an audit now or enqueue it for the durable Workspace worker.
 
@@ -1506,6 +1588,10 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
     def runner():
         with app.app_context():
             try:
+                _save_brand_audit_history(
+                    client_id, brand_id, job_id, analysis_mode=analysis_mode, status='running',
+                    input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
+                )
                 _save_brand_review_job(client_id, brand_id, job_id,
                     status='running', stage='evidence', index=1, total=4,
                     message='Organizando evidências oficiais.', error='')
@@ -1519,8 +1605,16 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 credits = CaduCreditConnector()
                 actor = CreditActor.from_values(client_id, user_id)
 
+                token_usage = {'estimated_tokens': 90000 if analysis_mode == 'deep' else 55000, 'provider_tokens': 0, 'calls': 0}
+
                 def bill(stage, provider_result, model):
                     """One durable, idempotent ledger movement per provider call."""
+                    usage = provider_result.get('usage') if isinstance(provider_result, dict) else {}
+                    try:
+                        token_usage['provider_tokens'] += int((usage or {}).get('total_tokens') or 0)
+                    except (TypeError, ValueError):
+                        pass
+                    token_usage['calls'] += 1
                     credits.charge_provider(
                         actor=actor, idempotency_key=f'workspace-brand:{job_id}:{stage}',
                         app='Auditoria de marca', stage=stage,
@@ -1538,7 +1632,10 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                         status='running', stage='evidence_reused', index=1, total=4,
                         message='Retomando a proposta já extraída.')
                 else:
-                    analysis = service.analyze_brand(website_url, restored_images, billing_callback=bill)
+                    analysis = service.analyze_brand(
+                        website_url, restored_images, billing_callback=bill,
+                        analysis_mode=analysis_mode, social_links=social_links,
+                    )
                     if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
                         raise ValueError('A análise não retornou evidências suficientes.')
                     analysis_metadata = analysis.get('analysis_metadata') or {}
@@ -1598,6 +1695,12 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     message='Três pareceres estão prontos para decisão.', error='',
                     analysis=review_proposal, reviews=reviews,
                     analysis_metadata=analysis_metadata)
+                _save_brand_audit_history(
+                    client_id, brand_id, job_id, analysis_mode=analysis_mode, status='pending_approval',
+                    input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
+                    analysis={**review_proposal, 'analysis_metadata': analysis_metadata},
+                    reviews=reviews, costs=token_usage,
+                )
                 # Email delivery is best-effort and never changes the audit state.
                 try:
                     from .. import db
@@ -1618,6 +1721,9 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 _save_brand_review_job(client_id, brand_id, job_id,
                     status='failed', stage='failed', message='A análise precisa ser tentada novamente.',
                     error=str(exc)[:360])
+                _save_brand_audit_history(client_id, brand_id, job_id, analysis_mode=analysis_mode, status='failed',
+                                          input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
+                                          costs=locals().get('token_usage', {}), error=str(exc))
                 return False
             return True
 
@@ -3944,6 +4050,77 @@ def project_sharing_api(project_id):
     })
 
 
+@bp.get('/workspace/api/visuais/<owner_type>/<owner_ref>')
+@login_required
+def list_visual_identity_versions_api(owner_type, owner_ref):
+    client_id = int(session.get('cliente_id') or 0)
+    if owner_type == 'brand':
+        if not _workspace_brand(client_id, int(owner_ref)):
+            abort(404)
+    elif owner_type == 'project':
+        _editable_workspace_project(client_id, owner_ref)
+    else:
+        abort(400)
+    return jsonify({'versions': family_repository.visual_identity_versions(client_id, owner_type, owner_ref)})
+
+
+@bp.post('/workspace/api/visuais/<owner_type>/<owner_ref>')
+@login_required
+def create_visual_identity_version_api(owner_type, owner_ref):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    if owner_type == 'brand':
+        brand = _workspace_brand(client_id, int(owner_ref))
+        if not brand or session.get('user_type') not in {'admin', 'superadmin'}:
+            abort(403)
+        source_brand_ref = f'studio:{owner_ref}'
+    elif owner_type == 'project':
+        project = _editable_workspace_project(client_id, owner_ref)
+        source_brand_ref = f"studio:{project.get('brand_id')}" if project.get('brand_id') else None
+    else:
+        abort(400)
+    payload = request.get_json(silent=True) or {}
+    visual_type = str(payload.get('visual_type') or 'background')
+    if visual_type not in {'icon', 'avatar', 'background', 'hero'}:
+        return jsonify({'error': 'Tipo visual inválido.'}), 400
+    prompt = ' '.join(str(payload.get('prompt') or '').split())[:6000]
+    if not prompt:
+        prompt = ('Composição visual premium para o Workspace Cadu, usando a identidade da marca vinculada, '
+                  'sem texto, com área segura para leitura e fade linear terminando na cor da página.')
+    version = family_repository.create_visual_identity_version(
+        client_id, owner_type, str(owner_ref), visual_type, user_id,
+        source_brand_ref=source_brand_ref, prompt=prompt, model='openai/gpt-image-2')
+    try:
+        from .visual_identity_service import generate_visual
+        result = generate_visual(client_id=client_id, user_id=user_id, version_id=version['id'],
+                                 prompt=prompt, visual_type=visual_type,
+                                 aspect_ratio='16:9')
+        return jsonify({'ok': True, **result}), 201
+    except Exception as error:
+        family_repository.update_visual_identity_version(client_id, version['id'], status='failed')
+        current_app.logger.exception('Falha ao gerar visual %s/%s', owner_type, owner_ref)
+        return jsonify({'error': 'Não foi possível gerar o visual agora.', 'detail': str(error)[:180]}), 503
+
+
+@bp.post('/workspace/api/visuais/<int:version_id>/aprovar')
+@login_required
+def approve_visual_identity_version_api(version_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    versions = family_repository.rows('SELECT * FROM cadu_visual_identity_versions WHERE client_id=%s AND id=%s', (client_id, version_id))
+    if not versions:
+        abort(404)
+    version = versions[0]
+    if version.get('status') != 'ready':
+        return jsonify({'error': 'A versão ainda não está pronta para aprovação.'}), 409
+    updated = family_repository.update_visual_identity_version(client_id, version_id, status='approved', approved_by=user_id)
+    return jsonify({'ok': True, 'version': updated})
+
+
 @bp.post('/workspace/api/projetos/<project_id>/compartilhamento')
 @login_required
 def update_project_sharing_api(project_id):
@@ -4968,6 +5145,7 @@ def brand_detail(brand_id):
         active_linked_project = linked_projects[0] if linked_projects else None
         profile = brand.get('brand_profile') or {}
         review_pack = brand.get('review_pack') or {}
+        audit_history = _brand_audit_history(client_id, brand_id)
         project_items = [{
             'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
             'name': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}",
@@ -5022,14 +5200,18 @@ def brand_detail(brand_id):
                 'targetAudience': str(profile.get('target_audience') or ''), 'positioning': str(profile.get('positioning') or ''),
                 'brandValues': profile.get('brand_values') if isinstance(profile.get('brand_values'), list) else [],
                 'colorPalette': profile.get('color_palette') if isinstance(profile.get('color_palette'), list) else [],
+                'productPalettes': profile.get('product_palettes') if isinstance(profile.get('product_palettes'), dict) else {},
                 'fonts': profile.get('fonts') if isinstance(profile.get('fonts'), list) else [],
             },
             'readiness': brand.get('readiness') or {'score': 0, 'missing': []}, 'reviewPack': review_pack,
+            'auditHistory': audit_history,
             'analysisMetadata': {
                 'pagesAnalyzed': int((brand.get('analysis_metadata') or {}).get('pages_analyzed') or 0),
                 'assetsFound': int((brand.get('analysis_metadata') or {}).get('assets_found') or 0),
                 'visualEvidenceCount': int((brand.get('analysis_metadata') or {}).get('visual_evidence_count') or 0),
                 'sources': [str(item) for item in ((brand.get('analysis_metadata') or {}).get('sources') or []) if item],
+                'qualityFlags': list(((brand.get('analysis_metadata') or {}).get('quality_flags') or [])),
+                'readyForApproval': bool((brand.get('analysis_metadata') or {}).get('ready_for_approval')),
             },
             'auditInput': {
                 'websiteUrl': str(((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input', {}).get('website_url') or brand.get('website_url') or ''),
@@ -5437,8 +5619,8 @@ def audit_brand(brand_id):
     if images:
         try:
             from ..creative_modeling_service import CreativeModelingService
-            # A análise guarda a família enviada. A escolha do logo principal
-            # continua explícita na biblioteca da marca, nunca por posição.
+            # A análise guarda a família enviada como referências. A escolha
+            # do logo principal permanece explícita na biblioteca da marca.
             CreativeModelingService().upload_client_brand_assets(
                 brand_id, images, False, 'reference',
             )

@@ -3024,8 +3024,11 @@ class CreativeModelingService:
             saved_assets.append(asset_data)
         return saved_assets
 
-    def analyze_brand(self, website_url=None, image=None, billing_callback=None):
-        return _serialize(self.brand_analyzer.analyze(website_url, image, billing_callback=billing_callback))
+    def analyze_brand(self, website_url=None, image=None, billing_callback=None, *, analysis_mode='complete', social_links=None):
+        return _serialize(self.brand_analyzer.analyze(
+            website_url, image, billing_callback=billing_callback,
+            analysis_mode=analysis_mode, social_links=social_links,
+        ))
 
     def review_brand_analysis(self, analysis, progress=None, billing_callback=None):
         return _serialize(self.brand_analyzer.review_pack(analysis, progress=progress, billing_callback=billing_callback))
@@ -3073,8 +3076,56 @@ class CreativeModelingService:
             data["id"] = asset_id
             if data["is_primary"]:
                 self.repository.set_client_logo(client_id, item["asset_path"])
+                data["logo_variants"] = self._create_client_logo_variants(
+                    client_id, item, asset_id,
+                )
             saved.append(data)
         return _serialize(saved)
+
+    def _create_client_logo_variants(self, client_id, item, source_asset_id):
+        """Create four transparent, ratio-safe logo renditions for product use.
+
+        The original remains the only primary logo. Renditions are clearly
+        marked as derived, so a user can replace or remove the original without
+        mistaking a square app icon for a new identity asset.
+        """
+        source_path = self.storage.absolute_public_path(item.get("asset_path"))
+        if source_path is None:
+            return []
+        try:
+            from PIL import Image, ImageOps
+            with Image.open(source_path) as opened:
+                logo = ImageOps.exif_transpose(opened).convert("RGBA")
+                if logo.width < 2 or logo.height < 2:
+                    return []
+                variants = (("favicon", 64), ("compact", 128), ("workspace", 256), ("studio", 512))
+                saved = []
+                for name, size in variants:
+                    inset = max(4, round(size * .12))
+                    contained = ImageOps.contain(logo, (size - inset * 2, size - inset * 2), method=Image.Resampling.LANCZOS)
+                    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+                    canvas.alpha_composite(contained, ((size - contained.width) // 2, (size - contained.height) // 2))
+                    buffer = BytesIO()
+                    canvas.save(buffer, format="WEBP", lossless=True, method=4)
+                    content = buffer.getvalue()
+                    asset_path = self.storage.save_generated_base64(base64.b64encode(content).decode("ascii"), output_format="webp")
+                    try:
+                        variant_id = self.repository.add_client_brand_asset(client_id, {
+                            "role": "logo", "source_kind": "logo_variant", "asset_path": asset_path,
+                            "mime_type": "image/webp", "width": size, "height": size,
+                            "sha256": hashlib.sha256(content).hexdigest(), "status": "approved", "is_primary": False,
+                            "metadata": {"label": f"Logo · {name}", "logo_variant": name,
+                                         "derived_from_asset_id": source_asset_id, "generated": True},
+                        })
+                    except Exception:
+                        self.storage.delete(asset_path)
+                        raise
+                    if variant_id:
+                        saved.append({"id": variant_id, "name": name, "size": size, "asset_path": asset_path})
+                return saved
+        except Exception:
+            current_app.logger.exception("Não foi possível criar variações do logo da marca %s", client_id)
+            return []
 
     def import_website_brand_assets(self, client_id, candidates):
         """Persist official web evidence without automatically choosing a logo."""

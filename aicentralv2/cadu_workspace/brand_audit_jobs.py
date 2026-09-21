@@ -129,6 +129,8 @@ def process_one():
             int(job['client_id']), int(job['user_id']), int(job['brand_id']),
             str(job['job_id']), str(job['website_url']), list(job.get('images') or []),
             proposal=job.get('proposal'), background=False,
+            analysis_mode=str(job.get('analysis_mode') or 'complete'),
+            social_links=list(job.get('social_links') or []),
         ))
     except Exception:
         current_app.logger.exception('Worker interrompido na auditoria de marca %s', job['job_id'])

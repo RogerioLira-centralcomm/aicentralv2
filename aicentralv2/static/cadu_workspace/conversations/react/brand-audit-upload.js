@@ -57,7 +57,7 @@
   };
 
   const refresh = () => document
-    .querySelectorAll('.cadu-ds-brand-form input[type="file"][name="images"]')
+    .querySelectorAll('.cadu-ds-brand-form input[type="file"][name="images"], .cadu-ds-project-form input[type="file"][name="images"]')
     .forEach(prepare);
 
   new MutationObserver(refresh).observe(document.documentElement, { childList: true, subtree: true });

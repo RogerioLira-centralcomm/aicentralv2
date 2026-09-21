@@ -180,6 +180,9 @@ body.portal--workspace .cadu-ds-dock-resource .cadu-ds-visual-identity { width:1
 body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity { padding:0; border-radius:11px; }
 body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity img { width:100%; height:100%; object-fit:contain; }
 body.portal--workspace .cadu-ds-dock-section + .cadu-ds-dock-section { margin-top:10px; padding-top:16px; border-top:1px solid color-mix(in srgb,var(--cadu-nav-line) 72%,transparent); }
+body.portal--workspace .cadu-ds-dock-drop.is-active { outline:0; outline-offset:0; }
+body.portal--workspace .cadu-ds-dock-section--projects,
+body.portal--workspace .cadu-ds-dock-section--resources { margin-top:10px; padding-top:16px; border-top:1px solid color-mix(in srgb,var(--cadu-nav-line) 72%,transparent); }
 body.portal--workspace .cadu-ds-dock-brand,
 body.portal--workspace .cadu-ds-dock-resource { transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease; }
 body.portal--workspace .cadu-ds-dock-brand.is-drop-target,

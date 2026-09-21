@@ -980,6 +980,24 @@ def workspace_credit_summary():
     return jsonify(credit_position(int(session.get('cliente_id') or 0)))
 
 
+@bp.get('/workspace/api/context/catalog')
+@login_required
+def workspace_context_catalog_api():
+    """Expose the canonical, tenant-scoped context graph to Workspace clients."""
+    return jsonify(_workspace_context_catalog(int(session.get('cliente_id') or 0)))
+
+
+@bp.get('/workspace/api/context/resolve')
+@login_required
+def workspace_context_resolve_api():
+    """Resolve an explicit project/brand context without name-based guessing."""
+    return jsonify(_resolve_workspace_context(
+        int(session.get('cliente_id') or 0),
+        request.args.get('project_ref') or '',
+        request.args.get('brand_ref') or '',
+    ))
+
+
 def _workspace_team_admin() -> None:
     if session.get('user_type') not in {'admin', 'superadmin'}:
         abort(403, description='Somente administradores podem gerenciar acessos da organização.')
@@ -1924,6 +1942,70 @@ def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]
         project['thumbnail_initials'] = ''.join(word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]).upper() or 'P'
         project['thumbnail_color'] = brand.get('primary_color') or project.get('cor') or '#176b5e'
     return projects
+
+
+def _workspace_context_catalog(client_id: int) -> dict:
+    """Return the canonical tenant-scoped project and brand graph.
+
+    UI surfaces and agents must use references from this graph rather than
+    rebuilding relationships from display names or legacy conversation fields.
+    """
+    brands = _workspace_brands(client_id)
+    projects = _workspace_projects(client_id)
+    brand_refs = {f"studio:{item['id']}" for item in brands if item.get('id') is not None}
+    project_refs = {f"ci:{item['id']}" for item in projects if item.get('id') is not None}
+    try:
+        raw_links = family_repository.project_brand_links(client_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar vínculos globais de contexto para o cliente %s', client_id, exc_info=True)
+        raw_links = []
+    links = sorted({
+        (str(item.get('project_ref')), str(item.get('brand_ref')))
+        for item in raw_links
+        if str(item.get('project_ref') or '') in project_refs
+        and str(item.get('brand_ref') or '') in brand_refs
+    })
+    brands_by_ref = {f"studio:{item['id']}": item for item in brands if item.get('id') is not None}
+    links_by_project: dict[str, list[str]] = {}
+    for project_ref, brand_ref in links:
+        links_by_project.setdefault(project_ref, []).append(brand_ref)
+    return {
+        'brands': [{
+            'ref': ref, 'id': str(item['id']), 'name': str(item.get('name') or 'Marca'),
+            'logo_url': str(item.get('display_logo') or ''),
+            'color': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'initials': str(item.get('display_initials') or 'M'),
+        } for ref, item in brands_by_ref.items()],
+        'projects': [{
+            'ref': f"ci:{item['id']}", 'id': str(item['id']), 'name': str(item.get('nome') or 'Projeto'),
+            'status': str(item.get('status') or 'ativo'),
+            'brand_refs': sorted(links_by_project.get(f"ci:{item['id']}", [])),
+        } for item in projects if item.get('id') is not None],
+        'links': [{'project_ref': project_ref, 'brand_ref': brand_ref} for project_ref, brand_ref in links],
+    }
+
+
+def _resolve_workspace_context(client_id: int, project_ref: str = '', brand_ref: str = '') -> dict:
+    """Resolve only explicit, tenant-owned context; never infer a brand by name."""
+    catalog = _workspace_context_catalog(client_id)
+    brands = {item['ref']: item for item in catalog['brands']}
+    projects = {item['ref']: item for item in catalog['projects']}
+    project_ref = str(project_ref or '') if str(project_ref or '') in projects else ''
+    requested_brand_ref = str(brand_ref or '')
+    brand_ref = requested_brand_ref if requested_brand_ref in brands else ''
+    if project_ref and brand_ref and projects[project_ref]['brand_refs'] and brand_ref not in projects[project_ref]['brand_refs']:
+        brand_ref = ''
+    if project_ref and not brand_ref and not requested_brand_ref:
+        candidates = projects[project_ref]['brand_refs']
+        if len(candidates) == 1:
+            brand_ref = candidates[0]
+    return {
+        'project_ref': project_ref or None,
+        'brand_ref': brand_ref or None,
+        'project': projects.get(project_ref) if project_ref else None,
+        'brand': brands.get(brand_ref) if brand_ref else None,
+        'ambiguous_brand': bool(project_ref and not brand_ref and len(projects[project_ref]['brand_refs']) > 1),
+    }
 
 
 def _workspace_data_health() -> dict:

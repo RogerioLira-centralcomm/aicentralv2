@@ -10,7 +10,8 @@ from werkzeug.exceptions import BadRequest
 from aicentralv2.product_domains import product_url
 from aicentralv2.cadu_workspace.routes import (
     _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
-    _brand_review_pack, _normalized_website_url, _user_dock_shortcuts,
+    _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
+    _workspace_context_catalog,
     _save_brand_review_job, bp,
 )
 
@@ -30,6 +31,67 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.project_brand_links')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brands')
+    def test_context_catalog_uses_explicit_tenant_owned_links(self, brands, projects, links):
+        brands.return_value = [
+            {'id': 81, 'name': 'Marca A', 'display_logo': '/a.png', 'display_color': '#111111', 'display_initials': 'MA'},
+        ]
+        projects.return_value = [
+            {'id': 'p-1', 'nome': 'Projeto A', 'status': 'ativo'},
+        ]
+        links.return_value = [
+            {'project_ref': 'ci:p-1', 'brand_ref': 'studio:81'},
+            {'project_ref': 'ci:foreign', 'brand_ref': 'studio:81'},
+            {'project_ref': 'ci:p-1', 'brand_ref': 'studio:foreign'},
+        ]
+
+        catalog = _workspace_context_catalog(12)
+
+        self.assertEqual(catalog['links'], [{'project_ref': 'ci:p-1', 'brand_ref': 'studio:81'}])
+        self.assertEqual(catalog['projects'][0]['brand_refs'], ['studio:81'])
+        self.assertEqual(catalog['brands'][0]['ref'], 'studio:81')
+        brands.assert_called_with(12)
+        projects.assert_called_with(12)
+        links.assert_called_once_with(12)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_context_catalog')
+    def test_context_resolver_selects_only_a_unique_explicit_brand(self, catalog):
+        catalog.return_value = {
+            'brands': [{'ref': 'studio:81', 'name': 'Marca A'}, {'ref': 'studio:82', 'name': 'Marca B'}],
+            'projects': [
+                {'ref': 'ci:one', 'name': 'Projeto único', 'brand_refs': ['studio:81']},
+                {'ref': 'ci:many', 'name': 'Projeto múltiplo', 'brand_refs': ['studio:81', 'studio:82']},
+            ],
+            'links': [],
+        }
+
+        unique = _resolve_workspace_context(12, 'ci:one')
+        ambiguous = _resolve_workspace_context(12, 'ci:many')
+        mismatch = _resolve_workspace_context(12, 'ci:one', 'studio:82')
+
+        self.assertEqual(unique['brand_ref'], 'studio:81')
+        self.assertFalse(unique['ambiguous_brand'])
+        self.assertIsNone(ambiguous['brand_ref'])
+        self.assertTrue(ambiguous['ambiguous_brand'])
+        self.assertIsNone(mismatch['brand_ref'])
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._resolve_workspace_context')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_context_catalog')
+    def test_context_api_is_scoped_to_the_active_workspace(self, catalog, resolve):
+        catalog.return_value = {'brands': [], 'projects': [], 'links': []}
+        resolve.return_value = {'project_ref': None, 'brand_ref': None, 'project': None, 'brand': None, 'ambiguous_brand': False}
+        client = _client()
+
+        catalog_response = client.get('/workspace/api/context/catalog')
+        resolve_response = client.get('/workspace/api/context/resolve?project_ref=ci:p-1&brand_ref=studio:81')
+
+        self.assertEqual(catalog_response.status_code, 200)
+        self.assertEqual(resolve_response.status_code, 200)
+        catalog.assert_called_once_with(12)
+        resolve.assert_called_once_with(12, 'ci:p-1', 'studio:81')
+
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db', side_effect=RuntimeError('database unavailable'))
     def test_dock_database_failure_does_not_break_workspace_home(self, _get_db):
         with _app().app_context():

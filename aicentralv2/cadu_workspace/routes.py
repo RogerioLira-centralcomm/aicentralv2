@@ -4882,6 +4882,7 @@ def brand_detail(brand_id):
             'auditStatus': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
             'approve': url_for('cadu_workspace.approve_brand_reviews', brand_id=brand_id),
             'retry': url_for('cadu_workspace.retry_brand_audit', brand_id=brand_id),
+            'deleteBrand': url_for('cadu_workspace.delete_brand', brand_id=brand_id),
             'setPrimaryBase': f'{brand_base}/ativos/__ASSET_ID__/principal',
             'promoteLogoBase': f'{brand_base}/ativos/__ASSET_ID__/logo',
             'deleteAssetBase': f'{brand_base}/ativos/__ASSET_ID__/apagar',
@@ -4949,6 +4950,50 @@ def brand_detail(brand_id):
 @login_required
 def clean_brand_detail(brand_id):
     return brand_detail(brand_id)
+
+
+@bp.post('/workspace/app/marcas/<int:brand_id>/apagar')
+@login_required
+def delete_brand(brand_id):
+    """Delete a brand after an explicit name confirmation and retire its linked projects."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    expected = str(brand.get('name') or '').strip()
+    confirmation = ' '.join((request.form.get('confirmation_name') or '').split()).strip()
+    if not expected or confirmation != expected:
+        abort(400, description='Digite o nome exato da marca para confirmar a exclusão.')
+    linked_projects = _brand_linked_projects(client_id, brand_id)
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('''DELETE FROM cadu_family_project_brands
+                               WHERE client_id = %s AND brand_ref = %s''',
+                           (client_id, f'studio:{brand_id}'))
+            for project in linked_projects:
+                cursor.execute('''UPDATE cadu_ci_projetos
+                                     SET status = 'deletado', updated_at = NOW()
+                                   WHERE id = %s AND id_cliente = %s''',
+                               (str(project.get('id')), client_id))
+            cursor.execute('''DELETE FROM cx_clients
+                                   WHERE id = %s AND crm_client_id = %s''',
+                           (brand_id, client_id))
+            if cursor.rowcount != 1:
+                connection.rollback()
+                abort(404)
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível apagar a marca %s', brand_id)
+        abort(409, description='A marca não pode ser apagada porque ainda possui dados dependentes. Remova os vínculos e tente novamente.')
+    return redirect(url_for('cadu_workspace.clean_brands'), code=303)
 
 
 @bp.post('/workspace/app/marcas/<int:brand_id>/identidade')

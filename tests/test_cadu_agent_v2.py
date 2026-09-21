@@ -4,7 +4,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext, execution_mode_for
-from aicentralv2.cadu_workspace.agent_v2.response_policy import budget_for, policy_for, requested_answer_chars
+from aicentralv2.cadu_workspace.agent_v2.response_policy import (
+    budget_for, policy_for, requested_answer_chars, requested_output_tokens,
+)
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness
 from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
@@ -541,7 +543,10 @@ def test_intermediate_mode_keeps_room_for_substantive_answers():
 
 def test_explicit_word_count_expands_the_answer_allowance():
     assert requested_answer_chars("Escreva um texto com cerca de 600 palavras") == 4800
+    assert requested_answer_chars("Escreva um guia com 2.500 palavras") == 20000
+    assert requested_output_tokens("Escreva um guia com 2.500 palavras") == 5000
     assert requested_answer_chars("Responda de forma breve") == 0
+    assert requested_output_tokens("Responda de forma breve") == 0
 
 
 def test_project_link_classifier_covers_collaboration_and_media_platforms():
@@ -1031,6 +1036,21 @@ def test_response_blocks_are_typed_bounded_and_safe():
              "artifact_id": "", "editor_url": "", "editable_copy_url": "", "download_url": ""},
         ]},
     ]
+
+
+def test_response_blocks_do_not_replace_the_editorial_answer():
+    answer = "\n\n".join([
+        "Esta é a análise principal que deve permanecer integralmente na conversa.",
+        "O componente abaixo complementa a leitura, mas não substitui a resposta.",
+    ])
+    response = normalize_response({
+        "text": {"content": answer},
+        "ui": {"blocks": [{"type": "questions", "title": "Para continuar", "items": [
+            {"title": "Qual é o público prioritário?", "prompt": "O público prioritário é "},
+        ]}]},
+    }, {"mode": "analysis", "max_questions": 1, "max_next_steps": 0, "max_answer_chars": 6000})
+    assert response.answer == answer
+    assert response.blocks[0]["type"] == "questions"
 
 
 def test_response_blocks_dedupe_ids_parse_boolean_strings_and_cap_density():

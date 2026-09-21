@@ -378,7 +378,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(artifact, /static\/css\/tailwind\/artifact\.css/);
   assert.match(artifact, /data-cadu-brand-header/);
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
-  assert.match(conversation, /Ver resposta completa/);
+  assert.doesNotMatch(conversation, /Ver resposta completa/);
+  assert.match(conversation, /cv-inline-questions/);
+  assert.match(responseBlocks, /cv-inline-decision/);
   assert.match(conversation, /ResponseBlocks/);
   assert.match(conversation, /cv-conversation-title/);
   assert.match(composer, /cv-composer-shell/);

@@ -119,12 +119,12 @@ function NoteBlock({block, tone = 'neutral'}) {
 
 function QuestionsBlock({block, onPrompt}) {
   const items = Array.isArray(block.items) ? block.items : [];
-  return <section className="cv-mt-5">
-    <span className="cv-block cv-text-[10px] cv-font-semibold cv-text-[#819b97]">{block.title || 'Próximas decisões'}</span>
-    <div className="cv-mt-1 cv-grid cv-gap-0.5"><BoundedItems items={items} label="perguntas">{visible => visible.map((item, index) => {
+  return <section className="cv-inline-questions cv-mt-6">
+    <span className="cv-inline-questions__label">{block.title || 'Para continuar'}</span>
+    <div><BoundedItems items={items} label="perguntas">{visible => visible.map((item, index) => {
       const label = typeof item === 'string' ? item : item.title || item.label || item.question;
       const prompt = typeof item === 'string' ? item : item.prompt || label;
-      return <button key={item.id || index} type="button" onClick={() => onPrompt(prompt)} className="cv-flex cv-items-start cv-gap-2 cv-border-0 cv-bg-transparent cv-px-0 cv-py-1.5 cv-text-left cv-text-sm cv-text-[#c0d1ce] hover:cv-text-white"><span className="cv-text-teal">→</span><span>{label}</span></button>;
+      return <button key={item.id || index} type="button" onClick={() => onPrompt(prompt)} className="cv-inline-question"><span>{label}</span><small>Responder</small></button>;
     })}</BoundedItems></div>
   </section>;
 }
@@ -133,13 +133,13 @@ function DecisionBlock({block, onPrompt}) {
   const recommended = block.items.find(item => item.recommended);
   const [selected, setSelected] = useState(recommended?.id || '');
   const choice = block.items.find(item => item.id === selected);
-  return <section className="cv-response-block cv-mt-5">
+  return <section className="cv-inline-decision cv-mt-6">
     <BlockHeader block={block}/>
-    <div className="cv-grid cv-gap-2"><BoundedItems items={block.items} label="opções">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => setSelected(item.id)} aria-pressed={selected === item.id} className={`cv-choice-row cv-group cv-flex cv-w-full cv-items-start cv-gap-3 cv-rounded-xl cv-border-0 cv-px-3 cv-py-3 cv-text-left cv-transition-colors ${selected === item.id ? 'cv-bg-teal/10' : 'cv-bg-transparent hover:cv-bg-white/[.035]'}`}>
+    <div className="cv-inline-decision__options"><BoundedItems items={block.items} label="opções">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => setSelected(item.id)} aria-pressed={selected === item.id} className="cv-inline-decision__option">
       <span className={`cv-mt-1 cv-grid cv-h-4 cv-w-4 cv-flex-none cv-place-items-center cv-rounded-full cv-border ${selected === item.id ? 'cv-border-teal cv-bg-teal' : 'cv-border-white/25'}`}>{selected === item.id && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#06211e]"/>}</span>
       <span className="cv-min-w-0 cv-flex-1"><strong className="cv-flex cv-items-center cv-gap-2 cv-text-sm cv-font-medium">{item.title}{item.recommended && <small className="cv-rounded-full cv-bg-teal/10 cv-px-2 cv-py-0.5 cv-text-[10px] cv-font-semibold cv-text-[#65d8cb]">Recomendada</small>}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#8ba39f]">{item.detail}</small>}</span>
     </button>)}</BoundedItems></div>
-    {choice && <button type="button" onClick={() => onPrompt(choice.prompt || `Use a opção “${choice.title}” e continue o trabalho.`)} className="cv-mt-3 cv-rounded-lg cv-border-0 cv-bg-teal cv-px-3.5 cv-py-2.5 cv-text-xs cv-font-semibold cv-text-[#052522]">Usar esta opção</button>}
+    {choice && <button type="button" onClick={() => onPrompt(choice.prompt || `Use a opção “${choice.title}” e continue o trabalho.`)} className="cv-inline-decision__continue">Continuar com {choice.title}</button>}
   </section>;
 }
 

@@ -519,7 +519,8 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     assumptions = [str(item).strip()[:500] for item in ui.get("assumptions", []) if str(item).strip()][:10]
     citations = _clean_citations(ui.get("citations"))
     actions = _clean_actions(ui.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
-    blocks = _clean_blocks(ui.get("blocks"))
+    provider_blocks = _clean_blocks(ui.get("blocks"))
+    blocks = provider_blocks
     # Failing closed is important here: only the executor may opt into an
     # artifact after the router selected a concrete artifact type.
     can_materialize_artifact = bool(policy.get("allow_artifact", False))
@@ -538,9 +539,12 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     elif dense_answer and not blocks and policy.get("mode") != "clarification" and can_materialize_artifact:
         patch = patch or _fallback_artifact(answer, policy)
         answer = "Organizei os detalhes no artefato ao lado para você revisar e editar."
-    elif blocks:
-        answer = _short_intro(answer, "Preparei o resultado para você continuar abaixo.")
-    max_answer_chars = min(12000, max(240, int(policy.get("max_answer_chars") or 1800)))
+    elif blocks and not provider_blocks:
+        # When we derive an interactive component from a list already present
+        # in the prose, keep only its introduction to avoid rendering the same
+        # choices twice. Provider-authored blocks never replace editorial text.
+        answer = _short_intro(answer, "Preparei opções para você continuar abaixo.")
+    max_answer_chars = min(40000, max(240, int(policy.get("max_answer_chars") or 1800)))
     if len(answer) > max_answer_chars:
         answer = _short_intro(answer, answer[:max_answer_chars].rstrip())
         if len(answer) > max_answer_chars:

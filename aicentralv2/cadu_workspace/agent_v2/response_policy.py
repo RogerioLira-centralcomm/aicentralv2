@@ -39,8 +39,14 @@ def requested_answer_chars(message: str) -> int:
     to honor the request without turning the number into an exact quota.
     """
     text = " ".join(str(message or "").split())
-    match = re.search(r"\b(?:cerca de|aproximadamente|aprox\.?|at[eé])?\s*(\d{2,5})\s*palavras?\b", text, re.IGNORECASE)
+    match = re.search(r"\b(?:cerca de|aproximadamente|aprox\.?|at[eé])?\s*(\d{1,5}(?:\.\d{3})?)\s*palavras?\b", text, re.IGNORECASE)
     if not match:
         return 0
-    words = min(1500, max(50, int(match.group(1))))
-    return min(12000, words * 8)
+    words = min(5000, max(50, int(match.group(1).replace(".", ""))))
+    return min(40000, words * 8)
+
+
+def requested_output_tokens(message: str) -> int:
+    """Return provider output room for an explicit requested length."""
+    chars = requested_answer_chars(message)
+    return min(12000, max(1200, (chars + 3) // 4)) if chars else 0

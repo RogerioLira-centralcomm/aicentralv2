@@ -81,7 +81,6 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
     .replace(/\s+Próxima ação:\s*[^.]+\.?/ig, '')
     .trim();
   const blocks = Array.isArray(response.blocks) ? response.blocks : [];
-  const dense = text.length > 900 || text.split('\n').length > 12;
   const compactAnswer = text.length <= 700 && text.split('\n').length <= 8 && !response.citations?.length && !response.actions?.length && !response.questions?.length && !message.artifact?.id;
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
   if (message.kind === 'action') {
@@ -93,9 +92,12 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
     </div>;
   }
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
-    {dense ? <><p className="cv-m-0 cv-text-[15px] cv-leading-7 cv-text-[#d9e7e4]">{text.replace(/\[[^\]]+\]\([^)]+\)|[*_`#]/g, '').replace(/\s+/g, ' ').slice(0, 320).replace(/\s+\S*$/, '')}…</p><details className="cv-mt-3"><summary className="cv-cursor-pointer cv-text-xs cv-font-semibold cv-text-[#65d8cb]">Ver resposta completa</summary><div className="cv-prose cv-mt-3"><Markdown>{text}</Markdown></div></details></> : <div className="cv-prose"><Markdown>{text}</Markdown></div>}
+    <div className="cv-prose"><Markdown>{text}</Markdown></div>
     {!compactAnswer && <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
-    {!!response.questions?.length && <section className="cv-followup-panel cv-mt-5"><span className="cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas perguntas</span>{response.questions.slice(0, 4).map((question, index) => <div key={index} className="cv-followup-panel__item"><p className="cv-m-0 cv-text-sm cv-text-[#e4efed]">{question}</p><button type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-mt-2 cv-border-0 cv-bg-transparent cv-p-0 cv-text-xs cv-font-semibold cv-text-[#65d8cb]">Responder</button></div>)}</section>}
+    {!!response.questions?.length && <section className="cv-inline-questions cv-mt-6" aria-label="Perguntas para continuar">
+      <span className="cv-inline-questions__label">Para continuar</span>
+      {response.questions.slice(0, 4).map((question, index) => <button key={index} type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-inline-question"><span>{question}</span><small>Responder</small></button>)}
+    </section>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}
     {!!response.actions?.length && <section className="cv-mt-5 cv-border-t cv-border-white/[.07] cv-pt-4"><span className="cv-mb-2 cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas ações</span><div className="cv-flex cv-flex-wrap cv-gap-2">{response.actions.slice(0, 3).map((item, index) => <button key={index} type="button" onClick={() => onPrompt(item.prompt || '')} className={`${item.style === 'primary' ? 'cv-border-teal/30 cv-bg-teal/10 cv-text-teal' : 'cv-border-white/10 cv-bg-transparent cv-text-[#c7d8d4]'} cv-rounded-lg cv-border cv-px-3 cv-py-2 cv-text-xs hover:cv-bg-white/[.08]`}>{item.label}</button>)}</div></section>}

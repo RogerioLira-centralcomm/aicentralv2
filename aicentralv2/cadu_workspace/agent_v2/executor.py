@@ -6,7 +6,7 @@ from typing import Optional
 
 from .context_resolver import resolve_context
 from .prompt_assembler import build_payload
-from .response_policy import budget_for, policy_for, requested_answer_chars
+from .response_policy import budget_for, policy_for, requested_answer_chars, requested_output_tokens
 from .router import route_request
 from .task_planner import build_task_plan
 from .contracts import execution_mode_for
@@ -49,6 +49,11 @@ def prepare_execution(message, request, history="", requested_mode=""):
     explicit_answer_chars = requested_answer_chars(message)
     if explicit_answer_chars and route.response_mode in {"direct", "analysis"}:
         policy["max_answer_chars"] = max(policy["max_answer_chars"], explicit_answer_chars)
+        # A requested length is a delivery requirement, not a formatting hint.
+        # Give the provider enough output room instead of increasing only the
+        # post-processing character limit and then truncating the generation.
+        output_tokens = requested_output_tokens(message)
+        budget = replace(budget, max_output_tokens=max(budget.max_output_tokens, output_tokens))
     policy["execution_mode"] = execution_mode
     policy["max_output_tokens"] = budget.max_output_tokens
     policy["max_duration_ms"] = budget.max_duration_ms

@@ -75,6 +75,7 @@ function ConversationSupport({context, projects, brands, messages, diagnostics, 
 function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl}) {
   const response = message.response || {answer: message.content};
   const text = String(response.answer || '')
+    .replace(/^\s*S[ií]ntese:\s*contexto:\s*[^;]+;\s*decis(?:ão|ao):\s*[^;]+;\s*/i, '')
     .replace(/^\s*Projeto usado:\s*[^.]+\.\s*/i, '')
     .replace(/^\s*Decis(?:ão|ao) proposta:\s*/i, '')
     .replace(/\s+Confian(?:ça|ca):\s*[^.]+\.?/ig, '')
@@ -82,6 +83,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
     .trim();
   const blocks = Array.isArray(response.blocks) ? response.blocks : [];
   const dense = text.length > 900 || text.split('\n').length > 12;
+  const compactAnswer = text.length <= 700 && text.split('\n').length <= 8 && !response.citations?.length && !response.actions?.length && !response.questions?.length && !message.artifact?.id;
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
   if (message.kind === 'action') {
     return <div className="cv-action-confirmation cv-max-w-[72ch]">
@@ -93,7 +95,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
   }
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
     {dense ? <><p className="cv-m-0 cv-text-[15px] cv-leading-7 cv-text-[#d9e7e4]">{text.replace(/\[[^\]]+\]\([^)]+\)|[*_`#]/g, '').replace(/\s+/g, ' ').slice(0, 320).replace(/\s+\S*$/, '')}…</p><details className="cv-mt-3"><summary className="cv-cursor-pointer cv-text-xs cv-font-semibold cv-text-[#65d8cb]">Ver resposta completa</summary><div className="cv-prose cv-mt-3"><Markdown>{text}</Markdown></div></details></> : <div className="cv-prose"><Markdown>{text}</Markdown></div>}
-    <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>
+    {!compactAnswer && <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
     {!!response.questions?.length && <div className="cv-mt-5 cv-border-l-2 cv-border-teal/50 cv-pl-4">{response.questions.slice(0, 4).map((question, index) => <div key={index} className="cv-my-2"><p className="cv-m-0 cv-text-sm cv-text-[#e4efed]">{question}</p><button type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-mt-2 cv-border-0 cv-bg-transparent cv-p-0 cv-text-xs cv-font-semibold cv-text-[#65d8cb]">Responder</button></div>)}</div>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}
@@ -142,7 +144,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
     {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <article key={message.id} data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><span className="cv-message__label">Cadu</span><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article>)}
     {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
-    <WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/>
+    {running && <WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/>}
     <div ref={end}/>
   </div>;
 }

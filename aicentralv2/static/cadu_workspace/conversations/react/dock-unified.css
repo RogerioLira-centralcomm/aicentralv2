@@ -38,6 +38,54 @@
   border-radius: 10px;
 }
 
+/* Keep every context item on the same optical center as the dock controls. */
+#cadu-conversations-v2-root .cadu-ds-dock-section--brands,
+#cadu-conversations-v2-root .cadu-ds-dock-section--projects,
+#cadu-conversations-v2-root .cadu-ds-dock-section--resources {
+  align-items: center;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-section--brands > *,
+#cadu-conversations-v2-root .cadu-ds-dock-section--projects > *,
+#cadu-conversations-v2-root .cadu-ds-dock-section--resources > * {
+  margin-inline: auto;
+}
+
+/* The focused account avatar fills the rounded control. */
+#cadu-conversations-v2-root .cadu-ds-dock-avatar-button,
+#cadu-conversations-v2-root .cadu-ds-dock-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-avatar-button {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-avatar {
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+/* New conversation and home use the same ink and readable hover state. */
+#cadu-conversations-v2-root .cadu-ds-dock-new,
+#cadu-conversations-v2-root .cadu-ds-dock-home {
+  background: transparent;
+  color: var(--cadu-nav-ink);
+}
+
+#cadu-conversations-v2-root .cadu-ds-dock-new:hover,
+#cadu-conversations-v2-root .cadu-ds-dock-new:focus-visible,
+#cadu-conversations-v2-root .cadu-ds-dock-home:hover,
+#cadu-conversations-v2-root .cadu-ds-dock-home:focus-visible {
+  background: rgba(127, 207, 194, .18);
+  color: #f4fffd;
+  outline: 0;
+}
+
 #cadu-conversations-v2-root .cadu-ds-dock-brand .cadu-ds-visual-identity:not([class*="--v"]),
 #cadu-conversations-v2-root .cadu-ds-dock-resource .cadu-ds-visual-identity:not([class*="--v"]) {
   background: var(--cadu-nav-surface);

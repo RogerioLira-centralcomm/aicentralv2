@@ -1264,7 +1264,11 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
                     # Uploads live outside Git. A deploy can preserve the DB row
                     # while losing the file; never emit a guaranteed 404 URL.
                     stored_url = public_logo(stored_path) if CreativeAssetStorage().absolute_reference_path(stored_path) else ''
-                    asset['display_url'] = stored_url or source_url
+                    # Do not fall back to source_url when it points to the same
+                    # missing local upload. That fallback recreates the 404 in
+                    # the React asset gallery on every render.
+                    source_is_missing_upload = source_url.startswith('/static/uploads/creative_references/')
+                    asset['display_url'] = stored_url or ('' if source_is_missing_upload else source_url)
                     asset['missing_file'] = not bool(stored_url)
                 else:
                     asset['display_url'] = public_logo(stored_path) or source_url

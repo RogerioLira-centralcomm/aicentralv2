@@ -29,6 +29,7 @@ from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, 
 from ..db import close_db, get_db
 from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
+from ..creative_modeling_storage import CreativeAssetStorage
 from . import project_index_service, project_knowledge, project_resource_service, project_sources
 
 
@@ -1257,7 +1258,17 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
             )
             brand['assets'] = [dict(row) for row in cursor.fetchall()]
             for asset in brand['assets']:
-                asset['display_url'] = public_logo(asset.get('asset_path') or asset.get('source_url'))
+                stored_path = str(asset.get('asset_path') or '').strip()
+                source_url = public_logo(asset.get('source_url'))
+                if stored_path.startswith('/static/uploads/creative_references/'):
+                    # Uploads live outside Git. A deploy can preserve the DB row
+                    # while losing the file; never emit a guaranteed 404 URL.
+                    stored_url = public_logo(stored_path) if CreativeAssetStorage().absolute_reference_path(stored_path) else ''
+                    asset['display_url'] = stored_url or source_url
+                    asset['missing_file'] = not bool(stored_url)
+                else:
+                    asset['display_url'] = public_logo(stored_path) or source_url
+                    asset['missing_file'] = False
                 if isinstance(asset.get('metadata'), str):
                     try:
                         asset['metadata'] = json.loads(asset['metadata'])

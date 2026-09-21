@@ -70,6 +70,31 @@ function SidebarCollection({label, href, items, kind}) {
   </section>;
 }
 
+function SidebarBrandProjectGroups({brands, projects, links}) {
+  const brandRef = item => String(item?.ref || item?.brandRef || `studio:${item?.id || ''}`);
+  const groups = brands.map(brand => {
+    const ref = brandRef(brand);
+    return {...brand, projects: projects.filter(project => {
+      const refs = project.related_refs || project.relatedRefs || (project.brandRef ? [project.brandRef] : []);
+      return refs.map(String).includes(ref) || String(project.brandRef || '') === ref;
+    }).slice(0, 5)};
+  });
+  const groupedProjects = new Set(groups.flatMap(group => group.projects.map(project => String(project.id || project.ref || project.projectRef))));
+  const ungrouped = projects.filter(project => !groupedProjects.has(String(project.id || project.ref || project.projectRef))).slice(0, 5);
+  if (!groups.length && !ungrouped.length) return null;
+  return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
+    <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
+    {groups.map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={brand.id || brand.ref}>
+      <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}>
+        <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant}/><b>{brand.name}</b>
+      </a>
+      {brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url || '#'} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}
+      {!brand.projects.length && <span className="cadu-ds-context-sidebar__group-empty">Nenhum projeto vinculado</span>}
+    </section>)}
+    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><b className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</b>{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url || '#'} title={project.name || project.title}><span>{project.name || project.title || 'Projeto'}</span></a>)}</section>}
+  </section>;
+}
+
 export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'home', resources = [], projects = [], brands = [], conversations = [], agencyName = ''}) {
   // Account navigation is a persistent context on every account page. It
   // starts open even if the workspace/home rail was previously collapsed.
@@ -92,8 +117,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
       {items.map(item => { const href = links[item.key]; if (!href) return null; return <a key={item.id} href={href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon} size={16}/><span>{item.label}</span></a>; })}
     </nav>}
     {mode === 'home' && <>
-      <SidebarCollection label="Marcas" href={links.brands} items={brands} kind="brand" />
-      <SidebarCollection label="Projetos" href={links.projects} items={projects} kind="project" />
+      <SidebarBrandProjectGroups brands={brands} projects={projects} links={links}/>
     </>}
     {mode === 'home' && recentFiles.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Arquivos recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>

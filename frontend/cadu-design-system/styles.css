@@ -2547,6 +2547,24 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
 .cadu-ds-catalog-row__files b { font-size:12px; font-weight:700; }
 .cadu-ds-catalog-row__files small { max-width:150px; overflow:hidden; color:var(--cadu-muted); font-size:9px; text-align:right; text-overflow:ellipsis; white-space:nowrap; }
 
+/* Keep catalog rows as a real table: the identity has its own narrow column,
+   while the text and counters keep stable tracks instead of collapsing into
+   each other when the dock reduces the available width. */
+.cadu-ds-catalog-list { overflow-x:auto; overflow-y:hidden; }
+.cadu-ds-catalog-list__head,
+.cadu-ds-catalog-row { min-width:760px; }
+.cadu-ds-catalog-row > .cadu-ds-visual-identity { grid-column:1; }
+.cadu-ds-catalog-row > .cadu-ds-visual-identity + .cadu-ds-catalog-row__main {
+  grid-column:2;
+  margin-left:0;
+  padding-left:0;
+}
+@media (max-width:760px) {
+  .cadu-ds-catalog-list { overflow-x:hidden; }
+  .cadu-ds-catalog-list__head,
+  .cadu-ds-catalog-row { min-width:0; }
+}
+
 /* On a selected project, the title is the context control. This avoids
    repeating a long project name inside the composer and gives the user the
    whole project list from the most obvious place. */
@@ -2558,6 +2576,52 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
 .cadu-ds-home-project-selector .cadu-ds-selector-menu { top:calc(100% + 12px); left:50%; width:min(420px,calc(100vw - 36px)); transform:translateX(-50%); }
 .cadu-ds-home-project-selector .cadu-ds-selector-menu button { min-height:42px; padding:0 12px; color:var(--cadu-nav-ink); text-align:left; }
 @media (max-width:760px) { .cadu-ds-home-project-selector summary { font-size:clamp(29px,8vw,38px); white-space:normal; } .cadu-ds-home-project-selector summary span { white-space:normal; } }
+
+/* Composer controls: one quiet control row, without competing button chrome. */
+.cadu-ds-home-chat-shell .cv-composer-submit-group {
+  gap:4px;
+  align-items:center;
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger {
+  min-height:32px;
+  height:32px;
+  padding:0 7px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--cadu-muted);
+  font-weight:500;
+  box-shadow:none;
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary:hover,
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details[open] > summary,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger:hover,
+.cadu-ds-home-chat-shell .cv-composer-intensity[open] .cv-composer-intensity__trigger {
+  border:0;
+  background:color-mix(in srgb,var(--cadu-accent) 9%,transparent);
+  color:var(--cadu-ink);
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary span,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger span {
+  font-weight:500;
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary svg,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger svg {
+  color:var(--cadu-muted);
+  opacity:.78;
+  stroke-width:1.5;
+}
+.cadu-ds-home-chat-shell button[aria-label="Enviar mensagem"] {
+  margin-left:2px;
+  border-radius:10px;
+  background:var(--cadu-accent-strong);
+  color:#fff;
+  box-shadow:none;
+}
+.cadu-ds-home-chat-shell button[aria-label="Enviar mensagem"] svg {
+  stroke-width:1.5;
+}
 
 /* Dock polish: one centered rhythm for shortcuts and a full-bleed profile photo. */
 body.portal--workspace .cadu-ds-dock {

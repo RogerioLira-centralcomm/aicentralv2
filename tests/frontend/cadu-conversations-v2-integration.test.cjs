@@ -388,7 +388,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-chat-failure/);
   assert.match(conversation, /Créditos da conta/);
   assert.match(conversation, /Ver créditos/);
-  assert.match(conversation, /Adicionar ao briefing/);
+  assert.doesNotMatch(conversation, /Adicionar ao briefing|Perguntar|Resumir/);
+  assert.match(conversation, /Crie um texto editável somente a partir do trecho selecionado/);
+  assert.match(conversation, /Criar texto no artefato/);
   assert.match(conversation, /composerContext/);
   assert.match(composer, /Mais recursos/);
   assert.match(composer, /Pesquisar na internet/);

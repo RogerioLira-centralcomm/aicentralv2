@@ -4659,6 +4659,7 @@ def obter_planos_clientes(filtros=None):
                 cli.cnpj,
                 pd.plan_name as plan_definition_name,
                 pd.max_users as pd_max_users,
+                pd.storage_bytes_limit as pd_storage_bytes_limit,
                 pd.tokens_monthly_limit as pd_tokens_monthly_limit,
                 pd.limit_image_generation as pd_limit_image_generation,
                 CASE 

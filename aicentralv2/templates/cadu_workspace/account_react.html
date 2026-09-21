@@ -1,11 +1,11 @@
 {% extends 'cadu_portals/base.html' %}
-{% block title %}{{ {'agencia':'Agência','perfil':'Perfil','equipe':'Equipe','planos':'Plano','uso':'Uso','creditos':'Créditos','faturamento':'Faturamento'}[section] }} — Workspace{% endblock %}
+{% block title %}{{ {'agencia':'Agência','perfil':'Perfil','equipe':'Equipe','integracoes':'Integrações','planos':'Plano','uso':'Uso','creditos':'Créditos','faturamento':'Faturamento'}[section] }} — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block content_class %}portal-content--workspace-react{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
-<div id="cadu-conversations-v2-root" class="cv-home-root cv-account-root" aria-label="Conta do Workspace"><noscript>{% if section == 'agencia' %}Agência {{ account.organization.nome_fantasia or 'Sua equipe' }} · {{ account.people|length }} pessoas · {{ account.agency_context.projects|length }} projetos{% elif section == 'perfil' %}Perfil de {{ account.current_user.nome_completo or session.get('user_name','') }} · {{ account.current_user.email or session.get('user_email','') }} · Salvar perfil{% elif section == 'equipe' %}Núcleo da agência. Projetos, marcas, plano e créditos são compartilhados por esta equipe.{% elif section == 'planos' %}Escolha o plano que acompanha o ritmo da sua operação.{% elif section == 'uso' %}Uso da equipe. Acompanhe o consumo confirmado no ciclo atual.{% elif section == 'creditos' %}Créditos disponíveis e lotes ativos da agência.{% else %}Histórico financeiro da operação.{% endif %}</noscript></div>
+<div id="cadu-conversations-v2-root" class="cv-home-root cv-account-root" aria-label="Conta do Workspace"><noscript>{% if section == 'agencia' %}Agência {{ account.organization.nome_fantasia or 'Sua equipe' }} · {{ account.people|length }} pessoas · {{ account.agency_context.projects|length }} projetos{% elif section == 'perfil' %}Perfil de {{ account.current_user.nome_completo or session.get('user_name','') }} · {{ account.current_user.email or session.get('user_email','') }} · Salvar perfil{% elif section == 'equipe' %}Núcleo da agência. Projetos, marcas, plano e créditos são compartilhados por esta equipe.{% elif section == 'integracoes' %}Contas conectadas, arquivos e serviços autorizados para o trabalho do time.{% elif section == 'planos' %}Escolha o plano que acompanha o ritmo da sua operação.{% elif section == 'uso' %}Uso da equipe. Acompanhe o consumo confirmado no ciclo atual.{% elif section == 'creditos' %}Créditos disponíveis e lotes ativos da agência.{% else %}Histórico financeiro da operação.{% endif %}</noscript></div>
 <script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
   'accountMode': True,
   'section': section,
@@ -33,7 +33,8 @@
     'updateOrganization': url_for('cadu_workspace.update_organization'),
     'invite': url_for('cadu_workspace.create_team_invite'),
     'inviteBase': '/workspace/app/equipe/convites',
-    'memberBase': '/workspace/app/equipe'
+    'memberBase': '/workspace/app/equipe',
+    'creditRequest': url_for('cadu_workspace.request_credit_package')
   }
 }|tojson }}</script>
 {% endblock %}

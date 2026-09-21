@@ -217,6 +217,18 @@ def _php_account_data(client_id: int) -> dict:
         purchases = []
     try:
         with get_db().cursor() as cursor:
+            cursor.execute("""SELECT COUNT(DISTINCT p.id) AS projects,
+                                    COUNT(f.id) AS files,
+                                    COALESCE(SUM(f.tamanho), 0) AS bytes_used,
+                                    COALESCE(SUM(f.tokens), 0) AS indexed_tokens
+                               FROM cadu_ci_projetos p
+                          LEFT JOIN cadu_ci_projeto_arquivos f ON f.projeto_id = p.id AND f.id_cliente = p.id_cliente
+                              WHERE p.id_cliente = %s""", (client_id,))
+            space = dict(cursor.fetchone() or {})
+    except Exception:
+        space = {'projects': 0, 'files': 0, 'bytes_used': 0, 'indexed_tokens': 0}
+    try:
+        with get_db().cursor() as cursor:
             cursor.execute(
                 """SELECT recipient_email, event_type, subject, status, provider_message_id, created_at
                      FROM cadu_workspace_email_events
@@ -228,7 +240,7 @@ def _php_account_data(client_id: int) -> dict:
     except Exception:
         email_events = []
     insights = _workspace_account_insights(plan, position, people)
-    return {"people": people, "invites": invites, "plan": plan, "credit": credit,
+    return {"people": people, "invites": invites, "plan": plan, "credit": credit, "space": space,
             "position": position, "movements": movements, "purchases": purchases,
             "insights": insights, "email_catalog": _workspace_account_email_catalog(),
             "email_events": email_events}
@@ -979,6 +991,69 @@ def save_home_preferences():
 def workspace_credit_summary():
     """Expose the live, lot-based balance for read-only Workspace cues."""
     return jsonify(credit_position(int(session.get('cliente_id') or 0)))
+
+
+@bp.post('/workspace/api/creditos/solicitar')
+@login_required
+def request_credit_package():
+    """Registra uma intenção de compra sem checkout e avisa o financeiro."""
+    payload = request.get_json(silent=True) or request.form.to_dict()
+    try:
+        tokens = max(1, int(payload.get('tokens') or 0))
+        price = max(0, float(payload.get('price') or 0))
+    except (TypeError, ValueError):
+        return jsonify(success=False, error='Informe créditos e valor válidos.'), 400
+    package_name = str(payload.get('package_name') or f'{tokens:,} créditos').strip()[:160]
+    note = str(payload.get('note') or '').strip()[:2000]
+    try:
+        users = max(1, int(payload.get('users') or 1))
+    except (TypeError, ValueError):
+        users = 1
+    if not payload.get('users'):
+        users = {'essencial': 3, 'equipe': 10, 'agência': 25, 'agencia': 25}.get(package_name.lower(), users)
+    billing_mode = str(payload.get('billing_mode') or 'prepaid').strip().lower()
+    if billing_mode not in {'prepaid', 'postpaid'}:
+        return jsonify(success=False, error='Condição de pagamento inválida.'), 400
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    try:
+        from .. import db
+        client_record = db.obter_cliente_por_id(client_id) or {}
+        sales_email = str(client_record.get('executivo_email') or '').strip()
+        conn = get_db()
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO cadu_credit_requests
+                (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note)
+                VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                (client_id, user_id, package_name, tokens, price, billing_mode, note))
+            request_id = cur.fetchone()['id']
+        conn.commit()
+        from ..email_service import send_email
+        buyer_email = str(session.get('user_email') or '').strip()
+        recipients = ['apolo@centralcomm.media']
+        if sales_email and sales_email.lower() not in {item.lower() for item in recipients}:
+            recipients.append(sales_email)
+        safe_name, safe_note, safe_email = escape(package_name), escape(note), escape(buyer_email or 'não informado')
+        users_label = '1 pessoa' if users == 1 else f'{users} pessoas'
+        billing_label = 'Pós-pago / faturamento financeiro' if billing_mode == 'postpaid' else 'Pagamento antecipado'
+        price_label = f'R$ {price:,.2f}' if price else 'A definir pelo financeiro'
+        internal_subject = f'Novo pedido Cadu #{request_id} · {package_name}'
+        internal_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f">
+          <div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Financeiro</div><h1 style="margin:8px 0 0;font-size:24px">Novo pedido de compra</h1></div>
+          <div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">O pedido <strong>#{request_id}</strong> foi registrado na área de conta.</p>
+          <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} créditos</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Uso previsto</td><td style="padding:9px 0;text-align:right"><strong>{users_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Comprador:</strong> {safe_email}</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
+        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Obrigado pelo seu pedido</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">Recebemos sua solicitação de <strong>{safe_name}</strong>. Nosso financeiro vai confirmar a cobrança e a liberação do acesso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os créditos poderão ser usados pela sua conta nas conversas e ações de IA. {('O pedido está indicado para 1 pessoa.' if users == 1 else f'O pedido está indicado para {users} pessoas, com os créditos compartilhados entre elas.') } Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Créditos:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">Você receberá uma nova mensagem quando a confirmação estiver concluída.</p></div></div>'''
+        send_email(internal_subject, recipients,
+                   text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} créditos · {users_label} · {price_label} · {billing_label}. Cliente {client_id}.',
+                   html_body=internal_html)
+        if buyer_email and buyer_email.lower() != 'apolo@centralcomm.media':
+            send_email(f'Recebemos seu pedido Cadu #{request_id}', [buyer_email], text_body=f'Obrigado pelo pedido {package_name}. Recebemos {tokens:,} créditos para {users_label}. O financeiro confirmará a cobrança e a liberação.', html_body=buyer_html)
+        return jsonify(success=True, request_id=request_id, message='Solicitação enviada. O crédito será liberado após a confirmação.'), 201
+    except Exception:
+        try: conn.rollback()
+        except Exception: pass
+        current_app.logger.exception('Falha ao solicitar pacote de créditos')
+        return jsonify(success=False, error='Não foi possível registrar a solicitação agora.'), 503
 
 
 @bp.get('/workspace/api/context/catalog')

@@ -4,7 +4,10 @@ import {resolve} from 'node:path';
 export default defineConfig({
   publicDir: false,
   build: {
-    emptyOutDir: true,
+    // The templates load workspace auxiliary assets from this directory
+    // (catalog, dock, upload and reprocess styles/scripts). Vite must not
+    // remove them before writing the React bundle.
+    emptyOutDir: false,
     cssCodeSplit: false,
     outDir: resolve('aicentralv2/static/cadu_workspace/conversations/react'),
     rollupOptions: {

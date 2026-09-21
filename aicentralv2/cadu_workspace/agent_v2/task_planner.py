@@ -97,7 +97,10 @@ def _project_link_step(message: str):
 
 
 def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
-    steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:budget.max_tool_calls]]
+    # The plan is user-facing. It must remain understandable in the chat.
+    # Reserve the fourth slot for the response itself. The user should never
+    # see preparation without the outcome that preparation produces.
+    steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:2]]
     if route.action == "link_test":
         action = _link_test_step(message)
         if action:
@@ -122,8 +125,7 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
         action = _project_link_step(message)
         if action:
             steps.append(action)
-    if route.artifact_type:
+    if route.artifact_type and len(steps) < 3:
         steps.append({"kind": "artifact", "action": route.action, "type": route.artifact_type,
                       "requires_confirmation": route.requires_confirmation})
-    steps.append({"kind": "generate", "response_mode": route.response_mode})
-    return steps
+    return steps[:3] + [{"kind": "generate", "response_mode": route.response_mode}]

@@ -7,6 +7,7 @@ const labels = {
   media_plan: 'Plano de mídia', scenario: 'Cenário', research: 'Pesquisa', project_map: 'Mapa do projeto',
   html: 'Página interativa', image: 'Imagem', spreadsheet: 'Planilha', report: 'Relatório',
   resource: 'Arquivo', brand_identity: 'Marca', meeting_summary: 'Resumo de reunião', meeting_agenda: 'Pauta',
+  link_reader: 'Referência',
 };
 
 function EditableTextarea({value, onChange, className = '', ...props}) {
@@ -139,6 +140,31 @@ function ResourceArtifact({artifact}) {
   </article>;
 }
 
+function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
+  const content = artifact.content || {};
+  const url = safeUrl(content.url);
+  let domain = '';
+  try { domain = url ? new URL(url).hostname.replace(/^www\./, '') : ''; } catch (_) {}
+  const isGoogle = /(^|\.)google\.com$|googleusercontent\.com$/i.test(domain);
+  const isMeeting = /meet\.google\.com|calendar\.google\.com/i.test(domain) || /meet|calendar|reuni[aã]o/i.test(String(content.kind || content.provider || ''));
+  const access = content.access_mode || (isGoogle ? 'referência Google' : 'link público');
+  return <article className="cv-mx-auto cv-flex cv-h-full cv-w-full cv-max-w-[720px] cv-flex-col cv-justify-center cv-p-8 md:cv-p-12">
+    <span className="cv-grid cv-h-11 cv-w-11 cv-place-items-center cv-rounded-xl cv-bg-teal/10 cv-text-teal"><Icon name="external" size={20}/></span>
+    <span className="cv-mt-5 cv-text-xs cv-font-semibold cv-text-[#78cfc3]">{access}</span>
+    <h3 className="cv-mb-0 cv-mt-2 cv-text-xl cv-font-semibold cv-tracking-[-.02em]">{artifact.title || 'Link externo'}</h3>
+    <p className="cv-mb-0 cv-mt-2 cv-text-sm cv-leading-6 cv-text-[#819b97]">{domain || 'Endereço externo'}{content.detail ? ` · ${content.detail}` : ''}</p>
+    {content.thumbnail && <img src={safeUrl(content.thumbnail)} alt="" className="cv-mt-6 cv-max-h-52 cv-w-full cv-rounded-xl cv-object-cover"/>}
+    {isMeeting && <section className="cv-mt-6 cv-border-l-2 cv-border-teal/60 cv-pl-4"><strong className="cv-block cv-text-sm">Reunião no projeto</strong><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-leading-5 cv-text-[#99b4af]">Organize pauta, decisões e próximos passos. A participação automática em chamadas não é iniciada por este fluxo.</p></section>}
+    <div className="cv-mt-6 cv-grid cv-gap-2">
+      {url && <a href={url} target="_blank" rel="noreferrer" className="cv-rounded-lg cv-bg-teal cv-px-4 cv-py-2.5 cv-text-center cv-text-xs cv-font-semibold cv-text-[#052522] cv-no-underline">Abrir endereço original</a>}
+      {url && <button type="button" onClick={() => onSaveReference?.(url)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold">Salvar como referência</button>}
+      {isMeeting && url && <button type="button" onClick={() => onRequestMeetingPlan?.(url)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold">Preparar reunião</button>}
+      {!isGoogle && !isMeeting && url && <button type="button" onClick={() => onRequestSummary?.(url)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold">Abrir e resumir</button>}
+    </div>
+    <p className="cv-mb-0 cv-mt-4 cv-text-xs cv-leading-5 cv-text-[#71908b]">{isGoogle ? 'Este link permanece como referência. O conteúdo só é acessado pela integração autorizada.' : 'O conteúdo só será extraído depois de escolher “Abrir e resumir”.'}</p>
+  </article>;
+}
+
 function BrandIdentityArtifact({artifact}) {
   const content = artifact.content || {};
   const logo = safeUrl(content.logo_url);
@@ -189,7 +215,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, onChange, onTitleChange, projectRef, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion}) {
+export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, onChange, onTitleChange, projectRef, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -201,11 +227,12 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
     if (type === 'project_map') return <ProjectMap artifact={artifact} onChange={onChange}/>;
     if (type === 'image') return <ImageArtifact artifact={artifact}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
+    if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     return type === 'document'
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} onTitleChange={onTitleChange}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, onChange, onTitleChange]);
+  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan]);
   useEffect(() => {
     setClosing(false);
     if (dialog.current?.open) dialog.current.close();
@@ -231,7 +258,7 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
       <button type="button" onClick={requestClose} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Fechar artefato"><Icon name="close" size={17}/></button>
     </header>
     <div className="cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-auto">{contentView}</div>
-    {artifact.id && <footer className="cv-artifact-actions"><span>{dirty ? 'Salvando rascunho automaticamente' : artifact.project_ref ? 'Salvo no projeto' : 'Rascunho salvo na sessão'}</span><div>{projectRef && !artifact.project_ref && <button type="button" onClick={onSaveToProject} disabled={saving} className="cv-artifact-actions__project">Salvar no projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">{saving ? 'Salvando…' : 'Salvar agora'}</button>}</div></footer>}
+    {artifact.id && <footer className="cv-artifact-actions"><span>{dirty ? 'Salvando rascunho automaticamente' : artifact.project_ref ? 'Salvo no projeto' : 'Mantido no espaço pessoal'}</span><div>{projectRef && !artifact.project_ref && <button type="button" onClick={onSaveToProject} disabled={saving} className="cv-artifact-actions__project">Adicionar ao projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">{saving ? 'Salvando…' : 'Salvar agora'}</button>}</div></footer>}
     <dialog ref={dialog} className="cv-dialog cv-w-[min(540px,calc(100vw-32px))] cv-p-0">
       <section><header className="cv-flex cv-items-center cv-justify-between cv-border-b cv-border-white/10 cv-p-5"><div><h2 className="cv-m-0 cv-text-base">Versões</h2><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-text-mist">Restaure uma revisão anterior.</p></div><button type="button" onClick={() => dialog.current?.close()} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent"><Icon name="close" size={16}/></button></header>
         <div className="cv-scroll cv-max-h-[55vh] cv-overflow-y-auto cv-p-3">{loadingVersions ? <p className="cv-p-3 cv-text-sm cv-text-mist">Carregando…</p> : versions.length ? versions.map(item => <article key={item.version} className="cv-flex cv-items-center cv-gap-4 cv-rounded-xl cv-p-3 hover:cv-bg-white/[.04]"><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm">Versão {item.version}</strong><small className="cv-mt-1 cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-xs cv-text-mist">{item.change_summary || 'Revisão do artefato'}</small></div><button type="button" disabled={Number(item.version) === Number(artifact.current_version)} onClick={async () => { await onRestoreVersion(item.version); dialog.current?.close(); }} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{Number(item.version) === Number(artifact.current_version) ? 'Atual' : 'Restaurar'}</button></article>) : <p className="cv-p-3 cv-text-sm cv-text-mist">Nenhuma versão disponível.</p>}</div>

@@ -100,6 +100,12 @@ def test_artifact_schema_matches_runtime_types():
     assert "cadu_workspace_artifacts_type_check" in sql
 
 
+def test_link_reader_is_an_allowed_personal_artifact_type():
+    migration = (ROOT / "migrations" / "add_cadu_link_reader_artifact.sql").read_text(encoding="utf-8")
+    assert "link_reader" in artifact_service.ALLOWED_TYPES
+    assert "link_reader" in migration
+
+
 def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     catalog = load_builtin_tools()
     names = {item["name"] for item in catalog.list(
@@ -275,6 +281,24 @@ def test_project_link_is_an_explicit_confirmed_reference_action():
     assert route.action == "create_project_link"
     assert action["name"] == "projects.create_link_reference"
     assert action["arguments"]["url"].startswith("https://docs.google.com/")
+
+
+def test_bare_link_stays_a_reference_and_explicit_read_is_allowed():
+    bare = route_request("https://example.com/article")
+    explicit = route_request("Entenda este link: https://example.com/article")
+
+    assert bare.action == "register_link_reference"
+    assert not bare.needs_tools
+    assert explicit.action == "read_web_page"
+    assert explicit.needs_tools == ("web.read",)
+
+
+def test_user_facing_plans_never_exceed_four_steps():
+    route = route_request("Abra e resuma https://example.com/article")
+    plan = build_task_plan(route, budget_for(route), "Abra e resuma https://example.com/article")
+
+    assert len(plan) <= 4
+    assert plan[-1]["kind"] == "generate"
 
 
 def test_project_commands_route_to_real_registry_capabilities():

@@ -77,7 +77,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         needs_tool = "projects.list_sources" if _has(text, r"\b(fontes?|base de conhecimento|indexad[oa])\b") else "projects.list_resources"
         return IntentRoute("workspace", "list_project_resources", "low", "analysis",
                            ("project",), (needs_tool,))
-    if has_project and _has(text, r"\b(adicion|salv|registre|anex).{0,45}\b(link|url|refer[eê]ncia)\b"):
+    if has_project and _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*).{0,45}\b(link|url|refer[eê]ncia)\b"):
         has_url = bool(re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE))
         return IntentRoute("workspace", "create_project_link" if has_url else "clarify_project_link",
                            "low", "decision" if has_url else "clarification", ("project",), (), None, has_url)
@@ -109,9 +109,13 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            "medium", "decision" if has_note_payload else "clarification",
                            ("project",), (), None, has_note_payload)
     direct_url = re.search(r"https://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE)
-    if direct_url:
+    explicit_read = _has(text, r"\b(abri|abra|leia|ler|entend\w*|resum\w*|extraia|extra\w*|analise|analis\w*)\b")
+    if direct_url and explicit_read:
         return IntentRoute("research", "read_web_page", "high", "analysis",
                            ("project", "brand") if has_project else (), ("web.read",))
+    if direct_url:
+        return IntentRoute("workspace", "register_link_reference", "low", "clarification",
+                           ("project",) if has_project else (), (), None, False)
     if _has(text, r"\b(cri|fa[çc]|ger|transform|monte|montar)\w*\b.{0,45}\b(rascunho|documento|texto)\b"):
         return IntentRoute("workspace", "create_text_draft", "high", "artifact_first",
                            ("project", "brand") if has_project else (), (), "document")

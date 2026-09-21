@@ -647,7 +647,7 @@ export default function App({bootstrap}) {
       catch (error) { trace('Não foi possível abrir o artefato', error.message, 'error'); }
       return;
     }
-    const resource = {type: 'resource', title: item.title || 'Arquivo', content: item};
+    const resource = item.url ? {type: 'link_reader', title: item.title || 'Link externo', content: item} : {type: 'resource', title: item.title || 'Arquivo', content: item};
     setArtifact(resource); artifactRef.current = resource;
     setArtifactDirty(false); setArtifactOpen(true);
   }, [confirmDiscard, fetchArtifact, trace]);
@@ -733,6 +733,15 @@ export default function App({bootstrap}) {
             artifact={artifact} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
             onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
             onSaveToProject={saveArtifactToProject} onPublish={publishArtifact} onUnpublish={unpublishArtifact} onClose={() => setArtifactOpen(false)}
+            onRequestSummary={url => submit(`Abra e resuma este site público em um texto editável: ${url}`, {skipAttachments: true})}
+            onSaveReference={async url => {
+              if (activeProjectRef) return submit(`Adicione este link ${url} ao projeto como referência, sem abrir, ler ou indexar.`, {skipAttachments: true});
+              try {
+                const data = await request(bootstrap.endpoints.artifacts, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({conversation_id: conversationId, surface: 'conversations', type: 'link_reader', title: artifact?.title || 'Link externo', content: {...(artifact?.content || {}), url, access_mode: 'referência pessoal'}})});
+                setArtifact(data.artifact); artifactRef.current = data.artifact; setArtifactDirty(false); trace('Referência salva no espaço pessoal', data.artifact?.title || 'Link externo');
+              } catch (error) { trace('Falha ao salvar referência', error.message, 'error'); }
+            }}
+            onRequestMeetingPlan={url => submit(`Prepare uma pauta de reunião para este link: ${url}`, {skipAttachments: true})}
             onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}
           />}
         </div>

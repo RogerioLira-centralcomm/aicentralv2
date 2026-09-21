@@ -515,7 +515,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-source-card__body p { margin:2px 0 7px; color:#b8ccc7; font-size:11px; line-height:1.55; }
 #cadu-conversations-v2-root .cv-source-card__date { color:#66817c; font-size:10px; }
 #cadu-conversations-v2-root .cv-source-card__footer { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; padding-top:7px; border-top:1px solid rgba(181,218,211,.08); color:#66817c; font-size:10px; }
-#cadu-conversations-v2-root .cv-source-result__open { display:inline-flex; align-items:center; gap:5px; flex:none; color:#79dacf; text-decoration:none; }
+#cadu-conversations-v2-root .cv-source-result__open { display:inline-flex; align-items:center; gap:5px; flex:none; border:0; background:transparent; padding:0; color:#79dacf; font:inherit; text-decoration:none; cursor:pointer; }
 #cadu-conversations-v2-root .cv-source-result__open:hover,
 #cadu-conversations-v2-root .cv-source-result__open:focus-visible { background:rgba(255,255,255,.07); color:#79dfd2; }
 #cadu-conversations-v2-root .cv-source-group__actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }

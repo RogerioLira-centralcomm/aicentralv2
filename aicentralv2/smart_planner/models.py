@@ -230,7 +230,7 @@ def preview_cost(mode: str, dados: dict | None = None) -> dict:
         "source": source,
         "steps": steps,
         "spent": spent,
-        "note": "Estimativa interna da geração em reais, incluindo a página única e as imagens de apoio, sem margem comercial e fora do consumo de créditos.",
+        "note": "Estimativa interna da geração textual em reais, sem margem comercial e fora do consumo de créditos. Imagens são geradas depois, no editor.",
     }
 
 

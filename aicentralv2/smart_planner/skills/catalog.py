@@ -59,11 +59,6 @@ SKILLS = {
         "role": "compose",
         "file": "planner_canvas_v2.md",
     },
-    "planner_image_v2": {
-        "label": "Imagens",
-        "role": "sheet",
-        "file": "planner_image_v2.md",
-    },
 }
 
 ONE_PAGE_STEPS = (

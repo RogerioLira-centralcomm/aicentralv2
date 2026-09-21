@@ -3127,6 +3127,7 @@ def dashboard():
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
                       'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
                       'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
+                      'updatedAt': str(item.get('updated_at') or ''),
                       'dockLogoUrl': str(item.get('brand_logo_url') or ''),
                       'brandName': str(item.get('thumbnail_label') or ''),
                       'visualInitials': str(item.get('thumbnail_initials') or 'P'),

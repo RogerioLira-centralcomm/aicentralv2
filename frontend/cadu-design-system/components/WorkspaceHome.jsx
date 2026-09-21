@@ -62,7 +62,11 @@ export function WorkspaceHome({bootstrap}) {
   const [brandRef, setBrandRef] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
-  const projects = home.projects || [];
+  const projects = useMemo(() => [...(home.projects || [])].sort((left, right) => {
+    const leftDate = Date.parse(left.updatedAt || left.updated_at || '') || 0;
+    const rightDate = Date.parse(right.updatedAt || right.updated_at || '') || 0;
+    return rightDate - leftDate;
+  }), [home.projects]);
   const brands = home.brands || [];
   const catalogBrands = home.catalogBrands || brands;
   const sidebarBrands = catalogBrands.length ? catalogBrands : brands;

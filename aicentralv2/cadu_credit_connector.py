@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import os
+from psycopg.types.json import Json
 from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from typing import Any
@@ -140,3 +141,77 @@ class CaduCreditConnector:
             additional_cost_usd=additional_cost_usd,
             metadata={**(metadata or {}), "margin_multiplier": 1},
         ))
+
+    def charge_tokens_in_transaction(
+        self, cursor, *, actor: CreditActor, idempotency_key: str, app: str,
+        stage: str, charged_tokens: int, model: str = "cadu",
+        metadata: dict | None = None,
+    ) -> dict:
+        """Debit the global token lots through an existing caller transaction.
+
+        Used by atomic ingestion/indexing flows where the debit must commit or
+        roll back with the source write. The public and regular API paths keep
+        using ``charge_tokens``/``charge_provider`` on this same connector.
+        """
+        required = max(0, int(charged_tokens or 0))
+        if not str(idempotency_key or '').strip():
+            raise ValueError('A execução precisa de uma chave idempotente.')
+        cursor.execute(
+            """INSERT INTO cadu_tools_token_usage
+                (idempotency_key, id_cliente, id_contato_cliente, ferramenta,
+                 etapa, modelo, tokens_entrada, tokens_saida, total_tokens,
+                 tokens_cobrados, metadata, status, charged_at)
+               VALUES (%s,%s,%s,%s,%s,%s,0,0,0,%s,%s,%s::jsonb,'charged',NOW())
+            ON CONFLICT (idempotency_key) DO NOTHING
+            RETURNING *""",
+            (str(idempotency_key), actor.client_id, actor.user_id, str(app),
+             str(stage), str(model or 'cadu'), required, required, Json(metadata or {})),
+        )
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute(
+                'SELECT * FROM cadu_tools_token_usage WHERE idempotency_key = %s',
+                (str(idempotency_key),),
+            )
+            existing = cursor.fetchone()
+            return dict(existing or {})
+        if required <= 0:
+            return dict(row)
+
+        cursor.execute(
+            """SELECT id, tokens_amount, tokens_used
+                  FROM cadu_credits_extras
+                 WHERE id_cliente=%s AND status='active'
+                   AND tokens_used < tokens_amount
+                   AND (expires_at IS NULL OR expires_at > NOW())
+              ORDER BY expires_at NULLS LAST, purchased_at, id
+                 FOR UPDATE""",
+            (actor.client_id,),
+        )
+        lots = [dict(item) for item in cursor.fetchall()]
+        available = sum(max(0, int(item.get('tokens_amount') or 0) - int(item.get('tokens_used') or 0)) for item in lots)
+        if available < required:
+            raise ValueError(f'Saldo insuficiente: são necessários {required} tokens e há {available} disponíveis.')
+        remaining = required
+        allocations = []
+        for lot in lots:
+            if remaining <= 0:
+                break
+            room = max(0, int(lot.get('tokens_amount') or 0) - int(lot.get('tokens_used') or 0))
+            used = min(room, remaining)
+            if not used:
+                continue
+            cursor.execute(
+                'UPDATE cadu_credits_extras SET tokens_used=tokens_used+%s WHERE id=%s AND id_cliente=%s',
+                (used, lot['id'], actor.client_id),
+            )
+            allocations.append({'lot_id': lot['id'], 'tokens': used})
+            remaining -= used
+        cursor.execute(
+            """UPDATE cadu_tools_token_usage
+                  SET metadata = metadata || %s::jsonb
+                WHERE id = %s
+            RETURNING *""",
+            (Json({'allocations': allocations}), row['id']),
+        )
+        return dict(cursor.fetchone() or row)

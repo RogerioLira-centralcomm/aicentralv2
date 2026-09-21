@@ -1943,7 +1943,21 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                             content_type=(primary_logo or {}).get('mime_type') or 'image/png',
                         ))
                 credits = CaduCreditConnector()
-                actor = CreditActor.from_values(client_id, user_id)
+                billing_user_id = int(user_id or 0)
+                if billing_user_id <= 0:
+                    # Durable jobs may be created by an internal reprocessor
+                    # rather than an HTTP session. Attribute their spend to a
+                    # real active administrator of the same tenant.
+                    with get_db().cursor() as cursor:
+                        cursor.execute("""SELECT id_contato_cliente
+                                             FROM tbl_contato_cliente
+                                            WHERE pk_id_tbl_cliente = %s AND status = true
+                                            ORDER BY CASE WHEN user_type IN ('admin','superadmin') THEN 0 ELSE 1 END,
+                                                     id_contato_cliente
+                                            LIMIT 1""", (client_id,))
+                        row = cursor.fetchone() or {}
+                    billing_user_id = int(row.get('id_contato_cliente') or 0)
+                actor = CreditActor.from_values(client_id, billing_user_id)
 
                 token_usage = {
                     'estimated_tokens': 150000 if analysis_mode == 'deep' else 75000,

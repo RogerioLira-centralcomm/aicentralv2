@@ -658,7 +658,7 @@ def _ocr_vet_visual_candidates(candidates, *, deep=False):
             import pytesseract
             image = Image.open(BytesIO(content)).convert('RGB')
             text = str(pytesseract.image_to_string(image, lang='eng+por') or '').strip()
-            item.update({'ocr_status': 'read', 'ocr_text': _text(text, 700)})
+            item.update({'ocr_status': 'read', 'ocr_text': _text(text, 700), 'color_palette': _dominant_image_colors(image)})
         except Exception:
             item.update({'ocr_status': 'unavailable', 'ocr_text': ''})
         marker = str(item.get('ocr_text') or '').lower()
@@ -668,6 +668,33 @@ def _ocr_vet_visual_candidates(candidates, *, deep=False):
         item.update({'triage': 'accepted', 'triage_reason': 'origem oficial e OCR sem conflito'})
         accepted.append(item)
     return accepted, rejected
+
+
+def _dominant_image_colors(image, limit=6):
+    """Extract stable visual color candidates from a rendered asset."""
+    try:
+        from PIL import Image
+        sample = image.convert('RGB').copy()
+        sample.thumbnail((180, 180))
+        quantized = sample.quantize(colors=max(8, limit * 3), method=Image.Quantize.MEDIANCUT).convert('RGB')
+        counts = quantized.getcolors(max(1, quantized.width * quantized.height)) or []
+    except Exception:
+        return []
+    result, seen = [], set()
+    for count, rgb in sorted(counts, reverse=True):
+        red, green, blue = [int(value) for value in rgb]
+        if min(red, green, blue) >= 244 or max(red, green, blue) <= 12:
+            continue
+        value = '#{:02X}{:02X}{:02X}'.format(red, green, blue)
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append({'hex': value, 'name': 'cor extraída da imagem', 'usage': 'recorrência visual observada',
+                       'confidence': round(min(0.92, 0.45 + (float(count) / max(1, sample.width * sample.height)) * 2), 2),
+                       'pixels': int(count)})
+        if len(result) >= limit:
+            break
+    return result
 
 
 def _pt_br_research_query(subject, *, official_domain=None, visual=False):
@@ -1005,6 +1032,14 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
                 domain, brand_name=record.get("titulo") or domain,
             ), domain, limit=60
         )
+    screenshot = raw.get("screenshot")
+    if isinstance(screenshot, str) and screenshot.startswith(("http://", "https://")):
+        candidates.insert(0, {
+            'url': screenshot, 'page_url': effective_url, 'kind': 'screenshot',
+            'category': 'Captura renderizada da marca', 'source': 'firecrawl_screenshot',
+            'score': 100, 'width': 1440, 'height': 1000,
+            'reason': 'Captura renderizada da página oficial usada como evidência visual.',
+        })
     record["logo_url"] = strong_logo.get("url") if strong_logo else None
     branding = raw.get("branding") or {}
     external_sources = _firecrawl_market_search(record.get("titulo") or domain, domain)
@@ -2109,6 +2144,10 @@ class CreativeBrandAnalyzer:
                 "assets_found": len(asset_candidates),
                 "visual_target": {"minimum": 10, "maximum": 20} if deep else {"minimum": 5, "maximum": 5},
                 "assets_rejected": len(evidence.get("rejected_asset_candidates") or []),
+                "screenshot": evidence.get("screenshot"),
+                "screenshot_ocr": next((item.get("ocr_text") for item in asset_candidates if item.get("kind") == "screenshot"), ""),
+                "screenshot_color_palette": next((item.get("color_palette") for item in asset_candidates if item.get("kind") == "screenshot"), []),
+                "css_color_evidence": css_colors,
                 "coverage": coverage,
                 "quality_flags": quality_flags,
                 "ready_for_approval": not quality_flags,

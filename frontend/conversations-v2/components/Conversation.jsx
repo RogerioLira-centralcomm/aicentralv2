@@ -106,12 +106,15 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
 
 function SelectionTools({text, onPrompt, onClear}) {
   const quote = text.length > 420 ? `${text.slice(0, 420).replace(/\s+\S*$/, '')}…` : text;
-  const ask = prompt => { onClear(); onPrompt(prompt, {type: 'selection', label: 'Trecho selecionado', text: quote}); };
+  const createText = () => {
+    onClear();
+    onPrompt('Crie um texto editável somente a partir do trecho selecionado e abra o resultado em um artefato de texto. Não inclua a conversa, a árvore de resposta, instruções técnicas ou conteúdo fora do trecho.', {
+      type: 'selection', label: 'Trecho para criar texto', text: quote,
+    });
+  };
   return <div className="cv-selection-tools cv-sticky cv-bottom-6 cv-z-10 cv-mx-auto cv-mb-5 cv-flex cv-w-fit cv-max-w-[calc(100%-32px)] cv-flex-wrap cv-items-center cv-justify-center cv-gap-1.5 cv-rounded-xl cv-border cv-border-teal/25 cv-bg-[#102326]/95 cv-p-1.5 cv-shadow-xl cv-backdrop-blur" role="toolbar" aria-label="Ações para o trecho selecionado">
     <span className="cv-px-2 cv-text-[10px] cv-text-[#8faaa5]">Trecho selecionado</span>
-    <button type="button" onClick={() => ask('Explique este trecho de forma simples.')} className="cv-rounded-lg cv-border-0 cv-bg-transparent cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-text-[#c3d6d2] hover:cv-bg-white/[.07] hover:cv-text-white">Perguntar</button>
-    <button type="button" onClick={() => ask('Resuma este trecho em uma frase.')} className="cv-rounded-lg cv-border-0 cv-bg-transparent cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-text-[#c3d6d2] hover:cv-bg-white/[.07] hover:cv-text-white">Resumir</button>
-    <button type="button" onClick={() => ask('Adicione este trecho ao briefing do projeto como uma premissa.')} className="cv-rounded-lg cv-border-0 cv-bg-teal/15 cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-font-semibold cv-text-teal hover:cv-bg-teal/25">Adicionar ao briefing</button>
+    <button type="button" onClick={createText} className="cv-rounded-lg cv-border-0 cv-bg-teal/15 cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-font-semibold cv-text-teal hover:cv-bg-teal/25">Criar texto no artefato</button>
     <button type="button" onClick={onClear} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#7e9994] hover:cv-bg-white/[.07] hover:cv-text-white" aria-label="Fechar ações do trecho">×</button>
   </div>;
 }

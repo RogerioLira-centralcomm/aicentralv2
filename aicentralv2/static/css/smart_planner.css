@@ -5543,8 +5543,8 @@ html.is-sp-media body {
 .sp-gallery-item img {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
   background: #e2e8f0;
 }
 

@@ -640,6 +640,7 @@ def _openai_generate_image(payload, *, image_model, output_format, timeout, http
         "prompt": payload.get("prompt") or "",
         "size": _OPENAI_IMAGE_SIZES.get(ratio, "1536x1024"),
         "quality": payload.get("quality") or "high",
+        "output_compression": 100,
     }
     try:
         response = http_client.post(
@@ -701,6 +702,7 @@ def _openai_edit_image(
         "prompt": payload.get("prompt") or "",
         "size": _OPENAI_IMAGE_SIZES.get(ratio, "1536x1024"),
         "quality": payload.get("quality") or "high",
+        "output_compression": 100,
     }
     try:
         response = http_client.post(

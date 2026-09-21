@@ -102,8 +102,48 @@ def test_artifact_schema_matches_runtime_types():
 
 def test_link_reader_is_an_allowed_personal_artifact_type():
     migration = (ROOT / "migrations" / "add_cadu_link_reader_artifact.sql").read_text(encoding="utf-8")
+    rollback = (ROOT / "migrations" / "rollback_cadu_link_reader_artifact.sql").read_text(encoding="utf-8")
+    base_schema = (ROOT / "migrations" / "add_cadu_conversations_v2.sql").read_text(encoding="utf-8")
     assert "link_reader" in artifact_service.ALLOWED_TYPES
     assert "link_reader" in migration
+    assert "cadu_workspace_artifacts_type_check" in base_schema
+    assert "WHERE type = 'link_reader'" in rollback
+    assert "RAISE EXCEPTION" in rollback
+
+
+def test_link_reader_rollback_is_not_a_forward_admin_migration():
+    from aicentralv2 import admin_migrations_routes
+
+    assert admin_migrations_routes._ROLLBACK_SQL_RX.match("rollback_cadu_link_reader_artifact.sql")
+    assert not admin_migrations_routes._ROLLBACK_SQL_RX.match("add_cadu_link_reader_artifact.sql")
+    discovered = {item["name"]: item for item in admin_migrations_routes._discover_migrations()}
+    assert discovered["add_cadu_link_reader_artifact.sql"]["runnable"] is True
+    assert discovered["rollback_cadu_link_reader_artifact.sql"]["runnable"] is False
+
+
+def test_personal_link_reference_persists_without_project(monkeypatch):
+    calls = []
+
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, query, params): calls.append((query, params))
+
+    class Connection:
+        def cursor(self): return Cursor()
+        def commit(self): pass
+        def rollback(self): raise AssertionError("Não deve fazer rollback")
+
+    personal = context(project_ref=None)
+    monkeypatch.setattr(artifact_service, "get_db", lambda: Connection())
+    monkeypatch.setattr(artifact_service, "get_artifact", lambda current, artifact_id: {"id": artifact_id, "project_ref": current.project_ref, "type": "link_reader"})
+
+    artifact = artifact_service.create_draft(personal, "link_reader", {"url": "https://example.com"}, title="Exemplo")
+
+    insert_params = calls[0][1]
+    assert insert_params[3] is None
+    assert insert_params[5] == "link_reader"
+    assert artifact["project_ref"] is None
 
 
 def test_builtin_catalog_exposes_artifact_and_project_source_drafts():

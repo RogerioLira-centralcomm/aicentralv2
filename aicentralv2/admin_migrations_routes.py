@@ -86,6 +86,7 @@ def _venv_python() -> str:
 
 
 _RUNNER_RX = re.compile(r"^run_.*\.py$")
+_ROLLBACK_SQL_RX = re.compile(r"^rollback_.*\.sql$")
 
 
 def _discover_migrations() -> List[Dict[str, Any]]:
@@ -109,7 +110,10 @@ def _discover_migrations() -> List[Dict[str, Any]]:
             continue
         name = entry.name
         if name.endswith(".sql"):
-            mtype, runnable = "sql", True
+            # Rollbacks are deliberate recovery procedures, not forward
+            # migrations. Listing them is useful; exposing them to the normal
+            # run endpoint risks executing a destructive reversal by mistake.
+            mtype, runnable = "sql", not bool(_ROLLBACK_SQL_RX.match(name))
         elif name.endswith(".py"):
             mtype = "python"
             runnable = bool(_RUNNER_RX.match(name))
@@ -355,6 +359,8 @@ def api_run():
         return jsonify({"success": False, "error": "Arquivo não encontrado"}), 404
 
     # Detectar tipo
+    if _ROLLBACK_SQL_RX.match(name):
+        return jsonify({"success": False, "error": "Rollback manual não pode ser executado pelo painel de migrations."}), 400
     if name.endswith(".sql"):
         mtype = "sql"
     elif name.endswith(".py") and _RUNNER_RX.match(name):

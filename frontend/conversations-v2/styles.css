@@ -269,6 +269,19 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 :where(#cadu-conversations-v2-root button) { color: inherit; }
 #cadu-conversations-v2-root :focus-visible { outline: 2px solid var(--cv-accent); outline-offset: 2px; }
 
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-actions,
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group { flex-wrap:nowrap; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary,
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { min-height:36px; box-sizing:border-box; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary { display:inline-flex; align-items:center; gap:6px; padding:0 11px; border:1px solid rgba(54,111,104,.26); border-radius:10px; background:rgba(232,242,240,.78); color:#173d39; font-size:12px; font-weight:650; white-space:nowrap; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { border-radius:10px; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-input { min-width:0; }
+@media (max-width:760px) {
+  #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-actions { align-items:flex-end; }
+  #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group { min-width:0; }
+  #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary span { max-width:96px; overflow:hidden; text-overflow:ellipsis; }
+}
+
 /* The portal has legacy element-level styles for headings and form controls.
    These named surfaces deliberately establish the chat's own visual boundary. */
 #cadu-conversations-v2-root .cv-conversation-title {

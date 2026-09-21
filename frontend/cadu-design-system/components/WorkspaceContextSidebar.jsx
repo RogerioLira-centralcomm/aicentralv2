@@ -99,9 +99,11 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
       <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>
       {recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>)}
     </section>}
-    {mode === 'home' && recentFiles.length === 0 && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Conversas recentes">
+    {mode === 'home' && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Conversas recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Conversas recentes</span>{links.conversations && <a href={links.conversations}>Ver todas</a>}</div>
       {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><span><b>{item.title || item.name || 'Conversa'}</b><small>{item.context || item.projectName || 'Cadu Chat'}</small></span></a>)}
     </section>}
+    {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
+    {mode === 'home' && !recentConversations.length && <p className="cadu-ds-context-sidebar__empty">As conversas recentes aparecerão aqui.</p>}
   </aside>;
 }

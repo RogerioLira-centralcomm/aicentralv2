@@ -1207,15 +1207,16 @@ body.portal--workspace .cadu-ds-home-brand-grid > button:focus-visible {
    navigation that changes with the surface without rebuilding the shell. */
 body.portal--workspace .cadu-ds-home-workarea {
   align-items:stretch;
+  column-gap:0;
 }
 
 .cadu-ds-context-sidebar {
   display:flex;
-  flex:0 0 224px;
+  flex:0 0 214px;
   min-height:100dvh;
   flex-direction:column;
-  gap:22px;
-  padding:24px 14px 18px;
+  gap:18px;
+  padding:22px 12px 18px;
   overflow-y:auto;
   border-right:1px solid var(--cadu-line);
   background:color-mix(in srgb,var(--cadu-canvas) 84%,var(--cadu-surface));
@@ -1455,6 +1456,13 @@ body.portal--workspace .cadu-ds-home-workarea {
 .cadu-ds-context-sidebar__recent small {
   color:var(--cadu-muted);
   font-size:10px;
+}
+
+.cadu-ds-context-sidebar__empty {
+  margin:0 10px;
+  color:var(--cadu-muted);
+  font-size:10px;
+  line-height:1.4;
 }
 
 @media (max-width:760px) {

@@ -440,9 +440,16 @@ export default function App({bootstrap}) {
           setConversationId(event.conversation_id); conversationRef.current = event.conversation_id;
           runRef.current = event.run_id; runStartedRef.current = Date.now();
           trace('Entendendo o pedido');
+          setRuntime('Entendendo o pedido');
         } else if (kind === 'route.selected') {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
+          setRuntime('Preparando o contexto');
           trace('Preparando contexto');
+        }
+        else if (kind === 'tool.started') {
+          if (event.name === 'web.search') setRuntime('Buscando fontes relevantes');
+          else if (event.name === 'web.read') setRuntime('Lendo as fontes encontradas');
+          else setRuntime('Consultando o contexto disponível');
         }
         else if (kind === 'tool.completed') {
           if (event.name === 'web.search') {
@@ -484,9 +491,12 @@ export default function App({bootstrap}) {
           }
         }
         else if (kind === 'artifact.created') {
+          setRuntime('Preparando o material');
           latestArtifact = event.artifact || null;
           if (latestArtifact) { setArtifact(latestArtifact); artifactRef.current = latestArtifact; setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true); }
           trace('Artefato criado', event.artifact?.title || '');
+        } else if (kind === 'provider.first_token') {
+          setRuntime('Escrevendo a resposta');
         } else if (kind === 'answer.completed') {
           const responseData = event.response || {};
           if (responseData.artifact_patch && !latestArtifact?.id) {

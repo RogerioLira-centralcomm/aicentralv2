@@ -484,6 +484,7 @@ def stream(run):
                 first_token_ms = round((perf_counter() - run_started) * 1000)
                 _journal(run["run_id"], "provider.first_token", {"first_token_ms": first_token_ms},
                          duration_ms=first_token_ms)
+                yield _event("provider.first_token", first_token_ms=first_token_ms)
             provider_id = item.get("conversation_id") or provider_id
             next_task_id = item.get("task_id")
             if next_task_id and next_task_id != task_id:

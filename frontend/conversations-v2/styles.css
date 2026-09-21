@@ -698,7 +698,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 
 .cv-artifact-editor textarea { display: block; width: 100%; resize: none; overflow: hidden; border: 0; border-radius: 8px; background: transparent; color: var(--cv-text); line-height: 1.65; }
 .cv-artifact-editor textarea:hover { background: rgba(255,255,255,.025); }
-.cv-artifact-editor textarea:focus { background: rgba(255,255,255,.04); outline: 1px solid rgba(32,199,181,.42); }
+.cv-artifact-editor textarea:focus { background: rgba(255,255,255,.025); outline:0; }
 .cv-artifact-editor .cv-artifact-summary { min-height: 88px; font-size: 18px; font-weight: 520; }
 
 .cv-rich-document__title { display:block; width:100%; padding:0; border:0; background:transparent; color:var(--cv-text); outline:0; font-size:27px; font-weight:680; letter-spacing:-.035em; line-height:1.18; }
@@ -735,6 +735,15 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-artifact-actions__project { border:1px solid rgba(101,216,203,.35); background:rgba(101,216,203,.1); color:#79dfd2; }
 .cv-artifact-actions__save { border:0; background:#65d8cb; color:#052522; }
 .cv-artifact-actions button:disabled { opacity:.5; cursor:wait; }
+.cv-artifact-more { position:relative; }
+.cv-artifact-more > summary { display:grid; min-height:30px; place-items:center; padding:0 9px; border-radius:8px; color:#a8bfbb; font:600 11px/30px Inter,ui-sans-serif,system-ui,sans-serif; cursor:pointer; list-style:none; }
+.cv-artifact-more > summary::-webkit-details-marker { display:none; }
+.cv-artifact-more > summary:hover,.cv-artifact-more[open] > summary { background:rgba(255,255,255,.06); color:#e4f0ed; }
+.cv-artifact-more > summary:focus-visible { outline:2px solid rgba(101,216,203,.65); outline-offset:2px; }
+.cv-artifact-more > div { position:absolute; z-index:20; top:calc(100% + 7px); right:0; display:grid; width:190px; padding:5px; border:1px solid rgba(181,218,211,.14); border-radius:10px; background:#122124; box-shadow:0 18px 48px rgba(0,0,0,.38); }
+.cv-artifact-more button { display:flex; min-height:34px; align-items:center; gap:7px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:#c6d8d4; font:500 11px/1.25 Inter,ui-sans-serif,system-ui,sans-serif; text-align:left; cursor:pointer; }
+.cv-artifact-more button:hover,.cv-artifact-more button:focus-visible { background:rgba(255,255,255,.07); color:#f0f8f6; outline:0; }
+.cv-artifact-more button small { margin-left:auto; color:#78918d; }
 
 .cv-map-scene { transform-origin: 0 0; min-width: 920px; min-height: 680px; position: relative; }
 .cv-map-group { position: absolute; background: rgba(21,39,42,.86); backdrop-filter: blur(18px); border: 1px solid rgba(183,222,216,.15); border-radius: 18px; box-shadow: 0 20px 55px rgba(0,0,0,.28); overflow: hidden; }
@@ -783,7 +792,12 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-artifact-panel.is-light .cv-artifact-editor textarea { color:#243c38; }
 .cv-artifact-panel.is-light .cv-artifact-editor label > span { color:#4f716c; }
 .cv-artifact-panel.is-light .cv-artifact-editor textarea:hover { background:#edf5f2; }
-.cv-artifact-panel.is-light .cv-artifact-editor textarea:focus { background:#e7f2ee; outline-color:rgba(23,103,91,.52); }
+.cv-artifact-panel.is-light .cv-artifact-editor textarea:focus { background:#edf5f2; outline:0; }
+.cv-artifact-panel.is-light .cv-artifact-more > summary { color:#41655f; }
+.cv-artifact-panel.is-light .cv-artifact-more > summary:hover,.cv-artifact-panel.is-light .cv-artifact-more[open] > summary { background:#e7f0ed; color:#173b35; }
+.cv-artifact-panel.is-light .cv-artifact-more > div { border-color:#c8d8d4; background:#fff; box-shadow:0 18px 42px rgba(35,77,69,.17); }
+.cv-artifact-panel.is-light .cv-artifact-more button { color:#315951; }
+.cv-artifact-panel.is-light .cv-artifact-more button:hover,.cv-artifact-panel.is-light .cv-artifact-more button:focus-visible { background:#e9f3f0; color:#123c35; }
 .cv-artifact-panel.is-light .cv-rich-document__canvas { color:#243c38; }
 .cv-artifact-panel.is-light .cv-rich-document__canvas h2 { color:#173b35; }
 .cv-artifact-panel.is-light .cv-rich-document__canvas blockquote { color:#3e5c56; background:#e9f3f0; }

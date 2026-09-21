@@ -36,3 +36,32 @@
   });
   syncRole();
 })();
+
+(() => {
+  const copy = async (value) => {
+    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
+    const input = document.createElement('input');
+    input.value = value;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.append(input);
+    input.select();
+    document.execCommand('copy');
+    input.remove();
+  };
+  document.querySelectorAll('[data-brand-copy-color]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const value = button.dataset.brandCopyColor || '';
+      if (!value) return;
+      const label = button.querySelector('em');
+      const original = label?.textContent || 'Copiar';
+      try {
+        await copy(value);
+        if (label) label.textContent = 'Copiada';
+      } catch (_) {
+        if (label) label.textContent = 'Tente copiar';
+      }
+      window.setTimeout(() => { if (label) label.textContent = original; }, 1600);
+    });
+  });
+})();

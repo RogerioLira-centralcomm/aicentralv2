@@ -2262,6 +2262,20 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
 .cadu-ds-account-shell .cadu-ds-conversion-steps strong { color:var(--cadu-ink); font-size:14px; }
 .cadu-ds-account-shell .cadu-ds-conversion-steps p { margin:0; color:var(--cadu-muted); font-size:12px; line-height:1.5; }
 .cadu-ds-account-shell .cadu-ds-conversion-page .cadu-ds-account-section-copy { max-width:760px; }
+.cadu-ds-account-shell .cadu-ds-credit-packages > .cadu-ds-account-table { display:none; }
+.cadu-ds-account-shell .cadu-ds-credit-usage-guide__grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.cadu-ds-account-shell .cadu-ds-credit-usage-guide__grid article { padding:16px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); }
+.cadu-ds-account-shell .cadu-ds-credit-usage-guide__grid strong { color:var(--cadu-ink); font-size:14px; }
+.cadu-ds-account-shell .cadu-ds-credit-usage-guide__grid p { margin:8px 0 0; color:var(--cadu-muted); font-size:12px; line-height:1.5; }
+.cadu-ds-account-shell .cadu-ds-credit-usage-guide__note { display:block; margin-top:12px; color:var(--cadu-muted); font-size:11px; line-height:1.45; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups { display:grid; gap:12px; margin-top:16px; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article { padding:14px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface-soft); }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article>header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article>header div { display:grid; gap:3px; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article>header b { color:var(--cadu-ink); font-size:14px; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article>header small { color:var(--cadu-muted); font-size:11px; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article>header a { color:var(--cadu-accent-strong); font-size:11px; font-weight:700; text-decoration:none; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups .cadu-ds-account-list { margin-top:10px; }
 .cadu-ds-account-shell .cadu-ds-plan-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
 .cadu-ds-account-shell .cadu-ds-plan-grid article { display:flex; min-height:240px; flex-direction:column; padding:20px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); }
 .cadu-ds-account-shell .cadu-ds-plan-grid article.is-current { border-color:var(--cadu-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--cadu-accent-soft) 60%,transparent); }
@@ -2302,6 +2316,7 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
   }
   .cadu-ds-account-shell .cadu-ds-plan-current { align-items:flex-start; flex-direction:column; }
   .cadu-ds-account-shell .cadu-ds-conversion-steps { grid-template-columns:1fr; }
+  .cadu-ds-account-shell .cadu-ds-credit-usage-guide__grid { grid-template-columns:1fr; }
   .cadu-ds-account-shell .cadu-ds-plan-grid { grid-template-columns:1fr; }
   .cadu-ds-legacy-account-page { padding:28px 18px 54px; }
 }

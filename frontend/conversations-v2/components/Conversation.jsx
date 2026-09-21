@@ -73,6 +73,7 @@ function ConversationSupport({context, projects, brands, messages, diagnostics, 
 function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl}) {
   const response = message.response || {answer: message.content};
   const text = String(response.answer || '')
+    .replace(/^\s*[^|\n]{1,240}\|\s*Confian(?:ça|ca)\s*:\s*\**\s*(?:baixa|m[eé]dia|alta|low|medium|high)\**[.,]?\s*/i, '')
     .replace(/^\s*S[ií]ntese:\s*contexto:\s*[^;]+;\s*decis(?:ão|ao):\s*[^;]+;\s*/i, '')
     .replace(/^\s*Projeto usado:\s*[^.]+\.\s*/i, '')
     .replace(/^\s*Decis(?:ão|ao) proposta:\s*/i, '')

@@ -4,7 +4,16 @@ import {safeUrl} from '../lib/api';
 function Inline({text}) {
   const tokens = String(text || '').split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g);
   return tokens.map((token, index) => {
-    if (/^\*\*.*\*\*$/.test(token)) return <strong key={index}>{token.slice(2, -2)}</strong>;
+    if (/^\*\*.*\*\*$/.test(token)) {
+      const emphasis = token.slice(2, -2);
+      const words = emphasis.trim().split(/\s+/).filter(Boolean);
+      // Long bold spans make generated prose look like an alert and often
+      // originate from an over-eager model. Keep emphasis for labels and
+      // short phrases, never for complete paragraphs.
+      return words.length <= 8 && emphasis.length <= 80
+        ? <strong key={index}>{emphasis}</strong>
+        : emphasis;
+    }
     if (/^`.*`$/.test(token)) return <code key={index}>{token.slice(1, -1)}</code>;
     const link = token.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
     if (link) {

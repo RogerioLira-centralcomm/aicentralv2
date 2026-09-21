@@ -18,7 +18,8 @@ ORCHESTRATOR_METADATA_PATTERN = re.compile(
     r"(?im)^\s*(?:projeto usado|decis[aã]o proposta|confian[cç]a|pr[oó]ximo passo)\s*:",
 )
 INLINE_ORCHESTRATOR_PREFIX = re.compile(
-    r"^\s*[^|\n]{1,240}\|\s*confian[cç]a\s*:\s*(?:baixa|m[eé]dia|alta|low|medium|high)\s*",
+    r"^\s*[^|\n]{1,240}\|\s*confian[cç]a\s*:\s*\**\s*"
+    r"(?:baixa|m[eé]dia|alta|low|medium|high)\**[.,]?\s*",
     re.IGNORECASE,
 )
 _LEAKED_DECISION_PATTERN = re.compile(

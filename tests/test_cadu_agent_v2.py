@@ -918,6 +918,14 @@ def test_response_removes_inline_confidence_prefix_and_restores_markdown_blocks(
     assert "Confiança" not in response.answer
 
 
+def test_response_removes_markdown_corrupted_inline_confidence_prefix():
+    response = normalize_response(
+        "explicar CPM de forma simples | Confiança:** alta. CPM é o custo por mil impressões.",
+        {"mode": "direct", "max_answer_chars": 900, "max_questions": 0, "max_next_steps": 0},
+    )
+    assert response.answer == "CPM é o custo por mil impressões."
+
+
 def test_prompt_evidence_respects_mode_budget_and_remains_valid_json():
     route = route_request("Melhore este título")
     payload = build_payload(

@@ -319,6 +319,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   const contextModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs'), 'utf8');
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
@@ -386,6 +387,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /data-cv-answer/);
   assert.match(conversation, /Trecho selecionado/);
   assert.match(conversation, /cv-chat-failure/);
+  assert.match(conversation, /Confian\(\?:ça\|ca\)/);
+  assert.match(markdown, /words\.length <= 8/);
   assert.match(conversation, /Créditos da conta/);
   assert.match(conversation, /Ver créditos/);
   assert.doesNotMatch(conversation, /Adicionar ao briefing|Perguntar|Resumir/);
@@ -399,6 +402,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(composer, /Destino dos anexos/);
   assert.match(composer, /Escolher modo e recursos/);
   assert.match(styles, /cv-attachment-chip\.is-image/);
+  assert.match(styles, /\.cv-assistant-answer \{ padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; \}/);
   assert.match(app, /Solte para anexar/);
   assert.match(conversation, /contextLabel/);
   assert.match(conversation, /Apoio à conversa/);

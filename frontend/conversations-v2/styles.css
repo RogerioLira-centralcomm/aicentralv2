@@ -504,7 +504,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
    artifact, or shown on a phone. */
 #cadu-conversations-v2-root .cv-message__label { display:block; margin:0 0 6px; color:#8ea6a1; font-size:10px; font-weight:650; letter-spacing:.02em; }
 #cadu-conversations-v2-root .cv-message--user .cv-message__label { padding-right:3px; color:#8fc8be; }
-#cadu-conversations-v2-root .cv-assistant-answer { padding:12px 14px 14px; border:1px solid rgba(181,218,211,.09); border-radius:15px; background:rgba(11,31,32,.28); box-shadow:0 12px 28px rgba(0,0,0,.08); }
+#cadu-conversations-v2-root .cv-assistant-answer { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+#cadu-conversations-v2-root .cv-assistant-answer .cv-prose strong { font-weight:600; }
 #cadu-conversations-v2-root .cv-action-confirmation { padding:15px 16px 14px; border:1px solid rgba(101,216,203,.28); border-radius:14px; background:linear-gradient(135deg, rgba(24,65,61,.56), rgba(17,37,40,.86)); box-shadow:0 14px 34px rgba(0,0,0,.16); }
 #cadu-conversations-v2-root .cv-action-confirmation__heading { display:flex; align-items:center; gap:8px; color:#82e5d8; font-size:11px; font-weight:700; }
 #cadu-conversations-v2-root .cv-action-confirmation__heading svg { color:#72dfd0; }
@@ -839,7 +840,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-conversation-title { max-width: 38vw; font-size: 14px !important; }
   #cadu-conversations-v2-root .cv-composer-stage { padding: 14px 10px 10px; }
   #cadu-conversations-v2-root .cv-thread-content { padding: 22px 18px 156px !important; }
-  #cadu-conversations-v2-root .cv-assistant-answer { padding:10px 11px 12px; }
+  #cadu-conversations-v2-root .cv-assistant-answer { padding:0; }
   #cadu-conversations-v2-root .cv-link-intake__card { align-items:flex-start; }
   #cadu-conversations-v2-root .cv-link-intake__state { display:none; }
   #cadu-conversations-v2-root .cv-link-intake__actions { align-items:flex-start; flex-direction:column-reverse; gap:5px; }

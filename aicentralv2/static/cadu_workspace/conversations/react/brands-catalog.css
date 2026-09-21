@@ -1,0 +1,17 @@
+/* Brand library: a working index, not a spreadsheet stretched across the page. */
+#cadu-conversations-v2-root .cadu-ds-brands-content{width:min(1240px,100%);margin:0 auto;padding:clamp(34px,5vw,68px) clamp(22px,4vw,56px) 80px}
+#cadu-conversations-v2-root .cadu-ds-brands-content>header{align-items:flex-start;padding-bottom:28px;border-bottom:1px solid var(--cadu-line)}
+#cadu-conversations-v2-root .cadu-ds-brands-content h1{max-width:720px;margin:8px 0 10px;font-size:clamp(34px,4.2vw,58px)}
+#cadu-conversations-v2-root .cadu-ds-brands-content>header>.is-primary,#cadu-conversations-v2-root .cadu-ds-project-dialog .is-primary{display:inline-flex;min-height:42px;align-items:center;justify-content:center;padding:0 16px;border:0;border-radius:10px;background:var(--cadu-accent-strong);color:#fff;font:700 12px var(--cadu-font-sans);box-shadow:0 8px 18px color-mix(in srgb,var(--cadu-accent-strong) 22%,transparent);cursor:pointer}
+#cadu-conversations-v2-root .cadu-ds-brands-tools{margin:24px 0 14px;padding:0;border:0}
+#cadu-conversations-v2-root .cadu-ds-brands-tools input{width:min(460px,100%);min-height:42px;border-radius:10px}
+#cadu-conversations-v2-root .cadu-ds-catalog-list{overflow:visible;border:0;background:transparent}
+#cadu-conversations-v2-root .cadu-ds-catalog-list__head,#cadu-conversations-v2-root .cadu-ds-catalog-row{grid-template-columns:42px minmax(220px,1.8fr) minmax(150px,1fr) minmax(130px,.8fr) 72px}
+#cadu-conversations-v2-root .cadu-ds-catalog-list__head{padding:0 18px 9px;border:0;background:transparent;letter-spacing:.04em;text-transform:uppercase}
+#cadu-conversations-v2-root .cadu-ds-catalog-list__head span:first-child{grid-column:1/3}#cadu-conversations-v2-root .cadu-ds-catalog-list__head span:nth-child(2){grid-column:3}#cadu-conversations-v2-root .cadu-ds-catalog-list__head span:nth-child(3){grid-column:4}#cadu-conversations-v2-root .cadu-ds-catalog-list__head span:nth-child(4){grid-column:5;text-align:right}
+#cadu-conversations-v2-root .cadu-ds-catalog-row{min-height:88px;margin-bottom:8px;padding:14px 18px;border:1px solid var(--cadu-line);border-radius:14px;background:var(--cadu-surface);box-shadow:0 5px 16px color-mix(in srgb,var(--cadu-ink) 5%,transparent);transition:border-color .14s ease,background .14s ease,transform .14s ease,box-shadow .14s ease}
+#cadu-conversations-v2-root .cadu-ds-catalog-row:hover,#cadu-conversations-v2-root .cadu-ds-catalog-row:focus-visible{border-color:color-mix(in srgb,var(--cadu-accent) 55%,var(--cadu-line));background:color-mix(in srgb,var(--cadu-accent-soft) 42%,var(--cadu-surface));box-shadow:0 10px 24px color-mix(in srgb,var(--cadu-ink) 9%,transparent);transform:translateY(-1px)}
+#cadu-conversations-v2-root .cadu-ds-catalog-row>.cadu-ds-visual-identity{grid-column:1;grid-row:1;width:42px;height:42px}
+#cadu-conversations-v2-root .cadu-ds-catalog-row>.cadu-ds-visual-identity+.cadu-ds-catalog-row__main{grid-column:2;margin-left:0;padding-left:0}
+#cadu-conversations-v2-root .cadu-ds-catalog-row__meta:nth-of-type(1){grid-column:3}#cadu-conversations-v2-root .cadu-ds-catalog-row__meta:nth-of-type(2){grid-column:4}#cadu-conversations-v2-root .cadu-ds-catalog-row__number{grid-column:5}
+@media(max-width:760px){#cadu-conversations-v2-root .cadu-ds-brands-content{padding:28px 18px 54px}#cadu-conversations-v2-root .cadu-ds-catalog-row{margin-bottom:7px}}

@@ -96,7 +96,7 @@ async function dimensions(page, contentClass) {
       return {dock, recent, conversation, viewport: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth};
     });
     assert.equal(conversationDesktop.dock.width, 64, 'Conversas: Dock desktop');
-    assert.equal(conversationDesktop.recent.width, 260, 'Conversas: recentes desktop');
+    assert.equal(conversationDesktop.recent.width, 275, 'Conversas: recentes desktop');
     assert.equal(conversationDesktop.recent.left, conversationDesktop.dock.right, 'Conversas: recentes ao lado da Dock');
     assert.equal(conversationDesktop.conversation.left, conversationDesktop.recent.right, 'Conversas: conteúdo após recentes');
     assert.equal(conversationDesktop.conversation.right, conversationDesktop.viewport, 'Conversas: conteúdo até a borda');

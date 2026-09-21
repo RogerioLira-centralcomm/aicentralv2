@@ -108,9 +108,9 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
     overflow:visible;
   }
 }
-#cadu-conversations-v2-root .cv-recent-sidebar { display:flex; flex:0 0 276px; width:276px; min-width:276px; height:100%; min-height:0; flex-direction:column; background:#132024; color:var(--cv-text); transition:margin-left 190ms ease, transform 190ms ease, opacity 190ms ease; }
+#cadu-conversations-v2-root .cv-recent-sidebar { display:flex; flex:0 0 275px; width:275px; min-width:275px; height:100%; min-height:0; flex-direction:column; background:#132024; color:var(--cv-text); transition:margin-left 190ms ease, transform 190ms ease, opacity 190ms ease; }
 #cadu-conversations-v2-root .cv-recent-sidebar.is-open { margin-left:0; opacity:1; transform:translateX(0); animation:cv-recent-open 160ms ease-out both; }
-#cadu-conversations-v2-root .cv-recent-sidebar.is-closing { margin-left:-276px; opacity:0; transform:translateX(-10px); pointer-events:none; }
+#cadu-conversations-v2-root .cv-recent-sidebar.is-closing { margin-left:-275px; opacity:0; transform:translateX(-10px); pointer-events:none; }
 #cadu-conversations-v2-root .cv-conversations-workarea > .cv-relative,
 #cadu-conversations-v2-root .cv-conversations-workarea > .cv-relative > .cv-flex-col {
   width:0;

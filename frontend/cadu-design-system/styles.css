@@ -256,7 +256,7 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-home-content { width:100%; max-width:none; margin:0; box-sizing:border-box; padding-top:clamp(46px,8vh,92px); }
 .cadu-ds-home-content .cadu-ds-context-drop { width:100%; max-width:none; }
 .cadu-ds-home-content .cadu-ds-composer,.cadu-ds-home-content .cadu-ds-resume-collection,.cadu-ds-home-content .cadu-ds-home-context-strip { width:100%; max-width:none; box-sizing:border-box; }
-.cadu-ds-home-intro { margin-bottom:30px; }
+.cadu-ds-home-intro { position:relative; z-index:4; margin-bottom:30px; }
 .cadu-ds-composer { display:block; min-height:0; overflow:visible; border-color:rgba(178,216,210,.18); border-radius:22px; background:color-mix(in srgb,var(--cadu-surface) 94%,#102124); box-shadow:0 18px 54px rgba(0,0,0,.16); }
 .cadu-ds-composer:focus-within { border-color:color-mix(in srgb,var(--cadu-accent) 62%,transparent); box-shadow:0 18px 58px rgba(0,0,0,.2),0 0 0 3px color-mix(in srgb,var(--cadu-accent) 10%,transparent); }
 .cadu-ds-composer textarea { display:block; min-height:62px; max-height:min(260px,38dvh); padding:16px 17px 7px; font-size:15px; line-height:1.55; }

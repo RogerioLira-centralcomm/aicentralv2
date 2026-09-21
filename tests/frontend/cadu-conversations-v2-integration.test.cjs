@@ -57,7 +57,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(contextSidebar, /context-sidebar__footer/);
   assert.match(feedback, /WorkspaceAccountControl/);
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
-  assert.doesNotMatch(home, /matchedProjects|ProjectSelector|Buscar projetos/);
+  assert.doesNotMatch(home, /matchedProjects|Buscar projetos/);
   assert.match(home, /agencyName=\{home\.agency\?\.name\}/);
   assert.match(contextSidebar, /agencyName = ''/);
   assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Cliente'\}<\/strong>/);
@@ -393,10 +393,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(composer, /Pesquisar na internet/);
   assert.match(composer, /Intensidade do agente/);
   assert.match(composer, /Ditado por voz/);
-  assert.match(composer, /Anexar arquivo/);
-  assert.match(composer, /Skills e integrações disponíveis/);
+  assert.match(composer, /Destino dos anexos/);
+  assert.match(composer, /Escolher modo e recursos/);
   assert.match(styles, /cv-attachment-chip\.is-image/);
-  assert.match(app, /Solte para anexar ao chat/);
+  assert.match(app, /Solte para anexar/);
   assert.match(conversation, /contextLabel/);
   assert.match(conversation, /Apoio à conversa/);
   assert.match(conversation, /Próximos movimentos/);

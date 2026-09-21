@@ -69,11 +69,20 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
     let cancelled = false;
     if (activeProjectRef || !open) return undefined;
     setPersonalLibrary({loading: true, assets: [], error: ''});
-    request('/api/format-lab/studio/library-sessions')
-      .then(data => { if (!cancelled) setPersonalLibrary({loading: false, assets: data.personal_assets || [], error: ''}); })
+    request(`${studioLibraryEndpoint}`)
+      .then(data => {
+        if (cancelled) return;
+        const assets = (data.personal_assets || []).map(asset => ({
+          ...asset,
+          asset_url: asset.asset_url || asset.image_url || asset.thumb_url,
+          title: asset.title || asset.name || 'Criação do Studio',
+          kind: asset.kind || 'image',
+        }));
+        setPersonalLibrary({loading: false, assets, error: ''});
+      })
       .catch(error => { if (!cancelled) setPersonalLibrary({loading: false, assets: [], error: error.message || 'Biblioteca indisponível.'}); });
     return () => { cancelled = true; };
-  }, [activeProjectRef, open]);
+  }, [activeProjectRef, open, studioLibraryEndpoint]);
 
   useEffect(() => {
     if (!open) return undefined;

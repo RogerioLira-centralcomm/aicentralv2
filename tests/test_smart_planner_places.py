@@ -213,10 +213,19 @@ class PlacesBridgeTest(unittest.TestCase):
         self.assertTrue(snapshot["places"])
         self.assertEqual(snapshot["places"][0]["slug"], "confins")
         law = _places_law(snapshot)
-        self.assertIn("não se somam", law["lei"].lower())
+        self.assertIn("contexto de audiência digital", law["lei"].lower())
+        self.assertIn("não cite preço", law["lei"].lower())
         packed = _pack(snapshot, {})
         self.assertIn("places_aprovado", packed)
         self.assertIn("cnf-terminal", packed or snapshot["places"][0]["points"][0]["id"])
+
+    def test_brand_and_marketplace_do_not_match_maracana_place(self):
+        campos = apply_places_to_campos(
+            {"canais": ["prime_video", "places"], "places": [{"slug": "maracana"}]},
+            material="Montana Grill usa banners no marketplace Amazon para o público da marca.",
+        )
+        self.assertEqual(campos["places"], [])
+        self.assertNotIn("places", campos["canais"])
 
 
 if __name__ == "__main__":

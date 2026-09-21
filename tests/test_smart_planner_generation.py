@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from aicentralv2.smart_planner.estimates import calculate_estimates, format_estimates_for_prompt
 from aicentralv2.smart_planner.canvas import _card_count, _fill_from_groups, _plain_excerpt, empty_plan
+from aicentralv2.smart_planner.catalog import CHANNEL_CATALOG, PRIMARY_FORMATS
 from aicentralv2.smart_planner.generator import (
     _as_plan_markdown,
     _material_hash,
@@ -22,6 +23,13 @@ from aicentralv2.smart_planner.one_page import cards_from_v2
 from aicentralv2.smart_planner.progress import finish_progress, mark_step, progress_view, start_progress
 from aicentralv2.smart_planner.skills import decorate_step, generation_steps, load_skill
 from aicentralv2.smart_planner.snapshot import build_evidence, build_snapshot
+
+
+def test_smart_planner_catalog_covers_amazon_marketplace_and_logan():
+    assert CHANNEL_CATALOG["amazon_ads"]["label"] == "Amazon Ads / Marketplace"
+    assert CHANNEL_CATALOG["logan"]["group"] == "ooh"
+    assert PRIMARY_FORMATS["amazon_ads"]["surface"] == "display"
+    assert PRIMARY_FORMATS["logan"]["surface"] == "display"
 
 
 def test_generation_steps_split_one_page_and_completo():
@@ -48,7 +56,7 @@ def test_one_page_fallbacks_keep_demographics_honest_and_visual():
     assert model["universo_estimado"]["value"] is None
     assert model["impacto_estimado"]["status"] == "a_validar"
     cards = _visual_data_fallback(snapshot)
-    assert cards[0]["value"] == "A validar"
+    assert cards[0]["value"] == ""
     assert cards[2]["value"] == "2 canais"
 
 
@@ -56,7 +64,7 @@ def test_internal_skills_are_versioned_packages():
     truth = load_skill("planner_truth_v1")
     core = load_skill("planner_strategy_core_v1")
     page = load_skill("planner_one_page_v2")
-    assert "premissa" in truth.lower()
+    assert "snapshot" in truth.lower()
     assert "strategy core" in core.lower() or "núcleo" in core.lower()
     assert "defesa" in page.lower()
     assert "mix aprovado" in page.lower()
@@ -103,6 +111,7 @@ def test_snapshot_freezes_confirmed_fields():
                 "praca_detalhe": "BH e RMBH",
                 "periodo": "outubro a novembro",
                 "verba": "R$ 400 mil",
+                "inventario_ooh": {"source": "referencia_do_briefing", "points": [{"id": "ooh-1", "name": "Front Light", "detail": "Front Light - Av. Portugal, 5503"}]},
             },
             "fonte": {"briefing": "Preciso divulgar o app.", "referencias": []},
         },
@@ -119,6 +128,8 @@ def test_snapshot_freezes_confirmed_fields():
     assert snapshot["pending_decisions"] == ["Confirmar CPM"]
     assert evidence["snapshot_id"] == snapshot["snapshot_id"]
     assert evidence["user_briefing"] == "Preciso divulgar o app."
+    assert snapshot["ooh_inventory"]["points"][0]["detail"] == "Front Light - Av. Portugal, 5503"
+    assert evidence["ooh_inventory"]["source"] == "referencia_do_briefing"
 
 
 def test_estimates_unavailable_without_media_params():
@@ -163,8 +174,10 @@ def test_cards_from_v2_keep_four_canvas_types():
     })
     assert [card["type"] for card in cards] == ["strategy", "creative", "market", "defense"]
     assert "necessidade" in cards[0]["body"]
-    assert "Informe CPM" in cards[2]["body"]
-    assert "aprovação" in cards[3]["body"]
+    assert cards[0]["title"] == "Decisão"
+    assert cards[2]["title"] == "Público e canais"
+    assert "Informe CPM" not in cards[2]["body"]
+    assert cards[3]["body"] == "Mais útil que uma divulgação genérica."
 
 
 def test_progress_view_lists_skills_for_the_ui():

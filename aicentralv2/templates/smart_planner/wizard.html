@@ -106,6 +106,7 @@
           <button type="button" class="is-on" role="tab" aria-selected="true" data-source-mode="url"><i class="fa-solid fa-link" aria-hidden="true"></i> URL</button>
           <button type="button" role="tab" aria-selected="false" data-source-mode="file"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Arquivo</button>
           <button type="button" role="tab" aria-selected="false" data-source-mode="image"><i class="fa-regular fa-image" aria-hidden="true"></i> Imagem</button>
+          <button type="button" role="tab" aria-selected="false" data-source-mode="inventory"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Pontos OOH</button>
           <button type="button" role="tab" aria-selected="false" data-source-mode="campaign"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Campanhas</button>
         </div>
         <section class="sp-source-pane" role="tabpanel" data-source-pane="url">
@@ -117,6 +118,11 @@
         </section>
         <section class="sp-source-pane" role="tabpanel" data-source-pane="image" hidden>
           <label class="sp-drop" id="sp-drop-image" for="sp-ref-file-image"><input id="sp-ref-file-image" type="file" accept=".png,.jpg,.jpeg,.webp" multiple><span>Selecione imagem ou arraste aqui</span><small>PNG, JPG ou WEBP até 50 MB</small></label>
+        </section>
+        <section class="sp-source-pane" role="tabpanel" data-source-pane="inventory" hidden>
+          <label for="sp-ooh-inventory">Pontos de OOH informados<textarea class="cx-input" id="sp-ooh-inventory" rows="7" placeholder="Banca Estática - Av. Francisco Sá, 787 — Esquina com a Av. Amazonas.&#10;&#10;Front Light - Av. Portugal, 5503 — Em frente ao Atacadão Pampulha."></textarea></label>
+          <p class="sp-field-hint">Cole a lista como recebida. Ela será mantida no plano completo como referência operacional, sem preço ou disponibilidade.</p>
+          <button type="button" class="cx-btn cx-btn-primary" id="sp-ooh-inventory-go">Adicionar pontos</button>
         </section>
         <section class="sp-source-pane" role="tabpanel" data-source-pane="campaign" hidden>
         <div class="sp-campaign-modal-search">
@@ -186,6 +192,11 @@
                 {% endfor %}
               </select>
             </label>
+            <div class="sp-kpi-box sp-essential-kpi">
+              <span>Objetivo de mídia <small class="sp-kpi-required">KPI principal</small></span>
+              <div class="sp-kpi-chips" id="sp-kpi-chips"></div>
+              <input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Selecione um KPI acima">
+            </div>
             <label class="{% if campos.agencia %}is-confirmed{% endif %}" for="sp-field-agencia"><span>Agência{% if campos.agencia %}<small class="sp-field-confirmed">Confirmada</small>{% endif %}</span><input id="sp-field-agencia" name="agencia" value="{{ campos.agencia }}" {% if campos.agencia %}readonly aria-readonly="true"{% endif %}></label>
             <label class="sp-confidential" for="sp-field-confidential">
               <input class="cx-checkbox cx-checkbox-sm" type="checkbox" name="anunciante_confidencial" id="sp-field-confidential" value="1" {% if campos.anunciante_confidencial %}checked{% endif %}>
@@ -265,7 +276,7 @@
               <div class="sp-geo-selected-list" id="sp-geo-selected-list"><span>Nenhuma cidade selecionada.</span></div>
               <label class="sp-geo-instruction"><span>Instrução de cobertura</span><textarea id="sp-geo-instruction" rows="5" placeholder="Ex.: Minas Gerais inteiro, priorizando cidades do interior com mais de 100 mil habitantes."></textarea></label>
               <button type="button" class="cx-btn cx-btn-ghost sp-geo-interpret" id="sp-geo-interpret">Interpretar instrução</button>
-              <div class="sp-geo-audience-note"><strong>Fonte</strong><span>Municípios e UFs: IBGE. População digitalizada: <b>A validar</b>.</span></div>
+              <div class="sp-geo-audience-note"><strong>Fonte</strong><span>Municípios e UFs: IBGE. População digital aparece quando houver fonte aplicável.</span></div>
             </aside>
             <section class="sp-geo-picker" aria-label="Selecionar localidades">
               <div class="sp-geo-toolbar">
@@ -492,9 +503,9 @@
       <div class="sp-hi-budget">
         <section class="sp-side-card">
           <h2>Configuração do plano</h2>
-          <p>Verba, voo, praça e indicadores.</p>
+          <p>Verba, período e praça.</p>
           <div class="sp-bf">
-            <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba if verba.valor else '' }}" placeholder="A definir"><small class="sp-field-hint">Informe um valor para entrar na completude.</small></label>
+            <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba if verba.valor else '' }}" placeholder="Não informada"><small class="sp-field-hint">A verba ajuda a distribuir a campanha, mas não bloqueia a geração.</small></label>
             <label for="sp-field-verba-base">
               <span>Essa verba é</span>
               <select id="sp-field-verba-base" form="sp-revisao-form" name="verba_base">
@@ -516,11 +527,6 @@
               </select>
             </label>
             <label class="sp-praca-detalhe-field" for="sp-field-praca-detalhe"><span>Onde exatamente</span><span class="sp-field-with-action"><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades e UFs — o ambiente vai em Places"><button type="button" class="cx-btn cx-btn-ghost cx-btn-xs" id="sp-geo-open">Escolher área</button></span><small class="sp-field-hint">Selecione estados/cidades ou escreva uma instrução de cobertura.</small></label>
-            <div class="sp-kpi-box">
-              <span>KPIs <small class="sp-kpi-required">selecione pelo menos 1</small></span>
-              <div class="sp-kpi-chips" id="sp-kpi-chips"></div>
-              <input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Selecione um KPI acima">
-            </div>
           </div>
         </section>
       </div>
@@ -558,6 +564,7 @@
           </div>
           <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-media-open">Balancear mídia</button>
         </section>
+        <button type="button" class="cx-btn cx-btn-primary sp-gen-side" id="sp-gen-open-side">Gerar documentos</button>
         <script type="application/json" id="sp-mix-spec">{{ (desk.spec or {})|tojson }}</script>
         <script type="application/json" id="sp-pace-boot">{{ (pace or {})|tojson }}</script>
       </div>
@@ -608,11 +615,12 @@
                 </div>
               </div>
               {% endfor %}
-              <p class="sp-mix-ooh-note">OOH é produto da casa, não o foco desta mesa.</p>
+              <p class="sp-mix-ooh-note">OOH e Places entram como papel estratégico, público e segmentação. A rede e a operação ficam para uma etapa posterior.</p>
             </div>
             <div class="sp-places-desk" id="sp-places-desk" hidden>
               <h3>Places e ambientes</h3>
               <p>Selecione os ambientes da campanha. A audiência é apresentada de forma consolidada.</p>
+              <label class="sp-places-search" for="sp-places-search"><span class="sr-only">Buscar Place</span><input class="cx-input" id="sp-places-search" type="search" placeholder="Buscar Place ou cidade"></label>
               <div id="sp-places-list"></div>
             </div>
             <div class="sp-interativos-desk" id="sp-interativos-desk" hidden>
@@ -634,6 +642,7 @@
                 Escolha o objetivo na narrativa para indicar os dois métodos do funil.
               {% endif %}
             </p>
+            <p class="sp-mix-policy">Divisão estratégica do plano. OOH e Places não exibem cotação, compra ou inventário.</p>
             <div class="sp-mix-balance-content" id="sp-mix-balance-content">
             <div class="sp-mix-picks" id="sp-mix-picks" role="radiogroup" aria-label="Método de mix">
               {% for method in desk.methods or [] %}
@@ -748,9 +757,9 @@
           {% if facts.objetivo %}
           <div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>
           {% endif %}
-          <div><dt>Verba {{ 'mensal' if verba.base == 'mensal' else 'total' }}</dt><dd id="sp-cb-summary-verba">{{ verba.texto or 'A definir' }}</dd></div>
-          <div><dt>Ritmo</dt><dd id="sp-cb-summary-ritmo">{{ pace.como or 'A definir' }}</dd></div>
-          <div><dt>Período</dt><dd id="sp-cb-summary-periodo">{{ pace.helper or 'A definir' }}</dd></div>
+          <div><dt>Verba {{ 'mensal' if verba.base == 'mensal' else 'total' }}</dt><dd id="sp-cb-summary-verba">{{ verba.texto or 'Não informada' }}</dd></div>
+          <div><dt>Ritmo</dt><dd id="sp-cb-summary-ritmo">{{ pace.como or 'Não informado' }}</dd></div>
+          <div><dt>Período</dt><dd id="sp-cb-summary-periodo">{{ pace.helper or 'Não informado' }}</dd></div>
           <div><dt>Canais selecionados</dt><dd id="sp-cb-summary-count">{{ mix|length }}</dd></div>
         </dl>
         <a href="{{ url_for('smart_planner.revisao', token=token) }}">Editar briefing</a>
@@ -807,7 +816,7 @@
     {% elif step_id == 'revisao' %}
     <a class="cx-btn cx-btn-ghost sp-hi-back" href="{{ url_for('smart_planner.briefing', token=token) }}">Voltar</a>
     <button type="button" class="cx-btn cx-btn-ghost" id="sp-save-draft">Salvar rascunho</button>
-    <span class="sp-hi-save" id="sp-review-pending">{% if gaps %}{{ gaps|length }} pendência{{ 's' if gaps|length != 1 else '' }}{% endif %}</span>
+    <span class="sp-hi-save" id="sp-review-pending">{% if gaps %}{{ gaps|length }} ajustes disponíveis{% endif %}</span>
     <button type="button" class="cx-btn cx-btn-primary sp-hi-go" id="sp-gen-open">Gerar documentos</button>
     {% elif step_id == 'conclusao' %}
     <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>

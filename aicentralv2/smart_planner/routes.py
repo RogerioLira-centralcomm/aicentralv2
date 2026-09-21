@@ -29,7 +29,7 @@ from .catalog import (
 )
 from .helpers import as_dict, as_list, session_public_token
 from .materials import save_upload
-from .references import capture_file, capture_search, capture_url, discover_campaigns
+from .references import capture_file, capture_ooh_inventory, capture_search, capture_url, discover_campaigns
 from .brand import brand_for_client, search_parties
 from .editor import editor_context
 from .images import materialize_uploaded_references, regenerate_creative
@@ -345,6 +345,8 @@ def api_referencia(token):
         kind = (payload.get("kind") or "").strip().lower()
         if kind == "url":
             captured = capture_url(payload.get("url") or "")
+        elif kind == "inventory":
+            captured = capture_ooh_inventory(payload.get("text") or "", payload.get("label") or "")
         elif kind == "search":
             captured = capture_search(
                 payload.get("query") or "",

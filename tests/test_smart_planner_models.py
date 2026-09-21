@@ -46,7 +46,8 @@ def test_preview_costs_documents_without_images():
     one_cost = preview_cost("one_page")
     full_cost = preview_cost("completo")
     assert full_cost["usd"] > one_cost["usd"]
-    assert "página única" in full_cost["note"]
+    assert "geração textual" in full_cost["note"]
+    assert "Imagens são geradas depois" in full_cost["note"]
 
 
 def test_prompts_name_the_three_passes():

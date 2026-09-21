@@ -66,12 +66,19 @@ def captured_content(references: list[dict] | None) -> str:
 NARRATIVE_PROMPT = """Você é o redator de briefing do Smart Planner no CentralX.
 Redija uma narrativa de mídia em prosa corrida, fiel ao material.
 Não use markdown: sem #, listas com hífen, asteriscos ou negrito.
-Parágrafos curtos. Chame a marca de anunciante, nunca de cliente.
+Use de dois a três parágrafos curtos. Cada informação aparece uma única vez.
+Chame a marca de anunciante, nunca de cliente.
 "Clientes da marca" é público, não o anunciante.
 Não invente verba, prazo, canal, público, praça ou place que o material não trouxe.
+Não acrescente formatos, dispositivos, métricas ou mecanismos que não estejam explícitos no material.
+Traduza termos técnicos para leitura comercial: retargeting = voltar a falar com quem viu ou interagiu; B2B = empresas; B2C = pessoas. Não exponha ids internos de canal.
 Se houver places confirmados, nomeie apenas o ambiente/place e a audiência consolidada. Não cite ponto, raio ou app no plano.
+Em OOH ou DOOH, traduza qualquer menção a pontos como "presença em OOH/DOOH". Não escreva pontos, circuitos, inventário ou condições de compra.
 Formatos interativos só existem em portais (G1, UOL, R7, CNN), nunca em app, CTV, OOH ou Places.
+Dados de terceiros servem para encontrar ou reencontrar públicos; não descreva isso como captura, venda ou coleta de dados.
 Preserve restrições e observações do anunciante.
+Não escreva uma seção de lacunas, validações ou observações finais. Ausências ficam nos campos estruturados e não entram na narrativa.
+Não mencione catálogo, ids, campos, origem, material, ausência de dados ou funcionamento interno. Não repita a mesma ideia com termos técnicos e depois em linguagem simples.
 Não mencione agência, ferramenta ou que o texto foi gerado por IA."""
 
 
@@ -114,15 +121,24 @@ Retorne APENAS JSON válido:
 
 Regras:
 - Nunca invente. Campo sem base no material vai vazio ("" ou []).
+- Não deduza formato criativo ou dispositivo a partir do canal. Só copie formatos e dispositivos citados literalmente.
 - Canal só entra quando o material o cita.
+- Menção genérica a portal, portais, sites ou rede de sites pode usar dv360. Isso não vale para marketplace Amazon.
+- Marketplace Amazon usa amazon_ads. Não o classifique como DV360, rede de portais ou Places.
 - Canal "places" só entra se o material citar um venue desta lista (aeroporto, shopping ou evento).
-- Nunca invente slug ou audiência. Places devem aparecer como ambientes consolidados, sem ponto, raio ou app.
+- Pontos enviados como inventário OOH são referência confirmada: copie inventario_ooh com texto e ordem. Eles implicam o canal ooh, mas não preço, fornecedor, disponibilidade ou alcance.
+- Nunca invente slug ou audiência. Places devem aparecer como ambientes consolidados, sem ponto ou raio.
+- Apps e sites cadastrados do Place podem aparecer no extrator e no planejamento como contexto de audiência digital. Eles não representam inventário, disponibilidade ou compra garantida.
 - Interativos só se um portal (g1, uol, r7, cnn) for citado. Formatos interativos não são Places.
+- Se o material pedir interativo em app, preserve o app apenas como contexto de audiência e mantenha o formato interativo no portal. Nunca descreva interativo dentro de app.
 - praca_detalhe é cidade/UF. O venue vai em "places", não misturado como texto solto.
 - cliente é o anunciante (marca que anuncia). Em briefing de agência, a palavra "cliente" do texto = anunciante.
+- Quando o material começar com "Marca (Agência Nome):", a Marca é sempre o cliente/anunciante, mesmo que o nome também identifique um aeroporto, shopping, evento ou Place.
+- Expressões como "público da marca" ou "target da marca" são um público amplo, porém válido. Preserve-as no campo publico; não trate sua falta de detalhamento como bloqueio.
 - "Clientes da Copasa / do banco / da marca" é público, nunca o campo cliente.
 - Se campos já confirmados tiverem cliente, não liste falta de anunciante ou de cliente em falta_completar.
-- score de 0 a 100. Pesa mais: objetivo, público, verba, período e praça.
+- score de 0 a 100. Pesa mais: anunciante, objetivo, público, período e praça. Verba é opcional e nunca bloqueia o plano.
+- falta_completar contém somente decisões que impedem entender ou gerar o plano: anunciante, objetivo, público, período, praça ou canais. Não liste agência, verba, KPI, demografia, universo, impacto, duração ou especificação criativa.
 - Se o material não trouxer nome de campanha, preencha "nome_sugerido" com um nome comercial curto, específico ao anunciante e ao objetivo. Não use "Campanha" ou "Plano" sozinho. Se já houver nome em campos confirmados, deixe "nome_sugerido" vazio.
 - audiencia_modelada separa fato do briefing, estimativa pesquisada e campo a validar. Nunca invente pessoas, idade, classe social ou gênero.
 - universo_estimado e impacto_estimado só podem ter número com fonte. Sem fonte, use null e status "a_validar".
@@ -139,10 +155,10 @@ Regras:
     analysis = {
         "campos": campos,
         "bem_definido": parsed.get("bem_definido") if isinstance(parsed, dict) else [],
-        "falta_completar": _drop_advertiser_gaps(
+        "falta_completar": _essential_gaps(_drop_advertiser_gaps(
             parsed.get("falta_completar") if isinstance(parsed, dict) else [],
             pistas,
-        ),
+        )),
     }
     return {
         "campos": campos,
@@ -177,8 +193,6 @@ def compose_narrative(material: str, campos: dict, origem: str = "") -> str:
             "CAMPOS JÁ ESTRUTURADOS\nUse-os como verdade.\n"
             + json.dumps(compact, ensure_ascii=False)
         )
-    if origem:
-        parts.append("ORIGEM DO MATERIAL: " + origem)
     raw = chat_text(
         "\n\n".join(parts),
         "Redija o briefing a partir deste material:\n\n" + material[:40000],
@@ -186,10 +200,40 @@ def compose_narrative(material: str, campos: dict, origem: str = "") -> str:
     )
     if not raw:
         raise OpenRouterError("O compositor não devolveu texto.")
-    narrativa = strip_markdown(raw)
+    narrativa = _clean_narrative(strip_markdown(raw))
     if confidential:
         narrativa = redact_advertiser(narrativa, text((campos or {}).get("cliente")))
     return narrativa
+
+
+def _clean_narrative(value: str) -> str:
+    """Remove provenance and missing-data appendices that do not belong in the brief."""
+    value = re.sub(r"\bB2B\b", "empresas", text(value), flags=re.I)
+    value = re.sub(r"\bB2C\b", "pessoas", value, flags=re.I)
+    value = re.sub(r"\bserasa[_ ]?dados\b", "dados Serasa", value, flags=re.I)
+    paragraphs = []
+    blocked_sentence = re.compile(
+        r"\b(observa[cç][oõ]es? do briefing|aus[eê]ncia|n[aã]o h[aá] verba|sem definir verba|"
+        r"campo[s]? incompleto[s]?|dado[s]? n[aã]o fornecido[s]?)\b",
+        re.I,
+    )
+    for paragraph in re.split(r"\n\s*\n", value):
+        cleaned = paragraph.strip()
+        if not cleaned:
+            continue
+        if re.match(r"^(origem|observa[cç][aã]o|lacunas?|pend[eê]ncias?)\s*:", cleaned, re.I):
+            continue
+        cleaned = re.sub(r"\s*\([^)]*\b(?:cat[aá]logo|id interno|campo interno)\b[^)]*\)", "", cleaned, flags=re.I)
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?])\s+", cleaned)
+            if sentence.strip() and not blocked_sentence.search(sentence)
+        ]
+        cleaned = " ".join(sentences)
+        if not cleaned:
+            continue
+        paragraphs.append(cleaned)
+    return "\n\n".join(paragraphs[:3])
 
 
 def process_briefing(
@@ -225,6 +269,15 @@ def _process_briefing(
     if not text(campos.get("campanha")):
         campos["campanha"] = text(extracted.get("nome_sugerido")) or suggest_campaign_name(campos)
     campos = apply_support_facts(campos, refs)
+    inventory = _ooh_inventory_from_references(refs)
+    if inventory:
+        # A lista enviada é um dado operacional literal; o modelo não pode reescrevê-la.
+        campos["inventario_ooh"] = inventory
+    if as_list(inventory.get("points")):
+        canais = [key for key in as_list(campos.get("canais")) if key in CHANNEL_CATALOG]
+        if "ooh" not in canais:
+            canais.append("ooh")
+        campos["canais"] = canais
     origem = "texto escrito ou colado pelo usuário"
     if refs and text_in.strip():
         origem = "briefing escrito pelo usuário acompanhado de material de apoio"
@@ -370,12 +423,37 @@ def _drop_advertiser_gaps(items, pistas: dict | None) -> list:
     return out
 
 
+def _essential_gaps(items) -> list:
+    """Keep only missing decisions that can change the plan itself.
+
+    Budget, KPIs and demographic enrichment improve precision, but their
+    absence must not turn the review screen into a blocking checklist.
+    """
+    allowed = re.compile(
+        r"\b(anunciante|cliente|objetivo|p[uú]blico|per[ií]odo|prazo|pra[cç]a|cidade|estado|canal|canais)\b",
+        re.I,
+    )
+    denied = re.compile(
+        r"\b(ag[eê]ncia|verba|or[cç]amento|kpi|demogr|idade|faixa et[aá]ria|classe|g[eê]nero|"
+        r"bairro|universo|impacto|alcance|dura[cç][aã]o|especifica[cç][aã]o|criativ)\b",
+        re.I,
+    )
+    out = []
+    for item in as_list(items):
+        value = text(item)
+        if value and allowed.search(value) and not denied.search(value):
+            out.append(value)
+    return out[:6]
+
+
 def apply_support_facts(campos: dict, references: list[dict] | None = None) -> dict:
     merged = dict(campos or {})
     for item in references or []:
         fatos = item.get("fatos") if isinstance(item.get("fatos"), dict) else {}
         locked = item.get("kind") == "search" or item.get("papel") == "mercado"
         for key, value in fatos.items():
+            if key == "inventario_ooh":
+                continue
             if key not in FIELD_SCHEMA or value in ("", [], None):
                 continue
             if locked and key in SEARCH_LOCKED:
@@ -384,6 +462,26 @@ def apply_support_facts(campos: dict, references: list[dict] | None = None) -> d
             if current in ("", [], None):
                 merged[key] = value
     return merged
+
+
+def _ooh_inventory_from_references(references: list[dict] | None) -> dict:
+    """Merge only explicitly captured OOH points, preserving their original sequence."""
+    points = []
+    seen = set()
+    for item in references or []:
+        raw = as_dict(as_dict(item.get("fatos")).get("inventario_ooh"))
+        for point in as_list(raw.get("points")):
+            row = as_dict(point)
+            detail = text(row.get("detail"))
+            if not detail or detail.lower() in seen:
+                continue
+            seen.add(detail.lower())
+            points.append({
+                "id": text(row.get("id")) or f"ooh-{len(points) + 1}",
+                "name": text(row.get("name")) or f"Ponto OOH {len(points) + 1}",
+                "detail": detail,
+            })
+    return {"source": "referencia_do_briefing", "points": points} if points else {}
 
 
 def source_material(row: dict) -> str:
@@ -448,6 +546,7 @@ def rewrite_from_plan(token: str) -> dict:
         "canais": campanha.get("canais") or dados.get("canais") or [],
         "places": campanha.get("places") or dados.get("places") or [],
         "interativos": campanha.get("interativos") or dados.get("interativos") or {},
+        "inventario_ooh": campanha.get("inventario_ooh") or dados.get("inventario_ooh") or {},
         "mix": campanha.get("mix") or {},
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
     }

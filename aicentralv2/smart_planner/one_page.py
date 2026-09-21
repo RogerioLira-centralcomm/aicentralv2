@@ -159,6 +159,7 @@ STARTER_PITCHES = (
 )
 
 ONE_PAGE_PROMPT = """Você redige uma página única de mídia para o anunciante, não para a agência.
+Ela é uma peça executiva para leitura em até dois minutos: apresenta uma decisão, não um relatório.
 Devolva APENAS JSON:
 
 {
@@ -189,35 +190,43 @@ Devolva APENAS JSON:
     "source_note": ""
   },
   "visual_data": [
-    {"id": "universe", "label": "Universo demográfico", "value": "A validar", "status": "a_validar"},
-    {"id": "impact", "label": "Impacto estimado", "value": "A validar", "status": "a_validar"}
+    {"id": "universe", "label": "Universo demográfico", "value": "", "status": "a_validar"},
+    {"id": "impact", "label": "Impacto estimado", "value": "", "status": "a_validar"}
   ],
   "market": {"title": "Mercado", "body": "", "stat": "", "stat_label": ""},
   "defense": {"title": "Defesa", "body": ""}
 }
 
 Regras:
+- Cada fato aparece uma única vez. Não repita verba, praça, período ou canal em todos os campos.
+- Use linguagem direta, concreta e curta. Nenhum parágrafo com mais de 3 frases.
+- A página responde: qual é o desafio, o que recomendamos, para quem, como o mix funciona e quais decisões ainda dependem do anunciante.
 - Foco no anunciante. Se o material for de agência, escolha o anunciante citado, não a agência.
 - Não chame o anunciante de cliente. “Clientes da marca” é público.
 - A tese é o desafio de mídia do anunciante, não o documento ou o planejamento.
 - Se o nome for confidencial, não o escreva e não descreva a logo da marca.
 - strategy.body é a recomendação executiva em até duas frases: o que fazer e o peso do mix.
+- strategy.body não deve repetir objetivo, praça e verba já disponíveis nos metadados.
+- creative.body é apenas a descrição textual do papel da mensagem no canal; não é prompt de imagem.
 - O criativo precisa parecer inserido no canal (TV, portal, app ou place), não um banner solto.
 - Surface "place" só se Places for o canal de maior peso. Interativo = surface portal, nunca place.
-- Se houver places confirmados, não reutilize pitch de aeroporto/portal. Cite apenas o ambiente e sua audiência consolidada; não cite ponto, raio ou app.
-- market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.
+- Se houver Places confirmados, cite apenas o ambiente e sua audiência consolidada. Apps e sites observados no catálogo podem aparecer como contexto de audiência digital, não como compra garantida. Separe Places digital (apps e geolocalização) de Places OOH somente quando essa diferença estiver explícita no catálogo; sem essa evidência, use apenas "Places". Não cite preço, mínimo comercial, ponto, raio, fornecedor ou inventário.
+- Para OOH/Painéis, descreva somente o papel estratégico de presença e lembrança urbana, condicionado ao planejamento da rede. Não crie cotação, preço, ponto, circuito, fornecedor, compra, negociação ou disponibilidade de inventário.
+- O mix de mídia é uma divisão estratégica, não uma cotação. Para OOH e Places, use apenas investimento total, percentual, público, segmentação, papel do canal e defesa do plano.
+- market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual.
 - defense.body fecha a reunião: por que este mix, agora, para este anunciante.
-- Use os canais, os places e o voo da campanha quando existirem. Se a verba não foi informada, não cite verba, investimento, orçamento, valores ou estimativas no texto: estamos na primeira fase de venda.
+- Use os canais, os Places e o voo da campanha quando existirem. O investimento total e a divisão do plano são referências estratégicas, não cotação comercial; não transforme valores estimados de canal, Places ou OOH em preço.
 - Modele uma persona visual concreta a partir apenas do público e do contexto confirmados. Não invente idade, renda, profissão ou comportamento como se fossem fatos.
 - Quando houver praça, lugar ou cenário confirmado, descreva uma imagem de apoio desse lugar. Se não houver, deixe place_scene vazio e não invente um destino.
-- Dados demográficos estimados devem trazer fonte, data e status. Sem fonte, mostre "A validar"; nunca preencha pessoas, idade, classe ou gênero por plausibilidade.
+- Dados demográficos só entram quando houver fonte e data. Sem dado, omita o campo; nunca preencha pessoas, idade, classe ou gênero por plausibilidade.
 - visual_data é uma camada visual de leitura: use mostradores e barras apenas para números confirmados ou estimativas rotuladas. Não crie gráfico com número inventado.
+- visual_direction, persona_image_prompt, place_image_prompt e visual_data são metadados para o editor. Não desenvolva uma direção visual longa e não gere imagem nesta etapa.
 - Sem agência como herói, sem CentralComm no texto, sem mencionar IA.
 - Se houver identidade da marca (público, produto, tom), use como verdade. Não invente outro posicionamento.
 """
 
-SHEET_IMPROVE = ONE_PAGE_PROMPT + "\nEsta é a passagem 2. Aprofunde o JSON abaixo sem mudar o schema. Feche o mix com a campanha."
-SHEET_FINAL = ONE_PAGE_PROMPT + "\nEsta é a passagem 3 — a versão final da folha. Aperte o texto. Sem peça oca."
+SHEET_IMPROVE = ONE_PAGE_PROMPT + "\nEsta é a passagem 2. Faça edição estrutural: remova repetição e alinhe o mix à campanha. Não acrescente camadas."
+SHEET_FINAL = ONE_PAGE_PROMPT + "\nEsta é a passagem 3 — versão final executiva. Corte jargão, frases genéricas e campos que não mudam a decisão. Preserve o schema e deixe a direção visual para o editor posterior."
 
 
 def _sheet_from_material(payload: dict) -> dict:
@@ -316,6 +325,9 @@ def _role_map(roles) -> dict[str, str]:
         role = text(row.get("role") or row.get("papel"))
         if channel and role:
             mapped[channel] = role
+            for channel_id, meta in CHANNEL_CATALOG.items():
+                if channel in {channel_id.lower(), text(meta.get("label")).strip().lower()}:
+                    mapped[channel_id.lower()] = role
     return mapped
 
 
@@ -335,7 +347,7 @@ def channel_roles_for_one_page(snapshot: dict | None, roles=None) -> list[dict]:
             "id": channel_id,
             "label": label,
             "logo": CHANNEL_LOGOS.get(channel_id, ""),
-            "role": role_map.get(channel_id) or text(item.get("role")) or "Papel a definir",
+            "role": role_map.get(channel_id) or text(item.get("role")) or text(meta.get("desc")),
             "status": "confirmed",
             "count": item.get("count") if item.get("count") not in (None, "") else None,
             "group": text(meta.get("group")),
@@ -389,6 +401,9 @@ def build_media_board(
             or text(item.get("role"))
         )
         amount = as_int(item.get("amount"))
+        meta = CHANNEL_CATALOG.get(cid, {})
+        if meta.get("group") in {"ooh", "places"}:
+            amount = 0
         channels.append({
             "id": cid,
             "label": label,
@@ -487,25 +502,22 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
     visual_data = as_list(data.get("visual_data"))
     channel_roles = channel_roles_for_one_page(snapshot, rec.get("channel_roles"))
     audience = text(rec.get("audience")) or _audience_line(as_dict(snapshot))
-    strategy_bits = [
-        text(thesis.get("statement")),
-        text(rec.get("summary")),
-        text(challenge.get("body") or audience),
-    ]
-    strategy_body = "\n\n".join(part for part in strategy_bits if part)
-    defense_bits = list(as_list(defense.get("why_this_mix"))) or list(as_list(defense.get("why_this_plan")))
-    if text(defense.get("closing_statement")):
+    strategy_body = text(thesis.get("statement") or rec.get("summary") or challenge.get("body"))
+    defense_bits = []
+    for item in as_list(defense.get("why_this_mix")) + as_list(defense.get("why_this_plan")):
+        value = text(item)
+        if value and value not in defense_bits:
+            defense_bits.append(value)
+        if len(defense_bits) == 2:
+            break
+    if not defense_bits and text(defense.get("closing_statement")):
         defense_bits.append(text(defense.get("closing_statement")))
-    outputs = [
-        text(as_dict(item).get("name") or item)
-        for item in as_list(data.get("outputs"))
-        if text(as_dict(item).get("name") or item)
-    ]
-    market_body = text(estimates.get("summary")) or "Estimativa ainda não disponível."
-    if outputs:
-        market_body = market_body + "\n\nOutputs: " + "; ".join(outputs[:4])
+    market_bits = [text(audience), text(rec.get("message"))]
+    if estimates.get("status") == "available" and text(estimates.get("summary")):
+        market_bits.append(text(estimates.get("summary")))
+    market_body = "\n\n".join(bit for bit in market_bits if bit)
     return [
-        _card("strategy", "Tese e briefing", strategy_body, index=0),
+        _card("strategy", "Decisão", strategy_body, index=0),
         _card(
             "creative",
             creative.get("headline") or "Criativo no canal",
@@ -519,11 +531,11 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
         ),
         _card(
             "market",
-            "Indicadores e outputs",
+            "Público e canais",
             market_body,
             {
-                "stat": "Premissa" if estimates.get("status") != "available" else "Calculado",
-                "stat_label": "Origem da estimativa",
+                "stat": "Calculado" if estimates.get("status") == "available" else "",
+                "stat_label": "Origem do cálculo" if estimates.get("status") == "available" else "",
                 "audience_model": audience_model,
                 "visual_data": visual_data,
                 "channel_roles": channel_roles,

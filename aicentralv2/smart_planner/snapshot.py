@@ -95,6 +95,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
             "products": brand.get("products_services"),
         },
         "places": snapshot_places(campanha.get("places") or dados.get("places")),
+        "ooh_inventory": as_dict(campanha.get("inventario_ooh") or dados.get("inventario_ooh")),
         "interativos": as_dict(campanha.get("interativos") or dados.get("interativos")),
         "restrictions": [text(dados.get("observacoes"))] if text(dados.get("observacoes")) else [],
         "sources": sources,
@@ -125,4 +126,5 @@ def build_evidence(snapshot: dict) -> dict:
         "pending_decisions": as_list((snapshot or {}).get("pending_decisions")),
         "audience_model": as_dict((snapshot or {}).get("audience_model")),
         "market_research": text((snapshot or {}).get("market_research")),
+        "ooh_inventory": as_dict((snapshot or {}).get("ooh_inventory")),
     }

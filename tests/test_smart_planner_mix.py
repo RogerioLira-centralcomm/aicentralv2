@@ -167,7 +167,8 @@ class MixEngineTest(unittest.TestCase):
         budget = html.split("sp-hi-budget", 1)[1].split("sp-hi-mix", 1)[0]
         self.assertIn('name="verba"', budget)
         self.assertIn('name="praca"', budget)
-        self.assertIn('name="kpis"', budget)
+        self.assertNotIn('name="kpis"', budget)
+        self.assertIn("Verba, período e praça.", budget)
         self.assertIn('id="sp-gen"', html)
         self.assertIn('id="sp-original"', html)
         self.assertIn("Gerar documentos", html)

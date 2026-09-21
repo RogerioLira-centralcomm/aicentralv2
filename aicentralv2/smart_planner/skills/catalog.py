@@ -31,22 +31,22 @@ SKILLS = {
     },
     "planner_commercial_defense_v1": {
         "label": "Defesa comercial",
-        "role": "sheet",
+        "role": "defense",
         "file": "planner_commercial_defense_v1.md",
     },
     "planner_full_strategy_v2": {
         "label": "Plano · estratégia",
-        "role": "final",
+        "role": "strategy",
         "file": "planner_full_strategy_v2.md",
     },
     "planner_full_media_v2": {
         "label": "Plano · mídia",
-        "role": "final",
+        "role": "media",
         "file": "planner_full_media_v2.md",
     },
     "planner_full_execution_v1": {
         "label": "Plano · execução",
-        "role": "final",
+        "role": "execution",
         "file": "planner_full_execution_v1.md",
     },
     "planner_consistency_v1": {

@@ -9,7 +9,7 @@ from .cost import record as record_cost
 from .helpers import extract_json, text
 from .models import resolve_role
 
-_LONG_ROLES = {"draft", "improve", "final", "sheet", "compose"}
+_LONG_ROLES = {"draft", "improve", "final", "sheet", "compose", "strategy", "media", "execution", "defense", "final_review"}
 
 
 def _role_timeout(role: str, requested: int) -> int:

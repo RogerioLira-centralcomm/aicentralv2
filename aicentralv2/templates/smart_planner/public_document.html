@@ -114,11 +114,11 @@
     {% endif %}
 
     <section class="spv3-panel spv3-flow-section" id="premissas" data-scroll-reveal>
-      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Base de decisão</span><h2>Referências e premissas</h2></div><p>Informações que sustentam o plano e pontos que ainda dependem de validação.</p></header>
+      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Base de decisão</span><h2>Referências e critérios</h2></div><p>Informações que sustentam a recomendação comercial.</p></header>
       <div class="spv3-reference-grid">
         {% if show_market %}<article><span class="spv3-eyebrow">Dado de mercado</span><strong>{{ sheet.market.stat }}</strong><p>{{ sheet.market.body }}</p></article>{% endif %}
         {% if has_approved_mix %}<article><span class="spv3-eyebrow">Critério do mix</span><strong>{{ media.method_label or 'Recomendação estratégica' }}</strong><p>{{ media.note or media.how }}</p></article>{% endif %}
-        <article><span class="spv3-eyebrow">Premissas</span><ul>{% for item in assumptions.points[:5] %}<li>{{ item }}</li>{% endfor %}</ul></article>
+        <article><span class="spv3-eyebrow">Critérios de execução</span><ul>{% for item in assumptions.points[:5] %}<li>{{ item }}</li>{% endfor %}</ul></article>
       </div>
     </section>
     {% else %}

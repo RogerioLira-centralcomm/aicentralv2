@@ -233,9 +233,27 @@ def suggest_places_from_material(material: str, catalog: list[dict] | None = Non
     found = []
     for place in catalog or planner_place_catalog():
         aliases = as_list(place.get("aliases")) or _aliases_for(place)
-        if any(alias and alias in hay for alias in aliases):
+        if any(_mentions_alias(hay, alias) for alias in aliases):
             found.append({"slug": text(place.get("slug")), "point_ids": [], "apps": []})
-    return resolve_places(found, catalog)
+    resolved = resolve_places(found, catalog)
+    index = catalog_by_slug(catalog)
+    for item in resolved:
+        place = index.get(text(item.get("slug"))) or {}
+        wanted = set(as_list(item.get("point_ids")))
+        points = [
+            as_dict(point) for point in as_list(place.get("points"))
+            if not wanted or text(as_dict(point).get("id")) in wanted
+        ]
+        item["apps"] = sorted(set(name for point in points for name in _names(point.get("apps"))))
+        item["sites"] = sorted(set(name for point in points for name in _names(point.get("portals"))))
+    return resolved
+
+
+def _mentions_alias(material: str, alias: str) -> bool:
+    value = text(alias).strip().lower()
+    if not value:
+        return False
+    return bool(re.search(r"(?<![a-z0-9])" + re.escape(value) + r"(?![a-z0-9])", material, re.I))
 
 
 def snapshot_places(raw: Any, catalog: list[dict] | None = None) -> list[dict]:
@@ -292,7 +310,10 @@ def apply_places_to_campos(
 ) -> dict:
     out = dict(campos or {})
     resolved = resolve_places(out.get("places"), catalog)
-    if not resolved and material:
+    if material:
+        # The extractor may see the full catalog in its prompt. Re-resolve only
+        # explicit venue mentions so it cannot select catalog points or apps
+        # that the user never chose.
         resolved = suggest_places_from_material(material, catalog)
     out["places"] = resolved
     canais = [text(key) for key in as_list(out.get("canais")) if text(key) in CHANNEL_CATALOG]
@@ -316,12 +337,19 @@ def places_prompt_block(places: list[dict] | None) -> str:
     if not rows:
         return ""
     lines = [
-        "PLACES CONFIRMADOS — use só estes ambientes. Apresente audiência de forma consolidada; não liste pontos, raios ou apps no plano.",
+        "PLACES CONFIRMADOS — use só estes ambientes. Apresente audiência de forma consolidada. Apps e sites observados no catálogo podem ser usados como contexto de audiência digital, nunca como promessa de compra ou inventário. Não liste pontos, raios, preços ou fornecedores.",
     ]
     for place in rows:
         title = text(place.get("title") or place.get("slug"))
         metrics = as_dict(place.get("metrics"))
         audience = text(metrics.get("addressable")) or "A definir"
         period = text(metrics.get("four_weeks")) or "A definir"
-        lines.append(f"- {title} · audiência endereçável: {audience} · média em 4 semanas: {period}")
+        apps = []
+        sites = []
+        for point in as_list(place.get("points")):
+            apps.extend(text(item) for item in as_list(as_dict(point).get("apps")) if text(item))
+            sites.extend(text(item) for item in as_list(as_dict(point).get("portals")) if text(item))
+        digital = sorted(set(apps + sites))
+        digital_note = f" · ambientes digitais observados: {', '.join(digital[:4])}" if digital else ""
+        lines.append(f"- {title} · audiência consolidada: {audience} · média em 4 semanas: {period}{digital_note}")
     return "\n".join(lines)

@@ -1,6 +1,6 @@
 # planner_one_page_v2
 
-Você redige a página única executiva: tese curta, gestão de mídia no centro e criativo no canal-herói. Não são quatro textos genéricos.
+Você redige uma folha comercial que qualquer cliente entende em até 90 segundos. Ela mostra uma decisão, um público, o papel dos canais e um motivo para aprovar.
 
 O papel `sheet` é o gerador executivo desta folha.
 
@@ -9,11 +9,12 @@ Por que este mix é o certo para este anunciante, neste recorte, agora?
 
 ## Mix aprovado (lei)
 O bloco `mix_aprovado` do pack é lei da mesa. Não invente canal, %, R$ ou ordem.
-- `channel_roles` só com canais da mesa, inclusive Places se estiver no mix. Cada papel em uma frase.
+- `channel_roles` só com canais da mesa. Cada papel em uma frase curta.
+- Táticas explicitamente citadas, como banners em marketplace ou voltar a alcançar quem interagiu, podem aparecer em `recommendation.message` ou na defesa. Não as transforme em canal separado.
 - O criativo (`creative_expression.channel`) vai no canal de **maior peso**.
-- Surface `place` só se Places for o herói — criativo no ponto/app listado. Interativo = surface `portal`.
-- Se houver `places_aprovado`, a tese pode nomear o place e o ponto. Raios não se somam. Sem app inventado.
-- `why_this_mix` cita os % e os R$ reais do snapshot. Sem preset de mercado.
+- Surface `place` só se Places for o herói. Interativo = surface `portal`.
+- Se houver `places_aprovado`, nomeie o ambiente e use apps/sites observados apenas como contexto digital. Não cite ponto ou raio.
+- `why_this_mix` cita percentuais e investimento total. Para OOH/Places, nunca apresente preço por canal.
 - Se houver voo de 2 a 12 meses, uma frase que não contradiga o ritmo (começa menor, solta no meio e no fim).
 - Gestão de mídia é o bloco central da folha: o texto defende o balanceamento, não um criativo solto.
 
@@ -22,14 +23,13 @@ Tese + recorte do anunciante: praça, serviço e público confirmados. Duas ou t
 Não despeje o briefing compilado. Não fale deste planejamento, desta página ou desta folha.
 Se client.confidential for verdadeiro, o nome do anunciante não pode aparecer. Use “o anunciante”.
 
-## Blocos obrigatórios
-1. Desafio — 2 ou 3 linhas do recorte (público, praça, o que falta). Sem narrativa longa.
-2. Tese — uma frase forte e específica do anunciante.
-3. Recomendação — o que fazer com o mix aprovado, em uma frase.
-4. Papel de cada canal — só os canais da mesa, com peso, um formato principal e uma frase de justificativa.
-5. Criativo no canal-herói — headline e imagem no meio de maior %.
-6. Indicadores — só os calculados no bloco estimates, com origem. Sem cálculo livre.
-7. Defesa — por que aprovar este mix; `why_this_mix` com %/R$.
+## O que o cliente verá
+1. Decisão — uma frase específica, combinando problema e recomendação.
+2. Mensagem no canal — uma ideia curta para o protótipo visual.
+3. Público e canais — uma frase de público e um papel simples por canal.
+4. Por que aprovar — defesa em no máximo duas razões concretas.
+
+Os demais campos do schema são memória interna para o plano completo. Não repita seu conteúdo nos quatro blocos visíveis.
 
 ## Composição
 Skill-base + snapshot + Strategy Core + estimates + mix_aprovado + esta skill.
@@ -47,7 +47,7 @@ nunca substituta do snapshot.
 
 ## Teste de especificidade
 Se o nome do anunciante sumir, o texto ainda precisa parecer desta campanha.
-Nomeie serviços, praça ou canais confirmados. Pendências ficam em pending_decisions, não no primeiro período da tese.
+Nomeie serviços, praça ou canais confirmados. Informações secundárias ficam fora do primeiro período da tese.
 
 ## Saída
 JSON apenas no schema one_page_v2:
@@ -72,7 +72,15 @@ JSON apenas no schema one_page_v2:
 }
 
 ## Limites comerciais
-- O conjunto inteiro deve caber em até 500 palavras, incluindo defesa e pendências.
-- `why_this_plan` e `why_this_mix`: no máximo 3 itens somados, sem repetir a tese.
+- Os campos destinados à página visível devem caber em até 180 palavras.
+- `thesis.statement`: uma frase, até 32 palavras. Não some desafio + oportunidade + recomendação.
+- `recommendation.audience` e `recommendation.message`: uma frase curta cada.
+- `channel_roles`: papel de até 8 palavras e justificativa de uma frase curta.
+- `why_this_plan` e `why_this_mix`: no máximo 2 itens somados, sem repetir a tese.
+- `journey`, `benefits`, `outputs` e `pending_decisions`: no máximo 3 itens por lista.
+- Não use “premissa”, “a validar” ou “a definir” como texto de preenchimento. Omita o que não muda a decisão.
+- Traduza termos: B2B para empresas, B2C para pessoas e retargeting para voltar a alcançar quem demonstrou interesse. Não escreva os dois termos juntos.
+- Não mostre lacunas, pendências, metodologia ou indisponibilidade de estimativas na folha do cliente.
+- Para OOH/Places: sem preço, cotação, mínimo, compra, negociação, fornecedor, inventário, ponto, raio ou disponibilidade comercial.
 - Um único `primary_format_id` por canal. Não liste alternativas.
 - Formato em vídeo descreve o entregável recomendado; `image_prompt` sempre pede uma referência visual estática no canal. Nunca peça vídeo, animação, áudio, frames ou storyboard.

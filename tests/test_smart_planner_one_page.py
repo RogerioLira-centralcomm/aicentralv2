@@ -238,7 +238,7 @@ def test_folha_editor_is_enterprise_form_not_pitch_sheet():
     assert 'id="sp-folha-form"' in html
     assert "sp-gallery" in html
     assert "Marca apresentadora da folha" in html
-    assert "sp-folha-checks" in html
+    assert "sp-image-prep" in html
     assert "sp-completo-checks" not in html
     assert "Protótipo visual no canal" in html
     assert "renderPitchSheet" not in js

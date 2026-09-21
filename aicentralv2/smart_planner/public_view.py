@@ -178,11 +178,15 @@ def _decorate_channel(item: dict) -> dict:
     label = text(item.get("label") or meta.get("label") or key)
     group = text(meta.get("group") or item.get("group"))
     pct = _as_pct(item.get("pct") or item.get("value"))
+    if group in {"ooh", "places"}:
+        item_amount = ""
+    else:
+        item_amount = text(item.get("amount_label"))
     return {
         "id": key or label.lower().replace(" ", "_"),
         "label": label,
         "pct": pct,
-        "amount_label": text(item.get("amount_label")),
+        "amount_label": item_amount,
         "role": text(item.get("role") or GROUP_ROLE.get(group)),
         "format": text(meta.get("desc")),
         "logo": CHANNEL_LOGOS.get(key, ""),
@@ -565,11 +569,10 @@ def format_public_updated(value) -> dict:
 
 
 WATER_MARKERS = ("água", "agua", "reservatório", "reservatorio", "torneira")
-METRIC_UNDEFINED = "A definir após validação de segmentação, inventário e premissas de compra."
+METRIC_UNDEFINED = "A definir após fechar a segmentação e o critério de exposição."
 INVENTORY_DISCLAIMER = (
     "Os veículos, plataformas, portais e aplicativos desta seção são ambientes "
-    "recomendados ou potenciais. A veiculação final depende de inventário, "
-    "segmentação, brand safety, negociação e aprovação."
+    "A leitura apresenta ambientes e contextos de audiência; a divisão é estratégica e não representa contratação."
 )
 INVENTORY_FILTERS = (
     ("todos", "Todos"),
@@ -808,19 +811,20 @@ def _attach_matrix(channels: list[dict], months: list[dict], calendar: dict | No
     grid = _matrix_from_calendar(channels, months, calendar) or _matrix_from_totals(channels, months)
     peak = max((max(line) if line else 0) for line in grid) if grid else 1
     for channel, line in zip(channels, grid):
+        restricted_value = text(channel.get("group")) in {"ooh", "places"}
         bars = []
         for index, month in enumerate(months):
             amount = line[index] if index < len(line) else 0
             bars.append({
                 "pct": _as_pct(channel.get("pct")),
-                "amount": amount,
-                "amount_label": format_money(amount) if amount else "—",
+                "amount": 0 if restricted_value else amount,
+                "amount_label": "—" if restricted_value else (format_money(amount) if amount else "—"),
                 "heat": max(18, round((amount / peak) * 100)) if peak and amount else 0,
             })
         channel["bars"] = bars
-        if not channel.get("amount"):
+        if not restricted_value and not channel.get("amount"):
             channel["amount"] = sum(line)
-        if not channel.get("amount_label") and channel.get("amount"):
+        if not restricted_value and not channel.get("amount_label") and channel.get("amount"):
             channel["amount_label"] = format_money(channel["amount"])
     for index, month in enumerate(months):
         if not month.get("amount"):
@@ -994,20 +998,17 @@ def _reading(channels: list[dict], months: list[dict]) -> list[dict]:
 
 def _assumptions(missing: list[str], has_metrics: bool, has_inventory: bool = False) -> dict:
     points = [
-        "Inventário depende de disponibilidade, brand safety e negociação.",
-        "Valores podem ser ajustados na negociação final.",
+        "Valores representam a divisão estratégica inicial do plano.",
         "Formatos dependem das peças entregues.",
         "O plano representa uma distribuição estratégica inicial.",
     ]
-    if has_inventory:
-        points.insert(1, "Portais e aplicativos desta folha são recomendações, não contratação.")
     if "municipios" in missing:
         points.insert(0, "Municípios prioritários ainda precisam de validação final.")
     if "datas" in missing:
         insert_at = 1 if "municipios" in missing else 0
         points.insert(insert_at, "Datas exatas do voo ainda não foram confirmadas.")
     if not has_metrics:
-        points.append("Metas de alcance e impressões dependem de CPM, frequência, segmentação e inventário.")
+        points.append("Metas de alcance e impressões dependem da segmentação e da estratégia de exposição.")
 
     open_items = []
     for key in ("municipios", "datas"):
@@ -1021,13 +1022,13 @@ def _assumptions(missing: list[str], has_metrics: bool, has_inventory: bool = Fa
         steps.append("Validar municípios atendidos")
     if "datas" in missing:
         steps.append("Confirmar datas exatas")
-    steps.extend(["Aprovar o mix", "Validar inventário disponível"])
+    steps.extend(["Aprovar o mix", "Fechar a divisão do plano"])
     if not has_metrics:
         steps.append("Definir metas de alcance e frequência")
     steps.extend([
         "Receber especificações criativas",
         "Confirmar formatos por canal",
-        "Consolidar o plano final de compra",
+        "Consolidar a defesa final do plano",
     ])
     return {
         "points": points,
@@ -1256,7 +1257,6 @@ def public_view(row: dict, document: str | None = None) -> dict:
             {"id": "investimento", "label": "Investimento", "view": "folha"},
             {"id": "periodo", "label": "Período e Gantt", "view": "folha"},
             {"id": "canais", "label": "Canais", "view": "folha"},
-            {"id": "portais", "label": "Portais e aplicativos", "view": "folha"},
             {"id": "criativos", "label": "Criativos e formatos", "view": "folha"},
             {"id": "premissas", "label": "Premissas", "view": "folha"},
         ]

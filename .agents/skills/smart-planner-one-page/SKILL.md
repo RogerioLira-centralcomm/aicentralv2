@@ -103,6 +103,15 @@ Código extra: `theme.py` (família de mercado), `images.py` (GPT Image 2 / Open
 6. Gerar criativo, persona, lugar ou fundo somente quando houver prompt contextual e provider disponível. Gravar no `asset_manifest`.
 7. Não inventar verba, KPI, audiência, logo, praça, bairro ou canal.
 
+## Pontos de OOH recebidos no briefing
+
+Quando o executivo colar uma lista de pontos ou enviar uma imagem cuja leitura
+traga pontos de OOH, o Smart Planner deve guardá-la como `inventario_ooh` na
+referência do briefing. A ordem e o texto de cada ponto são preservados. Isso
+inclui OOH no plano, mas não autoriza inferir fornecedor, disponibilidade, preço,
+alcance ou compra. A página única e o link público falam apenas em presença OOH;
+o plano completo interno inclui o bloco `Pontos OOH informados`.
+
 ## Regras comerciais e de evidência
 
 - Verba só aparece se confirmada na revisão ou no snapshot.

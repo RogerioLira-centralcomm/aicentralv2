@@ -182,7 +182,7 @@ class PublicPlannerTest(TestCase):
         self.assertTrue(view["tem_completo"])
         self.assertEqual(view["default_view"], "folha")
         self.assertEqual(view["nav"][0]["id"], "visao")
-        self.assertEqual(len(view["nav_folha"]), 8)
+        self.assertEqual(len(view["nav_folha"]), 7)
 
     def test_confidential_hides_advertiser_name(self):
         view = public_view({
@@ -214,7 +214,7 @@ class PublicPlannerTest(TestCase):
         self.assertIn('id="investimento"', html)
         self.assertIn('id="periodo"', html)
         self.assertIn('id="canais"', html)
-        self.assertIn('id="portais"', html)
+        self.assertNotIn('id="portais"', html)
         self.assertIn('id="criativos"', html)
         self.assertIn('id="premissas"', html)
         self.assertIn("cc-hero", html)
@@ -424,7 +424,7 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["media"]["total"], 250000)
         self.assertEqual(sum(item["amount"] for item in view["media"]["months"]), 250000)
         self.assertEqual(sum(item["pct"] for item in view["media"]["channels"]), 100)
-        self.assertEqual(len(view["nav"]), 8)
+        self.assertEqual(len(view["nav"]), 7)
         self.assertEqual(view["views"], [{"id": "folha", "label": "Página única"}])
         self.assertEqual(view["default_view"], "folha")
         self.assertEqual(view["nav_plano"], [])

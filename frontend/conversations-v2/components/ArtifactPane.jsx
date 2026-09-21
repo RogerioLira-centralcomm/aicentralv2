@@ -81,15 +81,55 @@ function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
     if (!url || !safeUrl(url)) return;
     command('insertImage', safeUrl(url));
   };
+  const addTable = () => {
+    command('insertHTML', '<table><thead><tr><th>Item</th><th>Valor</th><th>Observação</th></tr></thead><tbody><tr><td>Exemplo</td><td>—</td><td>Edite este campo</td></tr><tr><td>Outro item</td><td>—</td><td>Edite este campo</td></tr></tbody></table><p><br></p>');
+  };
+  const selectedTable = () => window.getSelection()?.anchorNode?.parentElement?.closest('table');
+  const addTableRow = () => {
+    const table = selectedTable();
+    if (!table) return;
+    const columns = table.rows[0]?.cells.length || 1;
+    const row = table.tBodies[0]?.insertRow() || table.insertRow();
+    for (let index = 0; index < columns; index += 1) row.insertCell().textContent = '—';
+    emit();
+  };
+  const addTableColumn = () => {
+    const table = selectedTable();
+    if (!table) return;
+    Array.from(table.rows).forEach(row => row.insertCell().textContent = '—');
+    emit();
+  };
+  const removeTableRow = () => {
+    const cell = window.getSelection()?.anchorNode?.parentElement?.closest('td,th');
+    const table = cell?.closest('table');
+    if (!cell || !table || table.rows.length <= 2) return;
+    cell.parentElement.remove();
+    emit();
+  };
+  const removeTableColumn = () => {
+    const cell = window.getSelection()?.anchorNode?.parentElement?.closest('td,th');
+    const table = cell?.closest('table');
+    if (!cell || !table || table.rows[0].cells.length <= 1) return;
+    const index = cell.cellIndex;
+    Array.from(table.rows).forEach(row => row.deleteCell(index));
+    emit();
+  };
   return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[820px] cv-p-6 md:cv-p-10">
     <input className="cv-rich-document__title" value={artifact.title || content.title || ''} onChange={event => onTitleChange?.(event.target.value)} placeholder="Título do documento" aria-label="Título do documento"/>
     <input className="cv-rich-document__summary" value={content.summary || ''} onChange={event => onChange({...content, summary: event.target.value})} placeholder="Uma linha para orientar a leitura (opcional)" aria-label="Resumo do documento"/>
-    <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento">
+    <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento" onMouseDown={event => event.preventDefault()}>
+      <button type="button" onClick={() => command('undo')} aria-label="Desfazer última edição">↶</button>
+      <button type="button" onClick={() => command('redo')} aria-label="Refazer edição">↷</button>
       <button type="button" onClick={() => command('bold')} aria-label="Negrito"><b>B</b></button>
       <button type="button" onClick={() => command('italic')} aria-label="Itálico"><i>I</i></button>
       <button type="button" onClick={() => command('formatBlock', 'h2')} aria-label="Título de seção">H2</button>
       <button type="button" onClick={() => command('formatBlock', 'blockquote')} aria-label="Citação">“</button>
       <button type="button" onClick={() => command('insertUnorderedList')} aria-label="Lista">•</button>
+      <button type="button" onClick={addTable} aria-label="Inserir tabela">Tabela</button>
+      <button type="button" onClick={addTableRow} aria-label="Adicionar linha à tabela">Linha +</button>
+      <button type="button" onClick={addTableColumn} aria-label="Adicionar coluna à tabela">Coluna +</button>
+      <button type="button" onClick={removeTableRow} aria-label="Remover linha da tabela">Linha −</button>
+      <button type="button" onClick={removeTableColumn} aria-label="Remover coluna da tabela">Coluna −</button>
       <button type="button" onClick={addImage} aria-label="Adicionar imagem">Imagem</button>
     </div>
     <div ref={canvas} className="cv-rich-document__canvas" contentEditable suppressContentEditableWarning onInput={emit} onBlur={emit} dangerouslySetInnerHTML={{__html: html}} role="textbox" aria-label="Texto do documento"/>
@@ -104,7 +144,7 @@ function HtmlArtifact({artifact}) {
 function ImageArtifact({artifact}) {
   const content = artifact.content || {};
   const src = safeUrl(content.url || content.image_url || content.src);
-  return <div className="cv-flex cv-h-full cv-items-center cv-justify-center cv-bg-[#071012] cv-p-6">{src ? <img src={src} alt={content.alt || artifact.title || 'Imagem gerada'} className="cv-max-h-full cv-max-w-full cv-rounded-xl cv-object-contain"/> : <p className="cv-text-sm cv-text-mist">A imagem ainda não está disponível.</p>}</div>;
+  return <div className="cv-flex cv-h-full cv-flex-col cv-items-center cv-justify-center cv-gap-4 cv-bg-[#071012] cv-p-6">{src ? <img src={src} alt={content.alt || artifact.title || 'Imagem gerada'} className="cv-max-h-[calc(100%-54px)] cv-max-w-full cv-rounded-xl cv-object-contain"/> : <p className="cv-text-sm cv-text-mist">A imagem ainda não está disponível.</p>}{src && <div className="cv-flex cv-flex-wrap cv-justify-center cv-gap-2"><a href={src} target="_blank" rel="noreferrer" className="cv-rounded-lg cv-bg-teal cv-px-4 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#052522] cv-no-underline">Abrir original</a><a href={src} download className="cv-rounded-lg cv-border cv-border-white/15 cv-bg-white/[.06] cv-px-4 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#d9e7e4] cv-no-underline">Baixar</a></div>}</div>;
 }
 
 function ResourceArtifact({artifact}) {
@@ -220,7 +260,18 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [lightTheme, setLightTheme] = useState(false);
   const type = artifact?.type || 'document';
+  const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|; )cadu-artifact-theme=([^;]+)/);
+    setLightTheme(match?.[1] === 'light');
+  }, []);
+  const toggleTheme = () => {
+    const next = !lightTheme;
+    setLightTheme(next);
+    document.cookie = `cadu-artifact-theme=${next ? 'light' : 'dark'}; Max-Age=31536000; Path=/; SameSite=Lax`;
+  };
   const contentView = useMemo(() => {
     if (!artifact) return null;
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
@@ -250,10 +301,11 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
     setLoadingVersions(false);
   };
   if (!artifact) return null;
-  return <aside className={`cv-artifact-panel cv-artifact-overlay cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${closing ? 'cv-is-closing' : ''}`} aria-label="Artefato">
+  return <aside className={`cv-artifact-panel cv-artifact-overlay cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label="Artefato">
     <header className="cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-border-b cv-border-white/[.07] cv-px-5">
       <div className="cv-min-w-0 cv-flex-1"><span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span><h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{artifact.title || artifact.content?.title || 'Trabalho em andamento'}</h2></div>
       {type === 'html' && artifact.id && <button type="button" onClick={artifact.status === 'published' && onUnpublish ? onUnpublish : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? artifact.status === 'published' ? 'Retirando…' : 'Publicando…' : saving ? 'Salvando…' : artifact.status === 'published' ? 'Despublicar' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}
+      {textArtifact && <button type="button" onClick={toggleTheme} className="cv-artifact-theme-toggle" aria-pressed={lightTheme} title={lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}>{lightTheme ? 'Escuro' : 'Claro'}</button>}
       {artifact.id && <button type="button" onClick={openVersions} className="cv-flex cv-h-8 cv-items-center cv-gap-1.5 cv-rounded-lg cv-border-0 cv-bg-white/[.05] cv-px-2.5 cv-text-[11px] cv-text-[#a8bfbb] hover:cv-bg-white/[.08]" title="Histórico de versões"><Icon name="history" size={14}/>v{artifact.current_version || 1}</button>}
       <button type="button" onClick={requestClose} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Fechar artefato"><Icon name="close" size={17}/></button>
     </header>

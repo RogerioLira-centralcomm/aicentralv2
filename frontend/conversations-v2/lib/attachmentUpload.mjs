@@ -24,7 +24,12 @@ export async function uploadAttachments({
           method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrfToken()}, body,
         });
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.file?.id) throw new Error(data.error || 'Não foi possível anexar o arquivo.');
+        if (!response.ok || !data.file?.id) {
+          const error = new Error(data.error || 'Não foi possível anexar o arquivo.');
+          error.status = response.status;
+          error.details = data.details;
+          throw error;
+        }
         staged[index] = {...staged[index], id: data.file.id, uploading: false};
       } else {
         if (!projectRef) throw new Error('Escolha um projeto antes de adicionar arquivos a ele.');
@@ -49,7 +54,12 @@ export async function uploadAttachments({
           method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrfToken()}, body,
         });
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.source?.source_id) throw new Error(data.error || 'Não foi possível adicionar o arquivo ao projeto.');
+        if (!response.ok || !data.source?.source_id) {
+          const error = new Error(data.error || 'Não foi possível adicionar o arquivo ao projeto.');
+          error.status = response.status;
+          error.details = data.details;
+          throw error;
+        }
         staged[index] = {...staged[index], source: data.source, uploading: false};
       }
     } catch (error) {

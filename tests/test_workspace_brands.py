@@ -9,7 +9,7 @@ from werkzeug.exceptions import BadRequest
 
 from aicentralv2.product_domains import product_url
 from aicentralv2.cadu_workspace.routes import (
-    _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
+    _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
     _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
     _save_brand_review_job, bp,
@@ -31,6 +31,27 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    def test_automatic_decision_publishes_only_when_every_evidence_gate_passes(self):
+        decision = _automatic_brand_decision(
+            {'sources': ['https://a.test', 'https://b.test', 'https://c.test', 'https://d.test']},
+            {'coverage': {'official_pages': 4, 'approved_visuals': 10, 'contacts': 1, 'addresses': 1, 'policies': 1}},
+            {'status': 'ready', 'blocked_fields': [], 'confidence': .9,
+             'quality_dimensions': {'identity': .8, 'visual': .8, 'marketing': .8, 'presence': .8, 'sources': .8}},
+            'deep',
+        )
+        self.assertTrue(decision['approved'])
+
+    def test_automatic_decision_aborts_when_a_small_brand_lacks_evidence(self):
+        decision = _automatic_brand_decision(
+            {'sources': ['https://a.test']},
+            {'coverage': {'official_pages': 1, 'approved_visuals': 1}},
+            {'status': 'needs_review', 'blocked_fields': ['brand_summary'], 'confidence': .5, 'quality_dimensions': {}},
+            'deep',
+        )
+        self.assertFalse(decision['approved'])
+        self.assertFalse(decision['deep_recommended'])
+        self.assertTrue(decision['reasons'])
+
     @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.project_brand_links')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brands')
@@ -380,8 +401,8 @@ class WorkspaceBrandsTest(TestCase):
         }
         service.return_value.review_brand_analysis.return_value = [
             {'id': 'evidencias', 'status': 'ready'},
-            {'id': 'estrategia', 'status': 'ready'},
-            {'id': 'direcao_criativa', 'status': 'ready'},
+            {'id': 'ampliacao', 'status': 'ready'},
+            {'id': 'revisor_central', 'status': 'ready'},
         ]
         connection = mock.MagicMock()
         cursor = connection.cursor.return_value.__enter__.return_value
@@ -504,7 +525,10 @@ class WorkspaceBrandsTest(TestCase):
                     'brand_summary': 'Resumo aprovado.',
                     'analysis_metadata': {'model': 'brand-model'},
                 },
-                'reviews': [{'id': 'evidencias', 'status': 'ready'}],
+                'reviews': [
+                    {'id': 'evidencias', 'status': 'ready'},
+                    {'id': 'revisor_central', 'status': 'ready', 'blocked_fields': []},
+                ],
             }},
         }
         connection = mock.MagicMock()
@@ -512,9 +536,13 @@ class WorkspaceBrandsTest(TestCase):
         cursor.fetchone.return_value = {'id': 81}
         get_db.return_value = connection
 
-        response = _client().post('/workspace/app/marcas/81/revisoes/aprovar', data={
-            '_csrf': 'known-token',
-        })
+        with mock.patch('aicentralv2.cadu_workspace.routes._fill_empty_project_identity_from_brand'), \
+             mock.patch('aicentralv2.cadu_workspace.routes._sync_approved_brand_to_projects'), \
+             mock.patch('aicentralv2.cadu_workspace.routes._send_brand_approval_email'), \
+             mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService'):
+            response = _client().post('/workspace/app/marcas/81/revisoes/aprovar', data={
+                '_csrf': 'known-token',
+            })
 
         self.assertEqual(response.status_code, 303)
         sql, params = cursor.execute.call_args.args
@@ -523,6 +551,26 @@ class WorkspaceBrandsTest(TestCase):
         self.assertIn('approved', params[8])
         self.assertEqual(params[-2:], (81, 12))
         connection.commit.assert_called_once_with()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_approval_requires_a_ready_central_consolidation(self, workspace_brand, get_db):
+        workspace_brand.return_value = {
+            'id': 81,
+            'analysis_metadata': {'review_pack': {
+                'status': 'pending_approval',
+                'analysis': {'brand_summary': 'Proposta ainda bloqueada.'},
+                'reviews': [{'id': 'revisor_central', 'status': 'needs_review', 'blocked_fields': ['positioning']}],
+            }},
+        }
+
+        response = _client().post('/workspace/app/marcas/81/revisoes/aprovar', data={
+            '_csrf': 'known-token',
+        })
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('consolidação central', response.get_data(as_text=True))
+        get_db.assert_not_called()
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects', return_value=[])
     @mock.patch('aicentralv2.cadu_workspace.routes._brand_linked_projects', return_value=[])
@@ -560,13 +608,13 @@ class WorkspaceBrandsTest(TestCase):
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={
         'id': 81, 'analysis_metadata': {'review_pack': {'status': 'pending_approval'}},
     })
-    def test_brand_hero_requires_an_approved_identity(self, _brand, credits, service):
+    def test_brand_hero_is_not_available_outside_projects(self, _brand, credits, service):
         response = _client().post('/workspace/app/marcas/81/hero/gerar', data={
             '_csrf': 'known-token',
         })
 
         self.assertEqual(response.status_code, 409)
-        self.assertIn('Aprove a identidade', response.get_data(as_text=True))
+        self.assertIn('Heroes são exclusivos de projetos', response.get_data(as_text=True))
         credits.assert_not_called()
         service.assert_not_called()
 

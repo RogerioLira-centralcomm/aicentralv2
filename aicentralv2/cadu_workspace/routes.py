@@ -1490,7 +1490,10 @@ def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_r
         reasons.append(f'foram encontradas poucas fontes verificáveis ({len(sources)}/{required_sources})')
     if int(coverage.get('approved_visuals') or 0) < required_visuals:
         reasons.append(f'foram validados poucos visuais da marca ({coverage.get("approved_visuals") or 0}/{required_visuals})')
-    for key in ('identity', 'visual', 'marketing', 'presence', 'sources'):
+    # Presence holds operational details such as a public phone or address.
+    # They are useful in the dossier but neither scarce nor decisive enough to
+    # veto a strategic brand audit.
+    for key in ('identity', 'visual', 'marketing', 'sources'):
         try:
             value = float(dimensions.get(key) or 0)
         except (TypeError, ValueError):
@@ -1780,6 +1783,13 @@ def _save_brand_audit_evidence(client_id: int, brand_id: int, job_id: str, analy
                  json.dumps((analysis or {}).get('field_provenance') or {})),
             )
         connection.commit()
+        # Campaigns are independent audit findings. Keep them queryable even
+        # when the evidence gate blocks publication of the broader profile;
+        # they never create projects automatically.
+        _save_brand_campaigns(
+            client_id, brand_id, job_id,
+            list((analysis or {}).get('campaigns') or []),
+        )
     except Exception:
         connection.rollback()
         current_app.logger.exception('Não foi possível registrar evidências normalizadas da auditoria %s', job_id)
@@ -1911,6 +1921,27 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 from ..creative_modeling_service import CreativeModelingService
                 from ..cadu_credit_connector import CaduCreditConnector, CreditActor
                 service = CreativeModelingService()
+                # Reuse the approved primary mark when the audit was started
+                # from an existing brand without a new upload. OCR and visual
+                # review must not lose the logo merely because it already
+                # lives in the asset library.
+                if not restored_images:
+                    stored_brand = _workspace_brand(client_id, brand_id) or {}
+                    primary_logo = next((
+                        asset for asset in stored_brand.get('assets', [])
+                        if str(asset.get('role') or '').lower() == 'logo'
+                        and bool(asset.get('is_primary'))
+                        and str(asset.get('status') or '').lower() == 'approved'
+                    ), None)
+                    logo_path = CreativeAssetStorage().absolute_public_path(
+                        (primary_logo or {}).get('asset_path')
+                    )
+                    if logo_path:
+                        restored_images.append(FileStorage(
+                            stream=BytesIO(logo_path.read_bytes()),
+                            filename=logo_path.name,
+                            content_type=(primary_logo or {}).get('mime_type') or 'image/png',
+                        ))
                 credits = CaduCreditConnector()
                 actor = CreditActor.from_values(client_id, user_id)
 
@@ -1947,8 +1978,16 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 review_proposal = dict(proposal) if isinstance(proposal, dict) else {}
                 if isinstance(review_proposal, dict) and review_proposal:
                     # A prior attempt already paid for and saved the evidence
-                    # extraction. Resume from that durable checkpoint.
+                    # extraction. Resume from that durable checkpoint.  The
+                    # proposal is deliberately compact, so recover the audit
+                    # coverage stored alongside its review pack; otherwise a
+                    # resumed central reviewer sees zero pages and visuals.
                     review_proposal = _brand_analysis_proposal(review_proposal)
+                    stored_metadata = dict((_workspace_brand(client_id, brand_id) or {}).get('analysis_metadata') or {})
+                    analysis_metadata = {
+                        **analysis_metadata,
+                        **{key: value for key, value in stored_metadata.items() if key != 'review_pack'},
+                    }
                     _save_brand_review_job(client_id, brand_id, job_id,
                         status='running', stage='evidence_reused', index=1, total=4,
                         message='Retomando a proposta já extraída.')
@@ -2046,6 +2085,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     )
                     history_status = 'approved'
                 else:
+                    history_status = 'insufficient_evidence'
                     _save_brand_review_job(
                         client_id, brand_id, job_id, status='insufficient_evidence', stage='complete', index=4, total=4,
                         message='A análise não foi publicada: faltam evidências confiáveis para definir a marca.',

@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 import base64
+from collections import deque
 import hashlib
 from io import BytesIO
 import json
@@ -3033,8 +3034,10 @@ class CreativeModelingService:
     def review_brand_analysis(self, analysis, progress=None, billing_callback=None):
         return _serialize(self.brand_analyzer.review_pack(analysis, progress=progress, billing_callback=billing_callback))
 
-    def review_brand_module(self, analysis, review_id, billing_callback=None):
-        return _serialize(self.brand_analyzer.review_module(analysis, review_id, billing_callback=billing_callback))
+    def review_brand_module(self, analysis, review_id, billing_callback=None, prior_reviews=None):
+        return _serialize(self.brand_analyzer.review_module(
+            analysis, review_id, billing_callback=billing_callback, prior_reviews=prior_reviews,
+        ))
 
     def upload_client_brand_assets(
         self, client_id, files, primary_logo=False, role="reference"
@@ -3098,6 +3101,7 @@ class CreativeModelingService:
                 logo = ImageOps.exif_transpose(opened).convert("RGBA")
                 if logo.width < 2 or logo.height < 2:
                     return []
+                logo = self._remove_uniform_logo_background(logo)
                 variants = (("favicon", 64), ("compact", 128), ("workspace", 256), ("studio", 512))
                 saved = []
                 for name, size in variants:
@@ -3111,7 +3115,11 @@ class CreativeModelingService:
                     asset_path = self.storage.save_generated_base64(base64.b64encode(content).decode("ascii"), output_format="webp")
                     try:
                         variant_id = self.repository.add_client_brand_asset(client_id, {
-                            "role": "logo", "source_kind": "logo_variant", "asset_path": asset_path,
+                            # Derived files still originate from the user's upload.
+                            # Keep the constrained provenance value compatible
+                            # with the durable asset schema; the metadata below
+                            # carries the more specific variant relationship.
+                            "role": "logo", "source_kind": "upload", "asset_path": asset_path,
                             "mime_type": "image/webp", "width": size, "height": size,
                             "sha256": hashlib.sha256(content).hexdigest(), "status": "approved", "is_primary": False,
                             "metadata": {"label": f"Logo · {name}", "logo_variant": name,
@@ -3126,6 +3134,59 @@ class CreativeModelingService:
         except Exception:
             current_app.logger.exception("Não foi possível criar variações do logo da marca %s", client_id)
             return []
+
+    @staticmethod
+    def _remove_uniform_logo_background(image):
+        """Make a simple edge-connected background transparent without redrawing a mark.
+
+        Uploaded brand marks are often supplied as a black or white logo on a
+        flat canvas.  A generated interpretation is not appropriate here: the
+        original asset remains untouched and only a clearly uniform background
+        connected to the image edge is removed from the product renditions.
+        """
+        rgba = image.convert("RGBA")
+        width, height = rgba.size
+        pixels = rgba.load()
+        corner_points = ((0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1))
+        corners = [pixels[x, y] for x, y in corner_points]
+        base = corners[0]
+        if base[3] < 245:
+            return rgba
+
+        # Refuse ambiguous images: all corners must be substantially the same
+        # opaque color before any source pixels are changed.
+        if any(
+            corner[3] < 245 or max(abs(corner[index] - base[index]) for index in range(3)) > 10
+            for corner in corners[1:]
+        ):
+            return rgba
+
+        def is_background(pixel):
+            return pixel[3] >= 245 and max(abs(pixel[index] - base[index]) for index in range(3)) <= 18
+
+        queue = deque()
+        visited = set()
+        for x in range(width):
+            queue.extend(((x, 0), (x, height - 1)))
+        for y in range(1, height - 1):
+            queue.extend(((0, y), (width - 1, y)))
+
+        while queue:
+            x, y = queue.popleft()
+            point = (x, y)
+            if point in visited or not is_background(pixels[x, y]):
+                continue
+            visited.add(point)
+            pixels[x, y] = (base[0], base[1], base[2], 0)
+            if x:
+                queue.append((x - 1, y))
+            if x + 1 < width:
+                queue.append((x + 1, y))
+            if y:
+                queue.append((x, y - 1))
+            if y + 1 < height:
+                queue.append((x, y + 1))
+        return rgba
 
     def import_website_brand_assets(self, client_id, candidates):
         """Persist official web evidence without automatically choosing a logo."""

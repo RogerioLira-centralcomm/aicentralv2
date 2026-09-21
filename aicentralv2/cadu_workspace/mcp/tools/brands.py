@@ -23,6 +23,13 @@ def list_brands(context: RequestContext, arguments: dict) -> dict:
     return {"brands": service.list_brands(context, arguments.get("query", ""), arguments.get("limit", 30))}
 
 
+@register_tool(name="brands.get_context", capability="workspace", effect="read",
+               description="Obtém o contexto aprovado da marca para conversas, projetos e artefatos, com cores, logo e fontes.", exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","required":["brand_id"],"properties":{"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
+def get_brand_context(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: service.brand_context(context, arguments["brand_id"]))
+
+
 @register_tool(name="brands.create", capability="workspace", effect="write",
                description="Cria uma marca com nome e site oficial após confirmação do usuário.", exposures=("internal",),
                input_schema={"type":"object","required":["request_id","confirmed","name","website_url"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"name":{"type":"string","minLength":2,"maxLength":150},"website_url":{"type":"string","minLength":3,"maxLength":2000},"sector":{"type":"string","maxLength":80}},"additionalProperties":False})

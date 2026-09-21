@@ -84,6 +84,11 @@ def claim():
 
 
 def finish(job_id: str, success: bool):
+    # A deep crawl can outlive the PostgreSQL idle connection used to claim
+    # the job. Release it before recording completion so a provider failure
+    # is never masked by an unrelated "connection is lost" error.
+    from ..db import close_db
+    close_db()
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:

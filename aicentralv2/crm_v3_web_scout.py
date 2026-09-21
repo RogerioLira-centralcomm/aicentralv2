@@ -181,6 +181,28 @@ def _eh_erro_dns(exc: Exception) -> bool:
     return any(hint in message for hint in _DNS_ERROR_HINTS)
 
 
+def _pode_tentar_host_alternativo(exc: Exception) -> bool:
+    """Only retry the www/apex variant for host- or provider-transient faults.
+
+    A public brand can serve its canonical site on only one variant.  A 5xx
+    from the crawler for the first host must not make a complete audit fail
+    when the other public variant is available.  Authentication, credit,
+    throttling and ordinary 4xx responses are global/configuration failures,
+    so they are intentionally not retried against a second host.
+    """
+    message = str(exc or "").lower()
+    if _eh_erro_dns(exc):
+        return True
+    if any(marker in message for marker in (
+        "credencial", "permissão", "permissao", "créditos", "creditos",
+        "limite de requisições", "http 4", "status 4",
+    )):
+        return False
+    return any(marker in message for marker in (
+        "http 5", "status 5", "indisponível", "indisponivel", "upstream",
+    ))
+
+
 def _firecrawl_scrape_com_variantes(
     raw: Optional[str],
     formats: Optional[list] = None,
@@ -197,9 +219,9 @@ def _firecrawl_scrape_com_variantes(
         )
         return first, urls[0]
     except Exception as first_error:
-        if len(urls) < 2 or not _eh_erro_dns(first_error):
+        if len(urls) < 2 or not _pode_tentar_host_alternativo(first_error):
             raise
-        logger.info("host %s não resolveu; tentando %s", urls[0], urls[1])
+        logger.info("host %s indisponível; tentando %s", urls[0], urls[1])
         try:
             second = (
                 _firecrawl_scrape(urls[1], formats=formats, timeout_s=timeout_s)

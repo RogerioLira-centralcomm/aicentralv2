@@ -250,6 +250,31 @@ def project_resource_map(project_ref):
     return jsonify(artifact={"type": "project_map", "title": content["title"], "content": content})
 
 
+@bp.get("/studio/library")
+def studio_library():
+    """Return the Studio shelf in the same shape used by Conversations."""
+    current = resolve(surface=request.args.get("surface") or "conversations",
+                      project_ref=request.args.get("project_ref"), brand_ref=request.args.get("brand_ref"))
+    from .. import project_resource_service
+    resources = project_resource_service.list_for_context(current) if current.project_ref else {"resources": []}
+    brand_assets = []
+    if current.brand_ref and str(current.brand_ref).startswith("studio:"):
+        try:
+            with repository.get_db().cursor() as cursor:
+                cursor.execute("""SELECT id::text AS id, role, asset_path, source_url, metadata
+                                   FROM cx_client_brand_assets
+                                  WHERE client_id=%s
+                               ORDER BY is_primary DESC NULLS LAST, id DESC""",
+                               (str(current.brand_ref)[7:],))
+                brand_assets = [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            current_app.logger.exception("Falha ao carregar ativos da marca para a biblioteca do Studio")
+    return jsonify(scope="project" if current.project_ref else "personal",
+                   project_ref=current.project_ref, brand_ref=current.brand_ref,
+                   resources=resources.get("resources", []) if isinstance(resources, dict) else [],
+                   brand_assets=brand_assets)
+
+
 @bp.post("/route")
 def route_preview():
     data = request.get_json(silent=True) or {}

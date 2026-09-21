@@ -74,6 +74,18 @@ def _asset_url(asset):
     )
 
 
+def _asset_exists(url):
+    """Do not expose local creative uploads that disappeared after a deploy."""
+    value = str(url or "")
+    if not value.startswith("/static/uploads/creative_references/"):
+        return bool(value)
+    try:
+        from ..creative_modeling_storage import CreativeAssetStorage
+        return bool(CreativeAssetStorage().absolute_reference_path(value))
+    except Exception:
+        return False
+
+
 def _logo_pixel_evidence(url):
     """Read local logo pixels when possible; external assets stay metadata-only."""
     raw = str(url or "")
@@ -261,7 +273,9 @@ def build_brand_context(client=None, extra_assets=None):
     asset_context = {
         "logo": [item["url"] for item in logo_options][:8],
         "logos": logo_options[:8],
-        "references": [_asset_url(item) for item in references if _asset_url(item)][:8],
+        "references": [url for item in references
+                       for url in [_asset_url(item)]
+                       if _asset_exists(url)][:8],
     }
     return select_brand_logo({
         "id": client.get("id"),

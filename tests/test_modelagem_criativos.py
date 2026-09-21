@@ -13,7 +13,7 @@ from flask import Blueprint, Flask
 from jinja2 import Environment
 from werkzeug.datastructures import FileStorage
 
-from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
+from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer, _public_contact_records
 from aicentralv2.creative_format_compose import (
     compose_native_piece,
     compose_native_result,
@@ -743,6 +743,20 @@ class FakeCreditLedger:
 
 
 class CreativeBrandAnalyzerTest(unittest.TestCase):
+    def test_extrai_contatos_publicos_com_url_e_trecho_de_origem(self):
+        contacts, addresses = _public_contact_records([{
+            "url": "https://www.exemplo.com.br/atendimento",
+            "markdown": (
+                "Atendimento: (31) 3210-9000. E-mail: atendimento@exemplo.com.br.\n"
+                "Endereço: Avenida Afonso Pena, 1000, Centro, Belo Horizonte - MG.\n"
+                "Mapa: https://maps.exemplo.com/?place=47083502"
+            ),
+        }])
+        self.assertEqual({item['type'] for item in contacts}, {'phone', 'email'})
+        self.assertTrue(all(item['source_url'].endswith('/atendimento') for item in contacts))
+        self.assertEqual(len(addresses), 1)
+        self.assertIn('Avenida Afonso Pena', addresses[0]['address'])
+
     def test_selecao_de_paginas_prioriza_contexto_e_limita_catalogo(self):
         from aicentralv2 import creative_brand_analysis as analysis
 
@@ -758,6 +772,51 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         self.assertIn('https://marca.com/colecoes/verao/produto-a', urls)
         self.assertNotIn('https://marca.com/colecoes/verao/produto-b', urls)
         self.assertNotIn('https://marca.com/carrinho', urls)
+
+    def test_selecao_de_paginas_nunca_envia_pdf_ao_firecrawl(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        urls = analysis._relevant_pages([
+            'https://marca.com/sobre',
+            'https://marca.com/imprensa/relatorio-anual.pdf',
+            'https://marca.com/politicas/privacidade',
+        ], 'https://marca.com', 'marca.com', include_deep=True)
+
+        self.assertIn('https://marca.com/sobre', urls)
+        self.assertIn('https://marca.com/politicas/privacidade', urls)
+        self.assertNotIn('https://marca.com/imprensa/relatorio-anual.pdf', urls)
+
+    @patch(
+        "aicentralv2.creative_brand_analysis._compact_web_evidence",
+        return_value=({
+            "source_url": "https://marca.com.br", "pages": [{
+                "url": "https://marca.com.br/institucional", "title": "Institucional",
+                "content": "Marca, atendimento e soluções para empresas.",
+            }], "asset_candidates": [], "deterministic_contacts": [],
+            "deterministic_addresses": [], "external_sources": [], "competitor_sources": [],
+            "social_links": [],
+        }, {"logo_url": None}),
+    )
+    def test_modo_profundo_divide_pesquisa_em_modulos_rastreaveis(self, _evidence):
+        calls, billed = [], []
+
+        def llm(messages, **kwargs):
+            calls.append(messages)
+            return {"message": {"content": json.dumps({
+                "name": "Marca", "sector": "Serviços", "brand_summary": "Resumo comprovado.",
+                "products_services": ["Soluções"], "sources": ["https://marca.com.br/institucional"],
+            })}, "model": kwargs["model"]}
+
+        result = CreativeBrandAnalyzer(llm=llm).analyze(
+            "marca.com.br", analysis_mode="deep", billing_callback=lambda *event: billed.append(event),
+        )
+
+        self.assertEqual([event[0] for event in billed[:4]], [
+            "pesquisa_identidade", "pesquisa_publico_oferta", "pesquisa_presenca", "pesquisa_mercado_campanhas",
+        ])
+        self.assertEqual(result["analysis_metadata"]["research_modules"], [
+            "identidade", "publico_oferta", "presenca", "mercado_campanhas",
+        ])
 
     @patch(
         "aicentralv2.creative_brand_analysis._compact_web_evidence",
@@ -890,11 +949,15 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
 
         self.assertEqual([call[1]["model"] for call in calls], [
             "perplexity/sonar-pro",
+            "perplexity/sonar-pro",
+            "perplexity/sonar-pro",
+            "openai/gpt-5.4",
             "openai/gpt-5.4",
         ])
         self.assertEqual(result["primary_color"], "#7A1632")
         self.assertEqual(result["color_palette"][0]["usage"], "Assinatura e CTA")
         self.assertEqual(result["analysis_metadata"]["visual_evidence_count"], 1)
+        self.assertEqual(result["analysis_metadata"]["evidence_normalization_provider"], "openai")
 
     def test_aprende_linha_criativa_e_normaliza_instrucao_para_image_2(self):
         def llm(_messages, **kwargs):
@@ -1096,6 +1159,18 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         urls = [item["url"] for item in evidence["asset_candidates"]]
         self.assertIn("https://marca.com.br/produtos/anel.webp", urls)
         self.assertNotIn("https://terceiro.example/banner", urls)
+
+    def test_busca_pt_br_nao_exige_dominio_brasileiro(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        query = analysis._pt_br_research_query(
+            "Nike", official_domain="nike.com", visual=True,
+        )
+
+        self.assertIn("site:nike.com", query)
+        self.assertIn("Brasil", query)
+        self.assertIn("português", query)
+        self.assertNotIn("nike.com.br", query)
 
     def test_og_image_nao_e_promovida_a_logo_sem_evidencia(self):
         from aicentralv2 import creative_brand_analysis as analysis

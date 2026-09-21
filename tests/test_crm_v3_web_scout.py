@@ -124,6 +124,18 @@ class WebScoutFirecrawlTest(unittest.TestCase):
         self.assertEqual(effective_url, "https://cliente.com.br")
 
     @patch.object(scout, "_firecrawl_scrape")
+    def test_fallback_tenta_www_quando_firecrawl_falha_transitoriamente(self, scrape):
+        scrape.side_effect = [
+            RuntimeError("Firecrawl: HTTP 500 upstream unavailable"),
+            {"metadata": {"title": "Cliente"}},
+        ]
+
+        data, effective_url = scout._firecrawl_scrape_com_variantes("cliente.com.br")
+
+        self.assertEqual(data["metadata"]["title"], "Cliente")
+        self.assertEqual(effective_url, "https://www.cliente.com.br")
+
+    @patch.object(scout, "_firecrawl_scrape")
     def test_fallback_nao_repete_erro_definitivo(self, scrape):
         scrape.side_effect = RuntimeError("Firecrawl: credencial inválida")
 

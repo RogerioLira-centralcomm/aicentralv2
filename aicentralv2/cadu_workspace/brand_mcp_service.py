@@ -68,6 +68,27 @@ def list_brands(context: RequestContext, query: str = "", limit: int = 30) -> li
     } for item in records[:min(50, max(1, int(limit or 30)))]]
 
 
+def brand_context(context: RequestContext, brand_id) -> dict:
+    """Return the same source-aware context consumed by Workspace surfaces."""
+    brand = _brand(context, brand_id)
+    profile = dict(brand.get("brand_profile") or {})
+    metadata = dict(brand.get("analysis_metadata") or {})
+    from .routes import _brand_campaigns
+    return {
+        "brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
+        "name": brand.get("name"), "website_url": brand.get("website_url"),
+        "logo_url": brand.get("display_logo") or brand.get("logo_url"),
+        "colors": {"primary": brand.get("primary_color"), "secondary": brand.get("secondary_color"),
+                   "palette": profile.get("color_palette") or []},
+        "fonts": profile.get("fonts") or [],
+        "identity": {key: profile.get(key) for key in ("brand_summary", "tone_of_voice", "target_audience", "positioning", "mandatory_elements", "forbidden_elements", "visual_motifs")},
+        "market": {key: profile.get(key) for key in ("products_services", "differentiators", "proof_points", "competitors")},
+        "campaigns": _brand_campaigns(context.client_id, int(brand["id"]), profile.get("campaigns") or []),
+        "sources": list(metadata.get("sources") or [])[:20], "social_links": list(metadata.get("social_links") or [])[:12],
+        "field_provenance": profile.get("field_provenance") or {},
+    }
+
+
 def create_brand(context: RequestContext, *, request_id, name: str, website_url: str, sector: str = "") -> dict:
     operation_id = _request_id(request_id)
     website_url = _website(website_url)

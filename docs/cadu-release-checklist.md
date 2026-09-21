@@ -22,6 +22,8 @@ tenha sido validada.
 3. `python migrations/run_add_connect_report_workspace.py`
 4. `python migrations/run_add_connect_report_sources.py`
 5. `python migrations/run_add_workspace_brand_audit_jobs.py`
+6. `python migrations/run_add_workspace_brand_audit_history.py`
+7. `python migrations/run_add_workspace_brand_audit_evidence.py`
 
 Os runners são atômicos, exigem banco explicitamente configurado e validam o
 schema criado. Eles não habilitam flags e não inserem dados de demonstração.

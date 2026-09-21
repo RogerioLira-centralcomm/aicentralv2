@@ -2105,21 +2105,18 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 # This notification means the context was actually published;
                 # insufficient evidence is exposed as a diagnostic, never as
                 # a misleading “analysis ready” message.
-                if automatic_decision['approved']:
-                    try:
-                        from .. import db
-                        from ..services.cadu_product_emails import send_brand_audit_ready
-                        person = db.obter_contato_por_id(user_id) or {}
-                        send_brand_audit_ready(
-                            recipient_email=str(person.get('email') or ''),
-                            recipient_name=str(person.get('nome_completo') or ''),
-                            brand_name=str(review_proposal.get('name') or ''),
-                            summary=str(review_proposal.get('brand_summary') or ''),
-                            differentiators=list(review_proposal.get('differentiators') or []),
-                            url=product_url('workspace', f'/marcas/{brand_id}'),
-                        )
-                    except Exception:
-                        current_app.logger.exception('Não foi possível enviar aviso da auditoria da marca %s', brand_id)
+                try:
+                    from .. import db
+                    from ..services.cadu_product_emails import send_brand_audit_ready
+                    person = db.obter_contato_por_id(user_id) or {}
+                    send_brand_audit_ready(recipient_email=str(person.get('email') or ''), recipient_name=str(person.get('nome_completo') or ''),
+                        brand_name=str(review_proposal.get('name') or ''), summary=str(review_proposal.get('brand_summary') or ''),
+                        differentiators=list(review_proposal.get('differentiators') or []), url=product_url('workspace', f'/marcas/{brand_id}'),
+                        logo_url=str(review_proposal.get('logo_url') or ''), status=history_status,
+                        coverage=analysis_metadata.get('coverage') or {}, costs=token_usage,
+                        effort={'estimated_person_hours': 8 if analysis_mode == 'deep' else 4, 'estimated_minutes_saved': 480 if analysis_mode == 'deep' else 240})
+                except Exception:
+                    current_app.logger.exception('Não foi possível enviar aviso da auditoria da marca %s', brand_id)
             except Exception as exc:
                 current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
                 _save_brand_review_job(client_id, brand_id, job_id,

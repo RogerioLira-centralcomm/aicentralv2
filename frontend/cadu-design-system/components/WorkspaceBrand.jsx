@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {CaduDock} from './CaduDock';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
@@ -42,13 +42,19 @@ function LinkProjectsDialog({brand, projects, csrfToken, onClose}) {
 }
 
 function AuditDialog({brand, urls, csrfToken, onClose}) {
-  return <BrandDialog title="Analisar marca" detail="O Cadu organiza evidências oficiais e prepara uma proposta para revisão humana." onClose={onClose}>
+  const [mode, setMode] = useState('complete');
+  const estimates = mode === 'deep' ? {pages: 'até 40', evidence: 'até 180', tokens: '45–90 mil', time: '6–12 min'} : {pages: 'até 24', evidence: 'até 120', tokens: '25–55 mil', time: '3–8 min'};
+  return <BrandDialog title="Analisar marca" detail="O Cadu organiza evidências oficiais e prepara uma proposta para revisão humana." onClose={onClose} className="cadu-ds-brand-audit-dialog">
     <form className="cadu-ds-brand-form" method="post" encType="multipart/form-data" action={urls.audit}>
       <Hidden name="_csrf" value={csrfToken}/>
-      <label>Site oficial<input type="url" name="website_url" required maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/></label>
-      <label>Referências opcionais<input type="file" name="images" accept="image/*" multiple/><small>Até quatro imagens oficiais da marca.</small></label>
+      <div className="cadu-ds-brand-audit-dialog__columns"><div>
+        <div className="cadu-ds-brand-audit-dialog__preserved"><strong>Dados preservados</strong><span>{brand.websiteUrl ? 'Site oficial já cadastrado.' : 'O site oficial ainda será necessário.'}</span><span>{brand.assets?.length || 0} ativos e referências disponíveis.</span><span>A identidade atual permanece protegida até a aprovação.</span></div>
+        <label>Site oficial<input type="url" name="website_url" required maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/></label>
+        <label>Redes sociais oficiais<small>Um link por linha. Serão coletados nos dois níveis.</small><textarea name="social_links" rows="3" placeholder="https://instagram.com/sua-marca&#10;https://www.linkedin.com/company/sua-marca" /></label>
+        <label>Anexos e referências<BrandAssetDrop name="images"/><small>Comece pela logo principal. Depois adicione versões secundárias e referências.</small></label>
+      </div><aside className="cadu-ds-brand-audit-dialog__scope"><strong>Escopo da análise</strong><label><span><input type="radio" name="analysis_mode" value="complete" checked={mode === 'complete'} onChange={() => setMode('complete')}/><b>Completa</b></span><small>Site, redes sociais, identidade verbal e visual, produtos, ofertas e evidências principais.</small></label><label><span><input type="radio" name="analysis_mode" value="deep" checked={mode === 'deep'} onChange={() => setMode('deep')}/><b>Profunda</b></span><small>Inclui pesquisa externa, políticas digitais, endereços, telefones, e-mails e validação ampliada.</small></label><dl><div><dt>Páginas</dt><dd>{estimates.pages}</dd></div><div><dt>Evidências</dt><dd>{estimates.evidence}</dd></div><div><dt>Tokens estimados</dt><dd>{estimates.tokens}</dd></div><div><dt>Tempo estimado</dt><dd>{estimates.time}</dd></div></dl><p>O processamento continua em background. Você receberá um e-mail quando a análise estiver pronta para revisão.</p></aside></div>
       <label className="cadu-ds-brand-check"><input type="checkbox" name="include_project_sources" value="true"/> Adicionar páginas oficiais ao projeto vinculado após aprovação.</label>
-      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Iniciar análise</button></footer>
+      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Iniciar análise {mode === 'deep' ? 'profunda' : 'completa'}</button></footer>
     </form>
   </BrandDialog>;
 }
@@ -76,11 +82,32 @@ function DeleteBrandDialog({brand, linkedProjects, urls, csrfToken, onClose}) {
 function BrandAssetCard({asset, brand, urls, csrfToken, canManageBrand}) {
   const label = asset.metadata?.label || assetLabels[asset.role] || asset.role || 'Ativo';
   const action = asset.role === 'logo' && asset.status === 'approved' && !asset.isPrimary ? assetUrl(urls.setPrimaryBase, asset.id) : asset.status === 'approved' && !asset.isPrimary ? assetUrl(urls.promoteLogoBase, asset.id) : '';
-  return <article className="cadu-ds-brand-asset"><div className="cadu-ds-brand-asset__preview">{asset.displayUrl ? <img src={asset.displayUrl} alt={label} loading="lazy"/> : <span aria-hidden="true">◇</span>}</div><div className="cadu-ds-brand-asset__copy"><b>{label}{asset.isPrimary ? ' · principal' : ''}</b><small>{asset.metadata?.low_resolution ? 'Rascunho interno' : asset.mimeType || asset.sourceKind || 'Arquivo de marca'}</small><em className={`is-${asset.status}`}>{asset.status === 'approved' ? 'Aprovado' : asset.status === 'pending' ? 'Em revisão' : asset.status || 'Registrado'}</em></div>{canManageBrand && action && <form method="post" action={action}><Hidden name="_csrf" value={csrfToken}/><button type="submit">{asset.role === 'logo' ? 'Definir principal' : 'Usar como logo'}</button></form>}{canManageBrand && <form method="post" action={assetUrl(urls.deleteAssetBase, asset.id)} onSubmit={event => { if (!window.confirm('Apagar este ativo?')) event.preventDefault(); }}><Hidden name="_csrf" value={csrfToken}/><button type="submit" className="is-danger" aria-label={`Apagar ${label}`}>Apagar</button></form>}</article>;
+  return <article className="cadu-ds-brand-asset"><div className="cadu-ds-brand-asset__preview">{asset.displayUrl ? <img src={asset.displayUrl} alt={label} loading="lazy"/> : <span aria-hidden="true">◇</span>}</div><div className="cadu-ds-brand-asset__copy"><b>{label}{asset.isPrimary ? ' · principal' : ''}</b><small>{asset.metadata?.low_resolution ? 'Rascunho interno' : asset.mimeType || asset.sourceKind || 'Arquivo de marca'}</small><em className={`is-${asset.status}`}>{asset.status === 'approved' ? 'Aprovado' : asset.status === 'pending' ? 'Em revisão' : asset.status || 'Registrado'}</em></div>{canManageBrand && action && <form method="post" action={action}><Hidden name="_csrf" value={csrfToken}/><button type="submit">{asset.role === 'logo' ? 'Definir principal' : 'Usar como logo'}</button></form>}{canManageBrand && <form method="post" action={assetUrl(urls.deleteAssetBase, asset.id)}><Hidden name="_csrf" value={csrfToken}/><button type="submit" className="is-danger" aria-label={`Apagar ${label}`}>Apagar</button></form>}</article>;
+}
+
+function BrandAssetDrop({name, onFilesChange}) {
+  const input = useRef(null);
+  const [active, setActive] = useState(false);
+  const [files, setFiles] = useState([]);
+  const assign = values => {
+    const selected = Array.from(values || []).filter(file => file.type.startsWith('image/')).slice(0, 8);
+    if (!selected.length || !input.current) return;
+    const transfer = new DataTransfer();
+    selected.forEach(file => transfer.items.add(file));
+    input.current.files = transfer.files;
+    setFiles(selected);
+    onFilesChange?.(selected);
+  };
+  return <div className={`cadu-ds-brand-file-drop${active ? ' is-active' : ''}`} onDragEnter={event => { event.preventDefault(); setActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setActive(false); }} onDrop={event => { event.preventDefault(); setActive(false); assign(event.dataTransfer.files); }}>
+    <input ref={input} name={name} type="file" accept="image/*" multiple hidden aria-hidden="true" tabIndex="-1"/>
+    <strong>{files.length ? `${files.length} imagem${files.length === 1 ? '' : 's'} preparada${files.length === 1 ? '' : 's'}` : 'Solte as imagens aqui'}</strong>
+    <small>{files.length ? files.map(file => file.name).join(', ') : 'Arraste arquivos de imagem para adicionar à biblioteca'}</small>
+  </div>;
 }
 
 function AssetSection({brand, urls, csrfToken, canManageBrand}) {
-  return <section className="cadu-ds-brand-section cadu-ds-brand-assets"><header><div><p>Biblioteca visual</p><h2>Ativos da marca</h2><span>Logos, referências e peças que ajudam o time a criar com consistência.</span></div><span className="cadu-ds-brand-count">{brand.assets.length} arquivo{brand.assets.length === 1 ? '' : 's'}</span></header>{canManageBrand && <form className="cadu-ds-brand-upload" method="post" encType="multipart/form-data" action={urls.uploadAssets}><Hidden name="_csrf" value={csrfToken}/><label>Tipo<select name="role" defaultValue="reference"><option value="logo">Logo principal</option><option value="reference">Referência visual</option><option value="creative">Peça criativa</option><option value="background">Fundo</option><option value="support">Apoio visual</option><option value="icon">Ícone</option></select></label><label className="cadu-ds-brand-upload__files">Adicionar arquivos<input type="file" name="images" accept="image/*" multiple required/></label><button className="is-primary">Enviar ativos</button></form>}<div className="cadu-ds-brand-asset-list">{brand.assets.length ? brand.assets.map(asset => <BrandAssetCard asset={asset} brand={brand} urls={urls} csrfToken={csrfToken} canManageBrand={canManageBrand} key={asset.id}/>) : <p className="cadu-ds-brand-empty">Nenhum ativo registrado. Comece pelo logo ou por uma referência oficial.</p>}</div></section>;
+  const [ready, setReady] = useState(false);
+  return <section className="cadu-ds-brand-section cadu-ds-brand-assets"><header><div><p>Biblioteca visual</p><h2>Ativos da marca</h2><span>Logos, referências e peças que ajudam o time a criar com consistência.</span></div><span className="cadu-ds-brand-count">{brand.assets.length} arquivo{brand.assets.length === 1 ? '' : 's'}</span></header>{canManageBrand && <form className="cadu-ds-brand-upload" method="post" encType="multipart/form-data" action={urls.uploadAssets}><Hidden name="_csrf" value={csrfToken}/><label>Tipo<select name="role" defaultValue="reference"><option value="logo">Logo principal</option><option value="reference">Referência visual</option><option value="creative">Peça criativa</option><option value="background">Fundo</option><option value="support">Apoio visual</option><option value="icon">Ícone</option></select></label><BrandAssetDrop name="images" onFilesChange={files => setReady(files.length > 0)}/><button className="is-primary" disabled={!ready}>Enviar ativos</button></form>}<div className="cadu-ds-brand-asset-list">{brand.assets.length ? brand.assets.map(asset => <BrandAssetCard asset={asset} brand={brand} urls={urls} csrfToken={csrfToken} canManageBrand={canManageBrand} key={asset.id}/>) : <p className="cadu-ds-brand-empty">Nenhum ativo registrado. Comece pelo logo ou por uma referência oficial.</p>}</div></section>;
 }
 
 function reviewCopy(brand) {

@@ -1494,7 +1494,7 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
         raise
 
 
-def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True):
+def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True, analysis_mode='complete', social_links=None):
     """Run an audit now or enqueue it for the durable Workspace worker.
 
     ``background=False`` is intentionally used only by the worker.  It keeps
@@ -1528,7 +1528,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                         metadata={'brand_id': brand_id, 'job_id': job_id, 'source': 'workspace'},
                     )
 
-                analysis_metadata = {}
+                analysis_metadata = {'analysis_mode': analysis_mode, 'social_links': list(social_links or [])}
                 review_proposal = dict(proposal) if isinstance(proposal, dict) else {}
                 if isinstance(review_proposal, dict) and review_proposal:
                     # A prior attempt already paid for and saved the evidence
@@ -1632,7 +1632,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
             enqueue({
                 'job_id': job_id, 'client_id': client_id, 'user_id': user_id,
                 'brand_id': brand_id, 'website_url': website_url,
-                'images': images, 'proposal': proposal,
+                'images': images, 'proposal': proposal, 'analysis_mode': analysis_mode,
+                'social_links': list(social_links or []),
             })
             return True
         except Exception:
@@ -2073,7 +2074,7 @@ def _remember_workspace_project(project_id: str) -> None:
 
 
 def _workspace_sidebar_projects(client_id: int) -> list[dict]:
-    """Return up to six active projects, prioritizing the ones last opened."""
+    """Return active projects in the stable alphabetical order used by Home."""
     if not client_id:
         return []
     try:
@@ -2082,20 +2083,13 @@ def _workspace_sidebar_projects(client_id: int) -> list[dict]:
                 """SELECT id, nome
                      FROM cadu_ci_projetos
                     WHERE id_cliente = %s AND status = 'ativo'
-                 ORDER BY updated_at DESC NULLS LAST, nome ASC""",
+                 ORDER BY LOWER(nome) ASC, nome ASC""",
                 (client_id,),
             )
             projects = [dict(row) for row in cursor.fetchall()]
     except Exception:
         return []
 
-    recent_refs = [str(item) for item in session.get(_WORKSPACE_RECENT_PROJECTS_KEY, []) if item]
-    recent_position = {project_ref: position for position, project_ref in enumerate(recent_refs)}
-    original_position = {str(item.get('id')): position for position, item in enumerate(projects)}
-    projects.sort(key=lambda item: (
-        recent_position.get(str(item.get('id')), len(recent_position)),
-        original_position.get(str(item.get('id')), len(original_position)),
-    ))
     return projects[:6]
 
 
@@ -2801,7 +2795,6 @@ LEGAL_PAGES = {
     },
 }
 
-
 PRODUCT_ENTRIES = {
     "cadu": ("Cadu", "Inteligência de mídia", "Traga a decisão de mídia para um só lugar.", "Pesquise públicos, formatos, canais e ferramentas de campanha a partir do contexto do seu time."),
     "workspace": ("Workspace", "Conta e contexto", "Comece pelo contexto certo.", "Organize o time, os projetos, os créditos e os acessos antes de abrir uma solução especializada."),
@@ -3213,7 +3206,6 @@ def legal_page():
         content=content,
         canonical=product_url("workspace", f"/{page}"),
     )
-
 
 
 @bp.get("/workspace/assets/workspace-icon-<int:size>.png")
@@ -3914,6 +3906,14 @@ def project_detail(project_id):
             'links': [{'id': str(item.get('id')), 'title': str(item.get('titulo') or 'Atalho'), 'url': str(item.get('url') or ''),
                        'provider': str(item.get('provider') or '')} for item in project.get('links') or []],
             'health': project.get('context_health') or {},
+            'sharing': {
+                'visibility': family_repository.project_visibility(client_id, f'ci:{project_id}').get('visibility', 'private'),
+                'members': [{
+                    'id': str(item.get('user_id')), 'name': str(item.get('name') or 'Pessoa da equipe'),
+                    'email': str(item.get('email') or ''), 'role': str(item.get('role') or 'viewer'),
+                    'status': 'active' if item.get('status') else 'inactive',
+                } for item in family_repository.project_access(client_id, f'ci:{project_id}')],
+            },
         }
         return render_template(
             'cadu_workspace/project_detail_react.html', project_data=project_data,
@@ -3928,6 +3928,63 @@ def project_detail(project_id):
 @login_required
 def clean_project_detail(project_id):
     return project_detail(project_id)
+
+
+@bp.get('/workspace/api/projetos/<project_id>/compartilhamento')
+@login_required
+def project_sharing_api(project_id):
+    client_id = int(session.get('cliente_id') or 0)
+    project_ref = f'ci:{project_id}'
+    if not family_repository.project_user_can_view(client_id, project_ref, int(session.get('user_id') or 0)):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
+    return jsonify({
+        'visibility': family_repository.project_visibility(client_id, project_ref).get('visibility', 'private'),
+        'members': family_repository.project_access(client_id, project_ref),
+        'team': family_repository.team(client_id),
+    })
+
+
+@bp.post('/workspace/api/projetos/<project_id>/compartilhamento')
+@login_required
+def update_project_sharing_api(project_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    actor = family_repository.actor(user_id) or {}
+    if family_repository.account_role(actor) != 'admin':
+        return jsonify({'error': 'Somente administradores podem alterar o compartilhamento.'}), 403
+    payload = request.get_json(silent=True) or {}
+    visibility = payload.get('visibility')
+    if visibility not in {'private', 'team', 'restricted'}:
+        return jsonify({'error': 'Visibilidade inválida.'}), 400
+    project_ref = f'ci:{project_id}'
+    try:
+        family_repository.set_project_visibility(client_id, user_id, project_ref, visibility)
+        if visibility == 'team':
+            for member in family_repository.team(client_id):
+                if member.get('status') and int(member.get('id')) != user_id:
+                    family_repository.grant_project_access(client_id, project_ref, int(member['id']), 'member', user_id)
+        elif visibility == 'private':
+            for member in family_repository.project_access(client_id, project_ref):
+                if int(member.get('user_id') or 0) != user_id:
+                    family_repository.revoke_project_access(client_id, project_ref, int(member['user_id']))
+        elif visibility == 'restricted':
+            selected = payload.get('members') or []
+            valid = {int(item['id']) for item in family_repository.team(client_id) if item.get('status')}
+            if any(int(item.get('user_id')) not in valid for item in selected):
+                return jsonify({'error': 'Todas as pessoas precisam pertencer à equipe ativa.'}), 400
+            selected_ids = {int(item.get('user_id')) for item in selected}
+            for current in family_repository.project_access(client_id, project_ref):
+                current_id = int(current.get('user_id') or 0)
+                if current_id != user_id and current_id not in selected_ids:
+                    family_repository.revoke_project_access(client_id, project_ref, current_id)
+            for item in selected:
+                family_repository.grant_project_access(client_id, project_ref, int(item['user_id']), str(item.get('role') or 'viewer'), user_id)
+        return jsonify({'ok': True, 'visibility': visibility,
+                        'members': family_repository.project_access(client_id, project_ref)})
+    except (TypeError, ValueError) as error:
+        return jsonify({'error': str(error)}), 400
 
 
 @bp.post('/projetos/<project_id>/atalhos')
@@ -4977,6 +5034,8 @@ def brand_detail(brand_id):
             'auditInput': {
                 'websiteUrl': str(((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input', {}).get('website_url') or brand.get('website_url') or ''),
                 'hasImages': bool((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('has_images')),
+                'analysisMode': str((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('analysis_mode') or 'complete'),
+                'socialLinks': list((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('social_links') or []),
             },
             'preserved': {
                 'websiteUrl': str(brand.get('website_url') or ''),
@@ -5322,6 +5381,8 @@ def audit_brand(brand_id):
     website_url = _normalized_website_url(
         request.form.get('website_url') or brand.get('website_url') or '',
     )
+    analysis_mode = request.form.get('analysis_mode') if request.form.get('analysis_mode') in {'complete', 'deep'} else 'complete'
+    social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '').splitlines() if item.strip()][:12]
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
     if not website_url and not images:
         abort(400, description='Informe o site ou envie uma imagem de referência.')
@@ -5347,7 +5408,8 @@ def audit_brand(brand_id):
             'error': '',
             'created_at': _utc_timestamp(),
             'input': {'website_url': website_url, 'has_images': bool(image_payload),
-                      'include_project_sources': request.form.get('include_project_sources') == 'true'},
+                      'include_project_sources': request.form.get('include_project_sources') == 'true',
+                      'analysis_mode': analysis_mode, 'social_links': social_links},
             'analysis': {},
             'reviews': [],
         }
@@ -5384,7 +5446,7 @@ def audit_brand(brand_id):
             current_app.logger.warning('Auditoria da marca %s seguiu sem todos os ativos: %s', brand_id, exc)
         except Exception:
             current_app.logger.exception('Não foi possível preservar os ativos da auditoria da marca %s', brand_id)
-    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload)
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload, analysis_mode=analysis_mode, social_links=social_links)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({
             'ok': True, 'job_id': job_id, 'status': 'queued',
@@ -5442,6 +5504,8 @@ def retry_brand_audit(brand_id):
     website_url = _normalized_website_url(
         request.form.get('website_url') or previous_input.get('website_url') or brand.get('website_url') or '',
     )
+    analysis_mode = request.form.get('analysis_mode') if request.form.get('analysis_mode') in {'complete', 'deep'} else previous_input.get('analysis_mode') or 'complete'
+    social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '\n'.join(previous_input.get('social_links') or [])).splitlines() if item.strip()][:12]
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
     if not website_url and not images:
         abort(400, description='Informe o site ou envie uma imagem de referência para reprocessar a marca.')
@@ -5458,7 +5522,7 @@ def retry_brand_audit(brand_id):
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
         'message': 'A nova análise entrou na fila. A identidade atual será preservada até sua aprovação.', 'error': '',
         'created_at': _utc_timestamp(),
-        'input': {'website_url': website_url, 'has_images': bool(image_payload), 'preserves_logo': True}, 'analysis': {}, 'reviews': [],
+        'input': {'website_url': website_url, 'has_images': bool(image_payload), 'preserves_logo': True, 'analysis_mode': analysis_mode, 'social_links': social_links}, 'analysis': checkpoint, 'reviews': [],
     }
     connection = get_db()
     try:
@@ -5484,7 +5548,7 @@ def retry_brand_audit(brand_id):
             CreativeModelingService().upload_client_brand_assets(brand_id, images, False, 'reference')
         except Exception:
             current_app.logger.exception('Não foi possível preservar as novas referências da auditoria da marca %s', brand_id)
-    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload)
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload, proposal=checkpoint, analysis_mode=analysis_mode, social_links=social_links)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({'ok': True, 'job_id': job_id, 'status': 'queued',
                         'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id)}), 202

@@ -69,7 +69,11 @@ export function WorkspaceHome({bootstrap}) {
   }), [home.projects]);
   const brands = home.brands || [];
   const catalogBrands = home.catalogBrands || brands;
-  const sidebarBrands = catalogBrands.length ? catalogBrands : brands;
+  const sidebarBrands = (catalogBrands.length ? catalogBrands : brands).slice().sort((left, right) => {
+    const leftDate = Date.parse(left.updatedAt || left.updated_at || left.createdAt || left.created_at || '') || 0;
+    const rightDate = Date.parse(right.updatedAt || right.updated_at || right.createdAt || right.created_at || '') || 0;
+    return rightDate - leftDate;
+  }).slice(0, 3);
   const [dockItems, setDockItems] = useState(home.dock?.items || []);
   const selectedProject = useMemo(() => projects.find(item => item.id === projectRef), [projects, projectRef]);
   const selectedBrand = useMemo(() => brands.find(item => item.id === brandRef || `studio:${item.id}` === brandRef), [brands, brandRef]);

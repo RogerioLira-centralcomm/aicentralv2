@@ -101,7 +101,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
     </section>}
     {mode === 'home' && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Conversas recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Conversas recentes</span>{links.conversations && <a href={links.conversations}>Ver todas</a>}</div>
-      {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><span><b>{item.title || item.name || 'Conversa'}</b><small>{item.context || item.projectName || 'Cadu Chat'}</small></span></a>)}
+      {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><span><b>{item.title || item.name || 'Conversa'}</b></span></a>)}
     </section>}
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
     {mode === 'home' && !recentConversations.length && <p className="cadu-ds-context-sidebar__empty">As conversas recentes aparecerão aqui.</p>}

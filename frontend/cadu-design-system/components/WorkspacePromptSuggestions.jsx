@@ -10,7 +10,7 @@ const PERSONAL_SUGGESTIONS = [
 
 function suggestionsFor({project, brand, home = {}}) {
   const configured = Array.isArray(home.conversationSuggestions) ? home.conversationSuggestions : [];
-  if (configured.length) return configured.slice(0, 4).map(item => ({label: item.label || item.title, prompt: item.prompt || item.label || item.title}));
+  if (configured.length) return configured.slice(0, 3).map(item => ({label: item.label || item.title, prompt: item.prompt || item.label || item.title}));
   if (project) {
     const name = project.name || project.title || 'este projeto';
     const hasSources = Number(project.sources || project.fontes_prontas || 0) > 0;
@@ -34,7 +34,7 @@ function suggestionsFor({project, brand, home = {}}) {
 }
 
 export function buildWorkspaceSuggestions(options = {}) {
-  return suggestionsFor(options).filter(item => item.label && item.prompt).slice(0, 4);
+  return suggestionsFor(options).filter(item => item.label && item.prompt).slice(0, 3);
 }
 
 export function WorkspacePromptSuggestions({project, brand, home, onSelect, compact = false}) {

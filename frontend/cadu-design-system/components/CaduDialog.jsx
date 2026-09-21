@@ -6,12 +6,16 @@ export function CaduDialog({className = '', label, titleId, initialFocusRef, clo
   const generatedTitleId = useId();
   const labelledBy = titleId || (!label ? generatedTitleId : undefined);
   useEffect(() => {
+    const opener = document.activeElement;
     const node = dialog.current;
     if (!node?.open) {
       node?.showModal();
       initialFocusRef?.current?.focus();
     }
-    return () => { if (node?.open) node.close(); };
+    return () => {
+      if (node?.open) node.close();
+      if (opener && typeof opener.focus === 'function' && document.contains(opener)) opener.focus();
+    };
   }, [initialFocusRef]);
   const backdropClick = event => {
     if (!closeOnBackdrop || event.target !== dialog.current) return;

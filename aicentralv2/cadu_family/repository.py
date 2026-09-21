@@ -11,7 +11,8 @@ from ..smart_planner.logos import public_logo
 def family_table_available(name):
     """Inspect schema without creating it; do not swallow connectivity errors."""
     if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context',
-                    'cadu_family_chat_uploads', 'cadu_family_project_brands', 'cadu_user_memories',
+                    'cadu_family_chat_uploads', 'cadu_family_project_brands', 'cadu_family_project_visibility',
+                    'cadu_family_project_access', 'cadu_user_memories',
                     'cadu_working_memories'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
@@ -117,6 +118,109 @@ def set_project_brand_link(client_id, user_id, project_ref, brand_ref, linked):
                 cur.execute('''DELETE FROM cadu_family_project_brands
                                 WHERE client_id = %s AND project_ref = %s AND brand_ref = %s''',
                             (client_id, project_ref, brand_ref))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def project_access(client_id, project_ref):
+    if not family_table_available('cadu_family_project_access'):
+        return []
+    return rows('''SELECT a.user_id, a.role, a.source, a.granted_by, a.created_at,
+                          u.nome_completo AS name, u.email, u.status
+                     FROM cadu_family_project_access a
+                LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = a.user_id
+                    WHERE a.client_id = %s AND a.project_ref = %s AND a.revoked_at IS NULL
+                 ORDER BY CASE a.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+                          LOWER(COALESCE(u.nome_completo, '')), a.user_id''', (client_id, project_ref))
+
+
+def project_visibility(client_id, project_ref):
+    if not family_table_available('cadu_family_project_visibility'):
+        return {'visibility': 'private'}
+    result = rows('''SELECT visibility, updated_by, updated_at
+                       FROM cadu_family_project_visibility
+                      WHERE client_id = %s AND project_ref = %s''', (client_id, project_ref))
+    return result[0] if result else {'visibility': 'private'}
+
+
+def project_user_can_view(client_id, project_ref, user_id):
+    """Project-level authorization; absence of a row never grants access."""
+    actor_row = actor(user_id)
+    if actor_row and actor_row.get('organization_id') == client_id and account_role(actor_row) == 'admin':
+        return True
+    visibility = project_visibility(client_id, project_ref).get('visibility', 'private')
+    if visibility == 'team':
+        return bool(actor_row and actor_row.get('organization_id') == client_id)
+    if not family_table_available('cadu_family_project_access'):
+        return False
+    return bool(rows('''SELECT 1 FROM cadu_family_project_access
+                         WHERE client_id = %s AND project_ref = %s AND user_id = %s
+                           AND revoked_at IS NULL LIMIT 1''', (client_id, project_ref, user_id)))
+
+
+def seed_project_owner(client_id, project_ref, user_id):
+    if not family_table_available('cadu_family_project_access'):
+        return
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_family_project_access
+                              (client_id, project_ref, user_id, role, source, granted_by)
+                           VALUES (%s, %s, %s, 'owner', 'owner', %s)
+                           ON CONFLICT (client_id, project_ref, user_id) DO NOTHING''',
+                        (client_id, project_ref, user_id, user_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def set_project_visibility(client_id, user_id, project_ref, visibility):
+    if visibility not in {'private', 'team', 'restricted'}:
+        raise ValueError('Visibilidade inválida.')
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_family_project_visibility
+                              (client_id, project_ref, visibility, updated_by)
+                           VALUES (%s, %s, %s, %s)
+                           ON CONFLICT (client_id, project_ref) DO UPDATE SET
+                              visibility = EXCLUDED.visibility, updated_by = EXCLUDED.updated_by,
+                              updated_at = NOW()''', (client_id, project_ref, visibility, user_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def grant_project_access(client_id, project_ref, user_id, role, granted_by):
+    if role not in {'admin', 'editor', 'member', 'viewer'}:
+        raise ValueError('Papel de projeto inválido.')
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_family_project_access
+                              (client_id, project_ref, user_id, role, source, granted_by)
+                           VALUES (%s, %s, %s, %s, 'direct', %s)
+                           ON CONFLICT (client_id, project_ref, user_id) DO UPDATE SET
+                              role = EXCLUDED.role, source = 'direct', granted_by = EXCLUDED.granted_by,
+                              revoked_at = NULL, updated_at = NOW()''',
+                        (client_id, project_ref, user_id, role, granted_by))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def revoke_project_access(client_id, project_ref, user_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''UPDATE cadu_family_project_access SET revoked_at = NOW(), updated_at = NOW()
+                           WHERE client_id = %s AND project_ref = %s AND user_id = %s''',
+                        (client_id, project_ref, user_id))
         conn.commit()
     except Exception:
         conn.rollback()

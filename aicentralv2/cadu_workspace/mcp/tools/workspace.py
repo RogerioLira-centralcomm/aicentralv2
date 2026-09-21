@@ -219,6 +219,105 @@ def list_projects(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="workspace.list_project_shares", capability="workspace", requires_project=True,
+    description="Lista a visibilidade e as pessoas com acesso ao projeto atual.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+)
+def list_project_shares(context: RequestContext, arguments: dict) -> dict:
+    _native_project_id(context)
+    if not repository.project_user_can_view(context.client_id, context.project_ref, context.user_id):
+        raise ToolInputError("Você não tem acesso a este projeto.")
+    visibility = repository.project_visibility(context.client_id, context.project_ref)
+    members = repository.project_access(context.client_id, context.project_ref)
+    return {
+        "project_ref": context.project_ref,
+        "visibility": visibility.get("visibility", "private"),
+        "members": [{"user_id": str(item.get("user_id")), "name": item.get("name") or "Pessoa da equipe",
+                     "email": item.get("email") or "", "role": item.get("role"),
+                     "source": item.get("source"), "status": "active" if item.get("status") else "inactive"}
+                    for item in members],
+    }
+
+
+@register_tool(
+    name="workspace.set_project_visibility", capability="workspace", effect="write", requires_project=True,
+    description="Altera a visibilidade do projeto atual após confirmação explícita.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "visibility"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "visibility": {"type": "string", "enum": ["private", "team", "restricted"]},
+    }, "additionalProperties": False},
+)
+def set_project_visibility(context: RequestContext, arguments: dict) -> dict:
+    _native_project_id(context)
+    actor = repository.actor(context.user_id) or {}
+    if repository.account_role(actor) != 'admin':
+        raise ToolInputError("Somente administradores podem alterar o compartilhamento do projeto.")
+    visibility = arguments["visibility"]
+
+    def update():
+        repository.set_project_visibility(context.client_id, context.user_id, context.project_ref, visibility)
+        return {"project_ref": context.project_ref, "visibility": visibility, "status": "updated"}
+
+    return operations.execute(arguments["request_id"], context, "workspace.set_project_visibility", {"visibility": visibility}, update)
+
+
+@register_tool(
+    name="workspace.share_project_with_people", capability="workspace", effect="write", requires_project=True,
+    description="Concede acesso direto a pessoas ativas da equipe após confirmação explícita.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "people"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "people": {"type": "array", "minItems": 1, "maxItems": 50, "items": {"type": "object", "required": ["user_id", "role"], "properties": {
+            "user_id": {"type": "integer", "minimum": 1}, "role": {"type": "string", "enum": ["admin", "editor", "member", "viewer"]},
+        }, "additionalProperties": False}},
+    }, "additionalProperties": False},
+)
+def share_project_with_people(context: RequestContext, arguments: dict) -> dict:
+    _native_project_id(context)
+    actor = repository.actor(context.user_id) or {}
+    if repository.account_role(actor) != 'admin':
+        raise ToolInputError("Somente administradores podem compartilhar o projeto.")
+    team = {int(item['id']) for item in repository.team(actor['organization_id']) if item.get('status')}
+    people = arguments['people']
+    if any(int(item['user_id']) not in team for item in people):
+        raise ToolInputError("Todas as pessoas precisam pertencer à equipe ativa.")
+
+    def update():
+        for item in people:
+            repository.grant_project_access(context.client_id, context.project_ref, int(item['user_id']), item['role'], context.user_id)
+        repository.set_project_visibility(context.client_id, context.user_id, context.project_ref, 'restricted')
+        return {"project_ref": context.project_ref, "visibility": "restricted", "shared_count": len(people), "status": "updated"}
+
+    return operations.execute(arguments["request_id"], context, "workspace.share_project_with_people", {"people": people}, update)
+
+
+@register_tool(
+    name="workspace.share_project_with_team", capability="workspace", effect="write", requires_project=True,
+    description="Compartilha o projeto com a equipe ativa após confirmação explícita.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+    }, "additionalProperties": False},
+)
+def share_project_with_team(context: RequestContext, arguments: dict) -> dict:
+    _native_project_id(context)
+    actor = repository.actor(context.user_id) or {}
+    if repository.account_role(actor) != 'admin':
+        raise ToolInputError("Somente administradores podem compartilhar o projeto.")
+
+    def update():
+        repository.set_project_visibility(context.client_id, context.user_id, context.project_ref, 'team')
+        return {"project_ref": context.project_ref, "visibility": "team", "status": "updated"}
+
+    return operations.execute(arguments["request_id"], context, "workspace.share_project_with_team", {}, update)
+
+
+@register_tool(
     name="workspace.get_project_context", capability="workspace", requires_project=True,
     description="Obtém o contexto salvo do projeto atual e fontes diretamente relacionadas.",
     exposures=("internal", "customer_agent"),

@@ -39,9 +39,11 @@
     'importUrl': url_for('cadu_workspace.import_project_url', project_id=project_data.id),
     'createLink': url_for('cadu_workspace.create_project_link', project_id=project_data.id),
     'toggleStatus': url_for('cadu_workspace.update_project_status', project_id=project_data.id),
+    'sharing': url_for('cadu_workspace.update_project_sharing_api', project_id=project_data.id),
     'legacy': url_for('cadu_workspace.project_detail', project_id=project_data.id, legacy=1)
   },
-  'canManageBrand': session.get('user_type') in ['admin', 'superadmin']
+  'canManageBrand': session.get('user_type') in ['admin', 'superadmin'],
+  'canManageSharing': session.get('user_type') in ['admin', 'superadmin']
 }|tojson }}</script>
 {% endblock %}
 {% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

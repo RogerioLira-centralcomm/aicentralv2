@@ -88,6 +88,28 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["house"]["name"], "Centralcomm")
         self.assertEqual(view["media"]["channels"], [])
 
+    def test_public_document_uses_at_most_two_images_in_editorial_order(self):
+        view = public_view({
+            "nome_campanha": "Campanha visual",
+            "cliente": "Cliente",
+            "dados_detectados": {
+                "folha": {
+                    "sections": [{"cards": [
+                        {"type": "strategy", "body": "Tese."},
+                        {"type": "creative", "image_url": "/generated/creative.png"},
+                    ]}],
+                    "supporting_visuals": [
+                        {"kind": "persona", "image_url": "/generated/persona.png"},
+                        {"kind": "place", "image_url": "/generated/place.png"},
+                    ],
+                },
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertEqual(view["hero"]["creative_image"], "/generated/creative.png")
+        self.assertEqual(view["hero"]["support_image"]["url"], "/generated/persona.png")
+        self.assertTrue(view["hero"]["has_generated_visual"])
+
     def test_complete_plan_splits_markdown_chapters(self):
         chapters = plan_chapters(
             "## Capa\nCampanha X\n\n## Estratégia e Mix\n| Canal | % |\n| --- | --- |\n| G1 | 20 |\n"

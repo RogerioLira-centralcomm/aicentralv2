@@ -1057,6 +1057,35 @@ def _full_groups(chapters: list[dict], board: list[dict]) -> list[dict]:
     ]
 
 
+def _public_visuals(folha: dict, creative_image: str, fallback_image: str) -> list[dict]:
+    """Escolhe, em ordem editorial, no máximo duas imagens para o link público."""
+    visuals = []
+    seen = set()
+
+    def add(url, kind: str, label: str):
+        url = text(url)
+        if not url or url in seen or len(visuals) >= 2:
+            return
+        seen.add(url)
+        visuals.append({"url": url, "kind": kind, "label": label})
+
+    # O criativo é sempre a peça principal. Persona/lugar só entram como apoio.
+    add(creative_image, "creative", "Expressão visual da campanha")
+    for item in as_list(folha.get("supporting_visuals")):
+        row = as_dict(item)
+        kind = text(row.get("kind"))
+        if kind in {"persona", "place"}:
+            add(row.get("image_url") or row.get("asset_url"), kind, text(row.get("label")) or "Imagem de apoio")
+    for item in as_list(folha.get("asset_manifest")):
+        row = as_dict(item)
+        kind = text(row.get("kind"))
+        if kind in {"creative", "persona", "place"}:
+            label = {"creative": "Expressão visual da campanha", "persona": "Público da campanha", "place": "Contexto da campanha"}.get(kind, "Imagem de apoio")
+            add(row.get("asset_url") or row.get("image_url"), kind, label)
+    add(fallback_image, "theme", "Direção visual da campanha")
+    return visuals
+
+
 def public_view(row: dict, document: str | None = None) -> dict:
     dados = as_dict(row.get("dados_detectados"))
     plan = as_dict(row.get("plan_content"))
@@ -1152,6 +1181,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
     theme_image = text(theme.get("bg_url"))
     creative_image = text(creative.get("image_url") or as_dict(branding.get("hero")).get("image"))
     hero_image = theme_image or creative_image
+    visuals = _public_visuals(folha, creative_image, hero_image)
     tagline = _first_sentence(strategy.get("body"), 160)
     highlights = _highlights(
         text(strategy.get("body")),
@@ -1280,12 +1310,14 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "sheet": sheet,
         "media": media,
         "hero": {
-            "image": hero_image,
+            "image": visuals[0]["url"] if visuals else hero_image,
             # Só uma expressão visual do criativo deve ativar a atmosfera de
             # fundo pública. Imagens de tema ou fallback não se passam por
             # criativo gerado.
-            "creative_image": creative_image,
-            "has_image": bool(hero_image),
+            "creative_image": visuals[0]["url"] if visuals else "",
+            "support_image": visuals[1] if len(visuals) > 1 else {},
+            "has_generated_visual": bool(visuals and visuals[0].get("kind") != "theme"),
+            "has_image": bool(visuals or hero_image),
             "place": praca_line,
             "theme_id": text(theme.get("id")),
             "theme_ink": text(theme.get("ink")) or "#10252d",

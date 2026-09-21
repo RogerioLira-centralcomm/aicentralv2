@@ -20,6 +20,7 @@ from . import working_memory
 from . import research
 from .legacy_results import readable_documents
 from ..agent_v2.guardrails import repair_metadata_answer
+from ..agent_v2 import provider as runtime_provider
 
 
 # Provider and tool diagnostics are operational data. They must be observable
@@ -34,6 +35,17 @@ def has_displayable_answer(value):
     """Reject partial transport fragments such as ``**`` from stopped runs."""
     text = str(value or '').strip()
     return bool(text and not _MARKDOWN_ONLY.fullmatch(text))
+
+
+def execution_mode_for(route, depth='analysis'):
+    """Map the deterministic route to the configured Dify runtime."""
+    solution = str((route or {}).get('solution') or '').lower()
+    complexity = str((route or {}).get('complexity') or '').lower()
+    if solution in {'documento', 'planejamento'} or complexity == 'alta' or depth == 'deep':
+        return 'agentic'
+    if solution == 'conversa' and complexity == 'baixa':
+        return 'fast'
+    return 'analysis'
 
 
 def is_operational_failure_leak(value):
@@ -480,8 +492,10 @@ def contextual_packet(project_context, query, media_catalog=None, team_workspace
 
 
 def prepare(data, selected):
-    dify.settings()  # Fail before storing a turn if the provider is not configured.
     user = context.identity()
+    route_hint = choose_mode(modes(user['id']), validate_message(data.get('message')))[1]
+    execution_mode = execution_mode_for(route_hint, work_depth(data.get('depth')))
+    runtime_provider.settings(execution_mode)  # Fail before storing a turn if the runtime is unavailable.
     query = validate_message(data.get('message'))
     require_available_intent(query)
     if data.get('profile') not in PROFILES:
@@ -589,6 +603,7 @@ def prepare(data, selected):
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
                             project_context, conversation, query, uploads, existing, history, routing, depth)
             run['routing'] = routing
+            run['execution_mode'] = execution_mode
             run['research_plan'] = research_plan
             if current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
                 from .jobs import enqueue
@@ -732,7 +747,7 @@ def stream(run):
                 run['payload']['inputs']['projeto_context'] = research.attach_unavailable(
                     run['payload']['inputs']['projeto_context'], plan)
                 yield event('progress', message='Seguindo com o contexto já registrado no projeto…')
-        for data in dify.events(run['payload']):
+        for data in runtime_provider.events(run['payload'], run.get('execution_mode', 'analysis')):
             provider_id = data.get('conversation_id') or provider_id
             if data.get('task_id') and data['task_id'] != task_id:
                 task_id = data['task_id']
@@ -781,7 +796,7 @@ def stream(run):
         state = 'stopped'
         if task_id:
             try:
-                dify.stop(task_id, run['payload']['user'])
+                runtime_provider.stop(task_id, run['payload']['user'], run.get('execution_mode', 'analysis'))
             except Exception:
                 pass  # Persist the partial response even if the provider is unreachable.
         raise

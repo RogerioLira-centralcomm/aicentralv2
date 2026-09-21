@@ -73,7 +73,9 @@ export function WorkspaceHome({bootstrap}) {
   const [dockItems, setDockItems] = useState(home.dock?.items || []);
   const selectedProject = useMemo(() => projects.find(item => item.id === projectRef), [projects, projectRef]);
   const selectedBrand = useMemo(() => brands.find(item => item.id === brandRef || `studio:${item.id}` === brandRef), [brands, brandRef]);
-  const composerContext = selectedProject ? {label: selectedProject.name, text: selectedProject.brandName || 'projeto'} : selectedBrand ? {label: 'Marca', text: selectedBrand.name} : null;
+  // On the home surface the title and project selector already establish the
+  // active context; repeating it inside the composer adds noise.
+  const composerContext = !homeMode && (selectedProject ? {label: selectedProject.name, text: selectedProject.brandName || 'projeto'} : selectedBrand ? {label: 'Marca', text: selectedBrand.name} : null);
   const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
   const classifyAttachment = useCallback(async file => {
     try {
@@ -187,7 +189,7 @@ export function WorkspaceHome({bootstrap}) {
       <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={sidebarBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
       <WorkspaceContextSidebar mode="home" active="home" links={bootstrap.urls} agencyName={home.agency?.name} projects={projects} brands={sidebarBrands} resources={home.resources || []} conversations={home.recentConversations || home.conversations || []}/>
         <section className="cadu-ds-home-content">
-        <div className="cadu-ds-home-intro"><h1>{selectedProject ? selectedProject.name : homeTitle}</h1><p>{selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Escreva uma demanda ou escolha uma sugestão para começar.'}</p></div>
+        <div className="cadu-ds-home-intro"><h1>{selectedProject ? selectedProject.name : homeTitle}</h1><p>{selectedProject ? 'Contexto selecionado para esta conversa.' : 'Escreva uma demanda ou escolha uma sugestão para começar.'}</p></div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} embedded homeMode/>
         {!value.trim() && (
           <WorkspacePromptSuggestions project={selectedProject} brand={selectedBrand} home={home} onSelect={setValue}/>

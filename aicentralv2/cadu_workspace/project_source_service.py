@@ -83,11 +83,13 @@ def classify_intake(*, filename: str = "", mime_type: str = "", url: str = "", t
     if normalized_url:
         if not re.match(r"^https?://[^\s/$.?#][^\s]*$", normalized_url, re.IGNORECASE):
             raise BadRequest("Informe uma URL http ou https válida.")
+        descriptor = describe_link(normalized_url)
         return {
             "input_type": "link", "purpose": requested_purpose or "project_attachment",
             "category": "reference", "index_recommended": False,
             "processing": "reference_only", "requires_confirmation": False,
             "reason": "Links são salvos somente como referência. Leitura, extração e indexação são ações posteriores e explícitas.",
+            "link": descriptor,
         }
     if filename:
         support = inspect_file_support(filename, mime_type)
@@ -114,28 +116,69 @@ def classify_intake(*, filename: str = "", mime_type: str = "", url: str = "", t
 
 
 _LINK_PROVIDERS = {
-    "drive.google.com": ("google_drive", "Google Drive"),
-    "docs.google.com": ("google_drive", "Google Drive"),
-    "clickup.com": ("clickup", "ClickUp"),
-    "trello.com": ("trello", "Trello"),
-    "miro.com": ("miro", "Miro"),
+    "meet.google.com": ("google_meet", "Google Meet", "meeting", "unknown"),
+    "calendar.google.com": ("google_calendar", "Google Calendar", "calendar_event", "unknown"),
+    "drive.google.com": ("google_drive", "Google Drive", "drive_file", "unknown"),
+    "docs.google.com": ("google_drive", "Google Drive", "drive_file", "unknown"),
+    "sympla.com.br": ("sympla", "Sympla", "event", "public"),
+    "sympla.com": ("sympla", "Sympla", "event", "public"),
+    "clickup.com": ("clickup", "ClickUp", "workspace_item", "authenticated"),
+    "trello.com": ("trello", "Trello", "board", "unknown"),
+    "notion.so": ("notion", "Notion", "document", "unknown"),
+    "notion.site": ("notion", "Notion", "document", "public"),
+    "miro.com": ("miro", "Miro", "board", "unknown"),
+    "mural.co": ("mural", "Mural", "board", "unknown"),
+    "youtube.com": ("youtube", "YouTube", "video", "public"),
+    "youtu.be": ("youtube", "YouTube", "video", "public"),
+    "facebook.com": ("meta", "Meta", "social_or_ads", "unknown"),
+    "business.facebook.com": ("meta_ads", "Meta Ads", "ads_resource", "authenticated"),
+    "adsmanager.facebook.com": ("meta_ads", "Meta Ads", "ads_resource", "authenticated"),
+    "tiktok.com": ("tiktok", "TikTok", "social_or_ads", "unknown"),
+    "ads.tiktok.com": ("tiktok_ads", "TikTok Ads", "ads_resource", "authenticated"),
 }
 
 
-def _link_metadata(value: str, title: str = "") -> dict:
-    """Normalize a URL without fetching it or accepting credential-bearing URLs."""
+def describe_link(value: str, title: str = "") -> dict:
+    """Classify a URL conservatively without fetching or guessing access.
+
+    URL shape can identify a provider and likely resource type, but it cannot
+    prove that a shared document is public. That distinction is intentionally
+    left as ``unknown`` until an extractor or authenticated connector checks it.
+    """
     raw = str(value or "").strip()
     if raw and "://" not in raw:
         raw = f"https://{raw}"
     parsed = urlparse(raw)
     host = (parsed.hostname or "").lower().rstrip(".")
     if parsed.scheme != "https" or not host or parsed.username or parsed.password:
-        raise BadRequest("Use um link HTTPS válido.")
-    matched = next((data for domain, data in _LINK_PROVIDERS.items()
+        raise BadRequest("Use um link HTTPS válido, sem usuário, senha ou credenciais na URL.")
+    matched = next((data for domain, data in sorted(_LINK_PROVIDERS.items(), key=lambda item: len(item[0]), reverse=True)
                     if host == domain or host.endswith(f".{domain}")), None)
-    provider, suggested = matched or ("generic", host.removeprefix("www."))
-    return {"url": parsed._replace(fragment="").geturl(), "provider": provider,
-            "title": str(title or "").strip()[:180] or suggested}
+    provider, suggested, resource_kind, access_type = matched or (
+        "generic", host.removeprefix("www."), "web_page", "unknown",
+    )
+    internal = parsed.path.startswith("/workspace/") and host in {
+        "workspace.centralcomm.media", "localhost", "127.0.0.1",
+    }
+    if internal:
+        provider, resource_kind, access_type = "cadu", "internal_resource", "authenticated"
+    embed_type = "youtube" if provider == "youtube" else "none"
+    return {
+        "url": parsed._replace(fragment="").geturl(),
+        "provider": provider,
+        "title": str(title or "").strip()[:180] or suggested,
+        "resource_kind": resource_kind,
+        "access_type": access_type,
+        "embed_type": embed_type,
+        "connector_recommended": access_type == "authenticated" or provider in {
+            "google_drive", "google_calendar", "google_meet", "trello", "notion", "miro", "mural",
+        },
+    }
+
+
+def _link_metadata(value: str, title: str = "") -> dict:
+    """Normalize a URL without fetching it or accepting credential-bearing URLs."""
+    return describe_link(value, title)
 
 
 def create_link_reference(context: RequestContext, *, url: str, title: str = "") -> dict:
@@ -192,7 +235,9 @@ def create_link_reference(context: RequestContext, *, url: str, title: str = "")
         current_app.logger.exception("Falha ao enfileirar reconciliação do link %s", link_id)
         registry_sync = "pending"
     return {"link_id": link_id, "url": link["url"], "title": link["title"],
-            "provider": link["provider"], "created": created,
+            "provider": link["provider"], "resource_kind": link["resource_kind"],
+            "access_type": link["access_type"], "embed_type": link["embed_type"],
+            "connector_recommended": link["connector_recommended"], "created": created,
             "purpose": "project_attachment", "indexing": "not_requested",
             "access": "not_checked", "content": "not_read",
             "registry_sync": registry_sync}

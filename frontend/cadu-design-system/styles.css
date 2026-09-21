@@ -2879,4 +2879,23 @@ body.portal--workspace .cadu-ds-dock-avatar-link .cadu-ds-visual-identity img { 
 body.portal--workspace .cadu-ds-dock-avatar-button:hover .cadu-ds-visual-identity,
 body.portal--workspace .cadu-ds-dock-avatar-button:focus-visible .cadu-ds-visual-identity,
 body.portal--workspace .cadu-ds-dock-avatar-link:hover .cadu-ds-visual-identity { border-color:#168b7b; box-shadow:0 0 0 3px rgba(22,139,123,.18); }
+
+/* Hierarchy is expressed with whitespace. Related projects sit five pixels
+   inside their brand and remain visually quieter than the brand identity. */
+body.portal--workspace .cadu-ds-dock-section + .cadu-ds-dock-section,
+.cadu-ds-dock--conversation .cadu-ds-dock-section + .cadu-ds-dock-section { margin-top:10px; padding-top:0; border-top:0; }
+.cadu-ds-dock-brand-tree { display:grid; justify-items:center; gap:6px; }
+.cadu-ds-dock-brand-tree + .cadu-ds-dock-brand-tree { margin-top:10px; }
+.cadu-ds-dock-brand-tree > .cadu-ds-dock-resource { width:34px; height:34px; margin-left:5px; opacity:.88; }
+.cadu-ds-dock-brand-tree > .cadu-ds-dock-resource .cadu-ds-visual-identity { font-size:10px; }
+
+/* Light dock contrast: transparent/white marks receive a solid brand backing;
+   navigation icons stay dark on hover. Status dots mean unread, never pinned. */
+body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity,
+body.portal--workspace .cadu-ds-dock-resource .cadu-ds-visual-identity { background:color-mix(in srgb,var(--cadu-identity-color,#176b5e) 82%,#0f5149); }
+body.portal--workspace .cadu-ds-dock-new:hover,
+body.portal--workspace .cadu-ds-dock-new:focus-visible,
+body.portal--workspace .cadu-ds-dock-home:hover,
+body.portal--workspace .cadu-ds-dock-home:focus-visible { border-color:rgba(23,107,94,.34); background:rgba(23,107,94,.12); color:#123d38; box-shadow:none; }
+body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none; }
 .cadu-ds-brand-screenshot figure { display:grid; gap:12px; margin:22px 0 0; }.cadu-ds-brand-screenshot figure img { display:block; width:100%; max-height:440px; object-fit:cover; object-position:top; border:1px solid var(--cadu-line); border-radius:16px; background:var(--cadu-surface-soft); }.cadu-ds-brand-screenshot figcaption { display:flex; justify-content:space-between; gap:16px; align-items:center; color:var(--cadu-muted); font-size:11px; }.cadu-ds-brand-screenshot figcaption>span { max-width:72ch; }.cadu-ds-brand-screenshot figcaption>div { display:flex; gap:6px; flex-shrink:0; }.cadu-ds-brand-screenshot figcaption i { width:18px; height:18px; border-radius:50%; border:1px solid color-mix(in srgb,var(--cadu-ink) 18%,transparent); box-shadow:0 0 0 2px var(--cadu-surface); }

@@ -6,7 +6,7 @@ from typing import Optional
 
 from .context_resolver import resolve_context
 from .prompt_assembler import build_payload
-from .response_policy import budget_for, policy_for
+from .response_policy import budget_for, policy_for, requested_answer_chars
 from .router import route_request
 from .task_planner import build_task_plan
 from .contracts import execution_mode_for
@@ -46,6 +46,9 @@ def prepare_execution(message, request, history="", requested_mode=""):
             route = replace(route, response_mode="clarification", artifact_type=None)
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
+    explicit_answer_chars = requested_answer_chars(message)
+    if explicit_answer_chars and route.response_mode in {"direct", "analysis"}:
+        policy["max_answer_chars"] = max(policy["max_answer_chars"], explicit_answer_chars)
     policy["execution_mode"] = execution_mode
     policy["max_output_tokens"] = budget.max_output_tokens
     policy["max_duration_ms"] = budget.max_duration_ms

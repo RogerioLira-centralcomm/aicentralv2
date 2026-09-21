@@ -20,8 +20,19 @@ export function openConversationDockDetail(item) {
     window.location.assign(item.href);
     return;
   }
-  const target = item.kind === 'brand'
-    ? `/workspace/brands/${encodeURIComponent(String(item.id || '').replace(/^studio:/, ''))}`
-    : `/workspace/projects/${encodeURIComponent(String(item.projectRef || item.id || '').replace(/^ci:/, ''))}`;
+  const kind = String(item.kind || item.type || '').toLowerCase();
+  const resourceKinds = new Set(['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link']);
+  let target;
+  if (kind === 'brand') {
+    target = `/workspace/brands/${encodeURIComponent(String(item.brandRef || item.id || '').replace(/^studio:/, ''))}`;
+  } else if (resourceKinds.has(kind) || item.resourceRef) {
+    const projectId = String(item.projectRef || '').replace(/^ci:/, '');
+    const resourceId = String(item.resourceRef || item.id || '').replace(/^resource:/, '');
+    target = projectId
+      ? `/workspace/projects/${encodeURIComponent(projectId)}?resource=${encodeURIComponent(resourceId)}`
+      : '/workspace/projects';
+  } else {
+    target = `/workspace/projects/${encodeURIComponent(String(item.projectRef || item.id || '').replace(/^ci:/, ''))}`;
+  }
   window.location.assign(target);
 }

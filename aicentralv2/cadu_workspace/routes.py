@@ -31,7 +31,8 @@ from ..db import close_db, get_db
 from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
 from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asset_url
-from . import project_index_service, project_knowledge, project_resource_service, project_sources
+from . import project_index_service, project_knowledge, project_resource_service, project_sources, workspace_ingestion_service
+from .agent_v2.request_context import resolve as resolve_request_context
 
 
 CADU_COMMERCIAL_PRICES = {
@@ -4932,31 +4933,29 @@ def create_project_link(project_id):
     client_id = int(session.get('cliente_id') or 0)
     _editable_workspace_project(client_id, project_id)
     try:
-        link = _project_link_metadata(request.form.get('url'), request.form.get('title'))
-    except ValueError as error:
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, link_error=str(error)), code=303)
-    connection = None
-    try:
-        connection = get_db()
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """INSERT INTO cadu_ci_projeto_links
-                    (id, projeto_id, id_cliente, criado_por, provider, url, titulo, position)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s,
-                            COALESCE((SELECT MAX(position) + 1 FROM cadu_ci_projeto_links
-                                      WHERE projeto_id = %s AND id_cliente = %s), 0))""",
-                (str(uuid4()), project_id, client_id, session.get('user_id'), link['provider'],
-                 link['url'], link['title'], project_id, client_id),
-            )
-        connection.commit()
+        current = resolve_request_context(surface='workspace', project_ref=f'ci:{project_id}')
+        result = workspace_ingestion_service.ingest_link(
+            current,
+            url=request.form.get('url'),
+            title=request.form.get('title'),
+            origin='paste_url',
+            request_id=str(uuid4()),
+        )
+    except (ValueError, HTTPException) as error:
+        detail = getattr(error, 'description', None) or str(error)
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, link_error=detail), code=303)
     except Exception:
-        if connection:
-            connection.rollback()
         current_app.logger.exception('Não foi possível salvar atalho do projeto %s', project_id)
         return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
                                 link_error='Não foi possível salvar o atalho agora.'), code=303)
+    next_step = (result.get('ingestion') or {}).get('next')
+    notice = 'Link adicionado ao projeto.'
+    if next_step == 'connect_or_keep_reference':
+        notice = 'Link adicionado. Conecte a conta para ampliar o acesso quando necessário.'
+    elif next_step == 'eligible_for_public_extraction':
+        notice = 'Link adicionado e pronto para enriquecimento.'
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
-                            link_notice='Atalho adicionado ao projeto.'), code=303)
+                            link_notice=notice), code=303)
 
 
 @bp.post('/projetos/<project_id>/atalhos/<link_id>')

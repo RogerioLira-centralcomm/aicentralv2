@@ -62,7 +62,16 @@ Referência metodológica: [ScienceDirect — Advertising planning problem](http
 | Muitas restrições | otimização | análise de sensibilidade |
 | Dúvida causal | experimento incremental | atribuição apenas como diagnóstico |
 
-Fontes complementares: [Springer — Data-driven budget allocation](https://link.springer.com/article/10.1057/s41270-024-00294-2) e [Google Reach Planner](https://ads.google.com/home/tools/reach-planner/).
+Fontes complementares: [Springer — Data-driven budget allocation](https://link.springer.com/article/10.1057/s41270-024-00294-2), [Google Ads Help — About Reach Planner](https://support.google.com/google-ads/answer/9427120?hl=en) e [Google — Measuring Ad Effectiveness Using Geo Experiments](https://research.google.com/pubs/archive/38355.pdf).
+
+## Tradições metodológicas e autores para revisão
+
+- **Dorfman–Steiner:** tradição econômica de alocação de publicidade por relação entre gasto publicitário, vendas e elasticidade; validar a formulação original antes de citar números.
+- **Charnes–Cooper:** programação por metas e restrições, útil para problemas de alocação com objetivos múltiplos; não é um método de atribuição causal.
+- **Tellis:** literatura de eficácia publicitária e resposta do consumidor; usar como referência conceitual, não como benchmark universal.
+- **Google Geo Experiments:** desenho experimental para estimar efeito incremental por regiões; exige desenho, controle e análise estatística adequados.
+
+Essas referências devem receber URL primária, edição e contexto bibliográfico antes da publicação final.
 
 ## Perguntas e respostas para recuperação
 

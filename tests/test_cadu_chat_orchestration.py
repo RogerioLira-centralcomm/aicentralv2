@@ -206,7 +206,7 @@ def test_context_packet_keeps_workspace_and_base_cadu_in_distinct_fields(monkeyp
     monkeypatch.setattr(knowledge, 'context', lambda query: [
         {'fonte': 'Identidade Centralcomm', 'tipo': 'markdown', 'trecho': 'Institucional.'}
     ])
-    packet = service.contextual_packet('{"projeto":{"nome":"Lançamento"},"fontes_verificadas":[{"fonte":"Briefing","trecho":"Privado"}]}', 'plano')
+    packet = service.contextual_packet('{"projeto":{"nome":"Lançamento"},"fontes_verificadas":[{"fonte":"Briefing","trecho":"Privado"}]}', 'plano de mídia')
     values = __import__('json').loads(packet)
     assert values['contexto_projeto_privado']['projeto']['nome'] == 'Lançamento'
     assert values['base_cadu_global_publicada'][0]['fonte'] == 'Identidade Centralcomm'
@@ -218,6 +218,16 @@ def test_context_packet_can_carry_the_curated_media_catalog():
     from aicentralv2.cadu_workspace.conversations import service
     packet = json.loads(service.contextual_packet('', 'plano', {'canais_e_formatos': [{'nome': 'Meta Ads'}]}))
     assert packet['catalogo_midia_cadu']['canais_e_formatos'][0]['nome'] == 'Meta Ads'
+    assert packet['guardrails_contexto']['base_global_ativada'] is True
+
+
+def test_global_media_knowledge_is_silent_and_intent_gated():
+    from aicentralv2.cadu_workspace.conversations import service
+    media_packet = json.loads(service.contextual_packet('', 'qual o melhor CPM para uma campanha de vídeo?'))
+    neutral_packet = json.loads(service.contextual_packet('', 'resuma a ata da reunião'))
+    assert media_packet['guardrails_contexto']['base_global_ativada'] is True
+    assert neutral_packet['guardrails_contexto']['base_global_ativada'] is False
+    assert 'pesquise na base' not in media_packet['guardrails_contexto']['instrução'].lower()
 
 
 def test_context_packet_can_carry_team_workspace_records():

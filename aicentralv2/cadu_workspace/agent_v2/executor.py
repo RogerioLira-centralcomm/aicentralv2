@@ -70,6 +70,7 @@ def prepare_execution(message, request, history="", requested_mode=""):
         "create_link_summary": "Preparei um resumo editável do conteúdo disponível no artefato ao lado.",
     }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
     policy["artifact_scope"] = "session" if route.action == "create_text_draft" else "context"
+    resolved = resolve_context(route, request, message, load_builtin_tools(), execution_mode)
     # A failed or incomplete link must stop before artifact fallback. The
     # provider may still explain the issue, but it must not manufacture a
     # document from an unavailable page.
@@ -83,7 +84,6 @@ def prepare_execution(message, request, history="", requested_mode=""):
             policy["max_duration_ms"] = budget.max_duration_ms
             policy["artifact_type"] = None
             policy["allow_artifact"] = False
-    resolved = resolve_context(route, request, message, load_builtin_tools(), execution_mode)
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,

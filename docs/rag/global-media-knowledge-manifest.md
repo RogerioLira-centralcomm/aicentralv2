@@ -6,6 +6,8 @@ Idioma: `pt-BR`
 Versão do pacote: `v1.0.0`  
 Destino: RAG Global do Cadu
 
+Integração: o pacote é carregado como rascunho pela instalação de modelos da Base Cadu (/api/gestao/base/modelos). A publicação continua manual em cada documento, após revisão.
+
 ## Regra de publicação
 
 Estes documentos são material editorial para revisão. Não devem ser indexados como conhecimento aprovado enquanto cada fonte, definição e exemplo não tiver sido conferido. Conteúdo específico de clientes, marcas, projetos ou campanhas nunca entra neste pacote.
@@ -47,7 +49,7 @@ Estes documentos são material editorial para revisão. Não devem ser indexados
 ## Fontes-base
 
 - [IAB Brasil — Glossário de Métricas Retail Media](https://iabbrasil.com.br/glossario-de-metricas-2024/)
-- [Google Ads — Reach Planner](https://ads.google.com/home/tools/reach-planner/)
+- [Google Ads Help — About Reach Planner](https://support.google.com/google-ads/answer/9427120?hl=en)
 - [Google Research — Bayesian Hierarchical Media Mix Model](https://research.google/pubs/bayesian-hierarchical-media-mix-model-incorporating-reach-and-frequency-data/)
 - [IAB — Unified Media Planning Playbook](https://www.iab.com/insights/2025-unified-media-planning-playbook/)
 - [ScienceDirect — Advertising planning problem](https://www.sciencedirect.com/science/article/pii/S0377221707009988)

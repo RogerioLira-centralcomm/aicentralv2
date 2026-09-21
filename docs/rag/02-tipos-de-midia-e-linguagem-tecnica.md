@@ -50,7 +50,7 @@ Imprensa, avaliações, recomendação, compartilhamento, UGC, menções espont�
 
 O Cadu deve sempre identificar o papel do canal antes de recomendar verba. Um canal pode gerar conversão observada e ainda assim capturar demanda criada por outro canal.
 
-Referências operacionais: [Google Reach Planner](https://ads.google.com/home/tools/reach-planner/) e [IAB Unified Media Planning](https://www.iab.com/insights/2025-unified-media-planning-playbook/).
+Referências operacionais: [Google Ads Help — About Reach Planner](https://support.google.com/google-ads/answer/9427120?hl=en) e [IAB Unified Media Planning](https://www.iab.com/guidelines/unified-media-planning-playbook/).
 
 ## Perguntas e respostas para recuperação
 

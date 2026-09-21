@@ -5937,3 +5937,33 @@ html.is-sp-media body {
 @media(max-width:1100px){.sp-hi-grid.is-review{grid-template-columns:minmax(0,1fr) minmax(20rem,25rem)}}
 @media(max-width:860px){.sp-hi-grid.is-review{grid-template-columns:1fr}.sp-hi-plan{position:static;grid-template-columns:1fr!important}.sp-review{grid-template-columns:1fr}.sp-review>.sp-complete,.sp-review>.sp-acc[data-acc="essentials"],.sp-review>.sp-acc[data-acc="audience"],.sp-review>.sp-acc[data-acc="context"],.sp-review>.sp-acc[data-acc="extracted"]{grid-column:1}}
 @media(max-width:560px){.sp-objective-card,.sp-plan-kpis{padding-left:0;padding-right:0}.sp-plan-kpis .sp-kpi-chips{gap:.3rem}.sp-review .sp-confidential{font-size:.68rem}}
+
+/* Revisão: preservar leitura quando a lateral de configuração está aberta. */
+.sp-hi-grid.is-review,.sp-review{min-width:0;max-width:100%}
+.sp-review{grid-template-columns:repeat(2,minmax(280px,1fr));gap:.8rem;overflow-x:hidden}
+.sp-review>.sp-acc[data-acc="extracted"],
+.sp-review>.sp-acc[data-acc="captured"],
+.sp-review>.sp-review-resources{grid-column:1/-1}
+.sp-review>.sp-acc[data-acc="audience"],
+.sp-review>.sp-acc[data-acc="context"]{min-width:0}
+.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair,
+.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair{grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+.sp-review>.sp-acc[data-acc="extracted"] .sp-bf.is-stack,
+.sp-review>.sp-acc[data-acc="captured"] .sp-bf.is-stack{grid-template-columns:1fr}
+.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair label,
+.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair label{min-width:0}
+.sp-review .sp-bf textarea{min-height:7rem;max-height:24rem;width:100%;overflow:auto;overflow-wrap:anywhere;line-height:1.45}
+.sp-review .sp-bf label>span{overflow-wrap:anywhere;line-height:1.25}
+.sp-review .sp-acc-note{max-width:60rem;line-height:1.45}
+@media(max-width:860px){.sp-review{grid-template-columns:1fr}.sp-review>.sp-acc[data-acc="extracted"],.sp-review>.sp-acc[data-acc="captured"],.sp-review>.sp-review-resources{grid-column:1}.sp-review>.sp-acc[data-acc="audience"] .sp-bf.is-pair,.sp-review>.sp-acc[data-acc="context"] .sp-bf.is-pair{grid-template-columns:1fr}}
+
+/* CTA principal da navegação: contraste AA e rótulo sempre legível. */
+.sp-product-bar__actions .cx-btn-primary,
+.sp-product-bar__actions a.cx-btn-primary{display:inline-flex;align-items:center;justify-content:center;min-height:2.35rem;padding:.55rem .9rem;border:1px solid #12484b;border-radius:7px;background:#15585b!important;color:#fff!important;font-size:.76rem;font-weight:800;line-height:1.2;text-decoration:none;text-shadow:none;white-space:nowrap;box-shadow:0 1px 1px rgba(11,45,47,.12)}
+.sp-product-bar__actions .cx-btn-primary:hover,.sp-product-bar__actions .cx-btn-primary:focus-visible{background:#0f4548!important;color:#fff!important;border-color:#0b383b;outline:3px solid rgba(21,88,91,.22);outline-offset:2px}
+@media(max-width:760px){.sp-product-bar__actions a.cx-btn-primary{margin-left:0;min-width:10.5rem}.sp-product-bar__actions{flex-wrap:wrap}.sp-product-bar__actions .sp-live{flex:1 1 100%}}
+
+/* O botão fixo de geração usa o mesmo contraste do CTA de novo planejamento. */
+.sp-hi-foot .cx-btn-primary{min-height:2.65rem;padding:.65rem 1rem;border:1px solid #12484b;background:#15585b!important;color:#fff!important;font-weight:800;line-height:1.2;text-shadow:none;white-space:nowrap}
+.sp-hi-foot .cx-btn-primary:hover,.sp-hi-foot .cx-btn-primary:focus-visible{background:#0f4548!important;color:#fff!important;border-color:#0b383b;outline:3px solid rgba(21,88,91,.22);outline-offset:2px}
+@media(max-width:560px){.sp-hi-foot{flex-wrap:wrap}.sp-hi-foot .cx-btn-primary{flex:1 1 100%;order:5}.sp-hi-foot .sp-hi-save,.sp-hi-foot .sp-hi-next{flex:1 1 auto}}

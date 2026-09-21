@@ -37,6 +37,7 @@ _CREDIT_ERROR = re.compile(
 
 
 @lab_bp.get("/workspace/conversas-v2-lab")
+@lab_bp.get("/chat")
 def conversations_v2_lab():
     if not session.get("user_id"):
         abort(401)

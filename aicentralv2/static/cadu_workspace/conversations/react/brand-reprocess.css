@@ -1,0 +1,14 @@
+.cadu-ds-brand-reprocess-note {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 3px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--cadu-accent) 24%, var(--cadu-line));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--cadu-accent-soft) 45%, var(--cadu-surface));
+  color: var(--cadu-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.cadu-ds-brand-reprocess-note strong { color: var(--cadu-ink); font-size: 11px; }
+.cadu-ds-brand-reprocess-note small { color: var(--cadu-accent-strong); font-size: 10px; }

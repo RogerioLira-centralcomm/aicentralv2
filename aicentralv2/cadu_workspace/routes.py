@@ -3306,7 +3306,7 @@ def legacy_dashboard_url():
 @login_required
 def conversations():
     """Compatibility entry; the customer-facing conversation surface is React V2."""
-    target = '/workspace/conversas-v2-lab'
+    target = '/chat'
     if request.query_string:
         target = f'{target}?{request.query_string.decode("utf-8")}'
     return redirect(target, code=308)
@@ -4906,6 +4906,15 @@ def brand_detail(brand_id):
                 'visualEvidenceCount': int((brand.get('analysis_metadata') or {}).get('visual_evidence_count') or 0),
                 'sources': [str(item) for item in ((brand.get('analysis_metadata') or {}).get('sources') or []) if item],
             },
+            'auditInput': {
+                'websiteUrl': str(((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input', {}).get('website_url') or brand.get('website_url') or ''),
+                'hasImages': bool((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('has_images')),
+            },
+            'preserved': {
+                'websiteUrl': str(brand.get('website_url') or ''),
+                'logoUrl': str(brand.get('display_logo') or ''),
+                'logoIsProtected': True,
+            },
             'assets': [{
                 'id': str(item.get('id')), 'role': str(item.get('role') or 'reference'), 'status': str(item.get('status') or 'registered'),
                 'isPrimary': bool(item.get('is_primary')), 'displayUrl': str(item.get('display_url') or ''),
@@ -5317,17 +5326,27 @@ def retry_brand_audit(brand_id):
     if credit_response is not None:
         return credit_response
     pack = _brand_review_pack(brand)
-    website_url = str((brand.get('analysis_metadata') or {}).get('review_pack', {}).get('input', {}).get('website_url') or '').strip()
-    if pack.get('status') != 'failed' or not website_url:
-        abort(409, description='Para repetir uma auditoria com imagens, reenvie as referências no formulário.')
+    previous_input = ((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}
+    website_url = _normalized_website_url(
+        request.form.get('website_url') or previous_input.get('website_url') or brand.get('website_url') or '',
+    )
+    images = [item for item in request.files.getlist('images') if item and item.filename][:4]
+    if not website_url and not images:
+        abort(400, description='Informe o site ou envie uma imagem de referência para reprocessar a marca.')
+    if pack.get('status') in {'queued', 'running'}:
+        abort(409, description='Esta marca já está sendo processada. Aguarde a conclusão antes de iniciar outra análise.')
+    image_payload = []
+    for item in images:
+        image_payload.append({'filename': item.filename, 'content_type': item.mimetype, 'content': item.read()})
+        item.stream.seek(0)
     job_id = uuid4().hex
     metadata = dict(brand.get('analysis_metadata') or {})
     checkpoint = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
     metadata['review_pack'] = {
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
-        'message': 'Retomando a proposta salva.' if checkpoint else 'A auditoria entrou novamente na fila.', 'error': '',
+        'message': 'A nova análise entrou na fila. A identidade atual será preservada até sua aprovação.', 'error': '',
         'created_at': _utc_timestamp(),
-        'input': {'website_url': website_url, 'has_images': False}, 'analysis': checkpoint, 'reviews': [],
+        'input': {'website_url': website_url, 'has_images': bool(image_payload), 'preserves_logo': True}, 'analysis': {}, 'reviews': [],
     }
     connection = get_db()
     try:
@@ -5347,7 +5366,13 @@ def retry_brand_audit(brand_id):
         connection.rollback()
         current_app.logger.exception('Não foi possível repetir a auditoria da marca %s', brand_id)
         abort(503, description='Não foi possível repetir a auditoria agora.')
-    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, [], proposal=checkpoint)
+    if images:
+        try:
+            from ..creative_modeling_service import CreativeModelingService
+            CreativeModelingService().upload_client_brand_assets(brand_id, images, False, 'reference')
+        except Exception:
+            current_app.logger.exception('Não foi possível preservar as novas referências da auditoria da marca %s', brand_id)
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({'ok': True, 'job_id': job_id, 'status': 'queued',
                         'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id)}), 202

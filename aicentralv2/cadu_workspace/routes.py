@@ -29,7 +29,7 @@ from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, 
 from ..db import close_db, get_db
 from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
-from ..creative_modeling_storage import CreativeAssetStorage
+from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asset_url
 from . import project_index_service, project_knowledge, project_resource_service, project_sources
 
 
@@ -1131,7 +1131,12 @@ def _existing_brand_asset_url(value) -> str:
     if not url:
         return ''
     if url.startswith('/static/uploads/'):
-        return url if CreativeAssetStorage().absolute_public_path(url) else ''
+        if not CreativeAssetStorage().absolute_public_path(url):
+            return ''
+        try:
+            return public_studio_asset_url(url)
+        except ValueError:
+            return ''
     return url
 
 
@@ -1334,6 +1339,7 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
                 (brand_id,),
             )
             brand['assets'] = [dict(row) for row in cursor.fetchall()]
+            stale_asset_ids = []
             for asset in brand['assets']:
                 stored_path = str(asset.get('asset_path') or '').strip()
                 source_url = _brand_seed_visual_url(asset.get('source_url'), brand.get('website_url'))
@@ -1364,6 +1370,25 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
                 ):
                     asset['display_url'] = ''
                 asset['missing_file'] = not bool(asset.get('display_url'))
+                if asset['missing_file'] and asset.get('id'):
+                    stale_asset_ids.append(int(asset['id']))
+            if stale_asset_ids:
+                # An asset row without a displayable file is worse than an
+                # empty slot: every React render retries it and produces a
+                # browser 404. The original audit evidence remains preserved
+                # in its audit tables; only the unusable visual-library row is
+                # removed.
+                with get_db().cursor() as cleanup_cursor:
+                    cleanup_cursor.execute(
+                        '''DELETE FROM cx_client_brand_assets
+                             WHERE client_id = %s AND id = ANY(%s)''',
+                        (brand_id, stale_asset_ids),
+                    )
+                get_db().commit()
+                brand['assets'] = [
+                    asset for asset in brand['assets']
+                    if int(asset.get('id') or 0) not in stale_asset_ids
+                ]
     except Exception:
         brand['assets'] = []
     for field in ('brand_profile', 'analysis_metadata'):
@@ -2517,7 +2542,7 @@ def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]
         # `_workspace_brands` resolves the primary approved logo from both legacy
         # fields and the brand-assets library. Reusing it here keeps the home
         # dashboard from silently falling back to initials for asset-backed marks.
-        project['brand_logo_url'] = public_logo(
+        project['brand_logo_url'] = _existing_brand_asset_url(
             brand.get('resolved_logo_path') or brand.get('logo_upload_path') or brand.get('logo_url')
         ) if brand else ''
         project['thumbnail_url'] = project['brand_logo_url']
@@ -4020,10 +4045,11 @@ def brands():
         records = [brand for brand in records if brand.get('analysis_metadata')]
     elif filter_name == 'com-ativos':
         records = [brand for brand in records if int(brand.get('asset_count') or 0)]
-    # The brand dossier is a single React surface.  Keeping a query-string
-    # escape hatch to the old server-rendered version made two incompatible
-    # information architectures live at the same URL.
-    if True:
+    # The brand dossier is a single React surface.  Old bookmarked URLs may
+    # still carry ``legacy=1``; normalize them instead of serving a second UI.
+    if request.args.get('legacy') == '1':
+        return redirect(url_for('cadu_workspace.clean_brand_detail', brand_id=brand_id), code=302)
+    if request.args.get('legacy') != '1':
         projects = _workspace_projects(client_id)
         metrics = _workspace_brand_catalog_metrics(client_id)
         catalog_error = ''

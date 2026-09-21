@@ -13,3 +13,15 @@ export function openProjectChat(chatUrl, item) {
 export function openWorkspaceDetail(item) {
   if (item?.href) window.location.assign(item.href);
 }
+
+export function openConversationDockDetail(item) {
+  if (!item) return;
+  if (item.href) {
+    window.location.assign(item.href);
+    return;
+  }
+  const target = item.kind === 'brand'
+    ? `/workspace/brands/${encodeURIComponent(String(item.id || '').replace(/^studio:/, ''))}`
+    : `/workspace/projects/${encodeURIComponent(String(item.projectRef || item.id || '').replace(/^ci:/, ''))}`;
+  window.location.assign(target);
+}

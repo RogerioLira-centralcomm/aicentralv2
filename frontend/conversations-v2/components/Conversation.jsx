@@ -3,7 +3,6 @@ import {Icon} from '../lib/icons';
 import {Markdown} from './Markdown';
 import {safeUrl} from '../lib/api';
 import {ResponseBlocks} from './ResponseBlocks';
-import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
 import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
 import {WorkspacePromptSuggestions} from '../../cadu-design-system/components/WorkspacePromptSuggestions';
 import {WorkspaceSourceList} from '../../cadu-design-system/components/WorkspaceSourceList';
@@ -152,7 +151,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
   </div>;
 }
 
-export function Conversation({title, context, projects, brands, starterProject, starterBrand, starterHome, onProjectChange, onBrandChange, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop}) {
+export function Conversation({title, context, projects, brands, starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop}) {
   const details = useRef(null);
   const historyTrigger = useRef(null);
   const wasHistoryOpen = useRef(historyOpen);
@@ -164,7 +163,7 @@ export function Conversation({title, context, projects, brands, starterProject, 
     <header className="cv-conversation-header cv-relative cv-z-50 cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-px-4 md:cv-px-6">
       {!historyOpen && <button ref={historyTrigger} type="button" onClick={onOpenHistory} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Abrir conversas recentes" aria-controls="cv-recent-sidebar" aria-expanded={historyOpen}><Icon name="menu"/></button>}
       <h1 className={`cv-conversation-title cv-m-0 cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap ${artifactOpen ? 'cv-hidden 2xl:cv-block' : ''}`} title={title}>{title}</h1>
-      <span className="cv-ml-auto cv-flex cv-items-center cv-gap-2"><span className="cv-hidden cv-text-[11px] cv-text-[#78908c] sm:cv-inline">Contexto</span><ChatContextSelector context={context} projects={projects} brands={brands} onProjectChange={onProjectChange} onBrandChange={onBrandChange} disabled={running} loading={contextLoading}/></span>
+      <span className="cv-ml-auto cv-flex cv-items-center cv-gap-2"><span className="cv-hidden cv-text-[11px] cv-text-[#78908c] sm:cv-inline">Contexto</span><span className="cv-chat-context-readonly" title="O contexto é identificado pela conversa ou por arrastar um projeto para o chat">{contextLoading ? 'Lendo…' : context?.project_ref || context?.brand_ref ? 'Contexto ativo' : 'Conversa livre'}</span></span>
       {runtime && <span className="cv-hidden cv-max-w-40 cv-items-center cv-gap-2 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[11px] cv-text-[#85aaa5] lg:cv-flex"><i className={`cv-h-1.5 cv-w-1.5 cv-flex-none cv-rounded-full ${running ? 'cv-animate-pulse cv-bg-teal' : 'cv-bg-[#6f8884]'}`}/>{runtime}</span>}
       <details ref={details} className="cv-conversation-support-popover cv-relative">
         <summary className="cv-grid cv-h-9 cv-w-9 cv-cursor-pointer cv-list-none cv-place-items-center cv-rounded-lg cv-text-mist hover:cv-bg-white/[.05]" aria-label="Apoio à conversa" title="Apoio à conversa"><Icon name="pulse" size={17}/></summary>

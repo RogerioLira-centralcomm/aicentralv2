@@ -126,6 +126,15 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-conversations-workarea > .cv-conversation-stage > .cv-conversation-shell { overflow:visible; }
 #cadu-conversations-v2-root .cv-conversation-header { min-width:0; overflow:visible; }
 #cadu-conversations-v2-root .cv-conversation-header > span { min-width:0; }
+#cadu-conversations-v2-root .cv-chat-context-readonly {
+  border: 1px solid rgba(101, 216, 203, .18);
+  border-radius: 999px;
+  color: #8aa7a2;
+  font-size: 11px;
+  line-height: 1;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
 #cadu-conversations-v2-root .cv-conversation-header .cv-context-selector { min-width:0; max-width:min(240px,34vw); }
 #cadu-conversations-v2-root .cv-conversation-header .cv-context-selector > summary { min-width:0; width:min(220px,34vw); }
 #cadu-conversations-v2-root .cv-conversation-support-popover { position:relative; z-index:80; }

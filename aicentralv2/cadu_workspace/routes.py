@@ -1131,7 +1131,36 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
                                  AND a_logo.status = 'approved'
                             ORDER BY a_logo.is_primary DESC, a_logo.score DESC NULLS LAST, a_logo.id DESC
                                LIMIT 1
-                          )) AS resolved_logo_path, c.brand_profile,
+                          )) AS resolved_logo_path,
+                          (SELECT COALESCE(a_variant.asset_path, a_variant.source_url)
+                             FROM cx_client_brand_assets a_variant
+                            WHERE a_variant.client_id = c.id
+                              AND a_variant.role = 'logo'
+                              AND a_variant.status = 'approved'
+                              AND a_variant.metadata->>'logo_variant' = 'favicon'
+                            ORDER BY a_variant.id DESC LIMIT 1) AS logo_64_path,
+                          (SELECT COALESCE(a_variant.asset_path, a_variant.source_url)
+                             FROM cx_client_brand_assets a_variant
+                            WHERE a_variant.client_id = c.id
+                              AND a_variant.role = 'logo'
+                              AND a_variant.status = 'approved'
+                              AND a_variant.metadata->>'logo_variant' = 'compact'
+                            ORDER BY a_variant.id DESC LIMIT 1) AS logo_128_path,
+                          (SELECT COALESCE(a_variant.asset_path, a_variant.source_url)
+                             FROM cx_client_brand_assets a_variant
+                            WHERE a_variant.client_id = c.id
+                              AND a_variant.role = 'logo'
+                              AND a_variant.status = 'approved'
+                              AND a_variant.metadata->>'logo_variant' = 'workspace'
+                            ORDER BY a_variant.id DESC LIMIT 1) AS logo_256_path,
+                          (SELECT COALESCE(a_variant.asset_path, a_variant.source_url)
+                             FROM cx_client_brand_assets a_variant
+                            WHERE a_variant.client_id = c.id
+                              AND a_variant.role = 'logo'
+                              AND a_variant.status = 'approved'
+                              AND a_variant.metadata->>'logo_variant' = 'studio'
+                            ORDER BY a_variant.id DESC LIMIT 1) AS logo_512_path,
+                          c.brand_profile,
                           c.analysis_metadata, c.created_at AS updated_at,
                           COUNT(a.id) FILTER (WHERE a.status = 'approved') AS asset_count,
                           COUNT(a.id) FILTER (WHERE a.role = 'logo' AND a.status = 'approved') AS has_logo
@@ -1155,6 +1184,13 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
                         brand[field] = {}
                 name = str(brand.get('name') or '').strip()
                 brand['display_logo'] = public_logo(brand.get('resolved_logo_path'))
+                brand['logo_variants'] = {
+                    '64': public_logo(brand.get('logo_64_path')),
+                    '128': public_logo(brand.get('logo_128_path')),
+                    '256': public_logo(brand.get('logo_256_path')),
+                    '512': public_logo(brand.get('logo_512_path')),
+                }
+                brand['display_logo'] = brand['logo_variants'].get('512') or brand['display_logo']
                 seed_visuals = brand['brand_profile'].get('seed_visuals') or {}
                 # Project headers need the same approved art direction used by
                 # the brand dossier. The previous thumbnail-only lookup often
@@ -1294,6 +1330,23 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
     profile = brand['brand_profile']
     seed_visuals = profile.get('seed_visuals') if isinstance(profile.get('seed_visuals'), dict) else {}
     brand['seed_visuals'] = {key: public_logo(value) for key, value in seed_visuals.items() if value}
+    # The detail page must use the canonical approved mark even when the
+    # legacy logo columns are empty. Prefer an approved logo asset, then the
+    # logo captured in the brand dossier, and only then show initials.
+    approved_logo = next((
+        str(asset.get('display_url') or '').strip()
+        for asset in brand.get('assets', [])
+        if str(asset.get('role') or '').lower() == 'logo'
+        and str(asset.get('status') or '').lower() == 'approved'
+        and str(asset.get('display_url') or '').strip()
+    ), '')
+    brand['display_logo'] = (
+        brand.get('display_logo')
+        or approved_logo
+        or brand['seed_visuals'].get('logo')
+        or brand['seed_visuals'].get('logo_url')
+        or ''
+    )
     if isinstance(profile.get('brand_values'), str):
         profile['brand_values'] = [
             item.strip() for item in re.split(r'[\n,;]+', profile['brand_values']) if item.strip()
@@ -1374,14 +1427,14 @@ def _brand_review_pack(brand: dict) -> dict:
         'job_id': pack.get('job_id'),
         'stage': str(pack.get('stage') or ''),
         'index': int(pack.get('index') or 0),
-        'total': int(pack.get('total') or 4),
+        'total': int(pack.get('total') or 5),
         'message': str(pack.get('message') or ''),
         'error': _brand_audit_public_error(pack.get('error')) if pack.get('status') == 'failed' else '',
         'input': pack.get('input') if isinstance(pack.get('input'), dict) else {},
         'created_at': pack.get('created_at'),
         'updated_at': pack.get('updated_at'),
         'approved_at': pack.get('approved_at'),
-        'reviews': reviews[:3],
+        'reviews': reviews[:4],
         'analysis': pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {},
     }
 
@@ -1397,8 +1450,103 @@ def _brand_analysis_proposal(analysis: dict) -> dict:
         'visual_motifs', 'mandatory_elements', 'forbidden_elements', 'fonts',
         'confidence', 'sources', 'social_links', 'product_palettes',
         'contacts', 'addresses', 'digital_policies', 'evidence_ledger',
+        'competitors', 'field_provenance', 'output_packages', 'quality_dimensions',
     }
     return {key: value for key, value in analysis.items() if key in allowed}
+
+
+def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_review: dict, analysis_mode: str) -> dict:
+    """Decide whether an audit has enough independently checkable evidence.
+
+    This gate is deliberately deterministic. The model may summarize the
+    evidence, but it cannot publish a brand merely by sounding confident.
+    """
+    deep = str(analysis_mode or 'complete').lower() == 'deep'
+    coverage = dict((analysis_metadata or {}).get('coverage') or {})
+    sources = list(analysis.get('sources') or (analysis_metadata or {}).get('sources') or [])
+    dimensions = central_review.get('quality_dimensions') if isinstance(central_review.get('quality_dimensions'), dict) else {}
+    reasons = []
+    if str(central_review.get('status') or '') != 'ready':
+        reasons.append('a consolidação central não liberou a análise')
+    if list(central_review.get('blocked_fields') or []):
+        reasons.append('existem campos sem evidência suficiente: ' + ', '.join(map(str, central_review.get('blocked_fields') or [])))
+    try:
+        confidence = float(central_review.get('confidence') or 0)
+    except (TypeError, ValueError):
+        confidence = 0
+    if confidence < .82:
+        reasons.append('a confiança da consolidação central ficou abaixo de 82%')
+    required_pages, required_sources, required_visuals = (4, 4, 10) if deep else (2, 2, 5)
+    if int(coverage.get('official_pages') or 0) < required_pages:
+        reasons.append(f'foram encontradas poucas páginas oficiais ({coverage.get("official_pages") or 0}/{required_pages})')
+    if len(sources) < required_sources:
+        reasons.append(f'foram encontradas poucas fontes verificáveis ({len(sources)}/{required_sources})')
+    if int(coverage.get('approved_visuals') or 0) < required_visuals:
+        reasons.append(f'foram validados poucos visuais da marca ({coverage.get("approved_visuals") or 0}/{required_visuals})')
+    for key in ('identity', 'visual', 'marketing', 'presence', 'sources'):
+        try:
+            value = float(dimensions.get(key) or 0)
+        except (TypeError, ValueError):
+            value = 0
+        if value < .70:
+            reasons.append(f'a dimensão {key} ficou abaixo de 70%')
+    deep_recommended = not (
+        int(coverage.get('official_pages') or 0) < 2
+        or len(sources) < 2
+        or int(coverage.get('approved_visuals') or 0) < 5
+    )
+    return {
+        'approved': not reasons,
+        'reasons': reasons[:8],
+        'confidence': round(confidence, 2),
+        'deep_recommended': deep_recommended,
+        'coverage': coverage,
+    }
+
+
+def _auto_apply_brand_analysis(client_id: int, user_id: int, brand_id: int, brand: dict, analysis: dict, decision: dict) -> dict:
+    """Publish an evidence-qualified proposal without a manual approval step."""
+    merged = _merge_brand_analysis(brand, analysis)
+    merged['profile']['name_autogenerated'] = False
+    metadata = dict(merged['metadata'])
+    review_pack = dict(metadata.get('review_pack') or {})
+    review_pack.update({
+        'status': 'approved', 'approved_at': _utc_timestamp(), 'approved_by': 'automatic_evidence_gate',
+        'approval_mode': 'automatic', 'approval_reason': 'Cobertura e confiança suficientes para publicação automática.',
+        'analysis': analysis,
+    })
+    metadata.update({'review_pack': review_pack, 'ready_for_approval': True, 'automatic_decision': decision})
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cx_clients
+                      SET name = CASE WHEN COALESCE(brand_profile->>'name_autogenerated', 'false') = 'true'
+                                      THEN COALESCE(NULLIF(%s, ''), name) ELSE name END,
+                          sector = COALESCE(NULLIF(sector, ''), %s), website_url = COALESCE(%s, website_url),
+                          logo_url = COALESCE(NULLIF(logo_url, ''), %s), primary_color = COALESCE(NULLIF(primary_color, ''), %s),
+                          secondary_color = COALESCE(NULLIF(secondary_color, ''), %s), tone_of_voice = COALESCE(NULLIF(tone_of_voice, ''), %s),
+                          brand_profile = %s::jsonb, analysis_metadata = %s::jsonb, updated_at = NOW()
+                    WHERE id = %s AND crm_client_id = %s RETURNING id""",
+                (analysis.get('name'), analysis.get('sector'), analysis.get('website_url'), analysis.get('logo_url'),
+                 analysis.get('primary_color'), analysis.get('secondary_color'), analysis.get('tone_of_voice'),
+                 json.dumps(merged['profile']), json.dumps(metadata), brand_id, client_id),
+            )
+            if not cursor.fetchone():
+                raise LookupError('Marca não encontrada durante publicação automática.')
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    try:
+        _fill_empty_project_identity_from_brand(client_id, brand_id, merged['profile'])
+        _sync_approved_brand_to_projects(
+            client_id, user_id, brand_id,
+            {**brand, 'brand_profile': merged['profile'], 'analysis_metadata': metadata}, analysis,
+        )
+    except Exception:
+        current_app.logger.exception('Contexto publicado não sincronizado com projetos da marca %s', brand_id)
+    return metadata
 
 
 def _ensure_brand_audit_credit(client_id: int) -> None:
@@ -1479,7 +1627,7 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
             analysis_metadata = changes.pop('analysis_metadata', None)
             if isinstance(analysis_metadata, dict):
                 # These are useful audit metrics, while the proposed identity
-                # remains inside review_pack until a human approves it.
+                # remains inside review_pack until the evidence gate decides.
                 metadata.update(analysis_metadata)
             current.update(changes)
             current['updated_at'] = _utc_timestamp()
@@ -1514,10 +1662,17 @@ def _save_brand_audit_history(client_id: int, brand_id: int, job_id: str, *, ana
         'visual_evidence_count': int(metadata.get('visual_evidence_count') or 0),
         'social_links': list(analysis.get('social_links') or input_data.get('social_links') or [])[:12],
         'deep_collection': list(metadata.get('deep_collection') or []),
+        # Keep the complete research snapshot in the audit run. The active
+        # proposal may be compacted for the UI, but history must retain the
+        # evidence-backed result used by the reviewer.
+        'analysis_result': analysis,
+        'evidence_pages': evidence_pages,
+        'competitors': list(analysis.get('competitors') or [])[:8],
+        'source_coverage': metadata.get('coverage') or {},
         'coherence': 'needs_review' if pending_reviews else ('reviewed' if review_items else 'pending'),
         'error': str(error or '')[:360],
     }
-    effort = {'estimated_person_hours': 8 if analysis_mode == 'deep' else 4, 'comparison': 'Pesquisa, leitura, extração, consolidação e revisão humana.'}
+    effort = {'estimated_person_hours': 8 if analysis_mode == 'deep' else 4, 'comparison': 'Pesquisa, leitura, extração, consolidação e revisão multagente.'}
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -1525,7 +1680,7 @@ def _save_brand_audit_history(client_id: int, brand_id: int, job_id: str, *, ana
                 '''INSERT INTO cadu_workspace_brand_audit_runs
                    (job_id, client_id, brand_id, analysis_mode, status, input, sources, collected_data, costs, reviews, human_effort, completed_at)
                    VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
-                           CASE WHEN %s IN ('pending_approval', 'approved', 'failed') THEN NOW() ELSE NULL END)
+                           CASE WHEN %s IN ('pending_approval', 'approved', 'insufficient_evidence', 'failed') THEN NOW() ELSE NULL END)
                    ON CONFLICT (job_id) DO UPDATE SET
                      status = EXCLUDED.status, input = EXCLUDED.input, sources = EXCLUDED.sources,
                      collected_data = EXCLUDED.collected_data, costs = EXCLUDED.costs, reviews = EXCLUDED.reviews,
@@ -1593,7 +1748,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
                 )
                 _save_brand_review_job(client_id, brand_id, job_id,
-                    status='running', stage='evidence', index=1, total=4,
+                    status='running', stage='evidence', index=1, total=5,
                     message='Organizando evidências oficiais.', error='')
                 restored_images = [
                     FileStorage(stream=BytesIO(item['content']), filename=item['filename'], content_type=item.get('content_type'))
@@ -1605,7 +1760,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 credits = CaduCreditConnector()
                 actor = CreditActor.from_values(client_id, user_id)
 
-                token_usage = {'estimated_tokens': 90000 if analysis_mode == 'deep' else 55000, 'provider_tokens': 0, 'calls': 0}
+                token_usage = {'estimated_tokens': 150000 if analysis_mode == 'deep' else 75000, 'provider_tokens': 0, 'calls': 0}
 
                 def bill(stage, provider_result, model):
                     """One durable, idempotent ledger movement per provider call."""
@@ -1629,7 +1784,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     # extraction. Resume from that durable checkpoint.
                     review_proposal = _brand_analysis_proposal(review_proposal)
                     _save_brand_review_job(client_id, brand_id, job_id,
-                        status='running', stage='evidence_reused', index=1, total=4,
+                        status='running', stage='evidence_reused', index=1, total=5,
                         message='Retomando a proposta já extraída.')
                 else:
                     analysis = service.analyze_brand(
@@ -1657,6 +1812,12 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                             operation='search', results=5, app='Auditoria de marca', stage='pesquisa_mercado',
                             metadata={'brand_id': brand_id, 'job_id': job_id, 'purpose': 'market_context'},
                         )
+                    if analysis_metadata.get('firecrawl_competitor_search'):
+                        credits.charge_firecrawl(
+                            actor=actor, idempotency_key=f'workspace-brand:{job_id}:firecrawl-competitors',
+                            operation='search', results=5, app='Auditoria de marca', stage='pesquisa_concorrentes',
+                            metadata={'brand_id': brand_id, 'job_id': job_id, 'purpose': 'competitors'},
+                        )
                     # Preserve visual evidence for review. Provider details stay
                     # in internal metadata; the workspace only exposes the
                     # functional source description to the user.
@@ -1678,7 +1839,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                         'firecrawl_logo_suggested': bool(analysis.get('logo_url')),
                     }
                     _save_brand_review_job(client_id, brand_id, job_id,
-                        status='running', stage='evidence_complete', index=1, total=4,
+                        status='running', stage='evidence_complete', index=1, total=5,
                         message='Evidências organizadas. Iniciando os pareceres.',
                         analysis=review_proposal, analysis_metadata=analysis_metadata)
 
@@ -1688,34 +1849,66 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                         message=f'{title}: preparando parecer.')
 
                 reviews = service.review_brand_analysis(review_proposal, progress=progress, billing_callback=bill)
-                if not isinstance(reviews, list) or len(reviews) != 3:
-                    raise ValueError('As três revisões da marca não foram concluídas.')
+                if not isinstance(reviews, list) or len(reviews) != 4:
+                    raise ValueError('As revisões e a consolidação central da marca não foram concluídas.')
+                central_review = next((item for item in reviews if item.get('id') == 'revisor_central'), {})
+                central_ready = (
+                    str(central_review.get('status') or '') == 'ready'
+                    and not list(central_review.get('blocked_fields') or [])
+                )
+                analysis_metadata = {
+                    **analysis_metadata,
+                    'central_review': central_review,
+                    'ready_for_approval': central_ready,
+                }
+                automatic_decision = _automatic_brand_decision(
+                    review_proposal, analysis_metadata, central_review, analysis_mode,
+                )
+                analysis_metadata['automatic_decision'] = automatic_decision
                 _save_brand_review_job(client_id, brand_id, job_id,
-                    status='pending_approval', stage='complete', index=4, total=4,
-                    message='Três pareceres estão prontos para decisão.', error='',
+                    status='pending_approval', stage='complete', index=5, total=5,
+                    message='Três pareceres e a consolidação central estão prontos para decisão.', error='',
                     analysis=review_proposal, reviews=reviews,
                     analysis_metadata=analysis_metadata)
+                history_status = 'pending_approval'
+                if automatic_decision['approved']:
+                    current_brand = _workspace_brand(client_id, brand_id)
+                    if not current_brand:
+                        raise LookupError('Marca não encontrada antes da publicação automática.')
+                    _auto_apply_brand_analysis(
+                        client_id, user_id, brand_id, current_brand, review_proposal, automatic_decision,
+                    )
+                    history_status = 'approved'
+                else:
+                    _save_brand_review_job(
+                        client_id, brand_id, job_id, status='insufficient_evidence', stage='complete', index=5, total=5,
+                        message='A análise não foi publicada: faltam evidências confiáveis para definir a marca.',
+                        error='', analysis_metadata=analysis_metadata,
+                    )
                 _save_brand_audit_history(
-                    client_id, brand_id, job_id, analysis_mode=analysis_mode, status='pending_approval',
+                    client_id, brand_id, job_id, analysis_mode=analysis_mode, status=history_status,
                     input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
                     analysis={**review_proposal, 'analysis_metadata': analysis_metadata},
                     reviews=reviews, costs=token_usage,
                 )
-                # Email delivery is best-effort and never changes the audit state.
-                try:
-                    from .. import db
-                    from ..services.cadu_product_emails import send_brand_audit_ready
-                    person = db.obter_contato_por_id(user_id) or {}
-                    send_brand_audit_ready(
-                        recipient_email=str(person.get('email') or ''),
-                        recipient_name=str(person.get('nome_completo') or ''),
-                        brand_name=str(review_proposal.get('name') or ''),
-                        summary=str(review_proposal.get('brand_summary') or ''),
-                        differentiators=list(review_proposal.get('differentiators') or []),
-                        url=product_url('workspace', f'/marcas/{brand_id}'),
-                    )
-                except Exception:
-                    current_app.logger.exception('Não foi possível enviar aviso da auditoria da marca %s', brand_id)
+                # This notification means the context was actually published;
+                # insufficient evidence is exposed as a diagnostic, never as
+                # a misleading “analysis ready” message.
+                if automatic_decision['approved']:
+                    try:
+                        from .. import db
+                        from ..services.cadu_product_emails import send_brand_audit_ready
+                        person = db.obter_contato_por_id(user_id) or {}
+                        send_brand_audit_ready(
+                            recipient_email=str(person.get('email') or ''),
+                            recipient_name=str(person.get('nome_completo') or ''),
+                            brand_name=str(review_proposal.get('name') or ''),
+                            summary=str(review_proposal.get('brand_summary') or ''),
+                            differentiators=list(review_proposal.get('differentiators') or []),
+                            url=product_url('workspace', f'/marcas/{brand_id}'),
+                        )
+                    except Exception:
+                        current_app.logger.exception('Não foi possível enviar aviso da auditoria da marca %s', brand_id)
             except Exception as exc:
                 current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
                 _save_brand_review_job(client_id, brand_id, job_id,
@@ -3042,7 +3235,7 @@ def workspace_onboarding():
             'status': 'queued',
             'stage': 'queued',
             'index': 0,
-            'total': 4,
+            'total': 5,
             'message': 'A auditoria entrou na fila.',
             'error': '',
             'created_at': _utc_timestamp(),
@@ -4404,7 +4597,7 @@ def import_project_brand(project_id):
         })
         item.stream.seek(0)
     metadata = {'review_pack': {
-        'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
+        'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 5,
         'message': 'A importação entrou na fila.', 'error': '',
         'created_at': _utc_timestamp(),
         'input': {'website_url': website_url, 'has_images': bool(image_payload)}, 'analysis': {}, 'reviews': [],
@@ -5162,7 +5355,7 @@ def brand_detail(brand_id):
         } for item in projects]
         brand_items = [{
             'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'),
-            'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+            'title': str(item.get('name') or 'Marca'), 'logoUrl': str((item.get('logo_variants') or {}).get('256') or item.get('display_logo') or ''),
             'visualInitials': str(item.get('display_initials') or 'M'),
             'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
             'visualVariant': _dock_visual_variant('brand', item.get('id')),
@@ -5198,7 +5391,8 @@ def brand_detail(brand_id):
         brand_data = {
             'id': str(brand.get('id')), 'name': str(brand.get('name') or 'Marca'), 'sector': str(brand.get('sector') or ''),
             'websiteUrl': str(brand.get('website_url') or ''), 'crmClientId': str(brand.get('crm_client_id') or ''),
-            'logoUrl': str(brand.get('display_logo') or ''), 'initials': str(brand.get('display_initials') or 'M'),
+            'logoUrl': str((brand.get('logo_variants') or {}).get('512') or brand.get('display_logo') or ''),
+            'logoVariants': dict(brand.get('logo_variants') or {}), 'initials': str(brand.get('display_initials') or 'M'),
             'primaryColor': str(brand.get('primary_color') or '#176b5e'), 'secondaryColor': str(brand.get('secondary_color') or '#dcece6'),
             'profile': {
                 'brandSummary': str(profile.get('brand_summary') or profile.get('positioning') or ''),
@@ -5592,7 +5786,7 @@ def audit_brand(brand_id):
             'status': 'queued',
             'stage': 'queued',
             'index': 0,
-            'total': 4,
+            'total': 5,
             'message': 'A auditoria entrou na fila.',
             'error': '',
             'created_at': _utc_timestamp(),
@@ -5668,7 +5862,7 @@ def brand_audit_status(brand_id):
             current_app.logger.exception('Não foi possível encerrar auditoria de marca expirada')
     return jsonify({
         'status': pack.get('status') or 'not_started', 'stage': pack.get('stage'),
-        'index': pack.get('index', 0), 'total': pack.get('total', 4),
+        'index': pack.get('index', 0), 'total': pack.get('total', 5),
         'message': pack.get('message'), 'error': pack.get('error'),
         'review_count': len(pack.get('reviews') or []), 'created_at': pack.get('created_at'),
         'updated_at': pack.get('updated_at'),
@@ -5708,7 +5902,7 @@ def retry_brand_audit(brand_id):
     metadata = dict(brand.get('analysis_metadata') or {})
     checkpoint = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
     metadata['review_pack'] = {
-        'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
+        'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 5,
         'message': 'A nova análise entrou na fila. A identidade atual será preservada até sua aprovação.', 'error': '',
         'created_at': _utc_timestamp(),
         'input': {'website_url': website_url, 'has_images': bool(image_payload), 'preserves_logo': True, 'analysis_mode': analysis_mode, 'social_links': social_links}, 'analysis': checkpoint, 'reviews': [],
@@ -5748,7 +5942,7 @@ def retry_brand_audit(brand_id):
 @login_required
 def refresh_brand_audit_module(brand_id, module_id):
     """Refresh one opinion from saved evidence; it never re-collects or applies identity."""
-    if module_id not in {'evidencias', 'estrategia', 'direcao_criativa'}:
+    if module_id not in {'evidencias', 'estrategia', 'direcao_criativa', 'revisor_central'}:
         abort(404)
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
@@ -5770,7 +5964,7 @@ def refresh_brand_audit_module(brand_id, module_id):
     next_pack = dict(pack)
     next_pack.update({
         'job_id': job_id, 'status': 'running', 'stage': module_id, 'index': 2,
-        'total': 4, 'message': f'Refazendo o parecer de {module_id.replace("_", " ")}.',
+        'total': 5, 'message': f'Refazendo o parecer de {module_id.replace("_", " ")}.',
         'error': '', 'created_at': _utc_timestamp(),
     })
     metadata['review_pack'] = next_pack
@@ -5805,19 +5999,42 @@ def refresh_brand_audit_module(brand_id, module_id):
                         app='Auditoria de marca', stage=stage, provider_result=provider_result, model=model,
                         metadata={'brand_id': brand_id, 'job_id': job_id, 'source': 'workspace', 'module': module_id},
                     )
-                refreshed = CreativeModelingService().review_brand_module(analysis, module_id, billing_callback=bill)
                 latest = _workspace_brand(client_id, brand_id) or {}
                 latest_metadata = dict(latest.get('analysis_metadata') or {})
                 latest_pack = dict(latest_metadata.get('review_pack') or {})
                 if latest_pack.get('job_id') != job_id:
                     return
+                prior_reviews = [item for item in (latest_pack.get('reviews') or []) if item.get('id') != module_id]
+                service = CreativeModelingService()
+                refreshed = service.review_brand_module(
+                    analysis, module_id, billing_callback=bill, prior_reviews=prior_reviews,
+                )
                 reviews = [item for item in (latest_pack.get('reviews') or []) if item.get('id') != module_id]
                 reviews.append(refreshed)
-                order = {'evidencias': 0, 'estrategia': 1, 'direcao_criativa': 2}
+                order = {'evidencias': 0, 'estrategia': 1, 'direcao_criativa': 2, 'revisor_central': 3}
                 reviews.sort(key=lambda item: order.get(item.get('id'), 99))
+                # A scoped opinion changes the material used by the final
+                # gate. Rebuild that gate immediately instead of leaving a
+                # stale central decision attached to newer evidence.
+                if module_id != 'revisor_central':
+                    source_reviews = [item for item in reviews if item.get('id') != 'revisor_central']
+                    central = service.review_brand_module(
+                        analysis, 'revisor_central', billing_callback=bill, prior_reviews=source_reviews,
+                    )
+                    reviews = [item for item in reviews if item.get('id') != 'revisor_central']
+                    reviews.append(central)
+                    reviews.sort(key=lambda item: order.get(item.get('id'), 99))
+                central_review = next((item for item in reviews if item.get('id') == 'revisor_central'), {})
+                central_ready = (
+                    str(central_review.get('status') or '') == 'ready'
+                    and not list(central_review.get('blocked_fields') or [])
+                )
                 _save_brand_review_job(client_id, brand_id, job_id, status='pending_approval', stage='complete',
-                                       index=4, total=4, message='Parecer atualizado. Revise a proposta antes de aplicar.',
-                                       error='', reviews=reviews)
+                                       index=5, total=5, message='Parecer atualizado. Revise a proposta antes de aplicar.',
+                                       error='', reviews=reviews, analysis_metadata={
+                                           'central_review': central_review,
+                                           'ready_for_approval': central_ready,
+                                       })
             except Exception as exc:
                 current_app.logger.exception('Não foi possível refazer o parecer %s da marca %s', module_id, brand_id)
                 _save_brand_review_job(client_id, brand_id, job_id, status='failed', stage='failed',
@@ -5841,6 +6058,13 @@ def approve_brand_reviews(brand_id):
     analysis = pack.get('analysis')
     if pack.get('status') != 'pending_approval' or not analysis:
         abort(409, description='Não há uma proposta de análise aguardando aprovação.')
+    central_review = next((item for item in pack.get('reviews') or [] if item.get('id') == 'revisor_central'), {})
+    central_ready = (
+        str(central_review.get('status') or '') == 'ready'
+        and not list(central_review.get('blocked_fields') or [])
+    )
+    if not central_ready:
+        abort(409, description='A consolidação central ainda precisa liberar esta proposta antes da aprovação humana.')
     merged = _merge_brand_analysis(brand, analysis)
     # Once the reviewed proposal has supplied the definitive identity, that
     # value becomes user-owned context rather than a disposable URL guess.

@@ -56,6 +56,8 @@
    React Workspace shell; the established product navigation stays untouched. */
 .cadu-ds-visual-identity { display:grid; width:100%; height:100%; place-items:center; overflow:hidden; border-radius:inherit; background:color-mix(in srgb, var(--cadu-identity-color) 16%, var(--cadu-surface-soft)); color:var(--cadu-identity-color); font-size:12px; font-weight:760; letter-spacing:-.04em; line-height:1; }
 .cadu-ds-visual-identity img { display:block; width:100%; height:100%; box-sizing:border-box; padding:5px; object-fit:contain; object-position:center; }
+.cadu-ds-visual-identity--brand { background:color-mix(in srgb,var(--cadu-identity-color) 30%,var(--cadu-surface-soft)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-identity-color) 38%,transparent); }
+.cadu-ds-visual-identity--brand img { mix-blend-mode:multiply; }
 .cadu-ds-visual-identity[class*="--v"] { --cadu-avatar-deep:#071012; --cadu-avatar-accent:#173b43; background:linear-gradient(135deg,var(--cadu-identity-color) 0%,var(--cadu-avatar-accent) 100%); color:#f4fffc; }
 .cadu-ds-visual-identity--v1 { --cadu-avatar-accent:#0d665b; }
 .cadu-ds-visual-identity--v2 { --cadu-avatar-accent:#175b70; }
@@ -1465,6 +1467,26 @@ body.portal--workspace .cadu-ds-home-workarea {
   box-shadow:0 3px 12px rgba(20,40,58,.05);
 }
 
+/* Keep the reading rail optically attached to the 72px dock. Project names
+   may wrap instead of losing their identity behind an ellipsis. */
+@media (min-width:761px) {
+  .cadu-ds-context-sidebar { margin-left:3px; }
+}
+.cadu-ds-context-sidebar__collection-item > span:last-child { align-items:flex-start; }
+.cadu-ds-context-sidebar__collection-item b { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; white-space:normal; line-height:1.25; }
+.cadu-ds-context-sidebar__collection-item small { flex:0 0 auto; }
+.cadu-ds-context-sidebar__brand-groups { display:grid; gap:12px; }
+.cadu-ds-context-sidebar__brand-group { display:grid; gap:3px; }
+.cadu-ds-context-sidebar__brand-heading { display:flex; min-width:0; align-items:center; gap:8px; min-height:30px; padding:2px 6px; border-radius:8px; color:var(--cadu-ink); text-decoration:none; }
+.cadu-ds-context-sidebar__brand-heading:hover,.cadu-ds-context-sidebar__brand-heading:focus-visible { background:var(--cadu-surface); outline:0; }
+.cadu-ds-context-sidebar__brand-heading .cadu-ds-visual-identity { width:25px; height:25px; flex:0 0 25px; border-radius:7px; font-size:8px; }
+.cadu-ds-context-sidebar__brand-heading b { overflow:hidden; font-size:11px; font-weight:720; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-context-sidebar__project-child { display:block; min-width:0; margin-left:33px; padding:4px 6px; border-left:1px solid color-mix(in srgb,var(--cadu-line) 78%,transparent); color:var(--cadu-muted); font-size:10px; line-height:1.3; text-decoration:none; }
+.cadu-ds-context-sidebar__project-child span { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.cadu-ds-context-sidebar__project-child:hover,.cadu-ds-context-sidebar__project-child:focus-visible { border-left-color:var(--cadu-accent); background:var(--cadu-surface); color:var(--cadu-ink); outline:0; }
+.cadu-ds-context-sidebar__group-empty { margin-left:33px; padding:3px 6px; color:var(--cadu-muted); font-size:9px; }
+.cadu-ds-context-sidebar__brand-heading-label { padding:4px 6px 2px 33px; color:var(--cadu-muted); font-size:10px; }
+
 .cadu-ds-context-sidebar__nav a.is-active {
   color:var(--cadu-accent-strong);
   font-weight:700;
@@ -2527,6 +2549,86 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
 .cadu-ds-catalog-row__files b { font-size:12px; font-weight:700; }
 .cadu-ds-catalog-row__files small { max-width:150px; overflow:hidden; color:var(--cadu-muted); font-size:9px; text-align:right; text-overflow:ellipsis; white-space:nowrap; }
 
+/* Keep catalog rows as a real table: the identity has its own narrow column,
+   while the text and counters keep stable tracks instead of collapsing into
+   each other when the dock reduces the available width. */
+.cadu-ds-catalog-list { overflow-x:auto; overflow-y:hidden; }
+.cadu-ds-catalog-list__head,
+.cadu-ds-catalog-row { min-width:760px; }
+.cadu-ds-catalog-row > .cadu-ds-visual-identity { grid-column:1; }
+.cadu-ds-catalog-row > .cadu-ds-visual-identity + .cadu-ds-catalog-row__main {
+  grid-column:2;
+  margin-left:0;
+  padding-left:0;
+}
+@media (max-width:760px) {
+  .cadu-ds-catalog-list { overflow-x:hidden; }
+  .cadu-ds-catalog-list__head,
+  .cadu-ds-catalog-row { min-width:0; }
+}
+
+/* On a selected project, the title is the context control. This avoids
+   repeating a long project name inside the composer and gives the user the
+   whole project list from the most obvious place. */
+.cadu-ds-home-project-selector { display:inline-block; max-width:min(900px,calc(100vw - 80px)); }
+.cadu-ds-home-project-selector summary { display:flex; min-height:0; align-items:center; justify-content:center; gap:12px; padding:0; border:0; color:var(--cadu-ink); font-size:clamp(34px,4.4vw,58px); font-weight:760; letter-spacing:-.055em; line-height:1.02; text-align:center; }
+.cadu-ds-home-project-selector summary span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-home-project-selector summary i { flex:0 0 auto; color:var(--cadu-accent-strong); font-size:18px; font-style:normal; letter-spacing:0; opacity:.8; }
+.cadu-ds-home-project-selector summary:hover,.cadu-ds-home-project-selector summary:focus-visible { color:var(--cadu-accent-strong); outline:0; }
+.cadu-ds-home-project-selector .cadu-ds-selector-menu { top:calc(100% + 12px); left:50%; width:min(420px,calc(100vw - 36px)); transform:translateX(-50%); }
+.cadu-ds-home-project-selector .cadu-ds-selector-menu button { min-height:42px; padding:0 12px; color:var(--cadu-nav-ink); text-align:left; }
+@media (max-width:760px) { .cadu-ds-home-project-selector summary { font-size:clamp(29px,8vw,38px); white-space:normal; } .cadu-ds-home-project-selector summary span { white-space:normal; } }
+
+/* Keep the assistant answer and its progress card on the same reading rail. */
+.cv-thread-content > .cadu-ds-task-progress { width:min(72ch,100%); margin-left:0; margin-right:auto; }
+.cv-message--assistant .cv-assistant-answer { width:min(72ch,100%); max-width:none; }
+
+/* Composer controls: one quiet control row, without competing button chrome. */
+.cadu-ds-home-chat-shell .cv-composer-submit-group {
+  gap:4px;
+  align-items:center;
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger {
+  min-height:32px;
+  height:32px;
+  padding:0 7px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--cadu-muted);
+  font-weight:500;
+  box-shadow:none;
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary:hover,
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details[open] > summary,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger:hover,
+.cadu-ds-home-chat-shell .cv-composer-intensity[open] .cv-composer-intensity__trigger {
+  border:0;
+  background:color-mix(in srgb,var(--cadu-accent) 9%,transparent);
+  color:var(--cadu-ink);
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary span,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger span {
+  font-weight:500;
+}
+.cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary svg,
+.cadu-ds-home-chat-shell .cv-composer-intensity__trigger svg {
+  color:var(--cadu-muted);
+  opacity:.78;
+  stroke-width:1.5;
+}
+.cadu-ds-home-chat-shell button[aria-label="Enviar mensagem"] {
+  margin-left:2px;
+  border-radius:10px;
+  background:var(--cadu-accent-strong);
+  color:#fff;
+  box-shadow:none;
+}
+.cadu-ds-home-chat-shell button[aria-label="Enviar mensagem"] svg {
+  stroke-width:1.5;
+}
+
 /* Dock polish: one centered rhythm for shortcuts and a full-bleed profile photo. */
 body.portal--workspace .cadu-ds-dock {
   width:72px;
@@ -2563,6 +2665,10 @@ body.portal--workspace .cadu-ds-dock-new:hover,
 body.portal--workspace .cadu-ds-dock-new:focus-visible,
 body.portal--workspace .cadu-ds-dock-home:hover,
 body.portal--workspace .cadu-ds-dock-home:focus-visible { border-color:rgba(23,107,94,.34); background:rgba(23,107,94,.12); color:#0d4e46; outline:2px solid rgba(23,107,94,.16); outline-offset:1px; }
+body.portal--workspace .cadu-ds-dock-new:hover,
+body.portal--workspace .cadu-ds-dock-new:focus-visible,
+body.portal--workspace .cadu-ds-dock-home:hover,
+body.portal--workspace .cadu-ds-dock-home:focus-visible { border-color:#176b5e; background:#176b5e; color:#fff; box-shadow:0 4px 12px rgba(23,107,94,.24); }
 body.portal--workspace .cadu-ds-dock-brand:hover,
 body.portal--workspace .cadu-ds-dock-brand:focus-visible,
 body.portal--workspace .cadu-ds-dock-resource:hover,

@@ -53,7 +53,7 @@ export function WorkspaceChatComposer({
   attachmentDestination = 'conversation', onAttachmentDestinationChange, hasProject = false,
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
   composerContext, onClearContext, onContextDrop, onAttach, embedded = false, homeMode = false,
-  projects = [], projectRef = '', onProjectChange,
+  projects = [], projectRef = '', onProjectChange, showProjectSelector = true,
 }) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
@@ -169,7 +169,7 @@ export function WorkspaceChatComposer({
           </details>
         </div>
         <div className="cv-composer-submit-group cv-flex cv-items-center cv-gap-1.5">
-          {homeMode && <ProjectSelector
+          {homeMode && showProjectSelector && <ProjectSelector
             label="Contexto da conversa"
             emptyLabel="Sessão rápida"
             items={projects}

@@ -120,7 +120,12 @@ def context(query, limit=3):
 
 
 def install_seed(actor_id):
-    """Create editable draft templates once; examples are never published."""
+    """Create editable draft templates once; examples are never published.
+
+    The global media package is intentionally installed as drafts in the same
+    institutional knowledge base. It is not project knowledge and it is never
+    published by this helper.
+    """
     seed_dir = Path(__file__).with_name('knowledge_seed')
     definitions = (
         ('Centralcomm — identidade e posicionamento', 'markdown', '01-centralcomm-identidade.md'),
@@ -129,13 +134,25 @@ def install_seed(actor_id):
         ('Audiências e programática', 'csv', '04-audiencias-e-programatica.csv'),
         ('Cases e evidências aprovadas', 'csv', '05-cases-e-evidencias.csv'),
     )
+    global_rag_dir = Path(__file__).resolve().parents[2] / 'docs' / 'rag'
+    definitions += (
+        ('RAG Global — Glossário de marketing e mídia', 'markdown', global_rag_dir / '01-glossario-marketing-midia.md'),
+        ('RAG Global — Tipos de mídia e linguagem técnica', 'markdown', global_rag_dir / '02-tipos-de-midia-e-linguagem-tecnica.md'),
+        ('RAG Global — Métodos de investimento em mídia', 'markdown', global_rag_dir / '03-metodos-de-investimento-em-midia.md'),
+        ('RAG Global — Balanceamento multicanal e estratégia', 'markdown', global_rag_dir / '04-balanceamento-multicanal-e-estrategia.md'),
+    )
     existing = {str(row.get('title') or '').strip() for row in documents()}
     created = []
     for title, kind, filename in definitions:
         if title in existing:
             continue
+        source = Path(filename)
+        if not source.is_file():
+            continue
         result = save({'title': title, 'kind': kind,
-                       'content': (seed_dir / filename).read_text(encoding='utf-8'),
-                       'source_note': 'Modelo inicial CentralX — complete, valide e publique.'}, actor_id)
+                       'content': (source if source.is_absolute() else seed_dir / source).read_text(encoding='utf-8'),
+                       'source_note': ('RAG Global do Cadu — pacote editorial v1; rascunho para revisão, '
+                                       'validação de fontes e publicação manual.' if source.is_absolute() else
+                                       'Modelo inicial CentralX — complete, valide e publique.')}, actor_id)
         created.append(result['id'])
     return created

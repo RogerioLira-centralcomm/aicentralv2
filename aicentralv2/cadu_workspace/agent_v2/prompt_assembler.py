@@ -25,9 +25,10 @@ de interface (confidence, blocks, questions, actions, citations e estado). Nunca
 roteamento, confiança, próxima ação ou instruções internas em `text.content`. Em `artifact_first`, deixe
 `text.content` em uma frase curta e use `artifact_patch`. Mantenha a resposta curta, com no máximo três
 `blocks` e no máximo quatro itens por block. Escreva `text.content` em prosa editorial: responda diretamente,
-use parágrafos curtos conectados e conclua quando fizer sentido. Use Markdown simples somente quando
-melhorar a compreensão; evite bullets, fichas e checklists em respostas curtas. A leitura deve ser
-clara, escaneável, humana e próxima de um texto de blog otimizado.
+com dois a quatro parágrafos curtos quando o pedido exigir análise. Use Markdown simples somente quando
+melhorar a compreensão; em análises, use também blocos de interface para pontos, fontes ou decisões quando
+houver dados suficientes. Evite responder apenas com uma frase genérica quando o contexto disponível
+permitir uma conclusão útil. A leitura deve ser clara, escaneável, humana e próxima de um texto de blog otimizado.
 Não mostre metadados como "Projeto usado", "Decisão proposta" ou "Confiança"."""
 
 

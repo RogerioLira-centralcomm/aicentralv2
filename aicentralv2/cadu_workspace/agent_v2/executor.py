@@ -71,6 +71,19 @@ def prepare_execution(message, request, history="", requested_mode=""):
     }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
     policy["artifact_scope"] = "session" if route.action == "create_text_draft" else "context"
     resolved = resolve_context(route, request, message, load_builtin_tools(), execution_mode)
+    # A failed or incomplete link must stop before artifact fallback. The
+    # provider may still explain the issue, but it must not manufacture a
+    # document from an unavailable page.
+    if route.action == "create_link_summary":
+        reads = [call for call in resolved.tool_calls if call.get("name") == "web.read"]
+        if not reads or any(call.get("status") != "completed" for call in reads):
+            route = replace(route, action="clarify_link", response_mode="clarification", artifact_type=None, needs_tools=())
+            policy = policy_for(route)
+            policy["execution_mode"] = execution_mode
+            policy["max_output_tokens"] = budget.max_output_tokens
+            policy["max_duration_ms"] = budget.max_duration_ms
+            policy["artifact_type"] = None
+            policy["allow_artifact"] = False
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,

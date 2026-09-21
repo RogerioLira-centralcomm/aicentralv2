@@ -12,7 +12,7 @@ function initialsFor(value, fallback = 'P') {
 }
 
 /** A resilient visual identity shared by brands, projects and people. */
-export function VisualIdentity({src, initials, label, color, variant, className = '', imageAlt = '', fallbackSrc = ''}) {
+export function VisualIdentity({src, initials, label, color, variant, className = '', imageAlt = '', fallbackSrc = '', imageTreatment = ''}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [fallbackFailed, setFallbackFailed] = useState(false);
   useEffect(() => {
@@ -23,8 +23,9 @@ export function VisualIdentity({src, initials, label, color, variant, className 
   const showFallbackImage = Boolean(fallbackSrc) && !fallbackFailed;
   const variantNumber = Number.isFinite(Number(variant)) ? ((Number(variant) % 10) + 10) % 10 : null;
   const variantClass = !showImage && !showFallbackImage && variantNumber !== null ? ` cadu-ds-visual-identity--v${variantNumber + 1}` : '';
+  const imageClass = imageTreatment ? ` cadu-ds-visual-identity--${imageTreatment}` : '';
   const identityValue = String(initials || '').trim().length > 1 ? initials : (label || initials);
-  return <span className={`cadu-ds-visual-identity${variantClass} ${className}`} style={{'--cadu-identity-color': color || '#176b5e'}} title={label || undefined}>
+  return <span className={`cadu-ds-visual-identity${variantClass}${imageClass} ${className}`} style={{'--cadu-identity-color': color || '#176b5e'}} title={label || undefined}>
     {showImage
       ? <img src={src} alt={imageAlt} onError={() => setImageFailed(true)}/>
       : showFallbackImage

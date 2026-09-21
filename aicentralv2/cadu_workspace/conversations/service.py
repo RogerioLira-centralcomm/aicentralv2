@@ -458,7 +458,31 @@ def team_workspace_context(client_id):
     return {'projetos_da_equipe': projects, 'planos_da_equipe': plans_list}
 
 
-def contextual_packet(project_context, query, media_catalog=None, team_workspace=None, work_memory=''):
+_MEDIA_KNOWLEDGE_TERMS = re.compile(
+    r"\b(?:m[ií]dia|m[ií]dias|campanha|campanhas|an[uú]ncio|an[uú]ncios|"
+    r"publicidade|publicit[aá]ria|marketing|planejamento|plano de m[ií]dia|"
+    r"mix de m[ií]dia|canal|canais|formato|formatos|kpi|m[eé]trica|"
+    r"m[eé]tricas|cpm|cpc|cpa|ctr|roas|roi|cac|ltv|alcance|frequ[eê]ncia|"
+    r"gr[pt]|trp|audi[eê]ncia|verba|or[cç]amento|investimento|"
+    r"program[aá]tica|retail media|search|social ads|display|v[ií]deo|"
+    r"youtube|google ads|meta ads|tiktok|linkedin ads|crm|remarketing|"
+    r"atribui[cç][aã]o|incrementalidade|incremental|adstock|satura[cç][aã]o|"
+    r"media mix model(?:ing)?|mmm)\b",
+    re.IGNORECASE,
+)
+
+
+def activates_global_media_knowledge(query, media_catalog=None):
+    """Return whether institutional media knowledge should be implicit context.
+
+    This is an intent guardrail, not a user-facing search action. A project
+    remains the primary source for private decisions; the global base supplies
+    definitions, methods and market language when the request is about media.
+    """
+    return bool(media_catalog) or bool(_MEDIA_KNOWLEDGE_TERMS.search(str(query or "")))
+
+
+def contextual_packet(project_context, query, media_catalog=None, team_workspace=None, work_memory='', use_global_knowledge=None):
     """Keep private Workspace RAG and published institutional RAG separate.
 
     Dify currently declares one string variable named ``projeto_context``.
@@ -466,10 +490,17 @@ def contextual_packet(project_context, query, media_catalog=None, team_workspace
     backward compatibility while preventing the global Base Cadu from being
     mistaken for private project material.
     """
-    try:
-        from ...cadu_skills import knowledge
-        entries = knowledge.context(query)
-    except Exception:
+    activate_global = (
+        activates_global_media_knowledge(query, media_catalog)
+        if use_global_knowledge is None else bool(use_global_knowledge)
+    )
+    if activate_global:
+        try:
+            from ...cadu_skills import knowledge
+            entries = knowledge.context(query)
+        except Exception:
+            entries = []
+    else:
         entries = []
     try:
         private_context = json.loads(project_context) if project_context else {}
@@ -478,6 +509,11 @@ def contextual_packet(project_context, query, media_catalog=None, team_workspace
     packet = {
         'contexto_projeto_privado': private_context,
         'base_cadu_global_publicada': entries,
+        'guardrails_contexto': {
+            'base_global_ativada': activate_global,
+            'motivo': 'intenção de mídia, campanha ou publicidade detectada' if activate_global else 'não aplicável ao pedido',
+            'instrução': 'Use a base global silenciosamente para definições e métodos; não diga ao usuário para pesquisar na base.',
+        },
     }
     if media_catalog:
         packet['catalogo_midia_cadu'] = media_catalog
@@ -595,11 +631,13 @@ def prepare(data, selected):
             if repository.family_table_available('cadu_user_memories'):
                 memory.capture_explicit(cur, user=user, conversation_id=conversation_id,
                                         message_id=user_message_id, text=query)
+            media_catalog = media_catalog_context(query) if routing.get('solution') in {'planejamento', 'audiencias'} else None
             project_context = contextual_packet(
                 project_knowledge_context(project_ref, brand_ref, selected['client_id'], query), query,
-                media_catalog_context(query) if routing.get('solution') in {'planejamento', 'audiencias'} else None,
+                media_catalog,
                 team_workspace_context(selected['client_id']),
-                working_memory.packet(selected['client_id'], project_ref, query))
+                working_memory.packet(selected['client_id'], project_ref, query),
+                use_global_knowledge=activates_global_media_knowledge(query, media_catalog))
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
                             project_context, conversation, query, uploads, existing, history, routing, depth)
             run['routing'] = routing
@@ -647,7 +685,8 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         'limites_de_artefato': 'Conversa sem projeto é válida e não cria documentos. Para refinar, estruturar ou rascunhar briefing, responda em Markdown na própria conversa. Só proponha criar ou salvar um SmartDoc quando o usuário pedir isso explicitamente e houver um projeto selecionado; nunca emita marcadores SMART_DOC na resposta.',
         'fronteiras_de_contexto': {
             'projeto_context': 'JSON com contexto_projeto_privado, base_cadu_global_publicada, workspace_da_equipe, memoria_de_trabalho e, quando aplicável, catalogo_midia_cadu e pesquisa_externa_atual.',
-            'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',
+            'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional e ative-a automaticamente em assuntos de mídia.',
+            'ativacao_global': 'Quando a intenção envolver mídia, campanha, anúncio, canal, KPI, audiência, investimento ou planejamento, use base_cadu_global_publicada sem anunciar uma busca ao usuário. Para outros assuntos, não injete esse material.',
             'memoria_de_trabalho': 'Use apenas memoria_de_trabalho_confirmada como contexto factual. Propostas não são enviadas e nunca devem ser tratadas como decisão.',
             'pesquisa_externa_atual': 'Quando existir, sintetize a pesquisa externa com citações; ela é evidência recente, não substitui o contexto aprovado do projeto.',
             'ferramentas': 'Nunca exponha falhas de ferramentas, credenciais, chaves, códigos HTTP ou configuração. Use apenas o catálogo e o contexto recebidos; se uma evidência não estiver disponível, avance com premissas claramente marcadas.',

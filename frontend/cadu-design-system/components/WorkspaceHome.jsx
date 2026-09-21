@@ -4,6 +4,7 @@ import {WorkspaceChatComposer} from './WorkspaceChatComposer';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {WorkspacePromptSuggestions} from './WorkspacePromptSuggestions';
 import {ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
+import {ProjectSelector} from './WorkspaceSelectors';
 import {csrf, request} from '../../conversations-v2/lib/api';
 import {attachmentIssues, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from '../../conversations-v2/lib/attachmentModel.mjs';
 import {uploadAttachments} from '../../conversations-v2/lib/attachmentUpload.mjs';
@@ -69,12 +70,13 @@ export function WorkspaceHome({bootstrap}) {
   }), [home.projects]);
   const brands = home.brands || [];
   const catalogBrands = home.catalogBrands || brands;
+  const [dockItems, setDockItems] = useState(home.dock?.items || []);
+  const dockBrandRefs = useMemo(() => new Set(dockItems.filter(item => item?.kind === 'brand' || item?.brandRef).map(item => String(item.brandRef || `studio:${item.id}`))), [dockItems]);
   const sidebarBrands = (catalogBrands.length ? catalogBrands : brands).slice().sort((left, right) => {
     const leftDate = Date.parse(left.updatedAt || left.updated_at || left.createdAt || left.created_at || '') || 0;
     const rightDate = Date.parse(right.updatedAt || right.updated_at || right.createdAt || right.created_at || '') || 0;
     return rightDate - leftDate;
-  }).slice(0, 3);
-  const [dockItems, setDockItems] = useState(home.dock?.items || []);
+  }).filter(item => !dockBrandRefs.has(String(item.brandRef || `studio:${item.id}`))).slice(0, 5);
   const selectedProject = useMemo(() => projects.find(item => item.id === projectRef), [projects, projectRef]);
   const selectedBrand = useMemo(() => brands.find(item => item.id === brandRef || `studio:${item.id}` === brandRef), [brands, brandRef]);
   // On the home surface the title and project selector already establish the
@@ -193,8 +195,8 @@ export function WorkspaceHome({bootstrap}) {
       <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={sidebarBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
       <WorkspaceContextSidebar mode="home" active="home" links={bootstrap.urls} agencyName={home.agency?.name} projects={projects} brands={sidebarBrands} resources={home.resources || []} conversations={home.recentConversations || home.conversations || []}/>
         <section className="cadu-ds-home-content">
-        <div className="cadu-ds-home-intro"><h1>{selectedProject ? selectedProject.name : homeTitle}</h1><p>{selectedProject ? 'Contexto selecionado para esta conversa.' : 'Escreva uma demanda ou escolha uma sugestão para começar.'}</p></div>
-        <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} embedded homeMode/>
+        <div className="cadu-ds-home-intro">{selectedProject ? <ProjectSelector label="Projeto da conversa" emptyLabel="Selecionar projeto" items={projects} value={projectRef} onChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} className="cadu-ds-home-project-selector"/> : <h1>{homeTitle}</h1>}<p>{selectedProject ? 'Contexto selecionado para esta conversa.' : 'Escreva uma demanda ou escolha uma sugestão para começar.'}</p></div>
+        <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} embedded homeMode showProjectSelector={false}/>
         {!value.trim() && (
           <WorkspacePromptSuggestions project={selectedProject} brand={selectedBrand} home={home} onSelect={setValue}/>
         )}

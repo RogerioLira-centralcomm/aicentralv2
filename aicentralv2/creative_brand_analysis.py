@@ -1686,6 +1686,42 @@ class CreativeBrandAnalyzer:
         # finds candidates; GPT-5.4 judges source-backed evidence.
         self.review_model = review_model or self.visual_model
 
+    def _json_call(self, messages, *, model, max_tokens, temperature, timeout,
+                   response_format=None, stage='', billing_callback=None, retries=1):
+        """Call a provider with one bounded JSON repair retry and trace it."""
+        base_messages = list(messages)
+        trace = []
+        last_error = None
+        for attempt in range(1, retries + 2):
+            attempt_messages = list(base_messages)
+            if attempt > 1:
+                attempt_messages.append({
+                    'role': 'user',
+                    'content': (
+                        'A resposta anterior não pôde ser interpretada como objeto JSON. '
+                        'Repita a resposta agora como JSON puro, sem markdown, comentários ou texto extra, '
+                        'preservando exatamente o contrato solicitado.'
+                    ),
+                })
+            prompt_hash = sha256(json.dumps(attempt_messages, ensure_ascii=False, sort_keys=True, default=str).encode('utf-8')).hexdigest()[:16]
+            try:
+                response = self.llm(
+                    attempt_messages, model=model, max_tokens=max_tokens,
+                    temperature=temperature, timeout=timeout,
+                    **({'response_format': response_format} if response_format else {}),
+                )
+                if callable(billing_callback):
+                    billing_callback(stage, response, model)
+                result = _json_content(message_text(response.get('message') or {}))
+                trace.append({'stage': stage, 'attempt': attempt, 'model': response.get('model') or model,
+                              'prompt_hash': prompt_hash, 'status': 'ok'})
+                return response, result, trace
+            except Exception as exc:
+                last_error = exc
+                trace.append({'stage': stage, 'attempt': attempt, 'model': model,
+                              'prompt_hash': prompt_hash, 'status': 'error', 'error': _text(str(exc), 240)})
+        raise last_error
+
     def analyze(self, url=None, image=None, billing_callback=None, *, analysis_mode="complete", social_links=None):
         deep = str(analysis_mode or "complete").lower() == "deep"
         normalized_url = _normalized_public_url(url)
@@ -1733,6 +1769,7 @@ class CreativeBrandAnalyzer:
         ]
         analysis_model = DEFAULT_DEEP_BRAND_MODEL if deep else self.model
         research_module_errors = []
+        call_trace = []
         if deep or normalized_url:
             # Smaller domain-bound calls are more reliable than one giant
             # response. They also make the ledger attributable to a specific
@@ -1741,17 +1778,18 @@ class CreativeBrandAnalyzer:
             research_models = []
             modules = DEEP_RESEARCH_MODULES if deep else COMPLETE_RESEARCH_MODULES
             for module_id, remit, fields, signals in modules:
+                traces = []
                 system, payload = _deep_research_request(
                     module_id, remit, fields, signals, evidence, normalized_url,
                 )
                 try:
-                    response = self.llm(
+                    response, partial, traces = self._json_call(
                         [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                        model=analysis_model, max_tokens=1800 if deep else 1200, temperature=0.08, timeout=60,
+                        model=analysis_model, max_tokens=1800 if deep else 1200,
+                        temperature=0.08, timeout=60, stage=f'pesquisa_{module_id}',
+                        billing_callback=billing_callback,
                     )
-                    if callable(billing_callback):
-                        billing_callback(f'pesquisa_{module_id}', response, analysis_model)
-                    partial = _json_content(response["message"].get("content"))
+                    call_trace.extend(traces)
                     for key in fields:
                         if partial.get(key) not in (None, "", [], {}):
                             if key == "sources":
@@ -1763,6 +1801,7 @@ class CreativeBrandAnalyzer:
                                 result[key] = partial[key]
                     research_models.append(response.get("model") or analysis_model)
                 except Exception as exc:
+                    call_trace.extend(traces)
                     research_module_errors.append(f"{module_id}: {_text(str(exc), 180)}")
             if not result:
                 raise ValueError("Nenhum módulo de pesquisa conseguiu retornar evidência verificável.")
@@ -1795,7 +1834,7 @@ class CreativeBrandAnalyzer:
         ]
         css_colors = evidence.get("css_color_evidence") or _css_color_evidence(normalized_url)
         try:
-            normalization_response = self.llm(
+            normalization_response, normalization_result, traces = self._json_call(
                 [
                     {"role": "system", "content": BRAND_EVIDENCE_NORMALIZATION_SYSTEM},
                     {"role": "user", "content": json.dumps({
@@ -1825,12 +1864,9 @@ class CreativeBrandAnalyzer:
                 # whose chat endpoint supports json_object.  The Perplexity
                 # research call above intentionally does not receive it.
                 response_format={"type": "json_object"},
+                stage='normalizacao_evidencias', billing_callback=billing_callback,
             )
-            if callable(billing_callback):
-                billing_callback('normalizacao_evidencias', normalization_response, self.visual_model)
-            normalization_result = _json_content(
-                normalization_response["message"].get("content")
-            )
+            call_trace.extend(traces)
             verified = normalization_result.get("verified")
             if isinstance(verified, dict):
                 for key in (
@@ -1870,7 +1906,7 @@ class CreativeBrandAnalyzer:
         visual_response = None
         if visual_parts:
             try:
-                visual_response = self.llm(
+                visual_response, visual_result, traces = self._json_call(
                     [
                         {
                             "role": "system",
@@ -1903,12 +1939,9 @@ class CreativeBrandAnalyzer:
                     max_tokens=1800,
                     temperature=0.05,
                     timeout=60,
+                    stage='leitura_visual', billing_callback=billing_callback,
                 )
-                if callable(billing_callback):
-                    billing_callback('leitura_visual', visual_response, self.visual_model)
-                visual_result = _json_content(
-                    visual_response["message"].get("content")
-                )
+                call_trace.extend(traces)
                 for key in (
                     "primary_color",
                     "secondary_color",
@@ -1920,7 +1953,8 @@ class CreativeBrandAnalyzer:
                 ):
                     if visual_result.get(key) not in (None, "", []):
                         result[key] = visual_result[key]
-            except Exception:
+            except Exception as exc:
+                call_trace.append({'stage': 'leitura_visual', 'status': 'error', 'error': _text(str(exc), 240)})
                 visual_response = None
         detected_logo = (web_record or {}).get("logo_url")
         asset_candidates = evidence.get("asset_candidates") or []
@@ -2040,6 +2074,7 @@ class CreativeBrandAnalyzer:
                 "research_provider": "perplexity" if "perplexity" in analysis_model.lower() else "configured_llm",
                 "research_modules": [module[0] for module in (DEEP_RESEARCH_MODULES if deep else COMPLETE_RESEARCH_MODULES)] if normalized_url else ["perfil_base"],
                 "research_module_errors": research_module_errors,
+                "call_trace": call_trace,
                 "visual_model": (
                     visual_response.get("model") or self.visual_model
                     if visual_response else None
@@ -2106,8 +2141,9 @@ class CreativeBrandAnalyzer:
         for position, (review_id, title, remit) in enumerate(WORKSPACE_BRAND_REVIEW_SYSTEMS, start=1):
             if callable(progress):
                 progress(review_id, title, position, total)
+            traces = []
             try:
-                response = self.llm(
+                response, result, traces = self._json_call(
                     [
                         {'role': 'system', 'content': remit + '\n\n' + WORKSPACE_BRAND_REVIEW_CONTRACT},
                         {'role': 'user', 'content': json.dumps({
@@ -2121,10 +2157,8 @@ class CreativeBrandAnalyzer:
                     temperature=0.1,
                     timeout=45,
                     response_format={"type": "json_object"},
+                    stage=f'parecer_{review_id}', billing_callback=billing_callback,
                 )
-                if callable(billing_callback):
-                    billing_callback(f'parecer_{review_id}', response, self.review_model)
-                result = _json_content(message_text(response.get('message') or {}))
             except Exception as exc:
                 # A single reviewer is advisory. Keep the collected evidence
                 # and make the missing opinion explicit for the central gate.
@@ -2134,7 +2168,7 @@ class CreativeBrandAnalyzer:
                     'findings': [], 'concerns': ['O provedor não entregou um parecer válido nesta etapa.'],
                     'accepted_fields': [], 'blocked_fields': ['revisão indisponível'],
                     'confidence': 0, 'model': self.review_model,
-                    'error': _text(str(exc), 240),
+                    'error': _text(str(exc), 240), 'call_trace': traces,
                 })
                 continue
             confidence = result.get('confidence')
@@ -2154,12 +2188,14 @@ class CreativeBrandAnalyzer:
                 'blocked_fields': _string_list(result.get('blocked_fields'), limit=12, item_limit=120),
                 'confidence': confidence,
                 'model': response.get('model') or self.review_model,
+                'call_trace': traces,
             })
         # The central reviewer is deliberately last: it receives every scoped
         # opinion as a constraint and is the only reviewer allowed to produce
         # the final audit decision.
+        central_trace = []
         try:
-            response = self.llm(
+            response, result, central_trace = self._json_call(
                 [
                     {'role': 'system', 'content': CENTRAL_BRAND_REVIEW_CONTRACT},
                     {'role': 'user', 'content': json.dumps({
@@ -2170,10 +2206,8 @@ class CreativeBrandAnalyzer:
                 ],
                 model=self.review_model, max_tokens=1100, temperature=0.05, timeout=60,
                 response_format={"type": "json_object"},
+                stage='revisor_central', billing_callback=billing_callback,
             )
-            if callable(billing_callback):
-                billing_callback('revisor_central', response, self.review_model)
-            result = _json_content(message_text(response.get('message') or {}))
         except Exception as exc:
             result = {
                 'decision': 'needs_review', 'confidence': 0,
@@ -2198,6 +2232,7 @@ class CreativeBrandAnalyzer:
             'blocked_fields': _string_list(result.get('blocked_fields'), limit=16, item_limit=120),
             'quality_dimensions': result.get('quality_dimensions') if isinstance(result.get('quality_dimensions'), dict) else {},
             'confidence': confidence, 'model': response.get('model') or self.review_model,
+            'call_trace': central_trace,
         })
         return reviews
 
@@ -2217,17 +2252,15 @@ class CreativeBrandAnalyzer:
             _, title, remit = reviewer
             user_payload = {'analysis': safe_analysis}
             stage = f'parecer_{review_id}'
-        response = self.llm(
+        response, result, traces = self._json_call(
             [
                 {'role': 'system', 'content': remit if review_id == 'revisor_central' else remit + '\n\n' + WORKSPACE_BRAND_REVIEW_CONTRACT},
                 {'role': 'user', 'content': json.dumps(user_payload, ensure_ascii=False, default=str)},
             ],
             model=self.review_model, max_tokens=900, temperature=0.1, timeout=60,
             response_format={"type": "json_object"},
+            stage=stage, billing_callback=billing_callback,
         )
-        if callable(billing_callback):
-            billing_callback(stage, response, self.review_model)
-        result = _json_content(message_text(response.get('message') or {}))
         try:
             confidence = max(0, min(1, float(result.get('confidence'))))
         except (TypeError, ValueError):
@@ -2239,6 +2272,7 @@ class CreativeBrandAnalyzer:
             'findings': _string_list(result.get('findings'), limit=5, item_limit=360),
             'concerns': _string_list(result.get('concerns'), limit=4, item_limit=360),
             'confidence': confidence, 'model': response.get('model') or self.review_model,
+            'call_trace': traces,
         }
         if review_id == 'revisor_central':
             output['quality_dimensions'] = result.get('quality_dimensions') if isinstance(result.get('quality_dimensions'), dict) else {}

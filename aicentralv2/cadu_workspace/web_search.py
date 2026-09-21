@@ -129,6 +129,10 @@ def _host(value: str) -> str:
     return parsed.hostname.lower()[:180]
 
 
+def _is_google_workspace_url(value: str) -> bool:
+    return _host(value) in {"drive.google.com", "docs.google.com", "meet.google.com", "calendar.google.com"}
+
+
 def _safe_url(value: str) -> str:
     value = str(value or "").strip()
     return value[:2000] if _host(value) else ""
@@ -285,6 +289,50 @@ def _read_source(url: str) -> dict:
     }
 
 
+def _read_google_workspace_source(context, url: str) -> dict:
+    """Use the connected Google account before considering public scraping.
+
+    Google OAuth stays inside CentralX. This function only returns text the
+    authorized account can already read; it never forwards a token, cookie, or
+    private URL context to Firecrawl.
+    """
+    try:
+        from ..services.google_workspace import GoogleWorkspaceError, read_google_link_content
+        resource = read_google_link_content(context.organization_id, url, max_characters=MAX_CONTENT_CHARS)
+    except GoogleWorkspaceError as exc:
+        # An active Google integration that is unavailable is not evidence that
+        # the link is public. Do not silently change providers and scrape it.
+        raise WebSearchUnavailable("Não foi possível usar a conta Google conectada agora. Tente novamente ou reautorize a integração.") from exc
+    except Exception:
+        logger.exception("Falha ao preparar leitura autenticada Google para %s", _host(url))
+        if _is_google_workspace_url(url):
+            raise WebSearchUnavailable("Não foi possível preparar a leitura deste link Google agora. Tente novamente.")
+        return {}
+    if not resource:
+        return {}
+    content = _clean_text(resource.get("content"), MAX_CONTENT_CHARS)
+    if len(content) < 20:
+        return {}
+    blocks = _review_blocks(_markdown_blocks(content))
+    if not blocks:
+        blocks = [{"kind": "paragraph", "text": content}]
+    clean_content = "\n\n".join(block["text"] for block in blocks)
+    return {
+        "content": clean_content,
+        "content_blocks": blocks,
+        "content_excerpt": clean_content[:520],
+        "page_title": _clean_text(resource.get("title"), 220),
+        "favicon": "",
+        "published_at": "",
+        "cleaning": "google_workspace_authorized_content",
+        "quality_gate": "passed",
+        "access_mode": "google_workspace_authorized",
+        "resource_kind": resource.get("kind") or "arquivo",
+        "thumbnail_url": resource.get("thumbnail_url") or "",
+        "sharing_access": resource.get("sharing_access") or "unknown",
+    }
+
+
 def _domains(values) -> list[str]:
     result = []
     for value in values if isinstance(values, list) else []:
@@ -377,6 +425,33 @@ def read(context, arguments: dict) -> dict:
     url = _safe_url(arguments.get("url"))
     if not url:
         raise ValueError("Informe um link HTTPS válido para analisar.")
+    # A Google URL is first resolved through the organization's OAuth grant.
+    # No Firecrawl credit is authorized for that path because it is not a
+    # public scrape. If no readable authorized item exists, the normal public
+    # Firecrawl route below is the intentionally unauthenticated fallback.
+    authenticated = _read_google_workspace_source(context, url)
+    if authenticated:
+        source = {
+            "id": "google-authorized-1",
+            "title": authenticated.get("page_title") or _host(url),
+            "url": url,
+            "domain": _host(url),
+            "excerpt": authenticated.get("content_excerpt") or "",
+            "source_type": "google_workspace_resource",
+            "rank": 1,
+            **authenticated,
+        }
+        return {
+            "result_type": "authorized_google_read",
+            "query": url,
+            "sources": [source],
+            "source_count": 1,
+            "sources_read": 1,
+            "searched_at": datetime.now(timezone.utc).isoformat(),
+            "search_mode": "google_workspace_authorized_read",
+            "evidence_policy": "Conteúdo lido pela conta Google conectada; use somente esta evidência e não exponha permissões.",
+            "review_stage": "google_workspace_content_cleanup_before_agent_synthesis",
+        }
     actor = CreditActor.from_values(context.client_id, context.user_id)
     credits = CaduCreditConnector()
     try:
@@ -394,6 +469,7 @@ def read(context, arguments: dict) -> dict:
         "domain": _host(url),
         "excerpt": extracted.get("content_excerpt") or "",
         "source_type": "direct_url",
+        "access_mode": "firecrawl_public",
         "rank": 1,
         **extracted,
     }
@@ -412,7 +488,7 @@ def read(context, arguments: dict) -> dict:
         "source_count": 1,
         "sources_read": 1,
         "searched_at": datetime.now(timezone.utc).isoformat(),
-        "search_mode": "firecrawl_direct_page_with_selected_source_reading",
-        "evidence_policy": "Use somente o conteúdo limpo deste link; diferencie fato, interpretação e lacuna.",
+        "search_mode": "firecrawl_public_direct_page_read",
+        "evidence_policy": "Conteúdo público lido sem credenciais. Use somente o conteúdo limpo deste link; diferencie fato, interpretação e lacuna.",
         "review_stage": "python_cleanup_quality_gate_before_agent_synthesis",
     }

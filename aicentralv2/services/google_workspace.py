@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import secrets
-from datetime import datetime, timezone
-from urllib.parse import urlencode
+from datetime import datetime, timedelta, timezone
+from urllib.parse import quote, urlencode, urlsplit
 from uuid import UUID, uuid4
 
 import requests
@@ -26,6 +27,7 @@ DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
 DRIVE_CHANGES_URL = "https://www.googleapis.com/drive/v3/changes"
 DRIVE_START_PAGE_TOKEN_URL = "https://www.googleapis.com/drive/v3/changes/startPageToken"
 CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+CALENDAR_LIST_URL = "https://www.googleapis.com/calendar/v3/users/me/calendarList"
 MEET_CONFERENCE_RECORDS_URL = "https://meet.googleapis.com/v2/conferenceRecords"
 MEET_TRANSCRIPTS_SUFFIX = "/transcripts"
 MEET_RECORDINGS_SUFFIX = "/recordings"
@@ -131,6 +133,19 @@ _SERVICE_CONFIG_LABELS = {
 
 class GoogleWorkspaceError(RuntimeError):
     pass
+
+
+_GOOGLE_DRIVE_FILE_PATTERNS = (
+    re.compile(r"^/drive/(?:u/\d+/)?folders/([^/?#]+)", re.IGNORECASE),
+    re.compile(r"^/file/d/([^/?#]+)", re.IGNORECASE),
+    re.compile(r"^/(?:document|spreadsheets|presentation)/d/([^/?#]+)", re.IGNORECASE),
+)
+
+_GOOGLE_EXPORT_TYPES = {
+    "application/vnd.google-apps.document": "text/plain",
+    "application/vnd.google-apps.spreadsheet": "text/csv",
+    "application/vnd.google-apps.presentation": "text/plain",
+}
 
 
 def _configuration() -> dict:
@@ -500,7 +515,247 @@ def list_resources(organization_id: int, *, project_ref: str | None = None, limi
                  ORDER BY r.source_updated_at DESC NULLS LAST, r.name LIMIT %s""",
                 (int(organization_id), min(int(limit), 500)),
             )
-        return [dict(row) for row in cursor.fetchall()]
+        rows = [dict(row) for row in cursor.fetchall()]
+    return [_present_resource(row) for row in rows]
+
+
+def _present_resource(resource: dict) -> dict:
+    """Give every Google item an honest, UI-ready identity without exposing permissions."""
+    metadata = resource.get("metadata") or {}
+    mime = str(resource.get("mime_type") or "").lower()
+    provider = str(resource.get("provider") or "")
+    product, kind, icon = "Google Workspace", "Item compartilhável", "workspace"
+    if provider == "google_drive":
+        product, kind, icon = "Google Drive", "Arquivo", "drive-file"
+        if mime == "application/vnd.google-apps.folder": product, kind, icon = "Google Drive", "Pasta", "drive-folder"
+        elif mime == "application/vnd.google-apps.document": product, kind, icon = "Google Docs", "Documento", "docs"
+        elif mime == "application/vnd.google-apps.spreadsheet": product, kind, icon = "Google Sheets", "Planilha", "sheets"
+        elif mime == "application/vnd.google-apps.presentation": product, kind, icon = "Google Slides", "Apresentação", "slides"
+        elif mime.startswith("image/"): kind, icon = "Imagem", "image"
+        elif mime == "application/pdf": kind, icon = "PDF", "pdf"
+    elif provider == "google_meet": product, kind, icon = "Google Meet", "Reunião ou transcrição", "meet"
+    elif provider == "google_calendar": product, kind, icon = "Google Calendar", "Evento", "calendar"
+    sharing = str(metadata.get("sharing_access") or "unknown")
+    labels = {"public": "Aberto para quem tem o link", "shared": "Compartilhado", "restricted": "Acesso restrito", "unknown": "Acesso não verificado"}
+    return {**resource, "presentation": {"product": product, "kind": kind, "icon": icon,
+            "thumbnail_url": str(metadata.get("thumbnail_url") or ""),
+            "sharing": sharing, "sharing_label": labels.get(sharing, labels["unknown"])}}
+
+
+def _drive_metadata(item: dict) -> dict:
+    permissions = item.get("permissions") or []
+    anyone = any(str(permission.get("type") or "") == "anyone" for permission in permissions if isinstance(permission, dict))
+    shared = bool(item.get("shared"))
+    return {"drive_id": item.get("driveId"), "description": item.get("description"),
+            "thumbnail_url": item.get("thumbnailLink"), "icon_url": item.get("iconLink"),
+            "sharing_access": "public" if anyone else "shared" if shared else "restricted" if permissions else "unknown"}
+
+
+def _drive_file_id_from_url(raw_url: str) -> str:
+    """Extract a Drive-native ID without fetching or following a user URL."""
+    try:
+        parsed = urlsplit(str(raw_url or "").strip())
+    except ValueError:
+        return ""
+    host = (parsed.hostname or "").lower()
+    if host not in {"drive.google.com", "docs.google.com"}:
+        return ""
+    for pattern in _GOOGLE_DRIVE_FILE_PATTERNS:
+        match = pattern.search(parsed.path or "")
+        if match:
+            return str(match.group(1) or "")[:300]
+    return ""
+
+
+def read_drive_content(organization_id: int, raw_url: str, *, max_characters: int = 12000) -> dict | None:
+    """Read a Drive item using the organization's OAuth grant.
+
+    This deliberately never falls back to a browser session or passes an OAuth
+    token to another provider. ``None`` means the URL is not a supported Drive
+    resource or the organization has no active Google connection; callers can
+    then choose an explicitly public-only fallback.
+    """
+    file_id = _drive_file_id_from_url(raw_url)
+    if not file_id:
+        return None
+    connection = get_connection(organization_id)
+    if not connection or str(connection.get("status") or "") != "connected":
+        return None
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    headers = {"Authorization": f"Bearer {token}"}
+    fields = (
+        "id,name,mimeType,description,webViewLink,thumbnailLink,iconLink,shared,"
+        "createdTime,modifiedTime,capabilities(canDownload),permissions(type,role,allowFileDiscovery)"
+    )
+    response = requests.get(
+        f"{DRIVE_FILES_URL}/{file_id}", headers=headers,
+        params={"fields": fields, "supportsAllDrives": "true"}, timeout=30,
+    )
+    if response.status_code in {401, 403, 404}:
+        return None
+    if not response.ok:
+        raise GoogleWorkspaceError("Não foi possível consultar este item no Google Drive.")
+    item = response.json() or {}
+    mime_type = str(item.get("mimeType") or "")
+    title = str(item.get("name") or "Item do Google Drive")[:500]
+    description = str(item.get("description") or "").strip()
+    content = ""
+    kind = "arquivo"
+    if mime_type == "application/vnd.google-apps.folder":
+        kind = "pasta"
+        children = requests.get(
+            DRIVE_FILES_URL, headers=headers,
+            params={
+                "q": f"'{file_id}' in parents and trashed = false", "pageSize": 100,
+                "orderBy": "name", "supportsAllDrives": "true",
+                "fields": "files(id,name,mimeType,modifiedTime)",
+            }, timeout=30,
+        )
+        if children.ok:
+            entries = children.json().get("files") or []
+            lines = [f"Pasta: {title}"]
+            if description:
+                lines.append(description)
+            lines.extend(f"- {entry.get('name') or 'Sem nome'}" for entry in entries[:100])
+            content = "\n".join(lines)
+    elif item.get("capabilities", {}).get("canDownload"):
+        if mime_type in _GOOGLE_EXPORT_TYPES:
+            content_response = requests.get(
+                f"{DRIVE_FILES_URL}/{file_id}/export", headers=headers,
+                params={"mimeType": _GOOGLE_EXPORT_TYPES[mime_type]}, timeout=45,
+            )
+        else:
+            content_response = requests.get(
+                f"{DRIVE_FILES_URL}/{file_id}", headers=headers,
+                params={"alt": "media", "supportsAllDrives": "true"}, timeout=45,
+            )
+        if content_response.ok and "text" in str(content_response.headers.get("Content-Type") or ""):
+            content = content_response.text
+    if not content and description:
+        content = f"{title}\n\n{description}"
+    return {
+        "title": title,
+        "url": str(item.get("webViewLink") or raw_url),
+        "mime_type": mime_type,
+        "kind": kind,
+        "content": content[:max(1000, int(max_characters))],
+        "thumbnail_url": str(item.get("thumbnailLink") or ""),
+        "access_mode": "google_workspace_authorized",
+        "sharing_access": _drive_metadata(item).get("sharing_access", "unknown"),
+    }
+
+
+def _google_url(value: str) -> str:
+    try:
+        parsed = urlsplit(str(value or "").strip())
+    except ValueError:
+        return ""
+    return parsed._replace(fragment="").geturl().rstrip("/")
+
+
+def _meeting_code(value: str) -> str:
+    try:
+        parsed = urlsplit(str(value or "").strip())
+    except ValueError:
+        return ""
+    if (parsed.hostname or "").lower() != "meet.google.com":
+        return ""
+    return str(parsed.path or "").strip("/").lower()
+
+
+def _calendar_events_across_accessible_calendars(organization_id: int, *, limit_per_calendar: int = 250) -> list[dict]:
+    """Read a bounded matching window across calendars visible to the account."""
+    connection = get_connection(organization_id)
+    if not connection or str(connection.get("status") or "") != "connected":
+        return []
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(
+        CALENDAR_LIST_URL, headers=headers,
+        params={"maxResults": 100, "fields": "items(id,primary,accessRole)"}, timeout=30,
+    )
+    if not response.ok:
+        raise GoogleWorkspaceError("Não foi possível consultar os calendários da conta Google.")
+    calendars = response.json().get("items") or []
+    calendar_ids = [str(item.get("id") or "") for item in calendars if item.get("id")]
+    calendar_ids = list(dict.fromkeys(calendar_ids))[:20]
+    now = datetime.now(timezone.utc)
+    time_min = (now - timedelta(days=366)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    time_max = (now + timedelta(days=366)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    events = []
+    for calendar_id in calendar_ids:
+        endpoint = f"https://www.googleapis.com/calendar/v3/calendars/{quote(calendar_id, safe='')}/events"
+        event_response = requests.get(
+            endpoint, headers=headers,
+            params={
+                "maxResults": min(max(int(limit_per_calendar), 1), 250),
+                "singleEvents": "true", "orderBy": "startTime", "timeMin": time_min, "timeMax": time_max,
+                "fields": "items(id,summary,description,htmlLink,start,end,attendees,conferenceData)",
+            }, timeout=30,
+        )
+        if event_response.status_code in {403, 404}:
+            continue
+        if not event_response.ok:
+            raise GoogleWorkspaceError("Não foi possível consultar os eventos da conta Google.")
+        events.extend(event_response.json().get("items") or [])
+    return events
+
+
+def _calendar_or_meet_content(organization_id: int, raw_url: str, *, max_characters: int) -> dict | None:
+    """Resolve Calendar events and Meet joins from authorized Calendar data.
+
+    A meeting URL is not scraped as a web page: its useful context (title,
+    schedule and participants) belongs to the authenticated Calendar record.
+    """
+    try:
+        parsed = urlsplit(str(raw_url or "").strip())
+    except ValueError:
+        return None
+    host = (parsed.hostname or "").lower()
+    if host not in {"calendar.google.com", "meet.google.com"}:
+        return None
+    connection = get_connection(organization_id)
+    if not connection or str(connection.get("status") or "") != "connected":
+        return None
+    target = _google_url(raw_url)
+    code = _meeting_code(raw_url)
+    events = _calendar_events_across_accessible_calendars(organization_id, limit_per_calendar=250)
+    for event in events:
+        event_url = _google_url(event.get("htmlLink") or "")
+        entry_points = ((event.get("conferenceData") or {}).get("entryPoints") or [])
+        conference_urls = [_google_url(point.get("uri") or "") for point in entry_points if isinstance(point, dict)]
+        matches = target and (target == event_url or target in conference_urls)
+        matches = matches or bool(code and any(code in candidate.lower() for candidate in conference_urls))
+        if not matches:
+            continue
+        title = str(event.get("summary") or ("Reunião Google Meet" if code else "Evento Google Calendar"))[:500]
+        start = (event.get("start") or {}).get("dateTime") or (event.get("start") or {}).get("date") or ""
+        end = (event.get("end") or {}).get("dateTime") or (event.get("end") or {}).get("date") or ""
+        attendees = [str(person.get("displayName") or person.get("email") or "") for person in event.get("attendees") or [] if isinstance(person, dict)]
+        lines = [title]
+        if start: lines.append(f"Início: {start}")
+        if end: lines.append(f"Fim: {end}")
+        if event.get("description"): lines.extend(("", str(event["description"])))
+        if attendees: lines.append("Convidados: " + ", ".join(name for name in attendees if name)[:1000])
+        return {
+            "title": title, "url": str(event.get("htmlLink") or raw_url),
+            "mime_type": "application/x-google-calendar-event",
+            "kind": "reunião" if code else "evento",
+            "content": "\n".join(lines)[:max(1000, int(max_characters))],
+            "thumbnail_url": "", "access_mode": "google_workspace_authorized",
+            "sharing_access": "restricted",
+        }
+    # A connected Google calendar did not identify this meeting/event. It is
+    # not a public web document; leave the caller a clear unavailable outcome.
+    raise GoogleWorkspaceError("Este evento ou reunião não foi encontrado na conta Google conectada.")
+
+
+def read_google_link_content(organization_id: int, raw_url: str, *, max_characters: int = 12000) -> dict | None:
+    """Read a supported Google URL through the connected Workspace account."""
+    drive = read_drive_content(organization_id, raw_url, max_characters=max_characters)
+    if drive:
+        return drive
+    return _calendar_or_meet_content(organization_id, raw_url, max_characters=max_characters)
 
 
 def _sync_drive_full(organization_id: int, *, limit: int = 200, page_token: str | None = None) -> dict:
@@ -515,7 +770,7 @@ def _sync_drive_full(organization_id: int, *, limit: int = 200, page_token: str 
         "spaces": "drive",
         "includeItemsFromAllDrives": "true",
         "supportsAllDrives": "true",
-        "fields": "files(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description),nextPageToken",
+        "fields": "files(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description,thumbnailLink,iconLink,shared,permissions(type,role,allowFileDiscovery)),nextPageToken",
     }
     files = []
     next_page_token = str(page_token or "") or None
@@ -555,7 +810,7 @@ def _sync_drive_full(organization_id: int, *, limit: int = 200, page_token: str 
                         updated_at=NOW(), status='active'""",
                     (uuid4(), connection["id"], str(item.get("id")), str(item.get("name") or "Arquivo Google")[:500],
                      item.get("mimeType"), item.get("webViewLink"), (item.get("parents") or [None])[0],
-                     Json({"drive_id": item.get("driveId"), "description": item.get("description")}),
+                     Json(_drive_metadata(item)),
                      _timestamp(item.get("createdTime")), _timestamp(item.get("modifiedTime"))),
                 )
             cursor.execute(
@@ -589,7 +844,7 @@ def _upsert_drive_changes(connection_id, files: list[dict], removed_ids: list[st
                         updated_at=NOW(), status='active'""",
                     (uuid4(), connection_id, str(item.get("id")), str(item.get("name") or "Arquivo Google")[:500],
                      item.get("mimeType"), item.get("webViewLink"), (item.get("parents") or [None])[0],
-                     Json({"drive_id": item.get("driveId"), "description": item.get("description")} ),
+                     Json(_drive_metadata(item)),
                      _timestamp(item.get("createdTime")), _timestamp(item.get("modifiedTime"))),
                 )
             if removed_ids:
@@ -664,7 +919,7 @@ def sync_drive(organization_id: int, *, limit: int = 200) -> dict:
             "pageToken": change_token, "pageSize": page_size,
             "includeRemoved": "true", "includeItemsFromAllDrives": "true",
             "supportsAllDrives": "true",
-            "fields": "changes(fileId,removed,file(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description)),nextPageToken,newStartPageToken",
+            "fields": "changes(fileId,removed,file(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description,thumbnailLink,iconLink,shared,permissions(type,role,allowFileDiscovery))),nextPageToken,newStartPageToken",
         },
         timeout=30,
     )

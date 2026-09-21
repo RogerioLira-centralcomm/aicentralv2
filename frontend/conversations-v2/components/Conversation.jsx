@@ -79,12 +79,14 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
   const dense = text.length > 900 || text.split('\n').length > 12;
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
   if (message.kind === 'action') {
-    return <div className="cv-max-w-[72ch]">
-      <p className="cv-m-0 cv-text-[15px] cv-leading-7 cv-text-[#d9e7e4]">{message.action?.summary || 'Esta ação precisa da sua confirmação.'}</p>
-      <div className="cv-mt-3 cv-flex cv-gap-2"><button type="button" onClick={() => onDecision(message, false)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs">Cancelar</button><button type="button" onClick={() => onDecision(message, true)} className="cv-rounded-lg cv-border-0 cv-bg-teal cv-px-3 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#04211e]">Confirmar</button></div>
+    return <div className="cv-action-confirmation cv-max-w-[72ch]">
+      <div className="cv-action-confirmation__heading"><Icon name="pulse" size={15}/><span>Confirme antes de continuar</span></div>
+      <p>{message.action?.summary || 'Esta ação precisa da sua confirmação.'}</p>
+      <small>O Cadu só executa esta etapa depois da sua confirmação.</small>
+      <div className="cv-action-confirmation__actions"><button type="button" onClick={() => onDecision(message, false)}>Cancelar</button><button type="button" onClick={() => onDecision(message, true)}>Confirmar ação</button></div>
     </div>;
   }
-  return <div className="cv-message-enter cv-max-w-[72ch]">
+  return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
     {dense ? <><p className="cv-m-0 cv-text-[15px] cv-leading-7 cv-text-[#d9e7e4]">{text.replace(/\[[^\]]+\]\([^)]+\)|[*_`#]/g, '').replace(/\s+/g, ' ').slice(0, 320).replace(/\s+\S*$/, '')}…</p><details className="cv-mt-3"><summary className="cv-cursor-pointer cv-text-xs cv-font-semibold cv-text-[#65d8cb]">Ver resposta completa</summary><div className="cv-prose cv-mt-3"><Markdown>{text}</Markdown></div></details></> : <div className="cv-prose"><Markdown>{text}</Markdown></div>}
     <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>
     {!!response.questions?.length && <div className="cv-mt-5 cv-border-l-2 cv-border-teal/50 cv-pl-4">{response.questions.map((question, index) => <div key={index} className="cv-my-2"><p className="cv-m-0 cv-text-sm cv-text-[#e4efed]">{question}</p><button type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-mt-2 cv-border-0 cv-bg-transparent cv-p-0 cv-text-xs cv-font-semibold cv-text-[#65d8cb]">Responder</button></div>)}</div>}
@@ -133,7 +135,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
     </div>
   </div>;
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
-    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-mb-7 cv-flex cv-justify-end"><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <article key={message.id} data-cv-answer="true" className="cv-mb-7"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article>)}
+    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <article key={message.id} data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><span className="cv-message__label">Cadu</span><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article>)}
     {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
     <WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/>
     <div ref={end}/>

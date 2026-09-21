@@ -383,24 +383,25 @@ export default function App({bootstrap}) {
       onProgress: setAttachments,
     }), [attachments, context.project_ref, bootstrap.endpoints.uploads]);
 
-  const submit = useCallback(async (requestedInput = input) => {
+  const submit = useCallback(async (requestedInput = input, {skipAttachments = false} = {}) => {
     const clean = requestedInput.trim();
     if (!clean || running) return;
     if (artifactDirty && !(await confirmDiscard(false))) return;
     if (artifactDirty && artifactRef.current?.id) {
       try { await fetchArtifact(artifactRef.current.id); } catch (error) { trace('Não foi possível restaurar o artefato', error.message, 'error'); return; }
     }
-    setRunning(true); setDiagnostics([]); setRuntime(attachments.length ? 'Enviando arquivos' : 'Trabalhando');
+    const turnAttachments = skipAttachments ? [] : attachments;
+    setRunning(true); setDiagnostics([]); setRuntime(turnAttachments.length ? 'Enviando arquivos' : 'Trabalhando');
     if (!conversationRef.current && window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
     let staged;
-    try { staged = attachments.length ? await uploadFiles() : []; }
+    try { staged = turnAttachments.length ? await uploadFiles() : []; }
     catch (error) { setRunning(false); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
     const files = [...staged.map(item => ({id: item.id, name: item.name, source: item.source || null})), ...homeAttachments];
     const providerFileIds = files.map(item => item.id).filter(Boolean);
     const turnId = uid();
     setMessages(items => [...items, {id: uid(), turnId, role: 'user', content: clean, files}]);
     setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
-    setInput(''); setComposerContext(null); setHomeAttachments([]); setAttachments(items => { releasePreviews(items); return []; }); setRuntime('Trabalhando');
+    setInput(''); setComposerContext(null); setHomeAttachments([]); if (!skipAttachments) setAttachments(items => { releasePreviews(items); return []; }); setRuntime('Trabalhando');
     let terminal = false;
     let runStarted = false;
     let latestArtifact = null;

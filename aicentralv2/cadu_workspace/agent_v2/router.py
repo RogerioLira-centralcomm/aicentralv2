@@ -81,6 +81,9 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         has_url = bool(re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE))
         return IntentRoute("workspace", "create_project_link" if has_url else "clarify_project_link",
                            "low", "decision" if has_url else "clarification", ("project",), (), None, has_url)
+    if has_project and re.search(r"https://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE) and _has(text, r"\b(resumo|resumir|s[ií]ntese).{0,45}\b(texto|edit[aá]vel|site|conte[uú]do)\b"):
+        return IntentRoute("research", "create_link_summary", "high", "artifact_first",
+                           ("project",), ("web.read",), "document")
     if has_project and _has(text, r"\b(arquiv|desativ|reativ|restaur).{0,30}\bprojeto\b"):
         return IntentRoute("workspace", "set_project_status", "medium", "decision",
                            ("project",), (), None, True)

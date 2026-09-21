@@ -445,14 +445,38 @@ def stream(run):
     yield _event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"], execution_mode=execution_mode)
     _journal(run["run_id"], "route.selected", {"route": run["route"], "policy": run["policy"]})
     yield _event("route.selected", route=run["route"], policy=run["policy"])
-    for action in journal.waiting_actions(
-            run["run_id"], run["context"].client_id, run["context"].user_id):
+    waiting_actions = journal.waiting_actions(
+        run["run_id"], run["context"].client_id, run["context"].user_id,
+    )
+    for action in waiting_actions:
         _journal(run["run_id"], "action.proposed", action, item_type="action")
         yield _event("action.proposed", action=action)
     for call in run["resolved_context"].tool_calls:
         _journal(run["run_id"], "tool.completed" if call["status"] == "completed" else "tool.unavailable",
                  call, item_type="activity", duration_ms=call.get("duration_ms"))
         yield _event("tool.completed" if call["status"] == "completed" else "tool.unavailable", **call)
+    # Saving a pasted project link is intentionally a bounded action. Do not
+    # ask the provider to interpret, browse or generate follow-up choices for
+    # it: that used to fabricate a second flow after the user had already
+    # selected the active project. The approval receipt is the complete answer.
+    if any(action.get("name") == "projects.create_link_reference" for action in waiting_actions):
+        conn = repository.get_db()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""UPDATE cadu_family_chat_runs
+                               SET status='completed', finished_at=NOW(), total_duration_ms=%s,
+                                   provider_duration_ms=0, input_tokens=0, output_tokens=0
+                             WHERE id=%s AND status='running'""",
+                            (round((perf_counter() - run_started) * 1000), run["run_id"]))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            current_app.logger.exception("Falha ao finalizar proposta de referência %s", run["run_id"])
+        payload = {"status": "completed", "conversation_id": run["conversation_id"],
+                   "total_duration_ms": round((perf_counter() - run_started) * 1000)}
+        _journal(run["run_id"], "run.completed", payload, item_type="activity")
+        yield _event("run.completed", **payload)
+        return
     try:
         provider_started = perf_counter()
         for item in provider.events(run["provider_payload"], execution_mode):

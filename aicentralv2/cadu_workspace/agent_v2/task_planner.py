@@ -92,7 +92,7 @@ def _project_link_step(message: str):
     return {
         "kind": "action", "name": "projects.create_link_reference", "requires_confirmation": True,
         "request_id": str(uuid4()), "arguments": {"url": match.group(0).rstrip(".,;:)")}, "effect": "write",
-        "summary": "Adicionar o link como referência do projeto, sem indexar seu conteúdo.",
+        "summary": "Salvar o link como referência do projeto, sem abrir, ler ou indexar o conteúdo.",
     }
 
 

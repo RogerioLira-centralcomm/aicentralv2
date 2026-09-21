@@ -104,14 +104,14 @@ export function WorkspaceHome({bootstrap}) {
   }, [attachmentDestination, classifyAttachment]);
   const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
   const setAttachmentPurpose = useCallback((index, destination) => setAttachments(items => items.map((item, itemIndex) => itemIndex === index ? {...item, destination} : item)), []);
-  const submit = async () => {
-    const prompt = value.trim();
+  const submit = async (requestedInput = value, {skipAttachments = false} = {}) => {
+    const prompt = String(requestedInput || '').trim();
     if (!prompt) return;
     try {
-      const staged = attachments.length ? await uploadAttachments({attachments, projectRef, uploadsEndpoint: bootstrap.endpoints.uploads, requestFn: request, fetchFn: fetch, csrfToken: csrf, uuid: () => crypto.randomUUID(), onProgress: setAttachments}) : [];
+      const staged = !skipAttachments && attachments.length ? await uploadAttachments({attachments, projectRef, uploadsEndpoint: bootstrap.endpoints.uploads, requestFn: request, fetchFn: fetch, csrfToken: csrf, uuid: () => crypto.randomUUID(), onProgress: setAttachments}) : [];
       const pending = staged.filter(item => item.id).map(item => ({id: item.id, name: item.name}));
       if (pending.length) sessionStorage.setItem('cadu:home-pending-attachments', JSON.stringify(pending));
-      setAttachments(items => { releasePreviews(items); return []; });
+      if (!skipAttachments) setAttachments(items => { releasePreviews(items); return []; });
       window.location.assign(withQuery(bootstrap.urls.newConversation, {prompt, project_ref: projectRef, brand_ref: brandRef, mode: executionMode, auto_send: '1'}));
     } catch (error) { setToast(error.message || 'Não foi possível preparar os anexos.'); }
   };

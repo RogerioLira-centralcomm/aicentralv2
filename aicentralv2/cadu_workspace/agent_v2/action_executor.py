@@ -45,9 +45,15 @@ def _completion(step_name: str, result: dict) -> dict:
         ], "refresh_context": True}
     if step_name == "projects.create_link_reference":
         title = result.get("title") or "Link"
-        detail = "Referência salva sem indexação automática."
+        detail = "O link foi organizado como referência. O conteúdo não foi aberto, lido ou indexado."
+        blocks = [{"type": "activity", "state": "completed", "label": detail}]
+        if result.get("provider") in {"generic", "google_drive"}:
+            blocks.append({"type": "questions", "title": "Próximo passo opcional", "items": [{
+                "id": "summarize-link", "title": "Criar resumo editável deste link",
+                "prompt": f"Crie um resumo em texto editável do conteúdo disponível neste link para o projeto: {result.get('url', '')}",
+            }]})
         return {"answer": f"“{title}” foi adicionado às referências do projeto.", "blocks": [
-            {"type": "activity", "state": "completed", "label": detail},
+            *blocks,
         ], "refresh_context": True}
     return {"answer": "Ação concluída.", "blocks": [{"type": "activity", "state": "completed", "label": "Ação concluída"}]}
 

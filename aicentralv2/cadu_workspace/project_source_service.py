@@ -86,8 +86,8 @@ def classify_intake(*, filename: str = "", mime_type: str = "", url: str = "", t
         return {
             "input_type": "link", "purpose": requested_purpose or "project_attachment",
             "category": "reference", "index_recommended": False,
-            "processing": "link_extraction_pending", "requires_confirmation": True,
-            "reason": "Links são salvos como referência primeiro; a extração e a indexação exigem confirmação.",
+            "processing": "reference_only", "requires_confirmation": False,
+            "reason": "Links são salvos somente como referência. Leitura, extração e indexação são ações posteriores e explícitas.",
         }
     if filename:
         support = inspect_file_support(filename, mime_type)
@@ -194,6 +194,7 @@ def create_link_reference(context: RequestContext, *, url: str, title: str = "")
     return {"link_id": link_id, "url": link["url"], "title": link["title"],
             "provider": link["provider"], "created": created,
             "purpose": "project_attachment", "indexing": "not_requested",
+            "access": "not_checked", "content": "not_read",
             "registry_sync": registry_sync}
 
 

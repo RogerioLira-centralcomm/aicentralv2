@@ -517,6 +517,24 @@ body.portal--workspace > main#content.portal-content--workspace-react .cadu-ds-c
   width:100%;
   max-width:none;
 }
+
+/* The quiet planning-map texture belongs to the light Workspace surfaces.
+   Conversation mode keeps its own visual language and remains untouched. */
+body.portal--workspace:not(:has(.cv-conversations-shell)) .cadu-ds-home-shell,
+body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[data-workspace-react-shell="true"] {
+  background-color:var(--cadu-canvas);
+  background-image:url('../../aicentralv2/static/cadu_workspace/workspace-top-background.png');
+  background-position:top center;
+  background-repeat:no-repeat;
+  background-size:cover;
+  background-attachment:fixed;
+}
+
+body.portal--workspace:not(:has(.cv-conversations-shell)) .cadu-ds-home-main,
+body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[data-workspace-react-shell="true"] > .workspace-app-main {
+  background-color:transparent;
+}
+
 .cadu-ds-home-shell {
   overflow:hidden;
   border-radius:18px;

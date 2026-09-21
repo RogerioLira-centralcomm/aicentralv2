@@ -88,12 +88,13 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "O briefing tem informação suficiente para materialização. Crie um artifact_patch útil e enxuto; "
             "registre apenas lacunas reais, sem preencher o documento com itens marcados como pendente."
         )
-    if route.action == "create_text_draft":
+    if route.action in {"create_text_draft", "create_link_summary"}:
         draft_instruction = (
             "Você está no modo revisor pontual de um rascunho. Use somente o conteúdo limpo em evidence e selected_context. "
             "Não invente fatos, datas, números, citações ou imagens. Organize o material em um título fiel e HTML simples de editor "
             "(p, h2, ul, blockquote e img HTTPS apenas quando a fonte fornecer a imagem); preserve lacunas como lacunas. "
-            "Retorne artifact_patch com title, summary e html, sem Markdown, CSS ou JavaScript. O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita."
+            "Retorne artifact_patch com title, summary e html, sem Markdown, CSS ou JavaScript. "
+            + ("O resumo será criado como entrega editável do projeto. Quando evidence indicar `google_workspace_authorized`, trate-o como acesso pela conta conectada; quando indicar `firecrawl_public`, deixe claro que o resumo veio apenas do conteúdo público e nunca suponha acesso a itens privados." if route.action == "create_link_summary" else "O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita.")
         )
     if route.artifact_type == "html":
         draft_instruction = (

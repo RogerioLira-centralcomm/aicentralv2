@@ -6,6 +6,7 @@ import {ResponseBlocks} from './ResponseBlocks';
 import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
 import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
 import {WorkspacePromptSuggestions} from '../../cadu-design-system/components/WorkspacePromptSuggestions';
+import {WorkspaceSourceList, WorkspaceTaskProgress} from '../../cadu-design-system';
 
 function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   const needsCredits = failure?.kind === 'credits';
@@ -86,7 +87,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
     <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>
     {!!response.questions?.length && <div className="cv-mt-5 cv-border-l-2 cv-border-teal/50 cv-pl-4">{response.questions.map((question, index) => <div key={index} className="cv-my-2"><p className="cv-m-0 cv-text-sm cv-text-[#e4efed]">{question}</p><button type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-mt-2 cv-border-0 cv-bg-transparent cv-p-0 cv-text-xs cv-font-semibold cv-text-[#65d8cb]">Responder</button></div>)}</div>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
-    {!!response.citations?.length && <div className="cv-mt-4 cv-flex cv-flex-wrap cv-gap-2">{response.citations.slice(0, 6).map((item, index) => { const href = safeUrl(item?.url); return href ? <a key={index} href={href} target="_blank" rel="noreferrer" className="cv-rounded-full cv-bg-white/[.06] cv-px-3 cv-py-1.5 cv-text-xs cv-text-[#b9cbc8] cv-no-underline hover:cv-text-white">{item.title || 'Fonte'}</a> : <span key={index} className="cv-rounded-full cv-bg-white/[.06] cv-px-3 cv-py-1.5 cv-text-xs cv-text-[#b9cbc8]">{item.title || 'Fonte'}</span>; })}</div>}
+    {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 8).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}
     {!!response.actions?.length && <section className="cv-mt-5 cv-border-t cv-border-white/[.07] cv-pt-4"><span className="cv-mb-2 cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas ações</span><div className="cv-flex cv-flex-wrap cv-gap-2">{response.actions.slice(0, 3).map((item, index) => <button key={index} type="button" onClick={() => onPrompt(item.prompt || '')} className={`${item.style === 'primary' ? 'cv-border-teal/30 cv-bg-teal/10 cv-text-teal' : 'cv-border-white/10 cv-bg-transparent cv-text-[#c7d8d4]'} cv-rounded-lg cv-border cv-px-3 cv-py-2 cv-text-xs hover:cv-bg-white/[.08]`}>{item.label}</button>)}</div></section>}
     {message.artifact?.id && <button type="button" onClick={() => onOpenArtifact(message.artifact)} className="cv-mt-5 cv-flex cv-items-center cv-gap-2 cv-rounded-lg cv-border-0 cv-bg-teal/10 cv-px-3 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#66dbce] hover:cv-bg-teal/15"><Icon name="file" size={15}/>Abrir {message.artifact.title || 'artefato'}</button>}
   </div>;
@@ -104,7 +105,7 @@ function SelectionTools({text, onPrompt, onClear}) {
   </div>;
 }
 
-function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime, starterProject, starterBrand, starterHome}) {
+function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime, diagnostics, starterProject, starterBrand, starterHome}) {
   const end = useRef(null);
   const thread = useRef(null);
   const [selection, setSelection] = useState('');
@@ -132,7 +133,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
     {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-mb-7 cv-flex cv-justify-end"><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <article key={message.id} data-cv-answer="true" className="cv-mb-7"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article>)}
     {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
-    {running && <div className="cv-mb-10 cv-flex cv-items-center cv-gap-3 cv-text-xs cv-text-[#86a29e]" role="status"><span className="cv-flex cv-gap-1" aria-hidden="true"><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal"/><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal" style={{animationDelay: '160ms'}}/><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal" style={{animationDelay: '320ms'}}/></span>{runtime || 'Cadu está trabalhando'}</div>}
+    <WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/>
     <div ref={end}/>
   </div>;
 }
@@ -159,7 +160,7 @@ export function Conversation({title, context, projects, brands, starterProject, 
       </details>
     </header>
     {notice && <div className="cv-absolute cv-right-5 cv-top-[78px] cv-z-30 cv-flex cv-w-[min(390px,calc(100%-40px))] cv-items-start cv-gap-3 cv-rounded-xl cv-border cv-border-[#ff7d83]/25 cv-bg-[#28191b]/95 cv-p-3 cv-shadow-2xl cv-backdrop-blur" role="alert"><span className="cv-mt-1 cv-h-2 cv-w-2 cv-flex-none cv-rounded-full cv-bg-[#ff7d83]"/><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-xs cv-font-semibold">{notice.title}</strong>{notice.detail && <span className="cv-mt-1 cv-block cv-text-[11px] cv-leading-5 cv-text-[#d8b5b7]">{notice.detail}</span>}</div><button type="button" onClick={onDismissNotice} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#c99b9e]" aria-label="Fechar aviso"><Icon name="close" size={14}/></button></div>}
-    <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
+    <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} diagnostics={diagnostics} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;

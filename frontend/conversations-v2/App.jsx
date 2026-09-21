@@ -693,12 +693,16 @@ export default function App({bootstrap}) {
   }, [conversationDockItems, createDockShortcut, dockShortcutEndpoint, trace]);
   const addDroppedDockItem = useCallback(async payload => {
     if (!payload || payload.dockSource === 'dock') return;
-    const isResource = Boolean(payload.resourceRef) || payload.type === 'resource' || ['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link'].includes(String(payload.kind || '').toLowerCase());
+    const payloadKind = String(payload.type || payload.kind || '').toLowerCase();
+    const isResource = Boolean(payload.resourceRef) || payloadKind === 'resource' || ['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link'].includes(payloadKind);
+    const targetProject = String(payload.projectRef || payload.id || '');
+    const project = projects.find(item => [item.id, item.ref, item.projectRef, item.id && `ci:${item.id}`].some(ref => String(ref || '') === targetProject));
+    const brand = brands.find(item => String(item.id) === String(payload.id) || String(item.brandRef || `studio:${item.id}`) === String(payload.brandRef));
     const candidate = isResource
       ? {...payload, kind: 'resource', id: payload.id || `resource:${payload.resourceRef}`, title: payload.title || 'Recurso'}
-      : payload.type === 'brand'
-        ? brands.find(item => String(item.id) === String(payload.id) || String(item.brandRef || `studio:${item.id}`) === String(payload.brandRef))
-        : projects.find(item => String(item.id || item.ref || item.projectRef) === String(payload.id || payload.projectRef));
+      : payloadKind === 'brand'
+        ? brand && {...brand, kind: 'brand', brandRef: brand.brandRef || `studio:${brand.id}`, title: brand.title || brand.name}
+        : project && {...project, kind: 'project', projectRef: project.projectRef || project.ref || `ci:${project.id}`, title: project.title || project.name};
     if (!candidate || !['brand', 'project', 'resource'].includes(candidate.kind)) {
       trace('Atalho não adicionado', 'A dock aceita apenas marcas, projetos e recursos.', 'error');
       return;
@@ -712,7 +716,7 @@ export default function App({bootstrap}) {
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => item.projectRef && changeProject(item.projectRef, {showHistory: true})} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={item => changeBrand(item.brandRef || `studio:${item.id}`)} onOpenResource={item => { if (item?.kind === 'resource' || item?.resourceRef) { if (item.href) window.location.assign(item.href); return; } if (item?.projectRef) changeProject(item.projectRef, {showHistory: true}); }} onOpenUsage={() => setAccountOpen(true)}/>
           <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} projectResourcesEndpoint={bootstrap.endpoints?.projectResources || '/workspace/api/v2/projects'} activeId={conversationId} onOpen={openConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">

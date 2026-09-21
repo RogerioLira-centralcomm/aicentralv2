@@ -2,9 +2,9 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {Icon} from './Icon';
 import {VisualIdentity} from './VisualIdentity';
 
-const HOME_ITEMS = [
-  {id: 'home', label: 'Início', key: 'home', icon: 'home'},
-];
+// The home surface is already the current destination. Keep its context rail
+// focused on work shortcuts instead of repeating an "Início" navigation item.
+const HOME_ITEMS = [];
 
 const ACCOUNT_ITEMS = [
   {id: 'agencia', label: 'Agência', key: 'agencia', icon: 'home'},
@@ -88,9 +88,9 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
       <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span><strong>{agencyName || 'Cliente'}</strong></div>
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={!collapsed}>{collapsed ? '›' : '‹'}</button>
     </header>
-    <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
+    {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
       {items.map(item => { const href = links[item.key]; if (!href) return null; return <a key={item.id} href={href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon} size={16}/><span>{item.label}</span></a>; })}
-    </nav>
+    </nav>}
     {mode === 'home' && <>
       <SidebarCollection label="Marcas" href={links.brands} items={brands} kind="brand" />
       <SidebarCollection label="Projetos" href={links.projects} items={projects} kind="project" />

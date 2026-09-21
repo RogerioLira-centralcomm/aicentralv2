@@ -730,11 +730,15 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         item = catalog.get(key)
         if item:
             explicit.append({**item, 'shortcutId': row['id'], 'pinned': True})
+    # A blank mark makes the shared dock look broken. Brands without an
+    # approved/resolved logo stay available in the catalog, but never enter
+    # the automatic or personalized dock shelf.
+    explicit = [item for item in explicit if item.get('kind') != 'brand' or item.get('logoUrl')]
     if explicit:
         return explicit[:8]
-    # Before the user personalizes the dock, show only a small brand shelf.
-    # Projects enter the dock through an explicit shortcut, never by catalog size.
-    return brand_items[:3]
+    # Before the user personalizes the dock, show only a small shelf of brands
+    # with a visible logo. Projects enter the dock through an explicit shortcut.
+    return [item for item in brand_items if item.get('logoUrl')][:3]
 
 
 @bp.get('/workspace/api/dock/shortcuts')
@@ -3564,6 +3568,17 @@ def project_detail(project_id):
     if request.args.get('legacy') != '1':
         projects = _workspace_projects(client_id)
         brands = _workspace_brands(client_id)
+        # Keep the project selector useful when the global catalog is briefly
+        # incomplete (for example while the optional brand-assets projection
+        # is being migrated). The project loader already resolved these brands
+        # through the tenant-scoped link, so merge them without widening the
+        # agency boundary or duplicating entries.
+        catalog_brand_ids = {str(item.get('id')) for item in brands}
+        for linked_brand in project.get('brands') or []:
+            linked_brand_id = str(linked_brand.get('id') or '')
+            if linked_brand_id and linked_brand_id not in catalog_brand_ids:
+                brands.append(linked_brand)
+                catalog_brand_ids.add(linked_brand_id)
         project_items = [{
             'id': f"ci:{item.get('id')}", 'kind': 'project',
             'title': str(item.get('nome') or 'Projeto'),

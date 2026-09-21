@@ -182,6 +182,8 @@
 .cadu-ds-dock-logo img { width:100%; height:100%; object-fit:contain; }
 .cadu-ds-dock-new { width:32px; height:32px; margin:0 0 14px; border:0; border-radius:10px; background:transparent; color:#a8e5da; }
 .cadu-ds-dock-new:hover,.cadu-ds-dock-new:focus-visible { background:rgba(127,207,194,.13); color:#f4fffd; }
+.cadu-ds-dock-home { display:grid; width:32px; height:32px; place-items:center; margin:0 0 14px; border:0; border-radius:10px; background:transparent; color:var(--cadu-nav-muted); text-decoration:none; }
+.cadu-ds-dock-home:hover,.cadu-ds-dock-home:focus-visible { background:rgba(127,207,194,.13); color:#f4fffd; outline:0; }
 .cadu-ds-dock-context { gap:8px; padding-bottom:4px; }
 .cadu-ds-dock-drop,.cadu-ds-dock-resources { gap:7px; }
 .cadu-ds-dock-brand,.cadu-ds-dock-resource { width:38px; height:38px; border-radius:11px; }
@@ -259,6 +261,15 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-composer-capabilities button:hover { background:var(--cadu-surface-soft); }
 .cadu-ds-composer-hint { min-width:0; margin-right:auto; overflow:hidden; color:var(--cadu-muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-composer-send { width:36px; height:36px; border-radius:12px; font-size:18px; }
+.cadu-ds-home-chat-shell .cv-composer-submit-group { flex-wrap:wrap; justify-content:flex-end; }
+.cadu-ds-home-chat-shell .cadu-ds-selector { min-width:174px; flex:0 1 210px; }
+.cadu-ds-home-chat-shell .cadu-ds-selector summary { border-color:var(--cadu-line); background:var(--cadu-surface-soft); color:var(--cadu-ink); }
+.cadu-ds-home-chat-shell .cadu-ds-selector[open] summary,
+.cadu-ds-home-chat-shell .cadu-ds-selector summary:hover { border-color:color-mix(in srgb,var(--cadu-accent) 45%,var(--cadu-line)); background:var(--cadu-surface); }
+.cadu-ds-home-chat-shell .cadu-ds-selector-menu { background:var(--cadu-surface); border-color:var(--cadu-line); box-shadow:0 18px 46px rgba(18,43,40,.16); }
+.cadu-ds-home-chat-shell .cadu-ds-selector-menu button { color:var(--cadu-ink); }
+.cadu-ds-home-chat-shell .cadu-ds-selector-menu button:hover,
+.cadu-ds-home-chat-shell .cadu-ds-selector-menu button[aria-pressed="true"] { background:var(--cadu-accent-soft); color:var(--cadu-ink); }
 .cadu-ds-selector { position:relative; display:block; min-width:170px; }
 .cadu-ds-selector::after { display:none; }
 .cadu-ds-selector summary { display:flex; min-height:36px; align-items:center; gap:8px; padding:0 9px; border:1px solid transparent; border-radius:9px; color:var(--cadu-nav-ink); cursor:pointer; list-style:none; font:600 12px var(--cadu-font-sans); }
@@ -784,6 +795,7 @@ body.portal--workspace > main#content.portal-content--workspace-react .cadu-ds-c
   }
   .cadu-ds-dock-logo { flex:0 0 34px; width:34px; height:34px; margin:0; padding:6px; border-radius:10px; }
   .cadu-ds-dock-new { flex:0 0 32px; margin:0; }
+  .cadu-ds-dock-home { flex:0 0 32px; margin:0; }
   .cadu-ds-dock-context { display:flex; flex:1 1 auto; width:auto; min-width:0; height:100%; flex-direction:row; gap:7px; overflow-x:auto; overflow-y:hidden; padding:0; }
   .cadu-ds-dock-context .cadu-ds-dock-drop,
   .cadu-ds-dock-context .cadu-ds-dock-resources { display:flex; flex:0 0 auto; align-items:center; gap:7px; margin:0; }
@@ -1402,13 +1414,14 @@ body.portal--workspace .cadu-ds-home-workarea {
   gap:9px;
   padding:5px 10px;
   border:1px solid transparent;
-  background:color-mix(in srgb,var(--cadu-surface) 72%,transparent);
+  background:transparent;
 }
 
 .cadu-ds-context-sidebar__recent > a:hover,
 .cadu-ds-context-sidebar__recent > a:focus-visible {
-  border-color:color-mix(in srgb,var(--cadu-accent) 20%,var(--cadu-line));
-  background:var(--cadu-surface);
+  border-color:transparent;
+  background:transparent;
+  color:var(--cadu-ink);
   outline:0;
 }
 
@@ -1597,16 +1610,19 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
 }
 
 .cadu-ds-prompt-suggestions > div {
-  display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  display:flex;
+  flex-wrap:wrap;
   gap:8px;
 }
 
 .cadu-ds-prompt-suggestions button {
   display:flex;
-  min-width:0;
+  flex:0 1 auto;
+  min-width:150px;
   min-height:50px;
   align-items:center;
+  justify-content:space-between;
+  gap:18px;
   padding:0 14px;
   border:1px solid color-mix(in srgb,var(--cadu-accent) 12%,var(--cadu-line));
   border-radius:14px;
@@ -1615,9 +1631,9 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
   cursor:pointer;
   font:600 11px/1.3 var(--cadu-font-sans);
   text-align:left;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
   transition:border-color 160ms ease,background 160ms ease,transform 160ms ease;
 }
 
@@ -1631,9 +1647,14 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
 
 .cadu-ds-prompt-suggestions button > span {
   min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  overflow:visible;
+  text-overflow:clip;
+  white-space:normal;
+}
+
+.cadu-ds-prompt-suggestions button > svg {
+  flex:0 0 auto;
+  color:var(--cadu-accent-strong);
 }
 
 .cadu-ds-prompt-suggestions.is-compact {
@@ -2195,6 +2216,179 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-home-chat-shell:focus-with
 body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
   width:min(900px,100%);
   margin:18px auto 0;
+}
+
+/* Long-running work should feel observable without exposing implementation
+   details. This is the shared task pattern for research, source review and
+   multi-step Workspace actions. */
+.cadu-ds-task-progress {
+  width:min(720px,100%);
+  margin:0 auto 28px;
+  padding:14px 16px 13px;
+  border:1px solid rgba(181,218,211,.14);
+  border-radius:14px;
+  background:rgba(255,255,255,.025);
+  color:#dceae7;
+}
+.cadu-ds-task-progress header {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.cadu-ds-task-progress__pulse {
+  width:8px;
+  height:8px;
+  flex:0 0 8px;
+  border-radius:50%;
+  background:#65d8cb;
+  box-shadow:0 0 0 4px rgba(101,216,203,.12);
+  animation:cv-pulse 1.5s ease-in-out infinite;
+}
+.cadu-ds-task-progress header div {
+  display:grid;
+  min-width:0;
+  gap:2px;
+  flex:1;
+}
+.cadu-ds-task-progress header strong {
+  overflow:hidden;
+  color:#eaf5f2;
+  font-size:12px;
+  font-weight:650;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.cadu-ds-task-progress header small {
+  overflow:hidden;
+  color:#89a7a1;
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.cadu-ds-task-progress header>b {
+  color:#79d8cc;
+  font-size:10px;
+  font-weight:650;
+}
+.cadu-ds-task-progress ol {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+  margin:14px 0 0;
+  padding:0;
+  list-style:none;
+}
+.cadu-ds-task-progress li {
+  display:grid;
+  min-width:0;
+  gap:6px;
+  color:#6f8d87;
+}
+.cadu-ds-task-progress li>span {
+  display:grid;
+  width:20px;
+  height:20px;
+  place-items:center;
+  border:1px solid rgba(181,218,211,.18);
+  border-radius:50%;
+  color:#7b9993;
+  font-size:9px;
+  font-weight:700;
+}
+.cadu-ds-task-progress li strong {
+  overflow:hidden;
+  font-size:9px;
+  font-weight:550;
+  line-height:1.3;
+  text-overflow:ellipsis;
+}
+.cadu-ds-task-progress li.is-done,
+.cadu-ds-task-progress li.is-active { color:#c4dad5; }
+.cadu-ds-task-progress li.is-done>span {
+  border-color:rgba(101,216,203,.42);
+  background:rgba(101,216,203,.14);
+  color:#79e0d2;
+}
+.cadu-ds-task-progress li.is-active>span {
+  border-color:#65d8cb;
+  background:#65d8cb;
+  color:#0b2523;
+  box-shadow:0 0 0 4px rgba(101,216,203,.1);
+}
+.cadu-ds-source-list {
+  margin-top:16px;
+  border-top:1px solid rgba(181,218,211,.1);
+}
+.cadu-ds-source-list summary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:11px 0 9px;
+  color:#b9cfca;
+  cursor:pointer;
+  list-style:none;
+}
+.cadu-ds-source-list summary::-webkit-details-marker { display:none; }
+.cadu-ds-source-list summary>span {
+  display:flex;
+  min-width:0;
+  align-items:center;
+  gap:7px;
+}
+.cadu-ds-source-list summary b {
+  font-size:11px;
+  font-weight:600;
+}
+.cadu-ds-source-list summary i {
+  color:#77d5c9;
+  font-size:10px;
+  font-style:normal;
+}
+.cadu-ds-source-list>div {
+  display:grid;
+  gap:2px;
+  padding:0 0 4px;
+}
+.cadu-ds-source-list a,
+.cadu-ds-source-list>div>span {
+  display:flex;
+  min-width:0;
+  align-items:center;
+  gap:8px;
+  padding:7px 0;
+  color:#a9c2bc;
+  font-size:11px;
+  text-decoration:none;
+}
+.cadu-ds-source-list a:hover { color:#f0f8f6; }
+.cadu-ds-source-list a>span,
+.cadu-ds-source-list>div>span>span {
+  display:grid;
+  width:19px;
+  height:19px;
+  flex:0 0 19px;
+  place-items:center;
+  border-radius:6px;
+  background:rgba(101,216,203,.1);
+  color:#79d8cc;
+  font-size:9px;
+  font-weight:700;
+}
+.cadu-ds-source-list a strong,
+.cadu-ds-source-list>div>span strong {
+  min-width:0;
+  flex:1;
+  overflow:hidden;
+  font-weight:550;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.cadu-ds-source-list a>svg { flex:0 0 auto; color:#71cfc4; }
+
+@media (max-width:560px) {
+  .cadu-ds-task-progress ol { grid-template-columns:repeat(2,minmax(0,1fr)); row-gap:10px; }
+  .cadu-ds-task-progress li strong { white-space:normal; }
 }
 
 @media (max-width:760px) {

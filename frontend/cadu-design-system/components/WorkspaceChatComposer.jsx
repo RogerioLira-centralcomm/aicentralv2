@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {Icon} from './Icon';
+import {ProjectSelector} from './WorkspaceSelectors';
 
 const MODE_OPTIONS = [
   {id: 'fast', label: 'Rápido', detail: 'Resposta direta'},
@@ -28,6 +29,7 @@ export function WorkspaceChatComposer({
   attachmentDestination = 'conversation', onAttachmentDestinationChange, hasProject = false,
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
   composerContext, onClearContext, onContextDrop, onAttach, embedded = false, homeMode = false,
+  projects = [], projectRef = '', onProjectChange,
 }) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
@@ -134,6 +136,7 @@ export function WorkspaceChatComposer({
           {onAttach && <><input ref={fileInput} type="file" multiple accept="image/*,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx" className="cv-sr-only" onChange={event => { onAttach(Array.from(event.target.files || [])); event.target.value = ''; }} /><button type="button" className="cv-composer-add cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-full cv-border-0 cv-bg-transparent cv-text-mist" onClick={chooseFiles} aria-label="Anexar arquivo" title="Anexar arquivo"><Icon name="file" size={16}/></button></>}
         </div>
         <div className="cv-composer-submit-group cv-flex cv-items-center cv-gap-1.5">
+          {homeMode && <ProjectSelector label="Escolher projeto" emptyLabel="Escolher projeto" items={projects} value={projectRef} onChange={onProjectChange}/>}
           <details ref={intensityMenu} className="cv-composer-intensity">
             <summary className="cv-composer-intensity__trigger" aria-label={`Intensidade do agente: ${currentMode.label}`} title={`Intensidade: ${currentMode.label}`}><Icon name="pulse" size={14}/><span>{currentMode.label}</span><Icon name="chevron" size={13}/></summary>
             <div className="cv-composer-intensity__menu" role="menu" aria-label="Intensidade do agente">

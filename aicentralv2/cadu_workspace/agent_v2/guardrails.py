@@ -471,19 +471,25 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         value = raw
     else:
         raise BadRequest("O provider retornou uma resposta inválida.")
-    answer = repair_metadata_answer(value.get("answer"))
+    # V2 contract: provider text and UI state are separate namespaces. Keep
+    # the legacy flat shape only as a compatibility fallback for older flows.
+    text_payload = value.get("text") if isinstance(value.get("text"), dict) else {}
+    ui_payload = value.get("ui") if isinstance(value.get("ui"), dict) else {}
+    answer_value = text_payload.get("content") or value.get("answer")
+    answer = str(answer_value or "").strip()
     if not answer:
         raise BadRequest("O provider não retornou uma resposta utilizável.")
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
     if policy.get("mode") in {"direct", "analysis", "decision", "clarification", "artifact_first"}:
         answer = _single_sentence(answer)
-    questions = [str(item).strip()[:500] for item in value.get("questions", []) if str(item).strip()]
+    ui = {**value, **ui_payload}
+    questions = [str(item).strip()[:500] for item in ui.get("questions", []) if str(item).strip()]
     questions = questions[:max(0, int(policy.get("max_questions", 1)))]
-    assumptions = [str(item).strip()[:500] for item in value.get("assumptions", []) if str(item).strip()][:10]
-    citations = _clean_citations(value.get("citations"))
-    actions = _clean_actions(value.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
-    blocks = _clean_blocks(value.get("blocks"))
+    assumptions = [str(item).strip()[:500] for item in ui.get("assumptions", []) if str(item).strip()][:10]
+    citations = _clean_citations(ui.get("citations"))
+    actions = _clean_actions(ui.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
+    blocks = _clean_blocks(ui.get("blocks"))
     # Failing closed is important here: only the executor may opt into an
     # artifact after the router selected a concrete artifact type.
     can_materialize_artifact = bool(policy.get("allow_artifact", False))
@@ -509,7 +515,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         answer = _short_intro(answer, answer[:max_answer_chars].rstrip())
         if len(answer) > max_answer_chars:
             answer = answer[:max_answer_chars].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
-    confidence = str(value.get("confidence") or "medium").lower()
+    confidence = str(ui.get("confidence") or "medium").lower()
     if confidence not in {"low", "medium", "high"}:
         confidence = "medium"
     # Provider-produced source blocks are presentation data, not evidence. A

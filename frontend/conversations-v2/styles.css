@@ -87,6 +87,15 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   flex:0 0 64px;
   width:64px;
   min-height:100dvh;
+  border-radius:0;
+  border-right:1px solid var(--cadu-nav-line);
+  background:var(--cadu-nav-bg);
+}
+#cadu-conversations-v2-root .cv-conversations-workarea>.cadu-ds-dock>.cadu-ds-dock-bottom {
+  display:grid;
+  flex:0 0 auto;
+  visibility:visible;
+  opacity:1;
 }
 @media (min-width:761px) {
   #cadu-conversations-v2-root .cv-conversations-workarea>.cadu-ds-dock {
@@ -97,9 +106,6 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
     max-height:100dvh;
     box-sizing:border-box;
     overflow:visible;
-    border-radius:0;
-    border-right:0;
-    background:var(--cadu-nav-bg);
   }
 }
 #cadu-conversations-v2-root .cv-recent-sidebar { display:flex; flex:0 0 276px; width:276px; min-width:276px; height:100%; min-height:0; flex-direction:column; background:#132024; color:var(--cv-text); transition:margin-left 190ms ease, transform 190ms ease, opacity 190ms ease; }

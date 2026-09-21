@@ -68,7 +68,7 @@ function allowDockDrop(event) {
 }
 
 function avatarSource(value, bootstrap) {
-  const raw = String(value || bootstrap?.user?.avatar || bootstrap?.user?.photoUrl || bootstrap?.user?.photo_url || bootstrap?.user?.foto_url || '').trim();
+  const raw = String(value || bootstrap?.user?.avatar || bootstrap?.user?.photoUrl || bootstrap?.user?.photo_url || bootstrap?.user?.foto_url || bootstrap?.user?.picture || '').trim();
   if (raw) {
     if (/^static\//i.test(raw)) return `/${raw}`;
     if (/^(?:https?:|data:|blob:|\/)/i.test(raw)) return raw;
@@ -85,7 +85,36 @@ function avatarFallbackSource(bootstrap, userName) {
 }
 
 const DOCK_RESOURCE_KINDS = new Set(['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link']);
-const isDockResource = item => Boolean(item?.resourceRef) || DOCK_RESOURCE_KINDS.has(String(item?.kind || '').toLowerCase());
+const isDockResource = item => Boolean(item?.resourceRef) || DOCK_RESOURCE_KINDS.has(String(item?.kind || item?.type || '').toLowerCase());
+
+function normalizeDockItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const rawKind = String(item.kind || item.type || '').toLowerCase();
+  const kind = rawKind === 'brand' || (!rawKind && item.brandRef && !item.projectRef) ? 'brand' : isDockResource(item) ? 'resource' : 'project';
+  const rawId = item.id || item.ref || item.projectRef || item.brandRef || item.resourceRef;
+  if (!rawId) return null;
+  const id = String(rawId);
+  const title = String(item.title || item.name || item.projectName || 'Atalho').trim() || 'Atalho';
+  const brandRef = kind === 'brand'
+    ? String(item.brandRef || (id.startsWith('studio:') ? id : `studio:${id}`))
+    : item.brandRef;
+  const projectRef = kind === 'project'
+    ? String(item.projectRef || item.ref || (id.startsWith('ci:') ? id : `ci:${id}`))
+    : item.projectRef;
+  const resourceRef = kind === 'resource'
+    ? String(item.resourceRef || id.replace(/^resource:/, ''))
+    : item.resourceRef;
+  return {
+    ...item,
+    id,
+    kind,
+    title,
+    name: item.name || title,
+    brandRef,
+    projectRef,
+    resourceRef,
+  };
+}
 
 export function DockDropZone({children, onDropItem, label = 'Fixar na dock'}) {
   const [active, setActive] = useState(false);
@@ -135,7 +164,11 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName
   useEffect(() => {
     if (!isControlled) setManagedItems(shortcutItems);
   }, [isControlled, shortcutItems]);
-  const items = isControlled ? shortcutItems : managedItems;
+  // Catalog pages sometimes provide their complete brand/project lists as a
+  // fallback, while the API returns persisted shortcuts with an explicit
+  // kind. Normalize both shapes here so every surface renders one identical
+  // dock and every project remains a real project shortcut.
+  const items = (isControlled ? shortcutItems : managedItems).map(normalizeDockItem).filter(Boolean);
   const dockBrands = items.filter(item => item.kind === 'brand');
   const dockProjects = items.filter(item => item.kind !== 'brand' && !isDockResource(item));
   const dockResourceItems = items.filter(item => item.kind !== 'brand' && isDockResource(item));
@@ -181,6 +214,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName
   const solutions = bootstrap ? workspaceSolutionItems(bootstrap) : [];
   const resolvedAvatar = avatarSource(userAvatar, bootstrap);
   const fallbackAvatar = avatarFallbackSource(bootstrap, userName);
+  const resolvedUsagePercent = usagePercent ?? bootstrap?.usagePercent ?? bootstrap?.usage_percent ?? bootstrap?.home?.usagePercent ?? 0;
   // The avatar owns the account menu. A direct account URL is opt-in so the
   // presence of the usage route cannot bypass Perfil, Agência and Créditos.
   const resolvedAccountUrl = accountUrl;
@@ -196,11 +230,12 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName
   return <aside className="cadu-ds-dock" aria-label="Atalhos do Workspace">
     <div className="cadu-ds-dock-solution"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/></div>
     <DockTooltip label="Novo chat"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Novo chat"><Icon name="newChat" size={18}/></button></DockTooltip>
+    {homeUrl && <DockTooltip label="Início"><a href={homeUrl} className="cadu-ds-dock-home" aria-label="Ir para o início"><Icon name="home" size={18}/></a></DockTooltip>}
     <DockDropZone onDropItem={onDropItem} label="Fixar marca, projeto ou recurso"><div className="cadu-ds-dock-context" aria-label="Atalhos do Workspace">
       <section className="cadu-ds-dock-section cadu-ds-dock-section--brands" aria-label="Marcas fixadas"><span className="cadu-ds-dock-section-label" aria-hidden="true">Marcas</span>{dockBrands.map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>
       <section className="cadu-ds-dock-section cadu-ds-dock-section--projects" aria-label="Projetos fixados"><span className="cadu-ds-dock-section-label" aria-hidden="true">Projetos</span>{dockProjects.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>
       {dockResourceItems.length > 0 && <section className="cadu-ds-dock-section cadu-ds-dock-section--resources" aria-label="Recursos fixados"><span className="cadu-ds-dock-section-label" aria-hidden="true">Recursos</span>{dockResourceItems.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>}
     </div></DockDropZone>
-    <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={openUsage}/>}<div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && accountMenu}</div></div>
+    <div className="cadu-ds-dock-bottom"><DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && accountMenu}</div></div>
   </aside>;
 }

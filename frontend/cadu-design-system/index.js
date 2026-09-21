@@ -12,6 +12,8 @@ export {WorkspaceChatComposer} from './components/WorkspaceChatComposer';
 export {WorkspaceHomeWidgets} from './components/WorkspaceHomeWidgets';
 export {WorkspaceContextSidebar} from './components/WorkspaceContextSidebar';
 export {WorkspacePromptSuggestions, buildWorkspaceSuggestions} from './components/WorkspacePromptSuggestions';
+export {WorkspaceTaskProgress} from './components/WorkspaceTaskProgress';
+export {WorkspaceSourceList} from './components/WorkspaceSourceList';
 export {WorkspaceNavbar} from './components/WorkspaceNavbar';
 export {WorkspaceCatalog, CatalogError, CatalogFilters} from './components/WorkspaceCatalog';
 export {WorkspaceLegacyChrome} from './components/WorkspaceLegacyChrome';

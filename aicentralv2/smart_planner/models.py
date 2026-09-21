@@ -109,7 +109,6 @@ ROLES = {
     },
 }
 
-IMAGE_USD = 0.05
 
 ONE_PAGE_SECTIONS = (
     {
@@ -216,10 +215,6 @@ def preview_steps(mode: str) -> list[dict]:
 def preview_cost(mode: str, dados: dict | None = None) -> dict:
     steps = preview_steps(mode)
     usd = sum(float(item["usd"]) for item in steps)
-    # O pipeline atual também gera expressão visual contextual. Mantemos a
-    # prévia alinhada com a operação real, sem transformar isso em cobrança.
-    image_count = 3 if mode == "one_page" else 3
-    usd += IMAGE_USD * image_count
     rate, source = usd_brl_rate()
     brl = round(usd * float(rate or 0), 2)
     spent = None

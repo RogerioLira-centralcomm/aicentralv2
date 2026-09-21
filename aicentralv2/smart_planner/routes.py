@@ -490,10 +490,15 @@ def api_gerar_status(token):
         from .progress import progress_view
         from .skills import decorate_step, generation_steps
         view = progress_view(row)
+        # Never expose the retired image step to the waiting UI, including
+        # records created by older generator versions.
+        view["steps"] = [item for item in (view.get("steps") or []) if item.get("id") != "images"]
+        view["total"] = len(view["steps"])
         if not view.get("steps"):
             mode = (request.args.get("mode") or "").strip() or as_dict(row.get("dados_detectados")).get("plan_mode")
             view["steps"] = [decorate_step(item) for item in generation_steps(mode or "one_page")]
             view["mode"] = mode or view.get("mode") or "one_page"
+        view["total"] = len(view["steps"])
         return _ok(view)
     except SessionNotFound as exc:
         return _error(exc, 404)

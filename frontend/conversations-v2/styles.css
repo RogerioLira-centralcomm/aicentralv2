@@ -16,6 +16,9 @@
   color-scheme: dark;
 }
 
+html,
+body { background: var(--cv-bg); }
+
 html:has(#cadu-conversations-v2-root),
 body:has(#cadu-conversations-v2-root) { height: 100%; overflow: hidden; }
 body:has(#cadu-conversations-v2-root) { margin: 0; background: var(--cv-bg); }

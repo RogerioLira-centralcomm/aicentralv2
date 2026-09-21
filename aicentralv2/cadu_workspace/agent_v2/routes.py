@@ -25,7 +25,7 @@ from . import action_executor
 from ..mcp.registry import ToolError
 from ..conversations import attachments
 from ...cadu_planner import docs
-from ...creative_modeling_storage import public_studio_asset_url
+from ...creative_modeling_storage import ClientLogoStorage, public_studio_asset_url
 
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
@@ -258,6 +258,13 @@ def studio_library():
                       project_ref=request.args.get("project_ref"), brand_ref=request.args.get("brand_ref"))
     from .. import project_resource_service
     resources = project_resource_service.list_for_context(current) if current.project_ref else {"resources": []}
+    personal_assets = []
+    if not current.project_ref:
+        from ...creative_media.studio import _creation_history
+        history = _creation_history()
+        user_id = session.get("user_id")
+        if history and user_id:
+            personal_assets = history.personal_assets(current.client_id, user_id)
     brand_assets = []
     if current.brand_ref and str(current.brand_ref).startswith("studio:"):
         try:
@@ -271,7 +278,10 @@ def studio_library():
                 for asset in brand_assets:
                     raw_path = asset.get("asset_path") or asset.get("source_url") or ""
                     try:
-                        asset["display_url"] = public_studio_asset_url(raw_path)
+                        if str(raw_path).startswith("/static/") and ClientLogoStorage().absolute_public_path(raw_path) is None:
+                            asset["display_url"] = ""
+                        else:
+                            asset["display_url"] = public_studio_asset_url(raw_path)
                     except ValueError:
                         asset["display_url"] = ""
         except Exception:
@@ -279,7 +289,8 @@ def studio_library():
     return jsonify(scope="project" if current.project_ref else "personal",
                    project_ref=current.project_ref, brand_ref=current.brand_ref,
                    resources=resources.get("resources", []) if isinstance(resources, dict) else [],
-                   brand_assets=brand_assets)
+                   brand_assets=brand_assets,
+                   personal_assets=personal_assets)
 
 
 @bp.post("/route")

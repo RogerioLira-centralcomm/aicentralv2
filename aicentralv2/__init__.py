@@ -319,6 +319,16 @@ def create_app(config_class=Config):
         app.register_blueprint(cadu_workspace_mcp_bp)
         app.register_blueprint(cadu_public_mcp_bp)
 
+        # Compatibility for older Studio shelf bundles still requesting the
+        # unprefixed endpoint while their frontend cache is being replaced.
+        from .creative_media.studio import studio_library_sessions
+        app.add_url_rule(
+            '/api/format-lab/studio/library-sessions',
+            endpoint='legacy_studio_library_sessions',
+            view_func=studio_library_sessions,
+            methods=['GET'],
+        )
+
         # Apresentação institucional é uma superfície pública isolada: não
         # herda a navegação, sessão ou chrome operacional do CentralX.
         from .cadu_presentation import bp as cadu_presentation_bp

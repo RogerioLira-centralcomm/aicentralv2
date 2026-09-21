@@ -27,12 +27,12 @@
     });
   }
   function animateThemeChange() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    root.classList.remove('cadu-theme-transition');
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    root.classList?.remove?.('cadu-theme-transition');
     // Force a clean reflow so repeated toggles always restart the same motion.
     void root.offsetWidth;
-    root.classList.add('cadu-theme-transition');
-    window.setTimeout(() => root.classList.remove('cadu-theme-transition'), THEME_TRANSITION_MS);
+    root.classList?.add?.('cadu-theme-transition');
+    window.setTimeout?.(() => root.classList?.remove?.('cadu-theme-transition'), THEME_TRANSITION_MS);
   }
   const currentTheme = () => forcedTheme || read();
   apply(currentTheme());

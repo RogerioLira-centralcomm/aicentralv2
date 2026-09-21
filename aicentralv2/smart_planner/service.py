@@ -163,8 +163,14 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "canais": as_list(campanha.get("canais") or dados.get("canais") or row.get("plataformas_sugeridas")),
         "criativos": text(dados.get("criativos")),
         "conteudo_capturado": text(dados.get("conteudo_capturado")),
+        "usar_conteudo_capturado_documentos": (
+            as_bool(dados.get("usar_conteudo_capturado_documentos"))
+            if "usar_conteudo_capturado_documentos" in dados
+            else True
+        ),
         "dispositivos": as_list(campanha.get("dispositivos") or dados.get("dispositivos")),
         "kpis": [text(item) for item in as_list(dados.get("kpis")) if text(item)],
+        "kpi_principal": text(dados.get("kpi_principal") or (as_list(dados.get("kpis")) or [""])[0]),
         "mix": as_dict(campanha.get("mix")),
         "observacoes": text(dados.get("observacoes")),
         "cliente_id": dados.get("cliente_id"),
@@ -344,6 +350,15 @@ def persist_review(token: str, payload: dict) -> dict:
             campos[key] = None
     if "kpis" in campos:
         campos["kpis"] = _as_kpis(campos.get("kpis"))
+    if "kpi_principal" in campos:
+        campos["kpi_principal"] = text(campos.get("kpi_principal"))
+        complementares = []
+        for item in campos.get("kpis", []):
+            if item != campos["kpi_principal"] and item not in complementares:
+                complementares.append(item)
+        campos["kpis"] = ([campos["kpi_principal"]] if campos["kpi_principal"] else []) + complementares
+    if "usar_conteudo_capturado_documentos" in campos:
+        campos["usar_conteudo_capturado_documentos"] = as_bool(campos.get("usar_conteudo_capturado_documentos"))
     if "anunciante_confidencial" in campos or "anunciante_confidencial" in payload:
         campos["anunciante_confidencial"] = as_bool(
             campos.get("anunciante_confidencial")

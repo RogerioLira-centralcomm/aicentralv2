@@ -98,6 +98,17 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
         "ooh_inventory": as_dict(campanha.get("inventario_ooh") or dados.get("inventario_ooh")),
         "interativos": as_dict(campanha.get("interativos") or dados.get("interativos")),
         "restrictions": [text(dados.get("observacoes"))] if text(dados.get("observacoes")) else [],
+        # Apoio capturado pelo usuário: disponível para a geração, mas não promovido
+        # automaticamente ao briefing estruturado nem tratado como fato confirmado.
+        "conteudo_capturado": (
+            text(dados.get("conteudo_capturado"))[:12000]
+            if (
+                as_bool(dados.get("usar_conteudo_capturado_documentos"))
+                if "usar_conteudo_capturado_documentos" in dados
+                else True
+            )
+            else ""
+        ),
         "sources": sources,
         "market_research": text(dados.get("market_research")),
         "assumptions": [],
@@ -123,6 +134,7 @@ def build_evidence(snapshot: dict) -> dict:
         "briefing": text((snapshot or {}).get("briefing")),
         "user_briefing": text((snapshot or {}).get("user_briefing")),
         "restrictions": as_list((snapshot or {}).get("restrictions")),
+        "conteudo_capturado": text((snapshot or {}).get("conteudo_capturado")),
         "pending_decisions": as_list((snapshot or {}).get("pending_decisions")),
         "audience_model": as_dict((snapshot or {}).get("audience_model")),
         "market_research": text((snapshot or {}).get("market_research")),

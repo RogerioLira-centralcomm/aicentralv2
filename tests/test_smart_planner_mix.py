@@ -163,11 +163,14 @@ class MixEngineTest(unittest.TestCase):
         review = html.split('id="sp-revisao-form"', 1)[1].split("</form>", 1)[0]
         self.assertNotIn('name="verba"', review)
         self.assertNotIn('name="praca"', review)
-        self.assertIn('name="objetivo"', review)
+        self.assertNotIn('name="objetivo"', review)
+        self.assertIn('id="sp-objective-title"', html)
+        self.assertIn('name="objetivo"', html)
         budget = html.split("sp-hi-budget", 1)[1].split("sp-hi-mix", 1)[0]
         self.assertIn('name="verba"', budget)
         self.assertIn('name="praca"', budget)
-        self.assertNotIn('name="kpis"', budget)
+        self.assertIn('name="kpi_principal"', budget)
+        self.assertIn('name="kpis"', budget)
         self.assertIn("Verba, período e praça.", budget)
         self.assertIn('id="sp-gen"', html)
         self.assertIn('id="sp-original"', html)

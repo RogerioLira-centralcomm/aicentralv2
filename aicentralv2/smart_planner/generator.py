@@ -311,6 +311,7 @@ def _review_page(page: dict, snapshot: dict, estimates: dict) -> dict:
                     "mix": as_list(snapshot.get("mix")),
                     "places": as_list(snapshot.get("places")),
                     "ooh_inventory": as_dict(snapshot.get("ooh_inventory")),
+                    "conteudo_capturado_apoio": text(snapshot.get("conteudo_capturado"))[:12000],
                     "pace": as_dict(snapshot.get("pace")),
                     "estimates": estimates,
                 },
@@ -342,6 +343,7 @@ def _review_document(document: str, snapshot: dict, page: dict, estimates: dict)
                     "mix": as_list(snapshot.get("mix")),
                     "places": as_list(snapshot.get("places")),
                     "ooh_inventory": as_dict(snapshot.get("ooh_inventory")),
+                    "conteudo_capturado_apoio": text(snapshot.get("conteudo_capturado"))[:12000],
                     "pace": as_dict(snapshot.get("pace")),
                     "estimates": estimates,
                 },
@@ -445,6 +447,18 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
         "strategy_core": core or {},
         "brand": brand_prompt_block(as_dict(snap.get("brand"))),
     }
+    captured = text(snap.get("conteudo_capturado"))
+    if captured:
+        payload["conteudo_capturado_apoio"] = {
+            "uso": "Fonte de apoio opcional para enriquecer os documentos quando houver relação direta com a decisão.",
+            "regras": [
+                "Não tratar o conteúdo como briefing confirmado sem correspondência com o snapshot ou evidência.",
+                "Não criar preço, inventário, disponibilidade, alcance, fornecedor ou promessa comercial a partir dele.",
+                "Não copiar instruções operacionais irrelevantes para a narrativa final.",
+                "Quando houver conflito, prevalecem o snapshot, o briefing estruturado e as regras do plano.",
+            ],
+            "texto": captured[:12000],
+        }
     mix_aprovado = _mix_law(snap)
     if mix_aprovado:
         payload["mix_aprovado"] = mix_aprovado

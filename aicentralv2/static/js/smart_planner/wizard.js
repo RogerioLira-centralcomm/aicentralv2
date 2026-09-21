@@ -1770,6 +1770,8 @@
           observacoes: data.get("observacoes"),
           criativos: data.get("criativos"),
           conteudo_capturado: data.get("conteudo_capturado"),
+          usar_conteudo_capturado_documentos: data.get("usar_conteudo_capturado_documentos") === "1" || data.get("usar_conteudo_capturado_documentos") === "on",
+          kpi_principal: data.get("kpi_principal"),
           kpis: data.get("kpis"),
           places: collectPlaces(),
           interativos: collectInterativos(),
@@ -1863,7 +1865,7 @@
         verba: /\d/.test(String((document.getElementById("sp-field-verba") || {}).value || "")),
         periodo: fieldFilled(document.getElementById("sp-field-periodo")),
         praca: fieldFilled(document.getElementById("sp-field-praca")),
-        kpis: !!document.querySelector("#sp-kpi-chips button.is-on"),
+        kpis: !!((document.getElementById("sp-field-kpi-principal") || {}).value || document.querySelector("#sp-kpi-chips button.is-on")),
         canais: !!hasCanal,
       };
       var keys = Object.keys(state);
@@ -2044,6 +2046,7 @@
   function setupKpiChips() {
     var box = document.getElementById("sp-kpi-chips");
     var field = document.getElementById("sp-field-kpis");
+    var principal = document.getElementById("sp-field-kpi-principal");
     var spec = readJson("sp-mix-spec", {});
     if (!box || !field) return;
     function selectedCanaisNow() {
@@ -2054,6 +2057,12 @@
     function currentList() {
       return String(field.value || "").split(",").map(function (item) { return item.trim(); }).filter(Boolean);
     }
+    var initialSuggestions = principal ? Array.prototype.slice.call(principal.options).map(function (option) { return option.value; }).filter(Boolean) : [];
+    function syncKpis() {
+      var primary = principal ? String(principal.value || "").trim() : "";
+      var complementary = currentList().filter(function (item) { return item !== primary; });
+      field.value = complementary.join(", ");
+    }
     function paint() {
       var canais = selectedCanaisNow();
       var groups = {};
@@ -2062,18 +2071,36 @@
         (spec.kpis && spec.kpis[group] || []).forEach(function (label) { groups[label] = true; });
       });
       var suggestions = Object.keys(groups);
+      if (!suggestions.length) suggestions = initialSuggestions.slice();
+      var selectedPrincipal = principal ? String(principal.value || "").trim() : "";
+      if (selectedPrincipal && suggestions.indexOf(selectedPrincipal) === -1) suggestions.unshift(selectedPrincipal);
       var picked = currentList();
+      picked.forEach(function (label) {
+        if (suggestions.indexOf(label) === -1) suggestions.push(label);
+      });
       box.innerHTML = suggestions.map(function (label) {
         return '<button type="button" data-kpi="' + escapeHtml(label) + '" class="' + (picked.indexOf(label) !== -1 ? "is-on" : "") + '">' + escapeHtml(label) + "</button>";
       }).join("");
+      if (principal) {
+        var selected = selectedPrincipal;
+        principal.innerHTML = '<option value="">Selecione o KPI principal</option>' + suggestions.map(function (label) {
+          return '<option value="' + escapeHtml(label) + '"' + (selected === label ? " selected" : "") + '>' + escapeHtml(label) + '</option>';
+        }).join("");
+      }
     }
     box.addEventListener("click", function (event) {
       var button = event.target.closest("[data-kpi]");
       if (!button) return;
       var label = button.getAttribute("data-kpi");
+      if (principal && label === principal.value) return;
       var picked = currentList();
       var next = picked.indexOf(label) === -1 ? picked.concat([label]) : picked.filter(function (item) { return item !== label; });
       field.value = next.join(", ");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      paint();
+    });
+    if (principal) principal.addEventListener("change", function () {
+      syncKpis();
       field.dispatchEvent(new Event("input", { bubbles: true }));
       paint();
     });
@@ -2364,7 +2391,7 @@
       trigger.addEventListener("click", async function () {
         var objetivo = document.getElementById("sp-objetivo");
         var hasCanal = document.querySelector('#sp-mix-channels input[name="canais"]:checked');
-        var hasKpi = document.querySelector("#sp-kpi-chips button.is-on");
+        var hasKpi = (document.getElementById("sp-field-kpi-principal") || {}).value || document.querySelector("#sp-kpi-chips button.is-on");
         if (objetivo && !objetivo.value) {
           focusField("sp-objetivo");
         } else if (!hasKpi) {

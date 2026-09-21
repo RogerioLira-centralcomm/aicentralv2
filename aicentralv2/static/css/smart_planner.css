@@ -5920,3 +5920,20 @@ html.is-sp-media body {
 .sp-place-audience span{display:grid;gap:.15rem;color:#4e6b6f;font-size:.68rem;line-height:1.3}
 .sp-place-audience b{color:var(--hi-ink);font-size:.62rem;text-transform:uppercase;letter-spacing:.04em}
 @media(max-width:780px){.sp-geo-modal{width:100vw;max-height:100vh;border-radius:0}.sp-geo-sheet{max-height:100vh}.sp-geo-body{grid-template-columns:1fr}.sp-geo-sidebar{order:2}.sp-geo-picker{order:1}.sp-geo-selected-list{min-height:4rem;max-height:8rem}.sp-geo-sidebar .sp-geo-instruction{margin-top:0}.sp-geo-picker .sp-geo-list{max-height:22rem}}
+
+/* Revisão: objetivo e KPIs pertencem à configuração do plano. */
+.sp-hi-budget{display:grid;gap:.75rem}
+.sp-objective-card{display:grid;gap:.65rem}
+.sp-objective-card>p{margin:0;color:var(--hi-fog,#6a7d80);font-size:.72rem;line-height:1.35}
+.sp-objective-card>label,.sp-plan-kpis>label{display:grid;gap:.32rem}
+.sp-objective-card label>span,.sp-plan-kpis>span{color:var(--hi-ink,#173c3e);font-size:.72rem;font-weight:750}
+.sp-plan-kpis{display:grid;gap:.5rem;margin-top:.1rem;padding-top:.65rem;border-top:1px solid var(--hi-line,#dce7e6)}
+.sp-plan-kpis>span{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.sp-kpi-required{color:var(--hi-fog,#6a7d80);font-size:.62rem;font-weight:500}
+.sp-plan-kpis .sp-kpi-chips{display:flex;flex-wrap:wrap;gap:.35rem}
+.sp-review .sp-confidential{grid-column:1/-1;margin-top:.05rem;padding-top:.45rem;border-top:1px solid var(--hi-line,#dce7e6);font-size:.72rem}
+.sp-captured-toggle{display:flex!important;align-items:center;gap:.45rem;padding-top:.2rem;color:var(--hi-ink,#173c3e);font-size:.72rem;font-weight:700}
+.sp-captured-toggle input{flex:0 0 auto}
+@media(max-width:1100px){.sp-hi-grid.is-review{grid-template-columns:minmax(0,1fr) minmax(20rem,25rem)}}
+@media(max-width:860px){.sp-hi-grid.is-review{grid-template-columns:1fr}.sp-hi-plan{position:static;grid-template-columns:1fr!important}.sp-review{grid-template-columns:1fr}.sp-review>.sp-complete,.sp-review>.sp-acc[data-acc="essentials"],.sp-review>.sp-acc[data-acc="audience"],.sp-review>.sp-acc[data-acc="context"],.sp-review>.sp-acc[data-acc="extracted"]{grid-column:1}}
+@media(max-width:560px){.sp-objective-card,.sp-plan-kpis{padding-left:0;padding-right:0}.sp-plan-kpis .sp-kpi-chips{gap:.3rem}.sp-review .sp-confidential{font-size:.68rem}}

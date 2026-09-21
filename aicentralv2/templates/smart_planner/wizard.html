@@ -175,7 +175,7 @@
         <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
         <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
 
-        <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente,sp-objetivo" open>
+        <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente" open>
           <summary aria-controls="sp-acc-essentials">
             <span class="sp-acc-title">Informações essenciais</span>
             <span class="sp-acc-meta" data-acc-meta>4 campos</span>
@@ -183,20 +183,6 @@
           <div class="sp-bf" id="sp-acc-essentials">
             <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"></label>
             <label class="{% if campos.cliente %}is-confirmed{% endif %}" for="sp-field-cliente"><span>Anunciante{% if campos.cliente %}<small class="sp-field-confirmed">Confirmado</small>{% endif %}</span><input id="sp-field-cliente" name="cliente" value="{{ campos.cliente }}" {% if campos.cliente %}readonly aria-readonly="true"{% endif %}></label>
-            <label for="sp-objetivo">
-              <span>Objetivo</span>
-              <select name="objetivo" id="sp-objetivo">
-                <option value="">Selecione</option>
-                {% for key, label in objetivos.items() %}
-                <option value="{{ key }}" {% if campos.objetivo == key %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <div class="sp-kpi-box sp-essential-kpi">
-              <span>Objetivo de mídia <small class="sp-kpi-required">KPI principal</small></span>
-              <div class="sp-kpi-chips" id="sp-kpi-chips"></div>
-              <input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Selecione um KPI acima">
-            </div>
             <label class="{% if campos.agencia %}is-confirmed{% endif %}" for="sp-field-agencia"><span>Agência{% if campos.agencia %}<small class="sp-field-confirmed">Confirmada</small>{% endif %}</span><input id="sp-field-agencia" name="agencia" value="{{ campos.agencia }}" {% if campos.agencia %}readonly aria-readonly="true"{% endif %}></label>
             <label class="sp-confidential" for="sp-field-confidential">
               <input class="cx-checkbox cx-checkbox-sm" type="checkbox" name="anunciante_confidencial" id="sp-field-confidential" value="1" {% if campos.anunciante_confidencial %}checked{% endif %}>
@@ -247,6 +233,10 @@
           <div class="sp-bf is-stack" id="sp-acc-captured">
             <p class="sp-acc-note">Material capturado como apoio. Ele não entra automaticamente no briefing nem bloqueia a geração do plano.</p>
             <label for="sp-field-conteudo-capturado"><span>Fontes e informações capturadas</span><textarea id="sp-field-conteudo-capturado" name="conteudo_capturado" rows="6">{{ campos.conteudo_capturado }}</textarea></label>
+            <label class="sp-captured-toggle" for="sp-field-usar-capturado">
+              <input class="cx-checkbox cx-checkbox-sm" type="checkbox" name="usar_conteudo_capturado_documentos" id="sp-field-usar-capturado" value="1" form="sp-revisao-form" {% if campos.usar_conteudo_capturado_documentos %}checked{% endif %}>
+              <span>Usar este conteúdo como apoio nos documentos</span>
+            </label>
           </div>
         </details>
         {% endif %}
@@ -527,6 +517,17 @@
               </select>
             </label>
             <label class="sp-praca-detalhe-field" for="sp-field-praca-detalhe"><span>Onde exatamente</span><span class="sp-field-with-action"><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades e UFs — o ambiente vai em Places"><button type="button" class="cx-btn cx-btn-ghost cx-btn-xs" id="sp-geo-open">Escolher área</button></span><small class="sp-field-hint">Selecione estados/cidades ou escreva uma instrução de cobertura.</small></label>
+          </div>
+        </section>
+        <section class="sp-side-card sp-objective-card" aria-labelledby="sp-objective-title">
+          <h2 id="sp-objective-title">Objetivo de mídia</h2>
+          <p>Define como o plano será distribuído e acompanhado.</p>
+          <label for="sp-objetivo"><span>Objetivo principal</span><select name="objetivo" id="sp-objetivo" form="sp-revisao-form"><option value="">Selecione</option>{% for key, label in objetivos.items() %}<option value="{{ key }}" {% if campos.objetivo == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+          <div class="sp-kpi-box sp-plan-kpis">
+            <label for="sp-field-kpi-principal"><span>KPI principal</span><select id="sp-field-kpi-principal" name="kpi_principal" form="sp-revisao-form"><option value="">Selecione o KPI principal</option>{% for item in kpi_suggestions or [] %}<option value="{{ item }}" {% if campos.kpi_principal == item or (not campos.kpi_principal and campos.kpis and campos.kpis[0] == item) %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+            <span>KPIs complementares <small class="sp-kpi-required">opcionais</small></span>
+            <div class="sp-kpi-chips" id="sp-kpi-chips"></div>
+            <input id="sp-field-kpis" type="hidden" form="sp-revisao-form" name="kpis" value="{{ campos.kpis[1:]|join(', ') if campos.kpis else '' }}">
           </div>
         </section>
       </div>

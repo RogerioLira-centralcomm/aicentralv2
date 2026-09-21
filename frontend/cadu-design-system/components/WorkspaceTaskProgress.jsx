@@ -2,16 +2,18 @@ import React, {useMemo} from 'react';
 
 const TASK_STEPS = [
   {id: 'context', label: 'Entendendo o pedido'},
-  {id: 'research', label: 'Pesquisando e comparando fontes'},
-  {id: 'synthesis', label: 'Organizando os achados'},
+  {id: 'search', label: 'Encontrando fontes'},
+  {id: 'read', label: 'Lendo fontes relevantes'},
+  {id: 'synthesis', label: 'Comparando e organizando'},
   {id: 'answer', label: 'Preparando a resposta'},
 ];
 
 function stepFromDiagnostic(item) {
   const title = String(item?.title || '').toLowerCase();
-  if (title.includes('fonte') || title.includes('pesquis')) return 1;
-  if (title.includes('consulta') || title.includes('artefato')) return 2;
-  if (title.includes('resposta') || title.includes('conclu')) return 3;
+  if (title.includes('pesquisa')) return 2;
+  if (title.includes('leitura')) return 3;
+  if (title.includes('contexto consultado') || title.includes('artefato')) return 4;
+  if (title.includes('resposta') || title.includes('conclu')) return 4;
   return 0;
 }
 
@@ -19,8 +21,11 @@ function userFacingUpdate(item) {
   const detail = String(item?.detail || '').toLowerCase();
   if (detail.includes('web.search')) return 'Buscando fontes relevantes';
   if (detail.includes('web.read')) return 'Lendo as fontes selecionadas';
-  if (item?.title === 'Fontes consultadas') return 'Fontes relevantes encontradas';
+  if (item?.title === 'Pesquisa inicial concluída') return 'Lendo as fontes selecionadas';
+  if (item?.title === 'Leitura das fontes concluída') return 'Comparando fontes e organizando achados';
+  if (item?.title === 'Contexto consultado') return 'Organizando o contexto disponível';
   if (item?.title === 'Artefato criado') return 'Material de trabalho preparado';
+  if (item?.title === 'Resposta concluída') return 'Resposta pronta para revisão';
   return item?.title || 'Trabalho em andamento';
 }
 

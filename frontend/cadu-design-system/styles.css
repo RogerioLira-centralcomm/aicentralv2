@@ -2315,6 +2315,13 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
   color:#0b2523;
   box-shadow:0 0 0 4px rgba(101,216,203,.1);
 }
+.cadu-ds-task-progress.is-compact {
+  margin:13px 0 0;
+  padding:10px 12px;
+  border-radius:11px;
+}
+.cadu-ds-task-progress.is-compact ol { display:none; }
+.cadu-ds-task-progress.is-compact header>b { font-size:9px; }
 .cadu-ds-source-list {
   margin-top:16px;
   border-top:1px solid rgba(181,218,211,.1);

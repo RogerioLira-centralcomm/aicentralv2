@@ -6,7 +6,8 @@ import {ResponseBlocks} from './ResponseBlocks';
 import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
 import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
 import {WorkspacePromptSuggestions} from '../../cadu-design-system/components/WorkspacePromptSuggestions';
-import {WorkspaceSourceList, WorkspaceTaskProgress} from '../../cadu-design-system';
+import {WorkspaceSourceList} from '../../cadu-design-system/components/WorkspaceSourceList';
+import {WorkspaceTaskProgress} from '../../cadu-design-system/components/WorkspaceTaskProgress';
 
 function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   const needsCredits = failure?.kind === 'credits';
@@ -64,6 +65,7 @@ function ConversationSupport({context, projects, brands, messages, diagnostics, 
       <div><span>Intensidade</span><b>{MODE_LABELS[executionMode] || 'Equilibrado'}</b><small>Controle no campo de mensagem</small></div>
       <div><span>Estado</span><b>{state}</b><small>{diagnostics?.length ? `${diagnostics.length} evento${diagnostics.length === 1 ? '' : 's'} registrado${diagnostics.length === 1 ? '' : 's'}` : 'Sem eventos técnicos'}</small></div>
     </div>
+    <WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics} compact/>
     {requestPreview && <div className="cv-conversation-support__request"><span>Último pedido</span><p>“{requestPreview}”</p></div>}
     <div className="cv-conversation-support__next"><span>Próximos movimentos</span>{suggestions.map(([label, prompt]) => <button key={label} type="button" onClick={() => onPrompt(prompt)}>{label}<Icon name="chevron" size={13}/></button>)}</div>
     {!!diagnostics?.length && <details className="cv-conversation-support__technical"><summary>Ver atividade técnica</summary><div>{diagnostics.slice(-6).map(item => <div key={item.id} className="cv-conversation-support__event"><i className={item.tone === 'error' ? 'is-error' : ''}/><span><b>{item.title}</b>{item.detail && <small>{item.detail}</small>}</span></div>)}</div></details>}

@@ -390,7 +390,7 @@ export default function App({bootstrap}) {
     if (artifactDirty && artifactRef.current?.id) {
       try { await fetchArtifact(artifactRef.current.id); } catch (error) { trace('Não foi possível restaurar o artefato', error.message, 'error'); return; }
     }
-    setRunning(true); setRuntime(attachments.length ? 'Enviando arquivos' : 'Trabalhando');
+    setRunning(true); setDiagnostics([]); setRuntime(attachments.length ? 'Enviando arquivos' : 'Trabalhando');
     if (!conversationRef.current && window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
     let staged;
     try { staged = attachments.length ? await uploadFiles() : []; }
@@ -426,19 +426,26 @@ export default function App({bootstrap}) {
           runStarted = true;
           setConversationId(event.conversation_id); conversationRef.current = event.conversation_id;
           runRef.current = event.run_id; runStartedRef.current = Date.now();
-          trace('Execução iniciada', event.run_id);
+          trace('Entendendo o pedido');
         } else if (kind === 'route.selected') {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
-          trace('Preparando trabalho', event.route?.action || '');
+          trace('Preparando contexto');
         }
         else if (kind === 'tool.completed') {
-          const isWeb = event.name === 'web.search' || event.name === 'web.read';
-          setRuntime(isWeb ? 'Fontes organizadas' : 'Trabalhando');
-          trace(isWeb ? 'Fontes consultadas' : 'Consulta concluída', event.name || '');
+          if (event.name === 'web.search') {
+            setRuntime('Buscando fontes');
+            trace('Pesquisa inicial concluída');
+          } else if (event.name === 'web.read') {
+            setRuntime('Lendo fontes selecionadas');
+            trace('Leitura das fontes concluída');
+          } else {
+            setRuntime('Consultando contexto');
+            trace('Contexto consultado');
+          }
         }
         else if (kind === 'tool.unavailable') {
           setRuntime(event.name === 'web.search' || event.name === 'web.read' ? 'Pesquisa indisponível' : 'Trabalhando');
-          trace('Recurso indisponível', event.code || '', 'error');
+          trace('Recurso indisponível', '', 'error');
         }
         else if (kind === 'action.proposed') setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: runRef.current}]);
         else if (kind === 'artifact.created') {

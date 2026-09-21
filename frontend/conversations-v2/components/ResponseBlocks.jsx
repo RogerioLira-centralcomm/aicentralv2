@@ -24,7 +24,7 @@ function BoundedItems({items, children, label = 'itens'}) {
 }
 
 function SummaryBlock({block}) {
-  return <section className="cv-response-summary cv-mt-5 cv-border-l-2 cv-border-teal/60 cv-pl-4">
+  return <section className="cv-response-summary cv-mt-5">
     <span className="cv-block cv-text-[10px] cv-font-semibold cv-text-teal">Resumo</span>
     <p className="cv-m-0 cv-mt-1 cv-text-sm cv-leading-6 cv-text-[#d9e7e4]">{block.text || block.summary || block.title}</p>
   </section>;
@@ -51,7 +51,11 @@ function ActivityBlock({block}) {
 
 function SourcesBlock({block, onPrompt, onOpenResource}) {
   const items = Array.isArray(block.items) ? block.items : block.resource ? [block.resource] : [];
-  const [selected, setSelected] = useState([]);
+  const recommendedIds = items.filter(item => {
+    const url = safeUrl(item?.url) || '';
+    return /(^|\.)gov\.br$|(^|\.)com\.br$|unidas\.com\.br/i.test(url);
+  }).slice(0, 3).map(item => item.id);
+  const [selected, setSelected] = useState(recommendedIds);
   const [copied, setCopied] = useState(false);
   if (!items.length) return null;
   const selectedItems = items.filter(item => selected.includes(item.id));
@@ -60,16 +64,18 @@ function SourcesBlock({block, onPrompt, onOpenResource}) {
     content: item.content || item.detail || '',
   }))).slice(0, 12000);
   const toggle = item => setSelected(current => current.includes(item.id) ? current.filter(id => id !== item.id) : [...current, item.id]);
-  const compile = () => onPrompt?.('Compile os trechos selecionados em um texto limpo, indique o que é fato e o que é interpretação e me pergunte antes de adicionar ao projeto.', {type: 'web_sources', label: 'Fontes selecionadas', text: compiledText});
+  const selectRecommended = () => setSelected(recommendedIds.length ? recommendedIds : items.slice(0, 2).map(item => item.id));
+  const compile = () => onPrompt?.('Responda ao pedido original usando as fontes selecionadas. Organize a resposta em fatos comprovados, linha do tempo quando fizer sentido e lacunas; não invente informações.', {type: 'web_sources', label: 'Fontes selecionadas', text: compiledText});
   const draft = () => onPrompt?.('Crie um rascunho editável a partir das fontes selecionadas. Organize um título e os parágrafos em texto fiel ao conteúdo, sem inventar informações.', {type: 'web_sources', label: 'Fontes para o rascunho', text: compiledText});
   const copy = async () => {
     try { await navigator.clipboard?.writeText(compiledText); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch (_) {}
   };
   return <section className="cv-source-group cv-mt-5">
     <div className="cv-source-group__header">
-      <div><strong>{block.title || 'Fontes consultadas'}</strong><span>{items.length} resultado{items.length === 1 ? '' : 's'} · selecione trechos para continuar</span></div>
+      <div><strong>{block.title || 'Fontes consultadas'}</strong><span>{items.length} resultado{items.length === 1 ? '' : 's'} · priorize fontes oficiais e institucionais</span></div>
       {selectedItems.length > 0 && <span className="cv-source-group__count">{selectedItems.length} selecionada{selectedItems.length === 1 ? '' : 's'}</span>}
     </div>
+    <div className="cv-source-group__guide"><span>O Cadu recomenda começar pelas fontes com domínio oficial; você pode revisar antes de responder.</span><button type="button" onClick={selectRecommended}>Selecionar recomendadas</button></div>
     <div className="cv-source-group__list">
       <BoundedItems items={items} label="fontes">{visible => visible.map((item, index) => {
         const href = safeUrl(item?.url);
@@ -77,12 +83,12 @@ function SourcesBlock({block, onPrompt, onOpenResource}) {
         let domain = '';
         try { domain = href ? new URL(href).hostname.replace(/^www\./, '') : ''; } catch (_) {}
         return <div key={item.id || index} className={`cv-source-result ${active ? 'is-selected' : ''}`}>
-          <button type="button" className="cv-source-result__select" onClick={() => toggle(item)} aria-pressed={active}>
-            <span className="cv-source-result__check" aria-hidden="true">{active ? '✓' : ''}</span>
-            <span className="cv-source-result__select-label">{active ? 'Selecionada' : 'Selecionar'}</span>
-          </button>
           <details className="cv-source-card">
             <summary>
+              <button type="button" className="cv-source-result__select" onClick={event => { event.preventDefault(); event.stopPropagation(); toggle(item); }} aria-pressed={active}>
+                <span className="cv-source-result__check" aria-hidden="true">{active ? '✓' : ''}</span>
+                <span className="cv-source-result__select-label">{active ? 'Selecionada' : 'Selecionar'}</span>
+              </button>
               <span className="cv-source-result__favicon">{item.favicon ? <img src={safeUrl(item.favicon)} alt="" loading="lazy"/> : <span>{(domain || 'F').slice(0, 1).toUpperCase()}</span>}</span>
               <span className="cv-source-result__copy"><b>{item.title || item.name || item.label || 'Fonte'}</b><small>{domain || item.kind || 'Fonte externa'}</small></span>
               <span className="cv-source-card__chevron" aria-hidden="true">⌄</span>
@@ -99,13 +105,13 @@ function SourcesBlock({block, onPrompt, onOpenResource}) {
         </div>;
       })}</BoundedItems>
     </div>
-    {selectedItems.length > 0 && <div className="cv-source-group__actions"><button type="button" onClick={draft} className="is-primary">Criar rascunho</button><button type="button" onClick={compile}>Compilar no chat</button><button type="button" onClick={copy}>{copied ? 'Copiado' : 'Copiar texto'}</button></div>}
+    {selectedItems.length > 0 && <div className="cv-source-group__actions"><button type="button" onClick={compile} className="is-primary">Responder com fontes</button><button type="button" onClick={draft}>Criar rascunho</button><button type="button" onClick={copy}>{copied ? 'Copiado' : 'Copiar texto'}</button></div>}
   </section>;
 }
 
 function NoteBlock({block, tone = 'neutral'}) {
-  const colors = tone === 'warning' ? 'cv-border-[#ff7d83]/35 cv-text-[#e8c4c6]' : 'cv-border-white/[.08] cv-text-[#a9bfbb]';
-  return <aside className={`cv-mt-5 cv-border-l-2 cv-pl-3 cv-text-xs cv-leading-5 ${colors}`}>
+  const colors = tone === 'warning' ? 'cv-note-block--warning cv-text-[#e8c4c6]' : 'cv-note-block--neutral cv-text-[#a9bfbb]';
+  return <aside className={`cv-note-block cv-mt-5 cv-text-xs cv-leading-5 ${colors}`}>
     <strong className="cv-block cv-font-semibold">{block.title || (tone === 'warning' ? 'Atenção' : 'Premissa')}</strong>
     <span className="cv-mt-0.5 cv-block">{block.text || block.detail || block.summary}</span>
   </aside>;
@@ -129,7 +135,7 @@ function DecisionBlock({block, onPrompt}) {
   const choice = block.items.find(item => item.id === selected);
   return <section className="cv-response-block cv-mt-5">
     <BlockHeader block={block}/>
-    <div className="cv-grid cv-gap-1"><BoundedItems items={block.items} label="opções">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => setSelected(item.id)} aria-pressed={selected === item.id} className={`cv-group cv-flex cv-w-full cv-items-start cv-gap-3 cv-rounded-xl cv-border-0 cv-px-3 cv-py-3 cv-text-left cv-transition-colors ${selected === item.id ? 'cv-bg-teal/10' : 'cv-bg-transparent hover:cv-bg-white/[.035]'}`}>
+    <div className="cv-grid cv-gap-2"><BoundedItems items={block.items} label="opções">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => setSelected(item.id)} aria-pressed={selected === item.id} className={`cv-choice-row cv-group cv-flex cv-w-full cv-items-start cv-gap-3 cv-rounded-xl cv-border-0 cv-px-3 cv-py-3 cv-text-left cv-transition-colors ${selected === item.id ? 'cv-bg-teal/10' : 'cv-bg-transparent hover:cv-bg-white/[.035]'}`}>
       <span className={`cv-mt-1 cv-grid cv-h-4 cv-w-4 cv-flex-none cv-place-items-center cv-rounded-full cv-border ${selected === item.id ? 'cv-border-teal cv-bg-teal' : 'cv-border-white/25'}`}>{selected === item.id && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#06211e]"/>}</span>
       <span className="cv-min-w-0 cv-flex-1"><strong className="cv-flex cv-items-center cv-gap-2 cv-text-sm cv-font-medium">{item.title}{item.recommended && <small className="cv-rounded-full cv-bg-teal/10 cv-px-2 cv-py-0.5 cv-text-[10px] cv-font-semibold cv-text-[#65d8cb]">Recomendada</small>}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#8ba39f]">{item.detail}</small>}</span>
     </button>)}</BoundedItems></div>
@@ -147,7 +153,7 @@ function ChecklistBlock({block, onPrompt}) {
   const selected = block.items.filter(item => checked.has(item.id));
   return <section className="cv-response-block cv-mt-5">
     <BlockHeader block={block}/>
-    <div><BoundedItems items={block.items} label="itens">{visible => visible.map(item => { const chosen = checked.has(item.id); const done = item.state === 'done'; return <button key={item.id} type="button" aria-pressed={chosen} onClick={() => toggle(item.id)} className={`cv-flex cv-w-full cv-items-start cv-gap-3 cv-border-0 cv-border-b cv-border-white/[.06] cv-px-2 cv-py-3 cv-text-left last:cv-border-0 ${chosen ? 'cv-bg-white/[.045]' : 'cv-bg-transparent hover:cv-bg-white/[.025]'}`}>
+    <div className="cv-grid cv-gap-2"><BoundedItems items={block.items} label="itens">{visible => visible.map(item => { const chosen = checked.has(item.id); const done = item.state === 'done'; return <button key={item.id} type="button" aria-pressed={chosen} onClick={() => toggle(item.id)} className={`cv-checklist-row cv-flex cv-w-full cv-items-start cv-gap-3 cv-rounded-xl cv-border-0 cv-px-3 cv-py-3 cv-text-left ${chosen ? 'cv-bg-white/[.045]' : 'cv-bg-transparent hover:cv-bg-white/[.025]'}`}>
       <span className={`cv-mt-0.5 cv-grid cv-h-5 cv-w-5 cv-flex-none cv-place-items-center cv-rounded-full cv-border ${done ? 'cv-border-teal/70 cv-bg-teal/15 cv-text-teal' : item.state === 'blocked' ? 'cv-border-[#ff7d83]/60 cv-text-[#ff9ca1]' : 'cv-border-white/20 cv-text-transparent'}`}>{done ? <Icon name="check" size={12}/> : item.state === 'blocked' ? '!' : '•'}</span>
       <span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm cv-font-medium cv-text-[#e4efed]">{item.title}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#819b97]">{item.detail}</small>}</span>
       {chosen && <span className="cv-mt-1 cv-text-[10px] cv-font-semibold cv-text-teal">Selecionado</span>}
@@ -157,15 +163,15 @@ function ChecklistBlock({block, onPrompt}) {
 }
 
 function InsightsBlock({block, onPrompt}) {
-  return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-gap-1"><BoundedItems items={block.items} label="insights">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => onPrompt(item.prompt || `Aprofunde este ponto: ${item.title}.`)} className="cv-group cv-flex cv-w-full cv-items-start cv-gap-3 cv-rounded-lg cv-border-0 cv-bg-transparent cv-px-2 cv-py-2.5 cv-text-left hover:cv-bg-white/[.035]"><span className="cv-mt-2 cv-h-1.5 cv-w-1.5 cv-flex-none cv-rounded-full cv-bg-teal/70"/><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm cv-font-medium">{item.title}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#819b97]">{item.detail}</small>}</span><span className="cv-mt-1 cv-text-[10px] cv-font-semibold cv-text-[#66817d] group-hover:cv-text-teal">Aprofundar</span></button>)}</BoundedItems></div></section>;
+  return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-gap-2"><BoundedItems items={block.items} label="insights">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => onPrompt(item.prompt || `Aprofunde este ponto: ${item.title}.`)} className="cv-insight-row cv-group cv-flex cv-w-full cv-items-start cv-gap-3 cv-rounded-lg cv-border-0 cv-bg-transparent cv-px-2 cv-py-2.5 cv-text-left"><span className="cv-mt-2 cv-h-1.5 cv-w-1.5 cv-flex-none cv-rounded-full cv-bg-teal/70"/><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm cv-font-medium">{item.title}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#819b97]">{item.detail}</small>}</span><span className="cv-mt-1 cv-text-[10px] cv-font-semibold cv-text-[#66817d] group-hover:cv-text-teal">Aprofundar</span></button>)}</BoundedItems></div></section>;
 }
 
 function MetricsBlock({block, onPrompt}) {
-  return <section className="cv-response-block cv-mt-5 cv-border-y cv-border-white/[.07] cv-py-4"><BlockHeader block={block}/><div className="cv-grid cv-grid-cols-2 cv-gap-x-6 cv-gap-y-4 sm:cv-grid-cols-3"><BoundedItems items={block.items} label="métricas">{visible => visible.map(item => { const body = <><strong className="cv-block cv-text-xl cv-font-semibold cv-tracking-[-.03em] cv-text-[#edf7f5]">{item.value || '—'}</strong><span className="cv-mt-1 cv-block cv-text-xs cv-text-[#819b97]">{item.title}</span>{item.detail && <small className="cv-mt-1 cv-block cv-text-[10px] cv-leading-4 cv-text-[#657f7b]">{item.detail}</small>}</>; return item.prompt ? <button key={item.id} type="button" onClick={() => onPrompt(item.prompt)} className="cv-border-0 cv-bg-transparent cv-p-0 cv-text-left">{body}<small className="cv-mt-2 cv-block cv-text-[10px] cv-font-semibold cv-text-teal">Analisar</small></button> : <div key={item.id}>{body}{safeUrl(item.url) && <a href={safeUrl(item.url)} target="_blank" rel="noreferrer" className="cv-mt-2 cv-block cv-text-[10px] cv-font-semibold cv-text-teal cv-no-underline">Ver fonte</a>}</div>; })}</BoundedItems></div></section>;
+  return <section className="cv-response-block cv-metrics-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-grid-cols-2 cv-gap-x-6 cv-gap-y-4 sm:cv-grid-cols-3"><BoundedItems items={block.items} label="métricas">{visible => visible.map(item => { const body = <><strong className="cv-block cv-text-xl cv-font-semibold cv-tracking-[-.03em] cv-text-[#edf7f5]">{item.value || '—'}</strong><span className="cv-mt-1 cv-block cv-text-xs cv-text-[#819b97]">{item.title}</span>{item.detail && <small className="cv-mt-1 cv-block cv-text-[10px] cv-leading-4 cv-text-[#657f7b]">{item.detail}</small>}</>; return item.prompt ? <button key={item.id} type="button" onClick={() => onPrompt(item.prompt)} className="cv-metric-item cv-border-0 cv-bg-transparent cv-p-0 cv-text-left">{body}<small className="cv-mt-2 cv-block cv-text-[10px] cv-font-semibold cv-text-teal">Analisar</small></button> : <div key={item.id} className="cv-metric-item">{body}{safeUrl(item.url) && <a href={safeUrl(item.url)} target="_blank" rel="noreferrer" className="cv-mt-2 cv-block cv-text-[10px] cv-font-semibold cv-text-teal cv-no-underline">Ver fonte</a>}</div>; })}</BoundedItems></div></section>;
 }
 
 function FilesBlock({block, onOpenResource}) {
-  return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-gap-1"><BoundedItems items={block.items} label="arquivos">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => onOpenResource?.(item)} className="cv-flex cv-w-full cv-items-center cv-gap-3 cv-rounded-xl cv-border-0 cv-bg-transparent cv-p-2 cv-text-left hover:cv-bg-white/[.035]"><span className="cv-grid cv-h-9 cv-w-9 cv-flex-none cv-place-items-center cv-rounded-lg cv-bg-white/[.05] cv-text-[#79b9b1]"><Icon name="file" size={16}/></span><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-sm cv-font-medium">{item.title}</strong><small className="cv-mt-0.5 cv-block cv-text-[11px] cv-text-[#78918d]">{item.kind || 'Arquivo'}{item.detail ? ` · ${item.detail}` : ''}</small></span><span className="cv-text-[10px] cv-font-semibold cv-text-teal">Abrir</span></button>)}</BoundedItems></div></section>;
+  return <section className="cv-response-block cv-files-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-gap-2"><BoundedItems items={block.items} label="arquivos">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => onOpenResource?.(item)} className="cv-file-row cv-flex cv-w-full cv-items-center cv-gap-3 cv-rounded-xl cv-border-0 cv-bg-transparent cv-p-2 cv-text-left"><span className="cv-grid cv-h-9 cv-w-9 cv-flex-none cv-place-items-center cv-rounded-lg cv-bg-white/[.05] cv-text-[#79b9b1]"><Icon name="file" size={16}/></span><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-sm cv-font-medium">{item.title}</strong><small className="cv-mt-0.5 cv-block cv-text-[11px] cv-text-[#78918d]">{item.kind || 'Arquivo'}{item.detail ? ` · ${item.detail}` : ''}</small></span><span className="cv-text-[10px] cv-font-semibold cv-text-teal">Abrir</span></button>)}</BoundedItems></div></section>;
 }
 
 function ImagesBlock({block}) {

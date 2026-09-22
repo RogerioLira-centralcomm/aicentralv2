@@ -167,6 +167,96 @@ def _previous_assistant_context(message, messages):
     })
 
 
+_TURN_URL = re.compile(r"https?://[^\s<>\]\[\"']+", re.IGNORECASE)
+_LINK_REFERENCE = re.compile(
+    r"\b(?:esse|este|aquele|o)\s+(?:link|site|endere[cç]o|url)|"
+    r"\b(?:link|site|url)\s+que\s+(?:eu\s+)?(?:enviei|mandei|passei|adicionei)|"
+    r"\bcom\s+base\s+(?:nele|nisso|no\s+link)\b",
+    re.IGNORECASE,
+)
+_SHORT_CONFIRMATION = re.compile(
+    r"^\s*(?:sim|pode|pode\s+(?:criar|fazer|gerar|seguir)|fa[cç]a|crie|gere|continue|prossiga|ok)\s*[.!]?\s*$",
+    re.IGNORECASE,
+)
+_FORMAT_CONTINUATION = re.compile(
+    r"\b(?:pode\s+ser|fa[cç]a|quero)\s+(?:um|uma|em\s+formato\s+de)?\s*"
+    r"(plano|relat[oó]rio|apresenta[cç][aã]o|briefing|documento|texto)\b",
+    re.IGNORECASE,
+)
+
+
+def _metadata_response(message):
+    metadata = message.get("metadata") if isinstance(message, dict) else None
+    if not isinstance(metadata, dict):
+        return {}
+    response = metadata.get("response")
+    return response if isinstance(response, dict) else {}
+
+
+def _conversation_turn_context(message, messages):
+    """Resolve recent entities and executable continuations before provider inference."""
+    recent = [item for item in (messages or []) if item.get("role") in {"user", "assistant"}][-12:]
+    latest_url = ""
+    latest_url_message = None
+    pending = None
+    for item in reversed(recent):
+        if not latest_url:
+            match = _TURN_URL.search(str(item.get("content") or ""))
+            if match:
+                latest_url = match.group(0).rstrip(".,;:!?)")
+                latest_url_message = item
+        if pending is None and item.get("role") == "assistant":
+            response = _metadata_response(item)
+            for block in reversed(response.get("blocks") or []):
+                if not isinstance(block, dict):
+                    continue
+                for option in reversed(block.get("items") or []):
+                    if isinstance(option, dict) and option.get("auto_submit") and option.get("prompt"):
+                        pending = {"title": str(option.get("title") or "Continuar"), "prompt": str(option["prompt"])}
+                        break
+                if pending:
+                    break
+        if latest_url and pending:
+            break
+    refers_to_link = bool(_LINK_REFERENCE.search(str(message or "")))
+    confirms = bool(_SHORT_CONFIRMATION.match(str(message or "")))
+    format_match = _FORMAT_CONTINUATION.search(str(message or ""))
+    if not ((refers_to_link and latest_url) or (confirms and pending) or (format_match and latest_url)):
+        return None
+    transcript = []
+    for item in recent[-6:]:
+        content = " ".join(str(item.get("content") or "").split())[:1000]
+        if content:
+            transcript.append({"role": item.get("role"), "content": content})
+    routing_message = ""
+    if format_match and latest_url:
+        routing_message = (
+            f"Abra o link e crie um resumo editável estruturado como {format_match.group(1)}: {latest_url}"
+        )
+    return {
+        "type": "conversation_turn",
+        "active_entities": {"url": latest_url} if latest_url else {},
+        "resolved_reference": (
+            "format_refinement" if routing_message else
+            "latest_url" if refers_to_link and latest_url else "pending_action"
+        ),
+        "pending_action": pending,
+        "routing_message": routing_message,
+        "source_message_id": str((latest_url_message or {}).get("id") or ""),
+        "recent_turns": transcript,
+    }
+
+
+def _turn_selected_context(turn):
+    if not turn:
+        return None
+    return _selected_context({
+        "type": "conversation_turn",
+        "label": "Continuidade da conversa",
+        "text": json.dumps(turn, ensure_ascii=False, separators=(",", ":")),
+    })
+
+
 def _run_was_cancelled(run_id: str) -> bool:
     """Recheck durable state before persisting output from a stopped provider."""
     try:
@@ -450,10 +540,11 @@ def prepare(data):
     previous_messages = (repository.conversation_messages(
         current.user_id, current.client_id, conversation_id
     ) if data.get("conversation_id") else []) or []
+    turn_context = _conversation_turn_context(message, previous_messages)
     if not current.selected_context:
-        previous_context = _previous_assistant_context(message, previous_messages)
-        if previous_context:
-            current = replace(current, selected_context=previous_context)
+        selected = _turn_selected_context(turn_context) or _previous_assistant_context(message, previous_messages)
+        if selected:
+            current = replace(current, selected_context=selected)
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
     from ..conversations import conversation_memory
     try:
@@ -467,8 +558,16 @@ def prepare(data):
         # transient database error must never make the canonical chat unusable.
         current_app.logger.exception("Memória longa indisponível; conversa=%s", conversation_id)
         long_memory = {}
+    if turn_context:
+        long_memory = {**long_memory, "turn_context": turn_context}
+    routing_message = message
+    if turn_context:
+        if turn_context.get("routing_message"):
+            routing_message = turn_context["routing_message"]
+        elif turn_context.get("resolved_reference") == "pending_action":
+            routing_message = (turn_context.get("pending_action") or {}).get("prompt") or message
     execution = prepare_execution(message, current, history_context(previous_messages), requested_mode,
-                                  conversation_state=long_memory)
+                                  conversation_state=long_memory, routing_message=routing_message)
     if uploads:
         execution["provider_payload"]["files"] = [
             {"type": row["kind"], "transfer_method": "local_file", "upload_file_id": row["provider_id"]}

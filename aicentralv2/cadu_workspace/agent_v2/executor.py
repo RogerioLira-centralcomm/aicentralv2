@@ -32,9 +32,10 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
     return {"percent": percent, "complete": percent >= 80, "completed": completed, "missing": missing}
 
 
-def prepare_execution(message, request, history="", requested_mode="", conversation_state=None):
+def prepare_execution(message, request, history="", requested_mode="", conversation_state=None, routing_message=None):
+    routed_message = routing_message or message
     route = route_request(
-        message, request.surface, bool(request.project_ref),
+        routed_message, request.surface, bool(request.project_ref),
         request.active_object.type if request.active_object else "", bool(request.brand_ref),
     )
     readiness = None
@@ -78,7 +79,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "create_link_summary": "Preparei um resumo editável do conteúdo disponível no artefato ao lado.",
     }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
     policy["artifact_scope"] = "session" if route.action == "create_text_draft" else "context"
-    resolved = resolve_context(route, request, message, load_builtin_tools(), execution_mode)
+    resolved = resolve_context(route, request, routed_message, load_builtin_tools(), execution_mode)
     # A failed or incomplete link must stop before artifact fallback. The
     # provider may still explain the issue, but it must not manufacture a
     # document from an unavailable page.
@@ -101,7 +102,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,
-        "plan": build_task_plan(route, budget, message), "resolved_context": resolved,
+        "plan": build_task_plan(route, budget, routed_message), "resolved_context": resolved,
         "selected_context": getattr(request, "selected_context", None),
         "provider_payload": payload,
     }

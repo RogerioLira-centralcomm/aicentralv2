@@ -1411,9 +1411,9 @@ def test_prompt_payload_includes_bounded_prior_conversation_as_evidence():
 
 
 def test_prompt_contract_resolves_last_content_without_asking_for_paste():
-    assert '"o último conteúdo"' in CORE
-    assert "A entrada `Assistente:` mais recente é o alvo padrão" in CORE
-    assert "nunca peça para o usuário colá-la novamente" in CORE
+    assert '"isso", "continue"' in CORE
+    assert "sem pedir que o usuário o repita" in CORE
+    assert "`active_entities` e `pending_action` são a resolução canônica" in CORE
 
 
 def test_prompt_payload_includes_selected_context_as_bounded_evidence():
@@ -1451,6 +1451,65 @@ def test_explicit_previous_answer_reference_is_resolved_deterministically():
         "label": "Última resposta do assistente",
         "text": "# Estratégia\n\nConteúdo completo.",
     }
+
+
+def test_link_reference_resolves_the_original_url_from_recent_turns():
+    turn = v2_service._conversation_turn_context(
+        "com base no link que eu te mandei né",
+        [
+            {"id": "u1", "role": "user", "content": "adicione no projeto https://example.com/proposta"},
+            {"id": "a1", "role": "assistant", "content": "O link foi adicionado ao projeto."},
+            {"id": "u2", "role": "user", "content": "pode ser um plano mesmo"},
+        ],
+    )
+    assert turn["active_entities"]["url"] == "https://example.com/proposta"
+    assert turn["resolved_reference"] == "latest_url"
+    assert turn["source_message_id"] == "u1"
+
+
+def test_short_confirmation_inherits_the_latest_executable_action():
+    prompt = "Crie um resumo editável deste link: https://example.com/proposta"
+    turn = v2_service._conversation_turn_context(
+        "pode criar",
+        [{
+            "id": "a1", "role": "assistant", "content": "O link foi adicionado.",
+            "metadata": {"response": {"blocks": [{"type": "questions", "items": [{
+                "title": "Criar resumo", "prompt": prompt, "auto_submit": True,
+            }]}]}},
+        }],
+    )
+    assert turn["pending_action"]["prompt"] == prompt
+    assert turn["resolved_reference"] == "pending_action"
+
+
+def test_format_refinement_keeps_the_recent_link_and_builds_an_executable_request():
+    turn = v2_service._conversation_turn_context(
+        "pode ser um plano mesmo",
+        [
+            {"id": "u1", "role": "user", "content": "adicione https://example.com/proposta"},
+            {"id": "a1", "role": "assistant", "content": "O link foi adicionado."},
+        ],
+    )
+    assert turn["resolved_reference"] == "format_refinement"
+    assert "estruturado como plano" in turn["routing_message"]
+    assert "https://example.com/proposta" in turn["routing_message"]
+
+
+def test_unrelated_message_does_not_receive_implicit_turn_context():
+    assert v2_service._conversation_turn_context(
+        "qual é a previsão do tempo?",
+        [{"id": "u1", "role": "user", "content": "https://example.com/proposta"}],
+    ) is None
+
+
+def test_pending_action_prompt_drives_routing_while_user_message_stays_original():
+    execution = __import__(
+        "aicentralv2.cadu_workspace.agent_v2.executor", fromlist=["prepare_execution"]
+    ).prepare_execution(
+        "pode criar", context(), routing_message="Crie um documento editável com o plano aprovado",
+    )
+    assert execution["route"]["action"] == "create_text_draft"
+    assert execution["provider_payload"]["query"] == "pode criar"
 
 
 def test_document_prompt_contract_uses_selected_answer_and_editorial_sections():

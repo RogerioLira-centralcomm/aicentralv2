@@ -1,7 +1,11 @@
 import unittest
+from unittest.mock import Mock, patch
+
+from flask import Flask, session
 
 from aicentralv2.creative_media.studio_agent import plan_request, suggest_narration
 from aicentralv2.creative_skills import load_video_skill
+from aicentralv2.services.openrouter_service import OpenRouterError
 
 
 class StudioAgentPlanTest(unittest.TestCase):
@@ -50,6 +54,45 @@ class StudioAgentPlanTest(unittest.TestCase):
     def test_empty_request_is_rejected(self):
         with self.assertRaises(ValueError):
             plan_request("  ")
+
+    def test_financial_error_is_not_hidden_by_local_fallback(self):
+        def insufficient(*_args, **_kwargs):
+            raise ValueError("Saldo insuficiente.")
+
+        with self.assertRaisesRegex(ValueError, "Saldo insuficiente"):
+            plan_request("Anime esta imagem", text_callable=insufficient)
+
+    def test_provider_unavailability_still_uses_safe_local_fallback(self):
+        def offline(*_args, **_kwargs):
+            raise OpenRouterError("Provedores indisponíveis.")
+
+        result = plan_request("Anime esta imagem por 5 segundos", text_callable=offline)
+        self.assertEqual(result["provider"], "rules")
+
+    def test_studio_endpoint_binds_billing_actor_and_propagates_credit_error(self):
+        from aicentralv2.creative_media import studio
+
+        app = Flask(__name__)
+        app.secret_key = "test"
+        modeling = Mock()
+        modeling._credits_crm_id.return_value = 174
+        payload = {"client_id": 31, "request_id": "request-1", "message": "Anime esta imagem"}
+        http = (lambda fn: fn(), lambda: payload, lambda data: data, lambda: modeling)
+        view = studio.studio_agent_plan.__wrapped__.__wrapped__
+
+        with app.test_request_context("/studio/agent/plan", method="POST"):
+            session["user_id"] = 32
+            with patch.object(studio, "_http", return_value=http), \
+                 patch.object(studio, "_scope"), \
+                 patch("aicentralv2.services.cadu_ai_connector.CaduAIConnector.complete",
+                       side_effect=ValueError("Saldo insuficiente.")) as complete:
+                with self.assertRaisesRegex(ValueError, "Saldo insuficiente"):
+                    view()
+
+        call = complete.call_args.kwargs
+        self.assertEqual((call["client_id"], call["user_id"]), (174, 32))
+        self.assertEqual(call["estimated_tokens"], 2400)
+        self.assertEqual(call["idempotency_key"], "studio:agent-plan:request-1")
 
     def test_agent_combines_narration_music_and_ambience(self):
         plan = plan_request("Com narração, música de fundo e efeitos de ambiente")

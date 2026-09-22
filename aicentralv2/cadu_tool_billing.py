@@ -122,6 +122,61 @@ class ToolTokenLedger:
             )
         return balance
 
+    def claim_generation(self, charge: ToolCharge):
+        """Atomically claim an idempotency key before contacting a provider."""
+        conn = self.connection_factory()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO cadu_tools_token_usage (
+                        idempotency_key, id_cliente, id_contato_cliente,
+                        ferramenta, etapa, modelo, tokens_cobrados, metadata, status
+                    ) VALUES (%s,%s,%s,%s,%s,%s,0,%s,'pending')
+                    ON CONFLICT (idempotency_key) DO NOTHING
+                    RETURNING *
+                    """,
+                    (
+                        charge.idempotency_key, charge.client_id, charge.user_id,
+                        charge.tool, charge.stage, charge.model,
+                        Json({**(charge.metadata or {}), "ai_generation_claim": True}),
+                    ),
+                )
+                row = cursor.fetchone()
+            conn.commit()
+            if row:
+                return {**dict(row), "claim_acquired": True}
+            existing = self._existing(charge.idempotency_key)
+            if existing and (
+                _integer(existing.get("id_cliente")) != charge.client_id
+                or _integer(existing.get("id_contato_cliente")) != charge.user_id
+            ):
+                raise ValueError("A chave idempotente pertence a outro cliente ou usuário.")
+            return {**(existing or {}), "claim_acquired": False}
+        except Exception:
+            conn.rollback()
+            raise
+
+    def fail_generation(self, key, client_id, user_id, error):
+        conn = self.connection_factory()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """UPDATE cadu_tools_token_usage
+                          SET status='failed',
+                              metadata=metadata || %s::jsonb
+                        WHERE idempotency_key=%s AND id_cliente=%s
+                          AND id_contato_cliente=%s AND status='pending'
+                    RETURNING *""",
+                    (Json({"error": str(error)[:500]}), key, client_id, user_id),
+                )
+                row = cursor.fetchone()
+            conn.commit()
+            return dict(row) if row else None
+        except Exception:
+            conn.rollback()
+            raise
+
     def charge(self, charge: ToolCharge):
         if not str(charge.idempotency_key or "").strip():
             raise ValueError("A execução precisa de uma chave idempotente.")
@@ -160,8 +215,34 @@ class ToolTokenLedger:
                 )
                 inserted = cursor.fetchone()
                 if not inserted:
-                    conn.rollback()
-                    return self._existing(charge.idempotency_key)
+                    cursor.execute(
+                        "SELECT * FROM cadu_tools_token_usage WHERE idempotency_key=%s FOR UPDATE",
+                        (charge.idempotency_key,),
+                    )
+                    existing = dict(cursor.fetchone() or {})
+                    claim = (existing.get("metadata") or {}).get("ai_generation_claim")
+                    if existing.get("status") != "pending" or not claim:
+                        conn.rollback()
+                        return existing or None
+                    if (_integer(existing.get("id_cliente")) != charge.client_id
+                            or _integer(existing.get("id_contato_cliente")) != charge.user_id):
+                        raise ValueError("A chave idempotente pertence a outro cliente ou usuário.")
+                    inserted = {"id": existing["id"]}
+                    cursor.execute(
+                        """UPDATE cadu_tools_token_usage
+                              SET modelo=%s, tokens_entrada=%s, tokens_saida=%s,
+                                  total_tokens=%s, tokens_cobrados=%s,
+                                  custo_interno=%s, custo_adicional=%s,
+                                  metadata=metadata || %s::jsonb
+                            WHERE id=%s""",
+                        (
+                            charge.model, _integer(charge.input_tokens),
+                            _integer(charge.output_tokens),
+                            _integer(charge.provider_total_tokens), required,
+                            charge.internal_cost_usd, charge.additional_cost_usd,
+                            Json(charge.metadata or {}), inserted["id"],
+                        ),
+                    )
 
                 cursor.execute(
                     """

@@ -33,6 +33,12 @@ O conector autoriza antes da chamada e registra o consumo medido depois dela. O 
 `id_cliente`, usuário, modelo, tokens, custo, provedor e cadeia de fallback. Repetir a mesma chave
 idempotente não pode gerar um segundo débito.
 
+Antes de chamar o provedor, o conector transforma a chave recebida em uma chave namespaced por
+cliente e usuário e reivindica atomicamente um registro `pending`. Uma repetição encontra essa
+operação e não chama novamente o provedor; operações concluídas devolvem o snapshot persistido da
+resposta. Falhas financeiras e de identidade são propagadas para a interface, enquanto somente a
+indisponibilidade dos provedores pode usar um fallback local explicitamente suportado pelo produto.
+
 ## Migração dos fluxos existentes
 
 Fluxos que já fazem reserva ou cobrança transacional permanecem usando `CaduCreditConnector` para

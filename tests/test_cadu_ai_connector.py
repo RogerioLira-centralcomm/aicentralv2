@@ -40,6 +40,7 @@ def test_explicit_provider_never_uses_implicit_fallback():
 
 def test_ai_connector_authorizes_and_charges_the_same_client():
     credits = Mock(spec=CaduCreditConnector)
+    credits.claim_generation.return_value = {"claim_acquired": True, "status": "pending"}
     credits.charge_provider.return_value = {"tokens_cobrados": 42}
     completion = Mock(return_value={
         "message": {"role": "assistant", "content": "resultado"},
@@ -61,7 +62,8 @@ def test_ai_connector_authorizes_and_charges_the_same_client():
     credits.authorize.assert_called_once_with(actor, 8000)
     charge = credits.charge_provider.call_args.kwargs
     assert charge["actor"] == actor
-    assert charge["idempotency_key"] == "chat:run-1"
+    assert charge["idempotency_key"].startswith("ai:174:32:")
+    assert "chat:run-1" not in charge["idempotency_key"]
     assert charge["metadata"]["provider"] == "openrouter"
     assert charge["metadata"]["provider_attempts"] == ["openai", "openrouter"]
     assert result["cadu_charge"] == {"tokens_cobrados": 42}
@@ -76,3 +78,37 @@ def test_ai_connector_requires_idempotency_before_authorization():
             app="Cadu Chat", stage="conversa", estimated_tokens=100,
         )
     credits.authorize.assert_not_called()
+
+
+def test_ai_connector_replays_charged_result_without_calling_provider():
+    credits = Mock(spec=CaduCreditConnector)
+    credits.claim_generation.return_value = {
+        "claim_acquired": False,
+        "status": "charged",
+        "metadata": {"ai_response": {
+            "message": {"role": "assistant", "content": "já concluído"},
+            "model": "openai/gpt-5-mini", "provider": "openai", "usage": {},
+        }},
+    }
+    completion = Mock()
+    result = CaduAIConnector(credits=credits, completion=completion).complete(
+        [], client_id=174, user_id=32, idempotency_key="same-request",
+        app="Cadu Chat", stage="conversa", estimated_tokens=100,
+    )
+    completion.assert_not_called()
+    credits.authorize.assert_not_called()
+    assert result["idempotent_replay"] is True
+    assert result["message"]["content"] == "já concluído"
+
+
+def test_ai_connector_marks_claim_failed_when_provider_fails():
+    credits = Mock(spec=CaduCreditConnector)
+    credits.claim_generation.return_value = {"claim_acquired": True, "status": "pending"}
+    completion = Mock(side_effect=openrouter_service.OpenRouterError("offline"))
+    connector = CaduAIConnector(credits=credits, completion=completion)
+    with pytest.raises(openrouter_service.OpenRouterError, match="offline"):
+        connector.complete(
+            [], client_id=174, user_id=32, idempotency_key="failed-request",
+            app="Cadu Chat", stage="conversa", estimated_tokens=100,
+        )
+    credits.fail_generation.assert_called_once()

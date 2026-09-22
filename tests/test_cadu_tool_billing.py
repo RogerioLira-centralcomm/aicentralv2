@@ -66,15 +66,19 @@ class FakeCursor:
                 return
             ident = self.db.next_id
             self.db.next_id += 1
+            claim = len(params) == 7
             row = {
                 "id": ident, "idempotency_key": key, "id_cliente": params[1],
                 "id_contato_cliente": params[2], "ferramenta": params[3],
-                "etapa": params[4], "modelo": params[5], "tokens_entrada": params[6],
-                "tokens_saida": params[7], "total_tokens": params[8],
-                "tokens_cobrados": params[9], "status": "pending",
+                "etapa": params[4], "modelo": params[5],
+                "tokens_entrada": 0 if claim else params[6],
+                "tokens_saida": 0 if claim else params[7],
+                "total_tokens": 0 if claim else params[8],
+                "tokens_cobrados": 0 if claim else params[9], "status": "pending",
+                "metadata": {"ai_generation_claim": True} if claim else {},
             }
             self.db.usage[key] = row
-            self.one = {"id": ident}
+            self.one = dict(row) if "RETURNING *" in compact else {"id": ident}
         elif "FROM cadu_credits_extras" in compact and "FOR UPDATE" in compact:
             client = params[0]
             self.many = [dict(row) for row in sorted(self.db.lots.values(), key=lambda row: row["id"])
@@ -83,6 +87,11 @@ class FakeCursor:
         elif compact.startswith("UPDATE cadu_credits_extras"):
             used, ident = params
             self.db.lots[ident]["tokens_used"] += used
+        elif compact.startswith("UPDATE cadu_tools_token_usage") and "SET modelo=" in compact:
+            model, incoming, outgoing, total, charged, _internal, _additional, _metadata, ident = params
+            row = next(row for row in self.db.usage.values() if row["id"] == ident)
+            row.update(modelo=model, tokens_entrada=incoming, tokens_saida=outgoing,
+                       total_tokens=total, tokens_cobrados=charged)
         elif compact.startswith("UPDATE cadu_tools_token_usage"):
             _metadata, ident = params
             row = next(row for row in self.db.usage.values() if row["id"] == ident)
@@ -149,6 +158,19 @@ class ToolTokenLedgerTest(unittest.TestCase):
         self.assertEqual(db.lots[1]["tokens_used"], 50)
         self.assertEqual(db.lots[2]["tokens_used"], 70)
         self.assertEqual(len(db.usage), 1)
+
+    def test_generation_claim_is_finalized_without_a_second_usage_row(self):
+        db = FakeLedgerDb([
+            {"id": 1, "id_cliente": 10, "tokens_amount": 200, "tokens_used": 0, "status": "active"},
+        ])
+        ledger = ToolTokenLedger(db.connect)
+        claimed = ledger.claim_generation(charge(tokens=0))
+        completed = ledger.charge(charge(tokens=120))
+
+        self.assertTrue(claimed["claim_acquired"])
+        self.assertEqual(completed["status"], "charged")
+        self.assertEqual(len(db.usage), 1)
+        self.assertEqual(db.lots[1]["tokens_used"], 120)
 
     def test_insufficient_balance_rolls_back_usage_and_lots(self):
         db = FakeLedgerDb([

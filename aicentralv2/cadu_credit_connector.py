@@ -13,7 +13,7 @@ from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from typing import Any
 
-from .cadu_tool_billing import ToolTokenLedger, charge_from_provider, cost_token_equivalent
+from .cadu_tool_billing import ToolCharge, ToolTokenLedger, charge_from_provider, cost_token_equivalent
 
 
 # Firecrawl Standard: US$5 para 2.000 créditos. Mantemos configurável porque
@@ -70,6 +70,19 @@ class CaduCreditConnector:
 
     def balance(self, client_id: int) -> int:
         return self.ledger.available(int(client_id))
+
+    def claim_generation(self, *, actor: CreditActor, idempotency_key: str,
+                         app: str, stage: str, model: str = "", metadata=None) -> dict:
+        return self.ledger.claim_generation(ToolCharge(
+            idempotency_key=str(idempotency_key), client_id=actor.client_id,
+            user_id=actor.user_id, tool=str(app), stage=str(stage),
+            model=str(model or "unknown"), metadata=metadata or {},
+        ))
+
+    def fail_generation(self, *, actor: CreditActor, idempotency_key: str, error) -> dict | None:
+        return self.ledger.fail_generation(
+            str(idempotency_key), actor.client_id, actor.user_id, error
+        )
 
     def estimate_firecrawl_tokens(self, operation: str, *, pages: int = 0, results: int = 0) -> int:
         credits = firecrawl_credit_cost(operation, pages=pages, results=results)

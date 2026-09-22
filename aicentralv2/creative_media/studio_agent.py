@@ -8,6 +8,7 @@ import re
 
 from ..creative_modeling_generation import _json_content
 from ..creative_skills import load_video_skill
+from ..services.openrouter_service import OpenRouterError
 
 MODEL = os.getenv("CREATIVE_VIDEO_AGENT_MODEL", "openai/gpt-5-nano")
 DURATIONS = (4, 5, 8, 10, 15, 20, 30)
@@ -72,7 +73,7 @@ def plan_request(message, context=None, text_callable=None):
             content = response["message"].get("content") if isinstance(response, dict) else response
             raw = content if isinstance(content, dict) else _json_content(content)
             assisted = isinstance(raw, dict)
-        except Exception:
+        except OpenRouterError:
             raw = None
     proposed = raw if isinstance(raw, dict) else _heuristic(text, current)
     result = _normalize(proposed, text, current)
@@ -104,7 +105,7 @@ def suggest_narration(creative=None, duration=8, text_callable=None):
             content = response["message"].get("content") if isinstance(response, dict) else response
             raw = content if isinstance(content, dict) else _json_content(content)
             assisted = isinstance(raw, dict)
-        except Exception:
+        except OpenRouterError:
             raw = None
     fallback = _narration_fallback(context)
     proposed = raw if isinstance(raw, dict) else fallback

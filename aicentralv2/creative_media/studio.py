@@ -373,7 +373,7 @@ def studio_agent_plan():
                 idempotency_key=f'studio:agent-plan:{request_key}',
                 app='Cadu Studio',
                 stage='video_agent_plan',
-                estimated_tokens=900,
+                estimated_tokens=2400,
                 metadata={
                     'studio_client_id': int(client_id),
                     'request_id': request_key,

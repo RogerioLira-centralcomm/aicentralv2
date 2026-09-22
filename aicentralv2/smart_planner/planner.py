@@ -18,7 +18,7 @@ O documento é complementar à página única: acrescenta operação e critério
 
 Verdade do material:
 - Verba total, canais, percentuais e voo mensal da configuração são lei. A tabela deve mostrar a divisão estratégica; não trate a divisão de OOH ou Places como cotação.
-- Regra comercial: nunca gere preço, cotação, mínimo, compra, negociação, fornecedor, inventário, ponto, raio ou disponibilidade comercial para OOH ou Places. Use somente investimento total, divisão percentual, público, segmentação, papel estratégico e defesa do plano.
+- Regra comercial: nunca faça afirmações de preço, cotação, mínimo, compra de mídia, negociação, fornecedor, inventário, ponto, raio ou disponibilidade comercial para OOH ou Places. Expressões de audiência como “intenção de compra”, “compras de imóveis” e “jornada de compra” são válidas. Use somente investimento total, divisão percentual, público, segmentação, papel estratégico e defesa do plano.
 - Sem dado: omita a afirmação e registre somente a decisão pendente necessária. Nunca invente prazo de produção, CPM, impressão ou responsável.
 - Sem agência, consultoria, ferramenta ou menção a IA.
 - Cada fato deve ter uma única seção de propriedade. Nas demais, não repita.

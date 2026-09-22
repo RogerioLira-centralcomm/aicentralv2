@@ -22,5 +22,5 @@ Canal | Formato principal | Conceitos | Variações | Arquivos finais | Justific
 - Use exatamente o formato principal aprovado no One Page; não acrescente adaptações.
 - Quantidade depende de período, verba, renovação, público e capacidade. Sem base, omita a quantidade.
 - Conceito, variação, arquivo final e rodada de revisão são contagens distintas.
-- Smart Planner gera somente imagens conceituais. Quando o formato for vídeo, áudio ou animação, descreva a entrega e use imagem estática como referência; não afirme que o arquivo foi produzido.
+- Smart Planner prepara somente a direção de uma imagem conceitual. A imagem é gerada depois, por ação explícita do usuário. Quando o formato for vídeo, áudio ou animação, descreva a entrega e uma referência visual estática; não afirme que qualquer arquivo foi produzido.
 - Cada seção: no máximo 2 parágrafos ou 5 bullets. Não repita tese, mix ou defesa.

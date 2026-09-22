@@ -81,6 +81,6 @@ JSON apenas no schema one_page_v2:
 - Não use “premissa”, “a validar” ou “a definir” como texto de preenchimento. Omita o que não muda a decisão.
 - Traduza termos: B2B para empresas, B2C para pessoas e retargeting para voltar a alcançar quem demonstrou interesse. Não escreva os dois termos juntos.
 - Não mostre lacunas, pendências, metodologia ou indisponibilidade de estimativas na folha do cliente.
-- Para OOH/Places: sem preço, cotação, mínimo, compra, negociação, fornecedor, inventário, ponto, raio ou disponibilidade comercial.
+- Para OOH/Places: não faça afirmações de preço, cotação, mínimo, compra de mídia, negociação, fornecedor, inventário, ponto, raio ou disponibilidade comercial. "Intenção de compra", "compras de imóveis" e "jornada de compra" continuam válidas quando descrevem o público.
 - Um único `primary_format_id` por canal. Não liste alternativas.
 - Formato em vídeo descreve o entregável recomendado; `image_prompt` sempre pede uma referência visual estática no canal. Nunca peça vídeo, animação, áudio, frames ou storyboard.

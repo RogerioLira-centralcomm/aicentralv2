@@ -14,6 +14,8 @@ from aicentralv2.smart_planner.generator import (
     _usable_page,
     _validate_group_markdown,
     _validate_plan_markdown,
+    _validate_channel_policy,
+    _repair_channel_policy_text,
     _validate_page,
     _audience_model_fallback,
     _visual_data_fallback,
@@ -456,3 +458,26 @@ def test_pack_exposes_approved_mix_as_law():
         "mix": [{"id": "ooh", "label": "OOH / Painéis", "pct": 60, "amount_label": "R$ 240.000"}],
     })
     assert law["hero"]["id"] == "ooh"
+
+
+def test_channel_policy_allows_audience_purchase_context_but_blocks_media_buying():
+    snapshot = {"mix": [{"id": "ooh", "group": "ooh"}]}
+    _validate_channel_policy("Público interessado em compras de imóveis e investimentos.", snapshot)
+    try:
+        _validate_channel_policy("Compra de inventário OOH garantida para a campanha.", snapshot)
+    except ValueError as exc:
+        assert "compra" in str(exc).lower()
+    else:
+        raise AssertionError("A política deveria bloquear compra de inventário")
+
+
+def test_channel_policy_repairs_commercial_claim_without_stopping_generation():
+    snapshot = {"mix": [{"id": "ooh", "group": "ooh"}]}
+    repaired = _repair_channel_policy_text(
+        "## Estratégia\nCompra de inventário OOH garantida para a campanha.\n\n## Público\nCompras de imóveis.",
+        snapshot,
+    )
+    assert "compra de inventário" not in repaired.lower()
+    assert "planejamento da rede" in repaired.lower()
+    assert "Compras de imóveis" in repaired
+    _validate_channel_policy(repaired, snapshot)

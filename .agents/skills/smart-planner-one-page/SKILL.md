@@ -38,13 +38,16 @@ Quando uma regra mudar, os dois devem ser atualizados na mesma alteração.
 
 ## Anatomia da folha
 
+O cabeçalho é uma camada editorial, não um card: logo e nome do cliente final;
+logo da agência, quando houver no CentralX, aparece menor; a marca apresentadora
+segue a regra abaixo.
+
 Cada página única tem exatamente quatro cards editoriais, nesta ordem:
 
-1. **Cabeçalho** — logo e nome do cliente final. Logo da agência, se existir no CentralX, fica menor ao lado. Marca apresentadora (veja abaixo).
-2. **Estratégia** — uma frase do projeto/canal para aquele anunciante.
-3. **Criativo no canal** — imagem de um criativo fictício **funcionando** no canal (CTV, portal, app, display). No mockup entra a logo do cliente; se não houver cliente, usa logo e cores da agência marcada no planejamento.
-4. **Dado de mercado** — número ou leitura de mercado com origem; quando não houver número confiável, mostrar “A validar”. O ecossistema de canais e a densidade do mix entram como subestrutura deste card, nunca como quinto card.
-5. **Defesa** — por que aquele canal interessa ao cliente final.
+1. **Estratégia** — uma frase do projeto/canal para aquele anunciante.
+2. **Expressão no canal** — direção visual estática para o canal herói. A geração de imagem acontece depois, por ação do usuário, e nunca bloqueia a geração dos documentos.
+3. **Dado de mercado** — número ou leitura de mercado com origem. Sem evidência suficiente, omita o número e use uma leitura qualitativa útil; não mostre “A validar” ao cliente. O ecossistema de canais e a densidade do mix entram como subestrutura deste card, nunca como quinto card.
+4. **Defesa** — por que aquele canal interessa ao cliente final.
 
 O quadro público, contato, QR, logos de apoio e fundo são camadas de apresentação,
 não novos cards editoriais. A página pública pode reorganizá-los em capítulos sem
@@ -81,7 +84,7 @@ Uma seção `id=one_page`. Cards nesta ordem:
 
 Campos estruturados adicionais do plano:
 
-- `one_page_v2.audience_model`: segmentos, faixa etária, gênero, classe social, região, bairro, universo e impacto. Todo número precisa de fonte; sem fonte, use `null` e `status: "a_validar"`.
+- `one_page_v2.audience_model`: segmentos, faixa etária, gênero, classe social, região, bairro, universo e impacto. Todo número precisa de fonte; sem fonte, use `null` internamente e omita o dado da página pública.
 - `one_page_v2.visual_data`: mostradores e barras somente para valores confirmados ou explicitamente estimados.
 - `market` card: `channel_roles[]`, no máximo oito itens, com `id`, `label`, `logo`, `role`, `status` (`confirmed` ou `proposed`) e `count` somente quando confirmado.
 - `public_design`: skin, tokens, referência CRM e hero com estado `draft`, `approved` ou `requested`.
@@ -99,9 +102,13 @@ Código extra: `theme.py` (família de mercado), `images.py` (GPT Image 2 / Open
 2. Casar com um pitch conhecido ou redigir strategy / creative / market / defense.
 3. Anexar logos reais. Se `presenter_brand != centralcomm`, omitir CentralComm e reescrever.
 4. Pesquisar mercado antes da síntese quando não houver pesquisa persistida; preservar fonte, data e status de validação.
-5. Modelar audiência sem inferir demografia ou alcance. Usar “A validar” para lacunas.
-6. Gerar criativo, persona, lugar ou fundo somente quando houver prompt contextual e provider disponível. Gravar no `asset_manifest`.
+5. Modelar audiência sem inferir demografia ou alcance. Lacunas ficam como `null` e estado interno; não mostrar “A validar” ao cliente.
+6. Preparar direção visual e prompt contextual. Não gerar imagem durante “Gerar documentos”. A imagem é criada depois por ação explícita do usuário e gravada no `asset_manifest` quando existir.
 7. Não inventar verba, KPI, audiência, logo, praça, bairro ou canal.
+
+Conteúdo capturado só entra nos prompts quando
+`usar_conteudo_capturado_documentos=true`. Ele é apoio opcional, não verdade
+confirmada, e nunca autoriza preço, inventário, fornecedor ou promessa comercial.
 
 ## Pontos de OOH recebidos no briefing
 
@@ -119,8 +126,9 @@ o plano completo interno inclui o bloco `Pontos OOH informados`.
   impressões, CTR, conversões ou ROI como fato.
 - Pesquisa de mercado complementa o briefing; nunca sobrescreve anunciante,
   agência, período, verba, canais ou objetivo confirmados.
-- `confirmed` é dado da mesa; `proposed` é hipótese editorial; `a_validar` é
-  pendência. Não misturar esses estados no mesmo número.
+- `confirmed` é dado da mesa e `proposed` é hipótese editorial. `a_validar` pode
+  existir apenas como estado interno legado; nunca aparece como texto na página
+  pública ou no PDF. Sem evidência, omita o número.
 - Logos só vêm do catálogo/CRM. Imagem gerada nunca deve desenhar logo legível.
 - Trocar skin altera apenas apresentação. Trocar marca apresentadora só regenera
   texto quando o usuário explicitamente pede uma marca principal.
@@ -133,7 +141,12 @@ o plano completo interno inclui o bloco `Pontos OOH informados`.
   margem e fora do consumo comercial do Planner.
 - A etapa `market` aparece no progresso e na prévia de custo quando executada.
 - Validar os quatro cards, canais permitidos, confidencialidade e ausência de
-  números inventados antes de publicar.
+  números inventados antes de publicar. Regras de OOH/Places validam afirmações
+  comerciais completas, nunca palavras isoladas. “Intenção de compra”, “compras
+  de imóveis” e “jornada de compra” são descrições válidas de público.
+- Se o revisor encontrar linguagem comercial indevida, ele deve devolver o
+  documento corrigido. A geração só para por quebra estrutural irrecuperável;
+  não para por vocabulário que possa ser corrigido automaticamente.
 - Testar pelo menos: BDMG, Confins, plano sem verba, plano sem logo, mais de oito
   canais, plano antigo sem os novos campos e ausência de telefone do executivo.
 

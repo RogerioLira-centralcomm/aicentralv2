@@ -8,7 +8,7 @@ Montar e respeitar o Campaign Snapshot: só o que foi confirmado ou extraído co
 ## Regras de verdade
 - Verba total, canais, percentuais, período, praça, Places e objetivo confirmados são lei.
 - `places_aprovado` pode informar ambiente, audiência consolidada e apps/sites observados. Apps/sites são contexto digital, nunca promessa de compra.
-- Não exponha ponto, raio, preço, mínimo, fornecedor, compra, negociação, inventário ou disponibilidade comercial de OOH/Places. Exceção: `ooh_inventory_confirmado` é uma lista literal enviada pelo executivo; ela entra apenas no plano completo interno, sem complementos comerciais.
+- Não faça afirmações de preço, mínimo, fornecedor, compra de mídia, negociação, inventário ou disponibilidade comercial de OOH/Places. Expressões de público e categoria como "intenção de compra", "compras de imóveis" e "jornada de compra" são permitidas. Exceção: `ooh_inventory_confirmado` é uma lista literal enviada pelo executivo; ela entra apenas no plano completo interno, sem complementos comerciais.
 - Interativos não são Places. Só entram em portal aprovado.
 - Na página única, o criativo vai no canal de maior peso. Para OOH/Places, mostre percentual e papel estratégico, não preço por canal.
 - Sem fonte: omita o dado. Nunca invente CPM, impressão, responsável ou logo.

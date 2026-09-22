@@ -42,10 +42,13 @@ Audite o material recebido contra as evidências e a configuração da campanha.
 Procure apenas: canal inventado, verba ou percentual divergente, repetição, texto prolixo, afirmação sem fonte, KPI inventado,
 vazamento de anunciante confidencial, texto sobre imagem que não deveria estar no documento e linguagem comercial indevida.
 Não pesquise na internet. Não complete lacunas por plausibilidade.
-Quando houver OOH ou Places, o documento não pode conter preço, cotação, mínimo comercial, compra, negociação, fornecedor,
-ponto, raio, circuito, inventário, disponibilidade comercial ou promessa de veiculação. Pode conter investimento total,
-divisão percentual, público, segmentação, papel estratégico e defesa do plano. Apps e sites de Places só podem aparecer
-como contexto de audiência digital observado no catálogo.
+Quando houver OOH ou Places, o documento não pode fazer afirmações de preço, cotação, mínimo comercial, compra de mídia,
+negociação, fornecedor, ponto, raio, circuito, inventário, disponibilidade comercial ou promessa de veiculação. Pode conter
+investimento total, divisão percentual, público, segmentação, papel estratégico e defesa do plano. Apps e sites de Places
+só podem aparecer como contexto de audiência digital observado no catálogo.
+Essa restrição vale para afirmações comerciais sobre compra de mídia. Não trate como infração expressões de público ou
+categoria, como "intenção de compra", "compras de imóveis" ou "jornada de compra". Se encontrar uma afirmação comercial
+indevida, remova ou reescreva o trecho no campo `corrected`; não devolva apenas a reprovação.
 Remova introduções genéricas, conclusões duplicadas, listas que repetem parágrafos e seções sem decisão útil.
 Preserve a tese, o schema e os títulos obrigatórios. Escreva em português direto, com uma ideia por parágrafo.
 Devolva apenas JSON: {"approved": true|false, "issues": [], "corrected": null ou o documento corrigido}.
@@ -247,6 +250,7 @@ def _run(token: str, mode: str) -> dict:
     cover = _cover_markdown(snapshot, core)
     final = normalize_markdown("\n\n".join(part for part in (cover, strategy_md, media_md, execution_md, defense_md) if part))
     final = _review_document(final, snapshot, page, estimates)
+    final = _repair_channel_policy_text(final, snapshot)
     _validate_channel_policy(final, snapshot)
     quality = _validate_plan_markdown(final)
     if not quality["valid"]:
@@ -786,6 +790,10 @@ def _creative_plan(page: dict, snapshot: dict) -> list[dict]:
 
 
 def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
+    repaired = _repair_channel_policy_payload(page, snapshot)
+    if repaired != page:
+        page.clear()
+        page.update(repaired)
     thesis = text(as_dict(page.get("thesis")).get("statement"))
     if len(thesis) < 20:
         raise ValueError("A tese da página única voltou vazia. Gere novamente.")
@@ -843,15 +851,80 @@ def _validate_channel_policy(content: str, snapshot: dict) -> None:
     )
     if not protected:
         return
-    forbidden = re.compile(
-        r"\b(preço|pre[cç]os|cota[cç][aã]o|m[ií]nimo comercial|fornecedor|invent[aá]rio|"
-        r"disponibilidade comercial|ponto[s]? de mídia|raio[s]?|circuito[s]?|compra|negocia[cç][aã]o|"
-        r"acesso ao invent[aá]rio|veicula[cç][aã]o garantida)\b",
+    violations = _channel_policy_violations(content, snapshot)
+    if violations:
+        raise ValueError("O documento contém uma afirmação comercial indevida para OOH/Places: " + violations[0][:140])
+
+
+def _channel_policy_violations(content: str, snapshot: dict) -> list[str]:
+    rows = _mix_rows(snapshot)
+    protected = any(
+        text(row.get("id")).lower() == "places"
+        or text(row.get("group") or (CHANNEL_CATALOG.get(text(row.get("id"))) or {}).get("group")).lower() == "ooh"
+        for row in rows
+    )
+    if not protected:
+        return []
+    value = text(content)
+    # A política protege contra promessas comerciais, não contra vocabulário de
+    # audiência. "Compras de imóveis" e "intenção de compra" são contexto válido.
+    direct_claim = re.compile(
+        r"\b(compra\s+(?:de\s+)?(?:invent[aá]rio|m[ií]dia|ponto[s]?|espa[cç]o[s]?|circuito[s]?)|"
+        r"compra\s+garantida|garantia\s+de\s+compra|comprar\s+(?:m[ií]dia|invent[aá]rio|ponto[s]?)|"
+        r"veicula[cç][aã]o\s+garantida|disponibilidade\s+(?:comercial\s+)?garantida)\b",
         re.I,
     )
-    match = forbidden.search(text(content))
-    if match:
-        raise ValueError("O documento contém linguagem comercial indevida para OOH/Places: " + match.group(0))
+    channel_claim = re.compile(
+        r"\b(?:ooh|dooh|places?|pain[eé]is?)\b.{0,120}\b(?:pre[cç]o(?:s)?|cota[cç][aã]o|"
+        r"m[ií]nimo comercial|fornecedor|negocia[cç][aã]o|disponibilidade comercial|acesso ao invent[aá]rio)\b|"
+        r"\b(?:pre[cç]o(?:s)?|cota[cç][aã]o|m[ií]nimo comercial|fornecedor|negocia[cç][aã]o|"
+        r"disponibilidade comercial|acesso ao invent[aá]rio)\b.{0,120}\b(?:ooh|dooh|places?|pain[eé]is?)\b",
+        re.I | re.S,
+    )
+    denial = re.compile(r"\b(?:sem|n[aã]o|nunca|jamais)\b.{0,55}$", re.I | re.S)
+    violations = []
+    for matcher in (direct_claim, channel_claim):
+        for match in matcher.finditer(value):
+            prefix = value[max(0, match.start() - 60):match.start()]
+            if denial.search(prefix):
+                continue
+            violations.append(match.group(0))
+    return violations
+
+
+def _repair_channel_policy_text(content: str, snapshot: dict) -> str:
+    value = text(content)
+    if not value or not _channel_policy_violations(value, snapshot):
+        return value
+    replacement = "A execução de OOH/Places será definida no planejamento da rede."
+    lines = value.splitlines()
+    repaired = []
+    for line in lines:
+        if _channel_policy_violations(line, snapshot):
+            prefix = ""
+            stripped = line.lstrip()
+            if stripped.startswith("- "):
+                prefix = "- "
+            elif re.match(r"^\d+\.\s", stripped):
+                prefix = re.match(r"^\d+\.\s", stripped).group(0)
+            repaired.append(prefix + replacement)
+        else:
+            repaired.append(line)
+    result = normalize_markdown("\n".join(repaired))
+    if _channel_policy_violations(result, snapshot):
+        logger.warning("Política OOH/Places ainda encontrou trecho após reparo; aplicando texto seguro.")
+        return replacement
+    return result
+
+
+def _repair_channel_policy_payload(value, snapshot: dict):
+    if isinstance(value, dict):
+        return {key: _repair_channel_policy_payload(item, snapshot) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_repair_channel_policy_payload(item, snapshot) for item in value]
+    if isinstance(value, str):
+        return _repair_channel_policy_text(value, snapshot)
+    return value
 
 
 def _group_markdown(

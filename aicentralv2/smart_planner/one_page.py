@@ -211,7 +211,7 @@ Regras:
 - O criativo precisa parecer inserido no canal (TV, portal, app ou place), não um banner solto.
 - Surface "place" só se Places for o canal de maior peso. Interativo = surface portal, nunca place.
 - Se houver Places confirmados, cite apenas o ambiente e sua audiência consolidada. Apps e sites observados no catálogo podem aparecer como contexto de audiência digital, não como compra garantida. Separe Places digital (apps e geolocalização) de Places OOH somente quando essa diferença estiver explícita no catálogo; sem essa evidência, use apenas "Places". Não cite preço, mínimo comercial, ponto, raio, fornecedor ou inventário.
-- Para OOH/Painéis, descreva somente o papel estratégico de presença e lembrança urbana, condicionado ao planejamento da rede. Não crie cotação, preço, ponto, circuito, fornecedor, compra, negociação ou disponibilidade de inventário.
+- Para OOH/Painéis, descreva somente o papel estratégico de presença e lembrança urbana, condicionado ao planejamento da rede. Não crie afirmações de cotação, preço, ponto, circuito, fornecedor, compra de mídia, negociação ou disponibilidade de inventário. Expressões de público como "intenção de compra" e "compras de imóveis" são permitidas.
 - O mix de mídia é uma divisão estratégica, não uma cotação. Para OOH e Places, use apenas investimento total, percentual, público, segmentação, papel do canal e defesa do plano.
 - market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual.
 - defense.body fecha a reunião: por que este mix, agora, para este anunciante.

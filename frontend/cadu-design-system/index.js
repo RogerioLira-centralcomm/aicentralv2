@@ -21,6 +21,8 @@ export {WorkspaceAccount} from './components/WorkspaceAccount';
 export {ResumeCard, ResumeCardCollection} from './components/ResumeCards';
 export {AgentActionDrop, ActivityDrawer, ShortcutManagerDialog, WorkspaceAccountControl, WorkspaceAccountMenu, UndoToast, PermissionState, LoadingSkeleton} from './components/WorkspaceFeedback';
 export {WorkspaceHome} from './components/WorkspaceHome';
+export {WorkspaceMobileChrome} from './components/WorkspaceMobileChrome';
+export {useWorkspaceViewport} from './hooks/useWorkspaceViewport';
 export {WorkspaceProject} from './components/WorkspaceProject';
 export {WorkspaceBrand} from './components/WorkspaceBrand';
 export {WorkspaceBrands} from './components/WorkspaceBrands';

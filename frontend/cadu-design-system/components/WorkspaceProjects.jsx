@@ -5,6 +5,8 @@ import {VisualIdentity} from './VisualIdentity';
 import {CaduDialog} from './CaduDialog';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceCatalog} from './WorkspaceCatalog';
+import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
+import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 
 function catalogHref(base, key, value, query) {
   const params = new URLSearchParams();
@@ -15,6 +17,7 @@ function catalogHref(base, key, value, query) {
 }
 
 export function WorkspaceProjects({bootstrap}) {
+  const {isMobile} = useWorkspaceViewport();
   const [query, setQuery] = useState(bootstrap.query || '');
   const [creating, setCreating] = useState(false);
   const [account, setAccount] = useState(false);
@@ -24,7 +27,7 @@ export function WorkspaceProjects({bootstrap}) {
   return <div className="cadu-ds-home-shell cadu-ds-brands-shell">
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-catalog-workarea">
-        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={account} accountMenu={<WorkspaceAccountMenu open={account} onClose={() => setAccount(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccount(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccount(true)}/>
+        {isMobile ? <WorkspaceMobileChrome title="Projetos" links={bootstrap.urls} contextItems={projects.map(item => ({...item, detail:item.brandName || 'Projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={account} accountMenu={<WorkspaceAccountMenu open={account} onClose={() => setAccount(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccount(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccount(true)}/>}
         <WorkspaceCatalog eyebrow="Trabalho em contexto" title="Projetos que continuam com a equipe" description="Direção, fontes e entregas organizadas para a próxima decisão." actionLabel="Novo projeto" onAction={() => setCreating(true)} error={bootstrap.catalogError} filters={[["ativos", "Ativos"], ["arquivados", "Arquivados"], ["todos", "Todos"]].map(([value, label]) => ({value, label, active: bootstrap.status === value, href: catalogHref(bootstrap.urls.projects, 'status', value, query)}))} query={query} onQueryChange={setQuery} queryLabel="Buscar projeto, marca ou contexto" countLabel={`${projects.length} projeto${projects.length === 1 ? '' : 's'}`}><div className="cadu-ds-catalog-list" aria-label="Lista de projetos"><div className="cadu-ds-catalog-list__head" aria-hidden="true"><span>Projeto</span><span>Marca</span><span>Status</span><span>Fontes</span></div>{projects.map(project => <a className="cadu-ds-catalog-row" href={project.href} key={project.id}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span className="cadu-ds-catalog-row__main"><b>{project.name}</b><small>{project.description || 'Reúna o briefing, as fontes e as decisões que orientam este trabalho.'}</small></span><span className="cadu-ds-catalog-row__meta">{project.brandName || 'Sem marca'}</span><span className="cadu-ds-catalog-row__meta">{project.status === 'arquivado' ? 'Arquivado' : 'Ativo'}</span><span className="cadu-ds-catalog-row__meta cadu-ds-catalog-row__number">{project.sources}</span></a>)}{!projects.length && <div className="cadu-ds-brands-empty"><b>{query.trim() ? 'Nenhum projeto corresponde à busca.' : bootstrap.status === 'arquivados' ? 'Nenhum projeto arquivado.' : 'Comece criando o primeiro projeto.'}</b>{!query.trim() && bootstrap.status !== 'arquivados' && <button type="button" onClick={() => setCreating(true)}>Criar projeto</button>}</div>}</div></WorkspaceCatalog>
       </div>
     </main>

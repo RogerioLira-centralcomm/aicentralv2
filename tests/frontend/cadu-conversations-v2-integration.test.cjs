@@ -45,6 +45,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   const brands = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrands.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const contextSidebar = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceContextSidebar.jsx'), 'utf8');
+  const mobileChrome = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceMobileChrome.jsx'), 'utf8');
+  const viewportHook = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/hooks/useWorkspaceViewport.js'), 'utf8');
   const designSystemStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/workspace_home_chat.html'), 'utf8');
   assert.match(home, /window\.location\.assign\(bootstrap\.urls\.newConversation\)/);
@@ -72,6 +74,14 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(contextSidebar, /cadu-ds-context-sidebar__nav--mobile/);
   assert.match(designSystemStyles, /body\.portal--workspace \.cadu-ds-dock:has[\s\S]*display:none!important/);
   assert.match(designSystemStyles, /cadu-ds-context-sidebar__toggle-mobile/);
+  assert.match(mobileChrome, /role="dialog" aria-modal="true"/);
+  assert.match(mobileChrome, /document\.body\.style\.overflow = 'hidden'/);
+  assert.match(mobileChrome, /event\.key === 'Escape'/);
+  assert.match(viewportHook, /window\.matchMedia\(query\)/);
+  assert.match(viewportHook, /window\.visualViewport/);
+  assert.match(home, /isMobile \? <WorkspaceMobileChrome/);
+  assert.match(projects, /isMobile \? <WorkspaceMobileChrome/);
+  assert.match(brands, /isMobile \? <WorkspaceMobileChrome/);
   assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
   assert.match(home, /onOpenResource=\{item => \{/);
   assert.match(home, /setProjectRef\(item\.projectRef/);

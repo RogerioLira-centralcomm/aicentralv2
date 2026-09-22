@@ -4,6 +4,8 @@ import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduDialog} from './CaduDialog';
 import {openWorkspaceDetail} from '../workspaceNavigation';
+import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
+import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 
 const assetLabels = {logo: 'Logo', reference: 'Referência', creative: 'Peça criativa', background: 'Fundo', support: 'Apoio visual', icon: 'Ícone', cta_style: 'Estilo de CTA'};
 const reviewStatus = {ready: 'Pronto para aprovação', review: 'Requer revisão'};
@@ -203,6 +205,7 @@ function AuditAtlas({profile, metadata}) {
 }
 
 export function WorkspaceBrand({bootstrap}) {
+  const {isMobile} = useWorkspaceViewport();
   const brand = bootstrap.brand || {};
   const urls = bootstrap.brandLinks || {};
   const [dialog, setDialog] = useState(() => new URLSearchParams(window.location.search).get('audit') === 'start' ? 'audit' : '');
@@ -228,7 +231,7 @@ export function WorkspaceBrand({bootstrap}) {
   return <div className={`cadu-ds-home-shell cadu-ds-brand-shell${isProcessing ? ' is-processing' : ''}${isNewBrand ? ' is-new-brand' : ''}`}>
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-brand-workarea">
-        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>
+        {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}
         <section className="cadu-ds-brand-content">
           <a className="cadu-ds-brand-back" href={bootstrap.urls.brands}>← Marcas</a>
           <header className="cadu-ds-brand-hero"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.primaryColor} imageTreatment="brand"/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Identidade de marca'}</p><h1>{brand.name}</h1>{(profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><b>{brand.readiness?.score || 0}%</b><small>prontidão</small>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div><div className="cadu-ds-brand-hero__actions"><button type="button" className="is-primary" onClick={openConversation}>Conversar sobre a marca</button>{canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar identidade</button>}<details><summary>Mais ações</summary><div><button type="button" onClick={() => setDialog('link')}>Vincular projeto</button><a href={urls.createImage}>Criar imagem</a><a href={urls.createVideo}>Criar vídeo</a><a href={urls.createPlan}>Criar plano</a><a href={urls.system}>Sistema avançado</a>{canEdit && <button type="button" className="is-danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</div></details></div></header>

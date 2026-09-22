@@ -1158,6 +1158,24 @@ def test_project_meeting_requires_project_and_explicit_confirmation():
     assert action["arguments"]["timezone"] == "America/Sao_Paulo"
 
 
+def test_operational_questions_activate_existing_read_tools():
+    agenda = route_request("Quais reuniões eu tenho hoje?")
+    projects = route_request("Mostre meus projetos")
+    brand = route_request("Qual é o posicionamento desta marca?", has_brand=True)
+
+    assert agenda.action == "list_calendar_events"
+    assert agenda.needs_tools == ("google.list_calendar_events",)
+    assert projects.action == "list_projects"
+    assert projects.needs_tools == ("workspace.list_projects",)
+    assert brand.action == "get_brand_context"
+    assert brand.needs_tools == ("brands.get_context",)
+
+
+def test_meeting_preflights_google_and_project_recipients():
+    route = route_request("Agende um Meet amanhã às 10h", has_project=True)
+    assert route.needs_tools == ("google.get_connector_status", "workspace.list_project_shares")
+
+
 def test_meeting_fallback_keeps_semantic_context_field():
     policy = {
         "allow_artifact": True,

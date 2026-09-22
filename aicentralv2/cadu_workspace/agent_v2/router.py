@@ -99,7 +99,21 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         if not has_project:
             return IntentRoute("workspace", "select_project_for_meeting", "low", "clarification")
         return IntentRoute("workspace", "schedule_project_meeting", "medium", "decision",
-                           ("project",), (), None, True)
+                           ("project",), ("google.get_connector_status", "workspace.list_project_shares"), None, True)
+
+    if _has(text, r"\b(?:minha|meu|meus|eu)\b.{0,35}\b(?:agenda|reuni[oõ]es?|compromissos?)\b") or _has(
+        text, r"\b(?:agenda|reuni[oõ]es?|compromissos?)\b.{0,35}\b(?:hoje|amanh[aã]|semana|m[eê]s)\b",
+    ):
+        return IntentRoute("workspace", "list_calendar_events", "low", "analysis", (),
+                           ("google.list_calendar_events",))
+
+    if has_brand and _has(text, r"\b(?:qual|quais|mostre|traga|consulte|como)\b.{0,55}\b(?:marca|identidade|tom(?: de voz)?|posicionamento|p[uú]blico|cores?|dire[cç][aã]o criativa)\b"):
+        return IntentRoute("workspace", "get_brand_context", "low", "analysis",
+                           ("brand",), ("brands.get_context",))
+
+    if _has(text, r"\b(?:list|liste|mostrar|mostre|quais|buscar|busque)\w*\b(?:\s+(?:os|meus|todos\s+os))?\s+projetos\b"):
+        return IntentRoute("workspace", "list_projects", "low", "analysis", (),
+                           ("workspace.list_projects",))
 
     if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
             or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):

@@ -120,8 +120,7 @@ class CaduGoogleConnector:
         project_id = self._project_id(context)
         members = repository.project_access(context.client_id, context.project_ref)
         attendees = [row.get("email") for row in members
-                     if str(row.get("status") or "").lower() not in {"inativo", "inactive", "bloqueado"}
-                     and row.get("email")]
+                     if row.get("status") is True and row.get("email")]
         if not attendees:
             raise CaduGoogleConnectorError("A equipe do projeto não tem e-mails ativos para receber o convite.")
         result = google_workspace.create_calendar_event(

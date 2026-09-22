@@ -80,6 +80,24 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
     policy["artifact_scope"] = "session" if route.action == "create_text_draft" else "context"
     resolved = resolve_context(route, request, routed_message, load_builtin_tools(), execution_mode)
+    if route.action == "schedule_project_meeting":
+        google_status = resolved.values.get("google.get_connector_status") or {}
+        shares = resolved.values.get("workspace.list_project_shares") or {}
+        connector_ready = google_status.get("next_step") == "ready"
+        active_members = [item for item in shares.get("members") or []
+                          if item.get("status") == "active" and item.get("email")]
+        policy["action_preflight"] = {
+            "ready": connector_ready and bool(active_members),
+            "connector_ready": connector_ready,
+            "active_recipient_count": len(active_members),
+            "external_effect": "Envia convites do Calendar para a equipe do projeto.",
+        }
+        if not connector_ready or not active_members:
+            route = replace(route, action=("connect_google_for_meeting" if not connector_ready
+                                           else "complete_project_team_for_meeting"),
+                            response_mode="clarification", requires_confirmation=False, needs_tools=())
+            policy["allow_artifact"] = False
+            policy["artifact_type"] = None
     # A failed or incomplete link must stop before artifact fallback. The
     # provider may still explain the issue, but it must not manufacture a
     # document from an unavailable page.
@@ -93,6 +111,12 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             policy["max_duration_ms"] = budget.max_duration_ms
             policy["artifact_type"] = None
             policy["allow_artifact"] = False
+    plan = build_task_plan(route, budget, routed_message)
+    if route.action == "schedule_project_meeting" and not any(step.get("kind") == "action" for step in plan):
+        policy["action_preflight"] = {
+            **(policy.get("action_preflight") or {}), "ready": False,
+            "missing": ["data e horário futuros"],
+        }
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,
@@ -102,7 +126,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,
-        "plan": build_task_plan(route, budget, routed_message), "resolved_context": resolved,
+        "plan": plan, "resolved_context": resolved,
         "selected_context": getattr(request, "selected_context", None),
         "provider_payload": payload,
     }

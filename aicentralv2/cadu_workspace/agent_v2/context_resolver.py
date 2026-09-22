@@ -35,6 +35,10 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
         return {"query": message[:400]}
     if tool_name == "workspace.get_project_context":
         return {"query": message[:400]}
+    if tool_name == "workspace.list_projects":
+        return {"limit": 20}
+    if tool_name == "google.list_calendar_events":
+        return {"limit": 50}
     if tool_name in {"planner.get_brief", "planner.get_media_plan", "reports.get_report_metrics"}:
         if request.active_object:
             key = "plan_id" if tool_name.startswith("planner.") else "report_id"

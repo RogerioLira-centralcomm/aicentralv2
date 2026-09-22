@@ -111,13 +111,40 @@ def test_negative_artifact_and_conditional_web_request_cannot_create_or_save_doc
 @pytest.mark.parametrize("message", [
     "Responda no chat e não crie artefato.",
     "Faça o planejamento sem documento por enquanto.",
-    "Analise os dados, mas ainda não salve no projeto.",
 ])
 def test_negative_artifact_constraints_override_positive_keywords(message):
     route = route_request(message, has_project=True)
     assert route.response_mode == "analysis"
     assert route.artifact_type is None
     assert route.requires_confirmation is False
+
+
+def test_project_persistence_refusal_still_allows_a_session_artifact():
+    route = route_request(
+        "Crie um documento editável com este conteúdo, mas não salve no projeto.",
+        has_project=True,
+    )
+    assert route.action == "create_text_draft"
+    assert route.response_mode == "artifact_first"
+    assert route.artifact_type == "document"
+    assert route.requires_confirmation is False
+
+
+def test_project_persistence_refusal_does_not_become_a_positive_save_command():
+    route = route_request("Analise os dados, mas ainda não salve no projeto.", has_project=True)
+    assert route.action == "analyze"
+    assert route.response_mode == "analysis"
+    assert route.artifact_type is None
+
+
+def test_confirming_research_findings_is_not_mistaken_for_permission():
+    route = route_request(
+        "Pesquise apenas fontes oficiais na internet e confirme os números.",
+        has_project=True,
+    )
+    assert route.action == "search_web"
+    assert route.response_mode == "analysis"
+    assert route.needs_tools == ("web.search",)
 
 
 def test_web_research_with_organized_sources_does_not_create_project_map():

@@ -34,24 +34,34 @@ def _usable_public_url(value: str) -> bool:
     )
 
 
-def _explicit_artifact_refusal(text: str) -> bool:
-    """Honor a user's negative constraint before positive keyword routing."""
+def _explicit_artifact_creation_refusal(text: str) -> bool:
+    """Detect a refusal to create/open an artifact, independently of persistence."""
     return _has(
         text,
         r"\b(?:n[aã]o|ainda\s+n[aã]o|sem)\b.{0,55}"
-        r"\b(?:cri\w*|ger\w*|abr\w*|salv\w*|adicion\w*|envi\w*)\b.{0,55}"
-        r"\b(?:artefato|documento|rascunho|projeto)\b",
+        r"\b(?:cri\w*|ger\w*|abr\w*|mont\w*|transform\w*)\b.{0,55}"
+        r"\b(?:artefato|documento|rascunho)\b",
     ) or _has(
         text,
         r"\b(?:sem|n[aã]o)\s+(?:artefato|documento|rascunho)\b",
     )
 
 
+def _project_persistence_refusal(text: str) -> bool:
+    """Keep a session artifact possible when only project persistence is forbidden."""
+    return _has(
+        text,
+        r"\b(?:n[aã]o|ainda\s+n[aã]o|sem)\b.{0,45}"
+        r"\b(?:salv\w*|adicion\w*|envi\w*|vincul\w*)\b.{0,45}\bprojeto\b",
+    )
+
+
 def _web_requires_confirmation(text: str) -> bool:
     return _has(
         text,
-        r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b.{0,80}"
-        r"\b(?:apenas|somente|s[oó])\b.{0,45}\b(?:autoriz\w*|confirm\w*|permit\w*)\b",
+        r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b.{0,90}"
+        r"\b(?:se|quando|ap[oó]s|mediante|com)\b.{0,25}"
+        r"\b(?:eu\s+)?(?:autoriz\w*|der\s+permiss[aã]o|permit\w*)\b",
     ) or _has(
         text,
         r"\bantes\s+de\s+(?:pesquis\w*|busqu\w*|consult\w*)\b.{0,70}"
@@ -62,13 +72,14 @@ def _web_requires_confirmation(text: str) -> bool:
 def route_request(message: str, surface: str = "conversations", has_project: bool = False,
                   active_object_type: str = "", has_brand: bool = False) -> IntentRoute:
     text = " ".join(str(message or "").split())[:20000]
+    forbid_project_persistence = _project_persistence_refusal(text)
 
     # Negative constraints are requirements, not weak hints. Resolve them
     # before rules such as "salve ... projeto" can match the same sentence.
     if _web_requires_confirmation(text):
         return IntentRoute("research", "confirm_web_research", "low", "clarification",
                            ("project", "brand") if has_project else (), (), None, False)
-    if _explicit_artifact_refusal(text):
+    if _explicit_artifact_creation_refusal(text):
         web_requested = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
             text, r"\b(?:internet|web|online|fontes?\s+externas?|dados?\s+atuais?)\b",
         )
@@ -231,7 +242,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            ("project",), ("workspace.search_project_content",))
     if _has(text, r"\b(cri(e|ar)|novo).{0,20}\bprojeto\b"):
         return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
-    if _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b"):
+    if (not forbid_project_persistence
+            and _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b")):
         return IntentRoute("workspace", "save_to_project", "medium", "artifact_first",
                            ("project",), (), "document", True)
     if _has(text, r"\b(compare|comparar|qual (?:é|e) (?:a |o )?melhor|recomenda|decid)\b"):

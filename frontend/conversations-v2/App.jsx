@@ -6,7 +6,7 @@ import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult, reconcileCompletedResponse} from './lib/responseModel.mjs';
-import {attachmentIssues, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
+import {attachmentIssues, attachmentSubmissionMessage, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
 import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
 import {brandContextPayload, conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
@@ -415,13 +415,13 @@ export default function App({bootstrap}) {
     }), [attachments, context.project_ref, bootstrap.endpoints.uploads]);
 
   const submit = useCallback(async (requestedInput = input, {skipAttachments = false} = {}) => {
-    const clean = requestedInput.trim();
+    const turnAttachments = skipAttachments ? [] : attachments;
+    const clean = requestedInput.trim() || attachmentSubmissionMessage(turnAttachments);
     if (!clean || running) return;
     if (artifactDirty && !(await confirmDiscard(false))) return;
     if (artifactDirty && artifactRef.current?.id) {
       try { await fetchArtifact(artifactRef.current.id); } catch (error) { trace('Não foi possível restaurar o artefato', error.message, 'error'); return; }
     }
-    const turnAttachments = skipAttachments ? [] : attachments;
     setRunning(true); setDiagnostics([]); setRuntime(turnAttachments.length ? 'Enviando arquivos' : 'Trabalhando');
     if (!conversationRef.current && window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
     let staged;
@@ -429,6 +429,14 @@ export default function App({bootstrap}) {
     catch (error) { setRunning(false); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
     const files = [...staged.map(item => ({id: item.id, name: item.name, source: item.source || null})), ...homeAttachments];
     const providerFileIds = files.map(item => item.id).filter(Boolean);
+    const projectUploads = files.filter(item => item.source).map(item => ({
+      source_id: item.source.source_id, name: item.source.name || item.name,
+      purpose: item.source.purpose, category: item.source.category, status: item.source.status,
+    }));
+    const turnContext = composerContext || (projectUploads.length ? {
+      type: 'project_upload_receipt', label: 'Itens adicionados ao projeto',
+      text: JSON.stringify(projectUploads),
+    } : null);
     const turnId = uid();
     setMessages(items => [...items, {id: uid(), turnId, role: 'user', content: clean, files}]);
     setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
@@ -456,7 +464,7 @@ export default function App({bootstrap}) {
           providerFileIds,
           executionMode,
           context,
-          selectedContext: composerContext,
+          selectedContext: turnContext,
           activeArtifact: artifactRef.current,
         })),
       });

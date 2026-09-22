@@ -565,6 +565,9 @@ test('conversation attachment model preserves validation and destination rules',
   assert.equal(staged.error, false);
   assert.match(staged.localId, /^[0-9a-f-]{36}$/i);
   assert.deepEqual(staged.intake, {state: 'pending'});
+  assert.equal(model.attachmentSubmissionMessage([{destination: 'knowledge'}]), 'Confirme os arquivos e imagens adicionados ao projeto.');
+  assert.equal(model.attachmentSubmissionMessage([{destination: 'conversation'}]), 'Analise os arquivos e imagens anexados.');
+  assert.match(model.attachmentSubmissionMessage([{destination: 'conversation'}, {destination: 'attachment'}]), /confirme os itens/);
 });
 
 test('conversation history model restores messages, selected context and latest artifact', async () => {

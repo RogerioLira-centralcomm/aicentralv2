@@ -35,3 +35,15 @@ export function createStagedAttachment(file, destination, previewUrl = '') {
     intake: {state: 'pending'},
   };
 }
+
+export function attachmentSubmissionMessage(attachments = []) {
+  const projectItems = attachments.filter(item => item?.destination && item.destination !== 'conversation');
+  const conversationItems = attachments.filter(item => !item?.destination || item.destination === 'conversation');
+  if (projectItems.length && conversationItems.length) {
+    return 'Use os arquivos anexados nesta conversa e confirme os itens que foram adicionados ao projeto.';
+  }
+  if (projectItems.length) {
+    return 'Confirme os arquivos e imagens adicionados ao projeto.';
+  }
+  return conversationItems.length ? 'Analise os arquivos e imagens anexados.' : '';
+}

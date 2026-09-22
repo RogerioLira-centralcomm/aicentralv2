@@ -252,7 +252,7 @@ def conversation_update(conversation_id):
     selected = writable_context()
     user = context.identity()
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not data or set(data) - {'title', 'archived'}:
+    if not isinstance(data, dict) or not data or set(data) - {'title', 'archived', 'section', 'automation_enabled'}:
         abort(400, description='Informe um título ou estado de arquivamento.')
     title = data.get('title')
     if 'title' in data:
@@ -261,6 +261,26 @@ def conversation_update(conversation_id):
         title = title.strip()
     if 'archived' in data and not isinstance(data['archived'], bool):
         abort(400, description='Estado de arquivamento inválido.')
+    if 'automation_enabled' in data and not isinstance(data['automation_enabled'], bool):
+        abort(400, description='Estado da automação inválido.')
+    if 'section' in data:
+        if data['section'] not in {'recent', 'pinned', 'automation'}:
+            abort(400, description='Destino da conversa inválido.')
+        if not repository.family_table_available('cadu_conversation_organization'):
+            abort(409, description='A organização de conversas ainda não está disponível.')
+        result = repository.organize_conversation(user['id'], selected['client_id'], conversation_id,
+                                                  data['section'], data.get('automation_enabled'))
+        if not result:
+            abort(404)
+        return jsonify(conversation=result)
+    if 'automation_enabled' in data:
+        if not repository.family_table_available('cadu_conversation_organization'):
+            abort(409, description='A organização de conversas ainda não está disponível.')
+        result = repository.set_conversation_automation(user['id'], selected['client_id'], conversation_id,
+                                                        data['automation_enabled'])
+        if not result:
+            abort(409, description='Mova a conversa para Automações antes de ativá-la.')
+        return jsonify(conversation=result)
     result = repository.update_conversation(user['id'], selected['client_id'], conversation_id, title, data.get('archived'))
     if not result:
         abort(404)

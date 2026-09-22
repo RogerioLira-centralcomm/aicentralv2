@@ -53,6 +53,9 @@ function IdentityDialog({brand, urls, csrfToken, onClose}) {
       <label>Provas e sinais <small>Um por linha</small><textarea name="proof_points" rows="4" defaultValue={(profile.proofPoints || []).join('\n')}/></label>
       <label>Tom e linguagem<textarea name="tone_of_voice" rows="3" maxLength="4000" defaultValue={profile.toneOfVoice}/></label>
       <label>Direção criativa<textarea name="creative_guidelines" rows="3" maxLength="4000" defaultValue={profile.creativeGuidelines}/></label>
+      <label>Elementos visuais <small>Um por linha</small><textarea name="visual_motifs" rows="3" defaultValue={(profile.visualMotifs || []).join('\n')}/></label>
+      <label>Elementos obrigatórios <small>Um por linha</small><textarea name="mandatory_elements" rows="3" defaultValue={(profile.mandatoryElements || []).join('\n')}/></label>
+      <label>Elementos a evitar <small>Um por linha</small><textarea name="forbidden_elements" rows="3" defaultValue={(profile.forbiddenElements || []).join('\n')}/></label>
       <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Salvar identidade</button></footer>
     </form>
   </BrandDialog>;

@@ -8,7 +8,27 @@ const labels = {
   html: 'Página interativa', image: 'Imagem', spreadsheet: 'Planilha', report: 'Relatório',
   resource: 'Arquivo', brand_identity: 'Marca', meeting_summary: 'Resumo de reunião', meeting_agenda: 'Pauta',
   link_reader: 'Referência',
+  library: 'Biblioteca',
 };
+
+function LibraryArtifact({artifact, onOpenResource}) {
+  const groups = Array.isArray(artifact.content?.groups) ? artifact.content.groups : [];
+  const drag = (event, item) => {
+    event.dataTransfer.effectAllowed = 'copy';
+    event.dataTransfer.setData('application/x-cadu-item', JSON.stringify({...item, type: 'resource', resourceRef: item.id}));
+  };
+  return <div className="cv-library-artifact">
+    {groups.map(group => <section key={group.id} className={`cv-library-strip is-${group.id}`}>
+      <header><h3>{group.title}</h3><span>{group.items.length}</span></header>
+      <div className={group.layout === 'list' ? 'is-list' : 'is-carousel'}>
+        {group.items.map(item => <button key={item.id || item.url} type="button" draggable onDragStart={event => drag(event, item)} onClick={() => onOpenResource?.(item)} title={item.title}>
+          {item.preview ? <img src={safeUrl(item.preview)} alt="" loading="lazy"/> : <Icon name={item.kind === 'link' ? 'link' : 'file'} size={17}/>}<span>{item.title}</span>{item.detail && <small>{item.detail}</small>}
+        </button>)}
+      </div>
+    </section>)}
+    {!groups.some(group => group.items.length) && <p className="cv-library-empty">Os materiais do projeto aparecerão aqui.</p>}
+  </div>;
+}
 
 function EditableTextarea({value, onChange, className = '', ...props}) {
   const ref = useRef(null);
@@ -137,7 +157,8 @@ function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
 }
 
 function HtmlArtifact({artifact}) {
-  return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={htmlDocument(artifact.content || {}, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
+  const rendered = artifact.id ? `/workspace/api/v2/artifacts/${encodeURIComponent(artifact.id)}/render?version=${encodeURIComponent(artifact.current_version || 1)}` : '';
+  return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" src={rendered || undefined} srcDoc={rendered ? undefined : htmlDocument(artifact.content || {}, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
 }
 
 function imageSource(artifact) {
@@ -365,7 +386,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, studioEditorUrl, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOrganizeImage}) {
+export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, studioEditorUrl, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOrganizeImage, onOpenResource}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -397,10 +418,11 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
+    if (type === 'library') return <LibraryArtifact artifact={artifact} onOpenResource={onOpenResource}/>;
     return type === 'document'
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} onTitleChange={onTitleChange}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan]);
+  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
   useEffect(() => {
     setClosing(false);
     setEditingTitle(false);

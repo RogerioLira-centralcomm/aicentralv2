@@ -125,11 +125,20 @@ export function WorkspaceHome({bootstrap}) {
     const prompt = String(requestedInput || '').trim();
     if (!prompt) return;
     try {
-      const staged = !skipAttachments && attachments.length ? await uploadAttachments({attachments, projectRef, uploadsEndpoint: bootstrap.endpoints.uploads, requestFn: request, fetchFn: fetch, csrfToken: csrf, uuid: () => crypto.randomUUID(), onProgress: setAttachments}) : [];
+      let resolvedExecutionMode = executionMode;
+      if (!skipAttachments && attachments.some(item => item.destination === 'conversation')) {
+        const routeEndpoint = bootstrap.endpoints.route || String(bootstrap.endpoints.uploads || '').replace(/\/uploads$/, '/route');
+        const preview = await request(routeEndpoint, {
+          method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+          body: JSON.stringify({message: prompt, execution_mode: executionMode, project_ref: projectRef || null, brand_ref: brandRef || null}),
+        });
+        resolvedExecutionMode = preview.execution_mode || executionMode;
+      }
+      const staged = !skipAttachments && attachments.length ? await uploadAttachments({attachments, projectRef, uploadsEndpoint: bootstrap.endpoints.uploads, requestFn: request, fetchFn: fetch, csrfToken: csrf, uuid: () => crypto.randomUUID(), onProgress: setAttachments, executionMode: resolvedExecutionMode}) : [];
       const pending = staged.filter(item => item.id).map(item => ({id: item.id, name: item.name}));
       if (pending.length) sessionStorage.setItem('cadu:home-pending-attachments', JSON.stringify(pending));
       if (!skipAttachments) setAttachments(items => { releasePreviews(items); return []; });
-      window.location.assign(withQuery(bootstrap.urls.newConversation, {prompt, project_ref: projectRef, brand_ref: brandRef, mode: executionMode, auto_send: '1'}));
+      window.location.assign(withQuery(bootstrap.urls.newConversation, {prompt, project_ref: projectRef, brand_ref: brandRef, mode: resolvedExecutionMode, auto_send: '1'}));
     } catch (error) { setToast(error.message || 'Não foi possível preparar os anexos.'); }
   };
   const dropContext = payload => {

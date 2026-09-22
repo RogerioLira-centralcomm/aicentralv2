@@ -1770,10 +1770,16 @@ class CreativeBrandAnalyzer:
                 "Não foi possível analisar o site informado: "
                 f"{evidence['website_error']} Verifique a URL e tente novamente."
             )
-        if normalized_url and evidence.get("firecrawl_warning"):
+        if normalized_url and evidence.get("firecrawl_warning") and not image_content:
+            # The previous message discarded the provider's already-sanitized,
+            # actionable reason.  In practice a missing credential, exhausted
+            # credits and a temporary timeout all looked identical in the UI,
+            # so repeating the audit could never help an operator fix a
+            # configuration failure.
+            reason = _text(evidence.get("firecrawl_warning"), 220).rstrip(" .")
             raise ValueError(
                 "Não foi possível confirmar o conteúdo do site informado. "
-                "Tente novamente antes de gerar a análise."
+                f"Motivo: {reason}."
             )
         content = [
             {

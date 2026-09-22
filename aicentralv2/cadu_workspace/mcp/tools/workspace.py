@@ -2,12 +2,15 @@
 
 import json
 import re
+from dataclasses import replace
+from uuid import uuid4
 
 from ....cadu_family import repository
 from ....db import get_db
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
 from ...project_portfolio_service import attach_summaries
+from ... import project_source_service, workspace_ingestion_service
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -38,6 +41,20 @@ def _native_project_id(context: RequestContext) -> str:
             "name": {"type": "string", "minLength": 2, "maxLength": 150},
             "description": {"type": "string", "maxLength": 4000},
             "instructions": {"type": "string", "maxLength": 12000},
+            "visibility": {"type": "string", "enum": ["private", "team", "restricted"]},
+            "people": {"type": "array", "maxItems": 50, "items": {"type": "object", "required": ["user_id", "role"], "properties": {
+                "user_id": {"type": "integer", "minimum": 1}, "role": {"type": "string", "enum": ["admin", "editor", "member", "viewer"]},
+            }, "additionalProperties": False}},
+            "links": {"type": "array", "maxItems": 20, "items": {"type": "object", "required": ["url"], "properties": {
+                "url": {"type": "string", "minLength": 8, "maxLength": 2000}, "title": {"type": "string", "maxLength": 180},
+            }, "additionalProperties": False}},
+            "notes": {"type": "array", "maxItems": 10, "items": {"type": "object", "required": ["title", "content"], "properties": {
+                "title": {"type": "string", "minLength": 2, "maxLength": 180}, "content": {"type": "string", "minLength": 20, "maxLength": 50000},
+                "category": {"type": "string", "enum": sorted(project_source_service.CATEGORIES)},
+            }, "additionalProperties": False}},
+            "file_uploads": {"type": "array", "maxItems": 10, "items": {"type": "object", "properties": {
+                "use_as_knowledge": {"type": "boolean"}, "category": {"type": "string", "enum": sorted(project_source_service.CATEGORIES)},
+            }, "additionalProperties": False}},
             "confirmed": {"type": "boolean"},
         },
         "additionalProperties": False,
@@ -54,16 +71,66 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
         "kind": "project", "name": name[:150],
         "description": str(arguments.get("description") or "").strip()[:4000],
         "instructions": str(arguments.get("instructions") or "").strip()[:12000],
+        "idempotency_key": str(arguments["request_id"]),
     }
+    visibility = str(arguments.get("visibility") or "private")
+    people = list(arguments.get("people") or [])
+    links = list(arguments.get("links") or [])
+    notes = list(arguments.get("notes") or [])
+    file_uploads = list(arguments.get("file_uploads") or [])
+    if people:
+        visibility = "restricted"
+    if visibility != "private" or people:
+        actor = repository.actor(context.user_id) or {}
+        if repository.account_role(actor) != "admin":
+            raise ToolInputError("Somente administradores podem criar um projeto compartilhado.")
+        if int(actor.get("organization_id") or 0) != context.organization_id:
+            raise ToolInputError("A conta não pertence a esta organização.")
+        active_team = {int(item["id"]) for item in repository.team(context.organization_id) if item.get("status")}
+        if any(int(item["user_id"]) not in active_team for item in people):
+            raise ToolInputError("Todas as pessoas precisam pertencer à equipe ativa.")
+    operation_payload = {**payload, "visibility": visibility, "people": people,
+                         "links": links, "notes": notes,
+                         "file_uploads": file_uploads}
 
     def create():
         try:
             project_ref = repository.create_entity(context.client_id, context.user_id, payload)
         except ValueError as exc:
             raise ToolInputError(str(exc)) from exc
-        return {"project_ref": project_ref, "name": payload["name"], "status": "created"}
+        repository.seed_project_owner(context.client_id, project_ref, context.user_id)
+        repository.set_project_visibility(context.client_id, context.user_id, project_ref, visibility)
+        for item in people:
+            repository.grant_project_access(context.client_id, project_ref, int(item["user_id"]), item["role"], context.user_id)
+        project_context = replace(context, project_ref=project_ref)
+        resources = {"links": [], "notes": [], "uploads": [], "errors": []}
+        for item in links:
+            try:
+                resources["links"].append(workspace_ingestion_service.ingest_link(
+                    project_context, url=item["url"], title=item.get("title", ""),
+                    origin="mcp", request_id=str(uuid4()),
+                ))
+            except Exception as exc:
+                resources["errors"].append({"type": "link", "value": item.get("url"), "error": str(exc)[:240]})
+        for item in notes:
+            try:
+                resources["notes"].append(project_source_service.create_note(project_context, **item))
+            except Exception as exc:
+                resources["errors"].append({"type": "note", "value": item.get("title"), "error": str(exc)[:240]})
+        for item in file_uploads:
+            try:
+                resources["uploads"].append(project_source_service.prepare_upload(
+                    project_context, request_id=str(uuid4()),
+                    use_as_knowledge=bool(item.get("use_as_knowledge", True)), category=item.get("category"),
+                ))
+            except Exception as exc:
+                resources["errors"].append({"type": "file_upload", "error": str(exc)[:240]})
+        result = {"project_ref": project_ref, "name": payload["name"], "status": "created"}
+        if links or notes or file_uploads or people or visibility != "private":
+            result.update({"visibility": visibility, "shared_count": len(people), "resources": resources})
+        return result
 
-    return operations.execute(arguments["request_id"], context, "workspace.create_project", payload, create)
+    return operations.execute(arguments["request_id"], context, "workspace.create_project", operation_payload, create)
 
 
 @register_tool(
@@ -243,7 +310,7 @@ def list_project_shares(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.set_project_visibility", capability="workspace", effect="write", requires_project=True,
     description="Altera a visibilidade do projeto atual após confirmação explícita.",
-    exposures=("internal", "customer_agent"),
+    exposures=("internal",),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "visibility"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -267,7 +334,7 @@ def set_project_visibility(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.share_project_with_people", capability="workspace", effect="write", requires_project=True,
     description="Concede acesso direto a pessoas ativas da equipe após confirmação explícita.",
-    exposures=("internal", "customer_agent"),
+    exposures=("internal",),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "people"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -298,7 +365,7 @@ def share_project_with_people(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.share_project_with_team", capability="workspace", effect="write", requires_project=True,
     description="Compartilha o projeto com a equipe ativa após confirmação explícita.",
-    exposures=("internal", "customer_agent"),
+    exposures=("internal",),
     input_schema={"type": "object", "required": ["request_id", "confirmed"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},

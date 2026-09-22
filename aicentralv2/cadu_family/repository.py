@@ -14,7 +14,8 @@ def family_table_available(name):
     if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context',
                     'cadu_family_chat_uploads', 'cadu_family_project_brands', 'cadu_family_project_visibility',
                     'cadu_family_project_access', 'cadu_user_memories',
-                    'cadu_working_memories', 'cadu_visual_identity_versions'}:
+                    'cadu_working_memories', 'cadu_visual_identity_versions',
+                    'cadu_conversation_organization'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
     if name not in cache:
@@ -377,10 +378,14 @@ def conversation_history_all(user, client_id, query='', limit=500):
                         WHERE id_contato_cliente = %s AND id_cliente = %s AND titulo ILIKE %s AND status = ANY(%s)
                      ORDER BY CASE WHEN status = ANY(%s) THEN 0 ELSE 1 END, updated_at DESC, id DESC LIMIT %s''',
                     (user['id'], client_id, '%' + query + '%', statuses, active_statuses, limit))
-    return rows('''SELECT c.id, c.titulo AS title, c.updated_at, c.status, x.profile,
+    organization_join = family_table_available('cadu_conversation_organization')
+    if not organization_join:
+        return rows('''SELECT c.id, c.titulo AS title, c.updated_at, c.status, x.profile,
                          COALESCE(x.project_ref, CASE WHEN c.projeto_id IS NOT NULL
                                   THEN 'ci:' || c.projeto_id::text END) AS project_ref,
-                         x.brand_ref
+                         x.brand_ref,
+                         EXISTS (SELECT 1 FROM cadu_family_chat_runs r WHERE r.conversation_id=c.id AND r.status='running') AS running,
+                         'recent'::text AS section, FALSE AS automation_enabled, NULL::text AS schedule_label
                     FROM cadu_conversations c
                LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
                    WHERE c.id_contato_cliente = %s AND c.id_cliente = %s AND c.titulo ILIKE %s AND c.status = ANY(%s)
@@ -389,6 +394,68 @@ def conversation_history_all(user, client_id, query='', limit=500):
                 ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END, c.updated_at DESC, c.id DESC LIMIT %s''',
                 (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id,
                  active_statuses, limit))
+    return rows('''SELECT c.id, c.titulo AS title, c.updated_at, c.status, x.profile,
+                         COALESCE(x.project_ref, CASE WHEN c.projeto_id IS NOT NULL
+                                  THEN 'ci:' || c.projeto_id::text END) AS project_ref,
+                         x.brand_ref,
+                         EXISTS (SELECT 1 FROM cadu_family_chat_runs r WHERE r.conversation_id=c.id AND r.status='running') AS running,
+                         COALESCE(o.section, 'recent') AS section,
+                         COALESCE(o.automation_enabled, FALSE) AS automation_enabled,
+                         o.schedule_label
+                    FROM cadu_conversations c
+               LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
+               LEFT JOIN cadu_conversation_organization o ON o.conversation_id = c.id
+                   WHERE c.id_contato_cliente = %s AND c.id_cliente = %s AND c.titulo ILIKE %s AND c.status = ANY(%s)
+                     AND (x.conversation_id IS NULL OR
+                          (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
+                ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END, c.updated_at DESC, c.id DESC LIMIT %s''',
+                (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id,
+                 active_statuses, limit))
+
+
+def organize_conversation(user_id, client_id, conversation_id, section, automation_enabled=None):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_conversation_organization
+                (conversation_id, user_id, client_id, section, automation_enabled)
+                SELECT id, %s, %s, %s, %s FROM cadu_conversations
+                 WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s
+                ON CONFLICT (conversation_id) DO UPDATE SET
+                    section=EXCLUDED.section,
+                    automation_enabled=CASE WHEN EXCLUDED.section='automation'
+                        THEN COALESCE(%s, cadu_conversation_organization.automation_enabled)
+                        ELSE FALSE END,
+                    updated_at=NOW()
+                RETURNING conversation_id, section, automation_enabled, schedule_label''',
+                (user_id, client_id, section, bool(automation_enabled) if automation_enabled is not None else False,
+                 conversation_id, user_id, client_id, automation_enabled))
+            result = cur.fetchone()
+        conn.commit()
+        return dict(result) if result else None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def set_conversation_automation(user_id, client_id, conversation_id, enabled):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''UPDATE cadu_conversation_organization o
+                              SET automation_enabled=%s, updated_at=NOW()
+                             FROM cadu_conversations c
+                            WHERE o.conversation_id=c.id AND o.conversation_id=%s
+                              AND o.section='automation' AND o.user_id=%s AND o.client_id=%s
+                              AND c.id_contato_cliente=%s AND c.id_cliente=%s
+                        RETURNING o.conversation_id, o.section, o.automation_enabled, o.schedule_label''',
+                        (enabled, conversation_id, user_id, client_id, user_id, client_id))
+            result = cur.fetchone()
+        conn.commit()
+        return dict(result) if result else None
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def update_conversation(user_id, client_id, conversation_id, title=None, archived=None):
@@ -405,6 +472,11 @@ def update_conversation(user_id, client_id, conversation_id, title=None, archive
                        RETURNING id, titulo AS title, status''',
                         (title, archived, archived, conversation_id, user_id, client_id))
             result = cur.fetchone()
+            if result and archived is True and family_table_available('cadu_conversation_organization'):
+                cur.execute('''UPDATE cadu_conversation_organization
+                                  SET automation_enabled=FALSE, updated_at=NOW()
+                                WHERE conversation_id=%s AND user_id=%s AND client_id=%s''',
+                            (conversation_id, user_id, client_id))
         conn.commit()
         return dict(result) if result else None
     except Exception:
@@ -616,18 +688,27 @@ def active_entity_count(client_id):
 
 def create_entity(client_id, user_id, payload):
     """Write to the PHP source of truth and serialize the plan limit per client."""
-    from uuid import uuid4
+    from uuid import NAMESPACE_URL, uuid4, uuid5
     conn = get_db()
     try:
         with conn.cursor() as cur:
             cur.execute('SELECT id_cliente FROM tbl_cliente WHERE id_cliente = %s FOR UPDATE', (client_id,))
+            idempotency_key = str(payload.get('idempotency_key') or '').strip()
+            entity_id = str(uuid5(NAMESPACE_URL, f'cadu-project:{client_id}:{idempotency_key}')) if idempotency_key else str(uuid4())
+            if idempotency_key:
+                cur.execute('''SELECT id FROM cadu_ci_projetos
+                                WHERE id = %s AND id_cliente = %s AND status <> 'deletado' LIMIT 1''',
+                            (entity_id, client_id))
+                existing = cur.fetchone()
+                if existing:
+                    conn.commit()
+                    return 'ci:' + str(existing['id'])
             cur.execute('''SELECT plan_type FROM cadu_client_plans
                            WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1''', (client_id,))
             current = cur.fetchone()
             limit = 10 if current and current['plan_type'] in ('pro', 'enterprise') else 1
             if active_entity_count(client_id) >= limit:
                 raise ValueError(f'O plano permite {limit} projeto(s)/marca(s) ativos.')
-            entity_id = str(uuid4())
             cur.execute('''INSERT INTO cadu_ci_projetos
                 (id, id_cliente, criado_por, nome, descricao, tipo, instrucoes,
                  dify_dataset_id, status, created_at, updated_at)

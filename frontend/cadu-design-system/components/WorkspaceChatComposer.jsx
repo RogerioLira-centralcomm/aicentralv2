@@ -52,7 +52,7 @@ export function WorkspaceChatComposer({
   value = '', onChange, onSubmit, attachments = [], onRemoveAttachment, onAttachmentPurposeChange,
   attachmentDestination = 'conversation', onAttachmentDestinationChange, hasProject = false,
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
-  composerContext, onClearContext, onContextDrop, onAttach, embedded = false, homeMode = false,
+  composerContext, onClearContext, onContextDrop, onAttach, allowQueue = false, queuedCount = 0, embedded = false, homeMode = false,
   projects = [], projectRef = '', onProjectChange, showProjectSelector = true,
 }) {
   const textarea = useRef(null);
@@ -189,7 +189,8 @@ export function WorkspaceChatComposer({
             </div>
           </details>
           <button type="button" onClick={toggleVoice} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'listening' ? 'is-listening' : ''} ${voiceState === 'unsupported' ? 'is-unavailable' : ''}`} aria-label={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'} title={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'}><Icon name="audio" size={17}/></button>
-          {running ? <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button> : <button type="submit" disabled={(!value.trim() && !attachments.length) || attachments.some(item => item.uploading)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label="Enviar mensagem"><Icon name="arrowUp" size={17}/></button>}
+          {running && <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button>}
+          {(!running || allowQueue) && <button type="submit" disabled={(!value.trim() && !attachments.length) || attachments.some(item => item.uploading) || (running && queuedCount >= 5)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label={running ? 'Adicionar pedido à fila' : 'Enviar mensagem'} title={running ? 'Adicionar à fila' : 'Enviar mensagem'}><Icon name="arrowUp" size={17}/></button>}
         </div>
         {voiceNotice && <span className="cv-composer-audio-status" role="status">{voiceNotice}</span>}
       </div>

@@ -8,7 +8,7 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "projects.reindex_source",
     "projects.create_note",
     "projects.create_link_reference",
-    "brands.create", "brands.start_audit",
+    "brands.create", "brands.prepare_logo_upload", "brands.update_identity", "brands.start_audit",
 })
 
 
@@ -16,9 +16,25 @@ def _completion(step_name: str, result: dict) -> dict:
     """Give the UI a small, semantic receipt instead of a generic success string."""
     if step_name == "workspace.create_project":
         name = result.get("name") or "Projeto"
-        return {"answer": f"Projeto “{name}” criado.", "blocks": [
-            {"type": "activity", "state": "completed", "label": "Projeto criado", "detail": name},
+        resources = result.get("resources") or {}
+        links = len(resources.get("links") or [])
+        notes = len(resources.get("notes") or [])
+        uploads = resources.get("uploads") or []
+        visibility = result.get("visibility") or "private"
+        detail = f"{visibility} · {links} link(s) · {notes} fonte(s) textual(is)"
+        completion = {"answer": f"Projeto “{name}” criado e preparado para receber o contexto solicitado.", "blocks": [
+            {"type": "activity", "state": "completed", "label": "Projeto criado", "detail": detail},
         ], "refresh_context": True}
+        if uploads:
+            completion["uploads"] = uploads
+            completion["blocks"].append({"type": "activity", "state": "running",
+                                          "label": "Arquivos aguardando envio",
+                                          "detail": f"{len(uploads)} autorização(ões) disponível(is)."})
+        if resources.get("errors"):
+            completion["blocks"].append({"type": "activity", "state": "needs_attention",
+                                          "label": "Algumas fontes precisam ser repetidas",
+                                          "detail": f"{len(resources['errors'])} item(ns) não concluído(s)."})
+        return completion
     if step_name == "workspace.set_project_status":
         status = result.get("status") or "atualizado"
         return {"answer": f"Projeto {status}.", "blocks": [
@@ -49,7 +65,7 @@ def _completion(step_name: str, result: dict) -> dict:
         is_meeting = result.get("resource_kind") == "meeting"
         detail = ("O link foi classificado como reunião com acesso controlado e organizado no projeto."
                   if is_meeting else
-                  "O link foi organizado como referência. O conteúdo não foi aberto, lido ou indexado.")
+                  "O link e seus metadados foram classificados e organizados pelo indexador do projeto. O conteúdo protegido não foi lido.")
         blocks = [{"type": "activity", "state": "completed", "label": detail}]
         if is_meeting:
             blocks.append({"type": "questions", "title": "Usar este link", "items": [{
@@ -66,17 +82,38 @@ def _completion(step_name: str, result: dict) -> dict:
         ], "refresh_context": True}
     if step_name == "brands.create":
         name = result.get("name") or "Marca"
-        return {"answer": f"A marca “{name}” foi criada neste cliente com o site informado.", "blocks": [
+        return {"answer": f"A marca “{name}” foi criada. O próximo passo é definir o logo principal e escolher a profundidade da auditoria.", "blocks": [
             {"type": "activity", "state": "completed", "label": "Marca criada", "detail": name},
-            {"type": "questions", "title": "Completar a marca", "items": [{
-                "id": "audit-brand", "title": "Iniciar auditoria completa",
-                "prompt": f"Inicie a auditoria completa da marca {result.get('brand_id')}.",
-            }]},
+            {"type": "questions", "title": "Completar a nova marca", "items": [
+                {"id": "logo-brand", "title": "Enviar logo principal",
+                 "prompt": f"Quero enviar o logo principal da marca {result.get('brand_id')}."},
+                {"id": "audit-brand", "title": "Auditoria completa",
+                 "prompt": f"Inicie a auditoria completa da marca {result.get('brand_id')}."},
+                {"id": "deep-audit-brand", "title": "Auditoria profunda",
+                 "prompt": f"Inicie a auditoria profunda da marca {result.get('brand_id')}."},
+            ]},
         ], "refresh_context": True}
+    if step_name == "brands.prepare_logo_upload":
+        replacing = result.get("purpose") == "replace_primary_logo"
+        return {"answer": "O envio do novo logo principal está autorizado por 10 minutos.", "blocks": [
+            {"type": "activity", "state": "running",
+             "label": "Substituir logo principal" if replacing else "Enviar logo principal",
+             "detail": "PNG, JPG ou WebP, até 5 MB."},
+        ], "refresh_context": False, "upload": {
+            "url": result.get("upload_url"), "token": result.get("upload_token"),
+            "field": result.get("field"), "accepted": result.get("accepted"),
+            "max_bytes": result.get("max_bytes"),
+        }}
     if step_name == "brands.start_audit":
         mode = result.get("analysis_mode") or "complete"
         return {"answer": "A auditoria da marca entrou na fila.", "blocks": [
             {"type": "activity", "state": "running", "label": "Auditoria da marca iniciada", "detail": mode},
+        ], "refresh_context": True}
+    if step_name == "brands.update_identity":
+        fields = result.get("updated_fields") or []
+        return {"answer": "A identidade da marca foi atualizada nos campos solicitados.", "blocks": [
+            {"type": "activity", "state": "completed", "label": "Identidade da marca atualizada",
+             "detail": " · ".join(fields)},
         ], "refresh_context": True}
     return {"answer": "Ação concluída.", "blocks": [{"type": "activity", "state": "completed", "label": "Ação concluída"}]}
 
@@ -93,8 +130,10 @@ def execute(step: dict, context) -> dict:
     request_id = snapshot.get("request_id")
     if not isinstance(arguments, dict) or not request_id:
         raise ToolInputError("A proposta aprovada está incompleta.")
-    sealed = {**arguments, "request_id": request_id, "confirmed": True}
-    if step["name"] == "brands.start_audit" and "brand_id" not in sealed:
+    sealed = {**arguments, "request_id": request_id}
+    if step["name"] != "brands.prepare_logo_upload":
+        sealed["confirmed"] = True
+    if step["name"] in {"brands.prepare_logo_upload", "brands.start_audit", "brands.update_identity"} and "brand_id" not in sealed:
         brand_ref = str(getattr(context, "brand_ref", "") or "")
         if not brand_ref.startswith("studio:") or not brand_ref[7:].isdigit():
             raise ToolInputError("Selecione uma marca antes de iniciar a auditoria.")

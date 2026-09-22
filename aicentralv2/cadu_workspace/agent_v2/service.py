@@ -426,9 +426,7 @@ def prepare(data):
     previous_messages = (repository.conversation_messages(
         current.user_id, current.client_id, conversation_id
     ) if data.get("conversation_id") else []) or []
-    requested_mode = "analysis" if uploads else (
-        data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
-    )
+    requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
     execution = prepare_execution(message, current, history_context(previous_messages), requested_mode)
     if uploads:
         execution["provider_payload"]["files"] = [
@@ -598,7 +596,7 @@ def stream(run):
             if item.get("event") in {"message", "agent_message"} and item.get("answer"):
                 answer_chunks.append(str(item["answer"]))
                 visible_answer = _streamable_answer("".join(answer_chunks))
-                if visible_answer and visible_answer != streamed_answer:
+                if not run["route"].get("artifact_type") and visible_answer and visible_answer != streamed_answer:
                     streamed_answer = visible_answer
                     yield _event("answer.delta", answer=streamed_answer)
             if item.get("event") == "message_end":

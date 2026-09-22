@@ -17,6 +17,16 @@ from .agent_v2.contracts import RequestContext
 
 UPLOAD_MAX_AGE = 600
 
+BRAND_IDENTITY_TEXT_FIELDS = frozenset({
+    "brand_summary", "positioning", "target_audience", "tone_of_voice",
+    "creative_guidelines",
+})
+BRAND_IDENTITY_LIST_FIELDS = frozenset({
+    "products_services", "differentiators", "proof_points", "ad_segments",
+    "campaign_opportunities", "visual_motifs", "mandatory_elements",
+    "forbidden_elements",
+})
+
 
 def _request_id(value) -> str:
     try:
@@ -144,7 +154,111 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
         current_app.logger.exception("Marca %s criada via MCP sem vínculo ao dossiê %s", brand_id, project_id)
         project_ref = None
     return {"brand_id": brand_id, "brand_ref": f"studio:{brand_id}", "project_ref": project_ref,
-            "name": name, "website_url": website_url, "created": True}
+            "name": name, "website_url": website_url, "created": True,
+            "onboarding": {
+                "current_step": "logo",
+                "steps": ["brand_created", "primary_logo", "audit_mode", "audit_review"],
+                "audit_modes": ["complete", "deep"],
+                "message": "Marca criada. Envie o logo principal e escolha a auditoria completa ou profunda.",
+            }}
+
+
+def update_identity(context: RequestContext, *, request_id, brand_id, changes: dict) -> dict:
+    """Apply an explicit partial identity patch without replacing other fields."""
+    _require_admin(context)
+    operation_id = _request_id(request_id)
+    brand = _brand(context, brand_id)
+    if not isinstance(changes, dict) or not changes:
+        raise BadRequest("Informe ao menos um campo da identidade para alterar.")
+    allowed = {"name", "sector", "website_url", "primary_color", "secondary_color"} | BRAND_IDENTITY_TEXT_FIELDS | BRAND_IDENTITY_LIST_FIELDS
+    unknown = sorted(set(changes) - allowed)
+    if unknown:
+        raise BadRequest("Campos de identidade não reconhecidos: " + ", ".join(unknown))
+
+    normalized = {}
+    for field, value in changes.items():
+        if field == "name":
+            value = " ".join(str(value or "").split())[:150]
+            if len(value) < 2:
+                raise BadRequest("O nome da marca precisa ter ao menos dois caracteres.")
+        elif field == "sector":
+            value = " ".join(str(value or "").split())[:80] or None
+        elif field == "website_url":
+            value = _website(value) if str(value or "").strip() else None
+        elif field in {"primary_color", "secondary_color"}:
+            value = str(value or "").strip().upper() or None
+            if value and not re.fullmatch(r"#[0-9A-F]{6}", value):
+                raise BadRequest("Use cores no formato hexadecimal, como #176B5E.")
+        elif field in BRAND_IDENTITY_TEXT_FIELDS:
+            value = str(value or "").strip()[:4000]
+        elif field in BRAND_IDENTITY_LIST_FIELDS:
+            if not isinstance(value, list):
+                raise BadRequest(f"O campo {field} precisa ser uma lista.")
+            value = [" ".join(str(item).split())[:300] for item in value if str(item).strip()][:12]
+        normalized[field] = value
+
+    columns = {field: normalized[field] for field in ("name", "sector", "website_url", "primary_color", "secondary_color") if field in normalized}
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            # Serialize partial edits and build the patch from the latest row.
+            # Reading before the transaction allowed two edits to different
+            # fields to replace each other's profile/history snapshots.
+            cursor.execute(
+                """SELECT brand_profile, analysis_metadata
+                     FROM cx_clients
+                    WHERE id = %s AND crm_client_id = %s
+                    FOR UPDATE""",
+                (int(brand["id"]), context.client_id),
+            )
+            locked = cursor.fetchone()
+            if not locked:
+                raise NotFound("Marca indisponível.")
+            profile = locked.get("brand_profile") or {}
+            metadata = locked.get("analysis_metadata") or {}
+            if isinstance(profile, str):
+                profile = json.loads(profile)
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            profile = dict(profile) if isinstance(profile, dict) else {}
+            metadata = dict(metadata) if isinstance(metadata, dict) else {}
+            history = list(metadata.get("identity_edit_history") or [])
+            if any(item.get("request_id") == operation_id for item in history if isinstance(item, dict)):
+                connection.commit()
+                return {"brand_id": int(brand["id"]), "updated_fields": sorted(normalized), "updated": False}
+            for field in BRAND_IDENTITY_TEXT_FIELDS | BRAND_IDENTITY_LIST_FIELDS:
+                if field in normalized:
+                    profile[field] = normalized[field]
+            profile["last_edited_via"] = "cadu_mcp"
+            if "name" in normalized:
+                profile["name_autogenerated"] = False
+            history.append({"request_id": operation_id, "source": "cadu_mcp", "user_id": context.user_id,
+                            "fields": sorted(normalized), "at": datetime.utcnow().isoformat() + "Z"})
+            metadata["identity_edit_history"] = history[-50:]
+            cursor.execute(
+                """UPDATE cx_clients
+                      SET name = COALESCE(%s, name), sector = CASE WHEN %s THEN %s ELSE sector END,
+                          website_url = CASE WHEN %s THEN %s ELSE website_url END,
+                          primary_color = CASE WHEN %s THEN %s ELSE primary_color END,
+                          secondary_color = CASE WHEN %s THEN %s ELSE secondary_color END,
+                          tone_of_voice = CASE WHEN %s THEN %s ELSE tone_of_voice END,
+                          brand_profile = %s::jsonb, analysis_metadata = %s::jsonb, updated_at = NOW()
+                    WHERE id = %s AND crm_client_id = %s RETURNING id""",
+                (columns.get("name"), "sector" in columns, columns.get("sector"),
+                 "website_url" in columns, columns.get("website_url"),
+                 "primary_color" in columns, columns.get("primary_color"),
+                 "secondary_color" in columns, columns.get("secondary_color"),
+                 "tone_of_voice" in normalized, normalized.get("tone_of_voice"),
+                 json.dumps(profile), json.dumps(metadata), int(brand["id"]), context.client_id),
+            )
+            if not cursor.fetchone():
+                raise NotFound("Marca indisponível.")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
+            "updated_fields": sorted(normalized), "updated": True}
 
 
 def _serializer():
@@ -155,9 +269,11 @@ def prepare_logo_upload(context: RequestContext, brand_id) -> dict:
     brand = _brand(context, brand_id)
     token = _serializer().dumps({"client_id": context.client_id, "user_id": context.user_id,
                                  "brand_id": int(brand["id"])})
-    return {"upload_token": token, "upload_url": "/workspace/mcp/brand-uploads", "method": "POST",
+    return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
+            "upload_token": token, "upload_url": "/workspace/mcp/brand-uploads", "method": "POST",
             "field": "file", "accepted": [".png", ".jpg", ".jpeg", ".webp"],
-            "max_bytes": 5 * 1024 * 1024, "expires_in": UPLOAD_MAX_AGE}
+            "max_bytes": 5 * 1024 * 1024, "expires_in": UPLOAD_MAX_AGE,
+            "purpose": "replace_primary_logo" if brand.get("display_logo") or brand.get("logo_url") else "set_primary_logo"}
 
 
 def save_logo_upload(context: RequestContext, token: str, uploaded) -> dict:

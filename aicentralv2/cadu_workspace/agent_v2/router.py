@@ -105,9 +105,22 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            ("project",) if has_project else (), (), "meeting_summary")
     if _has(text, r"\b(cri(e|ar)|cadastre|cadastrar|nova)\b.{0,35}\bmarca\b"):
         return IntentRoute("workspace", "create_brand", "medium", "decision", (), (), None, True)
+    if has_brand and (_has(text, r"\b(envi|substitu|troc|troqu|alter|atualiz)\w*\b.{0,35}\blogo\b")
+                      or _has(text, r"\blogo\b.{0,35}\b(envi|substitu|troc|troqu|alter|atualiz)\w*\b")):
+        return IntentRoute("workspace", "prepare_brand_logo_upload", "low", "decision",
+                           ("brand",), (), None, False)
+    if has_brand and _has(text, r"\b(ajust|alter|mud|troqu|atualiz|corrig|edit)\w*\b") and _has(
+            text, r"\b(marca|identidade|nome|setor|site|cor|p[uú]blico|posicionamento|tom(?: de voz)?|ess[eê]ncia|descri[cç][aã]o|oferta|diferencia|prova|dire[cç][aã]o criativa)\b"):
+        return IntentRoute("workspace", "update_brand_identity", "medium", "decision",
+                           ("brand",), (), None, True)
     if _has(text, r"\b(inicie|iniciar|fa[çc]a|rodar|rode|refa[çc]a|reprocess).{0,35}\bauditoria\b.{0,25}\bmarca\b|\bauditoria\b.{0,25}\bmarca\b"):
         return IntentRoute("workspace", "start_brand_audit", "high", "decision",
                            ("brand",), (), None, True)
+    # Project creation may include URLs, notes and upload requests. It must win
+    # over the generic bare-link route so the sources bootstrap the new project
+    # instead of being treated as an orphan reference.
+    if _has(text, r"\b(?:crie|criar|novo)\s+(?:(?:um|o)\s+)?projeto\b"):
+        return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
     if _has(text, r"\b(pauta|agenda).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(pauta|agenda)\b"):
         return IntentRoute("workspace", "create_meeting_agenda", "medium", "artifact_first",
                            ("project",) if has_project else (), (), "meeting_agenda")
@@ -151,7 +164,12 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         needs_tool = "projects.list_sources" if _has(text, r"\b(fontes?|base de conhecimento|indexad[oa])\b") else "projects.list_resources"
         return IntentRoute("workspace", "list_project_resources", "low", "analysis",
                            ("project",), (needs_tool,))
-    if _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*).{0,45}\b(link|url|refer[eê]ncia)\b"):
+    project_link_signal = has_project and (
+        _has(text, r"\b(link|url|refer[eê]ncia|pasta)\b.{0,70}\bprojeto\b")
+        or _has(text, r"\bprojeto\b.{0,70}\b(link|url|refer[eê]ncia|pasta)\b")
+    )
+    if (_has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*).{0,45}\b(link|url|refer[eê]ncia|pasta)\b")
+            or project_link_signal):
         url_match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE)
         has_url = bool(url_match and _usable_public_url(url_match.group(0)))
         if not has_project:
@@ -240,7 +258,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(pesquis|busqu|procur|encontr|localiz).{0,30}\b(projeto|arquivo|documento|nota|conte[uú]do)|\bo que (temos|existe|foi definido)\b"):
         return IntentRoute("workspace", "search_project", "medium", "analysis",
                            ("project",), ("workspace.search_project_content",))
-    if _has(text, r"\b(cri(e|ar)|novo).{0,20}\bprojeto\b"):
+    if _has(text, r"\b(?:crie|criar|novo)\s+(?:(?:um|o)\s+)?projeto\b"):
         return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
     if (not forbid_project_persistence
             and _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b")):

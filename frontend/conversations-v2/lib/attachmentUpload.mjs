@@ -7,6 +7,7 @@ export async function uploadAttachments({
   csrfToken,
   uuid,
   onProgress,
+  executionMode = 'analysis',
   mcpEndpoint = '/workspace/mcp',
 }) {
   const staged = [...attachments];
@@ -20,6 +21,7 @@ export async function uploadAttachments({
       if (staged[index].destination === 'conversation') {
         const body = new FormData();
         body.append('file', staged[index].file);
+        body.append('execution_mode', executionMode);
         const response = await fetchFn(uploadsEndpoint, {
           method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrfToken()}, body,
         });

@@ -18,11 +18,13 @@ from .guardrails import _clean_runtime_html
 from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
-from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, patch_artifact, publish_artifact, unpublish_artifact
+from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, materialize_artifact, patch_artifact, publish_artifact, unpublish_artifact
 from .service import prepare as prepare_message, stream as stream_message
 from .provider import ProviderUnavailable
-from . import journal, observability
+from . import journal, long_jobs, observability
+from .long_jobs import LongJobSpec
 from . import action_executor
+from . import turn_queue
 from ..mcp.registry import ToolError
 from ..conversations import attachments
 from ...cadu_planner import docs
@@ -437,9 +439,155 @@ def conversation_message():
     # The authenticated V2 screen is now a published Workspace surface. Runtime
     # credentials still fail closed in provider.py, but an exposed UI must not
     # answer with a rollout 404 before admission reaches the agent.
-    run = prepare_message(request.get_json(silent=True) or {})
+    payload = request.get_json(silent=True) or {}
+    run = prepare_message(payload)
+    spec = long_jobs.spec_for_message(run.get("message") or payload.get("message"))
+    if spec:
+        try:
+            job = long_jobs.create(
+                run["context"], run["conversation_id"], spec, run_id=run["run_id"],
+                idempotency_key=f"conversation:{run['run_id']}",
+            )
+        except Exception:
+            connection = repository.get_db()
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""UPDATE cadu_family_chat_runs SET status='failed',finished_at=NOW(),
+                        terminal_error_code='long_job_admission_failed' WHERE id=%s AND status='running'""",
+                        (run["run_id"],))
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                current_app.logger.exception("Falha ao encerrar run após erro de admissão do trabalho longo.")
+            raise
+        from .long_job_worker import dispatch as dispatch_long_job
+        dispatch_long_job(job["id"])
+
+        def admitted_long_job():
+            def event(kind, **payload):
+                return "data: " + json.dumps({"event": kind, **payload}, ensure_ascii=False, default=str) + "\n\n"
+            yield event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"],
+                        resolved_context=run["context"].to_dict())
+            yield event("route.selected", route=run["route"], policy={**run["policy"], "long_job": True})
+            yield event("long_job.created", job={"id": job["id"], "title": spec.title, "kind": spec.kind,
+                                                   "source_target": spec.source_target,
+                                                   "token_budget": spec.token_budget})
+            response = {"answer": "Iniciei o trabalho em segundo plano. O conteúdo será construído por etapas e o artefato aparecerá assim que a primeira versão estiver pronta.",
+                        "confidence": "high", "assumptions": [], "questions": [], "actions": [],
+                        "artifact_patch": None, "citations": [], "blocks": []}
+            yield event("answer.completed", response=response)
+            connection = repository.get_db()
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""UPDATE cadu_family_chat_runs SET status='completed',finished_at=NOW()
+                        WHERE id=%s AND status='running'""", (run["run_id"],))
+                connection.commit()
+                journal.record(run["run_id"], "long_job.created", {"job_id": job["id"], "title": spec.title})
+                journal.record(run["run_id"], "run.completed", {"status": "completed", "long_job_id": job["id"]})
+            except Exception:
+                connection.rollback()
+                raise
+            yield event("run.completed", status="completed", conversation_id=run["conversation_id"],
+                        long_job_id=job["id"])
+
+        return Response(stream_with_context(admitted_long_job()), mimetype="text/event-stream",
+                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     return Response(stream_with_context(stream_message(run)), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@bp.get("/conversations/<conversation_id>/queue")
+def queued_turns(conversation_id):
+    current = resolve(conversation_id=conversation_id)
+    try:
+        return jsonify(items=turn_queue.list_items(conversation_id, current))
+    except ValueError as exc:
+        abort(404, description=str(exc))
+
+
+@bp.get("/conversations/<conversation_id>/active-run")
+def active_conversation_run(conversation_id):
+    current = resolve(conversation_id=conversation_id)
+    rows = repository.rows("""SELECT run.id::text,run.status,run.execution_mode,run.created_at
+        FROM cadu_family_chat_runs run
+        JOIN cadu_conversations conversation ON conversation.id=run.conversation_id
+        WHERE run.conversation_id=%s AND run.user_id=%s AND run.client_id=%s
+          AND conversation.id_contato_cliente=%s AND conversation.id_cliente=%s
+          AND run.runtime_version='v2' AND run.status='running'
+        ORDER BY run.created_at DESC LIMIT 1""",
+        (conversation_id, current.user_id, current.client_id, current.user_id, current.client_id))
+    return jsonify(run=rows[0] if rows else None)
+
+
+@bp.post("/conversations/<conversation_id>/queue")
+def queue_turn(conversation_id):
+    current = resolve(conversation_id=conversation_id)
+    try:
+        return jsonify(item=turn_queue.create(conversation_id, current, request.get_json(silent=True) or {})), 201
+    except OverflowError as exc:
+        abort(409, description=str(exc))
+    except ValueError as exc:
+        abort(400, description=str(exc))
+
+
+@bp.put("/conversations/<conversation_id>/queue")
+def replace_queued_turns(conversation_id):
+    current = resolve(conversation_id=conversation_id)
+    try:
+        return jsonify(items=turn_queue.replace(conversation_id, current, (request.get_json(silent=True) or {}).get("items")))
+    except ValueError as exc:
+        abort(400, description=str(exc))
+
+
+@bp.delete("/conversations/<conversation_id>/queue/<uuid:item_id>")
+def delete_queued_turn(conversation_id, item_id):
+    current = resolve(conversation_id=conversation_id)
+    if not turn_queue.remove(conversation_id, str(item_id), current):
+        abort(404, description="Item da fila não encontrado.")
+    return jsonify(deleted=True)
+
+
+@bp.post("/conversations/<conversation_id>/long-jobs")
+def create_long_job(conversation_id):
+    current = resolve(conversation_id=conversation_id)
+    if not repository.rows("""SELECT id FROM cadu_conversations
+        WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s AND status IN ('ativa','active')""",
+        (conversation_id, current.user_id, current.client_id)):
+        abort(404, description="Conversa não encontrada.")
+    data = request.get_json(silent=True) or {}
+    try:
+        spec = LongJobSpec(
+            kind=str(data.get("kind") or "long_document"),
+            title=str(data.get("title") or ""),
+            objective=str(data.get("objective") or ""),
+            source_target=data.get("source_target", 5),
+            max_agent_calls=data.get("max_agent_calls", 8),
+            max_extractor_calls=data.get("max_extractor_calls", 40),
+            token_budget=data.get("token_budget", 40_000),
+        )
+        job = long_jobs.create(current, conversation_id, spec, run_id=data.get("run_id"),
+                               artifact_id=data.get("artifact_id"),
+                               idempotency_key=str(data.get("idempotency_key") or ""))
+        return jsonify(job=job), 201
+    except ValueError as exc:
+        abort(400, description=str(exc))
+
+
+@bp.get("/long-jobs/<uuid:job_id>")
+def long_job_state(job_id):
+    current = resolve()
+    try:
+        return jsonify(long_jobs.snapshot(str(job_id), current))
+    except ValueError as exc:
+        abort(404, description=str(exc))
+
+
+@bp.post("/long-jobs/<uuid:job_id>/cancel")
+def cancel_long_job(job_id):
+    current = resolve()
+    if not long_jobs.cancel(str(job_id), current):
+        abort(409, description="O trabalho já foi encerrado ou não está disponível.")
+    return jsonify(cancelled=True)
 
 
 @bp.post("/uploads")
@@ -453,7 +601,10 @@ def upload():
         abort(400, description="Envie um arquivo de cada vez.")
     validated, kind, size = attachments.validate(files[0])
     from . import provider
-    provider_id = provider.upload_file(validated, "user-" + str(current.user_id), "analysis")
+    execution_mode = str(request.form.get("execution_mode") or "analysis").strip().lower()
+    if execution_mode not in {"fast", "analysis", "agentic"}:
+        abort(400, description="Modo de execução inválido para o anexo.")
+    provider_id = provider.upload_file(validated, "user-" + str(current.user_id), execution_mode)
     upload_id = str(uuid4())
     conn = repository.get_db()
     try:
@@ -602,6 +753,26 @@ def artifact_create():
 @bp.get("/artifacts/<uuid:artifact_id>")
 def artifact_get(artifact_id):
     return jsonify(artifact=get_artifact(resolve(), str(artifact_id)))
+
+
+@bp.get("/artifacts/<uuid:artifact_id>/render")
+def artifact_render(artifact_id):
+    current = resolve()
+    artifact = get_artifact(current, str(artifact_id))
+    requested_version = request.args.get("version", type=int)
+    if requested_version and requested_version != int(artifact["current_version"]):
+        selected = get_version(current, str(artifact_id), requested_version)
+        artifact = {**artifact, "current_version": selected["version"], "content": selected["content"]}
+    target = materialize_artifact(artifact)
+    if target is None:
+        abort(400, description="Este tipo de artefato usa um editor dedicado.")
+    response = Response(target.read_text(encoding="utf-8"), mimetype="text/html")
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "
+        "font-src 'self' data:; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'"
+    )
+    return response
 
 
 @bp.get("/artifacts/<uuid:artifact_id>/versions")

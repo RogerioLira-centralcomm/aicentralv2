@@ -56,12 +56,14 @@ def create_draft(context: RequestContext, artifact_type: str, content: dict, *, 
                           source_id=artifact_id, actor_id=context.user_id)
         except Exception:
             pass
-    return get_artifact(context, artifact_id)
+    artifact = get_artifact(context, artifact_id)
+    materialize_artifact(artifact)
+    return artifact
 
 
 def get_artifact(context: RequestContext, artifact_id: str) -> dict:
     with get_db().cursor() as cur:
-        cur.execute("""SELECT a.id, a.project_ref, a.conversation_id, a.type, a.title, a.status,
+        cur.execute("""SELECT a.id, a.organization_id, a.client_id, a.project_ref, a.conversation_id, a.type, a.title, a.status,
                               a.current_version, a.created_by, a.created_at, a.updated_at, v.content
                          FROM cadu_workspace_artifacts a
                          JOIN cadu_workspace_artifact_versions v
@@ -72,6 +74,11 @@ def get_artifact(context: RequestContext, artifact_id: str) -> dict:
     if not row:
         raise NotFound("Artefato indisponível.")
     return dict(row)
+
+
+def materialize_artifact(artifact: dict):
+    from .workspace import materialize
+    return materialize(artifact)
 
 
 def list_artifacts(context: RequestContext, *, artifact_type=None, status=None, limit=20) -> list[dict]:
@@ -172,7 +179,9 @@ def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, 
                           source_id=str(artifact_id), actor_id=context.user_id)
         except Exception:
             pass
-    return get_artifact(context, artifact_id)
+    artifact = get_artifact(context, artifact_id)
+    materialize_artifact(artifact)
+    return artifact
 
 
 def attach_to_project(context: RequestContext, artifact_id: str, project_ref: str) -> dict:

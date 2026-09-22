@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Sidebar} from './components/Sidebar';
 import {Conversation} from './components/Conversation';
@@ -11,6 +11,9 @@ import {attachmentIssues, attachmentSubmissionMessage, createStagedAttachment, M
 import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
 import {brandContextPayload, conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
+import {enqueue, MAX_QUEUED_TURNS, moveQueued, readQueue, updateQueued, writeQueue} from './lib/executionQueue.mjs';
+import {acceptAgentEvent} from './lib/agentEvents.mjs';
+import {executionReducer, initialExecutionState, isExecutionActive} from './lib/executionState.mjs';
 import {Icon} from './lib/icons';
 import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
 
@@ -76,7 +79,9 @@ export default function App({bootstrap}) {
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState('');
   const [versions, setVersions] = useState([]);
-  const [running, setRunning] = useState(false);
+  const [execution, dispatchExecution] = useReducer(executionReducer, initialExecutionState);
+  const running = isExecutionActive(execution);
+  const [queuedTurns, setQueuedTurns] = useState(() => readQueue(null));
   const [runtime, setRuntime] = useState('');
   const [diagnostics, setDiagnostics] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(() => !window.matchMedia('(max-width: 900px)').matches);
@@ -102,7 +107,11 @@ export default function App({bootstrap}) {
     if (artifact?.id) writeCookie(`${ARTIFACT_SIDE_COOKIE}:${artifact.id}`, next);
   }, [artifact?.id]);
   const runRef = useRef(null);
+  const longJobRef = useRef(null);
+  const streamControllerRef = useRef(null);
+  const recoveryTimerRef = useRef(null);
   const runStartedRef = useRef(0);
+  const drainingQueueRef = useRef(false);
   const discardResolverRef = useRef(null);
   const dragDepthRef = useRef(0);
 
@@ -122,6 +131,10 @@ export default function App({bootstrap}) {
       window.removeEventListener('dragend', closeFileDrop, true);
       window.removeEventListener('blur', closeFileDrop);
     };
+  }, []);
+  useEffect(() => () => {
+    streamControllerRef.current?.abort();
+    if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
   }, []);
 
   const rememberContext = useCallback(next => {
@@ -164,6 +177,23 @@ export default function App({bootstrap}) {
   const releasePreviews = useCallback(items => items.forEach(item => {
     if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
   }), []);
+  const queueEndpoint = useCallback(id => `/workspace/api/v2/conversations/${encodeURIComponent(id)}/queue`, []);
+
+  useEffect(() => { writeQueue(conversationId, queuedTurns); }, [conversationId, queuedTurns]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    const pending = readQueue(null);
+    if (!pending.length) return;
+    // The same in-memory queue survives run.started; only recover the pending
+    // copy when a reload lost that state. Appending here duplicated every item.
+    setQueuedTurns(current => current.length ? current : pending.slice(0, MAX_QUEUED_TURNS));
+    writeQueue(null, []);
+    Promise.all(pending.slice(0, MAX_QUEUED_TURNS).map(item => request(queueEndpoint(conversationId), {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+      body: JSON.stringify({prompt: item.prompt, execution_mode: item.executionMode || 'analysis', selected_context: item.context || null}),
+    }).then(data => data.item))).then(items => setQueuedTurns(items.map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})))).catch(error => trace('Fila salva apenas neste navegador', error.message, 'error'));
+  }, [conversationId, queueEndpoint, trace]);
 
   const fetchArtifact = useCallback(async id => {
     const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(id)}`);
@@ -207,17 +237,28 @@ export default function App({bootstrap}) {
     } finally { setContextLoading(false); }
   }, [bootstrap.endpoints.context, rememberContext, trace]);
 
-  useEffect(() => { loadContext(); loadRecent(); }, [loadContext, loadRecent]);
+  const organizeConversation = useCallback(async (id, section) => {
+    const previous = conversations;
+    setConversations(items => items.map(item => String(item.id) === String(id) ? {
+      ...item, section, automation_enabled: section === 'automation' ? item.automation_enabled : false,
+    } : item));
+    try {
+      await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}`, {
+        method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({section, ...(section === 'automation' ? {automation_enabled: false} : {})}),
+      });
+    } catch (error) {
+      setConversations(previous);
+      trace('Não foi possível mover a conversa', error.message, 'error');
+    }
+  }, [bootstrap.endpoints.history, conversations, trace]);
 
+  useEffect(() => { loadContext(); loadRecent(); }, [loadContext, loadRecent]);
   useEffect(() => {
-    const guard = event => {
-      if (!artifactDirty && !attachments.length) return;
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', guard);
-    return () => window.removeEventListener('beforeunload', guard);
-  }, [artifactDirty, attachments.length]);
+    if (!historyOpen) return undefined;
+    const interval = window.setInterval(loadRecent, conversations.some(item => item.running) ? 4000 : 12000);
+    return () => window.clearInterval(interval);
+  }, [conversations, historyOpen, loadRecent]);
 
   const confirmDiscard = useCallback((includeAttachments = true) => {
     const hasAttachments = includeAttachments && attachments.length > 0;
@@ -243,6 +284,7 @@ export default function App({bootstrap}) {
     setAttachments(items => { releasePreviews(items); return []; });
     setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactOpen(false); setArtifactDirty(false); setPublishedUrl('');
     setDiagnostics([]); setRuntime(''); runRef.current = null;
+    setQueuedTurns([]);
   }, [releasePreviews]);
 
   const focusComposer = useCallback(() => {
@@ -250,19 +292,23 @@ export default function App({bootstrap}) {
   }, []);
 
   const newConversation = useCallback(async () => {
-    if (running || !(await confirmDiscard())) return;
+    if (running) return;
     reset();
     setHistoryOpen(false);
     focusComposer();
-  }, [running, confirmDiscard, reset, focusComposer]);
+  }, [running, reset, focusComposer]);
 
   const openConversation = useCallback(async (id, conversationTitle) => {
-    if (running || !(await confirmDiscard())) return;
+    if (running) return;
     setOpeningId(id);
     setRuntime('Abrindo conversa');
     try {
       const data = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
       setConversationId(id); conversationRef.current = id;
+      try {
+        const queued = await request(queueEndpoint(id));
+        setQueuedTurns((queued.items || []).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
+      } catch (_) { setQueuedTurns(readQueue(id)); }
       setTitle(conversationTitle || 'Conversa');
       if (data.context) setContext(data.context);
       setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false);
@@ -270,16 +316,43 @@ export default function App({bootstrap}) {
       setMessages(restored);
       setComposerContext(restoredContext);
       if (lastArtifact) await fetchArtifact(lastArtifact);
-      setRuntime('');
+      const active = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/active-run`).catch(() => ({run: null}));
+      if (active.run?.id) {
+        runRef.current = active.run.id;
+        dispatchExecution({type: 'event', event: {event: 'run.started', run_id: active.run.id}});
+        setRuntime('Retomando o trabalho em andamento');
+        const monitor = async () => {
+          try {
+            const state = await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(active.run.id)}/state`);
+            const status = String(state.run?.status || '');
+            if (status === 'running') {
+              recoveryTimerRef.current = window.setTimeout(monitor, 1800);
+              return;
+            }
+            const refreshed = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
+            const recovered = restoreConversationMessages(refreshed.messages, uid);
+            setMessages(recovered.messages);
+            if (recovered.lastArtifact) await fetchArtifact(recovered.lastArtifact);
+            dispatchExecution({type: 'event', event: {event: status === 'failed' ? 'run.failed' : status === 'cancelled' ? 'run.cancelled' : 'run.completed', status}});
+            runRef.current = null;
+            setRuntime(status === 'completed' ? '' : status === 'cancelled' ? 'Interrompido' : 'Não foi possível concluir');
+          } catch (error) {
+            dispatchExecution({type: 'connection.lost', error: error.message});
+            setRuntime('Reconectando ao trabalho');
+            recoveryTimerRef.current = window.setTimeout(monitor, 2500);
+          }
+        };
+        recoveryTimerRef.current = window.setTimeout(monitor, 600);
+      } else setRuntime('');
       if (window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
     } catch (error) {
       setRuntime('Não foi possível abrir');
       trace('Falha ao abrir conversa', error.message, 'error');
     } finally { setOpeningId(null); }
-  }, [running, confirmDiscard, bootstrap.endpoints.history, fetchArtifact, trace, releasePreviews]);
+  }, [running, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint]);
 
   const changeProject = useCallback(async (projectRef, {showHistory = true} = {}) => {
-    if (running || !(await confirmDiscard())) return;
+    if (running) return;
     setContextLoading(true);
     setRuntime('Atualizando contexto');
     try {
@@ -295,7 +368,7 @@ export default function App({bootstrap}) {
       trace('Falha ao alterar contexto', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
+  }, [running, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
 
   const loadBrandIdentity = useCallback(async brandRef => {
     const brandId = String(brandRef || '').replace(/^studio:/, '');
@@ -309,7 +382,7 @@ export default function App({bootstrap}) {
   }, []);
 
   const changeBrand = useCallback(async brandRef => {
-    if (running || !(await confirmDiscard())) return;
+    if (running) return;
     setContextLoading(true); setRuntime('Atualizando marca');
     try {
       const data = await request(bootstrap.endpoints.context, {
@@ -323,7 +396,35 @@ export default function App({bootstrap}) {
       trace('Falha ao abrir a marca', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, loadBrandIdentity, trace, loadContext]);
+  }, [running, bootstrap.endpoints.context, reset, loadBrandIdentity, trace, loadContext]);
+
+  const conversationAction = useCallback(async (item, action) => {
+    const id = String(item?.id || '');
+    if (!id) return;
+    const previous = conversations;
+    let payload;
+    if (action === 'archive') payload = {archived: true};
+    else if (action === 'stop-automation') payload = {automation_enabled: false};
+    else if (action === 'toggle-pin') payload = {section: item.section === 'pinned' ? 'recent' : 'pinned'};
+    else return;
+    setConversations(items => action === 'archive'
+      ? items.filter(candidate => String(candidate.id) !== id)
+      : items.map(candidate => String(candidate.id) === id ? {
+        ...candidate,
+        ...(payload.section ? {section: payload.section, automation_enabled: false} : {}),
+        ...(action === 'stop-automation' ? {automation_enabled: false} : {}),
+      } : candidate));
+    try {
+      await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}`, {
+        method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify(payload),
+      });
+      if (action === 'archive' && String(conversationRef.current) === id) reset();
+    } catch (error) {
+      setConversations(previous);
+      trace('Não foi possível atualizar a conversa', error.message, 'error');
+    }
+  }, [bootstrap.endpoints.history, conversations, reset, trace]);
 
   const dropContext = useCallback(payload => {
     if (payload?.projectRef || payload?.type === 'project') {
@@ -331,6 +432,10 @@ export default function App({bootstrap}) {
       return;
     }
     if (payload?.type === 'brand') changeBrand(payload.brandRef || (payload.id ? `studio:${payload.id}` : ''));
+    else if (payload?.type === 'resource' || payload?.resourceRef) {
+      setComposerContext({type: 'resource', label: payload.title || 'Referência', text: JSON.stringify({id: payload.id || payload.resourceRef, title: payload.title, url: payload.url, kind: payload.kind})});
+      window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
+    }
   }, [changeBrand, changeProject]);
 
   const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || new URLSearchParams(window.location.search).get('project') || '');
@@ -426,7 +531,7 @@ export default function App({bootstrap}) {
   const handleDragLeave = useCallback(event => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDropActive(false); }, []);
   const handleDrop = useCallback(event => { event.preventDefault(); dragDepthRef.current = 0; setDropActive(false); addFiles(Array.from(event.dataTransfer?.files || [])); }, [addFiles]);
 
-  const uploadFiles = useCallback(() => uploadAttachments({
+  const uploadFiles = useCallback(resolvedExecutionMode => uploadAttachments({
       attachments,
       projectRef: context.project_ref,
       uploadsEndpoint: bootstrap.endpoints.uploads,
@@ -435,28 +540,69 @@ export default function App({bootstrap}) {
       csrfToken: csrf,
       uuid: () => crypto.randomUUID(),
       onProgress: setAttachments,
+      executionMode: resolvedExecutionMode,
     }), [attachments, context.project_ref, bootstrap.endpoints.uploads]);
 
-  const submit = useCallback(async (requestedInput = input, {skipAttachments = false} = {}) => {
+  const submit = useCallback(async (requestedInput = input, {skipAttachments = false, fromQueue = false, queuedContext = null, queuedMode = null} = {}) => {
     const turnAttachments = skipAttachments ? [] : attachments;
     const clean = requestedInput.trim() || attachmentSubmissionMessage(turnAttachments);
-    if (!clean || running) return;
+    if (!clean) return;
+    if (running && !fromQueue) {
+      if (queuedTurns.length >= MAX_QUEUED_TURNS) {
+        trace('Fila cheia', 'Aguarde um pedido terminar ou remova um item da fila.', 'error');
+        return;
+      }
+      if (turnAttachments.length) {
+        trace('Anexos aguardam envio', 'Pedidos com arquivos entram na fila depois que o envio atual terminar.', 'error');
+        return;
+      }
+      const draft = {id: uid(), prompt: clean, context: composerContext || null, executionMode, createdAt: Date.now()};
+      if (conversationRef.current) {
+        try {
+          const data = await request(queueEndpoint(conversationRef.current), {
+            method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+            body: JSON.stringify({prompt: clean, execution_mode: executionMode, selected_context: composerContext || null}),
+          });
+          const saved = data.item || draft;
+          setQueuedTurns(items => enqueue(items, {...saved, executionMode: saved.execution_mode || executionMode, context: saved.selected_context || composerContext || null}));
+        } catch (error) { trace('Não foi possível adicionar à fila', error.message, 'error'); return; }
+      } else setQueuedTurns(items => enqueue(items, draft));
+      setInput(''); setComposerContext(null);
+      return;
+    }
     if (artifactDirty && !(await confirmDiscard(false))) return;
     if (artifactDirty && artifactRef.current?.id) {
       try { await fetchArtifact(artifactRef.current.id); } catch (error) { trace('Não foi possível restaurar o artefato', error.message, 'error'); return; }
     }
-    setRunning(true); setDiagnostics([]); setRuntime(turnAttachments.length ? 'Enviando arquivos' : 'Trabalhando');
+    dispatchExecution({type: 'submitted'}); setDiagnostics([]); setRuntime(turnAttachments.length ? 'Enviando arquivos' : 'Trabalhando');
     if (!conversationRef.current && window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
+    let resolvedExecutionMode = queuedMode || executionMode;
     let staged;
-    try { staged = turnAttachments.length ? await uploadFiles() : []; }
-    catch (error) { setRunning(false); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
+    try {
+      if (turnAttachments.some(item => item.destination === 'conversation')) {
+        const preview = await request(bootstrap.endpoints.route, {
+          method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+          body: JSON.stringify({
+            message: clean,
+            conversation_id: conversationRef.current,
+            execution_mode: resolvedExecutionMode,
+            project_ref: context.project_ref || null,
+            brand_ref: context.brand_ref || null,
+            active_object: artifactRef.current?.id ? {type: `artifact:${artifactRef.current.type}`, id: artifactRef.current.id} : null,
+          }),
+        });
+        resolvedExecutionMode = preview.execution_mode || resolvedExecutionMode;
+      }
+      staged = turnAttachments.length ? await uploadFiles(resolvedExecutionMode) : [];
+    }
+    catch (error) { dispatchExecution({type: 'upload.failed', error: error.message}); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
     const files = [...staged.map(item => ({id: item.id, name: item.name, source: item.source || null})), ...homeAttachments];
     const providerFileIds = files.map(item => item.id).filter(Boolean);
     const projectUploads = files.filter(item => item.source).map(item => ({
       source_id: item.source.source_id, name: item.source.name || item.name,
       purpose: item.source.purpose, category: item.source.category, status: item.source.status,
     }));
-    const turnContext = composerContext || (projectUploads.length ? {
+    const turnContext = queuedContext || composerContext || (projectUploads.length ? {
       type: 'project_upload_receipt', label: 'Itens adicionados ao projeto',
       text: JSON.stringify(projectUploads),
     } : null);
@@ -469,6 +615,42 @@ export default function App({bootstrap}) {
     let latestArtifact = null;
     let pendingArtifact = null;
     let artifactResolved = false;
+    let longJobPromise = null;
+    const monitorLongJob = async job => {
+      let openedArtifact = '';
+      while (!controller.signal.aborted) {
+        const state = await request(`/workspace/api/v2/long-jobs/${encodeURIComponent(job.id)}`);
+        const status = String(state.job?.status || '');
+        const completed = (state.units || []).filter(item => item.status === 'completed').length;
+        const total = (state.units || []).length;
+        setRuntime(total ? `Construindo o trabalho · ${completed}/${total}` : 'Construindo o trabalho');
+        dispatchExecution({type: 'event', event: {event: 'long_job.progress', job: state.job}});
+        if (state.job?.artifact_id && state.job.artifact_id !== openedArtifact) {
+          openedArtifact = state.job.artifact_id;
+          setArtifactTabs(items => items.filter(item => artifactKey(item) !== `long-job:${job.id}`));
+          await fetchArtifact(openedArtifact);
+        }
+        if (['completed', 'failed', 'cancelled', 'budget_exhausted'].includes(status)) {
+          if (status === 'completed') {
+            const refreshed = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(conversationRef.current)}/messages`);
+            const recovered = restoreConversationMessages(refreshed.messages, uid);
+            setMessages(recovered.messages);
+            if (recovered.lastArtifact && recovered.lastArtifact !== openedArtifact) await fetchArtifact(recovered.lastArtifact);
+            dispatchExecution({type: 'event', event: {event: 'long_job.completed', job: state.job}});
+            longJobRef.current = null;
+            setRuntime('');
+          } else {
+            const message = status === 'budget_exhausted' ? 'O limite de tokens deste trabalho foi atingido.' : 'O trabalho longo foi interrompido.';
+            dispatchExecution({type: 'event', event: {event: 'long_job.failed', message}});
+            longJobRef.current = null;
+            setRuntime(message);
+            trace('Trabalho longo interrompido', message, 'error');
+          }
+          return;
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 1600));
+      }
+    };
     const failPendingArtifact = message => {
       if (!pendingArtifact) return;
       const failed = {...pendingArtifact, pending: false, failed: true, title: 'Artefato não concluído', error: message || 'A geração terminou antes de preparar o conteúdo.'};
@@ -476,22 +658,30 @@ export default function App({bootstrap}) {
       if (artifactKey(artifactRef.current) === pendingArtifact.tabKey) { setArtifact(failed); artifactRef.current = failed; }
     };
     const startedAt = Date.now();
+    const controller = new AbortController();
+    streamControllerRef.current?.abort();
+    streamControllerRef.current = controller;
+    const seenEvents = new Set();
     try {
       const response = await fetch(bootstrap.endpoints.messages, {
         method: 'POST', credentials: 'same-origin',
         headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        signal: controller.signal,
         body: JSON.stringify(conversationPayload({
           message: clean,
           requestId: crypto.randomUUID(),
           conversationId: conversationRef.current,
           providerFileIds,
-          executionMode,
+          executionMode: resolvedExecutionMode,
           context,
           selectedContext: turnContext,
           activeArtifact: artifactRef.current,
         })),
       });
-      await streamEvents(response, event => {
+      await streamEvents(response, rawEvent => {
+        const event = acceptAgentEvent(rawEvent, seenEvents);
+        if (!event || controller.signal.aborted) return;
+        dispatchExecution({type: 'event', event});
         const kind = event.event;
         if (kind === 'run.started') {
           runStarted = true;
@@ -540,6 +730,17 @@ export default function App({bootstrap}) {
         else if (kind === 'action.proposed') {
           const actionMessage = {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: event.action?.run_id || event.action?.runId || runRef.current};
           setMessages(items => [...items, actionMessage]);
+        }
+        else if (kind === 'long_job.created') {
+          const job = event.job || {};
+          longJobRef.current = job.id || null;
+          pendingArtifact = {tabKey: `long-job:${job.id}`, type: 'document', title: job.title || 'Trabalho em elaboração', pending: true};
+          setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== pendingArtifact.tabKey), pendingArtifact]);
+          if (!artifactRef.current || !artifactOpen) {
+            setArtifact(pendingArtifact); artifactRef.current = pendingArtifact; setArtifactOpen(true);
+          }
+          setRuntime('Organizando as etapas do trabalho');
+          longJobPromise = monitorLongJob(job);
         }
         else if (kind === 'artifact.created') {
           setRuntime('Preparando o material');
@@ -593,25 +794,53 @@ export default function App({bootstrap}) {
           failPendingArtifact('A geração foi interrompida antes de concluir o artefato.');
           terminal = true; setRuntime('Interrompido'); trace('Execução interrompida');
         } else if (kind === 'run.completed') {
-          if (pendingArtifact && !artifactResolved) failPendingArtifact();
-          terminal = true; setRuntime(event.status === 'completed' ? '' : 'Não foi possível concluir'); trace('Execução concluída', event.status || '');
+          if (!longJobPromise && pendingArtifact && !artifactResolved) failPendingArtifact();
+          terminal = true;
+          if (!longJobPromise) setRuntime(event.status === 'completed' ? '' : 'Não foi possível concluir');
+          trace(longJobPromise ? 'Trabalho aceito' : 'Execução concluída', event.status || '');
         }
       });
+      if (longJobPromise) await longJobPromise;
       if (!terminal) throw new Error('A conexão terminou antes da conclusão.');
     } catch (error) {
+      if (error?.name === 'AbortError' || controller.signal.aborted) {
+        terminal = true;
+        setRuntime('Interrompido');
+        trace('Execução interrompida');
+        return;
+      }
+      dispatchExecution({type: 'connection.lost', error: error?.message});
       const detail = String(error?.message || '').trim();
       setRuntime('Não foi possível concluir'); trace('Falha na conversa', detail, 'error');
       setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'failure', failure: chatFailure(error), prompt: clean}]);
       setInput(clean);
+      dispatchExecution({type: 'connection.failed', error: detail});
     } finally {
       if (runStarted) {
         const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
         const worked = {id: uid(), turnId, role: 'assistant', kind: 'worked', seconds};
         setMessages(items => insertWorkedBeforeResult(items, turnId, worked));
       }
-      setRunning(false); runRef.current = null; await loadRecent();
+      if (streamControllerRef.current === controller) streamControllerRef.current = null;
+      runRef.current = null; await loadRecent();
     }
-  }, [input, running, artifactDirty, confirmDiscard, attachments, homeAttachments, context, composerContext, executionMode, fetchArtifact, trace, rememberContext, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
+  }, [input, running, queuedTurns.length, artifactDirty, confirmDiscard, attachments, homeAttachments, context, composerContext, executionMode, fetchArtifact, trace, rememberContext, bootstrap.endpoints.messages, bootstrap.endpoints.route, loadRecent, releasePreviews, uploadFiles, queueEndpoint]);
+
+  useEffect(() => {
+    if (running || drainingQueueRef.current || !queuedTurns.length || contextLoading) return;
+    const next = queuedTurns[0];
+    drainingQueueRef.current = true;
+    setQueuedTurns(items => items.filter(item => item.id !== next.id));
+    if (conversationRef.current && next.id) request(`${queueEndpoint(conversationRef.current)}/${encodeURIComponent(next.id)}`, {
+      method: 'DELETE', headers: {'X-CSRF-Token': csrf()},
+    }).catch(error => trace('Fila será reconciliada depois', error.message, 'error'));
+    Promise.resolve(submit(next.prompt, {
+      skipAttachments: true,
+      fromQueue: true,
+      queuedContext: next.context,
+      queuedMode: next.executionMode,
+    })).finally(() => { drainingQueueRef.current = false; });
+  }, [contextLoading, queuedTurns, running, submit, queueEndpoint, trace]);
 
   const initialPromptRef = useRef(initialQuery.get('auto_send') === '1' ? initialQuery.get('prompt') || '' : '');
   useEffect(() => {
@@ -622,9 +851,18 @@ export default function App({bootstrap}) {
   }, [contextLoading, running, submit]);
 
   const stop = useCallback(async () => {
-    if (!runRef.current) return;
+    const runId = runRef.current;
+    const longJobId = longJobRef.current;
+    if (!runId && !longJobId && !streamControllerRef.current) return;
     setRuntime('Interrompendo');
-    try { await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(runRef.current)}/stop`, {method: 'POST', headers: {'X-CSRF-Token': csrf()}}); }
+    dispatchExecution({type: 'cancel.requested'});
+    streamControllerRef.current?.abort();
+    try {
+      if (longJobId) {
+        await request(`/workspace/api/v2/long-jobs/${encodeURIComponent(longJobId)}/cancel`, {method: 'POST', headers: {'X-CSRF-Token': csrf()}});
+        longJobRef.current = null;
+      } else if (runId) await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(runId)}/stop`, {method: 'POST', headers: {'X-CSRF-Token': csrf()}});
+    }
     catch (error) { setRuntime('Não foi possível interromper'); trace('Falha ao interromper', error.message, 'error'); }
   }, [bootstrap.endpoints.runs, trace]);
 
@@ -787,6 +1025,32 @@ export default function App({bootstrap}) {
     setArtifactDirty(false); setArtifactOpen(true);
   }, [confirmDiscard, fetchArtifact, trace]);
 
+  const openLibrary = useCallback(async () => {
+    if (!(await confirmDiscard(false))) return;
+    const libraryProjectRef = String(context?.project_ref || '');
+    const libraryBrandRef = String(context?.brand_ref || '');
+    const tabKey = `library:${libraryProjectRef || libraryBrandRef || 'personal'}`;
+    const pending = {tabKey, type: 'library', title: 'Biblioteca', pending: true};
+    setArtifact(pending); artifactRef.current = pending; setArtifactOpen(true);
+    try {
+      const endpoint = bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library';
+      const suffix = libraryProjectRef ? `?project_ref=${encodeURIComponent(libraryProjectRef)}` : '';
+      const data = await request(`${endpoint}${suffix}`);
+      const asset = (item, source) => ({id: `${source}:${item.id}`, title: item.metadata?.display_name || item.metadata?.original_name || item.title || item.name || 'Sem título', preview: item.display_url || item.asset_url || item.image_url || item.thumb_url || item.asset_path || item.source_url, url: item.display_url || item.asset_url || item.image_url || item.url || item.asset_path || item.source_url, kind: item.role === 'logo' ? 'logo' : item.kind || 'image', source});
+      const resources = (data.resources || []).map(item => ({id: item.id, title: item.title || 'Referência', url: item.editor_url || item.download_url || item.url, kind: item.type || item.resource_type || 'file', detail: item.category || item.mime_type || ''}));
+      const library = {tabKey, type: 'library', title: 'Biblioteca', content: {groups: [
+        {id: 'brand', title: 'Criativos da marca', layout: 'carousel', items: (data.brand_assets || []).map(item => asset(item, 'brand'))},
+        {id: 'created', title: 'Criações', layout: 'carousel', items: (data.personal_assets || []).map(item => asset(item, 'personal'))},
+        {id: 'references', title: 'Arquivos e links importantes', layout: 'list', items: resources},
+      ]}};
+      setArtifact(library); artifactRef.current = library; setArtifactDirty(false);
+      setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== tabKey), library]);
+    } catch (error) {
+      const failed = {...pending, pending: false, failed: true, error: error.message || 'Biblioteca indisponível.'};
+      setArtifact(failed); artifactRef.current = failed;
+    }
+  }, [bootstrap.endpoints, confirmDiscard, context?.brand_ref, context?.project_ref]);
+
   const openDockBrand = useCallback(item => {
     const brandRef = item?.brandRef || (item?.id ? `studio:${item.id}` : '');
     if (brandRef) changeBrand(brandRef);
@@ -809,11 +1073,31 @@ export default function App({bootstrap}) {
   }, []);
   const openHistory = useCallback(() => setHistoryOpen(true), []);
   const closeHistory = useCallback(() => setHistoryOpen(false), []);
+  const persistQueuedTurns = useCallback(async next => {
+    setQueuedTurns(next);
+    if (!conversationRef.current) return;
+    try {
+      const data = await request(queueEndpoint(conversationRef.current), {
+        method: 'PUT', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({items: next.map(item => ({id: item.id, prompt: item.prompt}))}),
+      });
+      setQueuedTurns((data.items || next).map(item => ({...item, executionMode: item.execution_mode || item.executionMode, context: item.selected_context || item.context})));
+    } catch (error) { trace('Não foi possível atualizar a fila', error.message, 'error'); }
+  }, [queueEndpoint, trace]);
+  const removeQueuedTurn = useCallback(async id => {
+    const next = queuedTurns.filter(item => item.id !== id);
+    setQueuedTurns(next);
+    if (!conversationRef.current) return;
+    try {
+      await request(`${queueEndpoint(conversationRef.current)}/${encodeURIComponent(id)}`, {method: 'DELETE', headers: {'X-CSRF-Token': csrf()}});
+    } catch (error) { trace('Não foi possível remover da fila', error.message, 'error'); }
+  }, [queueEndpoint, queuedTurns, trace]);
 
   const activeProjectRef = String(context?.project_ref || '');
   const activeBrandRef = String(context?.brand_ref || '');
   const starterProject = projects.find(item => String(item.ref || item.projectRef || item.id) === activeProjectRef);
   const starterBrand = brands.find(item => String(item.ref || item.brandRef || (item.id ? `studio:${item.id}` : '')) === activeBrandRef);
+  const activeConversationState = conversations.find(item => String(item.id) === String(conversationId));
   const dockItems = conversationDockItems;
   const sharedDockItems = dockItems.map(item => ({
     ...item,
@@ -876,10 +1160,10 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
-          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} projectResourcesEndpoint={bootstrap.endpoints?.projectResources || '/workspace/api/v2/projects'} studioLibraryEndpoint={bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library'} activeId={conversationId} onOpen={openConversation} onOpenResource={openResource} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} projectResourcesEndpoint={bootstrap.endpoints?.projectResources || '/workspace/api/v2/projects'} studioLibraryEndpoint={bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library'} activeId={conversationId} onOpen={openConversation} onOpenResource={openResource} onOrganize={organizeConversation} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
+          <Conversation conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState}/>
           {artifactOpen && <ArtifactPane
             artifact={artifact} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
             tabs={artifactTabs} activeTabKey={artifactKey(artifact)}
@@ -939,6 +1223,7 @@ export default function App({bootstrap}) {
                   } catch (error) { trace('Não foi possível organizar a imagem', error.message, 'error'); }
                 }}
                 onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}
+                onOpenResource={openResource}
           />}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>

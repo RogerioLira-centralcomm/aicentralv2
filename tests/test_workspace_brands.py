@@ -275,6 +275,30 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(params[-2:], (81, 12))
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_identity_form_persists_extended_manual_fields(self, workspace_brand, get_db):
+        workspace_brand.return_value = {'id': 81, 'brand_profile': {}}
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/identidade', data={
+            '_csrf': 'known-token', 'name': 'Marca segura',
+            'visual_motifs': 'Linhas orgânicas\nFotografia humana',
+            'mandatory_elements': 'Logo principal',
+            'forbidden_elements': 'Promessas absolutas',
+        })
+
+        self.assertEqual(response.status_code, 303)
+        payload = json.loads(cursor.execute.call_args.args[1][6])
+        self.assertEqual(payload['visual_motifs'], ['Linhas orgânicas', 'Fotografia humana'])
+        self.assertEqual(payload['mandatory_elements'], ['Logo principal'])
+        self.assertEqual(payload['forbidden_elements'], ['Promessas absolutas'])
+        self.assertNotIn('color_palette', payload)
+        self.assertNotIn('fonts', payload)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value=None)
     def test_foreign_brand_cannot_be_updated(self, _workspace_brand, get_db):
         response = _client().post('/workspace/app/marcas/999/identidade', data={

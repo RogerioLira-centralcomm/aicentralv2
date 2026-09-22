@@ -23,6 +23,7 @@ from flask import Flask
 from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
 from aicentralv2.cadu_workspace.agent_v2 import service as v2_service
 from aicentralv2.cadu_workspace.agent_v2 import journal
+from aicentralv2.cadu_workspace.agent_v2 import long_jobs
 from aicentralv2.cadu_workspace.agent_v2 import request_context
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace import brand_mcp_service
@@ -179,6 +180,30 @@ def test_brand_creation_and_audit_are_routed_to_internal_mcp_actions():
     assert audit_action["arguments"] == {"analysis_mode": "deep", "confirmed_cost": True}
 
 
+def test_brand_identity_edit_is_a_confirmed_partial_mcp_action():
+    message = "Troque o público-alvo para pequenas empresas de saúde"
+    route = route_request(message, has_brand=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert route.action == "update_brand_identity"
+    assert action["name"] == "brands.update_identity"
+    assert action["requires_confirmation"] is True
+    assert action["arguments"] == {"changes": {"target_audience": "pequenas empresas de saúde"}}
+
+
+def test_brand_logo_replacement_prepares_the_existing_mcp_upload_flow():
+    message = "Quero trocar o logo principal desta marca"
+    route = route_request(message, has_brand=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert route.action == "prepare_brand_logo_upload"
+    assert action["name"] == "brands.prepare_logo_upload"
+    assert action["requires_confirmation"] is False
+    assert action["arguments"] == {}
+
+
 def test_google_meet_link_uses_project_reference_flow():
     message = "Adicione este link ao projeto: https://meet.google.com/pxo-agft-eze"
     route = route_request(message, has_project=True)
@@ -214,6 +239,84 @@ def context(**overrides):
     }
     values.update(overrides)
     return RequestContext(**values)
+
+
+def test_long_job_spec_supports_deep_research_without_unbounded_sources():
+    spec = long_jobs.LongJobSpec(
+        kind="deep_research", title="Pesquisa ampla", objective="Consolidar evidências", source_target=40,
+    ).validated()
+    assert spec.source_target == 40
+    assert [unit["kind"] for unit in long_jobs.default_units(spec)] == [
+        "discover", "extract", "classify", "summarize", "synthesize", "compose", "review", "render",
+    ]
+    with pytest.raises(ValueError, match="entre 0 e 40"):
+        long_jobs.LongJobSpec(
+            kind="deep_research", title="Excesso", objective="Não deve executar", source_target=41,
+        ).validated()
+
+
+def test_long_job_routing_is_explicit_and_respects_no_artifact_requests():
+    assert long_jobs.spec_for_message("Explique CPM de forma simples") is None
+    assert long_jobs.spec_for_message("Escreva um guia com 1800 palavras, mas não crie artefato") is None
+    document = long_jobs.spec_for_message("Escreva um guia completo com aproximadamente 1800 palavras")
+    assert document.kind == "long_document"
+    assert document.source_target == 0
+    research = long_jobs.spec_for_message("Faça uma pesquisa profunda em até 25 fontes e entregue um relatório completo")
+    assert research.kind == "deep_research"
+    assert research.source_target == 25
+
+
+def test_long_document_without_sources_still_composes_reviews_and_renders():
+    spec = long_jobs.LongJobSpec(
+        kind="long_document", title="Relatório", objective="Produzir versão incremental", source_target=0,
+    )
+    assert [unit["kind"] for unit in long_jobs.default_units(spec)] == ["compose", "review", "render"]
+    assert long_jobs.fragment_hash("conteúdo") == long_jobs.fragment_hash("conteúdo")
+    assert long_jobs.fragment_hash("conteúdo") != long_jobs.fragment_hash("outro conteúdo")
+
+
+def test_long_job_migration_has_resumption_budget_and_incremental_text_contracts():
+    migration = (ROOT / "migrations" / "add_cadu_long_running_jobs.sql").read_text()
+    assert "cadu_agent_long_jobs" in migration
+    assert "lease_expires_at" in migration
+    assert "token_budget" in migration and "tokens_used" in migration
+    assert "cadu_agent_long_job_units" in migration
+    assert "cadu_agent_long_job_sources" in migration
+    assert "cadu_agent_long_job_fragments" in migration
+    assert "UNIQUE (job_id, content_hash)" in migration
+    assert "cadu_agent_long_job_calls" in migration
+
+
+def test_conversation_runtime_exposes_owner_scoped_active_run_recovery():
+    routes = (ROOT / "aicentralv2" / "cadu_workspace" / "agent_v2" / "routes.py").read_text()
+    assert '@bp.get("/conversations/<conversation_id>/active-run")' in routes
+    assert "conversation.id_contato_cliente=%s" in routes
+    assert "run.runtime_version='v2' AND run.status='running'" in routes
+
+
+def test_long_job_worker_is_supervised_incremental_and_billed():
+    worker = (ROOT / "aicentralv2" / "cadu_workspace" / "agent_v2" / "long_job_worker.py").read_text()
+    workspace = (ROOT / "aicentralv2" / "cadu_workspace" / "__init__.py").read_text()
+    runner = (ROOT / "migrations" / "run_add_cadu_long_running_jobs.py").read_text()
+    assert "claim_next_unit" in worker
+    assert "append_fragment" in worker
+    assert "charge_provider" in worker
+    assert "web_search.search" in worker
+    assert "add_sources" in worker
+    assert "create_draft" in worker and "patch_artifact" in worker
+    assert '@click.command("long-job-worker-once")' in worker
+    assert "bp.cli.add_command(long_job_worker_command)" in workspace
+    assert "add_cadu_long_running_jobs.sql" in runner
+    assert "idx_cadu_long_jobs_queue" in runner
+
+
+def test_long_job_routes_support_owner_scoped_cancellation():
+    routes = (ROOT / "aicentralv2" / "cadu_workspace" / "agent_v2" / "routes.py").read_text()
+    jobs = (ROOT / "aicentralv2" / "cadu_workspace" / "agent_v2" / "long_jobs.py").read_text()
+    assert '@bp.post("/long-jobs/<uuid:job_id>/cancel")' in routes
+    assert "organization_id=%s AND client_id=%s" in jobs
+    assert "job_status\": \"cancelled" in jobs
+    assert "status='queued',finished_at=NULL" in jobs
 
 
 def test_context_keeps_agency_and_selected_client_as_distinct_boundaries():
@@ -269,6 +372,26 @@ def test_artifact_schema_matches_runtime_types():
     for artifact_type in ("project_map", "html", "meeting_summary", "meeting_agenda"):
         assert artifact_type in sql
     assert "cadu_workspace_artifacts_type_check" in sql
+
+
+def test_html_artifact_workspace_builds_a_versioned_tailwind_document(tmp_path):
+    from aicentralv2.cadu_workspace.artifacts import workspace
+
+    app = Flask(__name__, instance_path=str(tmp_path / "instance"))
+    app.config["CADU_ARTIFACT_WORKSPACE_DIR"] = str(tmp_path)
+    artifact = {
+        "id": "5ceea230-cbfa-448a-b620-0a41e1cc616d", "client_id": 12,
+        "type": "html", "title": "Dashboard", "current_version": 3,
+        "content": {"html": '<section class="grid"><h1>Resumo</h1></section>', "css": ".grid{display:grid}"},
+    }
+    with app.app_context():
+        target = workspace.materialize(artifact)
+
+    assert target == tmp_path / "cadu_artifact_workspaces" / "12" / artifact["id"] / "v3" / "index.html"
+    rendered = target.read_text(encoding="utf-8")
+    assert '/static/css/tailwind/artifact.css' in rendered
+    assert 'class="cadu-artifact-page"' in rendered
+    assert "<h1>Resumo</h1>" in rendered
 
 
 def test_link_reader_is_an_allowed_personal_artifact_type():
@@ -344,7 +467,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     internal_names = {item["name"] for item in catalog.list(
         context(capabilities=("workspace", "artifacts")), "internal",
     )}
-    assert {"brands.create", "brands.start_audit"} <= internal_names
+    assert {"brands.create", "brands.prepare_logo_upload", "brands.update_identity", "brands.start_audit"} <= internal_names
     assert "projects.reindex_source" in internal_names
     assert "projects.create_note" in internal_names
     assert "workspace.create_project" in internal_names
@@ -421,6 +544,7 @@ def test_mcp_operation_reuses_completed_result_without_running_again(monkeypatch
 def test_brand_logo_upload_contract_matches_existing_storage_limit(monkeypatch):
     app = Flask(__name__)
     app.secret_key = "test-secret"
+    monkeypatch.setattr(brand_mcp_service, "_require_admin", lambda *_: None)
     monkeypatch.setattr(brand_mcp_service, "_brand", lambda *_: {"id": 81})
     with app.app_context():
         prepared = brand_mcp_service.prepare_logo_upload(context(), 81)
@@ -492,6 +616,17 @@ def test_project_link_is_an_explicit_confirmed_reference_action():
     assert route.action == "create_project_link"
     assert action["name"] == "projects.create_link_reference"
     assert action["arguments"]["url"].startswith("https://docs.google.com/")
+
+
+def test_project_link_noun_phrase_is_saved_instead_of_answered_as_drive_help():
+    message = "link importante da pasta no projeto https://drive.google.com/drive/folders/abc"
+    route = route_request(message, has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message) if step["kind"] == "action")
+
+    assert route.action == "create_project_link"
+    assert action["name"] == "projects.create_link_reference"
+    assert action["arguments"]["url"] == "https://drive.google.com/drive/folders/abc"
+    assert "indexador" in action["summary"]
 
 
 def test_bare_link_stays_a_reference_and_explicit_read_is_allowed():
@@ -650,6 +785,10 @@ def test_create_project_tool_writes_canonical_project_only_after_confirmation(mo
     captured = {}
     monkeypatch.setattr(workspace.repository, "create_entity", lambda client_id, user_id, payload: captured.update(
         client_id=client_id, user_id=user_id, payload=payload) or "ci:project-1")
+    monkeypatch.setattr(workspace.repository, "seed_project_owner", lambda client_id, project_ref, user_id: captured.update(
+        owner=(client_id, project_ref, user_id)))
+    monkeypatch.setattr(workspace.repository, "set_project_visibility", lambda client_id, user_id, project_ref, visibility: captured.update(
+        visibility=(client_id, user_id, project_ref, visibility)))
     monkeypatch.setattr(workspace.operations, "execute", lambda request_id, current, tool_name, payload, operation: operation())
     result = load_builtin_tools().execute("workspace.create_project", {
         "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "name": "Campanha Primavera", "confirmed": True,
@@ -657,6 +796,21 @@ def test_create_project_tool_writes_canonical_project_only_after_confirmation(mo
 
     assert result == {"project_ref": "ci:project-1", "name": "Campanha Primavera", "status": "created"}
     assert captured["payload"]["kind"] == "project"
+    assert captured["owner"] == (12, "ci:project-1", 7)
+    assert captured["visibility"] == (12, 7, "ci:project-1", "private")
+
+
+def test_project_creation_plan_bootstraps_links_upload_and_team_visibility():
+    message = "Crie o projeto Lançamento com link https://example.com/brief e adicione arquivos, aberto para toda a equipe"
+    route = route_request(message)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert action["name"] == "workspace.create_project"
+    assert action["arguments"]["name"] == "Lançamento"
+    assert action["arguments"]["visibility"] == "team"
+    assert action["arguments"]["links"] == [{"url": "https://example.com/brief"}]
+    assert action["arguments"]["file_uploads"] == [{"use_as_knowledge": True}]
 
 
 def test_mcp_brand_logo_upload_uses_signed_principal_context(monkeypatch):
@@ -691,6 +845,46 @@ def test_brand_audit_requires_current_tenant_admin(monkeypatch):
     with pytest.raises(Exception) as error:
         brand_mcp_service._require_admin(context())
     assert getattr(error.value, "code", None) == 403
+
+
+def test_mcp_brand_identity_update_is_partial_and_tenant_scoped(monkeypatch):
+    monkeypatch.setattr(brand_mcp_service, "_require_admin", lambda *_: None)
+    monkeypatch.setattr(brand_mcp_service, "_brand", lambda *_: {
+        "id": 81, "name": "Marca", "brand_profile": {
+            "brand_summary": "Resumo preservado", "tone_of_voice": "Antigo",
+        }, "analysis_metadata": {},
+    })
+    calls = []
+
+    class Cursor:
+        def __init__(self): self.reads = 0
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, sql, params): calls.append((sql, params))
+        def fetchone(self):
+            self.reads += 1
+            if self.reads == 1:
+                return {"brand_profile": {"brand_summary": "Resumo preservado", "tone_of_voice": "Antigo"},
+                        "analysis_metadata": {}}
+            return {"id": 81}
+
+    class Connection:
+        def __init__(self): self.value = Cursor()
+        def cursor(self): return self.value
+        def commit(self): pass
+        def rollback(self): raise AssertionError("não deveria falhar")
+
+    monkeypatch.setattr(brand_mcp_service, "get_db", lambda: Connection())
+    result = brand_mcp_service.update_identity(
+        context(), request_id="be777b36-a973-419c-802a-886bf1d125b0",
+        brand_id=81, changes={"tone_of_voice": "Direto e humano"},
+    )
+
+    profile = __import__("json").loads(calls[1][1][11])
+    assert result["updated_fields"] == ["tone_of_voice"]
+    assert profile["tone_of_voice"] == "Direto e humano"
+    assert profile["brand_summary"] == "Resumo preservado"
+    assert calls[0][1][-1] == 12
 
 
 def test_brief_creation_starts_with_a_bounded_discovery():
@@ -874,6 +1068,13 @@ def test_execution_modes_are_bounded_by_route():
     assert execution_mode_for(brief, "") == "analysis"
     assert budget_for(simple, "fast").max_tool_calls == 1
     assert budget_for(brief, "agentic").max_duration_ms == 240000
+
+
+def test_html_artifact_promotes_default_analysis_to_operator_runtime():
+    route = route_request("Crie um dashboard em html com dados desse relatorio")
+    assert route.action == "create_html"
+    assert route.artifact_type == "html"
+    assert execution_mode_for(route, "analysis") == "agentic"
 
 
 def test_agentic_decision_persists_checkpoint_and_event_atomically(monkeypatch):

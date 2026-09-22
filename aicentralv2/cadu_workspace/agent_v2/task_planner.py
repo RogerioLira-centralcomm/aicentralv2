@@ -28,12 +28,30 @@ def _create_project_step(message: str):
                       str(message or ""), re.IGNORECASE)
     if not match:
         return None
-    name = " ".join(match.group(1).split()).strip(' -:;,."')
+    name = re.split(
+        r"\s+(?:com\s+(?:links?|fontes?|arquivos?|documentos?|acesso|visibilidade)|privado|compartilhado|aberto\s+para)\b",
+        " ".join(match.group(1).split()), maxsplit=1, flags=re.IGNORECASE,
+    )[0].strip(' -:;,."')
     if len(name) < 2:
         return None
+    text = str(message or "")
+    urls = []
+    for value in re.findall(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE):
+        url = value.rstrip(".,;:)")
+        if not re.match(r"^[a-z][a-z0-9+.-]*://", url, re.IGNORECASE):
+            url = "https://" + url
+        urls.append({"url": url})
+    visibility = "team" if re.search(r"\b(?:toda\s+a\s+equipe|equipe\s+inteira|aberto\s+para\s+(?:a\s+)?equipe)\b", text, re.IGNORECASE) else "private"
+    arguments = {"name": name[:150]}
+    if visibility != "private":
+        arguments["visibility"] = visibility
+    if urls:
+        arguments["links"] = urls[:20]
+    if re.search(r"\b(?:anex|envi|adicion)\w*.{0,30}\b(?:arquivos?|documentos?|fontes?)\b", text, re.IGNORECASE):
+        arguments["file_uploads"] = [{"use_as_knowledge": True}]
     return {
         "kind": "action", "name": "workspace.create_project", "requires_confirmation": True,
-        "request_id": str(uuid4()), "arguments": {"name": name[:150]}, "effect": "write",
+        "request_id": str(uuid4()), "arguments": arguments, "effect": "write",
         "summary": f"Criar o projeto “{name[:150]}” no Workspace.",
     }
 
@@ -95,7 +113,7 @@ def _project_link_step(message: str):
     return {
         "kind": "action", "name": "projects.create_link_reference", "requires_confirmation": True,
         "request_id": str(uuid4()), "arguments": {"url": url}, "effect": "write",
-        "summary": "Salvar o link como referência do projeto, sem abrir, ler ou indexar o conteúdo.",
+        "summary": "Salvar o link no projeto e deixar o indexador classificar e organizar seus metadados.",
     }
 
 
@@ -121,6 +139,35 @@ def _brand_audit_step(message: str):
     return {"kind": "action", "name": "brands.start_audit", "requires_confirmation": True,
             "request_id": str(uuid4()), "arguments": {"analysis_mode": mode, "confirmed_cost": True},
             "effect": "write", "summary": f"Iniciar auditoria {'profunda' if mode == 'deep' else 'completa'} da marca ativa, com uso de créditos."}
+
+
+def _brand_identity_step(message: str):
+    """Extract one explicit field/value pair; ambiguous edits stay conversational."""
+    text = " ".join(str(message or "").split())
+    aliases = (
+        (r"nome(?: da marca)?", "name", False), (r"setor", "sector", False),
+        (r"site(?: oficial)?|website", "website_url", False),
+        (r"cor principal", "primary_color", False), (r"cor secund[aá]ria", "secondary_color", False),
+        (r"ess[eê]ncia|resumo(?: da marca)?|descri[cç][aã]o(?: da marca)?", "brand_summary", False),
+        (r"posicionamento", "positioning", False), (r"p[uú]blico(?:-alvo)?|p[uú]blico e contexto", "target_audience", False),
+        (r"tom(?: de voz)?|tom e linguagem", "tone_of_voice", False),
+        (r"dire[cç][aã]o criativa", "creative_guidelines", False),
+        (r"produtos? e servi[cç]os?|oferta(?: priorit[aá]ria)?", "products_services", True),
+        (r"diferenciais?", "differentiators", True), (r"provas? e sinais?", "proof_points", True),
+    )
+    for label, field, is_list in aliases:
+        match = re.search(rf"\b(?:{label})\b\s*(?:para|por|como|:|=)\s*[\"“]?(.+?)[\"”]?(?:\s*$)", text, re.IGNORECASE)
+        if not match:
+            continue
+        value = match.group(1).strip(" .\"“”")
+        if not value:
+            return None
+        if is_list:
+            value = [item.strip() for item in re.split(r"\s*(?:,|;|\be\b)\s*", value, flags=re.IGNORECASE) if item.strip()]
+        return {"kind": "action", "name": "brands.update_identity", "requires_confirmation": True,
+                "request_id": str(uuid4()), "arguments": {"changes": {field: value}}, "effect": "write",
+                "summary": f"Alterar somente {field} na identidade da marca ativa."}
+    return None
 
 
 def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
@@ -156,6 +203,15 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
         action = _brand_create_step(message)
         if action:
             steps.append(action)
+    if route.action == "update_brand_identity":
+        action = _brand_identity_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "prepare_brand_logo_upload":
+        steps.append({"kind": "action", "name": "brands.prepare_logo_upload",
+                      "requires_confirmation": False, "request_id": str(uuid4()),
+                      "arguments": {}, "effect": "draft",
+                      "summary": "Preparar o envio ou a substituição do logo principal da marca ativa."})
     if route.action == "start_brand_audit":
         steps.append(_brand_audit_step(message))
     if route.artifact_type and len(steps) < 3:

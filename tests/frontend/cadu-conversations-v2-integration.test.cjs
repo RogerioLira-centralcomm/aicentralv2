@@ -336,7 +336,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /const uploadFiles = useCallback/);
   assert.doesNotMatch(app, /window\.confirm/);
   assert.match(app, /ConfirmDialog/);
-  assert.match(app, /beforeunload/);
+  assert.doesNotMatch(app, /beforeunload/);
   assert.match(app, /streamEvents/);
   assert.match(app, /<CaduDock/);
   assert.match(app, /const activeProjectRef = String\(context\?\.project_ref \|\| ''\)/);
@@ -667,16 +667,19 @@ test('attachment upload service preserves progress and conversation upload contr
       assert.equal(options.method, 'POST');
       assert.equal(options.headers['X-CSRF-Token'], 'csrf-token');
       assert.equal(options.body.get('file').type, 'text/plain');
+      assert.equal(options.body.get('execution_mode'), 'agentic');
       assert.equal(await options.body.get('file').text(), 'brief');
       return {ok: true, json: async () => ({file: {id: 'file-1'}})};
     },
     csrfToken: () => 'csrf-token',
     uuid: () => 'uuid-1',
+    executionMode: 'agentic',
     onProgress: items => progress.push(items),
   });
   assert.equal(progress[0][0].uploading, true);
   assert.equal(uploaded[0].id, 'file-1');
   assert.equal(uploaded[0].uploading, false);
+  assert.equal(progress.length > 0, true);
 });
 
 test('image artifacts hand off editing context to Studio', () => {

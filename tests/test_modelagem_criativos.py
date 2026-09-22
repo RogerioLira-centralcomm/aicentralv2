@@ -903,6 +903,58 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         return_value=(
             {
                 "source_url": "https://marca.com.br",
+                "firecrawl_warning": "Firecrawl não configurada em Integrações.",
+            },
+            None,
+        ),
+    )
+    def test_falha_de_coleta_informa_o_motivo_acionavel(self, _evidence):
+        llm = Mock()
+
+        with self.assertRaisesRegex(ValueError, "não configurada em Integrações"):
+            CreativeBrandAnalyzer(llm=llm).analyze("https://marca.com.br")
+
+        llm.assert_not_called()
+
+    @patch(
+        "aicentralv2.creative_brand_analysis._compact_web_evidence",
+        return_value=(
+            {
+                "source_url": "https://marca.com.br",
+                "firecrawl_warning": "Firecrawl: limite de requisições atingido.",
+                "pages": [],
+                "asset_candidates": [],
+            },
+            None,
+        ),
+    )
+    def test_imagem_permite_analise_quando_coleta_do_site_falha(self, _evidence):
+        def llm(_messages, **kwargs):
+            return {
+                "message": {"content": json.dumps({
+                    "name": "Marca",
+                    "brand_summary": "Identidade observada na referência enviada.",
+                    "sources": [],
+                })},
+                "model": kwargs["model"],
+            }
+
+        image = FileStorage(
+            stream=BytesIO(b"fake-image-content" * 4),
+            filename="referencia.png",
+            content_type="image/png",
+        )
+
+        result = CreativeBrandAnalyzer(llm=llm).analyze("marca.com.br", image)
+
+        self.assertEqual(result["name"], "Marca")
+        self.assertFalse(result["analysis_metadata"]["firecrawl_available"])
+
+    @patch(
+        "aicentralv2.creative_brand_analysis._compact_web_evidence",
+        return_value=(
+            {
+                "source_url": "https://marca.com.br",
                 "screenshot": "https://cdn.marca.com/screenshot.png",
                 "asset_candidates": [],
                 "pages": [],

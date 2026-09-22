@@ -38,6 +38,24 @@ def create_brand(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: service.create_brand(context, **values))
 
 
+_identity_change_properties = {
+    "name":{"type":"string","minLength":2,"maxLength":150}, "sector":{"type":["string","null"],"maxLength":80},
+    "website_url":{"type":["string","null"],"maxLength":2000},
+    "primary_color":{"type":["string","null"],"pattern":"^#[0-9A-Fa-f]{6}$"},
+    "secondary_color":{"type":["string","null"],"pattern":"^#[0-9A-Fa-f]{6}$"},
+    **{field:{"type":"string","maxLength":4000} for field in service.BRAND_IDENTITY_TEXT_FIELDS},
+    **{field:{"type":"array","items":{"type":"string","maxLength":300},"maxItems":12} for field in service.BRAND_IDENTITY_LIST_FIELDS},
+}
+
+
+@register_tool(name="brands.update_identity", capability="workspace", effect="write",
+               description="Altera somente os campos explicitamente informados da identidade da marca, preservando todos os demais. Exige confirmação do usuário.", exposures=("internal",),
+               input_schema={"type":"object","required":["request_id","confirmed","brand_id","changes"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"changes":{"type":"object","minProperties":1,"properties":_identity_change_properties,"additionalProperties":False}},"additionalProperties":False})
+def update_identity(context: RequestContext, arguments: dict) -> dict:
+    values = {key: value for key, value in arguments.items() if key != "confirmed"}
+    return _domain(lambda: service.update_identity(context, **values))
+
+
 @register_tool(name="brands.prepare_logo_upload", capability="workspace", effect="draft",
                description="Cria uma autorização curta para enviar o logo principal de uma marca.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["request_id","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})

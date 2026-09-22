@@ -88,6 +88,7 @@
       <div class="cx-integration-fields">
         {{ cx_text_field('client_id', 'Client ID', placeholder='000000.apps.googleusercontent.com') }}
         {{ cx_secret_field('client_secret', 'Client secret', 'Deixe vazio para manter') }}
+        {{ cx_secret_field('token_encryption_key', 'Chave de proteção dos tokens', 'Fernet — deixe vazio para manter') }}
         {{ cx_text_field('redirect_uri', 'Redirect URI', type='url', wide=true, value='https://auth.centralcomm.media/auth/google/workspace/callback', autocomplete='off') }}
       </div>
       <aside><strong>Conta da organização</strong><span>O token fica criptografado por organização. A página do Workspace controla autorização, sincronização e vínculos com projetos.</span></aside>

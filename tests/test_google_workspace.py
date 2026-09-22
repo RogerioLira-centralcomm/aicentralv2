@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet
 
 from aicentralv2.services.google_workspace import (
     SCOPES,
+    _encryption_key,
     authorization_url,
     exchange_code,
     list_calendar_events,
@@ -15,6 +16,22 @@ from aicentralv2.services.google_workspace import (
     sync_calendar_events,
     sync_drive,
 )
+
+
+def test_google_workspace_token_key_can_come_from_encrypted_database_configuration():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY='test', GOOGLE_TOKEN_ENCRYPTION_KEY='')
+    token_key = Fernet.generate_key().decode()
+    config = {
+        'configured': True,
+        'token_encryption_key': token_key,
+    }
+    with app.test_request_context('/'):
+        with patch(
+            'aicentralv2.services.integration_credentials.get_configuration',
+            return_value=config,
+        ):
+            assert _encryption_key() == token_key
 
 
 def test_google_workspace_authorization_requests_workspace_capabilities():

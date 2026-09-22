@@ -27,8 +27,13 @@ PROVIDERS = {
     "google_workspace": {
         "label": "Google Workspace — Dados e arquivos do cliente",
         "public_fields": ("client_id", "redirect_uri"),
-        "secret_fields": ("client_secret",),
-        "required": ("client_id", "redirect_uri", "client_secret"),
+        "secret_fields": ("client_secret", "token_encryption_key"),
+        "required": (
+            "client_id",
+            "redirect_uri",
+            "client_secret",
+            "token_encryption_key",
+        ),
     },
     "google_calendar": {
         "label": "Google Calendar e Meet",

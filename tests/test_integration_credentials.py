@@ -72,6 +72,28 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertNotIn("api_key", summary)
         self.assertNotIn("higgsfield-secret", str(summary))
 
+    def test_google_workspace_summary_requires_both_protected_secrets(self):
+        encrypted = integration_credentials.encrypt_secrets({
+            "client_secret": "oauth-secret",
+            "token_encryption_key": Fernet.generate_key().decode(),
+        })
+        record = {
+            "provider": "google_workspace",
+            "public_config": {
+                "client_id": "workspace.apps.googleusercontent.com",
+                "redirect_uri": "https://auth.centralcomm.media/auth/google/workspace/callback",
+            },
+            "encrypted_secret": encrypted,
+            "status": "active",
+        }
+        with patch(
+            "aicentralv2.db.obter_credencial_integracao", return_value=record
+        ):
+            summary = integration_credentials.get_summary("google_workspace")
+        self.assertTrue(summary["configured"])
+        self.assertTrue(summary["has_secret"])
+        self.assertNotIn("token_encryption_key", str(summary))
+
     def test_openrouter_summary_uses_environment_until_saved(self):
         self.app.config["OPENROUTER_API_KEY"] = "or-env-key"
         self.app.config["AGENT_OPENROUTER_MODEL"] = "openai/gpt-4o-mini"

@@ -163,8 +163,22 @@ def _configuration() -> dict:
     return config
 
 
-def _encryption_key() -> str:
-    value = str(current_app.config.get("GOOGLE_TOKEN_ENCRYPTION_KEY") or os.getenv("GOOGLE_TOKEN_ENCRYPTION_KEY", "")).strip()
+def _encryption_key(configuration: dict | None = None) -> str:
+    config = configuration
+    if config is None:
+        try:
+            from . import integration_credentials
+
+            config = integration_credentials.get_configuration(
+                "google_workspace", include_secrets=True
+            )
+        except Exception:
+            config = {}
+    value = str(
+        (config or {}).get("token_encryption_key")
+        or current_app.config.get("GOOGLE_TOKEN_ENCRYPTION_KEY")
+        or os.getenv("GOOGLE_TOKEN_ENCRYPTION_KEY", "")
+    ).strip()
     if not value:
         raise GoogleWorkspaceError("Configure GOOGLE_TOKEN_ENCRYPTION_KEY antes de conectar uma conta.")
     try:
@@ -200,7 +214,7 @@ def _configuration_state() -> dict:
     ]
     encryption_ready = True
     try:
-        _encryption_key()
+        _encryption_key(config)
     except (GoogleWorkspaceError, RuntimeError):
         encryption_ready = False
         missing.append(_SERVICE_CONFIG_LABELS["token_encryption_key"])

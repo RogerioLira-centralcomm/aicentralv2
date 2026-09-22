@@ -135,12 +135,36 @@ def _message(value):
 def _selected_context(value):
     if not isinstance(value, dict):
         return None
-    text = " ".join(str(value.get("text") or "").split())
-    if not 3 <= len(text) <= 12000:
-        return None
     kind = str(value.get("type") or "selection")[:40]
+    raw_text = str(value.get("text") or "").replace("\r\n", "\n").replace("\r", "\n")
+    if kind == "assistant_response":
+        text = "\n".join(line.rstrip() for line in raw_text.split("\n")).strip()
+        limit = 40000
+    else:
+        text = " ".join(raw_text.split())
+        limit = 12000
+    if not 3 <= len(text) <= limit:
+        return None
     label = str(value.get("label") or "Contexto selecionado")[:80]
     return {"type": kind, "label": label, "text": text}
+
+
+def _previous_assistant_context(message, messages):
+    """Resolve explicit references to the previous answer without model guesswork."""
+    if not re.search(
+        r"\b(?:[uú]ltima resposta|resposta anterior|texto anterior|conte[uú]do anterior|"
+        r"esse texto|este texto|essa resposta|esta resposta|o que voc[eê] (?:escreveu|gerou|respondeu))\b",
+        str(message or ""), re.IGNORECASE,
+    ):
+        return None
+    previous = next((item for item in reversed(messages or []) if item.get("role") == "assistant" and str(item.get("content") or "").strip()), None)
+    if not previous:
+        return None
+    return _selected_context({
+        "type": "assistant_response",
+        "label": "Última resposta do assistente",
+        "text": previous.get("content"),
+    })
 
 
 def _run_was_cancelled(run_id: str) -> bool:
@@ -426,6 +450,10 @@ def prepare(data):
     previous_messages = (repository.conversation_messages(
         current.user_id, current.client_id, conversation_id
     ) if data.get("conversation_id") else []) or []
+    if not current.selected_context:
+        previous_context = _previous_assistant_context(message, previous_messages)
+        if previous_context:
+            current = replace(current, selected_context=previous_context)
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
     from ..conversations import conversation_memory
     try:

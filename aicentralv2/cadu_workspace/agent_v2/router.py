@@ -217,7 +217,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if direct_url:
         return IntentRoute("workspace", "register_link_reference", "low", "clarification",
                            ("project",) if has_project else (), (), None, False)
-    if _has(text, r"\b(cri|fa[çc]|ger|transform|monte|montar)\w*\b.{0,45}\b(rascunho|documento|texto)\b") or _has(
+    if _has(text, r"\b(cri|fa[çc]|ger|transform|monte|montar|organiz)\w*\b.{0,45}\b(rascunho|documento|texto)\b") or _has(
         text,
         r"\b(?:resumo|s[ií]ntese)\s+(?:edit[aá]vel|para editar)\b|"
         r"\b(?:transforme?|converta?|coloque?)\b.{0,55}\b(?:texto|resposta|conte[uú]do)\b.{0,35}\bedit[aá]vel\b",

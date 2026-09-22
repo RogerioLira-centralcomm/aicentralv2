@@ -66,7 +66,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "create_brief": "Briefing do projeto",
         "create_meeting_summary": "Resumo da reunião",
         "create_meeting_agenda": "Pauta da reunião",
-        "create_text_draft": "Documento sem título",
+        "create_text_draft": "Documento editável",
         "create_link_summary": "Resumo do site",
     }.get(route.action, "Resultado do trabalho")
     policy["artifact_chat_message"] = {
@@ -74,7 +74,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "create_brief": "Estruturei o briefing no artefato ao lado. Os poucos pontos em aberto continuam editáveis.",
         "create_meeting_summary": "Organizei a reunião no artefato ao lado. Revise decisões e pendências antes de salvar no projeto.",
         "create_meeting_agenda": "Preparei a pauta no artefato ao lado. Ajuste os temas e o resultado esperado de cada bloco.",
-        "create_text_draft": "Preparei um rascunho editável com o conteúdo encontrado. Revise antes de salvar no projeto.",
+        "create_text_draft": "Organizei o conteúdo completo em um documento editável, com título e seções para facilitar a leitura. Revise antes de salvar no projeto.",
         "create_link_summary": "Preparei um resumo editável do conteúdo disponível no artefato ao lado.",
     }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
     policy["artifact_scope"] = "session" if route.action == "create_text_draft" else "context"

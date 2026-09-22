@@ -1410,6 +1410,44 @@ def test_prompt_payload_includes_selected_context_as_bounded_evidence():
     assert evidence["selected_context"]["text"] == "Uma premissa importante."
 
 
+def test_assistant_response_context_preserves_document_structure():
+    selected = v2_service._selected_context({
+        "type": "assistant_response",
+        "label": "Resposta completa",
+        "text": "# Estratégia\n\nPrimeiro parágrafo.\n\n## Canais\n\nSegundo parágrafo.",
+    })
+    assert selected["text"] == "# Estratégia\n\nPrimeiro parágrafo.\n\n## Canais\n\nSegundo parágrafo."
+
+
+def test_explicit_previous_answer_reference_is_resolved_deterministically():
+    selected = v2_service._previous_assistant_context(
+        "Transforme sua última resposta em documento",
+        [
+            {"role": "user", "content": "Escreva a estratégia"},
+            {"role": "assistant", "content": "# Estratégia\n\nConteúdo completo."},
+        ],
+    )
+    assert selected == {
+        "type": "assistant_response",
+        "label": "Última resposta do assistente",
+        "text": "# Estratégia\n\nConteúdo completo.",
+    }
+
+
+def test_document_prompt_contract_uses_selected_answer_and_editorial_sections():
+    route = route_request("Organize a resposta selecionada em documento editável")
+    payload = build_payload(
+        message="Organize a resposta selecionada em documento editável",
+        request=context(), route=route,
+        resolved={"current_context": context().to_dict()}, policy=policy_for(route),
+        user_label="user-7", selected_context={
+            "type": "assistant_response", "label": "Resposta completa", "text": "Texto integral",
+        },
+    )
+    assert "nunca alegue que a resposta anterior não está disponível" in payload["inputs"]["core"]
+    assert "subtítulos h2 semânticos" in payload["inputs"]["core"]
+
+
 def test_prompt_payload_separates_user_request_from_orchestrator_instructions():
     route = route_request("Quero revisar o briefing sem abrir um artefato")
     payload = build_payload(

@@ -148,8 +148,12 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
     if route.action in {"create_text_draft", "create_link_summary"}:
         draft_instruction = (
             "Você está no modo revisor pontual de um rascunho. Use somente o conteúdo limpo em evidence e selected_context. "
-            "Não invente fatos, datas, números, citações ou imagens. Organize o material em um título fiel e HTML simples de editor "
+            "Quando selected_context.type for assistant_response, ele contém a resposta exata escolhida pelo usuário: use esse texto como fonte principal e nunca alegue que a resposta anterior não está disponível. "
+            "Preserve integralmente fatos, datas, números, recomendações, ressalvas e conclusões; reorganizar não autoriza resumir nem descartar detalhes. "
+            "Não invente fatos, datas, números, citações ou imagens. Organize o material em um título específico e HTML simples de editor "
             "(p, h2, ul, table, a e img HTTPS apenas quando a fonte fornecer a imagem); preserve lacunas como lacunas. "
+            "Em textos longos, crie subtítulos h2 semânticos a cada mudança real de assunto ou a cada dois a quatro parágrafos; use nomes que descrevam o conteúdo da seção, nunca rótulos genéricos como 'Desenvolvimento' ou 'Outros'. "
+            "Mantenha uma introdução curta, parágrafos legíveis e listas apenas quando houver itens paralelos, etapas ou recomendações. "
             "O título deve nomear o assunto real solicitado, nunca usar rótulos genéricos como 'Rascunho de pesquisa'. "
             "Não coloque no documento notas operacionais, confiança, projeto usado, decisão proposta ou perguntas ao usuário. "
             "Retorne artifact_patch com title e html, sem subtítulo separado, Markdown, CSS ou JavaScript. "

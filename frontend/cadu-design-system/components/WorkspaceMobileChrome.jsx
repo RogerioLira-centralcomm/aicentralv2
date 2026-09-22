@@ -16,7 +16,24 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
     if (!open) return undefined;
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const onKey = event => { if (event.key === 'Escape') setOpen(false); };
+    const onKey = event => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [...(panel.current?.querySelectorAll('a[href],button:not([disabled])') || [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener('keydown', onKey);
     window.requestAnimationFrame(() => panel.current?.querySelector('a,button')?.focus());
     return () => {

@@ -19,8 +19,14 @@ export function useWorkspaceViewport() {
     let frame = 0;
     const update = () => {
       window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => setState(snapshot()));
+      frame = window.requestAnimationFrame(() => {
+        const next = snapshot();
+        document.documentElement.style.setProperty('--workspace-visual-height', `${next.visualHeight}px`);
+        document.documentElement.toggleAttribute('data-workspace-keyboard-open', next.keyboardOpen);
+        setState(next);
+      });
     };
+    update();
     media.addEventListener('change', update);
     viewport?.addEventListener('resize', update);
     window.addEventListener('orientationchange', update);
@@ -29,6 +35,8 @@ export function useWorkspaceViewport() {
       media.removeEventListener('change', update);
       viewport?.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
+      document.documentElement.style.removeProperty('--workspace-visual-height');
+      document.documentElement.removeAttribute('data-workspace-keyboard-open');
     };
   }, []);
   return state;

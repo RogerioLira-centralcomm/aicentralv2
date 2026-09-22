@@ -77,8 +77,12 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(mobileChrome, /role="dialog" aria-modal="true"/);
   assert.match(mobileChrome, /document\.body\.style\.overflow = 'hidden'/);
   assert.match(mobileChrome, /event\.key === 'Escape'/);
+  assert.match(mobileChrome, /event\.key !== 'Tab'/);
+  assert.match(mobileChrome, /event\.preventDefault\(\)/);
   assert.match(viewportHook, /window\.matchMedia\(query\)/);
   assert.match(viewportHook, /window\.visualViewport/);
+  assert.match(viewportHook, /--workspace-visual-height/);
+  assert.match(viewportHook, /data-workspace-keyboard-open/);
   assert.match(home, /isMobile \? <WorkspaceMobileChrome/);
   assert.match(projects, /isMobile \? <WorkspaceMobileChrome/);
   assert.match(brands, /isMobile \? <WorkspaceMobileChrome/);

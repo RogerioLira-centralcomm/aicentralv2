@@ -20,8 +20,8 @@ function documentFor(contentClass) {
         <div id="cadu-conversations-v2-root" class="cv-home-root">
           <div class="cadu-ds-home-shell">
             <main class="cadu-ds-home-main">
-              <header class="cadu-ds-home-navbar">Navegação</header>
               <div class="cadu-ds-home-workarea">
+                <header class="cadu-ds-mobile-chrome"><div><span>Workspace</span><strong>Centralcomm</strong></div><button>Menu</button></header>
                 <aside class="cadu-ds-dock">Dock</aside>
                 <section class="${contentClass}">Conteúdo</section>
               </div>
@@ -40,7 +40,8 @@ function conversationDocument() {
 async function dimensions(page, contentClass) {
   return page.evaluate(selector => {
     const shell = document.querySelector('.cadu-ds-home-shell').getBoundingClientRect();
-    const navbar = document.querySelector('.cadu-ds-home-navbar').getBoundingClientRect();
+    const mobileChromeElement = document.querySelector('.cadu-ds-mobile-chrome');
+    const mobileChrome = mobileChromeElement.getBoundingClientRect();
     const workarea = document.querySelector('.cadu-ds-home-workarea').getBoundingClientRect();
     const dockElement = document.querySelector('.cadu-ds-dock');
     const dock = dockElement.getBoundingClientRect();
@@ -49,7 +50,7 @@ async function dimensions(page, contentClass) {
       viewport: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
       shell: {left: shell.left, right: shell.right, width: shell.width},
-      navbar: {left: navbar.left, right: navbar.right, width: navbar.width},
+      mobileChrome: {display: getComputedStyle(mobileChromeElement).display, left: mobileChrome.left, right: mobileChrome.right, width: mobileChrome.width},
       workarea: {left: workarea.left, right: workarea.right, width: workarea.width},
       dock: {display: getComputedStyle(dockElement).display, left: dock.left, right: dock.right, width: dock.width},
       content: {left: content.left, right: content.right, width: content.width},
@@ -72,10 +73,10 @@ async function dimensions(page, contentClass) {
       await page.setContent(documentFor(contentClass));
       const desktop = await dimensions(page, contentClass);
       assert.equal(desktop.shell.width, desktop.viewport, `${contentClass}: shell desktop`);
-      assert.equal(desktop.navbar.width, desktop.viewport, `${contentClass}: navbar desktop`);
+      assert.equal(desktop.mobileChrome.display, 'none', `${contentClass}: chrome móvel oculto no desktop`);
       assert.equal(desktop.workarea.width, desktop.viewport, `${contentClass}: workarea desktop`);
-      assert.equal(desktop.dock.width, 64, `${contentClass}: dock desktop`);
-      assert.equal(desktop.content.left, desktop.dock.right, `${contentClass}: conteúdo após dock`);
+      assert.equal(desktop.dock.width, 72, `${contentClass}: dock desktop`);
+      assert.ok(desktop.content.left >= desktop.dock.right, `${contentClass}: conteúdo após dock`);
       assert.equal(desktop.content.right, desktop.viewport, `${contentClass}: conteúdo até a borda`);
       assert.equal(desktop.scrollWidth, desktop.viewport, `${contentClass}: sem overflow desktop`);
 
@@ -83,6 +84,8 @@ async function dimensions(page, contentClass) {
       await page.setContent(documentFor(contentClass));
       const mobile = await dimensions(page, contentClass);
       assert.equal(mobile.dock.display, 'none', `${contentClass}: dock oculta no mobile`);
+      assert.equal(mobile.mobileChrome.display, 'flex', `${contentClass}: chrome móvel visível`);
+      assert.equal(mobile.mobileChrome.width, mobile.viewport, `${contentClass}: chrome móvel em largura total`);
       assert.equal(mobile.content.left, 0, `${contentClass}: conteúdo começa na borda mobile`);
       assert.equal(mobile.content.right, mobile.viewport, `${contentClass}: conteúdo em largura total mobile`);
       assert.equal(mobile.scrollWidth, mobile.viewport, `${contentClass}: sem overflow mobile`);
@@ -111,7 +114,7 @@ async function dimensions(page, contentClass) {
       viewport: document.documentElement.clientWidth,
     }));
     assert.equal(conversationMobile.dockDisplay, 'none', 'Conversas: Dock oculta no mobile');
-    assert.equal(conversationMobile.recentPosition, 'absolute', 'Conversas: recentes sobrepostos no mobile');
+    assert.equal(conversationMobile.recentPosition, 'fixed', 'Conversas: recentes sobrepostos no mobile');
     assert.equal(conversationMobile.scrollWidth, conversationMobile.viewport, 'Conversas: sem overflow mobile');
     assert.deepEqual(errors, []);
     console.log('PASS: Workspace full-width, Dock and overflow at 1440px and 390px.');

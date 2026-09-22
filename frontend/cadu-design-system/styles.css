@@ -2699,7 +2699,8 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 .cadu-ds-brand-content { width:100%; min-width:0; box-sizing:border-box; flex:1; padding:clamp(30px,5vw,62px) clamp(24px,4vw,64px) 72px; }
 .cadu-ds-brand-back { display:inline-block; margin-bottom:22px; color:var(--cadu-muted); font-size:12px; text-decoration:none; }
 .cadu-ds-brand-back:hover { color:var(--cadu-accent-strong); }
-.cadu-ds-brand-hero { display:grid; grid-template-columns:78px minmax(0,1fr) auto; gap:20px; align-items:start; padding-bottom:32px; border-bottom:1px solid var(--cadu-line); }
+.cadu-ds-brand-hero { display:grid; grid-template-columns:78px minmax(0,1fr) auto; gap:20px; align-items:start; padding-bottom:32px; border-bottom:0; }
+.cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-hero { display:none; }
 .cadu-ds-brand-hero__identity { width:78px; height:78px; border-radius:22px; background:var(--cadu-surface); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-line) 72%,transparent); }
 .cadu-ds-brand-hero__identity .cadu-ds-visual-identity { width:100%; height:100%; border-radius:22px; font-size:24px; }
 .cadu-ds-brand-hero__copy { display:grid; min-width:0; gap:8px; }
@@ -3637,7 +3638,8 @@ body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-conte
 body.portal--workspace .cadu-ds-entity-portal {
   display:grid;
   flex:1;
-  grid-template-columns:184px minmax(0,1fr) 276px;
+  /* Keep the entity rail aligned with the 274px workspace sidebar used on Home. */
+  grid-template-columns:274px minmax(0,1fr) 276px;
   min-width:0;
   min-height:100dvh;
   background:var(--cadu-canvas);
@@ -3653,8 +3655,10 @@ body.portal--workspace .cadu-ds-entity-rail {
   background:color-mix(in srgb,var(--cadu-surface) 82%,var(--cadu-canvas));
 }
 body.portal--workspace .cadu-ds-entity-nav {
-  padding:28px 12px;
+  box-sizing:border-box;
+  padding:22px 14px 18px;
   border-right:1px solid var(--cadu-line);
+  background:color-mix(in srgb,var(--cadu-canvas) 70%,var(--cadu-surface));
 }
 body.portal--workspace .cadu-ds-entity-nav__label {
   display:block;
@@ -3668,17 +3672,17 @@ body.portal--workspace .cadu-ds-entity-nav__label {
   text-transform:uppercase;
   white-space:nowrap;
 }
-body.portal--workspace .cadu-ds-entity-nav nav { display:grid; gap:2px; }
+body.portal--workspace .cadu-ds-entity-nav nav { display:grid; gap:3px; }
 body.portal--workspace .cadu-ds-entity-nav a {
   display:grid;
   grid-template-columns:16px minmax(0,1fr) auto;
   align-items:center;
-  min-height:34px;
-  padding:7px 9px;
+  min-height:40px;
+  padding:0 10px;
   border-radius:9px;
   color:var(--cadu-muted-strong);
   font-size:12px;
-  font-weight:620;
+  font-weight:500;
   text-decoration:none;
 }
 body.portal--workspace .cadu-ds-entity-nav a:hover,

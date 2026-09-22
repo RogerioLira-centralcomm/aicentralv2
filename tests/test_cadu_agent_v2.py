@@ -37,6 +37,8 @@ def test_streamable_answer_exposes_prose_without_leaking_provider_envelope():
     assert v2_service._streamable_answer("Resposta em andamento") == "Resposta em andamento"
     assert v2_service._streamable_answer('{"text":{"content":"Primeiro parágrafo\\nSegundo') == "Primeiro parágrafo\nSegundo"
     assert v2_service._streamable_answer('{"answer":"Planejamento com \\"ênfase\\"') == 'Planejamento com "ênfase"'
+    assert v2_service._streamable_answer('```json\n{"text":{"content":"Guia adaptado') == "Guia adaptado"
+    assert v2_service._streamable_answer('prefixo {"text":{"content":"Continuação segura') == "Continuação segura"
     assert v2_service._streamable_answer('{"confidence":"high","blocks":[]') == ""
 
 

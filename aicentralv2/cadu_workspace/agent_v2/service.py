@@ -63,11 +63,12 @@ def _streamable_answer(value: str) -> str:
     stripped = raw.lstrip()
     if not stripped:
         return ""
-    if not stripped.startswith(("{", "[")):
-        return raw
     matches = list(re.finditer(r'"(?:answer|content)"\s*:\s*"', raw, re.IGNORECASE))
     if not matches:
-        return ""
+        looks_structured = stripped.startswith(("{", "[", '"{', "```json", "```JSON"))
+        if looks_structured:
+            return ""
+        return raw
     start = matches[-1].end()
     escaped = False
     end = len(raw)

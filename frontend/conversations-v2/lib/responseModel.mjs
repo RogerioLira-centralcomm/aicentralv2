@@ -10,8 +10,8 @@ const RESPONSE_KEYS = new Set(['answer', 'text', 'content', 'response', 'output'
 function decodeStructuredValue(value, depth = 0) {
   if (depth > 4 || value == null) return value;
   if (typeof value === 'string') {
-    const clean = value.trim();
-    if (!(clean.startsWith('{') || clean.startsWith('['))) return value;
+    const clean = value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    if (!(clean.startsWith('{') || clean.startsWith('[') || clean.startsWith('"{') || clean.startsWith('"['))) return value;
     try { return decodeStructuredValue(JSON.parse(clean), depth + 1); } catch (_) { return value; }
   }
   if (Array.isArray(value)) return value;

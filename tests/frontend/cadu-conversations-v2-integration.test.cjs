@@ -477,6 +477,8 @@ test('conversation response model preserves execution order and explicit checkli
   assert.equal(model.checklistPrompt([{title: 'Validar casting', prompt: 'Revise o casting.'}]), 'Revise o casting.');
   assert.equal(model.checklistPrompt([{title: 'Casting'}, {title: 'Locação'}]), 'Revise estes itens comigo: Casting; Locação.');
   assert.equal(model.normalizeAnswerText('{"text":{"content":"Resposta limpa"}}'), 'Resposta limpa');
+  assert.equal(model.normalizeAnswerText('```json\n{"text":{"content":"Resposta cercada"}}\n```'), 'Resposta cercada');
+  assert.equal(model.normalizeAnswerText('"{\\"text\\":{\\"content\\":\\"Resposta dupla\\"}}"'), 'Resposta dupla');
   assert.equal(model.normalizeAnswerText('Texto normal'), 'Texto normal');
   assert.deepEqual(model.meaningfulResponseBlocks([
     {type: 'insights', items: []},

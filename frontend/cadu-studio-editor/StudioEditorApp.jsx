@@ -285,15 +285,15 @@ export default function StudioEditorApp({bootstrap}) {
     recordedGenerations.current.add(latest.id);
     acceptStudioSessionAsset({
       apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, asset: latest, role: 'base',
-      metadata: {origin: 'edit', format, width: outputSize.width, height: outputSize.height, quality: 'draft'},
+      metadata: {origin: 'edit', format, width: outputSize.width, height: outputSize.height, quality},
     }).then(updated => { studioSessionRef.current = updated; setStudioSession(updated); setStatus('synced'); }).catch(() => recordedGenerations.current.delete(latest.id));
   }, [bootstrap.apiRoot, bootstrap.csrf, clientId, format, outputSize.height, outputSize.width, studioSession, versions]);
   useEffect(() => {
     const finishOnExit = () => {
       const session = studioSessionRef.current;
       if (!session || session.status === 'finalized') return;
-      const editor = {format, output_size: outputSize, selected_id: selectedId, mask_bounds: mask?.bounds || null, crop_bounds: crop?.bounds || null, current_asset: asset ? {id: asset.id, name: asset.name, url: /^https?:\/\//.test(String(asset.url || '')) ? asset.url : ''} : null, versions: versions.map(item => ({id: item.id, name: item.name, status: item.status, url: /^https?:\/\//.test(String(item.url || '')) ? item.url : ''})).filter(item => item.url), director: {objective: director.objective || '', preserve: director.preserve || []}, selected_global_references: selectedGlobalReferences, finalize_when_ready: generating, active_seconds: Math.round((Date.now() - startedAt.current) / 1000), completion_specifications: {format, width: outputSize.width, height: outputSize.height, quality: 'draft', extension: 'PNG', project_name: project?.name || ''}};
-      finalizeStudioSessionOnExit({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, hasEdits: generating || versions.some(item => item.status === 'new'), save: {expected_revision: session.revision, title: asset?.name || session.title || 'Mesa de edição', original_prompt: prompt, optimized_prompt: prompt, prompt_language: 'pt-BR', prompt_version: 'studio-editor-v1', metadata: {editor}}, activeSeconds: Math.round((Date.now() - startedAt.current) / 1000), specifications: {format, width: outputSize.width, height: outputSize.height, quality: 'draft', extension: 'PNG', project_name: project?.name || ''}});
+      const editor = {format, output_size: outputSize, selected_id: selectedId, mask_bounds: mask?.bounds || null, crop_bounds: crop?.bounds || null, current_asset: asset ? {id: asset.id, name: asset.name, url: /^https?:\/\//.test(String(asset.url || '')) ? asset.url : ''} : null, versions: versions.map(item => ({id: item.id, name: item.name, status: item.status, url: /^https?:\/\//.test(String(item.url || '')) ? item.url : ''})).filter(item => item.url), director: {objective: director.objective || '', preserve: director.preserve || []}, selected_global_references: selectedGlobalReferences, finalize_when_ready: generating, active_seconds: Math.round((Date.now() - startedAt.current) / 1000), completion_specifications: {format, width: outputSize.width, height: outputSize.height, quality, extension: 'PNG', project_name: project?.name || ''}};
+      finalizeStudioSessionOnExit({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, hasEdits: generating || versions.some(item => item.status === 'new'), save: {expected_revision: session.revision, title: asset?.name || session.title || 'Mesa de edição', original_prompt: prompt, optimized_prompt: prompt, prompt_language: 'pt-BR', prompt_version: 'studio-editor-v1', metadata: {editor}}, activeSeconds: Math.round((Date.now() - startedAt.current) / 1000), specifications: {format, width: outputSize.width, height: outputSize.height, quality, extension: 'PNG', project_name: project?.name || ''}});
     };
     window.addEventListener('pagehide', finishOnExit);
     return () => window.removeEventListener('pagehide', finishOnExit);
@@ -416,8 +416,8 @@ export default function StudioEditorApp({bootstrap}) {
     if (!asset?.url || String(asset.url).startsWith('data:')) { setNotice('Gere uma versão no Studio antes de finalizar: a peça enviada ainda está apenas neste navegador.'); return; }
     try {
       setStatus('saving');
-      const accepted = await acceptStudioSessionAsset({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, asset, metadata: {origin: 'edit', format, width: outputSize.width, height: outputSize.height, quality: 'draft'}});
-      const result = await finalizeStudioSession({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, activeSeconds: Math.round((Date.now() - startedAt.current) / 1000), specifications: {format, width: outputSize.width, height: outputSize.height, quality: 'draft', extension: 'PNG', project_name: project?.name || ''}});
+      const accepted = await acceptStudioSessionAsset({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, asset, metadata: {origin: 'edit', format, width: outputSize.width, height: outputSize.height, quality}});
+      const result = await finalizeStudioSession({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, activeSeconds: Math.round((Date.now() - startedAt.current) / 1000), specifications: {format, width: outputSize.width, height: outputSize.height, quality, extension: 'PNG', project_name: project?.name || ''}});
       studioSessionRef.current = result.session || accepted;
       setStudioSession(result.session || accepted); setStatus('synced');
       setNotice('Sessão finalizada e a peça aprovada foi preservada no histórico.');

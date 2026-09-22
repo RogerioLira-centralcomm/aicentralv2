@@ -2,9 +2,13 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {Icon} from './Icon';
 import {VisualIdentity} from './VisualIdentity';
 
-// The home surface is already the current destination. Keep its context rail
-// focused on work shortcuts instead of repeating an "Início" navigation item.
-const HOME_ITEMS = [];
+// The dock owns global shortcuts. The context rail owns the stable information
+// architecture of the Workspace before listing project-specific content.
+const HOME_ITEMS = [
+  {id: 'conversas', label: 'Conversas', key: 'conversations', icon: 'compose'},
+  {id: 'projetos', label: 'Projetos', key: 'projects', icon: 'folder'},
+  {id: 'marcas', label: 'Marcas', key: 'brands', icon: 'brand'},
+];
 const MOBILE_HOME_ITEMS = [
   {id: 'conversas', label: 'Conversas', key: 'conversations', icon: 'compose'},
   {id: 'projetos', label: 'Projetos', key: 'projects', icon: 'folder'},

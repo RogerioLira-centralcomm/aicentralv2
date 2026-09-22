@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Icon} from '../lib/icons';
 import {csrf, request, safeUrl} from '../lib/api';
+import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
 
 const labels = {
   brief: 'Briefing', document: 'Documento', note: 'Nota', executive_summary: 'Resumo executivo',
@@ -139,6 +140,8 @@ function documentHtml(content) {
 function RichDocumentArtifact({artifact, onChange}) {
   const content = artifact.content || {};
   const canvas = useRef(null);
+  const urlInput = useRef(null);
+  const [urlRequest, setUrlRequest] = useState(null);
   const html = documentHtml(content);
   useEffect(() => {
     if (!canvas.current || canvas.current.innerHTML === html) return;
@@ -150,15 +153,12 @@ function RichDocumentArtifact({artifact, onChange}) {
     document.execCommand(name, false, value);
     emit();
   };
-  const addImage = () => {
-    const url = window.prompt('Cole o endereço HTTPS da imagem');
-    if (!url || !safeUrl(url)) return;
-    command('insertImage', safeUrl(url));
-  };
-  const addLink = () => {
-    const url = window.prompt('Cole o endereço HTTPS do link');
-    if (!url || !safeUrl(url)) return;
-    command('createLink', safeUrl(url));
+  const applyUrl = event => {
+    event.preventDefault();
+    const url = safeUrl(new FormData(event.currentTarget).get('url'));
+    if (!url) return;
+    command(urlRequest === 'image' ? 'insertImage' : 'createLink', url);
+    setUrlRequest(null);
   };
   const pasteIntoDocument = event => {
     const image = Array.from(event.clipboardData?.items || []).find(item => item.type.startsWith('image/'));
@@ -175,19 +175,26 @@ function RichDocumentArtifact({artifact, onChange}) {
   };
   return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6">
     <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento" onMouseDown={event => event.preventDefault()}>
-      <button type="button" onClick={() => command('undo')} aria-label="Desfazer última edição">↶</button>
-      <button type="button" onClick={() => command('redo')} aria-label="Refazer edição">↷</button>
+      <button type="button" onClick={() => command('undo')} aria-label="Desfazer última edição" title="Desfazer"><Icon name="undo" size={16}/></button>
+      <button type="button" onClick={() => command('redo')} aria-label="Refazer edição" title="Refazer"><Icon name="redo" size={16}/></button>
       <button type="button" onClick={() => command('bold')} aria-label="Negrito"><b>B</b></button>
       <button type="button" onClick={() => command('italic')} aria-label="Itálico"><i>I</i></button>
       <button type="button" onClick={() => command('formatBlock', 'h2')} aria-label="Título de seção">H2</button>
-      <button type="button" onClick={() => command('formatBlock', 'blockquote')} aria-label="Citação">“</button>
-      <button type="button" onClick={() => command('insertUnorderedList')} aria-label="Lista">•</button>
-      <button type="button" onClick={addLink} aria-label="Adicionar link" title="Adicionar link">Link</button>
-      <button type="button" onClick={addTable} aria-label="Inserir tabela" title="Inserir tabela">Tabela</button>
-      <button type="button" onClick={addImage} aria-label="Adicionar imagem" title="Adicionar imagem">Imagem</button>
+      <button type="button" onClick={() => command('formatBlock', 'blockquote')} aria-label="Citação" title="Citação"><Icon name="quote" size={16}/></button>
+      <button type="button" onClick={() => command('insertUnorderedList')} aria-label="Lista" title="Lista"><Icon name="list" size={16}/></button>
+      <button type="button" onClick={() => setUrlRequest('link')} aria-label="Adicionar link" title="Adicionar link"><Icon name="link" size={16}/></button>
+      <button type="button" onClick={addTable} aria-label="Inserir tabela" title="Inserir tabela"><Icon name="table" size={16}/></button>
+      <button type="button" onClick={() => setUrlRequest('image')} aria-label="Adicionar imagem" title="Adicionar imagem"><Icon name="image" size={16}/></button>
     </div>
     <div ref={canvas} className="cv-rich-document__canvas" contentEditable suppressContentEditableWarning onInput={emit} onBlur={emit} onPaste={pasteIntoDocument} dangerouslySetInnerHTML={{__html: html}} role="textbox" aria-label="Texto do documento"/>
     <p className="cv-rich-document__hint">Cole textos, links e imagens diretamente · salvamento automático</p>
+    {urlRequest && <CaduDialog label={urlRequest === 'image' ? 'Adicionar imagem' : 'Adicionar link'} initialFocusRef={urlInput} onClose={() => setUrlRequest(null)} className="cv-dialog cv-artifact-url-dialog">
+      <form onSubmit={applyUrl}>
+        <header><div><h2>{urlRequest === 'image' ? 'Adicionar imagem' : 'Adicionar link'}</h2><p>Cole um endereço HTTPS válido.</p></div><button type="button" onClick={() => setUrlRequest(null)} aria-label="Fechar"><Icon name="close" size={18}/></button></header>
+        <label>Endereço<input ref={urlInput} name="url" type="url" inputMode="url" required pattern="https://.*" placeholder="https://" autoComplete="url"/></label>
+        <footer><button type="button" onClick={() => setUrlRequest(null)}>Cancelar</button><button type="submit" className="is-primary">Adicionar</button></footer>
+      </form>
+    </CaduDialog>}
   </article>;
 }
 

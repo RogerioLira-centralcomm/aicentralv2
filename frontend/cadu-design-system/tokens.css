@@ -2,9 +2,15 @@
    only change values, so product families can share the same React surface. */
 :root {
   --cadu-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --cadu-radius-sm: 8px;
-  --cadu-radius-md: 12px;
+  --cadu-radius-xs: 6px;
+  --cadu-radius-sm: 10px;
+  --cadu-radius-md: 14px;
   --cadu-radius-lg: 18px;
+  --cadu-radius-xl: 22px;
+  --cadu-dock-width: 64px;
+  --cadu-sidebar-width: 272px;
+  --cadu-navbar-height: 56px;
+  --cadu-content-gutter: clamp(24px, 4vw, 56px);
   --cadu-motion-fast: 140ms ease;
   --cadu-focus: #20a797;
   --cadu-success: #207456;
@@ -26,7 +32,37 @@
 }
 
 [data-cadu-skin="workspace"] { --cadu-accent: #087765; --cadu-accent-strong: #055c50; --cadu-accent-soft: #e8f5f1; }
-[data-cadu-skin="conversations"] { --cadu-accent: #55d8c6; --cadu-accent-strong: #2ebbaa; --cadu-accent-soft: rgba(85, 216, 198, .16); }
+[data-cadu-skin="conversations"] {
+  color-scheme: dark;
+  --cadu-accent: #55d8c6;
+  --cadu-accent-strong: #2ebbaa;
+  --cadu-accent-soft: rgba(85, 216, 198, .16);
+  --cadu-canvas: #071113;
+  --cadu-surface: #0f1d20;
+  --cadu-surface-raised: #14272a;
+  --cadu-surface-soft: #19332f;
+  --cadu-ink: #edf6f4;
+  --cadu-muted: #9ab0ac;
+  --cadu-line: rgba(181, 218, 211, .14);
+  --cadu-bg: var(--cadu-canvas);
+  --cadu-bg-subtle: var(--cadu-surface);
+  --cadu-text: var(--cadu-ink);
+  --cadu-text-secondary: var(--cadu-muted);
+  --cadu-border: var(--cadu-line);
+}
+
+/* Conversation surfaces are intentionally dark. Persisted Workspace theme
+   preferences must never turn the chat canvas light. */
+[data-cadu-skin="conversations"][data-cadu-theme="light"] {
+  color-scheme: dark;
+  --cadu-canvas: #071113;
+  --cadu-surface: #0f1d20;
+  --cadu-surface-raised: #14272a;
+  --cadu-surface-soft: #19332f;
+  --cadu-ink: #edf6f4;
+  --cadu-muted: #9ab0ac;
+  --cadu-line: rgba(181, 218, 211, .14);
+}
 [data-cadu-skin="planner"] { --cadu-accent: #3f79d8; --cadu-accent-strong: #2c5bad; --cadu-accent-soft: #eaf1ff; }
 [data-cadu-skin="studio"] { --cadu-accent: #bd78e8; --cadu-accent-strong: #9452c2; --cadu-accent-soft: #f5ebfc; }
 [data-cadu-skin="reports"] { --cadu-accent: #c17b35; --cadu-accent-strong: #975b24; --cadu-accent-soft: #fff2e5; }
@@ -71,19 +107,19 @@
    own dark skin, even when an older persisted theme value says otherwise. */
 [data-cadu-skin="workspace"] {
   --cadu-nav-bg: #ffffff;
-  --cadu-nav-surface: #edf4f2;
-  --cadu-nav-ink: #17302c;
-  --cadu-nav-muted: #617773;
-  --cadu-nav-line: #d9e4e1;
-  --cadu-canvas: #f6f8fa;
+  --cadu-nav-surface: #ecf2f1;
+  --cadu-nav-ink: #142b30;
+  --cadu-nav-muted: #5d7471;
+  --cadu-nav-line: #d6e1de;
+  --cadu-canvas: #f4f7f7;
   --cadu-surface: #ffffff;
   --cadu-surface-raised: #ffffff;
-  --cadu-surface-soft: #eef3f2;
-  --cadu-ink: #172d31;
-  --cadu-muted: #5f7673;
-  --cadu-line: #d9e4e1;
+  --cadu-surface-soft: #ecf2f1;
+  --cadu-ink: #142b30;
+  --cadu-muted: #5d7471;
+  --cadu-line: #d6e1de;
   --cadu-bg: var(--cadu-canvas);
-  --cadu-bg-subtle: #eef3f2;
+  --cadu-bg-subtle: #ecf2f1;
   --cadu-text: var(--cadu-ink);
   --cadu-text-secondary: var(--cadu-muted);
   --cadu-border: var(--cadu-line);

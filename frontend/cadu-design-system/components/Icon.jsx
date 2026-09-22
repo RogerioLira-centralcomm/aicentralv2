@@ -26,6 +26,11 @@ export function Icon({name, size = 18, className = ''}) {
     check: <path d="m5 12 4 4L19 6"/>,
     alert: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v6M12 17h.01"/></>,
     chevron: <path d="m9 6 6 6-6 6"/>,
+    undo: <><path d="M9 7 4 12l5 5"/><path d="M5 12h8a6 6 0 0 1 6 6"/></>,
+    redo: <><path d="m15 7 5 5-5 5"/><path d="M19 12h-8a6 6 0 0 0-6 6"/></>,
+    quote: <><path d="M7 10h4v8H5v-5a5 5 0 0 1 5-5"/><path d="M17 10h4v8h-6v-5a5 5 0 0 1 5-5"/></>,
+    list: <><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></>,
+    table: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14M15 5v14"/></>,
   };
   return <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }

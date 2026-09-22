@@ -158,10 +158,10 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
   assert.match(template, /'updateBrands': url_for\('cadu_workspace\.update_project_brands'/);
   assert.match(template, /'importBrand': url_for\('cadu_workspace\.import_project_brand'/);
-  assert.match(template, /'legacy': url_for\('cadu_workspace\.project_detail'/);
+  assert.doesNotMatch(template, /'legacy': url_for\('cadu_workspace\.project_detail'/);
   assert.match(template, /'conversation': url_for\('cadu_workspace\.conversations', project_ref='ci:' ~ project_data\.id, history='1'\)/);
   assert.doesNotMatch(template, /'conversation':[^\n]*prompt=/);
-  assert.match(route, /request\.args\.get\('legacy'\) != '1'/);
+  assert.match(route, /request\.args\.get\('legacy'\) == '1':[\s\S]*clean_project_detail/);
   assert.match(route, /project_detail_react\.html/);
   assert.match(route, /'colorPalette':/);
   assert.match(route, /'fonts':/);
@@ -171,6 +171,8 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(route, /project\['smartdocs'\] = \[\]/);
   assert.doesNotMatch(project, /smartdoc/i);
   assert.match(entry, /bootstrap\.projectMode \? <WorkspaceProject/);
+  assert.equal(fs.existsSync(path.join(root, 'aicentralv2/templates/cadu_workspace/project_detail.html')), false);
+  assert.equal(fs.existsSync(path.join(root, 'aicentralv2/templates/cadu_workspace/projects.html')), false);
 });
 
 test('brand dossier uses the shared React dock and design-system dialogs', () => {
@@ -178,20 +180,32 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/brand_detail_react.html'), 'utf8');
   const route = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
+  assert.equal(fs.existsSync(path.join(root, 'aicentralv2/templates/cadu_workspace/brand_detail.html')), false);
+  assert.equal(fs.existsSync(path.join(root, 'aicentralv2/templates/cadu_workspace/brands.html')), false);
   const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+  const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
   assert.match(brand, /export function WorkspaceBrand/);
   assert.match(brand, /<CaduDock/);
   assert.match(brand, /<CaduDialog/);
   assert.match(brand, /IdentityDialog/);
   assert.match(brand, /LinkProjectsDialog/);
   assert.match(brand, /AuditDialog/);
+  assert.match(brand, /insufficient_information/);
+  assert.match(brand, /data_available_unverified/);
+  assert.match(brand, /showDossier/);
+  assert.match(brand, /Ainda não há informações suficientes sobre esta marca/);
   assert.match(entry, /bootstrap\.brandMode \? <WorkspaceBrand/);
   assert.match(entry, /bootstrap\.brandMode \|\| bootstrap\.brandsMode/);
   assert.match(brand, /add_brand_id/);
   assert.match(template, /'brandMode': True/);
   assert.match(route, /brand_detail_react\.html/);
+  assert.match(route, /request\.args\.get\('legacy'\) == '1':[\s\S]*clean_brand_detail/);
   assert.match(styles, /\.cadu-ds-brand-content/);
   assert.match(styles, /\.cadu-ds-brand-dialog/);
+  assert.doesNotMatch(template, /brand-audit-upload|brand-reprocess/);
+  assert.doesNotMatch(base, /portal_product == 'workspace'.*brand-audit-upload/);
+  assert.doesNotMatch(base, /portal_product == 'workspace'.*dock-unified/);
+  assert.match(base, /portal_product != 'workspace'.*cadu-app-sidebar/);
 });
 
 test('Workspace catalogs keep the dock inside the shared work area at full width', () => {
@@ -335,12 +349,16 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
 
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const conversationViewport = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useConversationViewport.js'), 'utf8');
+  const fileDrop = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useFileDrop.js'), 'utf8');
   const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const historyModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs'), 'utf8');
   const contextModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs'), 'utf8');
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const conversationSupport = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ConversationSupport.jsx'), 'utf8');
+  const pendingInteraction = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx'), 'utf8');
   const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
   const progress = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceTaskProgress.jsx'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
@@ -404,16 +422,16 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(artifact, /data-cadu-brand-header/);
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
   assert.doesNotMatch(conversation, /Ver resposta completa/);
-  assert.match(conversation, /cv-pending-interaction/);
-  assert.match(conversation, /freeform: true/);
-  assert.match(conversation, /cv-pending-interaction__respond/);
+  assert.match(pendingInteraction, /cv-pending-interaction/);
+  assert.match(pendingInteraction, /freeform: true/);
+  assert.match(pendingInteraction, /cv-pending-interaction__respond/);
   assert.match(conversation, /cv-artifact-result/);
   assert.match(conversation, /Abrir e editar/);
   assert.match(artifact, /return textArtifact/);
   assert.match(promptAssembler, /pergunta exclusivamente em/);
   assert.match(promptAssembler, /Não repita a mesma/);
-  assert.match(conversation, /Adicionar referência/);
-  assert.match(conversation, /Adicionar ao projeto/);
+  assert.match(pendingInteraction, /Adicionar referência/);
+  assert.match(pendingInteraction, /Adicionar ao projeto/);
   assert.doesNotMatch(conversation, /cv-action-confirmation/);
   assert.match(app, /active\.run\.actions/);
   assert.match(artifact, /cv-link-embed__frame/);
@@ -426,9 +444,11 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(executionQueue, /cv-execution-queue.*is-expanded/);
   assert.match(executionQueue, /aria-expanded=\{expanded\}/);
   assert.match(app, /active\.run\.status !== 'running'[\s\S]*setHistoryOpen\(false\)/);
-  assert.match(app, /window\.visualViewport/);
-  assert.match(app, /--cv-visual-height/);
-  assert.match(app, /cv-keyboard-open/);
+  assert.match(app, /useConversationViewport\(\)/);
+  assert.match(conversationViewport, /window\.visualViewport/);
+  assert.match(conversationViewport, /--cv-visual-height/);
+  assert.match(conversationViewport, /cv-keyboard-open/);
+  assert.match(conversationViewport, /passive: true/);
   assert.match(styles, /cv-execution-queue:not\(\.is-expanded\) ol/);
   assert.match(styles, /span:not\(\.cv-conversation-needs-action\)/);
   assert.match(styles, /cv-pending-interaction \{ max-height:min\(34dvh,270px\)/);
@@ -461,9 +481,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /\.cv-attachment-chip \{[^}]*width:48px; height:48px/);
   assert.match(styles, /\.cv-assistant-answer \{ padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; \}/);
   assert.match(app, /Solte o arquivo para anexar/);
-  assert.match(conversation, /contextLabel/);
-  assert.match(conversation, /Apoio à conversa/);
-  assert.match(conversation, /Próximos movimentos/);
+  assert.match(conversationSupport, /contextLabel/);
+  assert.match(conversationSupport, /Apoio à conversa/);
+  assert.match(conversationSupport, /Próximos movimentos/);
   assert.match(app, /conversationPayload\(/);
   assert.match(contextModel, /execution_mode: executionMode/);
   assert.match(app, /setExecutionMode\(event\.policy\.execution_mode\)/);
@@ -504,13 +524,31 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(base, /request\.endpoint not in \('cadu_workspace\.dashboard', 'cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab', 'cadu_workspace\.account_page'\)/);
 });
 
+test('chat theme is locked dark and interaction flows avoid native browser prompts', () => {
+  const main = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
+  const provider = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/ThemeProvider.jsx'), 'utf8');
+  const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const tokens = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/tokens.css'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+  assert.match(main, /locked=\{!workspaceMode\}/);
+  assert.match(provider, /locked = false/);
+  assert.match(tokens, /\[data-cadu-skin="conversations"\]\[data-cadu-theme="light"\]/);
+  assert.doesNotMatch(`${artifact}\n${app}`, /window\.(?:alert|confirm|prompt)\s*\(/);
+  assert.match(artifact, /cv-artifact-url-dialog/);
+  assert.match(artifact, /<CaduDialog/);
+  assert.match(styles, /@media\(max-width:560px\)[^\n]*cv-conversation-title[^\n]*font-size:15px!important/);
+  assert.match(styles, /cv-composer-input \{ min-height:46px;[^\n]*font-size:16px !important/);
+});
+
 test('conversation continuations preserve structured questions and server context', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const pendingInteraction = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx'), 'utf8');
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   assert.doesNotMatch(conversation, /Sobre “\$\{question\}”/);
-  assert.match(conversation, /type: 'question', label: 'Respondendo'/);
+  assert.match(pendingInteraction, /type: 'question', label: 'Respondendo'/);
   assert.match(responseBlocks, /type: 'question', label: 'Respondendo'/);
   assert.match(composer, /Digite sua resposta…/);
   assert.match(composer, /composerContext\?\.type !== 'question'/);
@@ -593,26 +631,28 @@ test('completed responses never render a structured provider envelope as prose',
 
 test('action confirmations use the server run id and expose pending state', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
-  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const interaction = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx'), 'utf8');
   assert.match(app, /event\.action\?\.run_id \|\| event\.action\?\.runId \|\| runRef\.current/);
   assert.doesNotMatch(app, /event\.action\?\.name === 'projects\.create_link_reference'/);
   assert.match(app, /actionPending: true/);
   assert.match(app, /actionError: detail/);
-  assert.match(conversation, /message\.actionPending \? presentation\.progress : presentation\.approve/);
-  assert.match(conversation, /onDecision\(interaction\.message, option\.approved\)/);
-  assert.match(conversation, /role=\{interaction\.error \? 'alert'/);
+  assert.match(interaction, /message\.actionPending \? presentation\.progress : presentation\.approve/);
+  assert.match(interaction, /onDecision\(interaction\.message, option\.approved\)/);
+  assert.match(interaction, /role=\{interaction\.error \? 'alert'/);
 });
 
 test('conversation response UI never invents follow-up actions for static insights', () => {
   const blocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const progress = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceTaskProgress.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const interaction = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx'), 'utf8');
   const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
   assert.doesNotMatch(blocks, /Aprofunde este ponto/);
   assert.match(blocks, /item\.prompt\s*\?/);
   assert.match(conversation, /normalizeAnswerText\(response\.answer/);
   assert.doesNotMatch(conversation, /compactAnswer/);
   assert.match(conversation, /pendingInteraction\(messages, running\)/);
+  assert.match(interaction, /meaningfulResponseBlocks\(response\.blocks\)/);
   assert.doesNotMatch(conversation, /cv-message__label">Cadu/);
   assert.match(markdown, /paragraph\.join\(' '\)/);
   assert.match(fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8'), /kind === 'answer\.delta'/);
@@ -652,8 +692,9 @@ test('conversation attachment model preserves validation and destination rules',
   assert.match(model.attachmentSubmissionMessage([{destination: 'conversation'}, {destination: 'attachment'}]), /confirme os itens/);
   assert.match(app, /createPortal\(.+cv-drop-overlay/s);
   assert.match(app, /document\.body/);
-  assert.match(app, /window\.addEventListener\('drop', closeFileDrop, true\)/);
-  assert.match(app, /window\.removeEventListener\('drop', closeFileDrop, true\)/);
+  assert.match(app, /useFileDrop\(addFiles\)/);
+  assert.match(fileDrop, /window\.addEventListener\('drop', closeFileDrop, true\)/);
+  assert.match(fileDrop, /window\.removeEventListener\('drop', closeFileDrop, true\)/);
   assert.match(composer, /cv-attachment-preview/);
   assert.match(composer, /cv-attachment-list/);
   assert.match(composer, /event\.stopPropagation\(\)/);
@@ -739,6 +780,8 @@ test('attachment upload service preserves progress and conversation upload contr
 test('image artifacts hand off editing context to Studio', () => {
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const browser = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/browser.mjs'), 'utf8');
+  const artifactWorkspace = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useArtifactWorkspace.js'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const editor = fs.readFileSync(path.join(root, 'frontend/cadu-studio-editor/StudioEditorApp.jsx'), 'utf8');
@@ -769,8 +812,12 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(editor, /initialQuery\.get\('editor_mode'\)/);
   assert.match(styles, /\.cv-image-metadata \{/);
   assert.doesNotMatch(styles, /\.cv-image-artifact__bar/);
-  assert.match(app, /writeCookie\(ARTIFACT_SIDE_COOKIE, next\)/);
-  assert.match(app, /writeCookie\(`\$\{ARTIFACT_SIDE_COOKIE\}:\$\{artifact\.id\}`, next\)/);
+  assert.match(app, /useArtifactWorkspace\(artifact\)/);
+  assert.match(artifactWorkspace, /writeCookie\(ARTIFACT_SIDE_COOKIE, next\)/);
+  assert.match(artifactWorkspace, /writeCookie\(`\$\{ARTIFACT_SIDE_COOKIE\}:\$\{artifact\.id\}`, next\)/);
+  assert.match(artifactWorkspace, /setArtifactTabs/);
+  assert.match(browser, /SameSite=Lax/);
+  assert.match(browser, /navigator\.clipboard\?\.writeText/);
   assert.match(app, /if \(lastArtifact\) await fetchArtifact\(lastArtifact\)/);
   assert.match(conversation, /stickToLatest/);
   assert.match(conversation, /element\.scrollTop = element\.scrollHeight/);

@@ -2,7 +2,7 @@
 {% block title %}{{ brand_data.name }} — Marcas — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block content_class %}portal-content--workspace-react{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/brand-audit-upload.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/brand-reprocess.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" class="cv-home-root cadu-brand-root" aria-label="{{ brand_data.name }} — marca no Workspace"><noscript>Ative o JavaScript para usar a marca no Workspace.</noscript></div>
@@ -28,4 +28,4 @@
   'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')}
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/react/brand-audit-upload.js') }}?v=1"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/react/brand-reprocess.js') }}?v=1"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

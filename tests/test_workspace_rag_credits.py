@@ -34,21 +34,22 @@ def test_rag_charge_rejects_when_client_has_insufficient_credit():
 def test_project_ux_keeps_rag_processing_out_of_the_project_overview():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
-    template = (root / 'aicentralv2/templates/cadu_workspace/project_detail.html').read_text(encoding='utf-8')
-    script = (root / 'aicentralv2/static/js/cadu-workspace-projects.js').read_text(encoding='utf-8')
-    assert 'Créditos do projeto' not in template
-    assert 'workspace-project-menu' in template
-    assert 'data-source-reprocess' in template
-    assert 'usa créditos Cadu' in script
+    component = (root / 'frontend/cadu-design-system/components/WorkspaceProject.jsx').read_text(encoding='utf-8')
+    assert 'Créditos do projeto' not in component
+    assert 'Fontes e arquivos' in component
+    assert 'sourceErrorMessage' in component
+    assert 'Revisar antes de indexar' in component
+    assert 'Confirmar decisão' in component
 
 
 def test_project_detail_has_brand_import_and_quality_workflows():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
-    template = (root / 'aicentralv2/templates/cadu_workspace/project_detail.html').read_text(encoding='utf-8')
-    experience = (root / 'aicentralv2/static/js/cadu-workspace-project-experience.js').read_text(encoding='utf-8')
-    assert 'Qualidade das informações' in template
-    assert 'data-project-quality-dialog' in template
-    assert 'data-project-brand-import' in template
-    assert 'data-project-starter' in template
-    assert 'status_url' in experience
+    component = (root / 'frontend/cadu-design-system/components/WorkspaceProject.jsx').read_text(encoding='utf-8')
+    template = (root / 'aicentralv2/templates/cadu_workspace/project_detail_react.html').read_text(encoding='utf-8')
+    assert 'ProjectBrandCard' in component
+    assert 'ImportBrandDialog' in component
+    assert 'Criar e auditar marca' in component
+    assert 'Índice do projeto' in component
+    assert "'updateBrands': url_for('cadu_workspace.update_project_brands'" in template
+    assert "'importBrand': url_for('cadu_workspace.import_project_brand'" in template

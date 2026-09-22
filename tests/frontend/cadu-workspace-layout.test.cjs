@@ -37,6 +37,10 @@ function conversationDocument() {
   return `<!doctype html><html data-cadu-theme="dark" data-cadu-skin="conversations"><head><meta charset="utf-8"><style>html,body{margin:0;height:100%}.cv-conversation-surface{min-width:0;flex:1}\n${tokens}\n${conversationStyles}\n${styles}</style></head><body><main id="content"><div id="cadu-conversations-v2-root"><div class="cadu-ds-home-shell cv-conversations-shell"><main class="cadu-ds-home-main"><header class="cadu-ds-home-navbar cv-conversations-navbar">Navegação</header><div class="cadu-ds-home-workarea cv-conversations-workarea"><aside class="cadu-ds-dock">Dock</aside><aside class="cv-recent-sidebar">Recentes</aside><section class="cv-conversation-surface">Conversa</section></div></main></div></div></main></body></html>`;
 }
 
+function conversationDocumentWithPersistedLightTheme() {
+  return conversationDocument().replace('data-cadu-theme="dark"', 'data-cadu-theme="light"');
+}
+
 async function dimensions(page, contentClass) {
   return page.evaluate(selector => {
     const shell = document.querySelector('.cadu-ds-home-shell').getBoundingClientRect();
@@ -75,7 +79,7 @@ async function dimensions(page, contentClass) {
       assert.equal(desktop.shell.width, desktop.viewport, `${contentClass}: shell desktop`);
       assert.equal(desktop.mobileChrome.display, 'none', `${contentClass}: chrome móvel oculto no desktop`);
       assert.equal(desktop.workarea.width, desktop.viewport, `${contentClass}: workarea desktop`);
-      assert.equal(desktop.dock.width, 72, `${contentClass}: dock desktop`);
+      assert.equal(desktop.dock.width, 64, `${contentClass}: dock desktop`);
       assert.ok(desktop.content.left >= desktop.dock.right, `${contentClass}: conteúdo após dock`);
       assert.equal(desktop.content.right, desktop.viewport, `${contentClass}: conteúdo até a borda`);
       assert.equal(desktop.scrollWidth, desktop.viewport, `${contentClass}: sem overflow desktop`);
@@ -116,6 +120,31 @@ async function dimensions(page, contentClass) {
     assert.equal(conversationMobile.dockDisplay, 'none', 'Conversas: Dock oculta no mobile');
     assert.equal(conversationMobile.recentPosition, 'fixed', 'Conversas: recentes sobrepostos no mobile');
     assert.equal(conversationMobile.scrollWidth, conversationMobile.viewport, 'Conversas: sem overflow mobile');
+
+    for (const viewport of [
+      {width: 1024, height: 768, label: 'desktop compacto'},
+      {width: 768, height: 1024, label: 'tablet'},
+      {width: 320, height: 700, label: 'mobile estreito'},
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.setContent(conversationDocument());
+      const responsive = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        viewport: document.documentElement.clientWidth,
+        colorScheme: getComputedStyle(document.documentElement).colorScheme,
+      }));
+      assert.equal(responsive.scrollWidth, responsive.viewport, `Conversas: sem overflow em ${viewport.label}`);
+      assert.equal(responsive.colorScheme, 'dark', `Conversas: tema escuro em ${viewport.label}`);
+    }
+
+    await page.setViewportSize({width: 390, height: 844});
+    await page.setContent(conversationDocumentWithPersistedLightTheme());
+    const protectedTheme = await page.evaluate(() => ({
+      colorScheme: getComputedStyle(document.documentElement).colorScheme,
+      canvas: getComputedStyle(document.documentElement).getPropertyValue('--cadu-canvas').trim(),
+    }));
+    assert.equal(protectedTheme.colorScheme, 'dark', 'Conversas: preferência clara não vaza para o chat');
+    assert.equal(protectedTheme.canvas, '#071113', 'Conversas: canvas escuro permanece protegido');
     assert.deepEqual(errors, []);
     console.log('PASS: Workspace full-width, Dock and overflow at 1440px and 390px.');
   } finally {

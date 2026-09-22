@@ -16,39 +16,15 @@ import {acceptAgentEvent} from './lib/agentEvents.mjs';
 import {executionReducer, initialExecutionState, isExecutionActive} from './lib/executionState.mjs';
 import {Icon} from './lib/icons';
 import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
+import {useConversationViewport} from './hooks/useConversationViewport';
+import {useArtifactWorkspace} from './hooks/useArtifactWorkspace';
+import {useFileDrop} from './hooks/useFileDrop';
+import {artifactKey, copyText} from './lib/browser.mjs';
 
 const emptyTitle = 'Novo chat';
-const ARTIFACT_SIDE_COOKIE = 'cadu-artifact-side';
-const artifactKey = item => String(item?.tabKey || item?.id || '');
-
-function readCookie(key) {
-  return document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]+)`))?.[1] || '';
-}
-
-function writeCookie(key, value) {
-  document.cookie = `${key}=${value}; Max-Age=31536000; Path=/; SameSite=Lax`;
-}
-
-async function copyText(value) {
-  if (!value) return false;
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return true;
-  }
-  const field = document.createElement('textarea');
-  field.value = value;
-  field.setAttribute('readonly', '');
-  field.style.position = 'fixed';
-  field.style.opacity = '0';
-  document.body.appendChild(field);
-  field.select();
-  let copied = false;
-  try { copied = document.execCommand('copy'); } catch (_) { copied = false; }
-  field.remove();
-  return copied;
-}
 
 export default function App({bootstrap}) {
+  useConversationViewport();
   const initialQuery = new URLSearchParams(window.location.search);
   const [context, setContext] = useState({});
   const [projects, setProjects] = useState([]);
@@ -71,38 +47,11 @@ export default function App({bootstrap}) {
   const [attachments, setAttachments] = useState([]);
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const [artifact, setArtifact] = useState(null);
-  const [artifactTabs, setArtifactTabs] = useState([]);
   const [artifactOpen, setArtifactOpen] = useState(false);
-  const [artifactSide, setArtifactSide] = useState(() => readCookie(ARTIFACT_SIDE_COOKIE) === 'left' ? 'left' : 'right');
   const [artifactDirty, setArtifactDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState('');
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    const root = document.documentElement;
-    let frame = 0;
-    const syncViewport = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        const height = Math.round(viewport?.height || window.innerHeight);
-        root.style.setProperty('--cv-visual-height', `${height}px`);
-        root.classList.toggle('cv-keyboard-open', Boolean(viewport && window.innerHeight - viewport.height > 120));
-      });
-    };
-    syncViewport();
-    viewport?.addEventListener('resize', syncViewport);
-    viewport?.addEventListener('scroll', syncViewport);
-    window.addEventListener('orientationchange', syncViewport);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      viewport?.removeEventListener('resize', syncViewport);
-      viewport?.removeEventListener('scroll', syncViewport);
-      window.removeEventListener('orientationchange', syncViewport);
-      root.style.removeProperty('--cv-visual-height');
-      root.classList.remove('cv-keyboard-open');
-    };
-  }, []);
   const [versions, setVersions] = useState([]);
   const [execution, dispatchExecution] = useReducer(executionReducer, initialExecutionState);
   const running = isExecutionActive(execution);
@@ -116,21 +65,10 @@ export default function App({bootstrap}) {
   const [contextLoading, setContextLoading] = useState(true);
   const [openingId, setOpeningId] = useState(null);
   const [discardRequest, setDiscardRequest] = useState(null);
-  const [dropActive, setDropActive] = useState(false);
+  const {artifactTabs, setArtifactTabs, artifactSide, changeArtifactSide} = useArtifactWorkspace(artifact);
   const conversationRef = useRef(null);
   const artifactRef = useRef(null);
-  useEffect(() => {
-    if (!artifact?.id) return;
-    const saved = readCookie(`${ARTIFACT_SIDE_COOKIE}:${artifact.id}`) || readCookie(ARTIFACT_SIDE_COOKIE);
-    setArtifactSide(saved === 'left' ? 'left' : 'right');
-  }, [artifact?.id]);
   useEffect(() => { if (artifactOpen) setHistoryOpen(false); }, [artifactOpen]);
-  const changeArtifactSide = useCallback(side => {
-    const next = side === 'left' ? 'left' : 'right';
-    setArtifactSide(next);
-    writeCookie(ARTIFACT_SIDE_COOKIE, next);
-    if (artifact?.id) writeCookie(`${ARTIFACT_SIDE_COOKIE}:${artifact.id}`, next);
-  }, [artifact?.id]);
   const runRef = useRef(null);
   const longJobRef = useRef(null);
   const streamControllerRef = useRef(null);
@@ -138,25 +76,6 @@ export default function App({bootstrap}) {
   const runStartedRef = useRef(0);
   const drainingQueueRef = useRef(false);
   const discardResolverRef = useRef(null);
-  const dragDepthRef = useRef(0);
-
-  useEffect(() => {
-    // Nested drop targets (notably the composer) stop propagation after they
-    // accept the file. Capture the terminal browser events first so the
-    // full-screen affordance never remains over an attachment that was added.
-    const closeFileDrop = () => {
-      dragDepthRef.current = 0;
-      setDropActive(false);
-    };
-    window.addEventListener('drop', closeFileDrop, true);
-    window.addEventListener('dragend', closeFileDrop, true);
-    window.addEventListener('blur', closeFileDrop);
-    return () => {
-      window.removeEventListener('drop', closeFileDrop, true);
-      window.removeEventListener('dragend', closeFileDrop, true);
-      window.removeEventListener('blur', closeFileDrop);
-    };
-  }, []);
   useEffect(() => () => {
     streamControllerRef.current?.abort();
     if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
@@ -172,15 +91,6 @@ export default function App({bootstrap}) {
 
   useEffect(() => { conversationRef.current = conversationId; }, [conversationId]);
   useEffect(() => { artifactRef.current = artifact; }, [artifact]);
-  useEffect(() => {
-    const key = artifactKey(artifact);
-    if (!key) return;
-    setArtifactTabs(items => {
-      const existing = items.findIndex(item => artifactKey(item) === key);
-      return existing >= 0 ? items.map((item, index) => index === existing ? artifact : item) : [...items, artifact];
-    });
-  }, [artifact]);
-
   useEffect(() => {
     const media = window.matchMedia('(max-width: 900px)');
     const adaptHistory = event => {
@@ -563,10 +473,7 @@ export default function App({bootstrap}) {
 
   const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
   const setAttachmentPurpose = useCallback((index, destination) => setAttachments(items => items.map((item, itemIndex) => itemIndex === index ? {...item, destination} : item)), []);
-  const handleDragEnter = useCallback(event => { if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return; event.preventDefault(); dragDepthRef.current += 1; setDropActive(true); }, []);
-  const handleDragOver = useCallback(event => { if (event.dataTransfer?.types?.includes('Files')) event.preventDefault(); }, []);
-  const handleDragLeave = useCallback(event => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDropActive(false); }, []);
-  const handleDrop = useCallback(event => { event.preventDefault(); dragDepthRef.current = 0; setDropActive(false); addFiles(Array.from(event.dataTransfer?.files || [])); }, [addFiles]);
+  const {dropActive, handleDragEnter, handleDragOver, handleDragLeave, handleDrop} = useFileDrop(addFiles);
 
   const uploadFiles = useCallback(resolvedExecutionMode => uploadAttachments({
       attachments,

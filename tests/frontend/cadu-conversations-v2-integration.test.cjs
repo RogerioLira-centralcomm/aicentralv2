@@ -602,11 +602,15 @@ test('conversation attachment model preserves validation and destination rules',
   assert.match(model.attachmentSubmissionMessage([{destination: 'conversation'}, {destination: 'attachment'}]), /confirme os itens/);
   assert.match(app, /createPortal\(.+cv-drop-overlay/s);
   assert.match(app, /document\.body/);
+  assert.match(app, /window\.addEventListener\('drop', closeFileDrop, true\)/);
+  assert.match(app, /window\.removeEventListener\('drop', closeFileDrop, true\)/);
   assert.match(composer, /cv-attachment-preview/);
   assert.match(composer, /cv-attachment-list/);
   assert.match(composer, /event\.stopPropagation\(\)/);
   assert.match(app, /known\.has\(key\)/);
   assert.match(styles, /\.cv-drop-overlay \{ position:fixed; inset:0;/);
+  assert.doesNotMatch(styles, /\.cv-drop-overlay:before/);
+  assert.doesNotMatch(styles, /border:\s*2px dashed/);
   assert.doesNotMatch(composer, /cv-attachment-meta/);
   assert.match(styles, /\.cv-attachment-chip \{[^}]*width:48px; height:48px/);
 });

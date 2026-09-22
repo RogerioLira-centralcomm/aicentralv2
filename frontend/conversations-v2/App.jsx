@@ -106,6 +106,24 @@ export default function App({bootstrap}) {
   const discardResolverRef = useRef(null);
   const dragDepthRef = useRef(0);
 
+  useEffect(() => {
+    // Nested drop targets (notably the composer) stop propagation after they
+    // accept the file. Capture the terminal browser events first so the
+    // full-screen affordance never remains over an attachment that was added.
+    const closeFileDrop = () => {
+      dragDepthRef.current = 0;
+      setDropActive(false);
+    };
+    window.addEventListener('drop', closeFileDrop, true);
+    window.addEventListener('dragend', closeFileDrop, true);
+    window.addEventListener('blur', closeFileDrop);
+    return () => {
+      window.removeEventListener('drop', closeFileDrop, true);
+      window.removeEventListener('dragend', closeFileDrop, true);
+      window.removeEventListener('blur', closeFileDrop);
+    };
+  }, []);
+
   const rememberContext = useCallback(next => {
     setContext(next || {});
     try {

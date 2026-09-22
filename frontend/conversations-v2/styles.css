@@ -279,7 +279,6 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#728783\],
 #cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#68807c\] { color: #829b96; }
 .cv-drop-overlay { position:fixed; inset:0; z-index:2147483000; display:grid; place-items:center; background:rgba(4,16,18,.82); backdrop-filter:blur(10px); pointer-events:none; }
-.cv-drop-overlay:before { position:absolute; inset:18px; border:2px dashed rgba(101,216,203,.72); border-radius:24px; content:''; }
 .cv-drop-overlay-card { position:relative; display:grid; gap:10px; justify-items:center; padding:24px 30px; border-radius:16px; background:#0c2524; color:#f2fffc; text-align:center; box-shadow:0 24px 80px rgba(0,0,0,.48); }
 .cv-drop-overlay-card svg { color:#65d8cb; }
 .cv-drop-overlay-card strong { color:#f2fffc; font-size:16px; letter-spacing:-.01em; }

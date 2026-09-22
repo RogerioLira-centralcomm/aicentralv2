@@ -5,6 +5,12 @@ import {VisualIdentity} from './VisualIdentity';
 // The home surface is already the current destination. Keep its context rail
 // focused on work shortcuts instead of repeating an "Início" navigation item.
 const HOME_ITEMS = [];
+const MOBILE_HOME_ITEMS = [
+  {id: 'conversas', label: 'Conversas', key: 'conversations', icon: 'compose'},
+  {id: 'projetos', label: 'Projetos', key: 'projects', icon: 'folder'},
+  {id: 'marcas', label: 'Marcas', key: 'brands', icon: 'brand'},
+  {id: 'conta', label: 'Conta', key: 'agency', icon: 'home'},
+];
 
 const ACCOUNT_ITEMS = [
   {id: 'agencia', label: 'Agência', key: 'agencia', icon: 'home'},
@@ -18,7 +24,10 @@ const ACCOUNT_ITEMS = [
 ];
 
 function readCollapsed(mode) {
-  try { return window.localStorage.getItem(`cadu:sidebar:${mode}`) === 'collapsed'; } catch (_) { return false; }
+  try {
+    if (mode === 'home' && window.matchMedia('(max-width: 760px)').matches) return true;
+    return window.localStorage.getItem(`cadu:sidebar:${mode}`) === 'collapsed';
+  } catch (_) { return false; }
 }
 
 function conversationHref(item, baseHref) {
@@ -121,11 +130,12 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
   return <aside className={`cadu-ds-context-sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
       <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span><strong>{agencyName || 'Cliente'}</strong></div>
-      <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={!collapsed}>{collapsed ? '›' : '‹'}</button>
+      <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>
     </header>
     {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
       {items.map(item => { const href = links[item.key]; if (!href) return null; return <a key={item.id} href={href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon} size={16}/><span>{item.label}</span></a>; })}
     </nav>}
+    {mode === 'home' && <nav className="cadu-ds-context-sidebar__nav cadu-ds-context-sidebar__nav--mobile" aria-label="Destinos do Workspace">{MOBILE_HOME_ITEMS.map(item => links[item.key] ? <a key={item.id} href={links[item.key]}><Icon name={item.icon} size={16}/><span>{item.label}</span></a> : null)}</nav>}
     {mode === 'home' && <>
       <SidebarBrandProjectGroups brands={brands} projects={projects} links={links}/>
     </>}

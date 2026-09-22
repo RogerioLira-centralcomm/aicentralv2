@@ -78,6 +78,31 @@ export default function App({bootstrap}) {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState('');
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const root = document.documentElement;
+    let frame = 0;
+    const syncViewport = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const height = Math.round(viewport?.height || window.innerHeight);
+        root.style.setProperty('--cv-visual-height', `${height}px`);
+        root.classList.toggle('cv-keyboard-open', Boolean(viewport && window.innerHeight - viewport.height > 120));
+      });
+    };
+    syncViewport();
+    viewport?.addEventListener('resize', syncViewport);
+    viewport?.addEventListener('scroll', syncViewport);
+    window.addEventListener('orientationchange', syncViewport);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      viewport?.removeEventListener('resize', syncViewport);
+      viewport?.removeEventListener('scroll', syncViewport);
+      window.removeEventListener('orientationchange', syncViewport);
+      root.style.removeProperty('--cv-visual-height');
+      root.classList.remove('cv-keyboard-open');
+    };
+  }, []);
   const [versions, setVersions] = useState([]);
   const [execution, dispatchExecution] = useReducer(executionReducer, initialExecutionState);
   const running = isExecutionActive(execution);
@@ -328,6 +353,7 @@ export default function App({bootstrap}) {
           setRuntime('');
           runRef.current = null;
           setOpeningId('');
+          if (window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
           return;
         }
         dispatchExecution({type: 'event', event: {event: 'run.started', run_id: active.run.id}});

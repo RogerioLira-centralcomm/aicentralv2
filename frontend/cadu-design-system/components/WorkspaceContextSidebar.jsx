@@ -104,7 +104,7 @@ function SidebarBrandProjectGroups({brands, projects, links}) {
       const expanded = openGroup === key;
       return <section className="cadu-ds-context-sidebar__brand-group" key={key}>
         <div className="cadu-ds-context-sidebar__brand-row">
-          <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}><b>{brand.name || brand.title}</b></a>
+          <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}><Icon name="folder" size={15}/><b>{brand.name || brand.title}</b></a>
           {brand.projects.length > 0 && <button type="button" className="cadu-ds-context-sidebar__group-toggle" aria-label={`${expanded ? 'Ocultar' : 'Mostrar'} projetos de ${brand.name || brand.title}`} aria-expanded={expanded} onClick={() => setOpenGroup(expanded ? null : key)}><span className="cadu-ds-context-sidebar__group-count">{brand.projects.length}</span><span className="cadu-ds-context-sidebar__group-chevron" aria-hidden="true">⌄</span></button>}
         </div>
         {expanded && <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}

@@ -744,7 +744,7 @@ body.portal--workspace > main#content.portal-content--workspace-react > #cadu-co
   }
   body.portal--workspace .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child {
     min-height:27px;
-    padding:3px 8px;
+    padding:3px 8px 3px 31px;
     border-radius:7px;
     font-size:11.5px;
     line-height:1.25;
@@ -1870,10 +1870,11 @@ body.portal--workspace .cadu-ds-home-workarea {
 .cadu-ds-context-sidebar__brand-groups { display:grid; gap:12px; }
 .cadu-ds-context-sidebar__brand-group { display:grid; gap:1px; }
 .cadu-ds-context-sidebar__brand-row { display:flex; min-width:0; align-items:center; }
-.cadu-ds-context-sidebar__brand-heading { display:flex; min-width:0; flex:1 1 auto; align-items:center; min-height:30px; padding:2px 6px; border-radius:8px; color:var(--cadu-ink); text-decoration:none; }
+.cadu-ds-context-sidebar__brand-heading { display:flex; min-width:0; flex:1 1 auto; align-items:center; gap:8px; min-height:30px; padding:2px 6px; border-radius:8px; color:var(--cadu-ink); text-decoration:none; }
 .cadu-ds-context-sidebar__brand-heading:hover,.cadu-ds-context-sidebar__brand-heading:focus-visible { background:var(--cadu-surface); outline:0; }
+.cadu-ds-context-sidebar__brand-heading svg { flex:0 0 15px; color:var(--cadu-muted); }
 .cadu-ds-context-sidebar__brand-heading b { overflow:hidden; font-size:12px; font-weight:680; text-overflow:ellipsis; white-space:nowrap; }
-.cadu-ds-context-sidebar__project-child { display:flex; min-width:0; align-items:center; min-height:30px; padding:2px 6px; border-radius:7px; color:var(--cadu-muted); font-size:11.5px; line-height:1.3; text-decoration:none; }
+.cadu-ds-context-sidebar__project-child { display:flex; min-width:0; align-items:center; min-height:30px; padding:2px 6px 2px 29px; border-radius:7px; color:var(--cadu-muted); font-size:11.5px; line-height:1.3; text-decoration:none; }
 .cadu-ds-context-sidebar__project-child > span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-context-sidebar__project-child:hover,.cadu-ds-context-sidebar__project-child:focus-visible { background:var(--cadu-surface); color:var(--cadu-ink); outline:0; }
 .cadu-ds-context-sidebar__group-toggle,.cadu-ds-context-sidebar__ungrouped-toggle { display:flex; align-items:center; justify-content:flex-end; gap:7px; min-height:30px; padding:2px 8px; border:0; border-radius:8px; background:transparent; color:var(--cadu-muted); cursor:pointer; font:inherit; }

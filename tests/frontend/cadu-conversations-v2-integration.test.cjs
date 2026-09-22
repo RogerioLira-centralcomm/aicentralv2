@@ -630,4 +630,9 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(styles, /\.cv-conversation-support__meta > div \{ min-width:0; \}/);
   assert.match(styles, /\.cv-conversation-support__request \{[^}]*border-left:2px/);
   assert.match(styles, /\.cv-conversation-support__next button \{[^}]*border:0;[^}]*background:transparent/);
+  assert.match(app, /pending:\$\{turnId\}/);
+  assert.match(app, /tabs=\{artifactTabs\}/);
+  assert.match(artifact, /cv-artifact-tabs/);
+  assert.match(artifact, /Preparando o artefato/);
+  assert.match(styles, /\.cv-artifact-loading/);
 });

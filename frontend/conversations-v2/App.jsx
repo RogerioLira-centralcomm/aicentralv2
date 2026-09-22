@@ -16,6 +16,7 @@ import {openConversationDockDetail} from '../cadu-design-system/workspaceNavigat
 
 const emptyTitle = 'Novo chat';
 const ARTIFACT_SIDE_COOKIE = 'cadu-artifact-side';
+const artifactKey = item => String(item?.tabKey || item?.id || '');
 
 function readCookie(key) {
   return document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]+)`))?.[1] || '';
@@ -67,6 +68,7 @@ export default function App({bootstrap}) {
   const [attachments, setAttachments] = useState([]);
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const [artifact, setArtifact] = useState(null);
+  const [artifactTabs, setArtifactTabs] = useState([]);
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [artifactSide, setArtifactSide] = useState(() => readCookie(ARTIFACT_SIDE_COOKIE) === 'left' ? 'left' : 'right');
   const [artifactDirty, setArtifactDirty] = useState(false);
@@ -114,6 +116,14 @@ export default function App({bootstrap}) {
 
   useEffect(() => { conversationRef.current = conversationId; }, [conversationId]);
   useEffect(() => { artifactRef.current = artifact; }, [artifact]);
+  useEffect(() => {
+    const key = artifactKey(artifact);
+    if (!key) return;
+    setArtifactTabs(items => {
+      const existing = items.findIndex(item => artifactKey(item) === key);
+      return existing >= 0 ? items.map((item, index) => index === existing ? artifact : item) : [...items, artifact];
+    });
+  }, [artifact]);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 900px)');
@@ -140,6 +150,7 @@ export default function App({bootstrap}) {
   const fetchArtifact = useCallback(async id => {
     const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(id)}`);
     setArtifact(data.artifact);
+    artifactRef.current = data.artifact;
     setPublishedUrl('');
     setArtifactDirty(false);
     setArtifactOpen(true);
@@ -212,7 +223,7 @@ export default function App({bootstrap}) {
     setConversationId(null); conversationRef.current = null;
     setTitle(emptyTitle); setMessages([]); setInput(''); setComposerContext(null);
     setAttachments(items => { releasePreviews(items); return []; });
-    setArtifact(null); artifactRef.current = null; setArtifactOpen(false); setArtifactDirty(false); setPublishedUrl('');
+    setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactOpen(false); setArtifactDirty(false); setPublishedUrl('');
     setDiagnostics([]); setRuntime(''); runRef.current = null;
   }, [releasePreviews]);
 
@@ -236,7 +247,7 @@ export default function App({bootstrap}) {
       setConversationId(id); conversationRef.current = id;
       setTitle(conversationTitle || 'Conversa');
       if (data.context) setContext(data.context);
-      setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false);
+      setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false);
       const {messages: restored, selectedContext: restoredContext, lastArtifact} = restoreConversationMessages(data.messages, uid);
       setMessages(restored);
       setComposerContext(restoredContext);
@@ -426,6 +437,14 @@ export default function App({bootstrap}) {
     let terminal = false;
     let runStarted = false;
     let latestArtifact = null;
+    let pendingArtifact = null;
+    let artifactResolved = false;
+    const failPendingArtifact = message => {
+      if (!pendingArtifact) return;
+      const failed = {...pendingArtifact, pending: false, failed: true, title: 'Artefato não concluído', error: message || 'A geração terminou antes de preparar o conteúdo.'};
+      setArtifactTabs(items => items.map(item => artifactKey(item) === pendingArtifact.tabKey ? failed : item));
+      if (artifactKey(artifactRef.current) === pendingArtifact.tabKey) { setArtifact(failed); artifactRef.current = failed; }
+    };
     const startedAt = Date.now();
     try {
       const response = await fetch(bootstrap.endpoints.messages, {
@@ -452,6 +471,13 @@ export default function App({bootstrap}) {
           setRuntime('Entendendo o pedido');
         } else if (kind === 'route.selected') {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
+          if (event.policy?.artifact_type) {
+            pendingArtifact = {tabKey: `pending:${turnId}`, type: event.policy.artifact_type, title: 'Preparando artefato', pending: true};
+            setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== pendingArtifact.tabKey), pendingArtifact]);
+            if (!artifactRef.current || !artifactOpen) {
+              setArtifact(pendingArtifact); artifactRef.current = pendingArtifact; setArtifactOpen(true);
+            }
+          }
           setRuntime('Preparando o contexto');
           trace('Preparando contexto');
         }
@@ -502,7 +528,16 @@ export default function App({bootstrap}) {
         else if (kind === 'artifact.created') {
           setRuntime('Preparando o material');
           latestArtifact = event.artifact || null;
-          if (latestArtifact) { setArtifact(latestArtifact); artifactRef.current = latestArtifact; setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true); }
+          if (latestArtifact) {
+            artifactResolved = true;
+            setArtifactTabs(items => {
+              const withoutPending = items.filter(item => artifactKey(item) !== pendingArtifact?.tabKey && artifactKey(item) !== artifactKey(latestArtifact));
+              return [...withoutPending, latestArtifact];
+            });
+            if (!artifactRef.current || artifactKey(artifactRef.current) === pendingArtifact?.tabKey) {
+              setArtifact(latestArtifact); artifactRef.current = latestArtifact; setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true);
+            }
+          }
           trace('Artefato criado', event.artifact?.title || '');
         } else if (kind === 'provider.first_token') {
           setRuntime('Escrevendo a resposta');
@@ -518,8 +553,13 @@ export default function App({bootstrap}) {
         } else if (kind === 'answer.completed') {
           const responseData = event.response || {};
           if (responseData.artifact_patch && !latestArtifact?.id) {
+            artifactResolved = true;
             const draft = {type: responseData.artifact_patch.type || 'document', title: responseData.artifact_patch.title, content: responseData.artifact_patch};
-            setArtifact(draft); artifactRef.current = draft; setPublishedUrl(''); setArtifactOpen(true);
+            draft.tabKey = pendingArtifact?.tabKey || `draft:${turnId}`;
+            setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== pendingArtifact?.tabKey), draft]);
+            if (!artifactRef.current || artifactKey(artifactRef.current) === pendingArtifact?.tabKey) {
+              setArtifact(draft); artifactRef.current = draft; setPublishedUrl(''); setArtifactOpen(true);
+            }
           }
           setMessages(items => {
             const existing = items.findIndex(item => item.turnId === turnId && item.streaming);
@@ -528,12 +568,15 @@ export default function App({bootstrap}) {
           });
           trace('Resposta concluída', responseData.confidence || '');
         } else if (kind === 'run.failed') {
+          failPendingArtifact(event.message);
           terminal = true; setRuntime('Não foi possível concluir'); trace('Execução interrompida', event.message || '', 'error');
           setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'failure', failure: chatFailure({message: event.message, status: 503}), prompt: clean}]);
           setInput(clean);
         } else if (kind === 'run.cancelled' || (kind === 'run.completed' && event.status === 'cancelled')) {
+          failPendingArtifact('A geração foi interrompida antes de concluir o artefato.');
           terminal = true; setRuntime('Interrompido'); trace('Execução interrompida');
         } else if (kind === 'run.completed') {
+          if (pendingArtifact && !artifactResolved) failPendingArtifact();
           terminal = true; setRuntime(event.status === 'completed' ? '' : 'Não foi possível concluir'); trace('Execução concluída', event.status || '');
         }
       });
@@ -714,8 +757,8 @@ export default function App({bootstrap}) {
       return;
     }
     const resource = ['image', 'logo'].includes(String(item.kind || '').toLowerCase())
-      ? {type: 'image', title: item.title || 'Imagem do Studio', content: {url: item.url, alt: item.title || 'Imagem do Studio', source: item.source || 'studio'}}
-      : item.url ? {type: 'link_reader', title: item.title || 'Link externo', content: item} : {type: 'resource', title: item.title || 'Arquivo', content: item};
+      ? {tabKey: `resource:${item.id || item.url}`, type: 'image', title: item.title || 'Imagem do Studio', content: {url: item.url, alt: item.title || 'Imagem do Studio', source: item.source || 'studio'}}
+      : item.url ? {tabKey: `resource:${item.id || item.url}`, type: 'link_reader', title: item.title || 'Link externo', content: item} : {tabKey: `resource:${item.id || item.title}`, type: 'resource', title: item.title || 'Arquivo', content: item};
     setArtifact(resource); artifactRef.current = resource;
     setArtifactDirty(false); setArtifactOpen(true);
   }, [confirmDiscard, fetchArtifact, trace]);
@@ -799,6 +842,21 @@ export default function App({bootstrap}) {
           <Conversation conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
           {artifactOpen && <ArtifactPane
             artifact={artifact} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
+            tabs={artifactTabs} activeTabKey={artifactKey(artifact)}
+            onSelectTab={async next => {
+              if (artifactDirty) await saveArtifact();
+              setArtifact(next); artifactRef.current = next; setArtifactDirty(false); setPublishedUrl('');
+            }}
+            onCloseTab={async key => {
+              if (key === artifactKey(artifact) && artifactDirty && !(await confirmDiscard(false))) return;
+              const remaining = artifactTabs.filter(item => artifactKey(item) !== key);
+              setArtifactTabs(remaining);
+              if (key === artifactKey(artifact)) {
+                const next = remaining[remaining.length - 1] || null;
+                setArtifact(next); artifactRef.current = next; setArtifactDirty(false); setPublishedUrl('');
+                if (!next) setArtifactOpen(false);
+              }
+            }}
             side={artifactSide} onSideChange={changeArtifactSide}
             onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
             studioEditorUrl={bootstrap.urls?.studioEditor}

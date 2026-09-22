@@ -800,6 +800,20 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-image-artifact__bar details a { border:0; text-align:left; }
 .cv-image-artifact__bar details a:hover { background:rgba(101,216,203,.08); }
 .cv-artifact-panel--left { order:-1; border-right:1px solid rgba(255,255,255,.08); border-left:0; transform-origin:left center; }
+.cv-artifact-tabs { display:flex; min-height:35px; flex:none; gap:2px; overflow-x:auto; border-bottom:1px solid rgba(255,255,255,.07); background:#0c181b; padding:5px 8px 0; scrollbar-width:thin; }
+.cv-artifact-tabs > div { display:flex; min-width:0; max-width:210px; align-items:center; border-radius:7px 7px 0 0; color:#829b96; }
+.cv-artifact-tabs > div.is-active { background:#142427; color:#e5f1ee; }
+.cv-artifact-tabs button { height:29px; border:0; background:transparent; color:inherit; cursor:pointer; }
+.cv-artifact-tabs div > button:first-child { display:flex; min-width:0; flex:1; align-items:center; gap:7px; padding:0 7px 0 9px; font-size:10px; font-weight:550; }
+.cv-artifact-tabs div > button:first-child span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cv-artifact-tabs div > button:first-child i { width:6px; height:6px; flex:none; border-radius:50%; background:#65d8cb; animation:cv-pulse 1s infinite; }
+.cv-artifact-tabs div > button:last-child { width:26px; padding:0; font-size:14px; opacity:.55; }
+.cv-artifact-tabs div > button:last-child:hover { opacity:1; }
+.cv-artifact-loading { display:grid; min-height:100%; place-content:center; justify-items:center; gap:8px; padding:32px; color:#809a95; text-align:center; }
+.cv-artifact-loading i { width:18px; height:18px; border:2px solid rgba(101,216,203,.2); border-top-color:#65d8cb; border-radius:50%; animation:cv-spin .8s linear infinite; }
+.cv-artifact-loading strong { color:#dbe9e6; font-size:13px; font-weight:600; }
+.cv-artifact-loading span { max-width:280px; font-size:11px; line-height:1.5; }
+.cv-artifact-loading.is-failed strong { color:#f0c2bd; }
 .cv-artifact-side-toggle { min-height:30px; min-width:30px; padding:0 7px; border:1px solid rgba(181,218,211,.2); border-radius:8px; background:rgba(255,255,255,.05); color:#c4d7d3; font:650 15px/28px Inter,ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
 .cv-artifact-side-toggle:hover,.cv-artifact-side-toggle:focus-visible { border-color:rgba(127,229,216,.55); background:rgba(101,216,203,.12); color:#effffc; outline:0; }
 .cv-brand-identity__actions { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:-4px 0 16px; padding-bottom:9px; border-bottom:1px solid rgba(181,218,211,.12); color:#789b95; font-size:10px; }

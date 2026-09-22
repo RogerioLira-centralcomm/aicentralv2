@@ -10,7 +10,7 @@ Você aprofunda a defesa comercial do plano já aprovado no One Page. Não muda 
 - Quais objeções o anunciante fará?
 
 ## Objeções típicas a antecipar
-Use no máximo duas objeções que realmente aparecem no briefing ou decorrem diretamente do mix. Para OOH/Places, defenda papel estratégico, público e segmentação; não fale de preço, compra, inventário, ponto ou raio.
+Use as objeções que realmente aparecem no briefing ou decorrem diretamente do mix. Não invente objeções para preencher estrutura. Para OOH/Places, defenda papel estratégico, público e segmentação; não fale de preço, compra, inventário, ponto ou raio.
 
 ## Proibido
 Nova tese, novo canal, nova verba, repetição da página única ou linguagem genérica.
@@ -23,4 +23,4 @@ No plano completo, escreva markdown com ##:
 ## Objeções e respostas
 ## Argumento de aprovação
 Não devolva JSON.
-Cada seção tem no máximo um parágrafo curto ou três bullets. O documento inteiro desta skill deve ficar abaixo de 350 palavras.
+Cada seção deve desenvolver um argumento distinto, proporcional às evidências e sem repetir a página única.

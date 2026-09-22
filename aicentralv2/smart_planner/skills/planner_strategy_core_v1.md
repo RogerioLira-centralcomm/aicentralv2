@@ -26,7 +26,7 @@ Não abra a tese com “na ausência de briefing”.
 - Copiar pitch de outro cliente.
 - Prometer resultado operacional como garantia.
 - Texto que serviria para qualquer marca se o nome fosse removido.
-- Mais de uma frase em `central_thesis` ou mais de cinco itens em qualquer lista.
+- Mais de uma tese concorrente em `central_thesis`; listas devem conter somente itens que mudam a estratégia.
 - `dv360` é um identificador técnico interno. Escreva sempre "Rede de portais e
   sites" e descreva a escolha por segmentos editoriais e contexto; não invente
   lista fechada, quantidade de sites, inventário ou parceiros.

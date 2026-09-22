@@ -154,7 +154,7 @@ ONE_PAGE_SECTIONS = (
     {
         "id": "strategy",
         "title": "Estratégia",
-        "needs": "Recomendação em até duas frases: o que fazer e o peso do mix, só com o que o briefing e o voo trouxeram.",
+        "needs": "Decisão central e oportunidade, com a profundidade sustentada pelo briefing, pelo mix e pelo voo.",
     },
     {
         "id": "creative",
@@ -164,7 +164,7 @@ ONE_PAGE_SECTIONS = (
     {
         "id": "market",
         "title": "Dado de mercado",
-        "needs": "Um número ou palavra de decisão com rótulo. Percentual só se o briefing ou a pesquisa trouxer; senão, Premissa.",
+        "needs": "Evidência com fonte, data e contexto. Sem fonte suficiente, o bloco é omitido.",
     },
     {
         "id": "defense",
@@ -176,12 +176,12 @@ ONE_PAGE_SECTIONS = (
 COMPLETO_SECTIONS = (
     {"id": "capa", "title": "Capa", "needs": "Campanha, cliente, objetivo, período e investimento — copiar do briefing/mix."},
     {"id": "visao", "title": "Visão Geral", "needs": "Um parágrafo, no máximo quatro linhas, sem jargão."},
-    {"id": "kpis", "title": "Objetivos e KPIs", "needs": "SMART. Meta só com lastro; senão Premissa."},
+    {"id": "kpis", "title": "Objetivos e KPIs", "needs": "SMART. Meta somente quando houver lastro; sem lastro, omitir o número."},
     {"id": "praca", "title": "Território e Praça", "needs": "Abrangência do mix. Sem praça: a definir pelo anunciante."},
     {"id": "audiencia", "title": "Inteligência de Audiência", "needs": "Comportamento, mídia, jornada e gatilhos do briefing."},
     {"id": "segmentacao", "title": "Modelagem e Segmentação", "needs": "Tabela Segmento | Perfil | Universo | % | Impacto | Prioridade."},
     {"id": "mix", "title": "Estratégia e Mix", "needs": "Tabela Canal | % | R$ | Papel | Justificativa. Fechar com a verba do voo."},
-    {"id": "numeros", "title": "Números e Performance", "needs": "Impressões/alcance só como Premissa. Sem CPM."},
+    {"id": "numeros", "title": "Números e Performance", "needs": "Impressões e alcance somente com base de cálculo explícita. Sem CPM inventado."},
     {"id": "criativo", "title": "Direção Criativa", "needs": "Formatos e mensagem por canal. Sem cronograma de produção."},
     {"id": "voo", "title": "Fases do Voo", "needs": "Usar as colunas mensais do Gantt. Sem período, não inventar semanas."},
     {"id": "premissas", "title": "Premissas", "needs": "Taxas, benchmarks e dependências rotuladas."},

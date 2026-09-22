@@ -16,9 +16,9 @@ carregado diretamente pelo servidor em runtime.
 
 O prompt realmente usado na geração é:
 
-`aicentralv2/smart_planner/skills/planner_one_page_v2.md`
+`aicentralv2/smart_planner/skills/planner_one_page_v3.md`
 
-Ele é carregado por `generator._one_page_v2()` junto de `planner_truth_v1` e
+Ele é carregado por `generator._one_page_v3()` junto de `planner_truth_v1` e
 `planner_estimation_v1`. O fluxo passa por:
 
 ```text
@@ -26,14 +26,14 @@ processor.py
   -> snapshot.py / build_evidence()
   -> generator.py / pesquisa de mercado
   -> planner_strategy_core_v1
-  -> planner_one_page_v2 (esta regra de geração)
+  -> planner_one_page_v3 (contrato editorial)
   -> one_page.py / cards, mídia e contrato
   -> images.py / assets
   -> editor.py + canvas.html / revisão interna
   -> public_view.py / publicação
 ```
 
-Não confundir esta skill de orientação com o arquivo runtime `planner_one_page_v2.md`.
+Não confundir esta skill de orientação com o arquivo runtime `planner_one_page_v3.md`.
 Quando uma regra mudar, os dois devem ser atualizados na mesma alteração.
 
 ## Anatomia da folha
@@ -42,12 +42,9 @@ O cabeçalho é uma camada editorial, não um card: logo e nome do cliente final
 logo da agência, quando houver no CentralX, aparece menor; a marca apresentadora
 segue a regra abaixo.
 
-Cada página única tem exatamente quatro cards editoriais, nesta ordem:
+Não imponha quantidade fixa de cards, palavras ou parágrafos. A página usa os blocos sustentados pelo material: decisão, situação e oportunidade, público e jornada, mix e calendário, expressão criativa, evidência de mercado e defesa comercial. Bloco vazio não aparece.
 
-1. **Estratégia** — uma frase do projeto/canal para aquele anunciante.
-2. **Expressão no canal** — direção visual estática para o canal herói. A geração de imagem acontece depois, por ação do usuário, e nunca bloqueia a geração dos documentos.
-3. **Dado de mercado** — número ou leitura de mercado com origem. Sem evidência suficiente, omita o número e use uma leitura qualitativa útil; não mostre “A validar” ao cliente. O ecossistema de canais e a densidade do mix entram como subestrutura deste card, nunca como quinto card.
-4. **Defesa** — por que aquele canal interessa ao cliente final.
+Os quatro cards antigos são somente uma camada de compatibilidade para planos já gravados. Novos planos preservam o schema editorial completo em `one_page_v2` com `schema_version=3`.
 
 O quadro público, contato, QR, logos de apoio e fundo são camadas de apresentação,
 não novos cards editoriais. A página pública pode reorganizá-los em capítulos sem
@@ -63,9 +60,9 @@ cliente no link público, em um selo com contraste, padding e cantos arredondado
 
 - Use a fonte Inter já adotada pela CentralX; não introduza tipografia genérica ou
   uma fonte de mockup diferente da aplicação.
-- O hero é assimétrico: conteúdo e identidade à esquerda, imagem inteira aprovada
-  à direita, com cantos levemente arredondados. A capa leva logo, texto e imagem
-  também na impressão.
+- Quando houver imagem principal aprovada, ela ocupa o hero integral com overlay
+  de contraste e conteúdo flutuante. A capa leva logo, texto e imagem também na
+  impressão.
 - Não use rótulos decorativos antes de títulos (como "A decisão", "Mix de mídia"
   ou "Planejamento completo") nem selo sobre imagem. O título e o conteúdo já
   devem explicar a seção.
@@ -91,7 +88,7 @@ Persistir em `dados_detectados.presenter_brand`. Trocar a marca chama de novo a 
 
 ## Schema
 
-Uma seção `id=one_page`. Cards nesta ordem:
+O schema editorial é a fonte principal. Uma seção `id=one_page` com os quatro cards abaixo permanece como projeção compatível para o editor legado:
 
 | type | title típico | campos |
 |---|---|---|
@@ -107,9 +104,11 @@ Uma seção `id=one_page`. Cards nesta ordem:
 
 Campos estruturados adicionais do plano:
 
+- `one_page_v2.schema_version=3`: contrato editorial rico mantido sob a chave histórica para compatibilidade.
+- `one_page_v2.challenge`, `opportunity`, `media_narrative`, `market_evidence` e `commercial_defense`: blocos públicos independentes e condicionais.
 - `one_page_v2.audience_model`: segmentos, faixa etária, gênero, classe social, região, bairro, universo e impacto. Todo número precisa de fonte; sem fonte, use `null` internamente e omita o dado da página pública.
 - `one_page_v2.visual_data`: mostradores e barras somente para valores confirmados ou explicitamente estimados.
-- `market` card: `channel_roles[]`, no máximo oito itens, com `id`, `label`, `logo`, `role`, `status` (`confirmed` ou `proposed`) e `count` somente quando confirmado.
+- `market` card: `channel_roles[]`, com `id`, `label`, `logo`, `role`, `status` (`confirmed` ou `proposed`) e `count` somente quando confirmado.
 - `public_design`: skin, tokens, referência CRM e hero com estado `draft`, `approved` ou `requested`.
 - `asset_manifest[]`: assets de `creative`, `background`, `persona` e `place`, sempre com URL, prompt e status.
 - `executive_contact`: contato normalizado; telefone ausente oculta o CTA de WhatsApp.
@@ -168,7 +167,7 @@ o plano completo interno inclui o bloco `Pontos OOH informados`.
 - Registrar custo real e tokens por chamada; a prévia em reais é interna, sem
   margem e fora do consumo comercial do Planner.
 - A etapa `market` aparece no progresso e na prévia de custo quando executada.
-- Validar os quatro cards, canais permitidos, confidencialidade e ausência de
+- Validar o contrato editorial, canais permitidos, confidencialidade e ausência de
   números inventados antes de publicar. Regras de OOH/Places validam afirmações
   comerciais completas, nunca palavras isoladas. “Intenção de compra”, “compras
   de imóveis” e “jornada de compra” são descrições válidas de público.

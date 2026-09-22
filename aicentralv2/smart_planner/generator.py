@@ -204,30 +204,31 @@ def _run(token: str, mode: str) -> dict:
     merge_dados(token, {"estimates": estimates})
     mark_step(token, "estimates", "done")
 
-    page = as_dict(dados.get("one_page_v2"))
+    page = as_dict(dados.get("one_page_v3") or dados.get("one_page_v2"))
     folha = as_dict(dados.get("folha"))
     if _usable_page(page, material_hash, core) and as_list(folha.get("sections")):
         mark_step(token, "one_page", "skipped")
     else:
         _require_llm("página única")
         mark_step(token, "one_page", "running")
-        page = _one_page_v2(snapshot, evidence, core, estimates)
+        page = _one_page_v3(snapshot, evidence, core, estimates)
         page = _review_page(page, snapshot, estimates)
+        page = _normalize_page_contract(page, snapshot, core, estimates)
         page = _normalize_client_channel_names(page)
         page["creative_plan"] = _creative_plan(page, snapshot)
         page["material_hash"] = material_hash
         folha = _materialize_folha(token, snapshot, page, core)
-        merge_dados(token, {"one_page_v2": page, "folha": folha})
+        merge_dados(token, {"one_page_v2": page, "one_page_v3": page, "folha": folha})
         mark_step(token, "one_page", "done")
 
     normalized_page = _normalize_client_channel_names(page)
     if normalized_page != page:
         page = normalized_page
-        merge_dados(token, {"one_page_v2": page})
+        merge_dados(token, {"one_page_v2": page, "one_page_v3": page})
 
     if not as_list(page.get("creative_plan")):
         page["creative_plan"] = _creative_plan(page, snapshot)
-        merge_dados(token, {"one_page_v2": page})
+        merge_dados(token, {"one_page_v2": page, "one_page_v3": page})
 
     mark_step(token, "validate", "running")
     _validate_page(page, snapshot, estimates)
@@ -360,13 +361,24 @@ def _review_page(page: dict, snapshot: dict, estimates: dict) -> dict:
                 "document": page,
             }, ensure_ascii=False, default=str)[:24000],
             role="final_review",
-            max_tokens=2200,
+            max_tokens=6000,
         )
         corrected = as_dict(result.get("corrected"))
-        return corrected if corrected else page
+        return _deep_merge(page, corrected) if corrected else page
     except Exception:
         logger.warning("Revisor final da página única indisponível", exc_info=True)
         return page
+
+
+def _deep_merge(base: dict, patch: dict) -> dict:
+    """Apply a reviewer patch without erasing untouched nested generation fields."""
+    merged = dict(base or {})
+    for key, value in (patch or {}).items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _review_document(document: str, snapshot: dict, page: dict, estimates: dict) -> str:
@@ -393,7 +405,7 @@ def _review_document(document: str, snapshot: dict, page: dict, estimates: dict)
                 "document": document[:30000],
             }, ensure_ascii=False, default=str)[:42000],
             role="final_review",
-            max_tokens=3200,
+            max_tokens=7000,
         )
         corrected = text(result.get("corrected"))
         return normalize_markdown(corrected) if corrected else document
@@ -555,11 +567,11 @@ def _strategy_core(snapshot: dict, evidence: dict) -> dict:
     return parsed
 
 
-def _one_page_v2(snapshot: dict, evidence: dict, core: dict, estimates: dict) -> dict:
+def _one_page_v3(snapshot: dict, evidence: dict, core: dict, estimates: dict) -> dict:
     system = "\n\n".join((
         load_skill("planner_truth_v1"),
         load_skill("planner_estimation_v1"),
-        load_skill("planner_one_page_v2"),
+        load_skill("planner_one_page_v3"),
     ))
     parsed = as_dict(chat_json(
         system,
@@ -567,7 +579,7 @@ def _one_page_v2(snapshot: dict, evidence: dict, core: dict, estimates: dict) ->
         "A verba só pode aparecer se estiver confirmada no snapshot; caso contrário, omita qualquer menção financeira. "
         "A direção visual deve trazer uma persona e, quando houver evidência, o lugar/contexto da campanha.\n\n"
         + _pack(snapshot, evidence, core, estimates),
-        role=skill_role("planner_one_page_v2"),
+        role=skill_role("planner_one_page_v3"),
     ))
     parsed.setdefault("visual_direction", _visual_direction_fallback(snapshot))
     parsed["visual_direction"] = {
@@ -586,7 +598,64 @@ def _one_page_v2(snapshot: dict, evidence: dict, core: dict, estimates: dict) ->
         parsed["result_estimates"]["summary"] = format_estimates_for_prompt(estimates)
     parsed["snapshot_id"] = text(snapshot.get("snapshot_id"))
     parsed["strategy_core_id"] = text(core.get("id"))
-    return parsed
+    parsed["schema_version"] = 3
+    parsed["prompt_version"] = _one_page_prompt_version()
+    return _normalize_page_contract(parsed, snapshot, core, estimates)
+
+
+def _normalize_page_contract(page: dict, snapshot: dict, core: dict, estimates: dict) -> dict:
+    """Repair a partial model response exclusively from already approved data."""
+    result = dict(as_dict(page))
+    core = as_dict(core)
+    snapshot = as_dict(snapshot)
+    dict_fields = (
+        'challenge', 'opportunity', 'thesis', 'recommendation', 'media_narrative',
+        'benefits', 'result_estimates', 'creative_expression', 'market_evidence',
+        'audience_model', 'commercial_defense', 'visual_direction',
+    )
+    for key in dict_fields:
+        result[key] = as_dict(result.get(key))
+    for key in ('outputs', 'visual_data', 'pending_decisions'):
+        result[key] = as_list(result.get(key))
+
+    if not text(result['challenge'].get('body')):
+        result['challenge']['body'] = text(core.get('challenge'))
+    if not text(result['opportunity'].get('body')):
+        result['opportunity']['body'] = text(core.get('opportunity'))
+    if not text(result['thesis'].get('statement')):
+        result['thesis']['statement'] = text(core.get('central_thesis'))
+    if not text(result['recommendation'].get('summary')):
+        result['recommendation']['summary'] = text(core.get('recommended_strategy'))
+    if not text(result['recommendation'].get('audience')):
+        result['recommendation']['audience'] = ', '.join(
+            text(item) for item in as_list(core.get('priority_audiences')) if text(item)
+        )
+    if not as_list(result['recommendation'].get('journey')):
+        result['recommendation']['journey'] = as_list(core.get('journey'))
+    if not as_list(result['recommendation'].get('channel_roles')):
+        result['recommendation']['channel_roles'] = as_list(core.get('channel_roles'))
+    if not result['outputs']:
+        result['outputs'] = as_list(core.get('expected_outputs'))
+    if not result['pending_decisions']:
+        result['pending_decisions'] = as_list(snapshot.get('pending_decisions'))
+
+    defense = result['commercial_defense']
+    defense.setdefault('why_this_plan', as_list(core.get('business_rationale')))
+    defense.setdefault('why_this_mix', [])
+    defense.setdefault('approval_arguments', [])
+    defense.setdefault('objections', [])
+    defense.setdefault('closing_statement', '')
+
+    market = result['market_evidence']
+    if text(market.get('stat')) and not text(market.get('source')):
+        # A number without an identifiable source must never reach the client.
+        market.update({'stat': '', 'stat_label': '', 'status': 'omitted'})
+    market.setdefault('status', 'confirmed' if text(market.get('source')) else 'omitted')
+
+    result['result_estimates'].setdefault('status', as_dict(estimates).get('status'))
+    result['schema_version'] = 3
+    result['prompt_version'] = _one_page_prompt_version()
+    return result
 
 
 def _visual_direction_fallback(snapshot: dict) -> dict:
@@ -993,7 +1062,68 @@ def _group_markdown(
         valid, errors = _validate_group_markdown(skill, candidate)
         if valid:
             return candidate
-    raise ValueError(f"O grupo {skill} não passou na validação editorial: {'; '.join(errors)}")
+    fallback = _fallback_group_markdown(skill, snapshot, core, page)
+    valid, fallback_errors = _validate_group_markdown(skill, fallback)
+    if valid:
+        logger.warning("Grupo %s reconstruído de forma determinística após falha editorial: %s", skill, '; '.join(errors))
+        return fallback
+    raise ValueError(
+        f"O grupo {skill} não passou na validação editorial: "
+        + '; '.join(errors + fallback_errors)
+    )
+
+
+def _fallback_group_markdown(skill: str, snapshot: dict, core: dict, page: dict) -> str:
+    """Build valid chapters from frozen strategy data when prose generation fails."""
+    core = as_dict(core)
+    page = as_dict(page)
+    recommendation = as_dict(page.get('recommendation'))
+    media = as_dict(page.get('media_narrative'))
+    creative = as_dict(page.get('creative_expression'))
+    defense = as_dict(page.get('commercial_defense'))
+
+    pools = {
+        'planner_full_strategy_v2': [
+            core.get('central_thesis'), core.get('recommended_strategy'), core.get('communication_objective'),
+            core.get('media_objective'), *as_list(core.get('business_rationale')),
+            *as_list(core.get('measurement_framework')),
+        ],
+        'planner_full_media_v2': [
+            recommendation.get('summary'), media.get('decision'), media.get('distribution'), media.get('flight'),
+            *[f"{text(as_dict(item).get('channel'))}: {text(as_dict(item).get('function') or as_dict(item).get('role'))}"
+              for item in as_list(recommendation.get('channel_roles'))],
+        ],
+        'planner_full_execution_v1': [
+            creative.get('headline'), creative.get('supporting_text'), creative.get('cta'),
+            *as_list(page.get('outputs')), *as_list(core.get('risks')), *as_list(core.get('measurement_framework')),
+        ],
+        'planner_commercial_defense_v1': [
+            *as_list(defense.get('why_this_plan')), *as_list(defense.get('why_this_mix')),
+            *as_list(defense.get('approval_arguments')), defense.get('closing_statement'),
+        ],
+    }
+    values = []
+    for item in pools.get(skill, []):
+        if isinstance(item, dict):
+            item = item.get('name') or item.get('description') or item.get('title')
+        value = text(item)
+        if value and value not in values:
+            values.append(value)
+    if not values:
+        values = ['O material confirmado ainda não sustenta detalhamento adicional para este capítulo.']
+    headings = GROUP_CONTRACTS.get(skill, ('Síntese',))
+    sections = []
+    for index, heading in enumerate(headings):
+        selected = values[index::len(headings)] or values[:1]
+        body = '\n\n'.join(selected)
+        sections.append(f"## {heading}\n{body}")
+    document = normalize_markdown('\n\n'.join(sections))
+    if len(document) < 160:
+        document += (
+            '\n\nA versão preserva somente decisões confirmadas no briefing e no núcleo estratégico. '
+            'Detalhes sem evidência permanecem fora do documento até revisão comercial.'
+        )
+    return normalize_markdown(document)
 
 
 def _validate_group_markdown(skill: str, markdown: str) -> tuple[bool, list[str]]:
@@ -1082,12 +1212,21 @@ def _usable_core(core: dict, material_hash: str) -> bool:
 def _usable_page(page: dict, material_hash: str, core: dict | None = None) -> bool:
     data = as_dict(page)
     thesis = text(as_dict(data.get("thesis")).get("statement"))
+    if int(data.get("schema_version") or 0) < 3:
+        return False
+    if text(data.get("prompt_version")) != _one_page_prompt_version():
+        return False
     if text(data.get("material_hash")) != material_hash or len(thesis) < 20:
         return False
     core_id = text(as_dict(core).get("id"))
     if core_id:
         return text(data.get("strategy_core_id")) == core_id
     return True
+
+
+def _one_page_prompt_version() -> str:
+    content = load_skill("planner_one_page_v3")
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
 
 
 def _stale_generation(geracao: dict, *, minutes: int = 15) -> bool:

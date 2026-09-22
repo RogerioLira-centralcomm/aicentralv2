@@ -12,6 +12,49 @@ TEMPLATES = ROOT / "aicentralv2" / "templates" / "smart_planner"
 
 
 class PublicPlannerTest(TestCase):
+    def test_public_cover_contains_identity_only_and_body_keeps_plan_details(self):
+        row = {
+            "nome_campanha": "Campanha Horizonte",
+            "cliente": "Cliente exemplo",
+            "budget": "R$ 50.000",
+            "dados_detectados": {
+                "campanha": {"agencia": "Agência exemplo", "praca": "Belo Horizonte"},
+                "one_page_v2": {
+                    "schema_version": 3,
+                    "thesis": {"statement": "A presença certa aproxima a marca da decisão."},
+                    "recommendation": {"journey": [{"stage": "Descoberta", "body": "Apresentar a marca."}]},
+                    "commercial_defense": {
+                        "why_this_plan": ["A estratégia parte do comportamento do público."],
+                        "why_this_mix": ["Os canais cumprem papéis complementares."],
+                        "approval_arguments": ["A execução é clara e acompanhável."],
+                    },
+                    "market_evidence": {
+                        "title": "Leitura de mercado",
+                        "insight": "O contexto orienta a seleção editorial.",
+                        "source": "Fonte exemplo",
+                        "source_url": "javascript:alert(1)",
+                    },
+                },
+                "folha": {
+                    "meta": {"budget": "R$ 50.000", "canais": "OOH / Painéis"},
+                    "sections": [{"cards": [{"type": "strategy", "body": "Estratégia detalhada."}]}],
+                },
+            },
+            "plan_content": {"sections": []},
+        }
+        view = public_view(row, document="proposal")
+        self.assertEqual(view["cover_identity"]["agency"], "Agência exemplo")
+        self.assertEqual(len(view["defense_groups"]), 3)
+        app = Flask(__name__, template_folder=str(ROOT / "aicentralv2" / "templates"), static_folder=str(ROOT / "aicentralv2" / "static"))
+        with app.test_request_context("/"):
+            html = render_template("smart_planner/public_document.html", **view)
+        cover = html.split("</section>", 1)[0]
+        self.assertIn("Agência exemplo", cover)
+        self.assertNotIn("R$ 50.000", cover)
+        self.assertNotIn("OOH / Painéis", cover)
+        self.assertIn("Público e jornada", html)
+        self.assertNotIn("javascript:alert", html)
+
     def test_separate_public_documents_render_as_executive_plan_and_primary_format(self):
         row = {
             "nome_campanha": "Proposta BDMG",

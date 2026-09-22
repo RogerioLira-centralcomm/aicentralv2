@@ -22,7 +22,7 @@ Verdade do material:
 - Sem dado: omita a afirmação e registre somente a decisão pendente necessária. Nunca invente prazo de produção, CPM, impressão ou responsável.
 - Sem agência, consultoria, ferramenta ou menção a IA.
 - Cada fato deve ter uma única seção de propriedade. Nas demais, não repita.
-- Parágrafos com no máximo 4 linhas; no máximo 5 bullets por seção; não preencha seção sem evidência.
+- Desenvolva cada seção conforme a complexidade sustentada pelas evidências; não preencha seção sem decisão útil.
 - Não escreva prompt de imagem nem gere expressão visual. A imagem será decidida depois no editor.
 
 Estrutura obrigatória (##):
@@ -31,7 +31,7 @@ Estrutura obrigatória (##):
 Campanha, anunciante, objetivo e período — copiar da configuração. Só inclua investimento se houver verba confirmada.
 
 ## Visão Geral
-Um parágrafo, máximo 4 linhas. Não repetir a tabela de mix.
+Síntese executiva sem repetir a tabela de mix.
 
 ## Objetivos e KPIs
 SMART. Só inclua metas com lastro; caso contrário, registre a necessidade de definição em Próximos Passos.
@@ -65,7 +65,7 @@ Use as colunas mensais da configuração. Sem período, não invente semanas.
 Liste somente decisões que bloqueiam aprovação ou compra. Não use o rótulo "Premissa" como preenchimento.
 
 ## Próximos Passos
-Máximo 5. Escreva a ação e o responsável somente se estiverem informados; não invente responsável.
+Escreva as ações necessárias e o responsável somente se estiver informado; não invente responsável nem ação de preenchimento.
 """
 
 IMPROVE_PROMPT = """Você edita um rascunho de planejamento já escrito.
@@ -79,7 +79,7 @@ FINAL_PROMPT = """Você fecha a versão final do planejamento de mídia.
 Esta é a 3ª passagem — o documento que o anunciante lê.
 Devolva o markdown inteiro, limpo, sem comentários.
 Confira: mix soma a verba quando ela existir e voo respeita as colunas. KPI sem fonte deve ser removido e virar decisão pendente.
-Corte jargão, repetição e seção oca. Nenhum parágrafo com mais de 4 linhas. Não invente. Sem agência, sem IA.
+Corte jargão, repetição e seção oca. Preserve a profundidade sustentada pelo material. Não invente. Sem agência, sem IA.
 A página única já contém a decisão executiva; este documento deve acrescentar operação, medição e aprovações, não duplicá-la.
 """
 

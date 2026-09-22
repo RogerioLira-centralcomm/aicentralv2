@@ -11,7 +11,7 @@ Operacionalize execução, mensuração e riscos sem mudar a estratégia.
 ## Próximos passos
 ## Apêndice
 
-Próximos passos: no máximo 5, apenas ações que mudam execução ou aprovação. Não preencha responsável ausente.
+Próximos passos: inclua as ações que realmente mudam execução ou aprovação. Não preencha responsável ausente nem crie ações para completar uma quantidade.
 Riscos em tabela: Risco | Impacto | Probabilidade | Mitigação | Responsável
 Mensuração: eventos, UTM, fontes, cadência. Sem inventar pixel ou ferramenta que o briefing não trouxe.
 
@@ -23,4 +23,4 @@ Canal | Formato principal | Conceitos | Variações | Arquivos finais | Justific
 - Quantidade depende de período, verba, renovação, público e capacidade. Sem base, omita a quantidade.
 - Conceito, variação, arquivo final e rodada de revisão são contagens distintas.
 - Smart Planner prepara somente a direção de uma imagem conceitual. A imagem é gerada depois, por ação explícita do usuário. Quando o formato for vídeo, áudio ou animação, descreva a entrega e uma referência visual estática; não afirme que qualquer arquivo foi produzido.
-- Cada seção: no máximo 2 parágrafos ou 5 bullets. Não repita tese, mix ou defesa.
+- A profundidade de cada seção acompanha a complexidade real da execução. Não repita tese, mix ou defesa.

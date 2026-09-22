@@ -21,4 +21,4 @@ Se houver Places: um bloco por ambiente. Apps/sites observados entram como conte
 Voo: use as colunas mensais da configuração. Sem período, não invente semanas.
 Projeções: copie cenários calculados. Sem parâmetro, diga que a estimativa não está disponível.
 Interativos só no portal, nunca como linha de Places.
-Cada canal tem exatamente um formato principal, herdado da página única. Não liste alternativas. Cada seção: no máximo 2 parágrafos ou 5 bullets.
+Cada canal tem exatamente um formato principal, herdado da página única. Não liste alternativas. Detalhe o necessário para explicar decisão, distribuição e operação, sem preencher volume com texto genérico.

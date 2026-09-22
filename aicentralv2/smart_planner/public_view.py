@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timezone
 from html import escape
 import unicodedata
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from flask import has_request_context, url_for
 
@@ -134,6 +134,15 @@ def _public_asset_url(value: str) -> str:
         base = text(os.getenv("BASE_URL")).rstrip("/")
         return f"{base}{asset}" if base else asset
     return asset
+
+
+def _safe_http_url(value: str) -> str:
+    raw = text(value).strip()
+    try:
+        parsed = urlparse(raw)
+    except ValueError:
+        return ""
+    return raw if parsed.scheme in {"http", "https"} and parsed.netloc else ""
 
 
 def _first_sentence(value: str, limit: int = 140) -> str:
@@ -557,8 +566,8 @@ def format_public_updated(value) -> dict:
 
 WATER_MARKERS = ("água", "agua", "reservatório", "reservatorio", "torneira")
 INVENTORY_DISCLAIMER = (
-    "Os veículos, plataformas, portais e aplicativos desta seção são ambientes "
-    "A leitura apresenta ambientes e contextos de audiência; a divisão é estratégica e não representa contratação."
+    "A leitura apresenta ambientes e contextos de audiência. A divisão é estratégica "
+    "e não representa contratação, disponibilidade ou inventário confirmado."
 )
 INVENTORY_FILTERS = (
     ("todos", "Todos"),
@@ -1034,6 +1043,9 @@ def _full_groups(chapters: list[dict], board: list[dict]) -> list[dict]:
     }
     groups = {key: {"id": key, "label": label, "chapters": [], "sections": []} for key, label in labels.items()}
     for chapter in chapters:
+        normalized_title = unicodedata.normalize("NFKD", text(chapter.get("title"))).encode("ascii", "ignore").decode().lower()
+        if normalized_title.startswith("capa"):
+            continue
         groups[_chapter_group(chapter.get("title"))]["chapters"].append(chapter)
     board_map = {"context": "strategy", "strategy": "strategy", "media": "media", "execution": "execution"}
     for section in board:
@@ -1055,7 +1067,7 @@ def _full_groups(chapters: list[dict], board: list[dict]) -> list[dict]:
     ]
 
 
-def _public_visuals(folha: dict, creative_image: str) -> list[dict]:
+def _public_visuals(folha: dict, creative_image: str, *, explicitly_selected: bool = False) -> list[dict]:
     """Escolhe, em ordem editorial, no máximo duas imagens para o link público."""
     visuals = []
     seen = set()
@@ -1074,7 +1086,10 @@ def _public_visuals(folha: dict, creative_image: str) -> list[dict]:
 
     # O criativo é sempre a peça principal. Persona/lugar só entram como apoio
     # quando foram aprovados explicitamente; rascunho não vira imagem pública.
-    add(creative_image, "creative", "Expressão visual da campanha")
+    creative_manifest = as_dict(manifest.get(text(creative_image)))
+    creative_status = text(creative_manifest.get("status")).lower()
+    if explicitly_selected or not creative_manifest or creative_status in {"approved", "selected", "published"}:
+        add(creative_image, "creative", "Expressão visual da campanha")
     for item in as_list(folha.get("supporting_visuals")):
         row = as_dict(item)
         kind = text(row.get("kind"))
@@ -1114,6 +1129,8 @@ def public_view(row: dict, document: str | None = None) -> dict:
         }
         for kind, card in _sheet_cards(folha).items()
     }
+    for kind in SHEET_TYPES:
+        sheet.setdefault(kind, {})
     board = plan if _is_board(plan) else {}
     board_sections = []
     for section in as_list(board.get("sections")):
@@ -1135,7 +1152,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
                 ],
             })
     chapters = plan_chapters(_client_facing_text(dados.get("planejamento")))
-    page_v2 = as_dict(dados.get("one_page_v2"))
+    page_v2 = as_dict(dados.get("one_page_v3") or dados.get("one_page_v2"))
     branding = as_dict(folha.get("branding") or board.get("branding"))
     public_design = as_dict(folha.get("public_design"))
     asset_manifest = as_list(folha.get("asset_manifest"))
@@ -1145,6 +1162,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
     confidential = as_bool(dados.get("anunciante_confidencial"))
     raw_client = text(meta.get("client") or row.get("cliente") or dados.get("cliente") or campanha.get("cliente"))
     client = "Confidencial" if confidential else raw_client
+    agency = text(meta.get("agency") or row.get("agencia") or row.get("agency") or campanha.get("agencia") or dados.get("agencia"))
     if title == "Anunciante":
         title = text(meta.get("campaign") or campanha.get("campanha")) or "Campanha confidencial"
     period = text(meta.get("period") or row.get("prazo") or campanha.get("periodo") or dados.get("periodo"))
@@ -1203,7 +1221,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
     selected_hero = text(hero_design.get("asset_url"))
     creative_image = selected_hero or text(creative.get("image_url") or as_dict(branding.get("hero")).get("image"))
     hero_image = theme_image or creative_image
-    visuals = _public_visuals(folha, creative_image)
+    visuals = _public_visuals(folha, creative_image, explicitly_selected=bool(selected_hero))
     tagline = _first_sentence(strategy.get("body"), 160)
     highlights = _highlights(
         text(strategy.get("body")),
@@ -1214,7 +1232,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         media.get("months"),
         text(media.get("how")),
     )
-    tem_folha = bool(sheet) or bool(media.get("channels") or media.get("months"))
+    tem_folha = any(bool(card) for card in sheet.values()) or bool(media.get("channels") or media.get("months"))
     tem_completo = bool(chapters or board_sections)
     for channel in media.get("channels") or []:
         channel.update(_playbook_for(channel))
@@ -1225,8 +1243,16 @@ def public_view(row: dict, document: str | None = None) -> dict:
         )
     strategy_parts = _paragraphs(strategy.get("body"))
     defense_parts = _paragraphs(defense.get("body"))
-    concept = text(creative.get("title"))
-    support = text(creative.get("body"))
+    challenge_v3 = as_dict(page_v2.get("challenge"))
+    opportunity_v3 = as_dict(page_v2.get("opportunity"))
+    thesis_v3 = as_dict(page_v2.get("thesis"))
+    creative_v3 = as_dict(page_v2.get("creative_expression"))
+    market_v3 = as_dict(page_v2.get("market_evidence"))
+    market_v3["source_url"] = _safe_http_url(market_v3.get("source_url"))
+    media_narrative = as_dict(page_v2.get("media_narrative"))
+    concept = text(creative_v3.get("headline") or creative.get("title"))
+    concept_body = text(creative_v3.get("supporting_text") or creative.get("body"))
+    support = text(opportunity_v3.get("body") or challenge_v3.get("body") or creative.get("body"))
     strategy_board = _strategy_board(
         strategy_parts,
         audience,
@@ -1235,7 +1261,8 @@ def public_view(row: dict, document: str | None = None) -> dict:
         defense_parts[0] if defense_parts else "",
     )
     funnel = _funnel_from_channels(media.get("channels") or [])
-    overview = text(strategy_parts[0] if strategy_parts else tagline)
+    overview = text(thesis_v3.get("statement") or (strategy_parts[0] if strategy_parts else tagline))
+    overview_support = text(thesis_v3.get("supporting_argument"))
     if not hero_image and _looks_like_water(title, text(strategy.get("body")), concept, support):
         hero_image = "/static/images/smart_planner/hero-water.svg"
     share_image = _public_asset_url(hero_image or "/static/images/smart_planner/share-placeholder.svg")
@@ -1288,7 +1315,16 @@ def public_view(row: dict, document: str | None = None) -> dict:
     full_plan_url = public_document_url(token, "full_plan")
     document_url = full_plan_url if document == "full_plan" else proposal_url
     commercial_defense = as_dict(page_v2.get("commercial_defense"))
-    defense_points = [_client_facing_text(item) for item in as_list(commercial_defense.get("why_this_mix") or commercial_defense.get("why_this_plan")) if text(item)]
+    benefits = as_dict(page_v2.get("benefits"))
+    defense_points = []
+    for item in (
+        as_list(commercial_defense.get("why_this_plan"))
+        + as_list(commercial_defense.get("why_this_mix"))
+        + as_list(commercial_defense.get("approval_arguments"))
+    ):
+        value = _client_facing_text(item)
+        if value and value not in defense_points:
+            defense_points.append(value)
     defense_points.extend(item for item in defense_parts if item not in defense_points)
     if not defense_points:
         channel_labels = [text(item.get("label")) for item in as_list(media.get("channels")) if text(item.get("label"))]
@@ -1300,6 +1336,51 @@ def public_view(row: dict, document: str | None = None) -> dict:
             defense_points.append(f"O método de distribuição é {method}, mantendo a abertura e o ritmo do plano explícitos para validação comercial.")
         if strategy_parts:
             defense_points.append(_first_sentence(strategy_parts[0], 180))
+    defense_groups = [
+        {
+            "title": "Por que esta estratégia",
+            "items": [_client_facing_text(item) for item in as_list(commercial_defense.get("why_this_plan")) + as_list(benefits.get("audience")) + as_list(benefits.get("brand")) if _client_facing_text(item)],
+        },
+        {
+            "title": "Por que este mix",
+            "items": [_client_facing_text(item) for item in as_list(commercial_defense.get("why_this_mix")) if _client_facing_text(item)],
+        },
+        {
+            "title": "O que sustenta a decisão",
+            "items": [_client_facing_text(item) for item in as_list(commercial_defense.get("approval_arguments")) + as_list(benefits.get("operation")) if _client_facing_text(item)],
+        },
+    ]
+    for objection in as_list(commercial_defense.get("objections")):
+        response = _client_facing_text(as_dict(objection).get("response"))
+        if response and response not in defense_groups[2]["items"]:
+            defense_groups[2]["items"].append(response)
+    used_defense = {item for group in defense_groups for item in group["items"]}
+    fallback_defense = iter(item for item in defense_points if item not in used_defense)
+    for group in defense_groups:
+        if not group["items"]:
+            fallback = next(fallback_defense, "")
+            group["items"] = [fallback] if fallback else []
+    defense_groups = [group for group in defense_groups if group["items"]]
+    journey = []
+    for index, raw_item in enumerate(as_list(as_dict(page_v2.get("recommendation")).get("journey"))):
+        item = as_dict(raw_item)
+        if item:
+            role = _client_facing_text(item.get("body") or item.get("role") or item.get("description"))
+            channel = _client_facing_text(item.get("channel"))
+            body = " · ".join(part for part in (role, channel) if part)
+            label = _client_facing_text(item.get("title") or item.get("stage") or item.get("moment") or item.get("label"))
+        else:
+            body = _client_facing_text(raw_item)
+            label = ""
+        if body or label:
+            journey.append({"title": label or f"Etapa {index + 1}", "body": body})
+    outputs = []
+    for raw_output in as_list(page_v2.get("outputs")):
+        output = as_dict(raw_output)
+        name = _client_facing_text(output.get("name"))
+        description = _client_facing_text(output.get("description"))
+        if name or description:
+            outputs.append({"name": name, "description": description})
     approved_mix = bool(media.get("channels")) and int(media.get("total_pct") or 0) > 0
     client_brand = as_dict(branding.get("client") or branding.get("hero"))
     executive = _executive_contact(row, title)
@@ -1327,6 +1408,12 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "house": HOUSE,
         "title": title,
         "client": client,
+        "agency": agency,
+        "cover_identity": {
+            "campaign": title,
+            "client": client if client and client != title else "",
+            "agency": agency,
+        },
         "confidential": confidential,
         "mode": plan_mode,
         "facts": [(item[0], item[1]) for item in facts],
@@ -1364,7 +1451,10 @@ def public_view(row: dict, document: str | None = None) -> dict:
             "method": method,
             "defense": _first_sentence(defense.get("body"), 160),
         },
-        "show_market": _is_real_stat(text(as_dict(sheet.get("market")).get("stat"))),
+        "show_market": (
+            text(market_v3.get("status")).lower() != "omitted"
+            and (bool(text(market_v3.get("insight"))) or _is_real_stat(text(as_dict(sheet.get("market")).get("stat"))))
+        ),
         "tem_folha": tem_folha,
         "tem_completo": tem_completo,
         "chapters": chapters,
@@ -1383,12 +1473,24 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "nav_folha": nav_folha,
         "nav_plano": nav_plano,
         "concept": concept,
+        "concept_body": concept_body,
         "support": support,
         "overview": overview,
+        "overview_support": overview_support,
+        "editorial_context": {
+            "challenge": challenge_v3,
+            "opportunity": opportunity_v3,
+            "media": media_narrative,
+            "market": market_v3,
+            "journey": journey,
+            "benefits": benefits,
+            "outputs": outputs,
+        },
         "strategy_parts": strategy_parts,
         "strategy_board": strategy_board,
         "defense_parts": defense_parts,
-        "defense_points": defense_points[:3],
+        "defense_points": defense_points,
+        "defense_groups": defense_groups,
         "creative_plan": creative_plan,
         "full_groups": _full_groups(chapters, board_sections),
         "funnel": funnel,

@@ -176,7 +176,7 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
     if not briefing and not meta.get("client"):
         raise ValueError("Informe o cliente final ou o briefing antes de montar a página única.")
     chosen = text(presenter_id) or text(dados.get("presenter_brand")) or "centralcomm"
-    page = as_dict(dados.get("one_page_v2"))
+    page = as_dict(dados.get("one_page_v3") or dados.get("one_page_v2"))
     if text(as_dict(page.get("thesis")).get("statement")):
         confidential = as_bool(dados.get("anunciante_confidencial"))
         branding = one_page.resolve_branding(
@@ -306,7 +306,7 @@ def _card_count(plan: dict) -> int:
 def _fill_from_groups(plan: dict, dados: dict) -> dict:
     groups = as_dict((dados or {}).get("planejamento_grupos"))
     core = as_dict((dados or {}).get("strategy_core"))
-    page = as_dict((dados or {}).get("one_page_v2"))
+    page = as_dict((dados or {}).get("one_page_v3") or (dados or {}).get("one_page_v2"))
     thesis = text(core.get("central_thesis")) or text(as_dict(page.get("thesis")).get("statement"))
     bodies = {
         "context": [
@@ -377,7 +377,7 @@ def save_plan(token: str, plan: dict, *, folha: bool = False) -> dict:
     if folha or mode == "one_page":
         # Preserve media/theme/share from the saved folha when the form omits them.
         existing = as_dict(dados.get("folha")) or as_dict(row.get("plan_content") if row else {})
-        for key in ("media", "theme", "share", "branding", "one_page_v2", "visual_inputs"):
+        for key in ("media", "theme", "share", "branding", "one_page_v2", "one_page_v3", "visual_inputs"):
             if key not in incoming and existing.get(key):
                 incoming[key] = existing.get(key)
         if not meta:

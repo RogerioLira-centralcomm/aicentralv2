@@ -498,21 +498,31 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
     creative = as_dict(data.get("creative_expression"))
     estimates = as_dict(data.get("result_estimates"))
     defense = as_dict(data.get("commercial_defense"))
+    market_evidence = as_dict(data.get("market_evidence"))
     audience_model = as_dict(data.get("audience_model"))
     visual_data = as_list(data.get("visual_data"))
     channel_roles = channel_roles_for_one_page(snapshot, rec.get("channel_roles"))
     audience = text(rec.get("audience")) or _audience_line(as_dict(snapshot))
-    strategy_body = text(thesis.get("statement") or rec.get("summary") or challenge.get("body"))
+    opportunity = as_dict(data.get("opportunity"))
+    strategy_parts = [
+        text(thesis.get("statement") or rec.get("summary") or challenge.get("body")),
+        text(opportunity.get("body")),
+    ]
+    strategy_body = "\n\n".join(part for part in strategy_parts if part)
     defense_bits = []
-    for item in as_list(defense.get("why_this_mix")) + as_list(defense.get("why_this_plan")):
+    for item in (
+        as_list(defense.get("why_this_plan"))
+        + as_list(defense.get("why_this_mix"))
+        + as_list(defense.get("approval_arguments"))
+    ):
         value = text(item)
         if value and value not in defense_bits:
             defense_bits.append(value)
-        if len(defense_bits) == 2:
-            break
     if not defense_bits and text(defense.get("closing_statement")):
         defense_bits.append(text(defense.get("closing_statement")))
     market_bits = [text(audience), text(rec.get("message"))]
+    if text(market_evidence.get("insight")):
+        market_bits.append(text(market_evidence.get("insight")))
     if estimates.get("status") == "available" and text(estimates.get("summary")):
         market_bits.append(text(estimates.get("summary")))
     market_body = "\n\n".join(bit for bit in market_bits if bit)
@@ -534,8 +544,11 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
             "Público e canais",
             market_body,
             {
-                "stat": "Calculado" if estimates.get("status") == "available" else "",
-                "stat_label": "Origem do cálculo" if estimates.get("status") == "available" else "",
+                "stat": text(market_evidence.get("stat")),
+                "stat_label": text(market_evidence.get("stat_label") or market_evidence.get("source")),
+                "source": text(market_evidence.get("source")),
+                "source_url": text(market_evidence.get("source_url")),
+                "source_date": text(market_evidence.get("source_date")),
                 "audience_model": audience_model,
                 "visual_data": visual_data,
                 "channel_roles": channel_roles,
@@ -587,6 +600,8 @@ def assemble_from_v2(
     if as_list(snap.get("places")):
         plan["places"] = as_list(snap.get("places"))
     plan["one_page_v2"] = page
+    if int(as_dict(page).get("schema_version") or 0) >= 3:
+        plan["one_page_v3"] = page
     if core:
         plan["strategy_core"] = {
             "id": as_dict(core).get("id"),
@@ -753,6 +768,8 @@ def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
             plan["media"] = media
         if payload.get("one_page_v2"):
             plan["one_page_v2"] = payload.get("one_page_v2")
+        if payload.get("one_page_v3"):
+            plan["one_page_v3"] = payload.get("one_page_v3")
         for key in ("public_design", "asset_manifest", "executive_contact", "audience_model", "visual_data", "visual_direction", "supporting_visuals", "visual_inputs"):
             if key in payload:
                 plan[key] = payload.get(key)

@@ -8,6 +8,9 @@ from aicentralv2.smart_planner.generator import (
     _material_hash,
     _mix_law,
     _normalize_client_channel_names,
+    _normalize_page_contract,
+    _fallback_group_markdown,
+    _one_page_prompt_version,
     _pack,
     _require_llm,
     _stale_generation,
@@ -56,7 +59,7 @@ def test_generation_steps_split_one_page_and_completo():
     ]
     assert "full_strategy" not in {item["id"] for item in one}
     assert {item["id"] for item in full} >= {"full_strategy", "full_media", "full_execution", "full_defense", "compose"}
-    assert decorate_step(one[5])["label"] == "Página única"
+    assert decorate_step(one[5])["label"] == "Narrativa editorial"
     assert decorate_step(one[0])["kind_label"] == "motor"
     assert decorate_step(one[2])["kind_label"] == "skill"
 
@@ -80,12 +83,50 @@ def test_internal_skills_are_versioned_packages():
     truth = load_skill("planner_truth_v1")
     core = load_skill("planner_strategy_core_v1")
     page = load_skill("planner_one_page_v2")
+    editorial = load_skill("planner_one_page_v3")
     assert "snapshot" in truth.lower()
     assert "strategy core" in core.lower() or "núcleo" in core.lower()
     assert "defesa" in page.lower()
     assert "mix aprovado" in page.lower()
     assert "gestão de mídia" in page.lower()
+    assert "número fixo de cards" in editorial.lower()
+    assert "market_evidence" in editorial
     assert load_skill("missing_skill") == ""
+
+
+def test_editorial_v3_is_required_for_cached_one_page_and_preserves_rich_blocks():
+    material_hash = "abc123"
+    core = {"id": "strategy-1"}
+    legacy = {
+        "material_hash": material_hash,
+        "strategy_core_id": "strategy-1",
+        "thesis": {"statement": "Uma tese antiga suficientemente específica."},
+    }
+    assert _usable_page(legacy, material_hash, core) is False
+    page = {
+        **legacy,
+        "schema_version": 3,
+        "prompt_version": _one_page_prompt_version(),
+        "recommendation": {"audience": "Pessoas em decisão", "message": "Mensagem contextual"},
+        "market_evidence": {
+            "insight": "A categoria concentra atenção em momentos de decisão.",
+            "stat": "62%",
+            "stat_label": "Leitura de mercado",
+            "source": "Fonte pública",
+        },
+        "commercial_defense": {
+            "why_this_plan": ["Conecta a marca ao momento de decisão."],
+            "why_this_mix": ["Combina presença e contexto."],
+            "approval_arguments": ["Mantém uma execução mensurável."],
+        },
+    }
+    assert _usable_page(page, material_hash, core) is True
+    cards = cards_from_v2(page, {})
+    market = next(card for card in cards if card["type"] == "market")
+    defense = next(card for card in cards if card["type"] == "defense")
+    assert market["stat"] == "62%"
+    assert market["source"] == "Fonte pública"
+    assert len(defense["body"].split("\n\n")) == 3
 
 
 def test_group_markdown_contract_requires_expected_chapters_and_rejects_fences():
@@ -98,6 +139,39 @@ def test_group_markdown_contract_requires_expected_chapters_and_rejects_fences()
     valid, errors = _validate_group_markdown("planner_full_media_v2", "## Estratégia de mídia\n```\nrascunho\n```")
     assert valid is False
     assert any("bloco de código" in error for error in errors)
+
+
+def test_partial_one_page_is_repaired_from_strategy_core_without_inventing_market_data():
+    page = _normalize_page_contract(
+        {'market_evidence': {'stat': '82%', 'source': ''}},
+        {'pending_decisions': ['Confirmar período']},
+        {
+            'central_thesis': 'Conectar a necessidade confirmada ao serviço oficial da marca.',
+            'recommended_strategy': 'Organizar a jornada pelos canais aprovados.',
+            'priority_audiences': ['Público do briefing'],
+            'channel_roles': [{'channel': 'ooh', 'function': 'presença'}],
+        },
+        {'status': 'not_available'},
+    )
+
+    assert page['thesis']['statement'].startswith('Conectar')
+    assert page['recommendation']['summary'].startswith('Organizar')
+    assert page['recommendation']['channel_roles'][0]['channel'] == 'ooh'
+    assert page['market_evidence']['stat'] == ''
+    assert page['market_evidence']['status'] == 'omitted'
+    assert page['pending_decisions'] == ['Confirmar período']
+
+
+def test_complete_plan_group_has_deterministic_structural_fallback():
+    markdown = _fallback_group_markdown(
+        'planner_full_media_v2', {},
+        {'central_thesis': 'A tese confirmada orienta o plano.'},
+        {'recommendation': {'summary': 'Distribuir presença nos canais aprovados.'}},
+    )
+    valid, errors = _validate_group_markdown('planner_full_media_v2', markdown)
+    assert valid is True
+    assert errors == []
+    assert '## Estratégia de mídia' in markdown
 
 
 def test_full_document_quality_rejects_insufficient_chapters():
@@ -260,7 +334,12 @@ def test_reuses_core_and_page_only_when_briefing_matches():
     digest = _material_hash({"briefing_melhorado": "Divulgar canais digitais da COPASA."})
     assert _usable_core({"central_thesis": "Partir da necessidade do cliente.", "material_hash": digest}, digest)
     assert not _usable_core({"central_thesis": "Partir da necessidade do cliente.", "material_hash": "outro"}, digest)
-    assert _usable_page({"thesis": {"statement": "A campanha parte do serviço."}, "material_hash": digest}, digest)
+    assert _usable_page({
+        "thesis": {"statement": "A campanha parte do serviço."},
+        "material_hash": digest,
+        "schema_version": 3,
+        "prompt_version": _one_page_prompt_version(),
+    }, digest)
     assert not _usable_page(
         {"thesis": {"statement": "A campanha parte do serviço."}, "material_hash": digest, "strategy_core_id": "old"},
         digest,

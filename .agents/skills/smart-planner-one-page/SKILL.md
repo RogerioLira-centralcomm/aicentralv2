@@ -59,6 +59,23 @@ uma segunda imagem aprovada entra como apoio no final. Imagens rejeitadas deixam
 ser referenciadas pelo plano. Logo enviada pelo usuário é a identidade real do
 cliente no link público, em um selo com contraste, padding e cantos arredondados.
 
+## Direção da apresentação pública
+
+- Use a fonte Inter já adotada pela CentralX; não introduza tipografia genérica ou
+  uma fonte de mockup diferente da aplicação.
+- O hero é assimétrico: conteúdo e identidade à esquerda, imagem inteira aprovada
+  à direita, com cantos levemente arredondados. A capa leva logo, texto e imagem
+  também na impressão.
+- Não use rótulos decorativos antes de títulos (como "A decisão", "Mix de mídia"
+  ou "Planejamento completo") nem selo sobre imagem. O título e o conteúdo já
+  devem explicar a seção.
+- Superfícies arredondadas organizam blocos de conteúdo; não crie uma sequência de
+  cards iguais nem adicione bordas, sombras ou chamadas que não tenham função.
+- O segundo visual aprovado aparece junto da ideia criativa como apoio editorial;
+  nunca é duplicado ou usado se estiver rejeitado.
+- O plano completo é uma leitura vertical por capítulos e deve imprimir em A4
+  retrato, com quebras estáveis e sem controles da interface.
+
 ## Logos no CentralX
 
 Buscar nesta ordem: `cx_clients.logo_url` / `logo_upload_path`, depois `cliente_web_info.logo_url` via `tbl_cliente`. Agência pelo vínculo `tbl_cliente_agencia` ou pelo nome no briefing.
@@ -138,6 +155,11 @@ o plano completo interno inclui o bloco `Pontos OOH informados`.
 - Logos só vêm do catálogo/CRM. Imagem gerada nunca deve desenhar logo legível.
 - Trocar skin altera apenas apresentação. Trocar marca apresentadora só regenera
   texto quando o usuário explicitamente pede uma marca principal.
+- `dv360` pode existir apenas como identificador técnico interno. No briefing, no
+  planejamento, na página pública e no PDF, apresente o canal como **Rede de
+  portais e sites**. Explique a seleção por segmentos editoriais e contexto da
+  campanha; não declare uma lista fechada, volume de sites, inventário ou acesso
+  que ainda não estejam cadastrados e confirmados.
 
 ## Performance, custo e QA
 

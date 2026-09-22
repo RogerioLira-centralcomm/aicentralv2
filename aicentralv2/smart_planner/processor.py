@@ -123,8 +123,8 @@ Regras:
 - Nunca invente. Campo sem base no material vai vazio ("" ou []).
 - Não deduza formato criativo ou dispositivo a partir do canal. Só copie formatos e dispositivos citados literalmente.
 - Canal só entra quando o material o cita.
-- Menção genérica a portal, portais, sites ou rede de sites pode usar dv360. Isso não vale para marketplace Amazon.
-- Marketplace Amazon usa amazon_ads. Não o classifique como DV360, rede de portais ou Places.
+- Menção genérica a portal, portais, sites ou rede de sites pode usar o id técnico interno dv360. Para qualquer texto visível, o canal se chama "Rede de portais e sites"; a diretriz é selecionar contextos e segmentos editoriais, nunca declarar uma lista, volume de sites ou inventário ainda não confirmado. Isso não vale para marketplace Amazon.
+- Marketplace Amazon usa amazon_ads. Não o classifique como dv360, Rede de portais e sites ou Places.
 - Canal "places" só entra se o material citar um venue desta lista (aeroporto, shopping ou evento).
 - Pontos enviados como inventário OOH são referência confirmada: copie inventario_ooh com texto e ordem. Eles implicam o canal ooh, mas não preço, fornecedor, disponibilidade ou alcance.
 - Nunca invente slug ou audiência. Places devem aparecer como ambientes consolidados, sem ponto ou raio.

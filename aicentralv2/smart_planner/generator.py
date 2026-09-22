@@ -46,6 +46,10 @@ Quando houver OOH ou Places, o documento não pode fazer afirmações de preço,
 negociação, fornecedor, ponto, raio, circuito, inventário, disponibilidade comercial ou promessa de veiculação. Pode conter
 investimento total, divisão percentual, público, segmentação, papel estratégico e defesa do plano. Apps e sites de Places
 só podem aparecer como contexto de audiência digital observado no catálogo.
+Quando o material usar o id técnico "dv360", reescreva toda ocorrência visível
+como "Rede de portais e sites". A recomendação deve falar de segmentos editoriais
+e contexto da campanha; não pode alegar lista fechada, quantidade de sites,
+inventário, parceiros ou acesso ainda não confirmado.
 Essa restrição vale para afirmações comerciais sobre compra de mídia. Não trate como infração expressões de público ou
 categoria, como "intenção de compra", "compras de imóveis" ou "jornada de compra". Se encontrar uma afirmação comercial
 indevida, remova ou reescreva o trecho no campo `corrected`; não devolva apenas a reprovação.
@@ -209,11 +213,17 @@ def _run(token: str, mode: str) -> dict:
         mark_step(token, "one_page", "running")
         page = _one_page_v2(snapshot, evidence, core, estimates)
         page = _review_page(page, snapshot, estimates)
+        page = _normalize_client_channel_names(page)
         page["creative_plan"] = _creative_plan(page, snapshot)
         page["material_hash"] = material_hash
         folha = _materialize_folha(token, snapshot, page, core)
         merge_dados(token, {"one_page_v2": page, "folha": folha})
         mark_step(token, "one_page", "done")
+
+    normalized_page = _normalize_client_channel_names(page)
+    if normalized_page != page:
+        page = normalized_page
+        merge_dados(token, {"one_page_v2": page})
 
     if not as_list(page.get("creative_plan")):
         page["creative_plan"] = _creative_plan(page, snapshot)
@@ -255,9 +265,14 @@ def _run(token: str, mode: str) -> dict:
             _group_markdown("planner_commercial_defense_v1", snapshot, evidence, core, page, estimates, folha)
         )
 
-    cover = _cover_markdown(snapshot, core)
+    strategy_md = _normalize_client_channel_names(strategy_md)
+    media_md = _normalize_client_channel_names(media_md)
+    execution_md = _normalize_client_channel_names(execution_md)
+    defense_md = _normalize_client_channel_names(defense_md)
+    cover = _normalize_client_channel_names(_cover_markdown(snapshot, core))
     final = normalize_markdown("\n\n".join(part for part in (cover, strategy_md, media_md, execution_md, defense_md) if part))
     final = _review_document(final, snapshot, page, estimates)
+    final = _normalize_client_channel_names(final)
     final = _repair_channel_policy_text(final, snapshot)
     _validate_channel_policy(final, snapshot)
     quality = _validate_plan_markdown(final)
@@ -304,6 +319,21 @@ def _redact_pack(payload: dict, name: str) -> dict:
     if sources:
         data["sources"] = sources
     return data
+
+
+def _normalize_client_channel_names(value):
+    """Preserva ids técnicos, mas nunca deixa infraestrutura no texto comercial."""
+    if isinstance(value, str):
+        return re.sub(r"\bdv\s*360\b", "Rede de portais e sites", value, flags=re.IGNORECASE)
+    if isinstance(value, list):
+        return [_normalize_client_channel_names(item) for item in value]
+    if isinstance(value, dict):
+        technical_keys = {"id", "channel", "channel_id", "primary_format_id", "surface"}
+        return {
+            key: item if key in technical_keys else _normalize_client_channel_names(item)
+            for key, item in value.items()
+        }
+    return value
 
 
 def _review_page(page: dict, snapshot: dict, estimates: dict) -> dict:

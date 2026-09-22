@@ -34,6 +34,13 @@ Os demais campos do schema são memória interna para o plano completo. Não rep
 ## Camada visual e publicação
 O criativo é uma peça visual principal: ele abre o hero do material público. A interface interna pode escolher se a mesma imagem cria também um fundo desfocado; isso é apresentação, não muda a tese. Logo enviada pelo usuário é a identidade real da marca no link público. Nunca trate uma imagem rejeitada como visual de apoio ou hero.
 
+No link público, a composição é editorial e usa Inter, a fonte da CentralX. O hero
+tem texto e identidade à esquerda e a imagem aprovada inteira à direita, com cantos
+leves. A segunda imagem aprovada, quando existir, apoia a ideia criativa. Não crie
+eyebrows, selos, chamadas ou bordas decorativas antes dos títulos; cada título deve
+ser compreensível sozinho. O plano completo deve manter a mesma leitura vertical e
+ter impressão A4 retrato com a capa contendo logo, texto e imagem.
+
 ## Composição
 Skill-base + snapshot + Strategy Core + estimates + mix_aprovado + esta skill.
 Sintetize o núcleo. Não invente outra tese. Não use pitch estático de outro cliente.
@@ -85,5 +92,10 @@ JSON apenas no schema one_page_v2:
 - Traduza termos: B2B para empresas, B2C para pessoas e retargeting para voltar a alcançar quem demonstrou interesse. Não escreva os dois termos juntos.
 - Não mostre lacunas, pendências, metodologia ou indisponibilidade de estimativas na folha do cliente.
 - Para OOH/Places: não faça afirmações de preço, cotação, mínimo, compra de mídia, negociação, fornecedor, inventário, ponto, raio ou disponibilidade comercial. "Intenção de compra", "compras de imóveis" e "jornada de compra" continuam válidas quando descrevem o público.
+- `dv360` é somente um id técnico do catálogo. Nunca escreva "DV360" para o
+  cliente. Use "Rede de portais e sites" e descreva a diretriz como seleção de
+  ambientes por segmento editorial e contexto da campanha. Não afirme uma base
+  fechada, quantidade de sites, inventário, parceiros ou acesso ainda não
+  confirmados.
 - Um único `primary_format_id` por canal. Não liste alternativas.
 - Formato em vídeo descreve o entregável recomendado; `image_prompt` sempre pede uma referência visual estática no canal. Nunca peça vídeo, animação, áudio, frames ou storyboard.

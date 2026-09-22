@@ -130,6 +130,29 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["hero"]["background_image"], "/generated/persona.png")
         self.assertTrue(view["hero"]["uses_image_background"])
 
+    def test_public_views_hide_dv360_from_one_page_and_complete_plan_copy(self):
+        row = {
+            "nome_campanha": "Campanha editorial",
+            "cliente": "Marca",
+            "dados_detectados": {
+                "planejamento": "## Mídia\nDV360 seleciona portais por contexto.",
+                "one_page_v2": {"commercial_defense": {"why_this_mix": ["DV 360 amplia cobertura."]}},
+                "folha": {"sections": [{"cards": [
+                    {"type": "strategy", "body": "DV360 organiza a presença editorial."},
+                    {"type": "creative", "title": "DV 360 em contexto", "body": "Peça de apoio."},
+                ]}]},
+            },
+            "plan_content": {"sections": [{"id": "media", "title": "Mídia", "cards": [
+                {"title": "DV360", "body": "DV 360 por segmentos."},
+            ]}]},
+        }
+        proposal = public_view(row, document="proposal")
+        complete = public_view(row, document="full_plan")
+        self.assertNotIn("dv360", proposal["sheet"]["strategy"]["body"].lower())
+        self.assertIn("Rede de portais e sites", proposal["defense_points"][0])
+        self.assertNotIn("dv360", str(complete["chapters"]).lower())
+        self.assertNotIn("dv360", str(complete["board"]).lower())
+
     def test_complete_plan_splits_markdown_chapters(self):
         chapters = plan_chapters(
             "## Capa\nCampanha X\n\n## Estratégia e Mix\n| Canal | % |\n| --- | --- |\n| G1 | 20 |\n"

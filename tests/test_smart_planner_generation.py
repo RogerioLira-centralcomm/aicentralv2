@@ -7,6 +7,7 @@ from aicentralv2.smart_planner.generator import (
     _as_plan_markdown,
     _material_hash,
     _mix_law,
+    _normalize_client_channel_names,
     _pack,
     _require_llm,
     _stale_generation,
@@ -32,6 +33,19 @@ def test_smart_planner_catalog_covers_amazon_marketplace_and_logan():
     assert CHANNEL_CATALOG["logan"]["group"] == "ooh"
     assert PRIMARY_FORMATS["amazon_ads"]["surface"] == "display"
     assert PRIMARY_FORMATS["logan"]["surface"] == "display"
+
+
+def test_generation_normalizes_dv360_in_visible_copy_without_changing_channel_ids():
+    normalized = _normalize_client_channel_names({
+        "recommendation": {"summary": "DV360 amplia o contexto."},
+        "creative_expression": {"channel": "dv360", "headline": "DV 360 no plano"},
+        "creative_plan": [{"channel_id": "dv360", "primary_format_id": "display_300_250", "role": "DV360"}],
+    })
+    assert normalized["recommendation"]["summary"] == "Rede de portais e sites amplia o contexto."
+    assert normalized["creative_expression"]["channel"] == "dv360"
+    assert normalized["creative_expression"]["headline"] == "Rede de portais e sites no plano"
+    assert normalized["creative_plan"][0]["channel_id"] == "dv360"
+    assert normalized["creative_plan"][0]["role"] == "Rede de portais e sites"
 
 
 def test_generation_steps_split_one_page_and_completo():

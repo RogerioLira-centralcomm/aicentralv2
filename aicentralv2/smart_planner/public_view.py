@@ -118,6 +118,11 @@ def _clip(value: str, limit: int = FACT_LIMIT) -> str:
     return cut.rstrip(".,;:") + "…"
 
 
+def _client_facing_text(value) -> str:
+    """Remove nomes de infraestrutura dos materiais destinados ao cliente."""
+    return re.sub(r"\bdv\s*360\b", "Rede de portais e sites", text(value), flags=re.IGNORECASE)
+
+
 def _public_asset_url(value: str) -> str:
     """Make local creative assets usable by social crawlers outside the app."""
     asset = text(value)
@@ -597,12 +602,12 @@ CHANNEL_PLAYBOOK = {
     "dv360": {
         "priority": "Cobertura complementar",
         "funnel": "Sustentar presença",
-        "goal": "Expandir cobertura regional e presença em diferentes contextos de navegação.",
-        "formats": ["Display responsivo", "Banners", "Vídeo programático, se aprovado", "Native, se disponível", "Inventário web", "Inventário in-app"],
-        "placements": ["Rede de portais e sites", "Aplicativos compatíveis"],
-        "platforms": ["DV360"],
-        "buy": "Programática via DV360",
-        "status": "Sujeito a disponibilidade",
+        "goal": "Sustentar cobertura em contextos editoriais alinhados ao público e à campanha.",
+        "formats": ["Display responsivo", "Banners", "Native quando aderente ao contexto", "Ambientes web e in-app compatíveis"],
+        "placements": ["Rede de portais e sites", "Aplicativos compatíveis com a estratégia"],
+        "platforms": ["Rede de portais e sites"],
+        "buy": "Seleção editorial por segmento e contexto",
+        "status": "Diretriz de seleção editorial",
     },
 }
 
@@ -623,9 +628,9 @@ CREATIVE_GUIDE = {
     ],
     "dv360": [
         {"title": "Display responsivo", "note": "Um mestre para vários recortes."},
-        {"title": "Formatos horizontais e mobile", "note": "Portais e apps."},
-        {"title": "Native, se aprovado", "note": "Quando o inventário permitir."},
-        {"title": "HTML5, se aprovado", "note": "Variação leve por contexto."},
+        {"title": "Formatos horizontais e mobile", "note": "Adaptados aos contextos editoriais selecionados."},
+        {"title": "Native contextual", "note": "Quando fizer sentido para o ambiente escolhido."},
+        {"title": "Variações por segmento", "note": "Uma mesma tese com leitura adequada a cada contexto."},
     ],
 }
 
@@ -920,22 +925,15 @@ def _inventory(channels: list[dict], praca: str, detalhe: str) -> list[dict]:
         ])
     if "dv360" in keys:
         rows.extend([
-            {"name": "UOL", "kind": "Portal", "scope": "Nacional", "role": "Contexto de notícia e serviço", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Inventário potencial, não contratado."},
-            {"name": "Terra", "kind": "Portal", "scope": "Nacional", "role": "Cobertura adicional", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Recomendado, não contratado."},
-            {"name": "G1", "kind": "Portal", "scope": "Nacional", "role": "Alcance editorial", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Depende de inventário e brand safety."},
-            {"name": "R7", "kind": "Portal", "scope": "Nacional", "role": "Presença em notícias", "buy": "DV360", "formats": "Display, vídeo", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Sujeito a disponibilidade."},
+            {"name": "Notícias e atualidades", "kind": "Segmento editorial", "scope": "Nacional", "role": "Presença em informação e serviço", "buy": "Rede de portais e sites", "formats": "Display, native", "status": "Diretriz", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Seleção editorial alinhada ao público e à mensagem."},
+            {"name": "Negócios e finanças", "kind": "Segmento editorial", "scope": "Nacional", "role": "Contexto de decisão e interesse", "buy": "Rede de portais e sites", "formats": "Display, native", "status": "Diretriz", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Ambientes escolhidos por aderência temática."},
         ])
         if regional:
             rows.extend([
-                {"name": "Estado de Minas", "kind": "Portal", "scope": "Regional", "role": "Proximidade editorial", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Veículo mineiro potencial."},
-                {"name": "O Tempo", "kind": "Portal", "scope": "Regional", "role": "Cobertura local", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Recomendado para Minas."},
-                {"name": "G1 Minas", "kind": "Portal", "scope": "Regional", "role": "Notícia do estado", "buy": "DV360", "formats": "Display, native", "status": "Contexto", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Cobertura regional conforme o recorte da campanha."},
-                {"name": "Portais do interior", "kind": "Portal", "scope": "Regional", "role": "Capilaridade municipal", "buy": "DV360", "formats": "Display", "status": "Contexto", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Contexto regional para ampliar a presença editorial."},
+                {"name": "Conteúdo regional", "kind": "Segmento editorial", "scope": "Regional", "role": "Proximidade com a praça", "buy": "Rede de portais e sites", "formats": "Display, native", "status": "Diretriz", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Recorte regional conforme a praça confirmada."},
             ])
         rows.extend([
-            {"name": "Apps de notícias", "kind": "Aplicativo", "scope": "Nacional", "role": "Presença in-app", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "Categoria de conteúdo, não app nomeado."},
-            {"name": "Apps de clima", "kind": "Aplicativo", "scope": "Nacional", "role": "Contexto utilitário", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "Ambiente cotidiano, não contratado."},
-            {"name": "Apps de mobilidade", "kind": "Aplicativo", "scope": "Nacional", "role": "Deslocamento", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "Sujeito a inventário."},
+            {"name": "Ambientes de conteúdo e utilidade", "kind": "Categoria digital", "scope": "Nacional", "role": "Presença complementar em navegação cotidiana", "buy": "Rede de portais e sites", "formats": "Display, native", "status": "Diretriz", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "A seleção final considera o segmento editorial e a aderência à campanha."},
         ])
     return rows
 
@@ -1101,7 +1099,14 @@ def public_view(row: dict, document: str | None = None) -> dict:
     )
     if not _cards(folha) and not has_folha_media and plan and not _is_board(plan):
         folha = plan
-    sheet = _sheet_cards(folha)
+    sheet = {
+        kind: {
+            **card,
+            "title": _client_facing_text(card.get("title")),
+            "body": _client_facing_text(card.get("body")),
+        }
+        for kind, card in _sheet_cards(folha).items()
+    }
     board = plan if _is_board(plan) else {}
     board_sections = []
     for section in as_list(board.get("sections")):
@@ -1110,13 +1115,19 @@ def public_view(row: dict, document: str | None = None) -> dict:
         if cards:
             board_sections.append({
                 "id": text(item.get("id")),
-                "title": text(item.get("title") or item.get("id")),
+                "title": _client_facing_text(item.get("title") or item.get("id")),
                 "cards": [
-                    {**card, "title_html": _inline_html(card.get("title")), "body_html": _inline_html(card.get("body"))}
+                    {
+                        **card,
+                        "title": _client_facing_text(card.get("title")),
+                        "body": _client_facing_text(card.get("body")),
+                        "title_html": _inline_html(_client_facing_text(card.get("title"))),
+                        "body_html": _inline_html(_client_facing_text(card.get("body"))),
+                    }
                     for card in cards
                 ],
             })
-    chapters = plan_chapters(text(dados.get("planejamento")))
+    chapters = plan_chapters(_client_facing_text(dados.get("planejamento")))
     page_v2 = as_dict(dados.get("one_page_v2"))
     branding = as_dict(folha.get("branding") or board.get("branding"))
     public_design = as_dict(folha.get("public_design"))
@@ -1131,7 +1142,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         title = text(meta.get("campaign") or campanha.get("campanha")) or "Campanha confidencial"
     period = text(meta.get("period") or row.get("prazo") or campanha.get("periodo") or dados.get("periodo"))
     media = _media_board(folha, campanha)
-    canais = text(meta.get("canais"))
+    canais = _client_facing_text(meta.get("canais"))
     method = text(media.get("method_label"))
     if canais and method and f" · {method}" in canais:
         canais = canais.replace(f" · {method}", "").strip()
@@ -1147,7 +1158,9 @@ def public_view(row: dict, document: str | None = None) -> dict:
     verba = text(meta.get("budget") or row.get("budget") or campanha.get("verba") or dados.get("verba"))
     if verba.lower() in {"a fechar", "a definir", "-"}:
         verba = ""
-    public_fact = audience if audience and len(audience) <= FACT_LIMIT else (_clip(audience, 36) if audience else "")
+    # O público confirmado é mostrado por inteiro na leitura editorial. No resumo
+    # compacto da capa ele só entra quando cabe sem truncamento ou reticências.
+    public_fact = audience if audience and len(audience) <= FACT_LIMIT else ""
     facts = [
         item
         for item in (
@@ -1268,7 +1281,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
     full_plan_url = public_document_url(token, "full_plan")
     document_url = full_plan_url if document == "full_plan" else proposal_url
     commercial_defense = as_dict(page_v2.get("commercial_defense"))
-    defense_points = [text(item) for item in as_list(commercial_defense.get("why_this_mix") or commercial_defense.get("why_this_plan")) if text(item)]
+    defense_points = [_client_facing_text(item) for item in as_list(commercial_defense.get("why_this_mix") or commercial_defense.get("why_this_plan")) if text(item)]
     defense_points.extend(item for item in defense_parts if item not in defense_points)
     if not defense_points:
         channel_labels = [text(item.get("label")) for item in as_list(media.get("channels")) if text(item.get("label"))]

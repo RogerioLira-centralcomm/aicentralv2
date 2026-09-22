@@ -17,6 +17,10 @@
     if (event.event === 'tool.unavailable') return {event:'progress', message:'Continuando com as informações disponíveis…'};
     if (event.event === 'action.proposed') return {event:'v2.action', action:event.action || {}};
     if (event.event === 'artifact.created') return {event:'v2.artifact', artifact:event.artifact};
+    // V2 sends the complete visible draft on every delta. Replace the current
+    // draft instead of appending it, and never wait for answer.completed to
+    // show the first useful paragraph.
+    if (event.event === 'answer.delta') return {event:'replace', text:String(event.answer || '')};
     if (event.event === 'answer.completed') return {event:'v2.answer', response:event.response || {}};
     if (event.event === 'run.failed') return {event:'error', message:event.message || 'A execução foi interrompida.'};
     if (event.event === 'run.completed') return {event:'done', status:event.status === 'cancelled' ? 'stopped' : (event.status || 'failed'), conversation_id:event.conversation_id};

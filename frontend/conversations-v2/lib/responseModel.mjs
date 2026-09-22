@@ -7,6 +7,43 @@ export function checklistPrompt(items) {
 
 const RESPONSE_KEYS = new Set(['answer', 'text', 'content', 'response', 'output']);
 
+function decodePartialJsonString(value) {
+  const escapes = {'"': '"', '\\': '\\', '/': '/', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t'};
+  let output = '';
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (character !== '\\') { output += character; continue; }
+    if (index + 1 >= value.length) break;
+    const escaped = value[index + 1];
+    if (escaped === 'u') {
+      const code = value.slice(index + 2, index + 6);
+      if (!/^[0-9a-f]{4}$/i.test(code)) break;
+      output += String.fromCharCode(Number.parseInt(code, 16));
+      index += 5;
+      continue;
+    }
+    output += escapes[escaped] ?? escaped;
+    index += 1;
+  }
+  return output;
+}
+
+function partialStructuredText(value) {
+  const raw = String(value || '');
+  const matches = [...raw.matchAll(/\"(?:answer|content)\"\s*:\s*\"/gi)];
+  if (!matches.length) return null;
+  const start = matches[matches.length - 1].index + matches[matches.length - 1][0].length;
+  let escaped = false;
+  let end = raw.length;
+  for (let index = start; index < raw.length; index += 1) {
+    const character = raw[index];
+    if (character === '"' && !escaped) { end = index; break; }
+    escaped = character === '\\' && !escaped;
+    if (character !== '\\') escaped = false;
+  }
+  return decodePartialJsonString(raw.slice(start, end));
+}
+
 function decodeStructuredValue(value, depth = 0) {
   if (depth > 4 || value == null) return value;
   if (typeof value === 'string') {
@@ -28,7 +65,13 @@ function decodeStructuredValue(value, depth = 0) {
 
 export function normalizeAnswerText(value) {
   const decoded = decodeStructuredValue(value);
-  return typeof decoded === 'string' ? decoded : String(value || '');
+  if (typeof decoded !== 'string') return String(value || '');
+  if (decoded !== value) return decoded;
+  const partial = partialStructuredText(decoded);
+  if (partial !== null) return partial;
+  const clean = decoded.trimStart();
+  if (/^(?:```(?:json)?\s*)?["']?\s*[\[{]/i.test(clean)) return '';
+  return decoded;
 }
 
 export function reconcileCompletedResponse(streamingResponse, completedResponse, hasArtifact = false) {

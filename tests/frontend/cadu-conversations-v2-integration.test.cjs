@@ -17,6 +17,10 @@ test('runtime v2 translates internal events into public UI events', () => {
     {event:'progress', message:'Preparando o briefing…'}
   );
   assert.equal(runtime.normalize({event:'tool.completed', name:'private.tool'}).message.includes('private.tool'), false);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(runtime.normalize({event:'answer.delta', answer:'Primeiro parágrafo'}))),
+    {event:'replace', text:'Primeiro parágrafo'}
+  );
   assert.equal(runtime.normalize({event:'answer.completed', response:{answer:'Pronto'}}).event, 'v2.answer');
   assert.equal(runtime.normalize({event:'artifact.created', artifact:{id:'a'}}).event, 'v2.artifact');
   assert.equal(runtime.normalize({event:'run.completed', status:'completed'}).event, 'done');
@@ -509,6 +513,10 @@ test('conversation response model preserves execution order and explicit checkli
   assert.equal(model.normalizeAnswerText('{"text":{"content":"Resposta limpa"}}'), 'Resposta limpa');
   assert.equal(model.normalizeAnswerText('```json\n{"text":{"content":"Resposta cercada"}}\n```'), 'Resposta cercada');
   assert.equal(model.normalizeAnswerText('"{\\"text\\":{\\"content\\":\\"Resposta dupla\\"}}"'), 'Resposta dupla');
+  assert.equal(model.normalizeAnswerText('{"text":{"content":"Resposta parcial\\ncom dois parágrafos'), 'Resposta parcial\ncom dois parágrafos');
+  assert.equal(model.normalizeAnswerText('prefixo {"text":{"content":"Resposta parcial segura'), 'Resposta parcial segura');
+  assert.equal(model.normalizeAnswerText('{"text":{'), '');
+  assert.equal(model.normalizeAnswerText('{"confidence":"high","blocks":['), '');
   assert.equal(model.normalizeAnswerText('Texto normal'), 'Texto normal');
   const streamed = 'Abertura útil. ' + 'Conteúdo completo transmitido durante o streaming. '.repeat(30);
   assert.equal(model.reconcileCompletedResponse({answer: streamed}, {answer: 'Abertura útil.'}).answer, streamed);

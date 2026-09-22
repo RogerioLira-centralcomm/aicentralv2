@@ -583,6 +583,8 @@ test('conversation attachment model preserves validation and destination rules',
   assert.match(app, /document\.body/);
   assert.match(composer, /cv-attachment-preview/);
   assert.match(composer, /cv-attachment-list/);
+  assert.match(composer, /event\.stopPropagation\(\)/);
+  assert.match(app, /known\.has\(key\)/);
   assert.match(styles, /\.cv-drop-overlay \{ position:fixed; inset:0;/);
   assert.match(styles, /\.cv-attachment-chip \{[^}]*grid-template-columns:40px minmax\(0,1fr\)/);
 });

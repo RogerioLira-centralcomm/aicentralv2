@@ -131,6 +131,7 @@ export function WorkspaceChatComposer({
   const shellClass = homeMode ? 'cv-composer-shell cadu-ds-home-chat-shell' : 'cv-composer-shell';
   const handleDrop = event => {
     event.preventDefault();
+    event.stopPropagation();
     setContextActive(false);
     const files = Array.from(event.dataTransfer?.files || []);
     // The composer is itself a valid drop target. Do not try to parse a file

@@ -375,7 +375,11 @@ export default function App({bootstrap}) {
     const staged = [];
     setAttachments(current => {
       const next = [...current];
+      const fileKey = file => [file?.name, file?.size, file?.type, file?.lastModified].join(':');
+      const known = new Set(next.map(item => fileKey(item.file)));
       for (const file of files) {
+        const key = fileKey(file);
+        if (known.has(key)) continue;
         if (next.length >= MAX_ATTACHMENTS) {
           trace(attachmentIssues.limit.title, attachmentIssues.limit.detail, 'error');
           break;
@@ -387,7 +391,7 @@ export default function App({bootstrap}) {
         }
         const previewUrl = file.type?.startsWith('image/') ? URL.createObjectURL(file) : '';
         const item = createStagedAttachment(file, attachmentDestination, previewUrl);
-        staged.push(item); next.push(item);
+        known.add(key); staged.push(item); next.push(item);
       }
       return next;
     });

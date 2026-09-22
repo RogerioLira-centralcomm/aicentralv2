@@ -135,10 +135,7 @@ function Login({bootstrap}) {
       event.preventDefault();
       return;
     }
-    event.preventDefault();
-    const form = event.currentTarget;
     setLoading(true);
-    window.setTimeout(() => form.submit(), 2000);
   };
   return <AuthFrame bootstrap={bootstrap} loading={loading}>
     <PageHeading title="Entre na sua conta" description="Continue de onde parou no Cadu Workspace." />
@@ -169,10 +166,7 @@ function Signup({bootstrap}) {
       event.preventDefault();
       return;
     }
-    event.preventDefault();
-    const form = event.currentTarget;
     setLoading(true);
-    window.setTimeout(() => form.submit(), 2000);
   };
   const errors = (bootstrap.signupErrors || []).map(message => ['error', message]);
   return <AuthFrame bootstrap={{...bootstrap, messages: [...(bootstrap.messages || []), ...errors]}} signup loading={loading}>
@@ -196,6 +190,15 @@ function Signup({bootstrap}) {
 function ForgotPassword({bootstrap}) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
+  if (bootstrap.requestSent) return <AuthFrame bootstrap={{...bootstrap, messages: []}} visual={false}>
+    <section className="cadu-auth-result" role="status">
+      <span className="cadu-auth-result-icon"><Icon name="mail" size={25}/></span>
+      <PageHeading title="Verifique seu email" description="Se houver uma conta ativa para esse endereço, o link para criar uma nova senha chegará em alguns minutos." />
+      <div className="cadu-auth-result-note"><Icon name="lock" size={16}/><span>O link expira em 1 hora. Confira também a caixa de spam.</span></div>
+      <a className="cadu-auth-submit" href={bootstrap.loginUrl}><span>Voltar para o login</span><Icon name="arrow" size={17}/></a>
+      <a className="cadu-auth-back" href={bootstrap.formAction}><Icon name="arrowLeft" size={16}/> Tentar outro email</a>
+    </section>
+  </AuthFrame>;
   return <AuthFrame bootstrap={bootstrap} visual={false}>
     <PageHeading title="Recupere seu acesso" description="Informe seu email e enviaremos um link para redefinir sua senha." />
     <form action={bootstrap.formAction} method="POST" onSubmit={() => setLoading(true)} className="cadu-auth-form">
@@ -251,7 +254,7 @@ const dataNode = document.getElementById('cadu-auth-bootstrap');
 if (node && dataNode) {
   try {
     const bootstrap = JSON.parse(dataNode.textContent || '{}');
-    createRoot(node).render(<ThemeProvider skin="workspace" theme="light" persistKey="cadu-auth-theme"><App bootstrap={bootstrap}/></ThemeProvider>);
+    createRoot(node).render(<ThemeProvider skin="workspace" theme="light" persistKey="cadu-auth-theme" locked><App bootstrap={bootstrap}/></ThemeProvider>);
   } catch (error) {
     node.innerHTML = '<p role="alert" class="cadu-auth-fallback">Não foi possível abrir esta tela. Atualize a página.</p>';
     console.error(error);

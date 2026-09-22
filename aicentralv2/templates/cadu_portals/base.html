@@ -27,7 +27,7 @@
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
   {% block navigation %}{% set cadu_active_product = portal_product %}{% include 'cadu/_product_nav.html' %}{% endblock %}
   <main id="content" class="{% block content_class %}{% endblock %}" tabindex="-1">{% block content %}{% endblock %}</main>
-  {% if portal_product != 'studio' %}
+  {% if portal_product not in ('studio', 'workspace-onboarding') %}
     {% if portal_product == 'workspace-public' %}
       <footer class="cadu-public-footer" aria-label="Cadu Media e conteúdos públicos">
         <section class="cadu-public-footer__news" aria-labelledby="cadu-public-news-title">
@@ -73,6 +73,6 @@
     <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=19"></script>
   {% endif %}
   {% block portal_scripts %}{% endblock %}
-  {% if portal_product != 'workspace' %}<script defer src="{{ url_for('static', filename='js/cadu-app-sidebar.js') }}?v=2"></script>{% endif %}
+  {% if portal_product != 'workspace' and portal_product != 'workspace-onboarding' %}<script defer src="{{ url_for('static', filename='js/cadu-app-sidebar.js') }}?v=2"></script>{% endif %}
 </body>
 </html>

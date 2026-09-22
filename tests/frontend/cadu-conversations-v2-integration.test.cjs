@@ -83,12 +83,12 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(viewportHook, /window\.visualViewport/);
   assert.match(viewportHook, /--workspace-visual-height/);
   assert.match(viewportHook, /data-workspace-keyboard-open/);
-  assert.match(home, /isMobile \? <WorkspaceMobileChrome/);
+  assert.match(home, /isMobile \?\s*\(?\s*<WorkspaceMobileChrome/);
   assert.match(projects, /isMobile \? <WorkspaceMobileChrome/);
   assert.match(brands, /isMobile \? <WorkspaceMobileChrome/);
   assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
-  assert.match(home, /onOpenResource=\{item => \{/);
-  assert.match(home, /setProjectRef\(item\.projectRef/);
+  assert.match(home, /onOpenResource=\{item => isDockResource\(item\) \? openWorkspaceResourceConversation/);
+  assert.match(home, /: openWorkspaceDetail\(item\)/);
   assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(brands, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(sidebar, /Projeto ativo/);
@@ -96,6 +96,10 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(navigation, /target\.searchParams\.set\('project_ref', projectRef\)/);
   assert.match(navigation, /target\.searchParams\.set\('history', '1'\)/);
   assert.match(dock, /DockTooltip/);
+  assert.match(contextSidebar, /const visibleProjects = projects\.slice\(0, 10\)/);
+  assert.match(contextSidebar, /brands\.slice\(0, 5\)/);
+  assert.match(contextSidebar, /brand\.logoUrl && <VisualIdentity/);
+  assert.doesNotMatch(contextSidebar, /project-child[^\n]*<VisualIdentity/);
   assert.match(dock, /createPortal/);
   assert.match(dock, /role="tooltip"/);
   assert.match(dock, /const resolvedAccountUrl = accountUrl;/);

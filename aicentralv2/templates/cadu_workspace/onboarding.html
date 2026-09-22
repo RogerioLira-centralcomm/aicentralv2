@@ -1,6 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Prepare seu Workspace — Cadu{% endblock %}
 {% block product_id %}workspace-onboarding{% endblock %}
+{% block navigation %}{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-onboarding.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block content %}
 <main class="ws-onboarding" data-onboarding-root>
@@ -23,15 +24,23 @@
       {% if error %}<div class="ws-onboarding__error" role="alert">{{ error }}</div>{% endif %}
 
       <ol class="ws-onboarding__progress" aria-label="Etapas da configuração">
-        <li class="is-active" data-progress-step="1"><b>1</b><span>Contexto</span></li>
-        <li data-progress-step="2"><b>2</b><span>Marca e projeto</span></li>
-        <li data-progress-step="3"><b>3</b><span>Revisar e criar</span></li>
+        <li class="is-active" data-progress-step="1"><b>1</b><span>Boas-vindas</span></li>
+        <li data-progress-step="2"><b>2</b><span>Operação</span></li>
+        <li data-progress-step="3"><b>3</b><span>Marca e projeto</span></li>
+        <li data-progress-step="4"><b>4</b><span>Revisar</span></li>
       </ol>
 
       <form method="post" enctype="multipart/form-data" class="ws-onboarding__form" data-onboarding-form>
         <input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}">
 
-        <fieldset class="ws-onboarding__step is-visible" data-step="1">
+        <fieldset class="ws-onboarding__step ws-onboarding__welcome is-visible" data-step="1">
+          <legend>Uma base para o trabalho continuar.</legend>
+          <p>Vamos criar a primeira organização, marca e projeto do seu time. Depois, o mesmo contexto acompanha conversas, planejamento, criação e resultados.</p>
+          <ul><li><b>Organização</b><span>Quem trabalha e como o acesso será organizado.</span></li><li><b>Marca</b><span>Identidade, site e referências que orientam o trabalho.</span></li><li><b>Projeto</b><span>O primeiro objetivo que sua equipe precisa movimentar.</span></li></ul>
+          <div class="ws-onboarding__mobile-story" data-onboarding-mobile-story aria-live="polite"></div>
+        </fieldset>
+
+        <fieldset class="ws-onboarding__step" data-step="2" hidden>
           <legend>Como sua operação trabalha?</legend>
           <p class="ws-onboarding__hint">Isso ajuda o Workspace a organizar permissões e o catálogo de trabalho.</p>
           <div class="ws-onboarding__choice-grid">
@@ -53,7 +62,7 @@
           <p class="ws-onboarding__ownership" data-agency-only {% if form.operation_type != 'agency' %}hidden{% endif %}><i aria-hidden="true">↳</i> O <strong>client_id atual da sua agência</strong> continua sendo a conta principal. Os clientes serão adicionados depois, sem substituir esse vínculo.</p>
         </fieldset>
 
-        <fieldset class="ws-onboarding__step" data-step="2" hidden>
+        <fieldset class="ws-onboarding__step" data-step="3" hidden>
           <legend>Qual é a primeira marca e o primeiro projeto?</legend>
           <p class="ws-onboarding__hint">A marca vira a base da identidade. O projeto concentra o briefing e as próximas decisões.</p>
           <div class="ws-onboarding__fields-two">
@@ -73,7 +82,7 @@
           <label class="ws-onboarding__upload"><span><b>Referências visuais</b><small>Logo, peças ou imagens da marca. Até 4 arquivos.</small></span><input name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>
         </fieldset>
 
-        <fieldset class="ws-onboarding__step" data-step="3" hidden>
+        <fieldset class="ws-onboarding__step" data-step="4" hidden>
           <legend>Revise sua primeira base</legend>
           <p class="ws-onboarding__hint">Ao confirmar, o Cadu cria os registros no seu Workspace e inicia a auditoria quando houver site ou referências.</p>
           <div class="ws-onboarding__summary">
@@ -85,6 +94,7 @@
           <div class="ws-onboarding__privacy"><i aria-hidden="true">✦</i><span><b>Sua base permanece privada.</b> A auditoria gera uma proposta revisável; nada é aplicado à marca sem sua aprovação.</span></div>
         </fieldset>
 
+        <div class="ws-onboarding__feedback" data-onboarding-feedback role="alert" hidden></div>
         <footer class="ws-onboarding__actions">
           <button type="button" class="ws-onboarding__back" data-onboarding-back hidden>Voltar</button>
           <span class="ws-onboarding__actions-spacer"></span>
@@ -94,9 +104,16 @@
       </form>
     </section>
 
-    <aside class="ws-onboarding__visual" aria-label="Visão do Workspace">
-      <img src="{{ url_for('static', filename='images/cadu/workspace-headers/app-team-v3.jpg') }}" alt="Time organizando projetos de uma agência">
-      <div class="ws-onboarding__visual-copy"><span>Um sistema para o trabalho inteiro</span><b>Contexto que acompanha cada decisão.</b></div>
+    <aside class="ws-onboarding__visual" aria-label="Conheça as soluções Cadu" data-onboarding-story>
+      {% set stories = [
+        ('Workspace','O contexto fica perto do trabalho.','Marcas, projetos, pessoas e decisões começam organizados.','workspace-cards/projetos-v1.jpg'),
+        ('Planner','O briefing ganha direção.','Objetivos, públicos, canais, formatos e investimento formam um plano revisável.','planner/planner-plan-board-v2.png'),
+        ('Skills','Conhecimento especializado entra na hora certa.','Métodos de audiência, mídia, canais e formatos trabalham sobre o projeto.','skills/catalog-hero-media-intelligence.png'),
+        ('Studio','A direção vira criação.','Peças e variações preservam a identidade e a ideia aprovada.','presentation/campaign-variations-v1.png'),
+        ('Reports','O resultado volta para a próxima decisão.','Sinais da campanha fecham o ciclo e mantêm o aprendizado perto do time.','presentation/reports-dashboard-image2-v1.png')
+      ] %}
+      <div class="ws-onboarding__story-track">{% for name,title,copy,image in stories %}<article class="ws-onboarding__story{% if loop.first %} is-active{% endif %}" data-onboarding-story-slide data-story-name="{{ name }}" data-story-title="{{ title }}" data-story-copy="{{ copy }}" aria-hidden="{{ 'false' if loop.first else 'true' }}"><img src="{{ url_for('static', filename='images/cadu/' ~ image) }}" alt="{{ title }}" loading="{{ 'eager' if loop.first else 'lazy' }}"><div><span>{{ name }}</span><b>{{ title }}</b><p>{{ copy }}</p></div></article>{% endfor %}</div>
+      <div class="ws-onboarding__story-controls"><button type="button" data-story-prev aria-label="Solução anterior">←</button><div>{% for name,title,copy,image in stories %}<button type="button" class="{% if loop.first %}is-active{% endif %}" data-story-dot="{{ loop.index0 }}" aria-label="Ver {{ name }}"></button>{% endfor %}</div><button type="button" data-story-next aria-label="Próxima solução">→</button></div>
     </aside>
   </div>
 </main>

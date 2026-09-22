@@ -1469,7 +1469,7 @@ def init_routes(app):
                     app.logger.error('Falha ao processar recuperação de senha', exc_info=True)
             flash('Se a conta estiver ativa, você receberá instruções de recuperação.', 'info')
 
-            return render_template('forgot_password_tailwind.html')
+            return render_template('forgot_password_tailwind.html', request_sent=True)
 
         return render_template('forgot_password_tailwind.html')
     

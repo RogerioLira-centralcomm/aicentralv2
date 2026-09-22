@@ -40,6 +40,8 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("'forgotUrl'", login)
         self.assertIn("'caduLogoUrl'", login)
         self.assertIn("base_auth_react.html", forgot)
+        self.assertIn("'requestSent': request_sent|default(false)", forgot)
+        self.assertIn('Verifique seu email', (ROOT / "frontend" / "cadu-design-system" / "auth" / "AuthApp.jsx").read_text(encoding="utf-8"))
         self.assertIn("base_auth_react.html", reset)
 
     def test_dominio_corporativo_apenas_no_login_interno(self):

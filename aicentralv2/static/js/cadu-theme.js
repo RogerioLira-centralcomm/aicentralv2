@@ -5,6 +5,7 @@
   const THEME_TRANSITION_MS = 200;
   const script = document.currentScript;
   const mode = script?.dataset.themeMode || 'light';
+  const skin = script?.dataset.themeSkin || '';
   const defaultTheme = script?.dataset.themeDefault === 'dark' ? 'dark' : 'light';
   const allowsPreference = mode === 'preference';
   const forcedTheme = mode === 'dark' ? 'dark' : mode === 'light' ? 'light' : null;
@@ -18,6 +19,7 @@
   }
   function apply(theme) {
     root.dataset.caduTheme = theme;
+    if (skin) root.dataset.caduSkin = skin;
     root.style.colorScheme = theme;
     document.querySelectorAll('[data-cadu-theme-toggle]').forEach(button => {
       button.hidden = !allowsPreference;

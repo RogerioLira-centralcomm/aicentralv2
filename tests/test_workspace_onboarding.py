@@ -38,6 +38,10 @@ class WorkspaceEnterpriseOnboardingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('O <strong>client_id atual da sua agência</strong> continua sendo a conta principal.', html)
         self.assertIn('Criar meu Workspace', html)
+        self.assertIn('data-step="4"', html)
+        self.assertIn('data-onboarding-mobile-story', html)
+        for product in ('Workspace', 'Planner', 'Skills', 'Studio', 'Reports'):
+            self.assertIn(f'data-story-name="{product}"', html)
 
     def test_fluxo_usa_o_client_id_da_sessao_como_limite_de_marca_e_projeto(self):
         source = (ROOT / 'aicentralv2' / 'cadu_workspace' / 'routes.py').read_text(encoding='utf-8')

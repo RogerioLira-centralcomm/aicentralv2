@@ -96,25 +96,26 @@ function SidebarCollection({label, href, items, kind}) {
 
 function SidebarBrandProjectGroups({brands, projects, links}) {
   const brandRef = item => String(item?.ref || item?.brandRef || `studio:${item?.id || ''}`);
-  const groups = brands.map(brand => {
+  const visibleProjects = projects.slice(0, 10);
+  const groups = brands.slice(0, 5).map(brand => {
     const ref = brandRef(brand);
-    return {...brand, projects: projects.filter(project => {
+    return {...brand, projects: visibleProjects.filter(project => {
       const refs = project.related_refs || project.relatedRefs || (project.brandRef ? [project.brandRef] : []);
       return refs.map(String).includes(ref) || String(project.brandRef || '') === ref;
-    }).slice(0, 5)};
+    })};
   });
   const groupedProjects = new Set(groups.flatMap(group => group.projects.map(project => String(project.id || project.ref || project.projectRef))));
-  const ungrouped = projects.filter(project => !groupedProjects.has(String(project.id || project.ref || project.projectRef))).slice(0, 5);
+  const ungrouped = visibleProjects.filter(project => !groupedProjects.has(String(project.id || project.ref || project.projectRef)));
   if (!groups.length && !ungrouped.length) return null;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
     <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
     {groups.map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={brand.id || brand.ref}>
-      <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}>
-        <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/><b>{brand.name}</b>
+      <a className={`cadu-ds-context-sidebar__brand-heading ${brand.logoUrl ? 'has-logo' : ''}`} href={brand.href || '#'} title={brand.name || brand.title}>
+        {brand.logoUrl && <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/>}<b>{brand.name}</b>
       </a>
-      {brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><VisualIdentity src={project.previewUrl || project.logoUrl || project.dockLogoUrl} initials={project.visualInitials || project.name} label={project.name || project.title} color={project.visualColor || '#176b5e'} variant={project.visualVariant}/><span>{project.name || project.title || 'Projeto'}</span></a>)}
+      {brand.projects.length > 0 && <div className={`cadu-ds-context-sidebar__project-tree ${brand.logoUrl ? 'has-brand-logo' : ''}`}>{brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}
     </section>)}
-    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><span className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</span>{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><VisualIdentity src={project.previewUrl || project.logoUrl || project.dockLogoUrl} initials={project.visualInitials || project.name} label={project.name || project.title} color={project.visualColor || '#176b5e'} variant={project.visualVariant}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</section>}
+    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><span className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</span><div className="cadu-ds-context-sidebar__project-tree">{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div></section>}
   </section>;
 }
 
@@ -131,7 +132,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
     try { window.localStorage.setItem(`cadu:sidebar:${mode}`, mode === 'account' ? 'open' : collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
   }, [collapsed, mode]);
 
-  return <aside className={`cadu-ds-context-sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
+  return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
       <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span><strong>{agencyName || 'Cliente'}</strong></div>
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>
@@ -147,7 +148,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
       <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>
       {recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>)}
     </section>}
-    {mode === 'home' && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Conversas recentes">
+    {mode === 'home' && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent cadu-ds-context-sidebar__recent--conversations" aria-label="Conversas recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Conversas recentes</span>{links.conversations && <a href={links.conversations}>Ver todas</a>}</div>
       {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><span><b>{item.title || item.name || 'Conversa'}</b></span></a>)}
     </section>}

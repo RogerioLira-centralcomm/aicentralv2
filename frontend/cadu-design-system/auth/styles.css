@@ -74,6 +74,12 @@ a { color: var(--cadu-accent-strong); }
 .cadu-auth-flash.is-error { border-color: #e2b2a8; background: #fff7f5; color: #8c3022; }
 .cadu-auth-flash.is-success { border-color: #a6d8c4; color: #176046; }
 .cadu-auth-fallback { padding: 24px; color: var(--cadu-ink); }
+.cadu-auth-result { display: grid; gap: 16px; text-align: center; }
+.cadu-auth-result .cadu-auth-heading { margin-bottom: 2px; }
+.cadu-auth-result-icon { width: 58px; height: 58px; margin: 0 auto; display: grid; place-items: center; border-radius: 18px; background: var(--cadu-accent-soft); color: var(--cadu-accent-strong); }
+.cadu-auth-result-note { padding: 12px 14px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--cadu-line); border-radius: var(--cadu-radius-sm); background: var(--cadu-surface-muted); color: var(--cadu-muted); font-size: 12px; line-height: 1.45; text-align: left; }
+.cadu-auth-result .cadu-auth-submit { box-sizing: border-box; text-decoration: none; }
+.cadu-auth-result .cadu-auth-back { justify-content: center; }
 .cadu-auth-transition { position: fixed; inset: 0; z-index: 20; display: grid; place-content: center; gap: 10px; padding: 24px; background: rgba(243,246,248,.98); color: var(--cadu-ink); text-align: center; }
 .cadu-auth-transition-mark { display: grid; width: 76px; height: 76px; margin: 0 auto 8px; place-items: center; border-radius: 24px; background: var(--cadu-accent-soft); box-shadow: 0 18px 44px rgba(9,111,96,.18); animation: cadu-auth-logo-enter 2s cubic-bezier(.22,.8,.24,1) both; }
 .cadu-auth-transition-mark img { width: 48px; height: 48px; object-fit: contain; }

@@ -1,4 +1,8 @@
-{# Blocking initialization prevents a flash of the wrong theme. #}
-{% set cadu_theme_mode = 'dark' if cadu_theme_product == 'studio' else ('preference' if request.endpoint == 'cadu_workspace.conversations' else 'light') %}
-<script src="{{ url_for('static', filename='js/cadu-theme.js') }}?v=3" data-theme-mode="{{ cadu_theme_mode }}" data-theme-scope="workspace-conversations" data-theme-default="{{ 'dark' if request.endpoint == 'cadu_workspace.conversations' else 'light' }}"></script>
+{# Blocking initialization prevents a flash of the wrong theme. Both the
+   current React chat and its legacy route must start dark before first paint. #}
+{% set cadu_conversation_endpoints = ('cadu_workspace.conversations', 'cadu_agent_v2_lab.conversations_v2_lab') %}
+{% set cadu_is_conversation = request.endpoint in cadu_conversation_endpoints %}
+{% set cadu_theme_mode = 'dark' if cadu_theme_product == 'studio' or cadu_is_conversation else 'light' %}
+{% set cadu_theme_skin = 'conversations' if cadu_is_conversation else ('studio' if cadu_theme_product == 'studio' else cadu_theme_product) %}
+<script src="{{ url_for('static', filename='js/cadu-theme.js') }}?v=4" data-theme-mode="{{ cadu_theme_mode }}" data-theme-skin="{{ cadu_theme_skin }}" data-theme-scope="workspace-conversations" data-theme-default="{{ 'dark' if cadu_is_conversation else 'light' }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-theme.css') }}?v=3">

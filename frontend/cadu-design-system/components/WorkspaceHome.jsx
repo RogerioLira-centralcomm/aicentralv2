@@ -8,7 +8,7 @@ import {ProjectSelector} from './WorkspaceSelectors';
 import {csrf, request} from '../../conversations-v2/lib/api';
 import {attachmentIssues, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from '../../conversations-v2/lib/attachmentModel.mjs';
 import {uploadAttachments} from '../../conversations-v2/lib/attachmentUpload.mjs';
-import {openWorkspaceDetail} from '../workspaceNavigation';
+import {openWorkspaceDetail, openWorkspaceResourceConversation} from '../workspaceNavigation';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 
@@ -212,10 +212,14 @@ export function WorkspaceHome({bootstrap}) {
       await request(`${bootstrap.endpoints.dockShortcuts}/order`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({ids: explicit.map(candidate => candidate.shortcutId)})});
     } catch (error) { setDockItems(before); setToast(error.message || 'Não foi possível salvar a ordem dos atalhos.'); }
   };
-  return <div className="cadu-ds-home-shell">
+  return <div className="cadu-ds-home-shell is-workspace-home">
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea">
-      {isMobile ? <WorkspaceMobileChrome title={home.agency?.name || 'Workspace'} links={bootstrap.urls} contextItems={[...(home.recentConversations || home.conversations || []).map(item => ({...item, detail:'Conversa recente'})), ...projects.map(item => ({...item, detail:'Projeto'}))]}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={sidebarBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={item => { setBrandRef(item.brandRef || `studio:${item.id}`); setProjectRef(''); setAttachmentDestination('conversation'); }} onOpenResource={item => { if (item?.kind === 'resource' || item?.resourceRef) { openWorkspaceDetail(item); return; } setProjectRef(item.projectRef || item.ref || item.id || ''); setBrandRef(''); setAttachmentDestination('conversation'); }} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>}
+      {isMobile ? (
+        <WorkspaceMobileChrome title={home.agency?.name || 'Workspace'} links={bootstrap.urls} contextItems={[...(home.recentConversations || home.conversations || []).map(item => ({...item, detail:'Conversa recente'})), ...projects.map(item => ({...item, detail:'Projeto'}))]}/>
+      ) : (
+        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={sidebarBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={item => isDockResource(item) ? openWorkspaceResourceConversation(bootstrap.urls.newConversation, item) : openWorkspaceDetail(item)} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
+      )}
       {!isMobile && <WorkspaceContextSidebar
         mode="home"
         active="home"
@@ -231,7 +235,7 @@ export function WorkspaceHome({bootstrap}) {
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} embedded homeMode showProjectSelector={false}/>
         <HomeCreditAlert creditAlert={home.creditAlert}/>
         {!value.trim() && (
-          <WorkspacePromptSuggestions project={selectedProject} brand={selectedBrand} home={home} onSelect={setValue}/>
+          <WorkspacePromptSuggestions project={selectedProject} brand={selectedBrand} home={home} onSelect={setValue} surface="workspace-home"/>
         )}
         </section>
       </div>

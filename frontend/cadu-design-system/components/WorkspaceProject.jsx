@@ -7,6 +7,8 @@ import {openWorkspaceDetail} from '../workspaceNavigation';
 import {csrf, request} from '../../conversations-v2/lib/api';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
+import {EntityContextRail, EntityNavigator, ProjectDataStarter} from './WorkspaceEntityPortal';
+import {WorkspaceNotificationCenter} from './WorkspaceNotificationCenter';
 
 function ProjectIcon({name}) {
   const paths = {
@@ -315,12 +317,79 @@ function ProjectWorkspace({project, missing, canEdit, onAction, onStartConversat
     <section className="cadu-ds-project-status-strip" aria-label="Preparação do projeto">
       <span><b>{Math.max(0, 4 - missing.length)}/4</b> contexto</span><span><b>{project.files?.length || 0}</b> fontes</span><span><b>{project.links?.length || 0}</b> links</span><span><b>{project.memory?.length || 0}</b> decisões</span><span><b>{project.deliveries?.length || 0}</b> entregas</span>
     </section>
-    <section className="cadu-ds-project-workspace">
+    <section className="cadu-ds-project-workspace" id="atividade">
       <article className="cadu-ds-project-workspace__recent"><header><div><p>Trabalho recente</p><h2>Continue de onde o time parou</h2></div><button type="button" onClick={onStartConversation}>Nova conversa</button></header><div className="cadu-ds-project-workspace__list">{recent.length ? recent.map(renderRow) : <p className="cadu-ds-project-workspace__empty">O trabalho aparecerá aqui conforme o projeto receber conteúdo.</p>}</div></article>
       <aside className="cadu-ds-project-workspace__next"><p>Próximo movimento</p><h2>{missing.length ? 'Prepare a base do projeto' : 'A base está pronta'}</h2><span>{missing.length ? 'Adicione o que falta para melhorar as próximas respostas e entregas.' : 'Continue pela conversa ou crie uma nova entrega.'}</span><div>{missing.includes('fontes') && <button type="button" className="is-primary" onClick={() => onAction('sources')}>Adicionar fontes</button>}{canEdit && <button type="button" onClick={() => onAction('link')}>Adicionar link</button>}<button type="button" onClick={() => onAction('identity')}>Ver contexto</button></div></aside>
     </section>
-    <section className="cadu-ds-project-content-library"><header><div><p>Conteúdo do projeto</p><h2>Todos os dados em um só lugar</h2></div><button type="button" className="is-primary" onClick={() => onAction('sources')}>Adicionar</button></header><nav aria-label="Filtrar conteúdo">{filters.map(([value, label]) => <button type="button" key={value} className={filter === value ? 'is-active' : ''} onClick={() => setFilter(value)}>{label}</button>)}</nav><div className="cadu-ds-project-workspace__list">{visible.length ? visible.map(renderRow) : <p className="cadu-ds-project-workspace__empty">Nenhum conteúdo neste filtro.</p>}</div></section>
+    <section className="cadu-ds-project-content-library" id="acervo"><header><div><p>Conteúdo do projeto</p><h2>Todos os dados em um só lugar</h2></div><button type="button" className="is-primary" onClick={() => onAction('sources')}>Adicionar</button></header><nav aria-label="Filtrar conteúdo">{filters.map(([value, label]) => <button type="button" key={value} className={filter === value ? 'is-active' : ''} onClick={() => setFilter(value)}>{label}</button>)}</nav><div className="cadu-ds-project-workspace__list">{visible.length ? visible.map(renderRow) : <p className="cadu-ds-project-workspace__empty">Nenhum conteúdo neste filtro.</p>}</div></section>
   </>;
+}
+
+function ProjectIndexingSection({files = [], onReview}) {
+  const indexed = files.filter(item => item.status === 'completed').length;
+  const processing = files.filter(item => ['indexing', 'queued'].includes(item.status)).length;
+  const attention = files.filter(item => ['error', 'failed'].includes(item.status)).length;
+  return <section className="cadu-ds-project-indexing" id="indexacao">
+    <header><div><p>Base pesquisável</p><h2>Indexação do projeto</h2><span>Acompanhe o que já pode ser usado pelo Cadu e revise fontes que ainda precisam de processamento.</span></div><button type="button" onClick={onReview}>{files.length ? 'Revisar e indexar' : 'Adicionar fontes'}</button></header>
+    <div className="cadu-ds-project-indexing__summary"><span><b>{indexed}</b><small>prontas</small></span><span><b>{processing}</b><small>processando</small></span><span className={attention ? 'has-attention' : ''}><b>{attention}</b><small>requerem atenção</small></span><span><b>{Math.max(0, files.length - indexed - processing - attention)}</b><small>preservadas</small></span></div>
+    {!files.length && <p className="cadu-ds-project-indexing__empty">Envie arquivos, links ou relatórios. O indexador classifica o formato e prepara o conteúdo para pesquisa dentro do projeto.</p>}
+  </section>;
+}
+
+const SOURCE_ROLES = {brief:'Define o problema e os critérios do trabalho', research:'Sustenta decisões com pesquisa e evidências', media_plan:'Orienta canais, investimento e calendário', report:'Registra resultados e aprendizados', brand_asset:'Preserva a identidade da marca', reference:'Serve como referência para comparação', contract:'Registra limites e compromissos', spreadsheet:'Fornece dados estruturados para análise', other:'Complementa o contexto do projeto'};
+
+function conversationPromptUrl(base, prompt) {
+  try { const target = new URL(base, window.location.origin); target.searchParams.set('prompt', prompt); target.searchParams.set('auto_send', '1'); return `${target.pathname}${target.search}`; } catch (_) { return base; }
+}
+
+const EXPLORER_VIEWS = [['visual','Visual'], ['list','Lista'], ['time','Tempo'], ['activity','Atividade']];
+const itemDate = item => item.occurredAt || item.createdAt || item.updatedAt || item.created_at || item.updated_at || '';
+const validDate = item => { const value = new Date(itemDate(item)); return Number.isNaN(value.getTime()) ? null : value; };
+const dayKey = item => validDate(item)?.toISOString().slice(0, 10) || 'undated';
+const dayLabel = item => { const date = validDate(item); return date ? new Intl.DateTimeFormat('pt-BR', {weekday:'long', day:'2-digit', month:'long'}).format(date) : 'Sem data registrada'; };
+const itemTime = item => { const date = validDate(item); return date ? new Intl.DateTimeFormat('pt-BR', {hour:'2-digit', minute:'2-digit'}).format(date) : ''; };
+
+function SourceActor({actor, compact = false}) {
+  if (!actor?.name && !actor?.avatar) return null;
+  const initials = String(actor.name || '').split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  return <span className={`cadu-ds-project-explorer__actor${compact ? ' is-compact' : ''}`}>{actor.avatar ? <img src={actor.avatar} alt=""/> : <i>{initials || 'U'}</i>}{!compact && <small>{actor.name}</small>}</span>;
+}
+
+function SourcePreview({item}) {
+  const image = item.previewUrl || (/^image\//i.test(item.mime || '') ? item.href : '');
+  return <span className={`cadu-ds-project-explorer__preview is-${item.sourceType}`}>{image ? <img src={image} alt="" loading="lazy"/> : <ProjectIcon name={item.sourceType === 'link' ? 'spark' : item.sourceType === 'creation' ? 'image' : item.sourceType === 'summary' ? 'text' : 'source'}/>}<small>{item.sourceType === 'link' ? 'LINK' : (item.mime || item.kind || item.sourceType || 'ITEM').split('/').pop().slice(0, 8).toUpperCase()}</small></span>;
+}
+
+function SourceActions({item, conversationUrl, onManage, onInspect}) {
+  const askUrl = conversationPromptUrl(conversationUrl, `Use a fonte "${item.title}" deste projeto para responder minha próxima dúvida. Primeiro resuma o papel dela no projeto e indique se a indexação está pronta.`);
+  return <span className="cadu-ds-project-explorer__actions"><button type="button" onClick={() => onInspect?.(item)}>Detalhes</button><a href={askUrl}>Perguntar</a>{['file','link'].includes(item.sourceType) && <button type="button" onClick={onManage}>{item.requiresReview ? 'Definir e indexar' : 'Alterar papel'}</button>}{item.href && <a href={item.href}>Abrir</a>}</span>;
+}
+
+function ProjectSourceExplorer({project, conversationUrl, onManage, currentUser}) {
+  const preferenceKey = `cadu-project-explorer:${project.id || 'project'}`;
+  const [view, setView] = useState(() => { try { return localStorage.getItem(preferenceKey) || 'visual'; } catch (_) { return 'visual'; } });
+  const [query, setQuery] = useState('');
+  const [type, setType] = useState('all');
+  const [selected, setSelected] = useState(null);
+  useEffect(() => { try { localStorage.setItem(preferenceKey, view); } catch (_) {} }, [preferenceKey, view]);
+  const withActor = item => item.actor || (item.createdBy && String(item.createdBy) === String(currentUser?.id) ? {name:currentUser.name, avatar:currentUser.avatar} : null);
+  const items = [
+    ...(project.files || []).map(item => ({...item, actor:withActor(item), sourceType:'file', role:item.category || 'other'})),
+    ...(project.links || []).map(item => ({...item, id:`link:${item.id}`, href:item.url, sourceType:'link', role:item.category || 'reference', status:'completed'})),
+    ...(project.artifacts || []).map(item => ({...item, id:`artifact:${item.id}`, sourceType:'summary', role:'report', status:item.status || 'completed'})),
+    ...(project.deliveries || []).map(item => ({...item, id:`delivery:${item.id}`, sourceType:/imagem|vídeo|criativo/i.test(item.kind || '') ? 'creation' : 'summary', role:'report', status:item.status || 'completed'})),
+  ].sort((a, b) => (validDate(b)?.getTime() || 0) - (validDate(a)?.getTime() || 0));
+  const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
+  const visibleItems = items.filter(item => (type === 'all' || item.sourceType === type) && (!normalizedQuery || `${item.title || ''} ${item.detail || ''} ${SOURCE_ROLES[item.role] || ''}`.toLocaleLowerCase('pt-BR').includes(normalizedQuery)));
+  const groups = visibleItems.reduce((result, item) => { const key = dayKey(item); (result[key] ||= []).push(item); return result; }, {});
+  const dates = Array.from({length:7}, (_, index) => { const date = new Date(); date.setDate(date.getDate() - (6 - index)); return date; });
+  const lanes = [['file','Arquivos'], ['link','Links'], ['creation','Criações'], ['summary','Resumos e entregas']];
+  const visualItem = item => <article key={item.id} className={`cadu-ds-project-explorer__visual-item${selected?.id === item.id ? ' is-selected' : ''}`}><SourcePreview item={item}/><div><small>{TRIAGE_CATEGORIES.find(option => option[0] === item.role)?.[1] || item.kind || 'Conteúdo'}</small><h3>{item.title || 'Item sem título'}</h3><p>{SOURCE_ROLES[item.role] || item.detail || SOURCE_ROLES.other}</p><footer><span>{itemTime(item)}{item.status && ` · ${sourceStatus(item.status)}`}</span><SourceActions item={item} conversationUrl={conversationUrl} onManage={onManage} onInspect={setSelected}/></footer></div></article>;
+  return <section className="cadu-ds-project-explorer" id="fontes"><header className="cadu-ds-project-explorer__header"><div><p>Fontes e atividade</p><h2>O projeto ao longo do tempo</h2><span>Arquivos, links, criações e resumos reunidos pelo papel que exercem no trabalho.</span></div><button type="button" onClick={onManage}>Adicionar ou organizar</button></header>
+    <div className="cadu-ds-project-explorer__toolbar"><nav aria-label="Visualização do projeto">{EXPLORER_VIEWS.map(([id,label]) => <button type="button" key={id} className={view === id ? 'is-active' : ''} onClick={() => setView(id)}>{label}</button>)}</nav><div className="cadu-ds-project-explorer__filters"><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no projeto" aria-label="Buscar fontes e atividade"/><select value={type} onChange={event => setType(event.target.value)} aria-label="Filtrar por tipo"><option value="all">Todos os tipos</option><option value="file">Arquivos</option><option value="link">Links</option><option value="creation">Criações</option><option value="summary">Resumos e entregas</option></select><span>{visibleItems.length}/{items.length}</span></div></div>
+    {!items.length ? <div className="cadu-ds-project-explorer__empty"><h3>O projeto começa com a primeira fonte</h3><p>Adicione um briefing, arquivo, link ou relatório. O Cadu organiza o papel e mantém a evolução visível.</p><button type="button" onClick={onManage}>Adicionar primeira fonte</button></div> : !visibleItems.length ? <div className="cadu-ds-project-explorer__empty"><h3>Nenhum item corresponde ao filtro</h3><p>Altere a busca ou o tipo de conteúdo para voltar a visualizar o projeto.</p><button type="button" onClick={() => { setQuery(''); setType('all'); }}>Limpar filtros</button></div> : view === 'time' ? <div className="cadu-ds-project-explorer__time"><header><span>Grupo</span>{dates.map(date => <time key={date.toISOString()}>{new Intl.DateTimeFormat('pt-BR',{weekday:'short'}).format(date)}<b>{date.getDate()}</b></time>)}</header>{lanes.filter(([laneType]) => type === 'all' || type === laneType).map(([laneType,label]) => <div className="cadu-ds-project-explorer__lane" key={laneType}><b>{label}</b>{dates.map(date => { const key = date.toISOString().slice(0,10); const matched = visibleItems.filter(item => item.sourceType === laneType && dayKey(item) === key); return <span key={key}>{matched.slice(0,3).map(item => <button type="button" title={item.title} key={item.id} onClick={() => setSelected(item)}><ProjectIcon name={laneType === 'creation' ? 'image' : laneType === 'link' ? 'spark' : laneType === 'summary' ? 'text' : 'source'}/></button>)}</span>; })}</div>)}</div> : <div className={`cadu-ds-project-explorer__groups is-${view}`}>{Object.entries(groups).map(([key, dayItems]) => { const actors = dayItems.map(item => item.actor).filter((actor, index, all) => actor?.name && all.findIndex(entry => entry?.name === actor.name) === index); return <section key={key}><header><div><h3>{dayLabel(dayItems[0])}</h3><span>{dayItems.length} item{dayItems.length === 1 ? '' : 's'}</span></div>{actors.length > 0 && <div className="cadu-ds-project-explorer__actors" aria-label="Pessoas que contribuíram neste dia">{actors.slice(0,3).map(actor => <SourceActor key={actor.name} actor={actor} compact/>)}{actors.length > 3 && <small>+{actors.length - 3}</small>}</div>}</header>{view === 'visual' ? <div className="cadu-ds-project-explorer__visual">{dayItems.map(visualItem)}</div> : <div className={`cadu-ds-project-explorer__rows is-${view}`}>{dayItems.map((item, index) => <article key={item.id}><time>{itemTime(item)}</time><SourcePreview item={item}/><span><b>{item.title || 'Item sem título'}</b><small>{SOURCE_ROLES[item.role] || item.detail || 'Conteúdo do projeto'}</small></span>{view === 'list' && <em>{sourceStatus(item.status || 'completed')}</em>}{item.actor?.name && (index === 0 || dayItems[index - 1]?.actor?.name !== item.actor.name) && <SourceActor actor={item.actor}/>}<SourceActions item={item} conversationUrl={conversationUrl} onManage={onManage} onInspect={setSelected}/></article>)}</div>}</section>; })}</div>}
+    {selected && <aside className="cadu-ds-project-explorer__inspector" aria-label={`Detalhes de ${selected.title}`}><button type="button" onClick={() => setSelected(null)} aria-label="Fechar detalhes">×</button><SourcePreview item={selected}/><div><small>{selected.sourceType === 'file' ? selected.mime : selected.kind || selected.sourceType}</small><h3>{selected.title}</h3><p>{SOURCE_ROLES[selected.role] || selected.detail || SOURCE_ROLES.other}</p><dl><div><dt>Papel</dt><dd>{TRIAGE_CATEGORIES.find(option => option[0] === selected.role)?.[1] || 'Outro'}</dd></div><div><dt>Indexação</dt><dd>{sourceStatus(selected.status || 'completed')}</dd></div>{itemDate(selected) && <div><dt>Adicionado</dt><dd>{dayLabel(selected)}</dd></div>}</dl><SourceActor actor={selected.actor}/><SourceActions item={selected} conversationUrl={conversationUrl} onManage={onManage}/></div></aside>}
+  </section>;
 }
 
 export function WorkspaceProject({bootstrap}) {
@@ -333,6 +402,8 @@ export function WorkspaceProject({bootstrap}) {
   const [resourceId, setResourceId] = useState(() => new URLSearchParams(window.location.search).get('resource') || '');
   const [accountOpen, setAccountOpen] = useState(false);
   const [sharing, setSharing] = useState(project.sharing || {});
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [remoteNotifications, setRemoteNotifications] = useState([]);
   const initialDockItems = bootstrap.dock?.items?.length ? bootstrap.dock.items : [...(bootstrap.brands || []), ...(bootstrap.projects || [])];
   const [dockItems, setDockItems] = useState(initialDockItems);
   const canEdit = project.status !== 'arquivado';
@@ -383,6 +454,17 @@ export function WorkspaceProject({bootstrap}) {
     strip.addEventListener('dragstart', handleDragStart);
     return () => strip.removeEventListener('dragstart', handleDragStart);
   }, [project.id, project.resources]);
+  useEffect(() => {
+    if (!projectLinks.notifications) return undefined;
+    const controller = new AbortController();
+    const target = new URL(projectLinks.notifications, window.location.origin);
+    target.searchParams.set('project_ref', `ci:${project.id}`);
+    fetch(`${target.pathname}${target.search}`, {credentials:'same-origin', signal:controller.signal, headers:{Accept:'application/json'}})
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('notifications unavailable')))
+      .then(value => setRemoteNotifications(value.items || []))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [project.id, projectLinks.notifications]);
   const addDockResource = async payload => {
     if (!payload?.resourceRef || dockItems.some(item => item.resourceRef === payload.resourceRef && item.shortcutId)) return;
     try {
@@ -397,21 +479,56 @@ export function WorkspaceProject({bootstrap}) {
       // The dock remains usable if a resource shortcut cannot be saved.
     }
   };
+  const projectNav = [
+    {id:'visao-geral', label:'Visão geral', icon:'home'},
+    ...(isNewProject ? [{id:'entrada', label:'Entrada de dados', icon:'compose'}] : []),
+    {id:'atividade', label:'Atividade', icon:'pulse', count:(project.activity || []).length},
+    {id:'indexacao', label:'Indexação', icon:'history', count:(project.files || []).length},
+    {id:'fontes', label:'Fontes e arquivos', icon:'file', count:(project.files || []).length + (project.links || []).length},
+    {id:'conversas', target:'fontes', label:'Conversas', icon:'compose', count:(project.conversations || []).length},
+    {id:'entregas', target:'fontes', label:'Artefatos e entregas', icon:'external', count:(project.artifacts || []).length + (project.deliveries || []).length},
+  ];
+  const projectRailGroups = [
+    {title:'Links principais', items:(project.links || []).map(item => ({...item, href:item.url, external:true, detail:item.provider}))},
+    {title:'Arquivos principais', items:(project.files || []).map(item => ({...item, name:item.title, detail:`${item.mime || 'Arquivo'} · ${item.status || 'preservado'}`}))},
+    {title:'Imagens e recursos', items:[...(project.files || []).filter(item => /image/i.test(item.mime || '')), ...(project.resources || [])].map(item => ({...item, name:item.title, detail:item.kind || item.mime || item.resourceType}))},
+  ];
+  const derivedNotifications = [
+    ...(project.files || []).filter(item => item.requiresReview || ['error', 'failed'].includes(item.status)).map(item => ({id:`source:${item.id}`, kind:item.requiresReview ? 'approval' : 'attention', title:item.requiresReview ? `Defina o papel de ${item.title}` : `Revise ${item.title}`, detail:item.requiresReview ? 'A fonte foi preparada e aguarda sua decisão para entrar na base.' : 'A indexação não foi concluída.', context:project.name, action:'sources'})),
+    ...(project.activity || []).slice(0, 6).map((item, index) => ({id:`activity:${index}:${item.title}`, kind:'complete', title:item.title, detail:item.detail, context:project.name, action:'activity'})),
+  ];
+  const notifications = [...remoteNotifications, ...derivedNotifications.filter(item => !remoteNotifications.some(remote => remote.sourceId && String(remote.sourceId) === String(item.id).replace(/^source:/, '')))];
+  const actionableNotifications = notifications.filter(item => ['approval','attention','failure'].includes(item.kind) && !['read','resolved','archived'].includes(item.status));
+  const openNotification = async item => {
+    setNotificationsOpen(false);
+    if (item.id && projectLinks.notifications && /^[0-9a-f-]{36}$/i.test(String(item.id))) {
+      fetch(`${projectLinks.notifications}/${item.id}/read`, {method:'POST', credentials:'same-origin', headers:{Accept:'application/json','X-CSRF-Token':bootstrap.csrf || csrf()}}).catch(() => {});
+      setRemoteNotifications(current => current.map(entry => entry.id === item.id ? {...entry, status:entry.status === 'unread' ? 'read' : entry.status} : entry));
+    }
+    if (item.action === 'sources' || item.sourceId) setDialog('sources');
+    else if (item.conversationId) window.location.assign(`${projectLinks.conversation}${projectLinks.conversation.includes('?') ? '&' : '?'}conversation_id=${encodeURIComponent(item.conversationId)}`);
+    else document.querySelector('#atividade')?.scrollIntoView({behavior:'smooth'});
+  };
   return <div className={`cadu-ds-home-shell cadu-ds-project-shell${isNewProject ? ' is-new-project' : ''}`}>
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-project-workarea" onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleFileDrop}>
         {dropActive && <div className="cadu-ds-project-page-drop" role="status" aria-live="polite"><div className="cadu-ds-project-page-drop__card"><span className="cadu-ds-project-page-drop__icon"><ProjectIcon name="source"/></span><strong>Solte para adicionar ao projeto</strong><span>O arquivo será preservado e revisado antes de entrar na base do Cadu.</span></div></div>}
-        {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}
+        {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} notifications={actionableNotifications} onOpenNotifications={() => setNotificationsOpen(true)} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
+        <EntityNavigator label={project.name || 'Projeto'} items={projectNav}/>
         <section className="cadu-ds-project-content">
-        <header className="cadu-ds-project-hero"><div className="cadu-ds-project-hero__identity"><VisualIdentity src={project.brand?.logoUrl} initials={project.brand?.initials || project.name} label={project.brand?.name || project.name} color={project.brand?.color || project.color}/></div><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}<span>{project.description || 'Organize a direção, as fontes e as decisões que vão sustentar este trabalho.'}</span></div><div className="cadu-ds-project-hero__actions"><button type="button" className="is-primary" onClick={startConversation}>Conversar no projeto</button>{canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar contexto</button>}<details><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a></div></details></div></header>
-        <ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/>
+        <header className="cadu-ds-project-hero" id="visao-geral"><div className="cadu-ds-project-hero__identity"><VisualIdentity src={project.brand?.logoUrl} initials={project.brand?.initials || project.name} label={project.brand?.name || project.name} color={project.brand?.color || project.color}/></div><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}<span>{project.description || 'Organize a direção, as fontes e as decisões que vão sustentar este trabalho.'}</span></div><div className="cadu-ds-project-hero__actions"><button type="button" className="is-primary" onClick={startConversation}>Conversar no projeto</button>{canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar contexto</button>}<details><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a></div></details></div></header>
+        {isNewProject && <ProjectDataStarter conversationUrl={projectLinks.conversation} onContext={() => setDialog('identity')} onSources={() => setDialog('sources')} onLink={() => setDialog('link')}/>}
+        <div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div>
+        <ProjectIndexingSection files={project.files || []} onReview={() => setDialog('sources')}/>
+        <ProjectSourceExplorer project={project} conversationUrl={projectLinks.conversation} currentUser={bootstrap.user} onManage={() => setDialog('sources')}/>
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta.</span><form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Reativar projeto</button></form></aside>}
         <ProjectWorkspace project={project} missing={missing} canEdit={canEdit} onAction={setDialog} onStartConversation={startConversation} onOpenResource={item => setResourceId(item.id)}/>
         {canEdit && <form className="cadu-ds-project-archive" method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Arquivar projeto</button></form>}
         </section>
+        <EntityContextRail title="Projeto agora" groups={projectRailGroups}>{project.brand?.name && <a className="cadu-ds-entity-rail__brand" href={project.brand.href}><VisualIdentity src={project.brand.logoUrl} initials={project.brand.initials || project.brand.name} label={project.brand.name} color={project.brand.color}/><span><small>Marca relacionada</small><b>{project.brand.name}</b></span></a>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><button type="button" onClick={() => setDialog('sources')}>Revisar fontes</button></div></EntityContextRail>
+        </div>
       </div>
     </main>
     {dialog === 'sharing' && <SharingDialog project={{...project, sharing}} urls={projectLinks} csrfToken={bootstrap.csrf} onSaved={setSharing} onClose={() => setDialog('')} />}
-    {dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}
-  </div>;
+    {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification}/>} {dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
 }

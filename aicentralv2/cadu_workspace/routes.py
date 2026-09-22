@@ -31,7 +31,7 @@ from ..db import close_db, get_db
 from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
 from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asset_url
-from . import project_index_service, project_knowledge, project_resource_service, project_sources, workspace_ingestion_service
+from . import notification_service, project_index_service, project_knowledge, project_resource_service, project_sources, workspace_ingestion_service
 from .agent_v2.request_context import resolve as resolve_request_context
 
 
@@ -3303,7 +3303,7 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT id, nome_arquivo, mime, tamanho, storage_path, doc_form, indexing_status,
+                """SELECT id, criado_por, nome_arquivo, mime, tamanho, storage_path, doc_form, indexing_status,
                           word_count, tokens, erro_msg, purpose, category, classification_status,
                           classification_confidence, classification_reason, classification_metadata, created_at
                      FROM cadu_ci_projeto_arquivos
@@ -3472,6 +3472,82 @@ PUBLIC_PAGES = {
         "title": "Contato",
         "description": "Fale com a CentralComm sobre acesso, implantação ou suporte ao Cadu Workspace.",
         "lead": "Conte o que sua equipe precisa organizar. Direcionamos a conversa para produto, implantação ou suporte.",
+    },
+}
+
+PUBLIC_SOLUTIONS = {
+    "workspace": {
+        "name": "Workspace", "icon": "workspace-192.png",
+        "title": "A base viva de cada campanha.",
+        "lead": "Reuniões, links, PDFs, textos, decisões e agentes de IA trabalham sobre o mesmo projeto.",
+        "image": "workspace-cards/projetos-v1.jpg",
+        "features": ["Projetos e marcas", "Arquivos e links indexados", "Reuniões e decisões", "Agentes de IA conectados", "Histórico de evolução"],
+        "example": "Abra um projeto, envie o briefing, conecte as fontes e continue no agente de IA que seu time já usa.",
+    },
+    "planner": {
+        "name": "Planner", "icon": "planner-192.png",
+        "title": "Planejamento que continua depois da apresentação.",
+        "lead": "Objetivos, públicos, canais, formatos e investimento viram uma direção revisável para mídia e criação.",
+        "image": "planner/planner-plan-board-v2.png",
+        "features": ["Briefing estruturado", "Cenários de mídia", "Públicos e canais", "Formatos e investimento", "Revisão com contexto"],
+        "example": "Transforme o briefing do projeto em cenários e leve a direção aprovada direto para o Studio.",
+    },
+    "studio": {
+        "name": "Studio", "icon": "studio-192.png",
+        "title": "Criação com repertório, edição e escala.",
+        "lead": "Crie imagens, faça edições avançadas, produza vídeos e analise criativos sem perder a direção da campanha.",
+        "image": "presentation/campaign-variations-v1.png",
+        "features": ["Geração de imagens", "Edições avançadas", "Criação de vídeos", "Variações por formato", "Creative Analyzer"],
+        "example": "Parta da direção aprovada, crie a peça principal, adapte formatos e revise a consistência antes de publicar.",
+    },
+    "reports": {
+        "name": "Reports", "icon": "connect-192.png",
+        "title": "O retorno da campanha volta para o projeto.",
+        "lead": "Campanhas, fontes e relatórios ficam ligados ao contexto que explica o que foi decidido e o que muda agora.",
+        "image": "presentation/reports-dashboard-image2-v1.png",
+        "features": ["Campanhas por projeto", "Relatórios conectados", "Leitura de resultados", "Próximos ajustes", "Histórico de retorno"],
+        "example": "Associe a campanha ao projeto e transforme resultados em recomendações para o próximo ciclo.",
+    },
+    "skills": {
+        "name": "Skills", "icon": "skills-192.png",
+        "title": "Métodos prontos para o trabalho de marketing.",
+        "lead": "Acione especialistas de audiência, mídia, canais e formatos dentro do contexto real da sua equipe.",
+        "image": "skills/catalog-hero-media-intelligence.png",
+        "features": ["Skills públicas e privadas", "Métodos de mídia", "Análise de audiência", "Pesquisa aplicada", "Automação com contexto"],
+        "example": "Escolha uma Skill, aplique ao projeto e guarde a resposta como parte do trabalho que continua.",
+    },
+}
+
+PUBLIC_ARTICLES = {
+    "briefing-vivo": {
+        "title": "Como transformar um briefing em uma base viva",
+        "summary": "Um passo a passo para reunir reunião, arquivos, links e decisões antes de começar a produzir.",
+        "image": "workspace-cards/projetos-v1.jpg", "product": "Workspace",
+        "steps": ["Crie o projeto e registre o objetivo", "Envie PDFs, textos e links", "Registre decisões da reunião", "Conecte o agente de IA preferido", "Salve a resposta útil no projeto"],
+    },
+    "plano-de-midia": {
+        "title": "Do objetivo ao primeiro cenário de mídia",
+        "summary": "Use o contexto do projeto para comparar públicos, canais, formatos e investimento.",
+        "image": "planner/planner-plan-board-v2.png", "product": "Planner",
+        "steps": ["Confirme objetivo e restrições", "Escolha os públicos prioritários", "Compare canais e formatos", "Monte cenários de investimento", "Leve a direção aprovada para criação"],
+    },
+    "campanha-em-formatos": {
+        "title": "Uma campanha, vários formatos, a mesma direção",
+        "summary": "Crie a peça principal, edite detalhes e produza variações de imagem e vídeo no Studio.",
+        "image": "presentation/ad-gallery-hero-v1.png", "product": "Studio",
+        "steps": ["Abra a direção criativa do projeto", "Crie a imagem principal", "Faça edições avançadas", "Gere versões e vídeos", "Analise consistência e adequação"],
+    },
+    "resultado-no-projeto": {
+        "title": "Como devolver o resultado para a próxima campanha",
+        "summary": "Conecte relatórios ao projeto e transforme números em decisões que o time consegue reutilizar.",
+        "image": "presentation/reports-dashboard-image2-v1.png", "product": "Reports",
+        "steps": ["Associe a campanha ao projeto", "Reúna as fontes de resultado", "Leia sinais e desvios", "Registre aprendizados", "Abra o próximo ciclo sem começar do zero"],
+    },
+    "skill-de-audiencia": {
+        "title": "Quando usar uma Skill de audiência",
+        "summary": "Aplique um método especializado ao projeto sem copiar e colar o briefing em outra ferramenta.",
+        "image": "skills/skills-hero-worktable-v1.png", "product": "Skills",
+        "steps": ["Escolha a pergunta do projeto", "Acione a Skill adequada", "Revise fontes e hipóteses", "Ajuste a recomendação", "Guarde a saída no contexto do time"],
     },
 }
 
@@ -3896,15 +3972,98 @@ def public_design_system():
     )
 
 
-@bp.get("/workspace/<page>")
+@bp.get('/workspace/solucoes/<solution>')
+def public_solution(solution):
+    content = PUBLIC_SOLUTIONS.get(solution)
+    if not content:
+        abort(404)
+    return render_template(
+        'cadu_workspace/public_solution.html', solution=solution, content=content,
+        solutions=PUBLIC_SOLUTIONS,
+        canonical=product_url('workspace', f'/solucoes/{solution}'),
+        description=content['lead'],
+    )
+
+
+@bp.get('/workspace/conteudos/<slug>')
+def public_article(slug):
+    article = PUBLIC_ARTICLES.get(slug)
+    if not article:
+        abort(404)
+    return render_template(
+        'cadu_workspace/public_article.html', slug=slug, article=article,
+        articles=PUBLIC_ARTICLES,
+        canonical=product_url('workspace', f'/conteudos/{slug}'),
+        description=article['summary'],
+    )
+
+
+@bp.route("/workspace/<page>", methods=["GET", "POST"])
 def public_page(page):
     content = PUBLIC_PAGES.get(page)
     if not content:
         abort(404)
+    contact_errors = []
+    contact_form = {key: str(request.form.get(key) or '').strip() for key in (
+        'name', 'email', 'company', 'team_size', 'profile', 'challenge', 'contact_preference',
+    )}
+    if request.method == 'POST':
+        if page != 'contato':
+            abort(405)
+        if request.form.get('website'):
+            return redirect(url_for('cadu_workspace.public_contact_thanks'), code=303)
+        if len(contact_form['name']) < 2:
+            contact_errors.append('Informe seu nome.')
+        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', contact_form['email']):
+            contact_errors.append('Informe um email válido.')
+        if len(contact_form['company']) < 2:
+            contact_errors.append('Informe sua empresa ou organização.')
+        if contact_form['profile'] not in {'marketing', 'agency', 'media', 'other'}:
+            contact_errors.append('Escolha o perfil que melhor representa sua equipe.')
+        if len(contact_form['challenge']) < 12:
+            contact_errors.append('Conte brevemente o que sua equipe precisa resolver.')
+        if not contact_errors:
+            try:
+                from .. import db
+                db.criar_lead({
+                    'nome': contact_form['name'], 'email': contact_form['email'],
+                    'empresa': contact_form['company'], 'mensagem': contact_form['challenge'],
+                    'origem': 'cadu_workspace_public', 'canal': contact_form['contact_preference'] or 'email',
+                    'interesse': 'Cadu Media', 'fonte': 'site', 'status': 'inbox',
+                    'tipo_lead': 'agencia' if contact_form['profile'] == 'agency' else 'cliente',
+                    'segmento': contact_form['profile'],
+                    'notas_internas': f"Tamanho da equipe: {contact_form['team_size'] or 'não informado'}",
+                })
+                from ..email_service import send_email
+                send_email(
+                    f"Novo contato Cadu — {contact_form['company']}", ['contato@centralcomm.media'],
+                    text_body=(f"Nome: {contact_form['name']}\nEmail: {contact_form['email']}\n"
+                               f"Empresa: {contact_form['company']}\nPerfil: {contact_form['profile']}\n"
+                               f"Equipe: {contact_form['team_size']}\nPreferência: {contact_form['contact_preference']}\n\n"
+                               f"Desafio:\n{contact_form['challenge']}")
+                )
+            except Exception:
+                current_app.logger.exception('Não foi possível registrar o contato público do Cadu')
+                contact_errors.append('Não foi possível enviar agora. Tente novamente ou escreva para contato@centralcomm.media.')
+            else:
+                session['public_contact_email'] = contact_form['email']
+                return redirect(url_for('cadu_workspace.public_contact_thanks'), code=303)
     return render_template(
         "cadu_workspace/public_page.html", page=page, content=content,
         canonical=product_url("workspace", f"/{page}"), description=content["description"],
-        help_url=_cadu_area("CADU_HELP_URL", "/ajuda"),
+        help_url=_cadu_area("CADU_HELP_URL", "/ajuda"), contact_errors=contact_errors,
+        contact_form=contact_form,
+    )
+
+
+@bp.get('/workspace/contato/obrigado')
+def public_contact_thanks():
+    return render_template(
+        'cadu_workspace/public_result.html', status='success', title='Recebemos seu contexto.',
+        description='A equipe do Cadu recebeu sua mensagem e vai usar essas informações para direcionar a conversa.',
+        detail=session.pop('public_contact_email', ''),
+        primary_label='Conhecer como funciona', primary_url=url_for('cadu_workspace.public_page', page='como-funciona'),
+        secondary_label='Voltar para a página inicial', secondary_url=url_for('cadu_workspace.index'),
     )
 
 
@@ -3977,7 +4136,8 @@ def dashboard():
     # an upgrade invitation because it has no active credit capacity yet.
     is_free_credit_state = credit_total == 0 and int(credit.get('monthly_limit') or 0) == 0
     is_low_credit = is_free_credit_state or (
-        credit_total > 0 and (usage >= 75 or credit_available <= max(10000, int(credit_total * 0.25)))
+        credit_total > 0 and usage >= 90
+        and credit_available <= max(10000, int(credit_total * 0.10))
     )
     credit_alert = {
         'visible': is_low_credit,
@@ -4739,6 +4899,8 @@ def project_detail(project_id):
                        'classificationStatus': str(item.get('classification_status') or 'pending'),
                        'classificationConfidence': float(item.get('classification_confidence') or 0),
                        'classificationReason': str(item.get('classification_reason') or ''),
+                       'createdAt': item.get('created_at'),
+                       'createdBy': str(item.get('criado_por') or ''),
                        'canIndex': int(item.get('word_count') or 0) >= 20,
                        'requiresReview': str(item.get('purpose') or 'project_attachment') == 'project_attachment' and str(item.get('indexing_status') or '') == 'paused' and str(item.get('classification_status') or '') in {'pending', 'classified', 'needs_review'},
                        'confirmUrl': url_for('cadu_workspace.confirm_project_source', project_id=project_id, source_id=item.get('id')),
@@ -4764,7 +4926,7 @@ def project_detail(project_id):
             'activity': [{'id': f"{index}:{item.get('title')}", 'title': str(item.get('title') or 'Atualização'),
                           'detail': str(item.get('detail') or '')} for index, item in enumerate(project.get('activity') or [])],
             'links': [{'id': str(item.get('id')), 'title': str(item.get('titulo') or 'Atalho'), 'url': str(item.get('url') or ''),
-                       'provider': str(item.get('provider') or '')} for item in project.get('links') or []],
+                       'provider': str(item.get('provider') or ''), 'createdAt': item.get('created_at')} for item in project.get('links') or []],
             'health': project.get('context_health') or {},
             'sharing': {
                 'visibility': family_repository.project_visibility(client_id, f'ci:{project_id}').get('visibility', 'private'),
@@ -4801,6 +4963,39 @@ def project_sharing_api(project_id):
         'members': family_repository.project_access(client_id, project_ref),
         'team': family_repository.team(client_id),
     })
+
+
+@bp.get('/workspace/api/notificacoes')
+@login_required
+def workspace_notifications_api():
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    project_ref = str(request.args.get('project_ref') or '').strip() or None
+    result = notification_service.list_notifications(client_id, user_id, project_ref=project_ref)
+    items = [{
+        'id': item.get('id'), 'projectRef': item.get('project_ref'), 'brandRef': item.get('brand_ref'),
+        'conversationId': item.get('conversation_id'), 'runId': item.get('run_id'),
+        'longJobId': item.get('long_job_id'), 'sourceId': item.get('source_id'),
+        'kind': item.get('notification_type'), 'status': item.get('status'),
+        'title': item.get('title'), 'detail': item.get('detail'),
+        'action': item.get('action_payload') or {}, 'createdAt': item.get('created_at'),
+        'readAt': item.get('read_at'),
+    } for item in result.get('items') or []]
+    return jsonify({'available': result.get('available', False), 'items': items, 'unread': result.get('unread', 0)})
+
+
+@bp.post('/workspace/api/notificacoes/<uuid:notification_id>/<action>')
+@login_required
+def update_workspace_notification_api(notification_id, action):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    if action not in {'read', 'resolve', 'archive'}:
+        return jsonify({'error': 'Ação de notificação inválida.'}), 400
+    changed = notification_service.update_notification(
+        int(session.get('cliente_id') or 0), int(session.get('user_id') or 0),
+        str(notification_id), action,
+    )
+    return jsonify({'ok': changed})
 
 
 @bp.get('/workspace/api/visuais/<owner_type>/<owner_ref>')

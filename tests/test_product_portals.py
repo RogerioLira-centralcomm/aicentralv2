@@ -213,7 +213,7 @@ class ProductPortalsTest(TestCase):
         credits = client.get("/workspace/app/creditos", headers={"Host": "workspace.centralcomm.media"})
         self.assertIn("75", credits.get_data(as_text=True))
 
-    def test_workspace_public_nav_is_single_and_shows_signed_in_identity(self):
+    def test_workspace_public_pages_do_not_render_authenticated_chrome(self):
         app = _app()
         client = app.test_client()
         with client.session_transaction(headers={"Host": "workspace.centralcomm.media"}) as sess:
@@ -223,11 +223,33 @@ class ProductPortalsTest(TestCase):
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(html.count('aria-label="Páginas do Workspace"'), 1)
-        self.assertIn("Apolo Lira", html)
-        self.assertIn("apolo@centralcomm.media", html)
-        self.assertIn("84 disponíveis", html)
-        self.assertNotIn('class="ws-public-nav"', html)
+        self.assertEqual(html.count('aria-label="Navegação principal"'), 1)
+        self.assertNotIn("Apolo Lira", html)
+        self.assertNotIn("apolo@centralcomm.media", html)
+        self.assertNotIn("84 disponíveis", html)
+        self.assertNotIn('cadu-product-switch', html)
+
+    @mock.patch("aicentralv2.email_service.send_email", return_value=True)
+    @mock.patch("aicentralv2.db.criar_lead", return_value=91)
+    def test_workspace_public_contact_validates_and_redirects_to_thanks(self, create_lead, send_email):
+        client = _app().test_client()
+        invalid = client.post("/workspace/contato", data={"name": "A"}, headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(invalid.status_code, 200)
+        self.assertIn("Revise as informações", invalid.get_data(as_text=True))
+
+        response = client.post("/workspace/contato", data={
+            "name": "Ana Souza", "email": "ana@empresa.com", "company": "Empresa",
+            "profile": "marketing", "team_size": "6-20", "contact_preference": "email",
+            "challenge": "Precisamos conectar planejamento, criação e resultados da equipe.",
+        }, headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(response.status_code, 303)
+        self.assertTrue(response.headers["Location"].endswith("/workspace/contato/obrigado"))
+        self.assertTrue(create_lead.called)
+        self.assertTrue(send_email.called)
+
+        thanks = client.get(response.headers["Location"], headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(thanks.status_code, 200)
+        self.assertIn("Recebemos seu contexto.", thanks.get_data(as_text=True))
 
     def test_workspace_exposes_unlisted_current_design_system_reference(self):
         client = _app().test_client()
@@ -250,17 +272,17 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Seu time não deveria reconstruir o briefing a cada entrega.", html)
-        self.assertIn('data-cadu-theme-toggle', html)
-        self.assertIn('cadu-theme.js', html)
-        self.assertIn('data-theme-mode="light"', html)
+        self.assertIn('data-public-nav', html)
+        self.assertIn('data-carousel', html)
+        self.assertIn('data-cadu-theme="light"', html)
         self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/"', html)
         self.assertIn('>Criar conta</a>', html)
         self.assertIn('href="https://auth.centralcomm.media/login"', html)
-        self.assertIn('class="ws-public-shell"', html)
-        self.assertIn('class="ws-public-rail"', html)
-        self.assertIn('aria-label="Navegação pública do Workspace"', html)
-        self.assertIn('href="#solucoes"', html)
-        self.assertIn('id="privacidade"', html)
+        self.assertIn('class="studio-showcase"', html)
+        self.assertIn('aria-label="Navegação principal"', html)
+        self.assertIn('href="#como-funciona"', html)
+        self.assertIn('id="seguranca"', html)
+        self.assertNotIn('aria-label="Produtos Cadu"', html)
         self.assertEqual(client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"}).status_code, 302)
         for page in ("como-funciona", "planos", "ajuda", "contato"):
             with self.subTest(page=page):
@@ -330,15 +352,14 @@ class ProductPortalsTest(TestCase):
         self.assertNotIn('href="https://cadu.centralcomm.media/entrada/cadu"', html)
         self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/entrada/cadu"', html)
 
-    def test_product_switch_is_compact_and_keeps_workspace_first(self):
+    def test_public_home_explains_the_five_products_in_workflow_order(self):
         client = _app().test_client()
         html = client.get("/workspace/", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
         labels = ("Workspace", "Planner", "Studio", "Reports", "Skills")
-        menu = html.split('aria-label="Produtos Cadu">', 1)[1].split("</nav>", 1)[0]
-        offsets = [menu.index(f">{label}</span>") for label in labels]
-        self.assertEqual(offsets, sorted(offsets))
-        for icon in ("cadu-icon.png", "planner-icon.png", "studio-icon.png", "connect-icon.png", "skills-icon.png"):
-            self.assertIn(f"images/cadu/products/{icon}", html)
+        for label in labels:
+            self.assertIn(label, html)
+        for icon in ("workspace-192.png", "planner-192.png", "studio-192.png", "connect-192.png", "skills-192.png"):
+            self.assertIn(f"images/cadu/brand-icons/{icon}", html)
 
     @mock.patch("aicentralv2.cadu_connect.routes.link_campaign_project", return_value=True)
     def test_agents_links_campaign_to_project_inside_client_context(self, link):

@@ -92,7 +92,8 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
       <div className="cv-action-confirmation__heading"><Icon name="pulse" size={15}/><span>Confirme antes de continuar</span></div>
       <p>{message.action?.summary || 'Esta ação precisa da sua confirmação.'}</p>
       <small>O Cadu só executa esta etapa depois da sua confirmação.</small>
-      <div className="cv-action-confirmation__actions"><button type="button" onPointerDown={event => event.stopPropagation()} onClick={() => onDecision(message, false)}>Cancelar</button><button type="button" onPointerDown={event => event.stopPropagation()} onClick={() => onDecision(message, true)}>Confirmar ação</button></div>
+      {message.actionError && <p className="cv-action-confirmation__error" role="alert">{message.actionError}</p>}
+      <div className="cv-action-confirmation__actions"><button type="button" disabled={message.actionPending} onPointerDown={event => event.stopPropagation()} onClick={() => onDecision(message, false)}>Cancelar</button><button type="button" disabled={message.actionPending} onPointerDown={event => event.stopPropagation()} onClick={() => onDecision(message, true)}>{message.actionPending ? 'Salvando…' : 'Confirmar ação'}</button></div>
     </div>;
   }
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">

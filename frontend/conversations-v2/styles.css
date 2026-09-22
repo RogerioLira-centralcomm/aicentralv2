@@ -514,6 +514,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-action-confirmation__actions button:last-child { border-color:transparent; background:#65d8cb; color:#052522; }
 #cadu-conversations-v2-root .cv-action-confirmation__actions button:hover { border-color:rgba(122,228,215,.58); background:rgba(101,216,203,.1); color:#f3fffc; }
 #cadu-conversations-v2-root .cv-action-confirmation__actions button:last-child:hover { background:#8ae9db; color:#04211e; }
+#cadu-conversations-v2-root .cv-action-confirmation__actions button:disabled { opacity:.55; cursor:wait; pointer-events:none; }
+#cadu-conversations-v2-root .cv-action-confirmation .cv-action-confirmation__error { color:#ffb8ad; font-size:12px; }
 
 #cadu-conversations-v2-root .cv-response-summary { padding:2px 0 2px 14px; border:0; border-left:2px solid rgba(101,216,203,.5); background:transparent; }
 #cadu-conversations-v2-root .cv-note-block { padding:2px 0 2px 14px; border:0; border-left:2px solid rgba(181,218,211,.18); background:transparent; }

@@ -522,25 +522,6 @@ export default function App({bootstrap}) {
         else if (kind === 'action.proposed') {
           const actionMessage = {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: event.action?.run_id || event.action?.runId || runRef.current};
           setMessages(items => [...items, actionMessage]);
-          // Clicking “Salvar como referência” is already an explicit approval
-          // for this bounded, non-reading write. Do not make the user confirm
-          // the same action a second time in a separate card.
-          if (event.action?.name === 'projects.create_link_reference') {
-            void (async () => {
-              try {
-                const decision = await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(actionMessage.runId)}/steps/${encodeURIComponent(event.action.step_id)}/decision`, {
-                method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({approved: true}),
-                });
-                const completion = decision.step?.output_snapshot?.completion || {};
-                setMessages(items => items.map(item => item.id === actionMessage.id
-                  ? {...item, kind: undefined, response: {answer: completion.answer || 'Link salvo como referência do projeto.', blocks: completion.blocks || []}}
-                  : item));
-                if (completion.refresh_context) await loadContext();
-              } catch (error) {
-                trace('Falha ao salvar referência', error.message, 'error');
-              }
-            })();
-          }
         }
         else if (kind === 'artifact.created') {
           setRuntime('Preparando o material');
@@ -630,6 +611,7 @@ export default function App({bootstrap}) {
   }, [bootstrap.endpoints.runs, trace]);
 
   const decide = useCallback(async (message, approved) => {
+    setMessages(items => items.map(item => item.id === message.id ? {...item, actionPending: true, actionError: ''} : item));
     try {
       const runId = message.runId || message.action?.run_id || message.action?.runId;
       if (!runId || !message.action?.step_id) throw new Error('A confirmação expirou. Envie o pedido novamente.');
@@ -643,7 +625,11 @@ export default function App({bootstrap}) {
         try { await loadContext(); }
         catch (error) { trace('Contexto será atualizado em seguida', error.message); }
       }
-    } catch (error) { trace('Falha na ação', error.message, 'error'); }
+    } catch (error) {
+      const detail = String(error?.message || 'Não foi possível concluir esta ação.');
+      setMessages(items => items.map(item => item.id === message.id ? {...item, actionPending: false, actionError: detail} : item));
+      trace('Falha na ação', detail, 'error');
+    }
   }, [bootstrap.endpoints.runs, trace, loadContext]);
 
   const changeArtifact = useCallback(content => {

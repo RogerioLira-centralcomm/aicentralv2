@@ -543,6 +543,17 @@ test('completed responses never render a structured provider envelope as prose',
   assert.equal(response.confidence, 'medium');
 });
 
+test('action confirmations use the server run id and expose pending state', () => {
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  assert.match(app, /event\.action\?\.run_id \|\| event\.action\?\.runId \|\| runRef\.current/);
+  assert.doesNotMatch(app, /event\.action\?\.name === 'projects\.create_link_reference'/);
+  assert.match(app, /actionPending: true/);
+  assert.match(app, /actionError: detail/);
+  assert.match(conversation, /message\.actionPending \? 'Salvando…' : 'Confirmar ação'/);
+  assert.match(conversation, /role="alert"/);
+});
+
 test('conversation response UI never invents follow-up actions for static insights', () => {
   const blocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const progress = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceTaskProgress.jsx'), 'utf8');

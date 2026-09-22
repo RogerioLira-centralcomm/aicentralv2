@@ -549,8 +549,9 @@ def stream(run):
         run["run_id"], run["context"].client_id, run["context"].user_id,
     )
     for action in waiting_actions:
-        _journal(run["run_id"], "action.proposed", action, item_type="action")
-        yield _event("action.proposed", action=action)
+        public_action = {**action, "run_id": run["run_id"]}
+        _journal(run["run_id"], "action.proposed", public_action, item_type="action")
+        yield _event("action.proposed", action=public_action)
     for call in run["resolved_context"].tool_calls:
         _journal(run["run_id"], "tool.completed" if call["status"] == "completed" else "tool.unavailable",
                  call, item_type="activity", duration_ms=call.get("duration_ms"))

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from flask import session
+from flask import has_request_context, session
 
 from ..db import get_db
 from .catalog import CHANNEL_CATALOG
@@ -189,7 +189,7 @@ def brand_for_client(crm_client_id: Any) -> dict:
 def brand_for_workspace_client(brand_id: Any) -> dict:
     """Load a Workspace brand only when it belongs to the current organization."""
     brand_id = text(brand_id)
-    client_id = session.get("cliente_id")
+    client_id = session.get("cliente_id") if has_request_context() else None
     if not brand_id or not client_id:
         return {}
     try:
@@ -250,7 +250,7 @@ def bounded_context(parts: list[Any], limit: int = MAX_PLANNER_CONTEXT_CHARS) ->
 def workspace_project_context(project_id: Any) -> dict:
     """Bring the selected Workspace brief into a new Planner draft."""
     project_id = text(project_id)
-    client_id = session.get("cliente_id")
+    client_id = session.get("cliente_id") if has_request_context() else None
     if not project_id or not client_id:
         return {}
     try:

@@ -15,6 +15,7 @@ from typing import Optional
 from urllib.parse import quote, urlencode, urlparse
 from uuid import uuid4
 import secrets
+import requests
 
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import HTTPException
@@ -46,6 +47,9 @@ CADU_COMMERCIAL_PRICES = {
     'agência': 1497.0,
     'agencia': 1497.0,
 }
+
+BRAND_SCORE_VERSION = 'brand-readiness-v2-2026-09'
+BRAND_ANALYSIS_SCORE_VERSION = 'brand-analysis-v2-2026-09'
 
 
 def _utc_timestamp() -> str:
@@ -1546,20 +1550,53 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
         profile['brand_values'] = [
             item.strip() for item in re.split(r'[\n,;]+', profile['brand_values']) if item.strip()
         ]
-    identity_fields = ('brand_summary', 'positioning', 'target_audience', 'creative_guidelines')
-    identity_total = sum(bool(profile.get(field)) for field in identity_fields)
-    score = round((identity_total / len(identity_fields)) * 55)
-    score += 25 if brand.get('analysis_metadata') else 0
-    score += 10 if brand.get('has_logo') else 0
-    score += 10 if brand.get('assets') else 0
+    # Readiness is a normalized coverage index, not an all-or-nothing audit
+    # flag.  The weights total exactly 100 and reward useful partial dossiers.
+    weighted_fields = {
+        'brand_summary': 9, 'positioning': 4, 'target_audience': 7,
+        'tone_of_voice': 5, 'creative_guidelines': 5,
+        'products_services': 4, 'differentiators': 3, 'proof_points': 3,
+    }
+    identity_score = sum(weight for field, weight in weighted_fields.items() if profile.get(field))
+    identity_score += 2 if brand.get('name') else 0
+    identity_score += 3 if brand.get('sector') else 0
+    identity_score += 3 if brand.get('website_url') else 0
+    visual_score = 8 if brand.get('has_logo') else 0
+    visual_score += 7 if brand.get('primary_color') or profile.get('color_palette') else 0
+    visual_score += 3 if brand.get('secondary_color') else 0
+    visual_score += 3 if profile.get('fonts') else 0
+    visual_score += 4 if profile.get('visual_motifs') else 0
+    metadata = brand.get('analysis_metadata') or {}
+    evidence_score = 3 if metadata else 0
+    evidence_score += 4 if metadata.get('sources') else 0
+    evidence_score += 4 if metadata.get('automatic_decision', {}).get('approved') else 0
+    evidence_score += 4 if profile.get('evidence_ledger') else 0
+    approved_assets = [item for item in brand.get('assets', []) if str(item.get('status') or '').lower() == 'approved']
+    assets_score = 4 if approved_assets else 0
+    assets_score += 3 if any(str(item.get('role') or '') != 'logo' for item in approved_assets) else 0
+    presence_score = 2 if profile.get('contacts') else 0
+    presence_score += 1 if profile.get('addresses') else 0
+    presence_score += 1 if profile.get('digital_policies') else 0
+    presence_score += 1 if metadata.get('social_links') else 0
+    breakdown = [
+        {'id': 'identity', 'label': 'Identidade', 'score': identity_score, 'max': 48},
+        {'id': 'visual', 'label': 'Sistema visual', 'score': visual_score, 'max': 25},
+        {'id': 'evidence', 'label': 'Evidências', 'score': evidence_score, 'max': 15},
+        {'id': 'assets', 'label': 'Ativos', 'score': assets_score, 'max': 7},
+        {'id': 'presence', 'label': 'Presença pública', 'score': presence_score, 'max': 5},
+    ]
+    score = min(100, sum(item['score'] for item in breakdown))
     missing = []
     if not brand.get('has_logo'):
         missing.append('logo principal')
     if not brand.get('analysis_metadata'):
         missing.append('auditoria de marca')
-    if identity_total < len(identity_fields):
+    if not profile.get('brand_summary') or not profile.get('target_audience'):
         missing.append('diretrizes de identidade')
-    brand['readiness'] = {'score': score, 'missing': missing}
+    brand['readiness'] = {
+        'score': score, 'missing': missing, 'breakdown': breakdown,
+        'version': BRAND_SCORE_VERSION,
+    }
     brand['activity'] = sorted((
         {'title': 'Ativo registrado', 'detail': item.get('role') or 'Ativo de marca', 'at': item.get('created_at')}
         for item in brand['assets'] if item.get('created_at')
@@ -1567,7 +1604,7 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
     return brand
 
 
-def _merge_brand_analysis(brand: dict, analysis: dict) -> dict:
+def _merge_brand_analysis(brand: dict, analysis: dict, allowed_fields=None) -> dict:
     """Add extracted evidence without overwriting choices already reviewed by people."""
     profile = dict(brand.get('brand_profile') or {})
     field_map = {
@@ -1597,7 +1634,10 @@ def _merge_brand_analysis(brand: dict, analysis: dict) -> dict:
         'evidence_ledger': 'evidence_ledger',
         'field_provenance': 'field_provenance',
     }
+    allowed = set(allowed_fields or field_map.keys())
     for source, target in field_map.items():
+        if source not in allowed:
+            continue
         current = profile.get(target)
         if current in (None, '', [] , {}):
             candidate = analysis.get(source)
@@ -1657,6 +1697,66 @@ def _brand_analysis_proposal(analysis: dict) -> dict:
     return {key: value for key, value in analysis.items() if key in allowed}
 
 
+def _brand_analysis_quality_score(analysis: dict, analysis_metadata: dict, central_review: dict) -> dict:
+    """Return a stable 0-100 score without letting optional gaps veto the audit.
+
+    Provider confidence is useful context, but observable output is the source
+    of truth.  This makes the gate resilient when one reviewer is unavailable
+    after collection already produced a useful, sourced dossier.
+    """
+    analysis = analysis if isinstance(analysis, dict) else {}
+    metadata = analysis_metadata if isinstance(analysis_metadata, dict) else {}
+    review = central_review if isinstance(central_review, dict) else {}
+    coverage = metadata.get('coverage') if isinstance(metadata.get('coverage'), dict) else {}
+
+    def present(key):
+        return analysis.get(key) not in (None, '', [], {})
+
+    identity_weights = {
+        'brand_summary': 9, 'target_audience': 7, 'tone_of_voice': 4,
+        'creative_guidelines': 4, 'products_services': 4,
+        'differentiators': 3, 'proof_points': 2, 'audience_segments': 2,
+    }
+    visual_weights = {
+        'logo_url': 7, 'primary_color': 5, 'secondary_color': 3,
+        'color_palette': 4, 'fonts': 3, 'visual_motifs': 3,
+    }
+    marketing_weights = {
+        'campaigns': 3, 'ad_segments': 2, 'competitors': 2,
+        'personas': 1, 'campaign_opportunities': 2,
+    }
+    identity = sum(weight for key, weight in identity_weights.items() if present(key))
+    visual = sum(weight for key, weight in visual_weights.items() if present(key))
+    marketing = sum(weight for key, weight in marketing_weights.items() if present(key))
+
+    sources = list(analysis.get('sources') or metadata.get('sources') or [])
+    ledger = list(analysis.get('evidence_ledger') or [])
+    pages = int(coverage.get('official_pages') or metadata.get('pages_analyzed') or 0)
+    evidence = min(8, len(sources) * 2) + min(6, pages * 2) + min(6, len(ledger))
+
+    try:
+        review_confidence = max(0.0, min(1.0, float(review.get('confidence') or 0)))
+    except (TypeError, ValueError):
+        review_confidence = 0.0
+    # A valid central opinion is worth at most ten points. Its absence reduces
+    # the score, but never erases evidence already collected and normalized.
+    review_score = round(review_confidence * 7)
+    if str(review.get('status') or '') == 'ready':
+        review_score += 3
+
+    breakdown = {
+        'identity': min(35, identity),
+        'visual': min(25, visual),
+        'evidence': min(20, evidence),
+        'marketing': min(10, marketing),
+        'review': min(10, review_score),
+    }
+    return {
+        'score': min(100, sum(breakdown.values())), 'breakdown': breakdown,
+        'version': BRAND_ANALYSIS_SCORE_VERSION,
+    }
+
+
 def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_review: dict, analysis_mode: str) -> dict:
     """Decide whether an audit has enough independently checkable evidence.
 
@@ -1666,35 +1766,28 @@ def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_r
     deep = str(analysis_mode or 'complete').lower() == 'deep'
     coverage = dict((analysis_metadata or {}).get('coverage') or {})
     sources = list(analysis.get('sources') or (analysis_metadata or {}).get('sources') or [])
-    dimensions = central_review.get('quality_dimensions') if isinstance(central_review.get('quality_dimensions'), dict) else {}
+    quality = _brand_analysis_quality_score(analysis, analysis_metadata, central_review)
     reasons = []
-    if str(central_review.get('status') or '') != 'ready':
-        reasons.append('a consolidação central não liberou a análise')
-    if list(central_review.get('blocked_fields') or []):
-        reasons.append('existem campos sem evidência suficiente: ' + ', '.join(map(str, central_review.get('blocked_fields') or [])))
     try:
         confidence = float(central_review.get('confidence') or 0)
     except (TypeError, ValueError):
         confidence = 0
-    if confidence < .82:
-        reasons.append('a confiança da consolidação central ficou abaixo de 82%')
-    required_pages, required_sources, required_visuals = (4, 4, 10) if deep else (2, 2, 5)
+    required_pages, required_sources = (3, 3) if deep else (1, 1)
     if int(coverage.get('official_pages') or 0) < required_pages:
         reasons.append(f'foram encontradas poucas páginas oficiais ({coverage.get("official_pages") or 0}/{required_pages})')
     if len(sources) < required_sources:
         reasons.append(f'foram encontradas poucas fontes verificáveis ({len(sources)}/{required_sources})')
-    if int(coverage.get('approved_visuals') or 0) < required_visuals:
-        reasons.append(f'foram validados poucos visuais da marca ({coverage.get("approved_visuals") or 0}/{required_visuals})')
-    # Presence holds operational details such as a public phone or address.
-    # They are useful in the dossier but neither scarce nor decisive enough to
-    # veto a strategic brand audit.
-    for key in ('identity', 'visual', 'marketing', 'sources'):
-        try:
-            value = float(dimensions.get(key) or 0)
-        except (TypeError, ValueError):
-            value = 0
-        if value < .70:
-            reasons.append(f'a dimensão {key} ficou abaixo de 70%')
+    if not analysis.get('brand_summary') and not analysis.get('target_audience'):
+        reasons.append('faltam resumo de marca e público-alvo verificáveis')
+    # Deep mode demands more independent pages and sources, not a visually
+    # perfect brand. A slightly higher score preserves that distinction while
+    # allowing a strong dossier to survive one optional provider failure.
+    minimum_score = 60 if deep else 55
+    if quality['score'] < minimum_score:
+        reasons.append(f'a cobertura normalizada ficou em {quality["score"]}/{minimum_score}')
+    # Visual and optional operational fields affect the score and remain in
+    # blocked_fields for transparency, but no longer veto a strong identity.
+    blocked_fields = list(central_review.get('blocked_fields') or [])
     deep_recommended = not (
         int(coverage.get('official_pages') or 0) < 2
         or len(sources) < 2
@@ -1704,6 +1797,11 @@ def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_r
         'approved': not reasons,
         'reasons': reasons[:8],
         'confidence': round(confidence, 2),
+        'score': quality['score'],
+        'breakdown': quality['breakdown'],
+        'score_version': quality['version'],
+        'blocked_fields': blocked_fields[:20],
+        'review_status': str(central_review.get('status') or 'unavailable'),
         'deep_recommended': deep_recommended,
         'coverage': coverage,
     }
@@ -1756,6 +1854,59 @@ def _auto_apply_brand_analysis(client_id: int, user_id: int, brand_id: int, bran
     except Exception:
         current_app.logger.exception('Contexto publicado não sincronizado com projetos da marca %s', brand_id)
     return metadata
+
+
+def _reevaluate_saved_brand_audit(client_id: int, user_id: int, brand_id: int, *, apply=True) -> dict:
+    """Re-score saved evidence without making or charging a provider call."""
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        raise LookupError('Marca não encontrada.')
+    connection = get_db()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            '''SELECT job_id, analysis_mode, collected_data, reviews
+                 FROM cadu_workspace_brand_audit_runs
+                WHERE client_id = %s AND brand_id = %s
+                  AND collected_data ? 'analysis_result'
+                ORDER BY created_at DESC LIMIT 1''',
+            (client_id, brand_id),
+        )
+        row = cursor.fetchone()
+    if not row:
+        raise ValueError('Nenhuma auditoria salva possui evidências reutilizáveis.')
+    collected = row.get('collected_data') if isinstance(row.get('collected_data'), dict) else {}
+    analysis = collected.get('analysis_result') if isinstance(collected.get('analysis_result'), dict) else {}
+    if not analysis:
+        raise ValueError('A auditoria salva não contém uma proposta reutilizável.')
+    metadata = analysis.get('analysis_metadata') if isinstance(analysis.get('analysis_metadata'), dict) else {}
+    reviews = row.get('reviews') if isinstance(row.get('reviews'), list) else []
+    central = next((item for item in reviews if item.get('id') == 'revisor_central'), {})
+    proposal = _brand_analysis_proposal(analysis)
+    decision = _automatic_brand_decision(proposal, metadata, central, row.get('analysis_mode') or 'complete')
+    decision.update({
+        'reevaluated': True, 'source_job_id': str(row.get('job_id') or ''),
+        'reevaluated_at': _utc_timestamp(),
+    })
+    if apply and decision['approved']:
+        _auto_apply_brand_analysis(client_id, user_id, brand_id, brand, proposal, decision)
+        status = 'approved'
+    elif apply:
+        current_metadata = dict(brand.get('analysis_metadata') or {})
+        current_metadata.update({
+            'automatic_decision': decision,
+            'score_version': BRAND_ANALYSIS_SCORE_VERSION,
+        })
+        with connection.cursor() as cursor:
+            cursor.execute(
+                '''UPDATE cx_clients SET analysis_metadata = %s::jsonb
+                    WHERE id = %s AND crm_client_id = %s''',
+                (json.dumps(current_metadata), brand_id, client_id),
+            )
+        connection.commit()
+        status = 'insufficient_evidence'
+    else:
+        status = 'simulation'
+    return {'status': status, 'decision': decision, 'job_id': str(row.get('job_id') or '')}
 
 
 def _ensure_brand_audit_credit(client_id: int) -> None:
@@ -1884,6 +2035,9 @@ def _save_brand_audit_history(client_id: int, brand_id: int, job_id: str, *, ana
     }
     effort = {'estimated_person_hours': 8 if analysis_mode == 'deep' else 4, 'comparison': 'Pesquisa, leitura, extração, consolidação e revisão multagente.'}
     connection = get_db()
+    # Optional audit persistence must recover from a previously aborted read;
+    # it never inherits uncommitted business changes from another stage.
+    connection.rollback()
     try:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -1917,6 +2071,7 @@ def _save_brand_audit_evidence(client_id: int, brand_id: int, job_id: str, analy
     accepted = [item for item in (analysis or {}).get('asset_candidates') or [] if isinstance(item, dict)]
     rejected = [item for item in (analysis or {}).get('rejected_asset_candidates') or [] if isinstance(item, dict)]
     connection = get_db()
+    connection.rollback()
     try:
         with connection.cursor() as cursor:
             for page in pages[:24]:
@@ -1993,6 +2148,7 @@ def _save_brand_audit_evidence(client_id: int, brand_id: int, job_id: str, analy
 def _save_brand_campaigns(client_id: int, brand_id: int, job_id: str, campaigns: list[dict]) -> None:
     """Upsert campaign opportunities separately from the active brand profile."""
     connection = get_db()
+    connection.rollback()
     try:
         with connection.cursor() as cursor:
             for campaign in campaigns[:8]:
@@ -2081,6 +2237,17 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
                 if hasattr(value, 'isoformat'):
                     item[key] = value.isoformat()
             costs = item.get('costs') if isinstance(item.get('costs'), dict) else {}
+            collected = item.get('collected_data') if isinstance(item.get('collected_data'), dict) else {}
+            result = collected.get('analysis_result') if isinstance(collected.get('analysis_result'), dict) else {}
+            result_metadata = result.get('analysis_metadata') if isinstance(result.get('analysis_metadata'), dict) else {}
+            reliability = result_metadata.get('reliability') if isinstance(result_metadata.get('reliability'), dict) else {}
+            item['reliability'] = {
+                'provider_calls': max(0, int(reliability.get('provider_calls') or 0)),
+                'successful_calls': max(0, int(reliability.get('successful_calls') or 0)),
+                'failed_calls': max(0, int(reliability.get('failed_calls') or 0)),
+                'fallback_used': bool(reliability.get('fallback_used')),
+                'partial_result': bool(reliability.get('partial_result')),
+            }
             stages = costs.get('stages') if isinstance(costs.get('stages'), dict) else {}
             total_usd = 0.0
             for stage in stages.values():
@@ -2108,6 +2275,30 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
         except Exception:
             pass
         return []
+
+
+def _brand_audit_reliability_summary(history: list[dict]) -> dict:
+    """Aggregate provider health without treating missing legacy telemetry as failure."""
+    completed = [item for item in history if item.get('status') in {'approved', 'pending_approval', 'insufficient_evidence'}]
+    measured = [item for item in completed if int((item.get('reliability') or {}).get('provider_calls') or 0) > 0]
+    provider_calls = sum(int((item.get('reliability') or {}).get('provider_calls') or 0) for item in measured)
+    successful_calls = sum(int((item.get('reliability') or {}).get('successful_calls') or 0) for item in measured)
+    failed_calls = sum(int((item.get('reliability') or {}).get('failed_calls') or 0) for item in measured)
+    stable_runs = sum(
+        1 for item in measured
+        if not (item.get('reliability') or {}).get('partial_result') and not (item.get('reliability') or {}).get('failed_calls')
+    )
+    return {
+        'runs': len(completed),
+        'measured_runs': len(measured),
+        'provider_calls': provider_calls,
+        'successful_calls': successful_calls,
+        'failed_calls': failed_calls,
+        'fallback_runs': sum(1 for item in measured if (item.get('reliability') or {}).get('fallback_used')),
+        'partial_runs': sum(1 for item in measured if (item.get('reliability') or {}).get('partial_result')),
+        'call_success_rate': round(successful_calls * 100 / provider_calls) if provider_calls else None,
+        'stable_run_rate': round(stable_runs * 100 / len(measured)) if measured else None,
+    }
 
 
 def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True, analysis_mode='complete', social_links=None, existing_asset_ids=None):
@@ -2148,14 +2339,46 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     and str(asset.get('status') or '').lower() == 'approved'
                 ]
                 if existing_asset_ids is None and not restored_images:
-                    primary_logo = next((
+                    # Legacy callers did not submit a selection. Reuse a
+                    # balanced visual set instead of only one primary logo.
+                    selected_assets = sorted((
                         asset for asset in stored_brand.get('assets', [])
-                        if str(asset.get('role') or '').lower() == 'logo'
-                        and bool(asset.get('is_primary'))
-                        and str(asset.get('status') or '').lower() == 'approved'
-                    ), None)
-                    selected_assets = [primary_logo] if primary_logo else []
-                for asset in selected_assets[:12]:
+                        if str(asset.get('status') or '').lower() == 'approved'
+                        and (asset.get('asset_path') or asset.get('source_url'))
+                    ), key=lambda item: (
+                        not bool(item.get('is_primary')),
+                        str(item.get('role') or '') == 'logo',
+                        -float(item.get('score') or 0),
+                    ))[:12]
+                else:
+                    selected_assets.sort(key=lambda item: (
+                        not bool(item.get('is_primary')),
+                        str(item.get('role') or '') == 'logo',
+                        -float(item.get('score') or 0),
+                    ))
+                # Collapse exact/import duplicates and keep at most two logo
+                # variants so campaign, photography and application examples
+                # reach the visual model as well.
+                curated_assets, seen_assets, logo_count = [], set(), 0
+                for asset in selected_assets:
+                    asset_meta = asset.get('metadata') if isinstance(asset.get('metadata'), dict) else {}
+                    fingerprint = str(
+                        asset_meta.get('perceptual_hash') or asset_meta.get('sha256')
+                        or asset.get('asset_path') or str(asset.get('source_url') or '').split('?', 1)[0]
+                        or asset.get('id')
+                    )
+                    if fingerprint in seen_assets:
+                        continue
+                    is_logo = str(asset.get('role') or '').lower() == 'logo'
+                    if is_logo and logo_count >= 2:
+                        continue
+                    seen_assets.add(fingerprint)
+                    logo_count += 1 if is_logo else 0
+                    curated_assets.append(asset)
+                selected_assets = curated_assets
+                brand_host = (urlparse(str(stored_brand.get('website_url') or '')).hostname or '').lower()
+                max_selected_assets = 12 if analysis_mode == 'deep' else 8
+                for asset in selected_assets[:max_selected_assets]:
                     try:
                         asset_path = CreativeAssetStorage().absolute_public_path(asset.get('asset_path'))
                         if asset_path:
@@ -2163,9 +2386,37 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                                 stream=BytesIO(asset_path.read_bytes()), filename=asset_path.name,
                                 content_type=asset.get('mime_type') or 'image/png',
                             ))
+                            continue
+                        source_url = str(asset.get('source_url') or '').strip()
+                        source_host = (urlparse(source_url).hostname or '').lower()
+                        if not source_url.startswith(('http://', 'https://')) or not brand_host or not (
+                            source_host == brand_host or source_host.endswith('.' + brand_host)
+                        ):
+                            continue
+                        response = requests.get(
+                            source_url, timeout=12, allow_redirects=True,
+                            headers={'User-Agent': 'CentralX-Brand-Audit/2026'},
+                        )
+                        response.raise_for_status()
+                        final_host = (urlparse(str(response.url or '')).hostname or '').lower()
+                        if not (final_host == brand_host or final_host.endswith('.' + brand_host)):
+                            continue
+                        content = response.content[:8 * 1024 * 1024]
+                        content_type = str(response.headers.get('Content-Type') or asset.get('mime_type') or 'image/png').split(';', 1)[0]
+                        if not content or not content_type.startswith('image/'):
+                            continue
+                        restored_images.append(FileStorage(
+                            stream=BytesIO(content), filename=f'brand-asset-{asset.get("id")}.img',
+                            content_type=content_type,
+                        ))
                     except (OSError, ValueError):
                         current_app.logger.warning(
                             'Ativo %s da marca %s não pôde ser reutilizado na auditoria.',
+                            asset.get('id'), brand_id,
+                        )
+                    except requests.RequestException:
+                        current_app.logger.warning(
+                            'Ativo remoto %s da marca %s não pôde ser baixado para a auditoria.',
                             asset.get('id'), brand_id,
                         )
                 if not website_url and not restored_images:
@@ -6279,6 +6530,7 @@ def brand_detail(brand_id):
             'audit': url_for('cadu_workspace.audit_brand', brand_id=brand_id),
             'auditStatus': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
             'approve': url_for('cadu_workspace.approve_brand_reviews', brand_id=brand_id),
+            'reevaluate': url_for('cadu_workspace.reevaluate_brand_audit', brand_id=brand_id),
             'retry': url_for('cadu_workspace.retry_brand_audit', brand_id=brand_id),
             'deleteBrand': url_for('cadu_workspace.delete_brand', brand_id=brand_id),
             'setPrimaryBase': f'{brand_base}/ativos/__ASSET_ID__/principal',
@@ -6323,6 +6575,7 @@ def brand_detail(brand_id):
             },
             'readiness': brand.get('readiness') or {'score': 0, 'missing': []}, 'reviewPack': review_pack,
             'auditHistory': audit_history,
+            'reliabilitySummary': _brand_audit_reliability_summary(audit_history),
             'analysisMetadata': {
                 'pagesAnalyzed': int((brand.get('analysis_metadata') or {}).get('pages_analyzed') or 0),
                 'assetsFound': int((brand.get('analysis_metadata') or {}).get('assets_found') or 0),
@@ -6350,7 +6603,7 @@ def brand_detail(brand_id):
             'assets': [{
                 'id': str(item.get('id')), 'role': str(item.get('role') or 'reference'), 'status': str(item.get('status') or 'registered'),
                 'isPrimary': bool(item.get('is_primary')), 'displayUrl': str(item.get('display_url') or ''),
-                'reusable': bool(item.get('asset_path')) and not bool(item.get('missing_file')) and str(item.get('status') or '').lower() == 'approved',
+                'reusable': bool(item.get('display_url')) and not bool(item.get('missing_file')) and str(item.get('status') or '').lower() == 'approved',
                 'mimeType': str(item.get('mime_type') or ''), 'sourceKind': str(item.get('source_kind') or ''),
                 'metadata': item.get('metadata') if isinstance(item.get('metadata'), dict) else {},
             } for item in brand.get('assets') or []],
@@ -6717,7 +6970,8 @@ def audit_brand(brand_id):
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
     existing_asset_ids = None
     if request.form.get('existing_assets_present') == 'true':
-        requested_ids = {int(value) for value in request.form.getlist('existing_asset_ids')[:12] if str(value).isdigit()}
+        asset_limit = 40 if request.form.get('analysis_mode') == 'deep' else 24
+        requested_ids = {int(value) for value in request.form.getlist('existing_asset_ids')[:asset_limit] if str(value).isdigit()}
         existing_asset_ids = [
             int(asset['id']) for asset in brand.get('assets', [])
             if int(asset.get('id') or 0) in requested_ids
@@ -6851,7 +7105,8 @@ def retry_brand_audit(brand_id):
     social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '\n'.join(previous_input.get('social_links') or [])).splitlines() if item.strip()][:12]
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
     if request.form.get('existing_assets_present') == 'true':
-        requested_ids = {int(value) for value in request.form.getlist('existing_asset_ids')[:12] if str(value).isdigit()}
+        asset_limit = 40 if request.form.get('analysis_mode') == 'deep' else 24
+        requested_ids = {int(value) for value in request.form.getlist('existing_asset_ids')[:asset_limit] if str(value).isdigit()}
         existing_asset_ids = [
             int(asset['id']) for asset in brand.get('assets', [])
             if int(asset.get('id') or 0) in requested_ids
@@ -7017,6 +7272,28 @@ def refresh_brand_audit_module(brand_id, module_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
 
 
+@bp.post('/workspace/app/marcas/<int:brand_id>/auditoria/reavaliar')
+@login_required
+def reevaluate_brand_audit(brand_id):
+    """Apply the current deterministic gate to saved evidence at zero provider cost."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    try:
+        result = _reevaluate_saved_brand_audit(
+            client_id, int(session.get('user_id') or 0), brand_id,
+            apply=request.form.get('simulation') != 'true',
+        )
+    except LookupError:
+        abort(404)
+    except ValueError as exc:
+        abort(409, description=str(exc))
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify({'ok': True, **result})
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, reevaluated=result['status']), code=303)
+
+
 @bp.post('/workspace/app/marcas/<int:brand_id>/revisoes/aprovar')
 @login_required
 def approve_brand_reviews(brand_id):
@@ -7033,13 +7310,16 @@ def approve_brand_reviews(brand_id):
     if pack.get('status') != 'pending_approval' or not analysis:
         abort(409, description='Não há uma proposta de análise aguardando aprovação.')
     central_review = next((item for item in pack.get('reviews') or [] if item.get('id') == 'revisor_central'), {})
-    central_ready = (
-        str(central_review.get('status') or '') == 'ready'
-        and not list(central_review.get('blocked_fields') or [])
-    )
-    if not central_ready:
-        abort(409, description='A consolidação central ainda precisa liberar esta proposta antes da aprovação humana.')
-    merged = _merge_brand_analysis(brand, analysis)
+    selectable = {key for key, value in analysis.items() if value not in (None, '', [], {})}
+    requested = {value for value in request.form.getlist('approved_fields') if value in selectable}
+    central_ready = str(central_review.get('status') or '') == 'ready' and not list(central_review.get('blocked_fields') or [])
+    if not requested and not central_ready:
+        abort(409, description='Selecione explicitamente os campos comprovados ou refaça a consolidação central.')
+    approved_fields = requested or selectable
+    if not approved_fields:
+        abort(409, description='Selecione ao menos um campo utilizável para aprovação.')
+    approved_analysis = {key: value for key, value in analysis.items() if key in approved_fields}
+    merged = _merge_brand_analysis(brand, approved_analysis, approved_fields)
     # Once the reviewed proposal has supplied the definitive identity, that
     # value becomes user-owned context rather than a disposable URL guess.
     merged['profile']['name_autogenerated'] = False
@@ -7049,6 +7329,9 @@ def approve_brand_reviews(brand_id):
         'status': 'approved',
         'approved_at': _utc_timestamp(),
         'approved_by': int(session.get('user_id') or 0),
+        'approved_fields': sorted(approved_fields),
+        'deferred_fields': sorted(selectable - approved_fields),
+        'approval_mode': 'human_field_selection' if requested else 'human_all_fields',
         # Keep the evidence and reviews for audit, but do not use the proposal
         # as a second source of truth after its values enter brand_profile.
         'analysis': analysis,
@@ -7072,9 +7355,9 @@ def approve_brand_reviews(brand_id):
                           updated_at = NOW()
                     WHERE id = %s AND crm_client_id = %s
                 RETURNING id""",
-                (analysis.get('name'), analysis.get('sector'), analysis.get('website_url'), analysis.get('logo_url'),
-                 analysis.get('primary_color'), analysis.get('secondary_color'),
-                 analysis.get('tone_of_voice'), json.dumps(merged['profile']),
+                (approved_analysis.get('name'), approved_analysis.get('sector'), approved_analysis.get('website_url'), approved_analysis.get('logo_url'),
+                 approved_analysis.get('primary_color'), approved_analysis.get('secondary_color'),
+                 approved_analysis.get('tone_of_voice'), json.dumps(merged['profile']),
                  json.dumps(metadata), brand_id, client_id),
             )
             if not cursor.fetchone():
@@ -7092,13 +7375,13 @@ def approve_brand_reviews(brand_id):
         # Projects receive compact, approved projections of the same evidence.
         _sync_approved_brand_to_projects(
             client_id, int(session.get('user_id') or 0), brand_id,
-            {**brand, 'brand_profile': merged['profile'], 'analysis_metadata': metadata}, analysis,
+            {**brand, 'brand_profile': merged['profile'], 'analysis_metadata': metadata}, approved_analysis,
         )
     except Exception:
         current_app.logger.exception('Contexto aprovado não sincronizado com projetos da marca %s', brand_id)
     try:
         _send_brand_approval_email(
-            {**brand, 'name': analysis.get('name') or brand.get('name'), 'analysis_metadata': metadata},
+            {**brand, 'name': approved_analysis.get('name') or brand.get('name'), 'analysis_metadata': metadata},
             review_pack, client_id, brand_id,
         )
     except Exception:
@@ -7110,10 +7393,10 @@ def approve_brand_reviews(brand_id):
         from ..creative_modeling_service import CreativeModelingService
         seed_brand = {
             **brand,
-            'name': analysis.get('name') if (brand.get('brand_profile') or {}).get('name_autogenerated') else brand.get('name'),
-            'sector': analysis.get('sector') or brand.get('sector'),
-            'primary_color': analysis.get('primary_color') or brand.get('primary_color'),
-            'secondary_color': analysis.get('secondary_color') or brand.get('secondary_color'),
+            'name': approved_analysis.get('name') if (brand.get('brand_profile') or {}).get('name_autogenerated') else brand.get('name'),
+            'sector': approved_analysis.get('sector') or brand.get('sector'),
+            'primary_color': approved_analysis.get('primary_color') or brand.get('primary_color'),
+            'secondary_color': approved_analysis.get('secondary_color') or brand.get('secondary_color'),
         }
         CreativeModelingService().create_client_brand_seed_visuals(brand_id, seed_brand)
     except Exception:

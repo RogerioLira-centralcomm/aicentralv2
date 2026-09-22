@@ -290,6 +290,37 @@ body.portal--workspace .cadu-ds-brand-audit-existing small {
   white-space: nowrap;
 }
 
+body.portal--workspace .cadu-ds-brand-field-approval { display:grid; gap:12px; padding:0 22px 20px; }
+body.portal--workspace .cadu-ds-brand-field-approval > strong { font-size:11px; }
+body.portal--workspace .cadu-ds-brand-field-approval > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 14px; }
+body.portal--workspace .cadu-ds-brand-field-approval label { display:flex; align-items:center; gap:8px; min-height:34px; border-bottom:1px solid var(--cadu-line); font-size:10px; }
+body.portal--workspace .cadu-ds-brand-field-approval label span { flex:1; }
+body.portal--workspace .cadu-ds-brand-field-approval label small { color:var(--cadu-danger,#a34032); font-size:8px; }
+body.portal--workspace .cadu-ds-brand-field-approval footer { display:flex; justify-content:flex-end; gap:8px; }
+@media(max-width:560px){body.portal--workspace .cadu-ds-brand-field-approval > div{grid-template-columns:1fr}}
+
+body.portal--workspace .cadu-ds-brand-reliability {
+  margin-top: 18px;
+  padding: 24px;
+  border: 1px solid var(--cadu-line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--cadu-accent) 4%, var(--cadu-surface));
+}
+
+body.portal--workspace .cadu-ds-brand-reliability header p,
+body.portal--workspace .cadu-ds-brand-reliability header h2,
+body.portal--workspace .cadu-ds-brand-reliability header span { margin: 0; }
+body.portal--workspace .cadu-ds-brand-reliability header p { color: var(--cadu-accent-strong); font: 700 10px var(--cadu-font-sans); }
+body.portal--workspace .cadu-ds-brand-reliability header h2 { margin-top: 5px; font-size: 19px; }
+body.portal--workspace .cadu-ds-brand-reliability header span { display: block; margin-top: 6px; color: var(--cadu-muted); font-size: 12px; }
+body.portal--workspace .cadu-ds-brand-reliability dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 18px 0 0; overflow: hidden; border-radius: 12px; background: var(--cadu-line); }
+body.portal--workspace .cadu-ds-brand-reliability dl div { display: grid; gap: 3px; padding: 15px; background: var(--cadu-surface); }
+body.portal--workspace .cadu-ds-brand-reliability dt { color: var(--cadu-muted); font-size: 10px; }
+body.portal--workspace .cadu-ds-brand-reliability dd { margin: 0; color: var(--cadu-ink); font: 700 23px var(--cadu-font-sans); }
+body.portal--workspace .cadu-ds-brand-reliability small { color: var(--cadu-muted); font-size: 9px; }
+
+.cadu-route-loading { display: grid; min-height: 45vh; margin: 0; place-items: center; color: var(--cadu-muted); font: 600 12px var(--cadu-font-sans); }
+
 body.portal--workspace .cadu-ds-entity-rail__danger {
   display: block;
   margin-top: 12px;
@@ -351,6 +382,7 @@ body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-s
 }
 
 @media (max-width: 560px) {
+  body.portal--workspace .cadu-ds-brand-reliability dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   body.portal--workspace .cadu-ds-brand-audit-complete dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequest
 from aicentralv2.product_domains import product_url
 from aicentralv2.cadu_workspace.routes import (
     _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
-    _brand_audit_history, _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
+    _brand_audit_history, _brand_audit_reliability_summary, _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
     _save_brand_review_job, bp,
 )
@@ -31,15 +31,81 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    def test_reliability_summary_ignores_legacy_runs_without_telemetry(self):
+        summary = _brand_audit_reliability_summary([
+            {'status': 'approved', 'reliability': {'provider_calls': 10, 'successful_calls': 9, 'failed_calls': 1, 'fallback_used': True, 'partial_result': True}},
+            {'status': 'approved', 'reliability': {'provider_calls': 5, 'successful_calls': 5, 'failed_calls': 0, 'fallback_used': False, 'partial_result': False}},
+            {'status': 'approved'},
+            {'status': 'failed', 'reliability': {'provider_calls': 3, 'successful_calls': 0, 'failed_calls': 3}},
+        ])
+
+        self.assertEqual(summary['runs'], 3)
+        self.assertEqual(summary['measured_runs'], 2)
+        self.assertEqual(summary['call_success_rate'], 93)
+        self.assertEqual(summary['stable_run_rate'], 50)
+        self.assertEqual(summary['fallback_runs'], 1)
+        self.assertEqual(summary['partial_runs'], 1)
+
+    def test_quality_gate_calibration_matrix_preserves_evidence_boundaries(self):
+        cases = [
+            ({'sources': ['https://a.test'], 'brand_summary': 'Resumo'}, {'coverage': {'official_pages': 1}}, .45, False),
+            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'products_services': ['Oferta'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 4}, {'coverage': {'official_pages': 2, 'approved_visuals': 1}}, .75, False),
+            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'logo_url': 'https://a.test/logo.svg', 'color_palette': [{'hex': '#123456'}], 'fonts': [{'family': 'Inter'}], 'products_services': ['Oferta'], 'differentiators': ['Diferencial'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 6}, {'coverage': {'official_pages': 3, 'approved_visuals': 5}}, .9, True),
+        ]
+        decisions = [
+            _automatic_brand_decision(analysis, metadata, {'status': 'ready', 'blocked_fields': [], 'confidence': confidence, 'quality_dimensions': {}}, 'complete')
+            for analysis, metadata, confidence, _expected in cases
+        ]
+
+        self.assertEqual([item['approved'] for item in decisions], [item[3] for item in cases])
+        self.assertTrue(all(0 <= item['score'] <= 100 for item in decisions))
+        self.assertLess(decisions[0]['score'], decisions[1]['score'])
+        self.assertLess(decisions[1]['score'], decisions[2]['score'])
+
     def test_automatic_decision_publishes_only_when_every_evidence_gate_passes(self):
         decision = _automatic_brand_decision(
-            {'sources': ['https://a.test', 'https://b.test', 'https://c.test', 'https://d.test']},
+            {'sources': ['https://a.test', 'https://b.test', 'https://c.test', 'https://d.test'],
+             'brand_summary': 'Marca comprovada.', 'target_audience': 'Público comprovado.',
+             'tone_of_voice': 'Claro', 'creative_guidelines': 'Direção comprovada.',
+             'products_services': ['Serviço'], 'differentiators': ['Diferencial'],
+             'proof_points': ['Prova'], 'audience_segments': ['Segmento'],
+             'logo_url': 'https://a.test/logo.svg', 'primary_color': '#112233',
+             'secondary_color': '#445566', 'color_palette': [{'hex': '#112233'}],
+             'fonts': [{'family': 'Inter'}], 'evidence_ledger': [{'claim': 'Fato'}] * 6,
+             'visual_motifs': ['Motivo'], 'campaigns': [{'name': 'Campanha'}],
+             'ad_segments': ['Segmento'], 'competitors': [{'name': 'Outra'}],
+             'personas': [{'name': 'Pessoa'}], 'campaign_opportunities': ['Oportunidade']},
             {'coverage': {'official_pages': 4, 'approved_visuals': 10, 'contacts': 1, 'addresses': 1, 'policies': 1}},
-            {'status': 'ready', 'blocked_fields': [], 'confidence': .9,
+            {'status': 'ready', 'blocked_fields': [], 'confidence': 1,
              'quality_dimensions': {'identity': .8, 'visual': .8, 'marketing': .8, 'presence': .8, 'sources': .8}},
             'deep',
         )
         self.assertTrue(decision['approved'])
+        self.assertEqual(decision['score'], 100)
+
+    def test_optional_blocked_fields_do_not_veto_a_useful_complete_audit(self):
+        decision = _automatic_brand_decision(
+            {
+                'sources': ['https://brand.test', 'https://brand.test/about'],
+                'brand_summary': 'Marca focada em um público específico.',
+                'target_audience': 'Pessoas com necessidade comprovada.',
+                'products_services': ['Produto principal'],
+                'differentiators': ['Especialização'],
+                'proof_points': ['Página institucional'],
+                'logo_url': 'https://brand.test/logo.svg',
+                'fonts': [{'family': 'Inter'}],
+                'evidence_ledger': [{'claim': f'Fato {index}'} for index in range(6)],
+                'ad_segments': ['Oferta observada'],
+            },
+            {'coverage': {'official_pages': 3, 'approved_visuals': 4}},
+            {'status': 'needs_review', 'blocked_fields': ['competitors', 'digital_policies', 'campaigns'],
+             'confidence': .84, 'quality_dimensions': {'visual': .2}},
+            'complete',
+        )
+
+        self.assertTrue(decision['approved'])
+        self.assertGreaterEqual(decision['score'], 55)
+        self.assertEqual(decision['blocked_fields'], ['competitors', 'digital_policies', 'campaigns'])
 
     def test_automatic_decision_aborts_when_a_small_brand_lacks_evidence(self):
         decision = _automatic_brand_decision(

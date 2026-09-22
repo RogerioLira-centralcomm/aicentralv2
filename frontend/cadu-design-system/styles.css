@@ -3784,11 +3784,20 @@ body.portal--workspace .cadu-ds-project-starter__paths small,
 body.portal--workspace .cadu-ds-project-starter__generators small { color:var(--cadu-muted); font-size:10px; }
 body.portal--workspace .cadu-ds-project-starter__generators > span { margin-bottom:4px; color:var(--cadu-muted); font-size:10px; font-weight:700; text-transform:uppercase; }
 body.portal--workspace .cadu-ds-project-starter__generators a { grid-template-columns:minmax(0,1fr) auto; }
-body.portal--workspace .cadu-ds-brand-completion { display:grid; grid-template-columns:90px minmax(0,1fr) auto; align-items:center; gap:22px; padding:24px 0; }
+body.portal--workspace .cadu-ds-brand-completion { display:grid; grid-template-columns:90px minmax(0,1fr) auto; align-items:start; gap:22px; padding:24px 0; }
 body.portal--workspace .cadu-ds-brand-completion__score { display:grid; }
 body.portal--workspace .cadu-ds-brand-completion__score strong { font-size:34px; letter-spacing:-.06em; }
 body.portal--workspace .cadu-ds-brand-completion__score span { color:var(--cadu-muted); font-size:10px; }
-body.portal--workspace .cadu-ds-brand-completion__actions { display:flex; gap:8px; }
+body.portal--workspace .cadu-ds-brand-completion__body { min-width:0; }
+body.portal--workspace .cadu-ds-brand-completion__map { display:grid; grid-template-columns:repeat(5,minmax(72px,1fr)); gap:10px; margin-top:18px; }
+body.portal--workspace .cadu-ds-brand-completion__map > div { display:grid; gap:6px; min-width:0; }
+body.portal--workspace .cadu-ds-brand-completion__map span { display:flex; align-items:baseline; justify-content:space-between; gap:6px; }
+body.portal--workspace .cadu-ds-brand-completion__map b { overflow:hidden; color:var(--cadu-muted-strong); font-size:9px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-brand-completion__map small { color:var(--cadu-muted); font-size:8px; font-variant-numeric:tabular-nums; }
+body.portal--workspace .cadu-ds-brand-completion__map i { display:block; height:3px; overflow:hidden; background:color-mix(in srgb,var(--cadu-line) 70%,transparent); }
+body.portal--workspace .cadu-ds-brand-completion__map em { display:block; height:100%; background:var(--cadu-accent); }
+body.portal--workspace .cadu-ds-brand-completion.is-ready .cadu-ds-brand-completion__score strong { color:var(--cadu-accent-strong); }
+body.portal--workspace .cadu-ds-brand-completion__actions { display:flex; align-items:center; gap:8px; padding-top:4px; }
 body.portal--workspace .cadu-ds-brand-completion__actions button { min-height:34px; padding:0 12px; border:1px solid var(--cadu-line); border-radius:9px; background:transparent; color:var(--cadu-ink); font:inherit; font-size:11px; font-weight:700; }
 body.portal--workspace .cadu-ds-brand-completion__actions .is-primary { border-color:var(--cadu-accent); background:var(--cadu-accent); color:var(--cadu-accent-ink,#fff); }
 body.portal--workspace .cadu-ds-project-indexing { padding:25px 0; }
@@ -3822,6 +3831,10 @@ body.portal--workspace .cadu-ds-brand-library > aside small { overflow:hidden; t
 body.portal--workspace .cadu-ds-brand-library > aside b { font-size:11px; }
 body.portal--workspace .cadu-ds-brand-library > aside small { color:var(--cadu-muted); font-size:9px; }
 body.portal--workspace .cadu-ds-brand-library__upload { margin-top:14px; }
+body.portal--workspace .cadu-ds-brand-library__filters { display:flex; flex-wrap:wrap; gap:5px; margin:12px 0 8px; }
+body.portal--workspace .cadu-ds-brand-library__filters button { min-height:28px; padding:0 10px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--cadu-muted); font:inherit; font-size:9px; font-weight:650; }
+body.portal--workspace .cadu-ds-brand-library__filters button:hover,
+body.portal--workspace .cadu-ds-brand-library__filters button.is-active { border-color:var(--cadu-line); background:var(--cadu-surface); color:var(--cadu-ink); }
 
 @media (max-width:1240px) {
   body.portal--workspace .cadu-ds-entity-portal { grid-template-columns:172px minmax(0,1fr); }
@@ -3836,6 +3849,7 @@ body.portal--workspace .cadu-ds-brand-library__upload { margin-top:14px; }
   body.portal--workspace .cadu-ds-project-starter header { grid-column:auto; }
   body.portal--workspace .cadu-ds-brand-completion { grid-template-columns:72px minmax(0,1fr); }
   body.portal--workspace .cadu-ds-brand-completion__actions { grid-column:1/-1; }
+  body.portal--workspace .cadu-ds-brand-completion__map { grid-template-columns:repeat(3,minmax(80px,1fr)); }
   body.portal--workspace .cadu-ds-brand-library { grid-template-columns:1fr; min-height:0; }
   body.portal--workspace .cadu-ds-brand-library > aside { grid-auto-flow:column; grid-auto-columns:minmax(190px,1fr); overflow-x:auto; }
 }
@@ -3843,6 +3857,7 @@ body.portal--workspace .cadu-ds-brand-library__upload { margin-top:14px; }
   body.portal--workspace .cadu-ds-project-indexing__summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
   body.portal--workspace .cadu-ds-brand-completion { grid-template-columns:1fr; }
   body.portal--workspace .cadu-ds-brand-completion__actions { grid-column:auto; flex-wrap:wrap; }
+  body.portal--workspace .cadu-ds-brand-completion__map { grid-template-columns:repeat(2,minmax(0,1fr)); }
   body.portal--workspace .cadu-ds-brand-library__stage > img { min-height:260px; }
 }
 

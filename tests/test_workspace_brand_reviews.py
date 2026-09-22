@@ -71,3 +71,30 @@ class WorkspaceBrandReviewAgentsTest(TestCase):
         self.assertEqual(review['quality_dimensions']['sources'], .9)
         self.assertEqual(review['accepted_fields'], ['brand_summary'])
         self.assertEqual([event[0] for event in billed], ['revisor_central'])
+
+    def test_central_provider_failure_uses_deterministic_evidence_fallback(self):
+        calls = {'count': 0}
+
+        def llm(*_args, **_kwargs):
+            calls['count'] += 1
+            if calls['count'] <= 2:
+                return {
+                    'message': {'content': '{"summary":"ok","findings":[],"concerns":[],"confidence":0.8,"decision":"ready"}'},
+                    'model': 'reviewer',
+                }
+            raise RuntimeError('provider unavailable')
+
+        analyzer = CreativeBrandAnalyzer(llm=llm, model='reviewer')
+        reviews = analyzer.review_pack({
+            'brand_summary': 'Uma marca comprovada.',
+            'target_audience': 'Público comprovado.',
+            'products_services': ['Serviço'],
+            'sources': ['https://brand.test'],
+            'quality_dimensions': {'identity': .8, 'sources': .8},
+        })
+
+        central = reviews[-1]
+        self.assertEqual(central['id'], 'revisor_central')
+        self.assertEqual(central['status'], 'ready')
+        self.assertEqual(central['confidence'], .68)
+        self.assertIn('brand_summary', central['accepted_fields'])

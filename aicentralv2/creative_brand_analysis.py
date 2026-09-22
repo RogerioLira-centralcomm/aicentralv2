@@ -36,6 +36,9 @@ DEFAULT_DEEP_BRAND_MODEL = os.getenv(
 DEFAULT_VISUAL_BRAND_MODEL = os.getenv(
     "CREATIVE_BRAND_VISUAL_MODEL", "openai/gpt-5.4"
 )
+DEFAULT_BRAND_FALLBACK_MODEL = os.getenv(
+    "CREATIVE_BRAND_FALLBACK_MODEL", "openai/gpt-5.4"
+)
 
 # Deep research is deliberately divided by evidence domain. A single request
 # was mixing operational records, market context and visual interpretation in
@@ -214,8 +217,10 @@ WORKSPACE_BRAND_REVIEW_CONTRACT = """Retorne somente JSON válido neste formato:
 {"summary":"parecer objetivo em até 600 caracteres","findings":["até 5 conclusões utilizáveis"],"concerns":["até 4 incertezas, conflitos ou lacunas"],"accepted_fields":["campos que podem orientar a próxima etapa"],"blocked_fields":["campos sem prova ou inconsistentes"],"confidence":0.0,"decision":"ready ou needs_review"}
 Use português do Brasil. confidence é de 0 a 1. Fonte ausente, origem fora do
 mercado, divergência ou inferência relevante deve aparecer em concerns e em
-blocked_fields, resultando em needs_review. Não aprove um campo só porque ele
-parece provável ou é conhecimento comum sobre a marca."""
+blocked_fields. Use needs_review somente quando a lacuna comprometer resumo,
+público, oferta ou uso seguro da identidade; campos opcionais ausentes podem
+coexistir com decision ready. Não aprove um campo só porque ele parece provável
+ou é conhecimento comum sobre a marca."""
 
 CENTRAL_BRAND_REVIEW_CONTRACT = """Você é o revisor central da auditoria.
 Consolide os pareceres e a proposta em uma decisão auditável. Não introduza
@@ -223,6 +228,10 @@ fatos novos. Bloqueie qualquer campo sem fonte, com conflito ou que represente
 uma campanha transitória como identidade permanente. Não permita que ausência
 de telefone/endereço, isoladamente, reprove uma identidade bem comprovada; em
 compensação, números derivados de URLs, parâmetros ou IDs devem ser excluídos.
+Decida ready quando resumo, público e oferta estiverem sustentados por fontes,
+mesmo que visual, concorrentes, campanhas ou políticas permaneçam parciais.
+Registre essas lacunas em blocked_fields sem transformar campos opcionais em
+veto global.
 Retorne somente JSON:
 {"summary":"síntese final","findings":["fatos aprovados"],"concerns":["lacunas e conflitos"],"accepted_fields":["campos aprovados"],"blocked_fields":["campos bloqueados"],"confidence":0.0,"decision":"ready ou needs_review","quality_dimensions":{"identity":0.0,"visual":0.0,"marketing":0.0,"presence":0.0,"sources":0.0}}"""
 
@@ -322,7 +331,10 @@ def _image_parts(file_storage):
         else [file_storage]
     )
     result = []
-    for item in files[:4]:
+    # A brand library commonly contains logo, campaign, photography and UI
+    # references. Four files were too few and made operator selections mostly
+    # cosmetic; twelve remains bounded while representing the visual system.
+    for item in files[:12]:
         if not item or not item.filename:
             continue
         validate_logo(item)
@@ -1713,13 +1725,14 @@ def _creative_line_context(client, logo_attached=False):
 
 
 class CreativeBrandAnalyzer:
-    def __init__(self, llm=None, model=None, visual_model=None, review_model=None):
+    def __init__(self, llm=None, model=None, visual_model=None, review_model=None, fallback_model=None):
         self.llm = llm or chat_completion
         self.model = model or DEFAULT_BRAND_MODEL
         self.visual_model = visual_model or DEFAULT_VISUAL_BRAND_MODEL
         # Research and review deliberately use different roles. Perplexity
         # finds candidates; GPT-5.4 judges source-backed evidence.
         self.review_model = review_model or self.visual_model
+        self.fallback_model = fallback_model or DEFAULT_BRAND_FALLBACK_MODEL
 
     def _json_call(self, messages, *, model, max_tokens, temperature, timeout,
                    response_format=None, stage='', billing_callback=None, retries=1):
@@ -1727,9 +1740,15 @@ class CreativeBrandAnalyzer:
         base_messages = list(messages)
         trace = []
         last_error = None
-        for attempt in range(1, retries + 2):
+        models = [model]
+        if self.fallback_model and self.fallback_model != model:
+            models.append(self.fallback_model)
+        total_attempts = retries + 1
+        for attempt in range(1, total_attempts * len(models) + 1):
+            active_model = models[min((attempt - 1) // total_attempts, len(models) - 1)]
             attempt_messages = list(base_messages)
-            if attempt > 1:
+            model_attempt = ((attempt - 1) % total_attempts) + 1
+            if model_attempt > 1:
                 attempt_messages.append({
                     'role': 'user',
                     'content': (
@@ -1741,19 +1760,21 @@ class CreativeBrandAnalyzer:
             prompt_hash = sha256(json.dumps(attempt_messages, ensure_ascii=False, sort_keys=True, default=str).encode('utf-8')).hexdigest()[:16]
             try:
                 response = self.llm(
-                    attempt_messages, model=model, max_tokens=max_tokens,
+                    attempt_messages, model=active_model, max_tokens=max_tokens,
                     temperature=temperature, timeout=timeout,
                     **({'response_format': response_format} if response_format else {}),
                 )
                 if callable(billing_callback):
-                    billing_callback(stage, response, model)
+                    billing_callback(stage, response, active_model)
                 result = _json_content(message_text(response.get('message') or {}))
-                trace.append({'stage': stage, 'attempt': attempt, 'model': response.get('model') or model,
+                trace.append({'stage': stage, 'attempt': attempt, 'model': response.get('model') or active_model,
+                              'fallback': active_model != model,
                               'prompt_hash': prompt_hash, 'status': 'ok'})
                 return response, result, trace
             except Exception as exc:
                 last_error = exc
-                trace.append({'stage': stage, 'attempt': attempt, 'model': model,
+                trace.append({'stage': stage, 'attempt': attempt, 'model': active_model,
+                              'fallback': active_model != model,
                               'prompt_hash': prompt_hash, 'status': 'error', 'error': _text(str(exc), 240)})
         raise last_error
 
@@ -2116,6 +2137,13 @@ class CreativeBrandAnalyzer:
                 "research_modules": [module[0] for module in (DEEP_RESEARCH_MODULES if deep else COMPLETE_RESEARCH_MODULES)] if normalized_url else ["perfil_base"],
                 "research_module_errors": research_module_errors,
                 "call_trace": call_trace,
+                "reliability": {
+                    "provider_calls": len(call_trace),
+                    "successful_calls": sum(1 for item in call_trace if item.get("status") == "ok"),
+                    "failed_calls": sum(1 for item in call_trace if item.get("status") == "error"),
+                    "fallback_used": any(bool(item.get("fallback")) for item in call_trace),
+                    "partial_result": bool(research_module_errors) or any(item.get("status") == "error" for item in call_trace),
+                },
                 "visual_model": (
                     visual_response.get("model") or self.visual_model
                     if visual_response else None
@@ -2254,12 +2282,25 @@ class CreativeBrandAnalyzer:
                 stage='revisor_central', billing_callback=billing_callback,
             )
         except Exception as exc:
+            usable_sources = list(safe_analysis.get('sources') or [])
+            essential_ready = bool(
+                usable_sources
+                and safe_analysis.get('brand_summary')
+                and (safe_analysis.get('target_audience') or safe_analysis.get('products_services'))
+            )
+            fallback_dimensions = safe_analysis.get('quality_dimensions') \
+                if isinstance(safe_analysis.get('quality_dimensions'), dict) else {}
             result = {
-                'decision': 'needs_review', 'confidence': 0,
-                'summary': 'Consolidação central indisponível; os dados foram preservados sem publicação automática.',
+                'decision': 'ready' if essential_ready else 'needs_review',
+                'confidence': .68 if essential_ready else .35,
+                'summary': 'Consolidação determinística aplicada porque o parecer central ficou indisponível.',
                 'concerns': ['O parecer central não retornou JSON válido.'],
                 'blocked_fields': ['consolidação central indisponível'],
-                'quality_dimensions': {},
+                'accepted_fields': [key for key in (
+                    'brand_summary', 'target_audience', 'products_services',
+                    'differentiators', 'proof_points', 'logo_url', 'fonts',
+                ) if safe_analysis.get(key) not in (None, '', [], {})],
+                'quality_dimensions': fallback_dimensions,
             }
             response = {'model': self.review_model}
         try:

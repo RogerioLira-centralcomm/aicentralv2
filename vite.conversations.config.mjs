@@ -14,7 +14,13 @@ export default defineConfig({
       input: resolve('frontend/conversations-v2/main.jsx'),
       output: {
         entryFileNames: 'app.js',
+        chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: asset => asset.name?.endsWith('.css') ? 'app.css' : 'assets/[name]-[hash][extname]',
+        manualChunks(id) {
+          if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/') || id.includes('/node_modules/scheduler/')) return 'react-vendor';
+          if (id.includes('/frontend/cadu-design-system/')) return 'workspace-ui';
+          return undefined;
+        },
       },
     },
   },

@@ -655,7 +655,33 @@ def _normalize_page_contract(page: dict, snapshot: dict, core: dict, estimates: 
     result['result_estimates'].setdefault('status', as_dict(estimates).get('status'))
     result['schema_version'] = 3
     result['prompt_version'] = _one_page_prompt_version()
+    result['quality_report'] = _page_quality_report(result)
     return result
+
+
+def _page_quality_report(page: dict) -> dict:
+    """Explain editorial completeness without adding client-facing filler."""
+    data = as_dict(page)
+    checks = [
+        ('thesis', 'Tese', bool(text(as_dict(data.get('thesis')).get('statement')))),
+        ('context', 'Desafio e oportunidade', bool(text(as_dict(data.get('challenge')).get('body')) or text(as_dict(data.get('opportunity')).get('body')))),
+        ('audience', 'Público', bool(text(as_dict(data.get('recommendation')).get('audience')))),
+        ('journey', 'Jornada', bool(as_list(as_dict(data.get('recommendation')).get('journey')))),
+        ('channels', 'Papel dos canais', bool(as_list(as_dict(data.get('recommendation')).get('channel_roles')))),
+        ('creative', 'Expressão criativa', bool(text(as_dict(data.get('creative_expression')).get('headline')))),
+        ('market', 'Evidência de mercado', bool(text(as_dict(data.get('market_evidence')).get('source')))),
+        ('defense', 'Defesa comercial', bool(
+            as_list(as_dict(data.get('commercial_defense')).get('why_this_plan'))
+            or as_list(as_dict(data.get('commercial_defense')).get('why_this_mix'))
+        )),
+    ]
+    completed = sum(1 for _key, _label, ready in checks if ready)
+    return {
+        'score': round(completed * 100 / len(checks)),
+        'completed': completed,
+        'total': len(checks),
+        'checks': [{'id': key, 'label': label, 'ready': ready} for key, label, ready in checks],
+    }
 
 
 def _visual_direction_fallback(snapshot: dict) -> dict:

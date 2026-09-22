@@ -557,6 +557,9 @@ test('conversation response UI never invents follow-up actions for static insigh
 
 test('conversation attachment model preserves validation and destination rules', async () => {
   const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/attachmentModel.mjs')).href);
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   assert.equal(model.MAX_ATTACHMENTS, 3);
   assert.equal(model.validateAttachment({name: 'referencia.png', size: 1200}), null);
   assert.equal(model.validateAttachment({name: 'brief.exe', size: 1200}), model.attachmentIssues.invalid);
@@ -576,6 +579,12 @@ test('conversation attachment model preserves validation and destination rules',
   assert.equal(model.attachmentSubmissionMessage([{destination: 'knowledge'}]), 'Confirme os arquivos e imagens adicionados ao projeto.');
   assert.equal(model.attachmentSubmissionMessage([{destination: 'conversation'}]), 'Analise os arquivos e imagens anexados.');
   assert.match(model.attachmentSubmissionMessage([{destination: 'conversation'}, {destination: 'attachment'}]), /confirme os itens/);
+  assert.match(app, /createPortal\(.+cv-drop-overlay/s);
+  assert.match(app, /document\.body/);
+  assert.match(composer, /cv-attachment-preview/);
+  assert.match(composer, /cv-attachment-list/);
+  assert.match(styles, /\.cv-drop-overlay \{ position:fixed; inset:0;/);
+  assert.match(styles, /\.cv-attachment-chip \{[^}]*grid-template-columns:40px minmax\(0,1fr\)/);
 });
 
 test('conversation history model restores messages, selected context and latest artifact', async () => {

@@ -33,11 +33,11 @@ function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
     <div className="cv-chat-failure__marker" aria-hidden="true">{needsCredits ? '¢' : '!'}</div>
     <div className="cv-chat-failure__body">
       <span className="cv-chat-failure__eyebrow">{needsCredits ? 'Créditos da conta' : 'Conversa'}</span>
-      <h2>{needsCredits ? 'Vamos liberar mais espaço para esse trabalho' : failure?.title || 'Não foi possível concluir esta solicitação'}</h2>
-      <p>{needsCredits ? 'Seu saldo atual não é suficiente para concluir esta solicitação. Adicione créditos e tente novamente quando estiver pronto.' : failure?.detail}</p>
+      <h2>{failure?.title || 'Não foi possível concluir esta solicitação'}</h2>
+      <p>{failure?.detail}</p>
       {failure?.guidance && <small>{failure.guidance}</small>}
       <div className="cv-chat-failure__actions">
-        {needsCredits && creditsUrl && <a href={creditsUrl}>Adicionar créditos</a>}
+        {needsCredits && <a href={creditsUrl || 'https://workspace.centralcomm.media/creditos'}>Adicionar créditos no Workspace</a>}
         {!needsCredits && (needsRefresh ? <button type="button" onClick={() => window.location.reload()}>Atualizar página</button> : null)}
       </div>
     </div>

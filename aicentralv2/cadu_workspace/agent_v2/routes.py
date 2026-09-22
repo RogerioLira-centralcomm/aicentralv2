@@ -30,6 +30,7 @@ from ..mcp.registry import ToolError
 from ..conversations import attachments
 from ...cadu_planner import docs
 from ...creative_modeling_storage import ClientLogoStorage, CreativeAssetStorage, public_studio_asset_url
+from ...product_domains import product_url
 
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
@@ -118,6 +119,7 @@ def api_error(exc):
         if credit_error:
             payload.update(
                 code="credits_insufficient",
+                credits_url=product_url("workspace", "/creditos"),
                 details={
                     "required_tokens": int(credit_error.group(1)),
                     "available_tokens": int(credit_error.group(2)),

@@ -56,13 +56,14 @@ def notify_balance(client_id: int, *, usage_id=None) -> None:
         recipients = [row for row in obter_contatos_por_cliente(client_id)
                       if row.get("status") and row.get("user_type") in {"admin", "superadmin"} and row.get("email")]
         title = "Seus créditos acabaram" if level == "empty" else "Seu saldo de créditos está baixo"
-        description = ("Não há créditos disponíveis para novas execuções." if level == "empty"
+        description = ("Não há créditos disponíveis para novas execuções. Adicione créditos no Workspace para continuar." if level == "empty"
                        else f"Restam {available:,} créditos compartilhados entre as ferramentas Cadu.")
         for person in recipients:
             get_brevo_product_service("workspace").enviar_email_com_template(
                 template_name="produto-atividade.html", template_folder="emails/externos",
                 to_email=person["email"], to_name=person.get("nome_completo") or "Administrador",
                 subject=title, params={"BRAND": product_email_brand("workspace"), "TITLE": title,
-                "DESCRIPTION": description, "CTA_LABEL": "Ver créditos", "CTA_URL": product_url("workspace", "/workspace/app/creditos")})
+                "DESCRIPTION": description, "CTA_LABEL": "Adicionar créditos" if level == "empty" else "Ver créditos",
+                "CTA_URL": product_url("workspace", "/creditos")})
     except Exception:
         logger.exception("Não foi possível registrar alerta de créditos para %s", client_id)

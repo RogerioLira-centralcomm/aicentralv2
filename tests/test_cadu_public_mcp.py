@@ -8,6 +8,7 @@ from aicentralv2.cadu_public_mcp.auth import DEFAULT_SCOPES, PublicMcpAuthError,
 from aicentralv2.cadu_public_mcp import usage
 from aicentralv2.cadu_public_mcp.routes import PUBLIC_MCP_PATH, PUBLIC_TOOLS, _public_catalog, _request_context_for_auth, bp
 from aicentralv2.cadu_public_mcp.usage import tool_cost
+from aicentralv2.cadu_tool_billing import InsufficientToolCredits
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 from aicentralv2.cadu_workspace.mcp.tools.resources import search_resources
@@ -78,6 +79,26 @@ def test_public_transport_is_separate_and_requires_bearer_auth():
         )
     assert response.status_code == 401
     assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+
+def test_public_mcp_insufficient_credits_points_to_workspace():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")
+    app.register_blueprint(bp)
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref=None, capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex",
+                                   label="Teste", scopes=tuple(DEFAULT_SCOPES), context=context)
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=principal), \
+         patch("aicentralv2.cadu_public_mcp.routes.auth.ensure_scope"), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.authorize_credits",
+               side_effect=InsufficientToolCredits("Saldo insuficiente.")):
+        response = app.test_client().post(PUBLIC_MCP_PATH, json={"jsonrpc": "2.0", "id": "1",
+            "method": "tools/call", "params": {"name": "credits.get_balance", "arguments": {}}})
+    assert response.status_code == 402
+    error = response.get_json()["error"]
+    assert error["data"]["credits_url"] == "https://workspace.centralcomm.media/creditos"
+    assert "https://workspace.centralcomm.media/creditos" in error["message"]
 
 
 def test_initialize_advertises_cadu_icon_to_mcp_clients():

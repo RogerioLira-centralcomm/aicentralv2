@@ -22,9 +22,9 @@ export function chatFailure(error) {
     const balance = available === null ? '' : ` O saldo disponível é ${formatCredits(available)}.`;
     return {
       kind: 'credits',
-      title: 'Créditos insuficientes',
-      detail: `${requirement}${balance}`,
-      guidance: 'Nenhum crédito foi usado. Adicione créditos à conta antes de enviar novamente.',
+      title: available === 0 ? 'Seus créditos acabaram' : 'Créditos insuficientes',
+      detail: `${requirement}${balance} Adicione créditos no Workspace para continuar.`,
+      guidance: 'Depois de adicionar créditos, envie a solicitação novamente.',
     };
   }
 

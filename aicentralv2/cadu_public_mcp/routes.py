@@ -332,7 +332,11 @@ def public_rpc():
             response.status_code = 404
             return _headers(response)
     except InsufficientToolCredits as exc:
-        return _headers(jsonify(_error(request_id, -32020, str(exc), {"code": "credits_insufficient"}))), 402
+        credits_url = product_url("workspace", "/creditos")
+        message = f"{exc} Para continuar, adicione créditos em {credits_url}"
+        return _headers(jsonify(_error(request_id, -32020, message, {
+            "code": "credits_insufficient", "credits_url": credits_url,
+        }))), 402
     except ToolError as exc:
         return _headers(jsonify({"jsonrpc": "2.0", "id": request_id, "result": {
             "content": [{"type": "text", "text": str(exc)}],

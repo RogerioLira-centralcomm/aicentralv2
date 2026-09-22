@@ -52,6 +52,25 @@ class WorkspaceProjectSourcesTest(TestCase):
         self.assertEqual(result['mime'], 'text/markdown')
         self.assertIn('Briefing aprovado', result['text'])
 
+    def test_user_requested_image_organization_proposes_name_and_summary(self):
+        result = project_sources.organize_image_source(
+            'be159e984f2724fab83510ceb999a08012.png',
+            'Poltrona do meio ou aquela do fundão?\nViva seu momento\nCineart',
+        )
+        self.assertEqual(result['original_name'], 'be159e984f2724fab83510ceb999a08012.png')
+        self.assertTrue(result['renamed_by_indexer'])
+        self.assertEqual(result['name'], 'poltrona-do-meio-ou-aquela-do-fundao-viva-seu-momento.png')
+        self.assertIn('Peça visual identificada por OCR', result['visual_summary'])
+        self.assertIn('Texto extraído da imagem', result['text'])
+
+    def test_user_requested_image_organization_preserves_descriptive_name(self):
+        result = project_sources.organize_image_source(
+            'campanha-verao.png', 'Campanha de verão\nConheça as ofertas',
+        )
+        self.assertEqual(result['name'], 'campanha-verao.png')
+        self.assertFalse(result['renamed_by_indexer'])
+        self.assertIn('Campanha de verão', result['visual_summary'])
+
     def test_docx_is_read_without_trusting_its_extension(self):
         package = BytesIO()
         with ZipFile(package, 'w') as archive:

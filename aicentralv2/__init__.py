@@ -221,7 +221,9 @@ def create_app(config_class=Config):
             cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,
             product_url=product_url,
-            cadu_workspace_asset_version=app.config.get('CADU_WORKSPACE_ASSET_VERSION', '39'),
+            # The bundle timestamp invalidates browser/CDN caches on every
+            # build, without depending on a manually bumped environment value.
+            cadu_workspace_asset_version=f"{app.config.get('CADU_WORKSPACE_ASSET_VERSION', '')}-{int(os.path.getmtime(os.path.join(app.static_folder, 'cadu_workspace/conversations/react/app.js'))) if os.path.isfile(os.path.join(app.static_folder, 'cadu_workspace/conversations/react/app.js')) else 0}",
         )
 
     # Registrar teardown (fechar conexão)

@@ -416,6 +416,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(contextModel, /selected_context/);
   assert.match(responseBlocks, /Usar esta opção/);
   assert.match(responseBlocks, /Continuar com/);
+  assert.doesNotMatch(responseBlocks, /Responder com fontes/);
+  assert.match(responseBlocks, /Leitura indisponível/);
+  assert.match(responseBlocks, /onError=\{\(\) => setFailed\(true\)\}/);
+  assert.match(responseBlocks, /Copiar referências/);
   assert.match(responseBlocks, /block\.type === 'insights'/);
   assert.match(responseBlocks, /block\.type === 'files'/);
   assert.match(responseBlocks, /block\.type === 'summary'/);
@@ -451,10 +455,26 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
 test('conversation continuations preserve structured questions and server context', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
+  const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   assert.doesNotMatch(conversation, /Sobre “\$\{question\}”/);
   assert.match(conversation, /type: 'question', label: 'Respondendo'/);
+  assert.match(responseBlocks, /type: 'question', label: 'Respondendo'/);
+  assert.match(composer, /Digite sua resposta…/);
+  assert.match(composer, /composerContext\?\.type !== 'question'/);
   assert.match(app, /resolved_context/);
   assert.match(app, /Contexto sincronizado pelo servidor/);
+});
+
+test('source results use resilient favicons, clear actions and hide technical fetch errors', () => {
+  const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+  assert.doesNotMatch(responseBlocks, /Responder com fontes/);
+  assert.match(responseBlocks, /Continuar com \{selectedItems\.length\} fonte/);
+  assert.match(responseBlocks, /Leitura indisponível/);
+  assert.match(responseBlocks, /onError=\{\(\) => setFailed\(true\)\}/);
+  assert.match(responseBlocks, /Copiar referências/);
+  assert.match(styles, /button\.is-primary:hover/);
 });
 
 test('conversation failures are converted into an actionable user-facing state', async () => {
@@ -630,11 +650,18 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(artifact, /Marcar uma área/);
   assert.match(artifact, /Remover fundo/);
   assert.match(artifact, /Otimizar para web/);
+  assert.match(artifact, /Analisar e organizar arquivo/);
+  assert.match(artifact, /Analisando imagem…/);
+  assert.match(app, /\/workspace\/api\/v2\/images\/organize/);
+  assert.match(app, /Imagem organizada/);
   assert.match(artifact, /function imageFileName/);
   assert.match(artifact, /aria-label="Nome do arquivo"/);
   assert.match(artifact, /cv-image-metadata/);
   assert.match(artifact, /Dimensões/);
   assert.match(artifact, /Resolução/);
+  assert.match(artifact, /type !== 'image'/);
+  assert.match(styles, /justify-content:center/);
+  assert.match(styles, /align-items:baseline/);
   assert.doesNotMatch(artifact, /cv-image-artifact__bar/);
   assert.match(editor, /query\.get\('source_url'\)/);
   assert.match(editor, /initialQuery\.get\('instruction'\)/);

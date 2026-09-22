@@ -62,7 +62,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
     request(`${studioLibraryEndpoint}?project_ref=${encodeURIComponent(activeProjectRef)}`)
       .then(data => {
         if (cancelled) return;
-        const brandResources = (data.brand_assets || []).map(asset => ({...asset, id: `brand:${asset.id}`, title: asset.metadata?.original_name || 'Ativo da marca', asset_url: asset.display_url || asset.asset_path || asset.source_url, kind: asset.role === 'logo' ? 'logo' : 'image', source: 'brand'}));
+        const brandResources = (data.brand_assets || []).map(asset => ({...asset, id: `brand:${asset.id}`, title: asset.metadata?.display_name || asset.metadata?.original_name || 'Ativo da marca', asset_url: asset.display_url || asset.asset_path || asset.source_url, kind: asset.role === 'logo' ? 'logo' : 'image', source: 'brand'}));
         setResourceState({projectRef: activeProjectRef, loading: false, resources: [...brandResources, ...(data.resources || [])], error: ''});
       })
       .catch(error => {
@@ -108,7 +108,9 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const studioAsset = resource => {
     const url = safeUrl(resource.asset_url || resource.locator || resource.url);
     if (!url) return null;
-    return {id: resource.id, title: resource.title || resource.name || 'Criação do Studio', url, kind: resource.kind || resource.type || resource.resource_type || 'image', source: resource.source || 'studio'};
+    const id = String(resource.id || '');
+    const inferredSource = id.startsWith('brand:') ? 'brand' : id.startsWith('reference:') ? 'reference' : id.startsWith('personal:') ? 'personal' : 'studio';
+    return {id: resource.id, source_id: resource.source_id || resource.id, source_system: resource.source_system || '', title: resource.title || resource.name || 'Criação do Studio', url, kind: resource.kind || resource.type || resource.resource_type || 'image', source: resource.source || resource.source_system || inferredSource};
   };
   const activeBrand = activeProject && brands.find(item => String(item.ref || item.brandRef || `studio:${item.id}`) === String(activeProject.brand_ref || activeProject.brandRef || ''));
   const entityDetailLink = item => item?.href || '';

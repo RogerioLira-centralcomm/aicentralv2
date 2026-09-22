@@ -1,5 +1,6 @@
 """Versioned backend contract consumed by the React Conversations V2 UI."""
 
+import json
 import re
 import secrets
 from dataclasses import replace
@@ -25,7 +26,7 @@ from . import action_executor
 from ..mcp.registry import ToolError
 from ..conversations import attachments
 from ...cadu_planner import docs
-from ...creative_modeling_storage import ClientLogoStorage, public_studio_asset_url
+from ...creative_modeling_storage import ClientLogoStorage, CreativeAssetStorage, public_studio_asset_url
 
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
@@ -291,6 +292,76 @@ def studio_library():
                    resources=resources.get("resources", []) if isinstance(resources, dict) else [],
                    brand_assets=brand_assets,
                    personal_assets=personal_assets)
+
+
+@bp.post("/images/organize")
+def organize_image():
+    """Run OCR and persist a user-requested title/summary for an owned local image."""
+    data = request.get_json(silent=True) or {}
+    current = resolve(surface="conversations", project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))
+    source = str(data.get("source") or "")[:40]
+    source_id = str(data.get("source_id") or data.get("id") or "")[:160]
+    title = str(data.get("title") or "imagem.png")[:220]
+    public_url = str(data.get("url") or "")[:500]
+    storage = CreativeAssetStorage()
+    image_bytes = storage.read_public_bytes(public_url)
+    if not image_bytes:
+        abort(422, description="Esta imagem ainda não possui uma cópia local disponível para OCR.")
+    from .. import project_sources
+    ocr_text, processing = project_sources._ocr_image(image_bytes)
+    if not ocr_text.strip():
+        abort(422, description="Não encontramos texto suficiente nesta imagem para organizar o arquivo.")
+    organized = project_sources.organize_image_source(title, ocr_text)
+    metadata = {
+        "visual_title": organized["visual_title"], "visual_summary": organized["visual_summary"],
+        "ocr_text": ocr_text[:12000], "ocr_processing": processing,
+        "original_name": organized["original_name"], "renamed_by_indexer": organized["renamed_by_indexer"],
+    }
+    connection = repository.get_db()
+    try:
+        with connection.cursor() as cursor:
+            updated = None
+            if source == "brand" and source_id.removeprefix("brand:").isdigit() and current.brand_ref:
+                cursor.execute("""UPDATE cx_client_brand_assets
+                                      SET metadata=COALESCE(metadata,'{}'::jsonb) || %s::jsonb, updated_at=NOW()
+                                    WHERE id=%s AND client_id=%s RETURNING id""",
+                               (json.dumps({**metadata, "display_name": organized["name"]}, ensure_ascii=False),
+                                int(source_id.removeprefix("brand:")), int(str(current.brand_ref).removeprefix("studio:"))))
+                updated = cursor.fetchone()
+            elif source in {"personal", "reference"}:
+                raw_id = source_id.split(":", 1)[-1]
+                table = "cx_studio_assets" if source_id.startswith("reference:") else "cx_studio_image_generations"
+                if table == "cx_studio_assets":
+                    cursor.execute("""UPDATE cx_studio_assets SET title=%s,
+                                          metadata=COALESCE(metadata,'{}'::jsonb) || %s::jsonb
+                                        WHERE id::text=%s AND client_id=%s AND owner_user_id=%s RETURNING id""",
+                                   (organized["name"], json.dumps(metadata, ensure_ascii=False), raw_id,
+                                    current.client_id, current.user_id))
+                else:
+                    cursor.execute("""UPDATE cx_studio_image_generations
+                                          SET result=COALESCE(result,'{}'::jsonb) || %s::jsonb
+                                        WHERE id::text=%s AND client_id=%s AND user_id=%s RETURNING id""",
+                                   (json.dumps({**metadata, "title": organized["name"]}, ensure_ascii=False), raw_id,
+                                    current.client_id, current.user_id))
+                updated = cursor.fetchone()
+            elif source == "studio" and current.project_ref:
+                cursor.execute("""UPDATE cx_studio_project_items item SET title=%s,
+                                      metadata=COALESCE(item.metadata,'{}'::jsonb) || %s::jsonb, updated_at=NOW()
+                                     FROM cx_studio_projects project
+                                    WHERE item.id::text=%s AND item.project_id=project.id
+                                      AND project.client_id=%s AND project.document->>'external_project_id'=%s
+                                RETURNING item.id""",
+                               (organized["name"], json.dumps(metadata, ensure_ascii=False), source_id,
+                                current.client_id, str(current.project_ref).removeprefix("ci:")))
+                updated = cursor.fetchone()
+            if not updated:
+                abort(404, description="Não foi possível localizar esta imagem no contexto autorizado.")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return jsonify(ok=True, title=organized["name"], summary=organized["visual_summary"],
+                   renamed=organized["renamed_by_indexer"], processing=processing)
 
 
 @bp.post("/route")

@@ -1222,6 +1222,25 @@ def test_empty_persisted_conversation_binding_accepts_authorized_turn_project(mo
     assert resolved.project_ref == "ci:project-1"
 
 
+def test_legacy_question_placeholder_is_rejected_before_routing():
+    app = Flask(__name__)
+    with app.test_request_context("/"):
+        with pytest.raises(Exception) as raised:
+            v2_service._message('Sobre “Quais tarefas, reuniões e prazos você tem hoje?”: ')
+    assert getattr(raised.value, "code", None) == 400
+    assert "Digite sua resposta" in str(raised.value)
+
+
+def test_personal_today_question_does_not_trigger_web_search():
+    route = route_request("Quais tarefas, reuniões e prazos eu tenho hoje?", has_project=False)
+    assert route.action != "search_web"
+
+
+def test_live_today_question_still_uses_web_search():
+    route = route_request("Qual é a cotação do dólar hoje?", has_project=False)
+    assert route.action == "search_web"
+
+
 def test_editable_summary_of_previous_text_routes_to_document_artifact():
     route = route_request("Muito bom. Pegue esse texto e crie um resumo editável", has_project=True)
     assert route.action == "create_text_draft"
@@ -1382,6 +1401,105 @@ def test_published_message_route_enforces_csrf_and_streams_without_rollout_404(m
     assert response.status_code == 200
     assert response.mimetype == "text/event-stream"
     assert b'"event":"answer.completed"' in response.data
+
+
+def test_image_organize_runs_ocr_and_persists_owned_reference(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.bp)
+    scoped = context(project_ref="ci:project-1")
+    monkeypatch.setattr(v2_routes, "resolve", lambda **_: scoped)
+
+    class Storage:
+        def read_public_bytes(self, url):
+            assert url == "/static/cadu_studio/assets/reference.png"
+            return b"image-bytes"
+
+    class Cursor:
+        statement = ""
+        parameters = ()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, statement, parameters):
+            self.statement = statement
+            self.parameters = parameters
+
+        def fetchone(self):
+            return {"id": 41}
+
+    class Connection:
+        committed = False
+        rolled_back = False
+
+        def __init__(self):
+            self.active_cursor = Cursor()
+
+        def cursor(self):
+            return self.active_cursor
+
+        def commit(self):
+            self.committed = True
+
+        def rollback(self):
+            self.rolled_back = True
+
+    connection = Connection()
+    monkeypatch.setattr(v2_routes, "CreativeAssetStorage", Storage)
+    monkeypatch.setattr(v2_routes.repository, "get_db", lambda: connection)
+    from aicentralv2.cadu_workspace import project_sources
+    monkeypatch.setattr(project_sources, "_ocr_image", lambda _image: ("Festival de cinema. Viva seu momento.", "ocr"))
+    monkeypatch.setattr(project_sources, "organize_image_source", lambda name, text: {
+        "name": "festival-cinema.png", "visual_title": "Festival de cinema",
+        "visual_summary": "Peça promocional de cinema.", "original_name": name,
+        "renamed_by_indexer": True,
+    })
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session.update(user_id=7, family_csrf="csrf")
+
+    response = client.post("/workspace/api/v2/images/organize", json={
+        "source": "reference", "source_id": "reference:41", "title": "capture-md5.png",
+        "url": "/static/cadu_studio/assets/reference.png", "project_ref": "ci:project-1",
+    }, headers={"X-CSRF-Token": "csrf"})
+
+    assert response.status_code == 200
+    assert response.json == {
+        "ok": True, "processing": "ocr", "renamed": True,
+        "summary": "Peça promocional de cinema.", "title": "festival-cinema.png",
+    }
+    assert connection.committed is True
+    assert connection.rolled_back is False
+    assert "UPDATE cx_studio_assets" in connection.active_cursor.statement
+    assert connection.active_cursor.parameters[2:] == ("41", 12, 7)
+
+
+def test_image_organize_rejects_remote_only_image_without_running_ocr(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.bp)
+    monkeypatch.setattr(v2_routes, "resolve", lambda **_: context())
+
+    class Storage:
+        def read_public_bytes(self, _url):
+            return None
+
+    monkeypatch.setattr(v2_routes, "CreativeAssetStorage", Storage)
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session.update(user_id=7, family_csrf="csrf")
+
+    response = client.post("/workspace/api/v2/images/organize", json={
+        "source": "reference", "source_id": "reference:41", "title": "imagem.png",
+        "url": "https://example.com/image.png",
+    }, headers={"X-CSRF-Token": "csrf"})
+
+    assert response.status_code == 422
+    assert "cópia local" in response.json["error"]
 
 
 def test_v2_page_creates_csrf_token_when_opened_directly(monkeypatch):

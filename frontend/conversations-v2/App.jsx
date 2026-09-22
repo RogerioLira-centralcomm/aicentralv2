@@ -901,8 +901,25 @@ export default function App({bootstrap}) {
                 setArtifact(data.artifact); artifactRef.current = data.artifact; setArtifactDirty(false); trace('Referência salva no espaço pessoal', data.artifact?.title || 'Link externo');
               } catch (error) { trace('Falha ao salvar referência', error.message, 'error'); }
             }}
-            onRequestMeetingPlan={url => submit(`Prepare uma pauta de reunião para este link: ${url}`, {skipAttachments: true})}
-            onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}
+                onRequestMeetingPlan={url => submit(`Prepare uma pauta de reunião para este link: ${url}`, {skipAttachments: true})}
+                onOrganizeImage={async item => {
+                  const imageUrl = item?.content?.url || item?.content?.image_url || item?.content?.src || '';
+                  const imageName = item?.title || item?.content?.filename || 'imagem';
+                  const content = item?.content || {};
+                  try {
+                    const data = await request('/workspace/api/v2/images/organize', {
+                      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+                      body: JSON.stringify({id: content.id || item?.id, source_id: content.source_id || content.id || item?.id,
+                        source: content.source || content.source_system || '', title: imageName, url: imageUrl,
+                        project_ref: activeProjectRef || null, brand_ref: activeBrandRef || null}),
+                    });
+                    const next = {...item, title: data.title || imageName, content: {...content, filename: data.title || imageName, visual_summary: data.summary || ''}};
+                    setArtifact(next); artifactRef.current = next;
+                    setArtifactTabs(items => items.map(tab => artifactKey(tab) === artifactKey(item) ? next : tab));
+                    trace('Imagem organizada', data.renamed ? 'Nome e resumo atualizados por OCR.' : 'Resumo atualizado; o nome original foi preservado.');
+                  } catch (error) { trace('Não foi possível organizar a imagem', error.message, 'error'); }
+                }}
+                onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}
           />}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>

@@ -8,6 +8,7 @@ import mimetypes
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 import re
+import unicodedata
 import xml.etree.ElementTree as ET
 
 from werkzeug.exceptions import BadRequest, RequestEntityTooLarge
@@ -27,6 +28,40 @@ CREATIVE_EXTENSIONS = {
     '.mp4', '.mov', '.webm', '.avi', '.mkv', '.mp3', '.wav', '.m4a', '.flac',
 }
 ARCHIVE_EXTENSIONS = {'.zip', '.rar', '.7z', '.tar', '.gz'}
+
+
+def _opaque_image_name(name: str) -> bool:
+    """Identify transport/generated names that carry no useful visual meaning."""
+    stem = Path(str(name or '')).stem.strip().casefold()
+    compact = re.sub(r'[^a-z0-9]', '', stem)
+    return bool(
+        re.fullmatch(r'[a-f0-9]{24,64}', compact)
+        or re.fullmatch(r'(img|image)?\d{8,}', compact)
+        or re.search(r'(^|[\s_-])(captura|screenshot|whatsapp|wa\d{4,}|img[\s_-]?\d+)', stem)
+    )
+
+
+def _visual_description(text: str) -> tuple[str, str]:
+    """Create a conservative title and searchable summary from OCR output."""
+    lines = []
+    for raw in str(text or '').splitlines():
+        line = re.sub(r'\s+', ' ', raw).strip(' -_|')
+        if len(line) >= 3 and line.casefold() not in {item.casefold() for item in lines}:
+            lines.append(line)
+    if not lines:
+        return '', ''
+    useful = [line for line in lines if re.search(r'[A-Za-zÀ-ÿ]{3}', line)]
+    selected = useful[:3] or lines[:3]
+    title = ' — '.join(selected[:2])[:96].strip(' —-')
+    excerpt = '; '.join(selected[:5])[:420].strip(' ;')
+    summary = f'Peça visual identificada por OCR. Textos em destaque: {excerpt}.' if excerpt else ''
+    return title, summary
+
+
+def _filename_from_visual_title(title: str, suffix: str) -> str:
+    normalized = unicodedata.normalize('NFKD', str(title or '')).encode('ascii', 'ignore').decode('ascii')
+    slug = re.sub(r'[^a-zA-Z0-9]+', '-', normalized).strip('-').lower()[:96]
+    return f'{slug}{suffix}' if slug else ''
 
 
 class _HTMLText(HTMLParser):
@@ -243,6 +278,21 @@ def inspect_upload(file_storage, *, require_text: bool = False) -> dict:
         'text': text.strip()[:MAX_TEXT], 'processing': processing,
         'can_index': len(text.strip()) >= 20,
         'classification': _classify_source(name, suffix, text),
+    }
+
+
+def organize_image_source(name: str, text: str) -> dict:
+    """Build a user-requested naming/indexing proposal from existing OCR text."""
+    suffix = Path(str(name or '')).suffix.lower() or '.png'
+    title, summary = _visual_description(text)
+    proposed_name = name
+    if _opaque_image_name(name) and title:
+        proposed_name = _filename_from_visual_title(title, suffix) or name
+    searchable_text = f'{summary}\n\nTexto extraído da imagem:\n{text}'.strip() if summary else str(text or '').strip()
+    return {
+        'original_name': name, 'name': proposed_name, 'visual_title': title,
+        'visual_summary': summary, 'text': searchable_text,
+        'renamed_by_indexer': proposed_name != name,
     }
 
 

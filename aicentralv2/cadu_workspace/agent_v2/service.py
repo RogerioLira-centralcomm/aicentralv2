@@ -119,6 +119,11 @@ def _message(value):
     text = " ".join(str(value or "").split())
     if not 1 <= len(text) <= 20000:
         abort(400, description="Informe uma mensagem de até 20.000 caracteres.")
+    # Clients published before the structured-question fix could submit the
+    # assistant's own question as if it were the user's answer. Stop this
+    # before admission, routing, web search or credit consumption.
+    if re.fullmatch(r'Sobre\s+[“\"]\s*.+?\s*[”\"]\s*:\s*', text, flags=re.IGNORECASE):
+        abort(400, description="Digite sua resposta antes de continuar.")
     return text
 
 

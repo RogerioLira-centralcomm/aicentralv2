@@ -35,6 +35,11 @@ def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
     """Never let final normalization erase a substantive answer already shown."""
     streamed = str(streamed_answer or "").strip()
     final = str(response.answer or "").strip()
+    # A provider can stream its structured contract as text even when the
+    # final payload was normalized correctly. Never promote that envelope
+    # back into the customer-facing answer.
+    if re.match(r'^\s*(?:```(?:json)?\s*)?["\']?\s*[\[{]', streamed, re.IGNORECASE):
+        return response
     if (policy.get("mode") != "analysis" or response.artifact_patch or len(streamed) < 600
             or len(final) >= int(len(streamed) * .78)):
         return response

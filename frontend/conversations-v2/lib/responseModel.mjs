@@ -36,10 +36,11 @@ export function reconcileCompletedResponse(streamingResponse, completedResponse,
   const completed = completedResponse && typeof completedResponse === 'object' ? completedResponse : {};
   const streamed = normalizeAnswerText(current.answer || '');
   const final = normalizeAnswerText(completed.answer || '');
-  if (hasArtifact || streamed.length < 600 || final.length >= streamed.length * .78) return completed;
+  const normalizedCompleted = {...completed, answer: final};
+  if (hasArtifact || streamed.length < 600 || final.length >= streamed.length * .78) return normalizedCompleted;
   const anchor = final.replace(/\s+/g, ' ').trim().slice(0, 120).toLowerCase();
   const streamedHead = streamed.replace(/\s+/g, ' ').trim().slice(0, 600).toLowerCase();
-  return anchor && !streamedHead.includes(anchor) ? completed : {...completed, answer: streamed};
+  return anchor && !streamedHead.includes(anchor) ? normalizedCompleted : {...normalizedCompleted, answer: streamed};
 }
 
 export function meaningfulResponseBlocks(blocks) {

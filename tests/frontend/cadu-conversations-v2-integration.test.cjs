@@ -525,6 +525,14 @@ test('conversation response model preserves execution order and explicit checkli
   ]);
 });
 
+test('completed responses never render a structured provider envelope as prose', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/responseModel.mjs')).href);
+  const raw = JSON.stringify({text: {content: 'Resposta limpa para o usuário.'}, ui: {confidence: 'medium'}});
+  const response = model.reconcileCompletedResponse({answer: 'Resposta limpa para o usuário.'}, {answer: raw, confidence: 'medium'});
+  assert.equal(response.answer, 'Resposta limpa para o usuário.');
+  assert.equal(response.confidence, 'medium');
+});
+
 test('conversation response UI never invents follow-up actions for static insights', () => {
   const blocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const progress = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceTaskProgress.jsx'), 'utf8');

@@ -55,6 +55,14 @@ def test_final_normalization_cannot_erase_long_streamed_analysis():
     assert different.answer == "Síntese editorial diferente."
 
 
+def test_structured_stream_cannot_replace_a_normalized_final_answer():
+    leaked = '{"text":{"content":"Resposta útil"},"ui":{"confidence":"medium"}}' * 20
+    response = v2_service._preserve_streamed_answer(
+        AgentResponse(answer="Resposta útil"), leaked, {"mode": "analysis"},
+    )
+    assert response.answer == "Resposta útil"
+
+
 def test_explicit_long_form_request_uses_analysis_without_forcing_an_artifact():
     message = "Escreva um guia completo de aproximadamente 1.800 palavras. Não crie artefato."
     route = route_request(message)

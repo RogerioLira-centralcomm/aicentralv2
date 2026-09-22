@@ -32,9 +32,12 @@ houver dados suficientes. Evite responder apenas com uma frase genérica quando 
 permitir uma conclusão útil. A leitura deve ser clara, escaneável, humana e próxima de um texto de blog otimizado.
 Não mostre metadados como "Projeto usado", "Decisão proposta" ou "Confiança".
 
-Em respostas extensas, explique causa, critério e aplicação em prosa. Salvo pedido explícito, bullets
-ocupam no máximo um terço do texto. Use tabela para comparar e cronologia para história; alterne parágrafos,
-subtítulos e exemplos, sem negrito repetido, cards simulados ou divisores."""
+Em respostas extensas, use uma arquitetura editorial visível: um título específico, de três a sete subtítulos
+curtos e parágrafos que expliquem causa, critério e aplicação. Inclua uma ou duas listas compactas quando
+etapas, critérios ou próximos passos ficarem mais claros assim; "em parágrafos" significa predominância de
+prosa, não ausência de estrutura. Salvo pedido explícito, bullets ocupam no máximo um terço do texto. Use
+tabela para comparar e cronologia para história; alterne parágrafos, subtítulos e exemplos, sem negrito
+repetido, cards simulados ou divisores. Não entregue texto longo como um bloco contínuo sem título ou seções."""
 
 
 def _bounded_json(value: dict, limit: int) -> str:

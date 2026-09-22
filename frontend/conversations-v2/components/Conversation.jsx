@@ -172,6 +172,17 @@ export function Conversation({conversationId, title, context, projects, brands, 
     const element = event.currentTarget;
     stickToLatest.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120;
   }, []);
+  const stopFollowingLatest = useCallback(() => { stickToLatest.current = false; }, []);
+  const handleScrollIntent = useCallback(event => {
+    if (event.deltaY < 0) stopFollowingLatest();
+  }, [stopFollowingLatest]);
+  const handleScrollKey = useCallback(event => {
+    if (['ArrowUp', 'PageUp', 'Home'].includes(event.key)) stopFollowingLatest();
+  }, [stopFollowingLatest]);
+  const handleScrollPointer = useCallback(event => {
+    const element = threadScroll.current;
+    if (element && event.clientX >= element.getBoundingClientRect().right - 18) stopFollowingLatest();
+  }, [stopFollowingLatest]);
   useLayoutEffect(() => {
     const changedConversation = previousConversation.current !== conversationId;
     previousConversation.current = conversationId;
@@ -205,7 +216,7 @@ export function Conversation({conversationId, title, context, projects, brands, 
         </div>
       </details>
     </header>
-    <div ref={threadScroll} onScroll={trackScrollPosition} className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} diagnostics={diagnostics} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
+    <div ref={threadScroll} onScroll={trackScrollPosition} onWheelCapture={handleScrollIntent} onTouchStart={stopFollowingLatest} onPointerDown={handleScrollPointer} onKeyDownCapture={handleScrollKey} tabIndex={0} className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} diagnostics={diagnostics} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;

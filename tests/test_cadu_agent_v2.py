@@ -11,7 +11,7 @@ from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness
 from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
-from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import build_payload
+from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import CORE, build_payload
 from aicentralv2.cadu_workspace.mcp.registry import (
     ToolDefinition,
     ToolForbidden,
@@ -48,6 +48,13 @@ def test_explicit_long_form_request_uses_analysis_without_forcing_an_artifact():
     assert route.response_mode == "analysis"
     assert route.complexity == "high"
     assert route.artifact_type is None
+
+
+def test_long_form_prompt_requires_editorial_structure_without_bullet_wall():
+    assert "um título específico" in CORE
+    assert "de três a sete subtítulos" in CORE
+    assert '"em parágrafos" significa predominância de' in CORE
+    assert "bullets ocupam no máximo um terço" in CORE
 
 
 def context(**overrides):

@@ -624,6 +624,9 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(conversation, /stickToLatest/);
   assert.match(conversation, /element\.scrollTop = element\.scrollHeight/);
   assert.match(conversation, /new ResizeObserver/);
+  assert.match(conversation, /onWheelCapture=\{handleScrollIntent\}/);
+  assert.match(conversation, /onTouchStart=\{stopFollowingLatest\}/);
+  assert.match(conversation, /\['ArrowUp', 'PageUp', 'Home'\]/);
   assert.match(styles, /\.cv-conversation-support__meta > div \{ min-width:0; \}/);
   assert.match(styles, /\.cv-conversation-support__request \{[^}]*border-left:2px/);
   assert.match(styles, /\.cv-conversation-support__next button \{[^}]*border:0;[^}]*background:transparent/);

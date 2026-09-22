@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from unittest import TestCase, mock
 
 from flask import Blueprint, Flask
@@ -243,7 +244,12 @@ class ProductPortalsTest(TestCase):
     @mock.patch("aicentralv2.db.criar_lead", return_value=91)
     def test_workspace_public_contact_validates_and_redirects_to_thanks(self, create_lead, send_email):
         client = _app().test_client()
-        invalid = client.post("/workspace/contato", data={"name": "A"}, headers={"Host": "workspace.centralcomm.media"})
+        contact = client.get("/workspace/contato", headers={"Host": "workspace.centralcomm.media"})
+        csrf = re.search(r'name="_csrf" value="([^"]+)"', contact.get_data(as_text=True)).group(1)
+        missing_csrf = client.post("/workspace/contato", data={"name": "Ana"}, headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(missing_csrf.status_code, 400)
+        self.assertIn("A página expirou", missing_csrf.get_data(as_text=True))
+        invalid = client.post("/workspace/contato", data={"name": "A", "_csrf": csrf}, headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(invalid.status_code, 200)
         self.assertIn("Revise as informações", invalid.get_data(as_text=True))
 
@@ -251,6 +257,7 @@ class ProductPortalsTest(TestCase):
             "name": "Ana Souza", "email": "ana@empresa.com", "company": "Empresa",
             "profile": "marketing", "team_size": "6-20", "contact_preference": "email",
             "challenge": "Precisamos conectar planejamento, criação e resultados da equipe.",
+            "_csrf": csrf,
         }, headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(response.status_code, 303)
         self.assertTrue(response.headers["Location"].endswith("/workspace/contato/obrigado"))
@@ -260,6 +267,39 @@ class ProductPortalsTest(TestCase):
         thanks = client.get(response.headers["Location"], headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(thanks.status_code, 200)
         self.assertIn("Recebemos seu contexto.", thanks.get_data(as_text=True))
+        self.assertNotIn("Enviamos a confirmação", thanks.get_data(as_text=True))
+
+        replay = client.post("/workspace/contato", data={"_csrf": csrf}, headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(replay.status_code, 303)
+        create_lead.assert_called_once()
+
+        refreshed = client.get("/workspace/contato", headers={"Host": "workspace.centralcomm.media"})
+        next_csrf = re.search(r'name="_csrf" value="([^"]+)"', refreshed.get_data(as_text=True)).group(1)
+        throttled = client.post("/workspace/contato", data={
+            "name": "Bia Lima", "email": "bia@empresa.com", "company": "Empresa",
+            "profile": "media", "team_size": "21-50", "contact_preference": "email",
+            "challenge": "Queremos organizar outra frente de campanha para o time.",
+            "_csrf": next_csrf,
+        }, headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(throttled.status_code, 429)
+        create_lead.assert_called_once()
+
+    @mock.patch("aicentralv2.email_service.send_email", side_effect=RuntimeError("email indisponível"))
+    @mock.patch("aicentralv2.db.criar_lead", return_value=92)
+    def test_workspace_public_contact_keeps_success_when_notification_fails(self, create_lead, send_email):
+        client = _app().test_client()
+        contact = client.get("/workspace/contato", headers={"Host": "workspace.centralcomm.media"})
+        csrf = re.search(r'name="_csrf" value="([^"]+)"', contact.get_data(as_text=True)).group(1)
+        response = client.post("/workspace/contato", data={
+            "name": "Ana Souza", "email": "ana@empresa.com", "company": "Empresa",
+            "profile": "marketing", "team_size": "6-20", "contact_preference": "email",
+            "challenge": "Precisamos conectar planejamento, criação e resultados da equipe.",
+            "_csrf": csrf,
+        }, headers={"Host": "workspace.centralcomm.media"})
+
+        self.assertEqual(response.status_code, 303)
+        create_lead.assert_called_once()
+        send_email.assert_called_once()
 
     def test_workspace_exposes_unlisted_current_design_system_reference(self):
         client = _app().test_client()
@@ -324,7 +364,7 @@ class ProductPortalsTest(TestCase):
         llms = client.get("/llms.txt", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
         self.assertIn("Páginas públicas", llms)
         sitemap = client.get("/sitemap.xml", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
-        self.assertIn("https://workspace.centralcomm.media/planos", sitemap)
+        self.assertIn("https://workspace.centralcomm.media/workspace/planos", sitemap)
         self.assertNotIn("/workspace/app", sitemap)
         self.assertEqual(client.get("/workspace/assets/workspace-icon-64.png").status_code, 200)
 
@@ -379,6 +419,23 @@ class ProductPortalsTest(TestCase):
         plans = client.get("/workspace/planos", headers=headers).get_data(as_text=True)
         for value in ("R$ 149", "R$ 549", "R$ 1.490", "Funcionalidades por solução", "Créditos", "Espaço", "Projetos ativos"):
             self.assertIn(value, plans)
+        self.assertIn('"@type": "Product"', plans)
+        home = client.get("/workspace/", headers=headers).get_data(as_text=True)
+        self.assertIn('"@type": "SoftwareApplication"', home)
+        self.assertIn("Conexão disponível", home)
+        self.assertIn("Links hoje, conector em breve", home)
+        self.assertIn("Contexto compartilhável", home)
+        solution = client.get("/workspace/solucoes/studio", headers=headers).get_data(as_text=True)
+        self.assertIn("Antes, durante e depois da execução.", solution)
+        self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/workspace/solucoes/studio"', solution)
+        article = client.get("/workspace/conteudos/campanha-em-formatos", headers=headers).get_data(as_text=True)
+        self.assertIn('"@type": "HowTo"', article)
+        self.assertIn('data-public-menu-button', article)
+        self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/workspace/conteudos/campanha-em-formatos"', article)
+        sitemap = client.get("/sitemap.xml", headers=headers).get_data(as_text=True)
+        self.assertIn("https://workspace.centralcomm.media/workspace/planos", sitemap)
+        self.assertIn("https://workspace.centralcomm.media/workspace/solucoes/studio", sitemap)
+        self.assertIn("https://workspace.centralcomm.media/workspace/conteudos/briefing-vivo", sitemap)
 
     @mock.patch("aicentralv2.cadu_connect.routes.link_campaign_project", return_value=True)
     def test_agents_links_campaign_to_project_inside_client_context(self, link):

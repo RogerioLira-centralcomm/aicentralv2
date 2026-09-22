@@ -10,6 +10,7 @@ import json
 import os
 import re
 import threading
+import time
 from typing import Optional
 from urllib.parse import quote, urlencode, urlparse
 from uuid import uuid4
@@ -1107,7 +1108,7 @@ def workspace_context_resolve_api():
 
 def _workspace_team_admin() -> None:
     if session.get('user_type') not in {'admin', 'superadmin'}:
-        abort(403, description='Somente administradores podem gerenciar acessos da organização.')
+        abort(403, description='Somente administradores podem gerenciar os acessos da equipe.')
 
 
 def _normalized_website_url(value: str, *, required: bool = False) -> str:
@@ -1774,7 +1775,7 @@ def _ensure_brand_audit_credit(client_id: int) -> None:
         except Exception:
             if attempt == 1:
                 current_app.logger.exception('Não foi possível consultar créditos para auditoria de marca')
-                abort(503, description='Não foi possível consultar os créditos da organização agora.')
+                abort(503, description='Não foi possível consultar os créditos da equipe agora.')
             current_app.logger.warning('Falha transitória ao consultar créditos para auditoria de marca; tentando novamente.')
             try:
                 get_db().rollback()
@@ -2443,7 +2444,7 @@ def _brand_project_documents(brand: dict, analysis: dict) -> list[tuple[str, str
     archetype = analysis.get('archetype') or profile.get('archetype') or {}
     archetype_text = ''
     if isinstance(archetype, dict) and archetype.get('primary'):
-        archetype_text = f"{archetype.get('primary')} — {archetype.get('rationale') or 'leitura a validar'}"
+        archetype_text = f"{archetype.get('primary')}: {archetype.get('rationale') or 'leitura a validar'}"
     return [
         ('Marca em uma página', '\n\n'.join(filter(None, [
             f"# {brand.get('name') or 'Marca'}", analysis.get('brand_summary') or profile.get('brand_summary'),
@@ -2454,7 +2455,7 @@ def _brand_project_documents(brand: dict, analysis: dict) -> list[tuple[str, str
         ])), 'brand_projection:overview'),
         ('Públicos e personas', '\n\n'.join(filter(None, [
             '# Públicos e personas', analysis.get('target_audience') or profile.get('target_audience'),
-            '## Segmentos\n' + '\n'.join(f"- **{item.get('name')}** — {item.get('needs') or ''}" for item in (analysis.get('audience_segments') or profile.get('audience_segments') or [])[:5]),
+            '## Segmentos\n' + '\n'.join(f"- **{item.get('name')}**: {item.get('needs') or ''}" for item in (analysis.get('audience_segments') or profile.get('audience_segments') or [])[:5]),
             '## Personas\n' + ('\n'.join(persona_lines) or 'Sem personas confirmadas; use o público prioritário como base.'),
         ])), 'brand_projection:audience'),
         ('Mensagem e direção de marca', '\n\n'.join(filter(None, [
@@ -3488,6 +3489,7 @@ PUBLIC_SOLUTIONS = {
         "image": "workspace-cards/projetos-v1.jpg",
         "features": ["Projetos e marcas", "Arquivos e links indexados", "Reuniões e decisões", "Agentes de IA conectados", "Histórico de evolução"],
         "example": "Abra um projeto, envie o briefing, conecte as fontes e continue no agente de IA que seu time já usa.",
+        "flow": [("Entrada", "Briefing, reunião, arquivo ou link chega ao projeto."), ("Trabalho", "O time e os agentes consultam a mesma base."), ("Continuidade", "Decisões e entregas voltam para o histórico.")],
     },
     "planner": {
         "name": "Planner", "icon": "planner-192.png",
@@ -3496,6 +3498,7 @@ PUBLIC_SOLUTIONS = {
         "image": "planner/planner-plan-board-v2.png",
         "features": ["Briefing estruturado", "Cenários de mídia", "Públicos e canais", "Formatos e investimento", "Revisão com contexto"],
         "example": "Transforme o briefing do projeto em cenários e leve a direção aprovada direto para o Studio.",
+        "flow": [("Entrada", "Objetivo, público, verba e restrições vêm do Workspace."), ("Trabalho", "O time compara canais, formatos e cenários."), ("Continuidade", "O plano aprovado orienta Skills, Studio e Reports.")],
     },
     "studio": {
         "name": "Studio", "icon": "studio-192.png",
@@ -3504,6 +3507,7 @@ PUBLIC_SOLUTIONS = {
         "image": "presentation/campaign-variations-v1.png",
         "features": ["Geração de imagens", "Edições avançadas", "Criação de vídeos", "Variações por formato", "Creative Analyzer"],
         "example": "Parta da direção aprovada, crie a peça principal, adapte formatos e revise a consistência antes de publicar.",
+        "flow": [("Entrada", "Marca, referências e direção chegam do projeto."), ("Trabalho", "O time cria imagens, vídeos, edições e variações."), ("Continuidade", "Peças e análises ficam ligadas à campanha.")],
     },
     "reports": {
         "name": "Reports", "icon": "connect-192.png",
@@ -3512,6 +3516,7 @@ PUBLIC_SOLUTIONS = {
         "image": "presentation/reports-dashboard-image2-v1.png",
         "features": ["Campanhas por projeto", "Relatórios conectados", "Leitura de resultados", "Próximos ajustes", "Histórico de retorno"],
         "example": "Associe a campanha ao projeto e transforme resultados em recomendações para o próximo ciclo.",
+        "flow": [("Entrada", "Campanha, objetivo e fontes ficam vinculados."), ("Trabalho", "O time lê resultado, desvio e oportunidade."), ("Continuidade", "Aprendizados alimentam a próxima campanha.")],
     },
     "skills": {
         "name": "Skills", "icon": "skills-192.png",
@@ -3520,6 +3525,7 @@ PUBLIC_SOLUTIONS = {
         "image": "skills/catalog-hero-media-intelligence.png",
         "features": ["Skills públicas e privadas", "Métodos de mídia", "Análise de audiência", "Pesquisa aplicada", "Automação com contexto"],
         "example": "Escolha uma Skill, aplique ao projeto e guarde a resposta como parte do trabalho que continua.",
+        "flow": [("Entrada", "A pergunta usa o contexto real do projeto."), ("Trabalho", "A Skill aplica método, fontes e critérios."), ("Continuidade", "A recomendação aprovada volta para o fluxo.")],
     },
 }
 
@@ -3529,30 +3535,35 @@ PUBLIC_ARTICLES = {
         "summary": "Um passo a passo para reunir reunião, arquivos, links e decisões antes de começar a produzir.",
         "image": "workspace-cards/projetos-v1.jpg", "product": "Workspace",
         "steps": ["Crie o projeto e registre o objetivo", "Envie PDFs, textos e links", "Registre decisões da reunião", "Conecte o agente de IA preferido", "Salve a resposta útil no projeto"],
+        "details": ["Dê um nome direto ao trabalho e registre o resultado que a campanha precisa produzir.", "Inclua as fontes que explicam produto, público, marca e restrições. O Workspace indexa o conteúdo para consulta.", "Transforme a ata em decisões, dúvidas e responsáveis. Isso evita que a próxima conversa dependa da memória de alguém.", "Abra o contexto no ChatGPT, Claude, Cursor ou Codex conforme a tarefa e mantenha o projeto como referência.", "Revise a saída e registre somente o que deve continuar com o time."],
     },
     "plano-de-midia": {
         "title": "Do objetivo ao primeiro cenário de mídia",
         "summary": "Use o contexto do projeto para comparar públicos, canais, formatos e investimento.",
         "image": "planner/planner-plan-board-v2.png", "product": "Planner",
         "steps": ["Confirme objetivo e restrições", "Escolha os públicos prioritários", "Compare canais e formatos", "Monte cenários de investimento", "Leve a direção aprovada para criação"],
+        "details": ["Comece pelo objetivo do projeto, prazo, região, verba e critérios que não podem mudar.", "Use dados e hipóteses já registrados para separar público principal, oportunidade e exclusões.", "Avalie o papel de cada canal antes de distribuir verba. Formato vem depois da função.", "Crie alternativas conservadora, recomendada e expansiva para tornar a decisão comercial mais simples.", "Registre o cenário escolhido e abra os formatos no Studio sem reescrever o briefing."],
     },
     "campanha-em-formatos": {
         "title": "Uma campanha, vários formatos, a mesma direção",
         "summary": "Crie a peça principal, edite detalhes e produza variações de imagem e vídeo no Studio.",
         "image": "presentation/ad-gallery-hero-v1.png", "product": "Studio",
         "steps": ["Abra a direção criativa do projeto", "Crie a imagem principal", "Faça edições avançadas", "Gere versões e vídeos", "Analise consistência e adequação"],
+        "details": ["Use referências, identidade e decisões já aprovadas como ponto de partida.", "Defina primeiro a composição que sustenta a ideia da campanha.", "Ajuste produto, cenário, enquadramento, cor, texto e acabamento sem reconstruir a peça.", "Adapte proporções, canais e movimento. Produza vídeo quando ele tiver uma função clara no plano.", "Passe as peças pelo Creative Analyzer e revise marca, clareza, formato e continuidade."],
     },
     "resultado-no-projeto": {
         "title": "Como devolver o resultado para a próxima campanha",
         "summary": "Conecte relatórios ao projeto e transforme números em decisões que o time consegue reutilizar.",
         "image": "presentation/reports-dashboard-image2-v1.png", "product": "Reports",
         "steps": ["Associe a campanha ao projeto", "Reúna as fontes de resultado", "Leia sinais e desvios", "Registre aprendizados", "Abra o próximo ciclo sem começar do zero"],
+        "details": ["O vínculo traz objetivo, público, peças e decisões para perto dos números.", "Conecte plataformas, planilhas e documentos usados pelo time para prestar contas.", "Compare o que aconteceu com a hipótese original e identifique o que pede ação.", "Converta a leitura em decisões claras, com fonte, data e impacto esperado.", "Reaproveite públicos, formatos, peças e aprendizados quando a próxima campanha começar."],
     },
     "skill-de-audiencia": {
         "title": "Quando usar uma Skill de audiência",
         "summary": "Aplique um método especializado ao projeto sem copiar e colar o briefing em outra ferramenta.",
         "image": "skills/skills-hero-worktable-v1.png", "product": "Skills",
         "steps": ["Escolha a pergunta do projeto", "Acione a Skill adequada", "Revise fontes e hipóteses", "Ajuste a recomendação", "Guarde a saída no contexto do time"],
+        "details": ["Uma pergunta clara ajuda a Skill a usar somente o contexto necessário.", "Escolha audiência, mídia, canais, pesquisa ou outro método compatível com a decisão.", "Confira de onde vieram os dados e diferencie evidência, leitura e hipótese.", "Adapte a resposta ao prazo, à verba e à realidade da campanha.", "Salve a recomendação aprovada para Planner, Studio e Reports continuarem o trabalho."],
     },
 }
 
@@ -3648,7 +3659,7 @@ def workspace_onboarding():
     try:
         organization = db.obter_cliente_por_id(client_id) or {}
     except Exception:
-        current_app.logger.warning('Não foi possível carregar o nome da organização %s', client_id, exc_info=True)
+        current_app.logger.warning('Não foi possível carregar o nome da empresa %s', client_id, exc_info=True)
     record = _workspace_onboarding_record(contact_id, client_id)
     if record and record.get('project_id') and record.get('brand_id'):
         return redirect(url_for('cadu_workspace.project_detail', project_id=str(record['project_id']), onboarding='1'), code=303)
@@ -3722,8 +3733,8 @@ def workspace_onboarding():
         except HTTPException as exc:
             audit_error = str(exc.description or 'A auditoria ficará disponível quando houver créditos.')[:360]
         except Exception:
-            audit_error = 'A auditoria ficará disponível quando os créditos da organização puderem ser consultados.'
-            current_app.logger.exception('Não foi possível preparar a auditoria do onboarding da organização %s', client_id)
+            audit_error = 'A auditoria ficará disponível quando os créditos da equipe puderem ser consultados.'
+            current_app.logger.exception('Não foi possível preparar a auditoria do onboarding da empresa %s', client_id)
 
     audit_metadata = {}
     if audit_job_id:
@@ -3985,7 +3996,7 @@ def public_solution(solution):
     return render_template(
         'cadu_workspace/public_solution.html', solution=solution, content=content,
         solutions=PUBLIC_SOLUTIONS,
-        canonical=product_url('workspace', f'/solucoes/{solution}'),
+        canonical=product_url('workspace', f'/workspace/solucoes/{solution}'),
         description=content['lead'],
     )
 
@@ -3998,7 +4009,7 @@ def public_article(slug):
     return render_template(
         'cadu_workspace/public_article.html', slug=slug, article=article,
         articles=PUBLIC_ARTICLES,
-        canonical=product_url('workspace', f'/conteudos/{slug}'),
+        canonical=product_url('workspace', f'/workspace/conteudos/{slug}'),
         description=article['summary'],
     )
 
@@ -4009,12 +4020,28 @@ def public_page(page):
     if not content:
         abort(404)
     contact_errors = []
+    response_status = 200
+    contact_csrf = ''
+    if page == 'contato':
+        contact_csrf = str(session.setdefault('public_contact_csrf', secrets.token_urlsafe(32)))
     contact_form = {key: str(request.form.get(key) or '').strip() for key in (
         'name', 'email', 'company', 'team_size', 'profile', 'challenge', 'contact_preference',
     )}
     if request.method == 'POST':
         if page != 'contato':
             abort(405)
+        supplied_csrf = str(request.form.get('_csrf') or '')
+        if supplied_csrf and secrets.compare_digest(
+            supplied_csrf, str(session.get('public_contact_last_csrf') or '')
+        ):
+            return redirect(url_for('cadu_workspace.public_contact_thanks'), code=303)
+        if not supplied_csrf or not secrets.compare_digest(supplied_csrf, contact_csrf):
+            contact_errors.append('A página expirou. Atualize e envie novamente.')
+            response_status = 400
+        last_submission_at = float(session.get('public_contact_last_at') or 0)
+        if not contact_errors and time.time() - last_submission_at < 30:
+            contact_errors.append('Aguarde alguns segundos antes de enviar outro contato.')
+            response_status = 429
         if request.form.get('website'):
             return redirect(url_for('cadu_workspace.public_contact_thanks'), code=303)
         if len(contact_form['name']) < 2:
@@ -4027,6 +4054,14 @@ def public_page(page):
             contact_errors.append('Escolha o perfil que melhor representa sua equipe.')
         if len(contact_form['challenge']) < 12:
             contact_errors.append('Conte brevemente o que sua equipe precisa resolver.')
+        if len(contact_form['name']) > 120 or len(contact_form['email']) > 254 or len(contact_form['company']) > 180:
+            contact_errors.append('Revise os campos de identificação. Um deles está muito longo.')
+        if len(contact_form['challenge']) > 4000:
+            contact_errors.append('Resuma o desafio em até 4.000 caracteres.')
+        if contact_form['team_size'] not in {'', '1-5', '6-20', '21-50', '51+'}:
+            contact_errors.append('Escolha um ritmo de uso válido.')
+        if contact_form['contact_preference'] not in {'', 'email', 'phone'}:
+            contact_errors.append('Escolha uma preferência de contato válida.')
         if not contact_errors:
             try:
                 from .. import db
@@ -4039,26 +4074,32 @@ def public_page(page):
                     'segmento': contact_form['profile'],
                     'notas_internas': f"Tamanho da equipe: {contact_form['team_size'] or 'não informado'}",
                 })
-                from ..email_service import send_email
-                send_email(
-                    f"Novo contato Cadu | {contact_form['company']}", ['contato@centralcomm.media'],
-                    text_body=(f"Nome: {contact_form['name']}\nEmail: {contact_form['email']}\n"
-                               f"Empresa: {contact_form['company']}\nPerfil: {contact_form['profile']}\n"
-                               f"Equipe: {contact_form['team_size']}\nPreferência: {contact_form['contact_preference']}\n\n"
-                               f"Desafio:\n{contact_form['challenge']}")
-                )
             except Exception:
                 current_app.logger.exception('Não foi possível registrar o contato público do Cadu')
                 contact_errors.append('Não foi possível enviar agora. Tente novamente ou escreva para contato@centralcomm.media.')
             else:
-                session['public_contact_email'] = contact_form['email']
+                session['public_contact_last_csrf'] = supplied_csrf
+                session['public_contact_last_at'] = time.time()
+                session['public_contact_csrf'] = secrets.token_urlsafe(32)
+                try:
+                    from ..email_service import send_email
+                    send_email(
+                        f"Novo contato Cadu | {contact_form['company']}", ['contato@centralcomm.media'],
+                        text_body=(f"Nome: {contact_form['name']}\nEmail: {contact_form['email']}\n"
+                                   f"Empresa: {contact_form['company']}\nPerfil: {contact_form['profile']}\n"
+                                   f"Equipe: {contact_form['team_size']}\nPreferência: {contact_form['contact_preference']}\n\n"
+                                   f"Desafio:\n{contact_form['challenge']}")
+                    )
+                except Exception:
+                    current_app.logger.exception('Contato público salvo, mas a notificação por email falhou')
                 return redirect(url_for('cadu_workspace.public_contact_thanks'), code=303)
     return render_template(
         "cadu_workspace/public_page.html", page=page, content=content,
-        canonical=product_url("workspace", f"/{page}"), description=content["description"],
+        canonical=product_url("workspace", f"/workspace/{page}"), description=content["description"],
         help_url=_cadu_area("CADU_HELP_URL", "/ajuda"), contact_errors=contact_errors,
+        contact_csrf=contact_csrf,
         contact_form=contact_form,
-    )
+    ), response_status
 
 
 @bp.get('/workspace/contato/obrigado')
@@ -4066,7 +4107,7 @@ def public_contact_thanks():
     return render_template(
         'cadu_workspace/public_result.html', status='success', title='Recebemos seu contexto.',
         description='A equipe do Cadu recebeu sua mensagem e vai usar essas informações para direcionar a conversa.',
-        detail=session.pop('public_contact_email', ''),
+        detail='',
         primary_label='Conhecer como funciona', primary_url=url_for('cadu_workspace.public_page', page='como-funciona'),
         secondary_label='Voltar para a página inicial', secondary_url=url_for('cadu_workspace.index'),
     )
@@ -4125,11 +4166,11 @@ def dashboard():
         return redirect(url_for('cadu_workspace.workspace_onboarding'), code=302)
     customizations = list_customizations(client_id=client_id)
     sections = (
-        ("Usuários e equipe", "Pessoas, convites e permissões da organização.", url_for("cadu_workspace.account_page", section="equipe"), "Workspace"),
+        ("Usuários e equipe", "Pessoas, convites e permissões da equipe.", url_for("cadu_workspace.account_page", section="equipe"), "Workspace"),
         ("Planos", "Plano contratado, limites e recursos habilitados.", url_for("cadu_workspace.account_page", section="planos"), "Workspace"),
         ("Créditos", "Saldo, consumo e histórico compartilhado entre produtos.", url_for("cadu_workspace.account_page", section="creditos"), "Workspace"),
         ("Financeiro", "Faturas, pagamentos e dados de cobrança.", url_for("cadu_workspace.account_page", section="faturamento"), "Conta"),
-        ("Integrações", "Conexões autorizadas para os produtos da organização.", url_for("cadu_workspace.integrations"), "Workspace"),
+        ("Integrações", "Conexões autorizadas para os produtos da equipe.", url_for("cadu_workspace.integrations"), "Workspace"),
         ("Ajuda", "Orientação de uso e canais de atendimento.", url_for("cadu_workspace.public_page", page="ajuda"), "Suporte"),
     )
     credit = credit_position(client_id)
@@ -5986,7 +6027,7 @@ def create_workspace_document():
             source_notes.append((source_title or 'Fonte do projeto', source_url))
     if source_notes:
         content += '\n\n## Fontes consultadas\n' + '\n'.join(
-            '- %s%s' % (title, (' — ' + source_url) if source_url else '')
+            '- %s%s' % (title, (': ' + source_url) if source_url else '')
             for title, source_url in source_notes
         )
     project_id = str(payload.get('project_id') or '').strip() or None
@@ -7343,7 +7384,7 @@ def update_organization():
         'state': (request.form.get('state') or '').strip().upper(),
     }
     if not 2 <= len(fields['trade_name']) <= 160:
-        abort(400, description='Informe o nome da organização.')
+        abort(400, description='Informe o nome da empresa.')
     if fields['legal_name'] and len(fields['legal_name']) > 180:
         abort(400, description='A razão social é muito longa.')
     if fields['document'] and len(fields['document']) not in {11, 14}:
@@ -7387,8 +7428,8 @@ def update_organization():
         raise
     except Exception:
         connection.rollback()
-        current_app.logger.exception('Não foi possível atualizar a organização')
-        abort(503, description='Não foi possível salvar a organização agora.')
+        current_app.logger.exception('Não foi possível atualizar a empresa')
+        abort(503, description='Não foi possível salvar a empresa agora.')
     return redirect(url_for('cadu_workspace.account_page', section='agencia', saved='1'), code=303)
 
 
@@ -7418,7 +7459,7 @@ def create_team_invite():
         invite_id = db.criar_invite(client_id, session.get('user_id'), email, role)
         invite = db.obter_invite_por_id(invite_id)
         plans = db.obter_planos_clientes({'cliente_id': client_id})
-        company_name = (plans[0].get('nome_fantasia') if plans else '') or 'sua organização'
+        company_name = (plans[0].get('nome_fantasia') if plans else '') or 'sua empresa'
         result = send_invite_email(
             email, invite['invite_token'], company_name, session.get('user_name') or 'Equipe', invite['expires_at'],
             role_label='Administrador' if role == 'admin' else 'Membro',
@@ -7453,7 +7494,7 @@ def resend_team_invite(invite_id):
             abort(409, description='Este convite não pode mais ser reenviado.')
         invite = db.obter_invite_por_id(invite_id)
         plans = db.obter_planos_clientes({'cliente_id': client_id})
-        company_name = (plans[0].get('nome_fantasia') if plans else '') or 'sua organização'
+        company_name = (plans[0].get('nome_fantasia') if plans else '') or 'sua empresa'
         result = send_invite_email(
             invite['email'], invite['invite_token'], company_name, session.get('user_name') or 'Equipe', invite['expires_at'],
             role_label='Administrador' if invite.get('role') == 'admin' else 'Membro',
@@ -7522,7 +7563,7 @@ def update_team_member_status(contact_id):
                     (client_id,),
                 )
                 if int(cursor.fetchone()['total'] or 0) <= 1:
-                    abort(409, description='A organização precisa manter ao menos um administrador ativo.')
+                    abort(409, description='A equipe precisa manter ao menos um administrador ativo.')
             cursor.execute(
                 """UPDATE tbl_contato_cliente
                       SET status = NOT status, data_modificacao = CURRENT_TIMESTAMP
@@ -7574,7 +7615,7 @@ def update_team_member_role(contact_id):
                     (client_id,),
                 )
                 if int(cursor.fetchone()['total'] or 0) <= 1:
-                    abort(409, description='A organização precisa manter ao menos um administrador ativo.')
+                    abort(409, description='A equipe precisa manter ao menos um administrador ativo.')
             cursor.execute(
                 """UPDATE tbl_contato_cliente
                       SET user_type = %s, data_modificacao = CURRENT_TIMESTAMP
@@ -7623,9 +7664,9 @@ def robots():
 @bp.get("/sitemap.xml")
 def sitemap():
     _workspace_host_only()
-    paths = ["/", "/como-funciona", "/planos", "/ajuda", "/contato"]
-    paths.extend(f"/solucoes/{slug}" for slug in PUBLIC_SOLUTIONS)
-    paths.extend(f"/conteudos/{slug}" for slug in PUBLIC_ARTICLES)
+    paths = ["/", "/workspace/como-funciona", "/workspace/planos", "/workspace/ajuda", "/workspace/contato"]
+    paths.extend(f"/workspace/solucoes/{slug}" for slug in PUBLIC_SOLUTIONS)
+    paths.extend(f"/workspace/conteudos/{slug}" for slug in PUBLIC_ARTICLES)
     urls = "".join(f"<url><loc>{product_url('workspace', path)}</loc></url>" for path in paths)
     return Response(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', mimetype="application/xml")
 
@@ -7638,14 +7679,14 @@ def llms():
         "> O ponto de partida para conectar o trabalho de marketing na família Cadu.", "",
         "## Páginas públicas", "",
         f"- [Visão geral]({product_url('workspace')})",
-        f"- [Como funciona]({product_url('workspace', '/como-funciona')})",
-        f"- [Planos]({product_url('workspace', '/planos')})",
-        f"- [Ajuda]({product_url('workspace', '/ajuda')})",
-        f"- [Contato]({product_url('workspace', '/contato')})", "",
+        f"- [Como funciona]({product_url('workspace', '/workspace/como-funciona')})",
+        f"- [Planos]({product_url('workspace', '/workspace/planos')})",
+        f"- [Ajuda]({product_url('workspace', '/workspace/ajuda')})",
+        f"- [Contato]({product_url('workspace', '/workspace/contato')})", "",
         "## Soluções", "",
-        *[f"- [{item['name']}]({product_url('workspace', f'/solucoes/{slug}')})" for slug, item in PUBLIC_SOLUTIONS.items()], "",
+        *[f"- [{item['name']}]({product_url('workspace', f'/workspace/solucoes/{slug}')})" for slug, item in PUBLIC_SOLUTIONS.items()], "",
         "## Guias práticos", "",
-        *[f"- [{item['title']}]({product_url('workspace', f'/conteudos/{slug}')})" for slug, item in PUBLIC_ARTICLES.items()], "",
+        *[f"- [{item['title']}]({product_url('workspace', f'/workspace/conteudos/{slug}')})" for slug, item in PUBLIC_ARTICLES.items()], "",
         "## Conteúdo público relacionado", "",
         f"- [Agentes e capacidades]({product_url('skills', '/agentes')})",
         f"- [Skills públicas testáveis]({product_url('skills')})", "",

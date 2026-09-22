@@ -1,5 +1,5 @@
 {% extends 'cadu_portals/base.html' %}
-{% block title %}Prepare seu Workspace — Cadu{% endblock %}
+{% block title %}Prepare seu Workspace | Cadu{% endblock %}
 {% block product_id %}workspace-onboarding{% endblock %}
 {% block navigation %}{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-onboarding.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
@@ -18,7 +18,7 @@
       <div class="ws-onboarding__intro">
         <span class="ws-onboarding__eyebrow">Primeiro acesso</span>
         <h1 id="onboarding-title">Vamos preparar seu Workspace.</h1>
-        <p>Em poucos passos, criamos a base para sua primeira decisão: organização, marca, projeto e uma auditoria inicial.</p>
+        <p>Em poucos passos, criamos a base para sua primeira decisão: equipe, marca, projeto e uma auditoria inicial.</p>
       </div>
 
       {% if error %}<div class="ws-onboarding__error" role="alert">{{ error }}</div>{% endif %}
@@ -35,8 +35,8 @@
 
         <fieldset class="ws-onboarding__step ws-onboarding__welcome is-visible" data-step="1">
           <legend>Uma base para o trabalho continuar.</legend>
-          <p>Vamos criar a primeira organização, marca e projeto do seu time. Depois, o mesmo contexto acompanha conversas, planejamento, criação e resultados.</p>
-          <ul><li><b>Organização</b><span>Quem trabalha e como o acesso será organizado.</span></li><li><b>Marca</b><span>Identidade, site e referências que orientam o trabalho.</span></li><li><b>Projeto</b><span>O primeiro objetivo que sua equipe precisa movimentar.</span></li></ul>
+          <p>Vamos criar a primeira equipe, marca e projeto. Depois, o mesmo contexto acompanha conversas, planejamento, criação e resultados.</p>
+          <ul><li><b>Equipe</b><span>Quem trabalha e como cada pessoa acessa o Cadu.</span></li><li><b>Marca</b><span>Identidade, site e referências que orientam o trabalho.</span></li><li><b>Projeto</b><span>O primeiro objetivo que sua equipe precisa movimentar.</span></li></ul>
           <div class="ws-onboarding__mobile-story" data-onboarding-mobile-story aria-live="polite"></div>
         </fieldset>
 
@@ -86,9 +86,9 @@
           <legend>Revise sua primeira base</legend>
           <p class="ws-onboarding__hint">Ao confirmar, o Cadu cria os registros no seu Workspace e inicia a auditoria quando houver site ou referências.</p>
           <div class="ws-onboarding__summary">
-            <div><span>Organização</span><b data-summary="organization">—</b></div>
-            <div><span>Marca</span><b data-summary="brand">—</b></div>
-            <div><span>Projeto</span><b data-summary="project">—</b></div>
+            <div><span>Equipe</span><b data-summary="organization">Não informado</b></div>
+            <div><span>Marca</span><b data-summary="brand">Não informado</b></div>
+            <div><span>Projeto</span><b data-summary="project">Não informado</b></div>
           </div>
           <div class="ws-onboarding__included"><b>Incluído no Workspace</b><span>Marcas</span><span>Projetos</span><span>Planner</span><span>Studio</span><span>Skills</span><span>Reports</span></div>
           <div class="ws-onboarding__privacy"><i aria-hidden="true">✦</i><span><b>Sua base permanece privada.</b> A auditoria gera uma proposta revisável; nada é aplicado à marca sem sua aprovação.</span></div>

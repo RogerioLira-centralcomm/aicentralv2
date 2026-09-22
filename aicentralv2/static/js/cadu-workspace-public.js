@@ -21,6 +21,22 @@
     menuButton?.setAttribute('aria-expanded', 'false');
   });
 
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a[href]');
+    if (!link) return;
+    const href = link.getAttribute('href') || '';
+    let action = '';
+    if (href.includes('/signup')) action = 'create_account';
+    else if (href.includes('/contato')) action = 'contact';
+    else if (href.includes('/planos')) action = 'view_plans';
+    else if (href.includes('/solucoes/')) action = 'view_solution';
+    else if (href.includes('/conteudos/')) action = 'view_content';
+    if (!action) return;
+    const detail = {action, label: (link.textContent || '').trim(), href};
+    window.dispatchEvent(new CustomEvent('cadu:public-conversion', {detail}));
+    window.dataLayer?.push({event: 'cadu_public_conversion', ...detail});
+  });
+
   if (!carousel) return;
   const track = carousel.querySelector('[data-carousel-track]');
   const slides = [...carousel.querySelectorAll('[data-carousel-slide]')];

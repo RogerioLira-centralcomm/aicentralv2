@@ -29,7 +29,7 @@
     const values = { organization: value('organization_name'), brand: value('brand_name'), project: value('project_name') };
     Object.entries(values).forEach(([key, text]) => {
       const target = root.querySelector(`[data-summary="${key}"]`);
-      if (target) target.textContent = text || '—';
+      if (target) target.textContent = text || 'Não informado';
     });
   }
 

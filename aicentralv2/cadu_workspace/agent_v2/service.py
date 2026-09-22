@@ -427,7 +427,14 @@ def prepare(data):
         current.user_id, current.client_id, conversation_id
     ) if data.get("conversation_id") else []) or []
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
-    execution = prepare_execution(message, current, history_context(previous_messages), requested_mode)
+    from ..conversations import conversation_memory
+    long_memory = conversation_memory.packet(
+        conversation_id=conversation_id if data.get("conversation_id") else None,
+        organization_id=current.organization_id, client_id=current.client_id,
+        user_id=current.user_id, query=message,
+    )
+    execution = prepare_execution(message, current, history_context(previous_messages), requested_mode,
+                                  conversation_state=long_memory)
     if uploads:
         execution["provider_payload"]["files"] = [
             {"type": row["kind"], "transfer_method": "local_file", "upload_file_id": row["provider_id"]}
@@ -672,6 +679,15 @@ def stream(run):
                     (run["conversation_id"], max(0, int(usage.get("prompt_tokens") or 0)),
                      max(0, int(usage.get("completion_tokens") or 0)), run["conversation_id"]))
             conn.commit()
+            try:
+                from ..conversations import conversation_memory
+                conversation_memory.checkpoint(
+                    conversation_id=run["conversation_id"], organization_id=run["context"].organization_id,
+                    client_id=run["context"].client_id, user_id=run["context"].user_id,
+                )
+            except Exception:
+                current_app.logger.exception("Checkpoint de memória da conversa falhou; conversa=%s",
+                                             run["conversation_id"])
             if usage:
                 try:
                     charge = CaduCreditConnector().charge_provider(

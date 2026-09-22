@@ -72,7 +72,8 @@ def _bounded_json(value: dict, limit: int) -> str:
 def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                   resolved: dict, policy: dict, user_label: str, history: str = "",
                   execution_mode: str = "analysis", max_context_chars: int = 16000,
-                  selected_context: Optional[dict] = None) -> dict:
+                  selected_context: Optional[dict] = None,
+                  conversation_state: Optional[dict] = None) -> dict:
     task = {
         "domain": route.domain, "action": route.action, "complexity": route.complexity,
         "response_mode": route.response_mode, "execution_mode": execution_mode,
@@ -168,6 +169,7 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         "current_context": json.dumps(request.to_dict(), ensure_ascii=False, separators=(",", ":")),
         "evidence": _bounded_json({
             **resolved,
+            **({"conversation_state": conversation_state} if conversation_state else {}),
             **({"conversation_history": history} if history else {}),
             **({"selected_context": selected_context} if selected_context else {}),
         }, max_context_chars),

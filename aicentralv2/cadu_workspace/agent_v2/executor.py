@@ -32,7 +32,7 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
     return {"percent": percent, "complete": percent >= 80, "completed": completed, "missing": missing}
 
 
-def prepare_execution(message, request, history="", requested_mode=""):
+def prepare_execution(message, request, history="", requested_mode="", conversation_state=None):
     route = route_request(
         message, request.surface, bool(request.project_ref),
         request.active_object.type if request.active_object else "", bool(request.brand_ref),
@@ -96,7 +96,8 @@ def prepare_execution(message, request, history="", requested_mode=""):
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,
                             execution_mode=execution_mode, max_context_chars=budget.max_context_chars,
-                            selected_context=getattr(request, "selected_context", None))
+                            selected_context=getattr(request, "selected_context", None),
+                            conversation_state=conversation_state)
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,

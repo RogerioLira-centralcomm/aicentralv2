@@ -161,7 +161,7 @@ body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-library {
   min-height: 0;
 }
 
-body.portal--workspace .cadu-ds-brand-library__stage {
+body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-library__stage {
   border: 1px solid var(--cadu-line);
   border-radius: 0;
   background: #fff;
@@ -176,7 +176,7 @@ body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-library__stage 
   background: #fff;
 }
 
-body.portal--workspace .cadu-ds-brand-library__stage footer { background: #fff; }
+body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-library__stage footer { background: #fff; }
 
 body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside { gap: 0; }
 
@@ -291,13 +291,19 @@ body.portal--workspace .cadu-ds-brand-audit-existing small {
 }
 
 body.portal--workspace .cadu-ds-entity-rail__danger {
-  margin-top: 28px;
+  display: block;
+  margin-top: 12px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--cadu-danger, #a34032);
   font: 600 10px var(--cadu-font-sans);
   cursor: pointer;
+}
+
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-entity-rail > .cadu-ds-entity-rail__action {
+  display: block;
+  margin-top: 0;
 }
 
 body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-entity-portal {

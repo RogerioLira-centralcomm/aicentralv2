@@ -50,7 +50,7 @@ function brandDocument(processing = false) {
         <div class="cadu-ds-entity-portal cadu-ds-entity-portal--brand"><aside class="cadu-ds-entity-nav"><nav><a class="is-active">Visão geral</a></nav></aside>
           <section class="cadu-ds-brand-content"><header class="cadu-ds-brand-hero"><div class="cadu-ds-brand-hero__identity"></div><div><h1>Marca</h1></div></header>
             ${processing ? '<section class="cadu-ds-brand-state"><div class="cadu-ds-brand-state__visual"></div><div>Processando</div></section>' : '<section class="cadu-ds-brand-review"><div>Base aprovada</div></section><header class="cadu-ds-brand-data-viewer__header"><h2>Informações organizadas</h2></header><div class="cadu-ds-brand-data-viewer"><section class="cadu-ds-brand-library"><div class="cadu-ds-brand-library__stage"><img alt="Ativo"></div><aside><button class="is-active"><img alt=""><span><b>Logo</b></span></button></aside></section></div>'}
-          </section>${processing ? '' : '<aside class="cadu-ds-entity-rail">Gestão</aside>'}</div>
+          </section>${processing ? '' : '<aside class="cadu-ds-entity-rail">Gestão<button class="cadu-ds-entity-rail__action">Criar ou vincular projeto</button><button class="cadu-ds-entity-rail__danger">Apagar marca</button></aside>'}</div>
       </div></main></div></div></main></body></html>`;
 }
 
@@ -166,7 +166,10 @@ async function dimensions(page, contentClass) {
       const hero = document.querySelector('.cadu-ds-brand-hero');
       const review = document.querySelector('.cadu-ds-brand-review');
       const logo = document.querySelector('.cadu-ds-dock-brand img');
-      const stage = document.querySelector('.cadu-ds-brand-library__stage > img');
+      const stage = document.querySelector('.cadu-ds-brand-library__stage');
+      const stageImage = stage.querySelector('img');
+      const railAction = document.querySelector('.cadu-ds-entity-rail__action');
+      const railDanger = document.querySelector('.cadu-ds-entity-rail__danger');
       const dock = document.querySelector('.cadu-ds-dock').getBoundingClientRect();
       const home = document.querySelector('.cadu-ds-dock-home').getBoundingClientRect();
       const brandShortcut = document.querySelector('.cadu-ds-dock-brand').getBoundingClientRect();
@@ -185,7 +188,11 @@ async function dimensions(page, contentClass) {
         stageBackground: getComputedStyle(stage).backgroundColor,
         assetBackground: getComputedStyle(assetRow).backgroundColor,
         assetRadius: getComputedStyle(assetRow).borderRadius,
-        stageHeight: stage.getBoundingClientRect().height,
+        stageHeight: stageImage.getBoundingClientRect().height,
+        railActionDisplay: getComputedStyle(railAction).display,
+        railDangerDisplay: getComputedStyle(railDanger).display,
+        railDangerTop: railDanger.getBoundingClientRect().top,
+        railActionBottom: railAction.getBoundingClientRect().bottom,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
     });
@@ -201,6 +208,9 @@ async function dimensions(page, contentClass) {
     assert.equal(brand.assetBackground, 'rgba(0, 0, 0, 0)', 'Marca: lista de ativos sem cards');
     assert.equal(brand.assetRadius, '0px', 'Marca: lista de ativos sem cantos de card');
     assert.ok(brand.stageHeight <= 320, 'Marca: ativo não domina a página');
+    assert.equal(brand.railActionDisplay, 'block', 'Marca: ação principal do rail ocupa linha própria');
+    assert.equal(brand.railDangerDisplay, 'block', 'Marca: ação destrutiva do rail ocupa linha própria');
+    assert.ok(brand.railDangerTop > brand.railActionBottom, 'Marca: ações do rail não colidem');
     assert.equal(brand.overflow, 0, 'Marca: sem overflow desktop');
 
     await page.setContent(brandDocument(true));

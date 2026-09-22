@@ -1,6 +1,7 @@
 """Compact prompt input for the isolated Dify V2 application."""
 
 import json
+from copy import deepcopy
 from typing import Optional
 
 from .contracts import IntentRoute, RequestContext
@@ -50,22 +51,53 @@ def _bounded_json(value: dict, limit: int) -> str:
     serialized = json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
     if len(serialized) <= limit:
         return serialized
-    # Preserve a valid JSON envelope. Raw string slicing can leave evidence in
-    # the middle of a quoted value and makes provider-side parsing unreliable.
+    # Preserve semantic boundaries and put conversation continuity ahead of
+    # bulky tool evidence. Never turn structured memory into a sliced JSON
+    # string: the provider must be able to distinguish state from transcript.
+    state = deepcopy(value.get("conversation_state") or {})
+    retrieved = list(state.get("mensagens_originais_recuperadas") or [])[:6]
+    for item in retrieved:
+        item["content"] = str(item.get("content") or "")[:700]
+    state["mensagens_originais_recuperadas"] = retrieved
+    for key in ("corrections", "decisions"):
+        if isinstance(state.get("estado"), dict) and isinstance(state["estado"].get(key), list):
+            state["estado"][key] = state["estado"][key][-6:]
     compact = {
         "current_context": value.get("current_context") or {},
+        **({"conversation_state": state} if state else {}),
+        **({"selected_context": value.get("selected_context")} if value.get("selected_context") else {}),
         "truncated": True,
-        "evidence_preview": "",
     }
-    low, high = 0, len(serialized)
-    while low < high:
-        middle = (low + high + 1) // 2
-        compact["evidence_preview"] = serialized[:middle]
-        if len(json.dumps(compact, ensure_ascii=False, default=str, separators=(",", ":"))) <= limit:
-            low = middle
-        else:
-            high = middle - 1
-    compact["evidence_preview"] = serialized[:low]
+
+    def fits(candidate):
+        return len(json.dumps(candidate, ensure_ascii=False, default=str, separators=(",", ":"))) <= limit
+
+    # If the critical envelope alone is large, reduce retrieved excerpts first.
+    while not fits(compact) and compact.get("conversation_state", {}).get("mensagens_originais_recuperadas"):
+        compact["conversation_state"]["mensagens_originais_recuperadas"].pop()
+    if not fits(compact) and compact.get("conversation_state"):
+        compact["conversation_state"]["estado"] = {}
+
+    # Add tool/project evidence item by item while it fits.
+    for key, item in value.items():
+        if key in {"current_context", "conversation_state", "selected_context", "conversation_history"}:
+            continue
+        candidate = {**compact, key: item}
+        if fits(candidate):
+            compact = candidate
+
+    history = str(value.get("conversation_history") or "")
+    if history:
+        low, high = 0, len(history)
+        while low < high:
+            middle = (low + high + 1) // 2
+            candidate = {**compact, "conversation_history": history[-middle:]}
+            if fits(candidate):
+                low = middle
+            else:
+                high = middle - 1
+        if low:
+            compact["conversation_history"] = history[-low:]
     return json.dumps(compact, ensure_ascii=False, default=str, separators=(",", ":"))
 
 

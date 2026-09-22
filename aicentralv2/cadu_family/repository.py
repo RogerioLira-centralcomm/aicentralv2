@@ -14,7 +14,8 @@ def family_table_available(name):
     if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context',
                     'cadu_family_chat_uploads', 'cadu_family_project_brands', 'cadu_family_project_visibility',
                     'cadu_family_project_access', 'cadu_user_memories',
-                    'cadu_working_memories', 'cadu_visual_identity_versions',
+                    'cadu_working_memories', 'cadu_conversation_memory_state',
+                    'cadu_visual_identity_versions',
                     'cadu_conversation_organization'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
@@ -648,10 +649,12 @@ def conversation_messages(user_id, client_id, conversation_id):
                  (conversation_id, user_id, client_id))
     if not owned:
         return None
-    messages = rows('''SELECT id, role, content, files, metadata, created_at,
-                             to_jsonb(m)->'tool_calls' AS tool_calls
+    messages = rows('''SELECT * FROM (SELECT id, role, content, files, metadata, created_at,
+                             to_jsonb(m)->'tool_calls' AS tool_calls, conversation_sequence
                     FROM cadu_conversation_messages m WHERE conversation_id = %s
-                     AND role IN ('user', 'assistant') ORDER BY created_at, id LIMIT 500''', (conversation_id,))
+                     AND role IN ('user', 'assistant')
+                    ORDER BY conversation_sequence DESC NULLS LAST, created_at DESC, id DESC LIMIT 500) recent
+                    ORDER BY conversation_sequence NULLS LAST, created_at, id''', (conversation_id,))
     from ..cadu_workspace.conversations.legacy_results import project_message
     base = current_app.config.get('CADU_LEGACY_ASSET_BASE_URL')
     return [project_message(message, base) for message in messages]

@@ -43,6 +43,17 @@ def test_segment_summary_is_bounded_and_keeps_roles_and_positions():
     assert '#1 Usuário:' in summary
 
 
+def test_long_checkpoint_is_split_without_losing_message_coverage():
+    data = messages(40)
+    for item in data:
+        item['content'] = 'x' * 700
+    chunks = conversation_memory._segment_chunks(data)
+    assert len(chunks) > 1
+    assert [item['position'] for chunk in chunks for item in chunk] == list(range(1, 41))
+    assert all(len(conversation_memory._segment_summary(chunk)) <= conversation_memory.MAX_STATE_CHARS
+               for chunk in chunks)
+
+
 def test_prompt_payload_keeps_long_memory_separate_from_recent_history():
     import json
     from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
@@ -60,3 +71,29 @@ def test_prompt_payload_keeps_long_memory_separate_from_recent_history():
     evidence = json.loads(payload['inputs']['evidence'])
     assert evidence['conversation_state']['primeira_mensagem_usuario'] == 'Pergunta antiga'
     assert evidence['conversation_history'] == 'Usuário: mensagem recente'
+
+
+def test_prompt_budget_preserves_structured_memory_before_large_tool_evidence():
+    import json
+    from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import _bounded_json
+    evidence = json.loads(_bounded_json({
+        'large_tool': {'content': 'x' * 20000},
+        'conversation_state': {
+            'primeira_mensagem_usuario': 'Pergunta que não pode desaparecer',
+            'mensagens_originais_recuperadas': [
+                {'message_id': '1', 'content': 'Trecho original importante'}
+            ],
+        },
+        'conversation_history': 'histórico ' * 2000,
+    }, 6000))
+    assert evidence['conversation_state']['primeira_mensagem_usuario'] == 'Pergunta que não pode desaparecer'
+    assert evidence['conversation_state']['mensagens_originais_recuperadas'][0]['content'] == 'Trecho original importante'
+    assert 'large_tool' not in evidence
+
+
+def test_repository_allows_the_conversation_memory_schema_probe(monkeypatch):
+    from flask import Flask
+    from aicentralv2.cadu_family import repository
+    monkeypatch.setattr(repository, 'rows', lambda *_: [{'available': True}])
+    with Flask(__name__).test_request_context('/'):
+        assert repository.family_table_available('cadu_conversation_memory_state') is True

@@ -428,11 +428,17 @@ def prepare(data):
     ) if data.get("conversation_id") else []) or []
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
     from ..conversations import conversation_memory
-    long_memory = conversation_memory.packet(
-        conversation_id=conversation_id if data.get("conversation_id") else None,
-        organization_id=current.organization_id, client_id=current.client_id,
-        user_id=current.user_id, query=message,
-    )
+    try:
+        long_memory = conversation_memory.packet(
+            conversation_id=conversation_id if data.get("conversation_id") else None,
+            organization_id=current.organization_id, client_id=current.client_id,
+            user_id=current.user_id, query=message,
+        )
+    except Exception:
+        # Memory is a rebuildable projection. A schema rollout, stale index or
+        # transient database error must never make the canonical chat unusable.
+        current_app.logger.exception("Memória longa indisponível; conversa=%s", conversation_id)
+        long_memory = {}
     execution = prepare_execution(message, current, history_context(previous_messages), requested_mode,
                                   conversation_state=long_memory)
     if uploads:
@@ -679,15 +685,6 @@ def stream(run):
                     (run["conversation_id"], max(0, int(usage.get("prompt_tokens") or 0)),
                      max(0, int(usage.get("completion_tokens") or 0)), run["conversation_id"]))
             conn.commit()
-            try:
-                from ..conversations import conversation_memory
-                conversation_memory.checkpoint(
-                    conversation_id=run["conversation_id"], organization_id=run["context"].organization_id,
-                    client_id=run["context"].client_id, user_id=run["context"].user_id,
-                )
-            except Exception:
-                current_app.logger.exception("Checkpoint de memória da conversa falhou; conversa=%s",
-                                             run["conversation_id"])
             if usage:
                 try:
                     charge = CaduCreditConnector().charge_provider(
@@ -758,3 +755,16 @@ def stream(run):
     _journal(run["run_id"], terminal_event, terminal_payload,
              item_type="error" if state == "failed" else "activity")
     yield _event(terminal_event, **terminal_payload)
+    # The terminal event has already released the UI and the persisted run is
+    # no longer active. This best-effort projection cannot delay the answer or
+    # keep the conversation locked.
+    if state == "completed" and assistant_id:
+        try:
+            from ..conversations import conversation_memory
+            conversation_memory.checkpoint(
+                conversation_id=run["conversation_id"], organization_id=run["context"].organization_id,
+                client_id=run["context"].client_id, user_id=run["context"].user_id,
+            )
+        except Exception:
+            current_app.logger.exception("Checkpoint de memória da conversa falhou; conversa=%s",
+                                         run["conversation_id"])

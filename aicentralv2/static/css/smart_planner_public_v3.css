@@ -158,3 +158,52 @@ body.has-generated-hero::after { content: ""; position: fixed; inset: 0; z-index
   .spv3.has-generated-hero .spv3-cover-copy > p, .spv3.has-generated-hero .spv3-cover-facts dd { color: var(--ink); }
   .spv3.has-generated-hero .spv3-cover-thesis { color: var(--brand); }
 }
+
+/* Hero sem moldura: a imagem ocupa a composição inteira e o texto flutua sobre ela. */
+body.spv3.has-generated-hero .spv3-editorial-cover {
+  min-height: 560px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 22px;
+  background: #14252d;
+}
+body.spv3.has-generated-hero .spv3-hero-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  background: transparent;
+}
+body.spv3.has-generated-hero .spv3-hero-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  background: transparent;
+}
+body.spv3.has-generated-hero .spv3-cover-copy {
+  border: 0;
+  background: transparent;
+}
+@media (max-width: 700px) {
+  body.spv3.has-generated-hero .spv3-editorial-cover { min-height: 500px; border-radius: 16px; }
+  body.spv3.has-generated-hero .spv3-cover-copy { min-height: 500px; }
+}
+
+/* Impressão e leitura estável: o documento não depende de animação para revelar conteúdo. */
+.spv3-js [data-scroll-reveal], .spv3-js [data-scroll-reveal].is-revealed { opacity: 1; transform: none; transition: none; }
+.spv3-media-sequence { break-inside: avoid; }
+.spv3-balance-grid { overflow: visible; }
+@media print {
+  .spv3-media-sequence { display: block !important; margin-top: 5mm; padding-top: 4mm; break-inside: avoid; }
+  .spv3-sequence-heading h3 { font-size: 12pt; }
+  .spv3-sequence-heading p { font-size: 8.5pt; }
+  .spv3-balance-grid { min-width: 0; }
+  .spv3-balance-row { min-width: 0; grid-template-columns: minmax(30mm, 1.3fr) repeat(auto-fit, minmax(22mm, 1fr)); font-size: 8pt; }
+  .spv3-balance-row > * { padding: 2mm 1.5mm; }
+  .spv3-balance-row span i { background: #15585b; }
+}

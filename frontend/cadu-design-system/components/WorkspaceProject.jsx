@@ -9,6 +9,7 @@ import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {EntityContextRail, EntityNavigator, ProjectDataStarter} from './WorkspaceEntityPortal';
 import {WorkspaceNotificationCenter} from './WorkspaceNotificationCenter';
+import {dockProviderLogo} from '../dockExternal.mjs';
 
 function ProjectIcon({name}) {
   const paths = {
@@ -25,8 +26,15 @@ function ProjectIcon({name}) {
     text: <><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></>,
     plan: <><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h5M8 16h7"/><path d="M8 2v4M16 2v4"/></>,
     analysis: <><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4M8 10.5h5M10.5 8v5"/></>,
+    link: <><path d="M10 13a5 5 0 0 0 7.1 0l2.1-2.1a5 5 0 0 0-7.1-7.1L10 5.9M14 11a5 5 0 0 0-7.1 0l-2.1 2.1a5 5 0 0 0 7.1 7.1L14 18.1"/></>,
   };
   return <svg className="cadu-ds-project-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name] || paths.context}</svg>;
+}
+
+function ProjectLinkImage({src}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  return src && !failed ? <img src={src} alt="" loading="lazy" onError={() => setFailed(true)}/> : <ProjectIcon name="link"/>;
 }
 
 function writeDockResourcePayload(event, resource, projectId) {
@@ -89,7 +97,7 @@ function ProjectDataIndex({project, onOpenResource, onAction, onStartConversatio
   ].map(group => ({...group, items: group.items.filter(item => item.title || item.name || item.summary)})).filter(group => group.items.length);
   return <section className="cadu-ds-project-data-index" aria-label="Índice de dados do projeto">
     <header><div><p>Índice do projeto</p><h2>O trabalho reunido por tipo de dado</h2></div><span>{groups.reduce((total, group) => total + group.items.length, 0)} itens conectados</span></header>
-    <div className="cadu-ds-project-data-index__grid">{groups.map(group => <article key={group.key}><header><ProjectIcon name={group.icon}/><div><h3>{group.label}</h3><small>{group.items.length} item{group.items.length === 1 ? '' : 's'}</small></div></header><div>{group.items.slice(0, 8).map(item => { const content = <><span><b>{item.title || item.name || 'Item sem título'}</b><small>{item.detail || 'Disponível no projeto'}</small></span><em>›</em></>; if (item.resource) return <button type="button" key={item.id} onClick={() => onOpenResource?.(item)}>{content}</button>; if (item.href) return <a key={item.id} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>{content}</a>; return <div key={item.id}>{content}</div>; })}</div></article>)}</div>
+    <div className="cadu-ds-project-data-index__grid">{groups.map(group => <article key={group.key}><header><ProjectIcon name={group.icon}/><div><h3>{group.label}</h3><small>{group.items.length} item{group.items.length === 1 ? '' : 's'}</small></div></header><div>{group.items.slice(0, 8).map(item => { const icon = group.key === 'links' ? dockProviderLogo(item.href) || item.iconUrl : ''; const content = <>{group.key === 'links' && <span className="cadu-ds-project-link-icon"><ProjectLinkImage src={icon}/></span>}<span><b>{item.title || item.name || 'Item sem título'}</b><small>{item.detail || 'Disponível no projeto'}</small></span><em>›</em></>; if (item.resource) return <button type="button" key={item.id} onClick={() => onOpenResource?.(item)}>{content}</button>; if (item.href) return <a key={item.id} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>{content}</a>; return <div key={item.id}>{content}</div>; })}</div></article>)}</div>
     {!groups.length && <div className="cadu-ds-project-data-index__empty-state"><div className="cadu-ds-project-data-index__illustration" aria-hidden="true"><i/><i/><i/><span>+</span></div><div><h3>Este projeto ainda precisa de matéria-prima</h3><p>Adicione fontes, links de plataformas ou uma reunião. O índice organiza tudo para o Cadu responder com contexto.</p><div className="cadu-ds-project-data-index__actions"><button type="button" className="is-primary" onClick={() => onAction?.('sources')}>Adicionar fontes</button><button type="button" onClick={() => onAction?.('link')}>Adicionar link</button><button type="button" onClick={onStartConversation}>Registrar reunião na conversa</button></div></div></div>}
   </section>;
 }
@@ -371,8 +379,8 @@ function SourceActor({actor, compact = false}) {
 }
 
 function SourcePreview({item}) {
-  const image = item.previewUrl || (/^image\//i.test(item.mime || '') ? item.href : '');
-  return <span className={`cadu-ds-project-explorer__preview is-${item.sourceType}`}>{image ? <img src={image} alt="" loading="lazy"/> : <ProjectIcon name={item.sourceType === 'link' ? 'spark' : item.sourceType === 'creation' ? 'image' : item.sourceType === 'summary' ? 'text' : 'source'}/>}<small>{item.sourceType === 'link' ? 'LINK' : (item.mime || item.kind || item.sourceType || 'ITEM').split('/').pop().slice(0, 8).toUpperCase()}</small></span>;
+  const image = item.sourceType === 'link' ? dockProviderLogo(item.href || item.url) || item.iconUrl : item.previewUrl || (/^image\//i.test(item.mime || '') ? item.href : '');
+  return <span className={`cadu-ds-project-explorer__preview is-${item.sourceType}`}>{item.sourceType === 'link' ? <ProjectLinkImage src={image}/> : image ? <img src={image} alt="" loading="lazy"/> : <ProjectIcon name={item.sourceType === 'creation' ? 'image' : item.sourceType === 'summary' ? 'text' : 'source'}/>}<small>{item.sourceType === 'link' ? 'LINK' : (item.mime || item.kind || item.sourceType || 'ITEM').split('/').pop().slice(0, 8).toUpperCase()}</small></span>;
 }
 
 function SourceActions({item, conversationUrl, onManage, onInspect}) {
@@ -409,7 +417,8 @@ function ProjectSourceExplorer({project, conversationUrl, onManage, currentUser}
 
 export function WorkspaceProject({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
-  const project = bootstrap.project || {};
+  const [linkIcons, setLinkIcons] = useState({});
+  const project = {...(bootstrap.project || {}), links:(bootstrap.project?.links || []).map(link => ({...link, ...(linkIcons[String(link.id)] || {})}))};
   const [dialog, setDialog] = useState('');
   const [dropActive, setDropActive] = useState(false);
   const [dropQueue, setDropQueue] = useState([]);
@@ -425,6 +434,52 @@ export function WorkspaceProject({bootstrap}) {
   const missing = project.health?.missing || [];
   const isNewProject = missing.length >= 3 && !(project.files?.length || project.deliveries?.length || project.memory?.length || project.links?.length);
   const projectLinks = bootstrap.projectLinks || {};
+  useEffect(() => {
+    if (!project.id) return undefined;
+    const pending = (bootstrap.project?.links || []).filter(link => !dockProviderLogo(link.url) && !link.iconUrl && (!link.iconStatus || ['queued','running','generating','failed'].includes(link.iconStatus)));
+    let active = true;
+    const token = bootstrap.csrf || csrf();
+    const requestMissing = async () => {
+      for (const link of pending) {
+        if (!active) return;
+        setLinkIcons(current => ({...current, [String(link.id)]:{iconStatus:'queued'}}));
+        try {
+          const response = await fetch(`/projetos/${encodeURIComponent(project.id)}/atalhos/${encodeURIComponent(link.id)}/icone`, {
+            method:'POST', credentials:'same-origin', headers:{'X-CSRF-Token':token, Accept:'application/json'},
+          });
+          if (!response.ok) throw new Error('icon unavailable');
+          const result = await response.json();
+          if (active && result.status === 'ready') setLinkIcons(current => ({...current, [String(link.id)]:{iconUrl:result.icon_url, iconStatus:'ready'}}));
+          else if (active && result.status === 'failed') setLinkIcons(current => ({...current, [String(link.id)]:{iconStatus:'failed'}}));
+          else if (active && result.status) setLinkIcons(current => ({...current, [String(link.id)]:{iconStatus:result.status}}));
+        } catch (_) {
+          if (active) setLinkIcons(current => ({...current, [String(link.id)]:{iconStatus:'failed'}}));
+        }
+      }
+    };
+    requestMissing();
+    const timer = window.setInterval(requestMissing, 300000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [project.id, bootstrap.project?.links, bootstrap.csrf]);
+  useEffect(() => {
+    if (!project.id || !project.links?.some(link => ['queued','running','generating'].includes(link.iconStatus))) return undefined;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const response = await fetch(`/projetos/${encodeURIComponent(project.id)}/atalhos/icones`, {credentials:'same-origin', headers:{Accept:'application/json'}});
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) setLinkIcons(current => {
+          const next = {...current};
+          for (const icon of data.icons || []) if (icon.iconStatus) next[String(icon.id)] = {iconUrl:icon.iconUrl, iconStatus:icon.iconStatus};
+          return next;
+        });
+      } catch (_) { /* Neutral link icons stay visible during a temporary outage. */ }
+    };
+    const timer = window.setInterval(refresh, 4000);
+    refresh();
+    return () => { active = false; window.clearInterval(timer); };
+  }, [project.id, project.links?.some(link => ['queued','running','generating'].includes(link.iconStatus))]);
   const startConversation = () => window.location.assign(projectLinks.conversation);
   const selectedResource = (project.resources || []).find(item => String(item.id) === String(resourceId));
   const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');

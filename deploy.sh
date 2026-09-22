@@ -333,9 +333,11 @@ fi
 "$VENV_PYTHON" migrations/run_add_format_variant_revisions.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_projects.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_project_links.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_file_classification.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_resource_registry.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_ingestion_and_dock.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_link_icon_metadata.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_resource_state.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_public_mcp.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_public_mcp_scopes.sql
@@ -375,6 +377,7 @@ fi
 # Worker de mídia: dependências, modelo local e serviço supervisionado.
 MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1
 ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh >> "$DEPLOY_LOG" 2>&1
+LINK_ICON_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_link_icon_worker.sh >> "$DEPLOY_LOG" 2>&1
 
 # 9. Iniciar servico
 echo ""

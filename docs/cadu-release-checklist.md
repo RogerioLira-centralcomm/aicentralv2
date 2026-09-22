@@ -63,6 +63,7 @@ schema criado. Eles não habilitam flags e não inserem dados de demonstração.
 - Executar a migração da fila antes de ativar `CADU_BRAND_AUDIT_WORKER_ENABLED=1`.
 - Configurar supervisor para `flask cadu_workspace brand-audit-worker-once`.
 - Configurar supervisor para `flask cadu_workspace resource-registry-worker-once`; o comando processa um job por execução e usa claim concorrente com `SKIP LOCKED`.
+- Confirmar que o deploy aplicou `migrations/add_cadu_project_link_icon_metadata.sql` e ativou `cadu-link-icon-worker@1.service` e `@2.service`; a fila limita a dois jobs ativos globalmente.
 - Criar uma marca de teste e confirmar: estado em fila, claim durável, progresso,
   cobrança idempotente e e-mail apenas após os três pareceres ficarem prontos.
 - Não redisparar jobs já reclamados: usar a ação de retentativa, que cria um novo

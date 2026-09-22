@@ -56,6 +56,7 @@ body.portal--workspace .cadu-ds-dock-shortcut {
 body.portal--workspace .cadu-ds-dock-shortcut.is-dragging { opacity:.35; }
 body.portal--workspace .cadu-ds-dock-resource--provider .cadu-ds-visual-identity { background:#fff; box-shadow:inset 0 0 0 1px rgba(20,40,58,.11); }
 body.portal--workspace .cadu-ds-dock-resource--provider .cadu-ds-visual-identity img { box-sizing:border-box; padding:6px; object-fit:contain; }
+body.portal--workspace .cadu-ds-dock-resource--generated .cadu-ds-visual-identity img { padding:0; object-fit:cover; }
 body.portal--workspace .cadu-ds-dock-insertion {
   display:block;
   width:42px;

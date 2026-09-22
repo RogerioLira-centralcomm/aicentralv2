@@ -802,6 +802,8 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
                 title = str(metadata.get('title') or hostname).strip()[:80] or hostname
                 explicit.append({'id': f"external:{row['target_ref']}", 'kind': 'external', 'title': title,
                                  'name': title, 'href': external_url, 'shortcutId': row['id'],
+                                 'logoUrl': str(metadata.get('icon_url') or ''),
+                                 'iconStatus': str(metadata.get('icon_status') or ''),
                                  'visualInitials': hostname[:2].upper(), 'visualColor': '#244944', 'pinned': True})
             continue
         key = (row['shortcut_type'], row['target_ref'])
@@ -896,7 +898,10 @@ def save_dock_shortcut():
                         COALESCE((SELECT MAX(position)+1 FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s),0),
                         %s,NOW(),NOW())
                 ON CONFLICT (client_id,user_id,shortcut_type,target_ref) DO UPDATE
-                    SET project_ref=EXCLUDED.project_ref,brand_ref=EXCLUDED.brand_ref,metadata=EXCLUDED.metadata,updated_at=NOW()
+                    SET project_ref=EXCLUDED.project_ref,brand_ref=EXCLUDED.brand_ref,
+                        metadata=CASE WHEN EXCLUDED.shortcut_type='external'
+                            THEN cadu_workspace_dock_shortcuts.metadata || EXCLUDED.metadata
+                            ELSE EXCLUDED.metadata END,updated_at=NOW()
                 RETURNING id::text,shortcut_type,target_ref,project_ref,brand_ref,position,metadata""",
                 (str(uuid4()), client_id, user_id, kind, target_ref, project_ref, brand_ref,
                  client_id, user_id, Json(metadata)))
@@ -936,6 +941,74 @@ def delete_dock_shortcut(shortcut_id):
     if not found:
         abort(404, description='Atalho não encontrado.')
     return '', 204
+
+
+@bp.post('/workspace/api/dock/shortcuts/<uuid:shortcut_id>/icon')
+@login_required
+def generate_external_dock_icon(shortcut_id):
+    """Persist an Image 2 request; the supervised worker performs paid work."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    if not _dock_shortcuts_available():
+        abort(409, description='A dock ainda está sendo atualizada.')
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regclass('public.cadu_workspace_link_icon_jobs') AS relation")
+            if not (cursor.fetchone() or {}).get('relation'):
+                abort(409, description='A migração dos ícones ainda não foi aplicada.')
+            cursor.execute('''SELECT shortcut_type, metadata, updated_at
+                                FROM cadu_workspace_dock_shortcuts
+                               WHERE id=%s AND client_id=%s AND user_id=%s FOR UPDATE''',
+                           (str(shortcut_id), client_id, user_id))
+            row = cursor.fetchone()
+            if not row:
+                abort(404, description='Atalho não encontrado.')
+            if row['shortcut_type'] != 'external':
+                abort(400, description='Somente links externos podem gerar este ícone.')
+            metadata = dict(row.get('metadata') or {})
+            url = _dock_external_url(metadata.get('url'))
+            if not url:
+                abort(400, description='O endereço do atalho não é válido.')
+            if metadata.get('icon_status') == 'ready' and metadata.get('icon_url'):
+                return jsonify(status='ready', icon_url=metadata['icon_url'])
+            cursor.execute('''SELECT status FROM cadu_workspace_link_icon_jobs
+                               WHERE client_id=%s AND target_type='dock' AND target_id=%s
+                                 AND status IN ('queued','running') LIMIT 1''',
+                           (client_id, str(shortcut_id)))
+            active_job = cursor.fetchone()
+            if active_job:
+                return jsonify(status=active_job['status']), 202
+            updated_at = row.get('updated_at')
+            recent = isinstance(updated_at, datetime) and datetime.now(timezone.utc) - updated_at.astimezone(timezone.utc) < timedelta(minutes=5)
+            failed_recently = isinstance(updated_at, datetime) and datetime.now(timezone.utc) - updated_at.astimezone(timezone.utc) < timedelta(hours=1)
+            if metadata.get('icon_status') == 'failed' and failed_recently:
+                return jsonify(status='failed')
+            if metadata.get('icon_status') == 'generating' and recent:
+                return jsonify(status='generating'), 202
+            job_id = uuid4().hex
+            from .link_icon_jobs import enqueue
+            host = urlparse(url).hostname or ''
+            enqueue(cursor, job_id=job_id, client_id=client_id, user_id=user_id,
+                    target_type='dock', target_id=str(shortcut_id), project_id='', host=host)
+            cursor.execute('''UPDATE cadu_workspace_dock_shortcuts
+                                 SET metadata=metadata || %s::jsonb, updated_at=NOW()
+                               WHERE id=%s AND client_id=%s AND user_id=%s''',
+                           (Json({'icon_status': 'queued', 'icon_job_id': job_id, 'icon_error': ''}),
+                            str(shortcut_id), client_id, user_id))
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except ValueError as error:
+        connection.rollback()
+        abort(429, description=str(error))
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Falha ao iniciar geração de ícone da dock')
+        abort(503, description='Não foi possível iniciar a geração do ícone.')
+    return jsonify(status='queued'), 202
 
 
 @bp.post('/workspace/api/dock/shortcuts/order')
@@ -3294,7 +3367,9 @@ def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT id, provider, url, titulo, position, created_at, updated_at
+                """SELECT id, provider, url, titulo, position, created_at, updated_at,
+                          to_jsonb(cadu_ci_projeto_links)->'icon_metadata'->>'icon_url' AS "iconUrl",
+                          to_jsonb(cadu_ci_projeto_links)->'icon_metadata'->>'icon_status' AS "iconStatus"
                      FROM cadu_ci_projeto_links
                     WHERE projeto_id = %s AND id_cliente = %s
                  ORDER BY position ASC, created_at ASC""",
@@ -5646,6 +5721,107 @@ def create_project_link(project_id):
                             link_notice=notice), code=303)
 
 
+@bp.get('/projetos/<project_id>/atalhos/icones')
+@login_required
+def project_link_icons(project_id):
+    client_id = int(session.get('cliente_id') or 0)
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute('''SELECT 1 FROM cadu_ci_projetos
+                               WHERE id=%s AND id_cliente=%s AND status <> 'deletado' ''',
+                           (project_id, client_id))
+            if not cursor.fetchone():
+                abort(404)
+            cursor.execute('''SELECT id::text AS id,
+                                  to_jsonb(cadu_ci_projeto_links)->'icon_metadata'->>'icon_url' AS "iconUrl",
+                                  to_jsonb(cadu_ci_projeto_links)->'icon_metadata'->>'icon_status' AS "iconStatus"
+                               FROM cadu_ci_projeto_links
+                              WHERE projeto_id=%s AND id_cliente=%s''',
+                           (project_id, client_id))
+            icons = [{'id': row['id'], 'iconUrl': row.get('iconUrl') or '',
+                      'iconStatus': row.get('iconStatus') or ''} for row in cursor.fetchall()]
+        return jsonify(icons=icons)
+    except HTTPException:
+        raise
+    except Exception:
+        current_app.logger.exception('Falha ao consultar ícones do projeto %s', project_id)
+        abort(503, description='Não foi possível atualizar os ícones do projeto.')
+
+
+@bp.post('/projetos/<project_id>/atalhos/<uuid:link_id>/icone')
+@login_required
+def generate_project_link_icon(project_id, link_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('''SELECT status FROM cadu_ci_projetos
+                               WHERE id=%s AND id_cliente=%s AND status <> 'deletado' ''',
+                           (project_id, client_id))
+            project_row = cursor.fetchone()
+            if not project_row:
+                abort(404)
+            if project_row['status'] == 'arquivado':
+                abort(409, description='Reative o projeto antes de alterar seu conteúdo.')
+            cursor.execute('''SELECT to_regclass('public.cadu_workspace_link_icon_jobs') AS relation,
+                                    EXISTS (SELECT 1 FROM information_schema.columns
+                                             WHERE table_schema='public' AND table_name='cadu_ci_projeto_links'
+                                               AND column_name='icon_metadata') AS has_metadata''')
+            schema = cursor.fetchone() or {}
+            if not schema.get('relation') or not schema.get('has_metadata'):
+                abort(409, description='A migração dos ícones ainda não foi aplicada.')
+            cursor.execute('''SELECT url, icon_metadata, updated_at FROM cadu_ci_projeto_links
+                               WHERE id=%s AND projeto_id=%s AND id_cliente=%s FOR UPDATE''',
+                           (str(link_id), project_id, client_id))
+            row = cursor.fetchone()
+            if not row:
+                abort(404)
+            metadata = dict(row.get('icon_metadata') or {})
+            if metadata.get('icon_status') == 'ready' and metadata.get('icon_url'):
+                return jsonify(status='ready', icon_url=metadata['icon_url'])
+            cursor.execute('''SELECT status FROM cadu_workspace_link_icon_jobs
+                               WHERE client_id=%s AND target_type='project' AND target_id=%s
+                                 AND status IN ('queued','running') LIMIT 1''',
+                           (client_id, str(link_id)))
+            active_job = cursor.fetchone()
+            if active_job:
+                return jsonify(status=active_job['status']), 202
+            updated_at = row.get('updated_at')
+            recent = isinstance(updated_at, datetime) and datetime.now(timezone.utc) - updated_at.astimezone(timezone.utc) < timedelta(minutes=5)
+            failed_recently = isinstance(updated_at, datetime) and datetime.now(timezone.utc) - updated_at.astimezone(timezone.utc) < timedelta(hours=1)
+            if metadata.get('icon_status') == 'failed' and failed_recently:
+                return jsonify(status='failed')
+            if metadata.get('icon_status') == 'generating' and recent:
+                return jsonify(status='generating'), 202
+            url = _dock_external_url(row.get('url'))
+            if not url:
+                abort(400, description='O link do projeto não é válido.')
+            job_id = uuid4().hex
+            from .link_icon_jobs import enqueue
+            host = urlparse(url).hostname or ''
+            enqueue(cursor, job_id=job_id, client_id=client_id, user_id=user_id,
+                    target_type='project', target_id=str(link_id), project_id=project_id, host=host)
+            cursor.execute('''UPDATE cadu_ci_projeto_links
+                                 SET icon_metadata=icon_metadata || %s::jsonb, updated_at=NOW()
+                               WHERE id=%s AND projeto_id=%s AND id_cliente=%s''',
+                           (Json({'icon_status':'queued', 'icon_job_id':job_id, 'icon_error':''}),
+                            str(link_id), project_id, client_id))
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except ValueError as error:
+        connection.rollback()
+        abort(429, description=str(error))
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Falha ao iniciar ícone do link de projeto %s', link_id)
+        abort(503, description='Não foi possível iniciar o ícone do projeto.')
+    return jsonify(status='queued'), 202
+
+
 @bp.post('/projetos/<project_id>/atalhos/<link_id>')
 @login_required
 def update_project_link(project_id, link_id):
@@ -5661,10 +5837,25 @@ def update_project_link(project_id, link_id):
     try:
         connection = get_db()
         with connection.cursor() as cursor:
-            cursor.execute(
+            cursor.execute('''SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                                              WHERE table_schema='public' AND table_name='cadu_ci_projeto_links'
+                                                AND column_name='icon_metadata') AS available''')
+            has_icon_metadata = bool((cursor.fetchone() or {}).get('available'))
+            update_sql = (
+                '''UPDATE cadu_ci_projeto_links
+                      SET provider = %s, url = %s, titulo = %s,
+                          icon_metadata = CASE WHEN url = %s THEN icon_metadata ELSE '{}'::jsonb END,
+                          updated_at = NOW()
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s'''
+                if has_icon_metadata else
                 '''UPDATE cadu_ci_projeto_links
                       SET provider = %s, url = %s, titulo = %s, updated_at = NOW()
-                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s''',
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s'''
+            )
+            cursor.execute(
+                update_sql,
+                (link['provider'], link['url'], link['title'], link['url'], link_id, project_id, client_id)
+                if has_icon_metadata else
                 (link['provider'], link['url'], link['title'], link_id, project_id, client_id),
             )
             if not cursor.rowcount:

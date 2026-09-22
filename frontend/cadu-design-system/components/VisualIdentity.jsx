@@ -12,7 +12,7 @@ function initialsFor(value, fallback = 'P') {
 }
 
 /** A resilient visual identity shared by brands, projects and people. */
-export function VisualIdentity({src, initials, label, color, variant, className = '', imageAlt = '', fallbackSrc = '', imageTreatment = ''}) {
+export function VisualIdentity({src, initials, label, color, variant, className = '', imageAlt = '', fallbackSrc = '', imageTreatment = '', fallbackContent = null}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [fallbackFailed, setFallbackFailed] = useState(false);
   useEffect(() => {
@@ -30,6 +30,6 @@ export function VisualIdentity({src, initials, label, color, variant, className 
       ? <img src={src} alt={imageAlt} onError={() => setImageFailed(true)}/>
       : showFallbackImage
         ? <img src={fallbackSrc} alt={imageAlt} onError={() => setFallbackFailed(true)}/>
-      : <span aria-hidden="true">{initialsFor(identityValue)}</span>}
+      : fallbackContent || <span aria-hidden="true">{initialsFor(identityValue)}</span>}
   </span>;
 }

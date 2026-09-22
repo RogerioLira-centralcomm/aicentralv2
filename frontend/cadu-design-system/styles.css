@@ -433,6 +433,9 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-project-data-index__grid article > div > a,.cadu-ds-project-data-index__grid article > div > button,.cadu-ds-project-data-index__grid article > div > div { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:7px 3px; border:0; border-bottom:1px solid color-mix(in srgb,var(--cadu-line) 55%,transparent); background:transparent; color:var(--cadu-ink); text-align:left; text-decoration:none; }
 .cadu-ds-project-data-index__grid article > div > a:hover,.cadu-ds-project-data-index__grid article > div > button:hover { background:var(--cadu-surface); }
 .cadu-ds-project-data-index__grid article > div span { display:grid; min-width:0; gap:2px; }
+.cadu-ds-project-data-index__grid .cadu-ds-project-link-icon { display:grid; flex:none; place-items:center; width:25px; height:25px; overflow:hidden; border-radius:6px; background:var(--cadu-surface); color:var(--cadu-muted); }
+.cadu-ds-project-link-icon img { display:block; max-width:21px; max-height:21px; object-fit:contain; }
+.cadu-ds-project-link-icon .cadu-ds-project-icon { width:15px; height:15px; }
 .cadu-ds-project-data-index__grid article b,.cadu-ds-project-data-index__grid article small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-project-data-index__grid article b { font-size:11px; }
 .cadu-ds-project-data-index__grid article small { color:var(--cadu-muted); font-size:9px; }
@@ -3900,6 +3903,7 @@ body.portal--workspace .cadu-ds-project-explorer__visual-item:hover { background
 body.portal--workspace .cadu-ds-project-explorer__visual-item.is-selected { background:color-mix(in srgb,var(--cadu-accent) 10%,transparent); }
 body.portal--workspace .cadu-ds-project-explorer__preview { position:relative; display:grid; place-items:center; width:100%; height:112px; overflow:hidden; border-radius:9px; background:color-mix(in srgb,var(--cadu-surface-strong) 76%,var(--cadu-canvas)); color:var(--cadu-muted); }
 body.portal--workspace .cadu-ds-project-explorer__preview img { width:100%; height:100%; object-fit:cover; }
+body.portal--workspace .cadu-ds-project-explorer__preview.is-link img { width:56%; height:56%; object-fit:contain; }
 body.portal--workspace .cadu-ds-project-explorer__preview .cadu-ds-project-icon { width:24px; height:24px; }
 body.portal--workspace .cadu-ds-project-explorer__preview > small { position:absolute; right:6px; bottom:5px; padding:2px 4px; border-radius:4px; background:color-mix(in srgb,var(--cadu-surface) 88%,transparent); color:var(--cadu-muted-strong); font-size:7px; font-weight:750; }
 body.portal--workspace .cadu-ds-project-explorer__visual-item > div { padding:8px 2px 3px; }

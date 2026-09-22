@@ -102,6 +102,7 @@ class PublicPlannerTest(TestCase):
                         {"kind": "persona", "image_url": "/generated/persona.png"},
                         {"kind": "place", "image_url": "/generated/place.png"},
                     ],
+                    "asset_manifest": [{"kind": "persona", "asset_url": "/generated/persona.png", "status": "approved"}],
                 },
             },
             "plan_content": {"sections": []},
@@ -109,6 +110,32 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["hero"]["creative_image"], "/generated/creative.png")
         self.assertEqual(view["hero"]["support_image"]["url"], "/generated/persona.png")
         self.assertTrue(view["hero"]["has_generated_visual"])
+
+    def test_public_document_does_not_publish_unapproved_support_or_theme_images(self):
+        view = public_view({
+            "nome_campanha": "Campanha sem aprovação visual",
+            "cliente": "Cliente",
+            "dados_detectados": {
+                "folha": {
+                    "sections": [{"cards": [
+                        {"type": "strategy", "body": "Tese."},
+                        {"type": "creative", "image_url": "/generated/creative.png"},
+                    ]}],
+                    "supporting_visuals": [
+                        {"kind": "persona", "image_url": "/generated/draft-persona.png"},
+                    ],
+                    "asset_manifest": [
+                        {"kind": "persona", "asset_url": "/generated/draft-persona.png", "status": "draft"},
+                    ],
+                    "theme": {"bg_url": "/static/images/unrelated-theme.png"},
+                },
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertEqual(view["hero"]["creative_image"], "/generated/creative.png")
+        self.assertEqual(view["hero"]["support_image"], {})
+        self.assertTrue(view["hero"]["has_generated_visual"])
+        self.assertFalse(view["hero"]["uses_image_background"])
 
     def test_public_document_honors_editor_hero_selection_and_background_choice(self):
         view = public_view({

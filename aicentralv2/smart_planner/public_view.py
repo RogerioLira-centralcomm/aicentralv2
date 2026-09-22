@@ -1055,10 +1055,15 @@ def _full_groups(chapters: list[dict], board: list[dict]) -> list[dict]:
     ]
 
 
-def _public_visuals(folha: dict, creative_image: str, fallback_image: str) -> list[dict]:
+def _public_visuals(folha: dict, creative_image: str) -> list[dict]:
     """Escolhe, em ordem editorial, no máximo duas imagens para o link público."""
     visuals = []
     seen = set()
+    manifest = {
+        text(as_dict(item).get("asset_url") or as_dict(item).get("image_url")): as_dict(item)
+        for item in as_list(folha.get("asset_manifest"))
+        if text(as_dict(item).get("asset_url") or as_dict(item).get("image_url"))
+    }
 
     def add(url, kind: str, label: str):
         url = text(url)
@@ -1067,20 +1072,22 @@ def _public_visuals(folha: dict, creative_image: str, fallback_image: str) -> li
         seen.add(url)
         visuals.append({"url": url, "kind": kind, "label": label})
 
-    # O criativo é sempre a peça principal. Persona/lugar só entram como apoio.
+    # O criativo é sempre a peça principal. Persona/lugar só entram como apoio
+    # quando foram aprovados explicitamente; rascunho não vira imagem pública.
     add(creative_image, "creative", "Expressão visual da campanha")
     for item in as_list(folha.get("supporting_visuals")):
         row = as_dict(item)
         kind = text(row.get("kind"))
-        if kind in {"persona", "place"}:
-            add(row.get("image_url") or row.get("asset_url"), kind, text(row.get("label")) or "Imagem de apoio")
+        url = text(row.get("image_url") or row.get("asset_url"))
+        if kind in {"persona", "place"} and text(manifest.get(url, {}).get("status")).lower() in {"approved", "selected", "published"}:
+            add(url, kind, text(row.get("label")) or "Imagem de apoio")
     for item in as_list(folha.get("asset_manifest")):
         row = as_dict(item)
         kind = text(row.get("kind"))
-        if kind in {"creative", "persona", "place"}:
+        status = text(row.get("status")).lower()
+        if kind in {"creative", "persona", "place"} and status in {"approved", "selected", "published"}:
             label = {"creative": "Expressão visual da campanha", "persona": "Público da campanha", "place": "Contexto da campanha"}.get(kind, "Imagem de apoio")
             add(row.get("asset_url") or row.get("image_url"), kind, label)
-    add(fallback_image, "theme", "Direção visual da campanha")
     return visuals
 
 
@@ -1196,7 +1203,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
     selected_hero = text(hero_design.get("asset_url"))
     creative_image = selected_hero or text(creative.get("image_url") or as_dict(branding.get("hero")).get("image"))
     hero_image = theme_image or creative_image
-    visuals = _public_visuals(folha, creative_image, hero_image)
+    visuals = _public_visuals(folha, creative_image)
     tagline = _first_sentence(strategy.get("body"), 160)
     highlights = _highlights(
         text(strategy.get("body")),

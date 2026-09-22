@@ -6064,3 +6064,33 @@ html.is-sp-media body {
 .sp-hi-grid.is-folha .sp-upgrade-bar { grid-template-columns:minmax(0,1fr) auto; padding:.7rem .8rem; background:#f8fbfb; border-color:var(--hi-line,#dfe5e7); }
 .sp-hi-grid.is-folha .sp-upgrade-action { justify-items:end; }
 @media(max-width:760px){.sp-hi-grid.is-folha .sp-editor-workspace{grid-template-columns:1fr}.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-strategy,.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-media,.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-market,.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-creative,.sp-hi-grid.is-folha .sp-editor-workspace > .sp-editor-publish{grid-column:1}.sp-hi-grid.is-folha .sp-upgrade-bar{grid-template-columns:1fr}.sp-hi-grid.is-folha .sp-upgrade-action{justify-items:start}.sp-hi-grid.is-folha .sp-upgrade-action .cx-btn{width:100%}}
+
+/* Fechamento visual comum: a revisão, a folha e a galeria compartilham a mesma leitura. */
+.sp-hi, .sp-desk, .sp-hi-grid, .sp-hi-main, .sp-hi-plan, .sp-review { min-width: 0; max-width: 100%; }
+.sp-hi h1, .sp-head h1, .sp-hi h2, .sp-head h2 { overflow-wrap: anywhere; }
+.sp-gallery { grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); }
+.sp-gallery-item.is-active { grid-column: auto; }
+.sp-gallery-item img { min-width: 0; min-height: 0; aspect-ratio: 16 / 9; object-fit: contain; background: #edf2f2; }
+.sp-gallery-item figcaption { min-width: 0; overflow-wrap: anywhere; }
+.sp-gallery-actions { min-width: 0; }
+.sp-gallery-actions button { min-width: 0; white-space: normal; }
+.sp-review textarea, .sp-brief textarea, .sp-prompt-review textarea { width: 100%; max-width: 100%; min-height: 7rem; resize: vertical; overflow-wrap: anywhere; line-height: 1.45; }
+.sp-review .sp-bf, .sp-review .sp-bf label, .sp-brief, .sp-brief-field { min-width: 0; }
+.sp-editor-publish, .sp-image-prep, .sp-acc, .sp-card, .sp-cb-card, .sp-done { min-width: 0; overflow-wrap: anywhere; }
+.sp-hi-foot { min-width: 0; }
+.sp-hi-foot .cx-btn, .sp-product-bar__actions .cx-btn, .sp-start-confirm .cx-btn { max-width: 100%; white-space: normal; text-align: center; }
+@media (max-width: 760px) {
+  .sp-hi, .sp-desk { padding-inline: .75rem; }
+  .sp-hi-head, .sp-head { align-items: flex-start; gap: .8rem; }
+  .sp-hi-head h1, .sp-head h1 { font-size: clamp(1.1rem, 5vw, 1.45rem); }
+  .sp-hi-head p, .sp-head > div > p:last-child { max-width: 60ch; font-size: .78rem; line-height: 1.45; }
+  .sp-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .sp-gallery-item figcaption { padding: .4rem; font-size: .65rem; }
+  .sp-review textarea, .sp-brief textarea, .sp-prompt-review textarea { min-height: 8rem; }
+  .sp-hi-foot { gap: .45rem; }
+  .sp-hi-foot .cx-btn { flex: 1 1 100%; }
+}
+@media (max-width: 420px) {
+  .sp-gallery { grid-template-columns: 1fr; }
+  .sp-product-bar__actions .cx-btn, .sp-hi-foot .cx-btn { width: 100%; }
+}

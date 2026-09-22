@@ -7,7 +7,7 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 #cadu-studio-editor-root { height:100%; font-family:var(--cadu-font-sans,Inter,system-ui,sans-serif); color:var(--se-text); }
 .se-app { display:flex; height:100%; min-height:0; flex-direction:column; background:var(--se-bg); }
 .se-app.is-read-only .se-main .se-workspace,.se-app.is-read-only .se-main .se-composer { pointer-events:none; opacity:.62; }
-.se-topbar { display:flex; height:58px; flex:none; align-items:center; gap:24px; padding:0 24px; border-bottom:1px solid var(--se-line); background:var(--se-nav); }
+.se-topbar { position:relative; z-index:50; display:flex; height:58px; flex:none; align-items:center; gap:24px; padding:0 24px; border-bottom:1px solid var(--se-line); background:var(--se-nav); overflow:visible; }
 .se-brand { display:flex; min-width:180px; align-items:center; gap:6px; color:var(--se-text); font-size:14px; text-decoration:none; }
 .se-brand img { width:30px; height:30px; border-radius:9px; object-fit:contain; }
 .se-brand > span { color:#b6c8c4; font-size:12px; }
@@ -191,7 +191,7 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 .se-topbar nav { gap:2px; }
 .se-topbar nav a { min-width:70px; height:34px; border-radius:8px; }
 .se-topbar nav a.is-active { background:#7654db2b; box-shadow:inset 0 -1px #9b7bff; }
-.se-project-picker { display:grid; min-width:190px; max-width:250px; gap:2px; margin-left:auto; }
+.se-project-picker { position:relative; z-index:60; display:grid; min-width:190px; max-width:250px; gap:2px; margin-left:auto; }
 .se-project-picker > span,.se-credit-meter > span { color:#78908c; font-size:9px; font-weight:600; }
 .se-project-picker select { width:100%; padding:0 20px 0 0; overflow:hidden; border:0; outline:0; background:transparent; color:#dbe7e4; font:inherit; font-size:11px; font-weight:650; text-overflow:ellipsis; }
 .se-credit-meter { display:grid; min-width:102px; gap:2px; color:inherit; text-decoration:none; }
@@ -202,6 +202,9 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 .se-account summary { display:grid; width:34px; height:34px; place-items:center; overflow:hidden; border:1px solid #ffffff20; border-radius:50%; background:#7654db; color:#fff; cursor:pointer; font-size:11px; font-weight:800; list-style:none; }
 .se-account summary::-webkit-details-marker { display:none; }
 .se-account summary img { width:100%; height:100%; object-fit:cover; }
+.se-account-link { display:grid; width:34px; height:34px; place-items:center; overflow:hidden; border:1px solid #ffffff20; border-radius:50%; background:#7654db; color:#fff; cursor:pointer; font-size:11px; font-weight:800; text-decoration:none; }
+.se-account-link img { width:100%; height:100%; object-fit:cover; }
+.se-account-link:focus-visible { outline:2px solid var(--se-teal); outline-offset:3px; }
 .se-account > div { position:absolute; z-index:30; top:43px; right:0; display:grid; width:230px; padding:7px; border:1px solid #ffffff16; border-radius:13px; background:#172327; box-shadow:0 20px 50px #0008; }
 .se-account header { display:grid; gap:3px; padding:10px 10px 12px; border-bottom:1px solid #ffffff10; }
 .se-account header strong { font-size:12px; }.se-account header small { overflow:hidden; color:#89a09c; font-size:10px; text-overflow:ellipsis; }
@@ -261,7 +264,7 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 @media (max-width:1180px) {
   html:has(#cadu-studio-editor-root),body:has(#cadu-studio-editor-root) { overflow:auto; }
   #cadu-studio-editor-root,.se-app { min-height:100%; height:auto; }
-  .se-topbar { position:sticky; z-index:20; top:0; }
+  .se-topbar { position:sticky; z-index:60; top:0; overflow:visible; }
   .se-topbar nav a { min-width:58px; padding-inline:8px; }
   .se-layout { min-height:calc(100dvh - 64px); grid-template-columns:200px minmax(0,1fr); }
   .se-right-panel { display:block; grid-column:auto; }
@@ -304,7 +307,7 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
   .se-project-picker { min-width:0; max-width:none; flex:1; }
   .se-project-picker > span { display:none; }
   .se-project-picker select { height:36px; padding:0 28px 0 10px; border:1px solid #ffffff12; border-radius:9px; background:#121f24; font-size:11px; }
-  .se-account summary { width:32px; height:32px; }
+  .se-account-link { width:32px; height:32px; }
   .se-account > div { position:fixed; top:52px; right:8px; width:min(260px,calc(100vw - 16px)); }
   .se-layout { min-height:calc(100dvh - 56px); }
   .se-left-rail { padding:7px 10px; }

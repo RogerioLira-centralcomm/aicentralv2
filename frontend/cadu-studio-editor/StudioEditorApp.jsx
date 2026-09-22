@@ -59,8 +59,8 @@ function StudioTopbar({links, projects, project, onProjectChange, bootstrap}) {
     <a className="se-brand" href={links.home || '#'}><img src="/static/images/cadu/brand-icons/studio-192.png" alt=""/><strong>Cadu</strong><span>Studio</span></a>
     <nav>{[['Criar', links.create], ['Editor', links.editor], ['Vídeos', links.videos], ['Analyzer', links.analyzer], ['Biblioteca', links.library]].map(([label, href]) => <a key={label} href={href || '#'} className={label === 'Editor' ? 'is-active' : ''}>{label}</a>)}</nav>
     <label className="se-project-picker"><span>Projeto e marca</span><select value={project?.id || ''} onChange={event => onProjectChange(event.target.value)}><option value="">Selecionar projeto</option>{projects.map(item => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
-    <a className="se-credit-meter" href={links.credits || '#'}><span>Créditos</span><strong>{Number(bootstrap.credits || 0).toLocaleString('pt-BR')}</strong><i><b style={{width: `${Math.min(100, Number(bootstrap.usagePercent || 0))}%`}}/></i></a>
-    <details className="se-account"><summary aria-label="Abrir conta">{bootstrap.user?.avatar ? <img src={bootstrap.user.avatar} alt=""/> : <span>{initials || 'C'}</span>}</summary><div><header><strong>{bootstrap.user?.name || 'Minha conta'}</strong><small>{bootstrap.user?.email}</small></header><a href={links.profile}>Meu perfil</a><a href={links.workspace}>Abrir Workspace</a><a href={links.credits}>Créditos e consumo</a><a className="is-danger" href={links.logout}>Sair</a></div></details>
+    <a className="se-credit-meter" href={links.credits || '#'} aria-label="Abrir consumo e uso de créditos"><span>Uso e créditos</span><strong>{Number(bootstrap.credits || 0).toLocaleString('pt-BR')}</strong><i><b style={{width: `${Math.min(100, Number(bootstrap.usagePercent || 0))}%`}}/></i></a>
+    <a className="se-account-link" href={links.profile || links.workspace || '#'} aria-label="Abrir página da conta">{bootstrap.user?.avatar ? <img src={bootstrap.user.avatar} alt=""/> : <span>{initials || 'C'}</span>}</a>
   </header>;
 }
 

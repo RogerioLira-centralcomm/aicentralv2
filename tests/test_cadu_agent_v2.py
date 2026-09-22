@@ -1504,6 +1504,26 @@ def test_unrelated_message_does_not_receive_implicit_turn_context():
     assert turn["requires_selected_context"] is False
 
 
+def test_colloquial_reference_resolves_context_without_rewriting_user_message():
+    turn = v2_service._conversation_turn_context(
+        "humm melhora esse texto ai kkkkk vc consegue né",
+        [
+            {"id": "u1", "role": "user", "content": "Escreva uma proposta comercial"},
+            {"id": "a1", "role": "assistant", "content": "Proposta inicial completa."},
+        ],
+    )
+    assert turn["resolved_reference"] == "recent_turn"
+    assert turn["latest_assistant_answer"] == "Proposta inicial completa."
+
+
+def test_colloquial_router_understands_today_and_short_negation():
+    live = route_request("qual o tempo hj em BH?")
+    refused = route_request("n crie documento agora, responda no chat")
+    assert live.action == "search_web"
+    assert refused.artifact_type is None
+    assert refused.response_mode == "analysis"
+
+
 def test_generic_reference_preserves_recent_file_and_subject():
     turn = v2_service._conversation_turn_context(
         "revise esse arquivo e melhore isso",

@@ -2,11 +2,18 @@ from unittest import TestCase
 from werkzeug.exceptions import BadRequest
 
 from aicentralv2.cadu_workspace.conversations.guardrails import (
-    validate_message, validate_files, history_context, classify_intent, MAX_HISTORY_CHARS,
+    validate_message, validate_files, history_context, classify_intent, normalize_colloquial, MAX_HISTORY_CHARS,
 )
 
 
 class ConversationGuardrailsTest(TestCase):
+    def test_brazilian_chat_shorthand_is_normalized_without_changing_urls(self):
+        value = normalize_colloquial('humm vc éeee demais kkkkk, hj n consigo abrir https://Exemplo.com/PlanoABC')
+        self.assertEqual(value, 'você é demais, hoje não consigo abrir https://Exemplo.com/PlanoABC')
+
+    def test_laughter_and_fillers_do_not_break_short_continuations(self):
+        self.assertEqual(classify_intent('humm pode continuar uhuahuahua kkkkk'), 'continuation')
+
     def test_message_must_be_nonempty_bounded_text(self):
         for value in (None, {}, [], 42, '', '   ', 'x' * 20001, 'hello\x00'):
             with self.subTest(value=type(value).__name__), self.assertRaises(BadRequest):

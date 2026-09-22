@@ -13,7 +13,7 @@ from psycopg.types.json import Json
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
-from ..conversations.guardrails import history_context, validate_files
+from ..conversations.guardrails import history_context, normalize_colloquial, validate_files
 from ..artifacts import create_draft, get_artifact, patch_artifact
 from . import provider
 from .executor import prepare_execution
@@ -253,10 +253,11 @@ def _conversation_turn_context(message, messages):
                         break
                 if pending:
                     break
-    refers_to_link = bool(_LINK_REFERENCE.search(str(message or "")))
-    generic_reference = bool(_GENERIC_REFERENCE.search(str(message or "")))
-    confirms = bool(_SHORT_CONFIRMATION.match(str(message or "")))
-    format_match = _FORMAT_CONTINUATION.search(str(message or ""))
+    normalized_message = normalize_colloquial(message)
+    refers_to_link = bool(_LINK_REFERENCE.search(normalized_message))
+    generic_reference = bool(_GENERIC_REFERENCE.search(normalized_message))
+    confirms = bool(_SHORT_CONFIRMATION.match(normalized_message))
+    format_match = _FORMAT_CONTINUATION.search(normalized_message)
     transcript = []
     for item in recent[-6:]:
         content = " ".join(str(item.get("content") or "").split())[:1000]

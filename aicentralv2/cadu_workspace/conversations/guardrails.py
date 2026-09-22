@@ -16,9 +16,40 @@ MAX_HISTORY_MESSAGE_CHARS = 4000
 MAX_LATEST_ASSISTANT_CHARS = 16000
 MAX_HISTORY_CHARS = 24000
 
+_PUBLIC_URL = re.compile(r'https?://[^\s<>\]\["\']+', re.I)
+_COLLOQUIAL = {
+    'vc': 'você', 'vcs': 'vocês', 'ce': 'você', 'cê': 'você',
+    'hj': 'hoje', 'n': 'não', 'nn': 'não', 'naum': 'não',
+    'tb': 'também', 'tbm': 'também', 'pq': 'porque', 'q': 'que',
+    'blz': 'beleza', 'vlw': 'valeu', 'pf': 'por favor', 'pfv': 'por favor',
+}
+
+
+def normalize_colloquial(message):
+    """Normalize Brazilian chat shorthand for intent matching, never display."""
+    value = str(message or '')
+    parts = _PUBLIC_URL.split(value)
+    urls = _PUBLIC_URL.findall(value)
+    normalized = []
+    for index, part in enumerate(parts):
+        text = part.lower()
+        text = re.sub(r'\b(?:k{2,}|r+s+|ris+o+s*|(?:u?ha){2,}|u?(?:hua){2,}|he{2,}h*)\b', ' ', text)
+        text = re.sub(r'\b(?:h+m+|h+u+m+|ahn+|aham+|uhum+)\b', ' ', text)
+        text = re.sub(r'([áàâãéêíóôõú])([aeiou])\2{1,}', r'\1', text)
+        text = re.sub(r'([a-záàâãéêíóôõúç])\1{2,}', r'\1', text)
+        text = re.sub(
+            r'(?<![\w@])(' + '|'.join(sorted(map(re.escape, _COLLOQUIAL), key=len, reverse=True)) + r')(?![\w.])',
+            lambda match: _COLLOQUIAL[match.group(1)], text,
+        )
+        normalized.append(text)
+        if index < len(urls):
+            normalized.append(urls[index])
+    result = ' '.join(''.join(normalized).split())
+    return re.sub(r'\s+([,.;!?])', r'\1', result)
+
 
 def normalized_text(message):
-    value = str(message or '').strip().strip('"\'“”‘’').strip().lower()
+    value = normalize_colloquial(message).strip().strip('"\'“”‘’').strip().lower()
     return ''.join(char for char in unicodedata.normalize('NFD', value) if not unicodedata.combining(char))
 
 

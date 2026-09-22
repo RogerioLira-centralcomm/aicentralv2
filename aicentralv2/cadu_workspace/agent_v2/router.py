@@ -8,6 +8,7 @@ import re
 from urllib.parse import urlparse
 
 from .contracts import IntentRoute
+from ..conversations.guardrails import normalize_colloquial
 
 
 def _has(text: str, pattern: str) -> bool:
@@ -71,7 +72,7 @@ def _web_requires_confirmation(text: str) -> bool:
 
 def route_request(message: str, surface: str = "conversations", has_project: bool = False,
                   active_object_type: str = "", has_brand: bool = False) -> IntentRoute:
-    text = " ".join(str(message or "").split())[:20000]
+    text = normalize_colloquial(message)[:20000]
     forbid_project_persistence = _project_persistence_refusal(text)
 
     # Negative constraints are requirements, not weak hints. Resolve them

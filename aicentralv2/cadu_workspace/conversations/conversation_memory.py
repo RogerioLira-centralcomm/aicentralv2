@@ -9,6 +9,7 @@ import re
 from uuid import uuid4
 
 from ...cadu_family import repository
+from .guardrails import normalize_colloquial
 
 CHECKPOINT_MESSAGES = 20
 MAX_STATE_CHARS = 6000
@@ -249,7 +250,7 @@ def packet(*, conversation_id, organization_id, client_id, user_id, query):
         (conversation_id, organization_id, client_id, user_id))
     state = _row_dict(rows[0]) if rows else {}
     retrieved = []
-    query_text = str(query or '')
+    query_text = normalize_colloquial(query)
     if _POSITIONAL.search(query_text):
         lower = query_text.lower()
         ordinal = 0 if any(word in lower for word in ('primeir', 'início', 'inicio', 'começo', 'comeco')) else 1 if 'segund' in lower else 2 if 'terceir' in lower else None

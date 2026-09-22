@@ -1,0 +1,38 @@
+.ws-legal-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(320px, 1.12fr);
+  align-items: end;
+  gap: clamp(34px, 6vw, 84px);
+  max-width: 1040px;
+}
+
+.ws-legal-intro > div > p:not(.ws-eyebrow) {
+  max-width: 620px;
+  margin: 0 0 16px;
+  color: #58716f;
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.ws-legal-intro > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1.45;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.portal--workspace-public > .cadu-public-footer {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .ws-legal-intro {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-legal-intro > img {
+    aspect-ratio: 1.25;
+  }
+}

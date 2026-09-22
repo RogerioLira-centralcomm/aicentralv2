@@ -1,6 +1,6 @@
 {% extends "base_auth_react.html" %}
 
-{% block title %}Criar conta — Cadu Workspace{% endblock %}
+{% block title %}Criar conta | Cadu Media{% endblock %}
 
 {% block auth_bootstrap %}
 {% set auth_tools = [
@@ -15,7 +15,7 @@
   'brandName': 'Cadu Workspace',
   'brandUrl': product_url('workspace'),
   'logoUrl': url_for('static', filename='images/cadu/products/cadu-icon.png'),
-  'imageUrl': url_for('static', filename='images/cadu/workspace-headers/app-team-v2.jpg'),
+  'imageUrl': url_for('static', filename='images/cadu/public-people/cadu-signup-v1.jpg'),
   'googleUrl': url_for('cadu_identity.google_signup', next=next_target),
   'formAction': url_for('signup', next=next_target),
   'loginUrl': url_for('login', next=next_target),

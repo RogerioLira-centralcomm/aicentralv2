@@ -34,7 +34,14 @@
     if (!action) return;
     const detail = {action, label: (link.textContent || '').trim(), href};
     window.dispatchEvent(new CustomEvent('cadu:public-conversion', {detail}));
-    window.dataLayer?.push({event: 'cadu_public_conversion', ...detail});
+    if (action === 'view_solution' || action === 'view_content') {
+      window.CaduAnalytics?.track('select_content', {
+        content_type: action === 'view_solution' ? 'solution' : 'guide',
+        item_id: href.split('/').filter(Boolean).pop() || '',
+      });
+    } else if (action === 'view_plans') {
+      window.CaduAnalytics?.track('view_plans', {source_page: window.location.pathname});
+    }
   });
 
   if (!carousel) return;

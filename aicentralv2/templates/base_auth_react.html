@@ -5,16 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content">
   <meta name="color-scheme" content="light">
   <title>{% block title %}Cadu Workspace{% endblock %}</title>
+  <meta name="robots" content="noindex,follow">
+  {% set analytics_page_type = request.endpoint|default('authentication')|replace('_', '-') %}
+  {% set analytics_content_group = 'authentication' %}
+  {% set analytics_product_interest = 'workspace' %}
+  {% set analytics_journey_stage = 'intent' %}
+  {% include 'partials/public_analytics_head.html' %}
   <link rel="icon" href="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='cadu_auth/app.css') }}?v=20260920">
+  <link rel="stylesheet" href="{{ url_for('static', filename='cadu_auth/app.css') }}?v={{ cadu_workspace_asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-auth-motion.css') }}?v={{ cadu_workspace_asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-public-analytics.css') }}?v={{ cadu_workspace_asset_version }}">
 </head>
 <body>
   <div id="cadu-auth-root"></div>
   <noscript><div class="cadu-auth-noscript"><strong>Ative o JavaScript para continuar.</strong><span>Esta tela de acesso precisa do JavaScript do Cadu Workspace.</span></div></noscript>
   <script id="cadu-auth-bootstrap" type="application/json">{% block auth_bootstrap %}{{ {}|tojson }}{% endblock %}</script>
-  <script type="module" src="{{ url_for('static', filename='cadu_auth/app.js') }}?v=20260920"></script>
+  <script type="module" src="{{ url_for('static', filename='cadu_auth/app.js') }}?v={{ cadu_workspace_asset_version }}"></script>
+  {% include 'partials/public_analytics_body.html' %}
 </body>
 </html>

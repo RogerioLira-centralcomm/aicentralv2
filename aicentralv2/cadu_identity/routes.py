@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from urllib.parse import urlencode, urlparse
+from uuid import uuid4
 
 from flask import Blueprint, current_app, flash, has_app_context, redirect, request, session, url_for
 
@@ -173,6 +174,8 @@ def google_callback():
         session["google_identity_sub"] = identity["sub"]
         if signup:
             session["new_account_signup"] = True
+            session["signup_conversion_id"] = uuid4().hex
+            session["post_signup_target"] = target
             try:
                 from ..email_service import send_launch_bonus_email, send_welcome_email
                 from ..services.onboarding_comercial import enviar_notificacao_cadastro
@@ -189,7 +192,13 @@ def google_callback():
                 enviar_notificacao_cadastro(usuario=user, executivo=executive, auth_method='google')
             except Exception:
                 current_app.logger.exception('Conta Google criada, mas o fluxo inicial de e-mails falhou')
-        return redirect(_authenticated_destination(target), code=303)
+        if signup:
+            return redirect(product_url('auth', '/bem-vindo'), code=303)
+        destination = _authenticated_destination(target)
+        session['login_conversion'] = {
+            'event_id': uuid4().hex, 'method': 'google', 'next': destination,
+        }
+        return redirect(product_url('auth', '/acesso-confirmado'), code=303)
     except GoogleLoginError as exc:
         current_app.logger.warning("Login Google recusado: %s", exc)
         flash(str(exc), "error")

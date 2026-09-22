@@ -1,0 +1,5 @@
+<div class="cadu-consent" data-cadu-consent hidden role="dialog" aria-live="polite" aria-label="Preferências de medição">
+  <p><b>Você escolhe como medimos esta experiência.</b><span>Usamos dados de navegação sem nome, email ou conteúdo digitado para melhorar o Cadu.</span></p>
+  <div><button type="button" data-consent-essential>Usar somente o necessário</button><button type="button" data-consent-accept>Aceitar medição</button></div>
+</div>
+{% if conversion_event|default(none) %}<script id="cadu-conversion-event" type="application/json">{{ conversion_event|tojson }}</script>{% endif %}

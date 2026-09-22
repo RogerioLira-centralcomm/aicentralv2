@@ -16,11 +16,27 @@ mail = Mail()
 
 
 def _workspace_asset_version(static_folder, configured_version=""):
-    """Return a content-based version for the signed-in Workspace bundle."""
+    """Return one content fingerprint for every current Cadu interface shell."""
     digest = hashlib.sha256()
     bundle_paths = (
         "cadu_workspace/conversations/react/app.css",
         "cadu_workspace/conversations/react/app.js",
+        "cadu_workspace/conversations/react/chat-layout-fixes.css",
+        "cadu_auth/app.css",
+        "cadu_auth/app.js",
+        "css/cadu-auth-motion.css",
+        "css/cadu-public-analytics.css",
+        "css/cadu-public-forms.css",
+        "css/cadu-public-motion.css",
+        "css/cadu-workspace-public.css",
+        "css/cadu-workspace-legal.css",
+        "css/cadu-workspace-legal-media.css",
+        "css/cadu-workspace-onboarding.css",
+        "css/error-pages.css",
+        "js/cadu-public-analytics.js",
+        "js/cadu-public-motion.js",
+        "js/cadu-workspace-public.js",
+        "js/cadu-workspace-onboarding.js",
     )
     found_bundle = False
     for relative_path in bundle_paths:
@@ -33,7 +49,7 @@ def _workspace_asset_version(static_folder, configured_version=""):
                 digest.update(chunk)
 
     fingerprint = digest.hexdigest()[:12] if found_bundle else "missing"
-    return f"{configured_version}-{fingerprint}"
+    return f"{configured_version}-{fingerprint}" if configured_version else fingerprint
 
 
 def is_erp_nav_item_active(item):
@@ -243,9 +259,14 @@ def create_app(config_class=Config):
             cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,
             product_url=product_url,
+            public_analytics={
+                'gtm_id': str(app.config.get('GOOGLE_TAG_MANAGER_ID') or ''),
+                'ga4_id': str(app.config.get('GA4_MEASUREMENT_ID') or ''),
+                'site_verification': str(app.config.get('GOOGLE_SITE_VERIFICATION') or ''),
+            },
             # A content fingerprint changes even when deploy tooling preserves
-            # mtimes, preventing immutable browser caches from retaining an old
-            # signed-in Workspace bundle after a release.
+            # mtimes, preventing browser and CDN caches from retaining an old
+            # public, authentication, onboarding, error, or Workspace shell.
             cadu_workspace_asset_version=_workspace_asset_version(
                 app.static_folder,
                 app.config.get('CADU_WORKSPACE_ASSET_VERSION', ''),

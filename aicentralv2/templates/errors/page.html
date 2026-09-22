@@ -1,14 +1,16 @@
 {% extends 'errors/base.html' %}
-{% block title %}{{ status }} — {{ title }}{% endblock %}
+{% block title %}{{ status }} | {{ title }} | Cadu Media{% endblock %}
 {% block content %}
 <section class="error-screen" aria-labelledby="error-title">
-  <div class="error-screen__mark" aria-hidden="true">!</div>
+  <a class="error-screen__brand" href="{{ home_url }}"><img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt=""><span>Cadu Media</span></a>
+  <div class="error-screen__mark" aria-hidden="true">{{ status }}</div>
   <p class="error-screen__status">Erro {{ status }}</p>
   <h1 id="error-title">{{ title }}</h1>
   <div class="error-screen__box" role="alert">
     <p>{{ guidance }}</p>
     <dl><div><dt>Classificação</dt><dd>{{ error_class }}</dd></div><div><dt>Código de suporte</dt><dd>{{ support_id }}</dd></div></dl>
   </div>
-  <div class="error-screen__actions"><a href="{{ home_url }}">Voltar</a><a class="error-screen__primary" href="{{ home_url }}">Ir para o início</a></div>
+  <div class="error-screen__actions"><button type="button" onclick="history.back()">Voltar</button><a class="error-screen__primary" href="{{ primary_url }}">{{ primary_label }}</a></div>
+  {% if status == 404 %}<nav class="error-screen__links" aria-label="Caminhos sugeridos"><a href="{{ product_url('workspace', '/workspace/planos') }}">Ver planos</a><a href="{{ product_url('workspace', '/workspace/solucoes/workspace') }}">Conhecer soluções</a><a href="{{ product_url('workspace', '/workspace/conteudos/briefing-vivo') }}">Ler um guia prático</a></nav>{% endif %}
 </section>
 {% endblock %}

@@ -9,6 +9,7 @@ from flask import session, redirect, url_for, flash, request, render_template, j
 from functools import wraps
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
+from uuid import uuid4
 import secrets
 import os
 import re
@@ -1256,6 +1257,8 @@ def init_routes(app):
                 user_email=user.get('email') or email, cliente_id=user['pk_id_tbl_cliente'],
                 user_type=user.get('user_type') or 'client', is_centralcomm=False,
                 user_photo_url='', auth_method='form', new_account_signup=True,
+                signup_conversion_id=uuid4().hex,
+                post_signup_target=next_target,
             )
             try:
                 send_welcome_email(
@@ -1270,8 +1273,28 @@ def init_routes(app):
             except Exception:
                 app.logger.exception('Conta %s criada, mas o fluxo inicial de e-mails falhou', email)
             flash('Conta criada com sucesso! Vamos preparar seu Workspace.', 'success')
-            return redirect(next_target, code=303)
+            return redirect(url_for('signup_welcome'), code=303)
         return render_template('signup_tailwind.html', next_target=next_target, signup_errors=[], signup_name='', signup_email='')
+
+    @app.get('/bem-vindo')
+    def signup_welcome():
+        """Server-confirmed signup conversion before the first onboarding."""
+        from aicentralv2.product_domains import product_url, safe_product_target
+        if not session.get('user_id') or not session.pop('new_account_signup', False):
+            return redirect(product_url('workspace'), code=302)
+        conversion_id = str(session.pop('signup_conversion_id', '') or uuid4().hex)
+        next_target = safe_product_target(session.pop('post_signup_target', ''), product_url('workspace'))
+        return render_template(
+            'cadu_workspace/public_welcome.html',
+            next_target=next_target,
+            onboarding_url=product_url('workspace', '/workspace/onboarding'),
+            analytics_page_type='conversion', analytics_content_group='signup',
+            analytics_product_interest='workspace', analytics_journey_stage='conversion',
+            conversion_event={
+                'event': 'sign_up', 'event_id': conversion_id,
+                'method': str(session.get('auth_method') or 'form'),
+            },
+        )
 
     # ==================== LOGIN ====================
     
@@ -1406,12 +1429,36 @@ def init_routes(app):
                     session.clear()
                     flash('O CentralX é restrito à equipe CentralComm.', 'error')
                     return render_template('login_tailwind.html', **login_context)
-                return redirect(authenticated_destination())
+                destination_url = authenticated_destination()
+                if is_centralx_access:
+                    return redirect(destination_url)
+                session['login_conversion'] = {
+                    'event_id': uuid4().hex, 'method': 'form', 'next': destination_url,
+                }
+                return redirect(url_for('login_confirmed'), code=303)
             else:
                 flash('Email ou senha incorretos.', 'error')
         
         # GET - mostrar página de login
         return render_template('login_tailwind.html', **login_context)
+
+    @app.get('/acesso-confirmado')
+    def login_confirmed():
+        """Short, measurable bridge after a successful public Cadu login."""
+        from aicentralv2.product_domains import product_url, safe_product_target
+        payload = session.pop('login_conversion', None) or {}
+        if not session.get('user_id') or not payload:
+            return redirect(product_url('auth', '/login'), code=302)
+        target = safe_product_target(payload.get('next'), product_url('workspace'))
+        return render_template(
+            'cadu_workspace/public_login_confirmed.html', target=target,
+            analytics_page_type='conversion', analytics_content_group='authentication',
+            analytics_product_interest='workspace', analytics_journey_stage='conversion',
+            conversion_event={
+                'event': 'login', 'event_id': str(payload.get('event_id') or uuid4().hex),
+                'method': str(payload.get('method') or 'form'),
+            },
+        )
     
     # ==================== LOGOUT ====================
     

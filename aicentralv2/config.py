@@ -77,6 +77,9 @@ class Config:
 	)
 	DEMETRIUS_NAME = os.getenv('DEMETRIUS_NAME', 'Demetrius Decottignies')
 	GOOGLE_CADU_REDIRECT_URI = os.getenv('GOOGLE_CADU_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
+	GOOGLE_TAG_MANAGER_ID = os.getenv('GOOGLE_TAG_MANAGER_ID', '').strip()
+	GA4_MEASUREMENT_ID = os.getenv('GA4_MEASUREMENT_ID', '').strip()
+	GOOGLE_SITE_VERIFICATION = os.getenv('GOOGLE_SITE_VERIFICATION', '').strip()
 	# Aplicação OAuth exclusiva para dados Google Workspace dos clientes.
 	GOOGLE_WORKSPACE_CLIENT_ID = os.getenv('GOOGLE_WORKSPACE_CLIENT_ID', '')
 	GOOGLE_WORKSPACE_CLIENT_SECRET = os.getenv('GOOGLE_WORKSPACE_CLIENT_SECRET', '')

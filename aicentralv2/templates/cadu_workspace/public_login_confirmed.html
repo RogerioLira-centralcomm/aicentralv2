@@ -1,0 +1,5 @@
+{% extends 'base_public_react.html' %}
+{% block title %}Acesso confirmado | Cadu Media{% endblock %}
+{% block meta %}<meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="2;url={{ target }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-public-forms.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
+{% block body %}<main id="conteudo" class="result-page"><a class="public-brand" href="{{ product_url('workspace') }}"><img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt=""><span>Cadu Media</span></a><section class="result-card result-card--success"><span class="result-icon" aria-hidden="true">✓</span><h1>Acesso confirmado.</h1><p>Estamos abrindo seu espaço de trabalho com o contexto da sua conta.</p><div class="public-actions"><a class="public-button" href="{{ target }}">Continuar agora</a></div></section></main>{% endblock %}

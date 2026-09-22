@@ -1,0 +1,20 @@
+{% set analytics_config = public_analytics|default({}) %}
+{% if analytics_config.site_verification %}<meta name="google-site-verification" content="{{ analytics_config.site_verification }}">{% endif %}
+<script id="cadu-analytics-config" type="application/json">{{ {
+  'gtmId': analytics_config.gtm_id|default(''),
+  'ga4Id': analytics_config.ga4_id|default(''),
+  'pageType': analytics_page_type|default('public'),
+  'contentGroup': analytics_content_group|default('institutional'),
+  'productInterest': analytics_product_interest|default('workspace'),
+  'contentTopic': analytics_content_topic|default(''),
+  'journeyStage': analytics_journey_stage|default('discovery')
+}|tojson }}</script>
+<script>
+window.dataLayer=window.dataLayer||[];
+window.gtag=window.gtag||function(){window.dataLayer.push(arguments)};
+window.gtag('consent','default',{
+  analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',
+  ad_personalization:'denied',wait_for_update:500
+});
+</script>
+<script defer src="{{ url_for('static', filename='js/cadu-public-analytics.js') }}?v={{ cadu_workspace_asset_version }}"></script>

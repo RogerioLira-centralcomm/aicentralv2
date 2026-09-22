@@ -7,17 +7,19 @@ from uuid import uuid4
 from flask import jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
+from .product_domains import is_centralx_request, product_url, workspace_public_url
+
 
 _ERRORS = {
-    400: ("REQUEST_INVALID", "Não foi possível processar esta solicitação.", "Confira os dados e tente novamente."),
+    400: ("REQUEST_INVALID", "Não conseguimos processar este envio.", "Confira os campos e tente novamente pelo mesmo caminho."),
     401: ("AUTHENTICATION_REQUIRED", "Faça login para continuar.", "Sua sessão pode ter expirado."),
     403: ("ACCESS_DENIED", "Você não tem permissão para acessar esta área.", "Se isso parecer incorreto, fale com o responsável pela sua conta."),
-    404: ("RESOURCE_NOT_FOUND", "Esta página não está disponível.", "Ela pode ter sido movida ou o endereço pode estar incorreto."),
+    404: ("RESOURCE_NOT_FOUND", "Esta página não faz parte do projeto.", "O endereço pode ter mudado. Use os atalhos abaixo para continuar."),
     405: ("METHOD_NOT_ALLOWED", "Esta ação não está disponível.", "Volte e tente por outro caminho."),
     413: ("REQUEST_TOO_LARGE", "O envio excede o limite permitido.", "Reduza o tamanho ou a quantidade de arquivos e tente novamente."),
     429: ("RATE_LIMITED", "Muitas tentativas em pouco tempo.", "Aguarde um instante antes de tentar novamente."),
-    500: ("INTERNAL_ERROR", "Não foi possível concluir esta ação.", "Nossa equipe recebeu os dados necessários para investigar."),
-    503: ("DEPENDENCY_UNAVAILABLE", "Este serviço está temporariamente indisponível.", "Tente novamente em alguns minutos."),
+    500: ("INTERNAL_ERROR", "O Cadu encontrou um problema.", "Use o código de suporte abaixo se precisar falar com o time."),
+    503: ("DEPENDENCY_UNAVAILABLE", "Este recurso está temporariamente indisponível.", "Tente novamente em alguns minutos."),
 }
 
 
@@ -57,7 +59,20 @@ def register_error_pages(app) -> None:
         )
         if _expects_json():
             return jsonify({"success": False, "error": data["title"], **data}), code
-        return render_template("errors/page.html", home_url="/", **data), code
+        public_home = "/" if is_centralx_request() else workspace_public_url()
+        primary_url = product_url('auth', '/login') if code == 401 and not is_centralx_request() else public_home
+        primary_label = 'Entrar novamente' if code == 401 else 'Ir para o início'
+        conversion_event = {
+            'event': 'public_error', 'event_id': data['support_id'],
+            'status_code': str(code), 'error_class': data['error_class'],
+        }
+        return render_template(
+            "errors/page.html", home_url=public_home, primary_url=primary_url,
+            primary_label=primary_label, error_robots='noindex,nofollow' if code >= 500 else 'noindex,follow',
+            analytics_page_type='error', analytics_content_group='support',
+            analytics_journey_stage='recovery', conversion_event=conversion_event,
+            **data,
+        ), code
 
     for status in _ERRORS:
         app.register_error_handler(status, lambda error, status=status: respond(error, status))

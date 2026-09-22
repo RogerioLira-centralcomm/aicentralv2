@@ -106,11 +106,11 @@
 
     <aside class="ws-onboarding__visual" aria-label="Conheça as soluções Cadu" data-onboarding-story>
       {% set stories = [
-        ('Workspace','O contexto fica perto do trabalho.','Marcas, projetos, pessoas e decisões começam organizados.','workspace-cards/projetos-v1.jpg'),
-        ('Planner','O briefing ganha direção.','Objetivos, públicos, canais, formatos e investimento formam um plano revisável.','planner/planner-plan-board-v2.png'),
-        ('Skills','Conhecimento especializado entra na hora certa.','Métodos de audiência, mídia, canais e formatos trabalham sobre o projeto.','skills/catalog-hero-media-intelligence.png'),
-        ('Studio','A direção vira criação.','Peças e variações preservam a identidade e a ideia aprovada.','presentation/campaign-variations-v1.png'),
-        ('Reports','O resultado volta para a próxima decisão.','Sinais da campanha fecham o ciclo e mantêm o aprendizado perto do time.','presentation/reports-dashboard-image2-v1.png')
+        ('Workspace','O contexto fica perto do trabalho.','Marcas, projetos, pessoas e decisões começam organizados.','public-people/cadu-onboarding-v1.jpg'),
+        ('Planner','O briefing ganha direção.','Objetivos, públicos, canais, formatos e investimento formam um plano revisável.','public-people/cadu-planner-detail-v1.jpg'),
+        ('Skills','Conhecimento especializado entra na hora certa.','Métodos de audiência, mídia, canais e formatos trabalham sobre o projeto.','public-people/cadu-skills-detail-v1.jpg'),
+        ('Studio','A direção vira criação.','Peças e variações preservam a identidade e a ideia aprovada.','public-people/cadu-studio-detail-v1.jpg'),
+        ('Reports','O resultado volta para a próxima decisão.','Sinais da campanha fecham o ciclo e mantêm o aprendizado perto do time.','public-people/cadu-reports-detail-v1.jpg')
       ] %}
       <div class="ws-onboarding__story-track">{% for name,title,copy,image in stories %}<article class="ws-onboarding__story{% if loop.first %} is-active{% endif %}" data-onboarding-story-slide data-story-name="{{ name }}" data-story-title="{{ title }}" data-story-copy="{{ copy }}" aria-hidden="{{ 'false' if loop.first else 'true' }}"><img src="{{ url_for('static', filename='images/cadu/' ~ image) }}" alt="{{ title }}" loading="{{ 'eager' if loop.first else 'lazy' }}"><div><span>{{ name }}</span><b>{{ title }}</b><p>{{ copy }}</p></div></article>{% endfor %}</div>
       <div class="ws-onboarding__story-controls"><button type="button" data-story-prev aria-label="Solução anterior">←</button><div>{% for name,title,copy,image in stories %}<button type="button" class="{% if loop.first %}is-active{% endif %}" data-story-dot="{{ loop.index0 }}" aria-label="Ver {{ name }}"></button>{% endfor %}</div><button type="button" data-story-next aria-label="Próxima solução">→</button></div>

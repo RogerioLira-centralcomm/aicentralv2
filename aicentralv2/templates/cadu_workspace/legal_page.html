@@ -1,13 +1,14 @@
 {% extends 'cadu_portals/base.html' %}
-{% block title %}{{ content.title }} — Cadu Workspace{% endblock %}
+{% block title %}{{ content.title }} | Cadu Workspace{% endblock %}
 {% block product_id %}workspace-public{% endblock %}
+{% block navigation %}{% endblock %}
 {% block meta %}
 <meta name="description" content="{{ content.description }}">
 <link rel="canonical" href="{{ canonical }}">
 <link rel="icon" type="image/png" href="{{ url_for('cadu_workspace.workspace_icon', size=32) }}">
-<meta property="og:type" content="website"><meta property="og:title" content="{{ content.title }} — Cadu Workspace"><meta property="og:description" content="{{ content.description }}"><meta property="og:url" content="{{ canonical }}">
+<meta property="og:type" content="website"><meta property="og:title" content="{{ content.title }} | Cadu Workspace"><meta property="og:description" content="{{ content.description }}"><meta property="og:url" content="{{ canonical }}">
 {% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-legal.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-legal.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-legal-media.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-public-motion.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block content %}
 <div class="ws-legal-shell">
   <header class="ws-legal-header">
@@ -15,9 +16,10 @@
     <nav aria-label="Navegação pública"><a href="{{ url_for('cadu_workspace.index') }}">Visão geral</a><a href="{{ product_url('workspace', '/privacidade') }}"{% if page == 'privacidade' %} aria-current="page"{% endif %}>Privacidade</a><a href="{{ product_url('workspace', '/termos') }}"{% if page == 'termos' %} aria-current="page"{% endif %}>Termos</a><a class="ws-legal-header__login" href="{{ product_url('auth', '/login') }}">Entrar</a></nav>
   </header>
   <main class="ws-legal-main">
-    <div class="ws-legal-intro"><p class="ws-eyebrow">Cadu Workspace</p><h1>{{ content.title }}</h1><p>{{ content.lead }}</p><small>Última atualização: {{ content.updated }}</small></div>
+    <div class="ws-legal-intro"><div><p class="ws-eyebrow">Cadu Workspace</p><h1>{{ content.title }}</h1><p>{{ content.lead }}</p><small>Última atualização: {{ content.updated }}</small></div><img src="{{ url_for('static', filename='images/cadu/public-people/' ~ ('cadu-security-v1.jpg' if page == 'privacidade' else 'cadu-agency-flow-v1.jpg')) }}" alt="{{ 'Controle de acesso e privacidade no Cadu' if page == 'privacidade' else 'Equipe trabalhando com o Cadu em uma agência' }}" width="1600" height="1067" loading="eager"></div>
     <div class="ws-legal-layout"><aside aria-label="Nesta página"><span>Nesta página</span>{% for heading, body in content.sections %}<a href="#legal-{{ loop.index }}">{{ heading }}</a>{% endfor %}</aside><article class="ws-legal-content">{% for heading, body in content.sections %}<section id="legal-{{ loop.index }}"><h2>{{ heading }}</h2><p>{{ body }}</p></section>{% endfor %}</article></div>
   </main>
   <footer class="ws-legal-footer"><div><a class="ws-legal-brand" href="{{ url_for('cadu_workspace.index') }}"><img src="{{ url_for('cadu_workspace.workspace_icon', size=32) }}" alt=""><span>Cadu <b>Workspace</b></span></a><p>Marcas, projetos e decisões no mesmo sistema de trabalho.</p></div><div><span>Documentos</span><a href="{{ product_url('workspace', '/privacidade') }}">Política de privacidade</a><a href="{{ product_url('workspace', '/termos') }}">Termos de serviço</a></div><div><span>Workspace</span><a href="{{ url_for('cadu_workspace.index') }}">Visão geral</a><a href="{{ product_url('auth', '/login') }}">Entrar</a></div></footer>
 </div>
 {% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/cadu-public-motion.js') }}?v={{ cadu_workspace_asset_version }}"></script>{% endblock %}

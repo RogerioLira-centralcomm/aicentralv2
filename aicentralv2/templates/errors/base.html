@@ -4,10 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}Erro{% endblock %}</title>
+  <meta name="robots" content="{{ error_robots|default('noindex,follow') }}">
+  {% include 'partials/public_analytics_head.html' %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/error-pages.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/error-pages.css') }}?v={{ cadu_workspace_asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-public-analytics.css') }}?v={{ cadu_workspace_asset_version }}">
 </head>
-<body><main>{% block content %}{% endblock %}</main></body>
+<body><main>{% block content %}{% endblock %}</main>{% include 'partials/public_analytics_body.html' %}</body>
 </html>

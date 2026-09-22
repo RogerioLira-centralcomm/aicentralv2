@@ -3492,6 +3492,8 @@ def index():
         canonical=product_url("workspace"),
         description="O ambiente Cadu que mantém cliente, marca, projeto, time e decisões conectados em cada campanha.",
         hero=secrets.choice(WORKSPACE_PUBLIC_HEROES),
+        analytics_page_type='landing', analytics_content_group='home',
+        analytics_product_interest='cadu_media', analytics_journey_stage='discovery',
     )
 
 
@@ -3523,7 +3525,10 @@ PUBLIC_SOLUTIONS = {
         "name": "Workspace", "icon": "workspace-192.png",
         "title": "A base viva de cada campanha.",
         "lead": "Reuniões, links, PDFs, textos, decisões e agentes de IA trabalham sobre o mesmo projeto.",
-        "image": "workspace-cards/projetos-v1.jpg",
+        "image": "public-people/cadu-connected-sources-v1.jpg",
+        "image_alt": "Equipe reunindo fontes, arquivos e decisões de uma campanha",
+        "detail_image": "public-people/cadu-workspace-detail-v1.jpg",
+        "detail_image_alt": "Equipe de agência organizando arquivos e decisões no Cadu Workspace",
         "features": ["Projetos e marcas", "Arquivos e links indexados", "Reuniões e decisões", "Agentes de IA conectados", "Histórico de evolução"],
         "example": "Abra um projeto, envie o briefing, conecte as fontes e continue no agente de IA que seu time já usa.",
         "flow": [("Entrada", "Briefing, reunião, arquivo ou link chega ao projeto."), ("Trabalho", "O time e os agentes consultam a mesma base."), ("Continuidade", "Decisões e entregas voltam para o histórico.")],
@@ -3532,7 +3537,10 @@ PUBLIC_SOLUTIONS = {
         "name": "Planner", "icon": "planner-192.png",
         "title": "Planejamento que continua depois da apresentação.",
         "lead": "Objetivos, públicos, canais, formatos e investimento viram uma direção revisável para mídia e criação.",
-        "image": "planner/planner-plan-board-v2.png",
+        "image": "public-people/cadu-planner-session-v1.jpg",
+        "image_alt": "Equipe comparando canais, formatos e investimento de uma campanha",
+        "detail_image": "public-people/cadu-planner-detail-v1.jpg",
+        "detail_image_alt": "Estrategistas comparando cenários de investimento em uma agência",
         "features": ["Briefing estruturado", "Cenários de mídia", "Públicos e canais", "Formatos e investimento", "Revisão com contexto"],
         "example": "Transforme o briefing do projeto em cenários e leve a direção aprovada direto para o Studio.",
         "flow": [("Entrada", "Objetivo, público, verba e restrições vêm do Workspace."), ("Trabalho", "O time compara canais, formatos e cenários."), ("Continuidade", "O plano aprovado orienta Skills, Studio e Reports.")],
@@ -3541,7 +3549,10 @@ PUBLIC_SOLUTIONS = {
         "name": "Studio", "icon": "studio-192.png",
         "title": "Criação com repertório, edição e escala.",
         "lead": "Crie imagens, faça edições avançadas, produza vídeos e analise criativos sem perder a direção da campanha.",
-        "image": "presentation/campaign-variations-v1.png",
+        "image": "public-people/cadu-studio-review-v1.jpg",
+        "image_alt": "Equipe revisando imagens e variações criativas no Studio",
+        "detail_image": "public-people/cadu-studio-detail-v1.jpg",
+        "detail_image_alt": "Criativos editando imagens e vídeo no computador da agência",
         "features": ["Geração de imagens", "Edições avançadas", "Criação de vídeos", "Variações por formato", "Creative Analyzer"],
         "example": "Parta da direção aprovada, crie a peça principal, adapte formatos e revise a consistência antes de publicar.",
         "flow": [("Entrada", "Marca, referências e direção chegam do projeto."), ("Trabalho", "O time cria imagens, vídeos, edições e variações."), ("Continuidade", "Peças e análises ficam ligadas à campanha.")],
@@ -3550,7 +3561,10 @@ PUBLIC_SOLUTIONS = {
         "name": "Reports", "icon": "connect-192.png",
         "title": "O retorno da campanha volta para o projeto.",
         "lead": "Campanhas, fontes e relatórios ficam ligados ao contexto que explica o que foi decidido e o que muda agora.",
-        "image": "presentation/reports-dashboard-image2-v1.png",
+        "image": "public-people/cadu-results-review-v1.jpg",
+        "image_alt": "Equipe analisando resultados e decidindo o próximo ciclo",
+        "detail_image": "public-people/cadu-reports-detail-v1.jpg",
+        "detail_image_alt": "Equipe analisando campanhas na interface do Cadu Reports",
         "features": ["Campanhas por projeto", "Relatórios conectados", "Leitura de resultados", "Próximos ajustes", "Histórico de retorno"],
         "example": "Associe a campanha ao projeto e transforme resultados em recomendações para o próximo ciclo.",
         "flow": [("Entrada", "Campanha, objetivo e fontes ficam vinculados."), ("Trabalho", "O time lê resultado, desvio e oportunidade."), ("Continuidade", "Aprendizados alimentam a próxima campanha.")],
@@ -3559,7 +3573,10 @@ PUBLIC_SOLUTIONS = {
         "name": "Skills", "icon": "skills-192.png",
         "title": "Métodos prontos para o trabalho de marketing.",
         "lead": "Acione especialistas de audiência, mídia, canais e formatos dentro do contexto real da sua equipe.",
-        "image": "skills/catalog-hero-media-intelligence.png",
+        "image": "public-people/cadu-skills-method-v1.jpg",
+        "image_alt": "Especialistas aplicando um método de pesquisa ao contexto do projeto",
+        "detail_image": "public-people/cadu-skills-detail-v1.jpg",
+        "detail_image_alt": "Especialistas usando Cadu Skills nos computadores da agência",
         "features": ["Skills públicas e privadas", "Métodos de mídia", "Análise de audiência", "Pesquisa aplicada", "Automação com contexto"],
         "example": "Escolha uma Skill, aplique ao projeto e guarde a resposta como parte do trabalho que continua.",
         "flow": [("Entrada", "A pergunta usa o contexto real do projeto."), ("Trabalho", "A Skill aplica método, fontes e critérios."), ("Continuidade", "A recomendação aprovada volta para o fluxo.")],
@@ -3570,35 +3587,35 @@ PUBLIC_ARTICLES = {
     "briefing-vivo": {
         "title": "Como transformar um briefing em uma base viva",
         "summary": "Um passo a passo para reunir reunião, arquivos, links e decisões antes de começar a produzir.",
-        "image": "workspace-cards/projetos-v1.jpg", "product": "Workspace",
+        "image": "public-people/cadu-workspace-detail-v1.jpg", "product": "Workspace",
         "steps": ["Crie o projeto e registre o objetivo", "Envie PDFs, textos e links", "Registre decisões da reunião", "Conecte o agente de IA preferido", "Salve a resposta útil no projeto"],
         "details": ["Dê um nome direto ao trabalho e registre o resultado que a campanha precisa produzir.", "Inclua as fontes que explicam produto, público, marca e restrições. O Workspace indexa o conteúdo para consulta.", "Transforme a ata em decisões, dúvidas e responsáveis. Isso evita que a próxima conversa dependa da memória de alguém.", "Abra o contexto no ChatGPT, Claude, Cursor ou Codex conforme a tarefa e mantenha o projeto como referência.", "Revise a saída e registre somente o que deve continuar com o time."],
     },
     "plano-de-midia": {
         "title": "Do objetivo ao primeiro cenário de mídia",
         "summary": "Use o contexto do projeto para comparar públicos, canais, formatos e investimento.",
-        "image": "planner/planner-plan-board-v2.png", "product": "Planner",
+        "image": "public-people/cadu-planner-detail-v1.jpg", "product": "Planner",
         "steps": ["Confirme objetivo e restrições", "Escolha os públicos prioritários", "Compare canais e formatos", "Monte cenários de investimento", "Leve a direção aprovada para criação"],
         "details": ["Comece pelo objetivo do projeto, prazo, região, verba e critérios que não podem mudar.", "Use dados e hipóteses já registrados para separar público principal, oportunidade e exclusões.", "Avalie o papel de cada canal antes de distribuir verba. Formato vem depois da função.", "Crie alternativas conservadora, recomendada e expansiva para tornar a decisão comercial mais simples.", "Registre o cenário escolhido e abra os formatos no Studio sem reescrever o briefing."],
     },
     "campanha-em-formatos": {
         "title": "Uma campanha, vários formatos, a mesma direção",
         "summary": "Crie a peça principal, edite detalhes e produza variações de imagem e vídeo no Studio.",
-        "image": "presentation/ad-gallery-hero-v1.png", "product": "Studio",
+        "image": "public-people/cadu-studio-detail-v1.jpg", "product": "Studio",
         "steps": ["Abra a direção criativa do projeto", "Crie a imagem principal", "Faça edições avançadas", "Gere versões e vídeos", "Analise consistência e adequação"],
         "details": ["Use referências, identidade e decisões já aprovadas como ponto de partida.", "Defina primeiro a composição que sustenta a ideia da campanha.", "Ajuste produto, cenário, enquadramento, cor, texto e acabamento sem reconstruir a peça.", "Adapte proporções, canais e movimento. Produza vídeo quando ele tiver uma função clara no plano.", "Passe as peças pelo Creative Analyzer e revise marca, clareza, formato e continuidade."],
     },
     "resultado-no-projeto": {
         "title": "Como devolver o resultado para a próxima campanha",
         "summary": "Conecte relatórios ao projeto e transforme números em decisões que o time consegue reutilizar.",
-        "image": "presentation/reports-dashboard-image2-v1.png", "product": "Reports",
+        "image": "public-people/cadu-reports-detail-v1.jpg", "product": "Reports",
         "steps": ["Associe a campanha ao projeto", "Reúna as fontes de resultado", "Leia sinais e desvios", "Registre aprendizados", "Abra o próximo ciclo sem começar do zero"],
         "details": ["O vínculo traz objetivo, público, peças e decisões para perto dos números.", "Conecte plataformas, planilhas e documentos usados pelo time para prestar contas.", "Compare o que aconteceu com a hipótese original e identifique o que pede ação.", "Converta a leitura em decisões claras, com fonte, data e impacto esperado.", "Reaproveite públicos, formatos, peças e aprendizados quando a próxima campanha começar."],
     },
     "skill-de-audiencia": {
         "title": "Quando usar uma Skill de audiência",
         "summary": "Aplique um método especializado ao projeto sem copiar e colar o briefing em outra ferramenta.",
-        "image": "skills/skills-hero-worktable-v1.png", "product": "Skills",
+        "image": "public-people/cadu-skills-detail-v1.jpg", "product": "Skills",
         "steps": ["Escolha a pergunta do projeto", "Acione a Skill adequada", "Revise fontes e hipóteses", "Ajuste a recomendação", "Guarde a saída no contexto do time"],
         "details": ["Uma pergunta clara ajuda a Skill a usar somente o contexto necessário.", "Escolha audiência, mídia, canais, pesquisa ou outro método compatível com a decisão.", "Confira de onde vieram os dados e diferencie evidência, leitura e hipótese.", "Adapte a resposta ao prazo, à verba e à realidade da campanha.", "Salve a recomendação aprovada para Planner, Studio e Reports continuarem o trabalho."],
     },
@@ -3618,7 +3635,8 @@ LEGAL_PAGES = {
             ("5. Compartilhamento e acesso", "O acesso ao conteúdo depende da equipe, marca, projeto e papel atribuído à pessoa. Podemos compartilhar dados com provedores técnicos que atuam em nosso nome, sob obrigações de segurança e confidencialidade, ou quando a lei exigir. Não compartilhamos projetos privados para fins comerciais de terceiros."),
             ("6. Retenção e segurança", "Mantemos dados pelo tempo necessário para fornecer o serviço, cumprir obrigações legais, resolver disputas e proteger a operação. Aplicamos controles de acesso, registro de eventos e medidas técnicas compatíveis com a natureza dos dados. Nenhum serviço conectado à internet elimina todos os riscos, por isso recomendamos proteger sua conta e não inserir segredos em campos de projeto."),
             ("7. Seus direitos", "Você pode solicitar confirmação de tratamento, acesso, correção, atualização ou exclusão de dados, observadas as obrigações legais e os registros necessários à segurança. Para solicitar atendimento, escreva para contato@centralcomm.media informando a empresa e o e-mail usado no Cadu."),
-            ("8. Alterações", "Podemos atualizar esta política para refletir mudanças no produto ou na legislação. A versão publicada nesta página informa a data da atualização mais recente."),
+            ("8. Medição e preferências", "Nas páginas públicas, você pode aceitar ou recusar a medição opcional. Quando aceita, usamos eventos de navegação sem enviar nome, e-mail, empresa ou o conteúdo digitado nos formulários. A preferência fica salva no navegador e pode ser removida ao limpar os dados do site."),
+            ("9. Alterações", "Podemos atualizar esta política para refletir mudanças no produto ou na legislação. A versão publicada nesta página informa a data da atualização mais recente."),
         ],
     },
     "termos": {
@@ -4035,6 +4053,9 @@ def public_solution(solution):
         solutions=PUBLIC_SOLUTIONS,
         canonical=product_url('workspace', f'/workspace/solucoes/{solution}'),
         description=content['lead'],
+        analytics_page_type='solution', analytics_content_group='solutions',
+        analytics_product_interest=solution, analytics_content_topic=solution,
+        analytics_journey_stage='consideration',
     )
 
 
@@ -4048,6 +4069,9 @@ def public_article(slug):
         articles=PUBLIC_ARTICLES,
         canonical=product_url('workspace', f'/workspace/conteudos/{slug}'),
         description=article['summary'],
+        analytics_page_type='content', analytics_content_group='guides',
+        analytics_product_interest=str(article['product']).lower(),
+        analytics_content_topic=slug, analytics_journey_stage='consideration',
     )
 
 
@@ -4118,6 +4142,11 @@ def public_page(page):
                 session['public_contact_last_csrf'] = supplied_csrf
                 session['public_contact_last_at'] = time.time()
                 session['public_contact_csrf'] = secrets.token_urlsafe(32)
+                session['public_contact_conversion'] = {
+                    'event_id': uuid4().hex,
+                    'team_profile': contact_form['profile'],
+                    'usage_range': contact_form['team_size'],
+                }
                 try:
                     from ..email_service import send_email
                     send_email(
@@ -4130,23 +4159,37 @@ def public_page(page):
                 except Exception:
                     current_app.logger.exception('Contato público salvo, mas a notificação por email falhou')
                 return redirect(url_for('cadu_workspace.public_contact_thanks'), code=303)
+    content_group = {'planos': 'pricing', 'contato': 'contact', 'ajuda': 'support'}.get(page, 'institutional')
+    journey_stage = 'intent' if page in {'planos', 'contato'} else 'consideration'
     return render_template(
         "cadu_workspace/public_page.html", page=page, content=content,
         canonical=product_url("workspace", f"/workspace/{page}"), description=content["description"],
         help_url=_cadu_area("CADU_HELP_URL", "/ajuda"), contact_errors=contact_errors,
         contact_csrf=contact_csrf,
         contact_form=contact_form,
+        analytics_page_type=page, analytics_content_group=content_group,
+        analytics_product_interest='cadu_media', analytics_content_topic=page,
+        analytics_journey_stage=journey_stage,
     ), response_status
 
 
 @bp.get('/workspace/contato/obrigado')
 def public_contact_thanks():
+    conversion = session.pop('public_contact_conversion', None) or {}
     return render_template(
         'cadu_workspace/public_result.html', status='success', title='Recebemos seu contexto.',
         description='A equipe do Cadu recebeu sua mensagem e vai usar essas informações para direcionar a conversa.',
         detail='',
         primary_label='Conhecer como funciona', primary_url=url_for('cadu_workspace.public_page', page='como-funciona'),
         secondary_label='Voltar para a página inicial', secondary_url=url_for('cadu_workspace.index'),
+        analytics_page_type='conversion', analytics_content_group='contact',
+        analytics_product_interest='workspace', analytics_journey_stage='conversion',
+        conversion_event={
+            'event': 'generate_lead', 'event_id': str(conversion.get('event_id') or ''),
+            'lead_source': 'workspace_public',
+            'team_profile': str(conversion.get('team_profile') or ''),
+            'usage_range': str(conversion.get('usage_range') or ''),
+        } if conversion else None,
     )
 
 
@@ -4162,6 +4205,9 @@ def legal_page():
         page=page,
         content=content,
         canonical=product_url("workspace", f"/{page}"),
+        analytics_page_type='legal', analytics_content_group='legal',
+        analytics_product_interest='cadu_media', analytics_content_topic=page,
+        analytics_journey_stage='consideration',
     )
 
 
@@ -7730,10 +7776,12 @@ def my_skills():
 def robots():
     _workspace_host_only()
     body = "\n".join((
-        "User-agent: *", "Allow: /workspace/", "Allow: /workspace/como-funciona",
-        "Allow: /workspace/planos", "Allow: /workspace/ajuda", "Allow: /workspace/contato",
-        "Allow: /workspace/solucoes/", "Allow: /workspace/conteudos/",
-        "Disallow: /workspace/app", "Disallow: /workspace/minhas-skills",
+        "User-agent: *",
+        "Disallow: /app", "Disallow: /projetos", "Disallow: /marcas",
+        "Disallow: /conversas", "Disallow: /equipe", "Disallow: /integracoes",
+        "Disallow: /plano", "Disallow: /uso", "Disallow: /faturas", "Disallow: /perfil",
+        "Disallow: /workspace/app", "Disallow: /workspace/onboarding",
+        "Disallow: /workspace/minhas-skills", "Disallow: /workspace/contato/obrigado",
         f"Sitemap: {product_url('workspace', '/sitemap.xml')}", "",
     ))
     return Response(body, mimetype="text/plain")
@@ -7742,10 +7790,11 @@ def robots():
 @bp.get("/sitemap.xml")
 def sitemap():
     _workspace_host_only()
-    paths = ["/", "/workspace/como-funciona", "/workspace/planos", "/workspace/ajuda", "/workspace/contato"]
+    paths = ["/", "/workspace/como-funciona", "/workspace/planos", "/workspace/ajuda", "/workspace/contato", "/privacidade", "/termos"]
     paths.extend(f"/workspace/solucoes/{slug}" for slug in PUBLIC_SOLUTIONS)
     paths.extend(f"/workspace/conteudos/{slug}" for slug in PUBLIC_ARTICLES)
-    urls = "".join(f"<url><loc>{product_url('workspace', path)}</loc></url>" for path in paths)
+    lastmod = '2026-09-22'
+    urls = "".join(f"<url><loc>{product_url('workspace', path)}</loc><lastmod>{lastmod}</lastmod></url>" for path in paths)
     return Response(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', mimetype="application/xml")
 
 
@@ -7761,6 +7810,8 @@ def llms():
         f"- [Planos]({product_url('workspace', '/workspace/planos')})",
         f"- [Ajuda]({product_url('workspace', '/workspace/ajuda')})",
         f"- [Contato]({product_url('workspace', '/workspace/contato')})", "",
+        f"- [Política de privacidade]({product_url('workspace', '/privacidade')})",
+        f"- [Termos de serviço]({product_url('workspace', '/termos')})", "",
         "## Soluções", "",
         *[f"- [{item['name']}]({product_url('workspace', f'/workspace/solucoes/{slug}')})" for slug, item in PUBLIC_SOLUTIONS.items()], "",
         "## Guias práticos", "",
@@ -7772,3 +7823,46 @@ def llms():
         "Projetos, skills personalizadas, créditos, clientes, campanhas, contas, MCPs e relatórios são privados e não fazem parte do sitemap.", "",
     ]
     return Response("\n".join(lines), mimetype="text/plain")
+
+
+@bp.get('/llms-full.txt')
+def llms_full():
+    _workspace_host_only()
+    lines = [
+        '# Cadu Media', '',
+        'Última revisão: 22 de setembro de 2026', '',
+        '## Propósito', '',
+        'O Cadu Media conecta contexto, planejamento, criação e resultado para equipes de marketing e mídia.',
+        'Uma campanha mantém marca, briefing, fontes, decisões, peças e aprendizados dentro do mesmo projeto.', '',
+        '## Produtos', '',
+        '- Workspace: projetos, marcas, reuniões, arquivos, links, decisões e contexto para agentes.',
+        '- Planner: objetivos, públicos, canais, formatos, cenários e investimento.',
+        '- Studio: geração de imagens, edição avançada, variações, vídeo e Creative Analyzer.',
+        '- Skills: métodos especializados aplicados ao contexto do projeto.',
+        '- Reports: campanhas, fontes, relatórios e aprendizados ligados ao próximo ciclo.', '',
+        '## Integrações', '',
+        '- Google Workspace: conexão disponível para arquivos, documentos e reuniões conforme autorização.',
+        '- ChatGPT, Claude, Cursor e Codex: contexto compartilhável por recursos autorizados do Workspace.',
+        '- Trello, Slack e Asana: links podem ser reunidos hoje; conectores completos são apresentados como futuros.', '',
+        '## Limites importantes', '',
+        '- Resultados gerados por inteligência artificial precisam de revisão humana.',
+        '- Conteúdo privado exige autenticação e permissão da equipe.',
+        '- Preços públicos são referências comerciais e podem depender de implantação e impostos.',
+        '- O Cadu não publica arquivos, projetos ou decisões privadas sem uma ação autorizada.', '',
+        '## Páginas canônicas', '',
+        f'- Visão geral: {product_url("workspace")}',
+        f'- Planos: {product_url("workspace", "/workspace/planos")}',
+        f'- Contato: {product_url("workspace", "/workspace/contato")}',
+        *[f'- {item["name"]}: {product_url("workspace", f"/workspace/solucoes/{slug}")}' for slug, item in PUBLIC_SOLUTIONS.items()], '',
+        '## Guias', '',
+        *[f'- {item["title"]}: {product_url("workspace", f"/workspace/conteudos/{slug}")}' for slug, item in PUBLIC_ARTICLES.items()], '',
+        '## Políticas e contato', '',
+        f'- Privacidade: {product_url("workspace", "/privacidade")}',
+        f'- Termos: {product_url("workspace", "/termos")}',
+        '- Contato oficial: contato@centralcomm.media', '',
+        '## Conteúdo não público', '',
+        'Contas, projetos, marcas, arquivos, conversas, créditos, chaves, integrações autorizadas e relatórios privados não devem ser rastreados nem tratados como conteúdo público.', '',
+    ]
+    response = Response('\n'.join(lines), mimetype='text/plain')
+    response.headers['X-Robots-Tag'] = 'noindex'
+    return response

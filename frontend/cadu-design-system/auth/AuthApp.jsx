@@ -77,8 +77,8 @@ function ToolRail({tools, compact = false}) {
   return <aside className={`cadu-auth-tools ${compact ? 'is-compact' : ''}`} aria-label="Ferramentas incluídas no Cadu">
     <div className="cadu-auth-tools-intro">
       <span className="cadu-auth-tools-kicker">Cadu Workspace</span>
-      <h2>Uma conta para mover o trabalho.</h2>
-      <p>Planeje, crie e acompanhe sua operação no mesmo lugar.</p>
+      <h2>Uma conta para o trabalho continuar.</h2>
+      <p>Projeto, criação e resultado usam a mesma base.</p>
     </div>
     <ul>{tools.map(tool => <li key={tool.id}>
       <span className="cadu-auth-tool-icon"><img src={tool.icon} alt="" /></span>
@@ -93,7 +93,7 @@ function VisualPanel({bootstrap, signup = false}) {
     <div className="cadu-auth-visual-overlay" />
     <div className="cadu-auth-visual-copy">
       <span>{signup ? 'Tudo conectado' : 'Cadu Workspace'}</span>
-      <strong>{signup ? 'Do primeiro plano à próxima entrega.' : 'O contexto certo para a próxima decisão.'}</strong>
+      <strong>{signup ? 'Seu primeiro projeto já começa com uma base.' : 'Retome o trabalho com o contexto por perto.'}</strong>
     </div>
   </aside>;
 }
@@ -138,7 +138,7 @@ function Login({bootstrap}) {
     setLoading(true);
   };
   return <AuthFrame bootstrap={bootstrap} loading={loading}>
-    <PageHeading title="Entre na sua conta" description="Continue de onde parou no Cadu Workspace." />
+    <PageHeading title="Continue seu trabalho no Cadu" description="Entre para retomar projetos, fontes, decisões e entregas." />
     <GoogleButton href={bootstrap.googleUrl} label="Continuar com Google" />
     <div className="cadu-auth-divider"><span>ou entre com email</span></div>
     <form action={bootstrap.formAction} method="POST" onSubmit={handleSubmit} className="cadu-auth-form">
@@ -146,7 +146,7 @@ function Login({bootstrap}) {
       {isCorporate ? <>
         <Field label="Email" id="email_local" name="email_local" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="seu.nome" autoComplete="username" inputMode="email" autoCapitalize="none" hint="Use seu acesso CentralComm." />
         <input type="hidden" name="email" value="" />
-      </> : <Field label="Email" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="voce@empresa.com" autoComplete="username" inputMode="email" autoCapitalize="none" />}
+      </> : <Field label="Email de trabalho" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="nome@empresa.com" autoComplete="username" inputMode="email" autoCapitalize="none" />}
       <PasswordField value={password} onChange={event => setPassword(event.target.value)} labelAction={<a href={bootstrap.forgotUrl}>Esqueci minha senha</a>} />
       <SubmitButton loading={loading}>Entrar</SubmitButton>
     </form>
@@ -170,15 +170,15 @@ function Signup({bootstrap}) {
   };
   const errors = (bootstrap.signupErrors || []).map(message => ['error', message]);
   return <AuthFrame bootstrap={{...bootstrap, messages: [...(bootstrap.messages || []), ...errors]}} signup loading={loading}>
-    <PageHeading eyebrow="Comece pelo essencial" title="Crie sua conta" description="Uma conta para planejar, criar e acompanhar sua operação de mídia." />
+    <PageHeading eyebrow="Comece com um projeto real" title="Crie a base do seu próximo projeto" description="Reúna marca, briefing e fontes para o time continuar sem reconstruir o contexto." />
     <GoogleButton href={bootstrap.googleUrl} label="Criar conta com Google" />
     <p className="cadu-auth-google-note">Use sua conta Google para entrar sem criar mais uma senha.</p>
     <div className="cadu-auth-divider"><span>ou crie com email</span></div>
     <form action={bootstrap.formAction} method="POST" onSubmit={handleSubmit} className="cadu-auth-form">
       {bootstrap.next && <input type="hidden" name="next" value={bootstrap.next}/>}
-      <Field label="Nome completo" id="name" name="name" icon="user" value={name} onChange={event => setName(event.target.value)} placeholder="Seu nome" autoComplete="name" />
-      <Field label="Email" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="voce@empresa.com" autoComplete="email" inputMode="email" autoCapitalize="none" />
-      <PasswordField label="Senha" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" />
+      <Field label="Nome completo" id="name" name="name" icon="user" value={name} onChange={event => setName(event.target.value)} placeholder="Como podemos chamar você?" autoComplete="name" />
+      <Field label="Email de trabalho" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="nome@empresa.com" autoComplete="email" inputMode="email" autoCapitalize="none" />
+      <PasswordField label="Senha" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" hint="Use pelo menos 8 caracteres." />
       <PasswordField label="Confirmar senha" id="confirm_password" value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="new-password" />
       {mismatch && <p className="cadu-auth-error" role="alert">As senhas não coincidem.</p>}
       <SubmitButton loading={loading} icon="check">Criar conta</SubmitButton>
@@ -202,7 +202,7 @@ function ForgotPassword({bootstrap}) {
   return <AuthFrame bootstrap={bootstrap} visual={false}>
     <PageHeading title="Recupere seu acesso" description="Informe seu email e enviaremos um link para redefinir sua senha." />
     <form action={bootstrap.formAction} method="POST" onSubmit={() => setLoading(true)} className="cadu-auth-form">
-      <Field label="Email" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="voce@empresa.com" autoComplete="username" inputMode="email" autoCapitalize="none" />
+      <Field label="Email de trabalho" id="email" name="email" type="email" icon="mail" value={email} onChange={event => setEmail(event.target.value)} placeholder="nome@empresa.com" autoComplete="username" inputMode="email" autoCapitalize="none" />
       <SubmitButton loading={loading} icon="arrow">Enviar link</SubmitButton>
       <a className="cadu-auth-back" href={bootstrap.loginUrl}><Icon name="arrowLeft" size={16}/> Voltar para o login</a>
     </form>
@@ -225,7 +225,7 @@ function ResetPassword({bootstrap}) {
   return <AuthFrame bootstrap={bootstrap} visual={false}>
     <PageHeading title="Crie uma nova senha" description={`Olá, ${bootstrap.userName || 'tudo bem'}. Use pelo menos 8 caracteres para proteger sua conta.`} />
     <form action={bootstrap.formAction} method="POST" onSubmit={handleSubmit} className="cadu-auth-form">
-      <Field label="Nova senha" id="password" name="password" type={visible ? 'text' : 'password'} icon="lock" value={password} onChange={event => setPassword(event.target.value)} placeholder="Digite uma nova senha" autoComplete="new-password" minLength={8} action={<button className="cadu-auth-input-action" type="button" onClick={() => setVisible(current => !current)} aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}><Icon name={visible ? 'eyeOff' : 'eye'} size={17}/></button>} />
+      <Field label="Nova senha" id="password" name="password" type={visible ? 'text' : 'password'} icon="lock" value={password} onChange={event => setPassword(event.target.value)} placeholder="Crie uma senha com pelo menos 8 caracteres" autoComplete="new-password" minLength={8} action={<button className="cadu-auth-input-action" type="button" onClick={() => setVisible(current => !current)} aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}><Icon name={visible ? 'eyeOff' : 'eye'} size={17}/></button>} />
       <Field label="Confirme a senha" id="confirm_password" name="confirm_password" type={visible ? 'text' : 'password'} icon="lock" value={confirmation} onChange={event => setConfirmation(event.target.value)} placeholder="Repita a nova senha" autoComplete="new-password" minLength={8} />
       {mismatch && <p className="cadu-auth-error" role="alert">As senhas não coincidem.</p>}
       <SubmitButton loading={loading} icon="check">Salvar nova senha</SubmitButton>

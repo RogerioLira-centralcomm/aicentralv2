@@ -6,15 +6,20 @@
   <meta name="color-scheme" content="light">
   <title>{% block title %}Cadu Media{% endblock %}</title>
   {% block meta %}{% endblock %}
+  {% include 'partials/public_analytics_head.html' %}
   <link rel="icon" href="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-public-analytics.css') }}?v={{ cadu_workspace_asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-public-motion.css') }}?v={{ cadu_workspace_asset_version }}">
   {% block styles %}{% endblock %}
 </head>
 <body class="cadu-public-page">
   <a class="cadu-public-skip" href="#conteudo">Ir para o conteúdo</a>
   {% block body %}{% endblock %}
+  {% include 'partials/public_analytics_body.html' %}
+  <script defer src="{{ url_for('static', filename='js/cadu-public-motion.js') }}?v={{ cadu_workspace_asset_version }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

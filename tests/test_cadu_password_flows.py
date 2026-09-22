@@ -22,18 +22,24 @@ class PasswordFlowTest(TestCase):
         self.app.add_url_rule('/test-session', 'test_session', lambda: jsonify(user=session.get('user_id')))
         self.client = self.app.test_client()
         renderer = mock.patch('aicentralv2.routes.render_template', side_effect=lambda *a, **k: jsonify(messages=get_flashed_messages()))
-        renderer.start(); self.addCleanup(renderer.stop)
+        self.renderer = renderer.start(); self.addCleanup(renderer.stop)
         guard = mock.patch('aicentralv2.db.get_db', side_effect=AssertionError('Real database access forbidden'))
         guard.start(); self.addCleanup(guard.stop)
 
     def post(self, path, values):
         return self.client.post(path, data=values, base_url='https://auth.centralcomm.media')
 
-    def test_customer_password_login_returns_to_studio_without_php(self):
+    def test_customer_password_login_records_conversion_before_returning_to_studio(self):
         with mock.patch('aicentralv2.routes.db.verificar_credenciais', return_value=USER) as verify, \
              mock.patch('aicentralv2.routes.db.obter_cliente_por_id', return_value={'nome_fantasia': 'Cliente', 'status': True}):
             result = self.post('/login', {'email': USER['email'], 'password': 'test-password', 'next': 'https://studio.centralcomm.media/'})
-        self.assertEqual(result.location, 'https://studio.centralcomm.media/')
+        self.assertEqual(result.location, '/acesso-confirmado')
+        bridge = self.client.get(result.location, base_url='https://auth.centralcomm.media')
+        self.assertEqual(bridge.status_code, 200)
+        _, context = self.renderer.call_args
+        self.assertEqual(context['target'], 'https://studio.centralcomm.media/')
+        self.assertEqual(context['conversion_event']['event'], 'login')
+        self.assertTrue(context['conversion_event']['event_id'])
         verify.assert_called_once_with(USER['email'], 'test-password')
         self.assertEqual(self.client.get('/test-session', base_url='https://studio.centralcomm.media').json['user'], 7)
 

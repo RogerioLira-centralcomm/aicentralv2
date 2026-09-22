@@ -27,6 +27,14 @@ def resolve(*, conversation_id=None, request_id=None, surface="conversations", a
     if not persisted:
         resolved_project = project_ref if isinstance(project_ref, str) else resolved_project
         resolved_brand = brand_ref if isinstance(brand_ref, str) else resolved_brand
+    else:
+        # Repair legacy/free threads whose persisted binding is empty while
+        # the current turn carries a server-authorized context selection.
+        # Never replace a non-empty conversation binding implicitly.
+        if not resolved_project and isinstance(project_ref, str) and project_ref:
+            resolved_project = project_ref
+        if not resolved_brand and isinstance(brand_ref, str) and brand_ref:
+            resolved_brand = brand_ref
     if resolved_project or resolved_brand:
         allowed = {item["ref"]: item for item in family_context.inventory(selected["client_id"])}
         if resolved_project and (resolved_project not in allowed or allowed[resolved_project]["kind"] != "project"):

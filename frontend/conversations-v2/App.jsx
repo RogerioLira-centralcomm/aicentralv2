@@ -466,6 +466,11 @@ export default function App({bootstrap}) {
           runStarted = true;
           setConversationId(event.conversation_id); conversationRef.current = event.conversation_id;
           runRef.current = event.run_id; runStartedRef.current = Date.now();
+          const resolved = event.resolved_context || {};
+          if (resolved.project_ref !== (context.project_ref || null) || resolved.brand_ref !== (context.brand_ref || null)) {
+            trace('Contexto sincronizado pelo servidor', resolved.project_ref || resolved.brand_ref || 'Conversa sem projeto');
+            rememberContext({...context, project_ref: resolved.project_ref || null, brand_ref: resolved.brand_ref || null});
+          }
           trace('Entendendo o pedido');
           setRuntime('Entendendo o pedido');
         } else if (kind === 'route.selected') {
@@ -594,7 +599,7 @@ export default function App({bootstrap}) {
       }
       setRunning(false); runRef.current = null; await loadRecent();
     }
-  }, [input, running, artifactDirty, confirmDiscard, attachments, homeAttachments, context, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
+  }, [input, running, artifactDirty, confirmDiscard, attachments, homeAttachments, context, composerContext, executionMode, fetchArtifact, trace, rememberContext, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
 
   const initialPromptRef = useRef(initialQuery.get('auto_send') === '1' ? initialQuery.get('prompt') || '' : '');
   useEffect(() => {

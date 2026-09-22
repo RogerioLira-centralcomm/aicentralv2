@@ -516,6 +516,17 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     text_payload = value.get("text") if isinstance(value.get("text"), dict) else {}
     ui_payload = value.get("ui") if isinstance(value.get("ui"), dict) else {}
     answer_value = text_payload.get("content") or value.get("answer")
+    for _ in range(3):
+        if not isinstance(answer_value, str):
+            break
+        nested = _decode_provider_value(answer_value)
+        if not isinstance(nested, dict):
+            break
+        nested_text = nested.get("text") if isinstance(nested.get("text"), dict) else {}
+        candidate = nested_text.get("content") or nested.get("answer")
+        if not isinstance(candidate, str) or candidate == answer_value:
+            break
+        answer_value = candidate
     answer = str(answer_value or "").strip()
     if not answer:
         raise BadRequest("O provider não retornou uma resposta utilizável.")

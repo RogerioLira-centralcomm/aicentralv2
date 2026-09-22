@@ -449,6 +449,21 @@ def prepare(data):
                     VALUES (%s, %s, %s, %s, 'workspace', %s, %s)""",
                     (conversation_id, current.user_id, current.organization_id, current.client_id,
                      current.project_ref, current.brand_ref))
+            else:
+                # Persist a context repaired from the explicitly selected,
+                # authorized turn so reopening the thread cannot regress to a
+                # visually active but operationally context-free state.
+                cur.execute("""UPDATE cadu_family_conversation_context
+                                  SET project_ref=COALESCE(project_ref,%s),
+                                      brand_ref=COALESCE(brand_ref,%s)
+                                WHERE conversation_id=%s AND user_id=%s
+                                  AND organization_id=%s AND client_id=%s""",
+                            (current.project_ref, current.brand_ref, conversation_id,
+                             current.user_id, current.organization_id, current.client_id))
+                if current.project_ref and current.project_ref.startswith("ci:"):
+                    cur.execute("""UPDATE cadu_conversations SET projeto_id=COALESCE(projeto_id,%s)
+                                    WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s""",
+                                (current.project_ref[3:], conversation_id, current.user_id, current.client_id))
             cur.execute("""SELECT id FROM cadu_family_chat_runs
                             WHERE conversation_id = %s AND status = 'running'""", (conversation_id,))
             if cur.fetchone():
@@ -507,9 +522,17 @@ def stream(run):
     state, assistant_id = "failed", None
     terminal_message = None
     terminal_error_code = None
+    runtime = run.get("runtime") or {}
     _journal(run["run_id"], "run.started", {"conversation_id": run["conversation_id"],
              "execution_mode": execution_mode})
-    yield _event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"], execution_mode=execution_mode)
+    yield _event(
+        "run.started", run_id=run["run_id"], conversation_id=run["conversation_id"],
+        execution_mode=execution_mode, resolved_context={
+            "project_ref": run["context"].project_ref,
+            "brand_ref": run["context"].brand_ref,
+        }, runtime_id=runtime.get("id", ""),
+        provider_config_version=runtime.get("config_version", ""),
+    )
     _journal(run["run_id"], "route.selected", {"route": run["route"], "policy": run["policy"]})
     yield _event("route.selected", route=run["route"], policy=run["policy"])
     waiting_actions = journal.waiting_actions(

@@ -448,6 +448,15 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(base, /request\.endpoint not in \('cadu_workspace\.dashboard', 'cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab', 'cadu_workspace\.account_page'\)/);
 });
 
+test('conversation continuations preserve structured questions and server context', () => {
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  assert.doesNotMatch(conversation, /Sobre “\$\{question\}”/);
+  assert.match(conversation, /type: 'question', label: 'Respondendo'/);
+  assert.match(app, /resolved_context/);
+  assert.match(app, /Contexto sincronizado pelo servidor/);
+});
+
 test('conversation failures are converted into an actionable user-facing state', async () => {
   const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/errorModel.mjs')).href);
   const credits = model.chatFailure({

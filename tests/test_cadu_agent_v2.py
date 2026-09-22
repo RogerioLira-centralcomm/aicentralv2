@@ -23,6 +23,7 @@ from flask import Flask
 from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
 from aicentralv2.cadu_workspace.agent_v2 import service as v2_service
 from aicentralv2.cadu_workspace.agent_v2 import journal
+from aicentralv2.cadu_workspace.agent_v2 import request_context
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace import brand_mcp_service
 from aicentralv2.cadu_workspace import project_source_service
@@ -1176,6 +1177,49 @@ def test_normalizer_decodes_double_serialized_structured_output():
     })
     assert response.answer == "Resposta final sem envelope."
     assert not response.answer.startswith("{")
+
+
+def test_normalizer_decodes_envelope_nested_inside_text_content():
+    nested = {
+        "text": {"content": "Resposta final sem protocolo."},
+        "ui": {"confidence": "medium", "assumptions": [], "questions": [], "actions": [], "blocks": [], "citations": []},
+        "artifact_patch": None,
+    }
+    outer = {
+        "text": {"content": __import__("json").dumps(nested, ensure_ascii=False)},
+        "ui": {"confidence": "medium", "assumptions": [], "questions": [], "actions": [], "blocks": [], "citations": []},
+        "artifact_patch": None,
+    }
+    response = normalize_response(outer, {
+        "mode": "analysis", "max_answer_chars": 2000, "max_questions": 0, "max_next_steps": 0,
+    })
+    assert response.answer == "Resposta final sem protocolo."
+
+
+def test_add_project_link_routes_to_internal_action_without_provider_interpretation():
+    message = "adicione o link ao projeto https://site.uhuru.com.br/home"
+    route = route_request(message, has_project=True)
+    plan = build_task_plan(route, budget_for(route, execution_mode_for(route, "analysis")), message)
+    assert route.action == "create_project_link"
+    assert plan[0]["name"] == "projects.create_link_reference"
+    assert plan[0]["arguments"]["url"] == "https://site.uhuru.com.br/home"
+
+
+def test_empty_persisted_conversation_binding_accepts_authorized_turn_project(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test"
+    monkeypatch.setattr(request_context.family_context, "identity", lambda: {"id": 7, "organization_id": 12})
+    monkeypatch.setattr(request_context.family_context, "resolve", lambda: {"client_id": 12})
+    monkeypatch.setattr(request_context.family_context, "inventory", lambda _client: [
+        {"ref": "ci:project-1", "kind": "project"},
+    ])
+    monkeypatch.setattr(request_context.repository, "conversation_context", lambda *_: {
+        "profile": "workspace", "project_ref": None, "brand_ref": None,
+    })
+    monkeypatch.setattr(request_context.repository, "project_brand_links", lambda *_: [])
+    with app.test_request_context("/"):
+        resolved = request_context.resolve(conversation_id="conversation", project_ref="ci:project-1")
+    assert resolved.project_ref == "ci:project-1"
 
 
 def test_editable_summary_of_previous_text_routes_to_document_artifact():

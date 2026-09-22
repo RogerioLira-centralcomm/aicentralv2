@@ -155,7 +155,6 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                 {"title": "string", "summary": "string", "fields": [{"key": "string", "value": "string", "state": "confirmed|inferred|assumed|missing|conflicting"}]}
                 if route.artifact_type else None
             ),
-            "citations": [],
         }, ensure_ascii=False, separators=(",", ":")),
     }
     # Transitional aliases for the production Dify workflow that predates the

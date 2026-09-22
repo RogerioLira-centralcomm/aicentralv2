@@ -100,7 +100,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
     {!!blocks.length && <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
     {!!visibleQuestions.length && <section className="cv-inline-questions cv-mt-6" aria-label="Perguntas para continuar">
       <span className="cv-inline-questions__label">Para continuar</span>
-      {visibleQuestions.map((question, index) => <button key={index} type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-inline-question"><span>{question}</span><small>Responder</small></button>)}
+      {visibleQuestions.map((question, index) => <button key={index} type="button" onClick={() => onPrompt('', {type: 'question', label: 'Respondendo', text: question})} className="cv-inline-question"><span>{question}</span><small>Responder</small></button>)}
     </section>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}

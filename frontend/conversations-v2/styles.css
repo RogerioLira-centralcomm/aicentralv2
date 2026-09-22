@@ -151,19 +151,19 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-conversation-support__status { display:flex !important; align-items:center; gap:5px; margin-top:2px !important; color:#9ab2ad !important; font-size:10px !important; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-conversation-support__status i { width:6px; height:6px; border-radius:50%; background:#718b86; }
 #cadu-conversations-v2-root .cv-conversation-support__status.is-running i { background:#65dbc9; animation:cv-pulse 1s infinite; }
-#cadu-conversations-v2-root .cv-conversation-support__meta { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:7px; margin-top:16px; }
-#cadu-conversations-v2-root .cv-conversation-support__meta > div { min-width:0; padding:9px; border:1px solid rgba(181,218,211,.1); border-radius:10px; background:rgba(255,255,255,.035); }
+#cadu-conversations-v2-root .cv-conversation-support__meta { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; margin-top:18px; }
+#cadu-conversations-v2-root .cv-conversation-support__meta > div { min-width:0; }
 #cadu-conversations-v2-root .cv-conversation-support__meta span,
 #cadu-conversations-v2-root .cv-conversation-support__request > span,
 #cadu-conversations-v2-root .cv-conversation-support__next > span { display:block; color:#78928d; font-size:9px; font-weight:650; letter-spacing:.03em; text-transform:uppercase; }
 #cadu-conversations-v2-root .cv-conversation-support__meta b { display:block; overflow:hidden; margin-top:5px; color:#e6f2ef; font-size:11px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-conversation-support__meta small { display:block; overflow:hidden; margin-top:3px; color:#819a96; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
-#cadu-conversations-v2-root .cv-conversation-support__request { margin-top:14px; padding:11px 12px; border:1px solid rgba(85,216,198,.16); border-radius:12px; background:rgba(85,216,198,.065); box-shadow:0 10px 24px rgba(0,0,0,.08); }
-#cadu-conversations-v2-root .cv-conversation-support__request p { margin:6px 0 0; color:#d6e7e3; font-size:12px; line-height:1.5; }
-#cadu-conversations-v2-root .cv-conversation-support__next { display:grid; gap:6px; margin-top:16px; }
-#cadu-conversations-v2-root .cv-conversation-support__next > span { margin-bottom:2px; }
-#cadu-conversations-v2-root .cv-conversation-support__next button { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:34px; padding:7px 9px; border:1px solid rgba(181,218,211,.1); border-radius:9px; background:rgba(255,255,255,.025); color:#cfe1dd; cursor:pointer; font-size:11px; text-align:left; }
-#cadu-conversations-v2-root .cv-conversation-support__next button:hover { border-color:rgba(85,216,198,.28); background:rgba(85,216,198,.08); color:#f2fbf9; }
+#cadu-conversations-v2-root .cv-conversation-support__request { margin-top:17px; padding-left:11px; border-left:2px solid rgba(85,216,198,.34); }
+#cadu-conversations-v2-root .cv-conversation-support__request p { margin:6px 0 0; color:#d6e7e3; font-size:12px; line-height:1.55; }
+#cadu-conversations-v2-root .cv-conversation-support__next { display:grid; margin-top:18px; }
+#cadu-conversations-v2-root .cv-conversation-support__next > span { margin-bottom:5px; }
+#cadu-conversations-v2-root .cv-conversation-support__next button { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:32px; padding:7px 0; border:0; border-top:1px solid rgba(181,218,211,.08); border-radius:0; background:transparent; color:#cfe1dd; cursor:pointer; font-size:11px; text-align:left; }
+#cadu-conversations-v2-root .cv-conversation-support__next button:hover { color:#72dfd1; }
 #cadu-conversations-v2-root .cv-conversation-support__next button svg { flex:none; color:#69d8ca; }
 #cadu-conversations-v2-root .cv-conversation-support__technical { margin-top:14px; border-top:1px solid rgba(181,218,211,.1); padding-top:11px; }
 #cadu-conversations-v2-root .cv-conversation-support__technical summary { color:#91aaa5; cursor:pointer; font-size:10px; }

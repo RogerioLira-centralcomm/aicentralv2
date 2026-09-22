@@ -27,6 +27,7 @@ async function requestPlan(event) {
     const selected = state.scenes.find(item => item.id === state.selectedSceneId);
     const clip = state.clips.find(item => item.id === state.activeClipId || item.job_id === state.activeClipId);
     plan = await post(`${studioApi}/agent/plan`, {
+      request_id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       client_id: state.clientId,
       message,
       context: {

@@ -97,6 +97,14 @@ class CaduCreditConnector:
         media_tokens: int | None = None, metadata: dict | None = None, margin_multiplier: int = 1,
     ) -> dict | None:
         """Registra e debita uma execução já concluída pelo provedor."""
+        result = provider_result or {}
+        billing_metadata = dict(metadata or {})
+        provider = str(result.get("provider") or "").strip()
+        attempts = result.get("provider_attempts")
+        if provider:
+            billing_metadata.setdefault("provider", provider)
+        if isinstance(attempts, (list, tuple)) and attempts:
+            billing_metadata.setdefault("provider_attempts", [str(item) for item in attempts if str(item).strip()])
         return charge_from_provider(
             ledger=self.ledger,
             idempotency_key=str(idempotency_key),
@@ -104,11 +112,11 @@ class CaduCreditConnector:
             user_id=actor.user_id,
             tool=str(app),
             stage=str(stage),
-            provider_result=provider_result or {},
+            provider_result=result,
             model=str(model),
             fallback_cost_usd=fallback_cost_usd,
             media_tokens=media_tokens,
-            metadata=metadata or {},
+            metadata=billing_metadata,
             margin_multiplier=margin_multiplier,
         )
 

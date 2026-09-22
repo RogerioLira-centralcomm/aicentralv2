@@ -723,11 +723,13 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
               'user_profile_context': user_profile_context}
     payload = {'query': query, 'user': 'user-' + str(user['id']), 'inputs': inputs, 'response_mode': 'streaming',
                'files': [{'type': row['kind'], 'transfer_method': 'local_file', 'upload_file_id': row['provider_id']} for row in uploads]}
-    if conversation['dify_conversation_id']:
-        payload['conversation_id'] = conversation['dify_conversation_id']
-    elif existing:
-        if history:
-            payload['query'] = '[Histórico da conversa]\n' + history + '\n[Mensagem atual]\n' + query
+    # CentralX is the canonical conversation store.  Provider conversation IDs
+    # cannot safely carry continuity because a thread may move between the
+    # isolated fast, analysis and agentic Dify apps.  Always rehydrate an
+    # existing thread from the bounded local transcript instead of assuming a
+    # provider session contains (or can even address) the preceding turns.
+    if existing and history:
+        payload['query'] = '[Histórico da conversa]\n' + history + '\n[Mensagem atual]\n' + query
     return {'run_id': run_id, 'conversation_id': conversation_id, 'payload': payload,
             'organization_id': user['organization_id'], 'client_id': selected['client_id'],
             'user_id': user['id'], 'profile': profile,

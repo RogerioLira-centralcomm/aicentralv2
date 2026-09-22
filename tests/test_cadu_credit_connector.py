@@ -31,6 +31,24 @@ class CreditConnectorTest(TestCase):
         self.assertEqual((charge.client_id, charge.user_id), (174, 32))
         self.assertEqual(charge.idempotency_key, 'chat:run-1')
 
+    def test_provider_route_is_added_to_global_billing_metadata(self):
+        ledger = Mock(spec=ToolTokenLedger, unsafe=True)
+        connector = CaduCreditConnector(ledger)
+        connector.charge_provider(
+            actor=CreditActor(174, 32), idempotency_key='chat:run-fallback',
+            app='Cadu Chat', stage='conversa',
+            provider_result={
+                'provider': 'openrouter',
+                'provider_attempts': ['openai', 'openrouter'],
+                'usage': {'total_tokens': 12},
+            },
+            metadata={'conversation_id': 'conversation-1'},
+        )
+        charge = ledger.charge.call_args.args[0]
+        self.assertEqual(charge.metadata['provider'], 'openrouter')
+        self.assertEqual(charge.metadata['provider_attempts'], ['openai', 'openrouter'])
+        self.assertEqual(charge.metadata['conversation_id'], 'conversation-1')
+
     def test_firecrawl_standard_units_are_explicit(self):
         self.assertEqual(firecrawl_credit_cost('scrape'), 1)
         self.assertEqual(firecrawl_credit_cost('crawl', pages=4), 4)

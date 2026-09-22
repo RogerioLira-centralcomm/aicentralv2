@@ -341,13 +341,51 @@ def studio_csrf():
 @studio_or_admin_required_api
 @studio_csrf_required
 def studio_agent_plan():
-    from ..services.openrouter_service import chat_completion
+    from ..cadu_credit_connector import CaduCreditConnector
+    from ..services.cadu_ai_connector import CaduAIConnector
     from .studio_agent import plan_request
-    execute, json_body, ok, _ = _http()
+    execute, json_body, ok, service = _http()
+
     def run():
         data = json_body()
-        _scope(data.get('client_id'))
-        return ok(plan_request(data.get('message'), data.get('context'), text_callable=chat_completion))
+        client_id = data.get('client_id')
+        _scope(client_id)
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para usar o agente do Studio.')
+        modeling = service()
+        payer = modeling._credits_crm_id(client_id) or int(client_id)
+        payload_fingerprint = json.dumps({
+            'client_id': int(client_id),
+            'message': data.get('message'),
+            'context': data.get('context'),
+        }, ensure_ascii=False, sort_keys=True, default=str)
+        request_key = str(data.get('request_id') or hashlib.sha256(
+            payload_fingerprint.encode('utf-8')
+        ).hexdigest())[:160]
+        connector = CaduAIConnector(CaduCreditConnector(modeling.credit_ledger))
+
+        def metered_plan(messages, **options):
+            return connector.complete(
+                messages,
+                client_id=payer,
+                user_id=user_id,
+                idempotency_key=f'studio:agent-plan:{request_key}',
+                app='Cadu Studio',
+                stage='video_agent_plan',
+                estimated_tokens=900,
+                metadata={
+                    'studio_client_id': int(client_id),
+                    'request_id': request_key,
+                    'billing_class': 'agent',
+                },
+                **options,
+            )
+
+        return ok(plan_request(
+            data.get('message'), data.get('context'), text_callable=metered_plan
+        ))
+
     return execute(run)
 
 

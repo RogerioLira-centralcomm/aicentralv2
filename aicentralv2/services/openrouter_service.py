@@ -234,6 +234,24 @@ def uses_direct_openai(model: Optional[str] = None) -> bool:
     return bool(resolve_openai_api_key()) and is_openai_family(model)
 
 
+def chat_provider_order(model: Optional[str] = None) -> List[str]:
+    """Return available providers in the globally configured failover order."""
+    configured = [
+        item.strip().lower()
+        for item in os.getenv("CADU_AI_PROVIDER_ORDER", "openai,openrouter").split(",")
+        if item.strip().lower() in {"openai", "openrouter"}
+    ]
+    order = []
+    for provider in configured or ["openai", "openrouter"]:
+        if provider == "openai" and (not is_openai_family(model) or not resolve_openai_api_key()):
+            continue
+        if provider == "openrouter" and not resolve_api_key():
+            continue
+        if provider not in order:
+            order.append(provider)
+    return order
+
+
 def resolve_api_key() -> str:
     try:
         from . import integration_credentials
@@ -415,13 +433,37 @@ def chat_completion(
         payload["reasoning"] = {"effort": "low"}
     payload = sanitize_chat_payload(payload)
     route = str(provider or "").strip().lower()
-    if route == "openai":
-        if not resolve_openai_api_key():
-            raise OpenRouterError("OpenAI não está configurada.")
-        return _openai_chat_completion(payload, timeout=timeout)
-    if route != "openrouter" and uses_direct_openai(payload.get("model")):
-        return _openai_chat_completion(payload, timeout=timeout)
-    return _openrouter_chat_completion(payload, timeout=timeout)
+    if route and route not in {"openai", "openrouter"}:
+        raise OpenRouterError("Provedor de IA inválido.")
+    if route:
+        routes = [route]
+    else:
+        routes = chat_provider_order(payload.get("model"))
+        if not routes:
+            # Preserve the established configuration error from the provider
+            # compatible with the requested model.
+            routes = ["openai" if is_openai_family(payload.get("model")) else "openrouter"]
+
+    failures = []
+    for candidate in routes:
+        try:
+            if candidate == "openai":
+                if not resolve_openai_api_key():
+                    raise OpenRouterError("OpenAI não está configurada.")
+                result = _openai_chat_completion(payload, timeout=timeout)
+            else:
+                result = _openrouter_chat_completion(payload, timeout=timeout)
+            return {**result, "provider": candidate, "provider_attempts": [*failures, candidate]}
+        except OpenRouterError as exc:
+            failures.append(candidate)
+            last_error = exc
+            if route:
+                raise
+    if len(failures) == 1:
+        raise last_error
+    raise OpenRouterError(
+        "Os provedores de IA configurados estão indisponíveis no momento."
+    ) from last_error
 
 
 def _openrouter_chat_completion(payload: Dict[str, Any], *, timeout: int = 90) -> Dict[str, Any]:

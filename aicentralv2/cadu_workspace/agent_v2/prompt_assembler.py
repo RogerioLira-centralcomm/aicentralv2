@@ -120,6 +120,13 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "Quando evidence tiver projeto/marca, use somente logo, cores, tipografia e identidade presentes ali; nunca invente logo, cor ou dado. Prefira variáveis CSS e classes Tailwind, contraste alto, tabelas legíveis e estados vazios honestos. "
             "Retorne HTML body fragment em artifact_patch.html, CSS complementar mínimo em artifact_patch.css e JavaScript apenas se necessário em artifact_patch.js. Não escreva Markdown no artefato."
         )
+        if "dashboard" in message.lower() or "painel" in message.lower():
+            draft_instruction += (
+                " Para dashboard baseado em relatório ou anexo, trate evidence e os arquivos enviados como a única fonte dos números. "
+                "Extraia primeiro métricas, dimensões, períodos, unidades e comparações realmente presentes; não calcule nem complete valores sem base. "
+                "Se um indicador não estiver disponível, omita-o ou mostre a lacuna de forma discreta. Use gráficos somente quando houver séries ou categorias suficientes, "
+                "inclua tabela para os dados detalhados e mantenha no próprio artefato uma nota curta de fonte/período. O resultado deve nascer como rascunho privado, nunca sugerir que já foi publicado."
+            )
     depth_instruction = ""
     person_query = any(token in message.lower() for token in (
         "quem é", "quem foi", "morreu", "biografia", "história", "historia", "carreira", "obra", "artista", "cantor", "autor",

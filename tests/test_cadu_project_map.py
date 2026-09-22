@@ -107,6 +107,28 @@ def test_html_request_creates_an_isolated_preview_artifact():
     assert route.response_mode == "artifact_first"
 
 
+def test_report_dashboard_html_uses_project_scope_and_evidence_only_contract():
+    message = "Crie um dashboard HTML simples com os dados em anexo do relatório"
+    route = route_request(message, has_project=True)
+    request = RequestContext(
+        organization_id=1, client_id=1, user_id=2, conversation_id="conversation",
+        surface="conversations", project_ref="ci:42",
+    )
+    policy = {"artifact_scope": "context"}
+    payload = build_payload(
+        message=message, request=request, route=route,
+        resolved={"attachments": [{"name": "relatorio.pdf", "status": "available"}]},
+        policy=policy, user_label="user-2",
+    )
+
+    assert route.action == "create_html"
+    assert route.artifact_type == "html"
+    assert route.response_mode == "artifact_first"
+    assert "única fonte dos números" in payload["inputs"]["core"]
+    assert "O resultado deve nascer como rascunho privado" in payload["inputs"]["core"]
+    assert json.loads(payload["inputs"]["output_contract"])["artifact_patch"]["html"]
+
+
 def test_short_revision_targets_the_open_artifact_without_matching_a_new_creation():
     route = route_request("Mude o botão para verde", has_project=True, active_object_type="artifact:html")
 

@@ -308,6 +308,30 @@ function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequ
   const isGoogle = /(^|\.)google\.com$|googleusercontent\.com$/i.test(domain);
   const isMeeting = /meet\.google\.com|calendar\.google\.com/i.test(domain) || /meet|calendar|reuni[aã]o/i.test(String(content.kind || content.provider || ''));
   const access = content.access_mode || (isGoogle ? 'referência Google' : 'link público');
+  const isPublic = content.access_type === 'public' || /p[uú]blico/i.test(String(content.kind || content.access_mode || '')) || (!isGoogle && Boolean(url));
+  let embedded = isPublic ? url : '';
+  if (/youtu\.be|youtube\.com/i.test(domain)) {
+    try {
+      const parsed = new URL(url);
+      const videoId = domain === 'youtu.be' ? parsed.pathname.slice(1) : parsed.searchParams.get('v');
+      if (videoId) embedded = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}`;
+    } catch (_) {}
+  }
+  if (/docs\.google\.com/i.test(domain) && isPublic) {
+    embedded = url.replace(/\/(edit|view)(?:\?.*)?$/i, '/preview');
+  }
+  if (/drive\.google\.com/i.test(domain) && isPublic) {
+    const file = url.match(/\/file\/d\/([^/]+)/i);
+    if (file) embedded = `https://drive.google.com/file/d/${encodeURIComponent(file[1])}/preview`;
+  }
+  if (embedded) return <article className="cv-link-embed cv-flex cv-h-full cv-min-h-0 cv-w-full cv-flex-col">
+    <header className="cv-link-embed__bar">
+      <span><Icon name="external" size={15}/><b>{artifact.title || domain}</b><small>{domain}</small></span>
+      <div>{!isGoogle && !isMeeting && <button type="button" onClick={() => onRequestSummary?.(url)}>Resumir</button>}<button type="button" onClick={() => onSaveReference?.(url)}>Salvar referência</button><a href={url} target="_blank" rel="noreferrer">Abrir fora</a></div>
+    </header>
+    <iframe title={artifact.title || domain || 'Link público'} src={embedded} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="strict-origin-when-cross-origin" className="cv-link-embed__frame"/>
+    <footer>Se o site bloquear a visualização incorporada, use “Abrir fora”.</footer>
+  </article>;
   return <article className="cv-mx-auto cv-flex cv-h-full cv-w-full cv-max-w-[720px] cv-flex-col cv-justify-center cv-p-8 md:cv-p-12">
     <span className="cv-grid cv-h-11 cv-w-11 cv-place-items-center cv-rounded-xl cv-bg-teal/10 cv-text-teal"><Icon name="external" size={20}/></span>
     <span className="cv-mt-5 cv-text-xs cv-font-semibold cv-text-[#78cfc3]">{access}</span>

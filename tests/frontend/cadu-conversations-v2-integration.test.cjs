@@ -383,6 +383,13 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
   assert.doesNotMatch(conversation, /Ver resposta completa/);
   assert.match(conversation, /cv-pending-interaction/);
+  assert.match(conversation, /Adicionar referência/);
+  assert.match(conversation, /Adicionar ao projeto/);
+  assert.doesNotMatch(conversation, /cv-action-confirmation/);
+  assert.match(app, /active\.run\.actions/);
+  assert.match(artifact, /cv-link-embed__frame/);
+  assert.match(artifact, /allow-popups-to-escape-sandbox/);
+  assert.match(markdown, /onOpenResource\(\{url: href/);
   assert.match(conversation, /cv-conversation-needs-action/);
   assert.match(responseBlocks, /cv-inline-decision/);
   assert.match(conversation, /ResponseBlocks/);
@@ -391,15 +398,15 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-thread-content/);
   assert.match(composer, /COMPOSER_MAX_HEIGHT = 260/);
   assert.match(conversation, /data-cv-answer/);
-  assert.match(conversation, /Trecho selecionado/);
+  assert.match(conversation, /label: 'Trecho selecionado'/);
   assert.match(conversation, /cv-chat-failure/);
   assert.match(conversation, /Confian\(\?:ça\|ca\)/);
   assert.match(markdown, /words\.length <= 8/);
   assert.match(conversation, /Créditos da conta/);
   assert.match(conversation, /Adicionar créditos/);
   assert.doesNotMatch(conversation, /Adicionar ao briefing|Perguntar|Resumir/);
-  assert.match(conversation, /Crie um texto editável somente a partir do trecho selecionado/);
-  assert.match(conversation, /Criar texto no artefato/);
+  assert.doesNotMatch(conversation, /cv-selection-tools/);
+  assert.match(conversation, /closest\('\.cv-prose'\)/);
   assert.match(conversation, /composerContext/);
   assert.match(composer, /Mais recursos/);
   assert.match(composer, /Pesquisar na internet/);
@@ -547,8 +554,9 @@ test('action confirmations use the server run id and expose pending state', () =
   assert.doesNotMatch(app, /event\.action\?\.name === 'projects\.create_link_reference'/);
   assert.match(app, /actionPending: true/);
   assert.match(app, /actionError: detail/);
-  assert.match(conversation, /message\.actionPending \? 'Salvando…' : 'Confirmar ação'/);
-  assert.match(conversation, /role="alert"/);
+  assert.match(conversation, /message\.actionPending \? presentation\.progress : presentation\.approve/);
+  assert.match(conversation, /onDecision\(interaction\.message, option\.approved\)/);
+  assert.match(conversation, /role=\{interaction\.error \? 'alert'/);
 });
 
 test('conversation response UI never invents follow-up actions for static insights', () => {

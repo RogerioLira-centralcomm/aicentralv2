@@ -134,7 +134,7 @@ def _finish(session_id: str, item_id: str, *, status: str, link_id: str = "", er
             cursor.execute(
                 """UPDATE cadu_workspace_ingestion_items
                       SET extraction_status=%s, extraction_error=%s,
-                          metadata=metadata || %s, updated_at=NOW()
+                          metadata=COALESCE(metadata,'{}'::jsonb) || %s::jsonb, updated_at=NOW()
                     WHERE id=%s AND session_id=%s""",
                 ("skipped" if status == "completed" else "failed", error or None,
                  Json({"project_link_id": link_id} if link_id else {}), item_id, session_id),
@@ -142,7 +142,7 @@ def _finish(session_id: str, item_id: str, *, status: str, link_id: str = "", er
             cursor.execute(
                 """UPDATE cadu_workspace_ingestion_sessions
                       SET status=%s, completed_at=CASE WHEN %s='completed' THEN NOW() ELSE completed_at END,
-                          updated_at=NOW(), metadata=metadata || %s
+                          updated_at=NOW(), metadata=COALESCE(metadata,'{}'::jsonb) || %s::jsonb
                     WHERE id=%s""",
                 (status, status, Json({"error": error} if error else {}), session_id),
             )

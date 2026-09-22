@@ -281,6 +281,30 @@ def test_long_document_without_sources_still_composes_reviews_and_renders():
     assert long_jobs.fragment_hash("conteúdo") != long_jobs.fragment_hash("outro conteúdo")
 
 
+def test_ingestion_completion_merges_jsonb_metadata_explicitly(monkeypatch):
+    from aicentralv2.cadu_workspace import workspace_ingestion_service
+
+    queries = []
+
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def execute(self, query, _params): queries.append(" ".join(query.split()))
+
+    class Connection:
+        def cursor(self): return Cursor()
+        def commit(self): pass
+        def rollback(self): pass
+
+    monkeypatch.setattr(workspace_ingestion_service, "get_db", lambda: Connection())
+    workspace_ingestion_service._finish("9fd21731-fdf0-4e16-b45f-6daeea30d271",
+                                        "8fc0b541-f642-4d41-81f4-21461c157c42",
+                                        status="completed", link_id="link-1")
+
+    assert len(queries) == 2
+    assert all("%s::jsonb" in query for query in queries)
+
+
 def test_long_job_migration_has_resumption_budget_and_incremental_text_contracts():
     migration = (ROOT / "migrations" / "add_cadu_long_running_jobs.sql").read_text()
     assert "cadu_agent_long_jobs" in migration
@@ -296,8 +320,11 @@ def test_long_job_migration_has_resumption_budget_and_incremental_text_contracts
 def test_conversation_runtime_exposes_owner_scoped_active_run_recovery():
     routes = (ROOT / "aicentralv2" / "cadu_workspace" / "agent_v2" / "routes.py").read_text()
     assert '@bp.get("/conversations/<conversation_id>/active-run")' in routes
+    assert "step.status='waiting_confirmation'" in routes
+    assert 'active["actions"] = journal.waiting_actions' in routes
     assert "conversation.id_contato_cliente=%s" in routes
-    assert "run.runtime_version='v2' AND run.status='running'" in routes
+    assert "run.runtime_version='v2'" in routes
+    assert "run.status='running' OR EXISTS" in routes
 
 
 def test_long_job_worker_is_supervised_incremental_and_billed():
@@ -1046,8 +1073,16 @@ def test_project_file_support_never_claims_unknown_content_is_understood():
     assert image["status"] == "supported"
     assert image["can_index"] is True
     spreadsheet = project_source_service.inspect_file_support("investimento.xlsx")
-    assert spreadsheet["status"] == "needs_adapter"
-    assert spreadsheet["format_family"] == "spreadsheet"
+    assert spreadsheet["status"] == "attachment_only"
+    assert spreadsheet["can_attach"] is True
+    assert spreadsheet["can_index"] is False
+    assert spreadsheet["processing"] == "metadata_only"
+    presentation = project_source_service.inspect_file_support("planejamento.pptx")
+    assert presentation["status"] == "attachment_only"
+    document = project_source_service.inspect_file_support("briefing.odt")
+    assert document["status"] == "attachment_only"
+    archive = project_source_service.inspect_file_support("materiais.zip")
+    assert archive["status"] == "attachment_only"
     unknown = project_source_service.inspect_file_support("material.indd")
     assert unknown["status"] == "unsupported"
 

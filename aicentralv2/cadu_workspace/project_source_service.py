@@ -23,12 +23,15 @@ from .agent_v2.contracts import RequestContext
 
 
 UPLOAD_MAX_AGE = 600
+OFFICE_ATTACHMENT_EXTENSIONS = {
+    ".doc", ".odt", ".rtf", ".xls", ".xlsx", ".ods", ".ppt", ".pptx", ".odp",
+}
 ATTACHMENT_EXTENSIONS = (
     project_sources.ALLOWED_EXTENSIONS
     | project_sources.IMAGE_EXTENSIONS
     | project_sources.CREATIVE_EXTENSIONS
     | project_sources.ARCHIVE_EXTENSIONS
-    | {".ppt", ".pptx", ".odp"}
+    | OFFICE_ATTACHMENT_EXTENSIONS
 )
 CATEGORIES = {"brief", "research", "media_plan", "report", "brand_asset", "reference", "contract", "spreadsheet", "other"}
 

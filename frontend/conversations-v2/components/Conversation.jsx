@@ -73,7 +73,7 @@ function ConversationSupport({context, projects, brands, messages, diagnostics, 
   </div>;
 }
 
-function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl}) {
+function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPrompt, creditsUrl}) {
   const response = message.response || {answer: message.content};
   const text = normalizeAnswerText(response.answer || '')
     .replace(/^\s*[^|\n]{1,240}\|\s*Confian(?:ça|ca)\s*:\s*\**\s*(?:baixa|m[eé]dia|alta|low|medium|high)\**[.,]?\s*/i, '')
@@ -86,17 +86,9 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
   const blocks = meaningfulResponseBlocks(response.blocks);
   const contentBlocks = blocks.filter(block => !['question', 'questions', 'decision'].includes(block.type));
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
-  if (message.kind === 'action') {
-    return <div className="cv-action-confirmation cv-max-w-[72ch]">
-      <div className="cv-action-confirmation__heading"><Icon name="pulse" size={15}/><span>Confirme antes de continuar</span></div>
-      <p>{message.action?.summary || 'Esta ação precisa da sua confirmação.'}</p>
-      <small>A etapa só será executada depois da sua confirmação.</small>
-      {message.actionError && <p className="cv-action-confirmation__error" role="alert">{message.actionError}</p>}
-      <div className="cv-action-confirmation__actions"><button type="button" disabled={message.actionPending} onPointerDown={event => event.stopPropagation()} onClick={() => onDecision(message, false)}>Cancelar</button><button type="button" disabled={message.actionPending} onPointerDown={event => event.stopPropagation()} onClick={() => onDecision(message, true)}>{message.actionPending ? 'Salvando…' : 'Confirmar ação'}</button></div>
-    </div>;
-  }
+  if (message.kind === 'action') return null;
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
-    <div className="cv-prose"><Markdown>{text}</Markdown></div>
+    <div className="cv-prose"><Markdown onOpenResource={onOpenResource}>{text}</Markdown></div>
     {!!contentBlocks.length && <ResponseBlocks blocks={contentBlocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}
@@ -109,7 +101,34 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
 function pendingInteraction(messages, running) {
   if (running || !messages?.length) return null;
   const message = messages[messages.length - 1];
-  if (message?.role !== 'assistant' || message.kind === 'failure' || message.kind === 'action') return null;
+  if (message?.role !== 'assistant' || message.kind === 'failure') return null;
+  if (message.kind === 'action') {
+    const name = String(message.action?.name || '');
+    const presentation = name === 'projects.create_link_reference'
+      ? {eyebrow: 'Adicionar referência', approve: 'Adicionar ao projeto', progress: 'Adicionando…', detail: 'O link será salvo sem leitura ou indexação automática.'}
+      : name === 'projects.create_note'
+        ? {eyebrow: 'Salvar anotação', approve: 'Salvar no projeto', progress: 'Salvando…', detail: 'A anotação ficará disponível no contexto do projeto.'}
+        : name === 'projects.reindex_source'
+          ? {eyebrow: 'Atualizar fonte', approve: 'Reindexar fonte', progress: 'Reindexando…', detail: 'O conteúdo da fonte será processado novamente.'}
+          : name === 'brands.start_audit'
+            ? {eyebrow: 'Iniciar auditoria', approve: 'Iniciar auditoria', progress: 'Iniciando…', detail: 'A análise será executada com o contexto disponível da marca.'}
+            : name.startsWith('brands.')
+              ? {eyebrow: 'Atualizar marca', approve: 'Confirmar alteração', progress: 'Atualizando…', detail: 'A alteração será aplicada à marca selecionada.'}
+              : {eyebrow: 'Confirmar ação', approve: 'Confirmar', progress: 'Executando…', detail: 'Nada será alterado até você escolher uma opção.'};
+    return {
+    kind: 'action',
+    message,
+    eyebrow: presentation.eyebrow,
+    question: message.action?.summary || 'Deseja concluir esta ação?',
+    detail: message.actionError || presentation.detail,
+    error: Boolean(message.actionError),
+    pending: Boolean(message.actionPending),
+    options: [
+      {id: 'approve', label: message.actionPending ? presentation.progress : presentation.approve, detail: 'Confirma e conclui esta ação.', approved: true, recommended: true},
+      {id: 'decline', label: 'Agora não', detail: 'Mantém a conversa sem executar a ação.', approved: false},
+    ],
+    };
+  }
   const response = message.response || {};
   const blocks = meaningfulResponseBlocks(response.blocks);
   const decision = [...blocks].reverse().find(block => block.type === 'decision' && Array.isArray(block.items) && block.items.length);
@@ -131,37 +150,25 @@ function pendingInteraction(messages, running) {
     return {id: item.id || index, label, detail: item.detail || '', prompt: item.prompt || item.question || label, asContext: true};
   });
   if (!question && !options.length) return null;
-  return {question: question || 'Escolha como continuar', options: options.slice(0, 4)};
+  const normalizedOptions = options.length ? options : [{
+    id: 'write-answer', label: 'Escrever resposta', detail: 'Responda no campo abaixo.',
+    prompt: question, asContext: true,
+  }];
+  return {question: question || 'Escolha como continuar', options: normalizedOptions.slice(0, 4)};
 }
 
-function PendingInteraction({interaction, onPrompt}) {
+function PendingInteraction({interaction, onPrompt, onDecision}) {
   if (!interaction) return null;
-  return <section className="cv-pending-interaction" aria-label="Ação necessária">
-    <div className="cv-pending-interaction__heading"><Icon name="alert" size={16}/><span><small>Sua decisão</small><strong>{interaction.question}</strong></span></div>
-    {!!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.options.map(option => <button key={option.id} type="button" onClick={() => option.asContext ? onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt}) : onPrompt(option.prompt)}>
+  return <section className={`cv-pending-interaction ${interaction.kind === 'action' ? 'is-action' : ''}`} aria-label="Ação necessária">
+    <div className="cv-pending-interaction__heading"><Icon name={interaction.kind === 'action' ? 'pulse' : 'alert'} size={16}/><span><small>{interaction.eyebrow || 'Sua decisão'}</small><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span></div>
+    {!!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.options.map(option => <button key={option.id} type="button" disabled={interaction.pending} onClick={() => interaction.kind === 'action' ? onDecision(interaction.message, option.approved) : option.asContext ? onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt}) : onPrompt(option.prompt)}>
       <span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/>
     </button>)}</div>}
   </section>;
 }
 
-function SelectionTools({text, onPrompt, onClear}) {
-  const quote = text.length > 420 ? `${text.slice(0, 420).replace(/\s+\S*$/, '')}…` : text;
-  const createText = () => {
-    onClear();
-    onPrompt('Crie um texto editável somente a partir do trecho selecionado e abra o resultado em um artefato de texto. Não inclua a conversa, a árvore de resposta, instruções técnicas ou conteúdo fora do trecho.', {
-      type: 'selection', label: 'Trecho para criar texto', text: quote,
-    });
-  };
-  return <div className="cv-selection-tools cv-sticky cv-bottom-6 cv-z-10 cv-mx-auto cv-mb-5 cv-flex cv-w-fit cv-max-w-[calc(100%-32px)] cv-flex-wrap cv-items-center cv-justify-center cv-gap-1.5 cv-rounded-xl cv-border cv-border-teal/25 cv-bg-[#102326]/95 cv-p-1.5 cv-shadow-xl cv-backdrop-blur" role="toolbar" aria-label="Ações para o trecho selecionado">
-    <span className="cv-px-2 cv-text-[10px] cv-text-[#8faaa5]">Trecho selecionado</span>
-    <button type="button" onClick={createText} className="cv-rounded-lg cv-border-0 cv-bg-teal/15 cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-font-semibold cv-text-teal hover:cv-bg-teal/25">Criar texto no artefato</button>
-    <button type="button" onClick={onClear} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#7e9994] hover:cv-bg-white/[.07] hover:cv-text-white" aria-label="Fechar ações do trecho">×</button>
-  </div>;
-}
-
 function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime, diagnostics, starterProject, starterBrand, starterHome}) {
   const thread = useRef(null);
-  const [selection, setSelection] = useState('');
   const showActivity = running;
   const hasStreamingAnswer = messages.some(message => message.role === 'assistant' && message.streaming);
   const captureSelection = () => {
@@ -169,13 +176,14 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
       const current = window.getSelection();
       const text = String(current?.toString() || '').replace(/\s+/g, ' ').trim();
       const anchor = current?.anchorNode;
-      if (!text || text.length < 3 || text.length > 1200 || !anchor || !thread.current?.contains(anchor)) return;
-      const answer = anchor.parentElement?.closest('[data-cv-answer]');
-      if (!answer) return;
-      setSelection(text);
+      const focus = current?.focusNode;
+      if (!text || text.length < 3 || text.length > 1200 || !anchor || !focus || !thread.current?.contains(anchor)) return;
+      const prose = anchor.parentElement?.closest('.cv-prose');
+      if (!prose || focus.parentElement?.closest('.cv-prose') !== prose) return;
+      const quote = text.length > 700 ? `${text.slice(0, 700).replace(/\s+\S*$/, '')}…` : text;
+      onPrompt('', {type: 'selection', label: 'Trecho selecionado', text: quote});
     });
   };
-  const clearSelection = () => { setSelection(''); window.getSelection()?.removeAllRanges(); };
   if (!messages.length && !running) return <div className="cv-empty-state cv-flex cv-min-h-full cv-items-center cv-justify-center cv-px-6 cv-py-16">
     <div className="cv-w-full cv-max-w-[700px] cv-text-center">
       <h2 className="cv-mb-2 cv-mt-0 cv-text-2xl cv-font-semibold cv-tracking-[-.025em]">Em que vamos trabalhar?</h2>
@@ -183,8 +191,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
     </div>
   </div>;
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
-    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <React.Fragment key={message.id}>{message.streaming && showActivity && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-5"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}<article data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article></React.Fragment>)}
-    {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
+    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : ['worked', 'action'].includes(message.kind) ? null : <React.Fragment key={message.id}>{message.streaming && showActivity && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-5"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}<article data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article></React.Fragment>)}
     {showActivity && !hasStreamingAnswer && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-7"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}
   </div>;
 }
@@ -263,7 +270,7 @@ export function Conversation({conversationId, title, context, projects, brands, 
       scrollToLatest();
     }}><Icon name="chevron" size={14}/>Novas atualizações</button>}
     <ExecutionQueue items={queuedTurns} onUpdate={onUpdateQueuedTurn} onRemove={onRemoveQueuedTurn} onMove={onMoveQueuedTurn}/>
-    <PendingInteraction interaction={interaction} onPrompt={onPrompt}/>
+    <PendingInteraction interaction={interaction} onPrompt={onPrompt} onDecision={onDecision}/>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop}/>
     {!messages.length && !running && <div className="cv-empty-suggestions"><WorkspacePromptSuggestions project={starterProject} brand={starterBrand} home={starterHome} onSelect={onPrompt} compact/></div>}
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}

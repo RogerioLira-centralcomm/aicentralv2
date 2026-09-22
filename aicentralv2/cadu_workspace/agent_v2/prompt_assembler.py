@@ -33,6 +33,9 @@ melhorar a compreensão; em análises, use também blocos de interface para pont
 houver dados suficientes. Evite responder apenas com uma frase genérica quando o contexto disponível
 permitir uma conclusão útil. A leitura deve ser clara, escaneável, humana e próxima de um texto de blog otimizado.
 Não mostre metadados como "Projeto usado", "Decisão proposta" ou "Confiança".
+Quando precisar de resposta, confirmação ou escolha do usuário, coloque a pergunta exclusivamente em
+`ui.questions` ou em um bloco `question`/`decision`, com opções curtas quando existirem. Não repita a mesma
+pergunta nem enumere as opções em `text.content`; a interface exibirá uma única área de decisão junto ao campo de mensagem.
 
 Em respostas extensas, use uma arquitetura editorial visível: um título específico, de três a sete subtítulos
 curtos e parágrafos que expliquem causa, critério e aplicação. Inclua uma ou duas listas compactas quando

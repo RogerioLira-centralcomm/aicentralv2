@@ -1,7 +1,7 @@
 import React from 'react';
 import {safeUrl} from '../lib/api';
 
-function Inline({text}) {
+function Inline({text, onOpenResource}) {
   const tokens = String(text || '').split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g);
   return tokens.map((token, index) => {
     if (/^\*\*.*\*\*$/.test(token)) {
@@ -18,20 +18,24 @@ function Inline({text}) {
     const link = token.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
     if (link) {
       const href = safeUrl(link[2]);
-      return href ? <a key={index} href={href} target="_blank" rel="noreferrer">{link[1]}</a> : token;
+      return href ? <a key={index} href={href} onClick={event => {
+        if (!onOpenResource) return;
+        event.preventDefault();
+        onOpenResource({url: href, title: link[1], kind: 'Link público', access_type: 'public'});
+      }} target={onOpenResource ? undefined : '_blank'} rel={onOpenResource ? undefined : 'noreferrer'}>{link[1]}</a> : token;
     }
     return token;
   });
 }
 
-export function Markdown({children}) {
+export function Markdown({children, onOpenResource}) {
   const blocks = [];
   let list = null;
   let paragraph = [];
   const flush = () => { if (list) { blocks.push(list); list = null; } };
   const flushParagraph = index => {
     if (!paragraph.length) return;
-    blocks.push(<p key={`p-${index}`}><Inline text={paragraph.join(' ')}/></p>);
+    blocks.push(<p key={`p-${index}`}><Inline text={paragraph.join(' ')} onOpenResource={onOpenResource}/></p>);
     paragraph = [];
   };
   String(children || '').replace(/\r\n/g, '\n').split('\n').forEach((raw, index) => {
@@ -42,12 +46,12 @@ export function Markdown({children}) {
     const numbered = line.match(/^\d+[.)]\s+(.+)$/);
     if (heading) {
       flush(); flushParagraph(index);
-      blocks.push(<h3 key={`h-${index}`}><Inline text={heading[1]}/></h3>);
+      blocks.push(<h3 key={`h-${index}`}><Inline text={heading[1]} onOpenResource={onOpenResource}/></h3>);
     } else if (bullet || numbered) {
       flushParagraph(index);
       const type = numbered ? 'ol' : 'ul';
       if (!list || list.listType !== type) { flush(); list = {kind: 'list', listType: type, key: index, items: []}; }
-      list.items.push(<li key={index}><Inline text={(bullet || numbered)[1]}/></li>);
+      list.items.push(<li key={index}><Inline text={(bullet || numbered)[1]} onOpenResource={onOpenResource}/></li>);
     } else {
       flush();
       paragraph.push(line);

@@ -513,10 +513,19 @@ def active_conversation_run(conversation_id):
         JOIN cadu_conversations conversation ON conversation.id=run.conversation_id
         WHERE run.conversation_id=%s AND run.user_id=%s AND run.client_id=%s
           AND conversation.id_contato_cliente=%s AND conversation.id_cliente=%s
-          AND run.runtime_version='v2' AND run.status='running'
+          AND run.runtime_version='v2'
+          AND (run.status='running' OR EXISTS (
+                SELECT 1 FROM cadu_agent_run_steps step
+                 WHERE step.run_id=run.id AND step.kind='action'
+                   AND step.status='waiting_confirmation'))
         ORDER BY run.created_at DESC LIMIT 1""",
         (conversation_id, current.user_id, current.client_id, current.user_id, current.client_id))
-    return jsonify(run=rows[0] if rows else None)
+    active = rows[0] if rows else None
+    if active:
+        active["actions"] = journal.waiting_actions(
+            active["id"], current.client_id, current.user_id,
+        )
+    return jsonify(run=active)
 
 
 @bp.post("/conversations/<conversation_id>/queue")

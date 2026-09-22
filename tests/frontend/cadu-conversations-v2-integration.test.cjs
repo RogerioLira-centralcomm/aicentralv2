@@ -652,6 +652,15 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(app, /changeBrand\(brandRef\)/);
   assert.doesNotMatch(app, /openConversationDockDetail/);
   assert.match(artifact, /cv-artifact-tabs/);
+  assert.match(artifact, /compactArtifactTitle/);
+  assert.match(artifact, /artifactTabIcon/);
+  assert.match(artifact, /onContextMenu/);
+  assert.match(artifact, /Fechar outras abas/);
+  assert.match(artifact, /Abrir no navegador/);
+  assert.match(artifact, /Publicar e abrir/);
+  assert.match(app, /onCloseOtherTabs/);
+  assert.match(app, /onCloseAllTabs/);
+  assert.match(styles, /\.cv-artifact-tab-menu/);
   assert.match(artifact, /Preparando o artefato/);
   assert.match(styles, /\.cv-artifact-loading/);
 });

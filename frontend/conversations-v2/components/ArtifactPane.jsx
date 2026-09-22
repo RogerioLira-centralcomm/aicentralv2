@@ -196,6 +196,38 @@ function formatFileSize(bytes) {
   return `${(value / (1024 * 1024)).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MB`;
 }
 
+function compactArtifactTitle(artifact) {
+  const title = artifact?.type === 'image' ? imageFileName(artifact) : String(artifact?.title || 'Artefato').trim();
+  const words = title.split(/\s+/).filter(Boolean);
+  return words.length > 3 ? `${words.slice(0, 3).join(' ')}…` : title;
+}
+
+function artifactTabIcon(artifact) {
+  const content = artifact?.content || {};
+  const haystack = `${artifact?.title || ''} ${content.provider || ''} ${content.url || content.editor_url || ''}`.toLowerCase();
+  if (haystack.includes('drive.google.com') || haystack.includes('google drive')) return 'drive';
+  if (artifact?.type === 'image') return 'image';
+  if (artifact?.type === 'html') return 'browser';
+  if (artifact?.type === 'link_reader' || /^https?:/i.test(content.url || '')) return 'link';
+  return 'file';
+}
+
+function artifactBrowserUrl(artifact, publishedUrl = '') {
+  const content = artifact?.content || {};
+  return safeUrl(
+    publishedUrl
+    || artifact?.published_url
+    || artifact?.public_url
+    || content.published_url
+    || content.public_url
+    || content.editor_url
+    || content.download_url
+    || content.url
+    || content.image_url
+    || content.src,
+  );
+}
+
 function ResourceArtifact({artifact}) {
   const content = artifact.content || {};
   const [creating, setCreating] = useState(false);
@@ -315,7 +347,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, studioEditorUrl, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
+export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, studioEditorUrl, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -324,6 +356,7 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [imageMetadata, setImageMetadata] = useState(null);
+  const [tabMenu, setTabMenu] = useState(null);
   const type = artifact?.type || 'document';
   const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
   useEffect(() => {
@@ -357,6 +390,19 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
     if (dialog.current?.open) dialog.current.close();
     return () => window.clearTimeout(closeTimer.current);
   }, [artifact?.id, artifact?.tabKey]);
+  useEffect(() => {
+    if (!tabMenu) return undefined;
+    const closeMenu = event => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      setTabMenu(null);
+    };
+    window.addEventListener('pointerdown', closeMenu);
+    window.addEventListener('keydown', closeMenu);
+    return () => {
+      window.removeEventListener('pointerdown', closeMenu);
+      window.removeEventListener('keydown', closeMenu);
+    };
+  }, [tabMenu]);
   const displayTitle = type === 'image' ? imageFileName(artifact) : (artifact.title || artifact.content?.title || 'Trabalho em andamento');
   const commitTitle = () => {
     const next = titleDraft.trim();
@@ -381,8 +427,15 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
     {tabs.length > 0 && <nav className="cv-artifact-tabs" aria-label="Artefatos abertos">{tabs.map(item => {
       const key = String(item.tabKey || item.id || '');
       const itemTitle = item.type === 'image' ? imageFileName(item) : (item.title || 'Artefato');
-      return <div key={key} className={key === activeTabKey ? 'is-active' : ''}><button type="button" onClick={() => onSelectTab?.(item)} title={itemTitle}>{item.pending && <i/>}<span>{itemTitle}</span></button><button type="button" onClick={() => onCloseTab?.(key)} aria-label={`Fechar ${itemTitle}`}>×</button></div>;
+      return <div key={key} className={key === activeTabKey ? 'is-active' : ''} onContextMenu={event => { event.preventDefault(); setTabMenu({item, key, x: Math.min(event.clientX, window.innerWidth - 218), y: Math.min(event.clientY, window.innerHeight - 190)}); }}><button type="button" onClick={() => onSelectTab?.(item)} title={itemTitle}>{item.pending ? <i/> : <Icon name={artifactTabIcon(item)} size={13}/>}<span>{compactArtifactTitle(item)}</span></button><button type="button" onClick={() => onCloseTab?.(key)} aria-label={`Fechar ${itemTitle}`}>×</button></div>;
     })}</nav>}
+    {tabMenu && <div className="cv-artifact-tab-menu" style={{left: tabMenu.x, top: tabMenu.y}} role="menu" onPointerDown={event => event.stopPropagation()}>
+      <button type="button" role="menuitem" onClick={() => { onCloseTab?.(tabMenu.key); setTabMenu(null); }}>Fechar aba</button>
+      <button type="button" role="menuitem" disabled={tabs.length < 2} onClick={() => { onCloseOtherTabs?.(tabMenu.key); setTabMenu(null); }}>Fechar outras abas</button>
+      <button type="button" role="menuitem" onClick={() => { onCloseAllTabs?.(); setTabMenu(null); }}>Fechar todas</button>
+      {artifactBrowserUrl(tabMenu.item, tabMenu.key === activeTabKey ? publishedUrl : '') && <a role="menuitem" href={artifactBrowserUrl(tabMenu.item, tabMenu.key === activeTabKey ? publishedUrl : '')} target="_blank" rel="noreferrer"><Icon name="external" size={13}/>Abrir no navegador</a>}
+      {tabMenu.item.type === 'html' && !artifactBrowserUrl(tabMenu.item, tabMenu.key === activeTabKey ? publishedUrl : '') && tabMenu.key === activeTabKey && <button type="button" role="menuitem" disabled={publishing || saving} onClick={() => { onPublish?.(); setTabMenu(null); }}><Icon name="external" size={13}/>Publicar e abrir</button>}
+    </div>}
     <header className="cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4">
       <div className="cv-min-w-0 cv-flex-1"><span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>{type === 'image' ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label="Nome do arquivo"/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o nome">{displayTitle}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
       {type === 'html' && artifact.id && <button type="button" onClick={artifact.status === 'published' && onUnpublish ? onUnpublish : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? artifact.status === 'published' ? 'Retirando…' : 'Publicando…' : saving ? 'Salvando…' : artifact.status === 'published' ? 'Despublicar' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}

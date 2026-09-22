@@ -873,6 +873,17 @@ export default function App({bootstrap}) {
                 if (!next) setArtifactOpen(false);
               }
             }}
+            onCloseOtherTabs={async key => {
+              const selected = artifactTabs.find(item => artifactKey(item) === key);
+              if (!selected) return;
+              if (key !== artifactKey(artifact) && artifactDirty && !(await confirmDiscard(false))) return;
+              setArtifactTabs([selected]);
+              setArtifact(selected); artifactRef.current = selected; setArtifactDirty(false); setPublishedUrl('');
+            }}
+            onCloseAllTabs={async () => {
+              if (artifactDirty && !(await confirmDiscard(false))) return;
+              setArtifactTabs([]); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false);
+            }}
             side={artifactSide} onSideChange={changeArtifactSide}
             onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
             studioEditorUrl={bootstrap.urls?.studioEditor}

@@ -1021,11 +1021,13 @@ export default function App({bootstrap}) {
   }, [confirmDiscard, fetchArtifact, trace]);
 
   const showResource = useCallback(async item => {
-    if (!(await openResource(item))) return;
+    const resourceRef = String(item?.resourceRef || '');
+    const routedItem = resourceRef && !item.libraryRef ? {...item, libraryRef: resourceRef.startsWith('resource:') ? resourceRef : `resource:${resourceRef}`, project_ref: item.project_ref || item.projectRef || context?.project_ref || ''} : item;
+    if (!(await openResource(routedItem))) return;
     setLibraryOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
-    setSurfaceUrl('artifact', item.artifact_id || '', false, item.artifact_id ? null : item);
-  }, [layout, openResource]);
+    setSurfaceUrl('artifact', routedItem.artifact_id || '', false, routedItem.artifact_id ? null : routedItem);
+  }, [context?.project_ref, layout, openResource]);
 
   const loadResourceReference = useCallback(async (libraryRef, projectRef = '') => {
     const endpoint = bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library';
@@ -1033,8 +1035,8 @@ export default function App({bootstrap}) {
     const data = await request(`${endpoint}${suffix}`);
     const item = findLibraryItem(data, libraryRef);
     if (!item) throw new Error('O recurso não está mais disponível nesta biblioteca.');
-    const projectHref = projects.find(project => String(project.ref || project.projectRef || '') === String(item.project_ref || projectRef))?.href || bootstrap.urls?.projects || '';
-    return openResource({...item, project_href: projectHref});
+    const project = projects.find(candidate => String(candidate.ref || candidate.projectRef || '') === String(item.project_ref || projectRef));
+    return openResource({...item, project_href: project?.href || project?.url || bootstrap.urls?.projects || '', project_link_label: project?.href || project?.url ? 'Ver no projeto' : 'Abrir projetos'});
   }, [bootstrap.endpoints?.studioLibrary, bootstrap.urls?.projects, openResource, projects]);
 
   const openLibrary = useCallback(async (syncUrl = true) => {
@@ -1048,8 +1050,9 @@ export default function App({bootstrap}) {
       const endpoint = bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library';
       const suffix = libraryProjectRef ? `?project_ref=${encodeURIComponent(libraryProjectRef)}` : '';
       const data = await request(`${endpoint}${suffix}`);
-      const projectHref = projects.find(project => String(project.ref || project.projectRef || '') === String(data.project_ref || libraryProjectRef))?.href || bootstrap.urls?.projects || '';
-      const groups = libraryGroups(data).map(group => group.id === 'references' ? {...group, items: group.items.map(item => ({...item, project_href: projectHref}))} : group);
+      const project = projects.find(candidate => String(candidate.ref || candidate.projectRef || '') === String(data.project_ref || libraryProjectRef));
+      const projectHref = project?.href || project?.url || bootstrap.urls?.projects || '';
+      const groups = libraryGroups(data).map(group => group.id === 'references' ? {...group, items: group.items.map(item => ({...item, project_href: projectHref, project_link_label: project?.href || project?.url ? 'Ver no projeto' : 'Abrir projetos'}))} : group);
       setLibrary({loading: false, error: '', groups});
     } catch (error) {
       setLibrary({loading: false, error: error.message || 'Biblioteca indisponível.', groups: []});
@@ -1312,7 +1315,11 @@ export default function App({bootstrap}) {
         <button type="button" onClick={openHistory} aria-current={activeSurface === 'navigation' ? 'page' : undefined}><Icon name="menu" size={18}/><span>Recentes</span></button>
         <button type="button" onClick={newConversation}><Icon name="plus" size={18}/><span>Novo chat</span></button>
         <button type="button" onClick={openLibrary} aria-current={activeSurface === 'library' ? 'page' : undefined}><Icon name="file" size={18}/><span>Biblioteca</span></button>
-        {bootstrap.urls?.home && <a href={bootstrap.urls.home}><Icon name="home" size={18}/><span>Início</span></a>}
+        {bootstrap.urls?.home && <a href={bootstrap.urls.home} onClick={async event => {
+          if (!artifactDirty && !attachments.length) return;
+          event.preventDefault();
+          if (await confirmDiscard()) window.location.assign(bootstrap.urls.home);
+        }}><Icon name="home" size={18}/><span>Início</span></a>}
       </nav>
     </main>
   </div>;

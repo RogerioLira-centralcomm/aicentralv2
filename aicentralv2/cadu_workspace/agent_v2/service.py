@@ -183,6 +183,14 @@ _FORMAT_CONTINUATION = re.compile(
     r"(plano|relat[oó]rio|apresenta[cç][aã]o|briefing|documento|texto)\b",
     re.IGNORECASE,
 )
+_GENERIC_REFERENCE = re.compile(
+    r"\b(?:isso|isto|aquilo|nele|nela|deles|delas|esse|essa|este|esta|aquele|aquela)\b|"
+    r"\b(?:o|a|esse|essa|aquele|aquela)\s+(?:arquivo|anexo|documento|texto|resposta|imagem|"
+    r"plano|relat[oó]rio|apresenta[cç][aã]o|briefing|projeto|marca|campanha|conte[uú]do)\b|"
+    r"\b(?:continue|continue\s+da[ií]|prossiga|retome|revise|ajuste|altere|melhore|resuma|"
+    r"transforme|reescreva|complete|finalize)\b",
+    re.IGNORECASE,
+)
 
 
 def _metadata_response(message):
@@ -194,18 +202,47 @@ def _metadata_response(message):
 
 
 def _conversation_turn_context(message, messages):
-    """Resolve recent entities and executable continuations before provider inference."""
+    """Build bounded operational state and resolve references before inference."""
     recent = [item for item in (messages or []) if item.get("role") in {"user", "assistant"}][-12:]
+    if not recent:
+        return None
     latest_url = ""
     latest_url_message = None
     pending = None
+    files = []
+    artifact = None
+    latest_user_request = ""
+    latest_assistant_answer = ""
+    inspected_latest_assistant = False
     for item in reversed(recent):
+        role = item.get("role")
+        content = str(item.get("content") or "")
         if not latest_url:
-            match = _TURN_URL.search(str(item.get("content") or ""))
+            match = _TURN_URL.search(content)
             if match:
                 latest_url = match.group(0).rstrip(".,;:!?)")
                 latest_url_message = item
-        if pending is None and item.get("role") == "assistant":
+        if role == "user" and not latest_user_request and content.strip():
+            latest_user_request = " ".join(content.split())[:1200]
+        if role == "assistant" and not latest_assistant_answer and content.strip():
+            latest_assistant_answer = " ".join(content.split())[:1600]
+        for file in item.get("files") or []:
+            if not isinstance(file, dict):
+                continue
+            identity = str(file.get("id") or file.get("url") or file.get("name") or "")
+            if identity and all(existing.get("identity") != identity for existing in files):
+                files.append({
+                    "identity": identity,
+                    "name": str(file.get("name") or "Arquivo")[:180],
+                    "url": str(file.get("url") or "")[:2000],
+                })
+        metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        if artifact is None and metadata.get("artifact_id"):
+            artifact = {"id": str(metadata["artifact_id"]), "title": str(metadata.get("artifact_title") or "Artefato")[:180]}
+        # Only the latest assistant turn can own a pending action. Looking past
+        # it would revive stale suggestions after the subject already changed.
+        if role == "assistant" and not inspected_latest_assistant:
+            inspected_latest_assistant = True
             response = _metadata_response(item)
             for block in reversed(response.get("blocks") or []):
                 if not isinstance(block, dict):
@@ -216,13 +253,10 @@ def _conversation_turn_context(message, messages):
                         break
                 if pending:
                     break
-        if latest_url and pending:
-            break
     refers_to_link = bool(_LINK_REFERENCE.search(str(message or "")))
+    generic_reference = bool(_GENERIC_REFERENCE.search(str(message or "")))
     confirms = bool(_SHORT_CONFIRMATION.match(str(message or "")))
     format_match = _FORMAT_CONTINUATION.search(str(message or ""))
-    if not ((refers_to_link and latest_url) or (confirms and pending) or (format_match and latest_url)):
-        return None
     transcript = []
     for item in recent[-6:]:
         content = " ".join(str(item.get("content") or "").split())[:1000]
@@ -233,22 +267,38 @@ def _conversation_turn_context(message, messages):
         routing_message = (
             f"Abra o link e crie um resumo editável estruturado como {format_match.group(1)}: {latest_url}"
         )
+    resolved_reference = "none"
+    if routing_message:
+        resolved_reference = "format_refinement"
+    elif refers_to_link and latest_url:
+        resolved_reference = "latest_url"
+    elif confirms and pending:
+        resolved_reference = "pending_action"
+    elif generic_reference:
+        resolved_reference = "recent_turn"
+    active_entities = {}
+    if latest_url:
+        active_entities["url"] = latest_url
+    if files:
+        active_entities["files"] = files[:5]
+    if artifact:
+        active_entities["artifact"] = artifact
     return {
         "type": "conversation_turn",
-        "active_entities": {"url": latest_url} if latest_url else {},
-        "resolved_reference": (
-            "format_refinement" if routing_message else
-            "latest_url" if refers_to_link and latest_url else "pending_action"
-        ),
+        "active_entities": active_entities,
+        "resolved_reference": resolved_reference,
+        "requires_selected_context": resolved_reference != "none",
         "pending_action": pending,
         "routing_message": routing_message,
         "source_message_id": str((latest_url_message or {}).get("id") or ""),
+        "latest_user_request": latest_user_request,
+        "latest_assistant_answer": latest_assistant_answer,
         "recent_turns": transcript,
     }
 
 
 def _turn_selected_context(turn):
-    if not turn:
+    if not turn or not turn.get("requires_selected_context"):
         return None
     return _selected_context({
         "type": "conversation_turn",
@@ -542,7 +592,7 @@ def prepare(data):
     ) if data.get("conversation_id") else []) or []
     turn_context = _conversation_turn_context(message, previous_messages)
     if not current.selected_context:
-        selected = _turn_selected_context(turn_context) or _previous_assistant_context(message, previous_messages)
+        selected = _previous_assistant_context(message, previous_messages) or _turn_selected_context(turn_context)
         if selected:
             current = replace(current, selected_context=selected)
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""

@@ -1496,10 +1496,41 @@ def test_format_refinement_keeps_the_recent_link_and_builds_an_executable_reques
 
 
 def test_unrelated_message_does_not_receive_implicit_turn_context():
-    assert v2_service._conversation_turn_context(
+    turn = v2_service._conversation_turn_context(
         "qual é a previsão do tempo?",
         [{"id": "u1", "role": "user", "content": "https://example.com/proposta"}],
-    ) is None
+    )
+    assert turn["active_entities"]["url"] == "https://example.com/proposta"
+    assert turn["requires_selected_context"] is False
+
+
+def test_generic_reference_preserves_recent_file_and_subject():
+    turn = v2_service._conversation_turn_context(
+        "revise esse arquivo e melhore isso",
+        [
+            {"id": "u1", "role": "user", "content": "Analise o relatório de mídia",
+             "files": [{"id": "file-7", "name": "midia.pdf"}]},
+            {"id": "a1", "role": "assistant", "content": "A análise encontrou três oportunidades."},
+        ],
+    )
+    assert turn["resolved_reference"] == "recent_turn"
+    assert turn["requires_selected_context"] is True
+    assert turn["active_entities"]["files"][0]["name"] == "midia.pdf"
+    assert turn["latest_user_request"] == "Analise o relatório de mídia"
+    assert turn["latest_assistant_answer"] == "A análise encontrou três oportunidades."
+
+
+def test_pending_action_expires_when_a_newer_assistant_turn_has_no_action():
+    old = {"id": "a1", "role": "assistant", "content": "Posso gerar.", "metadata": {
+        "response": {"blocks": [{"items": [{"auto_submit": True, "prompt": "Crie o plano"}]}]},
+    }}
+    turn = v2_service._conversation_turn_context(
+        "pode criar",
+        [old, {"id": "u2", "role": "user", "content": "Outro assunto"},
+         {"id": "a2", "role": "assistant", "content": "Vamos falar do novo assunto."}],
+    )
+    assert turn["pending_action"] is None
+    assert turn["requires_selected_context"] is False
 
 
 def test_pending_action_prompt_drives_routing_while_user_message_stays_original():

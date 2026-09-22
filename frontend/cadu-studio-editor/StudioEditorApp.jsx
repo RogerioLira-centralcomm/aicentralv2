@@ -81,14 +81,25 @@ function ExpandDialog({asset, onClose, onQueue, onQuote}) {
 export default function StudioEditorApp({bootstrap}) {
   const storageKey = `${STORAGE_PREFIX}:${bootstrap.clientId || 'default'}`;
   const initial = useMemo(() => { try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { return {}; } }, [storageKey]);
-  const [asset, setAsset] = useState(initial.asset || null);
-  const [versions, setVersions] = useState(initial.versions || []);
-  const [selectedId, setSelectedId] = useState(initial.selectedId || '');
-  const [prompt, setPrompt] = useState(initial.prompt || '');
+  const handoff = useMemo(() => {
+    const query = new URLSearchParams(window.location.search);
+    const source = query.get('source_url') || '';
+    let url = '';
+    try { const parsed = new URL(source, window.location.origin); if (['http:', 'https:'].includes(parsed.protocol)) url = parsed.href; } catch (_) {}
+    return url ? {id: 'workspace-handoff', url, name: query.get('source_title') || 'Imagem de referência', status: 'draft', source: 'workspace'} : null;
+  }, []);
+  const initialAsset = handoff || initial.asset || null;
+  const initialVersions = handoff ? [handoff] : initial.versions || [];
+  const initialQuery = new URLSearchParams(window.location.search);
+  const initialMode = initialQuery.get('editor_mode');
+  const [asset, setAsset] = useState(initialAsset);
+  const [versions, setVersions] = useState(initialVersions);
+  const [selectedId, setSelectedId] = useState(handoff?.id || initial.selectedId || '');
+  const [prompt, setPrompt] = useState(initialQuery.get('instruction') || initial.prompt || '');
   const [director, setDirector] = useState({open: false, objective: '', preserve: ['identity', 'copy', 'layout']});
   const [batchProgress, setBatchProgress] = useState(null);
   const [format, setFormat] = useState(initial.format || '4:5');
-  const [mode, setMode] = useState('select');
+  const [mode, setMode] = useState(['select', 'mask', 'crop', 'format'].includes(initialMode) ? initialMode : 'select');
   const [mask, setMask] = useState(initial.mask || null);
   const [crop, setCrop] = useState(initial.crop || null);
   const [references, setReferences] = useState([]);

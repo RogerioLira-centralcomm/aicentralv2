@@ -792,6 +792,7 @@ export default function App({bootstrap}) {
             artifact={artifact} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
             side={artifactSide} onSideChange={changeArtifactSide}
             onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
+            studioEditorUrl={bootstrap.urls?.studioEditor}
             onSaveToProject={saveArtifactToProject} onPublish={publishArtifact} onUnpublish={unpublishArtifact} onClose={() => setArtifactOpen(false)}
             onRequestSummary={url => submit(`Abra e resuma este site público em um texto editável: ${url}`, {skipAttachments: true})}
             onSaveReference={async url => {

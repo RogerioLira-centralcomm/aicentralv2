@@ -598,3 +598,23 @@ test('attachment upload service preserves progress and conversation upload contr
   assert.equal(uploaded[0].id, 'file-1');
   assert.equal(uploaded[0].uploading, false);
 });
+
+test('image artifacts hand off editing context to Studio', () => {
+  const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+  const editor = fs.readFileSync(path.join(root, 'frontend/cadu-studio-editor/StudioEditorApp.jsx'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
+
+  assert.match(template, /studioEditor.*studio\/modelagem-criativos\/imagem/);
+  assert.match(app, /studioEditorUrl=\{bootstrap\.urls\?\.studioEditor\}/);
+  assert.match(artifact, /source_url/);
+  assert.match(artifact, /editor_mode/);
+  assert.match(artifact, /Marcar uma área/);
+  assert.match(artifact, /Remover fundo/);
+  assert.match(artifact, /Otimizar para web/);
+  assert.match(editor, /query\.get\('source_url'\)/);
+  assert.match(editor, /initialQuery\.get\('instruction'\)/);
+  assert.match(editor, /initialQuery\.get\('editor_mode'\)/);
+  assert.match(styles, /\.cv-image-artifact__bar \{ position:sticky; bottom:0/);
+});

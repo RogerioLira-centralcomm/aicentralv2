@@ -122,10 +122,41 @@ function HtmlArtifact({artifact}) {
   return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={htmlDocument(artifact.content || {}, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
 }
 
-function ImageArtifact({artifact}) {
+function ImageArtifact({artifact, studioEditorUrl, projectRef}) {
   const content = artifact.content || {};
   const src = safeUrl(content.url || content.image_url || content.src);
-  return <div className="cv-image-artifact">{src ? <img src={src} alt={content.alt || artifact.title || 'Imagem gerada'}/> : <p>A imagem ainda não está disponível.</p>}{src && <div><a href={src} target="_blank" rel="noreferrer">Abrir original</a><a href={src} download>Baixar</a></div>}</div>;
+  const studioLink = (mode = 'select', prompt = '') => {
+    if (!src || !studioEditorUrl) return '';
+    const url = new URL(studioEditorUrl, window.location.origin);
+    url.searchParams.set('source_url', src);
+    url.searchParams.set('source_title', artifact.title || content.alt || 'Imagem de referência');
+    url.searchParams.set('editor_mode', mode);
+    if (prompt) url.searchParams.set('instruction', prompt);
+    const projectId = String(projectRef || '').replace(/^ci:/, '');
+    if (projectId) url.searchParams.set('project_id', projectId);
+    return url.href;
+  };
+  const editUrl = studioLink();
+  return <div className="cv-image-artifact">
+    {src ? <figure><img src={src} alt={content.alt || artifact.title || 'Imagem gerada'}/></figure> : <p>A imagem ainda não está disponível.</p>}
+    {src && <div className="cv-image-artifact__bar">
+      <div>
+        <a href={editUrl || src} target="_blank" rel="noreferrer" className="is-primary">Editar no Studio</a>
+        <a href={src} target="_blank" rel="noreferrer">Abrir original</a>
+        <a href={src} download>Baixar</a>
+      </div>
+      {editUrl && <details>
+        <summary>Editar imagem</summary>
+        <div>
+          <a href={studioLink('mask', 'Altere somente a região que eu marcar, preservando todo o restante da imagem.')} target="_blank" rel="noreferrer">Marcar uma área</a>
+          <a href={studioLink('crop', 'Recorte e reenquadre a imagem mantendo o elemento principal em destaque.')} target="_blank" rel="noreferrer">Recortar e reenquadrar</a>
+          <a href={studioLink('select', 'Remova o fundo desta imagem e preserve as bordas do elemento principal com acabamento limpo.')} target="_blank" rel="noreferrer">Remover fundo</a>
+          <a href={studioLink('format', 'Adapte esta imagem para um novo formato sem perder o conteúdo principal.')} target="_blank" rel="noreferrer">Alterar formato</a>
+          <a href={studioLink('select', 'Otimize esta imagem para uso digital, reduzindo o peso sem perda visual perceptível.')} target="_blank" rel="noreferrer">Otimizar para web</a>
+        </div>
+      </details>}
+    </div>}
+  </div>;
 }
 
 function ResourceArtifact({artifact}) {
@@ -247,7 +278,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
+export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, studioEditorUrl, onSaveToProject, onPublish, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -268,14 +299,14 @@ export function ArtifactPane({artifact, dirty, saving, publishing, publishedUrl,
     if (!artifact) return null;
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
     if (type === 'project_map') return <ProjectMap artifact={artifact} onChange={onChange}/>;
-    if (type === 'image') return <ImageArtifact artifact={artifact}/>;
+    if (type === 'image') return <ImageArtifact artifact={artifact} studioEditorUrl={studioEditorUrl} projectRef={projectRef}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     return type === 'document'
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} onTitleChange={onTitleChange}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan]);
+  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, projectRef, studioEditorUrl]);
   useEffect(() => {
     setClosing(false);
     if (dialog.current?.open) dialog.current.close();

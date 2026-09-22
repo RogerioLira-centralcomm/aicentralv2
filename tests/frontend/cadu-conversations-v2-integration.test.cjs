@@ -513,6 +513,9 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(conversation, /message\.streaming && showActivity/);
   assert.match(conversation, /text\.length > 5000/);
   assert.match(conversation, /Abrir como documento/);
+  assert.doesNotMatch(conversation, />C<\/span>/);
+  const designStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+  assert.match(designStyles, /#cadu-conversations-v2-root \.cadu-ds-prompt-suggestions button \{[^}]*background:#0f1d20/);
 });
 
 test('conversation attachment model preserves validation and destination rules', async () => {

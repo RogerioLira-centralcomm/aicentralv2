@@ -1921,9 +1921,18 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
 }
 
 #cadu-conversations-v2-root .cadu-ds-prompt-suggestions button {
-  border-color:var(--cadu-line);
-  background:var(--cadu-surface);
-  color:var(--cadu-ink);
+  border-color:rgba(181,218,211,.13);
+  background:#0f1d20;
+  color:#dce9e6;
+  box-shadow:none;
+}
+
+#cadu-conversations-v2-root .cadu-ds-prompt-suggestions button:hover,
+#cadu-conversations-v2-root .cadu-ds-prompt-suggestions button:focus-visible {
+  border-color:rgba(101,216,203,.34);
+  background:#13272a;
+  color:#f0f8f6;
+  transform:none;
 }
 
 #cadu-conversations-v2-root .cv-conversation--empty .cv-thread-scroll {

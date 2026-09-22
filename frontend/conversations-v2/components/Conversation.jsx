@@ -144,8 +144,7 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
   const clearSelection = () => { setSelection(''); window.getSelection()?.removeAllRanges(); };
   if (!messages.length && !running) return <div className="cv-empty-state cv-flex cv-min-h-full cv-items-center cv-justify-center cv-px-6 cv-py-16">
     <div className="cv-w-full cv-max-w-[700px] cv-text-center">
-      <span className="cv-mx-auto cv-grid cv-h-10 cv-w-10 cv-place-items-center cv-rounded-xl cv-bg-teal/10 cv-text-lg cv-font-bold cv-text-teal">C</span>
-      <h2 className="cv-mb-2 cv-mt-5 cv-text-2xl cv-font-semibold cv-tracking-[-.025em]">Em que vamos trabalhar?</h2>
+      <h2 className="cv-mb-2 cv-mt-0 cv-text-2xl cv-font-semibold cv-tracking-[-.025em]">Em que vamos trabalhar?</h2>
       <p className="cv-mx-auto cv-mb-8 cv-max-w-[520px] cv-text-sm cv-leading-6 cv-text-mist">Converse, analise arquivos ou crie algo usando o contexto do projeto.</p>
       <WorkspacePromptSuggestions project={starterProject} brand={starterBrand} home={starterHome} onSelect={onPrompt} compact/>
     </div>

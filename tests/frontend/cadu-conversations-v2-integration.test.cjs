@@ -621,10 +621,17 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(artifact, /Marcar uma área/);
   assert.match(artifact, /Remover fundo/);
   assert.match(artifact, /Otimizar para web/);
+  assert.match(artifact, /function imageFileName/);
+  assert.match(artifact, /aria-label="Nome do arquivo"/);
+  assert.match(artifact, /cv-image-metadata/);
+  assert.match(artifact, /Dimensões/);
+  assert.match(artifact, /Resolução/);
+  assert.doesNotMatch(artifact, /cv-image-artifact__bar/);
   assert.match(editor, /query\.get\('source_url'\)/);
   assert.match(editor, /initialQuery\.get\('instruction'\)/);
   assert.match(editor, /initialQuery\.get\('editor_mode'\)/);
-  assert.match(styles, /\.cv-image-artifact__bar \{ position:sticky; bottom:0/);
+  assert.match(styles, /\.cv-image-metadata \{/);
+  assert.doesNotMatch(styles, /\.cv-image-artifact__bar/);
   assert.match(app, /writeCookie\(ARTIFACT_SIDE_COOKIE, next\)/);
   assert.match(app, /writeCookie\(`\$\{ARTIFACT_SIDE_COOKIE\}:\$\{artifact\.id\}`, next\)/);
   assert.match(app, /if \(lastArtifact\) await fetchArtifact\(lastArtifact\)/);

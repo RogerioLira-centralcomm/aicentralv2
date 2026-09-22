@@ -122,41 +122,78 @@ function HtmlArtifact({artifact}) {
   return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={htmlDocument(artifact.content || {}, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
 }
 
-function ImageArtifact({artifact, studioEditorUrl, projectRef}) {
+function imageSource(artifact) {
+  const content = artifact?.content || {};
+  return safeUrl(content.url || content.image_url || content.src);
+}
+
+function imageFileName(artifact) {
+  const content = artifact?.content || {};
+  const explicit = content.filename || content.file_name || artifact?.filename;
+  if (explicit) return String(explicit);
+  const title = String(artifact?.title || content.title || '').trim();
+  if (title && !/^ativo da marca$/i.test(title)) return title;
+  const src = imageSource(artifact);
+  if (src) {
+    try {
+      const pathname = new URL(src, window.location.origin).pathname;
+      const candidate = decodeURIComponent(pathname.split('/').filter(Boolean).pop() || '');
+      if (candidate) return candidate;
+    } catch (_) { /* A URL já foi validada por safeUrl. */ }
+  }
+  return 'imagem.png';
+}
+
+function imageStudioLink(artifact, studioEditorUrl, projectRef, mode = 'select', prompt = '') {
   const content = artifact.content || {};
-  const src = safeUrl(content.url || content.image_url || content.src);
-  const studioLink = (mode = 'select', prompt = '') => {
-    if (!src || !studioEditorUrl) return '';
-    const url = new URL(studioEditorUrl, window.location.origin);
-    url.searchParams.set('source_url', src);
-    url.searchParams.set('source_title', artifact.title || content.alt || 'Imagem de referência');
-    url.searchParams.set('editor_mode', mode);
-    if (prompt) url.searchParams.set('instruction', prompt);
-    const projectId = String(projectRef || '').replace(/^ci:/, '');
-    if (projectId) url.searchParams.set('project_id', projectId);
-    return url.href;
-  };
-  const editUrl = studioLink();
+  const src = imageSource(artifact);
+  if (!src || !studioEditorUrl) return '';
+  const url = new URL(studioEditorUrl, window.location.origin);
+  url.searchParams.set('source_url', src);
+  url.searchParams.set('source_title', imageFileName(artifact) || content.alt || 'Imagem de referência');
+  url.searchParams.set('editor_mode', mode);
+  if (prompt) url.searchParams.set('instruction', prompt);
+  const projectId = String(projectRef || '').replace(/^ci:/, '');
+  if (projectId) url.searchParams.set('project_id', projectId);
+  return url.href;
+}
+
+function ImageArtifact({artifact, onMetadata}) {
+  const content = artifact.content || {};
+  const src = imageSource(artifact);
+  useEffect(() => {
+    const knownBytes = Number(content.file_size || content.size || artifact.file_size || artifact.size || 0);
+    onMetadata?.({
+      width: Number(content.width || artifact.width || 0),
+      height: Number(content.height || artifact.height || 0),
+      bytes: knownBytes,
+      mime: content.mime_type || content.content_type || artifact.mime_type || '',
+    });
+    if (!src || knownBytes) return undefined;
+    const controller = new AbortController();
+    fetch(src, {method: 'HEAD', credentials: 'same-origin', signal: controller.signal}).then(response => {
+      if (!response.ok) return;
+      onMetadata?.({bytes: Number(response.headers.get('content-length') || 0), mime: response.headers.get('content-type') || ''});
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [artifact.file_size, artifact.height, artifact.size, artifact.width, content.content_type, content.file_size, content.height, content.mime_type, content.size, content.width, onMetadata, src]);
+  const reportMetadata = event => onMetadata?.({
+    width: event.currentTarget.naturalWidth,
+    height: event.currentTarget.naturalHeight,
+    bytes: Number(content.file_size || content.size || artifact.file_size || artifact.size || 0),
+    mime: content.mime_type || content.content_type || artifact.mime_type || '',
+  });
   return <div className="cv-image-artifact">
-    {src ? <figure><img src={src} alt={content.alt || artifact.title || 'Imagem gerada'}/></figure> : <p>A imagem ainda não está disponível.</p>}
-    {src && <div className="cv-image-artifact__bar">
-      <div>
-        <a href={editUrl || src} target="_blank" rel="noreferrer" className="is-primary">Editar no Studio</a>
-        <a href={src} target="_blank" rel="noreferrer">Abrir original</a>
-        <a href={src} download>Baixar</a>
-      </div>
-      {editUrl && <details>
-        <summary>Editar imagem</summary>
-        <div>
-          <a href={studioLink('mask', 'Altere somente a região que eu marcar, preservando todo o restante da imagem.')} target="_blank" rel="noreferrer">Marcar uma área</a>
-          <a href={studioLink('crop', 'Recorte e reenquadre a imagem mantendo o elemento principal em destaque.')} target="_blank" rel="noreferrer">Recortar e reenquadrar</a>
-          <a href={studioLink('select', 'Remova o fundo desta imagem e preserve as bordas do elemento principal com acabamento limpo.')} target="_blank" rel="noreferrer">Remover fundo</a>
-          <a href={studioLink('format', 'Adapte esta imagem para um novo formato sem perder o conteúdo principal.')} target="_blank" rel="noreferrer">Alterar formato</a>
-          <a href={studioLink('select', 'Otimize esta imagem para uso digital, reduzindo o peso sem perda visual perceptível.')} target="_blank" rel="noreferrer">Otimizar para web</a>
-        </div>
-      </details>}
-    </div>}
+    {src ? <figure><img src={src} alt={content.alt || imageFileName(artifact)} onLoad={reportMetadata}/></figure> : <p>A imagem ainda não está disponível.</p>}
   </div>;
+}
+
+function formatFileSize(bytes) {
+  const value = Number(bytes || 0);
+  if (!value) return 'Não informado';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MB`;
 }
 
 function ResourceArtifact({artifact}) {
@@ -284,6 +321,9 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [closing, setClosing] = useState(false);
   const [lightTheme, setLightTheme] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [imageMetadata, setImageMetadata] = useState(null);
   const type = artifact?.type || 'document';
   const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
   useEffect(() => {
@@ -301,19 +341,30 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
     if (artifact.failed) return <div className="cv-artifact-loading is-failed" role="status"><strong>O artefato não foi concluído</strong><span>{artifact.error}</span></div>;
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
     if (type === 'project_map') return <ProjectMap artifact={artifact} onChange={onChange}/>;
-    if (type === 'image') return <ImageArtifact artifact={artifact} studioEditorUrl={studioEditorUrl} projectRef={projectRef}/>;
+    if (type === 'image') return <ImageArtifact artifact={artifact} onMetadata={next => setImageMetadata(current => ({...(current || {}), ...next}))}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     return type === 'document'
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} onTitleChange={onTitleChange}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, projectRef, studioEditorUrl]);
+  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan]);
   useEffect(() => {
     setClosing(false);
+    setEditingTitle(false);
+    setTitleDraft(type === 'image' ? imageFileName(artifact) : (artifact?.title || artifact?.content?.title || 'Trabalho em andamento'));
+    setImageMetadata(null);
     if (dialog.current?.open) dialog.current.close();
     return () => window.clearTimeout(closeTimer.current);
-  }, [artifact?.id]);
+  }, [artifact?.id, artifact?.tabKey]);
+  const displayTitle = type === 'image' ? imageFileName(artifact) : (artifact.title || artifact.content?.title || 'Trabalho em andamento');
+  const commitTitle = () => {
+    const next = titleDraft.trim();
+    if (next && next !== displayTitle) onTitleChange?.(next);
+    setEditingTitle(false);
+  };
+  const src = type === 'image' ? imageSource(artifact) : '';
+  const imageEditUrl = type === 'image' ? imageStudioLink(artifact, studioEditorUrl, projectRef) : '';
   const requestClose = () => {
     setClosing(true);
     window.clearTimeout(closeTimer.current);
@@ -329,14 +380,23 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
   return <aside className={`cv-artifact-panel cv-artifact-overlay cv-artifact-panel--${side} cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label="Artefato">
     {tabs.length > 0 && <nav className="cv-artifact-tabs" aria-label="Artefatos abertos">{tabs.map(item => {
       const key = String(item.tabKey || item.id || '');
-      return <div key={key} className={key === activeTabKey ? 'is-active' : ''}><button type="button" onClick={() => onSelectTab?.(item)} title={item.title || 'Artefato'}>{item.pending && <i/>}<span>{item.title || 'Artefato'}</span></button><button type="button" onClick={() => onCloseTab?.(key)} aria-label={`Fechar ${item.title || 'artefato'}`}>×</button></div>;
+      const itemTitle = item.type === 'image' ? imageFileName(item) : (item.title || 'Artefato');
+      return <div key={key} className={key === activeTabKey ? 'is-active' : ''}><button type="button" onClick={() => onSelectTab?.(item)} title={itemTitle}>{item.pending && <i/>}<span>{itemTitle}</span></button><button type="button" onClick={() => onCloseTab?.(key)} aria-label={`Fechar ${itemTitle}`}>×</button></div>;
     })}</nav>}
     <header className="cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4">
-      <div className="cv-min-w-0 cv-flex-1"><span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span><h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{artifact.title || artifact.content?.title || 'Trabalho em andamento'}</h2></div>
+      <div className="cv-min-w-0 cv-flex-1"><span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>{type === 'image' ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label="Nome do arquivo"/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o nome">{displayTitle}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
       {type === 'html' && artifact.id && <button type="button" onClick={artifact.status === 'published' && onUnpublish ? onUnpublish : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? artifact.status === 'published' ? 'Retirando…' : 'Publicando…' : saving ? 'Salvando…' : artifact.status === 'published' ? 'Despublicar' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}
       {!artifact.pending && !artifact.failed && <details className="cv-artifact-more">
-        <summary aria-label="Mais ações do artefato">Ações</summary>
+        <summary aria-label="Mais ações do artefato">Ações <span aria-hidden="true">⌄</span></summary>
         <div>
+          {type === 'image' && imageEditUrl && <a href={imageEditUrl} target="_blank" rel="noreferrer" className="is-primary">Editar no Studio</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'mask', 'Altere somente a região que eu marcar, preservando todo o restante da imagem.')} target="_blank" rel="noreferrer">Marcar uma área</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'crop', 'Recorte e reenquadre a imagem mantendo o elemento principal em destaque.')} target="_blank" rel="noreferrer">Recortar e reenquadrar</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'select', 'Remova o fundo desta imagem e preserve as bordas do elemento principal com acabamento limpo.')} target="_blank" rel="noreferrer">Remover fundo</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'format', 'Adapte esta imagem para um novo formato sem perder o conteúdo principal.')} target="_blank" rel="noreferrer">Alterar formato</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'select', 'Otimize esta imagem para uso digital, reduzindo o peso sem perda visual perceptível.')} target="_blank" rel="noreferrer">Otimizar para web</a>}
+          {type === 'image' && src && <a href={src} target="_blank" rel="noreferrer">Abrir original</a>}
+          {type === 'image' && src && <a href={src} download>Baixar arquivo</a>}
           {textArtifact && <button type="button" onClick={toggleTheme}>{lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}</button>}
           <button type="button" onClick={() => onSideChange?.(side === 'right' ? 'left' : 'right')}>{side === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}</button>
           {artifact.id && <button type="button" onClick={openVersions}><Icon name="history" size={14}/>Ver versões <small>v{artifact.current_version || 1}</small></button>}
@@ -345,7 +405,8 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
       <button type="button" onClick={requestClose} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Fechar artefato"><Icon name="close" size={17}/></button>
     </header>
     <div className="cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-auto">{contentView}</div>
-    {!artifact.pending && artifact.id && <footer className="cv-artifact-actions"><span>{saving ? 'Salvando…' : dirty ? 'Alterações pendentes' : artifact.project_ref ? 'Salvo no projeto' : 'Salvo no espaço pessoal'}</span><div>{projectRef && !artifact.project_ref && <button type="button" onClick={onSaveToProject} disabled={saving} className="cv-artifact-actions__project">Adicionar ao projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">Salvar agora</button>}</div></footer>}
+    {!artifact.pending && type === 'image' && <footer className="cv-image-metadata" aria-label="Informações da imagem"><dl><div><dt>Dimensões</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${imageMetadata.width} × ${imageMetadata.height} px` : 'Carregando…'}</dd></div><div><dt>Resolução</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${((imageMetadata.width * imageMetadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : '—'}</dd></div><div><dt>Arquivo</dt><dd>{formatFileSize(imageMetadata?.bytes)}</dd></div></dl></footer>}
+    {!artifact.pending && artifact.id && type !== 'image' && <footer className="cv-artifact-actions"><span>{saving ? 'Salvando…' : dirty ? 'Alterações pendentes' : artifact.project_ref ? 'Salvo no projeto' : 'Salvo no espaço pessoal'}</span><div>{projectRef && !artifact.project_ref && <button type="button" onClick={onSaveToProject} disabled={saving} className="cv-artifact-actions__project">Adicionar ao projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">Salvar agora</button>}</div></footer>}
     <dialog ref={dialog} className="cv-dialog cv-w-[min(540px,calc(100vw-32px))] cv-p-0">
       <section><header className="cv-flex cv-items-center cv-justify-between cv-border-b cv-border-white/10 cv-p-5"><div><h2 className="cv-m-0 cv-text-base">Versões</h2><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-text-mist">Restaure uma revisão anterior.</p></div><button type="button" onClick={() => dialog.current?.close()} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent"><Icon name="close" size={16}/></button></header>
         <div className="cv-scroll cv-max-h-[55vh] cv-overflow-y-auto cv-p-3">{loadingVersions ? <p className="cv-p-3 cv-text-sm cv-text-mist">Carregando…</p> : versions.length ? versions.map(item => <article key={item.version} className="cv-flex cv-items-center cv-gap-4 cv-rounded-xl cv-p-3 hover:cv-bg-white/[.04]"><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm">Versão {item.version}</strong><small className="cv-mt-1 cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-xs cv-text-mist">{item.change_summary || 'Revisão do artefato'}</small></div><button type="button" disabled={Number(item.version) === Number(artifact.current_version)} onClick={async () => { await onRestoreVersion(item.version); dialog.current?.close(); }} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{Number(item.version) === Number(artifact.current_version) ? 'Atual' : 'Restaurar'}</button></article>) : <p className="cv-p-3 cv-text-sm cv-text-mist">Nenhuma versão disponível.</p>}</div>

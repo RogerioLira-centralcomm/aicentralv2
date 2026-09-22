@@ -4,6 +4,7 @@ import {VisualIdentity} from './VisualIdentity';
 import {Icon} from './Icon';
 import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {workspaceSolutionItems} from '../workspaceSolutions';
+import {useWorkspaceNotifications} from './WorkspaceNotifications';
 
 function DockTooltip({label, children}) {
   const anchorRef = useRef(null);
@@ -152,6 +153,9 @@ export function DockUsageRing({percent, onOpen}) {
 }
 
 export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversationMode = false, userName = 'Minha conta', userAvatar, userInitials, accountOpen = false, accountMenu, accountUrl, onOpenAccount, onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, notifications = [], onOpenNotifications, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
+  const notificationCenter = useWorkspaceNotifications();
+  const resolvedNotifications = notifications.length ? notifications : notificationCenter.pending;
+  const openNotifications = onOpenNotifications || notificationCenter.open;
   const writePayload = (event, payload) => {
     const serialized = JSON.stringify({...payload, dockSource: 'dock'});
     event.dataTransfer.effectAllowed = 'move';
@@ -262,6 +266,6 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
       {orphanProjects.length > 0 && <section className="cadu-ds-dock-section cadu-ds-dock-section--projects" aria-label="Projetos fixados">{orphanProjects.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} dropTarget={dropTargetId === shortcutIdentity(item)} dropComplete={dropCompleteId === shortcutIdentity(item)} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>}
       {dockResourceItems.length > 0 && <section className="cadu-ds-dock-section cadu-ds-dock-section--resources" aria-label="Recursos fixados">{dockResourceItems.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} dropTarget={dropTargetId === shortcutIdentity(item)} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDragEnter={markDropTarget} onDragLeave={clearDropTarget} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>}
     </div></DockDropZone>
-    <div className="cadu-ds-dock-bottom">{onOpenNotifications && <DockTooltip label="Notificações"><button type="button" className="cadu-ds-dock-notifications" onClick={onOpenNotifications} aria-label="Abrir notificações"><Icon name="pulse" size={17}/>{notifications.length > 0 && <i>{notifications.length > 9 ? '9+' : notifications.length}</i>}</button></DockTooltip>}<DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && accountMenu}</div></div>
+    <div className="cadu-ds-dock-bottom">{openNotifications && <DockTooltip label="Notificações"><button type="button" className="cadu-ds-dock-notifications" onClick={openNotifications} aria-label="Abrir notificações"><Icon name="pulse" size={17}/>{resolvedNotifications.length > 0 && <i>{resolvedNotifications.length > 9 ? '9+' : resolvedNotifications.length}</i>}</button></DockTooltip>}<DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && accountMenu}</div></div>
   </aside>;
 }

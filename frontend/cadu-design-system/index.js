@@ -23,6 +23,7 @@ export {AgentActionDrop, ActivityDrawer, ShortcutManagerDialog, WorkspaceAccount
 export {WorkspaceHome} from './components/WorkspaceHome';
 export {WorkspaceMobileChrome} from './components/WorkspaceMobileChrome';
 export {WorkspaceNotificationCenter} from './components/WorkspaceNotificationCenter';
+export {WorkspaceNotificationsProvider, useWorkspaceNotifications} from './components/WorkspaceNotifications';
 export {useWorkspaceViewport} from './hooks/useWorkspaceViewport';
 export {WorkspaceProject} from './components/WorkspaceProject';
 export {WorkspaceBrand} from './components/WorkspaceBrand';

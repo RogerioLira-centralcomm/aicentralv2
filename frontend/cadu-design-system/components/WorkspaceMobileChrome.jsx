@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Icon} from './Icon';
+import {useWorkspaceNotifications} from './WorkspaceNotifications';
 
 const destinations = [
   ['conversations', 'Conversas', 'compose'],
@@ -9,6 +10,7 @@ const destinations = [
 ];
 
 export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace', links = {}, contextItems = []}) {
+  const notifications = useWorkspaceNotifications();
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
   const panel = useRef(null);
@@ -47,7 +49,7 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
   return <>
     <header className="cadu-ds-mobile-chrome">
       <div><span>{eyebrow}</span><strong>{title}</strong></div>
-      <button ref={trigger} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-controls="workspace-mobile-navigation"><Icon name="menu" size={18}/>Menu</button>
+      <div className="cadu-ds-mobile-chrome__actions">{notifications.open && <button type="button" className="cadu-ds-mobile-chrome__notifications" onClick={notifications.open} aria-label="Abrir notificações"><Icon name="pulse" size={18}/>{notifications.pending.length > 0 && <i>{notifications.pending.length > 9 ? '9+' : notifications.pending.length}</i>}</button>}<button ref={trigger} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-controls="workspace-mobile-navigation"><Icon name="menu" size={18}/>Menu</button></div>
     </header>
     {open && <div className="cadu-ds-mobile-navigation" role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section ref={panel} id="workspace-mobile-navigation" role="dialog" aria-modal="true" aria-label="Navegação do Workspace">

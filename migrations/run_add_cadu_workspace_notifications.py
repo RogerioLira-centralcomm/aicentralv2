@@ -9,8 +9,12 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = Path(__file__).with_name('add_cadu_workspace_notifications.sql')
-EXPECTED = {'id', 'client_id', 'user_id', 'project_ref', 'notification_type', 'status',
-            'title', 'action_payload', 'read_at', 'resolved_at', 'archived_at'}
+EXPECTED = {
+    'id', 'organization_id', 'client_id', 'user_id', 'project_ref', 'brand_ref',
+    'conversation_id', 'run_id', 'long_job_id', 'source_id', 'notification_type',
+    'status', 'title', 'detail', 'action_payload', 'created_at', 'updated_at',
+    'read_at', 'resolved_at', 'archived_at',
+}
 
 
 def main():

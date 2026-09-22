@@ -22,6 +22,28 @@ CREATE TABLE IF NOT EXISTS cadu_workspace_notifications (
     archived_at TIMESTAMPTZ
 );
 
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES tbl_cliente(id_cliente);
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES tbl_cliente(id_cliente);
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente);
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS project_ref TEXT;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS brand_ref TEXT;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS conversation_id TEXT;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS run_id UUID;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS long_job_id UUID;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS source_id BIGINT;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS notification_type TEXT;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'unread';
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS detail TEXT DEFAULT '';
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS action_payload JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+ALTER TABLE cadu_workspace_notifications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cadu_workspace_notifications_long_job
+    ON cadu_workspace_notifications (long_job_id);
+
 CREATE INDEX IF NOT EXISTS idx_cadu_workspace_notifications_inbox
     ON cadu_workspace_notifications (client_id, user_id, created_at DESC)
     WHERE archived_at IS NULL;
@@ -36,6 +58,17 @@ DECLARE
     target_detail TEXT;
 BEGIN
     IF NEW.status NOT IN ('waiting','completed','failed','budget_exhausted') THEN
+        UPDATE cadu_workspace_notifications
+           SET status = CASE
+                   WHEN NEW.status IN ('queued','running') THEN 'processing'
+                   WHEN NEW.status = 'cancelled' THEN 'archived'
+                   ELSE 'resolved'
+               END,
+               archived_at = CASE WHEN NEW.status = 'cancelled' THEN NOW() ELSE archived_at END,
+               resolved_at = CASE WHEN NEW.status IN ('paused','cancelled') THEN NOW() ELSE resolved_at END,
+               updated_at = NOW()
+         WHERE long_job_id = NEW.id
+           AND status IN ('unread','read','waiting_user','processing');
         RETURN NEW;
     END IF;
     target_type := CASE
@@ -70,7 +103,9 @@ BEGIN
         detail = EXCLUDED.detail,
         action_payload = EXCLUDED.action_payload,
         updated_at = NOW(),
-        archived_at = NULL;
+        read_at = CASE WHEN cadu_workspace_notifications.status IS DISTINCT FROM EXCLUDED.status THEN NULL ELSE cadu_workspace_notifications.read_at END,
+        resolved_at = CASE WHEN cadu_workspace_notifications.status IS DISTINCT FROM EXCLUDED.status THEN NULL ELSE cadu_workspace_notifications.resolved_at END,
+        archived_at = CASE WHEN cadu_workspace_notifications.status IS DISTINCT FROM EXCLUDED.status THEN NULL ELSE cadu_workspace_notifications.archived_at END;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

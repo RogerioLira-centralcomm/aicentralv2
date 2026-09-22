@@ -10,6 +10,9 @@ def test_notification_schema_projects_long_jobs_into_user_inbox():
     assert 'trg_cadu_notify_long_job_change' in sql
     assert "NEW.status NOT IN ('waiting','completed','failed','budget_exhausted')" in sql
     assert 'ON CONFLICT (long_job_id) DO UPDATE' in sql
+    assert "WHEN NEW.status IN ('queued','running') THEN 'processing'" in sql
+    assert "WHEN NEW.status = 'cancelled' THEN 'archived'" in sql
+    assert 'status IS DISTINCT FROM EXCLUDED.status' in sql
 
 
 def test_notification_service_is_scoped_and_supports_lifecycle_actions():
@@ -26,3 +29,21 @@ def test_project_react_surface_consumes_durable_notifications():
     assert 'remoteNotifications' in component
     assert 'projectLinks.notifications' in component
     assert "workspace_notifications_api" in template
+
+
+def test_notification_center_is_shared_by_desktop_and_mobile_workspace_shells():
+    provider = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'WorkspaceNotifications.jsx').read_text(encoding='utf-8')
+    dock = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'CaduDock.jsx').read_text(encoding='utf-8')
+    mobile = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'WorkspaceMobileChrome.jsx').read_text(encoding='utf-8')
+    entry = (ROOT / 'frontend' / 'conversations-v2' / 'main.jsx').read_text(encoding='utf-8')
+    assert 'WorkspaceNotificationsProvider' in entry
+    assert "window.setInterval(refresh, 60000)" in provider
+    assert 'useWorkspaceNotifications' in dock
+    assert 'useWorkspaceNotifications' in mobile
+    assert 'cadu-ds-mobile-chrome__notifications' in mobile
+
+
+def test_notification_migration_validates_every_trigger_column():
+    runner = (ROOT / 'migrations' / 'run_add_cadu_workspace_notifications.py').read_text(encoding='utf-8')
+    for column in ('organization_id', 'brand_ref', 'conversation_id', 'run_id', 'long_job_id', 'detail', 'created_at', 'updated_at'):
+        assert repr(column) in runner

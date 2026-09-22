@@ -122,13 +122,13 @@ def test_comparison_word_does_not_accidentally_edit_the_open_artifact():
 
 
 def test_non_html_artifacts_receive_an_explicit_patch_contract():
-    route = route_request("Crie um briefing para esta campanha", has_project=True)
+    route = route_request("Mapeie os arquivos e recursos deste projeto", has_project=True)
     request = RequestContext(
         organization_id=1, client_id=1, user_id=2, conversation_id=None,
         surface="conversations", project_ref="ci:42",
     )
     payload = build_payload(
-        message="Crie um briefing", request=request, route=route, resolved={},
+        message="Mapeie os arquivos e recursos deste projeto", request=request, route=route, resolved={},
         policy={}, user_label="user-2",
     )
     contract = json.loads(payload["inputs"]["output_contract"])
@@ -147,7 +147,10 @@ def test_html_patch_is_bounded_without_losing_its_runtime_parts():
         },
     })
 
-    response = normalize_response(raw, {"max_questions": 1, "max_next_steps": 2, "max_output_tokens": 1200})
+    response = normalize_response(raw, {
+        "max_questions": 1, "max_next_steps": 2, "max_output_tokens": 1200,
+        "allow_artifact": True, "artifact_type": "html",
+    })
 
     assert response.artifact_patch["html"] == "<main>Reserva</main>"
     assert response.artifact_patch["css"] == "main { color: teal; }"

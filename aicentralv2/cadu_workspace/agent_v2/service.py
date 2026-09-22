@@ -613,7 +613,13 @@ def stream(run):
             # requested an artifact. General answers must never silently turn
             # into a document just because a provider returned dense text.
             artifact_type = run["route"].get("artifact_type")
-            if artifact_type and (response.artifact_patch or artifact_type == "project_map"):
+            project_map_registry = run["resolved_context"].values.get("projects.list_resources") or {}
+            project_map_resources = (
+                project_map_registry.get("resources")
+                if isinstance(project_map_registry, dict) else []
+            )
+            can_build_project_map = artifact_type != "project_map" or bool(project_map_resources)
+            if artifact_type and can_build_project_map and (response.artifact_patch or artifact_type == "project_map"):
                 artifact_content = response.artifact_patch or {}
                 if artifact_type == "project_map":
                     artifact_content = _project_map_content(run, response.artifact_patch)

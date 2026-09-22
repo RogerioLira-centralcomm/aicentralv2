@@ -89,11 +89,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("reports", "compare_report_to_plan" if cross else "analyze_report", "high" if cross else "medium",
                            "analysis", ("project", "reports") + (("media_plan",) if cross else ()),
                            ("reports.compare_report_to_plan",) if cross else ("reports.get_report_metrics",))
-    if has_project and (
-            _has(text, r"\b(mapa|mapeie|organiz|agrupe|agrupar|visualiz).{0,45}\b(arquivo|documento|recurso|fonte|projeto)s?\b")
-            or _has(text, r"\b(arquivo|documento|recurso|fonte)s?\b.{0,45}\b(mapa|organiz|agrupe|agrupar|visualiz)")):
-        return IntentRoute("workspace", "organize_project_resources", "high", "artifact_first",
-                           ("project",), ("projects.list_resources",), "project_map")
     if has_project and _has(text, r"\b(list|liste|mostrar|mostre|ver|quais).{0,45}\b(fontes?|arquivos?|documentos?|links?|recursos?)\b"):
         needs_tool = "projects.list_sources" if _has(text, r"\b(fontes?|base de conhecimento|indexad[oa])\b") else "projects.list_resources"
         return IntentRoute("workspace", "list_project_resources", "low", "analysis",
@@ -109,7 +104,10 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if has_project and re.search(r"https://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE) and _has(text, r"\b(resumo|resumir|s[ií]ntese).{0,45}\b(texto|edit[aá]vel|site|conte[uú]do)\b"):
         return IntentRoute("research", "create_link_summary", "high", "artifact_first",
                            ("project",), ("web.read",), "document")
-    if has_project and _has(text, r"\b(arquiv|desativ|reativ|restaur).{0,30}\bprojeto\b"):
+    if has_project and _has(
+            text,
+            r"\b(arquivar|arquive|desativar|desative|reativar|reative|restaurar|restaure)\b.{0,30}\bprojeto\b",
+    ):
         return IntentRoute("workspace", "set_project_status", "medium", "decision",
                            ("project",), (), None, True)
     if has_project and _has(text, r"\b(vincul|associ|conect).{0,35}\bmarca\b"):
@@ -165,6 +163,14 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if (web_request or freshness_request or web_question or history_signal) and not project_only:
         return IntentRoute("research", "search_web", "high", "analysis",
                            ("project", "brand") if has_project else (), ("web.search",))
+    # Resource organization is intentionally evaluated after explicit web
+    # research. Phrases such as "pesquise na internet e organize as fontes"
+    # describe the shape of a research answer, not a project-map request.
+    if has_project and (
+            _has(text, r"\b(mapa|mapeie|organiz|agrupe|agrupar|visualiz).{0,45}\b(arquivo|documento|recurso|fonte|projeto)s?\b")
+            or _has(text, r"\b(arquivo|documento|recurso|fonte)s?\b.{0,45}\b(mapa|organiz|agrupe|agrupar|visualiz)")):
+        return IntentRoute("workspace", "organize_project_resources", "high", "artifact_first",
+                           ("project",), ("projects.list_resources",), "project_map")
     if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz).{0,45}\b(html|landing page|p[aá]gina|site|interface)\b"):
         return IntentRoute("workspace", "update_html", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), "html")

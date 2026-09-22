@@ -71,6 +71,20 @@ def test_explicit_long_form_request_uses_analysis_without_forcing_an_artifact():
     assert route.artifact_type is None
 
 
+def test_web_research_with_organized_sources_does_not_create_project_map():
+    route = route_request(
+        "Pesquise na internet dados atuais que possam fortalecer esse planejamento no Brasil. "
+        "Antes de pesquisar, pergunte se desejo ampliar a busca. Depois, organize fontes, achados e limitações.",
+        has_project=True,
+    )
+
+    assert route.domain == "research"
+    assert route.action == "search_web"
+    assert route.response_mode == "analysis"
+    assert route.artifact_type is None
+    assert route.needs_tools == ("web.search",)
+
+
 def test_long_form_prompt_requires_editorial_structure_without_bullet_wall():
     assert "um título específico" in CORE
     assert "de três a sete subtítulos" in CORE

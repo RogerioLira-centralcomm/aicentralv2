@@ -84,6 +84,7 @@ function SidebarCollection({label, href, items, kind}) {
 }
 
 function SidebarBrandProjectGroups({brands, projects, links}) {
+  const [openGroup, setOpenGroup] = useState(null);
   const brandRef = item => String(item?.ref || item?.brandRef || `studio:${item?.id || ''}`);
   const visibleProjects = projects;
   const groups = brands.map(brand => {
@@ -98,13 +99,18 @@ function SidebarBrandProjectGroups({brands, projects, links}) {
   if (!groups.length && !ungrouped.length) return null;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
     <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
-    {groups.map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={brand.id || brand.ref}>
-      <a className={`cadu-ds-context-sidebar__brand-heading ${brand.logoUrl ? 'has-logo' : ''}`} href={brand.href || '#'} title={brand.name || brand.title}>
-        {brand.logoUrl && <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/>}<b>{brand.name}</b>
-      </a>
-      {brand.projects.length > 0 && <div className={`cadu-ds-context-sidebar__project-tree ${brand.logoUrl ? 'has-brand-logo' : ''}`}>{brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><Icon name="folder" size={14}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}
-    </section>)}
-    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><span className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</span><div className="cadu-ds-context-sidebar__project-tree">{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><Icon name="folder" size={14}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</div></section>}
+    {groups.map(brand => {
+      const key = brandRef(brand);
+      const expanded = openGroup === key;
+      return <section className="cadu-ds-context-sidebar__brand-group" key={key}>
+        <div className="cadu-ds-context-sidebar__brand-row">
+          <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}><b>{brand.name || brand.title}</b></a>
+          {brand.projects.length > 0 && <button type="button" className="cadu-ds-context-sidebar__group-toggle" aria-label={`${expanded ? 'Ocultar' : 'Mostrar'} projetos de ${brand.name || brand.title}`} aria-expanded={expanded} onClick={() => setOpenGroup(expanded ? null : key)}><span className="cadu-ds-context-sidebar__group-count">{brand.projects.length}</span><span className="cadu-ds-context-sidebar__group-chevron" aria-hidden="true">⌄</span></button>}
+        </div>
+        {expanded && <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}
+      </section>;
+    })}
+    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><button type="button" className="cadu-ds-context-sidebar__ungrouped-toggle" aria-expanded={openGroup === 'ungrouped'} onClick={() => setOpenGroup(openGroup === 'ungrouped' ? null : 'ungrouped')}><span>Outros projetos</span><span className="cadu-ds-context-sidebar__group-count">{ungrouped.length}</span><span className="cadu-ds-context-sidebar__group-chevron" aria-hidden="true">⌄</span></button>{openGroup === 'ungrouped' && <div className="cadu-ds-context-sidebar__project-tree">{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}</section>}
   </section>;
 }
 

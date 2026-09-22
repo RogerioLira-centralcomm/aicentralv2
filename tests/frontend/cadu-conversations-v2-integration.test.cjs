@@ -586,7 +586,8 @@ test('conversation attachment model preserves validation and destination rules',
   assert.match(composer, /event\.stopPropagation\(\)/);
   assert.match(app, /known\.has\(key\)/);
   assert.match(styles, /\.cv-drop-overlay \{ position:fixed; inset:0;/);
-  assert.match(styles, /\.cv-attachment-chip \{[^}]*grid-template-columns:40px minmax\(0,1fr\)/);
+  assert.doesNotMatch(composer, /cv-attachment-meta/);
+  assert.match(styles, /\.cv-attachment-chip \{[^}]*width:48px; height:48px/);
 });
 
 test('conversation history model restores messages, selected context and latest artifact', async () => {

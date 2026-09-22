@@ -285,13 +285,9 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-drop-overlay-card strong { color:#f2fffc; font-size:16px; letter-spacing:-.01em; }
 .cv-drop-overlay-card > span { color:#91aaa5; font-size:12px; }
 #cadu-conversations-v2-root .cv-attachment-list { display:flex; max-width:100%; flex-wrap:wrap; gap:8px; padding:12px 12px 8px; }
-#cadu-conversations-v2-root .cv-attachment-chip { position:relative; display:grid; min-width:0; width:min(100%,320px); grid-template-columns:40px minmax(0,1fr); align-items:center; gap:9px; padding:7px 34px 7px 7px; border:0; border-radius:10px; background:rgba(255,255,255,.045); color:#a8c3be; }
+#cadu-conversations-v2-root .cv-attachment-chip { position:relative; display:grid; width:48px; height:48px; flex:0 0 48px; place-items:center; padding:4px; border:0; border-radius:10px; background:rgba(255,255,255,.045); color:#a8c3be; }
 #cadu-conversations-v2-root .cv-attachment-preview { display:grid; width:40px; height:40px; place-items:center; overflow:hidden; border-radius:8px; background:rgba(101,216,203,.08); color:#65d8cb; }
 #cadu-conversations-v2-root .cv-attachment-chip.has-error { border-color: rgba(255,125,131,.55); color: #ff9ca1; }
-#cadu-conversations-v2-root .cv-attachment-meta { display:grid; min-width:0; gap:2px; text-align:left; }
-#cadu-conversations-v2-root .cv-attachment-meta b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#cadu-conversations-v2-root .cv-attachment-meta small { overflow:hidden; color:#78938e; font-size:10px; line-height:1.25; text-overflow:ellipsis; white-space:nowrap; }
-#cadu-conversations-v2-root .cv-attachment-chip.has-error .cv-attachment-meta small { color:#e8847a; white-space:normal; }
 #cadu-conversations-v2-root .cv-attachment-intake{position:absolute;right:3px;bottom:3px;max-width:72px;overflow:hidden;border:0;border-radius:6px;background:rgba(7,27,29,.88);color:#a9c8c2;font-size:8px;line-height:16px;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}#cadu-conversations-v2-root .cv-attachment-intake.is-applied{width:16px;color:#70dfd0;font-weight:700}#cadu-conversations-v2-root .cv-attachment-intake:disabled{cursor:default;opacity:.72}
 #cadu-conversations-v2-root .cv-attachment-thumb { width: 100%; height: 100%; object-fit: cover; }
 #cadu-conversations-v2-root .cv-attachment-remove { position:absolute; top:7px; right:7px; display:grid; width:20px; height:20px; place-items:center; border:0; border-radius:50%; background:rgba(4,14,16,.76); color:#d8e6e3; font-size:13px; line-height:1; opacity:.68; }

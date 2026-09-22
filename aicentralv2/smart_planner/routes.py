@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 
-from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Response, current_app, jsonify, make_response, redirect, render_template, request, url_for
 
 from ..auth import centralcomm_required, centralcomm_required_api, is_admin
 from ..db import obter_vendedores_centralcomm
@@ -51,6 +51,15 @@ from .service import (
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("smart_planner", __name__, url_prefix="/smart-planner")
+
+
+def _public_document_response(view: dict):
+    """Renderiza a página compartilhável sem permitir HTML antigo no CDN/browser."""
+    response = make_response(render_template("smart_planner/public_document.html", **view))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 def _ok(data=None, status=200):
@@ -183,7 +192,7 @@ def publico(public_token):
     if document:
         view = public_view(row, document=document)
         view["share_url"] = view.get("document_url") or public_document_url(public_token, document)
-        return render_template("smart_planner/public_document.html", **view)
+        return _public_document_response(view)
     view["share_url"] = view.get("share_url") or public_sheet_url(public_token)
     return render_template("smart_planner/public.html", **view)
 
@@ -198,7 +207,7 @@ def _public_document(public_token: str, document: str):
     if document == "full_plan" and not view.get("tem_completo"):
         raise SessionNotFound("Este planejamento completo não está publicado.")
     view["share_url"] = view.get("document_url")
-    return render_template("smart_planner/public_document.html", **view)
+    return _public_document_response(view)
 
 
 @bp.route("/p/<public_token>/proposta")

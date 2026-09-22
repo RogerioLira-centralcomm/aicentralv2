@@ -2082,7 +2082,14 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
                     item[key] = value.isoformat()
             costs = item.get('costs') if isinstance(item.get('costs'), dict) else {}
             stages = costs.get('stages') if isinstance(costs.get('stages'), dict) else {}
-            total_usd = sum(float(stage.get('cost_usd') or 0) for stage in stages.values() if isinstance(stage, dict))
+            total_usd = 0.0
+            for stage in stages.values():
+                if not isinstance(stage, dict):
+                    continue
+                try:
+                    total_usd += max(0.0, float(stage.get('cost_usd') or 0))
+                except (TypeError, ValueError):
+                    continue
             if total_usd > 0:
                 from ..creative_modeling_fx import brl_from_usd, usd_brl_rate
                 rate, source = usd_brl_rate()
@@ -2149,12 +2156,20 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     ), None)
                     selected_assets = [primary_logo] if primary_logo else []
                 for asset in selected_assets[:12]:
-                    asset_path = CreativeAssetStorage().absolute_public_path(asset.get('asset_path'))
-                    if asset_path:
-                        restored_images.append(FileStorage(
-                            stream=BytesIO(asset_path.read_bytes()), filename=asset_path.name,
-                            content_type=asset.get('mime_type') or 'image/png',
-                        ))
+                    try:
+                        asset_path = CreativeAssetStorage().absolute_public_path(asset.get('asset_path'))
+                        if asset_path:
+                            restored_images.append(FileStorage(
+                                stream=BytesIO(asset_path.read_bytes()), filename=asset_path.name,
+                                content_type=asset.get('mime_type') or 'image/png',
+                            ))
+                    except (OSError, ValueError):
+                        current_app.logger.warning(
+                            'Ativo %s da marca %s não pôde ser reutilizado na auditoria.',
+                            asset.get('id'), brand_id,
+                        )
+                if not website_url and not restored_images:
+                    raise ValueError('Nenhuma fonte ou referência selecionada está disponível para análise.')
                 credits = CaduCreditConnector()
                 billing_user_id = int(user_id or 0)
                 if billing_user_id <= 0:
@@ -4727,6 +4742,14 @@ def create_project():
                 (project_id, client_id, session.get('user_id'), name, description, instructions,
                  '#176b5e'),
             )
+            if brand_id:
+                cursor.execute(
+                    '''INSERT INTO cadu_family_project_brands
+                       (client_id, project_ref, brand_ref, created_by)
+                       VALUES (%s, %s, %s, %s)
+                       ON CONFLICT (client_id, project_ref, brand_ref) DO NOTHING''',
+                    (client_id, f'ci:{project_id}', f'studio:{brand_id}', session.get('user_id')),
+                )
         connection.commit()
     except Exception:
         try:
@@ -4734,13 +4757,6 @@ def create_project():
         except Exception:
             pass
         abort(503, description='Não foi possível criar o projeto agora. Tente novamente.')
-    if brand_id:
-        try:
-            family_repository.set_project_brand_link(
-                client_id, session.get('user_id'), f'ci:{project_id}', f'studio:{brand_id}', True,
-            )
-        except Exception:
-            current_app.logger.exception('Projeto %s criado, mas a marca %s não foi vinculada', project_id, brand_id)
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
 
 
@@ -6288,6 +6304,7 @@ def brand_detail(brand_id):
             'assets': [{
                 'id': str(item.get('id')), 'role': str(item.get('role') or 'reference'), 'status': str(item.get('status') or 'registered'),
                 'isPrimary': bool(item.get('is_primary')), 'displayUrl': str(item.get('display_url') or ''),
+                'reusable': bool(item.get('asset_path')) and not bool(item.get('missing_file')) and str(item.get('status') or '').lower() == 'approved',
                 'mimeType': str(item.get('mime_type') or ''), 'sourceKind': str(item.get('source_kind') or ''),
                 'metadata': item.get('metadata') if isinstance(item.get('metadata'), dict) else {},
             } for item in brand.get('assets') or []],

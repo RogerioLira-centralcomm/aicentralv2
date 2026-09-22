@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequest
 from aicentralv2.product_domains import product_url
 from aicentralv2.cadu_workspace.routes import (
     _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
-    _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
+    _brand_audit_history, _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
     _save_brand_review_job, bp,
 )
@@ -231,6 +231,43 @@ class WorkspaceBrandsTest(TestCase):
         params = brand_insert.args[1]
         self.assertEqual(params[0], 12)
         self.assertGreaterEqual(connection.commit.call_count, 1)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
+    def test_project_created_from_brand_is_linked_in_the_same_transaction(self, _brand, get_db):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/projetos', data={
+            '_csrf': 'known-token', 'name': 'Campanha institucional', 'brand_id': '81',
+        })
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(connection.commit.call_count, 1)
+        statements = [call.args for call in cursor.execute.call_args_list]
+        self.assertIn('INSERT INTO cadu_ci_projetos', statements[0][0])
+        self.assertIn('INSERT INTO cadu_family_project_brands', statements[1][0])
+        self.assertEqual(statements[1][1][0], 12)
+        self.assertEqual(statements[1][1][2], 'studio:81')
+
+    @mock.patch('aicentralv2.creative_modeling_fx.usd_brl_rate', return_value=(5.0, 'test'))
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_audit_history_ignores_invalid_provider_cost_without_hiding_run(self, get_db, _rate):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [{
+            'job_id': 'audit-1', 'costs': {'stages': {
+                'valid': {'cost_usd': '1.25'}, 'invalid': {'cost_usd': 'unknown'},
+            }},
+        }]
+        get_db.return_value = connection
+
+        history = _brand_audit_history(12, 81)
+
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]['costs']['actual_cost_usd'], 1.25)
+        self.assertEqual(history[0]['costs']['actual_cost_brl'], 6.25)
 
     @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
     @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.set_project_brand_link')

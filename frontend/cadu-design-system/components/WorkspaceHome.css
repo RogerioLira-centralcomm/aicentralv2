@@ -1,0 +1,17 @@
+/* Home autenticada: sugestões editoriais sobre o canvas claro. */
+body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button {
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--cadu-line) 78%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--cadu-ink);
+  box-shadow: none;
+}
+
+body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button:hover,
+body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button:focus-visible {
+  border-color: color-mix(in srgb, var(--cadu-accent) 42%, var(--cadu-line));
+  background: color-mix(in srgb, var(--cadu-accent-soft) 34%, transparent);
+  color: var(--cadu-accent-strong);
+  box-shadow: none;
+}

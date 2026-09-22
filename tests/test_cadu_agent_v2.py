@@ -85,6 +85,24 @@ def test_web_research_with_organized_sources_does_not_create_project_map():
     assert route.needs_tools == ("web.search",)
 
 
+def test_brand_creation_and_audit_are_routed_to_internal_mcp_actions():
+    creation_message = 'Crie uma marca chamada Acme com site https://acme.com.br'
+    creation = route_request(creation_message, has_project=True)
+    creation_action = next(step for step in build_task_plan(creation, budget_for(creation), creation_message)
+                           if step["kind"] == "action")
+    assert creation.action == "create_brand"
+    assert creation_action["name"] == "brands.create"
+    assert creation_action["arguments"] == {"name": "Acme", "website_url": "https://acme.com.br"}
+
+    audit_message = "Inicie uma auditoria profunda da marca"
+    audit = route_request(audit_message, has_brand=True)
+    audit_action = next(step for step in build_task_plan(audit, budget_for(audit), audit_message)
+                        if step["kind"] == "action")
+    assert audit.action == "start_brand_audit"
+    assert audit_action["name"] == "brands.start_audit"
+    assert audit_action["arguments"] == {"analysis_mode": "deep", "confirmed_cost": True}
+
+
 def test_long_form_prompt_requires_editorial_structure_without_bullet_wall():
     assert "um título específico" in CORE
     assert "de três a sete subtítulos" in CORE

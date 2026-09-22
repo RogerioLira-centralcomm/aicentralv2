@@ -50,6 +50,11 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(resumo|ata|s[ií]ntese).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(resumo|ata|s[ií]ntese)\b"):
         return IntentRoute("workspace", "create_meeting_summary", "medium", "artifact_first",
                            ("project",) if has_project else (), (), "meeting_summary")
+    if _has(text, r"\b(cri(e|ar)|cadastre|cadastrar|nova)\b.{0,35}\bmarca\b"):
+        return IntentRoute("workspace", "create_brand", "medium", "decision", (), (), None, True)
+    if _has(text, r"\b(inicie|iniciar|fa[çc]a|rodar|rode|refa[çc]a|reprocess).{0,35}\bauditoria\b.{0,25}\bmarca\b|\bauditoria\b.{0,25}\bmarca\b"):
+        return IntentRoute("workspace", "start_brand_audit", "high", "decision",
+                           ("brand",), (), None, True)
     if _has(text, r"\b(pauta|agenda).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(pauta|agenda)\b"):
         return IntentRoute("workspace", "create_meeting_agenda", "medium", "artifact_first",
                            ("project",) if has_project else (), (), "meeting_agenda")

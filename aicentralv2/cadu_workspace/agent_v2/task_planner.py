@@ -99,6 +99,30 @@ def _project_link_step(message: str):
     }
 
 
+def _brand_create_step(message: str):
+    text = str(message or "")
+    url_match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE)
+    name_match = re.search(r"\bmarca\s*(?:chamada|nomeada|:)?\s*[\"“]?([^\"”\n,;]{2,150})", text, re.IGNORECASE)
+    if not url_match or not name_match:
+        return None
+    url = url_match.group(0).rstrip(".,;:)")
+    if not re.match(r"^[a-z][a-z0-9+.-]*://", url, re.IGNORECASE):
+        url = "https://" + url
+    name = re.split(r"\s+(?:com|site|website)\s+", name_match.group(1), maxsplit=1, flags=re.IGNORECASE)[0].strip(" .:-")
+    if len(name) < 2:
+        return None
+    return {"kind": "action", "name": "brands.create", "requires_confirmation": True,
+            "request_id": str(uuid4()), "arguments": {"name": name[:150], "website_url": url},
+            "effect": "write", "summary": f"Criar a marca “{name[:150]}” neste cliente e vincular seu projeto."}
+
+
+def _brand_audit_step(message: str):
+    mode = "deep" if re.search(r"\b(profunda|profundo|deep)\b", str(message or ""), re.IGNORECASE) else "complete"
+    return {"kind": "action", "name": "brands.start_audit", "requires_confirmation": True,
+            "request_id": str(uuid4()), "arguments": {"analysis_mode": mode, "confirmed_cost": True},
+            "effect": "write", "summary": f"Iniciar auditoria {'profunda' if mode == 'deep' else 'completa'} da marca ativa, com uso de créditos."}
+
+
 def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
     # The plan is user-facing. It must remain understandable in the chat.
     # Reserve the fourth slot for the response itself. The user should never
@@ -128,6 +152,12 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
         action = _project_link_step(message)
         if action:
             steps.append(action)
+    if route.action == "create_brand":
+        action = _brand_create_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "start_brand_audit":
+        steps.append(_brand_audit_step(message))
     if route.artifact_type and len(steps) < 3:
         steps.append({"kind": "artifact", "action": route.action, "type": route.artifact_type,
                       "requires_confirmation": route.requires_confirmation})

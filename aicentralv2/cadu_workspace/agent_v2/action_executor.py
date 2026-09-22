@@ -8,6 +8,7 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "projects.reindex_source",
     "projects.create_note",
     "projects.create_link_reference",
+    "brands.create", "brands.start_audit",
 })
 
 
@@ -55,6 +56,20 @@ def _completion(step_name: str, result: dict) -> dict:
         return {"answer": f"“{title}” foi adicionado às referências do projeto.", "blocks": [
             *blocks,
         ], "refresh_context": True}
+    if step_name == "brands.create":
+        name = result.get("name") or "Marca"
+        return {"answer": f"A marca “{name}” foi criada neste cliente com o site informado.", "blocks": [
+            {"type": "activity", "state": "completed", "label": "Marca criada", "detail": name},
+            {"type": "questions", "title": "Completar a marca", "items": [{
+                "id": "audit-brand", "title": "Iniciar auditoria completa",
+                "prompt": f"Inicie a auditoria completa da marca {result.get('brand_id')}.",
+            }]},
+        ], "refresh_context": True}
+    if step_name == "brands.start_audit":
+        mode = result.get("analysis_mode") or "complete"
+        return {"answer": "A auditoria da marca entrou na fila.", "blocks": [
+            {"type": "activity", "state": "running", "label": "Auditoria da marca iniciada", "detail": mode},
+        ], "refresh_context": True}
     return {"answer": "Ação concluída.", "blocks": [{"type": "activity", "state": "completed", "label": "Ação concluída"}]}
 
 
@@ -71,6 +86,11 @@ def execute(step: dict, context) -> dict:
     if not isinstance(arguments, dict) or not request_id:
         raise ToolInputError("A proposta aprovada está incompleta.")
     sealed = {**arguments, "request_id": request_id, "confirmed": True}
+    if step["name"] == "brands.start_audit" and "brand_id" not in sealed:
+        brand_ref = str(getattr(context, "brand_ref", "") or "")
+        if not brand_ref.startswith("studio:") or not brand_ref[7:].isdigit():
+            raise ToolInputError("Selecione uma marca antes de iniciar a auditoria.")
+        sealed["brand_id"] = int(brand_ref[7:])
     result = load_builtin_tools().execute(step["name"], sealed, context, "internal")
     if not isinstance(result, dict):
         raise ToolError("A ação não devolveu um receipt válido.")

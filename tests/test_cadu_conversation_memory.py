@@ -31,6 +31,28 @@ def test_structured_state_preserves_corrections_and_decisions_with_sources():
     assert state['decisions'][0]['message_id'] == 'id-9'
 
 
+def test_structured_state_preserves_recent_urls_with_message_provenance():
+    data = messages(8)
+    data[2]['content'] = 'Use https://example.com/proposta como referência.'
+    state = conversation_memory._structured_state(data)
+    assert state['entities']['urls'] == [{
+        'message_id': 'id-3',
+        'url': 'https://example.com/proposta',
+        'text': 'Use https://example.com/proposta como referência.',
+    }]
+
+
+def test_structured_state_preserves_files_and_artifacts_with_provenance():
+    data = messages(4)
+    data[0]['files'] = [{'id': 'file-1', 'name': 'briefing.pdf'}, {'id': 'file-2', 'name': 'dados.xlsx'}]
+    data[1]['metadata'] = {'artifact_id': 'artifact-9', 'artifact_title': 'Plano de mídia'}
+    state = conversation_memory._structured_state(data)
+    assert [item['name'] for item in state['entities']['files']] == ['briefing.pdf', 'dados.xlsx']
+    assert state['entities']['artifacts'][0] == {
+        'message_id': 'id-2', 'id': 'artifact-9', 'title': 'Plano de mídia',
+    }
+
+
 def test_assistant_proposal_never_becomes_a_confirmed_conversation_decision():
     data = messages(6)
     data[1]['content'] = 'Vamos usar a opção que eu recomendei.'
@@ -88,6 +110,19 @@ def test_prompt_budget_preserves_structured_memory_before_large_tool_evidence():
     }, 6000))
     assert evidence['conversation_state']['primeira_mensagem_usuario'] == 'Pergunta que não pode desaparecer'
     assert evidence['conversation_state']['mensagens_originais_recuperadas'][0]['content'] == 'Trecho original importante'
+    assert 'large_tool' not in evidence
+
+
+def test_prompt_budget_reserves_recent_history_before_tool_evidence():
+    import json
+    from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import _bounded_json
+    history = 'Usuário: use o arquivo enviado\nAssistente: vou preservar esse contexto'
+    evidence = json.loads(_bounded_json({
+        'current_context': {'project_ref': 'ci:7'},
+        'conversation_history': history,
+        'large_tool': {'content': 'x' * 20000},
+    }, 1800))
+    assert evidence['conversation_history'] == history
     assert 'large_tool' not in evidence
 
 

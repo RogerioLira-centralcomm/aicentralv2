@@ -20,6 +20,14 @@ _POSITIONAL = re.compile(
     r'o que eu (?:disse|perguntei)|o que voc[eê] respondeu)\b', re.I)
 _CORRECTION = re.compile(r'\b(mudou|corrigindo|corre[cç][aã]o|na verdade|agora (?:é|s[aã]o)|substitua)\b', re.I)
 _DECISION = re.compile(r'\b(decidimos|definimos|aprovad[ao]|fechado|combinado|vamos usar|ficou definido)\b', re.I)
+_URL = re.compile(r'https?://[^\s<>\]\["\']+', re.I)
+_LINK_REFERENCE = re.compile(
+    r'\b(?:esse|este|aquele|o)\s+(?:link|site|endere[cç]o|url)|'
+    r'\b(?:link|site|url)\s+que\s+(?:eu\s+)?(?:enviei|mandei|passei|adicionei)|'
+    r'\bcom\s+base\s+(?:nele|nisso|no\s+link)\b', re.I)
+_RESOURCE_REFERENCE = re.compile(
+    r'\b(?:esse|este|aquele|o)\s+(?:arquivo|anexo|pdf|documento|artefato)|'
+    r'\b(?:arquivo|anexo|documento|artefato)\s+que\s+(?:eu\s+)?(?:enviei|mandei|criei|gerou|criamos)', re.I)
 
 
 def available():
@@ -43,8 +51,8 @@ def _message_count(conversation_id, client_id, user_id):
 
 
 def _messages_after(conversation_id, client_id, user_id, covered):
-    return repository.rows('''SELECT id, role, content, created_at, position FROM (
-        SELECT m.id, m.role, m.content, m.created_at,
+    return repository.rows('''SELECT id, role, content, files, metadata, created_at, position FROM (
+        SELECT m.id, m.role, m.content, m.files, m.metadata, m.created_at,
                COALESCE(m.conversation_sequence,
                         ROW_NUMBER() OVER (ORDER BY m.created_at, m.id)) AS position
         FROM cadu_conversation_messages m JOIN cadu_conversations c ON c.id=m.conversation_id
@@ -95,7 +103,8 @@ def _merge_by_message(previous, current, limit=8):
     values = {}
     for item in [*(previous or []), *(current or [])]:
         if isinstance(item, dict) and item.get('message_id'):
-            values[str(item['message_id'])] = item
+            identity = item.get('id') or item.get('url') or ''
+            values[f"{item['message_id']}:{identity}"] = item
     return list(values.values())[-limit:]
 
 
@@ -106,10 +115,28 @@ def _structured_state(messages):
     # Only user-authored confirmations become conversation decisions. Assistant
     # proposals remain proposals and must never silently become facts.
     decisions = [item for item in users if _DECISION.search(str(item.get('content') or ''))][-8:]
+    urls = []
+    files = []
+    artifacts = []
+    for item in messages:
+        for match in _URL.findall(str(item.get('content') or '')):
+            url = match.rstrip('.,;:!?)')
+            urls.append({'message_id': str(item['id']), 'url': url,
+                         'text': _clean(item.get('content'), 700)})
+        item_files = item.get('files') if isinstance(item.get('files'), list) else []
+        for file in item_files:
+            if isinstance(file, dict) and (file.get('id') or file.get('name')):
+                files.append({'message_id': str(item['id']), 'id': str(file.get('id') or ''),
+                              'name': _clean(file.get('name') or 'Arquivo', 180)})
+        metadata = item.get('metadata') if isinstance(item.get('metadata'), dict) else {}
+        if metadata.get('artifact_id'):
+            artifacts.append({'message_id': str(item['id']), 'id': str(metadata['artifact_id']),
+                              'title': _clean(metadata.get('artifact_title') or 'Artefato', 180)})
     return {
         'goal': _clean(opening.get('content'), 1000),
         'corrections': [{'message_id': str(item['id']), 'text': _clean(item['content'], 700)} for item in corrections],
         'decisions': [{'message_id': str(item['id']), 'text': _clean(item['content'], 700)} for item in decisions],
+        'entities': {'urls': urls[-12:], 'files': files[-12:], 'artifacts': artifacts[-12:]},
         'last_user_request': _clean(users[-1].get('content'), 1000) if users else '',
     }
 
@@ -137,6 +164,20 @@ def checkpoint(*, conversation_id, organization_id, client_id, user_id, force=Fa
         'goal': prior_state.get('goal') or delta_state.get('goal') or _clean(opening.get('content'), 1000),
         'corrections': _merge_by_message(prior_state.get('corrections'), delta_state['corrections']),
         'decisions': _merge_by_message(prior_state.get('decisions'), delta_state['decisions']),
+        'entities': {
+            'urls': _merge_by_message(
+                (prior_state.get('entities') or {}).get('urls'),
+                delta_state.get('entities', {}).get('urls'), limit=12,
+            ),
+            'files': _merge_by_message(
+                (prior_state.get('entities') or {}).get('files'),
+                delta_state.get('entities', {}).get('files'), limit=12,
+            ),
+            'artifacts': _merge_by_message(
+                (prior_state.get('entities') or {}).get('artifacts'),
+                delta_state.get('entities', {}).get('artifacts'), limit=12,
+            ),
+        },
         'last_user_request': delta_state.get('last_user_request') or prior_state.get('last_user_request', ''),
     }
     prior_sources = existing.get('source_message_ids') if isinstance(existing.get('source_message_ids'), list) else []
@@ -230,6 +271,27 @@ def packet(*, conversation_id, organization_id, client_id, user_id, query):
                 ORDER BY m.conversation_sequence DESC NULLS LAST,m.created_at DESC,m.id DESC LIMIT 4) recent
                 ORDER BY position''',
                 (conversation_id, client_id, user_id))
+    if not retrieved and _LINK_REFERENCE.search(query_text):
+        urls = ((state.get('state') or {}).get('entities') or {}).get('urls') or []
+        source_id = str((urls[-1] if urls else {}).get('message_id') or '')
+        if source_id:
+            retrieved = repository.rows('''SELECT m.id,m.role,m.content,m.created_at,
+                COALESCE(m.conversation_sequence,1) AS position
+                FROM cadu_conversation_messages m JOIN cadu_conversations c ON c.id=m.conversation_id
+                WHERE m.conversation_id=%s AND c.id_cliente=%s AND c.id_contato_cliente=%s
+                  AND m.id::text=%s LIMIT 1''',
+                (conversation_id, client_id, user_id, source_id))
+    if not retrieved and _RESOURCE_REFERENCE.search(query_text):
+        entities = (state.get('state') or {}).get('entities') or {}
+        candidates = [*(entities.get('artifacts') or []), *(entities.get('files') or [])]
+        source_id = str((candidates[-1] if candidates else {}).get('message_id') or '')
+        if source_id:
+            retrieved = repository.rows('''SELECT m.id,m.role,m.content,m.created_at,
+                COALESCE(m.conversation_sequence,1) AS position
+                FROM cadu_conversation_messages m JOIN cadu_conversations c ON c.id=m.conversation_id
+                WHERE m.conversation_id=%s AND c.id_cliente=%s AND c.id_contato_cliente=%s
+                  AND m.id::text=%s LIMIT 1''',
+                (conversation_id, client_id, user_id, source_id))
     if not retrieved:
         segments = repository.rows('''SELECT s.source_message_ids FROM cadu_conversation_memory_segments s
             JOIN cadu_conversation_memory_state st ON st.conversation_id=s.conversation_id

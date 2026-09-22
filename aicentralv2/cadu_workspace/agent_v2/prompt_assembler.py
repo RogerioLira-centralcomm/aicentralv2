@@ -79,14 +79,8 @@ def _bounded_json(value: dict, limit: int) -> str:
     if not fits(compact) and compact.get("conversation_state"):
         compact["conversation_state"]["estado"] = {}
 
-    # Add tool/project evidence item by item while it fits.
-    for key, item in value.items():
-        if key in {"current_context", "conversation_state", "selected_context", "conversation_history"}:
-            continue
-        candidate = {**compact, key: item}
-        if fits(candidate):
-            compact = candidate
-
+    # Reserve recent dialogue before bulky tool/project evidence. Immediate
+    # continuity must not disappear merely because a project has many assets.
     history = str(value.get("conversation_history") or "")
     if history:
         low, high = 0, len(history)
@@ -99,6 +93,15 @@ def _bounded_json(value: dict, limit: int) -> str:
                 high = middle - 1
         if low:
             compact["conversation_history"] = history[-low:]
+
+    # Add tool/project evidence item by item only after conversation continuity.
+    for key, item in value.items():
+        if key in {"current_context", "conversation_state", "selected_context", "conversation_history"}:
+            continue
+        candidate = {**compact, key: item}
+        if fits(candidate):
+            compact = candidate
+
     return json.dumps(compact, ensure_ascii=False, default=str, separators=(",", ":"))
 
 

@@ -13,7 +13,9 @@ from flask import Blueprint, Flask
 from jinja2 import Environment
 from werkzeug.datastructures import FileStorage
 
-from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer, _public_contact_records
+from aicentralv2.creative_brand_analysis import (
+    CreativeBrandAnalyzer, _candidate, _ocr_vet_visual_candidates, _public_contact_records,
+)
 from aicentralv2.creative_format_compose import (
     compose_native_piece,
     compose_native_result,
@@ -743,6 +745,17 @@ class FakeCreditLedger:
 
 
 class CreativeBrandAnalyzerTest(unittest.TestCase):
+    def test_rejeita_logo_da_plataforma_antes_dos_agentes(self):
+        candidate = _candidate(
+            'http://cadu.centralcomm.media/maintenance/images/workspace-48.png',
+            'https://centralcomm.media', kind='logo', source='branding',
+        )
+
+        accepted, rejected = _ocr_vet_visual_candidates([candidate])
+
+        self.assertEqual(accepted, [])
+        self.assertEqual(rejected[0]['triage_reason'], 'ativo visual da plataforma hospedeira')
+
     def test_extrai_contatos_publicos_com_url_e_trecho_de_origem(self):
         contacts, addresses = _public_contact_records([{
             "url": "https://www.exemplo.com.br/atendimento",
@@ -872,8 +885,14 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         self.assertEqual(result["primary_color"], "#123ABC")
         self.assertEqual(result["logo_url"], "https://marca.com.br/logo.svg")
         self.assertEqual(result["analysis_metadata"]["source_types"], ["url", "image"])
+        self.assertEqual(len(result["visual_opinions"]), 3)
+        self.assertEqual(result["visual_opinions"][1]["agent"], "independent_visual_verifier")
+        self.assertEqual(result["visual_opinions"][2]["agent"], "visual_resolution")
         user_content = captured["messages"][1]["content"]
         self.assertEqual(user_content[1]["type"], "image_url")
+        resolver_payload = json.loads(user_content[0]["text"])
+        self.assertEqual(resolver_payload["deterministic_evidence"]["upload_manifest"][0]["filename"], "referencia.png")
+        self.assertTrue(resolver_payload["deterministic_evidence"]["upload_manifest"][0]["evidence_id"].startswith("upload:"))
 
     def test_bloqueia_url_local(self):
         with self.assertRaisesRegex(ValueError, "site público"):
@@ -1004,6 +1023,8 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
             "perplexity/sonar-pro",
             "perplexity/sonar-pro",
             "openai/gpt-5.4",
+            "openai/gpt-5.4",
+            "google/gemini-2.5-flash",
             "openai/gpt-5.4",
         ])
         self.assertEqual(result["primary_color"], "#7A1632")

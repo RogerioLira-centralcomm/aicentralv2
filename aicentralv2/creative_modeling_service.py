@@ -3070,6 +3070,9 @@ class CreativeModelingService:
             )
             if duplicate:
                 self.storage.delete(item["asset_path"])
+                if data["is_primary"] and hasattr(self.repository, "promote_client_brand_asset_to_logo"):
+                    promoted = self.repository.promote_client_brand_asset_to_logo(client_id, duplicate["id"])
+                    saved.append({**duplicate, **(promoted or {}), "is_primary": True, "role": "logo"})
                 continue
             try:
                 asset_id = self.repository.add_client_brand_asset(client_id, data)

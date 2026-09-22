@@ -36,10 +36,13 @@ DEFAULT_DEEP_BRAND_MODEL = os.getenv(
 DEFAULT_VISUAL_BRAND_MODEL = os.getenv(
     "CREATIVE_BRAND_VISUAL_MODEL", "openai/gpt-5.4"
 )
+DEFAULT_VISUAL_VERIFIER_MODEL = os.getenv(
+    "CREATIVE_BRAND_VISUAL_VERIFIER_MODEL", "google/gemini-2.5-flash"
+)
 DEFAULT_BRAND_FALLBACK_MODEL = os.getenv(
     "CREATIVE_BRAND_FALLBACK_MODEL", "openai/gpt-5.4"
 )
-BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v3-2026-09"
+BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v5-2026-09"
 
 # Deep research is deliberately divided by evidence domain. A single request
 # was mixing operational records, market context and visual interpretation in
@@ -166,6 +169,42 @@ até seis cores para Studio (incluindo variações e fundos), sempre derivadas d
 paleta observada. Não deduza tipografia, cor ou estilo que não esteja visível.
 Use português do Brasil."""
 
+BRAND_VISUAL_VERIFIER_SYSTEM = """Você é um segundo perito visual independente.
+Extraia somente logo, cores e tipografia das imagens e metadados recebidos.
+Não confunda a identidade do Cadu, CentralX, Workspace, plataforma hospedeira,
+fornecedor, parceiro, tecnologia, campanha ou favicon com a marca auditada.
+Uma imagem enviada por uma pessoa tem prioridade como candidata, mas ainda deve
+ser descrita como candidata até que a titularidade seja confirmada. Se o ativo
+pertencer a terceiro, marque-o como third_party. Se houver dúvida, bloqueie o
+campo em vez de completar por semelhança ou conhecimento prévio.
+Associe cada imagem humana ao evidence_id do upload_manifest pelo image_index.
+
+Retorne somente JSON válido:
+{
+  "logo":{"url":"URL ou null","evidence_id":"upload:...|asset:... ou null","owner":"audited_brand|platform|third_party|unknown","confidence":0.0,"evidence":"motivo curto"},
+  "color_palette":[{"hex":"#RRGGBB","role":"marca|acento|superfície|texto|promocional","confidence":0.0,"evidence":"origem visual"}],
+  "fonts":[{"family":"família ou null","role":"título|texto|interface","confidence":0.0,"evidence":"como foi identificada"}],
+  "accepted_fields":["logo_url|color_palette|fonts"],
+  "blocked_fields":["logo_url|color_palette|fonts"],
+  "concerns":["conflitos ou limites"],
+  "confidence":0.0
+}
+Use português do Brasil. Nunca aprove logo_url quando owner não for
+audited_brand. Não atribua uma família tipográfica apenas por aparência."""
+
+BRAND_VISUAL_RESOLUTION_SYSTEM = """Você é o árbitro final do sistema visual.
+Receba duas leituras visuais independentes, imagens, CSS e metadados do domínio
+oficial. Sua tarefa é resolver divergências, não apenas registrá-las. Use esta
+ordem de autoridade: upload humano; arquivo repetido no domínio oficial;
+branding/CSS oficial; screenshot e OCR; consenso entre agentes. Ativos do Cadu,
+CentralX, Workspace, parceiros e fornecedores nunca vencem um ativo da marca.
+Para escolher um upload, devolva exatamente seu evidence_id do upload_manifest.
+
+Retorne somente JSON:
+{"logo":{"url":"URL ou null","evidence_id":"upload:...|asset:... ou null","owner":"audited_brand|platform|third_party|not_found","confidence":0.0,"evidence":"decisão"},"color_palette":[{"hex":"#RRGGBB","role":"marca|acento|superfície|texto","confidence":0.0,"evidence":"origem"}],"fonts":[{"family":"nome","role":"título|texto|interface","confidence":0.0,"evidence":"origem"}],"resolved_fields":["logo_url|color_palette|fonts"],"not_found_fields":["logo_url|color_palette|fonts"],"concerns":["alertas não impeditivos"],"confidence":0.0}
+Nunca use blocked_fields. Quando não houver evidência, use not_found_fields;
+quando houver evidência suficiente, escolha a conclusão mais sustentada."""
+
 BRAND_EVIDENCE_NORMALIZATION_SYSTEM = """Você é o integrador de evidências
 da auditoria de marca. A pesquisa anterior é apenas uma lista de candidatos:
 não a trate como fonte primária. Reconcilie esses candidatos exclusivamente com
@@ -233,6 +272,12 @@ Decida ready quando resumo, público e oferta estiverem sustentados por fontes,
 mesmo que visual, concorrentes, campanhas ou políticas permaneçam parciais.
 Registre essas lacunas em blocked_fields sem transformar campos opcionais em
 veto global.
+Quando analysis.visual_opinions estiver presente, compare as leituras e use a
+opinião visual_resolution como desempate final. Logo, paleta e fontes resolvidas
+devem entrar em accepted_fields. Se uma delas constar em not_found_fields,
+registre a ausência como concern, sem blocked_field: ausência reduz cobertura,
+mas não fecha o trabalho da agência. Bloqueie identidade visual somente diante
+de risco real de publicar ativo sabidamente pertencente a plataforma ou terceiro.
 Retorne somente JSON:
 {"summary":"síntese final","findings":["fatos aprovados"],"concerns":["lacunas e conflitos"],"accepted_fields":["campos aprovados"],"blocked_fields":["campos bloqueados"],"confidence":0.0,"decision":"ready ou needs_review","quality_dimensions":{"identity":0.0,"visual":0.0,"marketing":0.0,"presence":0.0,"sources":0.0}}"""
 
@@ -346,6 +391,24 @@ def _image_parts(file_storage):
         result.append({
             "type": "image_url",
             "image_url": {"url": f"data:{mime};base64,{encoded}"},
+        })
+    return result
+
+
+def _upload_manifest(file_storage):
+    files = list(file_storage) if isinstance(file_storage, (list, tuple)) else [file_storage]
+    result = []
+    for index, item in enumerate(files[:12]):
+        if not item or not getattr(item, 'filename', None):
+            continue
+        position = item.stream.tell()
+        content = item.read()
+        item.stream.seek(position)
+        result.append({
+            'evidence_id': 'upload:' + sha256(content).hexdigest()[:16],
+            'filename': _text(item.filename, 240), 'mime_type': _text(item.mimetype, 120),
+            'size_bytes': len(content), 'sha256': sha256(content).hexdigest(),
+            'order': index + 1, 'image_index': index, 'source': 'human_upload',
         })
     return result
 
@@ -548,6 +611,15 @@ def _candidate(
         return None
     parsed = urlparse(absolute)
     text = " ".join((parsed.path, str(alt or ""), str(source or ""))).lower()
+    platform_asset = bool(
+        parsed.hostname and (
+            parsed.hostname.lower().startswith(('cadu.', 'app.cadu.', 'workspace.'))
+            or any(token in text for token in (
+                '/images/cadu/', '/cadu/products/', '/maintenance/images/workspace-',
+                'centralx-logo', 'cadu-logo', 'workspace-48', 'workspace-64',
+            ))
+        )
+    )
     is_logo = kind == "logo" or "logo" in text or "brandmark" in text
     score = 35
     if source == "branding":
@@ -558,6 +630,8 @@ def _candidate(
         score += 10
     if any(token in text for token in ("favicon", "sprite", "pixel", "tracking")):
         score -= 80
+    if platform_asset:
+        score -= 100
     try:
         if width and height and (int(width) < 120 or int(height) < 80):
             score -= 35
@@ -578,6 +652,7 @@ def _candidate(
         "width": int(width) if str(width or "").isdigit() else None,
         "height": int(height) if str(height or "").isdigit() else None,
         "alt": _text(alt, 180),
+        "platform_asset": platform_asset,
         "reason": (
             "Identidade encontrada no perfil de branding do site."
             if source == "branding"
@@ -633,6 +708,15 @@ def _deduplicate_candidates(candidates, domain, limit=40):
         official_page = _same_domain(candidate.get("page_url"), domain)
         if not official_asset and not official_page:
             continue
+        candidate = dict(candidate)
+        candidate["asset_scope"] = "first_party" if official_asset else "embedded_third_party"
+        if candidate.get("platform_asset"):
+            candidate["owner_hint"] = "platform"
+        elif not official_asset:
+            candidate["owner_hint"] = "unknown"
+            candidate["score"] = max(0, int(candidate.get("score") or 0) - 30)
+        else:
+            candidate["owner_hint"] = "audited_brand_candidate"
         key = candidate["url"].split("#", 1)[0]
         previous = best.get(key)
         if previous is None or candidate["score"] > previous["score"]:
@@ -660,6 +744,9 @@ def _ocr_vet_visual_candidates(candidates, *, deep=False):
         if len(accepted) >= target:
             break
         item = dict(candidate)
+        if item.get('platform_asset'):
+            item.update({'triage': 'rejected', 'triage_reason': 'ativo visual da plataforma hospedeira'})
+            rejected.append(item); continue
         if item.get('kind') != 'logo' and (int(item.get('width') or 999) < 180 or int(item.get('height') or 999) < 120):
             item.update({'triage': 'rejected', 'triage_reason': 'dimensões insuficientes'})
             rejected.append(item); continue
@@ -1017,13 +1104,6 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
     ])
     record = _montar_registro(domain, raw, effective_url)
     candidates = _deduplicate_candidates(candidates, domain)
-    strong_logo = next(
-        (
-            candidate for candidate in candidates
-            if candidate["kind"] == "logo" and candidate["score"] >= 70
-        ),
-        None,
-    )
     references = [
         candidate for candidate in candidates
         if candidate["kind"] == "reference" and candidate["score"] >= 25
@@ -1053,7 +1133,6 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
             'score': 100, 'width': 1440, 'height': 1000,
             'reason': 'Captura renderizada da página oficial usada como evidência visual.',
         })
-    record["logo_url"] = strong_logo.get("url") if strong_logo else None
     branding = raw.get("branding") or {}
     external_sources = _firecrawl_market_search(record.get("titulo") or domain, domain)
     competitor_sources = _firecrawl_market_search(
@@ -1061,6 +1140,14 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
         sector=record.get("setor") or record.get("descricao") or "",
     )
     vetted_candidates, rejected_candidates = _ocr_vet_visual_candidates(candidates, deep=deep)
+    strong_logo = next((
+        candidate for candidate in vetted_candidates
+        if candidate.get("kind") == "logo"
+        and int(candidate.get("score") or 0) >= 70
+        and not candidate.get("platform_asset")
+        and candidate.get("asset_scope") == "first_party"
+    ), None)
+    record["logo_url"] = strong_logo.get("url") if strong_logo else None
     return {
         "source_url": effective_url,
         "title": record.get("titulo"),
@@ -1274,7 +1361,14 @@ def _fonts(raw):
             continue
         if isinstance(key, int) and not role:
             role = "display" if not fonts else "body"
-        fonts.append({"family": family, "role": role or "display"})
+        normalized = {"family": family, "role": role or "display"}
+        if isinstance(item, dict):
+            normalized.update({
+                "confidence": _unit_confidence(item.get("confidence")),
+                "evidence": _text(item.get("evidence"), 500),
+                "source_url": _text(item.get("source_url"), 2000),
+            })
+        fonts.append(normalized)
         if len(fonts) >= 6:
             break
     return fonts
@@ -1345,9 +1439,11 @@ def _campaigns(value, opportunities=None):
 def _field_provenance(value, quality_dimensions):
     """Sanitize the GPT evidence map; missing evidence remains explicitly blocked."""
     keys = (
-        "brand_summary", "tone_of_voice", "color_palette", "target_audience",
+        "brand_summary", "tone_of_voice", "logo_url", "primary_color",
+        "secondary_color", "color_palette", "fonts", "target_audience",
         "campaign_opportunities", "competitors", "contacts", "addresses",
         "digital_policies", "products_services", "differentiators", "proof_points",
+        "visual_motifs", "mandatory_elements", "forbidden_elements",
     )
     raw = value if isinstance(value, dict) else {}
     result = {}
@@ -1360,11 +1456,13 @@ def _field_provenance(value, quality_dimensions):
         status = str(item.get("evidence_status") or "").lower()
         if status not in {"verified", "partial", "blocked"}:
             status = "verified" if urls else "blocked"
-        fallback = quality_dimensions["visual"] if key in {"color_palette"} else quality_dimensions["identity"]
+        visual_fields = {"logo_url", "primary_color", "secondary_color", "color_palette", "fonts",
+                         "visual_motifs", "mandatory_elements", "forbidden_elements"}
+        fallback = quality_dimensions["visual"] if key in visual_fields else quality_dimensions["identity"]
         result[key] = {
             "source_urls": list(dict.fromkeys(urls)),
             "source_count": len(set(urls)),
-            "classification": "campaign" if key in {"campaign_opportunities", "competitors"} else "brand_core",
+            "classification": "campaign" if key in {"campaign_opportunities", "competitors"} else ("visual_identity" if key in visual_fields else "brand_core"),
             "confidence": _unit_confidence(item.get("confidence") if item else fallback),
             "evidence_status": status,
             "requires_evidence_gate": key in {"logo_url", "color_palette", "competitors"},
@@ -1599,8 +1697,11 @@ def _palette(value):
             confidence = 0.0
         result.append({
             "hex": color,
-            "name": _text(item.get("name"), 80) or "Cor da marca",
-            "usage": _text(item.get("usage"), 240) or "Uso institucional",
+            "name": _text(item.get("name") or item.get("role"), 80) or "Cor da marca",
+            "usage": _text(item.get("usage") or item.get("role"), 240) or "Uso institucional",
+            "role": _text(item.get("role"), 80),
+            "evidence": _text(item.get("evidence"), 500),
+            "source_url": _text(item.get("source_url"), 2000),
             "confidence": confidence,
         })
     return result
@@ -1625,6 +1726,15 @@ def _visual_evidence_parts(evidence):
     for candidate in evidence.get("asset_candidates") or []:
         url = str(candidate.get("url") or "")
         clean_path = urlparse(url).path.lower()
+        if url.startswith(("http://", "https://")) and clean_path.endswith(".svg"):
+            try:
+                import cairosvg
+                response = requests.get(url, timeout=8, headers={'User-Agent': 'CentralX-Brand-Audit/2026'})
+                response.raise_for_status()
+                png = cairosvg.svg2png(bytestring=response.content, output_width=1200)
+                urls.append("data:image/png;base64," + base64.b64encode(png).decode("ascii"))
+            except Exception:
+                pass
         if (
             url.startswith(("http://", "https://"))
             and clean_path.endswith((".png", ".jpg", ".jpeg", ".webp"))
@@ -1726,13 +1836,15 @@ def _creative_line_context(client, logo_attached=False):
 
 
 class CreativeBrandAnalyzer:
-    def __init__(self, llm=None, model=None, visual_model=None, review_model=None, fallback_model=None):
+    def __init__(self, llm=None, model=None, visual_model=None, review_model=None,
+                 fallback_model=None, visual_verifier_model=None):
         self.llm = llm or chat_completion
         self.model = model or DEFAULT_BRAND_MODEL
         self.visual_model = visual_model or DEFAULT_VISUAL_BRAND_MODEL
         # Research and review deliberately use different roles. Perplexity
         # finds candidates; GPT-5.4 judges source-backed evidence.
         self.review_model = review_model or self.visual_model
+        self.visual_verifier_model = visual_verifier_model or DEFAULT_VISUAL_VERIFIER_MODEL
         self.fallback_model = fallback_model or DEFAULT_BRAND_FALLBACK_MODEL
 
     def _json_call(self, messages, *, model, max_tokens, temperature, timeout,
@@ -1785,6 +1897,7 @@ class CreativeBrandAnalyzer:
     def analyze(self, url=None, image=None, billing_callback=None, *, analysis_mode="complete", social_links=None):
         deep = str(analysis_mode or "complete").lower() == "deep"
         normalized_url = _normalized_public_url(url)
+        upload_manifest = _upload_manifest(image)
         image_content = _image_parts(image)
         if not normalized_url and not image_content:
             raise ValueError("Informe o site ou envie uma imagem de referência.")
@@ -1970,7 +2083,14 @@ class CreativeBrandAnalyzer:
                 unique.append(item)
             result[field] = unique
         visual_parts = image_content + _visual_evidence_parts(evidence)
+        visual_candidate_manifest = [{
+            "url": item.get("url"), "kind": item.get("kind"), "source": item.get("source"),
+            "asset_scope": item.get("asset_scope"), "owner_hint": item.get("owner_hint"),
+            "ocr_text": item.get("ocr_text"), "color_palette": item.get("color_palette"),
+        } for item in (evidence.get("asset_candidates") or [])[:20]]
         visual_response = None
+        visual_opinions = []
+        resolver_result = {}
         if visual_parts:
             try:
                 visual_response, visual_result, traces = self._json_call(
@@ -1993,6 +2113,8 @@ class CreativeBrandAnalyzer:
                                                 "description": evidence.get("description"),
                                                 "branding": evidence.get("branding"),
                                                 "css_color_evidence": css_colors,
+                                                "upload_manifest": upload_manifest,
+                                                "asset_manifest": visual_candidate_manifest,
                                             },
                                         },
                                         ensure_ascii=False,
@@ -2020,18 +2142,152 @@ class CreativeBrandAnalyzer:
                 ):
                     if visual_result.get(key) not in (None, "", []):
                         result[key] = visual_result[key]
+                visual_opinions.append({
+                    "agent": "primary_visual_analysis",
+                    "model": visual_response.get("model") or self.visual_model,
+                    "logo": {"url": evidence.get("logo_url"), "owner": "unknown"},
+                    "color_palette": _palette(visual_result.get("color_palette")),
+                    "fonts": _fonts(result.get("fonts")) or _fonts((evidence.get("branding") or {}).get("fonts")),
+                    "accepted_fields": [],
+                    "blocked_fields": [],
+                    "confidence": _unit_confidence((result.get("confidence") or {}).get("visual")),
+                })
             except Exception as exc:
                 call_trace.extend(getattr(exc, 'call_trace', []) or [
                     {'stage': 'leitura_visual', 'status': 'error', 'error': _text(str(exc), 240)},
                 ])
                 visual_response = None
+            try:
+                verifier_response, verifier_result, traces = self._json_call(
+                    [
+                        {"role": "system", "content": BRAND_VISUAL_VERIFIER_SYSTEM},
+                        {"role": "user", "content": [
+                            {"type": "text", "text": json.dumps({
+                                "brand": result.get("name"),
+                                "website_url": normalized_url,
+                                "uploaded_images_present": bool(image_content),
+                                "upload_manifest": upload_manifest,
+                                "branding_metadata": {
+                                    "logo_url": evidence.get("logo_url"),
+                                    "branding": evidence.get("branding"),
+                                    "css_color_evidence": css_colors,
+                                    "asset_manifest": visual_candidate_manifest,
+                                },
+                            }, ensure_ascii=False)},
+                            *visual_parts,
+                        ]},
+                    ],
+                    model=self.visual_verifier_model,
+                    max_tokens=1200,
+                    temperature=0.0,
+                    timeout=60,
+                    response_format={"type": "json_object"},
+                    stage="verificacao_visual_gemini",
+                    billing_callback=billing_callback,
+                )
+                call_trace.extend(traces)
+                verifier_logo = verifier_result.get("logo") if isinstance(verifier_result.get("logo"), dict) else {}
+                visual_opinions.append({
+                    "agent": "independent_visual_verifier",
+                    "model": verifier_response.get("model") or self.visual_verifier_model,
+                    "logo": {
+                        "url": _text(verifier_logo.get("url"), 2000) or None,
+                        "evidence_id": _text(verifier_logo.get("evidence_id"), 120) or None,
+                        "owner": str(verifier_logo.get("owner") or "unknown")[:40],
+                        "confidence": _unit_confidence(verifier_logo.get("confidence")),
+                        "evidence": _text(verifier_logo.get("evidence"), 500),
+                    },
+                    "color_palette": _palette(verifier_result.get("color_palette")),
+                    "fonts": _fonts(verifier_result.get("fonts")),
+                    "accepted_fields": _string_list(verifier_result.get("accepted_fields"), limit=3, item_limit=80),
+                    "blocked_fields": _string_list(verifier_result.get("blocked_fields"), limit=3, item_limit=80),
+                    "concerns": _string_list(verifier_result.get("concerns"), limit=6, item_limit=360),
+                    "confidence": _unit_confidence(verifier_result.get("confidence")),
+                })
+            except Exception as exc:
+                call_trace.extend(getattr(exc, 'call_trace', []) or [
+                    {'stage': 'verificacao_visual_gemini', 'status': 'error', 'error': _text(str(exc), 240)},
+                ])
+            try:
+                resolver_response, resolver_result, traces = self._json_call(
+                    [
+                        {"role": "system", "content": BRAND_VISUAL_RESOLUTION_SYSTEM},
+                        {"role": "user", "content": [
+                            {"type": "text", "text": json.dumps({
+                                "brand": result.get("name"), "website_url": normalized_url,
+                                "visual_opinions": visual_opinions,
+                                "deterministic_evidence": {
+                                    "uploaded_images_present": bool(image_content),
+                                    "upload_manifest": upload_manifest,
+                                    "branding": evidence.get("branding"),
+                                    "css_color_evidence": css_colors,
+                                    "detected_logo_url": evidence.get("logo_url"),
+                                    "asset_manifest": visual_candidate_manifest,
+                                },
+                            }, ensure_ascii=False)},
+                            *visual_parts,
+                        ]},
+                    ], model=self.review_model, max_tokens=1200, temperature=0.0,
+                    timeout=60, response_format={"type": "json_object"},
+                    stage="resolucao_visual", billing_callback=billing_callback,
+                )
+                call_trace.extend(traces)
+                resolver_logo = resolver_result.get("logo") if isinstance(resolver_result.get("logo"), dict) else {}
+                resolved_palette = _palette(resolver_result.get("color_palette"))
+                resolved_fonts = _fonts(resolver_result.get("fonts"))
+                visual_opinions.append({
+                    "agent": "visual_resolution", "model": resolver_response.get("model") or self.review_model,
+                    "logo": resolver_logo, "color_palette": resolved_palette, "fonts": resolved_fonts,
+                    "resolved_fields": _string_list(resolver_result.get("resolved_fields"), limit=3, item_limit=80),
+                    "not_found_fields": _string_list(resolver_result.get("not_found_fields"), limit=3, item_limit=80),
+                    "concerns": _string_list(resolver_result.get("concerns"), limit=6, item_limit=360),
+                    "confidence": _unit_confidence(resolver_result.get("confidence")),
+                })
+                if resolved_palette:
+                    result["color_palette"] = resolved_palette
+                    result["primary_color"] = resolved_palette[0]["hex"]
+                    if len(resolved_palette) > 1:
+                        result["secondary_color"] = resolved_palette[1]["hex"]
+                if resolved_fonts:
+                    result["fonts"] = resolved_fonts
+                not_found = set(_string_list(resolver_result.get("not_found_fields"), limit=3, item_limit=80))
+                if "color_palette" in not_found:
+                    result["color_palette"] = []
+                    result["primary_color"] = None
+                    result["secondary_color"] = None
+                if "fonts" in not_found:
+                    result["fonts"] = []
+            except Exception as exc:
+                resolver_result = {}
+                call_trace.extend(getattr(exc, 'call_trace', []) or [
+                    {'stage': 'resolucao_visual', 'status': 'error', 'error': _text(str(exc), 240)},
+                ])
         detected_logo = (web_record or {}).get("logo_url")
         asset_candidates = evidence.get("asset_candidates") or []
         candidate_urls = {item.get("url") for item in asset_candidates}
         suggested_logo = _text(result.get("logo_url"), 2000)
-        logo_url = detected_logo or (
-            suggested_logo if suggested_logo in candidate_urls else None
+        resolved_logo = resolver_result.get("logo") if isinstance(resolver_result.get("logo"), dict) else {}
+        resolved_logo_evidence_id = _text(resolved_logo.get("evidence_id"), 120)
+        upload_evidence_ids = {item.get("evidence_id") for item in upload_manifest}
+        logo_upload_evidence_id = (
+            resolved_logo_evidence_id
+            if resolved_logo.get("owner") == "audited_brand" and resolved_logo_evidence_id in upload_evidence_ids
+            else None
         )
+        resolved_logo_url = _text(resolved_logo.get("url"), 2000) if resolved_logo.get("owner") == "audited_brand" else None
+        if resolved_logo_url and resolved_logo_url not in candidate_urls and resolved_logo_url != detected_logo:
+            resolved_logo_url = None
+        resolver_has_logo_decision = bool(
+            resolved_logo
+            or "logo_url" in (resolver_result.get("resolved_fields") or [])
+            or "logo_url" in (resolver_result.get("not_found_fields") or [])
+        )
+        if resolver_has_logo_decision:
+            # A negative ownership decision is terminal for this audit. Never
+            # fall back to the same candidate the arbiter rejected.
+            logo_url = resolved_logo_url if not logo_upload_evidence_id else None
+        else:
+            logo_url = detected_logo or (suggested_logo if suggested_logo in candidate_urls else None)
         if logo_url and not logo_url.startswith(("http://", "https://")):
             logo_url = None
         confidence = _confidence(result.get("confidence"))
@@ -2079,6 +2335,25 @@ class CreativeBrandAnalyzer:
             "studio": ["logo_url", "color_palette", "fonts", "visual_motifs", "mandatory_elements", "forbidden_elements"],
             "dossier": ["sources", "evidence_ledger", "digital_policies", "addresses", "field_provenance", "quality_dimensions"],
         }
+        extraction_manifest = {
+            "version": 1,
+            "uploads": upload_manifest,
+            "website_assets": [{
+                "evidence_id": "asset:" + sha256(str(item.get("url") or "").encode("utf-8")).hexdigest()[:16],
+                "url": item.get("url"), "kind": item.get("kind"), "source": item.get("source"),
+                "asset_scope": item.get("asset_scope"), "owner_hint": item.get("owner_hint"),
+                "triage": item.get("triage"), "triage_reason": item.get("triage_reason"),
+            } for item in asset_candidates],
+            "rejected_assets": [{
+                "evidence_id": "asset:" + sha256(str(item.get("url") or "").encode("utf-8")).hexdigest()[:16],
+                "url": item.get("url"), "reason": item.get("triage_reason"),
+                "owner_hint": item.get("owner_hint"),
+            } for item in (evidence.get("rejected_asset_candidates") or [])],
+            "css_signals": css_colors,
+            "screenshot": evidence.get("screenshot"),
+        }
+        visual_resolution = next((item for item in reversed(visual_opinions)
+                                  if item.get("agent") == "visual_resolution"), {})
         return {
             "name": _text(result.get("name"), 150),
             "sector": _text(result.get("sector"), 80),
@@ -2090,6 +2365,7 @@ class CreativeBrandAnalyzer:
             "color_palette": palette,
             "product_palettes": _product_palettes(palette),
             "logo_url": logo_url,
+            "logo_upload_evidence_id": logo_upload_evidence_id,
             "target_audience": _text(result.get("target_audience"), 4000),
             "audience_segments": _audience_segments(result.get("audience_segments")),
             "personas": _personas(result.get("personas")),
@@ -2115,6 +2391,17 @@ class CreativeBrandAnalyzer:
             "field_provenance": field_provenance,
             "output_packages": output_packages,
             "quality_dimensions": quality_dimensions,
+            "review_evidence_summary": {
+                "coverage": coverage,
+                "sources": sources,
+                "visual_resolution": visual_resolution,
+                "rejected_visuals": extraction_manifest["rejected_assets"][:12],
+                "provider_reliability": {
+                    "failed_calls": sum(1 for item in call_trace if item.get("status") == "error"),
+                    "fallback_used": any(bool(item.get("fallback")) for item in call_trace),
+                },
+            },
+            "visual_opinions": visual_opinions,
             "contacts": _sourced_records(result.get("contacts"), ("type", "value", "label")),
             "addresses": _sourced_records(result.get("addresses"), ("label", "address")),
             "digital_policies": _sourced_records(result.get("digital_policies"), ("type", "title")),
@@ -2156,6 +2443,12 @@ class CreativeBrandAnalyzer:
                     visual_response.get("model") or self.visual_model
                     if visual_response else None
                 ),
+                "visual_verifier_model": next((
+                    item.get("model") for item in visual_opinions
+                    if item.get("agent") == "independent_visual_verifier"
+                ), None),
+                "visual_resolution": {"version": 1, **visual_resolution},
+                "extraction_manifest": extraction_manifest,
                 "evidence_normalization_model": (
                     normalization_response.get("model") or self.visual_model
                     if normalization_response else None

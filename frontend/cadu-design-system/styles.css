@@ -253,6 +253,14 @@ body.portal--workspace .cadu-ds-dock-context:has(.is-drop-target) .cadu-ds-dock-
   min-width:64px;
   max-width:64px;
 }
+
+/* Brand dossier records preserve the complete structured evidence. */
+.cadu-ds-brand-data-block li{display:grid;gap:3px;padding-left:14px;position:relative}
+.cadu-ds-brand-data-block li:before{position:absolute;left:0;padding:0}
+.cadu-ds-brand-data-block li>b{color:var(--cadu-ink)}
+.cadu-ds-brand-data-block li>small{display:block;color:var(--cadu-muted);font-size:10px;line-height:1.45}
+.cadu-ds-brand-data-block li>small strong{color:var(--cadu-ink);font-weight:650;text-transform:capitalize}
+.cadu-ds-brand-data-block li>a{justify-self:start;color:var(--cadu-accent-strong);font-size:10px;font-weight:650;text-decoration:none}
 .cadu-ds-home-workarea .cadu-ds-home-content { flex:1; min-width:0; }
 .cadu-ds-dock-brand .cadu-ds-visual-identity:not([class*="--v"]),.cadu-ds-dock-resource .cadu-ds-visual-identity:not([class*="--v"]) { box-sizing:border-box; padding:3px; background:var(--cadu-identity-color); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-identity-color) 32%,transparent); }
 .cadu-ds-dock-brand .cadu-ds-visual-identity img,.cadu-ds-dock-resource .cadu-ds-visual-identity img { object-fit:contain; object-position:center; }

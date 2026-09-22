@@ -74,7 +74,7 @@ function CreateBrandProjectDialog({brand, action, csrfToken, onClose}) {
 }
 
 function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
-  const [mode, setMode] = useState('complete');
+  const [mode, setMode] = useState(() => Number(brand.readiness?.score || 0) < 85 && Number(creditAvailable || 0) > 0 ? 'deep' : 'complete');
   const pipelineNumber = /pipeline-v(\d+)/.exec(brand.analysisPipelineVersion || '')?.[1];
   const existingSocialLinks = brand.auditInput?.socialLinks || brand.analysisMetadata?.socialLinks || [];
   const reusableAssets = (brand.assets || []).filter(asset => asset.reusable);
@@ -90,7 +90,8 @@ function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
         <label>Site oficial <small>opcional se usar ativos da biblioteca</small><input type="url" name="website_url" maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/></label>
         <label>Links oficiais<textarea name="social_links" rows="3" defaultValue={existingSocialLinks.join('\n')} placeholder="https://instagram.com/sua-marca&#10;https://www.linkedin.com/company/sua-marca" /></label>
         {reusableAssets.length > 0 && <div className="cadu-ds-brand-audit-existing"><Hidden name="existing_assets_present" value="true"/><strong>Escolha os ativos desta análise</strong><span>{visibleAssets.length} ativos disponíveis neste modo. A análise prioriza {mode === 'deep' ? 'até 12' : 'até 8'} peças variadas entre os itens marcados.</span><div>{visibleAssets.map((asset, index) => <label key={asset.id}><input type="checkbox" name="existing_asset_ids" value={asset.id} defaultChecked={asset.isPrimary || asset.role !== 'logo' || (!hasPrimaryAsset && index === 0)}/><img src={asset.displayUrl} alt=""/><small>{asset.metadata?.label || assetLabels[asset.role] || 'Ativo'}</small></label>)}</div></div>}
-        <label>Novos anexos <small>opcional</small><BrandAssetDrop name="images"/></label>
+        <label>Logo oficial <small>opcional · atualiza o avatar</small><BrandAssetDrop name="logo_image" maxFiles={1}/></label>
+        <label>Outras referências <small>opcional</small><BrandAssetDrop name="images"/></label>
       </div><aside className="cadu-ds-brand-audit-dialog__scope"><strong>Profundidade da análise</strong><label><span><input type="radio" name="analysis_mode" value="complete" checked={mode === 'complete'} onChange={() => setMode('complete')}/><b>Completa</b></span><small>Identidade, oferta, público, site, redes e direção visual essencial.</small></label><label className={!hasDeepCredit ? 'is-disabled' : ''}><span><input type="radio" name="analysis_mode" value="deep" checked={mode === 'deep'} disabled={!hasDeepCredit} onChange={() => setMode('deep')}/><b>Profunda</b></span><small>{hasDeepCredit ? 'Inclui presença pública, mercado, concorrência e campanhas.' : 'Disponível quando houver saldo de créditos. Faça upgrade ou compre créditos para liberar.'}</small></label><div className="cadu-ds-brand-audit-dialog__estimate"><strong>Estimativa desta execução</strong><p>{estimates.pages} páginas · {estimates.evidence} evidências · {estimates.tokens} créditos · {estimates.time}</p></div></aside></div>
       <label className="cadu-ds-brand-check"><input type="checkbox" name="include_project_sources" value="true"/> Adicionar as páginas oficiais ao projeto vinculado após aprovação.</label>
       <label className="cadu-ds-brand-check"><input type="checkbox" name="confirmed_cost" value="true" required/> Autorizo o consumo estimado de créditos desta análise.</label>
@@ -135,12 +136,12 @@ function BrandAssetCard({asset, brand, urls, csrfToken, canManageBrand}) {
   return <article className="cadu-ds-brand-asset"><div className="cadu-ds-brand-asset__preview">{asset.displayUrl ? <img src={asset.displayUrl} alt={label} loading="lazy"/> : <span aria-hidden="true">◇</span>}</div><div className="cadu-ds-brand-asset__copy"><b>{label}{asset.isPrimary ? ' · principal' : ''}</b><small>{asset.metadata?.low_resolution ? 'Rascunho interno' : asset.mimeType || asset.sourceKind || 'Arquivo de marca'}</small><em className={`is-${asset.status}`}>{asset.status === 'approved' ? 'Aprovado' : asset.status === 'pending' ? 'Em revisão' : asset.status || 'Registrado'}</em></div>{canManageBrand && action && <form method="post" action={action}><Hidden name="_csrf" value={csrfToken}/><button type="submit">{asset.role === 'logo' ? 'Definir principal' : 'Usar como logo'}</button></form>}{canManageBrand && <form method="post" action={assetUrl(urls.deleteAssetBase, asset.id)}><Hidden name="_csrf" value={csrfToken}/><button type="submit" className="is-danger" aria-label={`Apagar ${label}`}>Apagar</button></form>}</article>;
 }
 
-function BrandAssetDrop({name, onFilesChange}) {
+function BrandAssetDrop({name, onFilesChange, maxFiles = 8}) {
   const input = useRef(null);
   const [active, setActive] = useState(false);
   const [files, setFiles] = useState([]);
   const assign = values => {
-    const selected = Array.from(values || []).filter(file => file.type.startsWith('image/')).slice(0, 8);
+    const selected = Array.from(values || []).filter(file => file.type.startsWith('image/')).slice(0, maxFiles);
     if (!selected.length || !input.current) return;
     const transfer = new DataTransfer();
     selected.forEach(file => transfer.items.add(file));
@@ -149,7 +150,7 @@ function BrandAssetDrop({name, onFilesChange}) {
     onFilesChange?.(selected);
   };
   return <div className={`cadu-ds-brand-file-drop${active ? ' is-active' : ''}`} onDragEnter={event => { event.preventDefault(); setActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setActive(false); }} onDrop={event => { event.preventDefault(); setActive(false); assign(event.dataTransfer.files); }}>
-    <input ref={input} name={name} type="file" accept="image/*" multiple hidden aria-hidden="true" tabIndex="-1"/>
+    <input ref={input} name={name} type="file" accept="image/*" multiple={maxFiles > 1} hidden aria-hidden="true" tabIndex="-1"/>
     <strong>{files.length ? `${files.length} imagem${files.length === 1 ? '' : 's'} preparada${files.length === 1 ? '' : 's'}` : 'Solte as imagens aqui'}</strong>
     {files.length ? <div className="cadu-ds-brand-file-drop__thumbs">{files.map(({file, preview}) => <figure key={`${file.name}-${file.lastModified}`}><img src={preview} alt={`Prévia de ${file.name}`}/><figcaption>{file.name}</figcaption></figure>)}</div> : <small>Logo principal · horizontal · vertical · símbolo · versões claro e escuro</small>}
   </div>;
@@ -237,7 +238,14 @@ const asList = value => Array.isArray(value) ? value : value ? [value] : [];
 function ListBlock({title, items}) {
   const list = asList(items);
   if (!list.length) return null;
-  return <section className="cadu-ds-brand-data-block"><h3>{title}</h3><ul>{list.map((item, index) => <li key={`${title}-${index}`}>{typeof item === 'string' ? item : item.name || item.value || item.address || item.title}</li>)}</ul></section>;
+  const hidden = new Set(['source_url', 'url', 'confidence']);
+  const fieldNames = {needs:'Necessidades',context:'Contexto',rationale:'Justificativa',evidence:'Evidência',excerpt:'Trecho',relationship:'Relação',market:'Mercado',barriers:'Barreiras',channels:'Canais',status:'Status',role:'Papel',usage:'Uso',family:'Família'};
+  return <section className="cadu-ds-brand-data-block"><h3>{title}</h3><ul>{list.map((item, index) => {
+    if (typeof item === 'string') return <li key={`${title}-${index}`}><b>{item}</b></li>;
+    const label = item.name || item.value || item.address || item.title || item.primary || item.family || 'Dado registrado';
+    const details = Object.entries(item).filter(([key, value]) => !hidden.has(key) && value != null && value !== '' && value !== label).map(([key, value]) => [fieldNames[key] || key.replaceAll('_', ' '), Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? Object.values(value).filter(Boolean).join(' / ') : String(value)]);
+    return <li key={`${title}-${index}`}><b>{label}</b>{details.map(([key, value]) => <small key={key}><strong>{key}:</strong> {value}</small>)}{Number.isFinite(Number(item.confidence)) && <small><strong>Confiança:</strong> {Math.round(Number(item.confidence) * 100)}%</small>}{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">Abrir fonte</a>}</li>;
+  })}</ul></section>;
 }
 
 function BrandKit({brand, profile}) {
@@ -250,6 +258,33 @@ function AuditAtlas({profile, metadata}) {
   const socialRecords = asList(metadata.socialLinks).map(value => typeof value === 'string' ? {label: 'Canal oficial', value, source_url: value} : value);
   const records = [...asList(profile.contacts), ...asList(profile.addresses), ...asList(profile.digitalPolicies), ...socialRecords];
   return <><section className="cadu-ds-brand-atlas" id="inteligencia"><header><div><p>Base de decisão</p><h2>Marca, mercado e execução</h2><span>Todos os dados aprovados da auditoria, separados por uso e com a proveniência preservada.</span></div></header><div className="cadu-ds-brand-atlas__columns"><div><ListBlock title="Produtos e serviços" items={profile.productsServices}/><ListBlock title="Diferenciais confirmados" items={profile.differentiators}/><ListBlock title="Provas e sinais" items={profile.proofPoints}/><ListBlock title="Concorrentes e alternativas" items={profile.competitors}/><ListBlock title="Oportunidades de campanha" items={profile.campaignOpportunities}/></div><div><ListBlock title="Segmentos de audiência" items={profile.audienceSegments}/><ListBlock title="Personas e decisores" items={profile.personas}/><ListBlock title="Públicos e ângulos de anúncio" items={profile.adSegments}/><ListBlock title="Direção criativa" items={profile.creativeGuidelines}/><ListBlock title="Elementos visuais recorrentes" items={profile.visualMotifs}/><ListBlock title="Obrigatório preservar" items={profile.mandatoryElements}/><ListBlock title="Evitar" items={profile.forbiddenElements}/></div></div></section>{records.length ? <section className="cadu-ds-brand-section cadu-ds-brand-records"><header><div><p>Presença pública</p><h2>Contatos, endereços, políticas e canais</h2></div></header><div className="cadu-ds-brand-table">{records.map((record, index) => <article key={`${record.source_url || record.value}-${index}`}><div><b>{record.label || record.title || record.type || 'Registro público'}</b><span>{record.value || record.address || record.excerpt || 'Detalhe disponível na fonte'}</span></div>{record.source_url && <a href={record.source_url} target="_blank" rel="noreferrer">Fonte</a>}</article>)}</div></section> : null}<section className="cadu-ds-brand-section cadu-ds-brand-sources" id="fontes"><header><div><p>Rastreabilidade</p><h2>Fontes usadas na auditoria</h2></div></header><div className="cadu-ds-brand-table">{sources.length ? sources.map((source, index) => <article key={`${source}-${index}`}><div><b>Fonte pública {index + 1}</b><span>{source}</span></div><a href={source} target="_blank" rel="noreferrer">Abrir</a></article>) : <p className="cadu-ds-brand-empty">A auditoria ainda não registrou fontes públicas.</p>}</div></section></>;
+}
+
+function VisualResolution({metadata}) {
+  const resolution = metadata?.visualResolution || {};
+  const manifest = metadata?.extractionManifest || {};
+  if (!resolution.agent && !manifest.version) return null;
+  const resolved = asList(resolution.resolved_fields);
+  const missing = asList(resolution.not_found_fields);
+  return <section className="cadu-ds-brand-section"><header><div><p>Identidade visual</p><h2>Logo, cores e tipografia confirmadas</h2><span>Resultado consolidado dos materiais enviados e do site oficial.</span></div></header><div className="cadu-ds-brand-reading"><article><small>Dados disponíveis</small><b>{resolved.join(' · ') || 'Em construção'}</b><span>{missing.length ? `Ainda precisamos confirmar: ${missing.join(', ')}` : 'Sistema visual disponível para criação.'}</span></article><article><small>Materiais analisados</small><b>{Number(manifest.uploadCount || 0)} uploads · {Number(manifest.websiteAssetCount || 0)} ativos do site</b><span>As verificações técnicas permanecem no histórico da auditoria.</span></article></div></section>;
+}
+
+function BrandDossierSections({profile}) {
+  const archetype = profile.archetype && profile.archetype.primary ? [`${profile.archetype.primary}${profile.archetype.secondary ? ` / ${profile.archetype.secondary}` : ''}: ${profile.archetype.rationale || 'Leitura de personalidade da marca.'}`] : [];
+  const sections = [
+    ['Fundamentos', [...asList(profile.brandValues), ...archetype]],
+    ['Tipografia confirmada', asList(profile.fonts)],
+  ].filter(([, items]) => items.length);
+  if (!sections.length) return null;
+  return <section className="cadu-ds-brand-section"><header><div><p>Dossiê da marca</p><h2>Informações completas para trabalhar</h2><span>Conteúdo organizado por decisão, sem expor operações internas da auditoria.</span></div></header><div className="cadu-ds-brand-atlas__columns">{sections.map(([title, items]) => <ListBlock key={title} title={title} items={items}/>)}</div></section>;
+}
+
+function FieldEvidence({profile}) {
+  const entries = Object.entries(profile.fieldProvenance || {}).filter(([, item]) => item && typeof item === 'object');
+  if (!entries.length) return null;
+  const labels = {brand_summary:'Essência',tone_of_voice:'Tom de voz',logo_url:'Logo',primary_color:'Cor principal',secondary_color:'Cor secundária',color_palette:'Paleta',fonts:'Tipografia',target_audience:'Público',products_services:'Oferta',differentiators:'Diferenciais',proof_points:'Provas'};
+  const statuses = {verified:'confirmado',partial:'parcial',blocked:'não confirmado',unverified:'não verificado'};
+  return <section className="cadu-ds-brand-section"><header><div><p>Origem dos dados</p><h2>Confiança e fontes por campo</h2><span>Cada informação mostra o nível de confirmação usado pela marca.</span></div></header><div className="cadu-ds-brand-table">{entries.map(([key, item]) => <article key={key}><div><b>{labels[key] || key.replaceAll('_', ' ')}</b><span>{Math.round((Number(item.confidence) || 0) * 100)}% de confiança · {item.source_count || 0} fonte{item.source_count === 1 ? '' : 's'} · {statuses[item.evidence_status] || item.evidence_status || 'em revisão'}</span></div>{item.source_urls?.[0] && <a href={item.source_urls[0]} target="_blank" rel="noreferrer">Abrir fonte</a>}</article>)}</div></section>;
 }
 
 export function WorkspaceBrand({bootstrap}) {
@@ -353,6 +388,9 @@ export function WorkspaceBrand({bootstrap}) {
               <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><button type="button" onClick={openConversation}>Atualizar com o Cadu</button></header><div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{profile.brandSummary || profile.positioning}</p></div><FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:asList(profile.productsServices).join(' · ')},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:asList(profile.differentiators).join(' · ')},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
               {atlasHasContent && <AuditAtlas profile={profile} metadata={brand.analysisMetadata || {}}/>}
               <AuditScreenshot metadata={brand.analysisMetadata || {}}/>
+              <VisualResolution metadata={brand.analysisMetadata || {}}/>
+              <BrandDossierSections profile={profile}/>
+              <FieldEvidence profile={profile}/>
               <CampaignSection campaigns={campaigns} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
               <AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
               <div className="cadu-ds-brand-lower-grid"><section className="cadu-ds-brand-section" id="projetos"><header><div><p>Contexto compartilhado</p><h2>Projetos que usam esta marca</h2></div></header><div className="cadu-ds-brand-project-list">{linkedProjects.length ? linkedProjects.map(project => <button type="button" key={project.id} onClick={() => projectDetail(project)}><VisualIdentity src={project.logoUrl} initials={project.initials || project.name} label={project.name} color={project.color}/><span><b>{project.name}</b><small>{project.sources} fontes prontas</small></span><i>›</i></button>) : <p className="cadu-ds-brand-empty">Esta marca ainda não está vinculada a um projeto.</p>}</div></section><section className="cadu-ds-brand-section"><header><div><p>Auditoria</p><h2>Evidências reunidas</h2></div></header><div className="cadu-ds-brand-evidence"><div><b>{brand.analysisMetadata?.pagesAnalyzed || 0}</b><span>páginas</span></div><div><b>{brand.analysisMetadata?.assetsFound || 0}</b><span>ativos encontrados</span></div><div><b>{brand.analysisMetadata?.visualEvidenceCount || 0}</b><span>evidências visuais</span></div></div></section></div>

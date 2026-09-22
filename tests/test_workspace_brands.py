@@ -11,7 +11,7 @@ from aicentralv2.product_domains import product_url
 from aicentralv2.creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
 from aicentralv2.cadu_workspace.routes import (
     _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
-    _brand_audit_checkpoint_reusable, _brand_audit_history, _brand_audit_reliability_summary, _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
+    _brand_audit_checkpoint_reusable, _brand_audit_history, _brand_audit_reliability_summary, _brand_review_pack, _normalized_website_url, _resolve_uploaded_logo_path, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
     _save_brand_review_job, bp,
 )
@@ -32,6 +32,17 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    def test_human_field_approval_can_replace_stale_identity_values(self):
+        merged = _merge_brand_analysis(
+            {'brand_profile': {'tone_of_voice': 'Tom antigo', 'color_palette': [{'hex': '#000000'}]}},
+            {'tone_of_voice': 'Tom validado', 'color_palette': [{'hex': '#123456'}]},
+            {'tone_of_voice', 'color_palette'},
+            overwrite=True,
+        )
+
+        self.assertEqual(merged['profile']['tone_of_voice'], 'Tom validado')
+        self.assertEqual(merged['profile']['color_palette'][0]['hex'], '#123456')
+
     def test_checkpoint_reuse_requires_current_version_and_identical_inputs(self):
         pack = {'input': {'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION,
                           'website_url': 'https://example.com', 'analysis_mode': 'complete',
@@ -66,7 +77,7 @@ class WorkspaceBrandsTest(TestCase):
         cases = [
             ({'sources': ['https://a.test'], 'brand_summary': 'Resumo'}, {'coverage': {'official_pages': 1}}, .45, False),
             ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'products_services': ['Oferta'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 4}, {'coverage': {'official_pages': 2, 'approved_visuals': 1}}, .75, False),
-            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'logo_url': 'https://a.test/logo.svg', 'color_palette': [{'hex': '#123456'}], 'fonts': [{'family': 'Inter'}], 'products_services': ['Oferta'], 'differentiators': ['Diferencial'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 6}, {'coverage': {'official_pages': 3, 'approved_visuals': 5}}, .9, True),
+            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'logo_url': 'https://a.test/logo.svg', 'color_palette': [{'hex': '#123456'}], 'fonts': [{'family': 'Inter'}], 'products_services': ['Oferta'], 'differentiators': ['Diferencial'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 6}, {'coverage': {'official_pages': 3, 'approved_visuals': 5}}, .9, False),
         ]
         decisions = [
             _automatic_brand_decision(analysis, metadata, {'status': 'ready', 'blocked_fields': [], 'confidence': confidence, 'quality_dimensions': {}}, 'complete')
@@ -99,7 +110,7 @@ class WorkspaceBrandsTest(TestCase):
         self.assertTrue(decision['approved'])
         self.assertEqual(decision['score'], 100)
 
-    def test_optional_blocked_fields_do_not_veto_a_useful_complete_audit(self):
+    def test_useful_but_incomplete_audit_stays_unpublished_below_target(self):
         decision = _automatic_brand_decision(
             {
                 'sources': ['https://brand.test', 'https://brand.test/about'],
@@ -119,9 +130,47 @@ class WorkspaceBrandsTest(TestCase):
             'complete',
         )
 
-        self.assertTrue(decision['approved'])
-        self.assertGreaterEqual(decision['score'], 55)
+        self.assertFalse(decision['approved'])
+        self.assertLess(decision['score'], 85)
+        self.assertTrue(decision['refinement_recommended'])
         self.assertEqual(decision['blocked_fields'], ['competitors', 'digital_policies', 'campaigns'])
+
+    def test_uploaded_logo_evidence_resolves_to_persisted_asset(self):
+        digest = 'a' * 64
+        analysis = {
+            'logo_upload_evidence_id': 'upload:abc',
+            'analysis_metadata': {'extraction_manifest': {'uploads': [
+                {'evidence_id': 'upload:abc', 'sha256': digest},
+            ]}},
+        }
+        brand = {'assets': [{'sha256': digest, 'asset_path': '/static/uploads/brand-logo.webp'}]}
+
+        self.assertEqual(_resolve_uploaded_logo_path(analysis, brand), '/static/uploads/brand-logo.webp')
+
+    def test_blocked_visual_identity_never_receives_full_visual_score(self):
+        decision = _automatic_brand_decision(
+            {
+                'sources': ['https://brand.test', 'https://brand.test/about'],
+                'brand_summary': 'Marca comprovada.',
+                'target_audience': 'Público comprovado.',
+                'products_services': ['Serviço'],
+                'differentiators': ['Especialização'],
+                'proof_points': ['Fonte institucional'],
+                'evidence_ledger': [{'claim': f'Fato {index}'} for index in range(6)],
+                'logo_url': 'https://brand.test/logo.svg',
+                'primary_color': '#112233',
+                'secondary_color': '#445566',
+                'color_palette': [{'hex': '#112233'}],
+                'fonts': [{'family': 'Inter'}],
+            },
+            {'coverage': {'official_pages': 3, 'approved_visuals': 6}},
+            {'status': 'needs_review', 'blocked_fields': ['logo_url', 'color_palette', 'fonts'],
+             'confidence': .82, 'quality_dimensions': {'visual': .1}},
+            'complete',
+        )
+
+        self.assertEqual(decision['breakdown']['visual'], 0)
+        self.assertIn('logo_url', decision['blocked_fields'])
 
     def test_automatic_decision_aborts_when_a_small_brand_lacks_evidence(self):
         decision = _automatic_brand_decision(
@@ -131,7 +180,9 @@ class WorkspaceBrandsTest(TestCase):
             'deep',
         )
         self.assertFalse(decision['approved'])
-        self.assertFalse(decision['deep_recommended'])
+        self.assertTrue(decision['deep_recommended'])
+        self.assertTrue(decision['refinement_recommended'])
+        self.assertEqual(decision['coverage_target'], 85)
         self.assertTrue(decision['reasons'])
 
     @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.project_brand_links')
@@ -602,6 +653,31 @@ class WorkspaceBrandsTest(TestCase):
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
+    def test_explicit_audit_logo_updates_primary_asset_before_job(
+            self, service, workspace_brand, _ensure_credit, get_db, start_job):
+        workspace_brand.return_value = {
+            'id': 81, 'website_url': 'https://example.com', 'analysis_metadata': {},
+        }
+        connection = mock.MagicMock()
+        connection.cursor.return_value.__enter__.return_value.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/auditoria', data={
+            '_csrf': 'known-token', 'website_url': 'https://example.com', 'confirmed_cost': 'true',
+            'logo_image': (BytesIO(b'official-logo'), 'logo-oficial.png'),
+        })
+
+        self.assertEqual(response.status_code, 303)
+        args = service.return_value.upload_client_brand_assets.call_args.args
+        self.assertEqual((args[0], args[2], args[3]), (81, True, 'logo'))
+        self.assertEqual(len(args[1]), 1)
+        self.assertEqual(start_job.call_args.args[5][0]['filename'], 'logo-oficial.png')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
     def test_audit_uses_only_selected_approved_local_assets(
             self, workspace_brand, _ensure_credit, get_db, start_job):
         workspace_brand.return_value = {
@@ -746,8 +822,8 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 303)
         sql, params = cursor.execute.call_args.args
         self.assertIn('brand_profile = %s::jsonb', sql)
-        self.assertIn('Resumo aprovado.', params[7])
-        self.assertIn('approved', params[8])
+        self.assertIn('Resumo aprovado.', params[11])
+        self.assertIn('approved', params[12])
         self.assertEqual(params[-2:], (81, 12))
         connection.commit.assert_called_once_with()
 
@@ -770,6 +846,35 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertIn('consolidação central', response.get_data(as_text=True))
         get_db.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_approving_palette_synchronizes_primary_and_secondary_columns(self, workspace_brand, get_db):
+        workspace_brand.return_value = {
+            'id': 81, 'brand_profile': {},
+            'analysis_metadata': {'review_pack': {
+                'status': 'pending_approval',
+                'analysis': {'color_palette': [{'hex': '#123456'}, {'hex': '#ABCDEF'}]},
+                'reviews': [{'id': 'revisor_central', 'status': 'ready', 'blocked_fields': []}],
+            }},
+        }
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        with mock.patch('aicentralv2.cadu_workspace.routes._fill_empty_project_identity_from_brand'), \
+             mock.patch('aicentralv2.cadu_workspace.routes._sync_approved_brand_to_projects'), \
+             mock.patch('aicentralv2.cadu_workspace.routes._send_brand_approval_email'), \
+             mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService'):
+            response = _client().post('/workspace/app/marcas/81/revisoes/aprovar', data={
+                '_csrf': 'known-token', 'approved_fields': 'color_palette',
+            })
+
+        self.assertEqual(response.status_code, 303)
+        _sql, params = cursor.execute.call_args.args
+        self.assertEqual(params[6], '#123456')
+        self.assertEqual(params[8], '#ABCDEF')
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects', return_value=[])
     @mock.patch('aicentralv2.cadu_workspace.routes._brand_linked_projects', return_value=[])

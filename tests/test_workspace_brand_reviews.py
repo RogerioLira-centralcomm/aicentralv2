@@ -87,6 +87,28 @@ class WorkspaceBrandReviewAgentsTest(TestCase):
         self.assertEqual(review['accepted_fields'], ['brand_summary'])
         self.assertEqual([event[0] for event in billed], ['revisor_central'])
 
+    def test_central_reviewer_receives_both_visual_opinions(self):
+        calls = []
+        responses = iter([
+            {'message': {'content': '{"summary":"ok","findings":[],"concerns":[],"confidence":0.8,"decision":"ready"}'}, 'model': 'reviewer'},
+            {'message': {'content': '{"summary":"ok","findings":[],"concerns":[],"confidence":0.8,"decision":"ready"}'}, 'model': 'reviewer'},
+            {'message': {'content': '{"summary":"comparado","findings":[],"concerns":[],"confidence":0.8,"decision":"ready","accepted_fields":["color_palette"],"blocked_fields":["logo_url"]}'}, 'model': 'reviewer'},
+        ])
+
+        def llm(messages, **_kwargs):
+            calls.append(messages)
+            return next(responses)
+
+        analyzer = CreativeBrandAnalyzer(llm=llm, model='reviewer')
+        analyzer.review_pack({'visual_opinions': [
+            {'agent': 'primary_visual_analysis', 'color_palette': [{'hex': '#112233'}]},
+            {'agent': 'independent_visual_verifier', 'color_palette': [{'hex': '#112233'}], 'blocked_fields': ['logo_url']},
+        ]})
+
+        central_payload = calls[-1][1]['content']
+        self.assertIn('primary_visual_analysis', central_payload)
+        self.assertIn('independent_visual_verifier', central_payload)
+
     def test_central_provider_failure_uses_deterministic_evidence_fallback(self):
         calls = {'count': 0}
 

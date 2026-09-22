@@ -4,14 +4,15 @@
   body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-new,
   body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-home,
   body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-drop,
-  body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-bottom {
-    transform: translateX(6px);
-  }
-
+  body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-bottom,
   body.portal--workspace .cadu-ds-dock-brand,
   body.portal--workspace .cadu-ds-dock-resource {
-    margin-left: 0;
+    margin-right: auto;
+    margin-left: auto;
+    transform: none;
   }
+
+  body.portal--workspace .cadu-ds-dock-brand-tree > .cadu-ds-dock-resource { margin-left: auto; }
 }
 
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand .cadu-ds-visual-identity--brand {

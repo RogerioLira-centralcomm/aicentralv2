@@ -309,11 +309,11 @@ export function WorkspaceBrand({bootstrap}) {
         <div className="cadu-ds-entity-portal cadu-ds-entity-portal--brand">
         <EntityNavigator label={brand.name || 'Marca'} items={brandNav} context={<><span>Projetos da marca</span><div>{linkedProjects.map(project => <a href={project.href} key={project.id}><b>{project.name}</b><small>{project.sources} fonte{project.sources === 1 ? '' : 's'} pronta{project.sources === 1 ? '' : 's'}</small></a>)}{!linkedProjects.length && <small>Nenhum projeto vinculado.</small>}</div><button type="button" onClick={() => setDialog('project-create')}>Criar projeto</button><button type="button" onClick={() => setDialog('link')}>Vincular existente</button></>}>
           {!isProcessing && <>
+            <span>Gestão</span>
             {verified && <button type="button" className="is-primary" onClick={openConversation}>Conversar sobre a marca</button>}
             {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><button className="is-primary">Aprovar análise</button></form>}
             {canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar dados</button>}
             {canEdit && <button type="button" onClick={() => setDialog('audit')}>{status ? 'Atualizar auditoria' : 'Preparar auditoria'}</button>}
-            <button type="button" onClick={() => setDialog('link')}>Vincular projeto</button>
           </>}
         </EntityNavigator>
         <section className="cadu-ds-brand-content">

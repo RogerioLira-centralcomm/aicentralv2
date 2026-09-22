@@ -1,26 +1,52 @@
 /* Navegação contextual compartilhada pelos detalhes de projeto e marca. */
 body.portal--workspace .cadu-ds-entity-nav a.is-active {
-  background: color-mix(in srgb, var(--cadu-accent) 11%, transparent);
+  background: transparent;
   color: var(--cadu-ink);
   font-weight: 700;
-  box-shadow: inset 2px 0 var(--cadu-accent-strong);
+  box-shadow: none;
+}
+
+body.portal--workspace .cadu-ds-entity-nav a.is-active svg {
+  color: var(--cadu-accent-strong);
+}
+
+body.portal--workspace .cadu-ds-entity-nav {
+  box-sizing: border-box;
+  padding: 28px 16px;
+}
+
+body.portal--workspace .cadu-ds-entity-nav nav {
+  gap: 1px;
+}
+
+body.portal--workspace .cadu-ds-entity-nav nav a {
+  padding-right: 5px;
+  padding-left: 5px;
+  border-radius: 0;
 }
 
 body.portal--workspace .cadu-ds-entity-nav__actions {
   display: grid;
   gap: 4px;
   margin-top: 22px;
-  padding: 18px 8px 0;
+  padding: 18px 5px 0;
   border-top: 1px solid var(--cadu-line);
 }
 
 body.portal--workspace .cadu-ds-entity-nav__actions form { display: grid; }
 
+body.portal--workspace .cadu-ds-entity-nav__actions > span {
+  margin-bottom: 4px;
+  color: var(--cadu-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
 body.portal--workspace .cadu-ds-entity-nav__actions button {
   min-height: 34px;
-  padding: 7px 8px;
+  padding: 7px 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 0;
   background: transparent;
   color: var(--cadu-muted-strong);
   font: 600 11px/1.3 var(--cadu-font-sans);
@@ -30,7 +56,7 @@ body.portal--workspace .cadu-ds-entity-nav__actions button {
 
 body.portal--workspace .cadu-ds-entity-nav__actions button:hover,
 body.portal--workspace .cadu-ds-entity-nav__actions button:focus-visible {
-  background: var(--cadu-surface);
+  background: transparent;
   color: var(--cadu-ink);
   outline: 0;
 }
@@ -44,7 +70,7 @@ body.portal--workspace .cadu-ds-entity-nav__context {
   display: grid;
   gap: 5px;
   margin-top: 22px;
-  padding: 18px 8px 0;
+  padding: 18px 5px 0;
   border-top: 1px solid var(--cadu-line);
 }
 

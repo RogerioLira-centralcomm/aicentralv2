@@ -161,10 +161,46 @@ body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-library {
   min-height: 0;
 }
 
+body.portal--workspace .cadu-ds-brand-library__stage {
+  border: 1px solid var(--cadu-line);
+  border-radius: 0;
+  background: #fff;
+}
+
 body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-library__stage > img {
   height: 320px;
   min-height: 0;
   max-height: 320px;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+body.portal--workspace .cadu-ds-brand-library__stage footer { background: #fff; }
+
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside { gap: 0; }
+
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside button {
+  min-height: 58px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cadu-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside button:hover,
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside button.is-active {
+  background: transparent;
+  color: var(--cadu-accent-strong);
+}
+
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside button.is-active b { font-weight: 750; }
+
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside img {
+  border: 1px solid var(--cadu-line);
+  border-radius: 0;
+  background: #fff;
+  object-fit: contain;
 }
 
 body.portal--workspace .cadu-ds-brand-library__actions {

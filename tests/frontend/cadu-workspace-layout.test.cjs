@@ -46,10 +46,10 @@ function brandDocument(processing = false) {
   return `<!doctype html><html data-cadu-theme="light" data-cadu-skin="workspace"><head><meta charset="utf-8"><style>html,body{margin:0}\n${workspaceBundleStyles}</style></head>
     <body class="portal--workspace"><main id="content" class="portal-content--workspace-react"><div id="cadu-conversations-v2-root" class="cv-home-root">
       <div class="cadu-ds-home-shell cadu-ds-brand-shell ${processing ? 'is-audit_processing' : 'is-approved'}"><main class="cadu-ds-home-main"><div class="cadu-ds-home-workarea cadu-ds-brand-workarea">
-        <aside class="cadu-ds-dock"><button class="cadu-ds-dock-brand"><span class="cadu-ds-visual-identity cadu-ds-visual-identity--brand"><img alt="Marca" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20' fill='%23007766'/%3E%3C/svg%3E"></span></button></aside>
+        <aside class="cadu-ds-dock"><button class="cadu-ds-dock-home">Início</button><button class="cadu-ds-dock-brand"><span class="cadu-ds-visual-identity cadu-ds-visual-identity--brand"><img alt="Marca" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20' fill='%23007766'/%3E%3C/svg%3E"></span></button></aside>
         <div class="cadu-ds-entity-portal cadu-ds-entity-portal--brand"><aside class="cadu-ds-entity-nav"><nav><a class="is-active">Visão geral</a></nav></aside>
           <section class="cadu-ds-brand-content"><header class="cadu-ds-brand-hero"><div class="cadu-ds-brand-hero__identity"></div><div><h1>Marca</h1></div></header>
-            ${processing ? '<section class="cadu-ds-brand-state"><div class="cadu-ds-brand-state__visual"></div><div>Processando</div></section>' : '<section class="cadu-ds-brand-review"><div>Base aprovada</div></section><header class="cadu-ds-brand-data-viewer__header"><h2>Informações organizadas</h2></header><div class="cadu-ds-brand-data-viewer"><section class="cadu-ds-brand-library"><div class="cadu-ds-brand-library__stage"><img alt="Ativo"></div><aside></aside></section></div>'}
+            ${processing ? '<section class="cadu-ds-brand-state"><div class="cadu-ds-brand-state__visual"></div><div>Processando</div></section>' : '<section class="cadu-ds-brand-review"><div>Base aprovada</div></section><header class="cadu-ds-brand-data-viewer__header"><h2>Informações organizadas</h2></header><div class="cadu-ds-brand-data-viewer"><section class="cadu-ds-brand-library"><div class="cadu-ds-brand-library__stage"><img alt="Ativo"></div><aside><button class="is-active"><img alt=""><span><b>Logo</b></span></button></aside></section></div>'}
           </section>${processing ? '' : '<aside class="cadu-ds-entity-rail">Gestão</aside>'}</div>
       </div></main></div></div></main></body></html>`;
 }
@@ -167,11 +167,24 @@ async function dimensions(page, contentClass) {
       const review = document.querySelector('.cadu-ds-brand-review');
       const logo = document.querySelector('.cadu-ds-dock-brand img');
       const stage = document.querySelector('.cadu-ds-brand-library__stage > img');
+      const dock = document.querySelector('.cadu-ds-dock').getBoundingClientRect();
+      const home = document.querySelector('.cadu-ds-dock-home').getBoundingClientRect();
+      const brandShortcut = document.querySelector('.cadu-ds-dock-brand').getBoundingClientRect();
+      const activeLink = document.querySelector('.cadu-ds-entity-nav a.is-active');
+      const assetRow = document.querySelector('.cadu-ds-brand-library > aside button');
       return {
         portalColumns: getComputedStyle(portal).gridTemplateColumns,
         heroColumns: getComputedStyle(hero).gridTemplateColumns,
         reviewBackground: getComputedStyle(review).backgroundColor,
         logoFit: getComputedStyle(logo).objectFit,
+        dockCenter: dock.left + dock.width / 2,
+        homeCenter: home.left + home.width / 2,
+        brandCenter: brandShortcut.left + brandShortcut.width / 2,
+        activeBackground: getComputedStyle(activeLink).backgroundColor,
+        activeShadow: getComputedStyle(activeLink).boxShadow,
+        stageBackground: getComputedStyle(stage).backgroundColor,
+        assetBackground: getComputedStyle(assetRow).backgroundColor,
+        assetRadius: getComputedStyle(assetRow).borderRadius,
         stageHeight: stage.getBoundingClientRect().height,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
@@ -180,6 +193,13 @@ async function dimensions(page, contentClass) {
     assert.ok(brand.heroColumns.split(' ').length === 2, 'Marca: hero sem coluna de ações redundante');
     assert.equal(brand.reviewBackground, 'rgba(0, 0, 0, 0)', 'Marca: estado da base sem card decorativo');
     assert.equal(brand.logoFit, 'cover', 'Marca: logo da Dock ocupa o ícone inteiro');
+    assert.ok(Math.abs(brand.homeCenter - brand.dockCenter) < 1, 'Marca: acesso centralizado na Dock');
+    assert.ok(Math.abs(brand.brandCenter - brand.dockCenter) < 1, 'Marca: atalho de marca centralizado na Dock');
+    assert.equal(brand.activeBackground, 'rgba(0, 0, 0, 0)', 'Marca: link ativo da sidebar sem card');
+    assert.equal(brand.activeShadow, 'none', 'Marca: link ativo da sidebar sem barra lateral');
+    assert.equal(brand.stageBackground, 'rgb(255, 255, 255)', 'Marca: visualizador de ativos branco');
+    assert.equal(brand.assetBackground, 'rgba(0, 0, 0, 0)', 'Marca: lista de ativos sem cards');
+    assert.equal(brand.assetRadius, '0px', 'Marca: lista de ativos sem cantos de card');
     assert.ok(brand.stageHeight <= 320, 'Marca: ativo não domina a página');
     assert.equal(brand.overflow, 0, 'Marca: sem overflow desktop');
 

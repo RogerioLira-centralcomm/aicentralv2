@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {Icon} from '../lib/icons';
 import {Markdown} from './Markdown';
 import {safeUrl} from '../lib/api';
@@ -126,12 +126,10 @@ function SelectionTools({text, onPrompt, onClear}) {
 }
 
 function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime, diagnostics, starterProject, starterBrand, starterHome}) {
-  const end = useRef(null);
   const thread = useRef(null);
   const [selection, setSelection] = useState('');
   const showActivity = running;
   const hasStreamingAnswer = messages.some(message => message.role === 'assistant' && message.streaming);
-  useEffect(() => { end.current?.scrollIntoView({block: 'end'}); }, [messages]);
   const captureSelection = () => {
     window.requestAnimationFrame(() => {
       const current = window.getSelection();
@@ -156,14 +154,41 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
     {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <React.Fragment key={message.id}>{message.streaming && showActivity && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-5"><span className="cv-message__label">Cadu</span><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}<article data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><span className="cv-message__label">{message.streaming ? 'Resposta' : 'Cadu'}</span><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article></React.Fragment>)}
     {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
     {showActivity && !hasStreamingAnswer && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-7"><span className="cv-message__label">Cadu</span><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}
-    <div ref={end}/>
   </div>;
 }
 
-export function Conversation({title, context, projects, brands, starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop}) {
+export function Conversation({conversationId, title, context, projects, brands, starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop}) {
   const details = useRef(null);
   const historyTrigger = useRef(null);
   const wasHistoryOpen = useRef(historyOpen);
+  const threadScroll = useRef(null);
+  const stickToLatest = useRef(true);
+  const previousConversation = useRef(conversationId);
+  const scrollToLatest = useCallback(() => {
+    const element = threadScroll.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, []);
+  const trackScrollPosition = useCallback(event => {
+    const element = event.currentTarget;
+    stickToLatest.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120;
+  }, []);
+  useLayoutEffect(() => {
+    const changedConversation = previousConversation.current !== conversationId;
+    previousConversation.current = conversationId;
+    if (changedConversation) stickToLatest.current = true;
+    if (!stickToLatest.current) return;
+    scrollToLatest();
+    const frame = window.requestAnimationFrame(scrollToLatest);
+    return () => window.cancelAnimationFrame(frame);
+  }, [conversationId, messages, artifactOpen, scrollToLatest]);
+  useEffect(() => {
+    const element = threadScroll.current;
+    const content = element?.firstElementChild;
+    if (!element || !content || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => { if (stickToLatest.current) scrollToLatest(); });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [conversationId, scrollToLatest]);
   useEffect(() => {
     if (wasHistoryOpen.current && !historyOpen) window.requestAnimationFrame(() => historyTrigger.current?.focus());
     wasHistoryOpen.current = historyOpen;
@@ -180,7 +205,7 @@ export function Conversation({title, context, projects, brands, starterProject, 
         </div>
       </details>
     </header>
-    <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} diagnostics={diagnostics} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
+    <div ref={threadScroll} onScroll={trackScrollPosition} className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} diagnostics={diagnostics} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;

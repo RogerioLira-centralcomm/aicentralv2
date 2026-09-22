@@ -15,6 +15,15 @@ import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
 import {openConversationDockDetail} from '../cadu-design-system/workspaceNavigation';
 
 const emptyTitle = 'Novo chat';
+const ARTIFACT_SIDE_COOKIE = 'cadu-artifact-side';
+
+function readCookie(key) {
+  return document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]+)`))?.[1] || '';
+}
+
+function writeCookie(key, value) {
+  document.cookie = `${key}=${value}; Max-Age=31536000; Path=/; SameSite=Lax`;
+}
 
 async function copyText(value) {
   if (!value) return false;
@@ -59,7 +68,7 @@ export default function App({bootstrap}) {
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const [artifact, setArtifact] = useState(null);
   const [artifactOpen, setArtifactOpen] = useState(false);
-  const [artifactSide, setArtifactSide] = useState('right');
+  const [artifactSide, setArtifactSide] = useState(() => readCookie(ARTIFACT_SIDE_COOKIE) === 'left' ? 'left' : 'right');
   const [artifactDirty, setArtifactDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -80,15 +89,15 @@ export default function App({bootstrap}) {
   const artifactRef = useRef(null);
   useEffect(() => {
     if (!artifact?.id) return;
-    const key = `cadu-artifact-side:${artifact.id}`;
-    const saved = document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]+)`))?.[1];
+    const saved = readCookie(`${ARTIFACT_SIDE_COOKIE}:${artifact.id}`) || readCookie(ARTIFACT_SIDE_COOKIE);
     setArtifactSide(saved === 'left' ? 'left' : 'right');
   }, [artifact?.id]);
   useEffect(() => { if (artifactOpen) setHistoryOpen(false); }, [artifactOpen]);
   const changeArtifactSide = useCallback(side => {
     const next = side === 'left' ? 'left' : 'right';
     setArtifactSide(next);
-    if (artifact?.id) document.cookie = `cadu-artifact-side:${artifact.id}=${next}; Max-Age=31536000; Path=/; SameSite=Lax`;
+    writeCookie(ARTIFACT_SIDE_COOKIE, next);
+    if (artifact?.id) writeCookie(`${ARTIFACT_SIDE_COOKIE}:${artifact.id}`, next);
   }, [artifact?.id]);
   const runRef = useRef(null);
   const runStartedRef = useRef(0);
@@ -787,7 +796,7 @@ export default function App({bootstrap}) {
           <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} projectResourcesEndpoint={bootstrap.endpoints?.projectResources || '/workspace/api/v2/projects'} studioLibraryEndpoint={bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library'} activeId={conversationId} onOpen={openConversation} onOpenResource={openResource} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte para anexar</strong></div></div>}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
+          <Conversation conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext}/>
           {artifactOpen && <ArtifactPane
             artifact={artifact} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
             side={artifactSide} onSideChange={changeArtifactSide}

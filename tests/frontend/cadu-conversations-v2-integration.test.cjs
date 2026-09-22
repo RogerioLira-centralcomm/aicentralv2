@@ -602,6 +602,7 @@ test('attachment upload service preserves progress and conversation upload contr
 test('image artifacts hand off editing context to Studio', () => {
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const editor = fs.readFileSync(path.join(root, 'frontend/cadu-studio-editor/StudioEditorApp.jsx'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
@@ -617,4 +618,10 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(editor, /initialQuery\.get\('instruction'\)/);
   assert.match(editor, /initialQuery\.get\('editor_mode'\)/);
   assert.match(styles, /\.cv-image-artifact__bar \{ position:sticky; bottom:0/);
+  assert.match(app, /writeCookie\(ARTIFACT_SIDE_COOKIE, next\)/);
+  assert.match(app, /writeCookie\(`\$\{ARTIFACT_SIDE_COOKIE\}:\$\{artifact\.id\}`, next\)/);
+  assert.match(app, /if \(lastArtifact\) await fetchArtifact\(lastArtifact\)/);
+  assert.match(conversation, /stickToLatest/);
+  assert.match(conversation, /element\.scrollTop = element\.scrollHeight/);
+  assert.match(conversation, /new ResizeObserver/);
 });

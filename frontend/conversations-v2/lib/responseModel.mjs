@@ -31,6 +31,17 @@ export function normalizeAnswerText(value) {
   return typeof decoded === 'string' ? decoded : String(value || '');
 }
 
+export function reconcileCompletedResponse(streamingResponse, completedResponse, hasArtifact = false) {
+  const current = streamingResponse && typeof streamingResponse === 'object' ? streamingResponse : {};
+  const completed = completedResponse && typeof completedResponse === 'object' ? completedResponse : {};
+  const streamed = normalizeAnswerText(current.answer || '');
+  const final = normalizeAnswerText(completed.answer || '');
+  if (hasArtifact || streamed.length < 600 || final.length >= streamed.length * .78) return completed;
+  const anchor = final.replace(/\s+/g, ' ').trim().slice(0, 120).toLowerCase();
+  const streamedHead = streamed.replace(/\s+/g, ' ').trim().slice(0, 600).toLowerCase();
+  return anchor && !streamedHead.includes(anchor) ? completed : {...completed, answer: streamed};
+}
+
 export function meaningfulResponseBlocks(blocks) {
   return (Array.isArray(blocks) ? blocks : []).filter(block => {
     if (!block || typeof block !== 'object') return false;

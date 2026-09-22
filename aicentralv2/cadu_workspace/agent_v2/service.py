@@ -31,6 +31,20 @@ def _event(kind, **values):
     return "data: " + json.dumps({"event": kind, **values}, ensure_ascii=False, default=str) + "\n\n"
 
 
+def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
+    """Never let final normalization erase a substantive answer already shown."""
+    streamed = str(streamed_answer or "").strip()
+    final = str(response.answer or "").strip()
+    if (policy.get("mode") != "analysis" or response.artifact_patch or len(streamed) < 600
+            or len(final) >= int(len(streamed) * .78)):
+        return response
+    final_anchor = re.sub(r"\s+", " ", final).strip()[:120].lower()
+    streamed_head = re.sub(r"\s+", " ", streamed).strip()[:600].lower()
+    if final_anchor and final_anchor not in streamed_head:
+        return response
+    return replace(response, answer=streamed)
+
+
 def _decode_partial_json_string(value: str) -> str:
     """Decode the completed portion of a JSON string without exposing its envelope."""
     output, index = [], 0
@@ -559,6 +573,7 @@ def stream(run):
             state = "cancelled"
         else:
             response = normalize_response("".join(answer_chunks), run["policy"])
+            response = _preserve_streamed_answer(response, streamed_answer, run["policy"])
             response = _enrich_source_blocks(response, run)
             artifact = None
             # A response patch is only materialized when the route explicitly

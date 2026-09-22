@@ -3,7 +3,7 @@ from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 
-from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext, execution_mode_for
+from aicentralv2.cadu_workspace.agent_v2.contracts import AgentResponse, RequestContext, execution_mode_for
 from aicentralv2.cadu_workspace.agent_v2.response_policy import (
     budget_for, policy_for, requested_answer_chars, requested_output_tokens,
 )
@@ -40,6 +40,18 @@ def test_streamable_answer_exposes_prose_without_leaking_provider_envelope():
     assert v2_service._streamable_answer('```json\n{"text":{"content":"Guia adaptado') == "Guia adaptado"
     assert v2_service._streamable_answer('prefixo {"text":{"content":"Continuação segura') == "Continuação segura"
     assert v2_service._streamable_answer('{"confidence":"high","blocks":[]') == ""
+
+
+def test_final_normalization_cannot_erase_long_streamed_analysis():
+    streamed = "Abertura útil. " + ("Conteúdo completo transmitido durante o streaming. " * 30)
+    response = v2_service._preserve_streamed_answer(
+        AgentResponse(answer="Abertura útil."), streamed, {"mode": "analysis"},
+    )
+    assert response.answer == streamed.strip()
+    different = v2_service._preserve_streamed_answer(
+        AgentResponse(answer="Síntese editorial diferente."), streamed, {"mode": "analysis"},
+    )
+    assert different.answer == "Síntese editorial diferente."
 
 
 def test_explicit_long_form_request_uses_analysis_without_forcing_an_artifact():

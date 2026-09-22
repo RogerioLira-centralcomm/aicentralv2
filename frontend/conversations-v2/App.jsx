@@ -5,7 +5,7 @@ import {ArtifactPane} from './components/ArtifactPane';
 import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
-import {insertWorkedBeforeResult} from './lib/responseModel.mjs';
+import {insertWorkedBeforeResult, reconcileCompletedResponse} from './lib/responseModel.mjs';
 import {attachmentIssues, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
 import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
 import {brandContextPayload, conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
@@ -563,7 +563,8 @@ export default function App({bootstrap}) {
           }
           setMessages(items => {
             const existing = items.findIndex(item => item.turnId === turnId && item.streaming);
-            const completed = {id: existing >= 0 ? items[existing].id : uid(), turnId, role: 'assistant', response: responseData, artifact: latestArtifact};
+            const safeResponse = reconcileCompletedResponse(existing >= 0 ? items[existing].response : null, responseData, Boolean(latestArtifact?.id || responseData.artifact_patch));
+            const completed = {id: existing >= 0 ? items[existing].id : uid(), turnId, role: 'assistant', response: safeResponse, artifact: latestArtifact};
             return existing >= 0 ? items.map((item, index) => index === existing ? completed : item) : [...items, completed];
           });
           trace('Resposta concluída', responseData.confidence || '');

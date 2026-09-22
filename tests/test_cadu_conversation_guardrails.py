@@ -1,12 +1,27 @@
 from unittest import TestCase
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from werkzeug.exceptions import BadRequest
 
 from aicentralv2.cadu_workspace.conversations.guardrails import (
-    validate_message, validate_files, history_context, classify_intent, normalize_colloquial, MAX_HISTORY_CHARS,
+    validate_message, validate_files, history_context, classify_intent, normalize_colloquial,
+    temporal_context, MAX_HISTORY_CHARS,
 )
 
 
 class ConversationGuardrailsTest(TestCase):
+    def test_brazilian_deadlines_are_resolved_without_backdating(self):
+        now = datetime(2026, 9, 22, 10, tzinfo=ZoneInfo('America/Sao_Paulo'))
+        self.assertEqual(temporal_context('preciso pra ontem', now)['suggested_date'], '2026-09-22')
+        self.assertEqual(temporal_context('entrega hj', now)['suggested_date'], '2026-09-22')
+        self.assertEqual(temporal_context('em 3 dias úteis', now)['suggested_date'], '2026-09-25')
+
+    def test_urgent_deadline_suggests_next_business_day(self):
+        friday = datetime(2026, 9, 25, 16, tzinfo=ZoneInfo('America/Sao_Paulo'))
+        result = temporal_context('isso é urgente', friday)
+        self.assertEqual(result['suggested_date'], '2026-09-28')
+        self.assertEqual(result['urgency'], 'high')
+
     def test_brazilian_chat_shorthand_is_normalized_without_changing_urls(self):
         value = normalize_colloquial('humm vc éeee demais kkkkk, hj n consigo abrir https://Exemplo.com/PlanoABC')
         self.assertEqual(value, 'você é demais, hoje não consigo abrir https://Exemplo.com/PlanoABC')

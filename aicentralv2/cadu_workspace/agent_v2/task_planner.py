@@ -1,9 +1,56 @@
 """Bounded deterministic task plans; simple turns never invoke a planner LLM."""
 
 import re
+from datetime import datetime, timedelta
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from .contracts import ExecutionBudget, IntentRoute
+
+
+def _project_meeting_step(message: str, now=None):
+    """Plan a meeting only when date and time are explicit enough to seal."""
+    text = str(message or "")
+    current = now or datetime.now(ZoneInfo("America/Sao_Paulo"))
+    time_match = re.search(r"\b(?:[àa]s?\s*)?(\d{1,2})(?::|h)(\d{2})?\b", text, re.IGNORECASE)
+    date_match = re.search(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b", text)
+    if not time_match:
+        return None
+    hour, minute = int(time_match.group(1)), int(time_match.group(2) or 0)
+    if hour > 23 or minute > 59:
+        return None
+    if date_match:
+        day, month = int(date_match.group(1)), int(date_match.group(2))
+        year = int(date_match.group(3) or current.year)
+        year += 2000 if year < 100 else 0
+        try:
+            meeting_date = current.date().replace(year=year, month=month, day=day)
+        except ValueError:
+            return None
+    elif re.search(r"\bamanh[aã]\b", text, re.IGNORECASE):
+        meeting_date = current.date() + timedelta(days=1)
+    elif re.search(r"\b(?:hoje|hj)\b", text, re.IGNORECASE):
+        meeting_date = current.date()
+    else:
+        return None
+    starts = datetime.combine(meeting_date, datetime.min.time(), current.tzinfo).replace(hour=hour, minute=minute)
+    if starts <= current:
+        return None
+    duration_match = re.search(r"\b(?:por|dura(?:[cç][aã]o)?\s*(?:de)?)\s*(\d{1,3})\s*(min(?:utos?)?|h(?:oras?)?)\b", text, re.IGNORECASE)
+    duration = 60
+    if duration_match:
+        duration = int(duration_match.group(1)) * (60 if duration_match.group(2).lower().startswith("h") else 1)
+    duration = min(max(duration, 15), 480)
+    title_match = re.search(r"\b(?:reuni[aã]o|meet)\s+(?:sobre|para|de)\s+([^,.;\n]{2,120})", text, re.IGNORECASE)
+    title = "Reunião do projeto" if not title_match else "Reunião: " + title_match.group(1).strip()
+    ends = starts + timedelta(minutes=duration)
+    return {
+        "kind": "action", "name": "google.create_project_meeting", "requires_confirmation": True,
+        "request_id": str(uuid4()), "effect": "write",
+        "arguments": {"title": title[:300], "starts_at": starts.isoformat(), "ends_at": ends.isoformat(),
+                      "timezone": "America/Sao_Paulo"},
+        "summary": f"Criar Meet em {starts.strftime('%d/%m/%Y às %H:%M')} ({duration} min) e convidar a equipe ativa do projeto.",
+    }
 
 
 def _link_test_step(message: str):
@@ -177,6 +224,10 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
     steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:2]]
     if route.action == "link_test":
         action = _link_test_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "schedule_project_meeting":
+        action = _project_meeting_step(message)
         if action:
             steps.append(action)
     if route.action == "create_project":

@@ -65,6 +65,41 @@ def list_calendar_events(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="google.create_project_meeting",
+    capability="workspace",
+    effect="write",
+    requires_project=True,
+    description="Cria evento com Google Meet e envia o convite à equipe ativa do projeto após confirmação explícita.",
+    exposures=("internal",),
+    input_schema={
+        "type": "object",
+        "required": ["request_id", "confirmed", "title", "starts_at", "ends_at"],
+        "properties": {
+            "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+            "confirmed": {"type": "boolean", "enum": [True]},
+            "title": {"type": "string", "minLength": 2, "maxLength": 300},
+            "description": {"type": "string", "maxLength": 8000},
+            "starts_at": {"type": "string", "minLength": 16, "maxLength": 40},
+            "ends_at": {"type": "string", "minLength": 16, "maxLength": 40},
+            "timezone": {"type": "string", "enum": ["America/Sao_Paulo"]},
+        },
+        "additionalProperties": False,
+    },
+)
+def create_project_meeting(context: RequestContext, arguments: dict) -> dict:
+    payload = {
+        "summary": arguments["title"], "description": arguments.get("description", ""),
+        "starts_at": arguments["starts_at"], "ends_at": arguments["ends_at"],
+        "event_timezone": arguments.get("timezone", "America/Sao_Paulo"),
+        "request_id": arguments["request_id"],
+    }
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "google.create_project_meeting", payload,
+        lambda: connector.create_project_meeting(context, **payload),
+    ))
+
+
+@register_tool(
     name="google.list_meet_records",
     capability="workspace",
     effect="read",

@@ -116,6 +116,19 @@ class CaduGoogleConnector:
             "events": google_workspace.list_calendar_events(context.organization_id, limit=limit),
         }
 
+    def create_project_meeting(self, context: RequestContext, **meeting) -> dict[str, Any]:
+        project_id = self._project_id(context)
+        members = repository.project_access(context.client_id, context.project_ref)
+        attendees = [row.get("email") for row in members
+                     if str(row.get("status") or "").lower() not in {"inativo", "inactive", "bloqueado"}
+                     and row.get("email")]
+        if not attendees:
+            raise CaduGoogleConnectorError("A equipe do projeto não tem e-mails ativos para receber o convite.")
+        result = google_workspace.create_calendar_event(
+            context.organization_id, attendees=attendees, **meeting,
+        )
+        return {"connector": self.name, "project_id": project_id, **result}
+
     def list_meet_records(self, context: RequestContext, *, limit: int = 50) -> dict[str, Any]:
         return {
             "connector": self.name,

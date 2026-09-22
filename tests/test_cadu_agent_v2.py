@@ -507,6 +507,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     assert "workspace.create_project" in internal_names
     assert {"workspace.update_project_context", "workspace.set_project_status"} <= internal_names
     assert "workspace.link_current_brand" in internal_names
+    assert "google.create_project_meeting" in internal_names
     assert not {"brands.create", "brands.start_audit"} & names
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
@@ -1142,6 +1143,19 @@ def test_short_text_artifact_stays_on_analysis_runtime():
     assert route.action == "create_meeting_summary"
     assert route.artifact_type == "meeting_summary"
     assert execution_mode_for(route, "agentic") == "analysis"
+
+
+def test_project_meeting_requires_project_and_explicit_confirmation():
+    missing = route_request("Agende uma reunião amanhã às 10h", has_project=False)
+    assert missing.action == "select_project_for_meeting"
+    route = route_request("Agende uma reunião de alinhamento amanhã às 10h", has_project=True)
+    plan = build_task_plan(route, budget_for(route), "Agende uma reunião de alinhamento amanhã às 10h")
+    action = next(step for step in plan if step.get("kind") == "action")
+    assert route.action == "schedule_project_meeting"
+    assert route.requires_confirmation is True
+    assert action["name"] == "google.create_project_meeting"
+    assert action["requires_confirmation"] is True
+    assert action["arguments"]["timezone"] == "America/Sao_Paulo"
 
 
 def test_meeting_fallback_keeps_semantic_context_field():

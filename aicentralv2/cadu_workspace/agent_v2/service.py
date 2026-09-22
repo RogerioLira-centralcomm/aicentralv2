@@ -13,7 +13,7 @@ from psycopg.types.json import Json
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
-from ..conversations.guardrails import history_context, normalize_colloquial, validate_files
+from ..conversations.guardrails import history_context, normalize_colloquial, temporal_context, validate_files
 from ..artifacts import create_draft, get_artifact, patch_artifact
 from . import provider
 from .executor import prepare_execution
@@ -611,6 +611,9 @@ def prepare(data):
         long_memory = {}
     if turn_context:
         long_memory = {**long_memory, "turn_context": turn_context}
+    timing = temporal_context(message)
+    if timing.get("matched"):
+        long_memory = {**long_memory, "temporal_context": timing}
     routing_message = message
     if turn_context:
         if turn_context.get("routing_message"):

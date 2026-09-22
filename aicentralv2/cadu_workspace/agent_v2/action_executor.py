@@ -9,6 +9,7 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "projects.create_note",
     "projects.create_link_reference",
     "brands.create", "brands.prepare_logo_upload", "brands.update_identity", "brands.start_audit",
+    "google.create_project_meeting",
 })
 
 
@@ -115,6 +116,16 @@ def _completion(step_name: str, result: dict) -> dict:
         return {"answer": "A identidade da marca foi atualizada nos campos solicitados.", "blocks": [
             {"type": "activity", "state": "completed", "label": "Identidade da marca atualizada",
              "detail": " · ".join(fields)},
+        ], "refresh_context": True}
+    if step_name == "google.create_project_meeting":
+        title = result.get("title") or "Reunião do projeto"
+        return {"answer": f"“{title}” foi criada e os convites foram enviados para a equipe do projeto.", "blocks": [
+            {"type": "activity", "state": "completed", "label": "Reunião criada no Google Calendar",
+             "detail": f"{result.get('invites_sent', 0)} convite(s) enviado(s)"},
+            {"type": "links", "title": "Acessos", "items": [item for item in [
+                {"title": "Entrar no Google Meet", "url": result.get("meet_url")},
+                {"title": "Abrir no Google Calendar", "url": result.get("calendar_url")},
+            ] if item.get("url")]},
         ], "refresh_context": True}
     return {"answer": "Ação concluída.", "blocks": [{"type": "activity", "state": "completed", "label": "Ação concluída"}]}
 

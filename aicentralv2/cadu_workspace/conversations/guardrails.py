@@ -5,6 +5,8 @@ Intent heuristics are not authorization: no tools execute from these helpers.
 """
 import re
 import unicodedata
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import Conflict
@@ -46,6 +48,52 @@ def normalize_colloquial(message):
             normalized.append(urls[index])
     result = ' '.join(''.join(normalized).split())
     return re.sub(r'\s+([,.;!?])', r'\1', result)
+
+
+def _next_business_day(value, count=1):
+    current = value
+    remaining = max(1, int(count))
+    while remaining:
+        current += timedelta(days=1)
+        if current.weekday() < 5:
+            remaining -= 1
+    return current
+
+
+def temporal_context(message, now=None):
+    """Resolve common Brazilian deadline language without inventing holidays."""
+    text = normalize_colloquial(message)
+    current = now or datetime.now(ZoneInfo('America/Sao_Paulo'))
+    today = current.date()
+    result = {'timezone': 'America/Sao_Paulo', 'today': today.isoformat(), 'matched': False}
+    if re.search(r'\b(?:pra|para)\s+ontem\b', text):
+        result.update({'matched': True, 'urgency': 'critical', 'expression': 'para ontem',
+                       'suggested_date': today.isoformat(),
+                       'guidance': 'Tratar como prioridade imediata; nunca propor uma data passada.'})
+        return result
+    if re.search(r'\b(?:urgente|urg[êe]ncia|o quanto antes|asap)\b', text):
+        result.update({'matched': True, 'urgency': 'high', 'expression': 'urgente',
+                       'suggested_date': _next_business_day(today).isoformat(),
+                       'guidance': 'Sugerir o próximo dia útil e confirmar se precisa ser hoje.'})
+        return result
+    business = re.search(r'\bem\s+(\d{1,3})\s+dias?\s+[uú]teis\b', text)
+    if business:
+        result.update({'matched': True, 'urgency': 'normal', 'expression': business.group(0),
+                       'suggested_date': _next_business_day(today, int(business.group(1))).isoformat(),
+                       'guidance': 'Contagem considera segunda a sexta; confirmar feriados locais.'})
+        return result
+    calendar_days = re.search(r'\bem\s+(\d{1,3})\s+dias?\b', text)
+    if calendar_days:
+        due = today + timedelta(days=int(calendar_days.group(1)))
+        result.update({'matched': True, 'urgency': 'normal', 'expression': calendar_days.group(0),
+                       'suggested_date': due.isoformat(), 'guidance': 'Prazo interpretado em dias corridos.'})
+        return result
+    if re.search(r'\bhoje\b', text):
+        result.update({'matched': True, 'urgency': 'high', 'expression': 'hoje', 'suggested_date': today.isoformat()})
+    elif re.search(r'\bamanh[aã]\b', text):
+        result.update({'matched': True, 'urgency': 'normal', 'expression': 'amanhã',
+                       'suggested_date': (today + timedelta(days=1)).isoformat()})
+    return result
 
 
 def normalized_text(message):

@@ -964,6 +964,72 @@ def list_calendar_events(organization_id: int, *, limit: int = 50, time_min: str
     return (response.json() or {}).get("items") or []
 
 
+def create_calendar_event(
+    organization_id: int,
+    *,
+    summary: str,
+    starts_at: str,
+    ends_at: str,
+    attendees: list[str],
+    description: str = "",
+    event_timezone: str = "America/Sao_Paulo",
+    request_id: str,
+) -> dict:
+    """Create one Calendar event with Meet and notify its explicit attendees."""
+    connection = get_connection(organization_id)
+    if not connection or connection.get("status") != "connected":
+        raise GoogleWorkspaceError("Conecte uma conta Google antes de criar a reunião.")
+    granted = set(str(connection.get("granted_scopes") or "").split())
+    if "https://www.googleapis.com/auth/calendar.events" not in granted:
+        raise GoogleWorkspaceError("Reautorize o Google Workspace com permissão para criar eventos.")
+    emails = list(dict.fromkeys(
+        str(value or "").strip().lower() for value in attendees
+        if re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", str(value or "").strip())
+    ))
+    if not emails:
+        raise GoogleWorkspaceError("A equipe do projeto não tem e-mails válidos para receber o convite.")
+    try:
+        start_value = datetime.fromisoformat(starts_at)
+        end_value = datetime.fromisoformat(ends_at)
+    except (TypeError, ValueError) as exc:
+        raise GoogleWorkspaceError("A data e a hora da reunião são inválidas.") from exc
+    if start_value.tzinfo is None or end_value.tzinfo is None or end_value <= start_value:
+        raise GoogleWorkspaceError("A reunião precisa ter início, fim e fuso horário válidos.")
+    if start_value <= datetime.now(start_value.tzinfo):
+        raise GoogleWorkspaceError("A reunião precisa ser agendada para uma data futura.")
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    payload = {
+        "summary": str(summary or "Reunião do projeto").strip()[:300],
+        "description": str(description or "").strip()[:8000],
+        "start": {"dateTime": starts_at, "timeZone": event_timezone},
+        "end": {"dateTime": ends_at, "timeZone": event_timezone},
+        "attendees": [{"email": email} for email in emails],
+        "conferenceData": {"createRequest": {
+            "requestId": hashlib.sha256(str(request_id).encode()).hexdigest()[:32],
+            "conferenceSolutionKey": {"type": "hangoutsMeet"},
+        }},
+    }
+    response = requests.post(
+        CALENDAR_EVENTS_URL,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        params={"conferenceDataVersion": 1, "sendUpdates": "all"},
+        json=payload,
+        timeout=30,
+    )
+    if not response.ok:
+        raise GoogleWorkspaceError("O Google Calendar não conseguiu criar e enviar a reunião.")
+    event = response.json() or {}
+    meet_url = next((item.get("uri") for item in (event.get("conferenceData") or {}).get("entryPoints") or []
+                     if item.get("entryPointType") == "video"), None)
+    return {
+        "event_id": event.get("id"), "title": event.get("summary") or payload["summary"],
+        "calendar_url": event.get("htmlLink"), "meet_url": meet_url,
+        "starts_at": (event.get("start") or {}).get("dateTime") or starts_at,
+        "ends_at": (event.get("end") or {}).get("dateTime") or ends_at,
+        "attendees": emails, "invites_sent": len(emails),
+    }
+
+
 def list_meet_conference_records(organization_id: int, *, limit: int = 50) -> list[dict]:
     """List recent Meet conference records without fetching transcript content."""
     connection = get_connection(organization_id)

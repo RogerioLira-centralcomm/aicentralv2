@@ -92,6 +92,15 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             ("web.search",) if web_requested else (), None, False,
         )
 
+    meeting_write = _has(text, r"\b(?:agend|marqu)\w*\b.{0,55}\b(?:reuni[aã]o|convite|meet)\b") or _has(
+        text, r"\b(?:crie|criar|mande|envi)\w*\b.{0,55}\b(?:convite|meet)\b",
+    )
+    if meeting_write and not _has(text, r"\b(?:resumo|ata|s[ií]ntese|pauta)\b"):
+        if not has_project:
+            return IntentRoute("workspace", "select_project_for_meeting", "low", "clarification")
+        return IntentRoute("workspace", "schedule_project_meeting", "medium", "decision",
+                           ("project",), (), None, True)
+
     if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
             or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):
         return IntentRoute("planner", "link_test", "medium", "decision", (), (), None, True)

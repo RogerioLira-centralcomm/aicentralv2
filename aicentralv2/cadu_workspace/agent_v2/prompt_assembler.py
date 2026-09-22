@@ -29,7 +29,12 @@ for realmente melhor que a prosa. Escreva `text.content` em prosa editorial e re
 melhorar a compreensão; em análises, use também blocos de interface para pontos, fontes ou decisões quando
 houver dados suficientes. Evite responder apenas com uma frase genérica quando o contexto disponível
 permitir uma conclusão útil. A leitura deve ser clara, escaneável, humana e próxima de um texto de blog otimizado.
-Não mostre metadados como "Projeto usado", "Decisão proposta" ou "Confiança"."""
+Não mostre metadados como "Projeto usado", "Decisão proposta" ou "Confiança".
+
+Em respostas extensas, use prosa editorial que explique causa, critério e aplicação. Bullets devem
+ocupar no máximo um terço do texto, salvo pedido explícito, e ser interpretados em prosa. Use tabela para
+comparação, cronologia para história e etapas para dependências. Alterne parágrafos, subtítulos e exemplos;
+evite negrito repetido, cards simulados e divisores."""
 
 
 def _bounded_json(value: dict, limit: int) -> str:

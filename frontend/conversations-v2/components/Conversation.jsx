@@ -128,8 +128,8 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
   const end = useRef(null);
   const thread = useRef(null);
   const [selection, setSelection] = useState('');
-  const lastMessage = messages[messages.length - 1];
-  const showActivity = running && lastMessage?.role !== 'assistant';
+  const showActivity = running;
+  const hasStreamingAnswer = messages.some(message => message.role === 'assistant' && message.streaming);
   useEffect(() => { end.current?.scrollIntoView({block: 'end'}); }, [messages]);
   const captureSelection = () => {
     window.requestAnimationFrame(() => {
@@ -152,9 +152,9 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
     </div>
   </div>;
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
-    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <article key={message.id} data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><span className="cv-message__label">Cadu</span><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article>)}
+    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? null : <React.Fragment key={message.id}>{message.streaming && showActivity && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-5"><span className="cv-message__label">Cadu</span><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}<article data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><span className="cv-message__label">{message.streaming ? 'Resposta' : 'Cadu'}</span><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article></React.Fragment>)}
     {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
-    {showActivity && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-7"><span className="cv-message__label">Cadu</span><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}
+    {showActivity && !hasStreamingAnswer && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-7"><span className="cv-message__label">Cadu</span><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}
     <div ref={end}/>
   </div>;
 }

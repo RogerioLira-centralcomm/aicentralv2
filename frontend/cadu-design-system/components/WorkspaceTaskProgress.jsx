@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 
 function statusFromActivity(runtime, diagnostics) {
   const explicit = String(runtime || '').trim();
@@ -17,9 +17,28 @@ function statusFromActivity(runtime, diagnostics) {
 
 export function WorkspaceTaskProgress({running = false, runtime = '', diagnostics = []}) {
   const status = useMemo(() => statusFromActivity(runtime, diagnostics), [runtime, diagnostics]);
+  const [elapsed, setElapsed] = useState(0);
+  const completed = useMemo(() => {
+    const ignored = /^(Entendendo o pedido|Resposta concluída|Execução concluída)$/i;
+    const seen = new Set();
+    return (diagnostics || []).filter(item => {
+      const title = String(item?.title || '').trim();
+      if (!title || ignored.test(title) || seen.has(title)) return false;
+      seen.add(title);
+      return true;
+    }).slice(-3);
+  }, [diagnostics]);
+  useEffect(() => {
+    if (!running) return undefined;
+    const started = Date.now();
+    setElapsed(0);
+    const timer = window.setInterval(() => setElapsed(Math.max(1, Math.round((Date.now() - started) / 1000))), 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
   if (!running) return null;
-  return <div className="cadu-ds-task-progress" role="status" aria-live="polite" aria-atomic="true">
-    <span className="cadu-ds-task-progress__spinner" aria-hidden="true"/>
-    <span key={status} className="cadu-ds-task-progress__text">{status}<span aria-hidden="true">…</span></span>
+  return <div className="cadu-ds-task-progress">
+    <div className="cadu-ds-task-progress__header"><span>Trabalhando{elapsed ? ` há ${elapsed} s` : ''}</span></div>
+    {!!completed.length && <div className="cadu-ds-task-progress__results" aria-label="Etapas concluídas">{completed.map(item => <div key={item.id}><span aria-hidden="true">✓</span><p>{item.title}{item.detail && <small>{item.detail}</small>}</p></div>)}</div>}
+    <div className="cadu-ds-task-progress__current" role="status" aria-live="polite" aria-atomic="true"><span className="cadu-ds-task-progress__spinner" aria-hidden="true"/><span key={status} className="cadu-ds-task-progress__text">{status}<span aria-hidden="true">…</span></span></div>
   </div>;
 }

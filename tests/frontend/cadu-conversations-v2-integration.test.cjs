@@ -320,6 +320,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
+  const progress = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceTaskProgress.jsx'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
@@ -493,6 +494,7 @@ test('conversation response model preserves execution order and explicit checkli
 
 test('conversation response UI never invents follow-up actions for static insights', () => {
   const blocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
+  const progress = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceTaskProgress.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
   assert.doesNotMatch(blocks, /Aprofunde este ponto/);
@@ -502,6 +504,9 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(conversation, /visibleQuestions/);
   assert.match(markdown, /paragraph\.join\(' '\)/);
   assert.match(fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8'), /kind === 'answer\.delta'/);
+  assert.match(progress, /Trabalhando\{elapsed/);
+  assert.match(progress, /Etapas concluídas/);
+  assert.match(conversation, /message\.streaming && showActivity/);
 });
 
 test('conversation attachment model preserves validation and destination rules', async () => {

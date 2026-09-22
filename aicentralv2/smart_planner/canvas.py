@@ -377,7 +377,7 @@ def save_plan(token: str, plan: dict, *, folha: bool = False) -> dict:
     if folha or mode == "one_page":
         # Preserve media/theme/share from the saved folha when the form omits them.
         existing = as_dict(dados.get("folha")) or as_dict(row.get("plan_content") if row else {})
-        for key in ("media", "theme", "share", "branding", "one_page_v2"):
+        for key in ("media", "theme", "share", "branding", "one_page_v2", "visual_inputs"):
             if key not in incoming and existing.get(key):
                 incoming[key] = existing.get(key)
         if not meta:

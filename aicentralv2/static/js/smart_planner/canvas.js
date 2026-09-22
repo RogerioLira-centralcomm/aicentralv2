@@ -8,7 +8,7 @@
   var isPublic = root.getAttribute("data-public") === "1";
   var ready = false;
   var board = document.getElementById("sp-canvas-board");
-  var presenterSelect = document.getElementById("sp-presenter");
+  var presenterSelect = document.getElementById("sp-presenter-legacy") || document.getElementById("sp-presenter");
   var plan = { sections: [], branding: {}, meta: {}, theme: {}, share: {}, media: {} };
 
   var TYPE_LABELS = {
@@ -108,6 +108,31 @@
     return node ? node.value : "";
   }
 
+  function autosizeTextarea(field) {
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = Math.max(field.scrollHeight, 96) + "px";
+    field.style.overflowY = "hidden";
+  }
+
+  function setupAutosizeTextareas() {
+    if (!isEditor) return;
+    var fields = Array.prototype.slice.call(document.querySelectorAll("#sp-folha-form textarea"));
+    fields.forEach(function (field) {
+      field.classList.add("is-autosized");
+      autosizeTextarea(field);
+      field.addEventListener("input", function () {
+        autosizeTextarea(field);
+      });
+    });
+    window.requestAnimationFrame(function () {
+      fields.forEach(autosizeTextarea);
+    });
+    window.addEventListener("resize", function () {
+      fields.forEach(autosizeTextarea);
+    });
+  }
+
   function ensureSection() {
     if (!plan.sections || !plan.sections.length) {
       plan.sections = [{ id: "one_page", type: "one_page", title: "Página única", order: 1, cards: [] }];
@@ -155,6 +180,11 @@
     if (presenterSelect) {
       plan.meta.presenter = presenterSelect.value;
     }
+    var presenterField = document.getElementById("sp-presenter");
+    if (presenterField && presenterSelect) presenterField.value = presenterSelect.value;
+    plan.public_design = plan.public_design || {};
+    plan.public_design.hero = plan.public_design.hero || {};
+    plan.public_design.hero.use_as_background = Boolean(document.getElementById("sp-public-hero-background")?.checked);
     return plan;
   }
 
@@ -186,11 +216,10 @@
           escapeHtml(item.url) +
           '" alt="' +
           escapeHtml(item.label || "") +
-          '" loading="lazy"><figcaption>' +
+          '" loading="lazy"><figcaption><span>' +
           escapeHtml(item.label || "") +
-          ' <small>' +
-          escapeHtml(item.status || "draft") +
-          "</small></figcaption></figure>"
+          ' <small>' + escapeHtml(item.status || "draft") +
+          '</small></span><div class="sp-gallery-actions"><button type="button" data-gallery-action="hero">Usar no hero</button><button type="button" data-gallery-action="remove">Apagar</button></div></figcaption></figure>'
         );
       })
       .join("");
@@ -199,9 +228,80 @@
   function applyCreativeUrl(url) {
     var hidden = document.getElementById("sp-field-image-url");
     if (hidden) hidden.value = url || "";
+    plan.public_design = plan.public_design || {};
+    plan.public_design.hero = plan.public_design.hero || {};
+    plan.public_design.hero.asset_url = url || "";
     document.querySelectorAll(".sp-gallery-item").forEach(function (node) {
-      node.classList.toggle("is-active", node.getAttribute("data-url") === url && node.getAttribute("data-kind") === "creative");
+      node.classList.toggle("is-active", node.getAttribute("data-url") === url);
     });
+  }
+
+  function removeGalleryAsset(url) {
+    if (!url) return;
+    plan.asset_manifest = (plan.asset_manifest || []).filter(function (asset) {
+      return (asset.asset_url || asset.image_url) !== url;
+    });
+    plan.supporting_visuals = (plan.supporting_visuals || []).filter(function (asset) {
+      return (asset.asset_url || asset.image_url) !== url;
+    });
+    var creative = (((plan.sections || [])[0] || {}).cards || []).find(function (card) { return card.type === "creative"; });
+    if (creative && creative.image_url === url) creative.image_url = "";
+    plan.public_design = plan.public_design || {};
+    plan.public_design.hero = plan.public_design.hero || {};
+    if (plan.public_design.hero.asset_url === url) plan.public_design.hero.asset_url = "";
+    var hidden = document.getElementById("sp-field-image-url");
+    if (hidden && hidden.value === url) hidden.value = "";
+    var host = document.getElementById("sp-gallery");
+    var node = host && host.querySelector('.sp-gallery-item[data-url="' + CSS.escape(url) + '"]');
+    if (node) node.remove();
+    if (host && !host.querySelector(".sp-gallery-item")) host.innerHTML = '<p class="sp-gallery-empty">Nenhuma imagem selecionada. Gere uma nova versão quando precisar.</p>';
+  }
+
+  function setupUploadPreviews() {
+    [
+      { id: "sp-logo-upload", preview: "sp-logo-upload-preview", copy: "logo", label: "Logo selecionada. Ela será usada na arte e no link público." },
+      { id: "sp-reference-upload", preview: "sp-reference-upload-preview", copy: "reference", label: "Referência selecionada. Ela orientará a direção visual." },
+    ].forEach(function (item) {
+      var field = document.getElementById(item.id);
+      if (!field) return;
+      field.addEventListener("change", function () {
+        var file = field.files && field.files[0];
+        if (!file) return;
+        var preview = document.getElementById(item.preview);
+        var copy = document.querySelector('[data-upload-copy="' + item.copy + '"]');
+        var reader = new FileReader();
+        reader.onload = function () {
+          if (preview) { preview.src = reader.result; preview.hidden = false; }
+          if (copy) copy.textContent = item.label;
+          setImageStatus(item.label, "ready");
+          persistVisualInput(item.copy, reader.result).catch(function (error) {
+            setImageStatus(error.message || "A imagem foi selecionada, mas não foi possível salvá-la.", "error");
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+  }
+
+  async function persistVisualInput(kind, data) {
+    var response = await fetch("/smart-planner/api/" + token + "/canvas/asset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ kind: kind, data: data }),
+    });
+    var payload = await response.json();
+    if (!payload.success) throw new Error(payload.error || "Não foi possível salvar a imagem.");
+    plan.visual_inputs = plan.visual_inputs || {};
+    plan.visual_inputs[kind + "_url"] = payload.data.url;
+    if (kind === "logo") {
+      plan.branding = plan.branding || {};
+      plan.branding.client = plan.branding.client || plan.branding.hero || {};
+      plan.branding.client.logo_url = payload.data.url;
+      plan.branding.hero = plan.branding.hero || {};
+      plan.branding.hero.logo_url = payload.data.url;
+    }
+    setLive(kind === "logo" ? "Logo salva para a página pública." : "Referência salva para a próxima geração.");
   }
 
   /* ——— Board mode (plano completo) ——— */
@@ -366,6 +466,7 @@
       ready = true;
       root.classList.remove("is-loading");
       setLive("");
+      setupAutosizeTextareas();
       return;
     }
     var endpoint = isPublic
@@ -477,6 +578,7 @@
 
   document.getElementById("sp-review-image-prompt")?.addEventListener("click", reviewImagePrompt);
   if (!val("sp-field-image-prompt")) reviewImagePrompt();
+  setupUploadPreviews();
 
   document.getElementById("sp-upgrade-completo")?.addEventListener("click", async function (event) {
     if (!isEditor) return;
@@ -519,9 +621,27 @@
   });
 
   document.getElementById("sp-gallery")?.addEventListener("click", function (event) {
+    var action = event.target.closest("[data-gallery-action]");
     var figure = event.target.closest(".sp-gallery-item");
-    if (!figure || figure.getAttribute("data-kind") !== "creative") return;
-    applyCreativeUrl(figure.getAttribute("data-url"));
+    if (!figure) return;
+    var url = figure.getAttribute("data-url");
+    if (action && action.getAttribute("data-gallery-action") === "remove") {
+      event.preventDefault();
+      removeGalleryAsset(url);
+      save().then(function () {
+        setLive("Imagem removida da página pública.");
+        toast("Imagem removida.", "success");
+      }).catch(function (error) { toast(error.message, "error"); });
+      return;
+    }
+    if (action || figure.getAttribute("data-kind") === "creative") {
+      event.preventDefault();
+      applyCreativeUrl(url);
+      save().then(function () {
+        setLive("Imagem principal atualizada.");
+        toast("Imagem definida como principal.", "success");
+      }).catch(function (error) { toast(error.message, "error"); });
+    }
   });
 
   load().catch(function (error) {

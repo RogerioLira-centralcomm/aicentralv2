@@ -753,7 +753,7 @@ def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
             plan["media"] = media
         if payload.get("one_page_v2"):
             plan["one_page_v2"] = payload.get("one_page_v2")
-        for key in ("public_design", "asset_manifest", "executive_contact", "audience_model", "visual_data", "visual_direction", "supporting_visuals"):
+        for key in ("public_design", "asset_manifest", "executive_contact", "audience_model", "visual_data", "visual_direction", "supporting_visuals", "visual_inputs"):
             if key in payload:
                 plan[key] = payload.get(key)
     return plan

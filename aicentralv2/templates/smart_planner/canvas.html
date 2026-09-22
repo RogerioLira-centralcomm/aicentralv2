@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=53">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=55">
 {% endblock %}
 
 {% block content %}
@@ -37,8 +37,7 @@
         <div class="sp-hi-head__title">
           <a class="sp-hi-back" href="{{ url_for('smart_planner.index') }}" aria-label="Voltar aos planejamentos" title="Planejamentos"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
           <div>
-          <h1>Revisar planejamento</h1>
-          <p>Confira a decisão comercial e ajuste somente o que precisa ir para a reunião.</p>
+          <h1>Plano em edição</h1>
           </div>
         </div>
         <div class="sp-hi-head-actions">
@@ -65,21 +64,13 @@
           {% if folha_meta.period %}<span><b>Período</b>{{ folha_meta.period }}</span>{% endif %}
           {% if folha_meta.market %}<span><b>Praça</b>{{ folha_meta.market }}</span>{% endif %}
           {% if media_board.channels %}<span><b>Canais</b>{{ media_board.channels|length }}</span>{% endif %}
-          <span><b>Leitura</b>Pronta para a conversa</span>
         </div>
       </section>
 
       <section class="sp-upgrade-bar" aria-label="Evoluir para plano completo">
         <div class="sp-upgrade-current">
-          <span class="sp-readout-kicker">Página única</span>
-          <strong>Decisão pronta para a conversa</strong>
-          <small>Tese, criativo, mix, mercado e defesa comercial.</small>
-        </div>
-        <div class="sp-upgrade-adds">
-          <span class="sp-readout-kicker">Plano completo adiciona</span>
-          <div class="sp-upgrade-pills">
-            <span>Estratégia detalhada</span><span>Plano de mídia</span><span>Execução e indicadores</span>
-          </div>
+          <strong>Precisa detalhar a operação?</strong>
+          <small>Transforme esta decisão em plano completo quando a estratégia estiver aprovada.</small>
         </div>
         <div class="sp-upgrade-action">
           <small id="sp-upgrade-status" aria-live="polite">Aprofunde quando precisar da operação.</small>
@@ -87,8 +78,8 @@
         </div>
       </section>
 
-      <form id="sp-folha-form" class="sp-review" data-folha="1">
-        <details class="sp-acc" data-acc="strategy" id="sp-acc-strategy">
+      <form id="sp-folha-form" class="sp-review sp-editor-workspace" data-folha="1">
+        <details class="sp-acc" data-acc="strategy" id="sp-acc-strategy" open>
           <summary aria-controls="sp-acc-strategy-body">
             <span class="sp-acc-title">Estratégia</span>
             <span class="sp-acc-meta">resumo da decisão</span>
@@ -106,10 +97,10 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="creative" id="sp-acc-creative">
+        <details class="sp-acc sp-editor-visual" data-acc="creative" id="sp-acc-creative" open>
           <summary aria-controls="sp-acc-creative-body">
-            <span class="sp-acc-title">Protótipo visual no canal</span>
-            <span class="sp-acc-meta">uma peça conceitual</span>
+            <span class="sp-acc-title">Protótipo visual</span>
+            <span class="sp-acc-meta">imagem principal da campanha</span>
           </summary>
           <div class="sp-bf is-stack" id="sp-acc-creative-body">
             <div class="sp-bf is-pair">
@@ -133,8 +124,8 @@
                 <small>16:9 · display ou CTV · uma peça por plano</small>
               </div>
               <div class="sp-image-uploads">
-                <label class="sp-upload-tile" for="sp-logo-upload"><span class="sp-upload-icon">+</span><strong>Logo da marca</strong><small>Arraste ou escolha PNG/JPG</small><input id="sp-logo-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
-                <label class="sp-upload-tile" for="sp-reference-upload"><span class="sp-upload-icon">+</span><strong>Imagem de referência</strong><small>Opcional · produto, cena ou estilo</small><input id="sp-reference-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                <label class="sp-upload-tile" for="sp-logo-upload"><span class="sp-upload-icon">+</span><strong>Logo da marca</strong><small data-upload-copy="logo">Arraste ou escolha PNG/JPG</small><img id="sp-logo-upload-preview" class="sp-upload-preview" alt="Prévia da logo selecionada" hidden><input id="sp-logo-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                <label class="sp-upload-tile" for="sp-reference-upload"><span class="sp-upload-icon">+</span><strong>Imagem de referência</strong><small data-upload-copy="reference">Opcional · produto, cena ou estilo</small><img id="sp-reference-upload-preview" class="sp-upload-preview" alt="Prévia da imagem de referência selecionada" hidden><input id="sp-reference-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
               </div>
               <label for="sp-field-image-prompt" class="sp-prompt-review"><span>Prompt revisado antes de gerar</span>
                 <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="4">{{ creative.image_prompt or '' }}</textarea>
@@ -143,7 +134,7 @@
                 <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-review-image-prompt">Revisar prompt</button>
                 <span id="sp-image-status" class="sp-image-status" role="status" aria-live="polite">Revise o prompt e gere quando estiver pronto.</span>
               </div>
-              <p class="sp-image-note">A IA usa as cores e a linguagem da logo, mantém a aplicação no mesmo lugar e começa sem texto promocional. O custo fica por conta do CentralX.</p>
+              <p class="sp-image-note">Logo, referência, contraste e formato 16:9 entram na direção visual. A primeira versão não recebe texto promocional.</p>
             </div>
             <details class="sp-creative-direction sp-field-advanced">
               <summary>Campos avançados da peça</summary>
@@ -157,7 +148,7 @@
               {% for item in gallery %}
               <figure class="sp-gallery-item {% if item.active %}is-active{% endif %}" data-url="{{ item.url }}" data-kind="{{ item.kind }}">
                 <img src="{{ item.url }}" alt="{{ item.label }}" loading="lazy">
-                <figcaption>{{ item.label }} <small>{{ item.status or 'draft' }}</small></figcaption>
+                <figcaption><span>{{ item.label }} <small>{{ item.status or 'draft' }}</small></span><div class="sp-gallery-actions"><button type="button" data-gallery-action="hero">Usar no hero</button><button type="button" data-gallery-action="remove">Apagar</button></div></figcaption>
               </figure>
               {% endfor %}
               {% else %}
@@ -231,7 +222,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="market" id="sp-acc-market">
+        <details class="sp-acc" data-acc="market" id="sp-acc-market" open>
           <summary aria-controls="sp-acc-market-body">
             <span class="sp-acc-title">Mercado</span>
             <span class="sp-acc-meta">dado e leitura</span>
@@ -302,7 +293,8 @@
           <input id="sp-field-defense-title" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">
           <input id="sp-presenter" name="presenter" value="{{ presenter_brand or 'centralcomm' }}">
         </div>
-          <div id="sp-acc-brand-body" class="sp-brand-panel" hidden>
+          <section id="sp-acc-brand-body" class="sp-brand-panel sp-editor-publish" aria-labelledby="sp-publication-title">
+            <header class="sp-editor-publish__head"><div><span class="sp-readout-kicker">Publicação</span><h2 id="sp-publication-title">Marca e apresentação pública</h2><p>Defina como o cliente verá este material; estas escolhas não alteram a estratégia ou o mix.</p></div>{% if share_url %}<a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">Abrir prévia pública</a>{% endif %}</header>
             <div class="sp-brand-row">
               {% if client.name %}
               <div class="sp-brand-card">
@@ -343,6 +335,7 @@
                 {% endfor %}
               </select>
             </label>
+            <label class="sp-public-hero-option" for="sp-public-hero-background"><input id="sp-public-hero-background" type="checkbox" {% if (public_design.hero or {}).use_as_background %}checked{% endif %}><span><strong>Aplicar imagem principal também no fundo</strong><small>O link público usa a mesma imagem desfocada, com overlay escuro para manter a leitura.</small></span></label>
             {% if public_design %}
             <div class="sp-design-status">
               <span>Skin pública</span>
@@ -356,7 +349,7 @@
             {% else %}
             <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ brand.marcas_url }}" target="_blank" rel="noopener noreferrer">Abrir no Workspace</a>
             {% endif %}
-          </div>
+          </section>
       </form>
     </div>
 
@@ -406,5 +399,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=9"></script>
 {% endblock %}

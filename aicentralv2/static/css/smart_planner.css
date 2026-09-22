@@ -5461,6 +5461,27 @@ html.is-sp-media body {
   min-height: 5.5rem;
 }
 
+/* Edição interna: duas decisões lado a lado; direção visual e publicação
+   vivem em faixas próprias, sem competir com o plano. */
+.sp-hi-grid.is-folha .sp-editor-workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+}
+.sp-hi-grid.is-folha .sp-editor-workspace > .sp-acc { margin: 0; }
+.sp-hi-grid.is-folha #sp-acc-strategy { order: 1; }
+.sp-hi-grid.is-folha #sp-acc-media { order: 2; }
+.sp-hi-grid.is-folha #sp-acc-market { grid-column: 1 / -1; order: 3; }
+.sp-hi-grid.is-folha #sp-acc-creative { grid-column: 1 / -1; order: 4; }
+.sp-hi-grid.is-folha .sp-editor-publish { grid-column: 1 / -1; order: 5; }
+
+.sp-hi-grid.is-folha #sp-folha-form textarea.is-autosized {
+  max-height: none;
+  min-height: 6rem;
+  overflow-y: hidden;
+  resize: vertical;
+}
+
 .sp-hi-grid.is-folha .sp-acc[open] { box-shadow: 0 8px 22px rgba(23, 57, 61, .045); }
 .sp-hi-grid.is-folha .sp-acc summary { min-height: 3.25rem; }
 .sp-admin-summary { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1rem; align-items:center; margin:0 0 .85rem; padding:.85rem 1rem; border:1px solid var(--hi-line,#dfe5e7); border-radius:10px; background:#f8fbfb; }
@@ -5570,12 +5591,20 @@ html.is-sp-media body {
 }
 
 .sp-gallery-item figcaption {
-  padding: 0.35rem 0.5rem;
+  display: grid;
+  gap: .4rem;
+  padding: 0.45rem 0.5rem;
   font-size: 0.6875rem;
   color: var(--hi-fog, #6b7280);
 }
 
 .sp-gallery-item figcaption small { margin-left: .25rem; color: var(--sp-fog); font-size: .68rem; }
+.sp-gallery-actions { display:flex; flex-wrap:wrap; gap:.35rem; }
+.sp-gallery-actions button { min-height:1.8rem; padding:.2rem .45rem; border:1px solid var(--hi-line,#dfe5e7); border-radius:6px; color:var(--hi-ink,#173c3e); background:#fff; cursor:pointer; font:inherit; font-size:.68rem; font-weight:700; }
+.sp-gallery-actions button:hover { border-color:var(--hi-go,#0f766e); color:var(--hi-go,#0f766e); }
+.sp-upload-preview { grid-row:span 2; width:2.25rem; height:2.25rem; margin-left:auto; border:1px solid #d7e4e2; border-radius:7px; object-fit:contain; background:#fff; }
+.sp-upload-tile:has(.sp-upload-preview:not([hidden])) { grid-template-columns:auto 1fr auto; }
+.sp-upload-tile:has(.sp-upload-preview:not([hidden])) small { grid-column:2; }
 .sp-design-status { display: grid; gap: .18rem; margin-top: .8rem; padding: .7rem .8rem; border: 1px solid var(--sp-rule); border-radius: .55rem; background: #fff; }
 .sp-design-status span { color: var(--sp-fog); font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; }
 .sp-design-status strong { color: var(--sp-ink); font-size: .86rem; }
@@ -5590,6 +5619,15 @@ html.is-sp-media body {
   display: grid;
   gap: 0.85rem;
 }
+.sp-editor-publish { padding:1rem; border:1px solid var(--hi-line,#dfe5e7); border-radius:10px; background:#f8fbfb; }
+.sp-editor-publish__head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:.75rem; padding-bottom:.8rem; border-bottom:1px solid var(--hi-line,#dfe5e7); }
+.sp-editor-publish__head h2 { margin:.12rem 0; color:var(--hi-ink,#173c3e); font-size:1rem; }
+.sp-editor-publish__head p { max-width:42rem; margin:0; color:var(--hi-fog,#62727c); font-size:.78rem; line-height:1.45; }
+.sp-public-hero-option { display:flex; align-items:flex-start; gap:.55rem; padding:.7rem .75rem; border:1px solid var(--hi-line,#dfe5e7); border-radius:8px; background:#fff; cursor:pointer; }
+.sp-public-hero-option input { width:1rem; height:1rem; margin:.1rem 0 0; accent-color:var(--hi-go,#0f766e); }
+.sp-public-hero-option strong,.sp-public-hero-option small { display:block; }
+.sp-public-hero-option strong { color:var(--hi-ink,#173c3e); font-size:.78rem; }
+.sp-public-hero-option small { margin-top:.15rem; color:var(--hi-fog,#62727c); font-size:.72rem; line-height:1.35; }
 
 .sp-brand-row {
   display: grid;
@@ -5671,6 +5709,8 @@ html.is-sp-media body {
 }
 
 @media (max-width: 760px) {
+  .sp-hi-grid.is-folha .sp-editor-workspace { grid-template-columns:1fr; }
+  .sp-hi-grid.is-folha #sp-acc-strategy,.sp-hi-grid.is-folha #sp-acc-media,.sp-hi-grid.is-folha #sp-acc-market,.sp-hi-grid.is-folha #sp-acc-creative,.sp-hi-grid.is-folha .sp-editor-publish { grid-column:1; }
   .sp-admin-summary { grid-template-columns:1fr; }
   .sp-admin-summary__facts { justify-content:flex-start; }
   .sp-admin-summary__facts span { min-width:0; }
@@ -6013,3 +6053,14 @@ html.is-sp-media body {
 .sp-objective-card .sp-plan-kpis{gap:.65rem}
 .sp-objective-card .sp-kpi-chips button{font-size:.75rem;padding:.45rem .65rem}
 @media(max-width:560px){.sp-hi-budget .sp-bf{grid-template-columns:1fr}.sp-hi-budget .sp-bf .sp-praca-detalhe-field{grid-column:auto}.sp-hi-budget .sp-bf .sp-field-hint{min-height:0}.sp-objective-card>label select,.sp-objective-card .sp-plan-kpis select{min-height:2.8rem!important}}
+
+/* Página única em edição: decisões abertas, sem a grade herdada de três cards. */
+.sp-hi-grid.is-folha .sp-editor-workspace { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-strategy { grid-column:1; order:1; }
+.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-media { grid-column:2; order:2; }
+.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-market { grid-column:1 / -1; order:3; }
+.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-creative { grid-column:1 / -1; order:4; }
+.sp-hi-grid.is-folha .sp-editor-workspace > .sp-editor-publish { grid-column:1 / -1; order:5; }
+.sp-hi-grid.is-folha .sp-upgrade-bar { grid-template-columns:minmax(0,1fr) auto; padding:.7rem .8rem; background:#f8fbfb; border-color:var(--hi-line,#dfe5e7); }
+.sp-hi-grid.is-folha .sp-upgrade-action { justify-items:end; }
+@media(max-width:760px){.sp-hi-grid.is-folha .sp-editor-workspace{grid-template-columns:1fr}.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-strategy,.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-media,.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-market,.sp-hi-grid.is-folha .sp-editor-workspace > #sp-acc-creative,.sp-hi-grid.is-folha .sp-editor-workspace > .sp-editor-publish{grid-column:1}.sp-hi-grid.is-folha .sp-upgrade-bar{grid-template-columns:1fr}.sp-hi-grid.is-folha .sp-upgrade-action{justify-items:start}.sp-hi-grid.is-folha .sp-upgrade-action .cx-btn{width:100%}}

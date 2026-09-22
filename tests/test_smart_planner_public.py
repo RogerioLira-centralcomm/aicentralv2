@@ -110,6 +110,26 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["hero"]["support_image"]["url"], "/generated/persona.png")
         self.assertTrue(view["hero"]["has_generated_visual"])
 
+    def test_public_document_honors_editor_hero_selection_and_background_choice(self):
+        view = public_view({
+            "nome_campanha": "Campanha visual",
+            "cliente": "Cliente",
+            "dados_detectados": {
+                "folha": {
+                    "sections": [{"cards": [
+                        {"type": "strategy", "body": "Tese."},
+                        {"type": "creative", "image_url": "/generated/creative.png"},
+                    ]}],
+                    "asset_manifest": [{"kind": "persona", "asset_url": "/generated/persona.png"}],
+                    "public_design": {"hero": {"asset_url": "/generated/persona.png", "use_as_background": True}},
+                },
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertEqual(view["hero"]["creative_image"], "/generated/persona.png")
+        self.assertEqual(view["hero"]["background_image"], "/generated/persona.png")
+        self.assertTrue(view["hero"]["uses_image_background"])
+
     def test_complete_plan_splits_markdown_chapters(self):
         chapters = plan_chapters(
             "## Capa\nCampanha X\n\n## Estratégia e Mix\n| Canal | % |\n| --- | --- |\n| G1 | 20 |\n"

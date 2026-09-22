@@ -31,6 +31,9 @@ Se client.confidential for verdadeiro, o nome do anunciante não pode aparecer. 
 
 Os demais campos do schema são memória interna para o plano completo. Não repita seu conteúdo nos quatro blocos visíveis.
 
+## Camada visual e publicação
+O criativo é uma peça visual principal: ele abre o hero do material público. A interface interna pode escolher se a mesma imagem cria também um fundo desfocado; isso é apresentação, não muda a tese. Logo enviada pelo usuário é a identidade real da marca no link público. Nunca trate uma imagem rejeitada como visual de apoio ou hero.
+
 ## Composição
 Skill-base + snapshot + Strategy Core + estimates + mix_aprovado + esta skill.
 Sintetize o núcleo. Não invente outra tese. Não use pitch estático de outro cliente.

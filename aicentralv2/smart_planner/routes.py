@@ -27,7 +27,7 @@ from .catalog import (
     channels_by_group,
     plan_mode_label,
 )
-from .helpers import as_dict, as_list, session_public_token
+from .helpers import as_dict, as_list, session_public_token, text
 from .materials import save_upload
 from .references import capture_file, capture_ooh_inventory, capture_search, capture_url, discover_campaigns
 from .brand import brand_for_client, search_parties
@@ -160,6 +160,13 @@ def gerar(token):
 @centralcomm_required
 def conclusao(token):
     row = load_owned(token)
+    dados = as_dict(row.get("dados_detectados"))
+    folha = as_dict(dados.get("folha"))
+    if as_list(folha.get("sections")) or as_dict(row.get("plan_content")):
+        mode = (dados.get("plan_mode") or "one_page").strip().lower()
+        if mode == "one_page":
+            return redirect(url_for("smart_planner.canvas", token=token, folha=1))
+        return redirect(url_for("smart_planner.canvas", token=token))
     return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "conclusao")))
 
 
@@ -593,8 +600,9 @@ def api_canvas_imagem(token):
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             return _error("Payload inválido para geração da imagem.", 400)
+        logo_upload = payload.get("logo") if isinstance(payload.get("logo"), str) else ""
         uploaded_references = [
-            value for value in (payload.get("logo"), payload.get("reference"))
+            value for value in (logo_upload, payload.get("reference"))
             if isinstance(value, str) and value.startswith("data:image/")
         ]
         uploaded_references = materialize_uploaded_references(uploaded_references)
@@ -604,11 +612,31 @@ def api_canvas_imagem(token):
         if not as_list(folha.get("sections")):
             generated = canvas_mod.generate_canvas(token)
             folha = generated["plan"]
+        # A logo escolhida para gerar a arte também é a identidade real usada
+        # no link público. A referência continua sendo apenas direção visual.
+        if logo_upload and uploaded_references:
+            logo_url = uploaded_references[0]
+            visual_inputs = as_dict(folha.get("visual_inputs"))
+            visual_inputs["logo_url"] = logo_url
+            folha["visual_inputs"] = visual_inputs
+            branding = as_dict(folha.get("branding"))
+            client = as_dict(branding.get("client") or branding.get("hero"))
+            client["logo_url"] = logo_url
+            branding["client"] = client
+            hero = as_dict(branding.get("hero"))
+            hero["logo_url"] = logo_url
+            branding["hero"] = hero
+            folha["branding"] = branding
         # The image is platform-funded for the user, but its provider spend is
         # still part of the plan's internal total AI cost.
         from .cost import bound_session
+        stored_inputs = as_dict(folha.get("visual_inputs"))
+        reference_url = text(stored_inputs.get("reference_url"))
+        generation_references = list(uploaded_references)
+        if reference_url and reference_url not in generation_references:
+            generation_references.append(reference_url)
         with bound_session(token):
-            folha = regenerate_creative(folha, uploaded_references=uploaded_references)
+            folha = regenerate_creative(folha, uploaded_references=generation_references)
         merge_dados(token, {"folha": folha})
         if (dados.get("plan_mode") or "").strip().lower() != "completo":
             update_session(token, {"plan_content": folha})
@@ -620,6 +648,49 @@ def api_canvas_imagem(token):
     except Exception:
         logger.exception("Falha ao gerar imagem da folha")
         return _error("Não foi possível gerar a imagem.", 500)
+
+
+@bp.route("/api/<token>/canvas/asset", methods=["POST"])
+@centralcomm_required_api
+def api_canvas_asset(token):
+    """Persiste logo ou referência antes da geração, sem criar uma imagem."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        kind = (payload.get("kind") or "").strip().lower()
+        value = payload.get("data") if isinstance(payload.get("data"), str) else ""
+        if kind not in {"logo", "reference"} or not value.startswith("data:image/"):
+            return _error("Envie uma logo ou referência de imagem válida.", 400)
+        urls = materialize_uploaded_references([value])
+        if not urls:
+            return _error("Não foi possível preparar esta imagem.", 422)
+        row = load_owned(token)
+        dados = as_dict(row.get("dados_detectados"))
+        folha = as_dict(dados.get("folha")) or as_dict(row.get("plan_content"))
+        if not as_list(folha.get("sections")):
+            folha = canvas_mod.generate_canvas(token)["plan"]
+        url = urls[0]
+        inputs = as_dict(folha.get("visual_inputs"))
+        inputs[f"{kind}_url"] = url
+        folha["visual_inputs"] = inputs
+        if kind == "logo":
+            branding = as_dict(folha.get("branding"))
+            client = as_dict(branding.get("client") or branding.get("hero"))
+            client["logo_url"] = url
+            branding["client"] = client
+            hero = as_dict(branding.get("hero"))
+            hero["logo_url"] = url
+            branding["hero"] = hero
+            folha["branding"] = branding
+        merge_dados(token, {"folha": folha})
+        if (dados.get("plan_mode") or "one_page").strip().lower() == "one_page":
+            from .repository import update_session
+            update_session(token, {"plan_content": folha})
+        return _ok({"url": url, "kind": kind, "editor": editor_context(load_owned(token))})
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except Exception:
+        logger.exception("Falha ao salvar asset da folha")
+        return _error("Não foi possível salvar esta imagem.", 500)
 
 
 @bp.route("/api/<int:session_id>/excluir", methods=["POST"])

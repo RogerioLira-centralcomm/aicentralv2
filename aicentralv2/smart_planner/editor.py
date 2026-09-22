@@ -118,6 +118,7 @@ def _gallery(folha: dict) -> list[dict]:
     cards = _cards_by_type(folha)
     creative = cards.get("creative") or {}
     theme = as_dict(folha.get("theme"))
+    public_hero = text(as_dict(as_dict(folha.get("public_design")).get("hero")).get("asset_url"))
     items = []
     for asset in as_list(folha.get("asset_manifest")):
         row = as_dict(asset)
@@ -131,7 +132,7 @@ def _gallery(folha: dict) -> list[dict]:
             "url": url,
             "kind": kind,
             "status": text(row.get("status")) or "draft",
-            "active": kind == "creative" and url == text((cards.get("creative") or {}).get("image_url")),
+            "active": url == (public_hero or text((cards.get("creative") or {}).get("image_url"))),
         })
     creative_url = text(creative.get("image_url"))
     if creative_url and not any(item["url"] == creative_url for item in items):
@@ -141,7 +142,7 @@ def _gallery(folha: dict) -> list[dict]:
             "url": creative_url,
             "kind": "creative",
             "status": "approved",
-            "active": True,
+            "active": creative_url == (public_hero or creative_url),
         })
     bg = text(theme.get("bg_url"))
     if bg and "/generated/" in bg and not any(item["url"] == bg for item in items):

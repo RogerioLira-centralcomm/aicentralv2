@@ -1179,7 +1179,9 @@ def public_view(row: dict, document: str | None = None) -> dict:
     if place_theme_id != "finance" and text(theme.get("id")) != place_theme_id:
         theme = theme_record(place_theme_id)
     theme_image = text(theme.get("bg_url"))
-    creative_image = text(creative.get("image_url") or as_dict(branding.get("hero")).get("image"))
+    hero_design = as_dict(public_design.get("hero"))
+    selected_hero = text(hero_design.get("asset_url"))
+    creative_image = selected_hero or text(creative.get("image_url") or as_dict(branding.get("hero")).get("image"))
     hero_image = theme_image or creative_image
     visuals = _public_visuals(folha, creative_image, hero_image)
     tagline = _first_sentence(strategy.get("body"), 160)
@@ -1295,6 +1297,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         executive_facts.append(("Canais", canais))
     if not executive_facts and (client or title):
         executive_facts.append(("Anunciante", client or title))
+    use_image_background = as_bool(hero_design.get("use_as_background"))
     return {
         "house": HOUSE,
         "title": title,
@@ -1317,6 +1320,8 @@ def public_view(row: dict, document: str | None = None) -> dict:
             "creative_image": visuals[0]["url"] if visuals else "",
             "support_image": visuals[1] if len(visuals) > 1 else {},
             "has_generated_visual": bool(visuals and visuals[0].get("kind") != "theme"),
+            "uses_image_background": bool(visuals and visuals[0].get("kind") != "theme" and use_image_background),
+            "background_image": creative_image if use_image_background else "",
             "has_image": bool(visuals or hero_image),
             "place": praca_line,
             "theme_id": text(theme.get("id")),

@@ -218,7 +218,7 @@ def test_start_generation_reuses_running_job():
         result = start_generation("tok", "one_page")
     assert result["started"] is True
     assert result["already"] is True
-    assert result["redirect"].endswith("/conclusao")
+    assert result["redirect"].endswith("/canvas?folha=1")
 
 
 def test_empty_canvas_fills_from_existing_groups():

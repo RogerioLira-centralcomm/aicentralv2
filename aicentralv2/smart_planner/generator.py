@@ -75,20 +75,28 @@ def start_generation(token: str, mode: str | None = None) -> dict:
     if chosen not in PLAN_MODES:
         chosen = "one_page"
     geracao = as_dict(dados.get("geracao"))
+    destination = _generation_destination(token, chosen)
     if text(geracao.get("status")) == "running" and not _stale_generation(geracao):
         return {
             "started": True,
             "already": True,
             "mode": text(geracao.get("mode")) or chosen,
-            "redirect": f"/smart-planner/{token}/conclusao",
+            "redirect": destination,
         }
     start_progress(token, chosen)
     _spawn_generation(token, chosen)
     return {
         "started": True,
         "mode": chosen,
-        "redirect": f"/smart-planner/{token}/conclusao",
+        "redirect": destination,
     }
+
+
+def _generation_destination(token: str, mode: str) -> str:
+    """Return the editing destination after generation, without an intermediate result page."""
+    if mode == "one_page":
+        return f"/smart-planner/{token}/canvas?folha=1"
+    return f"/smart-planner/{token}/canvas"
 
 
 def run_generation(token: str, mode: str | None = None, *, progress_started: bool = False) -> dict:

@@ -53,6 +53,12 @@ O quadro público, contato, QR, logos de apoio e fundo são camadas de apresenta
 não novos cards editoriais. A página pública pode reorganizá-los em capítulos sem
 alterar o contrato interno.
 
+O editor interno escolhe, de forma explícita, a imagem principal e se ela também
+forma o fundo desfocado do link público. A imagem principal abre o hero; no máximo
+uma segunda imagem aprovada entra como apoio no final. Imagens rejeitadas deixam de
+ser referenciadas pelo plano. Logo enviada pelo usuário é a identidade real do
+cliente no link público, em um selo com contraste, padding e cantos arredondados.
+
 ## Logos no CentralX
 
 Buscar nesta ordem: `cx_clients.logo_url` / `logo_upload_path`, depois `cliente_web_info.logo_url` via `tbl_cliente`. Agência pelo vínculo `tbl_cliente_agencia` ou pelo nome no briefing.

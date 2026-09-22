@@ -639,6 +639,11 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(styles, /\.cv-conversation-support__next button \{[^}]*border:0;[^}]*background:transparent/);
   assert.match(app, /pending:\$\{turnId\}/);
   assert.match(app, /tabs=\{artifactTabs\}/);
+  assert.match(app, /onOpenBrand=\{openDockBrand\}/);
+  assert.match(app, /onOpenResource=\{openDockItem\}/);
+  assert.match(app, /changeProject\(projectRef, \{showHistory: true\}\)/);
+  assert.match(app, /changeBrand\(brandRef\)/);
+  assert.doesNotMatch(app, /openConversationDockDetail/);
   assert.match(artifact, /cv-artifact-tabs/);
   assert.match(artifact, /Preparando o artefato/);
   assert.match(styles, /\.cv-artifact-loading/);

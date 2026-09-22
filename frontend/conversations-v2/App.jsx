@@ -12,7 +12,6 @@ import {brandContextPayload, conversationPayload, projectContextPayload} from '.
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {Icon} from './lib/icons';
 import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
-import {openConversationDockDetail} from '../cadu-design-system/workspaceNavigation';
 
 const emptyTitle = 'Novo chat';
 const ARTIFACT_SIDE_COOKIE = 'cadu-artifact-side';
@@ -764,6 +763,22 @@ export default function App({bootstrap}) {
     setArtifactDirty(false); setArtifactOpen(true);
   }, [confirmDiscard, fetchArtifact, trace]);
 
+  const openDockBrand = useCallback(item => {
+    const brandRef = item?.brandRef || (item?.id ? `studio:${item.id}` : '');
+    if (brandRef) changeBrand(brandRef);
+  }, [changeBrand]);
+
+  const openDockItem = useCallback(item => {
+    const kind = String(item?.kind || item?.type || '').toLowerCase();
+    const resourceKinds = new Set(['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link']);
+    if (item?.resourceRef || resourceKinds.has(kind)) {
+      openResource(item);
+      return;
+    }
+    const projectRef = item?.projectRef || item?.ref || (item?.id ? `ci:${item.id}` : '');
+    if (projectRef) changeProject(projectRef, {showHistory: true});
+  }, [changeProject, openResource]);
+
   const revisitFailedPrompt = useCallback(prompt => {
     setInput(prompt || '');
     window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
@@ -836,7 +851,7 @@ export default function App({bootstrap}) {
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
-        <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openConversationDockDetail} onOpenResource={openConversationDockDetail} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
           <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} projectResourcesEndpoint={bootstrap.endpoints?.projectResources || '/workspace/api/v2/projects'} studioLibraryEndpoint={bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library'} activeId={conversationId} onOpen={openConversation} onOpenResource={openResource} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && <div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte para anexar</strong></div></div>}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">

@@ -1497,3 +1497,23 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-conversation-support-popover { display:none; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-composer-stage { padding-bottom:4px; }
 }
+
+/* An empty conversation keeps the input at the bottom. The transition into
+   the composer is quiet, without a dark block or a long floating shadow. */
+#cadu-conversations-v2-root .cv-conversation--empty > .cv-composer-stage {
+  margin-top:auto;
+  margin-bottom:0;
+  padding-bottom:max(18px,env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,transparent 0%,var(--cv-bg) 78%);
+}
+#cadu-conversations-v2-root .cv-conversation--empty .cv-composer-shell {
+  box-shadow:0 8px 26px rgba(0,0,0,.18);
+}
+@media (max-width:767px) {
+  #cadu-conversations-v2-root .cv-conversation--empty .cv-empty-state > div { transform:none; }
+  #cadu-conversations-v2-root .cv-conversation--empty > .cv-composer-stage {
+    width:100%;
+    padding:10px max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+  }
+  #cadu-conversations-v2-root .cv-composer-input { font-size:15px !important; line-height:22px; }
+}

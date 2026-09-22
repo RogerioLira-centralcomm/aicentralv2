@@ -4,6 +4,23 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   width: min(720px, 100%);
 }
 
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content::before {
+  opacity:.38;
+  mask-image:linear-gradient(180deg,transparent 15%,#000 100%);
+}
+
+/* The empty home is one clear invitation, not a second navigation menu. */
+@media (max-width: 760px) {
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content {
+    min-height:calc(var(--workspace-visual-height,100dvh) - 56px);
+    justify-content:center;
+    padding:32px 18px max(36px,env(safe-area-inset-bottom));
+  }
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro { margin-bottom:18px; }
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro h1 { font-size:clamp(29px,8vw,36px); }
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-chat-shell .cv-composer-input { font-size:15px !important; }
+}
+
 body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content .cadu-ds-home-chat-shell {
   width: 100%;
   max-width: none;
@@ -114,8 +131,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   }
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child {
-    gap: 8px;
-    padding: 3px 8px;
+    padding: 3px 8px 3px 31px;
   }
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child > svg {
@@ -126,10 +142,6 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__brand-heading {
     padding-inline: 8px;
-  }
-
-  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__brand-heading:not(.has-logo) {
-    padding-left: 38px;
   }
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__recent {

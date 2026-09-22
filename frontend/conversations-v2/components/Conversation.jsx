@@ -4,7 +4,6 @@ import {Markdown} from './Markdown';
 import {safeUrl} from '../lib/api';
 import {ResponseBlocks} from './ResponseBlocks';
 import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
-import {WorkspacePromptSuggestions} from '../../cadu-design-system/components/WorkspacePromptSuggestions';
 import {ExecutionQueue} from './ExecutionQueue';
 import {WorkspaceSourceList} from '../../cadu-design-system/components/WorkspaceSourceList';
 import {WorkspaceTaskProgress} from '../../cadu-design-system/components/WorkspaceTaskProgress';
@@ -194,7 +193,6 @@ export function Conversation({inactive, conversationId, title, context, projects
     <ExecutionQueue items={queuedTurns} onUpdate={onUpdateQueuedTurn} onRemove={onRemoveQueuedTurn} onMove={onMoveQueuedTurn}/>
     <PendingInteraction interaction={interaction} onPrompt={onPrompt} onDecision={onDecision}/>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop}/>
-    {!messages.length && !running && <div className="cv-empty-suggestions"><WorkspacePromptSuggestions project={starterProject} brand={starterBrand} home={starterHome} onSelect={onPrompt} compact/></div>}
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;
 }

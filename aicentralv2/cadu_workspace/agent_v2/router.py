@@ -178,4 +178,14 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(analise|avali(e|ar)|diagn[oó]stico|riscos?|oportunidades?)\b"):
         return IntentRoute(surface if surface != "conversations" else "workspace", "analyze", "medium", "analysis",
                            ("current_object",) if has_project else ())
-    return IntentRoute(surface if surface != "conversations" else "workspace", "answer", "low", "direct")
+    explicit_length = re.search(r"\b(\d{1,5}(?:\.\d{3})?)\s*palavras?\b", text, re.IGNORECASE)
+    requested_words = int(explicit_length.group(1).replace(".", "")) if explicit_length else 0
+    substantial = requested_words >= 500 or _has(
+        text,
+        r"\b(guia|relat[oó]rio|an[aá]lise|planejamento|documento)\b.{0,45}\b(completo|detalhado|aprofundado|extenso)\b|"
+        r"\b(completo|detalhado|aprofundado|extenso)\b.{0,45}\b(guia|relat[oó]rio|an[aá]lise|planejamento|documento)\b",
+    )
+    return IntentRoute(
+        surface if surface != "conversations" else "workspace", "answer",
+        "high" if substantial else "low", "analysis" if substantial else "direct",
+    )

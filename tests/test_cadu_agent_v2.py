@@ -42,6 +42,14 @@ def test_streamable_answer_exposes_prose_without_leaking_provider_envelope():
     assert v2_service._streamable_answer('{"confidence":"high","blocks":[]') == ""
 
 
+def test_explicit_long_form_request_uses_analysis_without_forcing_an_artifact():
+    message = "Escreva um guia completo de aproximadamente 1.800 palavras. Não crie artefato."
+    route = route_request(message)
+    assert route.response_mode == "analysis"
+    assert route.complexity == "high"
+    assert route.artifact_type is None
+
+
 def context(**overrides):
     values = {
         "organization_id": 12,

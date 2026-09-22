@@ -507,6 +507,8 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(progress, /Trabalhando\{elapsed/);
   assert.match(progress, /Etapas concluídas/);
   assert.match(conversation, /message\.streaming && showActivity/);
+  assert.match(conversation, /text\.length > 5000/);
+  assert.match(conversation, /Abrir como documento/);
 });
 
 test('conversation attachment model preserves validation and destination rules', async () => {

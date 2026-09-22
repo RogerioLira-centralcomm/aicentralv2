@@ -1113,6 +1113,36 @@ def test_plain_decision_list_becomes_an_interactive_decision_block():
     assert [item["title"] for item in response.blocks[0]["items"]] == ["Editorial", "Urbana"]
 
 
+def test_expository_list_does_not_become_fake_insight_actions():
+    response = normalize_response(
+        "Formatos possíveis:\n- Resumo em parágrafos\n- Resumo executivo\n- Versão formal",
+        {"mode": "analysis", "max_answer_chars": 2000, "max_questions": 0, "max_next_steps": 0},
+    )
+    assert response.blocks == []
+    assert "Resumo em parágrafos" in response.answer
+
+
+def test_normalizer_decodes_double_serialized_structured_output():
+    structured = {
+        "text": {"content": "Resposta final sem envelope."},
+        "ui": {"confidence": "high", "assumptions": [], "questions": [], "actions": [], "blocks": [], "citations": []},
+        "artifact_patch": None,
+        "citations": [],
+    }
+    response = normalize_response(__import__("json").dumps(__import__("json").dumps(structured)), {
+        "mode": "analysis", "max_answer_chars": 2000, "max_questions": 0, "max_next_steps": 0,
+    })
+    assert response.answer == "Resposta final sem envelope."
+    assert not response.answer.startswith("{")
+
+
+def test_editable_summary_of_previous_text_routes_to_document_artifact():
+    route = route_request("Muito bom. Pegue esse texto e crie um resumo editável", has_project=True)
+    assert route.action == "create_text_draft"
+    assert route.response_mode == "artifact_first"
+    assert route.artifact_type == "document"
+
+
 def test_normalizer_bounds_artifact_fields_and_citations():
     response = normalize_response({
         "answer": "Briefing iniciado.",

@@ -374,11 +374,45 @@ def _fallback_blocks(answer, policy):
         for item in items:
             item.update({"recommended": False, "prompt": f"Use a opção “{item['title']}” e continue o trabalho."})
         return [{"type": "decision", "title": "Escolha uma direção", "summary": "", "items": items}]
-    if mode in {"direct", "analysis"} and 2 <= len(items) <= 5:
-        for item in items:
-            item["prompt"] = f"Aprofunde este ponto: {item['title']}."
-        return [{"type": "insights", "title": "Pontos principais", "summary": "", "items": items}]
+    # Expository bullets are content, not controls. Turning every short list
+    # into clickable "insights" fabricated intent and produced follow-up
+    # prompts unrelated to the user's actual goal. Interactive blocks must be
+    # explicitly returned by the provider; only real decisions keep a safe
+    # compatibility fallback here.
     return []
+
+
+def _decode_provider_value(raw):
+    """Decode structured output even when a chatflow serializes it twice."""
+    value = raw
+    for _ in range(3):
+        if isinstance(value, dict):
+            for key in ("structured_output", "output", "data"):
+                nested = value.get(key)
+                if isinstance(nested, dict) and ("text" in nested or "answer" in nested):
+                    value = nested
+                    break
+            return value
+        if not isinstance(value, str):
+            return value
+        text = value.strip().lstrip("\ufeff")
+        if text.startswith("```json") and text.endswith("```"):
+            text = text[7:-3].strip()
+        elif text.startswith("```") and text.endswith("```"):
+            text = text[3:-3].strip()
+        try:
+            value = json.loads(text)
+            continue
+        except (TypeError, ValueError):
+            start, end = text.find("{"), text.rfind("}")
+            if 0 <= start < end:
+                try:
+                    value = json.loads(text[start:end + 1])
+                    continue
+                except (TypeError, ValueError):
+                    pass
+            return {"answer": text}
+    return value
 
 
 def _clean_patch(value):
@@ -474,19 +508,8 @@ def _fallback_artifact(answer, policy):
 
 
 def normalize_response(raw, policy: dict) -> AgentResponse:
-    if isinstance(raw, str):
-        text = raw.strip()
-        if text.startswith("```json") and text.endswith("```"):
-            text = text[7:-3].strip()
-        elif text.startswith("```") and text.endswith("```"):
-            text = text[3:-3].strip()
-        try:
-            value = json.loads(text)
-        except (TypeError, ValueError):
-            value = {"answer": text}
-    elif isinstance(raw, dict):
-        value = raw
-    else:
+    value = _decode_provider_value(raw)
+    if not isinstance(value, dict):
         raise BadRequest("O provider retornou uma resposta inválida.")
     # V2 contract: provider text and UI state are separate namespaces. Keep
     # the legacy flat shape only as a compatibility fallback for older flows.

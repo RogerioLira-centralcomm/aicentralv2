@@ -497,13 +497,26 @@ export default function App({bootstrap}) {
           trace('Artefato criado', event.artifact?.title || '');
         } else if (kind === 'provider.first_token') {
           setRuntime('Escrevendo a resposta');
+        } else if (kind === 'answer.delta') {
+          const answer = String(event.answer || '');
+          if (!answer) return;
+          setRuntime('Escrevendo a resposta');
+          setMessages(items => {
+            const existing = items.findIndex(item => item.turnId === turnId && item.streaming);
+            const draft = {id: existing >= 0 ? items[existing].id : uid(), turnId, role: 'assistant', streaming: true, response: {answer}};
+            return existing >= 0 ? items.map((item, index) => index === existing ? draft : item) : [...items, draft];
+          });
         } else if (kind === 'answer.completed') {
           const responseData = event.response || {};
           if (responseData.artifact_patch && !latestArtifact?.id) {
             const draft = {type: responseData.artifact_patch.type || 'document', title: responseData.artifact_patch.title, content: responseData.artifact_patch};
             setArtifact(draft); artifactRef.current = draft; setPublishedUrl(''); setArtifactOpen(true);
           }
-          setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', response: responseData, artifact: latestArtifact}]);
+          setMessages(items => {
+            const existing = items.findIndex(item => item.turnId === turnId && item.streaming);
+            const completed = {id: existing >= 0 ? items[existing].id : uid(), turnId, role: 'assistant', response: responseData, artifact: latestArtifact};
+            return existing >= 0 ? items.map((item, index) => index === existing ? completed : item) : [...items, completed];
+          });
           trace('Resposta concluída', responseData.confidence || '');
         } else if (kind === 'run.failed') {
           terminal = true; setRuntime('Não foi possível concluir'); trace('Execução interrompida', event.message || '', 'error');

@@ -33,6 +33,13 @@ from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_streamable_answer_exposes_prose_without_leaking_provider_envelope():
+    assert v2_service._streamable_answer("Resposta em andamento") == "Resposta em andamento"
+    assert v2_service._streamable_answer('{"text":{"content":"Primeiro parágrafo\\nSegundo') == "Primeiro parágrafo\nSegundo"
+    assert v2_service._streamable_answer('{"answer":"Planejamento com \\"ênfase\\"') == 'Planejamento com "ênfase"'
+    assert v2_service._streamable_answer('{"confidence":"high","blocks":[]') == ""
+
+
 def context(**overrides):
     values = {
         "organization_id": 12,

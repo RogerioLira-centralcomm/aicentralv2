@@ -1,6 +1,7 @@
 """Admission, execution and persistence for a complete Conversations V2 turn."""
 
 import json
+import re
 from dataclasses import asdict, replace
 from time import perf_counter
 from urllib.parse import urlparse
@@ -28,6 +29,58 @@ PROJECT_MAP_GROUP_MAX_HEIGHT = 520
 
 def _event(kind, **values):
     return "data: " + json.dumps({"event": kind, **values}, ensure_ascii=False, default=str) + "\n\n"
+
+
+def _decode_partial_json_string(value: str) -> str:
+    """Decode the completed portion of a JSON string without exposing its envelope."""
+    output, index = [], 0
+    escapes = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f",
+               "n": "\n", "r": "\r", "t": "\t"}
+    while index < len(value):
+        char = value[index]
+        if char != "\\":
+            output.append(char)
+            index += 1
+            continue
+        if index + 1 >= len(value):
+            break
+        escaped = value[index + 1]
+        if escaped == "u":
+            code = value[index + 2:index + 6]
+            if len(code) < 4 or not all(item in "0123456789abcdefABCDEF" for item in code):
+                break
+            output.append(chr(int(code, 16)))
+            index += 6
+            continue
+        output.append(escapes.get(escaped, escaped))
+        index += 2
+    return "".join(output)
+
+
+def _streamable_answer(value: str) -> str:
+    """Return only user-visible prose from plain or partially streamed JSON output."""
+    raw = str(value or "")
+    stripped = raw.lstrip()
+    if not stripped:
+        return ""
+    if not stripped.startswith(("{", "[")):
+        return raw
+    matches = list(re.finditer(r'"(?:answer|content)"\s*:\s*"', raw, re.IGNORECASE))
+    if not matches:
+        return ""
+    start = matches[-1].end()
+    escaped = False
+    end = len(raw)
+    for index in range(start, len(raw)):
+        char = raw[index]
+        if char == '"' and not escaped:
+            end = index
+            break
+        if char == "\\" and not escaped:
+            escaped = True
+        else:
+            escaped = False
+    return _decode_partial_json_string(raw[start:end])
 
 
 def _journal(run_id, kind, payload=None, *, item_type="activity", duration_ms=None):
@@ -435,6 +488,7 @@ def stream(run):
     provider_started = None
     first_token_ms = None
     answer_chunks, usage, provider_id, task_id = [], {}, None, None
+    streamed_answer = ""
     state, assistant_id = "failed", None
     terminal_message = None
     terminal_error_code = None
@@ -494,6 +548,10 @@ def stream(run):
                 conn.commit()
             if item.get("event") in {"message", "agent_message"} and item.get("answer"):
                 answer_chunks.append(str(item["answer"]))
+                visible_answer = _streamable_answer("".join(answer_chunks))
+                if visible_answer and visible_answer != streamed_answer:
+                    streamed_answer = visible_answer
+                    yield _event("answer.delta", answer=streamed_answer)
             if item.get("event") == "message_end":
                 usage = (item.get("metadata") or {}).get("usage") or {}
         if _run_was_cancelled(run["run_id"]):

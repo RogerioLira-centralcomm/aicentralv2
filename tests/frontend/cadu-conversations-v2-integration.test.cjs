@@ -499,6 +499,7 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.doesNotMatch(conversation, /compactAnswer/);
   assert.match(conversation, /visibleQuestions/);
   assert.match(markdown, /paragraph\.join\(' '\)/);
+  assert.match(fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8'), /kind === 'answer\.delta'/);
 });
 
 test('conversation attachment model preserves validation and destination rules', async () => {

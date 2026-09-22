@@ -46,6 +46,18 @@ def _app():
     app.add_url_rule("/skills/", "cadu_skills.marketplace", lambda: "skills")
     app.add_url_rule("/skills/agentes", "cadu_skills.agents", lambda: "agents")
     app.add_url_rule("/smart-planner/", "smart_planner.index", lambda: "planner")
+    agent_lab_bp = Blueprint("cadu_agent_v2_lab", __name__)
+    agent_lab_bp.add_url_rule("/chat", "conversations_v2_lab", lambda: "chat")
+    agent_lab_bp.add_url_rule("/observabilidade", "observability_page", lambda: "observability")
+    app.register_blueprint(agent_lab_bp)
+    agent_api_bp = Blueprint("cadu_agent_v2", __name__)
+    agent_api_bp.add_url_rule("/api/messages", "conversation_message", lambda: "messages")
+    agent_api_bp.add_url_rule("/api/uploads", "upload", lambda: "uploads")
+    app.register_blueprint(agent_api_bp)
+    family_api_bp = Blueprint("cadu_family", __name__)
+    family_api_bp.add_url_rule("/api/context", "get_context", lambda: "context")
+    family_api_bp.add_url_rule("/api/history", "conversation_history", lambda: "history")
+    app.register_blueprint(family_api_bp)
     studio_product_bp = Blueprint("studio_product", __name__)
     studio_product_bp.add_url_rule("/", "studio_home", lambda: "studio portal")
     app.register_blueprint(studio_product_bp)
@@ -62,7 +74,7 @@ class ProductPortalsTest(TestCase):
         client = _app().test_client()
         expected = {
             "auth.centralcomm.media": (302, "/auth/"),
-            "connect.centralcomm.media": (200, None),
+            "connect.centralcomm.media": (302, "https://workspace.centralcomm.media/"),
             "studio.centralcomm.media": (200, None),
             "skills.centralcomm.media": (302, "/skills/"),
             "planner.centralcomm.media": (302, "/familia/planner/"),
@@ -101,13 +113,15 @@ class ProductPortalsTest(TestCase):
             "https://studio.centralcomm.media/studio/modelagem-criativos?client=174",
         )
 
-    def test_workspace_and_skills_legacy_family_entries_reach_their_products(self):
+    def test_workspace_and_skills_legacy_family_entries_reach_their_canonical_products(self):
         client = _app().test_client()
+        with client.session_transaction(headers={"Host": "workspace.centralcomm.media"}) as sess:
+            sess.update(user_id=7, cliente_id=12, user_name="Apolo")
         cases = (
-            ("workspace.centralcomm.media", "/familia/workspace/", "https://workspace.centralcomm.media/workspace/app"),
-            ("workspace.centralcomm.media", "/familia/workspace/projetos", "https://workspace.centralcomm.media/workspace/app/projetos"),
-            ("workspace.centralcomm.media", "/familia/workspace/consumo", "https://workspace.centralcomm.media/workspace/app/creditos"),
-            ("workspace.centralcomm.media", "/familia/workspace/marcas/sistema?creative_client_id=31", "https://workspace.centralcomm.media/workspace/app/marcas/31?creative_client_id=31"),
+            ("workspace.centralcomm.media", "/familia/workspace/", "https://workspace.centralcomm.media/app"),
+            ("workspace.centralcomm.media", "/familia/workspace/projetos", "https://workspace.centralcomm.media/projetos"),
+            ("workspace.centralcomm.media", "/familia/workspace/consumo", "https://workspace.centralcomm.media/uso"),
+            ("workspace.centralcomm.media", "/familia/workspace/marcas/sistema?creative_client_id=31", "https://workspace.centralcomm.media/marcas/31?creative_client_id=31"),
             ("skills.centralcomm.media", "/familia/skills/minhas-skills", "https://skills.centralcomm.media/skills/"),
         )
         for host, path, location in cases:
@@ -125,17 +139,13 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_data(as_text=True), "login")
 
-    def test_connect_has_a_public_entry_and_renders_the_workspace_for_a_session(self):
+    def test_connect_uses_workspace_as_guest_entry_and_renders_reports_for_a_session(self):
         app = _app()
         client = app.test_client()
         with mock.patch("aicentralv2.cadu_connect.routes.customization_targets") as targets:
             response = client.get("/", headers={"Host": "connect.centralcomm.media"})
-        self.assertEqual(response.status_code, 200)
-        public_html = response.get_data(as_text=True)
-        self.assertIn("Tudo o que comprova o trabalho, no contexto certo.", public_html)
-        self.assertIn("Entrar no Reports", public_html)
-        self.assertIn("Criar conta", public_html)
-        self.assertNotIn('class="connect-entry-sidebar"', public_html)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "https://workspace.centralcomm.media/")
         targets.assert_not_called()
         with client.session_transaction(headers={"Host": "connect.centralcomm.media"}) as sess:
             sess.update(user_id=7, cliente_id=12, user_name="Apolo", user_email="apolo@centralcomm.media")
@@ -201,16 +211,16 @@ class ProductPortalsTest(TestCase):
         with client.session_transaction() as sess:
             sess.update(user_id=7, cliente_id=12, user_name="Apolo")
 
-        team = client.get("/workspace/app/equipe", headers={"Host": "workspace.centralcomm.media"})
+        team = client.get("/equipe", headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(team.status_code, 200)
         self.assertIn("Apolo", team.get_data(as_text=True))
         self.assertIn("Administrador", team.get_data(as_text=True))
 
-        plan = client.get("/workspace/app/planos", headers={"Host": "workspace.centralcomm.media"})
+        plan = client.get("/plano", headers={"Host": "workspace.centralcomm.media"})
         self.assertIn("Equipe", plan.get_data(as_text=True))
         self.assertIn("500", plan.get_data(as_text=True))
 
-        credits = client.get("/workspace/app/creditos", headers={"Host": "workspace.centralcomm.media"})
+        credits = client.get("/creditos", headers={"Host": "workspace.centralcomm.media"})
         self.assertIn("75", credits.get_data(as_text=True))
 
     def test_workspace_public_pages_do_not_render_authenticated_chrome(self):
@@ -271,7 +281,7 @@ class ProductPortalsTest(TestCase):
         response = client.get("/workspace/", headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Seu time não deveria reconstruir o briefing a cada entrega.", html)
+        self.assertIn("Uma campanha nunca deveria começar do zero.", html)
         self.assertIn('data-public-nav', html)
         self.assertIn('data-carousel', html)
         self.assertIn('data-cadu-theme="light"', html)
@@ -280,7 +290,7 @@ class ProductPortalsTest(TestCase):
         self.assertIn('href="https://auth.centralcomm.media/login"', html)
         self.assertIn('class="studio-showcase"', html)
         self.assertIn('aria-label="Navegação principal"', html)
-        self.assertIn('href="#como-funciona"', html)
+        self.assertIn('href="#integracoes"', html)
         self.assertIn('id="seguranca"', html)
         self.assertNotIn('aria-label="Produtos Cadu"', html)
         self.assertEqual(client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"}).status_code, 302)
@@ -293,25 +303,19 @@ class ProductPortalsTest(TestCase):
             sess.update(user_id=7, cliente_id=12, user_name="Apolo")
         conversations = client.get("/workspace/app/conversas", headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(conversations.status_code, 308)
-        self.assertTrue(conversations.headers["Location"].endswith("/workspace/conversas-v2-lab"))
+        self.assertTrue(conversations.headers["Location"].endswith("/chat"))
         sidebar_projects = [{"id": str(index), "nome": f"Projeto {index}"} for index in range(1, 7)]
         with mock.patch("aicentralv2.cadu_workspace.routes._workspace_sidebar_projects", return_value=sidebar_projects):
             response = client.get("/app", headers={"Host": "workspace.centralcomm.media"})
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
-            self.assertIn("Bom ter você de volta, Apolo.", html)
-            self.assertIn('workspace-app-shell workspace-app-shell--home', html)
-            self.assertIn('class="workspace-nav-icon"', html)
-            self.assertIn('fa-solid fa-house', html)
-            self.assertIn('fa-solid fa-comment-dots', html)
-            self.assertIn('fa-solid fa-folder-open', html)
-            self.assertIn('fa-solid fa-wand-magic-sparkles', html)
-            self.assertNotIn('class="workspace-nav-abbr"', html)
-            self.assertNotIn('title="Marcas"', html)
-            self.assertIn('class="workspace-recent-projects"', html)
-            self.assertLess(html.index('>Projeto 1</a>'), html.index('>Projeto 5</a>'))
-            self.assertIn('data-cadu-sidebar-mobile-toggle', html)
-            for label in ("Equipe", "Planos", "Uso", "Conta"):
+            self.assertIn('id="cadu-conversations-v2-root"', html)
+            self.assertIn('"homeMode": true', html)
+            self.assertIn('"name": "Apolo"', html)
+            self.assertIn('"newConversation": "/chat"', html)
+            self.assertNotIn('workspace-app-shell workspace-app-shell--home', html)
+            self.assertIn('"secondaryNav"', html)
+            for label in ("Equipe", "Planos", "Uso", "Perfil"):
                 self.assertIn(label, html)
         self.assertEqual(client.get("/workspace/agentes", headers={"Host": "workspace.centralcomm.media"}).headers["Location"], "/skills/agentes")
         robots = client.get("/robots.txt", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
@@ -343,14 +347,11 @@ class ProductPortalsTest(TestCase):
             workspace_routes._remember_workspace_project("5")
             self.assertEqual(session["workspace_recent_project_ids"], ["5", "4", "2"])
 
-    def test_product_menu_keeps_the_public_cadu_entry_on_workspace(self):
+    def test_legacy_public_cadu_entry_redirects_to_workspace_home(self):
         client = _app().test_client()
         response = client.get("/entrada/cadu", headers={"Host": "workspace.centralcomm.media"})
-        self.assertEqual(response.status_code, 200)
-        html = response.get_data(as_text=True)
-        self.assertIn('href="https://workspace.centralcomm.media/entrada/cadu"', html)
-        self.assertNotIn('href="https://cadu.centralcomm.media/entrada/cadu"', html)
-        self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/entrada/cadu"', html)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "https://workspace.centralcomm.media/")
 
     def test_public_home_explains_the_five_products_in_workflow_order(self):
         client = _app().test_client()
@@ -360,6 +361,24 @@ class ProductPortalsTest(TestCase):
             self.assertIn(label, html)
         for icon in ("workspace-192.png", "planner-192.png", "studio-192.png", "connect-192.png", "skills-192.png"):
             self.assertIn(f"images/cadu/brand-icons/{icon}", html)
+        for integration in ("Google", "Trello", "Slack", "Asana", "ChatGPT", "Claude", "Cursor", "Codex"):
+            self.assertIn(integration, html)
+        self.assertIn("Como transformar um briefing em uma base viva", html)
+
+    def test_public_catalog_has_solution_article_and_commercial_plan_pages(self):
+        client = _app().test_client()
+        headers = {"Host": "workspace.centralcomm.media"}
+        for solution in ("workspace", "planner", "studio", "reports", "skills"):
+            response = client.get(f"/workspace/solucoes/{solution}", headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Recursos ligados ao mesmo projeto.", response.get_data(as_text=True))
+        for article in ("briefing-vivo", "plano-de-midia", "campanha-em-formatos", "resultado-no-projeto", "skill-de-audiencia"):
+            response = client.get(f"/workspace/conteudos/{article}", headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Passo a passo", response.get_data(as_text=True))
+        plans = client.get("/workspace/planos", headers=headers).get_data(as_text=True)
+        for value in ("R$ 149", "R$ 549", "R$ 1.490", "Funcionalidades por solução", "Créditos", "Espaço", "Projetos ativos"):
+            self.assertIn(value, plans)
 
     @mock.patch("aicentralv2.cadu_connect.routes.link_campaign_project", return_value=True)
     def test_agents_links_campaign_to_project_inside_client_context(self, link):

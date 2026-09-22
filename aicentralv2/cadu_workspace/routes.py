@@ -2789,7 +2789,7 @@ def _remember_workspace_project(project_id: str) -> None:
 
 
 def _workspace_sidebar_projects(client_id: int) -> list[dict]:
-    """Return active projects in the stable alphabetical order used by Home."""
+    """Return recent active projects first, then complete the compact rail."""
     if not client_id:
         return []
     try:
@@ -2805,7 +2805,12 @@ def _workspace_sidebar_projects(client_id: int) -> list[dict]:
     except Exception:
         return []
 
-    return projects[:6]
+    recent_ids = [str(item) for item in session.get(_WORKSPACE_RECENT_PROJECTS_KEY, []) if item]
+    by_id = {str(project.get('id')): project for project in projects}
+    recent = [by_id[project_id] for project_id in recent_ids if project_id in by_id]
+    recent_set = {str(project.get('id')) for project in recent}
+    remaining = [project for project in projects if str(project.get('id')) not in recent_set]
+    return [*recent, *remaining][:6]
 
 
 @bp.context_processor
@@ -3471,7 +3476,7 @@ PUBLIC_PAGES = {
     "contato": {
         "title": "Contato",
         "description": "Fale com a CentralComm sobre acesso, implantação ou suporte ao Cadu Workspace.",
-        "lead": "Conte o que sua equipe precisa organizar. Direcionamos a conversa para produto, implantação ou suporte.",
+        "lead": "Conte o que sua equipe precisa resolver. Direcionamos a conversa para produto, implantação ou suporte.",
     },
 }
 
@@ -3559,12 +3564,12 @@ LEGAL_PAGES = {
         "updated": "21 de setembro de 2026",
         "sections": [
             ("1. Escopo", "Esta política explica o tratamento de dados no Cadu Workspace, serviço da Centralcomm Comunicação e Tecnologia Ltda. Ela se aplica às páginas públicas, à conta de usuário e aos ambientes de marcas e projetos acessados pelo Workspace."),
-            ("2. Dados que podemos tratar", "Podemos tratar dados de cadastro e acesso, como nome, e-mail, organização e preferências; dados de uso necessários para operar a conta; e conteúdos que você ou sua equipe escolhem incluir, como briefings, arquivos, referências, decisões e instruções de projeto."),
+            ("2. Dados que podemos tratar", "Podemos tratar dados de cadastro e acesso, como nome, e-mail, empresa e preferências; dados de uso necessários para operar a conta; e conteúdos que você ou sua equipe escolhem incluir, como briefings, arquivos, referências, decisões e instruções de projeto."),
             ("3. Como usamos os dados", "Usamos esses dados para autenticar usuários, manter marcas e projetos organizados, executar recursos solicitados, preservar histórico e permissões, medir capacidade e créditos, prevenir abuso e prestar suporte. Não usamos o conteúdo privado de um projeto para torná-lo público."),
             ("4. Google e outras integrações", "Quando você autoriza uma integração, o Workspace acessa somente os serviços e escopos apresentados na autorização. Tokens são usados para manter a conexão solicitada e podem ser revogados por você no Google. Não vendemos dados pessoais nem usamos dados de serviços conectados para publicidade comportamental."),
-            ("5. Compartilhamento e acesso", "O acesso ao conteúdo depende da organização, marca, projeto e papel atribuído à pessoa. Podemos compartilhar dados com provedores técnicos que atuam em nosso nome, sob obrigações de segurança e confidencialidade, ou quando a lei exigir. Não compartilhamos projetos privados para fins comerciais de terceiros."),
+            ("5. Compartilhamento e acesso", "O acesso ao conteúdo depende da equipe, marca, projeto e papel atribuído à pessoa. Podemos compartilhar dados com provedores técnicos que atuam em nosso nome, sob obrigações de segurança e confidencialidade, ou quando a lei exigir. Não compartilhamos projetos privados para fins comerciais de terceiros."),
             ("6. Retenção e segurança", "Mantemos dados pelo tempo necessário para fornecer o serviço, cumprir obrigações legais, resolver disputas e proteger a operação. Aplicamos controles de acesso, registro de eventos e medidas técnicas compatíveis com a natureza dos dados. Nenhum serviço conectado à internet elimina todos os riscos, por isso recomendamos proteger sua conta e não inserir segredos em campos de projeto."),
-            ("7. Seus direitos", "Você pode solicitar confirmação de tratamento, acesso, correção, atualização ou exclusão de dados, observadas as obrigações legais e os registros necessários à segurança. Para solicitar atendimento, escreva para contato@centralcomm.media informando a organização e o e-mail usado no Cadu."),
+            ("7. Seus direitos", "Você pode solicitar confirmação de tratamento, acesso, correção, atualização ou exclusão de dados, observadas as obrigações legais e os registros necessários à segurança. Para solicitar atendimento, escreva para contato@centralcomm.media informando a empresa e o e-mail usado no Cadu."),
             ("8. Alterações", "Podemos atualizar esta política para refletir mudanças no produto ou na legislação. A versão publicada nesta página informa a data da atualização mais recente."),
         ],
     },
@@ -3574,9 +3579,9 @@ LEGAL_PAGES = {
         "lead": "Condições simples para usar o Workspace com clareza, responsabilidade e respeito ao trabalho da sua equipe.",
         "updated": "21 de setembro de 2026",
         "sections": [
-            ("1. Sobre o serviço", "O Cadu Workspace reúne conta, equipe, marcas, projetos, arquivos, créditos e integrações para apoiar o trabalho de comunicação e mídia. Recursos, limites e disponibilidade podem variar conforme o plano contratado ou a configuração da organização."),
-            ("2. Sua conta e sua equipe", "Você é responsável por manter seus dados de acesso corretos, proteger credenciais e garantir que as pessoas convidadas tenham autorização para acessar o conteúdo. A organização também é responsável por administrar papéis, permissões e conexões que autorizar."),
-            ("3. Conteúdo e instruções", "Você mantém os direitos sobre o conteúdo enviado ao Workspace. Você autoriza o processamento necessário para fornecer os recursos solicitados, incluindo organização, indexação, análise e geração de resultados dentro do contexto escolhido. Não envie conteúdo que você não tenha autorização para usar."),
+            ("1. Sobre o serviço", "O Cadu Workspace reúne conta, equipe, marcas, projetos, arquivos, créditos e integrações para apoiar o trabalho de comunicação e mídia. Recursos, limites e disponibilidade podem variar conforme o plano contratado ou a configuração da equipe."),
+            ("2. Sua conta e sua equipe", "Você é responsável por manter seus dados de acesso corretos, proteger credenciais e garantir que as pessoas convidadas tenham autorização para acessar o conteúdo. O time também é responsável por administrar papéis, permissões e conexões que autorizar."),
+            ("3. Conteúdo e instruções", "Você mantém os direitos sobre o conteúdo enviado ao Workspace. Você autoriza o processamento necessário para fornecer os recursos solicitados, incluindo indexação, análise e geração de resultados dentro do contexto escolhido. Não envie conteúdo que você não tenha autorização para usar."),
             ("4. Resultados e revisão humana", "Recursos assistidos por inteligência artificial podem produzir resultados incompletos ou incorretos. Os resultados são apoio ao trabalho e devem ser revisados antes de publicação, investimento, veiculação ou decisão comercial. O Workspace não substitui a aprovação da equipe responsável."),
             ("5. Integrações e serviços de terceiros", "Ao conectar Google ou outro serviço, você autoriza a troca de dados necessária ao recurso escolhido e aceita também os termos desse terceiro. Você pode revogar a autorização nas configurações do serviço conectado, embora isso possa interromper a integração."),
             ("6. Uso permitido", "Não use o serviço para violar leis, direitos de terceiros, privacidade, segurança ou propriedade intelectual; tentar obter acesso não autorizado; distribuir malware; contornar limites; ou inserir senhas, chaves e outros segredos em conteúdos destinados a compartilhamento."),
@@ -4017,7 +4022,7 @@ def public_page(page):
         if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', contact_form['email']):
             contact_errors.append('Informe um email válido.')
         if len(contact_form['company']) < 2:
-            contact_errors.append('Informe sua empresa ou organização.')
+            contact_errors.append('Informe sua empresa ou time.')
         if contact_form['profile'] not in {'marketing', 'agency', 'media', 'other'}:
             contact_errors.append('Escolha o perfil que melhor representa sua equipe.')
         if len(contact_form['challenge']) < 12:
@@ -4036,7 +4041,7 @@ def public_page(page):
                 })
                 from ..email_service import send_email
                 send_email(
-                    f"Novo contato Cadu — {contact_form['company']}", ['contato@centralcomm.media'],
+                    f"Novo contato Cadu | {contact_form['company']}", ['contato@centralcomm.media'],
                     text_body=(f"Nome: {contact_form['name']}\nEmail: {contact_form['email']}\n"
                                f"Empresa: {contact_form['company']}\nPerfil: {contact_form['profile']}\n"
                                f"Equipe: {contact_form['team_size']}\nPreferência: {contact_form['contact_preference']}\n\n"
@@ -7608,6 +7613,7 @@ def robots():
     body = "\n".join((
         "User-agent: *", "Allow: /workspace/", "Allow: /workspace/como-funciona",
         "Allow: /workspace/planos", "Allow: /workspace/ajuda", "Allow: /workspace/contato",
+        "Allow: /workspace/solucoes/", "Allow: /workspace/conteudos/",
         "Disallow: /workspace/app", "Disallow: /workspace/minhas-skills",
         f"Sitemap: {product_url('workspace', '/sitemap.xml')}", "",
     ))
@@ -7617,7 +7623,9 @@ def robots():
 @bp.get("/sitemap.xml")
 def sitemap():
     _workspace_host_only()
-    paths = ("/", "/como-funciona", "/planos", "/ajuda", "/contato")
+    paths = ["/", "/como-funciona", "/planos", "/ajuda", "/contato"]
+    paths.extend(f"/solucoes/{slug}" for slug in PUBLIC_SOLUTIONS)
+    paths.extend(f"/conteudos/{slug}" for slug in PUBLIC_ARTICLES)
     urls = "".join(f"<url><loc>{product_url('workspace', path)}</loc></url>" for path in paths)
     return Response(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', mimetype="application/xml")
 
@@ -7627,13 +7635,17 @@ def llms():
     _workspace_host_only()
     lines = [
         "# Cadu Workspace", "",
-        "> O ponto de partida público e autenticado para organizar o trabalho na família Cadu.", "",
+        "> O ponto de partida para conectar o trabalho de marketing na família Cadu.", "",
         "## Páginas públicas", "",
         f"- [Visão geral]({product_url('workspace')})",
         f"- [Como funciona]({product_url('workspace', '/como-funciona')})",
         f"- [Planos]({product_url('workspace', '/planos')})",
         f"- [Ajuda]({product_url('workspace', '/ajuda')})",
         f"- [Contato]({product_url('workspace', '/contato')})", "",
+        "## Soluções", "",
+        *[f"- [{item['name']}]({product_url('workspace', f'/solucoes/{slug}')})" for slug, item in PUBLIC_SOLUTIONS.items()], "",
+        "## Guias práticos", "",
+        *[f"- [{item['title']}]({product_url('workspace', f'/conteudos/{slug}')})" for slug, item in PUBLIC_ARTICLES.items()], "",
         "## Conteúdo público relacionado", "",
         f"- [Agentes e capacidades]({product_url('skills', '/agentes')})",
         f"- [Skills públicas testáveis]({product_url('skills')})", "",

@@ -655,6 +655,26 @@ def test_prepare_project_upload_seals_request_id_in_intent(monkeypatch):
     assert captured["use_as_knowledge"] is True
 
 
+def test_prepare_project_upload_defaults_to_automatic_organization(monkeypatch):
+    from flask import Flask
+
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "test"
+    monkeypatch.setattr(project_source_service, "_project_id", lambda _: "42")
+    with app.app_context():
+        result = project_source_service.prepare_upload(
+            context(project_ref="ci:42"), request_id="be777b36-a973-419c-802a-886bf1d125b0",
+            description="Imagem gerada para a campanha de lançamento, fundo verde e produto centralizado.",
+        )
+        claims = project_source_service._upload_claims(context(project_ref="ci:42"), result["upload_token"])
+    assert result["purpose"] == "automatic"
+    assert ".png" in result["accepted"]
+    assert ".html" in result["accepted"]
+    assert ".docx" in result["accepted"]
+    assert claims["use_as_knowledge"] is None
+    assert claims["description"].startswith("Imagem gerada")
+
+
 def test_intake_classification_keeps_links_and_chat_text_out_of_the_index():
     link = project_source_service.classify_intake(url="https://example.com/reuniao")
     note = project_source_service.classify_intake(text="Ata da reunião: decisões e próximos passos.")
@@ -1129,7 +1149,9 @@ def test_project_file_support_never_claims_unknown_content_is_understood():
     archive = project_source_service.inspect_file_support("materiais.zip")
     assert archive["status"] == "attachment_only"
     unknown = project_source_service.inspect_file_support("material.indd")
-    assert unknown["status"] == "unsupported"
+    assert unknown["status"] == "attachment_only"
+    assert unknown["can_attach"] is True
+    assert unknown["can_index"] is False
 
 
 def test_cross_domain_report_comparison_gets_high_budget_only_when_needed():

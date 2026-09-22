@@ -1,11 +1,12 @@
 from unittest.mock import MagicMock, Mock, patch
 from io import BytesIO
 
+import pytest
 from flask import Flask
 
-from aicentralv2.cadu_public_mcp.auth import PublicMcpAuthError, PublicMcpPrincipal, _public_context, ensure_scope
+from aicentralv2.cadu_public_mcp.auth import DEFAULT_SCOPES, PublicMcpAuthError, PublicMcpPrincipal, _public_context, ensure_scope, normalize_scopes
 from aicentralv2.cadu_public_mcp import usage
-from aicentralv2.cadu_public_mcp.routes import PUBLIC_MCP_PATH, PUBLIC_TOOLS, bp
+from aicentralv2.cadu_public_mcp.routes import PUBLIC_MCP_PATH, PUBLIC_TOOLS, _public_catalog, _request_context_for_auth, bp
 from aicentralv2.cadu_public_mcp.usage import tool_cost
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
@@ -31,6 +32,29 @@ def test_public_context_is_tenant_bound_and_uses_default_project():
     assert context.project_ref == "ci:project-1"
 
 
+def test_legacy_purchase_scope_does_not_break_existing_keys():
+    assert normalize_scopes(["credits:read", "credits:purchase"], allow_writes=True) == ("credits:read",)
+
+
+def test_project_ref_is_selectable_in_public_tool_arguments_without_changing_internal_schema():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref=None, capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex",
+                                   label="Teste", scopes=tuple(DEFAULT_SCOPES), context=context)
+    with patch("aicentralv2.cadu_public_mcp.auth.repository.actor", return_value={"organization_id": 12}), \
+         patch("aicentralv2.cadu_public_mcp.auth.repository.account_role", return_value="member"):
+        catalog = _public_catalog(principal)
+    upload = next(item for item in catalog if item["name"] == "projects.prepare_source_upload")
+    assert "project_ref" in upload["inputSchema"]["properties"]
+    internal = next(item for item in load_builtin_tools().list(context) if item["name"] == "projects.prepare_source_upload")
+    assert "project_ref" not in internal["inputSchema"]["properties"]
+    params = _request_context_for_auth({"name": "projects.prepare_source_upload",
+                                        "arguments": {"project_ref": "ci:project-2"}})
+    with patch("aicentralv2.cadu_public_mcp.auth.repository.entities",
+               return_value=[{"ref": "ci:project-2", "kind": "project"}]):
+        assert _public_context({"client_id": 12, "user_id": 7}, params).project_ref == "ci:project-2"
+
+
 def test_public_transport_is_separate_and_requires_bearer_auth():
     app = Flask(__name__)
     app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")
@@ -41,6 +65,8 @@ def test_public_transport_is_separate_and_requires_bearer_auth():
     assert metadata.status_code == 200
     assert metadata.get_json()["endpoint"].endswith(PUBLIC_MCP_PATH)
     assert metadata.get_json()["authentication"]["type"] == "bearer_api_key"
+    assert metadata.get_json()["icon_url"].endswith("/static/images/cadu/products/cadu-mcp-icon.svg")
+    assert metadata.get_json()["icons"][0]["mimeType"] == "image/svg+xml"
 
     with patch(
         "aicentralv2.cadu_public_mcp.routes.auth.authenticate",
@@ -52,6 +78,47 @@ def test_public_transport_is_separate_and_requires_bearer_auth():
         )
     assert response.status_code == 401
     assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+
+def test_initialize_advertises_cadu_icon_to_mcp_clients():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")
+    app.register_blueprint(bp)
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref=None, capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex",
+                                   label="Teste", scopes=("projects:read",), context=context)
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=principal), \
+         patch("aicentralv2.cadu_public_mcp.routes.load_builtin_tools"):
+        response = app.test_client().post(PUBLIC_MCP_PATH, json={"jsonrpc": "2.0", "id": "1",
+            "method": "initialize", "params": {}})
+    assert response.status_code == 200
+    info = response.get_json()["result"]["serverInfo"]
+    assert info["title"] == "Cadu"
+    assert info["icons"][0]["src"].endswith("/static/images/cadu/products/cadu-mcp-icon.svg")
+
+
+def test_mcp_purchase_requires_authenticated_page_confirmation():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="test")
+    app.register_blueprint(bp)
+    client = app.test_client()
+    with client.session_transaction() as saved:
+        saved.update(user_id=7, cliente_id=12, family_csrf="csrf-test")
+    purchase = {"id": 31, "status": "pending", "package_name": "Extra Essencial",
+                "tokens_amount": 100_000, "price_brl": 49.0, "billing_mode": "prepaid", "note": ""}
+    with patch("aicentralv2.cadu_workspace.credit_purchase_service.pending_extra", return_value=purchase), \
+         patch("aicentralv2.cadu_workspace.credit_purchase_service.purchase_extra",
+               return_value={"credits_released": 100_000}) as approve, \
+         patch("aicentralv2.cadu_public_mcp.routes.render_template", return_value="ok"):
+        assert client.get("/workspace/app/integracoes/agents/compras/31").status_code == 200
+        approve.assert_not_called()
+        assert client.post("/workspace/app/integracoes/agents/compras/31").status_code == 403
+        approve.assert_not_called()
+        response = client.post("/workspace/app/integracoes/agents/compras/31", data={"_csrf": "csrf-test"})
+        assert response.status_code == 200
+        approve.assert_called_once()
+        assert approve.call_args.kwargs["pending_request_id"] == 31
 
 
 def test_public_multipart_upload_requires_key_scope_and_project_editor():
@@ -156,7 +223,7 @@ def test_public_key_scopes_require_explicit_google_write_permission():
         raise AssertionError("google:write deveria ser exigido para vínculos")
 
 
-def test_public_key_scopes_require_project_write_for_link_references():
+def test_public_key_scopes_separate_project_content_from_admin_writes():
     principal = PublicMcpPrincipal(
         key_id="key", client_id=12, user_id=7, client_type="cursor", label="Cursor",
         scopes=("resources:read", "projects:read", "google:read"), context=RequestContext(
@@ -164,12 +231,22 @@ def test_public_key_scopes_require_project_write_for_link_references():
             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",),
         ),
     )
-    try:
+    with pytest.raises(PublicMcpAuthError, match="projects:content_write"):
         ensure_scope(principal, "projects.create_link_reference")
-    except PublicMcpAuthError as exc:
-        assert "projects:write" in str(exc)
-    else:
-        raise AssertionError("projects:write deveria ser exigido para referências")
+    assert "projects:content_write" in DEFAULT_SCOPES
+    content_principal = PublicMcpPrincipal(
+        key_id="key", client_id=12, user_id=7, client_type="cursor", label="Cursor",
+        scopes=tuple(DEFAULT_SCOPES), context=principal.context,
+    )
+    ensure_scope(content_principal, "projects.create_link_reference")
+    ensure_scope(content_principal, "projects.create_note")
+    ensure_scope(content_principal, "projects.prepare_source_upload")
+    with pytest.raises(PublicMcpAuthError, match="projects:write"):
+        ensure_scope(content_principal, "workspace.update_project_context")
+    with patch("aicentralv2.cadu_public_mcp.auth.repository.actor", return_value={"organization_id": 12}), \
+         patch("aicentralv2.cadu_public_mcp.auth.repository.account_role", return_value="member"), \
+         pytest.raises(PublicMcpAuthError, match="administradores"):
+        ensure_scope(content_principal, "credits.purchase_package")
 
 
 def test_public_usage_record_commits_telemetry():

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Cadu</title>
+  <rect width="128" height="128" rx="25" fill="#fff"/>
+  <path d="M39 35h31L48 64l22 29H39L15 64z" fill="#03b7a0"/>
+  <path d="M77 35h36L91 64l22 29H77L55 64z" fill="#14191d"/>
+</svg>

@@ -22,15 +22,35 @@ def _context(project_ref="ci:42"):
                           project_ref=project_ref, capabilities=("workspace", "artifacts"))
 
 
-def test_public_credit_purchase_scope_is_admin_only_before_key_is_inserted():
-    with patch.object(auth, "_available", return_value=True), \
-         patch.object(auth.repository, "actor", return_value={"organization_id": 12}), \
+def test_public_credit_purchase_uses_current_admin_role_not_a_special_key_scope():
+    principal = auth.PublicMcpPrincipal(
+        key_id="key", client_id=12, user_id=7, client_type="codex", label="Agente",
+        scopes=tuple(auth.DEFAULT_SCOPES), context=_context(),
+    )
+    with patch.object(auth.repository, "actor", return_value={"organization_id": 12}), \
          patch.object(auth.repository, "account_role", return_value="member"), \
-         patch.object(auth, "get_db") as database:
-        with pytest.raises(auth.PublicMcpAuthError, match="administradores"):
-            auth.create_key(client_id=12, user_id=7, label="Agente", client_type="gpt",
-                            scopes=["credits:purchase"])
-        database.assert_not_called()
+         pytest.raises(auth.PublicMcpAuthError, match="administradores"):
+        auth.ensure_scope(principal, "credits.purchase_package")
+    with patch.object(auth.repository, "actor", return_value={"organization_id": 12}), \
+         patch.object(auth.repository, "account_role", return_value="admin"):
+        auth.ensure_scope(principal, "credits.purchase_package")
+
+
+def test_mcp_purchase_tool_only_creates_pending_request():
+    app = Flask(__name__)
+    app.config["WORKSPACE_URL"] = "https://workspace.centralcomm.media"
+    with app.app_context(), \
+         patch.object(account_tools, "_admin", return_value={"organization_id": 12}), \
+         patch.object(account_tools.operations, "execute", side_effect=lambda _id, _context, _name, _payload, call: call()), \
+         patch.object(account_tools, "request_extra", return_value={"request_id": 31, "status": "pending_confirmation",
+                                                                  "credits_released": 0}) as pending:
+        result = account_tools.purchase_credit_package(_context(), {
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+            "package_name": "Extra Essencial", "billing_mode": "prepaid",
+        })
+    pending.assert_called_once()
+    assert result["credits_released"] == 0
+    assert result["confirmation_url"].endswith("/workspace/app/integracoes/agents/compras/31")
 
 
 def test_credit_purchase_refuses_non_admin_and_unlisted_package_without_writing():
@@ -52,6 +72,22 @@ def test_credit_purchase_refuses_non_admin_and_unlisted_package_without_writing(
             purchase_extra(_context(), "Pacote inventado", "prepaid")
         database.assert_not_called()
 
+
+def test_pending_purchase_cannot_release_credits_twice():
+    cursor = MagicMock()
+    cursor.__enter__.return_value = cursor
+    cursor.fetchone.return_value = {"id": 31, "status": "approved", "package_name": "Extra Essencial",
+                                      "tokens_amount": 100_000, "price_brl": 49.0, "billing_mode": "prepaid"}
+    connection = MagicMock()
+    connection.cursor.return_value = cursor
+    with patch("aicentralv2.cadu_workspace.credit_purchase_service.repository.actor",
+               return_value={"organization_id": 12}), \
+         patch("aicentralv2.cadu_workspace.credit_purchase_service.repository.account_role",
+               return_value="admin"), \
+         patch("aicentralv2.cadu_workspace.credit_purchase_service.get_db", return_value=connection), \
+         pytest.raises(BadRequest, match="não está pendente"):
+        purchase_extra(_context(), "Extra Essencial", "prepaid", pending_request_id=31)
+    assert not any("INSERT INTO cadu_credits_extras" in call.args[0] for call in cursor.execute.call_args_list)
 
 def test_credit_purchase_releases_only_catalog_quantity_and_names_requester():
     cursor = MagicMock()

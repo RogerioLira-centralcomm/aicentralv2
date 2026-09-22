@@ -49,13 +49,12 @@ def inspect_file_support(filename: str, mime_type: str = "") -> dict:
         return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
                 "status": "supported", "can_attach": True, "can_index": True,
                 "processing": "ocr", "requires_adapter": False}
-    # InDesign packages are accepted by the project dropzone, but keep the
-    # capability probe conservative until a dedicated parser is installed.
+    # InDesign packages can be preserved and organized, but not parsed.
     if suffix == '.indd':
         return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
-                "status": "unsupported", "can_attach": False, "can_index": False,
-                "processing": "none", "requires_adapter": True,
-                "reason": "O arquivo pode ser preservado pelo dropzone visual, mas ainda não há adapter de leitura."}
+                "status": "attachment_only", "can_attach": True, "can_index": False,
+                "processing": "metadata_only", "requires_adapter": True,
+                "reason": "O arquivo é preservado no projeto; ainda não há adapter de leitura."}
     if suffix in ATTACHMENT_EXTENSIONS:
         return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
                 "status": "attachment_only", "can_attach": True, "can_index": False,
@@ -268,8 +267,8 @@ def _project_id(context: RequestContext) -> str:
     return str(row["id"])
 
 
-def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge: bool,
-                   category: Optional[str] = None) -> dict:
+def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge: Optional[bool] = None,
+                   category: Optional[str] = None, description: str = "") -> dict:
     project_id = _project_id(context)
     try:
         request_id = str(UUID(str(request_id)))
@@ -278,24 +277,27 @@ def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge
     category = str(category or "").strip().lower() or None
     if category and category not in CATEGORIES:
         raise BadRequest("Categoria de arquivo inválida.")
+    description = str(description or "").strip()[:4000]
     token = _serializer().dumps({
         "organization_id": context.organization_id, "client_id": context.client_id,
         "user_id": context.user_id, "project_id": project_id,
         "request_id": request_id,
-        "use_as_knowledge": bool(use_as_knowledge),
+        "use_as_knowledge": use_as_knowledge,
         "category": category,
+        "description": description,
     })
     return {
         "upload_token": token,
         "upload_url": "/workspace/mcp/uploads",
+        "project_ref": context.project_ref,
         "method": "POST",
         "field": "file",
         "max_bytes": project_sources.MAX_BYTES,
-        "use_as_knowledge": bool(use_as_knowledge),
-        "purpose": "knowledge_source" if use_as_knowledge else "project_attachment",
+        "use_as_knowledge": use_as_knowledge,
+        "purpose": "automatic" if use_as_knowledge is None else "knowledge_source" if use_as_knowledge else "project_attachment",
         "category": category,
         "expires_in": UPLOAD_MAX_AGE,
-        "accepted": sorted(ATTACHMENT_EXTENSIONS if not use_as_knowledge else project_sources.ALLOWED_EXTENSIONS),
+        "accepted": sorted(ATTACHMENT_EXTENSIONS if use_as_knowledge is not True else project_sources.ALLOWED_EXTENSIONS | project_sources.IMAGE_EXTENSIONS),
     }
 
 
@@ -375,8 +377,15 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
     project_id = _project_id(context)
     if project_id != str(claims["project_id"]):
         raise BadRequest("O projeto selecionado mudou. Solicite uma nova autorização de upload.")
-    use_as_knowledge = bool(claims["use_as_knowledge"])
-    source = project_sources.validate_upload(file_storage) if use_as_knowledge else _attachment(file_storage)
+    requested_knowledge = claims.get("use_as_knowledge")
+    source = project_sources.validate_upload(file_storage) if requested_knowledge is True else _attachment(file_storage)
+    description = str(claims.get("description") or "").strip()[:4000]
+    if description:
+        extracted_can_index = bool(source.get("can_index"))
+        source["text"] = (f"Descrição fornecida pelo agente: {description}\n\n"
+                          f"Texto extraído do arquivo: {source.get('text') or ''}").strip()
+        source["can_index"] = extracted_can_index or len(description) >= 20
+    use_as_knowledge = bool(source.get("can_index")) if requested_knowledge is None else bool(requested_knowledge)
     try:
         request_id = str(UUID(str(claims.get("request_id"))))
     except (TypeError, ValueError) as exc:
@@ -435,7 +444,7 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                     charged_tokens=charged_tokens,
                     classification=classification,
                     metadata={"classifier": "deterministic-v1", "upload_request_id": request_id,
-                              "sha256": content_hash},
+                              "sha256": content_hash, "agent_description": description},
                 )
             else:
                 cur.execute("""INSERT INTO cadu_ci_projeto_arquivos
@@ -453,7 +462,8 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                  classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": bool(source.get("text")),
                                                   "processing": source.get("processing") or "metadata_only",
                                                   "can_index": bool(source.get("can_index")),
-                                                  "sha256": content_hash, "upload_request_id": request_id})))
+                                                  "sha256": content_hash, "upload_request_id": request_id,
+                                                  "agent_description": description})))
                 source_id = int(cur.fetchone()["id"])
                 cur.execute("""UPDATE cadu_ci_projetos SET total_arquivos = COALESCE(total_arquivos, 0) + 1,
                                   updated_at = NOW() WHERE id = %s AND id_cliente = %s""",
@@ -485,12 +495,12 @@ def create_note(context: RequestContext, *, title: str, content: str, category: 
         raise BadRequest("Dê um título para identificar esta nota.")
     if len(content) < 20:
         raise BadRequest("A nota precisa ter ao menos 20 caracteres de contexto.")
-    category = str(category or "other").strip().lower()
-    if category not in CATEGORIES:
+    category = str(category or "").strip().lower()
+    if category and category not in CATEGORIES:
         raise BadRequest("Categoria de nota inválida.")
     content_hash = sha256(content.encode("utf-8")).hexdigest()
-    classification = {"category": category, "status": "manual", "confidence": 1.0,
-                      "reason": "Nota estruturada pelo usuário no Conversas."}
+    classification = _classify({"name": title, "suffix": ".md"}, category or None, content)
+    category = classification["category"]
     connection = get_db()
     try:
         with connection.cursor() as cursor:

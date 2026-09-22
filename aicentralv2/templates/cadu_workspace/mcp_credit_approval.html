@@ -1,0 +1,18 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Confirmar compra de créditos — Cadu{% endblock %}
+{% block product_id %}workspace{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-mcp-setup.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content %}
+{% set workspace_active='integracoes' %}
+<div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<div class="workspace-app-main"><main class="workspace-mcp-page">
+  <header class="workspace-mcp-page__intro"><a href="{{ url_for('cadu_public_mcp.agents_page') }}">← Agentes de IA</a><h1>Confirmar compra de créditos</h1><p>Confira os dados do pedido iniciado pelo agente. Os créditos só serão liberados se você confirmar aqui.</p></header>
+  <section class="workspace-mcp-setup" aria-labelledby="purchase-title"><h2 id="purchase-title">{{ purchase.package_name }}</h2>
+    <p>{{ '{:,}'.format(purchase.tokens_amount|int).replace(',', '.') }} créditos · R$ {{ '%.2f'|format(purchase.price_brl|float) }} · {{ 'Pré-pago' if purchase.billing_mode == 'prepaid' else 'Pós-pago' }}</p>
+    {% if purchase.note %}<p>{{ purchase.note }}</p>{% endif %}
+    {% if result %}<p role="status">Compra confirmada. {{ '{:,}'.format(result.credits_released|int).replace(',', '.') }} créditos foram liberados para a conta.</p>
+    {% elif purchase.status == 'pending' %}<form method="post"><input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}"><button class="workspace-button is-primary" type="submit">Confirmar compra de R$ {{ '%.2f'|format(purchase.price_brl|float) }}</button></form>
+    {% else %}<p role="status">Este pedido já foi processado.</p>{% endif %}
+  </section>
+</main></div></div>
+{% endblock %}

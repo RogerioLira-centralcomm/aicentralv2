@@ -9,7 +9,8 @@ from ....cadu_family import repository
 from ....cadu_skills.repository import credit_position
 from ....db import get_db
 from ...agent_v2.contracts import RequestContext
-from ...credit_purchase_service import list_packages, purchase_extra
+from ...credit_purchase_service import list_packages, request_extra
+from ....product_domains import product_url
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -210,11 +211,10 @@ def get_credit_packages(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="credits.purchase_package", capability="workspace", effect="write",
-               description="Confirma compra de pacote extra do catálogo e libera exatamente os créditos desse pacote.",
+               description="Prepara a compra de créditos e devolve um link para o administrador confirmar no Cadu. Nenhum crédito é liberado antes dessa confirmação.",
                exposures=("internal", "customer_agent"),
-               input_schema={"type":"object", "required":["request_id", "confirmed", "package_name", "billing_mode"], "properties":{
+               input_schema={"type":"object", "required":["request_id", "package_name", "billing_mode"], "properties":{
                    "request_id":{"type":"string", "minLength":36, "maxLength":36},
-                   "confirmed":{"type":"boolean", "enum":[True]},
                    "package_name":{"type":"string", "minLength":3, "maxLength":80},
                    "billing_mode":{"type":"string", "enum":["prepaid", "postpaid"]},
                    "note":{"type":"string", "maxLength":2000},
@@ -223,8 +223,10 @@ def purchase_credit_package(context: RequestContext, arguments: dict) -> dict:
     _admin(context)
     payload = {key:arguments[key] for key in ("package_name", "billing_mode", "note") if key in arguments}
     try:
-        return operations.execute(arguments["request_id"], context, "credits.purchase_package", payload,
-                                  lambda: purchase_extra(context, arguments["package_name"],
-                                                         arguments["billing_mode"], arguments.get("note", "")))
+        result = operations.execute(arguments["request_id"], context, "credits.purchase_package", payload,
+                                    lambda: request_extra(context, arguments["package_name"],
+                                                          arguments["billing_mode"], arguments.get("note", "")))
+        return {**result, "confirmation_url": product_url(
+            "workspace", f"/workspace/app/integracoes/agents/compras/{result['request_id']}")}
     except HTTPException as exc:
         raise ToolInputError(str(exc.description)) from exc

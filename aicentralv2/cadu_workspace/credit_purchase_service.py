@@ -22,7 +22,50 @@ def list_packages() -> list[dict]:
     return [dict(value) for value in EXTRA_PACKAGES.values()]
 
 
-def purchase_extra(context: RequestContext, package_name: str, billing_mode: str, note: str = "") -> dict:
+def request_extra(context: RequestContext, package_name: str, billing_mode: str, note: str = "") -> dict:
+    actor = repository.actor(context.user_id) or {}
+    if int(actor.get("organization_id") or 0) != context.client_id or repository.account_role(actor) != "admin":
+        raise Forbidden("Somente administradores podem solicitar compras de créditos.")
+    key = " ".join(str(package_name or "").split()).casefold().replace("agencia", "agência")
+    package = EXTRA_PACKAGES.get(key)
+    if not package:
+        raise BadRequest("Escolha um pacote de créditos do catálogo atual.")
+    if billing_mode not in {"prepaid", "postpaid"}:
+        raise BadRequest("Condição de pagamento inválida.")
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""INSERT INTO cadu_credit_requests
+                (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'pending') RETURNING id""",
+                (context.client_id, context.user_id, package["name"], package["tokens"],
+                 package["price_brl"], billing_mode, str(note or "").strip()[:2000]))
+            purchase_id = int(cursor.fetchone()["id"])
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return {"request_id": purchase_id, "status": "pending_confirmation", "package": package,
+            "billing_mode": billing_mode, "credits_released": 0}
+
+
+def pending_extra(context: RequestContext, purchase_id: int) -> dict:
+    actor = repository.actor(context.user_id) or {}
+    if int(actor.get("organization_id") or 0) != context.client_id or repository.account_role(actor) != "admin":
+        raise Forbidden("Somente administradores podem confirmar compras de créditos.")
+    with get_db().cursor() as cursor:
+        cursor.execute("""SELECT id, package_name, tokens_amount, price_brl, billing_mode, note, status
+                            FROM cadu_credit_requests
+                           WHERE id=%s AND id_cliente=%s AND requested_by=%s""",
+                       (int(purchase_id), context.client_id, context.user_id))
+        row = cursor.fetchone()
+    if not row:
+        raise BadRequest("Pedido de créditos não encontrado.")
+    return dict(row)
+
+
+def purchase_extra(context: RequestContext, package_name: str, billing_mode: str, note: str = "",
+                   *, pending_request_id: int | None = None) -> dict:
     actor = repository.actor(context.user_id) or {}
     if int(actor.get("organization_id") or 0) != context.client_id or repository.account_role(actor) != "admin":
         raise Forbidden("Somente administradores podem confirmar compras de créditos.")
@@ -36,12 +79,28 @@ def purchase_extra(context: RequestContext, package_name: str, billing_mode: str
     connection = get_db()
     try:
         with connection.cursor() as cursor:
-            cursor.execute("""INSERT INTO cadu_credit_requests
-                (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note, status)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,'approved') RETURNING id""",
-                (context.client_id, context.user_id, package["name"], package["tokens"],
-                 package["price_brl"], billing_mode, note))
-            request_id = int(cursor.fetchone()["id"])
+            if pending_request_id is not None:
+                cursor.execute("""SELECT id, package_name, tokens_amount, price_brl, billing_mode, note, status
+                                    FROM cadu_credit_requests
+                                   WHERE id=%s AND id_cliente=%s AND requested_by=%s FOR UPDATE""",
+                               (int(pending_request_id), context.client_id, context.user_id))
+                pending = cursor.fetchone()
+                if not pending or pending["status"] != "pending":
+                    raise BadRequest("Este pedido não está pendente de confirmação.")
+                if (pending["package_name"] != package["name"] or int(pending["tokens_amount"]) != package["tokens"]
+                        or float(pending["price_brl"]) != package["price_brl"] or pending["billing_mode"] != billing_mode):
+                    raise BadRequest("O pacote ou o preço mudou. Crie um novo pedido.")
+                note = str(pending.get("note") or "")[:2000]
+                request_id = int(pending["id"])
+                cursor.execute("""UPDATE cadu_credit_requests SET status='approved', approved_by=%s,
+                                   approved_at=NOW() WHERE id=%s""", (context.user_id, request_id))
+            else:
+                cursor.execute("""INSERT INTO cadu_credit_requests
+                    (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,'approved') RETURNING id""",
+                    (context.client_id, context.user_id, package["name"], package["tokens"],
+                     package["price_brl"], billing_mode, note))
+                request_id = int(cursor.fetchone()["id"])
             cursor.execute("""INSERT INTO cadu_credits_extras
                 (id_cliente, tokens_amount, tokens_used, purchase_date, expiration_date,
                  purchased_at, expires_at, status)

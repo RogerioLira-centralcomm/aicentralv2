@@ -12,10 +12,11 @@ class WorkspaceIntegrationsLayoutTests(TestCase):
         self.assertIn('Conecte suas ferramentas ao trabalho', template)
         self.assertIn('workspace-integration-primary', template)
         self.assertIn('workspace-integration-imports', template)
-        self.assertIn('workspace-integration-advanced', template)
+        self.assertIn('workspace-integration-agents', template)
+        self.assertNotIn('workspace-integration-advanced', template)
         self.assertNotIn('workspace-integration-overview', template)
         self.assertNotIn('workspace-integration-boundary', template)
-        self.assertNotIn('workspace-agent-mcp-card', template)
+        self.assertIn('Conectar agente', template)
         self.assertNotIn('developer token', template.lower())
 
     def test_integracoes_compartilha_sidebar_de_conta_aberta(self):
@@ -24,7 +25,7 @@ class WorkspaceIntegrationsLayoutTests(TestCase):
         context = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'WorkspaceContextSidebar.jsx').read_text(encoding='utf-8')
 
         self.assertIn("'accountSurface': legacy_active == 'integracoes'", sidebar)
-        self.assertIn('WorkspaceContextSidebar mode="account"', legacy)
+        self.assertIn('mode="account"', legacy)
         self.assertIn("mode === 'account' ? false : readCollapsed(mode)", context)
 
 

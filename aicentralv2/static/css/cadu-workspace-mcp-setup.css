@@ -1,0 +1,53 @@
+.workspace-mcp-page{max-width:1100px;margin:0 auto;padding:36px clamp(20px,4vw,52px) 80px;color:#183d39}
+.workspace-mcp-page__intro{max-width:740px;margin-bottom:30px}
+.workspace-mcp-page__intro>a{color:#226e60;font-size:12px;text-decoration:none}
+.workspace-mcp-page__identity{display:flex;align-items:center;gap:20px;margin-top:18px}
+.workspace-mcp-page__identity img{display:block;width:76px;height:76px;flex:none;border:1px solid #dce9e5;border-radius:17px;background:#fff;box-shadow:0 7px 20px rgba(21,72,60,.08)}
+.workspace-mcp-page__intro h1{margin:0 0 10px;font-size:clamp(32px,4vw,48px);font-weight:650;letter-spacing:-.05em;line-height:1.08}
+.workspace-mcp-page__intro p{max-width:610px;margin:0;color:#617872;font-size:15px;line-height:1.6}
+.workspace-mcp-setup,.workspace-mcp-section,.workspace-mcp-ready{margin-top:16px;padding:clamp(20px,3vw,32px);background:#fff;border:1px solid #dce9e5;border-radius:16px}
+.workspace-mcp-setup>header>span{color:#187461;font-size:12px;font-weight:700}
+.workspace-mcp-setup h2,.workspace-mcp-section h2,.workspace-mcp-ready h2{margin:5px 0 6px;font-size:23px;letter-spacing:-.03em}
+.workspace-mcp-setup>header p,.workspace-mcp-section header p,.workspace-mcp-ready__head p{max-width:620px;margin:0;color:#617872;font-size:13px;line-height:1.55}
+.workspace-mcp-page .workspace-mcp-key-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:19px 18px;margin-top:26px}
+.workspace-mcp-form-section{display:grid;align-content:start;gap:7px;min-width:0}
+.workspace-mcp-form-section label,.workspace-mcp-permissions legend{color:#284f46;font-size:13px;font-weight:700}
+.workspace-mcp-form-section label span{color:#718780;font-weight:400}
+.workspace-mcp-form-section input,.workspace-mcp-form-section select{min-height:42px;width:100%;padding:10px 12px;border:1px solid #cbded7;border-radius:9px;background:#fbfdfc;color:#183d39;font:inherit;font-size:13px}
+.workspace-mcp-form-section small,.workspace-mcp-form-hint{color:#718780;font-size:11px;line-height:1.45}
+.workspace-mcp-permissions{grid-column:1/-1;margin:4px 0 0;padding:19px;border:1px solid #dce9e5;border-radius:12px;background:#f8fbf9}
+.workspace-mcp-permissions legend{padding:0 6px}
+.workspace-mcp-permissions>p{margin:0 0 14px;color:#617872;font-size:12px}
+.workspace-mcp-permissions__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 20px}
+.workspace-mcp-permissions__grid label{display:flex;align-items:center;gap:8px;min-height:30px;color:#355b52;font-size:12px;font-weight:500;cursor:pointer}
+.workspace-mcp-permissions__grid input{width:16px;height:16px;flex:none;accent-color:#117662}
+.workspace-mcp-permissions__grid small{color:#718780;font-size:10px}
+.workspace-mcp-page .workspace-mcp-key-form>.workspace-button{grid-column:1;justify-self:start;min-height:42px;padding:0 20px}
+.workspace-mcp-form-hint{grid-column:1/-1;margin:-7px 0 0}
+.workspace-mcp-feedback[data-error="1"]{color:#a33b35}
+.workspace-mcp-alert{padding:16px 20px;background:#fff3e6;border:1px solid #e7c794;border-radius:12px}
+.workspace-mcp-alert strong{font-size:14px}.workspace-mcp-alert p{margin:4px 0 0;color:#7a6243;font-size:12px}
+.workspace-mcp-ready{border-color:#8fcab6;background:#f5fbf7}
+.workspace-mcp-ready[hidden]{display:none}
+.workspace-mcp-ready__head{display:flex;align-items:flex-start;gap:13px}
+.workspace-mcp-ready__head>span{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:50%;background:#167956;color:#fff;font-weight:800}
+.workspace-mcp-ready__destination{margin:18px 0 0;padding:11px 13px;border-radius:9px;background:#e6f4eb;color:#285c49;font-size:12px;line-height:1.5}
+.workspace-mcp-ready__actions{display:flex;flex-wrap:wrap;gap:9px;margin:22px 0}
+.workspace-mcp-ready__fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.workspace-mcp-ready__fields>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;padding:12px;background:#fff;border:1px solid #d9eae1;border-radius:10px}
+.workspace-mcp-ready__fields small{grid-column:1/-1;color:#718780;font-size:11px}
+.workspace-mcp-ready__fields code{overflow-wrap:anywhere;color:#215c4f;font-size:11px}
+.workspace-mcp-ready__fields button{align-self:start;border:0;background:transparent;color:#16705d;font-size:11px;font-weight:700;cursor:pointer}
+.workspace-mcp-ready details,.workspace-mcp-usage-details{margin-top:15px}
+.workspace-mcp-ready summary,.workspace-mcp-usage-details summary{color:#216a5c;font-size:12px;font-weight:700;cursor:pointer}
+.workspace-mcp-ready pre{max-height:240px;overflow:auto;margin:10px 0 0;padding:15px;background:#fff;border:1px solid #d9eae1;border-radius:9px;font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}
+.workspace-mcp-ready__warning{margin:14px 0 0;color:#786a45;font-size:11px;line-height:1.5}
+.workspace-mcp-ready [data-test-feedback]{margin-top:10px;color:#216a5c;font-size:12px}
+.workspace-mcp-section header{display:block}
+.workspace-mcp-section .workspace-mcp-key-list{margin-top:20px}
+.workspace-mcp-section .workspace-mcp-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+.workspace-mcp-parameters .workspace-mcp-endpoint{margin-top:12px}
+.workspace-mcp-parameters>p{margin:14px 0 0;color:#718780;font-size:11px;line-height:1.5}
+.workspace-mcp-page button:focus-visible,.workspace-mcp-page a:focus-visible,.workspace-mcp-page input:focus-visible,.workspace-mcp-page select:focus-visible,.workspace-mcp-page summary:focus-visible{outline:3px solid #177e6a;outline-offset:3px}
+@media(max-width:650px){.workspace-mcp-page{padding:22px 16px 56px}.workspace-mcp-page__identity{align-items:flex-start;gap:14px}.workspace-mcp-page__identity img{width:56px;height:56px;border-radius:13px}.workspace-mcp-page__intro h1{font-size:29px}.workspace-mcp-page .workspace-mcp-key-form,.workspace-mcp-permissions__grid,.workspace-mcp-ready__fields{grid-template-columns:1fr}.workspace-mcp-section .workspace-mcp-metrics{grid-template-columns:1fr 1fr}.workspace-mcp-key-list article{grid-template-columns:1fr auto}.workspace-mcp-revoke{grid-column:1/-1;justify-self:start}.workspace-mcp-activity-table{overflow:auto}.workspace-mcp-endpoint{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.workspace-mcp-page *{scroll-behavior:auto!important}}

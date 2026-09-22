@@ -18,10 +18,10 @@ from ..db import get_db
 
 KEY_PREFIX = "cadu_mcp_"
 CLIENT_TYPES = ("gpt", "codex", "cursor", "vscode", "generic")
-CLIENT_SCOPES = ("resources:read", "projects:read", "projects:write", "brands:write",
-                 "artifacts:write", "account:read", "account:write", "credits:read", "credits:purchase",
+CLIENT_SCOPES = ("resources:read", "projects:read", "projects:content_write", "projects:write", "brands:write",
+                 "artifacts:write", "account:read", "account:write", "credits:read",
                  "google:read", "google:write")
-DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "account:read", "credits:read", "google:read"))
+DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "projects:content_write", "account:read", "credits:read", "google:read"))
 
 
 class PublicMcpAuthError(RuntimeError):
@@ -58,15 +58,17 @@ def normalize_scopes(scopes=None, *, allow_writes: bool = False) -> tuple[str, .
     values = {str(item).strip().lower() for item in (scopes or DEFAULT_SCOPES) if str(item).strip()}
     if not values:
         values = set(DEFAULT_SCOPES)
+    # Preserve keys issued before purchases became role-based.
+    values.discard("credits:purchase")
     unknown = values - set(CLIENT_SCOPES)
     if unknown:
         raise PublicMcpAuthError("Escopo MCP inválido.")
     if not allow_writes:
+        values.discard("projects:content_write")
         values.discard("projects:write")
         values.discard("brands:write")
         values.discard("artifacts:write")
         values.discard("account:write")
-        values.discard("credits:purchase")
         values.discard("google:write")
     return tuple(sorted(values))
 
@@ -80,10 +82,6 @@ def create_key(*, client_id: int, user_id: int, label: str, client_type: str,
         raise PublicMcpAuthError("Cliente MCP inválido.")
     label = " ".join(str(label or "").split())[:120] or client_type.title()
     scopes = normalize_scopes(scopes, allow_writes=True)
-    if "credits:purchase" in scopes:
-        actor = repository.actor(int(user_id)) or {}
-        if int(actor.get("organization_id") or 0) != int(client_id) or repository.account_role(actor) != "admin":
-            raise PublicMcpAuthError("Somente administradores podem habilitar compra de créditos para agentes.")
     if default_project_ref:
         items = {item["ref"]: item for item in repository.entities(int(client_id))}
         if default_project_ref not in items or items[default_project_ref]["kind"] != "project":
@@ -192,8 +190,6 @@ def _load_key(raw_key: str) -> dict:
 
 def required_scope(tool_name: str) -> str:
     name = str(tool_name or "")
-    if name == "credits.purchase_package":
-        return "credits:purchase"
     if name.startswith("credits."):
         return "credits:read"
     if name in {"account.update_profile", "account.update_agency", "account.invite_team_member"}:
@@ -206,10 +202,12 @@ def required_scope(tool_name: str) -> str:
         return "artifacts:write"
     if name.startswith("artifacts."):
         return "projects:read"
+    if name in {"projects.create_note", "projects.prepare_source_upload", "projects.create_link_reference"}:
+        return "projects:content_write"
     if name in {"workspace.create_project", "workspace.update_project_context", "workspace.set_project_status",
                 "workspace.link_current_brand", "workspace.set_project_visibility",
                 "workspace.share_project_with_people", "workspace.share_project_with_team",
-                "projects.create_note", "projects.reindex_source", "projects.prepare_source_upload"}:
+                "projects.reindex_source"}:
         return "projects:write"
     if name == "google.link_resource_to_project":
         return "google:write"
@@ -217,15 +215,21 @@ def required_scope(tool_name: str) -> str:
         return "google:read"
     if name.startswith("resources."):
         return "resources:read"
-    if name == "projects.create_link_reference":
-        return "projects:write"
     return "projects:read"
 
 
 def ensure_scope(principal: PublicMcpPrincipal, tool_name: str) -> None:
     scope = required_scope(tool_name)
-    if scope not in set(principal.scopes):
+    if scope not in set(principal.scopes) and not (scope == "projects:content_write" and "projects:write" in principal.scopes):
         raise PublicMcpAuthError(f"A chave não possui o escopo necessário: {scope}.")
+    if tool_name == "credits.purchase_package" and not can_purchase_credits(principal):
+        raise PublicMcpAuthError("Somente administradores da conta podem comprar créditos.")
+
+
+def can_purchase_credits(principal: PublicMcpPrincipal) -> bool:
+    actor = repository.actor(int(principal.user_id)) or {}
+    return (int(actor.get("organization_id") or 0) == int(principal.client_id)
+            and repository.account_role(actor) == "admin")
 
 
 def _public_context(row: dict, params: dict) -> RequestContext:

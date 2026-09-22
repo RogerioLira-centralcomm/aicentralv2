@@ -125,18 +125,20 @@ def create_link_reference(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
-    description="Prepara upload privado de arquivo. O usuário escolhe se ele será indexado como fonte de dados.",
+    description="Prepara upload privado de arquivo para o projeto. Sem use_as_knowledge, classifica automaticamente: texto legível vira fonte indexada; imagens sem texto e outros binários ficam preservados como ativos organizados.",
     exposures=("internal", "customer_agent"),
-    input_schema={"type": "object", "required": ["request_id", "use_as_knowledge"], "properties": {
+    input_schema={"type": "object", "required": ["request_id"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "use_as_knowledge": {"type": "boolean"},
         "category": {"type": "string", "enum": sorted(project_source_service.CATEGORIES)},
+        "description": {"type": "string", "maxLength": 4000, "description": "Descrição factual do item, especialmente útil para indexar imagens geradas sem texto ou arquivos criativos."},
     }, "additionalProperties": False},
 )
 def prepare_source_upload(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: project_source_service.prepare_upload(
         context, request_id=arguments["request_id"],
-        use_as_knowledge=arguments["use_as_knowledge"], category=arguments.get("category"),
+        use_as_knowledge=arguments.get("use_as_knowledge"), category=arguments.get("category"),
+        description=arguments.get("description", ""),
     ))
 
 
@@ -163,7 +165,7 @@ def reindex_source(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.create_note", capability="workspace", effect="write", requires_project=True,
-    description="Cria uma nota como fonte de conhecimento do projeto após confirmação explícita.",
+    description="Adiciona texto produzido na conversa como fonte indexada do projeto, classificando a categoria automaticamente se não for informada.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "title", "content"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},

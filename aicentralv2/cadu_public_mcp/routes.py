@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from copy import deepcopy
 from time import monotonic
 
 from flask import Blueprint, abort, jsonify, render_template, request, session
@@ -20,6 +21,7 @@ from . import auth, usage
 
 bp = Blueprint("cadu_public_mcp", __name__)
 PUBLIC_MCP_PATH = "/mcp/cadu/v1"
+MCP_ICON_PATH = "/static/images/cadu/products/cadu-mcp-icon.svg"
 PROTOCOL_VERSION = "2026-07-28"
 
 # The public surface is an intentional subset of internal capabilities. New
@@ -119,8 +121,20 @@ def _headers(response):
 
 
 def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
-    return [item for item in load_builtin_tools().list(principal.context, exposure)
-            if item["name"] in PUBLIC_TOOLS and auth.required_scope(item["name"]) in principal.scopes]
+    tools = load_builtin_tools().list(principal.context, exposure)
+    for item in tools:
+        if item["name"] in PUBLIC_TOOLS and item["name"].startswith(("projects.", "artifacts.")):
+            item["inputSchema"] = deepcopy(item["inputSchema"])
+            item["inputSchema"].setdefault("properties", {})["project_ref"] = {
+                "type": "string", "description": "Projeto de destino no formato ci:ID; informe quando não houver projeto padrão."
+            }
+    return [item for item in tools
+            if item["name"] in PUBLIC_TOOLS
+            and (item["name"] != "credits.purchase_package" or auth.can_purchase_credits(principal))
+            and (
+                auth.required_scope(item["name"]) in principal.scopes or
+                (auth.required_scope(item["name"]) == "projects:content_write" and "projects:write" in principal.scopes)
+            )]
 
 
 def _request_context_for_auth(params: dict) -> dict:
@@ -164,8 +178,19 @@ def public_rpc():
             result = {
                 "protocolVersion": params.get("protocolVersion") if isinstance(params.get("protocolVersion"), str) else PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "cadu-public-mcp", "version": "1.0.0"},
-                "instructions": "Use project_ref no nível params ou configure um projeto padrão na chave.",
+                "serverInfo": {"name": "cadu-public-mcp", "title": "Cadu", "version": "1.0.0",
+                               "description": "Projetos, marcas e documentos da sua conta Cadu.",
+                               "icons": [{"src": product_url("workspace", MCP_ICON_PATH),
+                                          "mimeType": "image/svg+xml", "sizes": ["any"]}]},
+                "instructions": (
+                    "Use project_ref no nível params ou configure um projeto padrão na chave. "
+                    "Para adicionar texto ao projeto, use projects.create_note; para links, projects.create_link_reference. "
+                    "Para arquivos, imagens geradas e HTML, use projects.prepare_source_upload sem use_as_knowledge "
+                    "e envie o binário ao upload_url com upload_token e project_ref; inclua description factual para imagens sem texto. "
+                    "O Cadu classificará, indexará o conteúdo pesquisável e preservará o restante como ativo. "
+                    "Para créditos, credits.purchase_package apenas cria um pedido pendente; mostre confirmation_url "
+                    "ao administrador e aguarde a confirmação autenticada no Cadu."
+                ),
             }
         elif method == "tools/list":
             result = {"tools": _public_catalog(principal)}
@@ -181,6 +206,8 @@ def public_rpc():
             if not isinstance(arguments, dict):
                 raise ValueError("Os argumentos da ferramenta precisam ser um objeto.")
             arguments = dict(arguments)
+            if name.startswith(("projects.", "artifacts.")):
+                arguments.pop("project_ref", None)
             if name in PUBLIC_WRITE_TOOLS and "request_id" not in arguments:
                 arguments["request_id"] = request_id
             tool_request_id = usage.new_request_id(arguments.get("request_id") or request_id)
@@ -295,6 +322,9 @@ def public_metadata():
         "name": "cadu-public-mcp",
         "version": "1.0.0",
         "endpoint": product_url("workspace", PUBLIC_MCP_PATH),
+        "icon_url": product_url("workspace", MCP_ICON_PATH),
+        "icons": [{"src": product_url("workspace", MCP_ICON_PATH),
+                   "mimeType": "image/svg+xml", "sizes": ["any"]}],
         "authentication": {"type": "bearer_api_key", "header": "Authorization", "prefix": auth.KEY_PREFIX},
         "oauth": {"status": "planned", "discovery": None},
         "scopes": list(auth.CLIENT_SCOPES),
@@ -327,6 +357,7 @@ def agents_page():
         endpoint=product_url("workspace", PUBLIC_MCP_PATH),
         metadata_url=product_url("workspace", "/.well-known/cadu-mcp-public"),
         client_types=auth.CLIENT_TYPES,
+        mcp_ready=auth._available(),
     )
 
 
@@ -350,8 +381,6 @@ def create_agent_key():
         requested_scopes = list(requested_scopes) + ["artifacts:write"]
     if str(data.get("scope_account_write") or "").lower() in {"1", "true", "on", "yes"}:
         requested_scopes = list(requested_scopes) + ["account:write"]
-    if str(data.get("scope_credit_purchase") or "").lower() in {"1", "true", "on", "yes"}:
-        requested_scopes = list(requested_scopes) + ["credits:purchase"]
     try:
         key = auth.create_key(
             client_id=client_id, user_id=user_id,
@@ -375,3 +404,32 @@ def revoke_agent_key(key_id):
     except auth.PublicMcpAuthError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     return jsonify({"success": True, "revoked": changed})
+
+
+@bp.route("/workspace/app/integracoes/agents/compras/<int:purchase_id>", methods=["GET", "POST"])
+@login_required
+def confirm_agent_purchase(purchase_id):
+    from ..cadu_workspace.credit_purchase_service import pending_extra, purchase_extra
+
+    session.setdefault("family_csrf", secrets.token_urlsafe(32))
+    client_id, user_id = _session_scope()
+    context = RequestContext(organization_id=client_id, client_id=client_id, user_id=user_id,
+                             conversation_id=None, surface="workspace", project_ref=None,
+                             capabilities=("workspace",))
+    try:
+        purchase = pending_extra(context, purchase_id)
+    except HTTPException as exc:
+        abort(exc.code, description=exc.description)
+    result = None
+    if request.method == "POST":
+        if not _workspace_api_csrf():
+            abort(403, description="Atualize a página e tente novamente.")
+        if purchase["status"] != "pending":
+            abort(409, description="Este pedido já foi processado.")
+        try:
+            result = purchase_extra(context, purchase["package_name"], purchase["billing_mode"],
+                                    purchase.get("note") or "", pending_request_id=purchase_id)
+        except HTTPException as exc:
+            abort(exc.code, description=exc.description)
+        purchase["status"] = "approved"
+    return render_template("cadu_workspace/mcp_credit_approval.html", purchase=purchase, result=result)

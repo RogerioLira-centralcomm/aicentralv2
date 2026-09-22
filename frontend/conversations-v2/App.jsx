@@ -6,7 +6,7 @@ import {ArtifactPane} from './components/ArtifactPane';
 import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
-import {insertWorkedBeforeResult, reconcileCompletedResponse} from './lib/responseModel.mjs';
+import {insertWorkedBeforeResult, normalizeAnswerText, reconcileCompletedResponse} from './lib/responseModel.mjs';
 import {attachmentIssues, attachmentSubmissionMessage, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
 import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
 import {brandContextPayload, conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
@@ -520,7 +520,7 @@ export default function App({bootstrap}) {
           trace('Recurso indisponível', '', 'error');
         }
         else if (kind === 'action.proposed') {
-          const actionMessage = {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: runRef.current};
+          const actionMessage = {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: event.action?.run_id || event.action?.runId || runRef.current};
           setMessages(items => [...items, actionMessage]);
           // Clicking “Salvar como referência” is already an explicit approval
           // for this bounded, non-reading write. Do not make the user confirm
@@ -559,7 +559,7 @@ export default function App({bootstrap}) {
         } else if (kind === 'provider.first_token') {
           setRuntime('Escrevendo a resposta');
         } else if (kind === 'answer.delta') {
-          const answer = String(event.answer || '');
+          const answer = normalizeAnswerText(event.answer || '');
           if (!answer) return;
           setRuntime('Escrevendo a resposta');
           setMessages(items => {
@@ -631,7 +631,9 @@ export default function App({bootstrap}) {
 
   const decide = useCallback(async (message, approved) => {
     try {
-      const data = await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(message.runId)}/steps/${encodeURIComponent(message.action.step_id)}/decision`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({approved})});
+      const runId = message.runId || message.action?.run_id || message.action?.runId;
+      if (!runId || !message.action?.step_id) throw new Error('A confirmação expirou. Envie o pedido novamente.');
+      const data = await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(runId)}/steps/${encodeURIComponent(message.action.step_id)}/decision`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({approved})});
       const completion = data.step?.output_snapshot?.completion || {};
       const response = data.step?.status === 'completed'
         ? {answer: completion.answer || 'Ação concluída.', blocks: completion.blocks || []}

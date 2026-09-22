@@ -504,7 +504,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-message--user .cv-message__label { padding-right:3px; color:#8fc8be; }
 #cadu-conversations-v2-root .cv-assistant-answer { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
 #cadu-conversations-v2-root .cv-assistant-answer .cv-prose strong { font-weight:600; }
-#cadu-conversations-v2-root .cv-action-confirmation { padding:15px 16px 14px; border:1px solid rgba(101,216,203,.28); border-radius:14px; background:linear-gradient(135deg, rgba(24,65,61,.56), rgba(17,37,40,.86)); box-shadow:0 14px 34px rgba(0,0,0,.16); }
+#cadu-conversations-v2-root .cv-action-confirmation { width:min(100%,72ch); margin-left:0; margin-right:auto; padding:15px 16px 14px; border:1px solid rgba(101,216,203,.28); border-radius:14px; background:linear-gradient(135deg, rgba(24,65,61,.56), rgba(17,37,40,.86)); box-shadow:0 14px 34px rgba(0,0,0,.16); }
 #cadu-conversations-v2-root .cv-action-confirmation__heading { display:flex; align-items:center; gap:8px; color:#82e5d8; font-size:11px; font-weight:700; }
 #cadu-conversations-v2-root .cv-action-confirmation__heading svg { color:#72dfd0; }
 #cadu-conversations-v2-root .cv-action-confirmation p { margin:9px 0 0; color:#e3f1ee; font-size:15px; line-height:1.55; }

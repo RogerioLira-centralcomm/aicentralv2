@@ -9,6 +9,7 @@ from aicentralv2.cadu_workspace.agent_v2.response_policy import (
 )
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness
+from aicentralv2.cadu_workspace.agent_v2.action_executor import _completion
 from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
 from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import CORE, build_payload
@@ -670,6 +671,24 @@ def test_bare_link_stays_a_reference_and_explicit_read_is_allowed():
     assert not bare.needs_tools
     assert explicit.action == "read_web_page"
     assert explicit.needs_tools == ("web.read",)
+
+
+def test_saved_link_summary_suggestion_executes_without_extra_confirmation():
+    completion = _completion("projects.create_link_reference", {
+        "title": "Planejamento", "provider": "generic", "url": "https://example.com/plano",
+    })
+    summary = completion["blocks"][-1]["items"][0]
+    assert summary["auto_submit"] is True
+    assert summary["prompt"].startswith("Crie um resumo em texto editável")
+
+
+def test_explicit_link_summary_request_routes_directly_to_artifact_creation():
+    route = route_request(
+        "Crie um resumo em texto editável do conteúdo deste link: https://example.com/plano",
+        has_project=True,
+    )
+    assert route.action == "create_link_summary"
+    assert route.response_mode == "artifact_first"
 
 
 def test_user_facing_plans_never_exceed_four_steps():

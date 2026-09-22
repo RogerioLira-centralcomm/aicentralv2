@@ -146,7 +146,8 @@ function QuestionsBlock({block, onPrompt}) {
     <div><BoundedItems items={items} label="perguntas">{visible => visible.map((item, index) => {
       const label = typeof item === 'string' ? item : item.title || item.label || item.question;
       const contextText = typeof item === 'string' ? item : item.prompt || item.question || label;
-      return <button key={item.id || index} type="button" onClick={() => onPrompt('', {type: 'question', label: 'Respondendo', text: contextText})} className="cv-inline-question"><span>{label}</span><small>Responder</small></button>;
+      const execute = typeof item !== 'string' && item.auto_submit && item.prompt;
+      return <button key={item.id || index} type="button" onClick={() => execute ? onPrompt(item.prompt, null, {submit: true}) : onPrompt('', {type: 'question', label: 'Respondendo', text: contextText})} className="cv-inline-question"><span>{label}</span><small>{execute ? 'Executar' : 'Responder'}</small></button>;
     })}</BoundedItems></div>
   </section>;
 }

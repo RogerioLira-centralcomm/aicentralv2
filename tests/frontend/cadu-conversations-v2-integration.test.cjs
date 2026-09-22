@@ -640,6 +640,7 @@ test('completed responses never render a structured provider envelope as prose',
 test('action confirmations use the server run id and expose pending state', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   const interaction = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx'), 'utf8');
+  const blocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   assert.match(app, /event\.action\?\.run_id \|\| event\.action\?\.runId \|\| runRef\.current/);
   assert.doesNotMatch(app, /event\.action\?\.name === 'projects\.create_link_reference'/);
   assert.match(app, /actionPending: true/);
@@ -647,6 +648,9 @@ test('action confirmations use the server run id and expose pending state', () =
   assert.match(interaction, /message\.actionPending \? presentation\.progress : presentation\.approve/);
   assert.match(interaction, /onDecision\(interaction\.message, option\.approved\)/);
   assert.match(interaction, /role=\{interaction\.error \? 'alert'/);
+  assert.match(app, /options\.submit && prompt/);
+  assert.match(blocks, /item\.auto_submit/);
+  assert.match(blocks, /onPrompt\(item\.prompt, null, \{submit: true\}\)/);
 });
 
 test('conversation response UI never invents follow-up actions for static insights', () => {

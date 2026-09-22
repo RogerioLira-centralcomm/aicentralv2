@@ -76,6 +76,7 @@ def _completion(step_name: str, result: dict) -> dict:
             blocks.append({"type": "questions", "title": "Próximo passo opcional", "items": [{
                 "id": "summarize-link", "title": "Criar resumo editável deste link",
                 "prompt": f"Crie um resumo em texto editável do conteúdo disponível neste link para o projeto: {result.get('url', '')}",
+                "auto_submit": True,
             }]})
         return {"answer": f"“{title}” foi adicionado às referências do projeto.", "blocks": [
             *blocks,

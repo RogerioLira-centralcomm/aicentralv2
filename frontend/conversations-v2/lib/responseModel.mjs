@@ -80,10 +80,9 @@ export function reconcileCompletedResponse(streamingResponse, completedResponse,
   const streamed = normalizeAnswerText(current.answer || '');
   const final = normalizeAnswerText(completed.answer || '');
   const normalizedCompleted = {...completed, answer: final};
-  if (hasArtifact || streamed.length < 600 || final.length >= streamed.length * .78) return normalizedCompleted;
-  const anchor = final.replace(/\s+/g, ' ').trim().slice(0, 120).toLowerCase();
-  const streamedHead = streamed.replace(/\s+/g, ' ').trim().slice(0, 600).toLowerCase();
-  return anchor && !streamedHead.includes(anchor) ? normalizedCompleted : {...normalizedCompleted, answer: streamed};
+  if (hasArtifact || streamed.length < 80) return normalizedCompleted;
+  if (final.startsWith(streamed) && final.length > streamed.length) return normalizedCompleted;
+  return {...normalizedCompleted, answer: streamed};
 }
 
 export function meaningfulResponseBlocks(blocks) {

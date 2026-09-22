@@ -52,7 +52,12 @@ def test_final_normalization_cannot_erase_long_streamed_analysis():
     different = v2_service._preserve_streamed_answer(
         AgentResponse(answer="Síntese editorial diferente."), streamed, {"mode": "analysis"},
     )
-    assert different.answer == "Síntese editorial diferente."
+    assert different.answer == streamed.strip()
+    moderate = "Uma resposta já visível não deve desaparecer quando o evento final chegar. " * 2
+    stable = v2_service._preserve_streamed_answer(
+        AgentResponse(answer="Outra formulação final."), moderate, {"mode": "analysis"},
+    )
+    assert stable.answer == moderate.strip()
 
 
 def test_structured_stream_cannot_replace_a_normalized_final_answer():

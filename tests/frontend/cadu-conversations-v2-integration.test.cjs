@@ -520,7 +520,9 @@ test('conversation response model preserves execution order and explicit checkli
   assert.equal(model.normalizeAnswerText('Texto normal'), 'Texto normal');
   const streamed = 'Abertura útil. ' + 'Conteúdo completo transmitido durante o streaming. '.repeat(30);
   assert.equal(model.reconcileCompletedResponse({answer: streamed}, {answer: 'Abertura útil.'}).answer, streamed);
-  assert.equal(model.reconcileCompletedResponse({answer: streamed}, {answer: 'Resumo diferente.'}).answer, 'Resumo diferente.');
+  assert.equal(model.reconcileCompletedResponse({answer: streamed}, {answer: 'Resumo diferente.'}).answer, streamed);
+  const visibleDraft = 'Uma resposta já visível não deve desaparecer quando o evento final chegar. '.repeat(2);
+  assert.equal(model.reconcileCompletedResponse({answer: visibleDraft}, {answer: 'Outra formulação final.'}).answer, visibleDraft);
   assert.equal(model.reconcileCompletedResponse({answer: streamed}, {answer: 'Abertura útil.'}, true).answer, 'Abertura útil.');
   assert.deepEqual(model.meaningfulResponseBlocks([
     {type: 'insights', items: []},

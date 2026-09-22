@@ -32,7 +32,7 @@ def _event(kind, **values):
 
 
 def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
-    """Never let final normalization erase a substantive answer already shown."""
+    """Keep a substantive visible draft stable when final metadata arrives."""
     streamed = str(streamed_answer or "").strip()
     final = str(response.answer or "").strip()
     # A provider can stream its structured contract as text even when the
@@ -40,12 +40,12 @@ def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
     # back into the customer-facing answer.
     if re.match(r'^\s*(?:```(?:json)?\s*)?["\']?\s*[\[{]', streamed, re.IGNORECASE):
         return response
-    if (policy.get("mode") != "analysis" or response.artifact_patch or len(streamed) < 600
-            or len(final) >= int(len(streamed) * .78)):
+    if response.artifact_patch or len(streamed) < 80:
         return response
-    final_anchor = re.sub(r"\s+", " ", final).strip()[:120].lower()
-    streamed_head = re.sub(r"\s+", " ", streamed).strip()[:600].lower()
-    if final_anchor and final_anchor not in streamed_head:
+    # A final answer that extends the exact visible draft is safe and useful.
+    # Any rewrite or shorter synthesis would make already-read text disappear,
+    # so retain the last complete draft and merge only the structured metadata.
+    if final.startswith(streamed) and len(final) > len(streamed):
         return response
     return replace(response, answer=streamed)
 

@@ -350,7 +350,6 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   const conversationViewport = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useConversationViewport.js'), 'utf8');
-  const fileDrop = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useFileDrop.js'), 'utf8');
   const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const historyModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs'), 'utf8');
@@ -669,6 +668,7 @@ test('conversation response UI never invents follow-up actions for static insigh
 test('conversation attachment model preserves validation and destination rules', async () => {
   const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/attachmentModel.mjs')).href);
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const fileDrop = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useFileDrop.js'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   assert.equal(model.MAX_ATTACHMENTS, 3);

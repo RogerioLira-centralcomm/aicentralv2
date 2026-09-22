@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {StudioModal} from './StudioModal';
 
-export function StudioComposer({value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, mask, format, generating, disabled, estimateLabel}) {
+export function StudioComposer({value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, mask, format, generating, disabled, estimateLabel, messages = []}) {
   const textarea = useRef(null);
   const [droppedFile, setDroppedFile] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -31,6 +31,7 @@ export function StudioComposer({value, onChange, director, onDirectorChange, onG
     setDroppedFile(null);
   };
   return <><form className={`se-composer ${dragging ? 'is-dragging' : ''}`} onSubmit={event => { event.preventDefault(); onGenerate(); }}>
+    {messages.length > 0 && <div className="se-agent-thread" aria-live="polite">{messages.slice(-4).map(message => <p key={message.id} className={`is-${message.role}`}>{message.text}</p>)}</div>}
     <textarea id="studio-editor-prompt" ref={textarea} value={value} onChange={event => onChange(event.target.value)} placeholder="Diga ao Cadu o que fazer nesta peça…" maxLength="2000" disabled={disabled || generating} aria-label="Mensagem para o Cadu"/>
     <div className="se-composer__context">
       {mask && <span className="se-chip">Região marcada <button type="button" onClick={mask.onClear} aria-label="Remover região marcada">×</button></span>}

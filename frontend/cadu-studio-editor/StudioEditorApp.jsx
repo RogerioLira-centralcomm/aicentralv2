@@ -160,6 +160,7 @@ export default function StudioEditorApp({bootstrap}) {
   const [generating, setGenerating] = useState(false);
   const [estimate, setEstimate] = useState(null);
   const [notice, setNotice] = useState('');
+  const [agentMessages, setAgentMessages] = useState(initial.agentMessages || []);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandOpen, setExpandOpen] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
@@ -247,7 +248,7 @@ export default function StudioEditorApp({bootstrap}) {
     setHistoryState({undo: true, redo: false});
   }, [crop, format, mask, references, selectedGlobalReferences, selectedId]);
 
-  useEffect(() => { const timer = window.setTimeout(() => localStorage.setItem(storageKey, JSON.stringify({asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences})), 450); return () => window.clearTimeout(timer); }, [asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences, storageKey]);
+  useEffect(() => { const timer = window.setTimeout(() => localStorage.setItem(storageKey, JSON.stringify({asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences, agentMessages})), 450); return () => window.clearTimeout(timer); }, [asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences, agentMessages, storageKey]);
   useEffect(() => {
     if (!asset || !clientId || studioSessionRef.current?.status === 'finalized') { setStatus(studioSessionRef.current?.status === 'finalized' ? 'synced' : 'local'); return undefined; }
     let disposed = false;
@@ -256,7 +257,7 @@ export default function StudioEditorApp({bootstrap}) {
       current_asset: {id: asset.id, name: asset.name, url: String(asset.url || '').startsWith('data:') ? '' : asset.url},
       versions: versions.map(item => ({id: item.id, name: item.name, status: item.status, url: String(item.url || '').startsWith('data:') ? '' : item.url})),
       references: references.map(item => ({id: item.id, name: item.name, assetId: item.assetId || '', url: String(item.dataUrl || '').startsWith('data:') ? '' : item.dataUrl})).filter(item => item.url),
-      director: {objective: director.objective || '', preserve: director.preserve || []}, estimate: estimate || {}, selected_global_references: selectedGlobalReferences, batch_progress: batchProgress,
+      director: {objective: director.objective || '', preserve: director.preserve || []}, estimate: estimate || {}, selected_global_references: selectedGlobalReferences, batch_progress: batchProgress, agent_messages: agentMessages.slice(-12),
     };
     const timer = window.setTimeout(async () => {
       setStatus('saving');
@@ -277,7 +278,7 @@ export default function StudioEditorApp({bootstrap}) {
       }
     }, 700);
     return () => { disposed = true; window.clearTimeout(timer); };
-  }, [asset, batchProgress, bootstrap.apiRoot, bootstrap.csrf, clientId, crop?.bounds, director, estimate, format, mask?.bounds, outputSize, project?.id, prompt, references, selectedGlobalReferences, selectedId, versions]);
+  }, [asset, agentMessages, batchProgress, bootstrap.apiRoot, bootstrap.csrf, clientId, crop?.bounds, director, estimate, format, mask?.bounds, outputSize, project?.id, prompt, references, selectedGlobalReferences, selectedId, versions]);
   useEffect(() => {
     const latest = versions.find(item => item.status === 'new' && /^https?:\/\//.test(String(item.url || '')));
     const session = studioSessionRef.current || studioSession;
@@ -408,8 +409,61 @@ export default function StudioEditorApp({bootstrap}) {
       studioSessionRef.current = updated; setStudioSession(updated); setNotice('Peça-base atualizada para os próximos desdobramentos.');
     } catch (error) { setNotice(error.message || 'Não foi possível definir esta peça como base.'); }
   };
-  const generate = async () => { if (!asset) { fileInput.current?.click(); return; } if (!prompt.trim() || generating) return; setGenerating(true); setNotice('Preparando a edição com sua instrução…'); try { const data = await requestEdition({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, asset, prompt, director: {...director, instruction: makeDirectorInstruction(prompt, director)}, format, outputSize, quality, mask, crop, clientId, references, globalReferenceIds: selectedGlobalReferences, brand: project?.brand_context}); if (data.noop || data.mode === 'noop') { setNotice(data.preview || 'Marque uma região ou detalhe o pedido.'); return; } const url = data.image_url || data.png_data_url; if (!url) throw new Error(data.preview || 'A geração não devolveu uma imagem.'); const next = {id: makeId(), name: `V${versions.length + 1}`, url, dataUrl: url, status: 'new'}; setVersions(current => [next, ...current]); setAsset(next); setSelectedId(next.id); setMask(null); setCrop(null); setNotice('Nova edição pronta para revisar.'); } catch (error) { setNotice(error.message || 'Não foi possível gerar esta edição.'); } finally { setGenerating(false); } };
-  const newSession = () => { if (generating) return; studioSessionRef.current = null; setStudioSession(null); setAsset(null); setVersions([]); setSelectedId(''); setPrompt(''); setMask(null); setCrop(null); setReferences([]); setBatchProgress(null); setNotice('Nova sessão pronta. Arraste uma peça para começar.'); setStatus('local'); setZoom(100); setQuality('draft'); editorUndo.current = []; editorRedo.current = []; lastEditorSnapshot.current = ''; setHistoryState({undo: false, redo: false}); };
+  const runEdition = async instruction => {
+    if (!asset) { fileInput.current?.click(); return; }
+    const effectivePrompt = String(instruction || prompt).trim();
+    if (!effectivePrompt || generating) return;
+    setGenerating(true);
+    setAgentMessages(current => [...current, {id: makeId(), role: 'user', text: effectivePrompt}, {id: makeId(), role: 'assistant', text: 'Preparando a nova versão…'}]);
+    setNotice('Preparando a edição com sua instrução…');
+    try {
+      const data = await requestEdition({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, asset, prompt: effectivePrompt, director: {...director, instruction: makeDirectorInstruction(effectivePrompt, director)}, format, outputSize, quality, mask, crop, clientId, references, globalReferenceIds: selectedGlobalReferences, brand: project?.brand_context});
+      if (data.noop || data.mode === 'noop') { setNotice(data.preview || 'Marque uma região ou detalhe o pedido.'); setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: data.preview || 'Qual parte da peça você quer alterar?'}]); return; }
+      const url = data.image_url || data.png_data_url;
+      if (!url) throw new Error(data.preview || 'A geração não devolveu uma imagem.');
+      const nextVersion = {id: makeId(), name: `V${versions.length + 1}`, url, dataUrl: url, status: 'new'};
+      setVersions(current => [nextVersion, ...current]); setAsset(nextVersion); setSelectedId(nextVersion.id); setMask(null); setCrop(null);
+      setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: 'Criei uma nova versão. Você pode revisar no palco ou pedir outro ajuste.'}]);
+      setNotice('Nova edição pronta para revisar.');
+    } catch (error) {
+      setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: error.message || 'Não foi possível concluir esta edição.'}]);
+      setNotice(error.message || 'Não foi possível gerar esta edição.');
+    } finally { setGenerating(false); }
+  };
+  const generate = async () => {
+    const instruction = prompt.trim();
+    if (instruction.length < 8) {
+      setAgentMessages(current => [...current, {id: makeId(), role: 'assistant', text: 'O que você quer mudar na peça? Por exemplo: fundo, texto, produto ou enquadramento.'}]);
+      return;
+    }
+    await runEdition(instruction);
+  };
+  const removeBackground = async () => {
+    await runEdition('Remova completamente o fundo da imagem e entregue o elemento principal recortado, preservando bordas, transparências, sombras naturais, proporções e identidade visual.');
+  };
+  const newSession = async () => {
+    if (generating || status === 'saving') return;
+    const current = studioSessionRef.current || studioSession;
+    if (asset && clientId) {
+      setStatus('saving');
+      const editor = {
+        format, output_size: outputSize, selected_id: selectedId, mask_bounds: mask?.bounds || null, crop_bounds: crop?.bounds || null,
+        current_asset: {id: asset.id, name: asset.name, url: String(asset.url || '').startsWith('data:') ? '' : asset.url},
+        versions: versions.map(item => ({id: item.id, name: item.name, status: item.status, url: String(item.url || '').startsWith('data:') ? '' : item.url})),
+        references: references.map(item => ({id: item.id, name: item.name, assetId: item.assetId || '', url: String(item.dataUrl || '').startsWith('data:') ? '' : item.dataUrl})).filter(item => item.url),
+        director: {objective: director.objective || '', preserve: director.preserve || []}, selected_global_references: selectedGlobalReferences, batch_progress: batchProgress, agent_messages: agentMessages.slice(-12),
+      };
+      try {
+        let saved = current;
+        if (!saved) saved = await createStudioSession({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, payload: {project_id: project?.id || undefined, title: asset.name || 'Mesa de edição', original_prompt: prompt, optimized_prompt: prompt, prompt_language: 'pt-BR', prompt_version: 'studio-editor-v1', metadata: {editor}}});
+        else saved = await saveStudioSession({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: saved.id, payload: {expected_revision: saved.revision, title: asset.name || saved.title || 'Mesa de edição', original_prompt: prompt, optimized_prompt: prompt, prompt_language: 'pt-BR', prompt_version: 'studio-editor-v1', metadata: {editor}}});
+        setSessionHistory(history => [saved, ...history.filter(item => String(item.id) !== String(saved.id))]);
+      } catch (error) {
+        setStatus('local'); setNotice(error.message || 'Não foi possível salvar esta sessão antes de criar outra.'); return;
+      }
+    }
+    studioSessionRef.current = null; setStudioSession(null); setAsset(null); setVersions([]); setSelectedId(''); setPrompt(''); setMask(null); setCrop(null); setReferences([]); setAgentMessages([]); setBatchProgress(null); setNotice('Nova sessão pronta. Arraste uma peça para começar.'); setStatus('local'); setZoom(100); setQuality('draft'); editorUndo.current = []; editorRedo.current = []; lastEditorSnapshot.current = ''; setHistoryState({undo: false, redo: false});
+  };
   const finalize = async () => {
     const session = studioSessionRef.current || studioSession;
     if (!session) { setNotice('Selecione um projeto para sincronizar e finalizar esta sessão.'); return; }
@@ -508,7 +562,7 @@ export default function StudioEditorApp({bootstrap}) {
       const restoredAsset = restoredVersions.find(item => item.id === editor.selected_id) || restoredVersions[0] || null;
       if (!restoredAsset) throw new Error('Esta sessão ainda não tem uma peça recuperável.');
       studioSessionRef.current = next; setStudioSession(next); setVersions(restoredVersions); setAsset(restoredAsset); setSelectedId(restoredAsset.id);
-      setPrompt(next.optimized_prompt || next.original_prompt || ''); setFormat(editor.format || '4:5'); setOutputSize(editor.output_size || outputSizeFor(editor.format || '4:5')); setMask(null); setCrop(editor.crop_bounds ? {bounds: editor.crop_bounds} : null); setReferences((editor.references || []).filter(item => item.url).map(item => ({...item, dataUrl: item.url}))); setDirector({open: false, objective: editor.director?.objective || '', preserve: editor.director?.preserve || ['identity', 'copy', 'layout']}); setSelectedGlobalReferences(editor.selected_global_references || []); setBatchProgress(editor.batch_progress || null);
+      setPrompt(next.optimized_prompt || next.original_prompt || ''); setFormat(editor.format || '4:5'); setOutputSize(editor.output_size || outputSizeFor(editor.format || '4:5')); setMask(null); setCrop(editor.crop_bounds ? {bounds: editor.crop_bounds} : null); setReferences((editor.references || []).filter(item => item.url).map(item => ({...item, dataUrl: item.url}))); setDirector({open: false, objective: editor.director?.objective || '', preserve: editor.director?.preserve || ['identity', 'copy', 'layout']}); setSelectedGlobalReferences(editor.selected_global_references || []); setAgentMessages(editor.agent_messages || []); setBatchProgress(editor.batch_progress || null);
       setHistoryOpen(false); setStatus('synced'); setNotice('Sessão restaurada. Continue a edição de onde parou.');
     } catch (error) { setNotice(error.message || 'Não foi possível restaurar esta sessão.'); }
   };
@@ -535,6 +589,6 @@ export default function StudioEditorApp({bootstrap}) {
   const links = bootstrap.links || {};
   const estimateLabel = estimate?.estimated_tokens ? `${Number(estimate.estimated_tokens).toLocaleString('pt-BR')} créditos` : prompt.trim() ? 'calculando custo…' : 'custo ao gerar';
   const readOnly = studioSession?.status === 'finalized';
-  const composer = <StudioComposer value={prompt} onChange={setPrompt} director={director} onDirectorChange={setDirector} onGenerate={generate} onAttach={() => referenceInput.current?.click()} references={references} onRemoveReference={index => setReferences(current => current.filter((_, itemIndex) => itemIndex !== index))} mask={mask ? {...mask, onClear: () => { maskRef.current?.clear(); setMask(null); }} : null} format={format} generating={generating} disabled={!asset || readOnly} estimateLabel={estimateLabel}/>;
-  return <div className={`se-app ${readOnly ? 'is-read-only' : ''}`}><StudioTopbar links={links} projects={projects} project={project} onProjectChange={changeProject} bootstrap={bootstrap} sessionName={studioSession?.title || asset?.name || 'Nova sessão de edição'} onHistory={openHistory} onNewSession={newSession}/><div className="se-layout"><LeftRail versions={versions} selectedId={selectedId} filter={railFilter} onFilter={setRailFilter} onSelect={selectVersion} onApprove={approve} onSetBase={setBase} onUpload={() => fileInput.current?.click()} onNewSession={newSession} onHistory={openHistory} onRestoreSession={restoreSession} sessions={sessionHistory} activeSessionId={studioSession?.id || ''} readOnly={readOnly} libraryUrl={links.library} project={project} libraryAssets={libraryAssets} previousAssets={previousAssets} shelfLoading={shelfLoading} onSelectAsset={selectShelfAsset}/><main className="se-main"><CanvasWorkspace asset={asset} mode={mode} setMode={setMode} mask={mask} crop={crop} maskRef={maskRef} onMaskChange={setMask} onCropChange={setCrop} onUpload={() => fileInput.current?.click()} format={format} outputSize={outputSize} onOutputSizeChange={setOutputSize} zoom={zoom} onZoomChange={setZoom} quality={quality} onQualityChange={setQuality} onRemoveBackground={() => { setPrompt(current => current.includes('Remova o fundo') ? current : `${current}${current ? '\n\n' : ''}Remova o fundo da imagem mantendo o elemento principal e a identidade visual.`); setNotice('Instrução para remover o fundo adicionada. Revise e gere a edição.'); }} onUndo={undo} onRedo={redo} canUndo={historyState.undo} canRedo={historyState.redo}/>{notice && <div className="se-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="Fechar aviso">×</button></div>}</main><BrandPanel format={format} setFormat={setFormat} status={status} project={project} selectedGlobalReferences={selectedGlobalReferences} onGlobalReferencesChange={setSelectedGlobalReferences} batchProgress={batchProgress} onPauseQueue={pauseQueue} onCancelQueue={cancelQueue} onResumeQueue={resumeQueue} readOnly={readOnly} onHistory={openHistory} onFinalize={finalize} onContinue={continueEditing} onExpand={() => setExpandOpen(true)} composer={composer}/></div><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload}/><input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" hidden multiple onChange={addReference}/>{historyOpen && <StudioModal title="Sessões e versões" onClose={() => setHistoryOpen(false)}><div className="se-history-dialog"><p>{studioSession ? 'Sessão atual sincronizada com o Studio.' : 'Versões locais desta mesa.'}</p>{versions.map(item => <button type="button" key={item.id} onClick={() => { selectVersion(item.id); setHistoryOpen(false); }}><img src={item.url} alt=""/><span>{item.name}</span><small>{item.status === 'approved' ? 'Aprovada' : 'Em edição'}</small></button>)}{sessionHistory.length > 0 && <><p>Outras sessões</p>{sessionHistory.filter(item => item.id !== studioSession?.id).map(item => <button type="button" className="se-history-session" key={item.id} onClick={() => restoreSession(item.id)}><span>{item.title || 'Mesa sem título'}</span><small>{item.status === 'finalized' ? 'Finalizada' : 'Em andamento'}</small></button>)}</>}</div></StudioModal>}{conflictOpen && <StudioModal title="Alteração em outra aba" onClose={() => setConflictOpen(false)}><div className="se-conflict-dialog"><p>Esta sessão foi atualizada em outra aba antes do seu último salvamento. Escolha a versão que deve continuar.</p><button type="button" onClick={resolveConflictWithRemote}><strong>Restaurar versão do Studio</strong><span>Descarta alterações desta aba e abre a última versão sincronizada.</span></button><button type="button" onClick={duplicateLocalSession}><strong>Duplicar minha mesa local</strong><span>Preserva suas alterações em uma nova sessão independente.</span></button></div></StudioModal>}{expandOpen && <ExpandDialog asset={selected || asset} onQuote={quoteExpansion} onQueue={queueExpansion} onClose={() => setExpandOpen(false)}/>}</div>;
+  const composer = <StudioComposer value={prompt} onChange={setPrompt} director={director} onDirectorChange={setDirector} onGenerate={generate} onAttach={() => referenceInput.current?.click()} references={references} onRemoveReference={index => setReferences(current => current.filter((_, itemIndex) => itemIndex !== index))} mask={mask ? {...mask, onClear: () => { maskRef.current?.clear(); setMask(null); }} : null} format={format} generating={generating} disabled={!asset || readOnly} estimateLabel={estimateLabel} messages={agentMessages}/>;
+  return <div className={`se-app ${readOnly ? 'is-read-only' : ''}`}><StudioTopbar links={links} projects={projects} project={project} onProjectChange={changeProject} bootstrap={bootstrap} sessionName={studioSession?.title || asset?.name || 'Nova sessão de edição'} onHistory={openHistory} onNewSession={newSession}/><div className="se-layout"><LeftRail versions={versions} selectedId={selectedId} filter={railFilter} onFilter={setRailFilter} onSelect={selectVersion} onApprove={approve} onSetBase={setBase} onUpload={() => fileInput.current?.click()} onNewSession={newSession} onHistory={openHistory} onRestoreSession={restoreSession} sessions={sessionHistory} activeSessionId={studioSession?.id || ''} readOnly={readOnly} libraryUrl={links.library} project={project} libraryAssets={libraryAssets} previousAssets={previousAssets} shelfLoading={shelfLoading} onSelectAsset={selectShelfAsset}/><main className="se-main"><CanvasWorkspace asset={asset} mode={mode} setMode={setMode} mask={mask} crop={crop} maskRef={maskRef} onMaskChange={setMask} onCropChange={setCrop} onUpload={() => fileInput.current?.click()} format={format} outputSize={outputSize} onOutputSizeChange={setOutputSize} zoom={zoom} onZoomChange={setZoom} quality={quality} onQualityChange={setQuality} onRemoveBackground={removeBackground} onUndo={undo} onRedo={redo} canUndo={historyState.undo} canRedo={historyState.redo}/>{notice && <div className="se-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="Fechar aviso">×</button></div>}</main><BrandPanel format={format} setFormat={setFormat} status={status} project={project} selectedGlobalReferences={selectedGlobalReferences} onGlobalReferencesChange={setSelectedGlobalReferences} batchProgress={batchProgress} onPauseQueue={pauseQueue} onCancelQueue={cancelQueue} onResumeQueue={resumeQueue} readOnly={readOnly} onHistory={openHistory} onFinalize={finalize} onContinue={continueEditing} onExpand={() => setExpandOpen(true)} composer={composer}/></div><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload}/><input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" hidden multiple onChange={addReference}/>{historyOpen && <StudioModal title="Sessões e versões" onClose={() => setHistoryOpen(false)}><div className="se-history-dialog"><p>{studioSession ? 'Sessão atual sincronizada com o Studio.' : 'Versões locais desta mesa.'}</p>{versions.map(item => <button type="button" key={item.id} onClick={() => { selectVersion(item.id); setHistoryOpen(false); }}><img src={item.url} alt=""/><span>{item.name}</span><small>{item.status === 'approved' ? 'Aprovada' : 'Em edição'}</small></button>)}{sessionHistory.length > 0 && <><p>Outras sessões</p>{sessionHistory.filter(item => item.id !== studioSession?.id).map(item => <button type="button" className="se-history-session" key={item.id} onClick={() => restoreSession(item.id)}><span>{item.title || 'Mesa sem título'}</span><small>{item.status === 'finalized' ? 'Finalizada' : 'Em andamento'}</small></button>)}</>}</div></StudioModal>}{conflictOpen && <StudioModal title="Alteração em outra aba" onClose={() => setConflictOpen(false)}><div className="se-conflict-dialog"><p>Esta sessão foi atualizada em outra aba antes do seu último salvamento. Escolha a versão que deve continuar.</p><button type="button" onClick={resolveConflictWithRemote}><strong>Restaurar versão do Studio</strong><span>Descarta alterações desta aba e abre a última versão sincronizada.</span></button><button type="button" onClick={duplicateLocalSession}><strong>Duplicar minha mesa local</strong><span>Preserva suas alterações em uma nova sessão independente.</span></button></div></StudioModal>}{expandOpen && <ExpandDialog asset={selected || asset} onQuote={quoteExpansion} onQueue={queueExpansion} onClose={() => setExpandOpen(false)}/>}</div>;
 }

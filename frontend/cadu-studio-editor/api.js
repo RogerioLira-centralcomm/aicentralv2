@@ -109,7 +109,7 @@ function publicImageUrl(value) {
   try { const url = new URL(raw, window.location.origin); return /^https?:$/.test(url.protocol) ? url.href : ''; } catch { return ''; }
 }
 
-export function requestEdition({apiRoot, csrf, asset, prompt, director, format, outputSize, mask, crop, clientId, sessionId, references, globalReferenceIds, brand}) {
+export function requestEdition({apiRoot, csrf, asset, prompt, director, format, outputSize, quality = 'draft', mask, crop, clientId, sessionId, references, globalReferenceIds, brand}) {
   const sourceUrl = publicImageUrl(asset?.url || asset?.dataUrl);
   if (!sourceUrl) throw new Error('Aguarde a imagem terminar de carregar no Studio antes de gerar.');
   const selection = mask?.bounds ? {role: 'marked_region', bbox_px: mask.bounds, instruction: 'Apply the requested change only inside the marked region. Preserve the source image outside it.'} : crop?.bounds ? {role: 'crop', bbox_px: crop.bounds, instruction: 'Use the selected crop as the composition frame. Preserve the content inside it and rebalance only when required by the requested output format.'} : undefined;
@@ -127,7 +127,7 @@ export function requestEdition({apiRoot, csrf, asset, prompt, director, format, 
     aspect_ratio: format,
     output_width: outputSize?.width || undefined,
     output_height: outputSize?.height || undefined,
-    quality: 'draft',
+    quality,
     reference_images: directorReferences.map(item => item.url),
     reference_inputs: directorReferences.map((item, index) => ({image: item.url, role: item.role, source: item.source, label: item.label, order: index + 2})),
     director_context: {brand_context: publicBrand, references: directorReferences, preserve: director?.preserve || [], objective: director?.objective || '', reference_policy: 'similarity_only_preserve_source_identity'},

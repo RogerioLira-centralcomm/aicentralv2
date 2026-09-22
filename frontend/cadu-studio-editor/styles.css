@@ -398,6 +398,10 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 .se-composer:focus-within { box-shadow:0 0 0 1px rgba(124,92,255,.55); }
 .se-right-panel .se-composer { padding:0; }
 .se-right-panel .se-composer textarea { min-height:112px; padding:11px; border:1px solid rgba(255,255,255,.09); border-radius:8px; background:#111920; font-size:13px; }
+.se-agent-thread { display:grid; gap:7px; max-height:180px; margin-bottom:10px; overflow-y:auto; }
+.se-agent-thread p { width:fit-content; max-width:92%; margin:0; padding:8px 10px; border-radius:8px; color:#cbd3db; font-size:11px; line-height:1.45; }
+.se-agent-thread p.is-user { justify-self:end; background:rgba(124,92,255,.17); color:#eeeaff; }
+.se-agent-thread p.is-assistant { background:#151e25; }
 .se-right-panel .se-composer__context { padding-top:8px; }
 .se-right-panel .se-composer footer { display:block; }
 .se-drop-hint { width:auto!important; height:auto!important; margin-left:auto!important; background:transparent!important; color:#737f8b; font-size:10px; white-space:nowrap; }

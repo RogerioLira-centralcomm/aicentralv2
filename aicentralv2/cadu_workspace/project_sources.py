@@ -298,7 +298,7 @@ def organize_image_source(name: str, text: str) -> dict:
 
 def validate_upload(file_storage) -> dict:
     source = inspect_upload(file_storage, require_text=True)
-    if source['suffix'] not in ALLOWED_EXTENSIONS:
+    if source['suffix'] not in ALLOWED_EXTENSIONS | IMAGE_EXTENSIONS:
         raise BadRequest('Este formato pode ser anexado, mas precisa de OCR ou adapter antes de virar fonte.')
     return source
 

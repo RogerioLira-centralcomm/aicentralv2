@@ -711,8 +711,8 @@ def test_manual_project_file_category_has_priority():
 def test_project_file_support_never_claims_unknown_content_is_understood():
     assert project_source_service.inspect_file_support("briefing.pdf")["can_index"] is True
     image = project_source_service.inspect_file_support("referencia.webp", "image/webp")
-    assert image["status"] == "attachment_only"
-    assert image["can_index"] is False
+    assert image["status"] == "supported"
+    assert image["can_index"] is True
     spreadsheet = project_source_service.inspect_file_support("investimento.xlsx")
     assert spreadsheet["status"] == "needs_adapter"
     assert spreadsheet["format_family"] == "spreadsheet"

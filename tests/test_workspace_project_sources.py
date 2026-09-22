@@ -52,6 +52,14 @@ class WorkspaceProjectSourcesTest(TestCase):
         self.assertEqual(result['mime'], 'text/markdown')
         self.assertIn('Briefing aprovado', result['text'])
 
+    @mock.patch('aicentralv2.cadu_workspace.project_sources._ocr_image', return_value=('Texto visível suficiente para indexação.', 'ocr'))
+    def test_image_upload_can_become_a_project_source_after_ocr(self, _ocr):
+        result = project_sources.validate_upload(FileStorage(
+            stream=BytesIO(b'fake-image-bytes'), filename='captura.png', content_type='image/png',
+        ))
+        self.assertEqual(result['processing'], 'ocr')
+        self.assertTrue(result['can_index'])
+
     def test_user_requested_image_organization_proposes_name_and_summary(self):
         result = project_sources.organize_image_source(
             'be159e984f2724fab83510ceb999a08012.png',

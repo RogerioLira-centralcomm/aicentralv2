@@ -42,6 +42,10 @@ def inspect_file_support(filename: str, mime_type: str = "") -> dict:
         return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
                 "status": "supported", "can_attach": True, "can_index": True,
                 "processing": "text_extraction", "requires_adapter": False}
+    if suffix in project_sources.IMAGE_EXTENSIONS:
+        return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
+                "status": "supported", "can_attach": True, "can_index": True,
+                "processing": "ocr", "requires_adapter": False}
     # InDesign packages are accepted by the project dropzone, but keep the
     # capability probe conservative until a dedicated parser is installed.
     if suffix == '.indd':

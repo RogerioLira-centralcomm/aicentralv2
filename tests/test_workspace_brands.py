@@ -479,6 +479,35 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual((args[0], args[2], args[3]), (81, False, 'reference'))
         self.assertEqual(len(args[1]), 2)
 
+    @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_audit_uses_only_selected_approved_local_assets(
+            self, workspace_brand, _ensure_credit, get_db, start_job):
+        workspace_brand.return_value = {
+            'id': 81, 'website_url': '', 'analysis_metadata': {},
+            'assets': [
+                {'id': 10, 'status': 'approved', 'asset_path': 'brands/10.png'},
+                {'id': 11, 'status': 'pending', 'asset_path': 'brands/11.png'},
+                {'id': 12, 'status': 'approved', 'asset_path': ''},
+            ],
+        }
+        connection = mock.MagicMock()
+        connection.cursor.return_value.__enter__.return_value.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/auditoria', data={
+            '_csrf': 'known-token', 'confirmed_cost': 'true',
+            'existing_assets_present': 'true',
+            'existing_asset_ids': ['10', '11', '12', '999'],
+        })
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(start_job.call_args.kwargs['existing_asset_ids'], [10])
+        persisted = json.loads(connection.cursor.return_value.__enter__.return_value.execute.call_args.args[1][0])
+        self.assertEqual(persisted['review_pack']['input']['existing_asset_ids'], [10])
+
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
     @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
     def test_audit_stops_before_queue_when_credits_are_unavailable(self, ensure_credit, _workspace_brand):

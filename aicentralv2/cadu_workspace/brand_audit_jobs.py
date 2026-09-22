@@ -244,6 +244,7 @@ def process_one():
             proposal=job.get('proposal'), background=False,
             analysis_mode=str(job.get('analysis_mode') or 'complete'),
             social_links=list(job.get('social_links') or []),
+            existing_asset_ids=job.get('existing_asset_ids'),
         ))
     except Exception:
         current_app.logger.exception('Worker interrompido na auditoria de marca %s', job['job_id'])

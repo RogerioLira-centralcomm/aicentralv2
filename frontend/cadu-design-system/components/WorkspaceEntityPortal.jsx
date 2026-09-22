@@ -1,10 +1,23 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {Icon} from './Icon';
 
-export function EntityNavigator({label, items = []}) {
+export function EntityNavigator({label, items = [], context, children}) {
+  const [activeId, setActiveId] = useState(() => items[0]?.target || items[0]?.id || '');
+  useEffect(() => {
+    const sections = items.map(item => document.getElementById(item.target || item.id)).filter(Boolean);
+    if (!sections.length || typeof IntersectionObserver === 'undefined') return undefined;
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+      if (visible[0]?.target?.id) setActiveId(visible[0].target.id);
+    }, {rootMargin: '-12% 0px -70% 0px', threshold: [0, .12, .35]});
+    sections.forEach(section => observer.observe(section));
+    return () => observer.disconnect();
+  }, [items]);
   return <aside className="cadu-ds-entity-nav" aria-label={`Navegação de ${label}`}>
     <span className="cadu-ds-entity-nav__label">{label}</span>
-    <nav>{items.map(item => <a key={item.id} href={`#${item.target || item.id}`}><Icon name={item.icon || 'file'} size={14}/><span>{item.label}</span>{Number.isFinite(item.count) && <small>{item.count}</small>}</a>)}</nav>
+    <nav>{items.map(item => { const target = item.target || item.id; return <a key={item.id} href={`#${target}`} className={activeId === target ? 'is-active' : ''} aria-current={activeId === target ? 'location' : undefined}><Icon name={item.icon || 'file'} size={14}/><span>{item.label}</span>{Number.isFinite(item.count) && <small>{item.count}</small>}</a>; })}</nav>
+    {context && <div className="cadu-ds-entity-nav__context">{context}</div>}
+    {children && <div className="cadu-ds-entity-nav__actions">{children}</div>}
   </aside>;
 }
 

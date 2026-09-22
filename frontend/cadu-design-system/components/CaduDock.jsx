@@ -132,7 +132,7 @@ export function DockBrandShortcut({brand, projectCount = 0, active = false, drop
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
   return <DockTooltip label={brand.name}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, brand) : undefined} onDragEnter={droppable ? event => { allowDockDrop(event); onDragEnter?.(brand); } : undefined} onDragLeave={droppable ? () => onDragLeave?.(brand) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, brand); } : undefined} onClick={() => onOpen?.(brand)} aria-label={`Abrir marca ${brand.name}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-brand ${active ? 'is-active' : ''} ${dropTarget ? 'is-drop-target' : ''} ${dropComplete ? 'is-drop-complete' : ''}`}>
-    <VisualIdentity src={brand.logoUrl || brand.logo_url || brand.dockLogoUrl || brand.previewUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/>
+    <VisualIdentity src={brand.dockLogoUrl || brand.logoUrl || brand.logo_url || brand.previewUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/>
     {projectCount > 1 && <i aria-label={`${projectCount} projetos fixados`}>{projectCount}</i>}
   </button></DockTooltip>;
 }

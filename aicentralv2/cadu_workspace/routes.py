@@ -2080,6 +2080,19 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
                 value = item.get(key)
                 if hasattr(value, 'isoformat'):
                     item[key] = value.isoformat()
+            costs = item.get('costs') if isinstance(item.get('costs'), dict) else {}
+            stages = costs.get('stages') if isinstance(costs.get('stages'), dict) else {}
+            total_usd = sum(float(stage.get('cost_usd') or 0) for stage in stages.values() if isinstance(stage, dict))
+            if total_usd > 0:
+                from ..creative_modeling_fx import brl_from_usd, usd_brl_rate
+                rate, source = usd_brl_rate()
+                costs.update({
+                    'actual_cost_usd': round(total_usd, 6),
+                    'actual_cost_brl': brl_from_usd(total_usd, rate),
+                    'usd_brl_rate': rate,
+                    'usd_brl_source': source,
+                })
+                item['costs'] = costs
             history.append(item)
         return history
     except Exception:
@@ -2090,7 +2103,7 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
         return []
 
 
-def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True, analysis_mode='complete', social_links=None):
+def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True, analysis_mode='complete', social_links=None, existing_asset_ids=None):
     """Run an audit now or enqueue it for the durable Workspace worker.
 
     ``background=False`` is intentionally used only by the worker.  It keeps
@@ -2104,7 +2117,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
             try:
                 _save_brand_audit_history(
                     client_id, brand_id, job_id, analysis_mode=analysis_mode, status='running',
-                    input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
+                    input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode,
+                                'existing_asset_ids': list(existing_asset_ids or [])},
                 )
                 _save_brand_review_job(client_id, brand_id, job_id,
                     status='running', stage='evidence', index=1, total=4,
@@ -2116,26 +2130,30 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 from ..creative_modeling_service import CreativeModelingService
                 from ..cadu_credit_connector import CaduCreditConnector, CreditActor
                 service = CreativeModelingService()
-                # Reuse the approved primary mark when the audit was started
-                # from an existing brand without a new upload. OCR and visual
-                # review must not lose the logo merely because it already
-                # lives in the asset library.
-                if not restored_images:
-                    stored_brand = _workspace_brand(client_id, brand_id) or {}
+                # Load exactly the approved library assets selected in the
+                # dialog. Older integrations omit this field, so they retain
+                # the former primary-logo fallback.
+                stored_brand = _workspace_brand(client_id, brand_id) or {}
+                selected_ids = {int(value) for value in (existing_asset_ids or []) if str(value).isdigit()}
+                selected_assets = [
+                    asset for asset in stored_brand.get('assets', [])
+                    if int(asset.get('id') or 0) in selected_ids
+                    and str(asset.get('status') or '').lower() == 'approved'
+                ]
+                if existing_asset_ids is None and not restored_images:
                     primary_logo = next((
                         asset for asset in stored_brand.get('assets', [])
                         if str(asset.get('role') or '').lower() == 'logo'
                         and bool(asset.get('is_primary'))
                         and str(asset.get('status') or '').lower() == 'approved'
                     ), None)
-                    logo_path = CreativeAssetStorage().absolute_public_path(
-                        (primary_logo or {}).get('asset_path')
-                    )
-                    if logo_path:
+                    selected_assets = [primary_logo] if primary_logo else []
+                for asset in selected_assets[:12]:
+                    asset_path = CreativeAssetStorage().absolute_public_path(asset.get('asset_path'))
+                    if asset_path:
                         restored_images.append(FileStorage(
-                            stream=BytesIO(logo_path.read_bytes()),
-                            filename=logo_path.name,
-                            content_type=(primary_logo or {}).get('mime_type') or 'image/png',
+                            stream=BytesIO(asset_path.read_bytes()), filename=asset_path.name,
+                            content_type=asset.get('mime_type') or 'image/png',
                         ))
                 credits = CaduCreditConnector()
                 billing_user_id = int(user_id or 0)
@@ -2302,7 +2320,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     )
                 _save_brand_audit_history(
                     client_id, brand_id, job_id, analysis_mode=analysis_mode, status=history_status,
-                    input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
+                    input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode,
+                                'existing_asset_ids': list(existing_asset_ids or [])},
                     analysis={**review_proposal, 'analysis_metadata': analysis_metadata},
                     reviews=reviews, costs=token_usage,
                 )
@@ -2332,7 +2351,9 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     status='failed', stage='failed', message='A análise precisa ser tentada novamente.',
                     error=str(exc)[:360])
                 _save_brand_audit_history(client_id, brand_id, job_id, analysis_mode=analysis_mode, status='failed',
-                                          input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode},
+                                          input_data={'website_url': website_url, 'social_links': list(social_links or []),
+                                                      'analysis_mode': analysis_mode,
+                                                      'existing_asset_ids': list(existing_asset_ids or [])},
                                           costs=locals().get('token_usage', {}), error=str(exc))
                 return False
             return True
@@ -2350,6 +2371,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 'brand_id': brand_id, 'website_url': website_url,
                 'images': images, 'proposal': proposal, 'analysis_mode': analysis_mode,
                 'social_links': list(social_links or []),
+                'existing_asset_ids': existing_asset_ids,
             })
             return True
         except Exception:
@@ -4689,6 +4711,11 @@ def create_project():
     project_id = str(uuid4())
     description = (request.form.get('description') or '').strip()[:4000]
     instructions = (request.form.get('instructions') or '').strip()[:12000]
+    try:
+        requested_brand_id = int(request.form.get('brand_id') or 0)
+    except (TypeError, ValueError):
+        requested_brand_id = 0
+    brand_id = requested_brand_id if requested_brand_id and _workspace_brand(client_id, requested_brand_id) else 0
     connection = None
     try:
         connection = get_db()
@@ -4707,6 +4734,13 @@ def create_project():
         except Exception:
             pass
         abort(503, description='Não foi possível criar o projeto agora. Tente novamente.')
+    if brand_id:
+        try:
+            family_repository.set_project_brand_link(
+                client_id, session.get('user_id'), f'ci:{project_id}', f'studio:{brand_id}', True,
+            )
+        except Exception:
+            current_app.logger.exception('Projeto %s criado, mas a marca %s não foi vinculada', project_id, brand_id)
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
 
 
@@ -6179,6 +6213,7 @@ def brand_detail(brand_id):
             'generateHero': url_for('cadu_workspace.generate_brand_hero', brand_id=brand_id),
             'updateIdentity': url_for('cadu_workspace.update_brand_identity', brand_id=brand_id),
             'uploadAssets': url_for('cadu_workspace.upload_brand_assets', brand_id=brand_id),
+            'createProject': url_for('cadu_workspace.create_project'),
             'audit': url_for('cadu_workspace.audit_brand', brand_id=brand_id),
             'auditStatus': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
             'approve': url_for('cadu_workspace.approve_brand_reviews', brand_id=brand_id),
@@ -6617,8 +6652,17 @@ def audit_brand(brand_id):
         abort(400, description='Confirme a estimativa de créditos antes de iniciar a auditoria.')
     social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '').splitlines() if item.strip()][:12]
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
-    if not website_url and not images:
-        abort(400, description='Informe o site ou envie uma imagem de referência.')
+    existing_asset_ids = None
+    if request.form.get('existing_assets_present') == 'true':
+        requested_ids = {int(value) for value in request.form.getlist('existing_asset_ids')[:12] if str(value).isdigit()}
+        existing_asset_ids = [
+            int(asset['id']) for asset in brand.get('assets', [])
+            if int(asset.get('id') or 0) in requested_ids
+            and str(asset.get('status') or '').lower() == 'approved'
+            and asset.get('asset_path')
+        ]
+    if not website_url and not images and not existing_asset_ids:
+        abort(400, description='Informe o site, escolha um ativo existente ou envie uma imagem de referência.')
     image_payload = []
     connection = None
     try:
@@ -6641,6 +6685,7 @@ def audit_brand(brand_id):
             'error': '',
             'created_at': _utc_timestamp(),
             'input': {'website_url': website_url, 'has_images': bool(image_payload),
+                      'existing_asset_ids': list(existing_asset_ids or []),
                       'include_project_sources': request.form.get('include_project_sources') == 'true',
                       'analysis_mode': analysis_mode, 'social_links': social_links},
             'analysis': {},
@@ -6679,7 +6724,9 @@ def audit_brand(brand_id):
             current_app.logger.warning('Auditoria da marca %s seguiu sem todos os ativos: %s', brand_id, exc)
         except Exception:
             current_app.logger.exception('Não foi possível preservar os ativos da auditoria da marca %s', brand_id)
-    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload, analysis_mode=analysis_mode, social_links=social_links)
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url,
+                            image_payload, analysis_mode=analysis_mode, social_links=social_links,
+                            existing_asset_ids=existing_asset_ids)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({
             'ok': True, 'job_id': job_id, 'status': 'queued',
@@ -6740,8 +6787,18 @@ def retry_brand_audit(brand_id):
     analysis_mode = request.form.get('analysis_mode') if request.form.get('analysis_mode') in {'complete', 'deep'} else previous_input.get('analysis_mode') or 'complete'
     social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '\n'.join(previous_input.get('social_links') or [])).splitlines() if item.strip()][:12]
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
-    if not website_url and not images:
-        abort(400, description='Informe o site ou envie uma imagem de referência para reprocessar a marca.')
+    if request.form.get('existing_assets_present') == 'true':
+        requested_ids = {int(value) for value in request.form.getlist('existing_asset_ids')[:12] if str(value).isdigit()}
+        existing_asset_ids = [
+            int(asset['id']) for asset in brand.get('assets', [])
+            if int(asset.get('id') or 0) in requested_ids
+            and str(asset.get('status') or '').lower() == 'approved'
+            and asset.get('asset_path')
+        ]
+    else:
+        existing_asset_ids = previous_input.get('existing_asset_ids')
+    if not website_url and not images and not existing_asset_ids:
+        abort(400, description='Informe o site, escolha um ativo existente ou envie uma imagem de referência para reprocessar a marca.')
     if pack.get('status') in {'queued', 'running'}:
         abort(409, description='Esta marca já está sendo processada. Aguarde a conclusão antes de iniciar outra análise.')
     image_payload = []
@@ -6755,7 +6812,9 @@ def retry_brand_audit(brand_id):
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 5,
         'message': 'A nova análise entrou na fila. A identidade atual será preservada até sua aprovação.', 'error': '',
         'created_at': _utc_timestamp(),
-        'input': {'website_url': website_url, 'has_images': bool(image_payload), 'preserves_logo': True, 'analysis_mode': analysis_mode, 'social_links': social_links}, 'analysis': checkpoint, 'reviews': [],
+        'input': {'website_url': website_url, 'has_images': bool(image_payload), 'preserves_logo': True,
+                  'existing_asset_ids': list(existing_asset_ids or []),
+                  'analysis_mode': analysis_mode, 'social_links': social_links}, 'analysis': checkpoint, 'reviews': [],
     }
     connection = get_db()
     try:
@@ -6781,7 +6840,9 @@ def retry_brand_audit(brand_id):
             CreativeModelingService().upload_client_brand_assets(brand_id, images, False, 'reference')
         except Exception:
             current_app.logger.exception('Não foi possível preservar as novas referências da auditoria da marca %s', brand_id)
-    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload, proposal=checkpoint, analysis_mode=analysis_mode, social_links=social_links)
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url,
+                            image_payload, proposal=checkpoint, analysis_mode=analysis_mode,
+                            social_links=social_links, existing_asset_ids=existing_asset_ids)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({'ok': True, 'job_id': job_id, 'status': 'queued',
                         'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id)}), 202

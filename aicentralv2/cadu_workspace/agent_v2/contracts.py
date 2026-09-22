@@ -84,11 +84,14 @@ def execution_mode_for(route: IntentRoute, requested: str = "") -> str:
     requested = str(requested or "").strip().lower()
     aliases = {"focus": "fast", "deep": "analysis"}
     requested = aliases.get(requested, requested)
-    # Artifact and confirmation flows need the operator runtime even when the
-    # composer was left on its default analysis setting. Keeping the requested
-    # mode here split file upload from execution and produced empty artifacts.
-    if route.artifact_type or route.requires_confirmation:
+    # Confirmations, executable HTML, project maps and genuinely complex work
+    # need the operator runtime. Text artifacts remain on the analysis runtime:
+    # opening an editor must not promote a short note or meeting summary to the
+    # most expensive execution path.
+    if route.requires_confirmation or route.artifact_type in {"html", "project_map"} or route.complexity == "high":
         return "agentic"
+    if route.artifact_type:
+        return "analysis"
     if requested in EXECUTION_MODES:
         if requested == "agentic" and not (route.artifact_type or route.requires_confirmation or route.complexity == "high"):
             return "analysis"

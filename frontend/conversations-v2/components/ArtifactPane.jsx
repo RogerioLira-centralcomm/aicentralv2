@@ -67,6 +67,42 @@ function StructuredArtifact({artifact, onChange}) {
   </article>;
 }
 
+const meetingSectionAliases = {
+  participantes: ['participantes', 'presentes', 'pessoas'],
+  contexto: ['contexto', 'objetivo', 'assunto'],
+  decisoes: ['decisões', 'decisoes', 'decisões tomadas'],
+  encaminhamentos: ['encaminhamentos', 'próximos passos', 'proximos passos', 'ações', 'acoes'],
+  pendencias: ['pendências', 'pendencias', 'pontos em aberto'],
+};
+
+function meetingFieldKind(key = '') {
+  const normalized = String(key).trim().toLocaleLowerCase('pt-BR');
+  return Object.entries(meetingSectionAliases).find(([, aliases]) => aliases.includes(normalized))?.[0] || 'other';
+}
+
+function MeetingSummaryArtifact({artifact, onChange}) {
+  const content = artifact.content || {};
+  const fields = Array.isArray(content.fields) ? content.fields : [];
+  const updateSummary = summary => onChange({...content, summary});
+  const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
+  return <article className="cv-meeting-summary cv-mx-auto cv-w-full cv-max-w-[820px]">
+    <header className="cv-meeting-summary__intro">
+      <span><Icon name="calendar" size={15}/>Registro da reunião</span>
+      <EditableTextarea value={content.summary || ''} onChange={updateSummary} placeholder="Escreva uma síntese objetiva da reunião." aria-label="Síntese da reunião"/>
+    </header>
+    <div className="cv-meeting-summary__sections">
+      {fields.map((field, index) => {
+        const kind = meetingFieldKind(field.key);
+        return <section key={`${field.key}-${index}`} className={`cv-meeting-summary__section is-${kind}`}>
+          <h3>{field.key || `Seção ${index + 1}`}</h3>
+          <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} placeholder="Adicione as informações confirmadas." aria-label={field.key || `Seção ${index + 1}`}/>
+        </section>;
+      })}
+      {!fields.length && <p className="cv-meeting-summary__empty">O resumo ainda não possui decisões, responsáveis ou próximos passos registrados.</p>}
+    </div>
+  </article>;
+}
+
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
 }
@@ -100,7 +136,7 @@ function documentHtml(content) {
   return sections.join('') || '<p><br/></p>';
 }
 
-function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
+function RichDocumentArtifact({artifact, onChange}) {
   const content = artifact.content || {};
   const canvas = useRef(null);
   const html = documentHtml(content);
@@ -138,7 +174,6 @@ function RichDocumentArtifact({artifact, onChange, onTitleChange}) {
     command('insertHTML', '<table><thead><tr><th>Item</th><th>Valor</th><th>Observação</th></tr></thead><tbody><tr><td>Exemplo</td><td>—</td><td>Edite este campo</td></tr><tr><td>Outro item</td><td>—</td><td>Edite este campo</td></tr></tbody></table><p><br></p>');
   };
   return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6">
-    <input className="cv-rich-document__title" value={artifact.title || content.title || ''} onChange={event => onTitleChange?.(event.target.value)} placeholder="Título do documento" aria-label="Título do documento"/>
     <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento" onMouseDown={event => event.preventDefault()}>
       <button type="button" onClick={() => command('undo')} aria-label="Desfazer última edição">↶</button>
       <button type="button" onClick={() => command('redo')} aria-label="Refazer edição">↷</button>
@@ -443,10 +478,11 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     if (type === 'library') return <LibraryArtifact artifact={artifact} onOpenResource={onOpenResource}/>;
-    return type === 'document'
-      ? <RichDocumentArtifact artifact={artifact} onChange={onChange} onTitleChange={onTitleChange}/>
+    if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} onChange={onChange}/>;
+    return textArtifact
+      ? <RichDocumentArtifact artifact={artifact} onChange={onChange}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
+  }, [artifact, type, textArtifact, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
   useEffect(() => {
     setClosing(false);
     setEditingTitle(false);
@@ -509,7 +545,7 @@ export function ArtifactPane({artifact, tabs = [], activeTabKey = '', onSelectTa
       {tabMenu.item.type === 'html' && !artifactBrowserUrl(tabMenu.item, tabMenu.key === activeTabKey ? publishedUrl : '') && tabMenu.key === activeTabKey && <button type="button" role="menuitem" disabled={publishing || saving} onClick={() => { onPublish?.(); setTabMenu(null); }}><Icon name="external" size={13}/>Publicar e abrir</button>}
     </div>}
     <header className="cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4">
-      <div className="cv-min-w-0 cv-flex-1">{type !== 'image' && <span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>}{type === 'image' ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label="Nome do arquivo"/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o nome">{displayTitle}{dirty && <i className="cv-artifact-title-dirty" title="Alterações não salvas"/>}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
+      <div className="cv-min-w-0 cv-flex-1">{type !== 'image' && <span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Artefato'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>}{type === 'image' || textArtifact ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label={type === 'image' ? 'Nome do arquivo' : 'Título do documento'}/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o título">{displayTitle}{dirty && <i className="cv-artifact-title-dirty" title="Alterações não salvas"/>}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
       {type === 'html' && artifact.id && <button type="button" onClick={artifact.status === 'published' && onUnpublish ? onUnpublish : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? artifact.status === 'published' ? 'Retirando…' : 'Publicando…' : saving ? 'Salvando…' : artifact.status === 'published' ? 'Despublicar' : publishedUrl ? 'Copiar URL' : 'Publicar'}</button>}
       {!artifact.pending && !artifact.failed && <details className="cv-artifact-more">
         <summary aria-label="Mais ações do artefato">Ações <span aria-hidden="true">⌄</span></summary>

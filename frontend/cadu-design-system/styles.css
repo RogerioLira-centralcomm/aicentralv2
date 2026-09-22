@@ -2973,3 +2973,36 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
   .cadu-ds-account-tabs { margin:10px 0 30px; padding-bottom:4px; scroll-snap-type:x proximity; }
   .cadu-ds-account-tabs a { min-height:40px; display:flex; align-items:center; scroll-snap-align:start; }
 }
+
+/* One mobile contract for authenticated Workspace surfaces. This final layer
+   prevents catalog/detail-specific rules from restoring desktop proportions. */
+@media (max-width:760px) {
+  html, body.portal--workspace { width:100%; max-width:100%; overflow-x:hidden; }
+  body.portal--workspace > main#content { width:100%; max-width:none; margin:0; padding:0; }
+  #cadu-conversations-v2-root.cv-home-root { width:100%; min-height:var(--workspace-visual-height,100dvh); overflow-x:hidden; }
+  #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-main,
+  #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-workarea { width:100%; min-width:0; min-height:var(--workspace-visual-height,100dvh); }
+  .cadu-ds-mobile-chrome { min-height:54px; padding:7px 12px; }
+  .cadu-ds-mobile-chrome>button { min-width:44px; min-height:40px; padding-inline:8px; }
+  .cadu-ds-project-content,
+  .cadu-ds-brand-content,
+  .cadu-ds-brands-content,
+  .cadu-ds-account-content { width:100%; padding:24px 16px max(42px,env(safe-area-inset-bottom)); }
+  .cadu-ds-project-hero,
+  .cadu-ds-brand-hero { align-items:start; gap:12px; }
+  .cadu-ds-project-hero h1,
+  .cadu-ds-brand-hero h1,
+  .cadu-ds-brands-content h1 { overflow-wrap:anywhere; font-size:clamp(27px,8vw,34px); line-height:1.05; }
+  .cadu-ds-project-hero__actions,
+  .cadu-ds-brand-hero__actions { display:flex; overflow-x:auto; gap:6px; padding-bottom:3px; scrollbar-width:none; }
+  .cadu-ds-project-hero__actions>* ,
+  .cadu-ds-brand-hero__actions>* { flex:0 0 auto; min-height:42px; }
+  .cadu-ds-project-signals { grid-template-columns:repeat(2,minmax(0,1fr)); gap:0; }
+  .cadu-ds-project-signals>div { margin:0; padding:12px 10px 12px 0; }
+  .cadu-ds-brands-tools { display:grid; grid-template-columns:1fr; align-items:stretch; gap:9px; margin:24px 0 12px; }
+  .cadu-ds-brands-tools input { width:100%; min-height:44px; }
+  .cadu-ds-catalog-list { border-right:0; border-left:0; border-radius:0; }
+  .cadu-ds-catalog-row { min-height:68px; padding:11px 2px; }
+  .cadu-ds-catalog-row__main b { font-size:14px; }
+  .cadu-ds-catalog-row__meta { font-size:10px; }
+}

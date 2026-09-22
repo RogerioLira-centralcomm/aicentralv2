@@ -1118,6 +1118,27 @@ def test_html_artifact_promotes_default_analysis_to_operator_runtime():
     assert execution_mode_for(route, "analysis") == "agentic"
 
 
+def test_short_text_artifact_stays_on_analysis_runtime():
+    route = route_request("Crie um resumo curto desta reunião", has_project=True)
+    assert route.action == "create_meeting_summary"
+    assert route.artifact_type == "meeting_summary"
+    assert execution_mode_for(route, "agentic") == "analysis"
+
+
+def test_meeting_fallback_keeps_semantic_context_field():
+    policy = {
+        "allow_artifact": True,
+        "mode": "artifact_first",
+        "artifact_type": "meeting_summary",
+        "artifact_fallback_title": "Resumo da reunião",
+        "max_questions": 0,
+        "max_next_steps": 0,
+    }
+    response = normalize_response('{"text":{"content":"Reunião semanal com Lucas e Alexandre."}}', policy)
+    assert response.artifact_patch["title"] == "Resumo da reunião"
+    assert response.artifact_patch["fields"][0]["key"] == "Contexto"
+
+
 def test_agentic_decision_persists_checkpoint_and_event_atomically(monkeypatch):
     results = iter([{"id": "run"}, {"id": "step", "kind": "action", "name": "publish", "status": "running",
                                      "input_snapshot": {"name": "publish"}},

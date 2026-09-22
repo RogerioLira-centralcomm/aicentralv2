@@ -8,6 +8,17 @@ import {ThemeProvider, WorkspaceAccount, WorkspaceBrand, WorkspaceBrands, Worksp
 const root = document.getElementById('cadu-conversations-v2-root') || document.getElementById('cadu-workspace-legacy-chrome-root');
 const bootstrapNode = document.getElementById('cadu-conversations-v2-bootstrap') || document.getElementById('cadu-workspace-legacy-chrome-bootstrap');
 
+function syncWorkspaceViewport() {
+  const viewport = window.visualViewport;
+  const height = Math.round(viewport?.height || window.innerHeight);
+  document.documentElement.style.setProperty('--workspace-visual-height', `${height}px`);
+}
+
+syncWorkspaceViewport();
+window.visualViewport?.addEventListener('resize', syncWorkspaceViewport, {passive: true});
+window.visualViewport?.addEventListener('scroll', syncWorkspaceViewport, {passive: true});
+window.addEventListener('orientationchange', syncWorkspaceViewport, {passive: true});
+
 if (root && bootstrapNode) {
   try {
     const bootstrap = JSON.parse(bootstrapNode.textContent);

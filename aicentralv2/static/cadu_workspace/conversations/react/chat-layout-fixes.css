@@ -8,22 +8,22 @@
 }
 
 /* Public home: a quiet Cadu-like field with soft directional lines. */
-body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea {
+body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-workarea {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   background: linear-gradient(132deg, #f7fbfa 0%, #e4f1ed 47%, #f8fbfa 100%);
 }
 
-body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea::before,
-body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea::after {
+body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-workarea::before,
+body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-workarea::after {
   position: absolute;
   z-index: -1;
   pointer-events: none;
   content: "";
 }
 
-body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea::before {
+body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-workarea::before {
   top: -35%;
   right: -18%;
   width: 112%;
@@ -38,7 +38,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea::befor
   transform: rotate(-13deg);
 }
 
-body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea::after {
+body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-workarea::after {
   top: 18%;
   left: -38%;
   width: 112%;
@@ -53,7 +53,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea::after
   transform: rotate(-8deg);
 }
 
-body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-workarea > * {
+body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-workarea > * {
   position: relative;
   z-index: 1;
 }

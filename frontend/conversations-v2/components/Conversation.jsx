@@ -94,7 +94,11 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}
     {!!response.actions?.length && <section className="cv-mt-5 cv-border-t cv-border-white/[.07] cv-pt-4"><span className="cv-mb-2 cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas ações</span><div className="cv-flex cv-flex-wrap cv-gap-2">{response.actions.slice(0, 3).map((item, index) => <button key={index} type="button" onClick={() => onPrompt(item.prompt || '')} className={`${item.style === 'primary' ? 'cv-border-teal/30 cv-bg-teal/10 cv-text-teal' : 'cv-border-white/10 cv-bg-transparent cv-text-[#c7d8d4]'} cv-rounded-lg cv-border cv-px-3 cv-py-2 cv-text-xs hover:cv-bg-white/[.08]`}>{item.label}</button>)}</div></section>}
     {!message.streaming && text.length > 5000 && !message.artifact?.id && <div className="cv-long-answer-action"><span>Este conteúdo pode continuar em um documento editável.</span><button type="button" onClick={() => onPrompt('Transforme sua última resposta completa em um documento editável, preserve todos os detalhes e abra o artefato ao lado.')}>Abrir como documento</button></div>}
-    {message.artifact?.id && <button type="button" onClick={() => onOpenArtifact(message.artifact)} className="cv-mt-5 cv-flex cv-items-center cv-gap-2 cv-rounded-lg cv-border-0 cv-bg-teal/10 cv-px-3 cv-py-2 cv-text-xs cv-font-semibold cv-text-[#66dbce] hover:cv-bg-teal/15"><Icon name="file" size={15}/>Ver {message.artifact.title || 'artefato'}{message.artifact.current_version ? ` · v${message.artifact.current_version}` : ''}</button>}
+    {message.artifact?.id && <button type="button" onClick={() => onOpenArtifact(message.artifact)} className="cv-artifact-result">
+      <span className="cv-artifact-result__icon"><Icon name="file" size={17}/></span>
+      <span className="cv-artifact-result__copy"><b>{message.artifact.title || 'Documento editável'}</b><small>{message.artifact.project_ref ? 'Salvo no projeto' : 'Rascunho da conversa'}{message.artifact.current_version ? ` · versão ${message.artifact.current_version}` : ''}</small></span>
+      <span className="cv-artifact-result__action">Abrir e editar <Icon name="chevron" size={14}/></span>
+    </button>}
   </div>;
 }
 
@@ -151,17 +155,20 @@ function pendingInteraction(messages, running) {
   });
   if (!question && !options.length) return null;
   const normalizedOptions = options.length ? options : [{
-    id: 'write-answer', label: 'Escrever resposta', detail: 'Responda no campo abaixo.',
-    prompt: question, asContext: true,
+    id: 'write-answer', label: 'Responder', prompt: question, asContext: true, freeform: true,
   }];
   return {question: question || 'Escolha como continuar', options: normalizedOptions.slice(0, 4)};
 }
 
 function PendingInteraction({interaction, onPrompt, onDecision}) {
   if (!interaction) return null;
+  const freeform = interaction.kind !== 'action' && interaction.options.length === 1 && interaction.options[0].freeform;
+  const choose = option => interaction.kind === 'action'
+    ? onDecision(interaction.message, option.approved)
+    : option.asContext ? onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt}) : onPrompt(option.prompt);
   return <section className={`cv-pending-interaction ${interaction.kind === 'action' ? 'is-action' : ''}`} aria-label="Ação necessária">
-    <div className="cv-pending-interaction__heading"><Icon name={interaction.kind === 'action' ? 'pulse' : 'alert'} size={16}/><span><small>{interaction.eyebrow || 'Sua decisão'}</small><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span></div>
-    {!!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.options.map(option => <button key={option.id} type="button" disabled={interaction.pending} onClick={() => interaction.kind === 'action' ? onDecision(interaction.message, option.approved) : option.asContext ? onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt}) : onPrompt(option.prompt)}>
+    <div className="cv-pending-interaction__heading"><Icon name={interaction.kind === 'action' ? 'pulse' : 'alert'} size={16}/><span><small>{interaction.eyebrow || 'Para continuar'}</small><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span>{freeform && <button type="button" className="cv-pending-interaction__respond" onClick={() => choose(interaction.options[0])}>Responder</button>}</div>
+    {!freeform && !!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.options.map(option => <button key={option.id} type="button" disabled={interaction.pending} onClick={() => choose(option)}>
       <span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/>
     </button>)}</div>}
   </section>;

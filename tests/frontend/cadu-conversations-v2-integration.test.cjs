@@ -405,8 +405,11 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
   assert.doesNotMatch(conversation, /Ver resposta completa/);
   assert.match(conversation, /cv-pending-interaction/);
-  assert.match(conversation, /label: 'Escrever resposta'/);
-  assert.match(conversation, /Responda no campo abaixo/);
+  assert.match(conversation, /freeform: true/);
+  assert.match(conversation, /cv-pending-interaction__respond/);
+  assert.match(conversation, /cv-artifact-result/);
+  assert.match(conversation, /Abrir e editar/);
+  assert.match(artifact, /return textArtifact/);
   assert.match(promptAssembler, /pergunta exclusivamente em/);
   assert.match(promptAssembler, /Não repita a mesma/);
   assert.match(conversation, /Adicionar referência/);
@@ -753,7 +756,7 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(app, /\/workspace\/api\/v2\/images\/organize/);
   assert.match(app, /Imagem organizada/);
   assert.match(artifact, /function imageFileName/);
-  assert.match(artifact, /aria-label="Nome do arquivo"/);
+  assert.match(artifact, /aria-label=\{type === 'image' \? 'Nome do arquivo' : 'Título do documento'\}/);
   assert.match(artifact, /cv-image-metadata/);
   assert.match(artifact, /Dimensões/);
   assert.match(artifact, /Resolução/);
@@ -804,4 +807,30 @@ test('document editor never exposes a provider envelope as editable prose', () =
   assert.match(artifact, /decoded\?\.text\?\.content \|\| decoded\?\.answer/);
   assert.match(artifact, /An incomplete protocol envelope must not become editable content/);
   assert.match(artifact, /artifact_patch/);
+});
+
+test('meeting summaries use a dedicated semantic React editor', () => {
+  const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+
+  assert.match(artifact, /function MeetingSummaryArtifact/);
+  assert.match(artifact, /type === 'meeting_summary' \|\| type === 'meeting_agenda'/);
+  assert.match(artifact, /Registro da reunião/);
+  assert.match(artifact, /meetingSectionAliases/);
+  assert.match(styles, /\.cv-meeting-summary__sections/);
+  assert.match(styles, /\.cv-meeting-summary__section\.is-decisoes/);
+});
+
+test('mobile workspace surfaces share the visual viewport and keep chat styling isolated', () => {
+  const main = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+  const conversationStyles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+  const layoutFixes = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/react/chat-layout-fixes.css'), 'utf8');
+
+  assert.match(main, /--workspace-visual-height/);
+  assert.match(main, /visualViewport\?\.addEventListener\('resize'/);
+  assert.match(styles, /One mobile contract for authenticated Workspace surfaces/);
+  assert.match(conversationStyles, /cv-conversation--empty \.cv-empty-state/);
+  assert.match(layoutFixes, /#cadu-conversations-v2-root\.cv-home-root \.cadu-ds-home-workarea/);
+  assert.doesNotMatch(layoutFixes, /#cadu-conversations-v2-root \.cadu-ds-home-workarea \{/);
 });

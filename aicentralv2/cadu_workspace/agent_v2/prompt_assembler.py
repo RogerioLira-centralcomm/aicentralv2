@@ -122,6 +122,16 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "Retorne artifact_patch com title e html, sem subtítulo separado, Markdown, CSS ou JavaScript. "
             + ("O resumo será criado como entrega editável do projeto. Quando evidence indicar `google_workspace_authorized`, trate-o como acesso pela conta conectada; quando indicar `firecrawl_public`, deixe claro que o resumo veio apenas do conteúdo público e nunca suponha acesso a itens privados." if route.action == "create_link_summary" else "O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita.")
         )
+    if route.artifact_type in {"meeting_summary", "meeting_agenda"}:
+        draft_instruction = (
+            "Crie um registro de reunião estruturado para edição em uma interface React própria. "
+            "O artifact_patch deve conter somente title, summary e fields. Use summary para uma síntese curta e factual. "
+            "Em fields, use seções semanticamente reconhecíveis: Participantes, Contexto, Decisões, Encaminhamentos e Pendências; "
+            "para uma pauta, prefira Objetivo, Participantes, Tópicos e Preparação. Inclua apenas seções sustentadas pelo pedido ou pelo histórico. "
+            "Em Encaminhamentos, escreva cada item em uma linha e preserve responsável e prazo quando fornecidos. "
+            "Não retorne HTML, Markdown, CSS, JSON serializado dentro dos campos, nem texto operacional sobre o agente. "
+            "Nunca afirme que faltam dados presentes no histórico da conversa. Não invente participantes, decisões, responsáveis ou datas."
+        )
     if route.artifact_type == "html":
         draft_instruction = (
             "Gere um artefato HTML visual para o objetivo do usuário. Use Tailwind CSS e componentes simples, com layout limpo, responsivo, acessível e pronto para relatório, tabela, resumo executivo ou dashboard conforme o pedido. "
@@ -172,6 +182,8 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                 if route.artifact_type == "document" else
                 {"title": "string", "summary": "string", "html": "HTML body fragment", "css": "CSS", "js": "JavaScript", "logo_url": "HTTPS opcional da marca", "primary_color": "HEX opcional", "secondary_color": "HEX opcional"}
                 if route.artifact_type == "html" else
+                {"title": "string", "summary": "síntese factual curta", "fields": [{"key": "Participantes|Contexto|Decisões|Encaminhamentos|Pendências", "value": "texto editável", "state": "confirmed|inferred|missing"}]}
+                if route.artifact_type in {"meeting_summary", "meeting_agenda"} else
                 {"title": "string", "summary": "string", "fields": [{"key": "string", "value": "string", "state": "confirmed|inferred|assumed|missing|conflicting"}]}
                 if route.artifact_type else None
             ),

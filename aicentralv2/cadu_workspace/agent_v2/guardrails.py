@@ -514,11 +514,14 @@ def _fallback_artifact(answer, policy):
         intro.extend(body)
     fields = [{"key": _clean_text(key, 160), "value": _plain_multiline(value), "state": "inferred"}
               for key, value in sections[:20] if _clean_text(key, 160)]
-    return {
+    patch = {
         "title": title,
         "summary": _plain_multiline("\n".join(intro), 2000),
         "fields": fields,
     }
+    if policy.get("artifact_type") in {"meeting_summary", "meeting_agenda"} and not fields:
+        patch["fields"] = [{"key": "Contexto", "value": _plain_multiline(answer), "state": "inferred"}]
+    return patch
 
 
 def normalize_response(raw, policy: dict) -> AgentResponse:

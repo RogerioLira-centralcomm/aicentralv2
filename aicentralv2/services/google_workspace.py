@@ -47,9 +47,6 @@ SCOPES = (
     "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/meetings.space.created",
     "https://www.googleapis.com/auth/meetings.space.readonly",
-    "https://www.googleapis.com/auth/analytics.readonly",
-    "https://www.googleapis.com/auth/webmasters.readonly",
-    "https://www.googleapis.com/auth/adwords",
 )
 
 # The matrix is intentionally kept beside the OAuth contract. This makes the
@@ -92,6 +89,7 @@ GOOGLE_SERVICE_CATALOG = (
         "icon": "fa-solid fa-chart-line",
         "description": "Propriedades e sinais de audiência podem alimentar o planejamento.",
         "scopes": ("https://www.googleapis.com/auth/analytics.readonly",),
+        "coming_soon": True,
         "api_url": "https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com",
     },
     {
@@ -100,6 +98,7 @@ GOOGLE_SERVICE_CATALOG = (
         "icon": "fa-solid fa-magnifying-glass-chart",
         "description": "Sites, consultas e presença orgânica ficam disponíveis para análise.",
         "scopes": ("https://www.googleapis.com/auth/webmasters.readonly",),
+        "coming_soon": True,
         "api_url": "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com",
     },
     {
@@ -110,6 +109,7 @@ GOOGLE_SERVICE_CATALOG = (
         "scopes": ("https://www.googleapis.com/auth/adwords",),
         "api_url": "https://console.cloud.google.com/apis/library/googleads.googleapis.com",
         "requires_developer_token": True,
+        "coming_soon": True,
     },
 )
 
@@ -119,6 +119,7 @@ _SERVICE_STATUS_LABELS = {
     "needs_reauthorization": "Atualizar permissões",
     "needs_configuration": "Configuração pendente",
     "unavailable": "Indisponível",
+    "coming_soon": "Em breve",
     "error": "Requer atenção",
 }
 
@@ -267,7 +268,10 @@ def service_matrix(organization_id: int) -> dict:
     services = []
     for definition in GOOGLE_SERVICE_CATALOG:
         missing_scopes = [scope for scope in definition["scopes"] if scope not in granted]
-        if not table_available:
+        if definition.get("coming_soon"):
+            status = "coming_soon"
+            detail = "Este conector ficará disponível em uma próxima etapa do sistema de trabalho."
+        elif not table_available:
             status = "unavailable"
             detail = "A tabela de conexões ainda não está disponível nesta instalação."
         elif not config["configured"]:

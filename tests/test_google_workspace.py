@@ -51,7 +51,9 @@ def test_google_workspace_authorization_requests_workspace_capabilities():
     assert query['code_challenge'] == ['challenge']
     assert 'https://www.googleapis.com/auth/drive' in query['scope'][0]
     assert 'https://www.googleapis.com/auth/meetings.space.created' in query['scope'][0]
-    assert 'https://www.googleapis.com/auth/adwords' in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/adwords' not in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/analytics.readonly' not in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/webmasters.readonly' not in query['scope'][0]
 
 
 def test_google_workspace_exchange_keeps_pkce_verifier_and_identity():
@@ -96,7 +98,7 @@ def test_google_workspace_service_matrix_explains_missing_authorization():
              patch('aicentralv2.services.google_workspace.get_connection', return_value=None):
             result = service_matrix(44)
     assert result['summary']['enabled_count'] == 0
-    assert {item['status'] for item in result['services']} == {'needs_authorization'}
+    assert {item['status'] for item in result['services']} == {'needs_authorization', 'coming_soon'}
     assert result['configuration']['missing'] == []
 
 
@@ -120,8 +122,9 @@ def test_google_workspace_service_matrix_marks_all_capabilities_ready():
              patch('aicentralv2.services.google_workspace._available', return_value=True), \
              patch('aicentralv2.services.google_workspace.get_connection', return_value=connection):
             result = service_matrix(44)
-    assert result['summary'] == {'enabled_count': 6, 'total_count': 6, 'pending_count': 0}
-    assert all(item['status'] == 'enabled' for item in result['services'])
+    assert result['summary'] == {'enabled_count': 3, 'total_count': 6, 'pending_count': 3}
+    assert [item['status'] for item in result['services'][:3]] == ['enabled'] * 3
+    assert [item['status'] for item in result['services'][3:]] == ['coming_soon'] * 3
 
 
 def test_google_drive_sync_consumes_changes_cursor_and_archives_removed_files():

@@ -684,7 +684,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-message__label { display:block; margin:0 0 6px; color:#8ea6a1; font-size:10px; font-weight:650; letter-spacing:.02em; }
 #cadu-conversations-v2-root .cv-message--user .cv-message__label { padding-right:3px; color:#8fc8be; }
 #cadu-conversations-v2-root .cv-assistant-answer { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
-#cadu-conversations-v2-root .cv-assistant-answer .cv-prose strong { font-weight:600; }
+#cadu-conversations-v2-root .cv-assistant-answer .cv-prose strong { color:#edf5f3; font-weight:560; }
 
 #cadu-conversations-v2-root .cv-response-summary { padding:2px 0 2px 14px; border:0; border-left:2px solid rgba(101,216,203,.5); background:transparent; }
 #cadu-conversations-v2-root .cv-note-block { padding:2px 0 2px 14px; border:0; border-left:2px solid rgba(181,218,211,.18); background:transparent; }
@@ -834,13 +834,19 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-scroll::-webkit-scrollbar-thumb { background: rgba(120,155,149,.34); border-radius: 999px; }
 .cv-scroll::-webkit-scrollbar-thumb:hover { background: rgba(127,205,193,.5); }
 
-.cv-prose { color:#dfe9e7; font-size:16px; font-weight:400; line-height:1.68; max-width:70ch; }
-.cv-prose > * { margin:0 0 17px; }
+.cv-prose { color:#dbe6e3; font-size:15px; font-weight:400; line-height:1.58; max-width:72ch; }
+.cv-prose > * { margin:0 0 12px; }
 .cv-prose > *:last-child { margin-bottom: 0; }
-.cv-prose h3 { color:#f5fbfa; font-size:18px; font-weight:600; line-height:1.4; margin-top:28px; }
-.cv-prose ul, .cv-prose ol { padding-left: 22px; }
-.cv-prose li + li { margin-top: 5px; }
-.cv-prose strong { color:inherit; font-weight:550; }
+.cv-prose h2,
+.cv-prose h3 { color:#f0f7f5; letter-spacing:-.012em; }
+.cv-prose h2 { margin-top:24px; margin-bottom:8px; font-size:16px; font-weight:620; line-height:1.38; }
+.cv-prose h3 { margin-top:19px; margin-bottom:7px; font-size:15px; font-weight:600; line-height:1.4; }
+.cv-prose h2:first-child,
+.cv-prose h3:first-child { margin-top:0; }
+.cv-prose ul, .cv-prose ol { padding-left:20px; }
+.cv-prose li { padding-left:2px; }
+.cv-prose li + li { margin-top:3px; }
+.cv-prose strong { color:inherit; font-weight:560; }
 .cv-prose code { padding: 2px 5px; border-radius: 5px; background: rgba(255,255,255,.07); font-size: .9em; }
 .cv-prose a { color: #69ddd0; text-underline-offset: 3px; }
 #cadu-conversations-v2-root .cv-long-answer-action { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-top:24px; padding:12px 0; border-top:1px solid rgba(181,218,211,.11); color:#829b96; font-size:12px; }
@@ -1176,9 +1182,10 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-message--user .cv-user-message { max-width:92%; overflow-wrap:anywhere; }
   #cadu-conversations-v2-root .cv-assistant-answer,
   #cadu-conversations-v2-root .cv-prose { max-width:100%; overflow-wrap:anywhere; }
-  #cadu-conversations-v2-root .cv-prose { font-size:15px; line-height:1.62; }
-  #cadu-conversations-v2-root .cv-prose > * { margin-bottom:14px; }
-  #cadu-conversations-v2-root .cv-prose h3 { margin-top:22px; font-size:16px; line-height:1.38; }
+  #cadu-conversations-v2-root .cv-prose { font-size:14.5px; line-height:1.56; }
+  #cadu-conversations-v2-root .cv-prose > * { margin-bottom:11px; }
+  #cadu-conversations-v2-root .cv-prose h2 { margin-top:21px; font-size:15.5px; line-height:1.38; }
+  #cadu-conversations-v2-root .cv-prose h3 { margin-top:17px; font-size:14.5px; line-height:1.4; }
   #cadu-conversations-v2-root .cv-prose ul,
   #cadu-conversations-v2-root .cv-prose ol { padding-left:20px; }
   #cadu-conversations-v2-root .cv-prose pre,

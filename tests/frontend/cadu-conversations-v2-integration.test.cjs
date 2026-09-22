@@ -473,7 +473,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /label: 'Trecho selecionado'/);
   assert.match(conversation, /cv-chat-failure/);
   assert.match(conversation, /Confian\(\?:ça\|ca\)/);
-  assert.match(markdown, /words\.length <= 8/);
+  assert.match(markdown, /words\.length <= 4 && emphasis\.length <= 44/);
   assert.match(conversation, /Créditos da conta/);
   assert.match(conversation, /Adicionar créditos/);
   assert.doesNotMatch(conversation, /Adicionar ao briefing|Perguntar|Resumir/);
@@ -655,6 +655,7 @@ test('conversation response UI never invents follow-up actions for static insigh
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const interaction = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx'), 'utf8');
   const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   assert.doesNotMatch(blocks, /Aprofunde este ponto/);
   assert.match(blocks, /item\.prompt\s*\?/);
   assert.match(conversation, /normalizeAnswerText\(response\.answer/);
@@ -663,6 +664,9 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(interaction, /meaningfulResponseBlocks\(response\.blocks\)/);
   assert.doesNotMatch(conversation, /cv-message__label">Cadu/);
   assert.match(markdown, /paragraph\.join\(' '\)/);
+  assert.match(markdown, /words\.length <= 4 && emphasis\.length <= 44/);
+  assert.match(markdown, /heading\[1\]\.length <= 2 \? 'h2' : 'h3'/);
+  assert.match(styles, /\.cv-prose \{ color:#dbe6e3; font-size:15px; font-weight:400; line-height:1\.58; max-width:72ch; \}/);
   assert.match(fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8'), /kind === 'answer\.delta'/);
   assert.match(progress, /Trabalhando\{elapsed/);
   assert.match(progress, /Etapas concluídas/);

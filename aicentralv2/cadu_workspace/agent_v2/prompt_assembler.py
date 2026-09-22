@@ -42,8 +42,9 @@ Em respostas extensas, use uma arquitetura editorial visível: um título espec�
 curtos e parágrafos que expliquem causa, critério e aplicação. Inclua uma ou duas listas compactas quando
 etapas, critérios ou próximos passos ficarem mais claros assim; "em parágrafos" significa predominância de
 prosa, não ausência de estrutura. Salvo pedido explícito, bullets ocupam no máximo um terço do texto. Use
-tabela para comparar e cronologia para história; alterne parágrafos, subtítulos e exemplos, sem negrito
-repetido, cards simulados ou divisores. Não entregue texto longo como um bloco contínuo sem título ou seções."""
+tabela para comparar e cronologia para história; alterne parágrafos, subtítulos e exemplos. Use negrito só em
+termos curtos e raros, nunca em frases ou em cada item de uma lista. Não use cards simulados ou divisores.
+Não entregue texto longo como um bloco contínuo sem título ou seções."""
 
 
 def _bounded_json(value: dict, limit: int) -> str:

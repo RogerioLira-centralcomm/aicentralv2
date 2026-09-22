@@ -10,7 +10,7 @@ function Inline({text, onOpenResource}) {
       // Long bold spans make generated prose look like an alert and often
       // originate from an over-eager model. Keep emphasis for labels and
       // short phrases, never for complete paragraphs.
-      return words.length <= 8 && emphasis.length <= 80
+      return words.length <= 4 && emphasis.length <= 44
         ? <strong key={index}>{emphasis}</strong>
         : emphasis;
     }
@@ -41,12 +41,13 @@ export function Markdown({children, onOpenResource}) {
   String(children || '').replace(/\r\n/g, '\n').split('\n').forEach((raw, index) => {
     const line = raw.trim();
     if (!line) { flush(); flushParagraph(index); return; }
-    const heading = line.match(/^#{1,6}\s+(.+)$/);
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
     const bullet = line.match(/^[-*+]\s+(.+)$/);
     const numbered = line.match(/^\d+[.)]\s+(.+)$/);
     if (heading) {
       flush(); flushParagraph(index);
-      blocks.push(<h3 key={`h-${index}`}><Inline text={heading[1]} onOpenResource={onOpenResource}/></h3>);
+      const level = heading[1].length <= 2 ? 'h2' : 'h3';
+      blocks.push(React.createElement(level, {key: `h-${index}`}, <Inline text={heading[2]} onOpenResource={onOpenResource}/>));
     } else if (bullet || numbered) {
       flushParagraph(index);
       const type = numbered ? 'ol' : 'ul';

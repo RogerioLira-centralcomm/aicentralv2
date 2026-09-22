@@ -672,7 +672,11 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(progress, /Etapas concluídas/);
   assert.match(conversation, /message\.streaming && showActivity/);
   assert.match(conversation, /text\.length > 5000/);
-  assert.match(conversation, /Abrir como documento/);
+  assert.match(conversation, /Editar em documento/);
+  assert.match(conversation, /navigator\.clipboard\?\.writeText/);
+  assert.match(conversation, /document\.execCommand\('copy'\)/);
+  assert.match(conversation, /aria-live="polite"/);
+  assert.match(conversation, /cv-answer-tools/);
   assert.match(conversation, /type:'assistant_response'/);
   assert.match(conversation, /Resposta completa para o documento/);
   assert.doesNotMatch(conversation, />C<\/span>/);

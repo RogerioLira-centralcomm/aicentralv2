@@ -23,6 +23,7 @@ export function Icon({name, size = 18, className = ''}) {
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></>,
     external: <><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></>,
     download: <><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></>,
+    copy: <><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
     alert: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v6M12 17h.01"/></>,
     chevron: <path d="m9 6 6 6-6 6"/>,

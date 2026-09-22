@@ -12,6 +12,20 @@ import {meaningfulResponseBlocks, normalizeAnswerText} from '../lib/responseMode
 import {ConversationSupport} from './ConversationSupport';
 import {PendingInteraction, pendingInteraction} from './PendingInteraction';
 
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.appendChild(field);
+  field.select();
+  const copied = document.execCommand('copy');
+  field.remove();
+  if (!copied) throw new Error('copy_failed');
+}
+
 function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   const needsCredits = failure?.kind === 'credits';
   const needsRefresh = failure?.kind === 'session';
@@ -31,6 +45,8 @@ function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
 }
 
 function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPrompt, creditsUrl}) {
+  const [copyState, setCopyState] = useState('idle');
+  const copyTimer = useRef(null);
   const response = message.response || {answer: message.content};
   const text = normalizeAnswerText(response.answer || '')
     .replace(/^\s*[^|\n]{1,240}\|\s*Confian(?:ça|ca)\s*:\s*\**\s*(?:baixa|m[eé]dia|alta|low|medium|high)\**[.,]?\s*/i, '')
@@ -42,6 +58,17 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     .trim();
   const blocks = meaningfulResponseBlocks(response.blocks);
   const contentBlocks = blocks.filter(block => !['question', 'questions', 'decision'].includes(block.type));
+  useEffect(() => () => window.clearTimeout(copyTimer.current), []);
+  const copyAnswer = async () => {
+    try {
+      await copyText(text);
+      setCopyState('copied');
+      window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopyState('idle'), 1800);
+    } catch {
+      setCopyState('failed');
+    }
+  };
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
   if (message.kind === 'action') return null;
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
@@ -50,7 +77,10 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}
     {!!response.actions?.length && <section className="cv-mt-5 cv-border-t cv-border-white/[.07] cv-pt-4"><span className="cv-mb-2 cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas ações</span><div className="cv-flex cv-flex-wrap cv-gap-2">{response.actions.slice(0, 3).map((item, index) => <button key={index} type="button" onClick={() => onPrompt(item.prompt || '')} className={`${item.style === 'primary' ? 'cv-border-teal/30 cv-bg-teal/10 cv-text-teal' : 'cv-border-white/10 cv-bg-transparent cv-text-[#c7d8d4]'} cv-rounded-lg cv-border cv-px-3 cv-py-2 cv-text-xs hover:cv-bg-white/[.08]`}>{item.label}</button>)}</div></section>}
-    {!message.streaming && text.length > 5000 && !message.artifact?.id && <div className="cv-long-answer-action"><span>Este conteúdo pode continuar em um documento editável.</span><button type="button" onClick={() => onPrompt('Organize a resposta selecionada em um documento editável. Preserve integralmente fatos, números, recomendações e conclusões; crie um título específico e subtítulos semânticos entre as seções para facilitar a leitura. Abra o artefato ao lado.', {type:'assistant_response', label:'Resposta completa para o documento', text})}>Abrir como documento</button></div>}
+    {!message.streaming && text && <div className="cv-answer-tools" aria-label="Ações da resposta">
+      <button type="button" onClick={copyAnswer} className={copyState === 'copied' ? 'is-confirmed' : ''} aria-label="Copiar resposta" title="Copiar resposta"><Icon name={copyState === 'copied' ? 'check' : 'copy'} size={14}/><span aria-live="polite">{copyState === 'copied' ? 'Copiado' : copyState === 'failed' ? 'Não foi possível copiar' : 'Copiar'}</span></button>
+      {text.length > 5000 && !message.artifact?.id && <button type="button" onClick={() => onPrompt('Organize a resposta selecionada em um documento editável. Preserve integralmente fatos, números, recomendações e conclusões; crie um título específico e subtítulos semânticos entre as seções para facilitar a leitura. Abra o artefato ao lado.', {type:'assistant_response', label:'Resposta completa para o documento', text})}><Icon name="file" size={14}/><span>Editar em documento</span></button>}
+    </div>}
     {message.artifact?.id && <button type="button" onClick={() => onOpenArtifact(message.artifact)} className="cv-artifact-result">
       <span className="cv-artifact-result__icon"><Icon name="file" size={17}/></span>
       <span className="cv-artifact-result__copy"><b>{message.artifact.title || 'Documento editável'}</b><small>{message.artifact.project_ref ? 'Salvo no projeto' : 'Rascunho da conversa'}{message.artifact.current_version ? ` · versão ${message.artifact.current_version}` : ''}</small></span>

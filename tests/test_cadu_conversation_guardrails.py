@@ -44,6 +44,15 @@ class ConversationGuardrailsTest(TestCase):
         self.assertEqual(history_context([]), '')
         self.assertEqual(history_context([{'role': 'assistant', 'content': '<think>hidden</think>'}]), '')
 
+    def test_history_preserves_the_latest_long_assistant_answer_for_followups(self):
+        latest = 'resposta-longa-' * 700
+        result = history_context([
+            {'role': 'user', 'content': 'Escreva um guia completo.'},
+            {'role': 'assistant', 'content': latest},
+        ])
+        self.assertIn(latest, result)
+        self.assertNotIn('…', result)
+
     def test_confirmation_precedes_future_tool_keywords(self):
         self.assertEqual(classify_intent('Não, pode gerar a imagem'), 'continuation')
         self.assertEqual(classify_intent('Pode seguir com a análise'), 'continuation')

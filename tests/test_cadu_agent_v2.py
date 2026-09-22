@@ -992,6 +992,12 @@ def test_prompt_payload_includes_bounded_prior_conversation_as_evidence():
     assert payload["query"] == "Use a segunda opção"
 
 
+def test_prompt_contract_resolves_last_content_without_asking_for_paste():
+    assert '"o último conteúdo"' in CORE
+    assert "A entrada `Assistente:` mais recente é o alvo padrão" in CORE
+    assert "nunca peça para o usuário colá-la novamente" in CORE
+
+
 def test_prompt_payload_includes_selected_context_as_bounded_evidence():
     route = route_request("Explique este trecho")
     payload = build_payload(

@@ -13,6 +13,7 @@ MAX_MESSAGE_CHARS = 20000
 MAX_FILES = 3
 MAX_HISTORY_MESSAGES = 30
 MAX_HISTORY_MESSAGE_CHARS = 4000
+MAX_LATEST_ASSISTANT_CHARS = 16000
 MAX_HISTORY_CHARS = 24000
 
 
@@ -92,15 +93,19 @@ def validate_files(value):
 def history_context(messages):
     """Rehydrate old threads only; strip private reasoning and bound every level."""
     lines = []
-    for message in messages[-MAX_HISTORY_MESSAGES:]:
+    bounded = messages[-MAX_HISTORY_MESSAGES:]
+    latest_assistant = next((index for index in range(len(bounded) - 1, -1, -1)
+                             if bounded[index].get('role') == 'assistant'), -1)
+    for index, message in enumerate(bounded):
         if message.get('role') not in ('user', 'assistant'):
             continue
         content = str(message.get('content') or '')
         content = re.sub(r'<think\b[^>]*>.*?(?:</think\s*>|$)', '', content, flags=re.I | re.S).strip()
         if not content:
             continue
-        if len(content) > MAX_HISTORY_MESSAGE_CHARS:
-            content = content[:MAX_HISTORY_MESSAGE_CHARS] + '…'
+        limit = MAX_LATEST_ASSISTANT_CHARS if index == latest_assistant else MAX_HISTORY_MESSAGE_CHARS
+        if len(content) > limit:
+            content = content[:limit] + '…'
         role = 'Assistente' if message['role'] == 'assistant' else 'Usuário'
         lines.append(role + ': ' + content)
     if not lines:

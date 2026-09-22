@@ -302,9 +302,45 @@ def organize_image():
     source = str(data.get("source") or "")[:40]
     source_id = str(data.get("source_id") or data.get("id") or "")[:160]
     title = str(data.get("title") or "imagem.png")[:220]
-    public_url = str(data.get("url") or "")[:500]
-    storage = CreativeAssetStorage()
-    image_bytes = storage.read_public_bytes(public_url)
+    raw_id = source_id.split(":", 1)[-1]
+    connection = repository.get_db()
+    owned = None
+    with connection.cursor() as cursor:
+        if source == "brand" and raw_id.isdigit() and current.brand_ref:
+            cursor.execute("""SELECT id, COALESCE(asset_path, source_url) AS asset_url
+                                FROM cx_client_brand_assets WHERE id=%s AND client_id=%s""",
+                           (int(raw_id), int(str(current.brand_ref).removeprefix("studio:"))))
+            owned = cursor.fetchone()
+        elif source == "reference":
+            cursor.execute("""SELECT id, asset_url FROM cx_studio_assets
+                                WHERE id::text=%s AND client_id=%s AND owner_user_id=%s
+                                  AND deleted_at IS NULL""", (raw_id, current.client_id, current.user_id))
+            owned = cursor.fetchone()
+        elif source == "personal":
+            cursor.execute("""SELECT id, result->>'image_url' AS asset_url
+                                FROM cx_studio_image_generations
+                               WHERE id::text=%s AND client_id=%s AND user_id=%s
+                                 AND deleted_at IS NULL""", (raw_id, current.client_id, current.user_id))
+            owned = cursor.fetchone()
+        elif source == "studio" and current.project_ref:
+            cursor.execute("""SELECT item.id, item.asset_url
+                                FROM cx_studio_project_items item
+                                JOIN cx_studio_projects project ON project.id=item.project_id
+                               WHERE item.id::text=%s AND project.client_id=%s
+                                 AND project.document->>'external_project_id'=%s""",
+                           (raw_id, current.client_id, str(current.project_ref).removeprefix("ci:")))
+            owned = cursor.fetchone()
+        elif source == "workspace_images" and raw_id.isdigit() and current.project_ref:
+            cursor.execute("""SELECT id, file_bytes, file_path AS asset_url
+                                FROM cadu_docs_client_images
+                               WHERE id=%s AND id_cliente=%s AND projeto_id=%s AND ativo=true""",
+                           (int(raw_id), current.client_id, str(current.project_ref).removeprefix("ci:")))
+            owned = cursor.fetchone()
+    if not owned:
+        abort(404, description="Não foi possível localizar esta imagem no contexto autorizado.")
+    image_bytes = owned.get("file_bytes") if isinstance(owned, dict) else None
+    if not image_bytes:
+        image_bytes = CreativeAssetStorage().read_public_bytes(str(owned.get("asset_url") or ""))
     if not image_bytes:
         abort(422, description="Esta imagem ainda não possui uma cópia local disponível para OCR.")
     from .. import project_sources
@@ -317,20 +353,18 @@ def organize_image():
         "ocr_text": ocr_text[:12000], "ocr_processing": processing,
         "original_name": organized["original_name"], "renamed_by_indexer": organized["renamed_by_indexer"],
     }
-    connection = repository.get_db()
     try:
         with connection.cursor() as cursor:
             updated = None
-            if source == "brand" and source_id.removeprefix("brand:").isdigit() and current.brand_ref:
+            if source == "brand":
                 cursor.execute("""UPDATE cx_client_brand_assets
                                       SET metadata=COALESCE(metadata,'{}'::jsonb) || %s::jsonb, updated_at=NOW()
                                     WHERE id=%s AND client_id=%s RETURNING id""",
                                (json.dumps({**metadata, "display_name": organized["name"]}, ensure_ascii=False),
-                                int(source_id.removeprefix("brand:")), int(str(current.brand_ref).removeprefix("studio:"))))
+                                int(raw_id), int(str(current.brand_ref).removeprefix("studio:"))))
                 updated = cursor.fetchone()
             elif source in {"personal", "reference"}:
-                raw_id = source_id.split(":", 1)[-1]
-                table = "cx_studio_assets" if source_id.startswith("reference:") else "cx_studio_image_generations"
+                table = "cx_studio_assets" if source == "reference" else "cx_studio_image_generations"
                 if table == "cx_studio_assets":
                     cursor.execute("""UPDATE cx_studio_assets SET title=%s,
                                           metadata=COALESCE(metadata,'{}'::jsonb) || %s::jsonb
@@ -344,16 +378,29 @@ def organize_image():
                                    (json.dumps({**metadata, "title": organized["name"]}, ensure_ascii=False), raw_id,
                                     current.client_id, current.user_id))
                 updated = cursor.fetchone()
-            elif source == "studio" and current.project_ref:
+            elif source == "studio":
                 cursor.execute("""UPDATE cx_studio_project_items item SET title=%s,
                                       metadata=COALESCE(item.metadata,'{}'::jsonb) || %s::jsonb, updated_at=NOW()
                                      FROM cx_studio_projects project
                                     WHERE item.id::text=%s AND item.project_id=project.id
                                       AND project.client_id=%s AND project.document->>'external_project_id'=%s
                                 RETURNING item.id""",
-                               (organized["name"], json.dumps(metadata, ensure_ascii=False), source_id,
+                               (organized["name"], json.dumps(metadata, ensure_ascii=False), raw_id,
                                 current.client_id, str(current.project_ref).removeprefix("ci:")))
                 updated = cursor.fetchone()
+            elif source == "workspace_images":
+                cursor.execute("""UPDATE cadu_docs_client_images SET title=%s
+                                    WHERE id=%s AND id_cliente=%s AND projeto_id=%s AND ativo=true
+                                RETURNING id""", (organized["name"], int(raw_id), current.client_id,
+                                                   str(current.project_ref).removeprefix("ci:")))
+                updated = cursor.fetchone()
+                cursor.execute("""UPDATE cadu_project_resources
+                                      SET title=%s, metadata=COALESCE(metadata,'{}'::jsonb) || %s::jsonb,
+                                          source_updated_at=NOW(), last_seen_at=NOW()
+                                    WHERE client_id=%s AND project_ref=%s
+                                      AND source_system='workspace_images' AND source_id=%s""",
+                               (organized["name"], json.dumps(metadata, ensure_ascii=False), current.client_id,
+                                current.project_ref, raw_id))
             if not updated:
                 abort(404, description="Não foi possível localizar esta imagem no contexto autorizado.")
         connection.commit()

@@ -1430,6 +1430,8 @@ def test_image_organize_runs_ocr_and_persists_owned_reference(monkeypatch):
             self.parameters = parameters
 
         def fetchone(self):
+            if "SELECT id, asset_url FROM cx_studio_assets" in self.statement:
+                return {"id": 41, "asset_url": "/static/cadu_studio/assets/reference.png"}
             return {"id": 41}
 
     class Connection:
@@ -1488,7 +1490,25 @@ def test_image_organize_rejects_remote_only_image_without_running_ocr(monkeypatc
         def read_public_bytes(self, _url):
             return None
 
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, *_):
+            pass
+
+        def fetchone(self):
+            return {"id": 41, "asset_url": "https://example.com/image.png"}
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
     monkeypatch.setattr(v2_routes, "CreativeAssetStorage", Storage)
+    monkeypatch.setattr(v2_routes.repository, "get_db", lambda: Connection())
     client = app.test_client()
     with client.session_transaction() as session:
         session.update(user_id=7, family_csrf="csrf")
@@ -1500,6 +1520,72 @@ def test_image_organize_rejects_remote_only_image_without_running_ocr(monkeypatc
 
     assert response.status_code == 422
     assert "cópia local" in response.json["error"]
+
+
+def test_image_organize_supports_legacy_project_images(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.bp)
+    monkeypatch.setattr(v2_routes, "resolve", lambda **_: context(project_ref="ci:project-1"))
+
+    class Cursor:
+        statements = []
+        current = ""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, statement, parameters):
+            self.current = statement
+            self.statements.append((statement, parameters))
+
+        def fetchone(self):
+            if "SELECT id, file_bytes" in self.current:
+                return {"id": 9, "file_bytes": b"legacy-image", "asset_url": "/workspace/image/9"}
+            return {"id": 9}
+
+    class Connection:
+        committed = False
+
+        def __init__(self):
+            self.active_cursor = Cursor()
+
+        def cursor(self):
+            return self.active_cursor
+
+        def commit(self):
+            self.committed = True
+
+        def rollback(self):
+            raise AssertionError("O fluxo válido não deve fazer rollback.")
+
+    connection = Connection()
+    monkeypatch.setattr(v2_routes.repository, "get_db", lambda: connection)
+    from aicentralv2.cadu_workspace import project_sources
+    monkeypatch.setattr(project_sources, "_ocr_image", lambda image: ("Campanha regional", "ocr") if image == b"legacy-image" else ("", ""))
+    monkeypatch.setattr(project_sources, "organize_image_source", lambda name, _text: {
+        "name": "campanha-regional.png", "visual_title": "Campanha regional",
+        "visual_summary": "Peça de campanha regional.", "original_name": name,
+        "renamed_by_indexer": True,
+    })
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session.update(user_id=7, family_csrf="csrf")
+
+    response = client.post("/workspace/api/v2/images/organize", json={
+        "source": "workspace_images", "source_id": "9", "title": "IMG_20260921.png",
+        "project_ref": "ci:project-1",
+    }, headers={"X-CSRF-Token": "csrf"})
+
+    assert response.status_code == 200
+    assert response.json["title"] == "campanha-regional.png"
+    assert connection.committed is True
+    sql = "\n".join(statement for statement, _ in connection.active_cursor.statements)
+    assert "UPDATE cadu_docs_client_images" in sql
+    assert "UPDATE cadu_project_resources" in sql
 
 
 def test_v2_page_creates_csrf_token_when_opened_directly(monkeypatch):

@@ -31,6 +31,8 @@ export function WorkspaceNotificationsProvider({bootstrap, children}) {
       window.location.assign(`${destination.pathname}${destination.search}`);
     } else if (item.projectRef?.startsWith('ci:')) {
       window.location.assign(`/projetos/${encodeURIComponent(item.projectRef.slice(3))}`);
+    } else if (item.brandRef) {
+      window.location.assign(`/marcas/${encodeURIComponent(item.brandRef)}`);
     }
   };
   const value = {items, pending, open:() => setOpen(true)};

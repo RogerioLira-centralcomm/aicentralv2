@@ -1,0 +1,46 @@
+body.portal--workspace .cadu-ds-dialog.cadu-ds-notification-center {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(680px, calc(100vw - 64px));
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--cadu-surface);
+  box-shadow: -24px 0 70px rgba(8, 28, 27, .22);
+}
+
+body.portal--workspace .cadu-ds-notification-center > header { padding: 28px 32px 22px; }
+body.portal--workspace .cadu-ds-notification-center > header p { font-size: 10px; letter-spacing: .02em; }
+body.portal--workspace .cadu-ds-notification-center > header h2 { margin: 4px 0 5px; font-size: 28px; letter-spacing: -.04em; }
+body.portal--workspace .cadu-ds-notification-center > header span { font-size: 12px; }
+body.portal--workspace .cadu-ds-notification-center > header > button { width: 36px; height: 36px; font-size: 25px; cursor: pointer; }
+
+body.portal--workspace .cadu-ds-notification-center > nav { gap: 18px; padding: 0 32px 14px; }
+body.portal--workspace .cadu-ds-notification-center > nav button { padding: 7px 0; border-radius: 0; font-size: 11px; font-weight: 650; }
+body.portal--workspace .cadu-ds-notification-center > nav button.is-active { background: transparent; box-shadow: 0 2px 0 var(--cadu-accent-strong); }
+
+body.portal--workspace .cadu-ds-notification-center__list { max-height: calc(100dvh - 130px); padding: 4px 32px 40px; }
+body.portal--workspace .cadu-ds-notification-center__list > button { grid-template-columns: 36px minmax(0, 1fr) 14px; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--cadu-line); border-radius: 0; }
+body.portal--workspace .cadu-ds-notification-center__list > button:hover { background: transparent; }
+body.portal--workspace .cadu-ds-notification-center__icon { width: 34px; height: 34px; border-radius: 50%; }
+body.portal--workspace .cadu-ds-notification-center__body { display: grid; gap: 5px; }
+body.portal--workspace .cadu-ds-notification-center__meta { display: flex; justify-content: space-between; gap: 16px; }
+body.portal--workspace .cadu-ds-notification-center__meta time { color: var(--cadu-muted); font-size: 9px; white-space: nowrap; }
+body.portal--workspace .cadu-ds-notification-center__list b { font-size: 14px; line-height: 1.35; }
+body.portal--workspace .cadu-ds-notification-center__list em { max-width: 58ch; font-size: 11px; line-height: 1.5; }
+body.portal--workspace .cadu-ds-notification-center__metrics { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 7px; }
+body.portal--workspace .cadu-ds-notification-center__metrics > span { display: grid; gap: 1px; min-width: 72px; }
+body.portal--workspace .cadu-ds-notification-center__metrics strong { color: var(--cadu-ink); font-size: 12px; }
+body.portal--workspace .cadu-ds-notification-center__metrics small { font-size: 9px; }
+
+@media (max-width: 720px) {
+  body.portal--workspace .cadu-ds-dialog.cadu-ds-notification-center { width: 100vw; }
+  body.portal--workspace .cadu-ds-notification-center > header { padding: 22px 20px 18px; }
+  body.portal--workspace .cadu-ds-notification-center > nav { padding-right: 20px; padding-left: 20px; }
+  body.portal--workspace .cadu-ds-notification-center__list { padding-right: 20px; padding-left: 20px; }
+  body.portal--workspace .cadu-ds-notification-center__metrics { gap: 10px; }
+}

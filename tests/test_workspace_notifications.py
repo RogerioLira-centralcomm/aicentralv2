@@ -21,6 +21,11 @@ def test_notification_service_is_scoped_and_supports_lifecycle_actions():
     assert "'read':" in service
     assert "'resolve':" in service
     assert "'archive':" in service
+    assert 'cadu_workspace_brand_audit_runs' in service
+    assert 'estimated_hours_saved' in service
+    assert 'cost_brl' in service
+    assert 'cadu_workspace_ingestion_sessions' in service
+    assert 'processed_count' in service
 
 
 def test_project_react_surface_consumes_durable_notifications():
@@ -41,6 +46,12 @@ def test_notification_center_is_shared_by_desktop_and_mobile_workspace_shells():
     assert 'useWorkspaceNotifications' in dock
     assert 'useWorkspaceNotifications' in mobile
     assert 'cadu-ds-mobile-chrome__notifications' in mobile
+    center = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'WorkspaceNotificationCenter.jsx').read_text(encoding='utf-8')
+    center_css = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'WorkspaceNotificationCenter.css').read_text(encoding='utf-8')
+    assert 'estimated_hours_saved' in center
+    assert 'cost_brl' in center
+    assert 'processed_count' in center
+    assert 'inset: 0 0 0 auto' in center_css
 
 
 def test_notification_migration_validates_every_trigger_column():

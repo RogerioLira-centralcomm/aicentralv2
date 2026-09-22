@@ -23,6 +23,7 @@ export function Icon({name, size = 18, className = ''}) {
     external: <><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></>,
     download: <><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
+    alert: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v6M12 17h.01"/></>,
     chevron: <path d="m9 6 6 6-6 6"/>,
   };
   return <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;

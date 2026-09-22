@@ -264,6 +264,12 @@ def test_long_job_routing_is_explicit_and_respects_no_artifact_requests():
     research = long_jobs.spec_for_message("Faça uma pesquisa profunda em até 25 fontes e entregue um relatório completo")
     assert research.kind == "deep_research"
     assert research.source_target == 25
+    substantial = long_jobs.spec_for_message(
+        "Pesquise na internet um planejamento estratégico. Consulte pelo menos 10 fontes atuais, "
+        "produza um documento completo e abra o resultado em um artefato editável."
+    )
+    assert substantial.kind == "deep_research"
+    assert substantial.source_target == 10
 
 
 def test_long_document_without_sources_still_composes_reviews_and_renders():

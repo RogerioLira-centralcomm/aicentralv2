@@ -382,7 +382,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(artifact, /data-cadu-brand-header/);
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
   assert.doesNotMatch(conversation, /Ver resposta completa/);
-  assert.match(conversation, /cv-inline-questions/);
+  assert.match(conversation, /cv-pending-interaction/);
+  assert.match(conversation, /cv-conversation-needs-action/);
   assert.match(responseBlocks, /cv-inline-decision/);
   assert.match(conversation, /ResponseBlocks/);
   assert.match(conversation, /cv-conversation-title/);
@@ -559,7 +560,8 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(blocks, /item\.prompt\s*\?/);
   assert.match(conversation, /normalizeAnswerText\(response\.answer/);
   assert.doesNotMatch(conversation, /compactAnswer/);
-  assert.match(conversation, /visibleQuestions/);
+  assert.match(conversation, /pendingInteraction\(messages, running\)/);
+  assert.doesNotMatch(conversation, /cv-message__label">Cadu/);
   assert.match(markdown, /paragraph\.join\(' '\)/);
   assert.match(fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8'), /kind === 'answer\.delta'/);
   assert.match(progress, /Trabalhando\{elapsed/);

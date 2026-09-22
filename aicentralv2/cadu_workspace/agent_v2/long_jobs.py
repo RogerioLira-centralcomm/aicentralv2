@@ -25,14 +25,16 @@ def spec_for_message(message: str) -> LongJobSpec | None:
         return None
     word_match = re.search(r"(?:cerca de|aproximadamente|mínimo de|ao menos)?\s*([1-9][\d.]{2,5})\s+palavras", text)
     word_count = int(word_match.group(1).replace(".", "")) if word_match else 0
+    source_match = re.search(r"(?:até|de|com|menos)\s+(\d{1,2})\s+fontes", text)
+    asks_research = any(term in text for term in ("pesquise", "pesquisa", "fontes", "internet", "web"))
+    asks_artifact = "artefato" in text or "documento editável" in text or "documento editavel" in text
     explicit_long = any(term in text for term in (
         "pesquisa profunda", "relatório completo", "relatorio completo", "guia completo",
-        "documento extenso", "análise aprofundada", "analise aprofundada", "trabalho longo",
+        "documento completo", "documento extenso", "análise aprofundada", "analise aprofundada", "trabalho longo",
     ))
-    if word_count < 1200 and not explicit_long:
+    substantial_research = asks_research and asks_artifact and bool(source_match) and int(source_match.group(1)) >= 5
+    if word_count < 1200 and not explicit_long and not substantial_research:
         return None
-    source_match = re.search(r"(?:até|de|com)\s+(\d{1,2})\s+fontes", text)
-    asks_research = any(term in text for term in ("pesquise", "pesquisa", "fontes", "internet", "web"))
     source_target = min(40, max(5, int(source_match.group(1)))) if source_match else (12 if asks_research else 0)
     title = "Pesquisa aprofundada" if asks_research else "Documento em elaboração"
     return LongJobSpec(

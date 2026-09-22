@@ -7,6 +7,7 @@ import {WorkspaceChatComposer} from '../../cadu-design-system/components/Workspa
 import {WorkspacePromptSuggestions} from '../../cadu-design-system/components/WorkspacePromptSuggestions';
 import {WorkspaceSourceList} from '../../cadu-design-system/components/WorkspaceSourceList';
 import {WorkspaceTaskProgress} from '../../cadu-design-system/components/WorkspaceTaskProgress';
+import {meaningfulResponseBlocks, normalizeAnswerText} from '../lib/responseModel.mjs';
 
 function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   const needsCredits = failure?.kind === 'credits';
@@ -72,7 +73,7 @@ function ConversationSupport({context, projects, brands, messages, diagnostics, 
 
 function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl}) {
   const response = message.response || {answer: message.content};
-  const text = String(response.answer || '')
+  const text = normalizeAnswerText(response.answer || '')
     .replace(/^\s*[^|\n]{1,240}\|\s*Confian(?:ça|ca)\s*:\s*\**\s*(?:baixa|m[eé]dia|alta|low|medium|high)\**[.,]?\s*/i, '')
     .replace(/^\s*S[ií]ntese:\s*contexto:\s*[^;]+;\s*decis(?:ão|ao):\s*[^;]+;\s*/i, '')
     .replace(/^\s*Projeto usado:\s*[^.]+\.\s*/i, '')
@@ -80,8 +81,11 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
     .replace(/\s+Confian(?:ça|ca):\s*[^.]+\.?/ig, '')
     .replace(/\s+Próxima ação:\s*[^.]+\.?/ig, '')
     .trim();
-  const blocks = Array.isArray(response.blocks) ? response.blocks : [];
-  const compactAnswer = text.length <= 700 && text.split('\n').length <= 8 && !response.citations?.length && !response.actions?.length && !response.questions?.length && !message.artifact?.id;
+  const blocks = meaningfulResponseBlocks(response.blocks);
+  const visibleQuestions = (Array.isArray(response.questions) ? response.questions : []).filter(question => {
+    const normalized = String(question || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR');
+    return normalized && !text.replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR').includes(normalized);
+  }).slice(0, 4);
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
   if (message.kind === 'action') {
     return <div className="cv-action-confirmation cv-max-w-[72ch]">
@@ -93,10 +97,10 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision, 
   }
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
     <div className="cv-prose"><Markdown>{text}</Markdown></div>
-    {!compactAnswer && <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
-    {!!response.questions?.length && <section className="cv-inline-questions cv-mt-6" aria-label="Perguntas para continuar">
+    {!!blocks.length && <ResponseBlocks blocks={blocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
+    {!!visibleQuestions.length && <section className="cv-inline-questions cv-mt-6" aria-label="Perguntas para continuar">
       <span className="cv-inline-questions__label">Para continuar</span>
-      {response.questions.slice(0, 4).map((question, index) => <button key={index} type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-inline-question"><span>{question}</span><small>Responder</small></button>)}
+      {visibleQuestions.map((question, index) => <button key={index} type="button" onClick={() => onPrompt(`Sobre “${question}”: `)} className="cv-inline-question"><span>{question}</span><small>Responder</small></button>)}
     </section>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}

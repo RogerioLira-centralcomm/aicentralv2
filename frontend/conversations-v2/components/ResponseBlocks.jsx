@@ -163,7 +163,12 @@ function ChecklistBlock({block, onPrompt}) {
 }
 
 function InsightsBlock({block, onPrompt}) {
-  return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-gap-2"><BoundedItems items={block.items} label="insights">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => onPrompt(item.prompt || `Aprofunde este ponto: ${item.title}.`)} className="cv-insight-row cv-group cv-flex cv-w-full cv-items-start cv-gap-3 cv-rounded-lg cv-border-0 cv-bg-transparent cv-px-2 cv-py-2.5 cv-text-left"><span className="cv-mt-2 cv-h-1.5 cv-w-1.5 cv-flex-none cv-rounded-full cv-bg-teal/70"/><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm cv-font-medium">{item.title}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#819b97]">{item.detail}</small>}</span><span className="cv-mt-1 cv-text-[10px] cv-font-semibold cv-text-[#66817d] group-hover:cv-text-teal">Aprofundar</span></button>)}</BoundedItems></div></section>;
+  return <section className="cv-response-block cv-response-points cv-mt-5"><BlockHeader block={block}/><div className="cv-grid"><BoundedItems items={block.items} label="pontos">{visible => visible.map((item, index) => {
+    const content = <><span className="cv-response-point__marker" aria-hidden="true"/><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm cv-font-medium">{item.title}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#819b97]">{item.detail}</small>}</span>{item.prompt && <span className="cv-response-point__action">Explorar</span>}</>;
+    return item.prompt
+      ? <button key={item.id || index} type="button" onClick={() => onPrompt(item.prompt)} className="cv-response-point is-actionable">{content}</button>
+      : <div key={item.id || index} className="cv-response-point">{content}</div>;
+  })}</BoundedItems></div></section>;
 }
 
 function MetricsBlock({block, onPrompt}) {

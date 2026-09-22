@@ -517,20 +517,25 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-action-confirmation__actions button:hover { border-color:rgba(122,228,215,.58); background:rgba(101,216,203,.1); color:#f3fffc; }
 #cadu-conversations-v2-root .cv-action-confirmation__actions button:last-child:hover { background:#8ae9db; color:#04211e; }
 
-#cadu-conversations-v2-root .cv-response-summary { padding:13px 15px; border:1px solid rgba(101,216,203,.18); border-radius:14px; background:rgba(101,216,203,.055); box-shadow:0 10px 24px rgba(0,0,0,.07); }
-#cadu-conversations-v2-root .cv-note-block { padding:11px 13px; border:1px solid rgba(181,218,211,.12); border-radius:12px; background:rgba(255,255,255,.028); }
-#cadu-conversations-v2-root .cv-note-block--warning { border-color:rgba(255,125,131,.3); background:rgba(255,125,131,.055); }
-#cadu-conversations-v2-root .cv-metrics-block { padding:14px 15px; border:1px solid rgba(181,218,211,.12); border-radius:14px; background:rgba(255,255,255,.025); }
+#cadu-conversations-v2-root .cv-response-summary { padding:2px 0 2px 14px; border:0; border-left:2px solid rgba(101,216,203,.5); background:transparent; }
+#cadu-conversations-v2-root .cv-note-block { padding:2px 0 2px 14px; border:0; border-left:2px solid rgba(181,218,211,.18); background:transparent; }
+#cadu-conversations-v2-root .cv-note-block--warning { border-left-color:rgba(255,125,131,.55); background:transparent; }
+#cadu-conversations-v2-root .cv-metrics-block { padding:2px 0; border:0; background:transparent; }
 #cadu-conversations-v2-root .cv-metric-item { min-width:0; padding:8px 9px; border:1px solid transparent; border-radius:10px; }
 #cadu-conversations-v2-root .cv-metric-item:hover { border-color:rgba(101,216,203,.16); background:rgba(101,216,203,.05); }
 #cadu-conversations-v2-root .cv-choice-row,
-#cadu-conversations-v2-root .cv-checklist-row,
-#cadu-conversations-v2-root .cv-insight-row { border:1px solid rgba(181,218,211,.08); background:rgba(255,255,255,.018); }
+#cadu-conversations-v2-root .cv-checklist-row { border:1px solid rgba(181,218,211,.08); background:rgba(255,255,255,.018); }
 #cadu-conversations-v2-root .cv-choice-row:hover,
-#cadu-conversations-v2-root .cv-checklist-row:hover,
-#cadu-conversations-v2-root .cv-insight-row:hover { border-color:rgba(101,216,203,.2); background:rgba(101,216,203,.055); }
+#cadu-conversations-v2-root .cv-checklist-row:hover { border-color:rgba(101,216,203,.2); background:rgba(101,216,203,.055); }
 #cadu-conversations-v2-root .cv-choice-row[aria-pressed="true"],
 #cadu-conversations-v2-root .cv-checklist-row[aria-pressed="true"] { border-color:rgba(101,216,203,.28); }
+#cadu-conversations-v2-root .cv-response-points { max-width:680px; }
+#cadu-conversations-v2-root .cv-response-point { display:flex; width:100%; align-items:flex-start; gap:11px; padding:7px 0; border:0; background:transparent; color:#dfeae8; font:inherit; text-align:left; }
+#cadu-conversations-v2-root .cv-response-point__marker { width:4px; height:4px; margin-top:8px; flex:none; border-radius:50%; background:rgba(101,216,203,.72); }
+#cadu-conversations-v2-root button.cv-response-point { cursor:pointer; }
+#cadu-conversations-v2-root button.cv-response-point:hover strong { color:#fff; }
+#cadu-conversations-v2-root button.cv-response-point:focus-visible { outline:2px solid rgba(101,216,203,.45); outline-offset:3px; }
+#cadu-conversations-v2-root .cv-response-point__action { margin-top:2px; flex:none; color:#68dacf; font-size:10px; font-weight:650; }
 #cadu-conversations-v2-root .cv-file-row { border:1px solid rgba(181,218,211,.1); background:rgba(255,255,255,.025); transition:background .16s ease,border-color .16s ease; }
 #cadu-conversations-v2-root .cv-file-row:hover { border-color:rgba(101,216,203,.24); background:rgba(101,216,203,.07); }
 #cadu-conversations-v2-root .cv-inline-questions,

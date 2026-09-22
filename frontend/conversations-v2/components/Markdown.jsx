@@ -27,25 +27,32 @@ function Inline({text}) {
 export function Markdown({children}) {
   const blocks = [];
   let list = null;
+  let paragraph = [];
   const flush = () => { if (list) { blocks.push(list); list = null; } };
+  const flushParagraph = index => {
+    if (!paragraph.length) return;
+    blocks.push(<p key={`p-${index}`}><Inline text={paragraph.join(' ')}/></p>);
+    paragraph = [];
+  };
   String(children || '').replace(/\r\n/g, '\n').split('\n').forEach((raw, index) => {
     const line = raw.trim();
-    if (!line) return flush();
+    if (!line) { flush(); flushParagraph(index); return; }
     const heading = line.match(/^#{1,6}\s+(.+)$/);
     const bullet = line.match(/^[-*+]\s+(.+)$/);
     const numbered = line.match(/^\d+[.)]\s+(.+)$/);
     if (heading) {
-      flush();
+      flush(); flushParagraph(index);
       blocks.push(<h3 key={`h-${index}`}><Inline text={heading[1]}/></h3>);
     } else if (bullet || numbered) {
+      flushParagraph(index);
       const type = numbered ? 'ol' : 'ul';
       if (!list || list.listType !== type) { flush(); list = {kind: 'list', listType: type, key: index, items: []}; }
       list.items.push(<li key={index}><Inline text={(bullet || numbered)[1]}/></li>);
     } else {
       flush();
-      blocks.push(<p key={`p-${index}`}><Inline text={line}/></p>);
+      paragraph.push(line);
     }
   });
-  flush();
+  flush(); flushParagraph('last');
   return <>{blocks.map(block => block?.kind === 'list' ? React.createElement(block.listType, {key: `l-${block.key}`}, block.items) : block)}</>;
 }

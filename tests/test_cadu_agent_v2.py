@@ -1585,9 +1585,10 @@ def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fall
         app.config["CADU_DIFY_FAST_URL"] = "https://incomplete.example/v1"
         partial_fallback = provider.runtime_for("fast")
         assert partial_fallback["url"] == "https://legacy-v2.example/v1"
-        assert partial_fallback["source"] == "legacy"
+        assert partial_fallback["source"] == "cadu-chat-integration"
         app.config["CADU_CONVERSATIONS_V2_DIFY_URL"] = ""
         app.config["CADU_CONVERSATIONS_V2_DIFY_KEY"] = ""
+        monkeypatch.setattr(provider, "_chat_configuration", lambda: ("", ""))
         with pytest.raises(provider.ProviderUnavailable):
             provider.runtime_for("fast")
         monkeypatch.setattr(provider, "_shared_configuration", lambda: (

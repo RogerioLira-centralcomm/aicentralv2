@@ -61,7 +61,13 @@ PROVIDERS = {
         "required": ("api_key",),
     },
     "dify": {
-        "label": "Dify — Conversas Cadu",
+        "label": "Dify — Integração global (legado)",
+        "public_fields": ("base_url",),
+        "secret_fields": ("api_key",),
+        "required": ("api_key",),
+    },
+    "dify_cadu_chat": {
+        "label": "Dify — Cadu Chat exclusivo",
         "public_fields": ("base_url",),
         "secret_fields": ("api_key",),
         "required": ("api_key",),
@@ -123,6 +129,10 @@ ENV_FIELDS = {
     "dify": {
         "base_url": "CADU_DIFY_BASE_URL",
         "api_key": "CADU_DIFY_API_KEY",
+    },
+    "dify_cadu_chat": {
+        "base_url": "CADU_CONVERSATIONS_V2_DIFY_URL",
+        "api_key": "CADU_CONVERSATIONS_V2_DIFY_KEY",
     },
     "brevo": {
         "api_key": "BREVO_API_KEY",
@@ -281,7 +291,7 @@ def save_configuration(provider, payload, updated_by):
         public["default_model"] = "gpt-5-mini"
     if provider == "openai" and not public.get("image_model"):
         public["image_model"] = "gpt-image-2"
-    if provider == "dify" and not public.get("base_url"):
+    if provider in {"dify", "dify_cadu_chat"} and not public.get("base_url"):
         public["base_url"] = "https://api.dify.ai/v1"
     if provider == "d4sign" and not public.get("ambiente"):
         public["ambiente"] = "producao"
@@ -373,7 +383,7 @@ def validate_configuration(provider):
     if provider == "firecrawl":
         valid, message = _validate_firecrawl(config)
         return valid, message, {}
-    if provider == "dify":
+    if provider in {"dify", "dify_cadu_chat"}:
         valid, message = _validate_dify(config)
         return valid, message, {}
     if provider == "brevo":
@@ -462,6 +472,24 @@ def resolve_dify_configuration():
     return (
         str(_setting("CADU_DIFY_BASE_URL") or default_url).strip(),
         str(_setting("CADU_DIFY_API_KEY") or "").strip(),
+    )
+
+
+def resolve_cadu_chat_dify_configuration():
+    """Resolve o runtime exclusivo de Conversas sem reutilizar o agente global."""
+    default_url = "https://api.dify.ai/v1"
+    try:
+        config = get_configuration("dify_cadu_chat", include_secrets=True)
+        if config.get("status") == "disabled":
+            return "", ""
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return str(config.get("base_url") or default_url).strip(), key
+    except Exception:
+        pass
+    return (
+        str(_setting("CADU_CONVERSATIONS_V2_DIFY_URL") or default_url).strip(),
+        str(_setting("CADU_CONVERSATIONS_V2_DIFY_KEY") or "").strip(),
     )
 
 

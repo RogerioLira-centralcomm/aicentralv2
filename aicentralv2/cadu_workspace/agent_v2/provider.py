@@ -26,21 +26,28 @@ def _shared_configuration():
     return str(url or "").rstrip("/"), str(key or "")
 
 
+def _chat_configuration():
+    """Prefer the dedicated Cadu Chat credential stored in CentralX."""
+    from ...services.integration_credentials import resolve_cadu_chat_dify_configuration
+
+    url, key = resolve_cadu_chat_dify_configuration()
+    return str(url or "").rstrip("/"), str(key or "")
+
+
 def _configuration(execution_mode="analysis") -> dict:
     mode = execution_mode if execution_mode in RUNTIMES else "analysis"
     runtime_id, url_key, secret_key = RUNTIMES[mode]
     specific_url = str(current_app.config.get(url_key) or "").rstrip("/")
     specific_key = str(current_app.config.get(secret_key) or "")
-    legacy_url = str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_URL") or "").rstrip("/")
-    legacy_key = str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_KEY") or "")
+    chat_url, chat_key = _chat_configuration()
     specific_complete = bool(specific_url) and bool(specific_key)
     specific_partial = bool(specific_url) != bool(specific_key)
-    legacy_complete = bool(legacy_url) and bool(legacy_key)
+    chat_complete = bool(chat_url) and bool(chat_key)
     shared_url, shared_key = ("", "")
-    if not specific_complete and not legacy_complete:
+    if not specific_complete and not chat_complete:
         shared_url, shared_key = _shared_configuration()
     shared_complete = bool(shared_url) and bool(shared_key)
-    if specific_partial and not legacy_complete and not shared_complete:
+    if specific_partial and not chat_complete and not shared_complete:
         raise ProviderUnavailable(f"A configuração do runtime {runtime_id} está incompleta.")
     if specific_partial:
         current_app.logger.warning(
@@ -49,8 +56,8 @@ def _configuration(execution_mode="analysis") -> dict:
         )
     if specific_complete:
         url, key, source = specific_url, specific_key, "mode-specific"
-    elif legacy_complete:
-        url, key, source = legacy_url, legacy_key, "legacy"
+    elif chat_complete:
+        url, key, source = chat_url, chat_key, "cadu-chat-integration"
     else:
         url, key, source = shared_url, shared_key, "centralx-integration"
     parsed = urlparse(url)

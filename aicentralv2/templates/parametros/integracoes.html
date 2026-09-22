@@ -176,12 +176,12 @@
       {{ integration_footer('Salvar Firecrawl') }}
     </form>
 
-    <form class="cx-integration-card" data-integration-form="dify">
+    <form class="cx-integration-card" data-integration-form="dify_cadu_chat">
       <header>
         <span class="cx-integration-logo is-openai"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>
         <div>
-          <h2>Dify — Conversas Cadu</h2>
-          <p>Motor do chat contextual do Workspace. O perfil, o projeto e a marca seguem no payload do servidor.</p>
+          <h2>Dify — Cadu Chat exclusivo</h2>
+          <p>Runtime exclusivo de Conversas V2. Não compartilha a chave dos agentes legados do CentralX.</p>
         </div>
         <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
       </header>
@@ -190,10 +190,27 @@
         {{ cx_text_field('base_url', 'URL da API', type='url', wide=true, placeholder='https://api.dify.ai/v1', autocomplete='off') }}
       </div>
       <aside>
-        <strong>Contexto protegido</strong>
-        <span>A chave é criptografada no PostgreSQL. O Workspace usa esta integração e mantém o .env apenas como reserva de implantação.</span>
+        <strong>Isolado por produto</strong>
+        <span>Perfil, projeto, marca e memória seguem pelo servidor. O agente global permanece apenas como contingência.</span>
       </aside>
-      {{ integration_footer('Salvar Dify') }}
+      {{ integration_footer('Salvar Cadu Chat') }}
+    </form>
+
+    <form class="cx-integration-card" data-integration-form="dify">
+      <header>
+        <span class="cx-integration-logo is-openai"><i class="fa-solid fa-network-wired" aria-hidden="true"></i></span>
+        <div>
+          <h2>Dify — integração global</h2>
+          <p>Compatibilidade com agentes antigos e outras rotinas do CentralX. Não é a rota principal do Cadu Chat.</p>
+        </div>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
+      </header>
+      <div class="cx-integration-fields">
+        {{ cx_secret_field('api_key', 'API key', 'app-… — deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+        {{ cx_text_field('base_url', 'URL da API', type='url', wide=true, placeholder='https://api.dify.ai/v1', autocomplete='off') }}
+      </div>
+      <aside><strong>Fallback legado</strong><span>Mantido separado para evitar que uma troca no chat altere Planner, Studio ou agentes administrativos.</span></aside>
+      {{ integration_footer('Salvar Dify global') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="higgsfield">

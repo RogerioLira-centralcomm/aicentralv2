@@ -7,11 +7,33 @@ AICENTRAL V2 - Inicialização da Aplicação
 from flask import Blueprint, Flask, request, url_for
 from flask_mail import Mail
 from .config import Config
+import hashlib
 import logging
 import os
 
 # Instância do Flask-Mail
 mail = Mail()
+
+
+def _workspace_asset_version(static_folder, configured_version=""):
+    """Return a content-based version for the signed-in Workspace bundle."""
+    digest = hashlib.sha256()
+    bundle_paths = (
+        "cadu_workspace/conversations/react/app.css",
+        "cadu_workspace/conversations/react/app.js",
+    )
+    found_bundle = False
+    for relative_path in bundle_paths:
+        absolute_path = os.path.join(static_folder, relative_path)
+        if not os.path.isfile(absolute_path):
+            continue
+        found_bundle = True
+        with open(absolute_path, "rb") as bundle_file:
+            for chunk in iter(lambda: bundle_file.read(1024 * 1024), b""):
+                digest.update(chunk)
+
+    fingerprint = digest.hexdigest()[:12] if found_bundle else "missing"
+    return f"{configured_version}-{fingerprint}"
 
 
 def is_erp_nav_item_active(item):
@@ -221,9 +243,13 @@ def create_app(config_class=Config):
             cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,
             product_url=product_url,
-            # The bundle timestamp invalidates browser/CDN caches on every
-            # build, without depending on a manually bumped environment value.
-            cadu_workspace_asset_version=f"{app.config.get('CADU_WORKSPACE_ASSET_VERSION', '')}-{int(os.path.getmtime(os.path.join(app.static_folder, 'cadu_workspace/conversations/react/app.js'))) if os.path.isfile(os.path.join(app.static_folder, 'cadu_workspace/conversations/react/app.js')) else 0}",
+            # A content fingerprint changes even when deploy tooling preserves
+            # mtimes, preventing immutable browser caches from retaining an old
+            # signed-in Workspace bundle after a release.
+            cadu_workspace_asset_version=_workspace_asset_version(
+                app.static_folder,
+                app.config.get('CADU_WORKSPACE_ASSET_VERSION', ''),
+            ),
         )
 
     # Registrar teardown (fechar conexão)

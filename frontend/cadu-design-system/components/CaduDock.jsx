@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useId, useRef, useState} from 'react';
+import './CaduDock.css';
 import {createPortal} from 'react-dom';
 import {VisualIdentity} from './VisualIdentity';
 import {Icon} from './Icon';

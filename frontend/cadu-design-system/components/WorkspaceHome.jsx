@@ -1,4 +1,5 @@
 import React, {useCallback, useMemo, useState} from 'react';
+import './WorkspaceHome.css';
 import {CaduDock} from './CaduDock';
 import {WorkspaceChatComposer} from './WorkspaceChatComposer';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';

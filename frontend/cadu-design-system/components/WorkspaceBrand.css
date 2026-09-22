@@ -1,5 +1,7 @@
 /* Página de gestão da marca: leitura contínua, ações laterais e auditoria. */
-body.portal--workspace .cadu-ds-brand-hero { grid-template-columns: 78px minmax(0, 1fr); }
+body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-hero {
+  grid-template-columns: 78px minmax(0, 1fr);
+}
 
 body.portal--workspace .cadu-ds-brand-review {
   max-width: 780px;

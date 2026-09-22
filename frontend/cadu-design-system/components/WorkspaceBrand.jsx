@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import './WorkspaceBrand.css';
 import {CaduDock} from './CaduDock';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';

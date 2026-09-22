@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import './WorkspaceEntityPortal.css';
 import {Icon} from './Icon';
 
 export function EntityNavigator({label, items = [], context, children}) {

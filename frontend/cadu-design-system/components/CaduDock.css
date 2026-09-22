@@ -14,12 +14,12 @@
   }
 }
 
-body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity--brand {
+body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand .cadu-ds-visual-identity--brand {
   padding: 0;
   overflow: hidden;
 }
 
-body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity--brand img {
+body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand .cadu-ds-visual-identity--brand img {
   width: 100%;
   height: 100%;
   padding: 0;

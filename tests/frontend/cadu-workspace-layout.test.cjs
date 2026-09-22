@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '../..');
 const tokens = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/tokens.css'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
 const conversationStyles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+const workspaceBundleStyles = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/react/app.css'), 'utf8');
 const chromePath = process.env.CHROME_PATH;
 
 function documentFor(contentClass) {
@@ -39,6 +40,18 @@ function conversationDocument() {
 
 function conversationDocumentWithPersistedLightTheme() {
   return conversationDocument().replace('data-cadu-theme="dark"', 'data-cadu-theme="light"');
+}
+
+function brandDocument(processing = false) {
+  return `<!doctype html><html data-cadu-theme="light" data-cadu-skin="workspace"><head><meta charset="utf-8"><style>html,body{margin:0}\n${workspaceBundleStyles}</style></head>
+    <body class="portal--workspace"><main id="content" class="portal-content--workspace-react"><div id="cadu-conversations-v2-root" class="cv-home-root">
+      <div class="cadu-ds-home-shell cadu-ds-brand-shell ${processing ? 'is-audit_processing' : 'is-approved'}"><main class="cadu-ds-home-main"><div class="cadu-ds-home-workarea cadu-ds-brand-workarea">
+        <aside class="cadu-ds-dock"><button class="cadu-ds-dock-brand"><span class="cadu-ds-visual-identity cadu-ds-visual-identity--brand"><img alt="Marca" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20' fill='%23007766'/%3E%3C/svg%3E"></span></button></aside>
+        <div class="cadu-ds-entity-portal cadu-ds-entity-portal--brand"><aside class="cadu-ds-entity-nav"><nav><a class="is-active">Visão geral</a></nav></aside>
+          <section class="cadu-ds-brand-content"><header class="cadu-ds-brand-hero"><div class="cadu-ds-brand-hero__identity"></div><div><h1>Marca</h1></div></header>
+            ${processing ? '<section class="cadu-ds-brand-state"><div class="cadu-ds-brand-state__visual"></div><div>Processando</div></section>' : '<section class="cadu-ds-brand-review"><div>Base aprovada</div></section><header class="cadu-ds-brand-data-viewer__header"><h2>Informações organizadas</h2></header><div class="cadu-ds-brand-data-viewer"><section class="cadu-ds-brand-library"><div class="cadu-ds-brand-library__stage"><img alt="Ativo"></div><aside></aside></section></div>'}
+          </section>${processing ? '' : '<aside class="cadu-ds-entity-rail">Gestão</aside>'}</div>
+      </div></main></div></div></main></body></html>`;
 }
 
 async function dimensions(page, contentClass) {
@@ -145,6 +158,40 @@ async function dimensions(page, contentClass) {
     }));
     assert.equal(protectedTheme.colorScheme, 'dark', 'Conversas: preferência clara não vaza para o chat');
     assert.equal(protectedTheme.canvas, '#071113', 'Conversas: canvas escuro permanece protegido');
+
+    await page.setViewportSize({width: 1440, height: 1000});
+    await page.setContent(brandDocument(false));
+    const brand = await page.evaluate(() => {
+      const portal = document.querySelector('.cadu-ds-entity-portal');
+      const hero = document.querySelector('.cadu-ds-brand-hero');
+      const review = document.querySelector('.cadu-ds-brand-review');
+      const logo = document.querySelector('.cadu-ds-dock-brand img');
+      const stage = document.querySelector('.cadu-ds-brand-library__stage > img');
+      return {
+        portalColumns: getComputedStyle(portal).gridTemplateColumns,
+        heroColumns: getComputedStyle(hero).gridTemplateColumns,
+        reviewBackground: getComputedStyle(review).backgroundColor,
+        logoFit: getComputedStyle(logo).objectFit,
+        stageHeight: stage.getBoundingClientRect().height,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    assert.match(brand.portalColumns, /184px/, 'Marca: navegação contextual preservada');
+    assert.ok(brand.heroColumns.split(' ').length === 2, 'Marca: hero sem coluna de ações redundante');
+    assert.equal(brand.reviewBackground, 'rgba(0, 0, 0, 0)', 'Marca: estado da base sem card decorativo');
+    assert.equal(brand.logoFit, 'cover', 'Marca: logo da Dock ocupa o ícone inteiro');
+    assert.ok(brand.stageHeight <= 320, 'Marca: ativo não domina a página');
+    assert.equal(brand.overflow, 0, 'Marca: sem overflow desktop');
+
+    await page.setContent(brandDocument(true));
+    const processingBrand = await page.evaluate(() => ({
+      columns: getComputedStyle(document.querySelector('.cadu-ds-entity-portal')).gridTemplateColumns,
+      rail: document.querySelector('.cadu-ds-entity-rail'),
+      stateHeight: document.querySelector('.cadu-ds-brand-state').getBoundingClientRect().height,
+    }));
+    assert.match(processingBrand.columns, /184px/, 'Marca em análise: somente navegação e andamento');
+    assert.equal(processingBrand.rail, null, 'Marca em análise: rail de ações não é exibido');
+    assert.ok(processingBrand.stateHeight >= 360, 'Marca em análise: andamento permanece dominante');
     assert.deepEqual(errors, []);
     console.log('PASS: Workspace full-width, Dock and overflow at 1440px and 390px.');
   } finally {

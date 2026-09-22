@@ -103,6 +103,22 @@ def test_brand_creation_and_audit_are_routed_to_internal_mcp_actions():
     assert audit_action["arguments"] == {"analysis_mode": "deep", "confirmed_cost": True}
 
 
+def test_google_meet_link_uses_project_reference_flow():
+    message = "Adicione este link ao projeto: https://meet.google.com/pxo-agft-eze"
+    route = route_request(message, has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+    descriptor = project_source_service.describe_link("https://meet.google.com/pxo-agft-eze")
+
+    assert route.action == "create_project_link"
+    assert action["name"] == "projects.create_link_reference"
+    assert action["arguments"]["url"] == "https://meet.google.com/pxo-agft-eze"
+    assert descriptor["provider"] == "google_meet"
+    assert descriptor["resource_kind"] == "meeting"
+    assert descriptor["access_type"] == "authenticated"
+    assert descriptor["connector_recommended"] is True
+
+
 def test_long_form_prompt_requires_editorial_structure_without_bullet_wall():
     assert "um título específico" in CORE
     assert "de três a sete subtítulos" in CORE

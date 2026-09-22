@@ -120,7 +120,7 @@ def classify_intake(*, filename: str = "", mime_type: str = "", url: str = "", t
 
 
 _LINK_PROVIDERS = {
-    "meet.google.com": ("google_meet", "Google Meet", "meeting", "unknown"),
+    "meet.google.com": ("google_meet", "Google Meet", "meeting", "authenticated"),
     "calendar.google.com": ("google_calendar", "Google Calendar", "calendar_event", "unknown"),
     "drive.google.com": ("google_drive", "Google Drive", "drive_file", "unknown"),
     "docs.google.com": ("google_drive", "Google Drive", "drive_file", "unknown"),

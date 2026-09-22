@@ -46,8 +46,16 @@ def _completion(step_name: str, result: dict) -> dict:
         ], "refresh_context": True}
     if step_name == "projects.create_link_reference":
         title = result.get("title") or "Link"
-        detail = "O link foi organizado como referência. O conteúdo não foi aberto, lido ou indexado."
+        is_meeting = result.get("resource_kind") == "meeting"
+        detail = ("O link foi classificado como reunião com acesso controlado e organizado no projeto."
+                  if is_meeting else
+                  "O link foi organizado como referência. O conteúdo não foi aberto, lido ou indexado.")
         blocks = [{"type": "activity", "state": "completed", "label": detail}]
+        if is_meeting:
+            blocks.append({"type": "questions", "title": "Usar este link", "items": [{
+                "id": "prepare-meeting", "title": "Preparar pauta da reunião",
+                "prompt": f"Prepare uma pauta para a reunião deste projeto: {result.get('url', '')}",
+            }]})
         if result.get("provider") in {"generic", "google_drive"}:
             blocks.append({"type": "questions", "title": "Próximo passo opcional", "items": [{
                 "id": "summarize-link", "title": "Criar resumo editável deste link",

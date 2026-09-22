@@ -127,12 +127,12 @@ class WorkspaceBrandsTest(TestCase):
         projects.assert_called_with(12, status='todos')
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brands')
-    def test_dock_brand_target_requires_a_principal_logo(self, brands):
+    def test_dock_brand_target_accepts_initials_when_logo_is_missing(self, brands):
         brands.return_value = [
             {'id': 81, 'name': 'Sem logo', 'display_logo': ''},
             {'id': 82, 'name': 'Com logo', 'display_logo': 'https://cdn/logo.png'},
         ]
-        self.assertIsNone(_authorized_dock_target(12, 'brand', '81'))
+        self.assertEqual(_authorized_dock_target(12, 'brand', '81')['name'], 'Sem logo')
         self.assertEqual(_authorized_dock_target(12, 'brand', '82')['name'], 'Com logo')
 
     def test_normal_domain_becomes_https_url(self):

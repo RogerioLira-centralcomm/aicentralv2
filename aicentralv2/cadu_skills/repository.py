@@ -409,7 +409,10 @@ def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,
                       'tokens_processados': raw_tokens, 'multiplicador': margin},
         )
     except ValueError as exc:
-        raise CaduCreditUnavailable(str(exc)) from exc
+        detail = str(exc)
+        if detail.startswith('Saldo insuficiente:'):
+            detail = detail.replace('Saldo insuficiente:', 'Saldo Cadu insuficiente:', 1)
+        raise CaduCreditUnavailable(detail) from exc
     return int(charged.get('tokens_cobrados') or tokens)
 
 

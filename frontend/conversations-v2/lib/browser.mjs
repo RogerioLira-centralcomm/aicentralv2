@@ -1,4 +1,11 @@
 export const ARTIFACT_SIDE_COOKIE = 'cadu-artifact-side';
+export const CONVERSATION_MOBILE_QUERY = '(max-width: 900px)';
+
+export function isConversationMobile(matchMedia) {
+  if (typeof matchMedia === 'function') return Boolean(matchMedia(CONVERSATION_MOBILE_QUERY)?.matches);
+  if (typeof globalThis.matchMedia !== 'function') return false;
+  return Boolean(globalThis.matchMedia(CONVERSATION_MOBILE_QUERY)?.matches);
+}
 
 export function artifactKey(item) {
   return String(item?.tabKey || item?.id || '');

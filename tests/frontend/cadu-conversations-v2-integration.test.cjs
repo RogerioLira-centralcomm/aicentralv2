@@ -350,6 +350,7 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   const conversationViewport = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useConversationViewport.js'), 'utf8');
+  const responsiveHistory = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useResponsiveHistory.js'), 'utf8');
   const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const historyModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs'), 'utf8');
@@ -385,7 +386,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(dock, /aria-current=\{active \? 'page' : undefined\}/);
   assert.match(app, /<CaduDock/);
   assert.doesNotMatch(app, /cadu-ds-home-navbar cv-conversations-navbar/);
-  assert.match(app, /\[historyOpen, setHistoryOpen\] = useState\(\(\) => !window\.matchMedia/);
+  assert.match(app, /\[historyOpen, setHistoryOpen\] = useResponsiveHistory\(Boolean\(conversationId\)\)/);
+  assert.match(responsiveHistory, /CONVERSATION_MOBILE_QUERY/);
+  assert.match(responsiveHistory, /adaptHistory\(media\)/);
+  assert.match(responsiveHistory, /media\.addEventListener\('change', adaptHistory\)/);
   assert.match(app, /requestedHistoryOpen/);
   assert.match(app, /changeProject\(projectRef, \{showHistory: true\}\)/);
   assert.match(app, /changeProject = useCallback\(async \(projectRef, \{showHistory = true\}/);
@@ -394,7 +398,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /const brandRef = item\?\.brandRef \|\| \(item\?\.id \? `studio:\$\{item\.id\}` : ''\)/);
   assert.match(app, /loadBrandIdentity/);
   assert.match(app, /reset\(\);\s*setHistoryOpen\(false\)/);
-  assert.match(app, /if \(!conversationRef\.current && window\.matchMedia\('\(max-width: 900px\)'\)\.matches\) setHistoryOpen\(false\)/);
+  assert.match(app, /if \(!conversationRef\.current && isConversationMobile\(\)\) setHistoryOpen\(false\)/);
+  assert.doesNotMatch(app, /window\.matchMedia\('\(max-width: 900px\)'\)/);
   assert.match(sidebar, /cv-recent-sidebar/);
   assert.match(sidebar, /activeProjectRef/);
   assert.match(sidebar, /leftActive/);
@@ -704,6 +709,58 @@ test('conversation attachment model preserves validation and destination rules',
   assert.doesNotMatch(styles, /border:\s*2px dashed/);
   assert.doesNotMatch(composer, /cv-attachment-meta/);
   assert.match(styles, /\.cv-attachment-chip \{[^}]*width:48px; height:48px/);
+});
+
+test('conversation browser storage consumes pending attachments once and persists explicit context', async () => {
+  const storageModel = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/storage.mjs')).href);
+  const browserModel = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/browser.mjs')).href);
+  const values = new Map([
+    ['cadu:home-pending-attachments', JSON.stringify([{id: 'file-1'}, {name: 'invalid'}, {id: 'file-2'}])],
+  ]);
+  const storage = {
+    getItem: key => values.get(key) || null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+  assert.deepEqual(storageModel.takePendingHomeAttachments(storage).map(item => item.id), ['file-1', 'file-2']);
+  assert.equal(values.has('cadu:home-pending-attachments'), false);
+  assert.equal(storageModel.persistConversationContext({project_ref: 'project-1'}, storage), true);
+  assert.deepEqual(JSON.parse(values.get('cadu:workspace-chat-context')), {project_ref: 'project-1'});
+  assert.equal(storageModel.persistConversationContext({}, storage), true);
+  assert.equal(values.has('cadu:workspace-chat-context'), false);
+  assert.equal(browserModel.isConversationMobile(() => ({matches: true})), true);
+  assert.equal(browserModel.isConversationMobile(() => ({matches: false})), false);
+
+  const matchMediaDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'matchMedia');
+  Object.defineProperty(globalThis, 'matchMedia', {
+    configurable: true,
+    value(query) {
+      assert.equal(this, globalThis);
+      assert.equal(query, browserModel.CONVERSATION_MOBILE_QUERY);
+      return {matches: true};
+    },
+  });
+  try {
+    assert.equal(browserModel.isConversationMobile(), true);
+  } finally {
+    if (matchMediaDescriptor) Object.defineProperty(globalThis, 'matchMedia', matchMediaDescriptor);
+    else delete globalThis.matchMedia;
+  }
+
+  for (const key of ['sessionStorage', 'localStorage']) {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, {
+      configurable: true,
+      get() { throw new DOMException('Storage blocked', 'SecurityError'); },
+    });
+    try {
+      if (key === 'sessionStorage') assert.deepEqual(storageModel.takePendingHomeAttachments(), []);
+      else assert.equal(storageModel.persistConversationContext({project_ref: 'project-1'}), false);
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
 });
 
 test('conversation history model restores messages, selected context and latest artifact', async () => {

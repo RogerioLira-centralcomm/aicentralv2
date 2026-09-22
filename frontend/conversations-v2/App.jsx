@@ -19,7 +19,9 @@ import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
 import {useConversationViewport} from './hooks/useConversationViewport';
 import {useArtifactWorkspace} from './hooks/useArtifactWorkspace';
 import {useFileDrop} from './hooks/useFileDrop';
-import {artifactKey, copyText} from './lib/browser.mjs';
+import {useResponsiveHistory} from './hooks/useResponsiveHistory';
+import {artifactKey, copyText, isConversationMobile} from './lib/browser.mjs';
+import {persistConversationContext, takePendingHomeAttachments} from './lib/storage.mjs';
 
 const emptyTitle = 'Novo chat';
 
@@ -34,14 +36,7 @@ export default function App({bootstrap}) {
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState(() => initialQuery.get('auto_send') === '1' ? initialQuery.get('prompt') || '' : '');
-  const [homeAttachments, setHomeAttachments] = useState(() => {
-    try {
-      const raw = sessionStorage.getItem('cadu:home-pending-attachments');
-      sessionStorage.removeItem('cadu:home-pending-attachments');
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed.filter(item => item?.id) : [];
-    } catch (_) { return []; }
-  });
+  const [homeAttachments, setHomeAttachments] = useState(takePendingHomeAttachments);
   const [executionMode, setExecutionMode] = useState(() => initialQuery.get('mode') || 'analysis');
   const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
@@ -58,7 +53,7 @@ export default function App({bootstrap}) {
   const [queuedTurns, setQueuedTurns] = useState(() => readQueue(null));
   const [runtime, setRuntime] = useState('');
   const [diagnostics, setDiagnostics] = useState([]);
-  const [historyOpen, setHistoryOpen] = useState(() => !window.matchMedia('(max-width: 900px)').matches);
+  const [historyOpen, setHistoryOpen] = useResponsiveHistory(Boolean(conversationId));
   const [accountOpen, setAccountOpen] = useState(false);
   const [conversationDockItems, setConversationDockItems] = useState(() => bootstrap.dock?.items || []);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -83,28 +78,11 @@ export default function App({bootstrap}) {
 
   const rememberContext = useCallback(next => {
     setContext(next || {});
-    try {
-      if (next?.project_ref || next?.brand_ref) localStorage.setItem('cadu:workspace-chat-context', JSON.stringify(next));
-      else localStorage.removeItem('cadu:workspace-chat-context');
-    } catch (_) { /* storage can be unavailable in private browsing */ }
+    persistConversationContext(next);
   }, []);
 
   useEffect(() => { conversationRef.current = conversationId; }, [conversationId]);
   useEffect(() => { artifactRef.current = artifact; }, [artifact]);
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 900px)');
-    const adaptHistory = event => {
-      if (event.matches) setHistoryOpen(false);
-      else if (!conversationRef.current) setHistoryOpen(true);
-    };
-    if (media.addEventListener) media.addEventListener('change', adaptHistory);
-    else media.addListener(adaptHistory);
-    return () => {
-      if (media.removeEventListener) media.removeEventListener('change', adaptHistory);
-      else media.removeListener(adaptHistory);
-    };
-  }, []);
-
   const trace = useCallback((eventTitle, detail = '', tone = '') => {
     setDiagnostics(items => [...items, {id: uid(), title: eventTitle, detail, tone}].slice(-30));
   }, []);
@@ -263,7 +241,7 @@ export default function App({bootstrap}) {
           setRuntime('');
           runRef.current = null;
           setOpeningId('');
-          if (window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
+          if (isConversationMobile()) setHistoryOpen(false);
           return;
         }
         dispatchExecution({type: 'event', event: {event: 'run.started', run_id: active.run.id}});
@@ -291,7 +269,7 @@ export default function App({bootstrap}) {
         };
         recoveryTimerRef.current = window.setTimeout(monitor, 600);
       } else setRuntime('');
-      if (window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
+      if (isConversationMobile()) setHistoryOpen(false);
     } catch (error) {
       setRuntime('Não foi possível abrir');
       trace('Falha ao abrir conversa', error.message, 'error');
@@ -519,7 +497,7 @@ export default function App({bootstrap}) {
       try { await fetchArtifact(artifactRef.current.id); } catch (error) { trace('Não foi possível restaurar o artefato', error.message, 'error'); return; }
     }
     dispatchExecution({type: 'submitted'}); setDiagnostics([]); setRuntime(turnAttachments.length ? 'Enviando arquivos' : 'Trabalhando');
-    if (!conversationRef.current && window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
+    if (!conversationRef.current && isConversationMobile()) setHistoryOpen(false);
     let resolvedExecutionMode = queuedMode || executionMode;
     let staged;
     try {

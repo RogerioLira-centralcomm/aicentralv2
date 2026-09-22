@@ -16,8 +16,11 @@ def _has(text: str, pattern: str) -> bool:
 
 def _usable_public_url(value: str) -> bool:
     """Accept only complete public HTTP(S) URLs before planning extraction."""
+    candidate = str(value or '').strip().rstrip('.,;:)')
+    if not re.match(r'^[a-z][a-z0-9+.-]*://', candidate, re.IGNORECASE):
+        candidate = f'https://{candidate}'
     try:
-        parsed = urlparse(str(value or '').strip().rstrip('.,;:)'))
+        parsed = urlparse(candidate)
     except ValueError:
         return False
     host = (parsed.hostname or '').lower().rstrip('.')
@@ -95,9 +98,12 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         needs_tool = "projects.list_sources" if _has(text, r"\b(fontes?|base de conhecimento|indexad[oa])\b") else "projects.list_resources"
         return IntentRoute("workspace", "list_project_resources", "low", "analysis",
                            ("project",), (needs_tool,))
-    if has_project and _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*).{0,45}\b(link|url|refer[eê]ncia)\b"):
+    if _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*).{0,45}\b(link|url|refer[eê]ncia)\b"):
         url_match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE)
         has_url = bool(url_match and _usable_public_url(url_match.group(0)))
+        if not has_project:
+            return IntentRoute("workspace", "select_project_for_link" if has_url else "clarify_project_link",
+                               "low", "clarification", ("project",) if has_url else (), (), None, False)
         return IntentRoute("workspace", "create_project_link" if has_url else "clarify_project_link",
                            "low", "decision" if has_url else "clarification", ("project",), (), None, has_url)
     if has_project and re.search(r"https://[^\s<>{}\[\]\\\"']+", text, re.IGNORECASE) and _has(text, r"\b(resumo|resumir|s[ií]ntese).{0,45}\b(texto|edit[aá]vel|site|conte[uú]do)\b"):

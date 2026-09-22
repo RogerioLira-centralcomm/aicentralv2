@@ -89,9 +89,12 @@ def _project_link_step(message: str):
                       str(message or ""), re.IGNORECASE)
     if not match:
         return None
+    url = match.group(0).rstrip(".,;:)")
+    if not re.match(r'^[a-z][a-z0-9+.-]*://', url, re.IGNORECASE):
+        url = f'https://{url}'
     return {
         "kind": "action", "name": "projects.create_link_reference", "requires_confirmation": True,
-        "request_id": str(uuid4()), "arguments": {"url": match.group(0).rstrip(".,;:)")}, "effect": "write",
+        "request_id": str(uuid4()), "arguments": {"url": url}, "effect": "write",
         "summary": "Salvar o link como referência do projeto, sem abrir, ler ou indexar o conteúdo.",
     }
 

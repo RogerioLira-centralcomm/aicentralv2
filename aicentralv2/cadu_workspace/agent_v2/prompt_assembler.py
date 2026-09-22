@@ -86,6 +86,11 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         )
     elif request.brand_ref:
         brand_instruction = "Há uma marca vinculada ao projeto selecionado. Use esse contexto de marca nas análises relevantes."
+    if route.action == "select_project_for_link":
+        brand_instruction += (
+            " O usuário quer adicionar uma URL a um projeto, mas nenhum projeto foi confirmado nesta conversa. "
+            "Peça para ele selecionar ou informar o projeto; não formate a URL, não leia o site e não diga que o link foi adicionado."
+        )
     readiness = policy.get("briefing_readiness") if isinstance(policy.get("briefing_readiness"), dict) else None
     if readiness and not readiness.get("complete"):
         missing = ", ".join(readiness.get("missing") or [])

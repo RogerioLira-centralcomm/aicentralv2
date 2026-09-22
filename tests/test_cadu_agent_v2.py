@@ -1205,6 +1205,21 @@ def test_add_project_link_routes_to_internal_action_without_provider_interpretat
     assert plan[0]["arguments"]["url"] == "https://site.uhuru.com.br/home"
 
 
+def test_www_project_link_is_normalized_and_routes_to_internal_action():
+    message = "adicione o link www.centralcomm.media"
+    route = route_request(message, has_project=True)
+    plan = build_task_plan(route, budget_for(route, execution_mode_for(route, "analysis")), message)
+    assert route.action == "create_project_link"
+    assert plan[0]["arguments"]["url"] == "https://www.centralcomm.media"
+
+
+def test_link_request_without_project_asks_for_project_instead_of_formatting_url():
+    route = route_request("adicione o link www.centralcomm.media")
+    assert route.action == "select_project_for_link"
+    assert route.response_mode == "clarification"
+    assert route.requires_confirmation is False
+
+
 def test_empty_persisted_conversation_binding_accepts_authorized_turn_project(monkeypatch):
     app = Flask(__name__)
     app.secret_key = "test"

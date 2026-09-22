@@ -1,5 +1,9 @@
 /* Home autenticada: sugestões editoriais sobre o canvas claro. */
-body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button {
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home {
+  width: min(920px, 100%);
+}
+
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button {
   border: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--cadu-line) 78%, transparent);
   border-radius: 0;
@@ -8,10 +12,27 @@ body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-sug
   box-shadow: none;
 }
 
-body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button:hover,
-body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button:focus-visible {
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button:hover,
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-prompt-suggestions.is-workspace-home button:focus-visible {
   border-color: color-mix(in srgb, var(--cadu-accent) 42%, var(--cadu-line));
   background: color-mix(in srgb, var(--cadu-accent-soft) 34%, transparent);
   color: var(--cadu-accent-strong);
   box-shadow: none;
+}
+
+@media (min-width: 761px) {
+  body.portal--workspace .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-tree {
+    margin: 0 8px 3px;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  body.portal--workspace .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-tree.has-brand-logo {
+    margin-left: 37px;
+  }
+
+  body.portal--workspace .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child {
+    padding-right: 0;
+    padding-left: 0;
+  }
 }

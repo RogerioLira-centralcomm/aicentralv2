@@ -13,6 +13,11 @@
   }
 
   body.portal--workspace .cadu-ds-dock-brand-tree > .cadu-ds-dock-resource { margin-left: auto; }
+
+  body.portal--workspace .cadu-ds-dock-context .cadu-ds-dock-brand,
+  body.portal--workspace .cadu-ds-dock-context .cadu-ds-dock-resource {
+    transform: translateX(6px);
+  }
 }
 
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand .cadu-ds-visual-identity--brand {

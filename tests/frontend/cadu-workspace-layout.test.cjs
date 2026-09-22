@@ -10,6 +10,8 @@ const tokens = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/toke
 const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
 const conversationStyles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
 const workspaceBundleStyles = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/react/app.css'), 'utf8');
+const workspaceHomeStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceHome.css'), 'utf8');
+const dockStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.css'), 'utf8');
 const chromePath = process.env.CHROME_PATH;
 
 function documentFor(contentClass) {
@@ -85,6 +87,9 @@ async function dimensions(page, contentClass) {
   page.on('pageerror', error => errors.push(error.message));
 
   try {
+    assert.match(workspaceHomeStyles, /#cadu-conversations-v2-root[^\{]+\.cadu-ds-prompt-suggestions\.is-workspace-home button/, 'Home: CTA vence a regra escura do root');
+    assert.match(workspaceHomeStyles, /\.cadu-ds-context-sidebar__project-tree[^\{]+\{[^}]*border-left:\s*0/, 'Home: projetos sem linha de árvore');
+    assert.match(dockStyles, /\.cadu-ds-dock-context \.cadu-ds-dock-brand[^\{]+\{[^}]*translateX\(6px\)/, 'Dock: atalhos corrigidos para o eixo central');
     for (const contentClass of ['cadu-ds-home-content', 'cadu-ds-project-content', 'cadu-ds-brands-content']) {
       await page.setViewportSize({width: 1440, height: 1000});
       await page.setContent(documentFor(contentClass));

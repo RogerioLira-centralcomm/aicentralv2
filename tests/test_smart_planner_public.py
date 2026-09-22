@@ -135,7 +135,7 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["hero"]["creative_image"], "/generated/creative.png")
         self.assertEqual(view["hero"]["support_image"], {})
         self.assertTrue(view["hero"]["has_generated_visual"])
-        self.assertFalse(view["hero"]["uses_image_background"])
+        self.assertTrue(view["hero"]["uses_image_background"])
 
     def test_public_document_honors_editor_hero_selection_and_background_choice(self):
         view = public_view({

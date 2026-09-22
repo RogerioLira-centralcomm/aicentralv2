@@ -1317,7 +1317,12 @@ def public_view(row: dict, document: str | None = None) -> dict:
         executive_facts.append(("Canais", canais))
     if not executive_facts and (client or title):
         executive_facts.append(("Anunciante", client or title))
-    use_image_background = as_bool(hero_design.get("use_as_background"))
+    # A imagem principal aprovada compõe o hero público por padrão. O editor
+    # pode continuar persistindo a preferência antiga, mas ela não deve deixar
+    # a página cair silenciosamente no layout com barras escuras.
+    use_image_background = bool(creative_image) and (
+        as_bool(hero_design.get("use_as_background")) or bool(visuals)
+    )
     return {
         "house": HOUSE,
         "title": title,

@@ -2,7 +2,7 @@ from unittest import TestCase, mock
 
 from flask import Flask
 
-from aicentralv2.cadu_workspace.routes import bp
+from aicentralv2.cadu_workspace.routes import _dock_external_url, bp
 
 
 def _client():
@@ -34,8 +34,7 @@ class WorkspaceDockTest(TestCase):
 
         self.assertEqual(response.status_code, 201)
         insert_sql = cursor.execute.call_args.args[0]
-        self.assertIn('ON CONFLICT DO UPDATE', insert_sql)
-        self.assertNotIn('ON CONFLICT (client_id,user_id,shortcut_type,target_ref)', insert_sql)
+        self.assertIn('ON CONFLICT (client_id,user_id,shortcut_type,target_ref) DO UPDATE', insert_sql)
         connection.commit.assert_called_once_with()
 
     @mock.patch('aicentralv2.cadu_workspace.routes._dock_shortcuts_available', return_value=True)
@@ -58,3 +57,44 @@ class WorkspaceDockTest(TestCase):
 
         self.assertEqual(response.status_code, 503)
         connection.rollback.assert_called_once_with()
+
+    def test_external_link_accepts_only_safe_https(self):
+        self.assertEqual(_dock_external_url('https://trello.com/b/board'), 'https://trello.com/b/board')
+        for value in ('javascript:alert(1)', 'http://gmail.com/', 'file:///tmp/a',
+                      'https://user:secret@example.com/', 'https://example.com:444/',
+                      'https://example.com/\nmalicious'):
+            self.assertEqual(_dock_external_url(value), '')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._dock_shortcuts_available', return_value=True)
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_external_link_is_saved_as_launch_only_shortcut(self, get_db, _available):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': 'shortcut-1', 'shortcut_type': 'external', 'target_ref': 'hash',
+                                        'project_ref': None, 'brand_ref': None, 'position': 0,
+                                        'metadata': {'url': 'https://trello.com/b/board', 'title': 'Quadro'}}
+        get_db.return_value = connection
+        response = _client().post('/workspace/api/dock/shortcuts', json={
+            'shortcut_type': 'external', 'url': 'https://trello.com/b/board', 'title': 'Quadro',
+        }, headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 201)
+        values = cursor.execute.call_args.args[1]
+        self.assertEqual(values[3], 'external')
+        self.assertIsNone(values[5])
+        self.assertIsNone(values[6])
+        self.assertEqual(values[-1].obj['url'], 'https://trello.com/b/board')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._dock_shortcuts_available', return_value=True)
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_capacity_is_enforced_by_api(self, get_db, _available):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'total': 32, 'already_saved': False}
+        get_db.return_value = connection
+        response = _client().post('/workspace/api/dock/shortcuts', json={
+            'shortcut_type': 'external', 'url': 'https://trello.com/b/another', 'title': 'Outro quadro',
+        }, headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 409)
+        connection.rollback.assert_called_once_with()
+        self.assertNotIn('INSERT INTO cadu_workspace_dock_shortcuts',
+                         '\n'.join(call.args[0] for call in cursor.execute.call_args_list))

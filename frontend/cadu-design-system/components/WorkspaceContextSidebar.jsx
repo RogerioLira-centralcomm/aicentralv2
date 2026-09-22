@@ -50,17 +50,6 @@ function conversationHref(item, baseHref) {
   }
 }
 
-function projectConversationHref(project, baseHref) {
-  if (!baseHref) return project?.href || project?.url || '#';
-  try {
-    const target = new URL(baseHref, window.location.origin);
-    target.searchParams.set('project_ref', project.projectRef || project.ref || project.id);
-    return `${target.pathname}${target.search}`;
-  } catch (_) {
-    return project?.href || project?.url || '#';
-  }
-}
-
 function writeCollectionPayload(event, item, kind, label) {
   if (!event.dataTransfer) return;
   const payload = {
@@ -96,8 +85,8 @@ function SidebarCollection({label, href, items, kind}) {
 
 function SidebarBrandProjectGroups({brands, projects, links}) {
   const brandRef = item => String(item?.ref || item?.brandRef || `studio:${item?.id || ''}`);
-  const visibleProjects = projects.slice(0, 10);
-  const groups = brands.slice(0, 5).map(brand => {
+  const visibleProjects = projects;
+  const groups = brands.map(brand => {
     const ref = brandRef(brand);
     return {...brand, projects: visibleProjects.filter(project => {
       const refs = project.related_refs || project.relatedRefs || (project.brandRef ? [project.brandRef] : []);
@@ -113,9 +102,9 @@ function SidebarBrandProjectGroups({brands, projects, links}) {
       <a className={`cadu-ds-context-sidebar__brand-heading ${brand.logoUrl ? 'has-logo' : ''}`} href={brand.href || '#'} title={brand.name || brand.title}>
         {brand.logoUrl && <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant} imageTreatment="brand"/>}<b>{brand.name}</b>
       </a>
-      {brand.projects.length > 0 && <div className={`cadu-ds-context-sidebar__project-tree ${brand.logoUrl ? 'has-brand-logo' : ''}`}>{brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}
+      {brand.projects.length > 0 && <div className={`cadu-ds-context-sidebar__project-tree ${brand.logoUrl ? 'has-brand-logo' : ''}`}>{brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><Icon name="folder" size={14}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}
     </section>)}
-    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><span className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</span><div className="cadu-ds-context-sidebar__project-tree">{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={projectConversationHref(project, links.conversations)} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div></section>}
+    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><span className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</span><div className="cadu-ds-context-sidebar__project-tree">{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><Icon name="folder" size={14}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</div></section>}
   </section>;
 }
 

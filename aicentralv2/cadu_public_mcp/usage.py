@@ -12,6 +12,11 @@ from ..db import get_db
 
 
 PUBLIC_TOOL_COSTS = {
+    "account.get": 0,
+    "account.list_team": 0,
+    "credits.get_balance": 0,
+    "credits.list_packages": 0,
+    "credits.purchase_package": 0,
     "google.get_connector_status": 1,
     "google.list_project_resources": 1,
     "google.list_calendar_events": 1,
@@ -33,7 +38,7 @@ PUBLIC_TOOL_COSTS = {
 
 
 def tool_cost(tool_name: str) -> int:
-    return max(1, int(PUBLIC_TOOL_COSTS.get(tool_name, 1)))
+    return max(0, int(PUBLIC_TOOL_COSTS.get(tool_name, 1)))
 
 
 def new_request_id(value=None) -> str:
@@ -42,12 +47,16 @@ def new_request_id(value=None) -> str:
 
 
 def authorize_credits(*, client_id: int, user_id: int, tool_name: str) -> int:
+    if tool_cost(tool_name) == 0:
+        return 0
     return CaduCreditConnector().authorize(
         CreditActor.from_values(client_id, user_id), tool_cost(tool_name)
     )
 
 
 def charge_credits(*, client_id: int, user_id: int, tool_name: str, idempotency_key: str, metadata=None) -> dict | None:
+    if tool_cost(tool_name) == 0:
+        return None
     return CaduCreditConnector().charge_tokens(
         actor=CreditActor.from_values(client_id, user_id),
         idempotency_key=f"public-mcp:{idempotency_key}"[:160],

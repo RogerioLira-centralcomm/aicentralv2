@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from html import escape
 from pathlib import Path
 
 from flask import current_app
@@ -32,6 +34,29 @@ def _document(artifact: dict, content: dict) -> str:
         body = _clean_runtime_html(content.get("html"), 100_000)
         css = str(content.get("css") or "")[:80_000].replace("</style", "<\\/style")
         javascript = str(content.get("js") or "")[:80_000].replace("</script", "<\\/script")
+        def color(value):
+            return value if isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{3,8}", value) else ""
+        primary, secondary = color(content.get("primary_color")), color(content.get("secondary_color"))
+        theme = ";".join(part for part in (
+            f"--cadu-brand-primary:{primary}" if primary else "",
+            f"--cadu-brand-secondary:{secondary}" if secondary else "",
+        ) if part)
+        logo = str(content.get("logo_url") or "")
+        logo = logo if logo.startswith("https://") or logo.startswith("/") and not logo.startswith("//") else ""
+        brand_header = ""
+        if logo and "<img" not in body.lower():
+            brand_header = (
+                '<header data-cadu-brand-header class="mx-auto flex w-full max-w-6xl items-center gap-3 '
+                'border-b border-slate-200 px-6 py-4" style="border-bottom-color:var(--cadu-brand-primary,#176b5e)">'
+                f'<img src="{escape(logo, quote=True)}" alt="" class="h-8 w-auto object-contain">'
+                f'<span class="text-sm font-semibold text-slate-700">{escape(str(content.get("title") or title))}</span>'
+                '</header>'
+            )
+        return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)}</title>
+<link rel="stylesheet" href="/static/css/tailwind/artifact.css"><style>:root{{{theme}}}
+html,body{{margin:0;min-height:100%;background:#f8fafc}}{css}</style></head>
+<body>{brand_header}{body}{f'<script>{javascript}</script>' if javascript else ''}</body></html>"""
     else:
         body = _clean_editor_html(content.get("html") or content.get("content") or "", 100_000)
         css = ""
@@ -75,4 +100,3 @@ def materialize(artifact: dict) -> Path | None:
         "title": artifact.get("title"),
     }, ensure_ascii=False), encoding="utf-8")
     return target
-

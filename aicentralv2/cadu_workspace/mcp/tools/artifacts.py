@@ -4,6 +4,7 @@ from werkzeug.exceptions import HTTPException
 
 from ...agent_v2.contracts import RequestContext
 from ...artifacts import service
+from .. import operations
 from ..registry import ToolInputError, register_tool
 
 
@@ -55,11 +56,10 @@ def get_artifact(context: RequestContext, arguments: dict) -> dict:
     }, "additionalProperties": False},
 )
 def create_draft(context: RequestContext, arguments: dict) -> dict:
-    # request_id is already part of the public contract; durable idempotency is the next rollout.
-    return _domain(lambda: service.create_draft(
-        context, arguments["type"], arguments["content"], title=arguments["title"],
-        conversation_id=context.conversation_id,
-    ))
+    payload = {key: arguments[key] for key in ("type", "title", "content")}
+    return _domain(lambda: operations.execute(arguments["request_id"], context, "artifacts.create_draft", payload,
+        lambda: service.create_draft(context, arguments["type"], arguments["content"], title=arguments["title"],
+                                     conversation_id=context.conversation_id)))
 
 
 @register_tool(
@@ -79,11 +79,12 @@ def update_draft(context: RequestContext, arguments: dict) -> dict:
     current = _domain(lambda: service.get_artifact(context, arguments["artifact_id"]))
     if current["status"] not in {"draft", "active"}:
         raise ToolInputError("Somente artefatos em rascunho ou ativos podem ser editados por esta ferramenta.")
-    return _domain(lambda: service.patch_artifact(
-        context, arguments["artifact_id"], arguments["content"],
-        expected_version=arguments["expected_version"], title=arguments.get("title"),
-        change_summary=arguments.get("change_summary") or "Atualização via MCP",
-    ))
+    payload = {key: arguments[key] for key in ("artifact_id", "expected_version", "content")}
+    payload.update({key: arguments[key] for key in ("title", "change_summary") if key in arguments})
+    return _domain(lambda: operations.execute(arguments["request_id"], context, "artifacts.update_draft", payload,
+        lambda: service.patch_artifact(context, arguments["artifact_id"], arguments["content"],
+            expected_version=arguments["expected_version"], title=arguments.get("title"),
+            change_summary=arguments.get("change_summary") or "Atualização via MCP")))
 
 
 @register_tool(
@@ -99,6 +100,25 @@ def artifact_versions(context: RequestContext, arguments: dict) -> dict:
     return {"versions": _domain(lambda: service.list_versions(
         context, arguments["artifact_id"], limit=arguments.get("limit", 50),
     ))}
+
+
+@register_tool(
+    name="artifacts.finalize_to_project", capability="artifacts", effect="write", requires_project=True,
+    description="Confirma a versão atual de um documento, vincula ao projeto e substitui sua versão anterior no índice de conhecimento.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type":"object", "required":["request_id", "confirmed", "artifact_id", "expected_version"], "properties":{
+        "request_id":{"type":"string", "minLength":36, "maxLength":36},
+        "confirmed":{"type":"boolean", "enum":[True]},
+        "artifact_id":{"type":"string", "minLength":1, "maxLength":80},
+        "expected_version":{"type":"integer", "minimum":1},
+    }, "additionalProperties":False},
+)
+def finalize_artifact(context: RequestContext, arguments: dict) -> dict:
+    payload = {"artifact_id": arguments["artifact_id"], "expected_version": arguments["expected_version"]}
+    return _domain(lambda: operations.execute(arguments["request_id"], context,
+        "artifacts.finalize_to_project", payload,
+        lambda: service.finalize_to_project(context, arguments["artifact_id"],
+                                            expected_version=arguments["expected_version"])))
 
 
 @register_tool(

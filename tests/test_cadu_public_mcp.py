@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, Mock, patch
+from io import BytesIO
 
 from flask import Flask
 
@@ -52,6 +53,58 @@ def test_public_transport_is_separate_and_requires_bearer_auth():
     assert response.status_code == 401
     assert response.headers["WWW-Authenticate"].startswith("Bearer")
 
+
+def test_public_multipart_upload_requires_key_scope_and_project_editor():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="test")
+    app.register_blueprint(bp)
+    client = app.test_client()
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="conversations", project_ref="ci:42", capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="gpt",
+                                   label="Teste", scopes=("projects:write",), context=context)
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=principal), \
+         patch("aicentralv2.cadu_public_mcp.routes.repository.project_user_can_view", return_value=True), \
+         patch("aicentralv2.cadu_public_mcp.routes.repository.actor", return_value={"organization_id":12}), \
+         patch("aicentralv2.cadu_public_mcp.routes.repository.account_role", return_value="member"), \
+         patch("aicentralv2.cadu_public_mcp.routes.repository.project_access", return_value=[]), \
+         patch("aicentralv2.cadu_workspace.project_source_service.save_upload") as save:
+        response = client.post(f"{PUBLIC_MCP_PATH}/uploads", data={"upload_token":"signed",
+            "project_ref":"ci:42", "file":(BytesIO(b"brief"), "brief.txt")})
+        assert response.status_code == 403
+        save.assert_not_called()
+
+    no_scope = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="gpt",
+                                  label="Teste", scopes=("projects:read",), context=context)
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=no_scope), \
+         patch("aicentralv2.cadu_workspace.project_source_service.save_upload") as save:
+        response = client.post(f"{PUBLIC_MCP_PATH}/uploads", data={"upload_token":"signed",
+            "project_ref":"ci:42", "file":(BytesIO(b"brief"), "brief.txt")})
+        assert response.status_code == 401
+        save.assert_not_called()
+
+
+def test_public_upload_intent_returns_public_companion_url():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")
+    app.register_blueprint(bp)
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="conversations", project_ref="ci:42", capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="gpt",
+                                   label="Teste", scopes=("projects:write",), context=context)
+    registry = MagicMock()
+    registry.execute.return_value = {"upload_token":"signed", "upload_url":"/workspace/mcp/uploads"}
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=principal), \
+         patch("aicentralv2.cadu_public_mcp.routes.load_builtin_tools", return_value=registry), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.authorize_credits"), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.charge_credits"), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.record"):
+        response = app.test_client().post(PUBLIC_MCP_PATH, json={"jsonrpc":"2.0", "id":"1",
+            "method":"tools/call", "params":{"name":"projects.prepare_source_upload",
+                "arguments":{"request_id":"be777b36-a973-419c-802a-886bf1d125b0", "use_as_knowledge":True}}})
+    assert response.status_code == 200
+    assert response.get_json()["result"]["structuredContent"]["upload_url"] == \
+        "https://workspace.centralcomm.media/mcp/cadu/v1/uploads"
 
 def test_public_catalog_is_allowlisted_and_metered():
     assert "google.sync_workspace" not in PUBLIC_TOOLS

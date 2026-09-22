@@ -33,6 +33,7 @@ from ..db import close_db, get_db
 from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
 from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asset_url
+from ..creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
 from . import notification_service, project_index_service, project_knowledge, project_resource_service, project_sources, workspace_ingestion_service
 from .agent_v2.request_context import resolve as resolve_request_context
 
@@ -46,6 +47,12 @@ CADU_COMMERCIAL_PRICES = {
     'equipe': 697.0,
     'agência': 1497.0,
     'agencia': 1497.0,
+}
+CADU_EXTRA_CREDIT_AMOUNTS = {
+    'extra essencial': 100_000,
+    'extra equipe': 500_000,
+    'extra agência': 1_000_000,
+    'extra agencia': 1_000_000,
 }
 
 BRAND_SCORE_VERSION = 'brand-readiness-v2-2026-09'
@@ -678,6 +685,23 @@ def _dock_visual_variant(kind: str, value: object) -> int:
 _DOCK_RESOURCE_KINDS = {'resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link'}
 
 
+def _dock_external_url(value: object) -> str:
+    """Accept a launch-only HTTPS URL, never a script, local file or credential URL."""
+    raw = str(value or '').strip()
+    if not raw or len(raw) > 2000 or any(ord(char) < 32 for char in raw):
+        return ''
+    parsed = urlparse(raw)
+    if parsed.scheme.lower() != 'https' or not parsed.hostname or parsed.username or parsed.password:
+        return ''
+    try:
+        port = parsed.port
+    except ValueError:
+        return ''
+    if port and port != 443:
+        return ''
+    return raw
+
+
 def _workspace_dock_resource_items(client_id: int, project_rows: list[dict]) -> list[dict]:
     """Build launchable resource entries without putting them in the dock by default."""
     projects_by_ref = {f"ci:{row.get('id')}": row for row in project_rows if row.get('id')}
@@ -770,6 +794,16 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     catalog.update({('resource', item['resourceRef']): item for item in resource_items})
     explicit = []
     for row in _user_dock_shortcuts(client_id, user_id):
+        if row['shortcut_type'] == 'external':
+            metadata = row.get('metadata') if isinstance(row.get('metadata'), dict) else {}
+            external_url = _dock_external_url(metadata.get('url'))
+            if external_url:
+                hostname = urlparse(external_url).hostname or 'Link'
+                title = str(metadata.get('title') or hostname).strip()[:80] or hostname
+                explicit.append({'id': f"external:{row['target_ref']}", 'kind': 'external', 'title': title,
+                                 'name': title, 'href': external_url, 'shortcutId': row['id'],
+                                 'visualInitials': hostname[:2].upper(), 'visualColor': '#244944', 'pinned': True})
+            continue
         key = (row['shortcut_type'], row['target_ref'])
         if key not in catalog and row['shortcut_type'] in _DOCK_RESOURCE_KINDS:
             key = ('resource', row['target_ref'])
@@ -779,7 +813,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     # Explicitly pinned brands must remain visible even without a logo. React
     # renders their stable initials and primary color as the dock avatar.
     if explicit:
-        return explicit[:8]
+        return explicit[:32]
     # Before the user personalizes the dock, show only a small shelf of brands
     # with a visible logo. Projects enter the dock through an explicit shortcut.
     return [item for item in brand_items if item.get('logoUrl')][:3]
@@ -832,17 +866,30 @@ def save_dock_shortcut():
         kind = 'resource'
     if kind == 'brand' and target_ref.startswith('studio:'):
         target_ref = target_ref[7:]
-    if kind not in {'brand', 'project', 'resource'} or not target_ref:
+    external_url = _dock_external_url(payload.get('url')) if kind == 'external' else ''
+    if kind == 'external' and external_url:
+        target_ref = sha256(external_url.encode('utf-8')).hexdigest()
+    if kind not in {'brand', 'project', 'resource', 'external'} or not target_ref or (kind == 'external' and not external_url):
         abort(400, description='Atalho inválido.')
     client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
-    authorized_target = _authorized_dock_target(client_id, kind, target_ref)
+    authorized_target = {'id': target_ref} if kind == 'external' else _authorized_dock_target(client_id, kind, target_ref)
     if not authorized_target:
         abort(403, description='O item não pertence à sua agência ou não está disponível para a dock.')
-    project_ref = str(authorized_target.get('project_ref') or payload.get('project_ref') or '')[:500] or None
-    brand_ref = str(authorized_target.get('brand_ref') or payload.get('brand_ref') or '')[:500] or None
+    project_ref = None if kind == 'external' else str(authorized_target.get('project_ref') or payload.get('project_ref') or '')[:500] or None
+    brand_ref = None if kind == 'external' else str(authorized_target.get('brand_ref') or payload.get('brand_ref') or '')[:500] or None
+    metadata = {'url': external_url, 'title': str(payload.get('title') or urlparse(external_url).hostname or 'Link').strip()[:80]} if kind == 'external' else payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {}
     connection = get_db()
     try:
         with connection.cursor() as cursor:
+            cursor.execute('SELECT pg_advisory_xact_lock(%s,%s)', (client_id, user_id))
+            cursor.execute('''SELECT COUNT(*) AS total,
+                                     BOOL_OR(shortcut_type=%s AND target_ref=%s) AS already_saved
+                                FROM cadu_workspace_dock_shortcuts
+                               WHERE client_id=%s AND user_id=%s''',
+                           (kind, target_ref, client_id, user_id))
+            capacity = cursor.fetchone() or {}
+            if int(capacity.get('total') or 0) >= 32 and not capacity.get('already_saved'):
+                abort(409, description='A dock aceita até 32 atalhos.')
             cursor.execute("""INSERT INTO cadu_workspace_dock_shortcuts
                     (id,client_id,user_id,shortcut_type,target_ref,project_ref,brand_ref,position,metadata,created_at,updated_at)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,
@@ -852,12 +899,15 @@ def save_dock_shortcut():
                     SET project_ref=EXCLUDED.project_ref,brand_ref=EXCLUDED.brand_ref,metadata=EXCLUDED.metadata,updated_at=NOW()
                 RETURNING id::text,shortcut_type,target_ref,project_ref,brand_ref,position,metadata""",
                 (str(uuid4()), client_id, user_id, kind, target_ref, project_ref, brand_ref,
-                 client_id, user_id, Json(payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {})))
+                 client_id, user_id, Json(metadata)))
             row = cursor.fetchone()
             if not row:
                 raise RuntimeError('O banco não retornou o atalho salvo.')
             shortcut = dict(row)
         connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
     except Exception:
         connection.rollback()
         current_app.logger.exception('Falha ao salvar atalho da dock: tipo=%s alvo=%s', kind, target_ref)
@@ -1023,6 +1073,8 @@ def workspace_credit_summary():
 @login_required
 def request_credit_package():
     """Confirma a compra, libera o lote e avisa o financeiro para cobrar."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
     payload = request.get_json(silent=True) or request.form.to_dict()
     try:
         tokens = max(1, int(payload.get('tokens') or 0))
@@ -1033,6 +1085,18 @@ def request_credit_package():
     commercial_key = package_name.casefold()
     if commercial_key not in CADU_COMMERCIAL_PRICES:
         return jsonify(success=False, error='Escolha um plano ou pacote comercial válido.'), 400
+    expected_tokens = CADU_EXTRA_CREDIT_AMOUNTS.get(commercial_key)
+    if expected_tokens is None:
+        try:
+            from .. import db
+            definitions = db.obter_plan_definitions(apenas_ativos=True)
+            matching = next((item for item in definitions
+                             if str(item.get('plan_name') or item.get('plan_type') or '').casefold() == commercial_key), None)
+            expected_tokens = int((matching or {}).get('tokens_monthly_limit') or (matching or {}).get('pd_tokens_monthly_limit') or 0)
+        except Exception:
+            expected_tokens = 0
+    if not expected_tokens or tokens != expected_tokens:
+        return jsonify(success=False, error='A quantidade de créditos não corresponde ao produto escolhido.'), 400
     price = CADU_COMMERCIAL_PRICES[commercial_key]
     note = str(payload.get('note') or '').strip()[:2000]
     try:
@@ -1046,6 +1110,7 @@ def request_credit_package():
         return jsonify(success=False, error='Condição de pagamento inválida.'), 400
     client_id = int(session.get('cliente_id') or 0)
     user_id = int(session.get('user_id') or 0)
+    committed = False
     try:
         from .. import db
         client_record = db.obter_cliente_por_id(client_id) or {}
@@ -1064,12 +1129,15 @@ def request_credit_package():
             credit_lot_id = cur.fetchone()['id']
             cur.execute("UPDATE cadu_credit_requests SET credit_lot_id=%s WHERE id=%s", (credit_lot_id, request_id))
         conn.commit()
+        committed = True
         from ..email_service import send_email
         buyer_email = str(session.get('user_email') or '').strip()
+        buyer_name = str(session.get('user_name') or 'Pessoa não identificada').strip()[:160]
         recipients = ['apolo@centralcomm.media']
         if sales_email and sales_email.lower() not in {item.lower() for item in recipients}:
             recipients.append(sales_email)
         safe_name, safe_note, safe_email = escape(package_name), escape(note), escape(buyer_email or 'não informado')
+        safe_buyer_name = escape(buyer_name)
         users_label = '1 pessoa' if users == 1 else f'{users} pessoas'
         billing_label = 'Pós-pago / faturamento financeiro' if billing_mode == 'postpaid' else 'Pagamento antecipado'
         price_label = f'R$ {price:,.2f}' if price else 'A definir pelo financeiro'
@@ -1077,15 +1145,26 @@ def request_credit_package():
         internal_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f">
           <div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Financeiro</div><h1 style="margin:8px 0 0;font-size:24px">Novo pedido de compra</h1></div>
           <div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">O pedido <strong>#{request_id}</strong> foi registrado na área de conta.</p>
-          <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} créditos</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Uso previsto</td><td style="padding:9px 0;text-align:right"><strong>{users_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Comprador:</strong> {safe_email}</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
-        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Compra confirmada</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">A compra de <strong>{safe_name}</strong> foi confirmada e os créditos já estão disponíveis para uso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os créditos podem ser usados pela sua conta nas conversas e ações de IA. {('O saldo está disponível para 1 pessoa.' if users == 1 else f'O saldo está compartilhado entre {users} pessoas.') } Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Créditos liberados:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">O financeiro recebeu a notificação para registrar a cobrança.</p></div></div>'''
-        send_email(internal_subject, recipients,
-                   text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} créditos · {users_label} · {price_label} · {billing_label}. Cliente {client_id}.',
-                   html_body=internal_html)
+          <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} créditos</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Uso previsto</td><td style="padding:9px 0;text-align:right"><strong>{users_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Solicitante:</strong> {safe_buyer_name} ({safe_email})</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
+        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Compra confirmada</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">A compra de <strong>{safe_name}</strong> foi confirmada e os créditos já estão disponíveis para uso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os créditos podem ser usados pela sua conta nas conversas e ações de IA. {('O saldo está disponível para 1 pessoa.' if users == 1 else f'O saldo está compartilhado entre {users} pessoas.') } Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Créditos liberados:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">O pedido será acompanhado pelo financeiro para registrar a cobrança.</p></div></div>'''
+        finance_sent = bool(send_email(internal_subject, recipients,
+                   text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} créditos · {users_label} · {price_label} · {billing_label}. Cliente {client_id}. Solicitante: {buyer_name} ({buyer_email}).',
+                   html_body=internal_html))
+        buyer_sent = True
         if buyer_email and buyer_email.lower() != 'apolo@centralcomm.media':
-            send_email(f'Compra confirmada no Cadu #{request_id}', [buyer_email], text_body=f'Compra confirmada: {package_name} · {tokens:,} créditos liberados · {users_label} · {price_label} · {billing_label}.', html_body=buyer_html)
-        return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id, message='Compra confirmada. Os créditos já estão disponíveis para uso.'), 201
+            buyer_sent = bool(send_email(f'Compra confirmada no Cadu #{request_id}', [buyer_email], text_body=f'Compra confirmada: {package_name} · {tokens:,} créditos liberados · {users_label} · {price_label} · {billing_label}.', html_body=buyer_html))
+        notification_sent = finance_sent and buyer_sent
+        if not notification_sent:
+            current_app.logger.warning('Compra %s confirmada; falha no envio de uma ou mais notificações', request_id)
+        message = 'Compra confirmada. Os créditos já estão disponíveis para uso.' if notification_sent else 'Créditos liberados, mas uma notificação por e-mail falhou. O financeiro deve ser avisado.'
+        return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id,
+                       notification_sent=notification_sent, message=message), 201
     except Exception:
+        if committed:
+            current_app.logger.exception('Compra %s confirmada; falha ao preparar notificações', request_id)
+            return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id,
+                           notification_sent=False,
+                           message='Créditos liberados, mas a notificação por e-mail falhou. O financeiro deve ser avisado.'), 201
         try: conn.rollback()
         except Exception: pass
         current_app.logger.exception('Falha ao solicitar pacote de créditos')
@@ -1962,6 +2041,23 @@ def _brand_review_is_stale(pack: dict) -> bool:
     return datetime.now(timezone.utc) - updated > timedelta(minutes=15)
 
 
+def _brand_audit_checkpoint_reusable(pack: dict, *, website_url: str, analysis_mode: str,
+                                     social_links: list[str], existing_asset_ids: list[int], has_new_images: bool) -> bool:
+    """Resume paid extraction only for the exact same pipeline and inputs."""
+    previous = pack.get('input') if isinstance(pack.get('input'), dict) else {}
+    checkpoint = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
+    return bool(
+        checkpoint
+        and previous.get('pipeline_version') == BRAND_ANALYSIS_PIPELINE_VERSION
+        and previous.get('website_url') == website_url
+        and previous.get('analysis_mode') == analysis_mode
+        and list(previous.get('social_links') or []) == list(social_links or [])
+        and {int(item) for item in previous.get('existing_asset_ids') or [] if str(item).isdigit()}
+            == {int(item) for item in existing_asset_ids or [] if str(item).isdigit()}
+        and not has_new_images
+    )
+
+
 def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes) -> bool:
     """Atomically update the current job without letting an older worker win."""
     connection = get_db()
@@ -2257,6 +2353,7 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
                     total_usd += max(0.0, float(stage.get('cost_usd') or 0))
                 except (TypeError, ValueError):
                     continue
+            item['pipeline_version'] = str(result_metadata.get('pipeline_version') or '')
             if total_usd > 0:
                 from ..creative_modeling_fx import brl_from_usd, usd_brl_rate
                 rate, source = usd_brl_rate()
@@ -2316,7 +2413,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 _save_brand_audit_history(
                     client_id, brand_id, job_id, analysis_mode=analysis_mode, status='running',
                     input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode,
-                                'existing_asset_ids': list(existing_asset_ids or [])},
+                                'existing_asset_ids': list(existing_asset_ids or []),
+                                'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
                 )
                 _save_brand_review_job(client_id, brand_id, job_id,
                     status='running', stage='evidence', index=1, total=4,
@@ -2587,7 +2685,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 _save_brand_audit_history(
                     client_id, brand_id, job_id, analysis_mode=analysis_mode, status=history_status,
                     input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode,
-                                'existing_asset_ids': list(existing_asset_ids or [])},
+                                'existing_asset_ids': list(existing_asset_ids or []),
+                                'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
                     analysis={**review_proposal, 'analysis_metadata': analysis_metadata},
                     reviews=reviews, costs=token_usage,
                 )
@@ -3601,7 +3700,8 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
                           word_count, tokens, erro_msg, purpose, category, classification_status,
                           classification_confidence, classification_reason, classification_metadata, created_at
                      FROM cadu_ci_projeto_arquivos
-                    WHERE projeto_id = %s AND id_cliente = %s ORDER BY created_at DESC""",
+                    WHERE projeto_id = %s AND id_cliente = %s AND indexing_status <> 'superseded'
+                 ORDER BY created_at DESC""",
                 (project_id, client_id),
             )
             project['files'] = [dict(row) for row in cursor.fetchall()]
@@ -5207,6 +5307,8 @@ def project_detail(project_id):
             conversation_id = str(item.get('conversation_id') or '').strip()
             artifact_items.append({
                 'id': f'workspace-artifact:{artifact_id}',
+                'artifactId': artifact_id,
+                'type': artifact_type,
                 'kind': kind,
                 'kindLabel': kind_label,
                 'title': str(item.get('title') or 'Artefato sem título'),
@@ -6540,6 +6642,7 @@ def brand_detail(brand_id):
         }
         brand_data = {
             'id': str(brand.get('id')), 'name': str(brand.get('name') or 'Marca'), 'sector': str(brand.get('sector') or ''),
+            'analysisPipelineVersion': BRAND_ANALYSIS_PIPELINE_VERSION,
             'websiteUrl': str(brand.get('website_url') or ''), 'crmClientId': str(brand.get('crm_client_id') or ''),
             'detailUrl': url_for('cadu_workspace.clean_brand_detail', brand_id=brand_id),
             'logoUrl': str((brand.get('logo_variants') or {}).get('512') or brand.get('display_logo') or ''),
@@ -7004,7 +7107,8 @@ def audit_brand(brand_id):
             'input': {'website_url': website_url, 'has_images': bool(image_payload),
                       'existing_asset_ids': list(existing_asset_ids or []),
                       'include_project_sources': request.form.get('include_project_sources') == 'true',
-                      'analysis_mode': analysis_mode, 'social_links': social_links},
+                      'analysis_mode': analysis_mode, 'social_links': social_links,
+                      'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
             'analysis': {},
             'reviews': [],
         }
@@ -7047,6 +7151,7 @@ def audit_brand(brand_id):
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({
             'ok': True, 'job_id': job_id, 'status': 'queued',
+            'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION,
             'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
         }), 202
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
@@ -7080,6 +7185,7 @@ def brand_audit_status(brand_id):
         'message': pack.get('message'), 'error': pack.get('error'),
         'review_count': len(pack.get('reviews') or []), 'created_at': pack.get('created_at'),
         'updated_at': pack.get('updated_at'),
+        'pipeline_version': (pack.get('input') or {}).get('pipeline_version'),
     })
 
 
@@ -7125,14 +7231,19 @@ def retry_brand_audit(brand_id):
         item.stream.seek(0)
     job_id = uuid4().hex
     metadata = dict(brand.get('analysis_metadata') or {})
-    checkpoint = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
+    checkpoint = pack.get('analysis') if _brand_audit_checkpoint_reusable(
+        pack, website_url=website_url, analysis_mode=analysis_mode,
+        social_links=social_links, existing_asset_ids=existing_asset_ids or [],
+        has_new_images=bool(image_payload),
+    ) else {}
     metadata['review_pack'] = {
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 5,
         'message': 'A nova análise entrou na fila. A identidade atual será preservada até sua aprovação.', 'error': '',
         'created_at': _utc_timestamp(),
         'input': {'website_url': website_url, 'has_images': bool(image_payload), 'preserves_logo': True,
                   'existing_asset_ids': list(existing_asset_ids or []),
-                  'analysis_mode': analysis_mode, 'social_links': social_links}, 'analysis': checkpoint, 'reviews': [],
+                  'analysis_mode': analysis_mode, 'social_links': social_links,
+                  'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION}, 'analysis': checkpoint, 'reviews': [],
     }
     connection = get_db()
     try:
@@ -7163,6 +7274,7 @@ def retry_brand_audit(brand_id):
                             social_links=social_links, existing_asset_ids=existing_asset_ids)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({'ok': True, 'job_id': job_id, 'status': 'queued',
+                        'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION,
                         'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id)}), 202
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
 

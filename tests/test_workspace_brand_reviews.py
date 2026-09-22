@@ -4,6 +4,21 @@ from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
 
 
 class WorkspaceBrandReviewAgentsTest(TestCase):
+    def test_failed_provider_attempts_remain_visible_after_fallback_exhaustion(self):
+        analyzer = CreativeBrandAnalyzer(
+            llm=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError('indisponível')),
+            model='primary-model', fallback_model='fallback-model',
+        )
+
+        with self.assertRaises(RuntimeError) as failure:
+            analyzer._json_call([{'role': 'user', 'content': 'JSON'}], model='primary-model',
+                                max_tokens=100, temperature=0, timeout=1,
+                                stage='teste', retries=0)
+
+        self.assertEqual(len(failure.exception.call_trace), 2)
+        self.assertEqual([item['model'] for item in failure.exception.call_trace],
+                         ['primary-model', 'fallback-model'])
+
     def test_two_gpt_reviews_keep_distinct_evidence_and_expansion_contracts(self):
         responses = iter([
             {'message': {'content': '{"summary":"Fatos confirmados.","findings":["Site oficial"],"concerns":[],"confidence":0.8,"decision":"ready"}'}, 'model': 'reviewer'},

@@ -137,6 +137,12 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             " O usuário condicionou a pesquisa externa à autorização prévia. Não pesquise, não crie artefato e não salve no projeto. "
             "Faça uma única pergunta objetiva de autorização e ofereça continuar sem pesquisa como alternativa."
         )
+    if route.action == "rename_project":
+        brand_instruction += (
+            " O pedido foi identificado como possível renomeação do projeto ativo. "
+            "Não trate os nomes como termos editoriais, não sugira sinônimos e não proponha outras direções. "
+            "Apresente somente a confirmação objetiva da ação preparada: se o usuário quer renomear o projeto atual para o novo nome informado."
+        )
     readiness = policy.get("briefing_readiness") if isinstance(policy.get("briefing_readiness"), dict) else None
     if readiness and not readiness.get("complete"):
         missing = ", ".join(readiness.get("missing") or [])
@@ -178,7 +184,10 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         draft_instruction = (
             "Gere um artefato HTML visual para o objetivo do usuário. Use Tailwind CSS e componentes simples, com layout limpo, responsivo, acessível e pronto para relatório, tabela, resumo executivo ou dashboard conforme o pedido. "
             "Quando evidence tiver projeto/marca, use somente logo, cores, tipografia e identidade presentes ali; nunca invente logo, cor ou dado. Prefira variáveis CSS e classes Tailwind, contraste alto, tabelas legíveis e estados vazios honestos. "
-            "Retorne HTML body fragment em artifact_patch.html, CSS complementar mínimo em artifact_patch.css e JavaScript apenas se necessário em artifact_patch.js. Não escreva Markdown no artefato."
+            "Entregue sempre artifact_patch com title e html utilizável na prévia do artefato. "
+            "Retorne HTML body fragment em artifact_patch.html, CSS complementar em artifact_patch.css e JavaScript de interação em artifact_patch.js. "
+            "O código deve funcionar sozinho no navegador: sem dependências externas, fetch, bibliotecas CDN ou necessidade de publicação. "
+            "Para controles interativos pedidos pelo usuário, inclua o JavaScript funcional no campo js; não o coloque dentro do HTML. Não escreva Markdown no artefato."
         )
         if "dashboard" in message.lower() or "painel" in message.lower():
             draft_instruction += (

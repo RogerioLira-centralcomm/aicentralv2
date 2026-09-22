@@ -40,7 +40,7 @@ export function buildWorkspaceSuggestions(options = {}) {
 export function WorkspacePromptSuggestions({project, brand, home, onSelect, compact = false, surface = 'chat'}) {
   const suggestions = useMemo(() => buildWorkspaceSuggestions({project, brand, home}), [brand, home, project]);
   return <section className={`cadu-ds-prompt-suggestions is-${surface} ${compact ? 'is-compact' : ''}`} aria-label={project ? `Sugestões para ${project.name || 'o projeto'}` : 'Sugestões para começar'}>
-    <span className="cadu-ds-prompt-suggestions__label">{project ? `Para ${project.name || 'este projeto'}` : brand ? `Para ${brand.name || 'esta marca'}` : 'Comece por aqui'}</span>
-    <div>{suggestions.map(item => <button key={item.label} type="button" onClick={() => onSelect?.(item.prompt)}><span>{item.label}</span><Icon name="chevron" size={14}/></button>)}</div>
+    <span className="cadu-ds-prompt-suggestions__label">{project ? `Para ${project.name || 'este projeto'}` : brand ? `Para ${brand.name || 'esta marca'}` : surface === 'workspace-home' ? 'Ou escolha um ponto de partida' : 'Comece por aqui'}</span>
+    <div>{suggestions.map(item => <button key={item.label} type="button" onClick={() => onSelect?.(item.prompt)}><span>{item.label}{surface === 'workspace-home' && <small>Preparar no chat</small>}</span><Icon name="chevron" size={16}/></button>)}</div>
   </section>;
 }

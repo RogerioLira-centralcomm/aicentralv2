@@ -191,6 +191,7 @@ function ProjectBrandCard({brand, urls, canEdit, canManageBrand, onDialog}) {
 }
 
 function SourcesDialog({urls, csrfToken, canEdit, files, droppedFiles, onDropConsumed, onClose}) {
+  const fileInput = useRef(null);
   const [triage, setTriage] = useState(() => files.filter(file => file.requiresReview).map(file => ({source_id: file.id, name: file.title, mime: file.mime, processing: 'metadata_only', text_preview: '', can_index: file.canIndex, confirm_url: file.confirmUrl, purpose: 'project_attachment', category: file.category || 'other'})));
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -233,7 +234,7 @@ function SourcesDialog({urls, csrfToken, canEdit, files, droppedFiles, onDropCon
   return <ProjectDialog title="Fontes e arquivos" detail="Traga contexto para o projeto e revise cada item antes de colocá-lo na base do Cadu." onClose={onClose}>
     {canEdit && <div className="cadu-ds-project-source-actions">
       <SourceSection title="Adicionar nota ou briefing" detail="Registre uma orientação sem enviar arquivo."><form className="cadu-ds-project-form" method="post" action={urls.createNote}><input type="hidden" name="_csrf" value={csrfToken}/><label>Título<input name="title" required minLength="2" maxLength="180"/></label><label>Conteúdo<textarea name="content" required minLength="20" maxLength="50000" rows="5"/></label><button className="is-primary">Adicionar nota</button></form></SourceSection>
-      <SourceSection title="Enviar arquivos" detail="Preserve primeiro; decida depois se entram na base do Cadu." open><div className={`cadu-ds-project-upload-drop ${dragging ? 'is-dragging' : ''}`} onDragEnter={(event) => {event.preventDefault(); setDragging(true);}} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => {if (event.currentTarget === event.target) setDragging(false);}} onDrop={onDrop}><span className="cadu-ds-project-upload-drop__icon"><ProjectIcon name="source"/></span><b>{busy ? 'Preparando arquivos…' : 'Solte arquivos aqui'}</b><span>PDF, documento, planilha, imagem, áudio ou vídeo</span></div><p className="cadu-ds-project-upload-note">O arquivo fica preservado primeiro. O Cadu mostra a leitura e a classificação abaixo para você decidir entre anexo ou fonte de conhecimento.</p></SourceSection>
+      <SourceSection title="Enviar arquivos" detail="Preserve primeiro; decida depois se entram na base do Cadu." open><input ref={fileInput} type="file" multiple hidden onChange={event => { uploadFiles(event.target.files); event.target.value = ''; }}/><div className={`cadu-ds-project-upload-drop ${dragging ? 'is-dragging' : ''}`} onDragEnter={(event) => {event.preventDefault(); setDragging(true);}} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => {if (event.currentTarget === event.target) setDragging(false);}} onDrop={onDrop}><span className="cadu-ds-project-upload-drop__icon"><ProjectIcon name="source"/></span><b>{busy ? 'Preparando arquivos…' : 'Solte arquivos aqui'}</b><span>PDF, documento, planilha, imagem, áudio ou vídeo</span><button type="button" disabled={busy} onClick={() => fileInput.current?.click()}>Selecionar arquivos</button></div><p className="cadu-ds-project-upload-note">O arquivo fica preservado primeiro. O Cadu mostra a leitura e a classificação abaixo para você decidir entre anexo ou fonte de conhecimento.</p></SourceSection>
       <SourceSection title="Importar página pública" detail="Adicione uma URL para manter como referência do projeto."><form className="cadu-ds-project-form" method="post" action={urls.importUrl}><input type="hidden" name="_csrf" value={csrfToken}/><label>URL pública<input name="url" type="url" required maxLength="2000" placeholder="https://exemplo.com/pagina"/></label><button className="is-primary">Importar página</button></form></SourceSection>
     </div>}
     {error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}
@@ -336,6 +337,20 @@ function ProjectIndexingSection({files = [], onReview}) {
   </section>;
 }
 
+function ProjectEditorialOverview({project, onEdit, canEdit}) {
+  const chapters = [
+    {title: 'Público', text: project.identity?.publico},
+    {title: 'Posicionamento', text: project.identity?.posicionamento},
+    {title: 'Tom de voz', text: project.identity?.tom_de_voz},
+    {title: 'Orientações para o Cadu', text: project.instructions},
+  ].filter(chapter => String(chapter.text || '').trim());
+  return <section className="cadu-ds-project-editorial" id="direcao" aria-labelledby="project-editorial-title">
+    <header><span>Direção do trabalho</span><h2 id="project-editorial-title">O que sustenta este projeto</h2><p>{project.description || 'A direção ainda não foi registrada. Acrescente o contexto que orienta as próximas conversas e entregas.'}</p></header>
+    {chapters.length ? <div className="cadu-ds-project-editorial__chapters">{chapters.map(chapter => <section key={chapter.title}><h3>{chapter.title}</h3><p>{chapter.text}</p></section>)}</div> : <p className="cadu-ds-project-editorial__empty">Público, posicionamento, tom e orientações aparecerão aqui quando forem definidos.</p>}
+    <footer><span>{project.brand?.name ? `Identidade vinculada: ${project.brand.name}` : 'Marca ainda não vinculada'}</span>{canEdit && <button type="button" onClick={onEdit}>Editar direção</button>}</footer>
+  </section>;
+}
+
 const SOURCE_ROLES = {brief:'Define o problema e os critérios do trabalho', research:'Sustenta decisões com pesquisa e evidências', media_plan:'Orienta canais, investimento e calendário', report:'Registra resultados e aprendizados', brand_asset:'Preserva a identidade da marca', reference:'Serve como referência para comparação', contract:'Registra limites e compromissos', spreadsheet:'Fornece dados estruturados para análise', other:'Complementa o contexto do projeto'};
 
 function conversationPromptUrl(base, prompt) {
@@ -404,7 +419,7 @@ export function WorkspaceProject({bootstrap}) {
   const [sharing, setSharing] = useState(project.sharing || {});
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [remoteNotifications, setRemoteNotifications] = useState([]);
-  const initialDockItems = bootstrap.dock?.items?.length ? bootstrap.dock.items : [...(bootstrap.brands || []), ...(bootstrap.projects || [])];
+  const initialDockItems = bootstrap.dock?.items || [];
   const [dockItems, setDockItems] = useState(initialDockItems);
   const canEdit = project.status !== 'arquivado';
   const missing = project.health?.missing || [];
@@ -481,17 +496,18 @@ export function WorkspaceProject({bootstrap}) {
   };
   const projectNav = [
     {id:'visao-geral', label:'Visão geral', icon:'home'},
-    ...(isNewProject ? [{id:'entrada', label:'Entrada de dados', icon:'compose'}] : []),
+    {id:'direcao', label:'Direção', icon:'compose'},
+    {id:'entrada', label:'Documentos e fontes', icon:'compose'},
     {id:'atividade', label:'Atividade', icon:'pulse', count:(project.activity || []).length},
     {id:'indexacao', label:'Indexação', icon:'history', count:(project.files || []).length},
     {id:'fontes', label:'Fontes e arquivos', icon:'file', count:(project.files || []).length + (project.links || []).length},
-    {id:'conversas', target:'fontes', label:'Conversas', icon:'compose', count:(project.conversations || []).length},
-    {id:'entregas', target:'fontes', label:'Artefatos e entregas', icon:'external', count:(project.artifacts || []).length + (project.deliveries || []).length},
+    {id:'conversas', label:'Conversas do projeto', icon:'compose', count:(project.conversations || []).length},
+    {id:'entregas', target:'acervo', label:'Artefatos e entregas', icon:'external', count:(project.artifacts || []).length + (project.deliveries || []).length},
   ];
   const projectRailGroups = [
+    {title:'Categorias indexadas', items:Object.entries((project.files || []).filter(item => ['completed','indexed','ready'].includes(item.status)).reduce((counts, item) => ({...counts, [item.category || 'other']:(counts[item.category || 'other'] || 0) + 1}), {})).map(([category, count]) => ({id:category, title:TRIAGE_CATEGORIES.find(([key]) => key === category)?.[1] || category.replace(/_/g, ' '), detail:`${count} fonte${count === 1 ? '' : 's'}`, href:'#fontes'}))},
+    {title:'Fontes principais', items:(project.files || []).filter(item => ['completed','indexed','ready'].includes(item.status)).map(item => ({...item, title:item.title, href:item.href || '#fontes', detail:TRIAGE_CATEGORIES.find(([key]) => key === item.category)?.[1] || item.mime || 'Fonte indexada'}))},
     {title:'Links principais', items:(project.links || []).map(item => ({...item, href:item.url, external:true, detail:item.provider}))},
-    {title:'Arquivos principais', items:(project.files || []).map(item => ({...item, name:item.title, detail:`${item.mime || 'Arquivo'} · ${item.status || 'preservado'}`}))},
-    {title:'Imagens e recursos', items:[...(project.files || []).filter(item => /image/i.test(item.mime || '')), ...(project.resources || [])].map(item => ({...item, name:item.title, detail:item.kind || item.mime || item.resourceType}))},
   ];
   const derivedNotifications = [
     ...(project.files || []).filter(item => item.requiresReview || ['error', 'failed'].includes(item.status)).map(item => ({id:`source:${item.id}`, kind:item.requiresReview ? 'approval' : 'attention', title:item.requiresReview ? `Defina o papel de ${item.title}` : `Revise ${item.title}`, detail:item.requiresReview ? 'A fonte foi preparada e aguarda sua decisão para entrar na base.' : 'A indexação não foi concluída.', context:project.name, action:'sources'})),
@@ -509,20 +525,28 @@ export function WorkspaceProject({bootstrap}) {
     else if (item.conversationId) window.location.assign(`${projectLinks.conversation}${projectLinks.conversation.includes('?') ? '&' : '?'}conversation_id=${encodeURIComponent(item.conversationId)}`);
     else document.querySelector('#atividade')?.scrollIntoView({behavior:'smooth'});
   };
-  return <div className={`cadu-ds-home-shell cadu-ds-project-shell${isNewProject ? ' is-new-project' : ''}`}>
+  return <div className={`cadu-ds-home-shell cadu-ds-project-shell is-editorial${isNewProject ? ' is-new-project' : ''}`}>
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-project-workarea" onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleFileDrop}>
         {dropActive && <div className="cadu-ds-project-page-drop" role="status" aria-live="polite"><div className="cadu-ds-project-page-drop__card"><span className="cadu-ds-project-page-drop__icon"><ProjectIcon name="source"/></span><strong>Solte para adicionar ao projeto</strong><span>O arquivo será preservado e revisado antes de entrar na base do Cadu.</span></div></div>}
-        {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} notifications={actionableNotifications} onOpenNotifications={() => setNotificationsOpen(true)} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
-        <EntityNavigator label={project.name || 'Projeto'} items={projectNav}/>
+        {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
+        <EntityNavigator label={project.name || 'Projeto'} items={projectNav} identity={<><VisualIdentity src={project.brand?.logoUrl} initials={project.brand?.initials || project.name} label={project.name} color={project.brand?.color || project.color}/><span><small>Projeto</small><b>{project.name}</b></span></>}>
+          <span>Trabalhar no projeto</span>
+          <button type="button" className="is-primary" onClick={startConversation}><ProjectIcon name="compose"/> Conversar no projeto</button>
+          {canEdit && <button type="button" onClick={() => setDialog('identity')}><ProjectIcon name="text"/> Editar contexto</button>}
+          {canEdit && <details className="cadu-ds-entity-nav__source-menu"><summary><ProjectIcon name="source"/> Adicionar fontes</summary><div><button type="button" onClick={() => setDialog('sources')}>Arquivos e áudios</button><button type="button" onClick={() => setDialog('sources')}>Nota ou input</button><button type="button" onClick={() => setDialog('link')}>Link ou página</button></div></details>}
+          <details className="cadu-ds-entity-nav__source-menu"><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a></div></details>
+        </EntityNavigator>
         <section className="cadu-ds-project-content">
-        <header className="cadu-ds-project-hero" id="visao-geral"><div className="cadu-ds-project-hero__identity"><VisualIdentity src={project.brand?.logoUrl} initials={project.brand?.initials || project.name} label={project.brand?.name || project.name} color={project.brand?.color || project.color}/></div><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}<span>{project.description || 'Organize a direção, as fontes e as decisões que vão sustentar este trabalho.'}</span></div><div className="cadu-ds-project-hero__actions"><button type="button" className="is-primary" onClick={startConversation}>Conversar no projeto</button>{canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar contexto</button>}<details><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a></div></details></div></header>
-        {isNewProject && <ProjectDataStarter conversationUrl={projectLinks.conversation} onContext={() => setDialog('identity')} onSources={() => setDialog('sources')} onLink={() => setDialog('link')}/>}
+        <header className="cadu-ds-project-hero" id="visao-geral"><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}</div>{actionableNotifications.length > 0 && <button type="button" className="cadu-ds-project-hero__attention" onClick={() => setNotificationsOpen(true)}>Atenções deste projeto ({actionableNotifications.length})</button>}</header>
+        <ProjectDataStarter conversationUrl={projectLinks.conversation} project={project} onContext={() => setDialog('identity')} onSources={() => setDialog('sources')} onLink={() => setDialog('link')}/>
+        <ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/>
         <div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div>
         <ProjectIndexingSection files={project.files || []} onReview={() => setDialog('sources')}/>
         <ProjectSourceExplorer project={project} conversationUrl={projectLinks.conversation} currentUser={bootstrap.user} onManage={() => setDialog('sources')}/>
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta.</span><form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Reativar projeto</button></form></aside>}
         <ProjectWorkspace project={project} missing={missing} canEdit={canEdit} onAction={setDialog} onStartConversation={startConversation} onOpenResource={item => setResourceId(item.id)}/>
+        <div id="conversas"><ProjectContinuitySection project={project} onStartConversation={startConversation}/></div>
         {canEdit && <form className="cadu-ds-project-archive" method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Arquivar projeto</button></form>}
         </section>
         <EntityContextRail title="Projeto agora" groups={projectRailGroups}>{project.brand?.name && <a className="cadu-ds-entity-rail__brand" href={project.brand.href}><VisualIdentity src={project.brand.logoUrl} initials={project.brand.initials || project.brand.name} label={project.brand.name} color={project.brand.color}/><span><small>Marca relacionada</small><b>{project.brand.name}</b></span></a>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><button type="button" onClick={() => setDialog('sources')}>Revisar fontes</button></div></EntityContextRail>

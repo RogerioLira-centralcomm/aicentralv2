@@ -114,6 +114,29 @@ def _project_status_step(message: str):
     }
 
 
+def _project_rename_step(message: str):
+    """Extract only the requested new name; the UI will confirm the mutation."""
+    text = " ".join(str(message or "").split())
+    match = re.search(
+        r"\b(?:mud|alter|troc|renome)\w*\b(?:\s+o)?(?:\s+nome)?(?:\s+(?:do|deste)\s+projeto)?"
+        r"(?:\s+de\s+.+?)?\s+para\s+[\"“]?(.+?)[\"”]?(?:[.!?]|$)",
+        text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    name = match.group(1).strip(' -:;,."“”')
+    if len(name) < 2:
+        return None
+    name = name[:150]
+    return {
+        "kind": "action", "name": "workspace.update_project_context",
+        "requires_confirmation": True, "request_id": str(uuid4()),
+        "arguments": {"name": name}, "effect": "write",
+        "summary": f"Renomear o projeto atual para “{name}”.",
+    }
+
+
 def _project_brand_step(message: str):
     linked = not bool(re.search(r"\b(desvincul|remov|desassoci)\w*", str(message or ""), re.IGNORECASE))
     return {
@@ -236,6 +259,10 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
             steps.append(action)
     if route.action == "set_project_status":
         steps.append(_project_status_step(message))
+    if route.action == "rename_project":
+        action = _project_rename_step(message)
+        if action:
+            steps.append(action)
     if route.action == "link_project_brand":
         steps.append(_project_brand_step(message))
     if route.action == "reindex_project_source":

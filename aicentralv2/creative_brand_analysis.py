@@ -39,6 +39,7 @@ DEFAULT_VISUAL_BRAND_MODEL = os.getenv(
 DEFAULT_BRAND_FALLBACK_MODEL = os.getenv(
     "CREATIVE_BRAND_FALLBACK_MODEL", "openai/gpt-5.4"
 )
+BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v3-2026-09"
 
 # Deep research is deliberately divided by evidence domain. A single request
 # was mixing operational records, market context and visual interpretation in
@@ -1776,7 +1777,10 @@ class CreativeBrandAnalyzer:
                 trace.append({'stage': stage, 'attempt': attempt, 'model': active_model,
                               'fallback': active_model != model,
                               'prompt_hash': prompt_hash, 'status': 'error', 'error': _text(str(exc), 240)})
-        raise last_error
+        if last_error is not None:
+            last_error.call_trace = trace
+            raise last_error
+        raise RuntimeError('Nenhum modelo de análise foi configurado.')
 
     def analyze(self, url=None, image=None, billing_callback=None, *, analysis_mode="complete", social_links=None):
         deep = str(analysis_mode or "complete").lower() == "deep"
@@ -1863,7 +1867,7 @@ class CreativeBrandAnalyzer:
                                 result[key] = partial[key]
                     research_models.append(response.get("model") or analysis_model)
                 except Exception as exc:
-                    call_trace.extend(traces)
+                    call_trace.extend(getattr(exc, 'call_trace', traces))
                     research_module_errors.append(f"{module_id}: {_text(str(exc), 180)}")
             if not result:
                 raise ValueError("Nenhum módulo de pesquisa conseguiu retornar evidência verificável.")
@@ -1947,6 +1951,7 @@ class CreativeBrandAnalyzer:
             # require the evidence gate and cannot become more permissive.
             normalization_response = None
             normalization_result = {"normalization_error": str(exc)[:240]}
+            call_trace.extend(getattr(exc, 'call_trace', []))
         # First-party contact/address extraction is intentionally preserved
         # after normalization. It is a traceable operational appendix, never
         # a substitute for the strategic evidence evaluated by the reviewers.
@@ -2016,7 +2021,9 @@ class CreativeBrandAnalyzer:
                     if visual_result.get(key) not in (None, "", []):
                         result[key] = visual_result[key]
             except Exception as exc:
-                call_trace.append({'stage': 'leitura_visual', 'status': 'error', 'error': _text(str(exc), 240)})
+                call_trace.extend(getattr(exc, 'call_trace', []) or [
+                    {'stage': 'leitura_visual', 'status': 'error', 'error': _text(str(exc), 240)},
+                ])
                 visual_response = None
         detected_logo = (web_record or {}).get("logo_url")
         asset_candidates = evidence.get("asset_candidates") or []
@@ -2131,6 +2138,7 @@ class CreativeBrandAnalyzer:
             "sources": sources,
             "social_links": _string_list(evidence.get("social_links"), limit=12, item_limit=2000),
             "analysis_metadata": {
+                "pipeline_version": BRAND_ANALYSIS_PIPELINE_VERSION,
                 "analysis_mode": "deep" if deep else "complete",
                 "model": text_response.get("model") or analysis_model,
                 "research_provider": "perplexity" if "perplexity" in analysis_model.lower() else "configured_llm",

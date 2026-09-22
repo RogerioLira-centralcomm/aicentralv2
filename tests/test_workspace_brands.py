@@ -8,9 +8,10 @@ from jinja2 import FileSystemLoader
 from werkzeug.exceptions import BadRequest
 
 from aicentralv2.product_domains import product_url
+from aicentralv2.creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
 from aicentralv2.cadu_workspace.routes import (
     _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
-    _brand_audit_history, _brand_audit_reliability_summary, _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
+    _brand_audit_checkpoint_reusable, _brand_audit_history, _brand_audit_reliability_summary, _brand_review_pack, _normalized_website_url, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
     _save_brand_review_job, bp,
 )
@@ -31,6 +32,21 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    def test_checkpoint_reuse_requires_current_version_and_identical_inputs(self):
+        pack = {'input': {'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION,
+                          'website_url': 'https://example.com', 'analysis_mode': 'complete',
+                          'social_links': ['https://example.com/social'], 'existing_asset_ids': [10]},
+                'analysis': {'brand_summary': 'Dados já extraídos.'}}
+        options = {'website_url': 'https://example.com', 'analysis_mode': 'complete',
+                   'social_links': ['https://example.com/social'], 'existing_asset_ids': [10],
+                   'has_new_images': False}
+        self.assertTrue(_brand_audit_checkpoint_reusable(pack, **options))
+        self.assertFalse(_brand_audit_checkpoint_reusable(
+            {**pack, 'input': {**pack['input'], 'pipeline_version': 'brand-analysis-pipeline-v2'}}, **options,
+        ))
+        self.assertFalse(_brand_audit_checkpoint_reusable(pack, **{**options, 'website_url': 'https://new.example.com'}))
+        self.assertFalse(_brand_audit_checkpoint_reusable(pack, **{**options, 'has_new_images': True}))
+
     def test_reliability_summary_ignores_legacy_runs_without_telemetry(self):
         summary = _brand_audit_reliability_summary([
             {'status': 'approved', 'reliability': {'provider_calls': 10, 'successful_calls': 9, 'failed_calls': 1, 'fallback_used': True, 'partial_result': True}},
@@ -644,7 +660,10 @@ class WorkspaceBrandsTest(TestCase):
         checkpoint = {'brand_summary': 'Base já extraída.', 'tone_of_voice': 'Claro'}
         workspace_brand.return_value = {
             'id': 81, 'analysis_metadata': {'review_pack': {
-                'status': 'failed', 'input': {'website_url': 'https://example.com'}, 'analysis': checkpoint,
+                'status': 'failed', 'input': {'website_url': 'https://example.com',
+                                             'analysis_mode': 'complete',
+                                             'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
+                'analysis': checkpoint,
             }},
         }
         connection = mock.MagicMock()
@@ -658,6 +677,30 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(start_job.call_args.kwargs['proposal'], checkpoint)
         persisted = json.loads(cursor.execute.call_args.args[1][0])
         self.assertEqual(persisted['review_pack']['analysis'], checkpoint)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_retry_old_pipeline_recollects_site(self, workspace_brand, _ensure_credit, get_db, start_job):
+        workspace_brand.return_value = {'id': 81, 'analysis_metadata': {'review_pack': {
+            'status': 'failed', 'input': {'website_url': 'https://example.com',
+                                         'analysis_mode': 'complete',
+                                         'pipeline_version': 'brand-analysis-pipeline-v2'},
+            'analysis': {'brand_summary': 'Extração antiga.'},
+        }}}
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/auditoria/repetir', data={'_csrf': 'known-token'})
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(start_job.call_args.kwargs['proposal'], {})
+        persisted = json.loads(cursor.execute.call_args.args[1][0])
+        self.assertEqual(persisted['review_pack']['analysis'], {})
+        self.assertEqual(persisted['review_pack']['input']['pipeline_version'], BRAND_ANALYSIS_PIPELINE_VERSION)
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value=None)

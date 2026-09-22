@@ -210,6 +210,16 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     ):
         return IntentRoute("workspace", "set_project_status", "medium", "decision",
                            ("project",), (), None, True)
+    # Inside an active project, "mude o nome de X para Y" normally refers to
+    # the project itself. It is still a write operation, so surface one exact
+    # confirmation instead of treating X/Y as terminology to rewrite.
+    project_rename = (
+        _has(text, r"\b(?:mud|alter|troc|renome)\w*\b.{0,25}\bnome\b.{0,120}\bpara\b")
+        or _has(text, r"\brenome\w*\b.{0,120}\bpara\b")
+    )
+    if has_project and project_rename:
+        return IntentRoute("workspace", "rename_project", "medium", "decision",
+                           ("project",), (), None, True)
     if has_project and _has(text, r"\b(vincul|associ|conect).{0,35}\bmarca\b"):
         return IntentRoute("workspace", "link_project_brand" if has_brand else "select_brand_for_project",
                            "medium", "decision" if has_brand else "clarification",
@@ -274,8 +284,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz).{0,45}\b(html|landing page|p[aá]gina|site|interface)\b"):
         return IntentRoute("workspace", "update_html", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), "html")
-    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,40}\b(html|landing page|p[aá]gina|site|interface)\b")
-            or _has(text, r"\b(html|landing page|p[aá]gina|site)\b.{0,35}\b(cri|mont|ger|prototip)")):
+    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|site|interface|dashboard interativo|painel interativo)\b")
+            or _has(text, r"\b(html|landing page|p[aá]gina|site|dashboard interativo|painel interativo)\b.{0,35}\b(cri|mont|ger|prototip)")):
         return IntentRoute("workspace", "create_html", "high", "artifact_first",
                            ("project", "brand") if has_project else (),
                            ("workspace.get_project_context",) if has_project else (), "html")

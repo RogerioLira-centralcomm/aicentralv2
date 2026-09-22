@@ -23,7 +23,7 @@ export function WorkspaceProjects({bootstrap}) {
   const [account, setAccount] = useState(false);
   const needle = query.trim().toLocaleLowerCase('pt-BR');
   const projects = useMemo(() => (bootstrap.projects || []).filter(project => !needle || `${project.name} ${project.brandName} ${project.description}`.toLocaleLowerCase('pt-BR').includes(needle)), [bootstrap.projects, needle]);
-  const dockItems = useMemo(() => bootstrap.dock?.items?.length ? bootstrap.dock.items : [...(bootstrap.brands || []), ...(bootstrap.projects || [])], [bootstrap.dock?.items, bootstrap.brands, bootstrap.projects]);
+  const dockItems = bootstrap.dock?.items || [];
   return <div className="cadu-ds-home-shell cadu-ds-brands-shell">
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-catalog-workarea">

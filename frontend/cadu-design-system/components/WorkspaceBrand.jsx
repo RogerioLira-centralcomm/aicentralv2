@@ -75,6 +75,7 @@ function CreateBrandProjectDialog({brand, action, csrfToken, onClose}) {
 
 function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   const [mode, setMode] = useState('complete');
+  const pipelineNumber = /pipeline-v(\d+)/.exec(brand.analysisPipelineVersion || '')?.[1];
   const existingSocialLinks = brand.auditInput?.socialLinks || brand.analysisMetadata?.socialLinks || [];
   const reusableAssets = (brand.assets || []).filter(asset => asset.reusable);
   const visibleAssets = reusableAssets.slice(0, mode === 'deep' ? 40 : 24);
@@ -84,7 +85,7 @@ function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   return <BrandDialog title="Atualizar análise da marca" detail="A identidade atual permanece protegida até você revisar e aprovar uma nova versão." onClose={onClose} className="cadu-ds-brand-audit-dialog">
     <form className="cadu-ds-brand-form" method="post" encType="multipart/form-data" action={urls.audit}>
       <Hidden name="_csrf" value={csrfToken}/>
-      <aside className="cadu-ds-brand-reprocess-note"><strong>{brand.reviewPack?.status || brand.analysisMetadata?.pagesAnalyzed ? 'Dados preservados nesta nova análise' : 'Como a análise funciona'}</strong><span>O endereço, a logo principal e os ativos atuais permanecem protegidos até uma nova versão ser revisada.</span>{brand.preserved?.logoUrl && <small>Logo principal atual preservada.</small>}</aside>
+      <aside className="cadu-ds-brand-reprocess-note"><strong>{brand.reviewPack?.status || brand.analysisMetadata?.pagesAnalyzed ? 'Dados preservados nesta nova análise' : 'Como a análise funciona'}</strong><span>{pipelineNumber ? `Versão ${pipelineNumber} da análise. ` : ''}O endereço, a logo principal e os ativos atuais permanecem protegidos até uma nova versão ser revisada.</span>{brand.preserved?.logoUrl && <small>Logo principal atual preservada.</small>}</aside>
       <div className="cadu-ds-brand-audit-dialog__columns"><div>
         <label>Site oficial <small>opcional se usar ativos da biblioteca</small><input type="url" name="website_url" maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/></label>
         <label>Links oficiais<textarea name="social_links" rows="3" defaultValue={existingSocialLinks.join('\n')} placeholder="https://instagram.com/sua-marca&#10;https://www.linkedin.com/company/sua-marca" /></label>
@@ -257,7 +258,7 @@ export function WorkspaceBrand({bootstrap}) {
   const urls = bootstrap.brandLinks || {};
   const [dialog, setDialog] = useState(() => new URLSearchParams(window.location.search).get('audit') === 'start' ? 'audit' : '');
   const [accountOpen, setAccountOpen] = useState(false);
-  const dockItems = bootstrap.dock?.items?.length ? bootstrap.dock.items : [...(bootstrap.brands || []), ...(bootstrap.projects || [])];
+  const dockItems = bootstrap.dock?.items || [];
   const [reviewTitle, reviewDescription] = reviewCopy(brand);
   const canEdit = Boolean(bootstrap.canManageBrand);
   const profile = brand.profile || {};
@@ -308,11 +309,11 @@ export function WorkspaceBrand({bootstrap}) {
     ...(!isProcessing && showDossier ? [
       {id:'direcao', label:'Direção da marca', icon:'compose'},
       ...(atlasHasContent ? [{id:'inteligencia', label:'Todos os dados', icon:'pulse'}, {id:'fontes', label:'Fontes', icon:'external', count:(brand.analysisMetadata?.sources || []).length}] : []),
-      {id:'biblioteca', label:'Ativos', icon:'file', count:(brand.assets || []).length},
       ...(campaigns.length ? [{id:'campanhas', label:'Campanhas', icon:'folder', count:campaigns.length}] : []),
-      {id:'projetos', label:'Projetos', icon:'folder', count:linkedProjects.length},
       ...(auditHistory.length ? [{id:'auditoria', label:'Auditorias', icon:'history', count:auditHistory.length}] : []),
     ] : []),
+    {id:'biblioteca', label:'Biblioteca', icon:'file', count:(brand.assets || []).length},
+    {id:'projetos', label:'Projetos da marca', icon:'folder', count:linkedProjects.length},
   ];
   const brandRailGroups = [
     {title:'Links principais', items:[brand.websiteUrl, ...(brand.analysisMetadata?.sources || [])].filter(Boolean).map((href, index) => ({id:href, title:index === 0 ? 'Site oficial' : `Fonte ${index}`, href, external:true}))},
@@ -324,7 +325,7 @@ export function WorkspaceBrand({bootstrap}) {
       <div className="cadu-ds-home-workarea cadu-ds-brand-workarea">
         {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}
         <div className="cadu-ds-entity-portal cadu-ds-entity-portal--brand">
-        <EntityNavigator label={brand.name || 'Marca'} items={brandNav} context={<><span>Projetos da marca</span><div>{linkedProjects.map(project => <a href={project.href} key={project.id}><b>{project.name}</b><small>{project.sources} fonte{project.sources === 1 ? '' : 's'} pronta{project.sources === 1 ? '' : 's'}</small></a>)}{!linkedProjects.length && <small>Nenhum projeto vinculado.</small>}</div><button type="button" onClick={() => setDialog('project-create')}>Criar projeto</button><button type="button" onClick={() => setDialog('link')}>Vincular existente</button></>}>
+        <EntityNavigator label={brand.name || 'Marca'} items={brandNav} identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.primaryColor} imageTreatment="brand"/><span><small>Marca</small><b>{brand.name}</b></span></>} context={<><span>Projetos da marca</span><div>{linkedProjects.map(project => <a href={project.href} key={project.id}><b>{project.name}</b><small>{project.sources} fonte{project.sources === 1 ? '' : 's'} pronta{project.sources === 1 ? '' : 's'}</small></a>)}</div><button type="button" onClick={() => setDialog('project-create')}>Criar projeto</button><button type="button" onClick={() => setDialog('link')}>Vincular existente</button></>}>
           {!isProcessing && <>
             <span>Gestão</span>
             {verified && <button type="button" className="is-primary" onClick={openConversation}>Conversar sobre a marca</button>}
@@ -336,7 +337,7 @@ export function WorkspaceBrand({bootstrap}) {
         </EntityNavigator>
         <section className="cadu-ds-brand-content">
           <a className="cadu-ds-brand-back" href={bootstrap.urls.brands}>← Marcas</a>
-          <header className="cadu-ds-brand-hero" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.primaryColor} imageTreatment="brand"/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Identidade de marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Aprovada' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available_unverified' ? 'Dados não verificados' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
+          <header className="cadu-ds-brand-hero" id="marca-visao"><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Identidade de marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Aprovada' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available_unverified' ? 'Dados não verificados' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
           {!isProcessing && <BrandCompletion score={readinessScore} missing={brand.readiness?.missing || []} breakdown={brand.readiness?.breakdown || []} processing={false} onAudit={() => setDialog('audit')} onEdit={() => setDialog('identity')}/>}
           {showDossier && lifecycle !== 'data_available_unverified' && <section className={`cadu-ds-brand-review cadu-ds-brand-review--${status || 'idle'}`}><div><p>Estado da base</p><h2>{reviewTitle}</h2><span>{reviewDescription}</span>{canShowSynthesis && <button type="button" onClick={() => setDialog('reviews')}>Consultar síntese da análise</button>}</div></section>}
           {showDossier && showAuditCompletion && <AuditCompletionSummary brand={brand} audit={completedAudit} onDone={finishAuditSummary}/>}
@@ -358,7 +359,7 @@ export function WorkspaceBrand({bootstrap}) {
               <ReliabilitySummary summary={reliabilitySummary}/>
               <AuditHistory history={auditHistory}/>
             </div>
-          </div></> : <>{!isProcessing && <AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>} {!isProcessing && <AuditHistory history={auditHistory}/>}</>}
+          </div></> : <><AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit && !isProcessing}/><section className="cadu-ds-brand-section" id="projetos"><header><div><p>Contexto compartilhado</p><h2>Projetos que usam esta marca</h2></div></header><div className="cadu-ds-brand-project-list">{linkedProjects.length ? linkedProjects.map(project => <button type="button" key={project.id} onClick={() => projectDetail(project)}><VisualIdentity src={project.logoUrl} initials={project.initials || project.name} label={project.name} color={project.color}/><span><b>{project.name}</b><small>{project.sources} fontes prontas</small></span><i>›</i></button>) : <p className="cadu-ds-brand-empty">Esta marca ainda não está vinculada a um projeto.</p>}</div></section>{!isProcessing && <AuditHistory history={auditHistory}/>}</>}
         </section>
         {!isProcessing && <EntityContextRail title="Gestão da marca" groups={showDossier ? brandRailGroups : []}><div className="cadu-ds-entity-rail__readiness"><span>Base da marca</span><strong>{readinessScore}%</strong><small>{verified ? 'identidade aprovada' : 'em preparação'}</small></div>{verified && <><a className="cadu-ds-entity-rail__studio" href={urls.createImage}>Criar imagem no Studio</a><a className="cadu-ds-entity-rail__studio" href={urls.createVideo}>Criar vídeo no Studio</a></>}<button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail>}
         </div>

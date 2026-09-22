@@ -143,7 +143,7 @@ def prepare_source_upload(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="projects.reindex_source", capability="workspace", effect="write", requires_project=True,
     description="Reprocessa uma fonte de conhecimento do projeto após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "source_id"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -164,7 +164,7 @@ def reindex_source(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="projects.create_note", capability="workspace", effect="write", requires_project=True,
     description="Cria uma nota como fonte de conhecimento do projeto após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "title", "content"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},

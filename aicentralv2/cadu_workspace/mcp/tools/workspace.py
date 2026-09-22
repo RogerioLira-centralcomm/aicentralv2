@@ -26,13 +26,26 @@ def _native_project_id(context: RequestContext) -> str:
     )
     if not records:
         raise ToolInputError("Projeto indisponível.")
+    if not repository.project_user_can_view(context.client_id, project_ref, context.user_id):
+        raise ToolInputError("Você não tem acesso a este projeto.")
     return project_id
+
+
+def _require_project_editor(context: RequestContext) -> None:
+    _native_project_id(context)
+    actor = repository.actor(context.user_id) or {}
+    if int(actor.get("organization_id") or 0) == context.client_id and repository.account_role(actor) == "admin":
+        return
+    roles = {item.get("role") for item in repository.project_access(context.client_id, context.project_ref)
+             if int(item.get("user_id") or 0) == context.user_id}
+    if not roles.intersection({"owner", "admin", "editor"}):
+        raise ToolInputError("Você não pode editar este projeto.")
 
 
 @register_tool(
     name="workspace.create_project", capability="workspace", effect="write",
     description="Cria um projeto nativo no Workspace. Só pode ser executado após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object",
         "required": ["request_id", "name"],
@@ -136,7 +149,7 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.update_project_context", capability="workspace", effect="write", requires_project=True,
     description="Atualiza campos de contexto do projeto atual após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object", "required": ["request_id", "confirmed"],
         "properties": {
@@ -153,6 +166,7 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
     },
 )
 def update_project_context(context: RequestContext, arguments: dict) -> dict:
+    _require_project_editor(context)
     project_id = _native_project_id(context)
     fields = ("name", "description", "instructions", "tone_of_voice", "audience", "positioning", "color")
     payload = {key: arguments[key] for key in fields if key in arguments}
@@ -192,7 +206,7 @@ def update_project_context(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.set_project_status", capability="workspace", effect="write", requires_project=True,
     description="Arquiva ou reativa o projeto atual após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "status"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -200,6 +214,7 @@ def update_project_context(context: RequestContext, arguments: dict) -> dict:
     }, "additionalProperties": False},
 )
 def set_project_status(context: RequestContext, arguments: dict) -> dict:
+    _require_project_editor(context)
     project_id = _native_project_id(context)
     status = arguments["status"]
 
@@ -224,7 +239,7 @@ def set_project_status(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.link_current_brand", capability="workspace", effect="write", requires_project=True,
     description="Vincula ou desvincula a marca selecionada ao projeto atual após confirmação.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "linked"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -232,7 +247,7 @@ def set_project_status(context: RequestContext, arguments: dict) -> dict:
     }, "additionalProperties": False},
 )
 def link_current_brand(context: RequestContext, arguments: dict) -> dict:
-    _native_project_id(context)
+    _require_project_editor(context)
     brand_ref = str(context.brand_ref or "")
     entities = {item.get("ref"): item for item in repository.entities(context.client_id)}
     if not brand_ref or (entities.get(brand_ref) or {}).get("kind") != "brand":
@@ -310,7 +325,7 @@ def list_project_shares(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.set_project_visibility", capability="workspace", effect="write", requires_project=True,
     description="Altera a visibilidade do projeto atual após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "visibility"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -334,7 +349,7 @@ def set_project_visibility(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.share_project_with_people", capability="workspace", effect="write", requires_project=True,
     description="Concede acesso direto a pessoas ativas da equipe após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "people"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -365,7 +380,7 @@ def share_project_with_people(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="workspace.share_project_with_team", capability="workspace", effect="write", requires_project=True,
     description="Compartilha o projeto com a equipe ativa após confirmação explícita.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},

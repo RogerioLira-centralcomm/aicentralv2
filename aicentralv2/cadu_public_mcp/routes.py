@@ -7,6 +7,7 @@ import secrets
 from time import monotonic
 
 from flask import Blueprint, abort, jsonify, render_template, request, session
+from werkzeug.exceptions import HTTPException
 
 from ..auth import login_required
 from ..cadu_family import repository
@@ -24,6 +25,14 @@ PROTOCOL_VERSION = "2026-07-28"
 # The public surface is an intentional subset of internal capabilities. New
 # internal tools do not become internet-facing by accident.
 PUBLIC_TOOLS = frozenset({
+    "account.get",
+    "account.update_profile",
+    "account.update_agency",
+    "account.list_team",
+    "account.invite_team_member",
+    "credits.get_balance",
+    "credits.list_packages",
+    "credits.purchase_package",
     "google.get_connector_status",
     "google.list_project_resources",
     "google.list_calendar_events",
@@ -38,14 +47,60 @@ PUBLIC_TOOLS = frozenset({
     "projects.inspect_file_support",
     "projects.classify_intake",
     "projects.create_link_reference",
+    "projects.create_note",
+    "projects.prepare_source_upload",
+    "projects.reindex_source",
+    "workspace.create_project",
+    "workspace.update_project_context",
+    "workspace.set_project_status",
+    "workspace.link_current_brand",
+    "workspace.list_projects",
+    "workspace.get_project_context",
+    "workspace.list_project_shares",
+    "workspace.set_project_visibility",
+    "workspace.share_project_with_people",
+    "workspace.share_project_with_team",
     "brands.list",
+    "brands.get_context",
+    "brands.create",
+    "brands.update_identity",
+    "brands.prepare_logo_upload",
+    "brands.start_audit",
+    "brands.audit_status",
+    "artifacts.list",
+    "artifacts.get",
+    "artifacts.create_draft",
+    "artifacts.update_draft",
+    "artifacts.list_versions",
+    "artifacts.finalize_to_project",
     "reports.list_project_reports",
     "reports.get_report_metrics",
     "reports.compare_report_to_plan",
 })
 PUBLIC_WRITE_TOOLS = frozenset({
+    "account.update_profile",
+    "account.update_agency",
+    "account.invite_team_member",
+    "credits.purchase_package",
     "google.link_resource_to_project",
     "projects.create_link_reference",
+    "projects.create_note",
+    "projects.prepare_source_upload",
+    "projects.reindex_source",
+    "workspace.create_project",
+    "workspace.update_project_context",
+    "workspace.set_project_status",
+    "workspace.link_current_brand",
+    "workspace.set_project_visibility",
+    "workspace.share_project_with_people",
+    "workspace.share_project_with_team",
+    "brands.create",
+    "brands.update_identity",
+    "brands.prepare_logo_upload",
+    "brands.start_audit",
+    "artifacts.create_draft",
+    "artifacts.update_draft",
+    "artifacts.finalize_to_project",
 })
 
 
@@ -63,8 +118,9 @@ def _headers(response):
     return response
 
 
-def _public_catalog(context: RequestContext, exposure: str = "customer_agent") -> list[dict]:
-    return [item for item in load_builtin_tools().list(context, exposure) if item["name"] in PUBLIC_TOOLS]
+def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
+    return [item for item in load_builtin_tools().list(principal.context, exposure)
+            if item["name"] in PUBLIC_TOOLS and auth.required_scope(item["name"]) in principal.scopes]
 
 
 def _request_context_for_auth(params: dict) -> dict:
@@ -112,7 +168,7 @@ def public_rpc():
                 "instructions": "Use project_ref no nível params ou configure um projeto padrão na chave.",
             }
         elif method == "tools/list":
-            result = {"tools": _public_catalog(current)}
+            result = {"tools": _public_catalog(principal)}
         elif method == "tools/call":
             name = str(params.get("name") or "")
             if name not in PUBLIC_TOOLS:
@@ -139,6 +195,9 @@ def public_rpc():
             )
             try:
                 value = registry.execute(name, arguments, current, "customer_agent")
+                if name in {"projects.prepare_source_upload", "brands.prepare_logo_upload"} and isinstance(value, dict):
+                    value = {**value, "upload_url": product_url(
+                        "workspace", f"{PUBLIC_MCP_PATH}/{'uploads' if name.startswith('projects.') else 'brand-uploads'}")}
                 usage.charge_credits(
                     client_id=principal.client_id, user_id=principal.user_id,
                     tool_name=name, idempotency_key=f"{principal.key_id}:{tool_request_id}",
@@ -175,6 +234,58 @@ def public_rpc():
     except ValueError as exc:
         return _headers(jsonify(_error(request_id, -32602, str(exc)))), 400
     return _headers(jsonify({"jsonrpc": "2.0", "id": request_id, "result": result}))
+
+
+def _multipart_principal(tool_name: str):
+    try:
+        principal = auth.authenticate(request.form.to_dict())
+        auth.ensure_scope(principal, tool_name)
+    except auth.PublicMcpAuthError as exc:
+        return None, (jsonify(error=str(exc)), 401)
+    return principal, None
+
+
+@bp.post(f"{PUBLIC_MCP_PATH}/uploads")
+def public_upload_project_source():
+    from ..cadu_workspace import project_source_service
+
+    principal, error = _multipart_principal("projects.prepare_source_upload")
+    if error:
+        return error
+    context = principal.context
+    if not context.project_ref or not repository.project_user_can_view(context.client_id, context.project_ref, context.user_id):
+        return jsonify(error="Projeto indisponível para esta chave."), 403
+    actor = repository.actor(context.user_id) or {}
+    admin = int(actor.get("organization_id") or 0) == context.client_id and repository.account_role(actor) == "admin"
+    roles = {item.get("role") for item in repository.project_access(context.client_id, context.project_ref)
+             if int(item.get("user_id") or 0) == context.user_id}
+    if not admin and not roles.intersection({"owner", "admin", "editor"}):
+        return jsonify(error="Você não pode alterar este projeto."), 403
+    uploaded = request.files.get("file")
+    if uploaded is None:
+        return jsonify(error="Envie o arquivo no campo file."), 400
+    try:
+        value = project_source_service.save_upload(context, request.form.get("upload_token", ""), uploaded)
+    except HTTPException as exc:
+        return jsonify(error=exc.description), exc.code
+    return jsonify(source=value), 201
+
+
+@bp.post(f"{PUBLIC_MCP_PATH}/brand-uploads")
+def public_upload_brand_logo():
+    from ..cadu_workspace import brand_mcp_service
+
+    principal, error = _multipart_principal("brands.prepare_logo_upload")
+    if error:
+        return error
+    uploaded = request.files.get("file")
+    if uploaded is None:
+        return jsonify(error="Envie o logo no campo file."), 400
+    try:
+        value = brand_mcp_service.save_logo_upload(principal.context, request.form.get("upload_token", ""), uploaded)
+    except HTTPException as exc:
+        return jsonify(error=exc.description), exc.code
+    return jsonify(logo=value), 201
 
 
 @bp.get("/.well-known/cadu-mcp-public")
@@ -233,6 +344,14 @@ def create_agent_key():
         requested_scopes = list(requested_scopes) + ["google:write"]
     if str(data.get("scope_project_write") or "").lower() in {"1", "true", "on", "yes"}:
         requested_scopes = list(requested_scopes) + ["projects:write"]
+    if str(data.get("scope_brand_write") or "").lower() in {"1", "true", "on", "yes"}:
+        requested_scopes = list(requested_scopes) + ["brands:write"]
+    if str(data.get("scope_artifact_write") or "").lower() in {"1", "true", "on", "yes"}:
+        requested_scopes = list(requested_scopes) + ["artifacts:write"]
+    if str(data.get("scope_account_write") or "").lower() in {"1", "true", "on", "yes"}:
+        requested_scopes = list(requested_scopes) + ["account:write"]
+    if str(data.get("scope_credit_purchase") or "").lower() in {"1", "true", "on", "yes"}:
+        requested_scopes = list(requested_scopes) + ["credits:purchase"]
     try:
         key = auth.create_key(
             client_id=client_id, user_id=user_id,

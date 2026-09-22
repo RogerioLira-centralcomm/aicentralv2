@@ -1,5 +1,5 @@
 export const ARTIFACT_SIDE_COOKIE = 'cadu-artifact-side';
-export const CONVERSATION_MOBILE_QUERY = '(max-width: 900px)';
+export const CONVERSATION_MOBILE_QUERY = '(max-width: 1199px)';
 
 export function isConversationMobile(matchMedia) {
   if (typeof matchMedia === 'function') return Boolean(matchMedia(CONVERSATION_MOBILE_QUERY)?.matches);

@@ -6,7 +6,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1{% if request.endpoint == 'cadu_agent_v2_lab.conversations_v2_lab' %},viewport-fit=cover{% endif %}">
   {% if session.get('user_id') %}<meta name="csrf-token" content="{{ session.get('family_csrf', '') }}">{% endif %}
   <title>{% block title %}{{ portal_name }}{% endblock %}</title>
   {% block meta %}{% endblock %}

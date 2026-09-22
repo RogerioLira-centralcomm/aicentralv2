@@ -30,6 +30,7 @@ from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace import brand_mcp_service
 from aicentralv2.cadu_workspace import project_source_service
 from aicentralv2.cadu_workspace import project_resource_jobs
+from aicentralv2.cadu_family import repository
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 
@@ -130,6 +131,26 @@ def test_project_persistence_refusal_still_allows_a_session_artifact():
     assert route.response_mode == "artifact_first"
     assert route.artifact_type == "document"
     assert route.requires_confirmation is False
+
+
+def test_implicit_project_rename_in_active_context_requires_exact_confirmation():
+    message = "mude o nome de mídia paga para Campanhas de anúncios"
+    route = route_request(message, has_project=True)
+    assert route.action == "rename_project"
+    assert route.response_mode == "decision"
+    assert route.needs_context == ("project",)
+    assert route.requires_confirmation is True
+
+    plan = build_task_plan(route, budget_for(route, "agentic"), message)
+    action = next(step for step in plan if step.get("kind") == "action")
+    assert action["name"] == "workspace.update_project_context"
+    assert action["arguments"] == {"name": "Campanhas de anúncios"}
+    assert action["summary"] == "Renomear o projeto atual para “Campanhas de anúncios”."
+
+
+def test_project_rename_wording_does_not_hijack_free_conversation():
+    route = route_request("mude o nome de mídia paga para Campanhas de anúncios", has_project=False)
+    assert route.action == "answer"
 
 
 def test_project_persistence_refusal_does_not_become_a_positive_save_command():
@@ -424,7 +445,7 @@ def test_html_artifact_workspace_builds_a_versioned_tailwind_document(tmp_path):
     assert target == tmp_path / "cadu_artifact_workspaces" / "12" / artifact["id"] / "v3" / "index.html"
     rendered = target.read_text(encoding="utf-8")
     assert '/static/css/tailwind/artifact.css' in rendered
-    assert 'class="cadu-artifact-page"' in rendered
+    assert 'class="cadu-artifact-page"' not in rendered
     assert "<h1>Resumo</h1>" in rendered
 
 
@@ -508,7 +529,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     assert {"workspace.update_project_context", "workspace.set_project_status"} <= internal_names
     assert "workspace.link_current_brand" in internal_names
     assert "google.create_project_meeting" in internal_names
-    assert not {"brands.create", "brands.start_audit"} & names
+    assert {"brands.create", "brands.start_audit"} <= names
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
         catalog.execute("brands.create", {
@@ -620,6 +641,10 @@ def test_prepare_project_upload_seals_request_id_in_intent(monkeypatch):
         return {"upload_token": "signed"}
 
     monkeypatch.setattr(project_source_service, "prepare_upload", prepare)
+    monkeypatch.setattr(repository, "project_user_can_view", lambda *_: True)
+    monkeypatch.setattr(repository, "actor", lambda *_: {"organization_id": 12})
+    monkeypatch.setattr(repository, "account_role", lambda *_: "admin")
+    monkeypatch.setattr(repository, "project_access", lambda *_: [])
     current = context(project_ref="ci:42")
     result = load_builtin_tools().execute("projects.prepare_source_upload", {
         "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "use_as_knowledge": True,
@@ -2236,6 +2261,31 @@ def test_public_html_artifact_does_not_require_a_session_and_keeps_tailwind_runt
     assert b"alert(2)" not in response.data
     assert b"Relat\xc3\xb3rio p\xc3\xbablico" in response.data
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_private_html_preview_keeps_requested_interaction_and_full_width_layout():
+    from aicentralv2.cadu_workspace.artifacts.workspace import _document
+
+    document = _document({"type": "html", "title": "Painel"}, {
+        "html": "<main class='min-h-screen'><button id='change'>Mudar</button></main>",
+        "css": "#change{color:red}",
+        "js": "document.getElementById('change').onclick=()=>document.body.dataset.ready='1'",
+    })
+
+    assert "min-h-screen" in document
+    assert "#change{color:red}" in document
+    assert "document.getElementById('change').onclick" in document
+    assert 'class="cadu-artifact-page"' not in document
+
+
+@pytest.mark.parametrize("message", [
+    "Crie um arquivo HTML no artefato com três cartões.",
+    "Crie um dashboard interativo com botões no artefato.",
+])
+def test_html_generation_prompts_route_to_visual_artifact(message):
+    route = route_request(message, has_project=True)
+    assert route.action == "create_html"
+    assert route.artifact_type == "html"
 
 
 def test_html_runtime_markup_keeps_tailwind_classes_and_removes_script_tags():

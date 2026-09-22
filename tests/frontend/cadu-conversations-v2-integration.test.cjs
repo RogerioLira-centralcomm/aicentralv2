@@ -96,8 +96,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(navigation, /target\.searchParams\.set\('project_ref', projectRef\)/);
   assert.match(navigation, /target\.searchParams\.set\('history', '1'\)/);
   assert.match(dock, /DockTooltip/);
-  assert.match(contextSidebar, /const visibleProjects = projects\.slice\(0, 10\)/);
-  assert.match(contextSidebar, /brands\.slice\(0, 5\)/);
+  assert.match(contextSidebar, /const visibleProjects = projects;/);
+  assert.match(contextSidebar, /const groups = brands\.map\(brand =>/);
   assert.match(contextSidebar, /brand\.logoUrl && <VisualIdentity/);
   assert.doesNotMatch(contextSidebar, /project-child[^\n]*<VisualIdentity/);
   assert.match(dock, /createPortal/);
@@ -328,6 +328,22 @@ test('v2 artifact surface uses optimistic version checks', () => {
   assert.match(artifact, /Este artefato mudou em outra sessão/);
 });
 
+test('manual artifact edits block tab changes and publishing until their latest revision is saved', () => {
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  assert.match(app, /if \(artifactDirty && !\(await saveArtifact\(\)\)\) return;/);
+  assert.match(app, /revision !== artifactEditRevisionRef\.current[\s\S]*?Salve a edição mais recente antes de publicar/);
+  assert.match(app, /setArtifact\(current => current\?\.id === data\.artifact\.id \? \{\.\.\.current, current_version:data\.artifact\.current_version\}/);
+});
+
+test('project document continuation uses the raw artifact id exposed by the project API', () => {
+  const portal = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceEntityPortal.jsx'), 'utf8');
+  const routes = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
+  assert.match(portal, /item\.type === type/);
+  assert.match(portal, /existing\?\.artifactId/);
+  assert.match(routes, /'artifactId': artifact_id/);
+  assert.match(routes, /'type': artifact_type/);
+});
+
 test('v2 attachments require an explicit project usage choice', () => {
   const attachments = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/attachments.js'), 'utf8');
   assert.match(attachments, /Usar nesta conversa/);
@@ -344,8 +360,8 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
   const projectsTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/projects_react.html'), 'utf8');
   assert.match(brands, /Todas.*Analisadas.*Com ativos/s);
   assert.match(projects, /Ativos.*Arquivados.*Todos/s);
-  assert.match(brands, /bootstrap\.dock\?\.items\?\.length \? bootstrap\.dock\.items : \[\.\.\.\(bootstrap\.brands \|\| \[\]\), \.\.\.\(bootstrap\.projects \|\| \[\]\)\]/);
-  assert.match(projects, /bootstrap\.dock\?\.items\?\.length \? bootstrap\.dock\.items : \[\.\.\.\(bootstrap\.brands \|\| \[\]\), \.\.\.\(bootstrap\.projects \|\| \[\]\)\]/);
+  assert.match(brands, /const dockItems = bootstrap\.dock\?\.items \|\| \[\]/);
+  assert.match(projects, /const dockItems = bootstrap\.dock\?\.items \|\| \[\]/);
   assert.match(brandsTemplate, /'filterName':filter_name/);
   assert.match(projectsTemplate, /'dock':\{'items':dock_items\}/);
   assert.doesNotMatch(projectsTemplate, /'dock':\{'items':brand_items\[:3\]\+project_items\[:5\]\}/);
@@ -410,9 +426,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(sidebar, /Chats recentes/);
   assert.match(sidebar, /projectConversations/);
   assert.match(sidebar, /Últimas 10/);
-  assert.match(sidebar, /Biblioteca do projeto/);
-  assert.match(sidebar, /RESOURCE_GROUPS/);
-  assert.match(sidebar, /projectResourcesEndpoint/);
+  assert.match(sidebar, /onOpenLibrary/);
+  assert.doesNotMatch(sidebar, /RESOURCE_GROUPS/);
+  assert.match(app, /<LibraryView/);
   assert.match(template, /'projectResources': '\/workspace\/api\/v2\/projects'/);
   assert.doesNotMatch(sidebar, /secondaryNav|Áreas principais|Workspace e conta/);
   assert.match(app, /let runStarted = false/);
@@ -468,7 +484,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-conversation-title/);
   assert.match(composer, /cv-composer-shell/);
   assert.match(conversation, /cv-thread-content/);
-  assert.match(composer, /COMPOSER_MAX_HEIGHT = 260/);
+  assert.match(composer, /COMPOSER_MAX_HEIGHT = 240/);
   assert.match(conversation, /data-cv-answer/);
   assert.match(conversation, /label: 'Trecho selecionado'/);
   assert.match(conversation, /cv-chat-failure/);
@@ -916,7 +932,8 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(artifact, /onContextMenu/);
   assert.match(artifact, /Fechar outras abas/);
   assert.match(artifact, /Abrir no navegador/);
-  assert.match(artifact, /Publicar e abrir/);
+  assert.match(artifact, /Copiar link/);
+  assert.match(artifact, /Link publicado/);
   assert.match(app, /onCloseOtherTabs/);
   assert.match(app, /onCloseAllTabs/);
   assert.match(styles, /\.cv-artifact-tab-menu/);

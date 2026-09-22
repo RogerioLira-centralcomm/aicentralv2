@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR" data-cadu-theme="light" data-cadu-skin="workspace">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="fixture-token">
+  <title>Dock — verificação local</title>
+  <link rel="stylesheet" href="/aicentralv2/static/cadu_workspace/conversations/react/app.css">
+</head>
+<body class="portal--workspace">
+  <main id="content" class="portal-content--workspace-react"><div id="cadu-conversations-v2-root"></div></main>
+  <script id="cadu-conversations-v2-bootstrap" type="application/json">{
+    "homeMode":true,
+    "csrf":"fixture-token",
+    "user":{"name":"Operador teste"},
+    "home":{"agency":{"name":"Workspace de teste"},"projects":[{"id":"ci:1","kind":"project","name":"Projeto Norte","title":"Projeto Norte","projectRef":"ci:1","href":"/projeto/1"},{"id":"ci:2","kind":"project","name":"Projeto Sul","title":"Projeto Sul","projectRef":"ci:2","href":"/projeto/2"}],"brands":[{"id":"1","kind":"brand","name":"Marca Azul","title":"Marca Azul","brandRef":"studio:1","href":"/marca/1"}],"catalogBrands":[{"id":"1","kind":"brand","name":"Marca Azul","title":"Marca Azul","brandRef":"studio:1","href":"/marca/1"}],"dock":{"items":[{"id":"1","kind":"brand","name":"Marca Azul","title":"Marca Azul","brandRef":"studio:1","href":"/marca/1","shortcutId":"shortcut-brand"},{"id":"ci:1","kind":"project","name":"Projeto Norte","title":"Projeto Norte","projectRef":"ci:1","href":"/projeto/1","shortcutId":"shortcut-project"}]},"resources":[]},
+    "urls":{"home":"/app","newConversation":"/chat","conversations":"/chat","projects":"/projetos","brands":"/marcas","docs":"/documentos"},
+    "endpoints":{"dockShortcuts":"/workspace/api/dock/shortcuts","creditSummary":"/workspace/api/creditos/resumo"}
+  }</script>
+  <script>
+    window.__dockPreviewRequests = [];
+    const originalFetch = window.fetch.bind(window);
+    const saved = [
+      {id:'shortcut-brand',shortcut_type:'brand',target_ref:'1'},
+      {id:'shortcut-project',shortcut_type:'project',target_ref:'ci:1'},
+    ];
+    window.fetch = async (input, options = {}) => {
+      const url = String(input);
+      if (!url.includes('/workspace/api/dock/shortcuts')) return originalFetch(input, options);
+      window.__dockPreviewRequests.push({url, method:options.method || 'GET', body:options.body || ''});
+      if (options.method === 'POST' && url.endsWith('/order')) return new Response(JSON.stringify({shortcuts:saved}), {status:200,headers:{'Content-Type':'application/json'}});
+      if (options.method === 'POST') { const payload=JSON.parse(options.body); const shortcut={id:'shortcut-'+saved.length,shortcut_type:payload.shortcut_type,target_ref:payload.target_ref}; saved.push(shortcut); return new Response(JSON.stringify({shortcut}), {status:201,headers:{'Content-Type':'application/json'}}); }
+      if (options.method === 'DELETE') { const id=url.split('/').at(-1); const index=saved.findIndex(item=>item.id===id); if(index>=0)saved.splice(index,1); return new Response(null,{status:204}); }
+      return new Response(JSON.stringify({shortcuts:saved}),{status:200,headers:{'Content-Type':'application/json'}});
+    };
+  </script>
+  <script type="module" src="/aicentralv2/static/cadu_workspace/conversations/react/app.js"></script>
+</body>
+</html>

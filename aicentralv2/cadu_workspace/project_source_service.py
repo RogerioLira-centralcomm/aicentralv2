@@ -552,7 +552,7 @@ def list_sources(context: RequestContext, *, limit=50) -> list[dict]:
                               classification_status, classification_confidence, classification_reason,
                               created_at, updated_at
                          FROM cadu_ci_projeto_arquivos
-                        WHERE projeto_id = %s AND id_cliente = %s
+                        WHERE projeto_id = %s AND id_cliente = %s AND indexing_status <> 'superseded'
                      ORDER BY created_at DESC, id DESC LIMIT %s""", (project_id, context.client_id, limit))
         rows = [dict(row) for row in cur.fetchall()]
     for row in rows:

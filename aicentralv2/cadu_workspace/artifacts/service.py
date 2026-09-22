@@ -1,6 +1,8 @@
 """Artifact persistence with optimistic versioning and tenant scoping."""
 
 import json
+import re
+from html.parser import HTMLParser
 from uuid import uuid4
 
 from psycopg.types.json import Json
@@ -212,6 +214,153 @@ def attach_to_project(context: RequestContext, artifact_id: str, project_ref: st
     except Exception:
         pass
     return get_artifact(context, artifact_id)
+
+
+class _DocumentText(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self.ignored = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style"}:
+            self.ignored += 1
+        if tag in {"p", "h1", "h2", "h3", "h4", "li", "tr", "br"}:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style"}:
+            self.ignored = max(0, self.ignored - 1)
+        if tag in {"p", "h1", "h2", "h3", "h4", "li", "tr"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if not self.ignored:
+            self.parts.append(data)
+
+
+def _indexable_text(artifact: dict) -> str:
+    content = artifact.get("content") or {}
+    if content.get("html"):
+        parser = _DocumentText()
+        parser.feed(str(content["html"]))
+        body = "".join(parser.parts)
+    else:
+        body = "\n\n".join(str(value) for value in [content.get("summary"),
+            *[f"{field.get('key') or ''}\n{field.get('value') or ''}" for field in content.get("fields") or []]] if value)
+    return "\n".join(line.strip() for line in body.splitlines() if line.strip())[:50000]
+
+
+def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_version: int) -> dict:
+    """Make the latest approved document the project's sole indexed snapshot."""
+    from ...cadu_family import repository
+    from ...cadu_skills.repository import charge_project_rag
+    from .. import project_index_service, project_knowledge
+    from ..project_resource_service import notify_change
+
+    try:
+        expected_version = int(expected_version)
+    except (TypeError, ValueError) as exc:
+        raise BadRequest("Informe a versão atual do documento para finalizar.") from exc
+    if expected_version < 1:
+        raise BadRequest("Informe uma versão válida do documento.")
+    project_ref = str(context.project_ref or "")
+    if not project_ref.startswith("ci:"):
+        raise BadRequest("Selecione um projeto nativo para finalizar o documento.")
+    if not repository.project_user_can_view(context.client_id, project_ref, context.user_id):
+        raise NotFound("Projeto indisponível.")
+    actor = repository.actor(context.user_id) or {}
+    admin = int(actor.get("organization_id") or 0) == context.client_id and repository.account_role(actor) == "admin"
+    roles = {item.get("role") for item in repository.project_access(context.client_id, project_ref)
+             if int(item.get("user_id") or 0) == context.user_id}
+    if not admin and not roles.intersection({"owner", "admin", "editor"}):
+        raise BadRequest("Você não pode finalizar documentos neste projeto.")
+    artifact = get_artifact(context, artifact_id)
+    if artifact.get("project_ref") not in {None, project_ref}:
+        raise BadRequest("O documento pertence a outro projeto.")
+    if int(artifact["current_version"]) != int(expected_version):
+        raise Conflict("O documento mudou. Reabra a versão recente antes de finalizar.")
+    text = _indexable_text(artifact)
+    if len(text) < 20:
+        raise BadRequest("O documento precisa de conteúdo suficiente para entrar na base do projeto.")
+    project_id = project_ref[3:]
+    category = {"brief":"brief", "media_plan":"media_plan", "research":"research"}.get(artifact["type"], "other")
+    connection = get_db()
+    with connection.cursor() as cursor:
+        cursor.execute("""SELECT id FROM cadu_ci_projeto_arquivos WHERE id_cliente=%s AND projeto_id=%s
+                          AND classification_metadata->>'artifact_id'=%s
+                          AND classification_metadata->>'artifact_version'=%s
+                          AND purpose='knowledge_source' LIMIT 1""",
+                       (context.client_id, project_id, str(artifact_id), str(expected_version)))
+        already_indexed = cursor.fetchone()
+    connection.rollback()
+    if already_indexed:
+        return {"artifact": artifact, "source_id": int(already_indexed["id"]), "indexed_version": int(expected_version), "already_finalized": True}
+
+    chunks, embedding_tokens, embedding_model = project_knowledge.index(text)
+    metadata = {"classifier":"artifact-final-v2", "artifact_id":str(artifact_id),
+                "artifact_version":str(expected_version), "created_via":"document_finalization"}
+    classification = {"category":category, "status":"manual", "confidence":1.0,
+                      "reason":"Versão final confirmada no artefato."}
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                           (f"cadu-artifact-index:{context.client_id}:{artifact_id}",))
+            cursor.execute("""SELECT current_version FROM cadu_workspace_artifacts
+                              WHERE id=%s AND client_id=%s AND organization_id=%s FOR UPDATE""",
+                           (str(artifact_id), context.client_id, context.organization_id))
+            current = cursor.fetchone()
+            if not current or int(current["current_version"]) != int(expected_version):
+                raise Conflict("O documento mudou durante a indexação. Tente finalizar novamente.")
+            cursor.execute("""SELECT id FROM cadu_ci_projeto_arquivos WHERE id_cliente=%s AND projeto_id=%s
+                              AND classification_metadata->>'artifact_id'=%s
+                              AND classification_metadata->>'artifact_version'=%s
+                              AND purpose='knowledge_source' LIMIT 1""",
+                           (context.client_id, project_id, str(artifact_id), str(expected_version)))
+            duplicate = cursor.fetchone()
+            if duplicate:
+                connection.commit()
+                return {"artifact": get_artifact(context, artifact_id), "source_id": int(duplicate["id"]),
+                        "indexed_version": expected_version, "already_finalized": True}
+            cursor.execute("""SELECT id FROM cadu_ci_projeto_arquivos WHERE id_cliente=%s AND projeto_id=%s
+                              AND classification_metadata->>'artifact_id'=%s
+                              AND purpose='knowledge_source' FOR UPDATE""",
+                           (context.client_id, project_id, str(artifact_id)))
+            previous = [int(row["id"]) for row in cursor.fetchall()]
+            charged = charge_project_rag(cursor, client_id=context.client_id, user_id=context.user_id,
+                                         project_id=project_id, tokens=embedding_tokens, stage="indexacao",
+                                         idempotency_key=f"artifact-final:{artifact_id}:v{expected_version}")
+            source_id = project_index_service.persist_indexed_source(
+                cursor, project_id=project_id, client_id=context.client_id, user_id=context.user_id,
+                name=artifact["title"], mime="text/plain", size=len(text.encode("utf-8")),
+                storage_path=f"workspace://artifact/{artifact_id}/v{expected_version}", source="artifact_final",
+                content=text, chunks=chunks, embedding_model=embedding_model, charged_tokens=charged,
+                classification=classification, metadata=metadata)
+            if previous:
+                cursor.execute("DELETE FROM cadu_ci_chunks WHERE id_cliente=%s AND projeto_id=%s AND arquivo_id=ANY(%s)",
+                               (context.client_id, project_id, previous))
+                cursor.execute("""UPDATE cadu_ci_projeto_arquivos SET purpose='project_attachment',
+                                  indexing_status='superseded', updated_at=NOW()
+                                  WHERE id_cliente=%s AND projeto_id=%s AND id=ANY(%s)""",
+                               (context.client_id, project_id, previous))
+                cursor.execute("""UPDATE cadu_ci_projetos
+                                  SET total_arquivos=GREATEST(COALESCE(total_arquivos,0)-%s,0), updated_at=NOW()
+                                  WHERE id=%s AND id_cliente=%s""",
+                               (len(previous), project_id, context.client_id))
+            cursor.execute("""UPDATE cadu_workspace_artifacts SET project_ref=%s, status='active', updated_at=NOW()
+                              WHERE id=%s AND client_id=%s AND organization_id=%s""",
+                           (project_ref, str(artifact_id), context.client_id, context.organization_id))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    try:
+        notify_change(context.client_id, project_ref, "indexed", source_system="cadu_workspace_artifacts",
+                      source_id=str(artifact_id), actor_id=context.user_id)
+    except Exception:
+        pass
+    return {"artifact": get_artifact(context, artifact_id), "source_id": source_id,
+            "indexed_version": int(expected_version), "already_finalized": False}
 
 
 def publish_artifact(context: RequestContext, artifact_id: str) -> dict:

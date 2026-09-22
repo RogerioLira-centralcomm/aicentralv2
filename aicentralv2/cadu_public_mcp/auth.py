@@ -18,8 +18,10 @@ from ..db import get_db
 
 KEY_PREFIX = "cadu_mcp_"
 CLIENT_TYPES = ("gpt", "codex", "cursor", "vscode", "generic")
-CLIENT_SCOPES = ("resources:read", "projects:read", "projects:write", "google:read", "google:write")
-DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "google:read"))
+CLIENT_SCOPES = ("resources:read", "projects:read", "projects:write", "brands:write",
+                 "artifacts:write", "account:read", "account:write", "credits:read", "credits:purchase",
+                 "google:read", "google:write")
+DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "account:read", "credits:read", "google:read"))
 
 
 class PublicMcpAuthError(RuntimeError):
@@ -61,6 +63,10 @@ def normalize_scopes(scopes=None, *, allow_writes: bool = False) -> tuple[str, .
         raise PublicMcpAuthError("Escopo MCP inválido.")
     if not allow_writes:
         values.discard("projects:write")
+        values.discard("brands:write")
+        values.discard("artifacts:write")
+        values.discard("account:write")
+        values.discard("credits:purchase")
         values.discard("google:write")
     return tuple(sorted(values))
 
@@ -74,6 +80,10 @@ def create_key(*, client_id: int, user_id: int, label: str, client_type: str,
         raise PublicMcpAuthError("Cliente MCP inválido.")
     label = " ".join(str(label or "").split())[:120] or client_type.title()
     scopes = normalize_scopes(scopes, allow_writes=True)
+    if "credits:purchase" in scopes:
+        actor = repository.actor(int(user_id)) or {}
+        if int(actor.get("organization_id") or 0) != int(client_id) or repository.account_role(actor) != "admin":
+            raise PublicMcpAuthError("Somente administradores podem habilitar compra de créditos para agentes.")
     if default_project_ref:
         items = {item["ref"]: item for item in repository.entities(int(client_id))}
         if default_project_ref not in items or items[default_project_ref]["kind"] != "project":
@@ -182,6 +192,25 @@ def _load_key(raw_key: str) -> dict:
 
 def required_scope(tool_name: str) -> str:
     name = str(tool_name or "")
+    if name == "credits.purchase_package":
+        return "credits:purchase"
+    if name.startswith("credits."):
+        return "credits:read"
+    if name in {"account.update_profile", "account.update_agency", "account.invite_team_member"}:
+        return "account:write"
+    if name.startswith("account."):
+        return "account:read"
+    if name in {"brands.create", "brands.update_identity", "brands.prepare_logo_upload", "brands.start_audit"}:
+        return "brands:write"
+    if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.finalize_to_project"}:
+        return "artifacts:write"
+    if name.startswith("artifacts."):
+        return "projects:read"
+    if name in {"workspace.create_project", "workspace.update_project_context", "workspace.set_project_status",
+                "workspace.link_current_brand", "workspace.set_project_visibility",
+                "workspace.share_project_with_people", "workspace.share_project_with_team",
+                "projects.create_note", "projects.reindex_source", "projects.prepare_source_upload"}:
+        return "projects:write"
     if name == "google.link_resource_to_project":
         return "google:write"
     if name.startswith("google."):

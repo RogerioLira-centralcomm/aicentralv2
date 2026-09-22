@@ -79,7 +79,8 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                                    {chunk_count} AS chunk_count,
                                    a.criado_por, a.created_at, a.updated_at
                               FROM cadu_ci_projeto_arquivos
-                             AS a WHERE a.id_cliente=%s AND a.projeto_id=%s""", (client_id, project_id))
+                             AS a WHERE a.id_cliente=%s AND a.projeto_id=%s
+                               AND a.indexing_status <> 'superseded'""", (client_id, project_id))
         for row in cursor.fetchall():
             records.append(_record("workspace", f"file:{row['id']}", "file", row["nome_arquivo"],
                 mime_type=row.get("mime"), purpose=row.get("purpose"), category=row.get("category"),

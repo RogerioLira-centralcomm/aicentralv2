@@ -135,6 +135,29 @@ class ToolRegistry:
             raise ToolForbidden("Esta ferramenta não está disponível para este tipo de agente.")
         if tool.requires_project and not context.project_ref:
             raise ToolInputError("Selecione um projeto para executar esta ação.")
+        if exposure == "customer_agent" and name.startswith("artifacts."):
+            if not context.project_ref:
+                raise ToolForbidden("Selecione um projeto para acessar documentos pelo agente externo.")
+            artifact_id = arguments.get("artifact_id") if isinstance(arguments, dict) else None
+            if artifact_id:
+                from ..artifacts import service as artifact_service
+                artifact = artifact_service.get_artifact(context, artifact_id)
+                own_session_draft = (name == "artifacts.finalize_to_project" and not artifact.get("project_ref")
+                                     and int(artifact.get("created_by") or 0) == context.user_id)
+                if artifact.get("project_ref") != context.project_ref and not own_session_draft:
+                    raise ToolForbidden("Este documento não pertence ao projeto selecionado.")
+        if exposure == "customer_agent" and context.project_ref and str(context.project_ref).startswith("ci:"):
+            from ...cadu_family import repository
+            if not repository.project_user_can_view(context.client_id, context.project_ref, context.user_id):
+                raise ToolForbidden("Você não tem acesso a este projeto.")
+            if tool.effect in {"write", "draft"} and (tool.requires_project or name.startswith("artifacts.")):
+                actor = repository.actor(context.user_id) or {}
+                account_admin = (int(actor.get("organization_id") or 0) == context.client_id
+                                 and repository.account_role(actor) == "admin")
+                roles = {item.get("role") for item in repository.project_access(context.client_id, context.project_ref)
+                         if int(item.get("user_id") or 0) == context.user_id}
+                if not account_admin and not roles.intersection({"owner", "admin", "editor"}):
+                    raise ToolForbidden("Você não pode alterar este projeto.")
         if not isinstance(arguments, dict):
             raise ToolInputError("Os argumentos da ferramenta precisam ser um objeto.")
         _validate(arguments, tool.input_schema)
@@ -167,5 +190,5 @@ def register_tool(*, name: str, description: str, capability: str, effect: str =
 
 def load_builtin_tools() -> ToolRegistry:
     # Imports register functions once through Python's module cache.
-    from .tools import artifacts, brands, google, planner, projects, reports, resources, web, workspace  # noqa: F401
+    from .tools import account, artifacts, brands, google, planner, projects, reports, resources, web, workspace  # noqa: F401
     return registry

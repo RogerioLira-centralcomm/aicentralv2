@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import './WorkspaceEntityPortal.css';
 import {Icon} from './Icon';
 
-export function EntityNavigator({label, items = [], context, children}) {
+export function EntityNavigator({label, items = [], context, children, identity}) {
   const [activeId, setActiveId] = useState(() => items[0]?.target || items[0]?.id || '');
   useEffect(() => {
     const sections = items.map(item => document.getElementById(item.target || item.id)).filter(Boolean);
@@ -15,6 +15,7 @@ export function EntityNavigator({label, items = [], context, children}) {
     return () => observer.disconnect();
   }, [items]);
   return <aside className="cadu-ds-entity-nav" aria-label={`Navegação de ${label}`}>
+    {identity && <div className="cadu-ds-entity-nav__identity">{identity}</div>}
     <span className="cadu-ds-entity-nav__label">{label}</span>
     <nav>{items.map(item => { const target = item.target || item.id; return <a key={item.id} href={`#${target}`} className={activeId === target ? 'is-active' : ''} aria-current={activeId === target ? 'location' : undefined}><Icon name={item.icon || 'file'} size={14}/><span>{item.label}</span>{Number.isFinite(item.count) && <small>{item.count}</small>}</a>; })}</nav>
     {context && <div className="cadu-ds-entity-nav__context">{context}</div>}
@@ -22,35 +23,55 @@ export function EntityNavigator({label, items = [], context, children}) {
   </aside>;
 }
 
-function RailGroup({title, items = [], empty = 'Nenhum item disponível.'}) {
-  return <section className="cadu-ds-entity-rail__group"><header><h3>{title}</h3><span>{items.length}</span></header>{items.length ? <div>{items.slice(0, 5).map((item, index) => {
+function RailGroup({title, items = []}) {
+  if (!items.length) return null;
+  return <section className="cadu-ds-entity-rail__group"><header><h3>{title}</h3><span>{items.length}</span></header><div>{items.slice(0, 5).map((item, index) => {
     const content = <><span>{item.title || item.name || `Item ${index + 1}`}</span>{item.detail && <small>{item.detail}</small>}</>;
     return item.href ? <a key={item.id || item.href || index} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>{content}</a> : <div key={item.id || index}>{content}</div>;
-  })}</div> : <p>{empty}</p>}</section>;
+  })}</div></section>;
 }
 
 export function EntityContextRail({title = 'Em destaque', action, groups = [], children}) {
   return <aside className="cadu-ds-entity-rail" aria-label={title}><header className="cadu-ds-entity-rail__header"><span>{title}</span>{action}</header>{children}{groups.map(group => <RailGroup key={group.title} {...group}/>)}</aside>;
 }
 
-const GENERATORS = [
-  ['Briefing', 'Crie um briefing estruturado para este projeto com objetivo, público, contexto, restrições, entregas e critérios de sucesso. Salve o resultado como fonte editável do projeto.'],
-  ['Plano inicial', 'Crie um plano inicial estruturado para este projeto com etapas, responsáveis sugeridos, dependências, riscos e próximos passos. Salve como artefato editável e fonte do projeto.'],
-  ['Resumo executivo', 'Crie um resumo executivo do projeto a partir do contexto disponível. Sinalize claramente as lacunas e salve o texto como fonte editável.'],
-  ['Mapa de dados', 'Mapeie quais dados, arquivos, links e decisões este projeto precisa receber. Organize o resultado como checklist estruturado e editável.'],
-];
+const DOCUMENT_TEMPLATES = {
+  campaign: [['Briefing de campanha', 'brief', 'Objetivo, público, proposta, mensagem, canais, período, investimento, entregas e critérios de sucesso.'], ['Plano de campanha', 'document', 'Fases, dependências, canais, produção, medição, decisões e responsáveis confirmados.'], ['Relatório de resultados', 'document', 'Objetivos, resultados observados, fontes dos números, leitura crítica e recomendações.']],
+  event: [['Plano do evento', 'document', 'Formato, data, local, público, programação, produção, acessibilidade, divulgação e contingências.'], ['Plano de divulgação', 'document', 'Mensagens, canais, calendário, convites, parceiros e métricas.'], ['Registro pós-evento', 'document', 'Participação, evidências, resultados, aprendizados e próximos passos.']],
+  launch: [['Plano de lançamento', 'document', 'Produto ou marca, público, proposta, mensagens, marcos, canais, riscos e critérios de sucesso.'], ['Mensagens-chave', 'document', 'Promessa, provas disponíveis, objeções, tom, versões por público e usos proibidos.'], ['Cronograma de lançamento', 'document', 'Marcos, dependências, responsáveis confirmados e decisões pendentes.']],
+  content: [['Direção editorial', 'document', 'Públicos, temas, objetivos, canais, tom, formatos, frequência e critérios de qualidade.'], ['Calendário de conteúdo', 'document', 'Pautas, canais, datas confirmadas, dependências e estado de cada peça.'], ['Relatório editorial', 'document', 'Publicações, desempenho observado, aprendizados e ajustes.']],
+  research: [['Plano de pesquisa', 'research', 'Decisão a apoiar, perguntas, método, fontes, limites e critérios de evidência.'], ['Síntese de evidências', 'research', 'Achados com fonte, data, divergências, lacunas e grau de confiança.'], ['Recomendações', 'document', 'Alternativas, critérios de escolha, riscos e próximos passos.']],
+  general: [['Documento de direção', 'document', 'Resultado esperado, contexto, público, escopo, restrições, entregas e critérios de sucesso.'], ['Plano de trabalho', 'document', 'Etapas, dependências, responsáveis confirmados, riscos e decisões.'], ['Registro de decisões', 'document', 'Decisão, motivo, evidência, responsável e data quando confirmados.']],
+};
 
-function promptUrl(base, prompt) {
+function projectPurpose(project = {}) {
+  const explicit = String(project.purpose || project.projectType || '').toLowerCase();
+  if (DOCUMENT_TEMPLATES[explicit]) return explicit;
+  const subject = `${project.name || ''} ${project.description || ''}`.toLocaleLowerCase('pt-BR');
+  if (/evento|congresso|feira|webinar|workshop/.test(subject)) return 'event';
+  if (/lançamento|lancamento|estreia/.test(subject)) return 'launch';
+  if (/campanha|mídia paga|midia paga|anúncios|anuncios/.test(subject)) return 'campaign';
+  if (/editorial|conteúdo recorrente|conteudo recorrente|redes sociais/.test(subject)) return 'content';
+  if (/pesquisa|diagnóstico|diagnostico|estudo/.test(subject)) return 'research';
+  return 'general';
+}
+
+function promptUrl(base, prompt, artifactId) {
   try {
     const target = new URL(base, window.location.origin);
     target.searchParams.set('prompt', prompt);
-    target.searchParams.set('auto_send', '1');
+    if (artifactId) { target.searchParams.set('surface', 'artifact'); target.searchParams.set('artifact_id', artifactId); }
     return `${target.pathname}${target.search}`;
   } catch (_) { return base; }
 }
 
-export function ProjectDataStarter({conversationUrl, onContext, onSources, onLink}) {
-  return <section className="cadu-ds-project-starter" id="entrada"><header><span>Comece pela base</span><h2>Construa os dados do projeto</h2><p>Adicione material existente ou peça ao Cadu para gerar uma primeira versão estruturada. Cada resultado pode ser revisado como artefato antes de entrar nas fontes.</p></header><div className="cadu-ds-project-starter__paths"><button type="button" onClick={onContext}><Icon name="compose" size={16}/><span><b>Definir contexto</b><small>Objetivo, público, direção e instruções.</small></span></button><button type="button" onClick={onSources}><Icon name="file" size={16}/><span><b>Enviar arquivos</b><small>PDF, planilha, texto, imagem ou relatório.</small></span></button><button type="button" onClick={onLink}><Icon name="external" size={16}/><span><b>Adicionar links</b><small>Sites, dashboards e referências públicas.</small></span></button></div><div className="cadu-ds-project-starter__generators"><span>Geradores para começar</span>{GENERATORS.map(([label, prompt]) => <a key={label} href={promptUrl(conversationUrl, prompt)}><b>{label}</b><small>Gerar com o Cadu</small></a>)}</div></section>;
+export function ProjectDataStarter({conversationUrl, project, onContext, onSources, onLink}) {
+  const templates = DOCUMENT_TEMPLATES[projectPurpose(project)];
+  return <section className="cadu-ds-project-starter" id="entrada"><header><span>Comece pela base</span><h2>Construa os dados do projeto</h2><p>Adicione material existente ou desenvolva um documento em conversa. Revise cada versão antes de finalizar e vincular ao projeto.</p></header><div className="cadu-ds-project-starter__paths"><button type="button" onClick={onContext}><Icon name="compose" size={16}/><span><b>Definir contexto</b><small>Objetivo, público, direção e instruções.</small></span></button><button type="button" onClick={onSources}><Icon name="file" size={16}/><span><b>Enviar arquivos</b><small>PDF, planilha, texto, imagem, áudio ou relatório.</small></span></button><button type="button" onClick={onLink}><Icon name="external" size={16}/><span><b>Adicionar links</b><small>Sites, dashboards e referências públicas.</small></span></button></div><div className="cadu-ds-project-starter__generators"><span>Documentos para este projeto</span>{templates.map(([label, type, sections]) => {
+    const existing = (project?.artifacts || []).find(item => item.type === type && String(item.title || '').toLocaleLowerCase('pt-BR').includes(label.toLocaleLowerCase('pt-BR')));
+    const prompt = existing ? `Quero editar "${existing.title}" neste projeto. Leia a versão mais recente do artefato aberto, incluindo alterações feitas manualmente no editor. Preserve fatos e seções que não pedi para mudar; pergunte qual alteração devo fazer agora. A cada revisão, atualize o mesmo documento e mantenha o histórico de versões.` : `Quero criar "${label}" para o projeto "${project?.name || 'atual'}". Use o contexto e as fontes disponíveis, sem inventar fatos. Estruture o documento com: ${sections} Diferencie o que está confirmado de hipóteses e lacunas relevantes. Primeiro trabalhe comigo na conversa; quando houver conteúdo suficiente, crie um artefato editável com título específico. Não salve como fonte do projeto até eu confirmar a versão final.`;
+    return <a key={label} href={promptUrl(conversationUrl, prompt, existing?.artifactId)}><b>{label}</b><small>{existing ? 'Continuar edição' : 'Criar em conversa'}</small></a>;
+  })}</div></section>;
 }
 
 export function BrandCompletion({score = 0, missing = [], breakdown = [], processing = false, onAudit, onEdit}) {

@@ -19,6 +19,7 @@ from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
 from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, materialize_artifact, patch_artifact, publish_artifact, unpublish_artifact
+from ..artifacts.service import finalize_to_project
 from .service import prepare as prepare_message, stream as stream_message
 from .provider import ProviderUnavailable
 from . import journal, long_jobs, observability
@@ -816,6 +817,16 @@ def artifact_save_project(artifact_id):
         abort(404, description="Projeto não encontrado neste ambiente.")
     artifact = attach_to_project(replace(current, project_ref=project_ref), str(artifact_id), project_ref)
     return jsonify(artifact=artifact)
+
+
+@bp.post("/artifacts/<uuid:artifact_id>/finalize-project")
+def artifact_finalize_project(artifact_id):
+    data = request.get_json(silent=True) or {}
+    current = resolve(conversation_id=data.get("conversation_id"),
+                      surface=str(data.get("surface") or "conversations"),
+                      project_ref=data.get("project_ref"))
+    result = finalize_to_project(current, str(artifact_id), expected_version=data.get("expected_version"))
+    return jsonify(**result)
 
 
 @bp.post("/artifacts/<uuid:artifact_id>/publish")

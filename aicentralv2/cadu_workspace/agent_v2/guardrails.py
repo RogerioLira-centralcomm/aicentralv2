@@ -418,6 +418,20 @@ def _decode_provider_value(raw):
 def _clean_patch(value):
     if not isinstance(value, dict):
         return None
+    # A provider envelope is protocol, never editable document content. Reject
+    # the patch so a legitimate artifact route can rebuild it from the already
+    # normalized customer answer instead of persisting JSON in the editor.
+    for candidate in (value.get("html"), value.get("summary")):
+        if not isinstance(candidate, str):
+            continue
+        serialized = candidate.strip().lstrip("\ufeff")
+        if not (serialized.startswith("{") or serialized.startswith("```")):
+            continue
+        decoded = _decode_provider_value(candidate)
+        if isinstance(decoded, dict) and (
+                isinstance(decoded.get("text"), dict) or "ui" in decoded
+                or "artifact_patch" in decoded or "answer" in decoded):
+            return None
     fields = []
     allowed_states = {"confirmed", "inferred", "assumed", "missing", "conflicting"}
     for item in value.get("fields", []) if isinstance(value.get("fields"), list) else []:

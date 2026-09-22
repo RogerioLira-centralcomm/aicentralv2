@@ -748,3 +748,10 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(artifact, /Preparando o artefato/);
   assert.match(styles, /\.cv-artifact-loading/);
 });
+
+test('document editor never exposes a provider envelope as editable prose', () => {
+  const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+  assert.match(artifact, /decoded\?\.text\?\.content \|\| decoded\?\.answer/);
+  assert.match(artifact, /An incomplete protocol envelope must not become editable content/);
+  assert.match(artifact, /artifact_patch/);
+});

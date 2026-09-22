@@ -34,9 +34,51 @@ def _usable_public_url(value: str) -> bool:
     )
 
 
+def _explicit_artifact_refusal(text: str) -> bool:
+    """Honor a user's negative constraint before positive keyword routing."""
+    return _has(
+        text,
+        r"\b(?:n[aã]o|ainda\s+n[aã]o|sem)\b.{0,55}"
+        r"\b(?:cri\w*|ger\w*|abr\w*|salv\w*|adicion\w*|envi\w*)\b.{0,55}"
+        r"\b(?:artefato|documento|rascunho|projeto)\b",
+    ) or _has(
+        text,
+        r"\b(?:sem|n[aã]o)\s+(?:artefato|documento|rascunho)\b",
+    )
+
+
+def _web_requires_confirmation(text: str) -> bool:
+    return _has(
+        text,
+        r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b.{0,80}"
+        r"\b(?:apenas|somente|s[oó])\b.{0,45}\b(?:autoriz\w*|confirm\w*|permit\w*)\b",
+    ) or _has(
+        text,
+        r"\bantes\s+de\s+(?:pesquis\w*|busqu\w*|consult\w*)\b.{0,70}"
+        r"\b(?:pergunt\w*|confirm\w*|autoriz\w*)\b",
+    )
+
+
 def route_request(message: str, surface: str = "conversations", has_project: bool = False,
                   active_object_type: str = "", has_brand: bool = False) -> IntentRoute:
     text = " ".join(str(message or "").split())[:20000]
+
+    # Negative constraints are requirements, not weak hints. Resolve them
+    # before rules such as "salve ... projeto" can match the same sentence.
+    if _web_requires_confirmation(text):
+        return IntentRoute("research", "confirm_web_research", "low", "clarification",
+                           ("project", "brand") if has_project else (), (), None, False)
+    if _explicit_artifact_refusal(text):
+        web_requested = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
+            text, r"\b(?:internet|web|online|fontes?\s+externas?|dados?\s+atuais?)\b",
+        )
+        return IntentRoute(
+            "research" if web_requested else (surface if surface != "conversations" else "workspace"),
+            "search_web" if web_requested else "answer",
+            "high", "analysis",
+            ("project", "brand") if has_project else (),
+            ("web.search",) if web_requested else (), None, False,
+        )
 
     if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
             or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):

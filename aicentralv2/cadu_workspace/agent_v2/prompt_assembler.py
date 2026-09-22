@@ -91,6 +91,11 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             " O usuário quer adicionar uma URL a um projeto, mas nenhum projeto foi confirmado nesta conversa. "
             "Peça para ele selecionar ou informar o projeto; não formate a URL, não leia o site e não diga que o link foi adicionado."
         )
+    if route.action == "confirm_web_research":
+        brand_instruction += (
+            " O usuário condicionou a pesquisa externa à autorização prévia. Não pesquise, não crie artefato e não salve no projeto. "
+            "Faça uma única pergunta objetiva de autorização e ofereça continuar sem pesquisa como alternativa."
+        )
     readiness = policy.get("briefing_readiness") if isinstance(policy.get("briefing_readiness"), dict) else None
     if readiness and not readiness.get("complete"):
         missing = ", ".join(readiness.get("missing") or [])

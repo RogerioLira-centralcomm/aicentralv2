@@ -68,12 +68,56 @@ def test_structured_stream_cannot_replace_a_normalized_final_answer():
     assert response.answer == "Resposta útil"
 
 
+def test_provider_envelope_cannot_become_editable_artifact_html():
+    response = normalize_response({
+        "text": {"content": "Resposta limpa para a conversa."},
+        "ui": {"confidence": "medium"},
+        "artifact_patch": {
+            "title": "Resultado do trabalho",
+            "html": '{"text":{"content":"Pergunta de autorização"},"ui":{"questions":[]}}',
+        },
+    }, {
+        "mode": "artifact_first", "allow_artifact": True, "artifact_type": "document",
+        "artifact_fallback_title": "Documento",
+    })
+    assert response.answer == "Resposta limpa para a conversa."
+    assert response.artifact_patch is not None
+    assert "{\"text\"" not in str(response.artifact_patch)
+
+
 def test_explicit_long_form_request_uses_analysis_without_forcing_an_artifact():
     message = "Escreva um guia completo de aproximadamente 1.800 palavras. Não crie artefato."
     route = route_request(message)
     assert route.response_mode == "analysis"
     assert route.complexity == "high"
     assert route.artifact_type is None
+
+
+def test_negative_artifact_and_conditional_web_request_cannot_create_or_save_document():
+    message = (
+        "Crie um planejamento estratégico de mídia para a Netflix no Brasil. "
+        "Pesquise na internet apenas se eu autorizar. Ainda não crie nem salve um artefato no projeto."
+    )
+    route = route_request(message, has_project=True)
+    assert route.action == "confirm_web_research"
+    assert route.response_mode == "clarification"
+    assert route.artifact_type is None
+    assert route.needs_tools == ()
+    assert route.requires_confirmation is False
+    policy = policy_for(route)
+    assert policy["mode"] == "clarification"
+
+
+@pytest.mark.parametrize("message", [
+    "Responda no chat e não crie artefato.",
+    "Faça o planejamento sem documento por enquanto.",
+    "Analise os dados, mas ainda não salve no projeto.",
+])
+def test_negative_artifact_constraints_override_positive_keywords(message):
+    route = route_request(message, has_project=True)
+    assert route.response_mode == "analysis"
+    assert route.artifact_type is None
+    assert route.requires_confirmation is False
 
 
 def test_web_research_with_organized_sources_does_not_create_project_map():
@@ -84,10 +128,10 @@ def test_web_research_with_organized_sources_does_not_create_project_map():
     )
 
     assert route.domain == "research"
-    assert route.action == "search_web"
-    assert route.response_mode == "analysis"
+    assert route.action == "confirm_web_research"
+    assert route.response_mode == "clarification"
     assert route.artifact_type is None
-    assert route.needs_tools == ("web.search",)
+    assert route.needs_tools == ()
 
 
 def test_brand_creation_and_audit_are_routed_to_internal_mcp_actions():

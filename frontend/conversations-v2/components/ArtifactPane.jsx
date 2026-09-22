@@ -52,7 +52,25 @@ function escapeHtml(value) {
 }
 
 function documentHtml(content) {
-  if (content.html) return String(content.html);
+  if (content.html) {
+    const raw = String(content.html);
+    const clean = raw.trim();
+    if (clean.startsWith('{') || clean.startsWith('"{')) {
+      try {
+        let decoded = JSON.parse(clean);
+        if (typeof decoded === 'string') decoded = JSON.parse(decoded);
+        const visible = decoded?.text?.content || decoded?.answer;
+        if (typeof visible === 'string' && visible.trim()) {
+          return visible.trim().split(/\n\s*\n/).map(part => `<p>${escapeHtml(part).replace(/\n/g, '<br/>')}</p>`).join('');
+        }
+        return '<p><br/></p>';
+      } catch (_) {
+        // An incomplete protocol envelope must not become editable content.
+        if (/^\s*["']?\s*\{\s*"(?:text|ui|answer|artifact_patch)"/i.test(clean)) return '<p><br/></p>';
+      }
+    }
+    return raw;
+  }
   const sections = [];
   if (content.summary) sections.push(`<p>${escapeHtml(content.summary)}</p>`);
   (content.fields || []).forEach(field => {

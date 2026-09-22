@@ -316,6 +316,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/handoff', view_func=studio_session_handoff, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/continue', view_func=studio_session_continue, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/finalize', view_func=studio_session_finalize, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/leave', view_func=studio_session_leave, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/discard', view_func=studio_session_discard, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/restore', view_func=studio_session_restore, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/share', view_func=studio_session_share, methods=['POST'])
@@ -826,6 +827,7 @@ def studio_library_sessions():
         storage = ClientLogoStorage()
         personal_assets = [asset for asset in personal_assets if not str(asset.get('image_url') or '').startswith('/static/') or storage.absolute_public_path(asset.get('image_url')) is not None]
         return ok({
+            'client_id': client_id,
             'items': history.library_sessions(client_id) if history else [],
             'personal_assets': personal_assets,
             'reference_masks': _studio_reference_masks(),
@@ -1215,6 +1217,49 @@ def studio_session_continue(ident):
 @studio_csrf_required
 def studio_session_finalize(ident):
     return _session_action(ident, 'finalize')
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_leave(ident):
+    """Atomically persist the latest editor snapshot and finalize only edited work."""
+    from flask import jsonify
+    from .studio_sessions import SessionConflict
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id') or session.get('cliente_id')
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para salvar esta sessão.')
+        store = _session_store(client_id)
+        try:
+            saved = store.save(client_id, user_id, ident, data.get('save') or {})
+        except SessionConflict:
+            fresh = store.read(client_id, user_id, ident)
+            retry = dict(data.get('save') or {})
+            retry['expected_revision'] = fresh.get('revision')
+            saved = store.save(client_id, user_id, ident, retry)
+        if not data.get('has_edits') or saved.get('status') == 'finalized':
+            return ok({'session': saved, 'finalized': False})
+        final_payload = dict(data.get('finalize') or {})
+        final_payload['recipient_email'] = str(session.get('user_email') or '').strip().lower()
+        final_payload['recipient_name'] = str(session.get('user_name') or '').strip()
+        try:
+            result = store.finalize(client_id, user_id, ident, final_payload)
+        except ValueError:
+            logger.info('Studio leave saved session %s before its generated asset was ready to finalize', ident)
+            return ok({'session': saved, 'finalized': False})
+        if current_app.config.get('STUDIO_PROJECTS_POSTGRES', False):
+            try:
+                from .jobs import wake_worker
+                wake_worker()
+            except Exception:
+                logger.exception('Studio leave queued delivery, but the worker was not awakened')
+        return ok({**result, 'finalized': True})
+
+    return execute(run)
 
 
 @studio_or_admin_required_api

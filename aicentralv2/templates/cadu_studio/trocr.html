@@ -9,16 +9,27 @@
   'csrf': mc_trocr_csrf,
   'apiRoot': '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api',
   'clientId': request.args.get('client_id') or request.args.get('creative_client_id') or '',
-  'projectId': request.args.get('project_id') or '',
+  'projectId': request.args.get('project_id') or (session.get('workspace_recent_project_ids') or [''])[0],
   'sessionId': request.args.get('session_id') or '',
   'projectName': request.args.get('project_name') or '',
+  'credits': studio_credit.get('available', 0),
+  'usagePercent': studio_credit.get('monthly_usage_percentage', 0),
+  'user': {
+    'name': session.get('user_name', 'Minha conta'),
+    'email': session.get('user_email', ''),
+    'avatar': session.get('user_photo_url', '')
+  },
   'links': {
     'home': studio_url('modelagem_criativos'),
     'create': studio_url('modelagem_criar'),
     'editor': studio_url('modelagem_trocar'),
     'videos': studio_url('modelagem_video'),
     'analyzer': product_url('studio', '/analyzer'),
-    'library': studio_url('modelagem_criativos') ~ '#studioLibrary'
+    'library': studio_url('modelagem_criativos') ~ '#studioLibrary',
+    'workspace': product_url('workspace', '/workspace/app'),
+    'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),
+    'credits': product_url('workspace', '/workspace/app/creditos'),
+    'logout': product_url('auth', '/logout')
   }
 }|tojson }}</script>
 {% endblock %}

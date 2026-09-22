@@ -24,7 +24,7 @@ def test_completion_email_uses_dark_studio_template_and_real_metrics():
             return {"success": True, "messageId": "mail-1"}
 
     with app.app_context(), patch(
-        "aicentralv2.services.cadu_product_emails.get_brevo_product_service", return_value=Sender()
+        "aicentralv2.services.cadu_email_connector.get_brevo_product_service", return_value=Sender()
     ):
         result = send_studio_work_completed(
             recipient_email="person@example.com", recipient_name="Pessoa", title="Campanha",
@@ -32,7 +32,8 @@ def test_completion_email_uses_dark_studio_template_and_real_metrics():
             metrics={"generation_count": 4, "edit_count": 2, "format_count": 3,
                      "handoff_count": 1, "estimated_minutes_saved": 51,
                      "charged_credits": 18420, "provider_tokens": 1360,
-                     "internal_cost_usd": "0.1842"},
+                     "internal_cost_usd": "0.1842", "active_seconds": 187,
+                     "sale_price_per_credit_brl": "8", "sale_package_name": "Plano de teste"},
         )
 
     assert result["success"] is True
@@ -42,6 +43,7 @@ def test_completion_email_uses_dark_studio_template_and_real_metrics():
     assert captured["params"]["AI_CREDITS_USED"] == "18.420"
     assert captured["params"]["PROVIDER_TOKENS"] == "1.360"
     assert captured["params"]["AI_COST_USD"] == "US$ 0,1842"
+    assert captured["params"]["ACTIVE_TIME"] == "3 minutos"
     assert captured["params"]["CREDIT_SALE_UNIT_BRL"] == "R$ 8,00"
     assert captured["params"]["CREDIT_SALE_VALUE_BRL"] == "R$ 147.360,00"
     assert captured["params"]["DESIGNER_COST_BRL"] == "R$ 107,28"

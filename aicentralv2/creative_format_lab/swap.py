@@ -288,6 +288,9 @@ def match_aspect_ratio(value):
 
 def resolve_aspect_ratio(payload=None):
     payload = payload if isinstance(payload, dict) else {}
+    from_output = ratio_from_size(payload.get("output_width"), payload.get("output_height"))
+    if from_output:
+        return from_output
     chosen = match_aspect_ratio(payload.get("aspect_ratio") or payload.get("output"))
     if chosen:
         return chosen
@@ -312,6 +315,34 @@ def ratio_from_size(width, height):
     if ratio < 0.92:
         return "4:5"
     return "16:9"
+
+
+def requested_output_size(payload=None):
+    payload = payload if isinstance(payload, dict) else {}
+    width, height = payload.get("output_width"), payload.get("output_height")
+    if width in (None, "") and height in (None, ""):
+        return None
+    try:
+        width, height = int(width), int(height)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Largura e altura de saída devem ser números inteiros.") from error
+    if not 256 <= width <= 4096 or not 256 <= height <= 4096:
+        raise ValueError("A saída deve ter entre 256 e 4096 pixels por lado.")
+    return width, height
+
+
+def resize_output_png(png, payload=None):
+    target = requested_output_size(payload)
+    if not target:
+        return png
+    from PIL import Image, ImageOps
+    with Image.open(io.BytesIO(png)) as source:
+        if source.size == target:
+            return png
+        image = ImageOps.fit(source.convert("RGBA"), target, method=Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        image.save(output, format="PNG", optimize=True)
+        return output.getvalue()
 
 
 def swap_logo_url(payload=None, brand=None):
@@ -482,6 +513,9 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
     aspect = resolve_aspect_ratio(payload)
     if aspect:
         lines.append(f"Output aspect ratio {aspect}. Recrop and rebalance composition for that frame.")
+    target_size = requested_output_size(payload)
+    if target_size:
+        lines.append(f"Final delivery canvas: exactly {target_size[0]} by {target_size[1]} pixels.")
     if preserve:
         lines.append("Preserve exactly: " + ", ".join(PRESERVE_LABELS[item] for item in preserve) + ".")
     if "people" in preserve:
@@ -1146,6 +1180,7 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
     png = _png_bytes(result)
     if not png:
         raise ValueError("O GPT Image 2 não devolveu o still.")
+    png = resize_output_png(png, payload)
     still = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
     if mode == "recrop" and typeset_patches(payload):
         painted = typeset_reference(

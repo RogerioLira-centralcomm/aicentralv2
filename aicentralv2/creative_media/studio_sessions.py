@@ -460,7 +460,7 @@ class LocalSessionRepository:
             else:
                 db.execute("UPDATE sessions SET status=CASE WHEN status='draft' THEN 'active' ELSE status END, revision=revision+1, updated_at=? WHERE id=?", (now, ident))
             metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-            completed_event = completed_event_for_asset(metadata) if role == "attempt" else ""
+            completed_event = completed_event_for_asset(metadata)
             if completed_event:
                 self._event(db, ident, completed_event, clean_text(payload.get("source_id"), 180) or asset,
                             {"asset_id": asset})
@@ -564,8 +564,10 @@ class LocalSessionRepository:
                 "charged_credits": max(0, int(usage.get("charged_credits") or payload.get("credits") or 0)),
                 "internal_cost_usd": str(usage.get("internal_cost_usd") or "0"),
             }
+            specifications = payload.get("specifications") if isinstance(payload.get("specifications"), dict) else {}
             snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": asset_snapshot,
-                        "title": session["title"], "credits": usage["charged_credits"], "usage": usage}
+                        "title": session["title"], "credits": usage["charged_credits"], "usage": usage,
+                        "specifications": specifications}
             db.execute("""
                 INSERT INTO finalizations VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             """, (final_id, ident, session["root_session_id"], session["active_asset_id"], json.dumps(snapshot, ensure_ascii=False),
@@ -847,7 +849,7 @@ class PostgresSessionRepository:
             else:
                 cursor.execute("UPDATE cx_studio_sessions SET status=CASE WHEN status='draft' THEN 'active' ELSE status END,revision=revision+1,updated_at=NOW() WHERE id=%s", (ident,))
             metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-            completed_event = completed_event_for_asset(metadata) if role == "attempt" else ""
+            completed_event = completed_event_for_asset(metadata)
             if completed_event:
                 self._event(cursor, ident, completed_event, clean_text(payload.get("source_id"), 180) or asset_id,
                             {"asset_id": asset_id})
@@ -939,8 +941,10 @@ class PostgresSessionRepository:
             usage = studio_usage_summary(
                 cursor, session["root_session_id"], session["user_id"],
             )
+            specifications = payload.get("specifications") if isinstance(payload.get("specifications"), dict) else {}
             snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": asset_snapshot,
-                        "title": session["title"], "credits": usage["charged_credits"], "usage": usage}
+                        "title": session["title"], "credits": usage["charged_credits"], "usage": usage,
+                        "specifications": specifications}
             cursor.execute("""
                 INSERT INTO cx_studio_finalizations
                     (id,session_id,root_session_id,final_asset_id,snapshot,generation_count,edit_count,

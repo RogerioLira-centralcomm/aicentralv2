@@ -19,6 +19,7 @@ from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_tok
 from .creative_modeling_generation import OpenRouterError
 from .creative_format_registry import catalog_entries
 from .cadu_tool_billing import InsufficientToolCredits
+from .cadu_skills.repository import credit_position
 from .creative_modeling_repository import (
     CreativeConflictError,
     CreativeNotFoundError,
@@ -354,6 +355,12 @@ def modelagem_desk(page):
     if page == "camadas" and current_app.config.get("CAMADAS_V2_ENABLED"):
         panel = "parametros/_mc_camadas_v2.html"
         page_js = "js/camadas/index.js"
+    studio_credit = {}
+    if page == "trocar":
+        try:
+            studio_credit = credit_position(int(session.get('cliente_id') or 0)) or {}
+        except Exception:
+            logger.warning('Nao foi possivel carregar o saldo do Studio', exc_info=True)
     # Creative Modeling is a Studio product surface. Every desk uses the same
     # standalone frame, so its navigation and work area never inherit CentralX.
     template = (
@@ -379,6 +386,7 @@ def modelagem_desk(page):
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
         mc_format_catalog=catalog_entries(),
         mc_reference_masks=_studio_reference_masks() if page == "criar" else [],
+        studio_credit=studio_credit,
     ))
     if page in {"criar", "video"}:
         response.headers['Cache-Control'] = 'no-store, private'

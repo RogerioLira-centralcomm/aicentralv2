@@ -189,6 +189,7 @@ def send_studio_work_completed(*, recipient_email: str, recipient_name: str, tit
             "FORMAT_COUNT": max(0, int(data.get("format_count") or 0)),
             "HANDOFF_COUNT": max(0, int(data.get("handoff_count") or 0)),
             "ESTIMATED_MINUTES_SAVED": max(0, int(data.get("estimated_minutes_saved") or 0)),
+            "ACTIVE_TIME": _duration_pt(max(1, round(int(data.get("active_seconds") or 0) / 60))),
             "ESTIMATED_MANUAL_TIME": estimates["manual_time_label"],
             "AI_CREDITS_USED": estimates["charged_credits"],
             "PROVIDER_TOKENS": estimates["provider_tokens"],

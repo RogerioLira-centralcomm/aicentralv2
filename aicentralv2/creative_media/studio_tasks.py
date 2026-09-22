@@ -31,9 +31,15 @@ def submit():
     def run():
         data=request.form if request.files else body()
         client=data.get('client_id');root=_scope(client);kind=data.get('kind')
-        if kind not in {'import','inspect','extract','transcribe'}:raise ValueError('Operação de mídia inválida.')
+        if kind not in {'import','inspect','extract','transcribe','image_edit'}:raise ValueError('Operação de mídia inválida.')
         ident=uuid.uuid4().hex;work={};source=None
-        if kind=='import':
+        if kind=='image_edit':
+            payload=data.get('payload') if isinstance(data.get('payload'),dict) else {}
+            if not payload:raise ValueError('Instruções da edição não foram enviadas.')
+            work={'payload':payload,'session_id':str(data.get('session_id') or ''),
+                  'recipient_email':str(session.get('user_email') or '').strip().lower(),
+                  'recipient_name':str(session.get('user_name') or '').strip()}
+        elif kind=='import':
             upload=request.files.get('file')
             if not upload:raise ValueError('Escolha um vídeo.')
             source=root/f'{ident}.upload';size=0
@@ -111,7 +117,31 @@ def run_task(root,ident):
     _write(path,{**row,'status':'processing'})
     try:
         kind=row['kind'];client=row['client_id']
-        if kind=='import':
+        if kind=='image_edit':
+            from ..creative_modeling_routes import _service
+            result=_service()._format_lab().swap(work['payload'],user_id=row.get('user_id'))
+            session_id=str(work.get('session_id') or '')
+            image_url=str((result or {}).get('image_url') or '')
+            if session_id and image_url:
+                from .studio import _session_store
+                store=_session_store(client)
+                specifications={'format':work['payload'].get('aspect_ratio'),'width':work['payload'].get('output_width'),
+                                'height':work['payload'].get('output_height'),'quality':work['payload'].get('quality'),
+                                'extension':'PNG'}
+                current=store.read(client,row.get('user_id'),session_id)
+                editor=((current.get('metadata') or {}).get('editor') or {})
+                if editor.get('finalize_when_ready') and current.get('status')!='finalized':
+                    specifications={**specifications,**(editor.get('completion_specifications') or {})}
+                    store.accept(client,row.get('user_id'),session_id,{
+                        'role':'base','kind':'image','source_type':'studio-editor','source_id':f'task:{ident}',
+                        'title':'Edição do Studio','asset_url':image_url,
+                        'metadata':{'origin':'edit',**specifications},
+                    })
+                    store.finalize(client,row.get('user_id'),session_id,{
+                        'active_seconds':editor.get('active_seconds') or 0,'pending_jobs':False,'specifications':specifications,
+                        'recipient_email':work.get('recipient_email'),'recipient_name':work.get('recipient_name'),
+                    })
+        elif kind=='import':
             _write(path,{**row,'status':'processing','stage':'Validando vídeo'})
             duration,streams=probe(source)
             if 'video' not in streams or not 0<duration<=300:raise ValueError('Envie um vídeo com até cinco minutos.')

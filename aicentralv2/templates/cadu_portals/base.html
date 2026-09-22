@@ -59,7 +59,7 @@
   {# The prompt-first React home owns its composer. Do not mount the legacy
      floating panel and its assets beside it. Other Workspace surfaces retain
      the panel until their individual migration is complete. #}
-  {% if portal_product != 'workspace' and session.get('user_id') and request.endpoint not in ('cadu_workspace.dashboard', 'cadu_workspace.conversations', 'cadu_agent_v2_lab.conversations_v2_lab', 'cadu_workspace.account_page') %}
+  {% if portal_product not in ('workspace', 'studio') and session.get('user_id') and request.endpoint not in ('cadu_workspace.dashboard', 'cadu_workspace.conversations', 'cadu_agent_v2_lab.conversations_v2_lab', 'cadu_workspace.account_page') %}
     <link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=19">
     <button type="button" class="cadu-conversation-launcher" id="conversation-open" aria-haspopup="dialog" aria-controls="conversation-panel" aria-expanded="false"><span aria-hidden="true">C</span> Falar com Cadu</button>
     {% set conversation_profile_label = 'O Cadu considera a organização, projetos e marcas da sua conta.' %}

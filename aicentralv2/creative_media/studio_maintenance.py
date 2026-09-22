@@ -91,7 +91,7 @@ class PostgresStudioMaintenance:
             }
         with self.connection.cursor() as cursor:
             cursor.execute("""
-                SELECT f.generation_count,f.edit_count,f.format_count,f.handoff_count,
+                SELECT f.generation_count,f.edit_count,f.format_count,f.handoff_count,f.active_seconds,
                        f.estimated_minutes_saved,a.asset_url,s.id::text AS session_id,s.title
                   FROM cx_studio_finalizations f
                   JOIN cx_studio_assets a ON a.id=f.final_asset_id
@@ -101,12 +101,19 @@ class PostgresStudioMaintenance:
             detail = dict(cursor.fetchone() or {})
         asset = _mapping(snapshot.get("asset"))
         usage = _mapping(snapshot.get("usage"))
+        specifications = _mapping(snapshot.get("specifications"))
         detail.update({
             "charged_credits": usage.get("charged_credits", snapshot.get("credits", 0)),
             "provider_tokens": usage.get("provider_tokens", 0),
             "internal_cost_usd": usage.get("internal_cost_usd", 0),
             "sale_price_per_credit_brl": usage.get("sale_price_per_credit_brl", 0),
             "sale_package_name": usage.get("sale_package_name", ""),
+            "format": specifications.get("format", ""),
+            "width": specifications.get("width", ""),
+            "height": specifications.get("height", ""),
+            "quality": specifications.get("quality", ""),
+            "extension": specifications.get("extension", ""),
+            "project_name": specifications.get("project_name", ""),
         })
         return {
             "recipient_email": row.get("recipient_email") or "",

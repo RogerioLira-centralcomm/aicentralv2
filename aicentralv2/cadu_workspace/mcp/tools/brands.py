@@ -4,6 +4,7 @@ from werkzeug.exceptions import HTTPException
 
 from ... import brand_mcp_service as service
 from ...agent_v2.contracts import RequestContext
+from .. import operations
 from ..registry import ToolError, register_tool
 
 
@@ -30,6 +31,30 @@ def get_brand_context(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: service.brand_context(context, arguments["brand_id"]))
 
 
+@register_tool(name="brands.list_assets", capability="workspace", effect="read",
+               description="Lista imagens aprovadas da biblioteca da marca atual, incluindo IDs, prévias e qual é o logo principal.",
+               exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","properties":{"brand_id":{"type":"integer","minimum":1},
+                   "limit":{"type":"integer","minimum":1,"maximum":100}},"additionalProperties":False})
+def list_brand_assets(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: service.list_assets(context, arguments.get("brand_id"), arguments.get("limit", 50)))
+
+
+@register_tool(name="brands.use_asset_as_logo", capability="workspace", effect="write",
+               description="Define uma imagem aprovada da biblioteca da própria marca como logo principal, sem reenviar o arquivo.",
+               exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","required":["request_id","confirmed","asset_id"],"properties":{
+                   "request_id":{"type":"string","minLength":36,"maxLength":36},
+                   "confirmed":{"type":"boolean","enum":[True]},
+                   "brand_id":{"type":"integer","minimum":1},
+                   "asset_id":{"type":"integer","minimum":1}},"additionalProperties":False})
+def use_asset_as_logo(context: RequestContext, arguments: dict) -> dict:
+    payload = {key: arguments.get(key) for key in ("brand_id", "asset_id")}
+    return _domain(lambda: operations.execute(arguments["request_id"], context,
+        "brands.use_asset_as_logo", payload,
+        lambda: service.use_asset_as_logo(context, brand_id=arguments.get("brand_id"), asset_id=arguments["asset_id"])))
+
+
 @register_tool(name="brands.create", capability="workspace", effect="write",
                description="Cria uma marca com nome e site oficial após confirmação do usuário.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["request_id","confirmed","name","website_url"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"name":{"type":"string","minLength":2,"maxLength":150},"website_url":{"type":"string","minLength":3,"maxLength":2000},"sector":{"type":"string","maxLength":80}},"additionalProperties":False})
@@ -49,7 +74,7 @@ _identity_change_properties = {
 
 
 @register_tool(name="brands.update_identity", capability="workspace", effect="write",
-               description="Altera somente os campos explicitamente informados da identidade da marca, preservando todos os demais. Exige confirmação do usuário.", exposures=("internal", "customer_agent"),
+               description="Altera o site oficial (changes.website_url) ou outros campos explícitos da marca sem apagar os demais. Exige confirmação do usuário.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["request_id","confirmed","brand_id","changes"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"changes":{"type":"object","minProperties":1,"properties":_identity_change_properties,"additionalProperties":False}},"additionalProperties":False})
 def update_identity(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}
@@ -64,8 +89,8 @@ def prepare_logo_upload(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="brands.start_audit", capability="workspace", effect="write",
-               description="Inicia a auditoria paga de uma marca após confirmação explícita do usuário administrador.", exposures=("internal", "customer_agent"),
-               input_schema={"type":"object","required":["request_id","confirmed","confirmed_cost","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"confirmed_cost":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000},"analysis_mode":{"type":"string","enum":["complete","deep"]},"social_links":{"type":"array","items":{"type":"string","maxLength":500},"maxItems":12}},"additionalProperties":False})
+               description="Inicia análise completa ou profunda da marca após confirmar o custo. Pode usar imagens aprovadas da biblioteca, incluindo o logo selecionado.", exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","required":["request_id","confirmed","confirmed_cost","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"confirmed_cost":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000},"analysis_mode":{"type":"string","enum":["complete","deep"]},"social_links":{"type":"array","items":{"type":"string","maxLength":500},"maxItems":12},"existing_asset_ids":{"type":"array","items":{"type":"integer","minimum":1},"maxItems":12}},"additionalProperties":False})
 def start_audit(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}
     return _domain(lambda: service.start_audit(context, **values))

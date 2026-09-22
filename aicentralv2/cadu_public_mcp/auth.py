@@ -190,13 +190,15 @@ def _load_key(raw_key: str) -> dict:
 
 def required_scope(tool_name: str) -> str:
     name = str(tool_name or "")
+    if name in {"media.start_studio_session", "media.generate_image"}:
+        return "projects:content_write"
     if name.startswith("credits."):
         return "credits:read"
     if name in {"account.update_profile", "account.update_agency", "account.invite_team_member"}:
         return "account:write"
     if name.startswith("account."):
         return "account:read"
-    if name in {"brands.create", "brands.update_identity", "brands.prepare_logo_upload", "brands.start_audit"}:
+    if name in {"brands.create", "brands.update_identity", "brands.prepare_logo_upload", "brands.use_asset_as_logo", "brands.start_audit"}:
         return "brands:write"
     if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.finalize_to_project"}:
         return "artifacts:write"
@@ -214,6 +216,10 @@ def required_scope(tool_name: str) -> str:
     if name.startswith("google."):
         return "google:read"
     if name.startswith("resources."):
+        return "resources:read"
+    if name.startswith("media."):
+        return "resources:read"
+    if name.startswith("web."):
         return "resources:read"
     return "projects:read"
 

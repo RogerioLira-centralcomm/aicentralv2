@@ -7,7 +7,7 @@ import secrets
 from copy import deepcopy
 from time import monotonic
 
-from flask import Blueprint, abort, jsonify, render_template, request, session
+from flask import Blueprint, abort, jsonify, render_template, request, send_file, session
 from werkzeug.exceptions import HTTPException
 
 from ..auth import login_required
@@ -27,6 +27,19 @@ PROTOCOL_VERSION = "2026-07-28"
 # The public surface is an intentional subset of internal capabilities. New
 # internal tools do not become internet-facing by accident.
 PUBLIC_TOOLS = frozenset({
+    "media.list_jobs",
+    "media.get_job",
+    "media.start_studio_session",
+    "media.generate_image",
+    "media.creation_capabilities",
+    "planner.list_plans",
+    "planner.search_catalog",
+    "planner.list_link_tests",
+    "planner.get_link_test",
+    "planner.get_brief",
+    "planner.get_media_plan",
+    "web.search",
+    "web.read",
     "account.get",
     "account.update_profile",
     "account.update_agency",
@@ -45,6 +58,10 @@ PUBLIC_TOOLS = frozenset({
     "resources.get",
     "resources.capabilities",
     "projects.list_sources",
+    "projects.search_knowledge",
+    "projects.get_source_chunks",
+    "projects.inspect_link",
+    "projects.ingestion_status",
     "projects.list_resources",
     "projects.inspect_file_support",
     "projects.classify_intake",
@@ -58,15 +75,18 @@ PUBLIC_TOOLS = frozenset({
     "workspace.link_current_brand",
     "workspace.list_projects",
     "workspace.get_project_context",
+    "workspace.search_project_content",
     "workspace.list_project_shares",
     "workspace.set_project_visibility",
     "workspace.share_project_with_people",
     "workspace.share_project_with_team",
     "brands.list",
     "brands.get_context",
+    "brands.list_assets",
     "brands.create",
     "brands.update_identity",
     "brands.prepare_logo_upload",
+    "brands.use_asset_as_logo",
     "brands.start_audit",
     "brands.audit_status",
     "artifacts.list",
@@ -80,6 +100,8 @@ PUBLIC_TOOLS = frozenset({
     "reports.compare_report_to_plan",
 })
 PUBLIC_WRITE_TOOLS = frozenset({
+    "media.start_studio_session",
+    "media.generate_image",
     "account.update_profile",
     "account.update_agency",
     "account.invite_team_member",
@@ -99,11 +121,44 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "brands.create",
     "brands.update_identity",
     "brands.prepare_logo_upload",
+    "brands.use_asset_as_logo",
     "brands.start_audit",
     "artifacts.create_draft",
     "artifacts.update_draft",
     "artifacts.finalize_to_project",
 })
+
+
+@bp.get(f"{PUBLIC_MCP_PATH}/media/assets/<asset_id>/content")
+def media_asset_content(asset_id):
+    """Bearer-authenticated media delivery with tenant and creator checks."""
+    try:
+        principal = auth.authenticate({})
+        auth.ensure_scope(principal, "media.get_job")
+    except auth.PublicMcpAuthError:
+        response = jsonify({"error": "Acesso não autorizado."})
+        response.status_code = 401
+        response.headers["WWW-Authenticate"] = 'Bearer realm="cadu-mcp-public"'
+        return _headers(response)
+    from ..creative_media.storage import read_path
+    from ..db import get_db
+    with get_db().cursor() as cursor:
+        cursor.execute("""SELECT a.storage_key, a.mime_type
+                            FROM cx_media_assets a
+                            JOIN cx_media_jobs j ON j.id=a.job_id
+                            JOIN cx_clients brand ON brand.id=j.client_id
+                           WHERE a.public_id=%s AND brand.crm_client_id=%s AND j.user_id=%s""",
+                       (asset_id, principal.client_id, principal.user_id))
+        asset = cursor.fetchone()
+    if not asset:
+        abort(404)
+    path = read_path(asset["storage_key"])
+    if path is None:
+        abort(404)
+    response = send_file(path, mimetype=asset["mime_type"], conditional=True, as_attachment=True,
+                         download_name=path.name)
+    response.headers["Cache-Control"] = "private, no-store"
+    return _headers(response)
 
 
 def _error(request_id, code, message, data=None):
@@ -123,10 +178,21 @@ def _headers(response):
 def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
     tools = load_builtin_tools().list(principal.context, exposure)
     for item in tools:
-        if item["name"] in PUBLIC_TOOLS and item["name"].startswith(("projects.", "artifacts.")):
+        if item["name"] in PUBLIC_TOOLS and (item["name"].startswith(("projects.", "artifacts.")) or
+                                             item["name"] in {"media.start_studio_session", "media.generate_image"} or
+                                             item["name"] in {"workspace.get_project_context", "workspace.search_project_content"}):
             item["inputSchema"] = deepcopy(item["inputSchema"])
             item["inputSchema"].setdefault("properties", {})["project_ref"] = {
                 "type": "string", "description": "Projeto de destino no formato ci:ID; informe quando não houver projeto padrão."
+            }
+            if item["name"] in {"media.start_studio_session", "media.generate_image"}:
+                item["inputSchema"]["properties"]["brand_ref"] = {
+                    "type": "string", "description": "Marca ativa no formato studio:ID, quando não vier do projeto."
+                }
+        elif item["name"] in PUBLIC_TOOLS and item["name"].startswith("brands."):
+            item["inputSchema"] = deepcopy(item["inputSchema"])
+            item["inputSchema"].setdefault("properties", {})["brand_ref"] = {
+                "type": "string", "description": "Marca ativa no formato studio:ID; use brand_id quando a ferramenta exigir."
             }
     return [item for item in tools
             if item["name"] in PUBLIC_TOOLS
@@ -143,6 +209,8 @@ def _request_context_for_auth(params: dict) -> dict:
     # at params level so the public schema is compatible with MCP hosts.
     if not value.get("project_ref") and isinstance(value.get("arguments"), dict):
         value["project_ref"] = value["arguments"].get("project_ref")
+    if not value.get("brand_ref") and isinstance(value.get("arguments"), dict):
+        value["brand_ref"] = value["arguments"].get("brand_ref")
     return value
 
 
@@ -185,9 +253,18 @@ def public_rpc():
                 "instructions": (
                     "Use project_ref no nível params ou configure um projeto padrão na chave. "
                     "Para adicionar texto ao projeto, use projects.create_note; para links, projects.create_link_reference. "
+                    "Para consultar a base RAG de um projeto, use projects.search_knowledge e depois "
+                    "projects.get_source_chunks com o source_id retornado; cite nome da fonte e chunk_id. "
                     "Para arquivos, imagens geradas e HTML, use projects.prepare_source_upload sem use_as_knowledge "
                     "e envie o binário ao upload_url com upload_token e project_ref; inclua description factual para imagens sem texto. "
                     "O Cadu classificará, indexará o conteúdo pesquisável e preservará o restante como ativo. "
+                    "projects.list_resources inclui metadata.icon para links do projeto; status ready indica URL de ícone utilizável. "
+                    "Para gerações do Cadu Media, use media.list_jobs e media.get_job. O download_url dos ativos "
+                    "aceita a mesma chave Bearer do MCP no cabeçalho Authorization, respeitando conta, usuário e escopo resources:read. "
+                    "Para a marca atual, liste a biblioteca com brands.list_assets; troque o site com "
+                    "brands.update_identity(changes.website_url), ou defina um asset aprovado como logo com "
+                    "brands.use_asset_as_logo. Em brands.start_audit escolha analysis_mode complete ou deep e, "
+                    "se desejar, informe existing_asset_ids da mesma biblioteca. "
                     "Para créditos, credits.purchase_package apenas cria um pedido pendente; mostre confirmation_url "
                     "ao administrador e aguarde a confirmação autenticada no Cadu."
                 ),
@@ -206,8 +283,12 @@ def public_rpc():
             if not isinstance(arguments, dict):
                 raise ValueError("Os argumentos da ferramenta precisam ser um objeto.")
             arguments = dict(arguments)
-            if name.startswith(("projects.", "artifacts.")):
+            if name.startswith(("projects.", "artifacts.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session", "media.generate_image"}:
                 arguments.pop("project_ref", None)
+            if name in {"media.start_studio_session", "media.generate_image"}:
+                arguments.pop("brand_ref", None)
+            if name.startswith("brands."):
+                arguments.pop("brand_ref", None)
             if name in PUBLIC_WRITE_TOOLS and "request_id" not in arguments:
                 arguments["request_id"] = request_id
             tool_request_id = usage.new_request_id(arguments.get("request_id") or request_id)

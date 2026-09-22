@@ -66,6 +66,34 @@ def _record(source_system, source_id, resource_type, title, **values):
     }
 
 
+def public_link_icon(metadata: dict | None) -> dict:
+    """Stable icon contract; never expose prompts, job IDs or worker errors."""
+    data = metadata if isinstance(metadata, dict) else {}
+    status = str(data.get("icon_status") or "missing")
+    if status not in {"missing", "queued", "running", "generating", "ready", "failed"}:
+        status = "missing"
+    url = str(data.get("icon_url") or "") if status == "ready" else ""
+    if url and not (url.startswith("/static/") or url.startswith("https://")):
+        url = ""
+    return {"status": status, "url": url, "source": str(data.get("icon_source") or "") if url else "",
+            "mime_type": "image/webp" if url.lower().split("?", 1)[0].endswith(".webp") else ""}
+
+
+def _refresh_link_icons(cursor, client_id: int, project_ref: str, resources: list[dict]) -> None:
+    """Overlay live icon state while the materialized registry catches up."""
+    links = {str(item.get("source_id") or "")[5:]: item for item in resources
+             if item.get("source_system") == "workspace" and str(item.get("source_id") or "").startswith("link:")}
+    if not links or not _relation(cursor, "cadu_ci_projeto_links") or "icon_metadata" not in _columns(cursor, "cadu_ci_projeto_links"):
+        return
+    cursor.execute("""SELECT id::text AS id, icon_metadata FROM cadu_ci_projeto_links
+                       WHERE id_cliente=%s AND projeto_id=%s AND id::text=ANY(%s)""",
+                   (client_id, _project_id(project_ref), list(links)))
+    for row in cursor.fetchall():
+        item = links.get(str(row["id"]))
+        if item is not None:
+            item["metadata"] = {**(item.get("metadata") or {}), "icon": public_link_icon(row.get("icon_metadata"))}
+
+
 def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
     project_id = _project_id(project_ref)
     records = []
@@ -138,11 +166,14 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                 source_created_at=row.get("created_at")))
 
     if _relation(cursor, "cadu_ci_projeto_links"):
-        cursor.execute("""SELECT id::text AS id, titulo, provider, url, criado_por, created_at, updated_at
+        columns = _columns(cursor, "cadu_ci_projeto_links")
+        icon_sql = "icon_metadata" if "icon_metadata" in columns else "'{}'::jsonb AS icon_metadata"
+        cursor.execute(f"""SELECT id::text AS id, titulo, provider, url, criado_por, created_at, updated_at, {icon_sql}
                             FROM cadu_ci_projeto_links WHERE id_cliente=%s AND projeto_id=%s""", (client_id, project_id))
         for row in cursor.fetchall():
             records.append(_record("workspace", f"link:{row['id']}", "link", row["titulo"], category="reference",
-                locator=row.get("url"), metadata={"provider": row.get("provider")}, created_by=row.get("criado_por"),
+                locator=row.get("url"), metadata={"provider": row.get("provider"),
+                    "icon": public_link_icon(row.get("icon_metadata"))}, created_by=row.get("criado_por"),
                 source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at")))
 
     if _relation(cursor, "cadu_planner_link_test_runs"):
@@ -259,6 +290,7 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
                          ORDER BY COALESCE(source_updated_at, source_created_at, last_seen_at) DESC, title""",
                        (client_id, project_ref))
         resources = [dict(row) for row in cursor.fetchall()]
+        _refresh_link_icons(cursor, client_id, project_ref, resources)
         relations = []
         if _relation(cursor, "cadu_project_resource_relations"):
             cursor.execute("""SELECT source_resource_id::text, target_resource_id::text,
@@ -326,7 +358,10 @@ def get_resource(client_id: int, project_ref: str, resource_id: str) -> dict | N
             (str(resource_id), int(client_id), project_ref),
         )
         row = cursor.fetchone()
-    return dict(row) if row else None
+        result = dict(row) if row else None
+        if result:
+            _refresh_link_icons(cursor, client_id, project_ref, [result])
+    return result
 
 
 def search_resources(client_id: int, project_ref: str, query: str, *, limit: int = 20,

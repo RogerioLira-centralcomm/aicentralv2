@@ -7,8 +7,11 @@ from ... import project_source_service
 from ... import project_index_service
 from ... import project_resource_service
 from ... import workspace_ingestion_service
+from ...conversations.service import project_knowledge_context
+from ....db import get_db
+import json
 from .. import operations
-from ..registry import ToolInputError, register_tool
+from ..registry import ToolError, ToolInputError, register_tool
 
 
 def _domain(call):
@@ -32,6 +35,78 @@ def list_sources(context: RequestContext, arguments: dict) -> dict:
     return {"sources": _domain(lambda: project_source_service.list_sources(
         context, limit=arguments.get("limit", 50),
     ))}
+
+
+@register_tool(
+    name="projects.search_knowledge", capability="workspace", effect="read", requires_project=True,
+    description="Pesquisa a base RAG indexada do projeto (busca híbrida lexical e semântica), com trechos citáveis, IDs de fonte e recurso.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["query"], "properties": {
+        "query": {"type": "string", "minLength": 2, "maxLength": 400},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 12}}, "additionalProperties": False},
+)
+def search_knowledge(context: RequestContext, arguments: dict) -> dict:
+    if not str(context.project_ref or "").startswith("ci:"):
+        raise ToolInputError("Selecione um projeto nativo do Cadu para pesquisar fontes indexadas.")
+    query = " ".join(arguments["query"].split())
+    if len(query) < 2:
+        raise ToolInputError("Informe o que deve ser pesquisado nas fontes do projeto.")
+    try:
+        packet = json.loads(project_knowledge_context(context.project_ref, context.brand_ref,
+                                                      context.client_id, query,
+                                                      result_limit=arguments.get("limit", 8),
+                                                      strict_retrieval=True) or "{}")
+    except Exception as exc:
+        raise ToolError("A busca indexada está indisponível; não trate isto como ausência de resultados.") from exc
+    if not packet.get("projeto"):
+        raise ToolInputError("Projeto indisponível para esta conta.")
+    return {"project_ref": context.project_ref, "query": query,
+            "results": packet.get("fontes_verificadas") or [],
+            "retrieval_mode": "hybrid_with_lexical_fallback",
+            "next_step": "Use projects.get_source_chunks com source_id para ler o contexto adicional."}
+
+
+@register_tool(
+    name="projects.get_source_chunks", capability="workspace", effect="read", requires_project=True,
+    description="Lê trechos paginados de uma fonte indexada do projeto, com IDs citáveis e sem expor caminhos de armazenamento.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["source_id"], "properties": {
+        "source_id": {"type": "integer", "minimum": 1},
+        "offset": {"type": "integer", "minimum": 0},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 20}}, "additionalProperties": False},
+)
+def get_source_chunks(context: RequestContext, arguments: dict) -> dict:
+    if not str(context.project_ref or "").startswith("ci:"):
+        raise ToolInputError("Selecione um projeto nativo do Cadu para ler fontes indexadas.")
+    source_id = arguments["source_id"]
+    project_id = context.project_ref[3:]
+    limit, offset = arguments.get("limit", 10), arguments.get("offset", 0)
+    with get_db().cursor() as cursor:
+        cursor.execute("""SELECT id, nome_arquivo AS name, mime AS mime_type, indexing_status,
+                                 category, word_count, created_at
+                            FROM cadu_ci_projeto_arquivos
+                           WHERE id=%s AND projeto_id=%s AND id_cliente=%s
+                             AND purpose='knowledge_source' AND indexing_status <> 'superseded'""",
+                       (source_id, project_id, context.client_id))
+        row = cursor.fetchone()
+        if not row:
+            raise ToolInputError("Fonte indexada indisponível neste projeto.")
+        source = dict(row)
+        cursor.execute("""SELECT COUNT(*) AS total FROM cadu_ci_chunks
+                           WHERE arquivo_id=%s AND projeto_id=%s AND id_cliente=%s""",
+                       (source_id, project_id, context.client_id))
+        total = int((cursor.fetchone() or {}).get("total") or 0)
+        cursor.execute("""SELECT id AS chunk_id, ordem AS position, titulo AS title,
+                                 conteudo AS content, content_hash, embedding_model
+                            FROM cadu_ci_chunks
+                           WHERE arquivo_id=%s AND projeto_id=%s AND id_cliente=%s
+                        ORDER BY ordem, id LIMIT %s OFFSET %s""",
+                       (source_id, project_id, context.client_id, limit, offset))
+        chunks = [dict(item) for item in cursor.fetchall()]
+    from ...project_resource_service import resource_id_for_source
+    return {"project_ref": context.project_ref, "source": source,
+            "resource_id": resource_id_for_source(context.client_id, context.project_ref, "workspace", f"file:{source_id}"),
+            "chunks": chunks, "total": total, "next_offset": offset + len(chunks) if offset + len(chunks) < total else None}
 
 
 @register_tool(
@@ -76,7 +151,7 @@ def classify_intake(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="projects.inspect_link", capability="workspace", effect="read",
     description="Identifica plataforma, tipo provável, acesso e possibilidade segura de preview antes de salvar um link.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["url"], "properties": {
         "url": {"type": "string", "minLength": 8, "maxLength": 2000},
         "title": {"type": "string", "maxLength": 180},
@@ -91,7 +166,7 @@ def inspect_link(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="projects.ingestion_status", capability="workspace", effect="read", requires_project=True,
     description="Consulta o andamento real de classificação e extração das entradas recentes do projeto.",
-    exposures=("internal",),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "properties": {
         "limit": {"type": "integer", "minimum": 1, "maximum": 100},
     }, "additionalProperties": False},

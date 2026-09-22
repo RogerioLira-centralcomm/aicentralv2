@@ -55,6 +55,64 @@ def _brand(context: RequestContext, brand_id) -> dict:
     return brand
 
 
+def _current_brand_id(context: RequestContext, brand_id=None) -> int:
+    if brand_id is not None:
+        try:
+            return int(brand_id)
+        except (TypeError, ValueError) as exc:
+            raise BadRequest("Marca inválida.") from exc
+    if str(context.brand_ref or "").startswith("studio:"):
+        try:
+            return int(str(context.brand_ref)[7:])
+        except ValueError as exc:
+            raise BadRequest("Marca ativa inválida.") from exc
+    if context.project_ref:
+        linked = {str(item.get("brand_ref") or "") for item in family_repository.project_brand_links(context.client_id)
+                  if str(item.get("project_ref") or "") == context.project_ref}
+        if len(linked) == 1:
+            ref = next(iter(linked))
+            if ref.startswith("studio:") and ref[7:].isdigit():
+                return int(ref[7:])
+    raise BadRequest("Informe brand_id ou selecione uma marca ativa.")
+
+
+def list_assets(context: RequestContext, brand_id=None, limit: int = 50) -> dict:
+    brand = _brand(context, _current_brand_id(context, brand_id))
+    from .routes import _existing_brand_asset_url
+    with get_db().cursor() as cursor:
+        cursor.execute("""SELECT id, role, source_kind, source_url, asset_path, mime_type,
+                                 is_primary, status, metadata
+                            FROM cx_client_brand_assets
+                           WHERE client_id=%s AND status='approved'
+                        ORDER BY is_primary DESC, id DESC LIMIT %s""",
+                       (int(brand["id"]), min(100, max(1, int(limit or 50)))))
+        rows = cursor.fetchall()
+    assets = []
+    for row in rows:
+        metadata = row.get("metadata") or {}
+        metadata = metadata if isinstance(metadata, dict) else {}
+        assets.append({"asset_id": int(row["id"]), "role": row.get("role"),
+                       "is_primary": bool(row.get("is_primary")), "mime_type": row.get("mime_type"),
+                       "display_name": metadata.get("display_name") or metadata.get("alt_text") or "",
+                       "preview_url": _existing_brand_asset_url(row.get("asset_path") or row.get("source_url"))})
+    return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}", "assets": assets}
+
+
+def use_asset_as_logo(context: RequestContext, *, brand_id, asset_id) -> dict:
+    _require_admin(context)
+    brand = _brand(context, _current_brand_id(context, brand_id))
+    from ..creative_modeling_repository import CreativeNotFoundError
+    from ..creative_modeling_service import CreativeModelingService
+    try:
+        selected = CreativeModelingService().promote_client_brand_asset_to_logo(int(brand["id"]), int(asset_id))
+    except (CreativeNotFoundError, ValueError) as exc:
+        raise BadRequest("Escolha uma imagem aprovada da biblioteca desta marca.") from exc
+    from .routes import _existing_brand_asset_url
+    return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
+            "asset_id": int(asset_id), "status": "primary_logo",
+            "logo_url": _existing_brand_asset_url(selected.get("asset_path")), "asset": selected}
+
+
 def _website(value: str) -> str:
     url = str(value or "").strip()[:2000]
     if url and not re.match(r"^https?://", url, re.I):
@@ -297,7 +355,7 @@ def save_logo_upload(context: RequestContext, token: str, uploaded) -> dict:
             "status": "uploaded", "assets": assets or []}
 
 
-def start_audit(context: RequestContext, *, request_id, brand_id, website_url: str = "", analysis_mode: str = "complete", social_links=None, confirmed_cost: bool = False) -> dict:
+def start_audit(context: RequestContext, *, request_id, brand_id, website_url: str = "", analysis_mode: str = "complete", social_links=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
     _require_admin(context)
     operation_id = _request_id(request_id)
     if not confirmed_cost:
@@ -308,6 +366,36 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
                 "estimated_credits": 150000 if analysis_mode == "deep" else 75000,
                 "estimated_time": "6–12 min" if analysis_mode == "deep" else "3–8 min"}
     brand = _brand(context, brand_id)
+    selected_asset_ids = None
+    if existing_asset_ids is None:
+        approved_assets = [item for item in (brand.get("assets") or [])
+                           if str(item.get("status") or "").lower() == "approved"
+                           and (item.get("asset_path") or item.get("source_url"))]
+        approved_assets.sort(key=lambda item: (not bool(item.get("is_primary")),
+                                               -float(item.get("score") or 0), -int(item.get("id") or 0)))
+        if approved_assets:
+            selected_asset_ids = [int(item["id"]) for item in approved_assets[:12 if analysis_mode == "deep" else 8]]
+    else:
+        try:
+            selected_asset_ids = list(dict.fromkeys(int(value) for value in existing_asset_ids))[:12]
+        except (TypeError, ValueError) as exc:
+            raise BadRequest("Informe IDs válidos de imagens da biblioteca.") from exc
+        if any(value <= 0 for value in selected_asset_ids):
+            raise BadRequest("Informe IDs válidos de imagens da biblioteca.")
+        with get_db().cursor() as cursor:
+            cursor.execute("""SELECT id FROM cx_client_brand_assets
+                               WHERE client_id=%s AND status='approved' AND id=ANY(%s)""",
+                           (int(brand["id"]), selected_asset_ids))
+            owned_ids = {int(row["id"]) for row in cursor.fetchall()}
+            if owned_ids != set(selected_asset_ids):
+                raise BadRequest("Uma das imagens não pertence à biblioteca aprovada desta marca.")
+            if selected_asset_ids:
+                cursor.execute("""SELECT id FROM cx_client_brand_assets
+                                   WHERE client_id=%s AND status='approved' AND role='logo'
+                                     AND is_primary=true ORDER BY id DESC LIMIT 1""", (int(brand["id"]),))
+                primary = cursor.fetchone()
+                if primary and int(primary["id"]) not in owned_ids:
+                    selected_asset_ids = selected_asset_ids[:11] + [int(primary["id"])]
     from .routes import _ensure_brand_audit_credit, _start_brand_review_job
     website_url = _website(website_url or brand.get("website_url") or "")
     metadata = dict(brand.get("analysis_metadata") or {})
@@ -341,7 +429,7 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
                 "job_id": job_id, "request_id": operation_id, "status": "queued", "stage": "queued",
                 "index": 0, "total": 4, "message": "A auditoria entrou na fila.", "error": "",
                 "created_at": datetime.utcnow().isoformat() + "Z",
-                "input": {"website_url": website_url, "has_images": False, "include_project_sources": False, "analysis_mode": analysis_mode, "social_links": social_links, "cost_confirmed": True, **estimate},
+                "input": {"website_url": website_url, "has_images": bool(selected_asset_ids), "include_project_sources": False, "analysis_mode": analysis_mode, "social_links": social_links, "existing_asset_ids": selected_asset_ids, "cost_confirmed": True, **estimate},
                 "analysis": {}, "reviews": [],
             }
             cursor.execute("""UPDATE cx_clients SET website_url = %s, analysis_metadata = %s::jsonb
@@ -353,9 +441,9 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
     except Exception:
         connection.rollback()
         raise
-    _start_brand_review_job(context.client_id, context.user_id, int(brand["id"]), job_id, website_url, [], analysis_mode=analysis_mode, social_links=social_links)
+    _start_brand_review_job(context.client_id, context.user_id, int(brand["id"]), job_id, website_url, [], analysis_mode=analysis_mode, social_links=social_links, existing_asset_ids=selected_asset_ids)
     return {"brand_id": int(brand["id"]), "job_id": job_id, "status": "queued", "queued": True,
-            "analysis_mode": analysis_mode, "cost_authorized": True, **estimate,
+            "analysis_mode": analysis_mode, "existing_asset_ids": selected_asset_ids, "cost_authorized": True, **estimate,
             "status_url": f"/workspace/app/marcas/{brand['id']}/auditoria/status"}
 
 

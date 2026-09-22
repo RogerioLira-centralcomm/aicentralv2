@@ -12,6 +12,9 @@ from ..db import get_db
 
 
 PUBLIC_TOOL_COSTS = {
+    "media.list_jobs": 1,
+    "media.get_job": 1,
+    "media.generate_image": 0,
     "account.get": 0,
     "account.list_team": 0,
     "credits.get_balance": 0,
@@ -26,6 +29,8 @@ PUBLIC_TOOL_COSTS = {
     "resources.get": 1,
     "resources.capabilities": 1,
     "projects.list_sources": 1,
+    "projects.search_knowledge": 2,
+    "projects.get_source_chunks": 1,
     "projects.list_resources": 1,
     "projects.inspect_file_support": 1,
     "projects.classify_intake": 2,

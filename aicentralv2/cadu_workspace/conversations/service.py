@@ -263,7 +263,7 @@ def lock_organization_generation(cur, organization_id):
         abort(409, description='Há uma geração em andamento nesta organização. Aguarde sua conclusão antes de enviar outra.')
 
 
-def project_knowledge_context(project_ref, brand_ref, client_id, query):
+def project_knowledge_context(project_ref, brand_ref, client_id, query, *, result_limit=4, strict_retrieval=False):
     """Build a small, attributable context packet for an authorized project.
 
     The Dify input remains a string for compatibility, but every record is
@@ -302,6 +302,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
         except Exception:
             pass
     terms = ' '.join(str(query or '').split())[:400]
+    result_limit = max(1, min(int(result_limit), 12))
     if terms:
         try:
             try:
@@ -323,8 +324,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
                               LEFT(c.conteudo, 1000) AS trecho, r.score,
                               c.content_hash, c.embedding_model
                       FROM ranked r JOIN cadu_ci_chunks c ON c.id=r.id
-                     ORDER BY r.score DESC, c.ordem ASC LIMIT 4''',
-                (terms, project_id, client_id, terms, vector, project_id, client_id, vector))
+                     ORDER BY r.score DESC, c.ordem ASC LIMIT %s''',
+                (terms, project_id, client_id, terms, vector, project_id, client_id, vector, result_limit))
             except project_knowledge.KnowledgeIndexError:
                 # An unavailable embedding credential must not hide the project
                 # brief during rollout; lexical retrieval is a temporary read
@@ -336,7 +337,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
                                               FROM cadu_ci_chunks
                                              WHERE projeto_id = %s AND id_cliente = %s
                                                AND search_vector @@ plainto_tsquery('portuguese', %s)
-                                          ORDER BY ordem ASC LIMIT 4''', (project_id, client_id, terms))
+                                          ORDER BY ordem ASC LIMIT %s''', (project_id, client_id, terms, result_limit))
             packet['fontes_verificadas'] = [
                 _project_evidence(row, client_id, project_ref)
                 for row in sources
@@ -344,6 +345,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
         except Exception:
             # Indexing is additive. A missing legacy chunks table must never
             # suppress the explicitly saved project context.
+            if strict_retrieval:
+                raise
             packet['fontes_verificadas'] = []
     # The payload assembler applies the context budget while preserving valid
     # JSON; slicing here could truncate the packet in the middle of a string.

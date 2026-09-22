@@ -39,6 +39,15 @@ class ChatProjectKnowledgeTest(TestCase):
         self.assertIn('Lançamento', result)
         self.assertIn('"fontes_verificadas": []', result)
 
+    @mock.patch('aicentralv2.cadu_workspace.conversations.service.repository.rows')
+    def test_strict_index_failure_is_not_reported_as_empty_search(self, rows):
+        rows.side_effect = [
+            [{'nome': 'Lançamento', 'descricao': '', 'instrucoes': '', 'publico': '', 'posicionamento': '', 'tom_de_voz': ''}],
+            RuntimeError('index unavailable'),
+        ]
+        with self.assertRaises(RuntimeError):
+            project_knowledge_context('ci:project-1', None, 44, 'campanha', strict_retrieval=True)
+
     def test_non_canonical_project_reference_never_queries_context(self):
         with mock.patch('aicentralv2.cadu_workspace.conversations.service.repository.rows') as rows:
             self.assertEqual(project_knowledge_context('projects:99', 'studio:11', 44, 'teste'), '')

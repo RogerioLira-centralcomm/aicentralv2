@@ -365,6 +365,7 @@ def start_studio_session(context: RequestContext, arguments: dict) -> dict:
             "video": "/video", "video_edit": "/video"}[kind]
     query = urlencode({"studio_session_id": created["id"], "creative_client_id": studio_client_id})
     return {"session_id": created["id"], "studio_url": product_url("studio", f"{path}?{query}"),
+            "creative_client_id": studio_client_id,
             "status": created.get("status"), "destination": "project_pending_link" if context.project_ref else "personal",
             "project_ref": context.project_ref, "generation_status": "not_started", "indexed": False,
             "supported_payload": _CREATION_CONTRACTS[kind]}

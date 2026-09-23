@@ -21,6 +21,7 @@ export function restoreConversationMessages(items, makeId) {
         role: 'user',
         content: item.content || '',
         files: item.files || [],
+        metadata,
       };
     }
 

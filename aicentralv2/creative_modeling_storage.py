@@ -200,9 +200,12 @@ class ClientLogoStorage:
 
 
 class CreativeAssetStorage:
-    def save_reference(self, file_storage):
+    def save_reference(self, file_storage, storage_id=None):
         extension = validate_logo(file_storage)
-        filename = f"{uuid.uuid4().hex}{extension}"
+        stable_id = str(storage_id or "").strip().lower()
+        if stable_id and not re.fullmatch(r"[a-f0-9]{32}", stable_id):
+            raise ValueError("Identificador de armazenamento inválido.")
+        filename = f"{stable_id or uuid.uuid4().hex}{extension}"
         path = _root("creative_references") / filename
         file_storage.save(str(path))
         return {

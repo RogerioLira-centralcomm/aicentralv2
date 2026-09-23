@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from flask import current_app
 from psycopg.types.json import Json
 
 from ..db import get_db
@@ -22,8 +23,76 @@ def _relation(cursor, table: str) -> bool:
     return bool((cursor.fetchone() or {}).get("available"))
 
 
-def ingest_link(context: RequestContext, *, url: str, title: str = "",
-                origin: str = "chat", request_id: str = "") -> dict:
+def _preserve_external_reference(context: RequestContext, descriptor: dict, *, external_id: str = "",
+                                 platform: str = "", description: str = "", tags=None,
+                                 ingestion_item_id: str = "") -> dict:
+    """Upsert the provider-neutral source of truth without requiring a connector."""
+    connection = get_db()
+    reference_id = str(uuid4())
+    metadata = {
+        "title": descriptor.get("title"),
+        "platform": str(platform or "")[:120] or descriptor.get("provider"),
+        "description": str(description or "")[:4000] or None,
+        "tags": list(tags or [])[:20],
+        "resource_kind": descriptor.get("resource_kind"),
+        "access_type": descriptor.get("access_type"),
+        "connector_recommended": bool(descriptor.get("connector_recommended")),
+    }
+    sync_status = "needs_authorization" if descriptor.get("connector_recommended") else "pending"
+    try:
+        with connection.cursor() as cursor:
+            if not _relation(cursor, "cadu_workspace_external_references"):
+                return {"available": False}
+            cursor.execute("""SELECT pg_get_constraintdef(oid) AS definition
+                                FROM pg_constraint
+                               WHERE conrelid='cadu_workspace_external_references'::regclass
+                                 AND conname='cadu_workspace_external_references_reference_type_check'""")
+            type_constraint = str((cursor.fetchone() or {}).get("definition") or "")
+            stored_kind = descriptor["resource_kind"]
+            if type_constraint and f"'{stored_kind}'" not in type_constraint:
+                stored_kind = stored_kind if stored_kind in {"drive_file", "meeting", "web_page"} else "external_document"
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (
+                f"cadu-external-reference:{context.client_id}:{context.project_ref}:{descriptor['url']}",
+            ))
+            cursor.execute(
+                """SELECT id::text FROM cadu_workspace_external_references
+                    WHERE client_id=%s AND project_ref=%s AND locator=%s
+                    ORDER BY created_at LIMIT 1""",
+                (context.client_id, context.project_ref, descriptor["url"]),
+            )
+            existing = cursor.fetchone()
+            if existing:
+                reference_id = str(existing["id"])
+                cursor.execute(
+                    """UPDATE cadu_workspace_external_references SET
+                         provider=%s, external_id=COALESCE(%s,external_id), reference_type=%s,
+                         ingestion_item_id=COALESCE(%s,ingestion_item_id), metadata=metadata || %s,
+                         updated_at=NOW() WHERE id=%s RETURNING id::text,sync_status""",
+                    (descriptor["provider"], str(external_id or "")[:512] or None,
+                     stored_kind, ingestion_item_id or None, Json(metadata), reference_id),
+                )
+            else:
+                cursor.execute(
+                    """INSERT INTO cadu_workspace_external_references
+                       (id,client_id,project_ref,ingestion_item_id,provider,external_id,locator,
+                        connection_ref,reference_type,sync_status,metadata,created_at,updated_at)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,NULL,%s,%s,%s,NOW(),NOW())
+                       RETURNING id::text,sync_status""",
+                    (reference_id, context.client_id, context.project_ref, ingestion_item_id or None,
+                     descriptor["provider"], str(external_id or "")[:512] or None, descriptor["url"],
+                     stored_kind, sync_status, Json(metadata)),
+                )
+            row = dict(cursor.fetchone())
+        connection.commit()
+        return {"available": True, "reference_id": row["id"], "sync_status": row["sync_status"]}
+    except Exception:
+        connection.rollback()
+        raise
+
+
+def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_kind: str = "",
+                platform: str = "", external_id: str = "", description: str = "",
+                tags: list[str] | None = None, origin: str = "chat", request_id: str = "") -> dict:
     """Preserve a project link and record its enrichment lifecycle.
 
     The link remains useful even when the ingestion migration has not yet been
@@ -68,7 +137,10 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "",
         raise
 
     try:
-        result = project_source_service.create_link_reference(context, url=url, title=title)
+        result = project_source_service.create_link_reference(
+            context, url=url, title=title, resource_kind=resource_kind, platform=platform,
+            external_id=external_id, description=description, tags=tags,
+        )
     except Exception:
         if tracked:
             _finish(session_id, item_id, status="failed", error="Não foi possível preservar o link.")
@@ -76,7 +148,24 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "",
 
     if tracked:
         _finish(session_id, item_id, status="completed", link_id=result["link_id"])
-    return {**result, "ingestion": {
+    external = _preserve_external_reference(
+        context, {**descriptor, "resource_kind": result["resource_kind"]},
+        external_id=external_id, platform=platform, description=description, tags=tags,
+        ingestion_item_id=item_id if tracked else "",
+    )
+    if external.get("reference_id"):
+        try:
+            from . import project_resource_service
+            project_resource_service.notify_change(
+                context.client_id, context.project_ref, "linked",
+                source_system="external_reference", source_id=external["reference_id"],
+                actor_id=context.user_id,
+            )
+        except Exception:
+            current_app.logger.exception(
+                "Falha ao enfileirar referência externa %s", external["reference_id"],
+            )
+    return {**result, "external_reference": external, "ingestion": {
         "tracked": tracked, "session_id": session_id if tracked else None,
         "item_id": item_id if tracked else None,
         "status": "completed", "next": _next_step(result),

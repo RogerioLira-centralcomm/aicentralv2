@@ -1608,7 +1608,7 @@ body.portal--workspace .cadu-ds-home-workarea {
   gap:12px;
   padding:15px 8px 12px;
   overflow-y:auto;
-  border-right:1px solid var(--cadu-line);
+  border-right:0;
   background:color-mix(in srgb,var(--cadu-canvas) 84%,var(--cadu-surface));
   color:var(--cadu-ink);
   transition:flex-basis 180ms ease,padding 180ms ease;
@@ -1740,7 +1740,7 @@ body.portal--workspace .cadu-ds-home-workarea {
 /* Keep the reading rail optically attached to the 72px dock. Project names
    may wrap instead of losing their identity behind an ellipsis. */
 @media (min-width:761px) {
-  .cadu-ds-context-sidebar { margin-left:3px; }
+  .cadu-ds-context-sidebar { margin-left:0; }
 }
 .cadu-ds-context-sidebar__brand-groups { display:grid; gap:8px; }
 .cadu-ds-context-sidebar__brand-group { display:grid; gap:1px; }

@@ -23,7 +23,7 @@
 
   body.portal--workspace .cadu-ds-dock-primary {
     display:grid;
-    width:40px;
+    width:44px;
     flex:0 0 auto;
     justify-items:center;
     gap:2px;
@@ -53,19 +53,25 @@
   body.portal--workspace .cadu-ds-dock-primary-action:hover { color:var(--cadu-accent); }
   body.portal--workspace .cadu-ds-dock-primary-action:focus-visible { color:var(--cadu-accent); outline:2px solid currentColor; outline-offset:2px; }
   body.portal--workspace .cadu-ds-dock-primary-action svg { width:18px; height:18px; }
+  body.portal--workspace .cadu-ds-dock-primary-action--home svg { width:19px; height:19px; }
+  body.portal--workspace .cadu-ds-dock-primary-action--new svg { width:18px; height:18px; }
   body.portal--workspace .cadu-ds-dock-solution { margin:0 0 8px; }
 
   body.portal--workspace .cadu-ds-dock-context,
   body.portal--workspace .cadu-ds-dock-section--live,
   body.portal--workspace .cadu-ds-dock-shortcut {
-    width:100%;
+    width:44px;
     justify-items:center;
     align-items:center;
+    margin-right:auto;
+    margin-left:auto;
   }
 
-  body.portal--workspace .cadu-ds-dock-shortcut { width:44px; min-height:44px; margin:0; cursor:grab; touch-action:none; }
+  body.portal--workspace .cadu-ds-dock-drop { width:100%; margin:0; }
+  body.portal--workspace .cadu-ds-dock-section--live { display:grid; place-items:center; gap:7px; padding:0; }
+  body.portal--workspace .cadu-ds-dock-shortcut { display:grid; min-height:44px; place-items:center; cursor:grab; touch-action:none; }
+  body.portal--workspace .cadu-ds-dock-shortcut > :is(button,a) { justify-self:center; margin:0; }
   body.portal--workspace .cadu-ds-dock-shortcut:active { cursor:grabbing; }
-  body.portal--workspace .cadu-ds-dock-shortcut > :is(button,a) { margin:0; }
 
   body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource) {
     display:grid;

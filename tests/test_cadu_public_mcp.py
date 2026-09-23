@@ -12,7 +12,10 @@ from aicentralv2.cadu_public_mcp.usage import tool_cost
 from aicentralv2.cadu_tool_billing import InsufficientToolCredits
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
-from aicentralv2.cadu_workspace.mcp.tools.resources import search_resources
+from aicentralv2.cadu_workspace.mcp.tools.resources import (
+    add_resource, create_editable_copy, inspect_input, list_versions as list_resource_versions,
+    relate as relate_resources, search_resources, set_archived, start_image_edit, update_metadata,
+)
 from aicentralv2.cadu_workspace.project_resource_service import resource_capabilities
 
 
@@ -48,14 +51,25 @@ def test_read_only_scope_removes_context_mutation():
 
 def test_project_ref_is_selectable_in_public_tool_arguments_without_changing_internal_schema():
     context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
-                             surface="workspace", project_ref=None, capabilities=("workspace",))
+                             surface="workspace", project_ref=None, capabilities=("workspace", "artifacts"))
     principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex",
-                                   label="Teste", scopes=tuple(DEFAULT_SCOPES), context=context)
+                                   label="Teste", scopes=tuple(DEFAULT_SCOPES | {"artifacts:write"}), context=context)
     with patch("aicentralv2.cadu_public_mcp.auth.repository.actor", return_value={"organization_id": 12}), \
          patch("aicentralv2.cadu_public_mcp.auth.repository.account_role", return_value="member"):
         catalog = _public_catalog(principal)
     upload = next(item for item in catalog if item["name"] == "projects.prepare_source_upload")
+    external = next(item for item in catalog if item["name"] == "projects.create_link_reference")
+    html = next(item for item in catalog if item["name"] == "artifacts.create_draft")
+    unified = next(item for item in catalog if item["name"] == "resources.add")
     assert "project_ref" in upload["inputSchema"]["properties"]
+    assert {"resource_kind", "platform", "external_id", "description", "tags"} <= \
+        external["inputSchema"]["properties"].keys()
+    assert "html" in html["inputSchema"]["properties"]["type"]["enum"]
+    assert "HTML" in html["description"]
+    assert "project_ref" in unified["inputSchema"]["properties"]
+    assert set(unified["inputSchema"]["properties"]["mode"]["enum"]) == {
+        "editable", "external_link", "file_upload",
+    }
     assert upload["securitySchemes"] == [{"type": "oauth2", "scopes": ["projects:content_write"]}]
     assert upload["_meta"]["securitySchemes"] == upload["securitySchemes"]
     internal = next(item for item in load_builtin_tools().list(context) if item["name"] == "projects.prepare_source_upload")
@@ -228,6 +242,7 @@ def test_public_catalog_is_allowlisted_and_metered():
     assert {"resources.search", "resources.get", "resources.capabilities"} <= PUBLIC_TOOLS
     assert "operations.get" in PUBLIC_TOOLS
     assert tool_cost("operations.get") == 0
+    assert tool_cost("resources.start_image_edit") == 0
     assert tool_cost("google.get_connector_status") == 1
     assert tool_cost("reports.compare_report_to_plan") == 3
 
@@ -295,6 +310,41 @@ def test_resource_capabilities_do_not_overpromise_provider_writes():
     assert result["actions"]["index"] is True
     assert result["actions"]["native_edit"] is False
     assert result["actions"]["share"] is False
+    assert result["edit_mode"] == "read_only"
+    assert result["actions"]["create_editable_copy"] is True
+    assert any("PDF" in item for item in result["limitations"])
+
+
+def test_unconnected_external_resource_is_strictly_reference_only():
+    result = resource_capabilities({
+        "id": "resource-2", "source_system": "external_reference", "resource_type": "link",
+        "category": "document", "status": "needs_authorization", "metadata": {
+            "provider": "google_drive", "connection_ref": None,
+        },
+    })
+    assert result["actions"]["read"] is False
+    assert result["actions"]["edit_content"] is False
+    assert result["actions"]["push_to_source"] is False
+    assert result["actions"]["create_editable_copy"] is False
+    assert result["actions"]["derive_artifact"] is False
+    assert result["recommended_tool"] is None
+
+
+def test_native_html_and_studio_image_advertise_the_correct_editor():
+    html = resource_capabilities({
+        "id": "html-1", "source_system": "cadu_workspace_artifacts",
+        "resource_type": "artifact", "category": "html", "status": "draft", "version": 3,
+    })
+    image = resource_capabilities({
+        "id": "image-1", "source_system": "studio", "resource_type": "image",
+        "mime_type": "image/png", "status": "active", "version": 2,
+    })
+    assert html["edit_mode"] == "native"
+    assert html["editor"] == "html"
+    assert html["actions"]["create_revision"] is True
+    assert image["editor"] == "studio"
+    assert image["actions"]["native_edit"] is True
+    assert image["recommended_tool"] == "resources.start_image_edit"
 
 
 def test_semantic_resource_tools_are_registered_for_external_agents():
@@ -304,7 +354,189 @@ def test_semantic_resource_tools_are_registered_for_external_agents():
         capabilities=("workspace", "planner", "studio", "reports", "artifacts"),
     )
     names = {item["name"] for item in load_builtin_tools().list(context, "customer_agent")}
-    assert {"resources.search", "resources.get", "resources.capabilities"} <= names
+    assert {
+        "resources.search", "resources.add", "resources.get", "resources.capabilities", "resources.create_editable_copy",
+        "resources.inspect_input", "resources.list_versions", "resources.list_relations",
+        "resources.relate", "resources.update_metadata", "resources.set_archived", "resources.start_image_edit",
+    } <= names
+
+
+def test_start_image_edit_materializes_base_without_charging_or_mutating_source():
+    context = RequestContext(
+        organization_id=12, client_id=12, user_id=7, conversation_id="conversation-1",
+        surface="workspace", project_ref="ci:project-1", capabilities=("workspace",),
+    )
+    arguments = {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "resource_id": "resource-1",
+        "prompt": "Remova apenas o fundo", "title": "Ajuste da campanha",
+    }
+    store = MagicMock()
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources._project_resource",
+               return_value={"id": "resource-1", "title": "original.png", "resource_type": "image"}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.resource_capabilities",
+               return_value={"editor": "studio", "actions": {"open_in_editor": True}}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources._studio_image_reference",
+               return_value={"asset_path": "/static/uploads/creative_references/base.png",
+                             "title": "original.png", "source_resource_id": "resource-1"}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.media.start_studio_session",
+               return_value={"session_id": "session-1", "creative_client_id": 44,
+                             "studio_url": "https://studio.test/imagem", "generation_status": "not_started"}), \
+         patch("aicentralv2.creative_media.studio._session_store", return_value=store), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.operations.execute",
+               side_effect=lambda request_id, ctx, name, payload, operation: operation()):
+        result = start_image_edit(context, arguments)
+
+    assert result["preserved_original"] is True
+    assert result["credits_consumed"] is False
+    assert result["generation_status"] == "not_started"
+    store.accept.assert_called_once()
+    accepted = store.accept.call_args.args[3]
+    assert accepted["role"] == "base"
+    assert accepted["source_id"] == "resource-1"
+
+
+def test_resources_add_file_upload_is_preparation_not_false_completion():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
+    arguments = {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "mode": "file_upload", "category": "reference", "description": "Arquivo original",
+    }
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_source_service.prepare_upload",
+               return_value={"upload_url": "/workspace/mcp/uploads", "upload_token": "signed"}) as prepare, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.operations.execute") as execute:
+        result = add_resource(context, arguments)
+    assert result["status"] == "awaiting_upload"
+    assert result["resource_created"] is False
+    execute.assert_not_called()
+    prepare.assert_called_once_with(
+        context, request_id=arguments["request_id"], use_as_knowledge=None,
+        category="reference", description="Arquivo original",
+    )
+
+
+def test_resources_inspect_input_routes_text_without_persisting_it():
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_source_service.classify_intake",
+               return_value={"input_type": "text", "purpose": "artifact"}) as classify:
+        result = inspect_input(Mock(), {"text": "Transforme este conteúdo em documento"})
+    assert result["recommended_tool"] == "resources.add"
+    assert result["recommended_mode"] == "editable"
+    classify.assert_called_once_with(text="Transforme este conteúdo em documento")
+
+
+def test_update_resource_metadata_uses_canonical_service_and_operation_receipt():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
+    arguments = {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "resource_id": "resource-1",
+        "changes": {"title": "Página da campanha", "tags": ["campanha", "site"]},
+    }
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.update_resource_metadata",
+               return_value={"id": "resource-1", "title": "Página da campanha"}) as update, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.operations.execute",
+               side_effect=lambda request_id, ctx, name, payload, operation: operation()):
+        result = update_metadata(context, arguments)
+    assert result["title"] == "Página da campanha"
+    update.assert_called_once_with(context, "resource-1", arguments["changes"])
+
+
+def test_set_archived_is_explicit_recoverable_and_source_aware():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
+    arguments = {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "confirmed": True,
+        "resource_id": "resource-1", "archived": True,
+    }
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.set_resource_archived",
+               return_value={"resource_id": "resource-1", "archived": True, "recoverable": True}) as archive, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.operations.execute",
+               side_effect=lambda request_id, ctx, name, payload, operation: operation()):
+        result = set_archived(context, arguments)
+    assert result["archived"] is True
+    assert result["recoverable"] is True
+    archive.assert_called_once_with(context, "resource-1", True)
+
+
+def test_archived_native_resource_advertises_restore_not_edit():
+    result = resource_capabilities({
+        "id": "artifact-1", "source_system": "cadu_workspace_artifacts",
+        "resource_type": "artifact", "category": "document", "status": "archived", "version": 4,
+    })
+    assert result["actions"]["archive"] is False
+    assert result["actions"]["restore"] is True
+    assert result["actions"]["edit_content"] is False
+
+
+def test_create_editable_copy_preserves_source_and_registers_relation():
+    context = RequestContext(
+        organization_id=12, client_id=12, user_id=7, conversation_id="conversation-1",
+        surface="workspace", project_ref="ci:project-1", capabilities=("workspace",),
+    )
+    arguments = {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "source_resource_id": "76a6326b-1f99-4d20-9db8-ab0142262934",
+        "type": "document", "title": "Versão editável", "content": {"html": "<p>Conteúdo</p>"},
+    }
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources._project_resource",
+               return_value={"id": arguments["source_resource_id"]}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.resource_capabilities",
+               return_value={"editor": None, "actions": {"create_editable_copy": True}}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.artifact_service.create_draft",
+               return_value={"id": "artifact-1", "current_version": 1}) as create, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.reconcile"), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.resource_id_for_source",
+               return_value="201ad8fe-f482-4c81-bd75-f3105fc4bd31"), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.relate_resources",
+               return_value={"id": 9, "relation_type": "derived_from"}) as relate, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.operations.execute",
+               side_effect=lambda request_id, ctx, name, payload, operation: operation()):
+        result = create_editable_copy(context, arguments)
+
+    assert result["preserved_original"] is True
+    assert result["source_resource_id"] == arguments["source_resource_id"]
+    assert result["edit_mode"] == "native"
+    assert create.call_args.kwargs["artifact_id"]
+    relate.assert_called_once_with(
+        12, "ci:project-1", "201ad8fe-f482-4c81-bd75-f3105fc4bd31",
+        arguments["source_resource_id"], "derived_from",
+        metadata={"artifact_id": create.call_args.kwargs["artifact_id"], "preserved_original": True},
+    )
+
+
+def test_resource_versions_use_artifact_history_without_inventing_provider_versions():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources._project_resource",
+               return_value={"source_system": "cadu_workspace_artifacts", "source_id": "artifact-1"}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.artifact_service.list_versions",
+               return_value=[{"version": 2}, {"version": 1}]) as versions:
+        result = list_resource_versions(context, {"resource_id": "resource-1", "limit": 10})
+    assert result["complete"] is True
+    assert result["version_source"] == "cadu"
+    versions.assert_called_once_with(context, "artifact-1", limit=10)
+
+
+def test_relate_resources_is_idempotent_and_does_not_mutate_content():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
+    arguments = {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "source_resource_id": "76a6326b-1f99-4d20-9db8-ab0142262934",
+        "target_resource_id": "201ad8fe-f482-4c81-bd75-f3105fc4bd31",
+        "relation_type": "uses", "description": "Imagem usada na página",
+    }
+    with patch("aicentralv2.cadu_workspace.mcp.tools.resources._project_resource", return_value={"id": "ok"}) as get, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.project_resource_service.relate_resources",
+               return_value={"id": 4, "relation_type": "uses"}) as relate, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.resources.operations.execute",
+               side_effect=lambda request_id, ctx, name, payload, operation: operation()):
+        result = relate_resources(context, arguments)
+    assert result["relation_type"] == "uses"
+    assert get.call_count == 2
+    relate.assert_called_once_with(
+        12, "ci:project-1", arguments["source_resource_id"], arguments["target_resource_id"], "uses",
+        metadata={"description": "Imagem usada na página"},
+    )
 
 
 def test_public_key_scopes_require_explicit_google_write_permission():

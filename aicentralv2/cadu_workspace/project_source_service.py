@@ -34,6 +34,12 @@ ATTACHMENT_EXTENSIONS = (
     | OFFICE_ATTACHMENT_EXTENSIONS
 )
 CATEGORIES = {"brief", "research", "media_plan", "report", "brand_asset", "reference", "contract", "spreadsheet", "other"}
+EXTERNAL_RESOURCE_KINDS = {
+    "web_page", "document", "spreadsheet", "presentation", "design", "image",
+    "video", "audio", "folder", "board", "campaign", "dashboard", "calendar_event",
+    "meeting", "workspace_item", "ads_resource", "social_or_ads", "internal_resource",
+    "drive_file", "event", "other",
+}
 
 
 def inspect_file_support(filename: str, mime_type: str = "") -> dict:
@@ -126,6 +132,20 @@ _LINK_PROVIDERS = {
     "calendar.google.com": ("google_calendar", "Google Calendar", "calendar_event", "unknown"),
     "drive.google.com": ("google_drive", "Google Drive", "drive_file", "unknown"),
     "docs.google.com": ("google_drive", "Google Drive", "drive_file", "unknown"),
+    "lookerstudio.google.com": ("looker_studio", "Looker Studio", "dashboard", "authenticated"),
+    "analytics.google.com": ("google_analytics", "Google Analytics", "dashboard", "authenticated"),
+    "ads.google.com": ("google_ads", "Google Ads", "ads_resource", "authenticated"),
+    "canva.com": ("canva", "Canva", "design", "unknown"),
+    "figma.com": ("figma", "Figma", "design", "unknown"),
+    "dropbox.com": ("dropbox", "Dropbox", "drive_file", "unknown"),
+    "box.com": ("box", "Box", "drive_file", "unknown"),
+    "sharepoint.com": ("sharepoint", "SharePoint", "document", "authenticated"),
+    "onedrive.live.com": ("onedrive", "OneDrive", "drive_file", "unknown"),
+    "app.slack.com": ("slack", "Slack", "workspace_item", "authenticated"),
+    "teams.microsoft.com": ("microsoft_teams", "Microsoft Teams", "workspace_item", "authenticated"),
+    "monday.com": ("monday", "Monday.com", "board", "authenticated"),
+    "app.asana.com": ("asana", "Asana", "workspace_item", "authenticated"),
+    "airtable.com": ("airtable", "Airtable", "spreadsheet", "authenticated"),
     "sympla.com.br": ("sympla", "Sympla", "event", "public"),
     "sympla.com": ("sympla", "Sympla", "event", "public"),
     "clickup.com": ("clickup", "ClickUp", "workspace_item", "authenticated"),
@@ -141,6 +161,7 @@ _LINK_PROVIDERS = {
     "adsmanager.facebook.com": ("meta_ads", "Meta Ads", "ads_resource", "authenticated"),
     "tiktok.com": ("tiktok", "TikTok", "social_or_ads", "unknown"),
     "ads.tiktok.com": ("tiktok_ads", "TikTok Ads", "ads_resource", "authenticated"),
+    "linkedin.com": ("linkedin", "LinkedIn", "social_or_ads", "unknown"),
 }
 
 
@@ -187,7 +208,9 @@ def _link_metadata(value: str, title: str = "") -> dict:
     return describe_link(value, title)
 
 
-def create_link_reference(context: RequestContext, *, url: str, title: str = "") -> dict:
+def create_link_reference(context: RequestContext, *, url: str, title: str = "",
+                          resource_kind: str = "", platform: str = "", external_id: str = "",
+                          description: str = "", tags: Optional[list[str]] = None) -> dict:
     """Save a project URL as a reference and schedule registry reconciliation.
 
     Deliberately does not download, parse, or index the remote page. Those are
@@ -196,6 +219,18 @@ def create_link_reference(context: RequestContext, *, url: str, title: str = "")
     """
     project_id = _project_id(context)
     link = _link_metadata(url, title)
+    explicit_kind = str(resource_kind or "").strip().lower()
+    if explicit_kind and explicit_kind not in EXTERNAL_RESOURCE_KINDS:
+        raise BadRequest("Tipo de recurso externo inválido.")
+    link["resource_kind"] = explicit_kind or link["resource_kind"]
+    platform = str(platform or "").strip()[:120]
+    external_id = str(external_id or "").strip()[:512]
+    description = str(description or "").strip()[:4000]
+    if tags is not None and not isinstance(tags, list):
+        raise BadRequest("As etiquetas do recurso devem ser enviadas como uma lista.")
+    normalized_tags = list(dict.fromkeys(
+        str(item or "").strip()[:64] for item in (tags or []) if str(item or "").strip()
+    ))[:20]
     connection = get_db()
     link_id = None
     created = False
@@ -244,6 +279,8 @@ def create_link_reference(context: RequestContext, *, url: str, title: str = "")
             "provider": link["provider"], "resource_kind": link["resource_kind"],
             "access_type": link["access_type"], "embed_type": link["embed_type"],
             "connector_recommended": link["connector_recommended"], "created": created,
+            "platform": platform or link["provider"], "external_id": external_id or None,
+            "description": description or None, "tags": normalized_tags,
             "purpose": "project_attachment", "indexing": "not_requested",
             "access": "not_checked", "content": "not_read",
             "registry_sync": registry_sync}

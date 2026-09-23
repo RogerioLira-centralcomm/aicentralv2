@@ -90,6 +90,11 @@ function avatarFallbackSource(bootstrap, userName) {
 
 const DOCK_RESOURCE_KINDS = new Set(['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link']);
 const isDockResource = item => Boolean(item?.resourceRef) || DOCK_RESOURCE_KINDS.has(String(item?.kind || item?.type || '').toLowerCase());
+const dockItemIdentity = item => `${item?.kind || 'item'}:${item?.id}`;
+const compactDockLabel = value => {
+  const words = String(value || 'Atalho').trim().split(/\s+/).filter(Boolean);
+  return words.slice(0, 4).join(' ') || 'Atalho';
+};
 
 function safeExternalUrl(value) {
   try {
@@ -145,8 +150,8 @@ export function DockDropZone({children, onDropItem, onDragOverItem, onDragExit, 
 export function DockBrandShortcut({brand, projectCount = 0, active = false, dropTarget = false, dropComplete = false, onOpen, onDragStart, onDropShortcut, onDragEnter, onDragLeave}) {
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
-  return <DockTooltip label={brand.name}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, brand) : undefined} onDragEnter={droppable ? event => { allowDockDrop(event); onDragEnter?.(brand); } : undefined} onDragLeave={droppable ? () => onDragLeave?.(brand) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, brand); } : undefined} onClick={() => onOpen?.(brand)} aria-label={`Abrir marca ${brand.name}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-brand ${active ? 'is-active' : ''} ${dropTarget ? 'is-drop-target' : ''} ${dropComplete ? 'is-drop-complete' : ''}`}>
-    <VisualIdentity src={brand.dockLogoUrl || brand.logoUrl || brand.logo_url || brand.previewUrl} fallbackSrc={brand.dockLogoUrl ? brand.logoUrl || brand.logo_url || brand.previewUrl : ''} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.dockBackground || brand.visualColor} variant={brand.visualVariant} imageTreatment="brand" className={`cadu-ds-dock-identity--${brand.dockSize || 'medium'} ${brand.dockBackground ? 'has-custom-background' : 'has-image-background'}`}/>
+  return <DockTooltip label={compactDockLabel(brand.name)}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, brand) : undefined} onDragEnter={droppable ? event => { allowDockDrop(event); onDragEnter?.(brand); } : undefined} onDragLeave={droppable ? () => onDragLeave?.(brand) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, brand); } : undefined} onClick={() => onOpen?.(brand)} aria-label={`Abrir marca ${brand.name}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-brand ${active ? 'is-active' : ''} ${dropTarget ? 'is-drop-target' : ''} ${dropComplete ? 'is-drop-complete' : ''}`}>
+    <VisualIdentity src={brand.dockLogoUrl || brand.logoUrl || brand.logo_url || brand.previewUrl} fallbackSrc={brand.dockLogoUrl ? brand.logoUrl || brand.logo_url || brand.previewUrl : ''} initials={brand.visualInitials || brand.name} label={brand.name} nativeTitle={false} color={brand.dockBackground || brand.visualColor} variant={brand.visualVariant} imageTreatment="brand" className={`cadu-ds-dock-identity--${brand.dockSize || 'medium'} ${brand.dockBackground ? 'has-custom-background' : 'has-image-background'}`}/>
     {projectCount > 1 && <i aria-label={`${projectCount} projetos fixados`}>{projectCount}</i>}
   </button></DockTooltip>;
 }
@@ -155,8 +160,8 @@ export function DockResourceShortcut({item, active = false, dropTarget = false, 
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
   const resource = isDockResource(item);
-  return <DockTooltip label={item.title}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragEnter={droppable ? event => { allowDockDrop(event); onDragEnter?.(item); } : undefined} onDragLeave={droppable ? () => onDragLeave?.(item) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-resource ${resource ? 'cadu-ds-dock-resource--file' : ''} ${item.kind === 'external' && item.logoUrl ? dockProviderLogo(item.href) ? 'cadu-ds-dock-resource--provider' : 'cadu-ds-dock-resource--generated' : ''} ${active ? 'is-active' : ''} ${dropTarget ? 'is-drop-target' : ''} ${dropComplete ? 'is-drop-complete' : ''}`}>
-    {item.kind === 'external' && !item.logoUrl ? <Icon name="link" size={23}/> : <VisualIdentity src={item.logoUrl || item.logo_url || item.dockLogoUrl || item.previewUrl} initials={item.visualInitials || item.title || item.name} label={item.title || item.name} color={item.dockBackground || item.visualColor} variant={item.visualVariant} className={`cadu-ds-dock-identity--${item.dockSize || 'medium'} ${item.dockBackground ? 'has-custom-background' : 'has-image-background'}`} fallbackContent={item.kind === 'external' ? <Icon name="link" size={23}/> : null}/>}{Number(item.unreadCount || 0) > 0 && <i className="is-unread" aria-label={`${item.unreadCount} notificações não lidas`}>{Number(item.unreadCount) > 9 ? '9+' : item.unreadCount}</i>}
+  return <DockTooltip label={compactDockLabel(item.title)}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragEnter={droppable ? event => { allowDockDrop(event); onDragEnter?.(item); } : undefined} onDragLeave={droppable ? () => onDragLeave?.(item) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-resource ${resource ? 'cadu-ds-dock-resource--file' : ''} ${item.kind === 'external' && item.logoUrl ? dockProviderLogo(item.href) ? 'cadu-ds-dock-resource--provider' : 'cadu-ds-dock-resource--generated' : ''} ${active ? 'is-active' : ''} ${dropTarget ? 'is-drop-target' : ''} ${dropComplete ? 'is-drop-complete' : ''}`}>
+    {item.kind === 'external' && !item.logoUrl ? <Icon name="link" size={23}/> : <VisualIdentity src={item.logoUrl || item.logo_url || item.dockLogoUrl || item.previewUrl} initials={item.visualInitials || item.title || item.name} label={item.title || item.name} nativeTitle={false} color={item.dockBackground || item.visualColor} variant={item.visualVariant} className={`cadu-ds-dock-identity--${item.dockSize || 'medium'} ${item.dockBackground ? 'has-custom-background' : 'has-image-background'}`} fallbackContent={item.kind === 'external' ? <Icon name="link" size={23}/> : null}/>}{Number(item.unreadCount || 0) > 0 && <i className="is-unread" aria-label={`${item.unreadCount} notificações não lidas`}>{Number(item.unreadCount) > 9 ? '9+' : item.unreadCount}</i>}
   </button></DockTooltip>;
 }
 
@@ -166,9 +171,22 @@ export function DockUsageRing({percent, onOpen}) {
   return <DockTooltip label="Créditos e consumo"><button type="button" className="cadu-ds-usage-ring" style={{'--cadu-usage': `${value * 3.6}deg`}} onClick={onOpen} aria-label={`Utilização de créditos: ${formatted}%`}><span>{formatted}%</span></button></DockTooltip>;
 }
 
-function DockPicker({candidates, items, busy, query, onQueryChange, linkUrl, onLinkUrlChange, linkTitle, onLinkTitleChange, onSave, onClose}) {
+function DockPicker({candidates, items, busy, query, onQueryChange, linkUrl, onLinkUrlChange, linkTitle, onLinkTitleChange, onSave, onRemove, onClose}) {
   const [urlError, setUrlError] = useState('');
-  const available = candidates.filter(item => !items.some(current => current.kind === item.kind && current.id === item.id) && item.title.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR')));
+  const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
+  const visible = candidates.filter(item => item.title.toLocaleLowerCase('pt-BR').includes(normalizedQuery));
+  const brands = visible.filter(item => item.kind === 'brand').sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+  const projects = visible.filter(item => item.kind === 'project').sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+  const otherItems = visible.filter(item => !['brand', 'project'].includes(item.kind)).sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+  const projectsForBrand = brand => projects.filter(project => String(project.brandRef || '') === String(brand.brandRef || '') || project.brandName && project.brandName.localeCompare(brand.title, 'pt-BR', {sensitivity:'base'}) === 0);
+  const groupedProjectIds = new Set(brands.flatMap(projectsForBrand).map(item => dockItemIdentity(item)));
+  const ungroupedProjects = projects.filter(item => !groupedProjectIds.has(dockItemIdentity(item)));
+  const isSelected = item => items.some(current => current.kind === item.kind && current.id === item.id);
+  const row = item => {
+    const selected = isSelected(item);
+    const current = items.find(value => value.kind === item.kind && value.id === item.id);
+    return <button type="button" key={dockItemIdentity(item)} className={selected ? 'is-selected' : ''} aria-pressed={selected} disabled={busy} onClick={() => selected ? onRemove(current) : onSave(item)}><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials || item.title} label={item.title} nativeTitle={false} color={item.visualColor}/><span><b>{item.title}</b>{item.kind === 'project' && item.brandName && <small>{item.brandName}</small>}</span><Icon name={selected ? 'check' : 'plus'} size={16}/></button>;
+  };
   const submitLink = event => {
     event.preventDefault();
     const url = safeExternalUrl(linkUrl);
@@ -181,7 +199,7 @@ function DockPicker({candidates, items, busy, query, onQueryChange, linkUrl, onL
       <header className="cadu-ds-dock-picker__header"><div><h2 id="cadu-dock-picker-title">Adicionar à dock</h2><p>Escolha uma marca ou projeto. Você poderá ordenar tudo diretamente na dock.</p></div><button type="button" className="cadu-ds-dock-picker__close" onClick={onClose} aria-label="Fechar"><Icon name="close" size={18}/></button></header>
       <div className="cadu-ds-dock-picker__content">
         <label className="cadu-ds-dock-picker__search"><span>Marcas e projetos</span><input autoFocus value={query} onChange={event => onQueryChange(event.target.value)} placeholder="Buscar marca ou projeto"/></label>
-        <div className="cadu-ds-dock-picker__catalog" aria-label="Itens disponíveis">{available.length ? available.map(item => <button type="button" key={`${item.kind}:${item.id}`} disabled={busy} onClick={() => onSave(item)}><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials || item.title} label={item.title} color={item.visualColor}/><span>{item.title}</span><Icon name="plus" size={16}/></button>) : <p className="cadu-ds-dock-picker__empty">{query ? 'Nenhum item corresponde à busca.' : 'Tudo o que está disponível já foi fixado.'}</p>}</div>
+        <div className="cadu-ds-dock-picker__catalog" aria-label="Marcas e projetos">{visible.length ? <>{brands.map(brand => <section className="cadu-ds-dock-picker__group" key={dockItemIdentity(brand)}><h3>Marca</h3>{row(brand)}{projectsForBrand(brand).length > 0 && <div className="cadu-ds-dock-picker__projects"><h4>Projetos</h4>{projectsForBrand(brand).map(row)}</div>}</section>)}{ungroupedProjects.length > 0 && <section className="cadu-ds-dock-picker__group"><h3>Outros projetos</h3>{ungroupedProjects.map(row)}</section>}{otherItems.length > 0 && <section className="cadu-ds-dock-picker__group"><h3>Outros atalhos</h3>{otherItems.map(row)}</section>}</> : <p className="cadu-ds-dock-picker__empty">Nenhum item corresponde à busca.</p>}</div>
         <details className="cadu-ds-dock-picker__link"><summary>Adicionar um link externo</summary><form onSubmit={submitLink} noValidate><label><span>Endereço do link</span><input type="url" inputMode="url" value={linkUrl} onChange={event => { onLinkUrlChange(event.target.value); setUrlError(''); }} placeholder="https://trello.com/..." aria-invalid={Boolean(urlError)} aria-describedby={urlError ? 'cadu-dock-url-error' : undefined}/></label>{urlError && <p id="cadu-dock-url-error" className="cadu-ds-dock-picker__error" role="alert">{urlError}</p>}<label><span>Nome na dock <small>opcional</small></span><input value={linkTitle} onChange={event => onLinkTitleChange(event.target.value)} placeholder="Ex.: Quadro do Trello" maxLength="80"/></label><button type="submit" disabled={busy || !linkUrl.trim()}>Adicionar link</button></form><p className="cadu-ds-dock-picker__hint">Links abrem sem conectar sua conta ao Cadu.</p></details>
       </div>
     </section>
@@ -405,7 +423,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     const centers = entries.map(entry => { const rect = entry.getBoundingClientRect(); return rect.top + rect.height / 2; });
     setInsertIndex(insertionIndexFromCenters(centers, event.clientY));
   };
-  const saveItem = async (candidate, position = items.length) => {
+  const saveItem = async (candidate, position = items.length, keepOpen = false) => {
     const item = normalizeDockItem(candidate);
     if (!item) { setDockNotice('Este item não pode ser fixado na dock.'); return; }
     if (items.length >= 32) { setDockNotice('A dock aceita até 32 atalhos.'); return; }
@@ -427,7 +445,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
       const next = items.filter(value => value.shortcutId);
       next.splice(Math.min(position, next.length), 0, saved);
       if (isControlled) { onShortcutAdded?.(saved, next); } else { setManagedItems(next); }
-      setAddOpen(false); setLinkUrl(''); setLinkTitle(''); setUndoItem(null); setDockNotice(`${item.title} fixado na dock.`);
+      if (!keepOpen) setAddOpen(false); setLinkUrl(''); setLinkTitle(''); setUndoItem(null); setDockNotice(`${item.title} fixado na dock.`);
       if (next.every(value => value.shortcutId)) {
         await postOrder(next.map(value => value.shortcutId));
       }
@@ -524,7 +542,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
       </section>
     </div></DockDropZone>
     {dockNotice && <div className="cadu-ds-dock-notice" role="status">{dockNotice}{undoItem && <button type="button" onClick={() => { saveItem(undoItem); setUndoItem(null); }}>Desfazer</button>}<button type="button" onClick={() => { setDockNotice(''); setUndoItem(null); }} aria-label="Dispensar aviso">×</button></div>}
-    {addOpen && createPortal(<DockPicker candidates={candidates} items={items} busy={busy} query={candidateQuery} onQueryChange={setCandidateQuery} linkUrl={linkUrl} onLinkUrlChange={setLinkUrl} linkTitle={linkTitle} onLinkTitleChange={setLinkTitle} onSave={saveItem} onClose={() => setAddOpen(false)}/>, document.body)}
+    {addOpen && createPortal(<DockPicker candidates={candidates} items={items} busy={busy} query={candidateQuery} onQueryChange={setCandidateQuery} linkUrl={linkUrl} onLinkUrlChange={setLinkUrl} linkTitle={linkTitle} onLinkTitleChange={setLinkTitle} onSave={candidate => saveItem(candidate, items.length, true)} onRemove={removeItem} onClose={() => setAddOpen(false)}/>, document.body)}
     {externalView && createPortal(<section className="cadu-ds-dock-external-view" aria-label={`Visualização de ${externalView.title}`}><header className="cadu-ds-dock-external-view__bar"><div className="cadu-ds-dock-external-view__identity"><strong>{externalView.title}</strong><span>{externalView.host}</span></div><div className="cadu-ds-dock-external-view__actions"><a href={externalView.url} target="_blank" rel="noopener noreferrer">Abrir em nova aba</a><button type="button" onClick={() => setExternalView(null)} aria-label="Fechar visualização">Fechar</button></div></header><div className="cadu-ds-dock-external-view__content">{externalView.kind === 'image' ? <img src={externalView.url} alt={externalView.title} onError={() => setExternalHint(true)}/> : <iframe title={externalView.title} src={externalView.embedUrl} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="strict-origin-when-cross-origin" onError={() => setExternalHint(true)}/>}</div>{externalHint && <footer className="cadu-ds-dock-external-view__help"><span>Se o serviço não aparecer ou pedir permissão, abra-o em outra aba.</span><a href={externalView.url} target="_blank" rel="noopener noreferrer">Abrir fora</a><button type="button" onClick={() => { try { window.localStorage.setItem(`cadu:dock:external:${externalView.host}`, '1'); } catch (_) { /* Storage is optional. */ } window.open(externalView.url, '_blank', 'noopener,noreferrer'); setExternalView(null); }}>Sempre abrir fora</button></footer>}</section>, document.body)}
     <div className="cadu-ds-dock-bottom">{openNotifications && <DockTooltip label="Notificações"><button type="button" className="cadu-ds-dock-notifications" onClick={openNotifications} aria-label="Abrir notificações"><Icon name="pulse" size={17}/>{resolvedNotifications.length > 0 && <i>{resolvedNotifications.length > 9 ? '9+' : resolvedNotifications.length}</i>}</button></DockTooltip>}<DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountMenu ? <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button> : <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir conta de ${userName}`}>{avatar}</a>}</DockTooltip>{resolvedAccountMenu}</div></div>
   </aside>;

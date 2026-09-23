@@ -111,7 +111,7 @@ def get_source_chunks(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.list_resources", capability="workspace", effect="read", requires_project=True,
-    description="Organiza e lista arquivos, artifacts, planos, relatórios, imagens, vídeos e links do projeto.",
+    description="Lista o inventário central do projeto: arquivos, artefatos versionados, planos, relatórios, mídia e referências de plataformas externas.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "properties": {}, "additionalProperties": False},
 )
@@ -179,17 +179,24 @@ def ingestion_status(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.create_link_reference", capability="workspace", effect="write", requires_project=True,
-    description="Salva uma URL no projeto e registra sua classificação para enriquecimento pelo pipeline interno.",
+    description="Adiciona ao projeto um recurso de qualquer plataforma por URL, preservando tipo, origem, identificador externo, descrição e etiquetas sem copiar ou indexar o conteúdo remoto.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "url"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
         "url": {"type": "string", "minLength": 8, "maxLength": 2000},
         "title": {"type": "string", "maxLength": 180},
+        "resource_kind": {"type": "string", "enum": sorted(project_source_service.EXTERNAL_RESOURCE_KINDS)},
+        "platform": {"type": "string", "maxLength": 120},
+        "external_id": {"type": "string", "maxLength": 512},
+        "description": {"type": "string", "maxLength": 4000},
+        "tags": {"type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1, "maxLength": 64}},
     }, "additionalProperties": False},
 )
 def create_link_reference(context: RequestContext, arguments: dict) -> dict:
-    payload = {key: arguments[key] for key in ("url", "title") if key in arguments}
+    payload = {key: arguments[key] for key in (
+        "url", "title", "resource_kind", "platform", "external_id", "description", "tags"
+    ) if key in arguments}
     return _domain(lambda: operations.execute(
         arguments["request_id"], context, "projects.create_link_reference", payload,
         lambda: workspace_ingestion_service.ingest_link(
@@ -200,7 +207,7 @@ def create_link_reference(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
-    description="Prepara upload privado de arquivo para o projeto. Sem use_as_knowledge, classifica automaticamente: texto legível vira fonte indexada; imagens sem texto e outros binários ficam preservados como ativos organizados.",
+    description="Prepara upload privado de qualquer arquivo aceito, incluindo HTML, documentos, planilhas, apresentações, imagens, áudio, vídeo e pacotes criativos. Sem use_as_knowledge, preserva o arquivo no inventário e só indexa formatos pesquisáveis quando apropriado.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},

@@ -41,7 +41,7 @@ export function pendingInteraction(messages, running) {
     prompt: item.prompt || `Continue usando a opção “${item.title}”.`, recommended: Boolean(item.recommended),
   })) || (questionBlock?.items || []).map((item, index) => {
     const label = typeof item === 'string' ? item : item.title || item.label || item.question;
-    return {id: item.id || index, label, detail: item.detail || '', prompt: item.prompt || item.question || label, asContext: true};
+    return {id: item.id || index, label, detail: item.detail || '', prompt: item.prompt || item.question || label, asContext: !item.auto_submit, autoSubmit: Boolean(item.auto_submit)};
   });
   if (!question && !options.length) return null;
   const normalizedOptions = options.length ? options : [{id: 'write-answer', label: 'Responder', prompt: question, asContext: true, freeform: true}];
@@ -53,7 +53,7 @@ export function PendingInteraction({interaction, onPrompt, onDecision}) {
   const freeform = interaction.kind !== 'action' && interaction.options.length === 1 && interaction.options[0].freeform;
   const choose = option => interaction.kind === 'action'
     ? onDecision(interaction.message, option.approved)
-    : option.asContext ? onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt}) : onPrompt(option.prompt);
+    : option.autoSubmit || !option.asContext ? onPrompt(option.prompt) : onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt});
   return <section className={`cv-pending-interaction ${interaction.kind === 'action' ? 'is-action' : ''}`} aria-label="Ação necessária">
     <div className="cv-pending-interaction__heading"><Icon name={interaction.kind === 'action' ? 'pulse' : 'alert'} size={16}/><span><small>{interaction.eyebrow || 'Para continuar'}</small><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span>{freeform && <button type="button" className="cv-pending-interaction__respond" onClick={() => choose(interaction.options[0])}>Responder</button>}</div>
     {!freeform && !!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.options.map(option => <button key={option.id} className={option.recommended ? 'is-recommended' : ''} type="button" disabled={interaction.pending} onClick={() => choose(option)}><span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/></button>)}</div>}

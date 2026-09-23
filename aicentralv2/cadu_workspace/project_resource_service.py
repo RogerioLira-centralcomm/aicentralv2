@@ -110,13 +110,18 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                              AS a WHERE a.id_cliente=%s AND a.projeto_id=%s
                                AND a.indexing_status <> 'superseded'""", (client_id, project_id))
         for row in cursor.fetchall():
-            records.append(_record("workspace", f"file:{row['id']}", "file", row["nome_arquivo"],
+            classification_metadata = row.get("classification_metadata") or {}
+            records.append(_record("workspace", f"file:{row['id']}", "file",
+                classification_metadata.get("display_title") or row["nome_arquivo"],
                 mime_type=row.get("mime"), purpose=row.get("purpose"), category=row.get("category"),
-                status=row.get("indexing_status"), content_hash=(row.get("classification_metadata") or {}).get("sha256"),
+                status=row.get("indexing_status"), content_hash=classification_metadata.get("sha256"),
                 locator=row.get("storage_path"), created_by=row.get("criado_por"),
                 source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at"),
                 metadata={"chunk_count": int(row.get("chunk_count") or 0),
-                          "indexing_status": row.get("indexing_status")}))
+                          "indexing_status": row.get("indexing_status"),
+                          "original_name": row.get("nome_arquivo"),
+                          "description": classification_metadata.get("description"),
+                          "tags": classification_metadata.get("tags") or []}))
 
     queries = (
         ("cadu_workspace_artifacts", """SELECT id::text AS id, type, title, status, current_version AS version,
@@ -165,14 +170,48 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                 category=f"{row.get('media_type') or 'creative'}_analysis", status=row.get("status"),
                 source_created_at=row.get("created_at")))
 
+    external_locators = set()
+    if _relation(cursor, "cadu_workspace_external_references"):
+        external_columns = _columns(cursor, "cadu_workspace_external_references")
+        archived_sql = "archived_at" if "archived_at" in external_columns else "NULL::timestamptz AS archived_at"
+        cursor.execute(f"""SELECT id::text AS id,provider,external_id,locator,connection_ref,
+                                  reference_type,sync_status,metadata,last_synced_at,created_at,updated_at,{archived_sql}
+                             FROM cadu_workspace_external_references
+                            WHERE client_id=%s AND project_ref=%s""", (client_id, project_ref))
+        for row in cursor.fetchall():
+            metadata = row.get("metadata") or {}
+            external_locators.add(str(row.get("locator") or ""))
+            if row.get("archived_at"):
+                continue
+            records.append(_record(
+                "external_reference", row["id"], "link",
+                metadata.get("title") or metadata.get("platform") or row.get("provider") or "Recurso externo",
+                category=metadata.get("resource_kind") or row.get("reference_type") or "reference",
+                locator=row.get("locator"), metadata={
+                    "provider": row.get("provider"), "platform": metadata.get("platform") or row.get("provider"),
+                    "resource_kind": metadata.get("resource_kind") or row.get("reference_type") or "web_page",
+                    "external_id": row.get("external_id"), "description": metadata.get("description"),
+                    "tags": metadata.get("tags") or [], "connection_ref": row.get("connection_ref"),
+                    "sync_status": row.get("sync_status"), "access_type": metadata.get("access_type"),
+                    "connector_recommended": bool(metadata.get("connector_recommended")),
+                    "last_synced_at": row.get("last_synced_at"),
+                }, capability_snapshot=metadata.get("capabilities") or {},
+                permission_snapshot=metadata.get("permissions") or {},
+                source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at"),
+            ))
+
     if _relation(cursor, "cadu_ci_projeto_links"):
         columns = _columns(cursor, "cadu_ci_projeto_links")
         icon_sql = "icon_metadata" if "icon_metadata" in columns else "'{}'::jsonb AS icon_metadata"
         cursor.execute(f"""SELECT id::text AS id, titulo, provider, url, criado_por, created_at, updated_at, {icon_sql}
                             FROM cadu_ci_projeto_links WHERE id_cliente=%s AND projeto_id=%s""", (client_id, project_id))
         for row in cursor.fetchall():
-            records.append(_record("workspace", f"link:{row['id']}", "link", row["titulo"], category="reference",
+            if str(row.get("url") or "") in external_locators:
+                continue
+            records.append(_record("workspace", f"link:{row['id']}", "link", row["titulo"],
+                category="reference",
                 locator=row.get("url"), metadata={"provider": row.get("provider"),
+                    "platform": row.get("provider"), "resource_kind": "web_page",
                     "icon": public_link_icon(row.get("icon_metadata"))}, created_by=row.get("criado_por"),
                 source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at")))
 
@@ -388,31 +427,105 @@ def search_resources(client_id: int, project_ref: str, query: str, *, limit: int
 
 
 def resource_capabilities(resource: dict) -> dict:
-    """Expose honest actions supported by the current Cadu integration layer."""
+    """Resolve honest edit capabilities from ownership, format and connector state."""
     source = str(resource.get("source_system") or "")
     status = str(resource.get("status") or "")
     mime = str(resource.get("mime_type") or "").lower()
+    kind = str(resource.get("category") or "")
+    metadata = resource.get("metadata") if isinstance(resource.get("metadata"), dict) else {}
+    snapshot = resource.get("capability_snapshot") if isinstance(resource.get("capability_snapshot"), dict) else {}
+    provider_actions = snapshot.get("actions") if isinstance(snapshot.get("actions"), dict) else {}
     active = status not in {"archived", "deleted", "permission_lost"}
     is_google = source in {"google_drive", "google_docs", "google_sheets", "google_slides"}
-    text_capable = mime.startswith(("text/", "application/pdf", "application/json"))
+    is_external_reference = source == "external_reference"
+    is_artifact = source == "cadu_workspace_artifacts"
+    is_studio_image = source == "studio" or (
+        str(resource.get("resource_type") or "") == "image" and source.startswith("studio")
+    )
+    is_pdf = mime == "application/pdf" or kind == "pdf"
+    is_image = mime.startswith("image/") or str(resource.get("resource_type") or "") == "image"
+    text_capable = mime.startswith(("text/", "application/json")) or is_pdf
+    connected = bool(metadata.get("connection_ref")) or (
+        not is_external_reference and source not in {"workspace", ""}
+    )
+    provider_read = bool(provider_actions.get("read")) or (is_google and active) or is_artifact
+    provider_write = bool(snapshot.get("write_authorized") and provider_actions.get("edit"))
+
+    editor = None
+    edit_mode = "read_only"
+    native_edit = False
+    if is_artifact:
+        native_edit = active and kind != "link_reader"
+        edit_mode = "native" if native_edit else "read_only"
+        editor = "html" if kind == "html" else "document"
+    elif is_studio_image:
+        native_edit, edit_mode, editor = active, "native" if active else "read_only", "studio"
+    elif is_image and source in {"workspace", "workspace_images"}:
+        edit_mode, editor = "imported_copy", "studio"
+    elif active and provider_write:
+        edit_mode = "external_editable"
+
+    can_read_content = active and (not is_external_reference or connected and provider_read)
+    copyable_format = text_capable or is_image or kind in {
+        "document", "spreadsheet", "presentation", "design", "drive_file", "web_page",
+    }
+    can_create_copy = active and copyable_format and (not is_external_reference or can_read_content)
+    can_derive = active and (can_read_content or not is_external_reference)
+    can_index = active and not is_external_reference and (text_capable or is_google)
+    can_sync = active and connected and (is_external_reference or is_google)
+    lifecycle_supported = source in {"external_reference", "cadu_workspace_artifacts"}
+    metadata_fields = (
+        ["title", "description", "tags"] if is_external_reference or (source == "workspace" and str(resource.get("source_id") or "").startswith("file:"))
+        else ["title"] if is_artifact or (source == "workspace" and str(resource.get("source_id") or "").startswith("link:"))
+        else []
+    )
+    limitations = []
+    if not active:
+        limitations.append("O recurso não está ativo na origem.")
+    elif is_pdf:
+        limitations.append("PDF é preservado como fonte somente leitura; alterações exigem uma entrega derivada.")
+    elif is_external_reference and not connected:
+        limitations.append("Sem integração autorizada, o Cadu preserva apenas a referência e não lê nem altera a origem.")
+    elif (is_external_reference or is_google) and not provider_write:
+        limitations.append("A integração atual não autoriza escrita na plataforma de origem.")
     return {
         "resource_id": str(resource.get("id") or ""),
         "source_system": source,
+        "edit_mode": edit_mode,
+        "editor": editor,
         "actions": {
-            "read": active,
-            "search": active,
+            "read": can_read_content,
+            "preview": active and (can_read_content or bool(resource.get("locator"))),
+            "search": active and (can_index or bool(resource.get("title"))),
             "link_to_project": active,
-            "index": active and (text_capable or is_google),
-            "native_edit": False,
+            "index": can_index,
+            "native_edit": native_edit,
+            "edit_content": active and (native_edit or provider_write),
+            "create_revision": native_edit and edit_mode == "native",
+            "create_editable_copy": can_create_copy,
+            "derive_artifact": can_derive,
+            "open_in_editor": active and bool(editor),
+            "sync": can_sync,
+            "push_to_source": provider_write,
+            "update_metadata": active and bool(metadata_fields),
+            "archive": active and lifecycle_supported,
+            "restore": not active and status == "archived" and lifecycle_supported,
             "move": False,
-            "share": False,
-            "comments": False,
+            "share": bool(provider_write and provider_actions.get("share")),
+            "comments": bool(provider_write and provider_actions.get("comments")),
             "versions": bool(resource.get("version")),
-            "export_pdf": is_google and mime != "application/pdf",
+            "export_pdf": bool(is_artifact or (is_google and mime != "application/pdf")),
         },
-        "limitations": [
-            "Ações de escrita no provedor ainda exigem um adapter específico."
-        ] if active else ["O recurso não está ativo na origem."],
+        "recommended_tool": "resources.start_image_edit"
+        if editor == "studio" else (
+            "artifacts.update_draft" if is_artifact and native_edit else (
+                "resources.create_editable_copy" if can_create_copy else (
+                    "artifacts.create_draft" if can_derive else None
+                )
+            )
+        ),
+        "editable_metadata": metadata_fields,
+        "limitations": limitations,
     }
 
 
@@ -446,7 +559,9 @@ def notify_change(client_id: int, project_ref: str, event_type: str, *, source_s
 def _rebuild_relations(cursor, client_id: int, project_ref: str) -> None:
     if not _relation(cursor, "cadu_project_resource_relations"):
         return
-    cursor.execute("DELETE FROM cadu_project_resource_relations WHERE client_id=%s AND project_ref=%s",
+    cursor.execute("""DELETE FROM cadu_project_resource_relations
+                        WHERE client_id=%s AND project_ref=%s
+                          AND relation_type IN ('possible_duplicate','evaluates')""",
                    (client_id, project_ref))
     cursor.execute("""INSERT INTO cadu_project_resource_relations
         (client_id,project_ref,source_resource_id,target_resource_id,relation_type,confidence,metadata)
@@ -465,3 +580,169 @@ def _rebuild_relations(cursor, client_id: int, project_ref: str) -> None:
            AND plan.client_id=report.client_id AND plan.project_ref=report.project_ref
            AND plan.resource_type='media_plan' AND report.status<>'archived' AND plan.status<>'archived'
         ON CONFLICT DO NOTHING""", (client_id, project_ref, client_id, project_ref))
+
+
+def relate_resources(client_id: int, project_ref: str, source_resource_id: str,
+                     target_resource_id: str, relation_type: str, *, metadata=None) -> dict:
+    """Persist an explicit project relation without allowing cross-tenant edges."""
+    relation_type = str(relation_type or "").strip()[:40]
+    if relation_type not in {"derived_from", "references", "uses", "revises", "exports"}:
+        raise ValueError("Relação de recurso inválida.")
+    if str(source_resource_id) == str(target_resource_id):
+        raise ValueError("Um recurso não pode se relacionar consigo mesmo.")
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            if not _relation(cursor, "cadu_project_resource_relations"):
+                raise ValueError("Relações de projeto indisponíveis.")
+            cursor.execute("""SELECT id::text FROM cadu_project_resources
+                                WHERE client_id=%s AND project_ref=%s AND id=ANY(%s::uuid[])
+                                  AND status<>'archived'""",
+                           (client_id, project_ref, [str(source_resource_id), str(target_resource_id)]))
+            found = {str(row["id"]) for row in cursor.fetchall()}
+            if found != {str(source_resource_id), str(target_resource_id)}:
+                raise ValueError("Um dos recursos não pertence ao projeto selecionado.")
+            cursor.execute("""INSERT INTO cadu_project_resource_relations
+                (client_id,project_ref,source_resource_id,target_resource_id,relation_type,confidence,metadata)
+                VALUES (%s,%s,%s,%s,%s,1,%s)
+                ON CONFLICT (source_resource_id,target_resource_id,relation_type) DO UPDATE SET
+                    metadata=EXCLUDED.metadata,updated_at=NOW()
+                RETURNING id,relation_type""",
+                (client_id, project_ref, str(source_resource_id), str(target_resource_id),
+                 relation_type, Json(metadata or {})))
+            row = dict(cursor.fetchone())
+        connection.commit()
+        return row
+    except Exception:
+        connection.rollback()
+        raise
+
+
+def list_resource_relations(client_id: int, project_ref: str, resource_id: str) -> list[dict]:
+    """List both directions of one resource graph node inside its project."""
+    if not str(project_ref or "").startswith("ci:"):
+        raise ValueError("O registro de recursos exige um projeto nativo do Cadu.")
+    with get_db().cursor() as cursor:
+        if not _relation(cursor, "cadu_project_resource_relations"):
+            return []
+        cursor.execute("""SELECT relation.id,relation.source_resource_id::text,
+                                  relation.target_resource_id::text,relation.relation_type,
+                                  relation.confidence,relation.metadata,relation.created_at,
+                                  source.title AS source_title,target.title AS target_title
+                             FROM cadu_project_resource_relations relation
+                             JOIN cadu_project_resources source ON source.id=relation.source_resource_id
+                             JOIN cadu_project_resources target ON target.id=relation.target_resource_id
+                            WHERE relation.client_id=%s AND relation.project_ref=%s
+                              AND (relation.source_resource_id=%s OR relation.target_resource_id=%s)
+                         ORDER BY relation.updated_at DESC,relation.id DESC""",
+                       (client_id, project_ref, str(resource_id), str(resource_id)))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def update_resource_metadata(context: RequestContext, resource_id: str, changes: dict) -> dict:
+    """Update the canonical source object, never the rebuildable Registry row."""
+    resource = get_resource(context.client_id, context.project_ref or "", resource_id)
+    if not resource:
+        raise ValueError("Recurso indisponível neste projeto.")
+    title = " ".join(str(changes.get("title") or "").split())[:180] if "title" in changes else None
+    description = str(changes.get("description") or "").strip()[:4000] if "description" in changes else None
+    tags = None
+    if "tags" in changes:
+        if not isinstance(changes.get("tags"), list):
+            raise ValueError("As etiquetas precisam ser uma lista.")
+        tags = list(dict.fromkeys(
+            str(item or "").strip()[:64] for item in changes["tags"] if str(item or "").strip()
+        ))[:20]
+    if title is not None and not title:
+        raise ValueError("O título do recurso não pode ficar vazio.")
+    source, source_id = str(resource.get("source_system") or ""), str(resource.get("source_id") or "")
+    connection = get_db()
+    updated = False
+    try:
+        with connection.cursor() as cursor:
+            if source == "external_reference":
+                metadata = {}
+                if title is not None:
+                    metadata["title"] = title
+                if description is not None:
+                    metadata["description"] = description
+                if tags is not None:
+                    metadata["tags"] = tags
+                cursor.execute("""UPDATE cadu_workspace_external_references
+                                      SET metadata=metadata || %s,updated_at=NOW()
+                                    WHERE id=%s AND client_id=%s AND project_ref=%s""",
+                               (Json(metadata), source_id, context.client_id, context.project_ref))
+                updated = cursor.rowcount == 1
+            elif source == "cadu_workspace_artifacts":
+                if title is None or description is not None or tags is not None:
+                    raise ValueError("Artefatos aceitam somente alteração de título por esta ferramenta.")
+                cursor.execute("""UPDATE cadu_workspace_artifacts SET title=%s,updated_at=NOW()
+                                    WHERE id=%s AND client_id=%s AND project_ref=%s""",
+                               (title, source_id, context.client_id, context.project_ref))
+                updated = cursor.rowcount == 1
+            elif source == "workspace" and source_id.startswith("link:"):
+                if title is None or description is not None or tags is not None:
+                    raise ValueError("Links legados aceitam somente alteração de título.")
+                cursor.execute("""UPDATE cadu_ci_projeto_links SET titulo=%s,updated_at=NOW()
+                                    WHERE id=%s AND id_cliente=%s AND projeto_id=%s""",
+                               (title, source_id[5:], context.client_id, _project_id(context.project_ref or "")))
+                updated = cursor.rowcount == 1
+            elif source == "workspace" and source_id.startswith("file:"):
+                metadata = {}
+                if title is not None:
+                    metadata["display_title"] = title
+                if description is not None:
+                    metadata["description"] = description
+                if tags is not None:
+                    metadata["tags"] = tags
+                cursor.execute("""UPDATE cadu_ci_projeto_arquivos
+                                      SET classification_metadata=COALESCE(classification_metadata,'{}'::jsonb) || %s,
+                                          updated_at=NOW()
+                                    WHERE id=%s AND id_cliente=%s AND projeto_id=%s""",
+                               (Json(metadata), source_id[5:], context.client_id, _project_id(context.project_ref or "")))
+                updated = cursor.rowcount == 1
+            else:
+                raise ValueError("A origem deste recurso ainda não permite editar metadados pelo Cadu.")
+        if not updated:
+            raise ValueError("Recurso indisponível para alteração.")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    reconcile(context.client_id, context.project_ref or "", context.user_id)
+    return get_resource(context.client_id, context.project_ref or "", resource_id) or {}
+
+
+def set_resource_archived(context: RequestContext, resource_id: str, archived: bool) -> dict:
+    """Archive or restore supported source objects without deleting their history."""
+    resource = get_resource(context.client_id, context.project_ref or "", resource_id)
+    if not resource:
+        raise ValueError("Recurso indisponível neste projeto.")
+    source, source_id = str(resource.get("source_system") or ""), str(resource.get("source_id") or "")
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            if source == "external_reference":
+                if "archived_at" not in _columns(cursor, "cadu_workspace_external_references"):
+                    raise ValueError("A migração de arquivamento de referências ainda não foi aplicada.")
+                cursor.execute("""UPDATE cadu_workspace_external_references
+                                      SET archived_at=CASE WHEN %s THEN NOW() ELSE NULL END,updated_at=NOW()
+                                    WHERE id=%s AND client_id=%s AND project_ref=%s""",
+                               (bool(archived), source_id, context.client_id, context.project_ref))
+            elif source == "cadu_workspace_artifacts":
+                cursor.execute("""UPDATE cadu_workspace_artifacts
+                                      SET status=%s,updated_at=NOW()
+                                    WHERE id=%s AND client_id=%s AND project_ref=%s""",
+                               ("archived" if archived else "active", source_id,
+                                context.client_id, context.project_ref))
+            else:
+                raise ValueError("A origem deste recurso ainda não oferece arquivamento recuperável.")
+            if cursor.rowcount != 1:
+                raise ValueError("Recurso indisponível para arquivamento.")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    reconcile(context.client_id, context.project_ref or "", context.user_id)
+    return {"resource_id": str(resource_id), "archived": bool(archived),
+            "status": "archived" if archived else "active", "recoverable": True}

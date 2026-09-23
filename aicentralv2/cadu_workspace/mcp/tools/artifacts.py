@@ -57,7 +57,7 @@ def get_artifact(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="artifacts.create_draft", capability="artifacts", effect="draft",
-    description="Cria um artefato versionado como rascunho, sem publicá-lo.",
+    description="Cria no projeto uma entrega editável e versionada, incluindo página HTML interativa (type=html), documento, pesquisa, resumo, plano ou nota, sem publicá-la.",
     exposures=("internal", "customer_agent"), requires_project=True,
     input_schema={"type": "object", "required": ["request_id", "type", "title", "content"], "properties": {
         "request_id": {"type": "string", "minLength": 16, "maxLength": 80},

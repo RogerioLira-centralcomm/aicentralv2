@@ -99,8 +99,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(home, /: openWorkspaceDetail\(item\)/);
   assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(brands, /onOpenResource=\{openWorkspaceDetail\}/);
-  assert.match(sidebar, /Projeto ativo/);
-  assert.match(sidebar, /Cadu Chat/);
+  assert.match(sidebar, /Conversas recentes/);
+  assert.doesNotMatch(sidebar, /Cadu Chat/);
   assert.match(navigation, /target\.searchParams\.set\('project_ref', projectRef\)/);
   assert.match(navigation, /target\.searchParams\.set\('history', '1'\)/);
   assert.match(dock, /DockTooltip/);
@@ -1014,7 +1014,9 @@ test('document editor never exposes a provider envelope as editable prose', () =
 test('pasted Google links stay compact and open inside the artifact reader without an API key', () => {
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const pending = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx'), 'utf8');
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+  const historyModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
 
   assert.match(composer, /onOpenLink\(\{url: detectedUrl/);
@@ -1026,6 +1028,15 @@ test('pasted Google links stay compact and open inside the artifact reader witho
   assert.match(artifact, /guardar o link mesmo sem integração/);
   assert.match(artifact, /embeddedfolderview\?id=/);
   assert.match(styles, /\.cv-link-intake__card \{ display:flex; align-items:center; gap:8px/);
+  assert.match(conversation, /title = parsed\.pathname\.startsWith\('\/spreadsheets\/'\) \? 'Planilha Google'/);
+  assert.match(conversation, /`\$\{parsed\.origin\}\/favicon\.ico`/);
+  assert.match(conversation, /<UserMessageContent content=\{message\.content\} metadata=\{message\.metadata\}/);
+  assert.match(conversation, /cv-user-message__link-copy/);
+  assert.match(historyModel, /metadata,\s*\n\s*};/);
+  assert.match(conversation, /className="cv-sr-only" aria-live="polite"/);
+  assert.match(styles, /\.cv-user-message__link \{ display:inline-flex/);
+  assert.match(pending, /autoSubmit: Boolean\(item\.auto_submit\)/);
+  assert.match(pending, /option\.autoSubmit \|\| !option\.asContext \? onPrompt\(option\.prompt\)/);
 });
 
 test('home and chat preserve an explicit free session and expose a project context selector', () => {
@@ -1042,8 +1053,12 @@ test('home and chat preserve an explicit free session and expose a project conte
   assert.match(app, /!contextTransferReady/);
   assert.match(conversation, /<ChatContextSelector[^>]+projectsOnly/);
   assert.match(selectors, /Sessão livre/);
-  assert.match(sidebar, /cv-free-session-panel/);
-  assert.match(sidebar, /Usar um projeto/);
+  assert.doesNotMatch(selectors, /Onde esta conversa acontece/);
+  assert.doesNotMatch(selectors, /Conversa sem projeto definido/);
+  assert.doesNotMatch(selectors, /Nenhum projeto disponível neste contexto/);
+  assert.doesNotMatch(sidebar, /cv-free-session-panel/);
+  assert.doesNotMatch(sidebar, /cv-recent-library-button/);
+  assert.match(sidebar, /Conversas recentes/);
 });
 
 test('artifact capabilities keep save, index and restore lifecycle actions honest', () => {
@@ -1065,15 +1080,24 @@ test('dock and composer use one stable geometry without layered hover chrome', (
   assert.match(dock, /className=\{`cadu-ds-dock-shortcut[\s\S]+draggable=\{canReorder\}/);
   assert.match(dock, /onPointerMove=\{movePointerReorder\}/);
   assert.match(dock, /drag\.overTrash/);
+  assert.match(dock, /words\.slice\(0, 4\)\.join\(' '\)/);
+  assert.match(dock, /nativeTitle=\{false\}/);
+  assert.match(dock, /aria-pressed=\{selected\}/);
+  assert.match(dock, /selected \? onRemove\(current\) : onSave\(item\)/);
+  assert.match(dock, /projectsForBrand\(brand\)\.map\(row\)/);
   assert.match(dockStyles, /position:sticky/);
   assert.match(dockStyles, /width:64px/);
+  assert.match(dockStyles, /\.cadu-ds-dock-section--live \{ display:grid; place-items:center/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:18px; height:18px; \}/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action--home svg \{ width:19px; height:19px; \}/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action--new svg \{ width:18px; height:18px; \}/);
   assert.match(dockStyles, /background:transparent;[\s\S]+color:#4d716d/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:hover \{ color:var\(--cadu-accent\); \}/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:focus-visible[\s\S]+outline:2px solid currentColor/);
   assert.match(styles, /\.cv-conversations-workarea::after/);
   assert.match(styles, /height:150px/);
-  assert.match(styles, /border-radius:9px !important/);
+  assert.match(styles, /min-height:40px !important; height:40px !important/);
+  assert.match(styles, /font-weight:400/);
 });
 
 test('meeting summaries use a dedicated semantic React editor', () => {

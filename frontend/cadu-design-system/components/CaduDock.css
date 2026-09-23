@@ -139,11 +139,19 @@ body.portal--workspace .cadu-ds-dock-notice button { border:0; background:none; 
 .cadu-ds-dock-picker input { box-sizing:border-box; width:100%; min-height:40px; padding:9px 11px; border:1px solid #cbdad8; border-radius:9px; background:#fff; color:#14283a; font:12px var(--cadu-font-sans); box-shadow:none; }
 body.portal--workspace .cadu-ds-dock-picker input:focus { border-color:#176b5e; outline:2px solid #b9ded6; outline-offset:1px; box-shadow:none; }
 .cadu-ds-dock-picker input[aria-invalid="true"] { border-color:#b34c4c; }
-.cadu-ds-dock-picker__catalog { display:grid; gap:3px; margin:10px 0 12px; }
-.cadu-ds-dock-picker__catalog > button { display:flex; align-items:center; gap:10px; min-height:42px; padding:4px 8px; border:0; border-radius:8px; background:transparent; color:#14283a; font:600 12px var(--cadu-font-sans); text-align:left; cursor:pointer; }
-.cadu-ds-dock-picker__catalog > button:hover,.cadu-ds-dock-picker__catalog > button:focus-visible { background:#e7f2ef; outline:0; }
+.cadu-ds-dock-picker__catalog { display:grid; gap:10px; margin:10px 0 12px; }
+.cadu-ds-dock-picker__group { display:grid; gap:3px; padding-bottom:9px; border-bottom:1px solid #e4ecea; }
+.cadu-ds-dock-picker__group:last-child { padding-bottom:0; border-bottom:0; }
+.cadu-ds-dock-picker__group h3,.cadu-ds-dock-picker__group h4 { margin:0; color:#69807c; font-size:9px; font-weight:650; line-height:1.4; }
+.cadu-ds-dock-picker__projects { display:grid; gap:3px; margin:2px 0 0 18px; padding-left:10px; border-left:1px solid #d8e6e2; }
+.cadu-ds-dock-picker__catalog button { display:flex; align-items:center; gap:10px; min-height:42px; padding:4px 8px; border:0; border-radius:8px; background:transparent; color:#14283a; font:600 12px var(--cadu-font-sans); text-align:left; cursor:pointer; }
+.cadu-ds-dock-picker__catalog button:hover,.cadu-ds-dock-picker__catalog button:focus-visible { background:#e7f2ef; outline:0; }
+.cadu-ds-dock-picker__catalog button.is-selected { background:#e4f1ee; color:#0d6157; }
+.cadu-ds-dock-picker__catalog button.is-selected > svg { color:#137c6e; }
 .cadu-ds-dock-picker__catalog .cadu-ds-visual-identity { width:30px; height:30px; flex:0 0 30px; }
-.cadu-ds-dock-picker__catalog button > span:nth-child(2) { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-dock-picker__catalog button > span:nth-child(2) { display:grid; flex:1; min-width:0; gap:2px; }
+.cadu-ds-dock-picker__catalog button > span:nth-child(2) b { overflow:hidden; font:inherit; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-dock-picker__catalog button > span:nth-child(2) small { overflow:hidden; color:#78908b; font-size:9px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
 .cadu-ds-dock-picker__link { margin-top:10px; padding-top:12px; border-top:1px solid #dbe7e4; }
 .cadu-ds-dock-picker__link summary { color:#176b5e; font-size:11px; font-weight:700; cursor:pointer; }
 .cadu-ds-dock-picker__link[open] summary { margin-bottom:12px; }

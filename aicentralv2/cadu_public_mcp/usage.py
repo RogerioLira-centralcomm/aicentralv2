@@ -33,6 +33,7 @@ PUBLIC_TOOL_COSTS = {
     "resources.search": 1,
     "resources.get": 1,
     "resources.capabilities": 1,
+    "resources.start_image_edit": 0,
     "projects.list_sources": 1,
     "projects.search_knowledge": 2,
     "projects.get_source_chunks": 1,

@@ -79,12 +79,6 @@ def _completion(step_name: str, result: dict) -> dict:
                 "id": "prepare-meeting", "title": "Preparar pauta da reunião",
                 "prompt": f"Prepare uma pauta para a reunião deste projeto: {result.get('url', '')}",
             }]})
-        if result.get("provider") in {"generic", "google_drive"}:
-            blocks.append({"type": "questions", "title": "Próximo passo opcional", "items": [{
-                "id": "summarize-link", "title": "Criar resumo editável deste link",
-                "prompt": f"Crie um resumo em texto editável do conteúdo disponível neste link para o projeto: {result.get('url', '')}",
-                "auto_submit": True,
-            }]})
         return {"answer": f"“{title}” foi adicionado às referências do projeto.", "blocks": [
             *blocks,
         ], "refresh_context": True}

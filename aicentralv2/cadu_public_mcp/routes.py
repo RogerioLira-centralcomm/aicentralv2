@@ -101,8 +101,17 @@ PUBLIC_TOOLS = frozenset({
     "google.list_meet_artifacts",
     "google.link_resource_to_project",
     "resources.search",
+    "resources.inspect_input",
+    "resources.add",
     "resources.get",
     "resources.capabilities",
+    "resources.start_image_edit",
+    "resources.create_editable_copy",
+    "resources.list_versions",
+    "resources.list_relations",
+    "resources.relate",
+    "resources.update_metadata",
+    "resources.set_archived",
     "projects.list_sources",
     "projects.search_knowledge",
     "projects.get_source_chunks",
@@ -161,6 +170,12 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "account.invite_team_member",
     "credits.purchase_package",
     "google.link_resource_to_project",
+    "resources.add",
+    "resources.start_image_edit",
+    "resources.create_editable_copy",
+    "resources.relate",
+    "resources.update_metadata",
+    "resources.set_archived",
     "projects.create_link_reference",
     "projects.create_note",
     "projects.prepare_source_upload",
@@ -195,6 +210,11 @@ RECOVERABLE_OPERATION_TOOLS = frozenset({
     "account.invite_team_member",
     "credits.purchase_package",
     "google.link_resource_to_project",
+    "resources.create_editable_copy",
+    "resources.start_image_edit",
+    "resources.relate",
+    "resources.update_metadata",
+    "resources.set_archived",
     "projects.create_link_reference",
     "projects.prepare_source_upload",
     "projects.reindex_source",
@@ -267,7 +287,7 @@ def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
     if not context_runtime.available():
         tools = [item for item in tools if not item["name"].startswith("context.")]
     for item in tools:
-        if item["name"] in PUBLIC_TOOLS and (item["name"].startswith(("projects.", "artifacts.")) or
+        if item["name"] in PUBLIC_TOOLS and (item["name"].startswith(("projects.", "artifacts.", "resources.")) or
                                              item["name"] in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"} or
                                              item["name"] in {"workspace.get_project_context", "workspace.search_project_content"}):
             item["inputSchema"] = deepcopy(item["inputSchema"])
@@ -362,10 +382,17 @@ def public_rpc():
                     "Para preservar projeto, marca, artefatos e operações entre chamadas, use context.open e "
                     "reenvie o context_handle retornado nas ferramentas seguintes. "
                     "Use project_ref no nível params ou configure um projeto padrão na chave. "
-                    "Para adicionar texto ao projeto, use projects.create_note; para links, projects.create_link_reference. "
+                    "O projeto é um inventário multiplataforma, não apenas uma base de conhecimento. "
+                    "Prefira resources.add como entrada única: mode=editable, external_link ou file_upload. "
+                    "Para uma entrega editável — inclusive uma página HTML — use artifacts.create_draft com type=html, document, research ou outro tipo suportado. "
+                    "Para texto que deve virar fonte pesquisável, use projects.create_note. Para um recurso mantido em outra plataforma, "
+                    "use projects.create_link_reference e informe resource_kind, platform, external_id, description e tags quando disponíveis. "
+                    "Antes de oferecer edição, consulte resources.capabilities: PDF e referências sem conexão são somente leitura; "
+                    "para derivar uma entrega use resources.create_editable_copy, que preserva e relaciona a origem; "
+                    "para imagens use resources.start_image_edit, que prepara uma cópia no Studio sem alterar o original. "
                     "Para consultar a base RAG de um projeto, use projects.search_knowledge e depois "
                     "projects.get_source_chunks com o source_id retornado; cite nome da fonte e chunk_id. "
-                    "Para arquivos, imagens geradas e HTML, use projects.prepare_source_upload sem use_as_knowledge "
+                    "Para arquivos já existentes, imagens geradas e HTML binário, use projects.prepare_source_upload sem use_as_knowledge "
                     "e envie o binário ao upload_url com upload_token e project_ref; inclua description factual para imagens sem texto. "
                     "O Cadu classificará, indexará o conteúdo pesquisável e preservará o restante como ativo. "
                     "projects.list_resources inclui metadata.icon para links do projeto; status ready indica URL de ícone utilizável. "
@@ -393,7 +420,7 @@ def public_rpc():
             if not isinstance(arguments, dict):
                 raise ValueError("Os argumentos da ferramenta precisam ser um objeto.")
             arguments = dict(arguments)
-            if name.startswith(("projects.", "artifacts.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
+            if name.startswith(("projects.", "artifacts.", "resources.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
                 arguments.pop("project_ref", None)
             if name in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
                 arguments.pop("brand_ref", None)
@@ -416,9 +443,9 @@ def public_rpc():
             )
             try:
                 value = context_runtime.execute(principal, name, arguments, "customer_agent", registry)
-                if name in {"projects.prepare_source_upload", "brands.prepare_logo_upload"} and isinstance(value, dict):
+                if name in {"projects.prepare_source_upload", "resources.add", "brands.prepare_logo_upload"} and isinstance(value, dict) and value.get("upload_url"):
                     value = {**value, "upload_url": product_url(
-                        "workspace", f"{PUBLIC_MCP_PATH}/{'uploads' if name.startswith('projects.') else 'brand-uploads'}")}
+                        "workspace", f"{PUBLIC_MCP_PATH}/{'brand-uploads' if name.startswith('brands.') else 'uploads'}")}
                 usage.charge_credits(
                     client_id=principal.client_id, user_id=principal.user_id,
                     tool_name=name, idempotency_key=f"{principal.key_id}:{tool_request_id}",

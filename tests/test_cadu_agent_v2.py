@@ -755,13 +755,11 @@ def test_bare_link_stays_a_reference_and_explicit_read_is_allowed():
     assert explicit.needs_tools == ("web.read",)
 
 
-def test_saved_link_summary_suggestion_executes_without_extra_confirmation():
+def test_saved_link_does_not_invent_a_summary_follow_up():
     completion = _completion("projects.create_link_reference", {
         "title": "Planejamento", "provider": "generic", "url": "https://example.com/plano",
     })
-    summary = completion["blocks"][-1]["items"][0]
-    assert summary["auto_submit"] is True
-    assert summary["prompt"].startswith("Crie um resumo em texto editável")
+    assert all(block.get("type") != "questions" for block in completion["blocks"])
 
 
 def test_explicit_link_summary_request_routes_directly_to_artifact_creation():

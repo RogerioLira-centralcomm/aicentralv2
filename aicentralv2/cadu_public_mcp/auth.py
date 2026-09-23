@@ -215,6 +215,18 @@ def required_scope(tool_name: str) -> str:
         return "brands:write"
     if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.restore_version", "artifacts.finalize_to_project"}:
         return "artifacts:write"
+    if name == "resources.create_editable_copy":
+        return "artifacts:write"
+    if name == "resources.start_image_edit":
+        return "projects:content_write"
+    if name == "resources.add":
+        return "projects:content_write"
+    if name == "resources.relate":
+        return "projects:content_write"
+    if name == "resources.update_metadata":
+        return "projects:content_write"
+    if name == "resources.set_archived":
+        return "projects:content_write"
     if name.startswith("artifacts."):
         return "projects:read"
     if name in {"projects.create_note", "projects.prepare_source_upload", "projects.create_link_reference"}:

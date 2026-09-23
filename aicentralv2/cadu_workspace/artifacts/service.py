@@ -29,15 +29,25 @@ def _content(value, artifact_type: str) -> dict:
     return value
 
 
-def create_draft(context: RequestContext, artifact_type: str, content: dict, *, title="", conversation_id=None) -> dict:
+def create_draft(context: RequestContext, artifact_type: str, content: dict, *, title="", conversation_id=None,
+                 artifact_id=None) -> dict:
     if artifact_type not in ALLOWED_TYPES:
         raise BadRequest("Tipo de artefato inválido.")
     content = _content(content, artifact_type)
-    artifact_id, version_id = str(uuid4()), str(uuid4())
+    artifact_id, version_id = str(artifact_id or uuid4()), str(uuid4())
     title = " ".join(str(title or "").split())[:180] or "Novo artefato"
     conn = get_db()
     try:
         with conn.cursor() as cur:
+            cur.execute("""SELECT id::text,type,project_ref FROM cadu_workspace_artifacts
+                            WHERE id=%s AND organization_id=%s AND client_id=%s""",
+                        (artifact_id, context.organization_id, context.client_id))
+            existing = cur.fetchone()
+            if existing:
+                if existing.get("type") != artifact_type or existing.get("project_ref") != context.project_ref:
+                    raise Conflict("O identificador desta entrega já pertence a outro conteúdo.")
+                conn.commit()
+                return get_artifact(context, artifact_id)
             cur.execute("""INSERT INTO cadu_workspace_artifacts
                 (id, organization_id, client_id, project_ref, conversation_id, type, title, status,
                  current_version, created_by, created_at, updated_at)

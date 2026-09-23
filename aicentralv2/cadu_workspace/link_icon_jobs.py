@@ -37,12 +37,22 @@ def reap_stale():
             stale = [dict(row) for row in cursor.fetchall()]
             for row in stale:
                 if row['project_id']:
-                    cursor.execute('''UPDATE cadu_ci_projeto_links
-                                         SET icon_metadata=icon_metadata || %s::jsonb
-                                       WHERE id=%s AND projeto_id=%s AND id_cliente=%s
-                                         AND icon_metadata->>'icon_job_id'=%s''',
-                                   ('{"icon_status":"failed","icon_error":"Worker interrompido."}',
-                                    row['target_id'], row['project_id'], row['client_id'], row['id'].replace('-', '')))
+                    changes = Json({'icon_status': 'failed', 'icon_error': 'Worker interrompido.'})
+                    cursor.execute('''UPDATE cadu_workspace_external_references
+                                         SET metadata=jsonb_set(metadata,'{icon}',
+                                             COALESCE(metadata->'icon','{}'::jsonb) || %s),updated_at=NOW()
+                                       WHERE id=%s AND client_id=%s AND project_ref=%s
+                                         AND archived_at IS NULL
+                                         AND metadata->'icon'->>'icon_job_id'=%s''',
+                                   (changes, row['target_id'], row['client_id'], f"ci:{row['project_id']}",
+                                    row['id'].replace('-', '')))
+                    if not cursor.rowcount:
+                        cursor.execute('''UPDATE cadu_ci_projeto_links
+                                             SET icon_metadata=icon_metadata || %s::jsonb
+                                           WHERE id=%s AND projeto_id=%s AND id_cliente=%s
+                                             AND icon_metadata->>'icon_job_id'=%s''',
+                                       (changes, row['target_id'], row['project_id'], row['client_id'],
+                                        row['id'].replace('-', '')))
                 else:
                     cursor.execute('''UPDATE cadu_workspace_dock_shortcuts
                                          SET metadata=metadata || %s::jsonb

@@ -34,7 +34,7 @@ from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
 from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asset_url
 from ..creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
-from . import notification_service, project_index_service, project_knowledge, project_resource_service, project_sources, workspace_ingestion_service
+from . import notification_service, project_index_service, project_knowledge, project_resource_service, project_source_service, project_sources, workspace_ingestion_service
 from .agent_v2.request_context import resolve as resolve_request_context
 
 
@@ -3196,20 +3196,17 @@ def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int
             known_links = {str(item.get('url') or '') for item in _workspace_project_links(client_id, project_id)}
             for social_url in (analysis.get('social_links') or [])[:12]:
                 try:
-                    link = _project_link_metadata(social_url, 'Canal oficial da marca')
-                except ValueError:
+                    link = project_source_service.describe_link(social_url, 'Canal oficial da marca')
+                except HTTPException:
                     continue
                 if link['url'] in known_links:
                     continue
-                with get_db().cursor() as cursor:
-                    cursor.execute(
-                        '''INSERT INTO cadu_ci_projeto_links
-                           (id, projeto_id, id_cliente, criado_por, provider, url, titulo, position)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s,
-                               COALESCE((SELECT MAX(position) + 1 FROM cadu_ci_projeto_links WHERE projeto_id = %s AND id_cliente = %s), 0))''',
-                        (str(uuid4()), project_id, client_id, user_id, link['provider'], link['url'], link['title'], project_id, client_id),
-                    )
-                get_db().commit()
+                workspace_ingestion_service.ingest_link(
+                    resolve_request_context(surface='workspace', project_ref=f'ci:{project_id}'),
+                    url=link['url'], title=link['title'], resource_kind=link['resource_kind'],
+                    platform=link['provider'], tags=['marca', 'canal oficial'], origin='api',
+                    request_id=str(uuid4()),
+                )
                 known_links.add(link['url'])
         except Exception:
             try:
@@ -3560,35 +3557,47 @@ def _project_context_health(project: dict) -> dict:
     return {'score': score, 'label': label, 'missing': missing[:3]}
 
 
-_PROJECT_LINK_PROVIDERS = {
-    'drive.google.com': ('google_drive', 'Google Drive'),
-    'docs.google.com': ('google_drive', 'Google Drive'),
-    'clickup.com': ('clickup', 'ClickUp'),
-    'trello.com': ('trello', 'Trello'),
-    'miro.com': ('miro', 'Miro'),
-}
-
-
-def _project_link_metadata(value: str, title: str = '') -> dict:
-    """Normalize a pasted project reference without fetching the remote URL."""
-    raw = str(value or '').strip()
-    if raw and '://' not in raw:
-        raw = f'https://{raw}'
-    parsed = urlparse(raw)
-    host = (parsed.hostname or '').lower().rstrip('.')
-    if parsed.scheme != 'https' or not host or parsed.username or parsed.password:
-        raise ValueError('Use um link HTTPS válido.')
-    matched = next((data for domain, data in _PROJECT_LINK_PROVIDERS.items()
-                    if host == domain or host.endswith(f'.{domain}')), None)
-    provider, suggested = matched or ('generic', host.removeprefix('www.'))
-    normalized = parsed._replace(fragment='').geturl()
-    return {'url': normalized, 'provider': provider,
-            'title': str(title or '').strip()[:180] or suggested}
-
-
 def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
     try:
         with get_db().cursor() as cursor:
+            links = []
+            canonical_urls = set()
+            cursor.execute("SELECT to_regclass('public.cadu_workspace_external_references') IS NOT NULL AS available")
+            if bool((cursor.fetchone() or {}).get('available')):
+                cursor.execute(
+                    """SELECT reference.id::text AS id,reference.provider,reference.locator AS url,
+                              reference.metadata,reference.created_at,reference.updated_at,
+                              reference.sync_status,session.user_id,session.origin,
+                              person.nome_completo AS actor_name,
+                              to_jsonb(reference)->>'archived_at' AS archived_at
+                         FROM cadu_workspace_external_references reference
+                    LEFT JOIN cadu_workspace_ingestion_items item ON item.id=reference.ingestion_item_id
+                    LEFT JOIN cadu_workspace_ingestion_sessions session ON session.id=item.session_id
+                    LEFT JOIN tbl_contato_cliente person ON person.id_contato_cliente=session.user_id
+                        WHERE reference.client_id=%s AND reference.project_ref=%s
+                     ORDER BY reference.created_at ASC""",
+                    (client_id, f'ci:{project_id}'),
+                )
+                for row in cursor.fetchall():
+                    if row.get('archived_at'):
+                        continue
+                    metadata = row.get('metadata') or {}
+                    url = str(row.get('url') or '')
+                    canonical_urls.add(url)
+                    icon = metadata.get('icon') if isinstance(metadata.get('icon'), dict) else {}
+                    links.append({
+                        'id': row['id'], 'provider': row.get('provider') or 'generic', 'url': url,
+                        'titulo': metadata.get('title') or metadata.get('platform') or row.get('provider') or url,
+                        'position': len(links), 'created_at': row.get('created_at'),
+                        'updated_at': row.get('updated_at'), 'iconUrl': icon.get('icon_url') or '',
+                        'iconStatus': icon.get('icon_status') or '',
+                        'context_summary': metadata.get('context_summary') or metadata.get('description'),
+                        'user_message': metadata.get('user_message'), 'timeline': metadata.get('timeline'),
+                        'project_item_kind': metadata.get('project_item_kind') or 'reference',
+                        'meeting': metadata.get('meeting'), 'origin': row.get('origin') or metadata.get('origin'),
+                        'actor_id': row.get('user_id'), 'actor_name': row.get('actor_name'),
+                        'sync_status': row.get('sync_status'), 'canonical': True,
+                    })
             cursor.execute(
                 """SELECT id, provider, url, titulo, position, created_at, updated_at,
                           to_jsonb(cadu_ci_projeto_links)->'icon_metadata'->>'icon_url' AS "iconUrl",
@@ -3598,33 +3607,8 @@ def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
                  ORDER BY position ASC, created_at ASC""",
                 (project_id, client_id),
             )
-            links = [dict(row) for row in cursor.fetchall()]
-            cursor.execute("SELECT to_regclass('public.cadu_workspace_external_references') IS NOT NULL AS available")
-            if not bool((cursor.fetchone() or {}).get('available')):
-                return links
-            cursor.execute(
-                """SELECT reference.locator,reference.metadata,reference.created_at,
-                          session.user_id,session.origin,person.nome_completo AS actor_name
-                     FROM cadu_workspace_external_references reference
-                LEFT JOIN cadu_workspace_ingestion_items item ON item.id=reference.ingestion_item_id
-                LEFT JOIN cadu_workspace_ingestion_sessions session ON session.id=item.session_id
-                LEFT JOIN tbl_contato_cliente person ON person.id_contato_cliente=session.user_id
-                    WHERE reference.client_id=%s AND reference.project_ref=%s""",
-                (client_id, f'ci:{project_id}'),
-            )
-            context_by_url = {str(row.get('locator') or ''): dict(row) for row in cursor.fetchall()}
-            for link in links:
-                contextual = context_by_url.get(str(link.get('url') or ''))
-                if not contextual:
-                    continue
-                metadata = contextual.get('metadata') or {}
-                link.update({
-                    'context_summary': metadata.get('context_summary') or metadata.get('description'),
-                    'user_message': metadata.get('user_message'), 'timeline': metadata.get('timeline'),
-                    'project_item_kind': metadata.get('project_item_kind') or 'reference',
-                    'meeting': metadata.get('meeting'), 'origin': contextual.get('origin') or metadata.get('origin'),
-                    'actor_id': contextual.get('user_id'), 'actor_name': contextual.get('actor_name'),
-                })
+            links.extend({**dict(row), 'canonical': False} for row in cursor.fetchall()
+                         if str(row.get('url') or '') not in canonical_urls)
             return links
     except Exception:
         return []
@@ -6102,7 +6086,14 @@ def project_link_icons(project_id):
                            (project_id, client_id))
             icons = [{'id': row['id'], 'iconUrl': row.get('iconUrl') or '',
                       'iconStatus': row.get('iconStatus') or ''} for row in cursor.fetchall()]
-        return jsonify(icons=icons)
+            cursor.execute('''SELECT id::text AS id,metadata->'icon'->>'icon_url' AS "iconUrl",
+                                     metadata->'icon'->>'icon_status' AS "iconStatus"
+                                FROM cadu_workspace_external_references
+                               WHERE client_id=%s AND project_ref=%s AND archived_at IS NULL''',
+                           (client_id, f'ci:{project_id}'))
+            icons.extend({'id': row['id'], 'iconUrl': row.get('iconUrl') or '',
+                          'iconStatus': row.get('iconStatus') or ''} for row in cursor.fetchall())
+        return jsonify(icons=list({item['id']: item for item in icons}.values()))
     except HTTPException:
         raise
     except Exception:
@@ -6134,10 +6125,18 @@ def generate_project_link_icon(project_id, link_id):
             schema = cursor.fetchone() or {}
             if not schema.get('relation') or not schema.get('has_metadata'):
                 abort(409, description='A migração dos ícones ainda não foi aplicada.')
-            cursor.execute('''SELECT url, icon_metadata, updated_at FROM cadu_ci_projeto_links
-                               WHERE id=%s AND projeto_id=%s AND id_cliente=%s FOR UPDATE''',
-                           (str(link_id), project_id, client_id))
+            cursor.execute('''SELECT locator AS url,COALESCE(metadata->'icon','{}'::jsonb) AS icon_metadata,
+                                     updated_at,true AS canonical
+                                FROM cadu_workspace_external_references
+                               WHERE id=%s AND client_id=%s AND project_ref=%s AND archived_at IS NULL
+                               FOR UPDATE''', (str(link_id), client_id, f'ci:{project_id}'))
             row = cursor.fetchone()
+            if not row:
+                cursor.execute('''SELECT url,icon_metadata,updated_at,false AS canonical
+                                    FROM cadu_ci_projeto_links
+                                   WHERE id=%s AND projeto_id=%s AND id_cliente=%s FOR UPDATE''',
+                               (str(link_id), project_id, client_id))
+                row = cursor.fetchone()
             if not row:
                 abort(404)
             metadata = dict(row.get('icon_metadata') or {})
@@ -6165,11 +6164,18 @@ def generate_project_link_icon(project_id, link_id):
             host = urlparse(url).hostname or ''
             enqueue(cursor, job_id=job_id, client_id=client_id, user_id=user_id,
                     target_type='project', target_id=str(link_id), project_id=project_id, host=host)
-            cursor.execute('''UPDATE cadu_ci_projeto_links
-                                 SET icon_metadata=icon_metadata || %s::jsonb, updated_at=NOW()
-                               WHERE id=%s AND projeto_id=%s AND id_cliente=%s''',
-                           (Json({'icon_status':'queued', 'icon_job_id':job_id, 'icon_error':''}),
-                            str(link_id), project_id, client_id))
+            icon_change = Json({'icon_status':'queued', 'icon_job_id':job_id, 'icon_error':''})
+            if row.get('canonical'):
+                cursor.execute('''UPDATE cadu_workspace_external_references
+                                     SET metadata=jsonb_set(metadata,'{icon}',
+                                         COALESCE(metadata->'icon','{}'::jsonb) || %s),updated_at=NOW()
+                                   WHERE id=%s AND client_id=%s AND project_ref=%s''',
+                               (icon_change, str(link_id), client_id, f'ci:{project_id}'))
+            else:
+                cursor.execute('''UPDATE cadu_ci_projeto_links
+                                     SET icon_metadata=icon_metadata || %s::jsonb, updated_at=NOW()
+                                   WHERE id=%s AND projeto_id=%s AND id_cliente=%s''',
+                               (icon_change, str(link_id), project_id, client_id))
         connection.commit()
     except HTTPException:
         connection.rollback()
@@ -6192,13 +6198,29 @@ def update_project_link(project_id, link_id):
     client_id = int(session.get('cliente_id') or 0)
     _editable_workspace_project(client_id, project_id)
     try:
-        link = _project_link_metadata(request.form.get('url'), request.form.get('title'))
-    except ValueError as error:
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, link_error=str(error)), code=303)
+        link = project_source_service.describe_link(request.form.get('url'), request.form.get('title'))
+    except HTTPException as error:
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                                link_error=str(error.description)), code=303)
     connection = None
     try:
         connection = get_db()
         with connection.cursor() as cursor:
+            cursor.execute('''UPDATE cadu_workspace_external_references
+                                 SET provider=%s,locator=%s,reference_type=%s,
+                                     metadata=metadata || %s,updated_at=NOW()
+                               WHERE id=%s AND client_id=%s AND project_ref=%s
+                                 AND archived_at IS NULL''',
+                           (link['provider'], link['url'], link['resource_kind'],
+                            Json({'title': link['title'], 'platform': link['provider'],
+                                  'resource_kind': link['resource_kind'],
+                                  'access_type': link['access_type'],
+                                  'connector_recommended': link['connector_recommended']}),
+                            link_id, client_id, f'ci:{project_id}'))
+            if cursor.rowcount:
+                connection.commit()
+                return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                                        link_notice='Referência atualizada.'), code=303)
             cursor.execute('''SELECT EXISTS (SELECT 1 FROM information_schema.columns
                                               WHERE table_schema='public' AND table_name='cadu_ci_projeto_links'
                                                 AND column_name='icon_metadata') AS available''')
@@ -6248,8 +6270,14 @@ def remove_project_link(project_id, link_id):
     try:
         connection = get_db()
         with connection.cursor() as cursor:
-            cursor.execute('DELETE FROM cadu_ci_projeto_links WHERE id = %s AND projeto_id = %s AND id_cliente = %s',
-                           (link_id, project_id, client_id))
+            cursor.execute('''UPDATE cadu_workspace_external_references
+                                 SET archived_at=NOW(),updated_at=NOW()
+                               WHERE id=%s AND client_id=%s AND project_ref=%s
+                                 AND archived_at IS NULL''',
+                           (link_id, client_id, f'ci:{project_id}'))
+            if not cursor.rowcount:
+                cursor.execute('DELETE FROM cadu_ci_projeto_links WHERE id = %s AND projeto_id = %s AND id_cliente = %s',
+                               (link_id, project_id, client_id))
         connection.commit()
     except Exception:
         try:

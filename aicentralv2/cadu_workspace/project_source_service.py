@@ -42,7 +42,6 @@ EXTERNAL_RESOURCE_KINDS = {
     "drive_file", "event", "other",
 }
 
-
 def inspect_file_support(filename: str, mime_type: str = "") -> dict:
     """Describe processing support without reading or accepting file content."""
     safe_name = secure_filename(str(filename or ""))[:220]
@@ -214,91 +213,6 @@ def describe_link(value: str, title: str = "") -> dict:
             "google_drive", "google_calendar", "google_meet", "trello", "notion", "miro", "mural",
         },
     }
-
-
-def _link_metadata(value: str, title: str = "") -> dict:
-    """Normalize a URL without fetching it or accepting credential-bearing URLs."""
-    return describe_link(value, title)
-
-
-def create_link_reference(context: RequestContext, *, url: str, title: str = "",
-                          resource_kind: str = "", platform: str = "", external_id: str = "",
-                          description: str = "", tags: Optional[list[str]] = None,
-                          meeting: Optional[dict] = None) -> dict:
-    """Save a project URL as a reference and schedule registry reconciliation.
-
-    Deliberately does not download, parse, or index the remote page. Those are
-    explicit future jobs so a pasted link never changes the knowledge base by
-    surprise.
-    """
-    project_id = _project_id(context)
-    link = _link_metadata(url, title)
-    explicit_kind = str(resource_kind or "").strip().lower()
-    if explicit_kind and explicit_kind not in EXTERNAL_RESOURCE_KINDS:
-        raise BadRequest("Tipo de recurso externo inválido.")
-    link["resource_kind"] = explicit_kind or link["resource_kind"]
-    platform = str(platform or "").strip()[:120]
-    external_id = str(external_id or "").strip()[:512]
-    description = str(description or "").strip()[:4000]
-    if tags is not None and not isinstance(tags, list):
-        raise BadRequest("As etiquetas do recurso devem ser enviadas como uma lista.")
-    normalized_tags = list(dict.fromkeys(
-        str(item or "").strip()[:64] for item in (tags or []) if str(item or "").strip()
-    ))[:20]
-    meeting = dict(meeting or {}) if isinstance(meeting, dict) else {}
-    connection = get_db()
-    link_id = None
-    created = False
-    try:
-        with connection.cursor() as cursor:
-            # The table predates this service and does not guarantee a unique
-            # (client, project, url) key. Serialize that natural key so two
-            # different MCP request IDs cannot insert the same reference.
-            cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
-                           (f"cadu-project-link:{context.client_id}:{project_id}:{link['url']}",))
-            cursor.execute("""SELECT id::text AS id, titulo FROM cadu_ci_projeto_links
-                               WHERE id_cliente=%s AND projeto_id=%s AND url=%s
-                               ORDER BY created_at ASC LIMIT 1""",
-                           (context.client_id, project_id, link["url"]))
-            existing = cursor.fetchone()
-            if existing:
-                link_id = str(existing["id"])
-                link["title"] = existing.get("titulo") or link["title"]
-            else:
-                link_id = str(uuid4())
-                cursor.execute(
-                    """INSERT INTO cadu_ci_projeto_links
-                       (id, projeto_id, id_cliente, criado_por, provider, url, titulo, position)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s,
-                               COALESCE((SELECT MAX(position) + 1 FROM cadu_ci_projeto_links
-                                         WHERE projeto_id = %s AND id_cliente = %s), 0))""",
-                    (link_id, project_id, context.client_id, context.user_id, link["provider"],
-                     link["url"], link["title"], project_id, context.client_id),
-                )
-                created = True
-        connection.commit()
-    except Exception:
-        connection.rollback()
-        raise
-    try:
-        from . import project_resource_service
-        project_resource_service.notify_change(
-            context.client_id, context.project_ref, "created" if created else "linked",
-            source_system="workspace", source_id=f"link:{link_id}", actor_id=context.user_id,
-        )
-        registry_sync = "queued"
-    except Exception:
-        current_app.logger.exception("Falha ao enfileirar reconciliação do link %s", link_id)
-        registry_sync = "pending"
-    return {"link_id": link_id, "url": link["url"], "title": link["title"],
-            "provider": link["provider"], "resource_kind": link["resource_kind"],
-            "access_type": link["access_type"], "embed_type": link["embed_type"],
-            "connector_recommended": link["connector_recommended"], "created": created,
-            "platform": platform or link["provider"], "external_id": external_id or None,
-            "description": description or None, "tags": normalized_tags, "meeting": meeting or None,
-            "purpose": "project_attachment", "indexing": "not_requested",
-            "access": "not_checked", "content": "not_read",
-            "registry_sync": registry_sync}
 
 
 def _serializer():

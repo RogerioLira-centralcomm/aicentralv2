@@ -34,6 +34,7 @@ def _preserve_external_reference(context: RequestContext, descriptor: dict, *, e
     metadata = {
         "title": descriptor.get("title"),
         "platform": str(platform or "")[:120] or descriptor.get("provider"),
+        "external_id": str(external_id or "")[:512] or None,
         "description": str(description or "")[:4000] or None,
         "tags": list(tags or [])[:20],
         "resource_kind": descriptor.get("resource_kind"),
@@ -72,15 +73,18 @@ def _preserve_external_reference(context: RequestContext, descriptor: dict, *, e
             existing = cursor.fetchone()
             if existing:
                 reference_id = str(existing["id"])
+                created = False
                 cursor.execute(
                     """UPDATE cadu_workspace_external_references SET
                          provider=%s, external_id=COALESCE(%s,external_id), reference_type=%s,
                          ingestion_item_id=COALESCE(%s,ingestion_item_id), metadata=metadata || %s,
-                         updated_at=NOW() WHERE id=%s RETURNING id::text,sync_status""",
+                         archived_at=NULL,updated_at=NOW()
+                       WHERE id=%s RETURNING id::text,sync_status""",
                     (descriptor["provider"], str(external_id or "")[:512] or None,
                      stored_kind, ingestion_item_id or None, Json(metadata), reference_id),
                 )
             else:
+                created = True
                 cursor.execute(
                     """INSERT INTO cadu_workspace_external_references
                        (id,client_id,project_ref,ingestion_item_id,provider,external_id,locator,
@@ -93,7 +97,8 @@ def _preserve_external_reference(context: RequestContext, descriptor: dict, *, e
                 )
             row = dict(cursor.fetchone())
         connection.commit()
-        return {"available": True, "reference_id": row["id"], "sync_status": row["sync_status"]}
+        return {"available": True, "reference_id": row["id"], "sync_status": row["sync_status"],
+                "created": created}
     except Exception:
         connection.rollback()
         raise
@@ -110,6 +115,16 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
     deployed. In that rollout state the existing link pipeline still succeeds.
     """
     descriptor = project_source_service.describe_link(url, title)
+    resource_kind = str(resource_kind or "").strip().lower()
+    if resource_kind and resource_kind not in project_source_service.EXTERNAL_RESOURCE_KINDS:
+        raise ValueError("Tipo de recurso externo inválido.")
+    if tags is not None and not isinstance(tags, list):
+        raise ValueError("As etiquetas do recurso devem ser enviadas como uma lista.")
+    tags = list(dict.fromkeys(
+        str(item or "").strip()[:64] for item in (tags or []) if str(item or "").strip()
+    ))[:20]
+    platform = str(platform or "").strip()[:120]
+    external_id = str(external_id or "").strip()[:512]
     context_data = reference_context(message=user_message, url=descriptor["url"], descriptor=descriptor,
                                      meeting=meeting, requested_kind=project_item_kind)
     if not title and context_data.get("suggested_title"):
@@ -159,25 +174,33 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
         connection.rollback()
         raise
 
-    try:
-        result = project_source_service.create_link_reference(
-            context, url=url, title=title, resource_kind=resource_kind, platform=platform,
-            external_id=external_id, description=description, tags=tags,
-            meeting=meeting,
-        )
-    except Exception:
-        if tracked:
-            _finish(session_id, item_id, status="failed", error="Não foi possível preservar o link.")
-        raise
-
-    if tracked:
-        _finish(session_id, item_id, status="completed", link_id=result["link_id"])
     external = _preserve_external_reference(
-        context, {**descriptor, "resource_kind": result["resource_kind"]},
+        context, {**descriptor, "resource_kind": resource_kind or descriptor["resource_kind"]},
         external_id=external_id, platform=platform, description=description, tags=tags,
         ingestion_item_id=item_id if tracked else "", meeting=meeting,
         context_data=context_data, origin=origin,
     )
+    if not external.get("reference_id"):
+        if tracked:
+            _finish(session_id, item_id, status="failed", error="A base canônica de referências não está disponível.")
+        raise RuntimeError("A base canônica de referências do projeto não está disponível.")
+    result = {
+        "link_id": external["reference_id"], "reference_id": external["reference_id"],
+        "status": "created" if external.get("created") else "updated",
+        "resource_created": bool(external.get("created")), "canonical": True,
+        "url": descriptor["url"], "title": descriptor["title"],
+        "provider": descriptor["provider"],
+        "resource_kind": resource_kind or descriptor["resource_kind"],
+        "access_type": descriptor["access_type"], "embed_type": descriptor["embed_type"],
+        "connector_recommended": descriptor["connector_recommended"],
+        "created": bool(external.get("created")),
+        "platform": platform or descriptor["provider"], "external_id": external_id or None,
+        "description": description or None, "tags": list(tags or []), "meeting": meeting or None,
+        "purpose": "project_attachment", "indexing": "not_requested",
+        "access": "not_checked", "content": "not_read", "registry_sync": "queued",
+    }
+    if tracked:
+        _finish(session_id, item_id, status="completed", link_id=result["link_id"])
     if external.get("reference_id"):
         try:
             from . import project_resource_service

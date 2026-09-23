@@ -40,10 +40,7 @@ class WorkspaceLinkIconTest(TestCase):
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id':'project-1'})
-    @mock.patch('aicentralv2.cadu_workspace.routes._project_link_metadata', return_value={
-        'provider':'generic', 'url':'https://example.com/', 'title':'Example',
-    })
-    def test_project_link_can_still_be_edited_before_icon_migration(self, _metadata, _project, get_db):
+    def test_project_link_can_still_be_edited_before_icon_migration(self, _project, get_db):
         connection = get_db.return_value
         cursor = connection.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = {'available':False}

@@ -29,7 +29,9 @@ from aicentralv2.cadu_workspace.agent_v2 import request_context
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace import brand_mcp_service
 from aicentralv2.cadu_workspace import project_source_service
+from aicentralv2.cadu_workspace import project_resource_service
 from aicentralv2.cadu_workspace import project_resource_jobs
+from aicentralv2.cadu_workspace import workspace_ingestion_service
 from aicentralv2.cadu_workspace.reference_context import clean_user_message, reference_context
 from aicentralv2.cadu_family import repository
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
@@ -266,6 +268,37 @@ def test_google_meet_link_uses_project_reference_flow():
     assert descriptor["resource_kind"] == "meeting"
     assert descriptor["access_type"] == "authenticated"
     assert descriptor["connector_recommended"] is True
+
+
+def test_link_ingestion_writes_only_the_canonical_external_reference(monkeypatch):
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+
+    class Connection:
+        def cursor(self): return Cursor()
+        def commit(self): pass
+        def rollback(self): raise AssertionError("Não deve fazer rollback")
+
+    preserved = {}
+    monkeypatch.setattr(workspace_ingestion_service, "get_db", lambda: Connection())
+    monkeypatch.setattr(workspace_ingestion_service, "_relation", lambda *_: False)
+    monkeypatch.setattr(workspace_ingestion_service, "_preserve_external_reference",
+                        lambda _context, descriptor, **kwargs: preserved.update(descriptor=descriptor, **kwargs)
+                        or {"available": True, "reference_id": "reference-1", "sync_status": "pending", "created": True})
+    monkeypatch.setattr(project_resource_service, "notify_change", lambda *_, **__: None)
+
+    result = workspace_ingestion_service.ingest_link(
+        context(project_ref="ci:project-1"), url="https://meet.google.com/abc-defg-hij",
+    )
+
+    assert result["link_id"] == "reference-1"
+    assert result["reference_id"] == "reference-1"
+    assert result["status"] == "created"
+    assert result["canonical"] is True
+    assert result["provider"] == "google_meet"
+    assert result["resource_kind"] == "meeting"
+    assert preserved["descriptor"]["provider"] == "google_meet"
 
 
 def test_pasted_meet_invite_becomes_a_structured_project_reference():
@@ -699,7 +732,11 @@ def test_link_reference_mcp_contract_forwards_structured_meeting_metadata(monkey
     monkeypatch.setattr(repository, "project_access", lambda *_: [{"user_id": 7, "role": "editor"}])
     monkeypatch.setattr(projects.operations, "execute", lambda _id, _ctx, _name, _payload, operation: operation())
     monkeypatch.setattr(projects.workspace_ingestion_service, "ingest_link",
-                        lambda _context, **payload: captured.update(payload) or payload)
+                        lambda _context, **payload: captured.update(payload) or {
+                            **payload, "reference_id": "reference-1", "link_id": "reference-1",
+                            "status": "created", "canonical": True, "resource_created": True,
+                            "provider": "google_meet", "resource_kind": "meeting",
+                        })
     meeting = {
         "starts_at": "2026-09-23T11:00:00-03:00", "ends_at": "2026-09-23T12:00:00-03:00",
         "timezone": "America/Sao_Paulo", "year_inferred": True, "dial_in": "+55 19 4560-9774",

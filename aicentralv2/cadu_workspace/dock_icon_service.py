@@ -89,11 +89,19 @@ def _patch_metadata(client_id: int, user_id: int, shortcut_id: str, job_id: str,
     try:
         with connection.cursor() as cursor:
             if project_id:
-                cursor.execute('''UPDATE cadu_ci_projeto_links
-                                     SET icon_metadata=icon_metadata || %s::jsonb, updated_at=NOW()
-                                   WHERE id=%s AND projeto_id=%s AND id_cliente=%s
-                                     AND icon_metadata->>'icon_job_id'=%s''',
-                               (Json(changes), shortcut_id, project_id, client_id, job_id))
+                cursor.execute('''UPDATE cadu_workspace_external_references
+                                     SET metadata=jsonb_set(metadata,'{icon}',
+                                         COALESCE(metadata->'icon','{}'::jsonb) || %s),updated_at=NOW()
+                                   WHERE id=%s AND client_id=%s AND project_ref=%s
+                                     AND archived_at IS NULL
+                                     AND metadata->'icon'->>'icon_job_id'=%s''',
+                               (Json(changes), shortcut_id, client_id, f'ci:{project_id}', job_id))
+                if not cursor.rowcount:
+                    cursor.execute('''UPDATE cadu_ci_projeto_links
+                                         SET icon_metadata=icon_metadata || %s::jsonb, updated_at=NOW()
+                                       WHERE id=%s AND projeto_id=%s AND id_cliente=%s
+                                         AND icon_metadata->>'icon_job_id'=%s''',
+                                   (Json(changes), shortcut_id, project_id, client_id, job_id))
             else:
                 cursor.execute('''UPDATE cadu_workspace_dock_shortcuts
                                      SET metadata=metadata || %s::jsonb, updated_at=NOW()

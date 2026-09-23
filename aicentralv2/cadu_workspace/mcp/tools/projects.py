@@ -184,8 +184,21 @@ def ingestion_status(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.create_link_reference", capability="workspace", effect="write", requires_project=True,
-    description="Adiciona ao projeto um recurso de qualquer plataforma por URL, preservando tipo, origem, identificador externo, descrição e etiquetas sem copiar ou indexar o conteúdo remoto.",
+    description="Cria ou atualiza uma referência externa canônica do projeto por URL, preservando provedor, tipo, origem, identificador externo, descrição e etiquetas sem copiar ou indexar o conteúdo remoto.",
     exposures=("internal", "customer_agent"),
+    version="2.0.0",
+    output_schema={"type": "object", "required": [
+        "reference_id", "status", "canonical", "url", "title", "provider", "resource_kind",
+    ], "properties": {
+        "reference_id": {"type": "string", "minLength": 1},
+        "link_id": {"type": "string", "minLength": 1,
+                    "description": "Alias temporário de reference_id para clientes anteriores."},
+        "status": {"type": "string", "enum": ["created", "updated"]},
+        "canonical": {"type": "boolean", "enum": [True]},
+        "resource_created": {"type": "boolean"},
+        "url": {"type": "string"}, "title": {"type": "string"},
+        "provider": {"type": "string"}, "resource_kind": {"type": "string"},
+    }},
     input_schema={"type": "object", "required": ["request_id", "confirmed", "url"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},

@@ -3902,7 +3902,7 @@ def _workspace_continuity_feed(client_id: int, projects: list[dict], user: dict)
                      # The resource inspector lives inside the canonical project surface.
                      # It preserves the exact Registry record instead of opening the project
                      # with no indication of which item the user selected.
-                     'href': url_for('cadu_workspace.project_detail', project_id=str(project.get('id')), resource=str(resource.get('id'))),
+                     'href': url_for('cadu_workspace.clean_project_detail', project_id=str(project.get('id')), resource=str(resource.get('id'))),
                      'resourceRef': str(resource.get('id')), 'projectRef': str(resource.get('project_ref') or ''),
                      'previewUrl': '', 'visualColor': str(project.get('thumbnail_color') or project.get('cor') or '#176b5e')})
     try:
@@ -4596,7 +4596,7 @@ def workspace_onboarding():
         current_app.logger.warning('Não foi possível carregar o nome da empresa %s', client_id, exc_info=True)
     record = _workspace_onboarding_record(contact_id, client_id)
     if record and record.get('project_id') and record.get('brand_id'):
-        return redirect(url_for('cadu_workspace.project_detail', project_id=str(record['project_id']), onboarding='1'), code=303)
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=str(record['project_id']), onboarding='1'), code=303)
 
     default_operation = 'agency' if (
         organization.get('agencia_key') is True
@@ -4909,7 +4909,7 @@ def workspace_onboarding():
     except Exception:
         # Commercial CRM/email must not undo a completed Workspace setup.
         current_app.logger.exception('Workspace criado, mas o fluxo comercial pós-onboarding falhou')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, onboarding='1'), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id, onboarding='1'), code=303)
 
 
 @bp.get("/workspace/design-system")
@@ -5184,7 +5184,7 @@ def dashboard():
     # fallback when a brand has no usable logo. Do not hide those brands here.
     visible_brands = brand_items[:8]
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
-                      'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
+                      'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
                       'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
                       'updatedAt': str(item.get('updated_at') or ''),
                       'brandRef': str(item.get('brand_ref') or ''),
@@ -5220,7 +5220,7 @@ def dashboard():
             'title': f"{'Complete' if missing else 'Revise'} o contexto de {project_name}",
             'context': ', '.join(missing[:2]) if missing else 'Escolha o próximo resultado para este projeto.',
             'detail': ', '.join(missing),
-            'href': url_for('cadu_workspace.project_detail', project_id=project_id),
+            'href': url_for('cadu_workspace.clean_project_detail', project_id=project_id),
             'projectRef': f'ci:{project_id}',
         })
     home_data = {
@@ -5755,7 +5755,7 @@ def create_project():
         except Exception:
             pass
         abort(503, description='Não foi possível criar o projeto agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/marcas/<int:brand_id>/campanhas/<campaign_id>/projeto')
@@ -5818,7 +5818,7 @@ def create_campaign_project(brand_id, campaign_id):
         connection.rollback()
         current_app.logger.exception('Não foi possível criar projeto da campanha %s da marca %s', campaign_id, brand_id)
         abort(503, description='Não foi possível criar o projeto desta campanha agora.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.get('/workspace/app/projetos/<project_id>')
@@ -5839,7 +5839,11 @@ def project_detail(project_id, project_view='overview'):
     # the few administrative flows that are still being consolidated.
     if request.args.get('legacy') != '1':
         projects = _workspace_projects(client_id)
-        brands = _workspace_brands(client_id)
+        try:
+            brands = _workspace_brands(client_id)
+        except Exception:
+            current_app.logger.exception('Não foi possível carregar o catálogo de marcas do projeto %s', project_id)
+            brands = []
         # Keep the project selector useful when the global catalog is briefly
         # incomplete (for example while the optional brand-assets projection
         # is being migrated). The project loader already resolved these brands
@@ -5859,7 +5863,7 @@ def project_detail(project_id, project_view='overview'):
             'visualColor': str(item.get('thumbnail_color') or item.get('cor') or ''),
             'visualVariant': _dock_visual_variant('project', item.get('id')),
             'projectRef': f"ci:{item.get('id')}",
-            'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
+            'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
         } for item in projects]
         brand_items = [{
             'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
@@ -5869,7 +5873,11 @@ def project_detail(project_id, project_view='overview'):
             'visualVariant': _dock_visual_variant('brand', item.get('id')),
             'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
         } for item in brands]
-        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+        try:
+            dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+        except Exception:
+            current_app.logger.exception('Não foi possível carregar o dock do projeto %s', project_id)
+            dock_items = []
         active_brand = next(iter(project.get('brands') or []), {})
         project_conversation_url = url_for(
             'cadu_agent_v2_lab.conversations_v2_lab',
@@ -5967,6 +5975,21 @@ def project_detail(project_id, project_view='overview'):
             item for item in project.get('resources') or []
             if str(item.get('source_system') or '') not in {'planner_docs', 'external_reference'}
         ]
+        try:
+            project_visibility = (family_repository.project_visibility(client_id, f'ci:{project_id}') or {}).get('visibility', 'private')
+        except Exception:
+            current_app.logger.exception('Não foi possível carregar a visibilidade do projeto %s', project_id)
+            project_visibility = 'private'
+        try:
+            project_members = family_repository.project_access(client_id, f'ci:{project_id}') or []
+        except Exception:
+            current_app.logger.exception('Não foi possível carregar os membros do projeto %s', project_id)
+            project_members = []
+        try:
+            usage_percent = round(float((credit_position(client_id) or {}).get('monthly_usage_percentage') or 0), 1)
+        except Exception:
+            current_app.logger.exception('Não foi possível carregar os créditos do projeto %s', project_id)
+            usage_percent = 0
         project_data = {
             'id': str(project.get('id')), 'name': str(project.get('nome') or 'Projeto'),
             'description': str(project.get('descricao') or ''),
@@ -6074,12 +6097,12 @@ def project_detail(project_id, project_view='overview'):
                       for item in project.get('links') or []],
             'health': project.get('context_health') or {},
             'sharing': {
-                'visibility': family_repository.project_visibility(client_id, f'ci:{project_id}').get('visibility', 'private'),
+                'visibility': project_visibility,
                 'members': [{
                     'id': str(item.get('user_id')), 'name': str(item.get('name') or 'Pessoa da equipe'),
                     'email': str(item.get('email') or ''), 'role': str(item.get('role') or 'viewer'),
                     'status': 'active' if item.get('status') else 'inactive',
-                } for item in family_repository.project_access(client_id, f'ci:{project_id}')],
+                } for item in project_members],
             },
         }
         allowed_project_views = {'overview', 'direction', 'tasks', 'activity', 'library', 'indexing', 'conversations', 'deliveries', 'views'}
@@ -6088,7 +6111,7 @@ def project_detail(project_id, project_view='overview'):
             'cadu_workspace/project_detail_react.html', project_data=project_data,
             project_items=project_items, brand_items=brand_items, dock_items=dock_items,
             project_view=project_view,
-            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1),
+            usage_percent=usage_percent,
         )
     return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=308)
 
@@ -6482,10 +6505,10 @@ def create_project_link(project_id):
         )
     except (ValueError, HTTPException) as error:
         detail = getattr(error, 'description', None) or str(error)
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, link_error=detail), code=303)
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id, link_error=detail), code=303)
     except Exception:
         current_app.logger.exception('Não foi possível salvar atalho do projeto %s', project_id)
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                                 link_error='Não foi possível salvar o atalho agora.'), code=303)
     next_step = (result.get('ingestion') or {}).get('next')
     notice = 'Link adicionado ao projeto.'
@@ -6493,7 +6516,7 @@ def create_project_link(project_id):
         notice = 'Link adicionado. Conecte a conta para ampliar o acesso quando necessário.'
     elif next_step == 'eligible_for_public_extraction':
         notice = 'Link adicionado e pronto para enriquecimento.'
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                             link_notice=notice), code=303)
 
 
@@ -6630,7 +6653,7 @@ def update_project_link(project_id, link_id):
     try:
         link = project_source_service.describe_link(request.form.get('url'), request.form.get('title'))
     except HTTPException as error:
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                                 link_error=str(error.description)), code=303)
     connection = None
     try:
@@ -6649,7 +6672,7 @@ def update_project_link(project_id, link_id):
                             link_id, client_id, f'ci:{project_id}'))
             if cursor.rowcount:
                 connection.commit()
-                return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                                         link_notice='Referência atualizada.'), code=303)
             cursor.execute('''SELECT EXISTS (SELECT 1 FROM information_schema.columns
                                               WHERE table_schema='public' AND table_name='cadu_ci_projeto_links'
@@ -6683,9 +6706,9 @@ def update_project_link(project_id, link_id):
         if connection:
             connection.rollback()
         current_app.logger.exception('Não foi possível atualizar atalho do projeto %s', project_id)
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                                 link_error='Não foi possível atualizar o atalho agora.'), code=303)
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                             link_notice='Atalho atualizado.'), code=303)
 
 
@@ -6715,7 +6738,7 @@ def remove_project_link(project_id, link_id):
         except Exception:
             pass
         abort(503, description='Não foi possível remover o atalho agora.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                             link_notice='Atalho removido do projeto.'), code=303)
 
 
@@ -6791,7 +6814,7 @@ def update_project_context(project_id):
     except Exception:
         current_app.logger.exception('Não foi possível salvar a direção do projeto %s', project_id)
         abort(503, description='Não foi possível salvar o contexto agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/marcas')
@@ -6821,7 +6844,7 @@ def update_project_brands(project_id):
     except Exception:
         current_app.logger.exception('Não foi possível atualizar marcas do projeto')
         abort(503, description='Não foi possível atualizar as marcas agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/marcas/importar')
@@ -6901,7 +6924,7 @@ def import_project_brand(project_id):
     }
     if request.accept_mimetypes.best == 'application/json':
         return jsonify(payload), 202
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/fontes/notas')
@@ -6929,7 +6952,7 @@ def create_project_note(project_id):
         if queued:
             if request.accept_mimetypes.best == 'application/json':
                 return jsonify({'ok': True, **queued, 'status': 'queued'}), 202
-            return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+            return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
         _persist_project_source(
             client_id, project_id, title, content, 'text/markdown',
             len(content.encode('utf-8')), storage_path, 'workspace_note',
@@ -6945,13 +6968,13 @@ def create_project_note(project_id):
             abort(503, description='Não foi possível adicionar a fonte agora. Tente novamente.')
         if request.accept_mimetypes.best == 'application/json':
             return jsonify({'ok': True, 'source_id': source_id, 'status': 'error', 'error': str(exc)}), 202
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
     except CaduCreditUnavailable as exc:
         abort(409, description=str(exc))
     except Exception:
         current_app.logger.exception('Não foi possível registrar nota no projeto %s', project_id)
         abort(503, description='Não foi possível adicionar a fonte agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/fontes/arquivos')
@@ -7025,7 +7048,7 @@ def upload_project_source(project_id):
         if queued:
             if request.accept_mimetypes.best == 'application/json':
                 return jsonify({'ok': True, **queued, 'status': 'queued'}), 202
-            return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+            return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
         _persist_project_source(
             client_id, project_id, source['name'], source['text'], source['mime'],
             len(source['data']), storage_path, 'workspace_upload',
@@ -7042,7 +7065,7 @@ def upload_project_source(project_id):
             abort(503, description='Não foi possível adicionar o arquivo agora. Tente novamente.')
         if request.accept_mimetypes.best == 'application/json':
             return jsonify({'ok': True, 'source_id': source_id, 'status': 'error', 'error': str(exc)}), 202
-        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
     except CaduCreditUnavailable as exc:
         target.unlink(missing_ok=True)
         abort(409, description=str(exc))
@@ -7050,7 +7073,7 @@ def upload_project_source(project_id):
         target.unlink(missing_ok=True)
         current_app.logger.exception('Não foi possível registrar arquivo no projeto %s', project_id)
         abort(503, description='Não foi possível adicionar o arquivo agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/fontes/<int:source_id>/confirmar')
@@ -7152,7 +7175,7 @@ def import_project_url(project_id):
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({'ok': True, 'source_id': source_id, 'status': 'queued',
                         'status_url': url_for('cadu_workspace.project_sources_status', project_id=project_id)}), 202
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.get('/workspace/app/projetos/<project_id>/fontes/<int:source_id>/download')
@@ -7224,7 +7247,7 @@ def reprocess_project_source(project_id, source_id):
         elif request.accept_mimetypes.best == 'application/json':
             return jsonify({'ok': True, 'source_id': source_id, 'job_id': job_id, 'status': 'queued'}), 202
         else:
-            return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+            return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
     reprocess_id = uuid4().hex
     user_id = int(session.get('user_id') or 0)
     try:
@@ -7304,7 +7327,7 @@ def reprocess_project_source(project_id, source_id):
         except Exception:
             current_app.logger.exception('Não foi possível registrar erro da fonte %s', source_id)
         abort(503, description='Não foi possível reprocessar essa fonte agora.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/fontes/<int:source_id>/remover')
@@ -7350,7 +7373,7 @@ def remove_project_source(project_id, source_id):
                 path.replace(trash / f'{uuid4().hex}-{path.name}')
         except Exception:
             current_app.logger.warning('Fonte %s removida do banco, mas o arquivo não foi movido para a lixeira', source_id)
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/status')
@@ -7376,7 +7399,7 @@ def update_project_status(project_id):
         except Exception:
             pass
         abort(503, description='Não foi possível alterar o estado do projeto agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/excluir')

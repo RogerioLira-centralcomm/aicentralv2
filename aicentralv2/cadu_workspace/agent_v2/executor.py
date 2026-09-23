@@ -41,12 +41,18 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     )
     selected = getattr(request, "selected_context", None) or {}
     previous_text = str(selected.get("text") or "") if selected.get("type") == "assistant_response" else ""
-    planning_request = route.action == "plan_campaign" or bool(re.search(
+    planning_terms = bool(re.search(
         r"\b(?:plano|planejamento|campanha)\b.{0,100}\b(?:campanha|m[ií]dia|funil|an[uú]ncios?|"
         r"or[cç]amento|verba|google|instagram|meta)\b|"
         r"\b(?:topo|meio|fundo)\s+(?:de\s+)?funil\b",
         message, re.IGNORECASE,
     ))
+    planning_request = route.action == "plan_campaign" or (
+        planning_terms and route.action in {
+            "search_web", "analyze_plan", "answer", "create_substantial_delivery",
+            "create_text_draft", "create_client_delivery",
+        }
+    )
     planning_followup = route.action == "reformat_previous_answer" and bool(re.search(
         r"\b(?:campanha|m[ií]dia|funil|planejamento|verba|an[uú]ncios?)\b",
         previous_text, re.IGNORECASE,

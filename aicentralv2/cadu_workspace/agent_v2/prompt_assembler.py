@@ -254,7 +254,9 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "das tabelas. Confira que percentuais e valores somam a verba informada. Não invente "
             "métricas nem trate fontes gerais como prova de desempenho. Quando o pedido for mudar "
             "o formato da resposta anterior, preserve seus números, recomendações, ressalvas, fontes "
-            "e próximos passos; a mudança de formato não autoriza resumir ou trocar de assunto."
+            "e próximos passos; a mudança de formato não autoriza resumir ou trocar de assunto. "
+            "Se selected_context.truncated for verdadeiro, diga que só há trechos da resposta anterior "
+            "e não afirme ter preservado partes que não estão disponíveis."
         )
     elif policy.get("planning_artifact"):
         planning_instruction = (

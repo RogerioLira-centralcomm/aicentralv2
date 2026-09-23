@@ -2307,6 +2307,62 @@ def test_table_reformat_route_does_not_override_explicit_document_creation():
     assert route.action == "create_text_draft"
 
 
+def test_new_campaign_plan_with_table_is_not_a_report_comparison_or_reformat():
+    from aicentralv2.cadu_workspace.agent_v2.context_builder import previous_assistant_context
+
+    for message in (
+        "Monte um plano de campanha para Instagram em uma tabela",
+        "Monte uma tabela de orçamento para uma campanha nova",
+    ):
+        route = route_request(message)
+        assert (route.action, route.response_mode) == ("plan_campaign", "analysis")
+        assert previous_assistant_context(message, [
+            {"role": "assistant", "content": "Plano antigo que não deve ser reaproveitado."},
+        ]) is None
+        execution = prepare_execution(message, context())
+        assert execution["policy"]["planning_response"] is True
+        assert execution["budget"]["max_output_tokens"] >= 4000
+    comparison = "Compare o relatório de resultados com o plano de mídia"
+    assert route_request(comparison).action == "compare_report_to_plan"
+    assert prepare_execution(comparison, context())["policy"].get("planning_response") is not True
+    research = "Pesquise fontes atuais para montar um plano de campanha no Instagram"
+    assert route_request(research).action == "search_web"
+    assert previous_assistant_context("Organize o plano anterior em tabela", [
+        {"role": "assistant", "content": "Plano anterior válido."},
+    ])["text"] == "Plano anterior válido."
+
+
+def test_explicit_campaign_document_keeps_artifact_first_contract():
+    for message in (
+        "Crie um documento editável com planejamento de mídia para Instagram",
+        "Gere um documento com o plano de mídia para Instagram",
+    ):
+        execution = prepare_execution(message, context())
+        assert execution["route"]["action"] == "create_text_draft"
+        assert execution["route"]["response_mode"] == "artifact_first"
+        assert execution["policy"].get("planning_artifact") is True
+        assert execution["policy"].get("planning_response") is not True
+        assert "artifact_patch.html" in execution["provider_payload"]["inputs"]["core"]
+
+
+def test_long_previous_campaign_answer_is_kept_as_explicitly_truncated_context():
+    from aicentralv2.cadu_workspace.agent_v2.context_builder import previous_assistant_context
+
+    original = "# Plano de campanha\n" + "Premissas e contexto. " * 1800 + "\n## Decisões\nVerba R$ 2.000."
+    selected = previous_assistant_context("Organize em tabela", [
+        {"role": "assistant", "content": original},
+    ])
+    assert selected["truncated"] is True
+    assert selected["original_chars"] >= 39000
+    assert selected["text"].startswith("# Plano de campanha")
+    assert selected["text"].endswith("Verba R$ 2.000.")
+    current = __import__("dataclasses").replace(context(), selected_context=selected)
+    execution = prepare_execution("Organize em tabela", current)
+    evidence = __import__("json").loads(execution["provider_payload"]["inputs"]["evidence"])
+    assert evidence["selected_context"]["truncated"] is True
+    assert len(execution["provider_payload"]["inputs"]["evidence"]) <= execution["budget"]["max_context_chars"]
+
+
 def test_link_reference_resolves_the_original_url_from_recent_turns():
     turn = v2_service._conversation_turn_context(
         "com base no link que eu te mandei né",

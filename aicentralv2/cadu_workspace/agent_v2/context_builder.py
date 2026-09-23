@@ -11,6 +11,7 @@ from dataclasses import dataclass, replace
 from ..conversations.guardrails import history_context, normalize_colloquial, temporal_context
 from ..conversations import conversation_memory
 from ..intent_engine import interpret
+from .router import route_request
 
 
 _TURN_URL = re.compile(r"https?://[^\s<>\]\[\"']+", re.IGNORECASE)
@@ -81,6 +82,7 @@ def _metadata_response(message):
 def previous_assistant_context(message, messages):
     explicit_reference = re.search(
         r"\b(?:[uú]ltima resposta|resposta anterior|texto anterior|conte[uú]do anterior|"
+        r"plano anterior|planejamento anterior|estrutura anterior|"
         r"esse texto|este texto|essa resposta|esta resposta|esse resumo|este resumo|"
         r"esse conte[uú]do|este conte[uú]do|esse material|este material|essa pesquisa|esta pesquisa|"
         r"o que voc[eê] (?:escreveu|gerou|respondeu))\b",
@@ -98,6 +100,8 @@ def previous_assistant_context(message, messages):
         and natural_intent.source == "referenced_content"
     )
     if not explicit_reference and not actionable_reference and not format_reference:
+        return None
+    if not explicit_reference and route_request(message).action == "plan_campaign":
         return None
     previous = next((item for item in reversed(messages or []) if item.get("role") == "assistant" and str(item.get("content") or "").strip()), None)
     return selected_context({

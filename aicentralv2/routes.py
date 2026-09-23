@@ -15668,7 +15668,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'message': 'Firecrawl não configurada em Integrações.'}), 500
 
             fc_resp = http_requests.post(
-                'https://api.firecrawl.dev/v1/scrape',
+                'https://api.firecrawl.dev/v2/scrape',
                 headers={'Authorization': f'Bearer {firecrawl_key}', 'Content-Type': 'application/json'},
                 json={'url': url, 'formats': ['markdown']},
                 timeout=60,
@@ -15905,7 +15905,7 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
                 return jsonify({'success': False, 'message': 'Firecrawl não configurada em Integrações.'}), 500
 
             fc_resp = http_requests.post(
-                'https://api.firecrawl.dev/v1/scrape',
+                'https://api.firecrawl.dev/v2/scrape',
                 headers={'Authorization': f'Bearer {firecrawl_key}', 'Content-Type': 'application/json'},
                 json={'url': url, 'formats': ['links']},
                 timeout=60,

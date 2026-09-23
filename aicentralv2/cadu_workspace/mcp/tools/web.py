@@ -54,15 +54,16 @@ def search_web(context: RequestContext, arguments: dict) -> dict:
     capability="research",
     effect="read",
     description=(
-        "Lê um único link HTTPS fornecido pelo usuário, remove o ruído da página e devolve o conteúdo "
-        "principal com metadados para análise, citação ou refinamento na conversa."
+        "Lê um ou vários links HTTPS fornecidos pelo usuário, remove o ruído das páginas e devolve "
+        "o conteúdo principal com metadados para análise, citação ou refinamento na conversa."
     ),
     exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object",
-        "required": ["url"],
+        "required": [],
         "properties": {
             "url": {"type": "string", "minLength": 12, "maxLength": 2000},
+            "urls": {"type": "array", "items": {"type": "string", "minLength": 12, "maxLength": 2000}, "minItems": 1, "maxItems": 8},
             "request_id": {"type": ["string", "null"], "maxLength": 120},
         },
         "additionalProperties": False,

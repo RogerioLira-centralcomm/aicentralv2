@@ -62,20 +62,20 @@ def _active_credit_reference() -> tuple[Decimal, str]:
 
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT plan_name, plan_type, monthly_price, price,
-                          tokens_monthly_limit, tokens_limit
+                """SELECT plan_name, plan_type, price_monthly,
+                          tokens_monthly_limit
                      FROM cadu_plan_definitions
                     WHERE is_active = true
                       AND COALESCE(plan_type, '') IN ('pro', 'enterprise')
-                      AND COALESCE(tokens_monthly_limit, tokens_limit, 0) > 0
-                      AND COALESCE(monthly_price, price, 0) >= 0
-                    ORDER BY COALESCE(monthly_price, price) /
-                             NULLIF(COALESCE(tokens_monthly_limit, tokens_limit), 0)
+                      AND COALESCE(tokens_monthly_limit, 0) > 0
+                      AND COALESCE(price_monthly, 0) >= 0
+                    ORDER BY COALESCE(price_monthly, 0) /
+                             NULLIF(tokens_monthly_limit, 0)
                     LIMIT 1"""
             )
             row = cursor.fetchone() or {}
-        tokens = max(1, int(row.get("tokens_monthly_limit") or row.get("tokens_limit") or 1))
-        price = _decimal(row.get("monthly_price") or row.get("price")) / Decimal(tokens)
+        tokens = max(1, int(row.get("tokens_monthly_limit") or 1))
+        price = _decimal(row.get("price_monthly")) / Decimal(tokens)
         return price, str(row.get("plan_name") or row.get("plan_type") or "plano comercial vigente")
     except Exception:
         current_app.logger.warning("Plano comercial de tokens indisponível; tentando pacotes legados", exc_info=True)
@@ -84,15 +84,15 @@ def _active_credit_reference() -> tuple[Decimal, str]:
 
             with get_db().cursor() as cursor:
                 cursor.execute(
-                    """SELECT name, price, credits
-                         FROM cadu_credit_packages
-                        WHERE is_active = true AND credits > 0 AND price >= 0
-                        ORDER BY price / NULLIF(credits, 0), display_order, id
+                    """SELECT plan_name, price_monthly, tokens_monthly_limit
+                         FROM cadu_plan_definitions
+                        WHERE is_active = true AND tokens_monthly_limit > 0
+                        ORDER BY price_monthly / NULLIF(tokens_monthly_limit, 0), display_order, id
                         LIMIT 1"""
                 )
                 row = cursor.fetchone() or {}
-            credits = max(1, int(row.get("credits") or 1))
-            return _decimal(row.get("price")) / Decimal(credits), str(row.get("name") or "pacote legado vigente")
+            credits = max(1, int(row.get("tokens_monthly_limit") or 1))
+            return _decimal(row.get("price_monthly")) / Decimal(credits), str(row.get("plan_name") or "plano vigente")
         except Exception:
             current_app.logger.warning("Não foi possível resolver nenhum preço de tokens", exc_info=True)
             return Decimal("0"), "preço indisponível"

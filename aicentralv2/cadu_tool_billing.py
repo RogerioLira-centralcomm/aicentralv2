@@ -183,6 +183,20 @@ class ToolTokenLedger:
         if not charge.client_id or not charge.user_id:
             raise ValueError("Cliente e usuário são obrigatórios para registrar consumo.")
         required = _integer(charge.charged_tokens)
+        metadata = dict(charge.metadata or {})
+        if "cadu_charge" not in metadata:
+            try:
+                from .cadu_cost_catalog import normalize_charge_metadata
+                metadata["cadu_charge"] = normalize_charge_metadata(
+                    tool=charge.tool, stage=charge.stage, model=charge.model,
+                    technical_units=charge.provider_total_tokens,
+                    technical_cost_usd=charge.internal_cost_usd,
+                    cadu_tokens_charged=required,
+                    idempotency_key=charge.idempotency_key,
+                    metadata=metadata,
+                )
+            except Exception:
+                pass
         conn = self.connection_factory()
         try:
             with conn.cursor() as cursor:
@@ -210,7 +224,7 @@ class ToolTokenLedger:
                         required,
                         charge.internal_cost_usd,
                         charge.additional_cost_usd,
-                        Json(charge.metadata or {}),
+                        Json(metadata),
                     ),
                 )
                 inserted = cursor.fetchone()
@@ -316,7 +330,7 @@ class ToolTokenLedger:
 def charge_from_provider(
     *, ledger, idempotency_key, client_id, user_id, tool, stage,
     provider_result=None, model="", fallback_cost_usd=0, media_tokens=None,
-    metadata=None, margin_multiplier=1,
+    metadata=None, margin_multiplier=1, usd_per_credit_token=None,
 ):
     result = provider_result if isinstance(provider_result, dict) else {}
     usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
@@ -328,12 +342,34 @@ def charge_from_provider(
         or usage.get("cost_usd")
         or fallback_cost_usd
     )
-    charged = estimated_credit_tokens(
-        provider_tokens=total,
-        cost_usd=actual_cost if media_tokens is None else 0,
-        media_tokens=media_tokens,
-        margin_multiplier=margin_multiplier,
-    )
+    if media_tokens is not None:
+        charged = _integer(media_tokens)
+    elif actual_cost and usd_per_credit_token is not None:
+        # O custo USD informado pelo provedor já inclui os tokens daquela
+        # chamada. Não somar ``total`` novamente: isso duplica a cobrança.
+        charged = cost_token_equivalent(
+            actual_cost,
+            usd_per_credit_token=usd_per_credit_token,
+            margin_multiplier=margin_multiplier,
+        )
+    else:
+        charged = _integer(total) * max(1, int(margin_multiplier or 1))
+    charge_metadata = {**(metadata or {}), "margin_multiplier": max(1, int(margin_multiplier or 1))}
+    try:
+        from .cadu_cost_catalog import normalize_charge_metadata
+        charge_metadata["cadu_charge"] = normalize_charge_metadata(
+            tool=tool, stage=stage, model=str(result.get("model") or model),
+            provider=str(result.get("provider") or ""),
+            modality=str(result.get("modality") or ""),
+            operation=str(result.get("operation") or stage or ""),
+            technical_units=total,
+            technical_cost_usd=actual_cost,
+            cadu_tokens_charged=charged,
+            idempotency_key=idempotency_key,
+            metadata=metadata,
+        )
+    except Exception:
+        pass
     return ledger.charge(ToolCharge(
         idempotency_key=idempotency_key,
         client_id=int(client_id),
@@ -347,5 +383,5 @@ def charge_from_provider(
         charged_tokens=charged,
         internal_cost_usd=actual_cost,
         additional_cost_usd=actual_cost,
-        metadata={**(metadata or {}), "margin_multiplier": max(1, int(margin_multiplier or 1))},
+        metadata=charge_metadata,
     ))

@@ -471,6 +471,7 @@ def public_rpc():
             )
             try:
                 value = context_runtime.execute(principal, name, arguments, "customer_agent", registry)
+                reported_cost = usage.reported_tokens(value)
                 if name == "brands.create" and isinstance(value, dict):
                     nested = value.get("uploads") if isinstance(value.get("uploads"), dict) else {}
                     value = {**value, "uploads": {
@@ -483,6 +484,7 @@ def public_rpc():
                 usage.charge_credits(
                     client_id=principal.client_id, user_id=principal.user_id,
                     tool_name=name, idempotency_key=f"{principal.key_id}:{tool_request_id}",
+                    charged_tokens=reported_cost if reported_cost > 0 else None,
                     metadata={"client_type": principal.client_type},
                 )
                 encoded = json.dumps(value, ensure_ascii=False, default=str)
@@ -500,7 +502,8 @@ def public_rpc():
                     key_id=principal.key_id, credential_type=principal.credential_type,
                     client_id=principal.client_id, user_id=principal.user_id,
                     client_type=principal.client_type, method=method, tool_name=name,
-                    request_id=tool_request_id, status="completed", credit_cost=credit_cost,
+                    request_id=tool_request_id, status="completed",
+                    credit_cost=reported_cost or credit_cost,
                     started_at=started_at, output_bytes=len(encoded.encode("utf-8")),
                 )
                 result = {"content": [{"type": "text", "text": encoded}], "structuredContent": value, "isError": False}

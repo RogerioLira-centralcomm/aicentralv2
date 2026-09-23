@@ -30,6 +30,7 @@ MAX_SOURCES = 12
 MAX_HYDRATED_SOURCES = 5
 MAX_CONTENT_CHARS = 6000
 MAX_CONTENT_BLOCKS = 18
+MAX_DIRECT_URLS = 8
 
 SEARCH_DEPTHS = {
     "fast": {"limit": 4, "hydrate": 1},
@@ -253,8 +254,8 @@ def _read_source(url: str) -> dict:
     try:
         from ..crm_v3_web_scout import _firecrawl_scrape
         data = _firecrawl_scrape(url, formats=["markdown", "html"], timeout_s=35, only_main_content=True)
-    except Exception:
-        logger.info("Fonte web não pôde ser lida: %s", url, exc_info=True)
+    except Exception as exc:
+        logger.warning("Fonte web não pôde ser lida", extra={"url_host": _host(url), "error_type": type(exc).__name__}, exc_info=True)
         return {}
     if not isinstance(data, dict):
         return {}
@@ -421,74 +422,61 @@ def search(context, arguments: dict) -> dict:
 
 
 def read(context, arguments: dict) -> dict:
-    """Read exactly one user-provided URL through the same clean evidence pipeline."""
-    url = _safe_url(arguments.get("url"))
-    if not url:
-        raise ValueError("Informe um link HTTPS válido para analisar.")
-    # A Google URL is first resolved through the organization's OAuth grant.
-    # No Firecrawl credit is authorized for that path because it is not a
-    # public scrape. If no readable authorized item exists, the normal public
-    # Firecrawl route below is the intentionally unauthenticated fallback.
-    authenticated = _read_google_workspace_source(context, url)
-    if authenticated:
-        source = {
-            "id": "google-authorized-1",
-            "title": authenticated.get("page_title") or _host(url),
-            "url": url,
-            "domain": _host(url),
-            "excerpt": authenticated.get("content_excerpt") or "",
-            "source_type": "google_workspace_resource",
-            "rank": 1,
-            **authenticated,
-        }
-        return {
-            "result_type": "authorized_google_read",
-            "query": url,
-            "sources": [source],
-            "source_count": 1,
-            "sources_read": 1,
-            "searched_at": datetime.now(timezone.utc).isoformat(),
-            "search_mode": "google_workspace_authorized_read",
-            "evidence_policy": "Conteúdo lido pela conta Google conectada; use somente esta evidência e não exponha permissões.",
-            "review_stage": "google_workspace_content_cleanup_before_agent_synthesis",
-        }
-    actor = CreditActor.from_values(context.client_id, context.user_id)
-    credits = CaduCreditConnector()
-    try:
-        credits.authorize_firecrawl(actor, "scrape", pages=1)
-    except InsufficientToolCredits as exc:
-        raise ValueError("Não há saldo suficiente para ler este link agora.") from exc
-    extracted = _read_source(url)
-    if not extracted:
-        raise WebSearchUnavailable("Não consegui extrair conteúdo legível deste link.")
-    request_id = str(arguments.get("request_id") or getattr(context, "request_id", "") or uuid4())[:120]
-    source = {
-        "id": "web-direct-1",
-        "title": extracted.get("page_title") or _host(url),
-        "url": url,
-        "domain": _host(url),
-        "excerpt": extracted.get("content_excerpt") or "",
-        "source_type": "direct_url",
-        "access_mode": "firecrawl_public",
-        "rank": 1,
-        **extracted,
-    }
-    try:
-        credits.charge_firecrawl(
-            actor=actor, idempotency_key=f"web-read:{request_id}:scrape",
-            operation="scrape", pages=1, app="Cadu Pesquisa", stage="web_direct_read",
-            metadata={"conversation_id": str(context.conversation_id or ""), "url_host": _host(url)},
-        )
-    except Exception:
-        logger.exception("Falha ao registrar cobrança da leitura direta")
+    """Read one or more user-provided URLs through the same clean evidence pipeline."""
+    raw_urls = arguments.get("urls") if isinstance(arguments.get("urls"), list) else [arguments.get("url")]
+    urls = list(dict.fromkeys(_safe_url(value) for value in raw_urls if _safe_url(value)))[:MAX_DIRECT_URLS]
+    if not urls:
+        raise ValueError("Informe pelo menos um link HTTPS válido para analisar.")
+
+    sources = []
+    failures = []
+    for index, url in enumerate(urls, start=1):
+        # Google URLs are resolved through the organization's OAuth grant first.
+        authenticated = _read_google_workspace_source(context, url)
+        if authenticated:
+            sources.append({
+                "id": f"google-authorized-{index}", "title": authenticated.get("page_title") or _host(url),
+                "url": url, "domain": _host(url), "excerpt": authenticated.get("content_excerpt") or "",
+                "source_type": "google_workspace_resource", "rank": index, **authenticated,
+            })
+            continue
+
+        try:
+            credits = CaduCreditConnector()
+            actor = CreditActor.from_values(context.client_id, context.user_id)
+            credits.authorize_firecrawl(actor, "scrape", pages=1)
+            extracted = _read_source(url)
+            if not extracted:
+                failures.append({"url": url, "reason": "no_readable_content"})
+                continue
+            source = {
+                "id": f"web-direct-{index}", "title": extracted.get("page_title") or _host(url),
+                "url": url, "domain": _host(url), "excerpt": extracted.get("content_excerpt") or "",
+                "source_type": "direct_url", "access_mode": "firecrawl_public", "rank": index, **extracted,
+            }
+            sources.append(source)
+            request_id = str(arguments.get("request_id") or getattr(context, "request_id", "") or uuid4())[:120]
+            try:
+                credits.charge_firecrawl(actor=actor, idempotency_key=f"web-read:{request_id}:scrape:{index}", operation="scrape", pages=1, app="Cadu Pesquisa", stage="web_direct_read", metadata={"conversation_id": str(context.conversation_id or ""), "url_host": _host(url)})
+            except Exception:
+                logger.exception("Falha ao registrar cobrança da leitura direta")
+        except InsufficientToolCredits:
+            raise ValueError("Não há saldo suficiente para ler este link agora.")
+        except Exception as exc:
+            failures.append({"url": url, "reason": type(exc).__name__})
+
+    if not sources:
+        raise WebSearchUnavailable("Não consegui validar nenhuma das fontes fornecidas.")
     return {
         "result_type": "direct_read",
-        "query": url,
-        "sources": [source],
-        "source_count": 1,
-        "sources_read": 1,
+        "query": " ".join(urls),
+        "sources": sources,
+        "source_count": len(sources),
+        "sources_received": len(urls),
+        "sources_read": len(sources),
+        "sources_failed": failures,
         "searched_at": datetime.now(timezone.utc).isoformat(),
-        "search_mode": "firecrawl_public_direct_page_read",
+        "search_mode": "firecrawl_public_direct_page_read_with_python_cleanup",
         "evidence_policy": "Conteúdo público lido sem credenciais. Use somente o conteúdo limpo deste link; diferencie fato, interpretação e lacuna.",
         "review_stage": "python_cleanup_quality_gate_before_agent_synthesis",
     }

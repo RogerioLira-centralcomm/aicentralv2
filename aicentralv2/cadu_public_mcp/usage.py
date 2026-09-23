@@ -52,14 +52,39 @@ PUBLIC_TOOL_COSTS = {
     "reports.compare_report_to_plan": 3,
 }
 
+# Estas ferramentas já passam pelo CaduCreditConnector no serviço de origem.
+# O MCP público somente transporta a chamada; cobrar aqui também duplicaria o
+# débito no ledger compartilhado.
+INTERNALLY_METERED_TOOLS = {
+    "media.generate_image",
+    "media.edit_image",
+    "media.plan_video",
+}
+
 
 def tool_cost(tool_name: str) -> int:
+    if tool_name in INTERNALLY_METERED_TOOLS:
+        return 0
     return max(0, int(PUBLIC_TOOL_COSTS.get(tool_name, 1)))
 
 
 def new_request_id(value=None) -> str:
     raw = str(value or "").strip()
     return raw[:160] if raw else str(uuid4())
+
+
+def reported_tokens(value) -> int:
+    """Lê o débito real devolvido por uma ferramenta CADU."""
+    if not isinstance(value, dict):
+        return 0
+    for key in ("tokens_cobrados", "charged_tokens", "charged_credits", "credits_consumed"):
+        try:
+            amount = int(value.get(key) or 0)
+        except (TypeError, ValueError):
+            amount = 0
+        if amount > 0:
+            return amount
+    return 0
 
 
 def authorize_credits(*, client_id: int, user_id: int, tool_name: str) -> int:
@@ -70,17 +95,21 @@ def authorize_credits(*, client_id: int, user_id: int, tool_name: str) -> int:
     )
 
 
-def charge_credits(*, client_id: int, user_id: int, tool_name: str, idempotency_key: str, metadata=None) -> dict | None:
-    if tool_cost(tool_name) == 0:
+def charge_credits(*, client_id: int, user_id: int, tool_name: str, idempotency_key: str,
+                   charged_tokens: int | None = None, metadata=None) -> dict | None:
+    if tool_name in INTERNALLY_METERED_TOOLS:
+        return None
+    amount = max(0, int(charged_tokens or 0)) if charged_tokens is not None else tool_cost(tool_name)
+    if amount == 0:
         return None
     return CaduCreditConnector().charge_tokens(
         actor=CreditActor.from_values(client_id, user_id),
         idempotency_key=f"public-mcp:{idempotency_key}"[:160],
         app="public_mcp",
         stage=tool_name,
-        charged_tokens=tool_cost(tool_name),
+        charged_tokens=amount,
         model="cadu-public-mcp",
-        metadata={"mcp_tool": tool_name, **(metadata or {})},
+        metadata={"mcp_tool": tool_name, "billing_source": "tool_result" if charged_tokens is not None else "fallback_estimate", **(metadata or {})},
     )
 
 

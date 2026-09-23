@@ -41,6 +41,29 @@ def firecrawl_credit_cost(operation: str, *, pages: int = 0, results: int = 0) -
     raise ValueError("Operação Firecrawl sem política de crédito configurada.")
 
 
+def commercial_token_price_brl(client_id: int) -> Decimal:
+    """Preço unitário comercial do token do cliente, em BRL."""
+    from .db import get_db
+
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """SELECT COALESCE(pd.price_monthly, 0) AS price,
+                              COALESCE(pd.tokens_monthly_limit, cp.tokens_monthly_limit, 0) AS tokens
+                         FROM cadu_client_plans cp
+                         JOIN cadu_plan_definitions pd ON pd.id = cp.id_plan_definition
+                        WHERE cp.id_cliente = %s AND cp.plan_status = 'active'
+                        ORDER BY cp.created_at DESC LIMIT 1""",
+            (int(client_id),),
+        )
+        row = cursor.fetchone() or {}
+    price = Decimal(str(row.get("price") or 0))
+    tokens = int(row.get("tokens") or 0)
+    if price <= 0 or tokens <= 0:
+        raise ValueError("Preço comercial de Tokens Cadu indisponível para este cliente.")
+    return price / Decimal(tokens)
+
+
 @dataclass(frozen=True)
 class CreditActor:
     client_id: int
@@ -84,12 +107,20 @@ class CaduCreditConnector:
             str(idempotency_key), actor.client_id, actor.user_id, error
         )
 
-    def estimate_firecrawl_tokens(self, operation: str, *, pages: int = 0, results: int = 0) -> int:
+    def estimate_firecrawl_tokens(self, operation: str, *, client_id: int | None = None, pages: int = 0, results: int = 0) -> int:
         credits = firecrawl_credit_cost(operation, pages=pages, results=results)
-        return cost_token_equivalent(Decimal(credits) * firecrawl_usd_per_credit())
+        if client_id is None:
+            return cost_token_equivalent(Decimal(credits) * firecrawl_usd_per_credit())
+        from .creative_modeling_fx import usd_brl_rate
+        price_brl = commercial_token_price_brl(client_id)
+        exchange, _source = usd_brl_rate()
+        return cost_token_equivalent(
+            Decimal(credits) * firecrawl_usd_per_credit() * Decimal(str(exchange)),
+            usd_per_credit_token=price_brl,
+        )
 
     def authorize_firecrawl(self, actor: CreditActor, operation: str, *, pages: int = 0, results: int = 0) -> int:
-        return self.authorize(actor, self.estimate_firecrawl_tokens(operation, pages=pages, results=results))
+        return self.authorize(actor, self.estimate_firecrawl_tokens(operation, client_id=actor.client_id, pages=pages, results=results))
 
     def charge_firecrawl(
         self, *, actor: CreditActor, idempotency_key: str, operation: str,
@@ -100,6 +131,7 @@ class CaduCreditConnector:
         return self.charge_provider(
             actor=actor, idempotency_key=idempotency_key, app=app, stage=stage,
             provider_result={"model": f"firecrawl/{operation}", "usage": {}, "actual_cost_usd": str(cost_usd)},
+            commercial_token_price_usd=self._commercial_token_price_usd(actor.client_id),
             metadata={**(metadata or {}), "provider": "firecrawl", "operation": operation,
                       "firecrawl_credits": credits, "usd_per_firecrawl_credit": str(firecrawl_usd_per_credit())},
         )
@@ -108,6 +140,7 @@ class CaduCreditConnector:
         self, *, actor: CreditActor, idempotency_key: str, app: str, stage: str,
         provider_result: dict | None, model: str = "", fallback_cost_usd=0,
         media_tokens: int | None = None, metadata: dict | None = None, margin_multiplier: int = 1,
+        commercial_token_price_usd: Decimal | None = None,
     ) -> dict | None:
         """Registra e debita uma execução já concluída pelo provedor."""
         result = provider_result or {}
@@ -118,6 +151,10 @@ class CaduCreditConnector:
             billing_metadata.setdefault("provider", provider)
         if isinstance(attempts, (list, tuple)) and attempts:
             billing_metadata.setdefault("provider_attempts", [str(item) for item in attempts if str(item).strip()])
+        if commercial_token_price_usd is None:
+            raw_cost = result.get("actual_cost_usd") or (result.get("usage") or {}).get("cost")
+            if raw_cost:
+                commercial_token_price_usd = self._commercial_token_price_usd(actor.client_id)
         return charge_from_provider(
             ledger=self.ledger,
             idempotency_key=str(idempotency_key),
@@ -131,7 +168,13 @@ class CaduCreditConnector:
             media_tokens=media_tokens,
             metadata=billing_metadata,
             margin_multiplier=margin_multiplier,
+            usd_per_credit_token=commercial_token_price_usd,
         )
+
+    def _commercial_token_price_usd(self, client_id: int) -> Decimal:
+        from .creative_modeling_fx import usd_brl_rate
+        exchange, _source = usd_brl_rate()
+        return commercial_token_price_brl(client_id) / Decimal(str(exchange))
 
     def charge_tokens(
         self, *, actor: CreditActor, idempotency_key: str, app: str, stage: str,

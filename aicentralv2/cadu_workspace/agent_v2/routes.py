@@ -4,7 +4,6 @@ import json
 import os
 import re
 import secrets
-from decimal import Decimal
 from dataclasses import replace
 from html import escape as html_escape
 from uuid import uuid4
@@ -747,7 +746,8 @@ def upload():
 @bp.post("/audio/transcriptions")
 def transcribe_voice_input():
     current = resolve(surface="conversations")
-    from ...cadu_tool_billing import InsufficientToolCredits, ToolCharge, ToolTokenLedger
+    from ...cadu_tool_billing import InsufficientToolCredits
+    from ...cadu_credit_connector import CaduCreditConnector, CreditActor
     from ..voice_input_service import transcribe_upload, transcription_credit_tokens
 
     attachments.bound_multipart_request(request)
@@ -758,17 +758,17 @@ def transcribe_voice_input():
     charged_credits = transcription_credit_tokens(result.get("duration"))
     request_key = str(request.headers.get("X-Idempotency-Key") or uuid4()).strip()[:180]
     try:
-        charge = ToolTokenLedger().charge(ToolCharge(
+        connector = CaduCreditConnector()
+        charge = connector.charge_provider(
+            actor=CreditActor.from_values(current.client_id, current.user_id),
             idempotency_key=f"workspace:voice-transcription:{current.client_id}:{request_key}",
-            client_id=current.client_id,
-            user_id=current.user_id,
-            tool="workspace.voice_transcription",
-            stage="transcription",
-            model=str(result.get("model") or "unknown"),
-            provider_total_tokens=charged_credits,
-            charged_tokens=charged_credits,
-            internal_cost_usd=Decimal(str(result.get("provider_cost_usd") or 0)),
-            additional_cost_usd=Decimal(str(result.get("provider_cost_usd") or 0)),
+            app="workspace.voice_transcription", stage="transcription",
+            provider_result={
+                "model": str(result.get("model") or "unknown"),
+                "provider": result.get("provider") or "unknown",
+                "actual_cost_usd": str(result.get("provider_cost_usd") or 0),
+            },
+            media_tokens=charged_credits if not result.get("provider_cost_usd") else None,
             metadata={
                 "duration_seconds": result.get("duration"),
                 "language": result.get("language") or "",
@@ -778,7 +778,7 @@ def transcribe_voice_input():
                 "billing_basis": "audio_duration",
                 "credits_per_minute": int(os.getenv("CADU_VOICE_CREDITS_PER_MINUTE", "300")),
             },
-        ))
+        )
     except InsufficientToolCredits as error:
         abort(409, description=str(error))
     result["charged_credits"] = int((charge or {}).get("tokens_cobrados") or charged_credits)

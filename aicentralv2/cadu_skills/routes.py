@@ -497,11 +497,12 @@ def shared_skill_run(token):
             skill, client_id=int(shared["client_id"]), user_id=int(session["user_id"]),
             prompt=prompt, customization_id=int(shared["id"]),
         )
-        result = run_test_skill(skill, prompt)
+        result = run_test_skill(skill, prompt, client_id=int(shared["client_id"]), user_id=int(session["user_id"]), idempotency_key=f"skills:shared:{reservation['run_id']}")
         finish_run(reservation, success=True, result=result)
+        charged = int((result.get("cadu_charge") or {}).get("tokens_cobrados") or 0)
         return jsonify({
-            "success": True, "answer": result["answer"], "charged_credits": reservation["cost"],
-            "remaining_credits": max(0, reservation["balance_before"] - reservation["cost"]),
+            "success": True, "answer": result["answer"], "charged_credits": charged,
+            "remaining_credits": max(0, reservation["balance_before"] - charged),
         })
     except ValueError as exc:
         if "reservation" in locals():
@@ -568,7 +569,7 @@ def public_preview(slug):
         record_event(slug, "install", actor=_actor(), user_id=session.get("user_id"))
     record_event(slug, "run_started", actor=_actor(), user_id=session.get("user_id"))
     try:
-        result = run_test_skill(skill, prompt)
+        result = run_test_skill(skill, prompt, client_id=int(session["cliente_id"]), user_id=int(session["user_id"]), idempotency_key=f"skills:custom:{reservation['run_id']}")
     except (ValueError, RuntimeError, OpenRouterError) as exc:
         record_event(slug, "run_failed", actor=_actor(), user_id=session.get("user_id"), metadata={"error": type(exc).__name__})
         return jsonify({"success": False, "error": str(exc)}), 503
@@ -622,12 +623,13 @@ def create_run(slug):
     except ValueError as exc:
         return jsonify({"success": False, "code": "CREDITS_UNAVAILABLE", "error": str(exc), "required_credits": skill["credit_cost"]}), 409
     try:
-        result = run_test_skill(skill, prompt)
+        result = run_test_skill(skill, prompt, client_id=int(session["cliente_id"]), user_id=int(session["user_id"]), idempotency_key=f"skills:test:{reservation['run_id']}")
         finish_run(reservation, success=True, result=result)
-        record_event(slug, "run_succeeded", actor=_actor(), user_id=session.get("user_id"), metadata={"billed": reservation["cost"]})
+        charged = int((result.get("cadu_charge") or {}).get("tokens_cobrados") or 0)
+        record_event(slug, "run_succeeded", actor=_actor(), user_id=session.get("user_id"), metadata={"billed": charged})
         return jsonify({
-            "success": True, "answer": result["answer"], "charged_credits": reservation["cost"],
-            "remaining_credits": max(0, reservation["balance_before"] - reservation["cost"]),
+            "success": True, "answer": result["answer"], "charged_credits": charged,
+            "remaining_credits": max(0, reservation["balance_before"] - charged),
         })
     except (ValueError, RuntimeError, OpenRouterError) as exc:
         finish_run(reservation, success=False, error_code=type(exc).__name__)
@@ -830,11 +832,12 @@ def customization_test(customization_id):
             skill, client_id=int(row["client_id"]), user_id=int(session["user_id"]),
             prompt=prompt, customization_id=customization_id,
         )
-        result = run_test_skill(skill, prompt)
+        result = run_test_skill(skill, prompt, client_id=int(row["client_id"]), user_id=int(session["user_id"]), idempotency_key=f"skills:customization:{reservation['run_id']}")
         finish_run(reservation, success=True, result=result)
+        charged = int((result.get("cadu_charge") or {}).get("tokens_cobrados") or 0)
         return jsonify({
-            "success": True, "answer": result["answer"], "charged_credits": reservation["cost"],
-            "remaining_credits": max(0, reservation["balance_before"] - reservation["cost"]),
+            "success": True, "answer": result["answer"], "charged_credits": charged,
+            "remaining_credits": max(0, reservation["balance_before"] - charged),
         })
     except ValueError as exc:
         if "reservation" in locals():

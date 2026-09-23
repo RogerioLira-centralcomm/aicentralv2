@@ -7,10 +7,8 @@ import json
 import math
 import os
 import secrets
-from datetime import datetime, timezone
 from uuid import uuid4
 
-from .credits import balance_from_ledger
 
 
 EVENT_TYPES = {"view", "copy", "install", "run_started", "run_succeeded", "run_failed"}
@@ -437,25 +435,6 @@ def reserve_run(skill: dict, *, client_id: int, user_id: int, prompt: str, custo
             plan = cursor.fetchone()
             if not plan:
                 raise ValueError("Nenhum plano Cadu ativo foi encontrado.")
-            month = datetime.now(timezone.utc).strftime("%Y-%m")
-            cursor.execute(
-                """
-                INSERT INTO cadu_credit_ledger (client_plan_id, kind, amount, idempotency_key, metadata)
-                VALUES (%s, 'monthly_grant', %s, %s, %s::jsonb)
-                ON CONFLICT (idempotency_key) DO NOTHING
-                """,
-                (plan["id"], int(plan["monthly_limit"] or 0), f"skills-grant:{plan['id']}:{month}", json.dumps({"month": month})),
-            )
-            cursor.execute(
-                """SELECT kind, amount FROM cadu_credit_ledger
-                    WHERE client_plan_id = %s
-                      AND created_at >= DATE_TRUNC('month', CURRENT_TIMESTAMP)
-                      AND created_at < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1 month'""",
-                (plan["id"],),
-            )
-            balance = balance_from_ledger(cursor.fetchall())
-            if not balance.can_reserve(cost):
-                raise ValueError(f"Saldo insuficiente. Esta skill usa {cost} créditos e há {balance.available} disponíveis.")
             cursor.execute(
                 """
                 INSERT INTO cadu_skill_runs
@@ -469,14 +448,9 @@ def reserve_run(skill: dict, *, client_id: int, user_id: int, prompt: str, custo
             run = cursor.fetchone()
             if not run:
                 raise ValueError("A versão executável desta skill ainda não foi publicada.")
-            cursor.execute(
-                """INSERT INTO cadu_credit_ledger
-                    (client_plan_id, run_id, kind, amount, idempotency_key, metadata)
-                    VALUES (%s, %s, 'reserve', %s, %s, '{}'::jsonb)""",
-                (plan["id"], run["id"], -cost, f"skills-reserve:{key}"),
-            )
         conn.commit()
-        return {"run_id": run["id"], "plan_id": plan["id"], "cost": cost, "key": key, "balance_before": balance.available}
+        from ..cadu_credit_connector import CaduCreditConnector
+        return {"run_id": run["id"], "plan_id": plan["id"], "client_id": int(client_id), "cost": cost, "key": key, "balance_before": CaduCreditConnector().balance(client_id)}
     except Exception:
         conn.rollback()
         raise
@@ -485,20 +459,9 @@ def reserve_run(skill: dict, *, client_id: int, user_id: int, prompt: str, custo
 def finish_run(reservation: dict, *, success: bool, result=None, error_code="") -> None:
     conn = _db()
     try:
+        result = result or {}
+        usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
         with conn.cursor() as cursor:
-            cursor.execute(
-                """INSERT INTO cadu_credit_ledger
-                    (client_plan_id, run_id, kind, amount, idempotency_key, metadata)
-                    VALUES (%s, %s, 'release', %s, %s, '{}'::jsonb)""",
-                (reservation["plan_id"], reservation["run_id"], reservation["cost"], f"skills-release:{reservation['key']}"),
-            )
-            if success:
-                cursor.execute(
-                    """INSERT INTO cadu_credit_ledger
-                        (client_plan_id, run_id, kind, amount, idempotency_key, metadata)
-                        VALUES (%s, %s, 'capture', %s, %s, '{}'::jsonb)""",
-                    (reservation["plan_id"], reservation["run_id"], -reservation["cost"], f"skills-capture:{reservation['key']}"),
-                )
             cursor.execute(
                 """
                 UPDATE cadu_skill_runs SET status = %s, output_json = %s::jsonb,
@@ -507,8 +470,9 @@ def finish_run(reservation: dict, *, success: bool, result=None, error_code="") 
                 """,
                 (
                     "succeeded" if success else "failed",
-                    json.dumps({"answer": (result or {}).get("answer")}) if success else None,
-                    json.dumps((result or {}).get("usage") or {}), error_code or None, reservation["run_id"],
+                    json.dumps({"answer": result.get("answer"), "cadu_charge": result.get("cadu_charge")}) if success else None,
+                    json.dumps({**usage, "cadu_charge": result.get("cadu_charge")}) if success else json.dumps({}),
+                    error_code or None, reservation["run_id"],
                 ),
             )
         conn.commit()

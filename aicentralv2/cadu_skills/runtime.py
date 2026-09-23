@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from ..services.openrouter_service import chat_completion, message_text
+from ..services.openrouter_service import message_text
+from ..services.cadu_ai_connector import CaduAIConnector
 
 
 TEST_AGENT_RULES = """
@@ -15,7 +16,7 @@ Você é o agente de teste do Cadu Skills.
 """.strip()
 
 
-def run_test_skill(skill: dict, prompt: str) -> dict:
+def run_test_skill(skill: dict, prompt: str, *, client_id: int, user_id: int, idempotency_key: str) -> dict:
     """Executa uma skill já instalada no agente de teste, sem tool calling."""
     clean_prompt = str(prompt or "").strip()
     if len(clean_prompt) < 12:
@@ -25,11 +26,19 @@ def run_test_skill(skill: dict, prompt: str) -> dict:
     instructions = str(skill.get("instructions") or "").strip()
     if not instructions:
         raise ValueError("Esta skill ainda não foi preparada para testes.")
-    result = chat_completion(
+    connector = CaduAIConnector()
+    result = connector.complete(
         [
             {"role": "system", "content": f"{TEST_AGENT_RULES}\n\nSKILL INSTALADA\n{instructions}"},
             {"role": "user", "content": clean_prompt},
         ],
+        client_id=client_id, user_id=user_id, idempotency_key=idempotency_key,
+        app="cadu_skills", stage="skill_run",
+        estimated_tokens=max(
+            1,
+            int(skill.get("credit_cost") or 1),
+            (len(instructions) + len(clean_prompt)) // 4 + 700,
+        ),
         model=skill.get("model") or "openai/gpt-4o-mini",
         max_tokens=700,
         temperature=0.3,

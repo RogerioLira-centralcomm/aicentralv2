@@ -100,10 +100,21 @@ function QuestionsBlock({block, onPrompt, interactive = true}) {
   if (questions.length) {
     const answerFor = (item, index) => customAnswers[item.id || index] || answers[item.id || index] || '';
     const complete = questions.every((item, index) => item.required === false || String(answerFor(item, index)).trim());
+    const hasAnswer = questions.some((item, index) => String(answerFor(item, index)).trim());
     const answerText = (item, answer) => /(?:renome|mudar|alterar|trocar).{0,45}nome|novo nome.{0,45}projeto/i.test(item.question || item.title || '')
       ? `Renomeie o projeto para “${answer}”.`
       : `${item.question || item.title}: ${answer}`;
-    const submit = () => onPrompt(questions.map((item, index) => ({item, index})).filter(({item, index}) => item.required !== false || String(answerFor(item, index)).trim()).map(({item, index}) => answerText(item, answerFor(item, index))).join('\n'), null, {submit: true});
+    const submit = () => {
+      const answered = questions.map((item, index) => ({item, answer: String(answerFor(item, index)).trim()}))
+        .filter(({answer}) => answer);
+      const prompt = answered.map(({item, answer}) => answerText(item, answer)).join('\n');
+      if (!prompt) return;
+      onPrompt(prompt, {
+        type: 'question_answers', label: block.title || 'Respostas às perguntas',
+        text: answered.map(({item, answer}) => `${item.question || item.title}: ${answer}`).join('\n'),
+        answers: answered.map(({item, answer}) => ({id: item.id, question: item.question || item.title, answer})),
+      }, {submit: true});
+    };
     return <section className="cv-inline-questions cv-mt-6" aria-label={interactive ? 'Pergunta aguardando sua resposta' : 'Pergunta respondida'}>
       {block.title && <span className="cv-inline-questions__label">{block.title}</span>}
       {questions.map((item, index) => {
@@ -127,7 +138,7 @@ function QuestionsBlock({block, onPrompt, interactive = true}) {
           {allowCustom && customOpen[id] && <input id={`${id}-custom-answer`} disabled={!interactive} className="cv-inline-question-custom" value={customAnswer} onChange={event => setCustomAnswers(current => ({...current, [id]: event.target.value}))} placeholder={item.custom_placeholder || 'Digite sua resposta…'} aria-label={`Outra resposta para ${item.question || item.title}`}/>}
         </fieldset>;
       })}
-      {interactive && <button type="button" disabled={!complete} onClick={submit} className="cv-inline-questions__submit">Responder e continuar</button>}
+      {interactive && <button type="button" disabled={!complete || !hasAnswer} onClick={submit} className="cv-inline-questions__submit">Responder e continuar</button>}
     </section>;
   }
   return <section className="cv-inline-questions cv-mt-6">

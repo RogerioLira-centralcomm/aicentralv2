@@ -41,6 +41,10 @@ function conversationDocument() {
   return `<!doctype html><html data-cadu-theme="dark" data-cadu-skin="conversations"><head><meta charset="utf-8"><style>html,body{margin:0;height:100%}.cv-conversation-surface{min-width:0;flex:1}\n${tokens}\n${conversationStyles}\n${styles}</style></head><body><main id="content"><div id="cadu-conversations-v2-root"><div class="cadu-ds-home-shell cv-conversations-shell"><main class="cadu-ds-home-main"><header class="cadu-ds-home-navbar cv-conversations-navbar">Navegação</header><div class="cadu-ds-home-workarea cv-conversations-workarea"><aside class="cadu-ds-dock">Dock</aside><aside class="cv-recent-sidebar">Recentes</aside><section class="cv-conversation-surface">Conversa</section></div></main></div></div></main></body></html>`;
 }
 
+function conversationStackingDocument() {
+  return `<!doctype html><html data-cadu-theme="dark"><head><meta charset="utf-8"><style>${tokens}\n${conversationStyles}\n${styles}\n${workspaceChromeStyles}</style></head><body class="portal--workspace"><div id="cadu-conversations-v2-root"><div class="cv-conversations-workarea"><aside class="cadu-ds-dock">Dock</aside><aside class="cv-recent-sidebar">Recentes</aside></div></div></body></html>`;
+}
+
 function conversationDocumentWithPersistedLightTheme() {
   return conversationDocument().replace('data-cadu-theme="dark"', 'data-cadu-theme="light"');
 }
@@ -139,6 +143,13 @@ async function dimensions(page, contentClass) {
     assert.equal(conversationDesktop.conversation.left, conversationDesktop.recent.right, 'Conversas: conteúdo após recentes');
     assert.equal(conversationDesktop.conversation.right, conversationDesktop.viewport, 'Conversas: conteúdo até a borda');
     assert.equal(conversationDesktop.scrollWidth, conversationDesktop.viewport, 'Conversas: sem overflow desktop');
+
+    await page.setContent(conversationStackingDocument());
+    const conversationStacking = await page.evaluate(() => ({
+      dock: Number(getComputedStyle(document.querySelector('.cadu-ds-dock')).zIndex),
+      recent: Number(getComputedStyle(document.querySelector('.cv-recent-sidebar')).zIndex),
+    }));
+    assert.ok(conversationStacking.dock > conversationStacking.recent, 'Conversas: seletor de soluções da Dock acima de Recentes');
 
     await page.setViewportSize({width: 390, height: 844});
     await page.setContent(conversationDocument());

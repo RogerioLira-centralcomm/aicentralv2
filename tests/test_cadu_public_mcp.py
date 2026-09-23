@@ -65,17 +65,25 @@ def test_project_ref_is_selectable_in_public_tool_arguments_without_changing_int
     external = next(item for item in catalog if item["name"] == "projects.create_link_reference")
     html = next(item for item in catalog if item["name"] == "artifacts.create_draft")
     unified = next(item for item in catalog if item["name"] == "resources.add")
+    task_batch = next(item for item in catalog if item["name"] == "projects.create_tasks")
+    initial_tasks = next(item for item in catalog if item["name"] == "projects.create_initial_task_list")
+    task_update = next(item for item in catalog if item["name"] == "projects.update_task")
     assert "project_ref" in upload["inputSchema"]["properties"]
     assert {"resource_kind", "platform", "external_id", "description", "tags"} <= \
         external["inputSchema"]["properties"].keys()
     assert "html" in html["inputSchema"]["properties"]["type"]["enum"]
     assert "HTML" in html["description"]
+    assert "Não envie HTML em summary" in html["inputSchema"]["properties"]["content"]["description"]
     assert "project_ref" in unified["inputSchema"]["properties"]
     assert set(unified["inputSchema"]["properties"]["mode"]["enum"]) == {
         "editable", "external_link", "file_upload",
     }
     assert upload["securitySchemes"] == [{"type": "oauth2", "scopes": ["projects:content_write"]}]
     assert upload["_meta"]["securitySchemes"] == upload["securitySchemes"]
+    assert task_batch["inputSchema"]["properties"]["tasks"]["maxItems"] == 50
+    assert "context_summary" in initial_tasks["inputSchema"]["required"]
+    assert initial_tasks["securitySchemes"] == [{"type": "oauth2", "scopes": ["projects:content_write"]}]
+    assert task_update["inputSchema"]["properties"]["assignee_id"]["type"] == ["integer", "null"]
     internal = next(item for item in load_builtin_tools().list(context) if item["name"] == "projects.prepare_source_upload")
     assert "project_ref" not in internal["inputSchema"]["properties"]
     params = _request_context_for_auth({"name": "projects.prepare_source_upload",
@@ -278,6 +286,8 @@ def test_non_ledger_write_receipt_does_not_promise_operations_get():
     assert "media.start_studio_session" not in RECOVERABLE_OPERATION_TOOLS
     assert "brands.start_audit" not in RECOVERABLE_OPERATION_TOOLS
     assert "projects.create_note" in RECOVERABLE_OPERATION_TOOLS
+    assert {"projects.create_task", "projects.create_tasks", "projects.create_initial_task_list",
+            "projects.update_task"} <= RECOVERABLE_OPERATION_TOOLS
 
     app = Flask(__name__)
     app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")

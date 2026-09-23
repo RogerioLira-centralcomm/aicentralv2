@@ -8,6 +8,7 @@
 <div id="cadu-conversations-v2-root" class="cv-home-root cadu-project-root" aria-label="{{ project_data.name }} — projeto no Workspace"><noscript>Ative o JavaScript para usar o projeto no Workspace.</noscript></div>
 <script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
   'projectMode': True,
+  'projectView': project_view|default('overview'),
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'csrf': session.get('family_csrf', ''),
   'usagePercent': usage_percent,
@@ -27,6 +28,17 @@
   },
   'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')},
   'projectLinks': {
+    'sections': {
+      'overview': url_for('cadu_workspace.clean_project_detail', project_id=project_data.id),
+      'direction': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='direction'),
+      'tasks': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='tasks'),
+      'activity': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='activity'),
+      'library': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='library'),
+      'indexing': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='indexing'),
+      'conversations': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='conversations'),
+      'deliveries': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='deliveries'),
+      'views': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='views')
+    },
     'conversation': url_for('cadu_workspace.conversations', project_ref='ci:' ~ project_data.id, history='1'),
     'brands': url_for('cadu_workspace.clean_brands'),
     'createPlan': product_url('planner', '/novo?project_id=' ~ project_data.id ~ ('&cliente_id=' ~ project_data.brand.crmClientId ~ '&cliente_name=' ~ (project_data.brand.name|urlencode) ~ '&brand_id=' ~ project_data.brand.id ~ '&brand_name=' ~ (project_data.brand.name|urlencode) if project_data.brand.id else '')),
@@ -40,6 +52,9 @@
     'importUrl': url_for('cadu_workspace.import_project_url', project_id=project_data.id),
     'createLink': url_for('cadu_workspace.create_project_link', project_id=project_data.id),
     'tasks': url_for('cadu_workspace.project_tasks_api', project_id=project_data.id),
+    'tasksBatch': url_for('cadu_workspace.create_project_tasks_api', project_id=project_data.id),
+    'initialTaskList': url_for('cadu_workspace.create_initial_project_task_list_api', project_id=project_data.id),
+    'orderLinks': url_for('cadu_workspace.reorder_project_links_api', project_id=project_data.id),
     'integrations': url_for('cadu_workspace.integrations'),
     'toggleStatus': url_for('cadu_workspace.update_project_status', project_id=project_data.id),
     'merge': url_for('cadu_workspace.merge_project', project_id=project_data.id),

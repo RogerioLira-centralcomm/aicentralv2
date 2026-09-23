@@ -36,6 +36,7 @@ from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asse
 from ..creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
 from . import notification_service, project_index_service, project_knowledge, project_resource_service, project_source_service, project_sources, workspace_ingestion_service
 from .agent_v2.request_context import resolve as resolve_request_context
+from .mcp.registry import ToolInputError
 
 
 CADU_COMMERCIAL_PRICES = {
@@ -3588,7 +3589,7 @@ def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
                     links.append({
                         'id': row['id'], 'provider': row.get('provider') or 'generic', 'url': url,
                         'titulo': metadata.get('title') or metadata.get('platform') or row.get('provider') or url,
-                        'position': len(links), 'created_at': row.get('created_at'),
+                        'position': int(metadata.get('sidebar_position', len(links))), 'created_at': row.get('created_at'),
                         'updated_at': row.get('updated_at'), 'iconUrl': icon.get('icon_url') or '',
                         'iconStatus': icon.get('icon_status') or '',
                         'context_summary': metadata.get('context_summary') or metadata.get('description'),
@@ -3609,7 +3610,7 @@ def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
             )
             links.extend({**dict(row), 'canonical': False} for row in cursor.fetchall()
                          if str(row.get('url') or '') not in canonical_urls)
-            return links
+            return sorted(links, key=lambda item: (int(item.get('position') or 0), str(item.get('created_at') or '')))
     except Exception:
         return []
 
@@ -5561,7 +5562,7 @@ def create_campaign_project(brand_id, campaign_id):
 
 @bp.get('/workspace/app/projetos/<project_id>')
 @login_required
-def project_detail(project_id):
+def project_detail(project_id, project_view='overview'):
     if request.path.startswith('/workspace/app/'):
         return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id,
                                 **request.args.to_dict(flat=True)), code=308)
@@ -5780,6 +5781,7 @@ def project_detail(project_id):
                        'externalUrl': str(item.get('external_url') or ''),
                        'assignee': {'id': str(item.get('assignee_id') or ''), 'name': str(item.get('assignee_name') or '')},
                        'creator': {'id': str(item.get('created_by') or ''), 'name': str(item.get('creator_name') or '')},
+                       'metadata': item.get('metadata') or {},
                        'createdAt': item.get('created_at'), 'updatedAt': item.get('updated_at')}
                       for item in project.get('tasks') or []],
             'activity': [{'id': f"{index}:{item.get('title')}", 'title': str(item.get('title') or 'Atualização'),
@@ -5806,9 +5808,12 @@ def project_detail(project_id):
                 } for item in family_repository.project_access(client_id, f'ci:{project_id}')],
             },
         }
+        allowed_project_views = {'overview', 'direction', 'tasks', 'activity', 'library', 'indexing', 'conversations', 'deliveries', 'views'}
+        project_view = project_view if project_view in allowed_project_views else 'overview'
         return render_template(
             'cadu_workspace/project_detail_react.html', project_data=project_data,
             project_items=project_items, brand_items=brand_items, dock_items=dock_items,
+            project_view=project_view,
             usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1),
         )
     return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=308)
@@ -5818,6 +5823,12 @@ def project_detail(project_id):
 @login_required
 def clean_project_detail(project_id):
     return project_detail(project_id)
+
+
+@bp.get('/projetos/<project_id>/<project_view>')
+@login_required
+def clean_project_section(project_id, project_view):
+    return project_detail(project_id, project_view=project_view)
 
 
 @bp.get('/workspace/api/projetos/<project_id>/compartilhamento')
@@ -5859,6 +5870,66 @@ def create_project_task_api(project_id):
             request.get_json(silent=True) or {},
         )
         return jsonify({'task': task}), 201
+    except ToolInputError as error:
+        return jsonify({'error': str(error)}), 400
+    except HTTPException as error:
+        return jsonify({'error': error.description}), error.code
+
+
+@bp.post('/workspace/api/projetos/<project_id>/tarefas/lote')
+@login_required
+def create_project_tasks_api(project_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    from .project_task_service import create_tasks
+    data = request.get_json(silent=True) or {}
+    try:
+        context = resolve_request_context(surface='workspace', project_ref=f'ci:{project_id}')
+        command = lambda: create_tasks(context, data.get('tasks'),
+                                       user_instruction=data.get('user_instruction', ''),
+                                       context_summary=data.get('context_summary', ''))
+        request_id = str(request.headers.get('X-Idempotency-Key') or data.get('request_id') or '').strip()
+        if request_id:
+            from .mcp import operations
+            result = operations.execute(request_id, context, 'api.projects.create_tasks',
+                                        {'project_ref': context.project_ref, **{key: data.get(key) for key in ('tasks', 'user_instruction', 'context_summary')}}, command)
+        else:
+            result = command()
+        return jsonify(result), 201
+    except ToolInputError as error:
+        return jsonify({'error': str(error)}), 400
+    except HTTPException as error:
+        return jsonify({'error': error.description}), error.code
+
+
+@bp.post('/workspace/api/projetos/<project_id>/tarefas/lista-inicial')
+@login_required
+def create_initial_project_task_list_api(project_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    from .project_task_service import create_tasks
+    data = request.get_json(silent=True) or {}
+    if not str(data.get('context_summary') or '').strip():
+        return jsonify({'error': 'Informe o contexto usado para propor a primeira lista.'}), 400
+    try:
+        context = resolve_request_context(surface='workspace', project_ref=f'ci:{project_id}')
+        command = lambda: create_tasks(context, data.get('tasks'), require_empty=True,
+                                       user_instruction=data.get('user_instruction', ''),
+                                       context_summary=data.get('context_summary', ''))
+        request_id = str(request.headers.get('X-Idempotency-Key') or data.get('request_id') or '').strip()
+        if request_id:
+            from .mcp import operations
+            result = operations.execute(request_id, context, 'api.projects.create_initial_task_list',
+                                        {'project_ref': context.project_ref, **{key: data.get(key) for key in ('tasks', 'user_instruction', 'context_summary')}}, command)
+        else:
+            result = command()
+        return jsonify(result), 201
+    except ToolInputError as error:
+        return jsonify({'error': str(error)}), 400
     except HTTPException as error:
         return jsonify({'error': error.description}), error.code
 
@@ -5879,6 +5950,45 @@ def update_project_task_api(project_id, task_id):
         return jsonify({'task': task})
     except HTTPException as error:
         return jsonify({'error': error.description}), error.code
+
+
+@bp.post('/workspace/api/projetos/<project_id>/links/order')
+@login_required
+def reorder_project_links_api(project_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    ids = [str(item) for item in (request.get_json(silent=True) or {}).get('ids') or []]
+    if not ids or len(ids) != len(set(ids)) or len(ids) > 100:
+        return jsonify({'error': 'A ordem dos links é inválida.'}), 400
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            for position, link_id in enumerate(ids):
+                cursor.execute(
+                    """UPDATE cadu_workspace_external_references
+                          SET metadata=jsonb_set(metadata,'{sidebar_position}',to_jsonb(%s::int),true),updated_at=NOW()
+                        WHERE id::text=%s AND client_id=%s AND project_ref=%s AND archived_at IS NULL""",
+                    (position, link_id, client_id, f'ci:{project_id}'),
+                )
+                if not cursor.rowcount:
+                    cursor.execute(
+                        """UPDATE cadu_ci_projeto_links SET position=%s,updated_at=NOW()
+                            WHERE id::text=%s AND projeto_id=%s AND id_cliente=%s""",
+                        (position, link_id, project_id, client_id),
+                    )
+                if not cursor.rowcount:
+                    abort(400, description='A ordem contém um link que não pertence a este projeto.')
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Falha ao ordenar links do projeto %s', project_id)
+        return jsonify({'error': 'Não foi possível salvar a ordem dos links.'}), 503
+    return jsonify({'ok': True, 'ids': ids})
 
 
 @bp.get('/workspace/api/notificacoes')

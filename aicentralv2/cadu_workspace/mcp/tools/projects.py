@@ -245,6 +245,10 @@ def list_tasks(context: RequestContext, arguments: dict) -> dict:
     name="projects.create_task", capability="workspace", effect="write", requires_project=True,
     description="Cria uma tarefa leve no projeto Cadu, com início, prazo, prioridade e responsável opcionais.",
     exposures=("internal", "customer_agent"),
+    output_schema={"type": "object", "required": ["id", "title", "status", "priority", "metadata"],
+                   "properties": {"id": {"type": "string"}, "title": {"type": "string"},
+                                  "status": {"type": "string"}, "priority": {"type": "string"},
+                                  "metadata": {"type": "object"}}},
     input_schema={"type": "object", "required": ["request_id", "confirmed", "title"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -264,10 +268,92 @@ def create_task(context: RequestContext, arguments: dict) -> dict:
     ))
 
 
+_TASK_INPUT = {
+    "type": "object", "required": ["title"], "properties": {
+        "title": {"type": "string", "minLength": 2, "maxLength": 180},
+        "description": {"type": "string", "maxLength": 4000},
+        "status": {"type": "string", "enum": sorted(project_task_service.STATUSES)},
+        "priority": {"type": "string", "enum": sorted(project_task_service.PRIORITIES)},
+        "starts_at": {"type": ["string", "null"], "maxLength": 40},
+        "due_at": {"type": ["string", "null"], "maxLength": 40},
+        "assignee_id": {"type": ["integer", "null"], "minimum": 1},
+        "resource_refs": {"type": "array", "maxItems": 20, "uniqueItems": True,
+                          "description": "IDs canônicos de relatórios, PDFs, arquivos, links, criativos ou outros recursos do mesmo projeto que sustentam esta tarefa.",
+                          "items": {"type": "string", "minLength": 36, "maxLength": 36}},
+        "evidence": {"type": "string", "maxLength": 2000,
+                     "description": "Explicação factual de como as fontes relacionadas sustentam este próximo passo."},
+    }, "additionalProperties": False,
+}
+
+
+@register_tool(
+    name="projects.create_tasks", capability="workspace", effect="write", requires_project=True,
+    description="Cria de 1 a 50 tarefas nativas em uma única operação atômica. Use quando o usuário pedir vários próximos passos de uma vez.",
+    exposures=("internal", "customer_agent"),
+    output_schema={"type": "object", "required": ["created", "tasks", "initial_list"],
+                   "properties": {"created": {"type": "integer"}, "tasks": {"type": "array"},
+                                  "initial_list": {"type": "boolean"}}},
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "tasks"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "tasks": {"type": "array", "minItems": 1, "maxItems": 50, "items": _TASK_INPUT},
+        "user_instruction": {"type": "string", "maxLength": 4000,
+                             "description": "Orientação adicional do usuário para organizar e priorizar os próximos passos sem inventar fatos."},
+        "context_summary": {"type": "string", "maxLength": 4000,
+                            "description": "Síntese factual da leitura do projeto usada para montar o lote."},
+    }, "additionalProperties": False},
+)
+def create_tasks(context: RequestContext, arguments: dict) -> dict:
+    payload = [{**item, "origin": "mcp"} for item in arguments["tasks"]]
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "projects.create_tasks",
+        {key: arguments[key] for key in ("tasks", "user_instruction", "context_summary") if key in arguments},
+        lambda: project_task_service.create_tasks(
+            context, payload, user_instruction=arguments.get("user_instruction", ""),
+            context_summary=arguments.get("context_summary", ""),
+        ),
+    ))
+
+
+@register_tool(
+    name="projects.create_initial_task_list", capability="workspace", effect="write", requires_project=True,
+    description="Cria a primeira lista de tarefas a partir do contexto já analisado do projeto. Só funciona quando ainda não há tarefas nativas e exige que o usuário confirme a lista proposta pelo agente.",
+    exposures=("internal", "customer_agent"),
+    output_schema={"type": "object", "required": ["created", "tasks", "initial_list"],
+                   "properties": {"created": {"type": "integer"}, "tasks": {"type": "array"},
+                                  "initial_list": {"type": "boolean"}}},
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "context_summary", "tasks"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "context_summary": {"type": "string", "minLength": 10, "maxLength": 4000,
+                            "description": "Resumo factual do contexto usado pelo agente para propor a lista."},
+        "user_instruction": {"type": "string", "maxLength": 4000,
+                             "description": "Orientação adicional do usuário considerada na organização da lista."},
+        "tasks": {"type": "array", "minItems": 1, "maxItems": 50, "items": _TASK_INPUT},
+    }, "additionalProperties": False},
+)
+def create_initial_task_list(context: RequestContext, arguments: dict) -> dict:
+    payload = [{**item, "origin": "mcp_initial_list"} for item in arguments["tasks"]]
+    operation_payload = {key: arguments[key] for key in ("context_summary", "user_instruction", "tasks")
+                         if key in arguments}
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "projects.create_initial_task_list", operation_payload,
+        lambda: project_task_service.create_tasks(
+            context, payload, require_empty=True,
+            user_instruction=arguments.get("user_instruction", ""),
+            context_summary=arguments["context_summary"],
+        ),
+    ))
+
+
 @register_tool(
     name="projects.update_task", capability="workspace", effect="write", requires_project=True,
     description="Atualiza status, datas, prioridade, responsável ou texto de uma tarefa nativa do Cadu.",
     exposures=("internal", "customer_agent"),
+    output_schema={"type": "object", "required": ["id", "title", "status", "priority", "metadata"],
+                   "properties": {"id": {"type": "string"}, "title": {"type": "string"},
+                                  "status": {"type": "string"}, "priority": {"type": "string"},
+                                  "metadata": {"type": "object"}}},
     input_schema={"type": "object", "required": ["request_id", "confirmed", "task_id"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]}, "task_id": {"type": "string", "minLength": 36, "maxLength": 36},
@@ -276,6 +362,9 @@ def create_task(context: RequestContext, arguments: dict) -> dict:
         "priority": {"type": "string", "enum": sorted(project_task_service.PRIORITIES)},
         "starts_at": {"type": ["string", "null"], "maxLength": 40}, "due_at": {"type": ["string", "null"], "maxLength": 40},
         "assignee_id": {"type": ["integer", "null"], "minimum": 1},
+        "resource_refs": _TASK_INPUT["properties"]["resource_refs"],
+        "evidence": _TASK_INPUT["properties"]["evidence"],
+        "user_instruction": {"type": "string", "maxLength": 4000},
     }, "additionalProperties": False},
 )
 def update_task(context: RequestContext, arguments: dict) -> dict:

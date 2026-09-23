@@ -146,6 +146,17 @@ body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) em { color
 body.portal--workspace .cadu-ds-entity-rail__group > div > a:hover b { text-decoration:underline; text-underline-offset:2px; }
 body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) > i { color:var(--cadu-accent-strong); font-size:12px; font-style:normal; }
 body.portal--workspace .cadu-ds-entity-rail__expand { width:100%; margin-top:5px; padding:7px 0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 10px var(--cadu-font-sans); text-align:left; cursor:pointer; }
+body.portal--workspace .cadu-ds-entity-rail__sortable { position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:3px; border-radius:7px; cursor:grab; transition:opacity .15s ease,background-color .15s ease,transform .15s ease; }
+body.portal--workspace .cadu-ds-entity-rail__sortable.is-dragging { opacity:.4; transform:scale(.985); }
+body.portal--workspace .cadu-ds-entity-rail__sortable:focus-within,body.portal--workspace .cadu-ds-entity-rail__sortable:hover { background:color-mix(in srgb,var(--cadu-surface) 70%,transparent); }
+body.portal--workspace .cadu-ds-entity-rail__sortable > :is(a,div) { display:grid; grid-template-columns:18px minmax(0,1fr) 12px; gap:8px; align-items:center; min-width:0; min-height:var(--cadu-sidebar-row-height,30px); padding:4px 2px; color:var(--cadu-ink); text-decoration:none; }
+body.portal--workspace .cadu-ds-entity-rail__order { display:flex; opacity:0; transition:opacity .12s ease; }
+body.portal--workspace .cadu-ds-entity-rail__sortable:hover .cadu-ds-entity-rail__order,body.portal--workspace .cadu-ds-entity-rail__sortable:focus-within .cadu-ds-entity-rail__order { opacity:1; }
+body.portal--workspace .cadu-ds-entity-rail__order button { width:20px; height:26px; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font-size:11px; cursor:pointer; }
+body.portal--workspace .cadu-ds-entity-rail__order button:disabled { opacity:.2; cursor:default; }
+body.portal--workspace .cadu-ds-entity-rail__feedback { margin:8px 0 12px; color:var(--cadu-accent-strong); font-size:9px; animation:cadu-rail-feedback .18s ease-out both; }
+@keyframes cadu-rail-feedback { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
+@media(prefers-reduced-motion:reduce) { body.portal--workspace .cadu-ds-entity-rail__sortable,body.portal--workspace .cadu-ds-entity-rail__order,body.portal--workspace .cadu-ds-entity-rail__feedback { transition:none; animation:none; } }
 
 /* Brand and project detail rails share the Workspace navigation measures. */
 @media (min-width:901px) and (max-width:1240px) {

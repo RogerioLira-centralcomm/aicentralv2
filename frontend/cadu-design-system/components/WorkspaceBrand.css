@@ -570,6 +570,22 @@ body.portal--workspace .cadu-ds-brand-audit-site {
 body.portal--workspace .cadu-ds-brand-audit-site small { color:var(--cadu-muted); font-size:9px; }
 body.portal--workspace .cadu-ds-brand-audit-site b { overflow:hidden; font-size:12px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-brand-audit-empty { margin:0; color:var(--cadu-muted); font-size:10px; line-height:1.5; }
+body.portal--workspace .cadu-ds-brand-audit-sources { border-bottom:1px solid var(--cadu-line); padding-bottom:12px; }
+body.portal--workspace .cadu-ds-brand-audit-sources summary { color:var(--cadu-accent-strong); font-size:10px; font-weight:650; cursor:pointer; }
+body.portal--workspace .cadu-ds-brand-audit-sources[open] summary { margin-bottom:12px; }
+body.portal--workspace .cadu-ds-brand-audit-sources__form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:end; }
+body.portal--workspace .cadu-ds-brand-audit-sources__form > label:first-child { grid-column:1/-1; }
+body.portal--workspace .cadu-ds-brand-audit-sources__form input[type=url] { min-height:36px; }
+body.portal--workspace .cadu-ds-brand-audit-sources__exclude { display:flex; align-items:center; gap:7px; min-height:32px; font-weight:500; }
+body.portal--workspace .cadu-ds-brand-audit-sources__exclude input { width:auto; }
+body.portal--workspace .cadu-ds-brand-audit-sources__form > button { min-height:32px; padding:0 11px; border:0; border-radius:8px; background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); font:650 10px var(--cadu-font-sans); cursor:pointer; }
+body.portal--workspace .cadu-ds-brand-audit-sources__form > small { grid-column:1/-1; color:var(--cadu-danger,#a34032); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-audit-source-list { display:grid; gap:5px; margin-top:12px; }
+body.portal--workspace .cadu-ds-brand-audit-source-list > strong { color:var(--cadu-muted); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-audit-source-list > span { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; min-height:27px; padding:0 7px 0 9px; border-radius:7px; background:var(--cadu-surface-soft); }
+body.portal--workspace .cadu-ds-brand-audit-source-list b { overflow:hidden; font-size:9px; font-weight:550; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-brand-audit-source-list button { width:22px; height:22px; padding:0; border:0; background:transparent; color:var(--cadu-muted); cursor:pointer; }
+body.portal--workspace .cadu-ds-brand-audit-source-list.is-excluded > span { color:var(--cadu-muted); text-decoration:line-through; }
 
 body.portal--workspace .cadu-ds-brand-audit-dialog .cadu-ds-brand-audit-existing {
   gap:10px;

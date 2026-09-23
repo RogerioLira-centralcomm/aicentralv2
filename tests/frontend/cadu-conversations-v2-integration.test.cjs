@@ -210,6 +210,10 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   assert.match(brand, /cadu-ds-brand-audit-dialog__columns/);
   assert.match(brand, /BrandAuditUploads/);
   assert.match(brand, /O Cadu encontra os links oficiais/);
+  assert.match(brand, /Adicionar fonte específica/);
+  assert.match(brand, /name="additional_sources"/);
+  assert.match(brand, /name="excluded_sources"/);
+  assert.match(brand, /Ignorar esta fonte/);
   assert.doesNotMatch(brand, /<textarea name="social_links"/);
   assert.doesNotMatch(brand, /<Hidden name="include_project_sources" value="true"/);
   assert.match(brand, /Ver todos os \{reusableAssets\.length\} ativos/);
@@ -746,8 +750,8 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(progress, /small aria-hidden="true"/);
   assert.doesNotMatch(progress, /Etapas concluídas/);
   assert.match(conversation, /message\.streaming && showActivity/);
-  assert.match(conversation, /text\.length > 5000/);
-  assert.match(conversation, /Editar em documento/);
+  assert.match(conversation, /canCreateDocument/);
+  assert.match(conversation, /Criar documento/);
   assert.match(conversation, /navigator\.clipboard\?\.writeText/);
   assert.match(conversation, /document\.execCommand\('copy'\)/);
   assert.match(conversation, /aria-live="polite"/);

@@ -24,6 +24,7 @@ _COLLOQUIAL = {
     'hj': 'hoje', 'n': 'não', 'nn': 'não', 'naum': 'não',
     'tb': 'também', 'tbm': 'também', 'pq': 'porque', 'q': 'que',
     'blz': 'beleza', 'vlw': 'valeu', 'pf': 'por favor', 'pfv': 'por favor',
+    'adc': 'adicionar', 'add': 'adicionar', 'proj': 'projeto', 'doc': 'documento',
 }
 
 

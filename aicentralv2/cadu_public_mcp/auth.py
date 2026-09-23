@@ -193,6 +193,10 @@ def _load_key(raw_key: str) -> dict:
 
 def required_scope(tool_name: str) -> str:
     name = str(tool_name or "")
+    if name == "intent.interpret":
+        return "contexts:read"
+    if name == "intent.execute":
+        return "artifacts:write"
     if name == "operations.get":
         return "operations:read"
     if name in {"context.update", "context.close"}:

@@ -27,6 +27,8 @@ def test_brand_library_and_logo_tools_are_public_and_scope_separated():
     assert required_scope("brands.use_asset_as_logo") == "brands:write"
     assert tools["brands.start_audit"]["inputSchema"]["properties"]["analysis_mode"]["enum"] == ["complete", "deep"]
     assert "existing_asset_ids" in tools["brands.start_audit"]["inputSchema"]["properties"]
+    assert "additional_sources" in tools["brands.start_audit"]["inputSchema"]["properties"]
+    assert "excluded_sources" in tools["brands.start_audit"]["inputSchema"]["properties"]
 
 
 def test_public_brand_context_can_be_passed_in_normal_tool_arguments():
@@ -127,14 +129,20 @@ def test_deep_audit_uses_selected_library_image_and_primary_logo():
          patch("aicentralv2.cadu_workspace.routes._start_brand_review_job") as queued:
         result = brands.start_audit(_context(), request_id="be777b36-a973-419c-802a-886bf1d125b0",
                                     brand_id=81, analysis_mode="deep", confirmed_cost=True,
-                                    existing_asset_ids=[35])
+                                    existing_asset_ids=[35],
+                                    additional_sources=["https://news.example/interview"],
+                                    excluded_sources=["https://reseller.example"])
     assert result["analysis_mode"] == "deep"
     assert result["existing_asset_ids"] == [35, 12]
     assert result["estimated_credits"] == 150000
     assert queued.call_args.kwargs["existing_asset_ids"] == [35, 12]
+    assert queued.call_args.kwargs["additional_sources"] == ["https://news.example/interview"]
+    assert queued.call_args.kwargs["excluded_sources"] == ["https://reseller.example"]
     update = next(call for call in cursor.execute.call_args_list if "UPDATE cx_clients" in call.args[0])
     metadata = json.loads(update.args[1][1])
     assert metadata["review_pack"]["input"]["existing_asset_ids"] == [35, 12]
+    assert metadata["review_pack"]["input"]["additional_sources"] == ["https://news.example/interview"]
+    assert metadata["review_pack"]["input"]["excluded_sources"] == ["https://reseller.example"]
 
 
 def test_complete_audit_automatically_uses_approved_brand_library():

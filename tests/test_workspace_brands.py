@@ -98,6 +98,7 @@ class WorkspaceBrandsTest(TestCase):
                 'analysis': {'brand_summary': 'Dados já extraídos.'}}
         options = {'website_url': 'https://example.com', 'analysis_mode': 'complete',
                    'social_links': ['https://example.com/social'], 'existing_asset_ids': [10],
+                   'additional_sources': [], 'excluded_sources': [],
                    'has_new_images': False}
         self.assertTrue(_brand_audit_checkpoint_reusable(pack, **options))
         self.assertFalse(_brand_audit_checkpoint_reusable(
@@ -105,6 +106,7 @@ class WorkspaceBrandsTest(TestCase):
         ))
         self.assertFalse(_brand_audit_checkpoint_reusable(pack, **{**options, 'website_url': 'https://new.example.com'}))
         self.assertFalse(_brand_audit_checkpoint_reusable(pack, **{**options, 'has_new_images': True}))
+        self.assertFalse(_brand_audit_checkpoint_reusable(pack, **{**options, 'additional_sources': ['https://news.example.com']}))
 
     def test_reliability_summary_ignores_legacy_runs_without_telemetry(self):
         summary = _brand_audit_reliability_summary([
@@ -728,6 +730,8 @@ class WorkspaceBrandsTest(TestCase):
 
         response = _client().post('/workspace/app/marcas/81/auditoria', data={
             '_csrf': 'known-token', 'website_url': 'https://example.com', 'confirmed_cost': 'true',
+            'additional_sources': ['https://news.example.org/interview'],
+            'excluded_sources': ['https://reseller.example.net'],
         })
 
         self.assertEqual(response.status_code, 303)
@@ -738,11 +742,16 @@ class WorkspaceBrandsTest(TestCase):
         enqueue.assert_called_once()
         queued_job = enqueue.call_args.args[0]
         self.assertEqual((queued_job['client_id'], queued_job['user_id'], queued_job['brand_id']), (12, 7, 81))
+        self.assertEqual(queued_job['additional_sources'], ['https://news.example.org/interview'])
+        self.assertEqual(queued_job['excluded_sources'], ['https://reseller.example.net'])
         sql, params = cursor.execute.call_args.args
         self.assertIn('crm_client_id = %s', sql)
         self.assertEqual(params[-2:], (81, 12))
         self.assertIn('review_pack', params[0])
         self.assertIn('queued', params[0])
+        persisted = json.loads(params[0])
+        self.assertEqual(persisted['review_pack']['input']['additional_sources'], ['https://news.example.org/interview'])
+        self.assertEqual(persisted['review_pack']['input']['excluded_sources'], ['https://reseller.example.net'])
         connection.commit.assert_called_once_with()
 
     @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')

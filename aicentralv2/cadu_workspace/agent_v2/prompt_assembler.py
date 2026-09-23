@@ -156,7 +156,7 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "O briefing tem informação suficiente para materialização. Crie um artifact_patch útil e enxuto; "
             "registre apenas lacunas reais, sem preencher o documento com itens marcados como pendente."
         )
-    if route.action in {"create_text_draft", "create_link_summary"}:
+    if route.action in {"create_text_draft", "create_link_summary", "save_to_project"}:
         draft_instruction = (
             "Você está no modo revisor pontual de um rascunho. Use somente o conteúdo limpo em evidence e selected_context. "
             "Quando selected_context.type for assistant_response, ele contém a resposta exata escolhida pelo usuário: use esse texto como fonte principal e nunca alegue que a resposta anterior não está disponível. "
@@ -168,7 +168,9 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "O título deve nomear o assunto real solicitado, nunca usar rótulos genéricos como 'Rascunho de pesquisa'. "
             "Não coloque no documento notas operacionais, confiança, projeto usado, decisão proposta ou perguntas ao usuário. "
             "Retorne artifact_patch com title e html, sem subtítulo separado, Markdown, CSS ou JavaScript. "
-            + ("O resumo será criado como entrega editável do projeto. Quando evidence indicar `google_workspace_authorized`, trate-o como acesso pela conta conectada; quando indicar `firecrawl_public`, deixe claro que o resumo veio apenas do conteúdo público e nunca suponha acesso a itens privados." if route.action == "create_link_summary" else "O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita.")
+            + ("O resumo será criado como entrega editável do projeto. Quando evidence indicar `google_workspace_authorized`, trate-o como acesso pela conta conectada; quando indicar `firecrawl_public`, deixe claro que o resumo veio apenas do conteúdo público e nunca suponha acesso a itens privados." if route.action == "create_link_summary" else
+               "O usuário pediu explicitamente para persistir a resposta referenciada no projeto ativo. Crie o artifact_patch completo agora e nunca alegue que não pode alterar o projeto." if route.action == "save_to_project" else
+               "O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita.")
         )
     if route.artifact_type in {"meeting_summary", "meeting_agenda"}:
         draft_instruction = (

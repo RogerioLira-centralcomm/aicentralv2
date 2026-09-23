@@ -10,9 +10,10 @@ import secrets
 from uuid import uuid4
 from uuid import UUID
 
+from flask import has_app_context
 from psycopg.types.json import Json
 
-from ...db import get_db
+from ...db import close_db, get_db
 from ..agent_v2.contracts import ActiveObject, RequestContext
 from .registry import ToolError, ToolInputError
 
@@ -311,6 +312,11 @@ def execute(principal, name: str, arguments: dict, exposure: str, registry):
     handle = str(arguments.pop("context_handle", "") or "")
     row = _row(handle, principal, exposure) if handle else None
     context = _request_context(row, principal.context) if row else principal.context
+    # Authentication and context lookup may have opened a request-scoped
+    # connection. Tools can perform network I/O, so never reserve that
+    # connection for the duration of the external call.
+    if has_app_context():
+        close_db()
     try:
         value = registry.execute(name, arguments, context, exposure)
         if row:

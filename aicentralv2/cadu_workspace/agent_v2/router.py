@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from .contracts import IntentRoute
 from ..conversations.guardrails import normalize_colloquial
+from ..intent_engine import interpret as interpret_canonical_intent
 
 
 def _has(text: str, pattern: str) -> bool:
@@ -295,6 +296,19 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            ("project",), ("workspace.search_project_content",))
     if _has(text, r"\b(?:crie|criar|novo)\s+(?:(?:um|o)\s+)?projeto\b"):
         return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
+    canonical = interpret_canonical_intent(text, has_project=has_project, surface="chat")
+    if canonical.intent == "persist_content":
+        if not has_project:
+            return IntentRoute("workspace", "select_project_for_artifact", "low", "clarification",
+                               ("project",), (), None, False)
+        return IntentRoute("workspace", "save_to_project", "medium", "artifact_first",
+                           ("project",), (), canonical.format if canonical.format == "note" else "document", False)
+    if canonical.intent == "create_artifact":
+        return IntentRoute("workspace", "create_text_draft", "high", "artifact_first",
+                           ("project", "brand") if has_project else (), (), "document")
+    if canonical.intent == "research_entity":
+        return IntentRoute("research", "search_web", "high", "analysis",
+                           ("project", "brand") if has_project else (), ("web.search",))
     if (not forbid_project_persistence
             and _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b")):
         return IntentRoute("workspace", "save_to_project", "medium", "artifact_first",

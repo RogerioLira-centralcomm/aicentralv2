@@ -112,10 +112,45 @@ function BrandAuditUploads() {
   </div>;
 }
 
+function BrandAuditSources({initialAdditional = [], initialExcluded = []}) {
+  const [additional, setAdditional] = useState(initialAdditional);
+  const [excluded, setExcluded] = useState(initialExcluded);
+  const [value, setValue] = useState('');
+  const [exclude, setExclude] = useState(false);
+  const [error, setError] = useState('');
+  const add = () => {
+    const raw = value.trim();
+    if (!raw) return;
+    let url;
+    try { url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`); } catch (_) { setError('Informe um endereço válido.'); return; }
+    if (!['http:', 'https:'].includes(url.protocol)) { setError('Use um endereço http ou https.'); return; }
+    const normalized = url.toString();
+    const target = exclude ? excluded : additional;
+    if (target.includes(normalized)) { setError('Esta fonte já foi adicionada.'); return; }
+    (exclude ? setExcluded : setAdditional)(items => [...items, normalized].slice(0, 12));
+    setValue(''); setError('');
+  };
+  const sourceLabel = source => { try { return new URL(source).hostname.replace(/^www\./, ''); } catch (_) { return source; } };
+  return <details className="cadu-ds-brand-audit-sources">
+    <Hidden name="source_preferences_present" value="true"/>
+    <summary>Adicionar fonte específica</summary>
+    <div className="cadu-ds-brand-audit-sources__form">
+      <label>Endereço<input type="url" value={value} placeholder="https://" onChange={event => { setValue(event.target.value); setError(''); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); add(); } }}/></label>
+      <label className="cadu-ds-brand-audit-sources__exclude"><input type="checkbox" checked={exclude} onChange={event => setExclude(event.target.checked)}/> Ignorar esta fonte</label>
+      <button type="button" onClick={add}>Adicionar</button>
+      {error && <small role="alert">{error}</small>}
+    </div>
+    {additional.length > 0 && <div className="cadu-ds-brand-audit-source-list"><strong>Referências informadas</strong>{additional.map(source => <span key={source}><Hidden name="additional_sources" value={source}/><b title={source}>{sourceLabel(source)}</b><button type="button" onClick={() => setAdditional(items => items.filter(item => item !== source))} aria-label={`Remover ${source}`}>×</button></span>)}</div>}
+    {excluded.length > 0 && <div className="cadu-ds-brand-audit-source-list is-excluded"><strong>Fontes ignoradas</strong>{excluded.map(source => <span key={source}><Hidden name="excluded_sources" value={source}/><b title={source}>{sourceLabel(source)}</b><button type="button" onClick={() => setExcluded(items => items.filter(item => item !== source))} aria-label={`Remover exclusão de ${source}`}>×</button></span>)}</div>}
+  </details>;
+}
+
 function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   const [mode, setMode] = useState(() => Number(brand.readiness?.score || 0) < 85 && Number(creditAvailable || 0) > 0 ? 'deep' : 'complete');
   const [showAllAssets, setShowAllAssets] = useState(false);
   const existingSocialLinks = brand.auditInput?.socialLinks || brand.analysisMetadata?.socialLinks || [];
+  const existingAdditionalSources = brand.auditInput?.additionalSources || brand.reviewPack?.input?.additional_sources || [];
+  const existingExcludedSources = brand.auditInput?.excludedSources || brand.reviewPack?.input?.excluded_sources || [];
   const reusableAssets = (brand.assets || []).filter(asset => asset.reusable);
   const assetPreviewLimit = mode === 'deep' ? 12 : 8;
   const visibleAssets = showAllAssets ? reusableAssets : reusableAssets.slice(0, assetPreviewLimit);
@@ -129,7 +164,7 @@ function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
       <Hidden name="_csrf" value={csrfToken}/>
       <Hidden name="social_links" value={existingSocialLinks.join('\n')}/>
       <div className="cadu-ds-brand-audit-dialog__columns">
-        <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-sources-title"><header><strong id="audit-sources-title">Fontes atuais</strong><span>O Cadu encontra os links oficiais.</span></header>{brand.websiteUrl ? <><Hidden name="website_url" value={brand.websiteUrl}/><div className="cadu-ds-brand-audit-site"><small>Site oficial</small><b>{officialSite}</b></div></> : <label>Site oficial<input type="url" name="website_url" maxLength="2000" placeholder="https://"/></label>}{reusableAssets.length > 0 ? <div className="cadu-ds-brand-audit-existing"><Hidden name="existing_assets_present" value="true"/><strong>Ativos disponíveis</strong><div>{visibleAssets.map((asset, index) => <label key={asset.id}><input type="checkbox" name="existing_asset_ids" value={asset.id} defaultChecked={asset.isPrimary || asset.role !== 'logo' || (!hasPrimaryAsset && index === 0)}/><img src={asset.displayUrl} alt=""/><small>{asset.metadata?.label || assetLabels[asset.role] || 'Ativo'}</small></label>)}</div>{!showAllAssets && reusableAssets.length > assetPreviewLimit && <button type="button" className="cadu-ds-brand-audit-existing__more" onClick={() => setShowAllAssets(true)}>Ver todos os {reusableAssets.length} ativos</button>}</div> : <p className="cadu-ds-brand-audit-empty">Nenhum ativo salvo. Você pode adicionar imagens ao lado.</p>}</section>
+        <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-sources-title"><header><strong id="audit-sources-title">Fontes atuais</strong><span>O Cadu encontra os links oficiais.</span></header>{brand.websiteUrl ? <><Hidden name="website_url" value={brand.websiteUrl}/><div className="cadu-ds-brand-audit-site"><small>Site oficial</small><b>{officialSite}</b></div></> : <label>Site oficial<input type="url" name="website_url" maxLength="2000" placeholder="https://"/></label>}<BrandAuditSources initialAdditional={existingAdditionalSources} initialExcluded={existingExcludedSources}/>{reusableAssets.length > 0 ? <div className="cadu-ds-brand-audit-existing"><Hidden name="existing_assets_present" value="true"/><strong>Ativos disponíveis</strong><div>{visibleAssets.map((asset, index) => <label key={asset.id}><input type="checkbox" name="existing_asset_ids" value={asset.id} defaultChecked={asset.isPrimary || asset.role !== 'logo' || (!hasPrimaryAsset && index === 0)}/><img src={asset.displayUrl} alt=""/><small>{asset.metadata?.label || assetLabels[asset.role] || 'Ativo'}</small></label>)}</div>{!showAllAssets && reusableAssets.length > assetPreviewLimit && <button type="button" className="cadu-ds-brand-audit-existing__more" onClick={() => setShowAllAssets(true)}>Ver todos os {reusableAssets.length} ativos</button>}</div> : <p className="cadu-ds-brand-audit-empty">Nenhum ativo salvo. Você pode adicionar imagens ao lado.</p>}</section>
         <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-files-title"><header><strong id="audit-files-title">Novos arquivos</strong><span>Use somente o que deseja analisar agora.</span></header><BrandAuditUploads/></section>
         <aside className="cadu-ds-brand-audit-dialog__column cadu-ds-brand-audit-dialog__scope" aria-labelledby="audit-mode-title"><header><strong id="audit-mode-title">Tipo de análise</strong><span>Escolha o alcance desta atualização.</span></header><label className={mode === 'complete' ? 'is-selected' : ''}><span><input type="radio" name="analysis_mode" value="complete" checked={mode === 'complete'} onChange={() => setMode('complete')}/><b>Completa</b><em>3–8 min</em></span><small>Identidade, oferta, público e direção visual.</small></label><label className={`${mode === 'deep' ? 'is-selected ' : ''}${!hasDeepCredit ? 'is-disabled' : ''}`}><span><input type="radio" name="analysis_mode" value="deep" checked={mode === 'deep'} disabled={!hasDeepCredit} onChange={() => setMode('deep')}/><b>Profunda</b><em>6–12 min</em></span><small>{hasDeepCredit ? 'Mercado, concorrência e campanhas.' : 'Disponível quando houver saldo de créditos.'}</small></label><div className="cadu-ds-brand-audit-dialog__estimate"><small>Consumo máximo</small><strong>{estimates.tokens}</strong></div></aside>
       </div>

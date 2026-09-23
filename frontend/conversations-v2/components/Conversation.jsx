@@ -60,6 +60,11 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
   const blocks = meaningfulResponseBlocks(response.blocks);
   const presentedText = formatResponseParagraphs(text);
   const contentBlocks = blocks.filter(block => !['question', 'questions', 'decision'].includes(block.type));
+  const canCreateDocument = !message.artifact?.id && text.length > 500 && (
+    text.length > 1800 || response.citations?.length || contentBlocks.some(block =>
+      ['sources', 'source_group', 'images', 'insights', 'checklist', 'steps', 'metrics'].includes(block.type)
+    )
+  );
   useEffect(() => () => window.clearTimeout(copyTimer.current), []);
   const copyAnswer = async () => {
     try {
@@ -81,7 +86,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     {!!response.actions?.length && <section className="cv-mt-5 cv-border-t cv-border-white/[.07] cv-pt-4"><span className="cv-mb-2 cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas ações</span><div className="cv-flex cv-flex-wrap cv-gap-2">{response.actions.slice(0, 3).map((item, index) => <button key={index} type="button" onClick={() => onPrompt(item.prompt || '')} className={`${item.style === 'primary' ? 'cv-border-teal/30 cv-bg-teal/10 cv-text-teal' : 'cv-border-white/10 cv-bg-transparent cv-text-[#c7d8d4]'} cv-rounded-lg cv-border cv-px-3 cv-py-2 cv-text-xs hover:cv-bg-white/[.08]`}>{item.label}</button>)}</div></section>}
     {!message.streaming && text && <div className="cv-answer-tools" aria-label="Ações da resposta">
       <button type="button" onClick={copyAnswer} className={copyState === 'copied' ? 'is-confirmed' : ''} aria-label="Copiar resposta" title="Copiar resposta"><Icon name={copyState === 'copied' ? 'check' : 'copy'} size={14}/><span aria-live="polite">{copyState === 'copied' ? 'Copiado' : copyState === 'failed' ? 'Não foi possível copiar' : 'Copiar'}</span></button>
-      {text.length > 5000 && !message.artifact?.id && <button type="button" onClick={() => onPrompt('Organize a resposta selecionada em um documento editável. Preserve integralmente fatos, números, recomendações e conclusões; crie um título específico e subtítulos semânticos entre as seções para facilitar a leitura. Abra o artefato ao lado.', {type:'assistant_response', label:'Resposta completa para o documento', text})}><Icon name="file" size={14}/><span>Editar em documento</span></button>}
+      {canCreateDocument && <button type="button" onClick={() => onPrompt('Crie um documento editável com esta resposta. Preserve integralmente fatos, números, fontes, ressalvas e conclusões; use um título específico e subtítulos semânticos. Abra o documento ao lado para revisão e ofereça salvá-lo no projeto ativo.', {type:'assistant_response', label:'Resposta completa para o documento', text})}><Icon name="file" size={14}/><span>Criar documento</span></button>}
     </div>}
     {message.artifact?.id && <button type="button" onClick={() => onOpenArtifact(message.artifact)} className="cv-artifact-result">
       <span className="cv-artifact-result__icon"><Icon name="file" size={17}/></span>

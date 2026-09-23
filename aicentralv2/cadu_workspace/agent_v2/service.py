@@ -543,20 +543,20 @@ def _enrich_source_blocks(response, run):
             break
     if safe_web_sources:
         execution_mode = str(run.get("execution_mode") or "analysis")
-        query = str(run.get("payload", {}).get("query") or "").lower()
+        query = str(run.get("message") or "").lower()
         person_or_work_query = any(token in query for token in (
             "quem é", "quem foi", "morreu", "biografia", "história", "historia", "carreira", "obra", "artista", "cantor", "autor",
             "marca", "campanha", "campanhas", "case", "trajetória", "trajetoria", "legado", "lançamento", "lancamento",
         ))
-        image_limit = 0 if execution_mode == "fast" else 1 if execution_mode == "analysis" else 3
+        image_limit = 0 if execution_mode == "fast" else 3
         image_items = [source for source in safe_web_sources if source.get("image_url")][:image_limit] if person_or_work_query else []
         if image_items:
-            response.blocks = [*response.blocks, {
+            response.blocks = [{
                 "type": "images", "title": "Imagens relacionadas",
                 "summary": "Imagens encontradas em fontes públicas consultadas.",
                 "items": [{"id": f"image-{index}", "title": item["title"], "url": item["image_url"], "source_url": item["url"]}
                           for index, item in enumerate(image_items, 1)],
-            }, *response.blocks[2:]]
+            }, *response.blocks]
         existing_urls = {
             str(citation.get("url") or "") for citation in response.citations
             if isinstance(citation, dict)
@@ -652,6 +652,9 @@ def prepare(data):
             conversation_id=conversation_id if identity.conversation_supplied else None, memory_enabled=False,
         )
     current = built_context.request_context
+    # Memory/context reads are complete. Release their request-scoped
+    # connection before web research or any other potentially slow tool.
+    close_db()
     execution = prepare_execution(message, current, built_context.history, requested_mode,
                                   conversation_state=built_context.state,
                                   routing_message=built_context.routing_message)

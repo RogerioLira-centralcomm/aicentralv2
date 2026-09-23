@@ -2264,7 +2264,8 @@ def _brand_review_is_stale(pack: dict) -> bool:
 
 
 def _brand_audit_checkpoint_reusable(pack: dict, *, website_url: str, analysis_mode: str,
-                                     social_links: list[str], existing_asset_ids: list[int], has_new_images: bool) -> bool:
+                                     social_links: list[str], existing_asset_ids: list[int], has_new_images: bool,
+                                     additional_sources=None, excluded_sources=None) -> bool:
     """Resume paid extraction only for the exact same pipeline and inputs."""
     previous = pack.get('input') if isinstance(pack.get('input'), dict) else {}
     checkpoint = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
@@ -2274,6 +2275,8 @@ def _brand_audit_checkpoint_reusable(pack: dict, *, website_url: str, analysis_m
         and previous.get('website_url') == website_url
         and previous.get('analysis_mode') == analysis_mode
         and list(previous.get('social_links') or []) == list(social_links or [])
+        and list(previous.get('additional_sources') or []) == list(additional_sources or [])
+        and list(previous.get('excluded_sources') or []) == list(excluded_sources or [])
         and {int(item) for item in previous.get('existing_asset_ids') or [] if str(item).isdigit()}
             == {int(item) for item in existing_asset_ids or [] if str(item).isdigit()}
         and not has_new_images
@@ -2649,7 +2652,7 @@ def _brand_audit_reliability_summary(history: list[dict]) -> dict:
     }
 
 
-def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True, analysis_mode='complete', social_links=None, existing_asset_ids=None):
+def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True, analysis_mode='complete', social_links=None, additional_sources=None, excluded_sources=None, existing_asset_ids=None):
     """Run an audit now or enqueue it for the durable Workspace worker.
 
     ``background=False`` is intentionally used only by the worker.  It keeps
@@ -2663,7 +2666,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
             try:
                 _save_brand_audit_history(
                     client_id, brand_id, job_id, analysis_mode=analysis_mode, status='running',
-                    input_data={'website_url': website_url, 'social_links': list(social_links or []), 'analysis_mode': analysis_mode,
+                    input_data={'website_url': website_url, 'social_links': list(social_links or []),
+                                'additional_sources': list(additional_sources or []), 'excluded_sources': list(excluded_sources or []), 'analysis_mode': analysis_mode,
                                 'existing_asset_ids': list(existing_asset_ids or []),
                                 'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
                 )
@@ -2837,6 +2841,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     analysis = service.analyze_brand(
                         website_url, restored_images, billing_callback=bill,
                         analysis_mode=analysis_mode, social_links=social_links,
+                        additional_sources=additional_sources, excluded_sources=excluded_sources,
                     )
                     if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
                         raise ValueError('A análise não retornou evidências suficientes.')
@@ -3005,6 +3010,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 'brand_id': brand_id, 'website_url': website_url,
                 'images': images, 'proposal': proposal, 'analysis_mode': analysis_mode,
                 'social_links': list(social_links or []),
+                'additional_sources': list(additional_sources or []),
+                'excluded_sources': list(excluded_sources or []),
                 'existing_asset_ids': existing_asset_ids,
             })
             return True
@@ -7117,6 +7124,8 @@ def brand_detail(brand_id):
                 'hasImages': bool((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('has_images')),
                 'analysisMode': str((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('analysis_mode') or 'complete'),
                 'socialLinks': list((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('social_links') or []),
+                'additionalSources': list((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('additional_sources') or []),
+                'excludedSources': list((((brand.get('analysis_metadata') or {}).get('review_pack') or {}).get('input') or {}).get('excluded_sources') or []),
             },
             'preserved': {
                 'websiteUrl': str(brand.get('website_url') or ''),
@@ -7494,6 +7503,8 @@ def audit_brand(brand_id):
     if request.form.get('confirmed_cost') != 'true':
         abort(400, description='Confirme a estimativa de créditos antes de iniciar a auditoria.')
     social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '').splitlines() if item.strip()][:12]
+    additional_sources = [_normalized_website_url(item) for item in request.form.getlist('additional_sources')[:12] if str(item).strip()]
+    excluded_sources = [_normalized_website_url(item) for item in request.form.getlist('excluded_sources')[:12] if str(item).strip()]
     logo_uploads = [item for item in request.files.getlist('logo_image') if item and item.filename][:1]
     reference_limit = 3 if logo_uploads else 4
     reference_images = [item for item in request.files.getlist('images') if item and item.filename][:reference_limit]
@@ -7542,6 +7553,7 @@ def audit_brand(brand_id):
                       'existing_asset_ids': list(existing_asset_ids or []),
                       'include_project_sources': request.form.get('include_project_sources') == 'true',
                       'analysis_mode': analysis_mode, 'social_links': social_links,
+                      'additional_sources': additional_sources, 'excluded_sources': excluded_sources,
                       'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
             'analysis': {},
             'reviews': [],
@@ -7581,6 +7593,7 @@ def audit_brand(brand_id):
             current_app.logger.exception('Não foi possível preservar os ativos da auditoria da marca %s', brand_id)
     _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url,
                             image_payload, analysis_mode=analysis_mode, social_links=social_links,
+                            additional_sources=additional_sources, excluded_sources=excluded_sources,
                             existing_asset_ids=existing_asset_ids)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({
@@ -7643,6 +7656,11 @@ def retry_brand_audit(brand_id):
     )
     analysis_mode = request.form.get('analysis_mode') if request.form.get('analysis_mode') in {'complete', 'deep'} else previous_input.get('analysis_mode') or 'complete'
     social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '\n'.join(previous_input.get('social_links') or [])).splitlines() if item.strip()][:12]
+    source_preferences_present = request.form.get('source_preferences_present') == 'true'
+    additional_sources = ([_normalized_website_url(item) for item in request.form.getlist('additional_sources')[:12] if str(item).strip()]
+                          if source_preferences_present else list(previous_input.get('additional_sources') or []))
+    excluded_sources = ([_normalized_website_url(item) for item in request.form.getlist('excluded_sources')[:12] if str(item).strip()]
+                        if source_preferences_present else list(previous_input.get('excluded_sources') or []))
     logo_uploads = [item for item in request.files.getlist('logo_image') if item and item.filename][:1]
     reference_limit = 3 if logo_uploads else 4
     reference_images = [item for item in request.files.getlist('images') if item and item.filename][:reference_limit]
@@ -7679,6 +7697,7 @@ def retry_brand_audit(brand_id):
     checkpoint = pack.get('analysis') if _brand_audit_checkpoint_reusable(
         pack, website_url=website_url, analysis_mode=analysis_mode,
         social_links=social_links, existing_asset_ids=existing_asset_ids or [],
+        additional_sources=additional_sources, excluded_sources=excluded_sources,
         has_new_images=bool(image_payload),
     ) else {}
     metadata['review_pack'] = {
@@ -7688,6 +7707,7 @@ def retry_brand_audit(brand_id):
         'input': {'website_url': website_url, 'has_images': bool(image_payload), 'has_logo_upload': bool(logo_uploads), 'preserves_logo': True,
                   'existing_asset_ids': list(existing_asset_ids or []),
                   'analysis_mode': analysis_mode, 'social_links': social_links,
+                  'additional_sources': additional_sources, 'excluded_sources': excluded_sources,
                   'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION}, 'analysis': checkpoint, 'reviews': [],
     }
     connection = get_db()
@@ -7716,7 +7736,8 @@ def retry_brand_audit(brand_id):
             current_app.logger.exception('Não foi possível preservar as novas referências da auditoria da marca %s', brand_id)
     _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url,
                             image_payload, proposal=checkpoint, analysis_mode=analysis_mode,
-                            social_links=social_links, existing_asset_ids=existing_asset_ids)
+                            social_links=social_links, additional_sources=additional_sources,
+                            excluded_sources=excluded_sources, existing_asset_ids=existing_asset_ids)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({'ok': True, 'job_id': job_id, 'status': 'queued',
                         'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION,

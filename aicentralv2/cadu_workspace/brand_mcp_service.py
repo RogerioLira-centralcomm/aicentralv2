@@ -355,13 +355,15 @@ def save_logo_upload(context: RequestContext, token: str, uploaded) -> dict:
             "status": "uploaded", "assets": assets or []}
 
 
-def start_audit(context: RequestContext, *, request_id, brand_id, website_url: str = "", analysis_mode: str = "complete", social_links=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
+def start_audit(context: RequestContext, *, request_id, brand_id, website_url: str = "", analysis_mode: str = "complete", social_links=None, additional_sources=None, excluded_sources=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
     _require_admin(context)
     operation_id = _request_id(request_id)
     if not confirmed_cost:
         raise BadRequest("Confirme o custo estimado antes de iniciar a auditoria.")
     analysis_mode = "deep" if str(analysis_mode).lower() == "deep" else "complete"
     social_links = [str(item).strip()[:500] for item in (social_links or []) if str(item).strip()][:12]
+    additional_sources = list(dict.fromkeys(_website(item) for item in (additional_sources or []) if str(item).strip()))[:12]
+    excluded_sources = list(dict.fromkeys(_website(item) for item in (excluded_sources or []) if str(item).strip()))[:12]
     estimate = {"estimated_tokens": 150000 if analysis_mode == "deep" else 75000,
                 "estimated_credits": 150000 if analysis_mode == "deep" else 75000,
                 "estimated_time": "6–12 min" if analysis_mode == "deep" else "3–8 min"}
@@ -429,7 +431,7 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
                 "job_id": job_id, "request_id": operation_id, "status": "queued", "stage": "queued",
                 "index": 0, "total": 4, "message": "A auditoria entrou na fila.", "error": "",
                 "created_at": datetime.utcnow().isoformat() + "Z",
-                "input": {"website_url": website_url, "has_images": bool(selected_asset_ids), "include_project_sources": False, "analysis_mode": analysis_mode, "social_links": social_links, "existing_asset_ids": selected_asset_ids, "cost_confirmed": True, **estimate},
+                "input": {"website_url": website_url, "has_images": bool(selected_asset_ids), "include_project_sources": False, "analysis_mode": analysis_mode, "social_links": social_links, "additional_sources": additional_sources, "excluded_sources": excluded_sources, "existing_asset_ids": selected_asset_ids, "cost_confirmed": True, **estimate},
                 "analysis": {}, "reviews": [],
             }
             cursor.execute("""UPDATE cx_clients SET website_url = %s, analysis_metadata = %s::jsonb
@@ -441,9 +443,9 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
     except Exception:
         connection.rollback()
         raise
-    _start_brand_review_job(context.client_id, context.user_id, int(brand["id"]), job_id, website_url, [], analysis_mode=analysis_mode, social_links=social_links, existing_asset_ids=selected_asset_ids)
+    _start_brand_review_job(context.client_id, context.user_id, int(brand["id"]), job_id, website_url, [], analysis_mode=analysis_mode, social_links=social_links, additional_sources=additional_sources, excluded_sources=excluded_sources, existing_asset_ids=selected_asset_ids)
     return {"brand_id": int(brand["id"]), "job_id": job_id, "status": "queued", "queued": True,
-            "analysis_mode": analysis_mode, "existing_asset_ids": selected_asset_ids, "cost_authorized": True, **estimate,
+            "analysis_mode": analysis_mode, "additional_sources": additional_sources, "excluded_sources": excluded_sources, "existing_asset_ids": selected_asset_ids, "cost_authorized": True, **estimate,
             "status_url": f"/workspace/app/marcas/{brand['id']}/auditoria/status"}
 
 

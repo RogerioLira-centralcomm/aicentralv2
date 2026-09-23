@@ -64,6 +64,8 @@ def _redirect_with_query(uri: str, **values) -> str:
 # The public surface is an intentional subset of internal capabilities. New
 # internal tools do not become internet-facing by accident.
 PUBLIC_TOOLS = frozenset({
+    "intent.interpret",
+    "intent.execute",
     "context.open",
     "context.get",
     "context.update",
@@ -144,6 +146,7 @@ PUBLIC_TOOLS = frozenset({
     "reports.compare_report_to_plan",
 })
 PUBLIC_WRITE_TOOLS = frozenset({
+    "intent.execute",
     "context.update",
     "context.close",
     "media.start_studio_session",
@@ -179,6 +182,7 @@ PUBLIC_WRITE_TOOLS = frozenset({
 # Only these tools persist their result in cadu_mcp_operations. Other writes
 # still receive an execution receipt, but must not promise generic recovery.
 RECOVERABLE_OPERATION_TOOLS = frozenset({
+    "intent.execute",
     "media.generate_image",
     "media.edit_image",
     "media.plan_video",
@@ -346,6 +350,10 @@ def public_rpc():
                                "icons": [{"src": product_url("workspace", MCP_ICON_PATH),
                                           "mimeType": "image/svg+xml", "sizes": ["any"]}]},
                 "instructions": (
+                    "O Cadu entende pedidos naturais em português do Brasil. Use intent.interpret para frases como "
+                    "'joga isso no projeto', 'faz um documento disso' ou 'não salva ainda'. Quando 'isso' se referir "
+                    "a conteúdo criado pelo host, envie source.content ou uma referência Cadu explícita. "
+                    "Use intent.execute com confirmed=true e request_id único para criar ou salvar o documento de forma idempotente. "
                     "Para preservar projeto, marca, artefatos e operações entre chamadas, use context.open e "
                     "reenvie o context_handle retornado nas ferramentas seguintes. "
                     "Use project_ref no nível params ou configure um projeto padrão na chave. "

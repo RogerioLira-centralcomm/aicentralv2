@@ -1086,10 +1086,23 @@ def search_recent_brand_creatives(brand_name, limit=12, billing_callback=None):
     return items[:limit]
 
 
-def _compact_web_evidence(url, *, deep=False, social_links=None):
+def _compact_web_evidence(url, *, deep=False, social_links=None, additional_sources=None, excluded_sources=None):
     if not url:
         return {}, None
     domain = _normalizar_dominio(url)
+    excluded = [_normalized_public_url(item) for item in (excluded_sources or [])]
+    excluded = [item for item in excluded if item]
+    def is_excluded(candidate):
+        normalized = _normalized_public_url(candidate)
+        if not normalized:
+            return False
+        host = (urlparse(normalized).hostname or '').lower().removeprefix('www.')
+        return any(
+            normalized.rstrip('/').startswith(blocked.rstrip('/'))
+            or host == (urlparse(blocked).hostname or '').lower().removeprefix('www.')
+            or host.endswith('.' + (urlparse(blocked).hostname or '').lower().removeprefix('www.'))
+            for blocked in excluded
+        )
     firecrawl_warning = None
     direct_fallback = False
     try:
@@ -1116,6 +1129,7 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
         limit=12 if deep else 10,
         include_deep=deep,
     )
+    page_urls = [page_url for page_url in page_urls if not is_excluded(page_url)]
     if page_urls:
         with ThreadPoolExecutor(max_workers=3) as executor:
             pending = {
@@ -1142,7 +1156,25 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
             "title": page_record.get("titulo"),
             "description": page_record.get("descricao"),
             "content": _clean_web_text(page_raw.get("markdown"), 6000),
+            "source_type": "official",
         })
+    supplemental_sources = []
+    for source_url in dict.fromkeys(_normalized_public_url(item) for item in (additional_sources or [])):
+        if not source_url or is_excluded(source_url):
+            continue
+        try:
+            source_raw = _firecrawl_scrape(source_url, formats=_PAGE_FORMATS, timeout_s=25)
+        except (RuntimeError, requests.RequestException):
+            continue
+        source_record = _montar_registro(_normalizar_dominio(source_url), source_raw, source_url)
+        supplemental_sources.append({
+            "url": source_url,
+            "title": source_record.get("titulo"),
+            "description": source_record.get("descricao"),
+            "content": _clean_web_text(source_raw.get("markdown"), 6000),
+            "source_type": "user_reference",
+        })
+    evidence_pages.extend(supplemental_sources)
     # Contacts are operational metadata, not a quality proxy. Extract them
     # deterministically from first-party pages so they remain auditable and do
     # not depend on an LLM deciding that a footer is strategically relevant.
@@ -1204,9 +1236,11 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
         "description": record.get("descricao"),
         "logo_url": record.get("logo_url"),
         "menu_links": record.get("menu_links") or [],
-        "social_links": _normalized_public_links(
+        "social_links": [item for item in _normalized_public_links(
             list((record.get("dados_extras") or {}).get("social_links") or []) + list(social_links or []),
-        ),
+        ) if not is_excluded(item)],
+        "additional_sources": supplemental_sources,
+        "excluded_sources": excluded,
         "pages": evidence_pages,
         "deterministic_contacts": deterministic_contacts,
         "deterministic_addresses": deterministic_addresses,
@@ -1981,7 +2015,7 @@ class CreativeBrandAnalyzer:
             raise last_error
         raise RuntimeError('Nenhum modelo de análise foi configurado.')
 
-    def analyze(self, url=None, image=None, billing_callback=None, *, analysis_mode="complete", social_links=None):
+    def analyze(self, url=None, image=None, billing_callback=None, *, analysis_mode="complete", social_links=None, additional_sources=None, excluded_sources=None):
         deep = str(analysis_mode or "complete").lower() == "deep"
         normalized_url = _normalized_public_url(url)
         upload_manifest = _upload_manifest(image)
@@ -1989,7 +2023,7 @@ class CreativeBrandAnalyzer:
         if not normalized_url and not image_content:
             raise ValueError("Informe o site ou envie uma imagem de referência.")
 
-        evidence, web_record = _compact_web_evidence(normalized_url, deep=deep, social_links=social_links)
+        evidence, web_record = _compact_web_evidence(normalized_url, deep=deep, social_links=social_links, additional_sources=additional_sources, excluded_sources=excluded_sources)
         if normalized_url and evidence.get("website_error"):
             raise ValueError(
                 "Não foi possível analisar o site informado: "
@@ -2022,6 +2056,8 @@ class CreativeBrandAnalyzer:
                         "image_attached": bool(image_content),
                         "analysis_mode": "deep" if deep else "complete",
                         "social_links": list(evidence.get("social_links") or []),
+                        "additional_sources": list(evidence.get("additional_sources") or []),
+                        "excluded_sources": list(evidence.get("excluded_sources") or []),
                         "deep_collection": ["políticas digitais", "endereços", "telefones", "e-mails", "concorrentes diretos e indiretos"] if deep else [],
                         "collection_contract": (
                             "No modo profundo, extraia políticas digitais, lojas, endereços, telefones, e-mails, canais de atendimento, pessoas públicas e concorrentes diretos/indiretos encontrados nas fontes e buscas pt-BR. Para cada item preserve URL, trecho, país e confiança. Use de 10 a 20 imagens oficiais aprovadas pelo OCR como evidência visual; imagens rejeitadas não podem fundamentar conclusões."

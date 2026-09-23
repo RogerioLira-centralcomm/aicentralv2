@@ -1288,6 +1288,29 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         self.assertIn("português", query)
         self.assertNotIn("nike.com.br", query)
 
+    def test_fontes_informadas_sao_coletadas_e_exclusoes_nao_entram_na_analise(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        with patch.object(
+            analysis, "_firecrawl_scrape_com_variantes",
+            return_value=({"links": [], "markdown": "# Marca"}, "https://marca.com.br"),
+        ), patch.object(
+            analysis, "_firecrawl_scrape",
+            return_value={"markdown": "Entrevista independente sobre a marca.", "metadata": {"title": "Entrevista"}},
+        ) as scrape, patch.object(analysis, "_firecrawl_image_search", return_value=[]), patch.object(
+            analysis, "_firecrawl_market_search", return_value=[],
+        ):
+            evidence, _record = analysis._compact_web_evidence(
+                "https://marca.com.br",
+                additional_sources=["https://noticias.example/entrevista", "https://revendedor.example/oferta"],
+                excluded_sources=["https://revendedor.example"],
+            )
+
+        scrape.assert_called_once_with("https://noticias.example/entrevista", formats=analysis._PAGE_FORMATS, timeout_s=25)
+        self.assertEqual([item["url"] for item in evidence["additional_sources"]], ["https://noticias.example/entrevista"])
+        self.assertEqual(evidence["additional_sources"][0]["source_type"], "user_reference")
+        self.assertEqual(evidence["excluded_sources"], ["https://revendedor.example"])
+
     def test_og_image_nao_e_promovida_a_logo_sem_evidencia(self):
         from aicentralv2 import creative_brand_analysis as analysis
 

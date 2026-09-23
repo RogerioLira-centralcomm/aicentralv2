@@ -1,7 +1,25 @@
 import {defineConfig} from 'vite';
 import {resolve} from 'node:path';
+import {readFileSync, readdirSync, unlinkSync} from 'node:fs';
+
+const outputDir = resolve('aicentralv2/static/cadu_workspace/conversations/react');
+
+const pruneWorkspaceChunks = () => ({
+  name: 'prune-workspace-chunks',
+  closeBundle() {
+    const entry = readFileSync(resolve(outputDir, 'app.js'), 'utf8');
+    const current = entry.match(/\.\/assets\/(workspace-ui-[A-Za-z0-9_-]+\.js)/)?.[1];
+    if (!current) return;
+    for (const filename of readdirSync(resolve(outputDir, 'assets'))) {
+      if (filename.startsWith('workspace-ui-') && filename.endsWith('.js') && filename !== current) {
+        unlinkSync(resolve(outputDir, 'assets', filename));
+      }
+    }
+  },
+});
 
 export default defineConfig({
+  plugins: [pruneWorkspaceChunks()],
   publicDir: false,
   build: {
     // The templates load workspace auxiliary assets from this directory
@@ -9,7 +27,7 @@ export default defineConfig({
     // remove them before writing the React bundle.
     emptyOutDir: false,
     cssCodeSplit: false,
-    outDir: resolve('aicentralv2/static/cadu_workspace/conversations/react'),
+    outDir: outputDir,
     rollupOptions: {
       input: resolve('frontend/conversations-v2/main.jsx'),
       output: {

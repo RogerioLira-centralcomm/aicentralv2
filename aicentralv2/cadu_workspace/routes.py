@@ -781,7 +781,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'name': str(item.get('name') or 'Marca'),
         'logoUrl': str(item.get('display_logo') or brand_logo_by_name.get(str(item.get('name') or '').casefold()) or ''),
         'visualInitials': str(item.get('display_initials') or 'M'),
-        'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+        'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
         'visualVariant': _dock_visual_variant('brand', item.get('id')),
         'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
         'brandRef': f"studio:{item.get('id')}",
@@ -1567,7 +1567,7 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
                 brand['display_initials'] = ''.join(
                     word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]
                 ).upper() or 'M'
-                brand['display_color'] = brand.get('primary_color') or '#176b5e'
+                brand['display_color'] = brand.get('primary_color') or ''
             return brands
     except Exception:
         if raise_on_error:
@@ -1621,7 +1621,7 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
                     brand['display_initials'] = ''.join(
                         word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]
                     ).upper() or 'M'
-                    brand['display_color'] = brand.get('primary_color') or '#176b5e'
+                    brand['display_color'] = brand.get('primary_color') or ''
                     brand['asset_count'] = 0
                     brand['has_logo'] = 1 if brand['display_logo'] else 0
                     brands.append(brand)
@@ -3038,7 +3038,7 @@ def _project_brand_guidance(brand: dict) -> dict:
     return {
         'id': brand.get('id'),
         'name': brand.get('name') or 'Marca',
-        'color': brand.get('primary_color') or '#176b5e',
+        'color': brand.get('primary_color') or '',
         'status': pack.get('status') or 'not_reviewed',
         'summary': profile.get('brand_summary') or profile.get('positioning') or '',
         'tone': profile.get('tone_of_voice') or '',
@@ -3361,7 +3361,7 @@ def _workspace_context_catalog(client_id: int) -> dict:
         'brands': [{
             'ref': ref, 'id': str(item['id']), 'name': str(item.get('name') or 'Marca'),
             'logo_url': str(item.get('display_logo') or ''),
-            'color': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'color': str(item.get('display_color') or item.get('primary_color') or ''),
             'initials': str(item.get('display_initials') or 'M'),
         } for ref, item in brands_by_ref.items()],
         'projects': [{
@@ -4471,7 +4471,7 @@ def workspace_onboarding():
                     """INSERT INTO cx_clients
                            (crm_client_id, name, website_url, primary_color, secondary_color,
                             brand_profile, analysis_metadata, price_policy)
-                        VALUES (%s, %s, %s, '#176b5e', '#dcece6', '{}'::jsonb, %s::jsonb, 'hide_price')
+                        VALUES (%s, %s, %s, NULL, NULL, '{}'::jsonb, %s::jsonb, 'hide_price')
                      RETURNING id""",
                     (client_id, form['brand_name'], website_url, json.dumps(brand_metadata)),
                 )
@@ -4918,7 +4918,7 @@ def dashboard():
     brand_items = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
                     'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
                     'visualInitials': str(item.get('display_initials') or 'M'),
-                    'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+                    'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
                     'visualVariant': _dock_visual_variant('brand', item.get('id')),
                     'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
                     'projectCount': brand_project_counts.get(f"studio:{item.get('id')}", 0)}
@@ -5112,7 +5112,7 @@ def brands():
     brand_items = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'),
                     'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
                     'visualInitials': str(item.get('display_initials') or 'M'),
-                    'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+                    'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
                     'visualVariant': _dock_visual_variant('brand', item.get('id')),
                     'sector': str(item.get('sector') or ''), 'summary': str(item.get('display_summary') or ''),
                     'assetCount': int(item.get('asset_count') or 0), 'audited': bool(item.get('analysis_metadata')),
@@ -5290,6 +5290,10 @@ def create_brand():
         abort(403, description='Atualize a página e tente novamente.')
     client_id = int(session.get('cliente_id') or 0)
     data = _workspace_brand_form()
+    # A new brand starts without inferred visual tokens. The audit owns the
+    # palette; administrative requests cannot seed identity evidence.
+    data['primary_color'] = None
+    data['secondary_color'] = None
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -5336,7 +5340,7 @@ def create_brand():
                 (project_id, client_id, session.get('user_id'), data['name'],
                  f'Dossiê operacional da marca {data["name"]}.',
                  'Contexto de marca vinculado; decisões de campanha devem ser registradas neste projeto.',
-                 data['primary_color'] or '#176b5e'),
+                 data['primary_color']),
             )
         get_db().commit()
         family_repository.set_project_brand_link(client_id, session.get('user_id'), f'ci:{project_id}', f'studio:{brand_id}', True)
@@ -5369,7 +5373,7 @@ def projects():
         catalog_records = []
         catalog_error = 'Os projetos estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
     items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'visualVariant': _dock_visual_variant('project', item.get('id')), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
-    brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'), 'visualVariant': _dock_visual_variant('brand', item.get('id')), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
+    brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or ''), 'visualVariant': _dock_visual_variant('brand', item.get('id')), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
     dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
     return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items,
                            query=query, status=status, catalog_error=catalog_error,
@@ -5469,7 +5473,7 @@ def create_campaign_project(brand_id, campaign_id):
                    VALUES (%s, %s, %s, %s, %s, %s, 'projeto', %s, 'ativo')""",
                 (project_id, client_id, user_id, name,
                  objective or f'Projeto iniciado a partir da oportunidade {name}.', instructions,
-                 str(brand.get('primary_color') or '#176b5e')),
+                 str(brand.get('primary_color') or '') or None),
             )
         connection.commit()
         # This is an explicit user action, never a side effect of the audit.
@@ -5526,7 +5530,7 @@ def project_detail(project_id):
             'title': str(item.get('nome') or 'Projeto'),
             'previewUrl': str(item.get('brand_logo_url') or ''),
             'visualInitials': str(item.get('thumbnail_initials') or 'P'),
-            'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+            'visualColor': str(item.get('thumbnail_color') or item.get('cor') or ''),
             'visualVariant': _dock_visual_variant('project', item.get('id')),
             'projectRef': f"ci:{item.get('id')}",
             'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
@@ -5535,7 +5539,7 @@ def project_detail(project_id):
             'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
             'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
             'visualInitials': str(item.get('display_initials') or 'M'),
-            'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
             'visualVariant': _dock_visual_variant('brand', item.get('id')),
             'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
         } for item in brands]
@@ -6247,7 +6251,7 @@ def import_project_brand(project_id):
                 '''INSERT INTO cx_clients
                        (crm_client_id, name, website_url, primary_color, secondary_color,
                         brand_profile, analysis_metadata, price_policy)
-                   VALUES (%s, %s, %s, '#176b5e', '#dcece6', '{}'::jsonb, %s::jsonb, 'hide_price')
+                   VALUES (%s, %s, %s, NULL, NULL, '{}'::jsonb, %s::jsonb, 'hide_price')
                 RETURNING id''', (client_id, name, website_url, json.dumps(metadata)))
             brand_id = int(cursor.fetchone()['id'])
         connection.commit()
@@ -7007,7 +7011,7 @@ def brand_detail(brand_id):
             'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
             'name': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}",
             'previewUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'),
-            'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+            'visualColor': str(item.get('thumbnail_color') or item.get('cor') or ''),
             'visualVariant': _dock_visual_variant('project', item.get('id')),
             'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
         } for item in projects]
@@ -7015,7 +7019,7 @@ def brand_detail(brand_id):
             'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'),
             'title': str(item.get('name') or 'Marca'), 'logoUrl': str((item.get('logo_variants') or {}).get('256') or item.get('display_logo') or ''),
             'visualInitials': str(item.get('display_initials') or 'M'),
-            'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
             'visualVariant': _dock_visual_variant('brand', item.get('id')),
             'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
         } for item in brands]
@@ -7056,7 +7060,7 @@ def brand_detail(brand_id):
             'detailUrl': url_for('cadu_workspace.clean_brand_detail', brand_id=brand_id),
             'logoUrl': str((brand.get('logo_variants') or {}).get('512') or brand.get('display_logo') or ''),
             'logoVariants': dict(brand.get('logo_variants') or {}), 'initials': str(brand.get('display_initials') or 'M'),
-            'primaryColor': str(brand.get('primary_color') or '#176b5e'), 'secondaryColor': str(brand.get('secondary_color') or '#dcece6'),
+            'primaryColor': str(brand.get('primary_color') or ''), 'secondaryColor': str(brand.get('secondary_color') or ''),
             'profile': {
                 'brandSummary': str(profile.get('brand_summary') or profile.get('positioning') or ''),
                 'toneOfVoice': str(profile.get('tone_of_voice') or brand.get('tone_of_voice') or ''),
@@ -7130,7 +7134,7 @@ def brand_detail(brand_id):
                 'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'), 'description': str(item.get('descricao') or ''),
                 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
                 'logoUrl': str(item.get('brand_logo_url') or ''), 'initials': str(item.get('thumbnail_initials') or 'P'),
-                'color': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+                'color': str(item.get('thumbnail_color') or item.get('cor') or ''),
             } for item in linked_projects],
         }
         dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
@@ -7189,10 +7193,10 @@ def delete_brand(brand_id):
     brand = _workspace_brand(client_id, brand_id)
     if not brand:
         abort(404)
-    expected = str(brand.get('name') or '').strip()
+    expected = ' '.join(str(brand.get('name') or '').split()).strip()
     confirmation = ' '.join((request.form.get('confirmation_name') or '').split()).strip()
-    if not expected or confirmation != expected:
-        abort(400, description='Digite o nome exato da marca para confirmar a exclusão.')
+    if not expected or confirmation.casefold() != expected.casefold():
+        abort(400, description='Digite o nome da marca para confirmar a exclusão.')
     linked_projects = _brand_linked_projects(client_id, brand_id)
     connection = get_db()
     try:
@@ -7233,6 +7237,10 @@ def update_brand_identity(brand_id):
     if not existing_brand:
         abort(404)
     data = _workspace_brand_form()
+    # Visual identity is evidence-driven. This administrative endpoint never
+    # accepts palette changes, even if a caller submits hidden/manual fields.
+    data['primary_color'] = existing_brand.get('primary_color')
+    data['secondary_color'] = existing_brand.get('secondary_color')
     # Autosave posts every field. Preserve the import marker until someone
     # actually changes the generated name, otherwise a tone/sector edit would
     # prevent the approved proposal from replacing the provisional name.

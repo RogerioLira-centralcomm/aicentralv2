@@ -434,8 +434,7 @@ class WorkspaceBrandsTest(TestCase):
 
         response = _client().post('/workspace/app/marcas', data={
             '_csrf': 'known-token', 'name': 'Marca segura', 'sector': 'Serviços',
-            'website_url': 'https://example.com', 'primary_color': '#176b5e',
-            'secondary_color': '#dcece6',
+            'website_url': 'https://example.com',
         })
 
         self.assertEqual(response.status_code, 303)
@@ -446,7 +445,31 @@ class WorkspaceBrandsTest(TestCase):
         )
         params = brand_insert.args[1]
         self.assertEqual(params[0], 12)
+        self.assertIsNone(params[4])
+        self.assertIsNone(params[5])
         self.assertGreaterEqual(connection.commit.call_count, 1)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_identity_update_preserves_audited_colors_even_when_form_posts_them(self, workspace_brand, get_db):
+        workspace_brand.return_value = {
+            'id': 81, 'name': 'Marca segura', 'brand_profile': {},
+            'primary_color': '#112233', 'secondary_color': '#DDEEFF',
+        }
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/identidade', data={
+            '_csrf': 'known-token', 'name': 'Marca segura',
+            'website_url': 'https://example.com',
+            'primary_color': '#AABBCC', 'secondary_color': '#010203',
+        })
+
+        self.assertEqual(response.status_code, 303)
+        params = cursor.execute.call_args.args[1]
+        self.assertEqual(params[3:5], ('#112233', '#DDEEFF'))
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
@@ -550,6 +573,23 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(payload['forbidden_elements'], ['Promessas absolutas'])
         self.assertNotIn('color_palette', payload)
         self.assertNotIn('fonts', payload)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._brand_linked_projects', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81, 'name': 'Zona Sul'})
+    def test_brand_delete_confirmation_ignores_letter_case(self, _workspace_brand, _linked_projects, get_db):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.rowcount = 1
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/apagar', data={
+            '_csrf': 'known-token', 'confirmation_name': '  zona   sul  ',
+        })
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers['Location'], '/marcas')
+        connection.commit.assert_called_once_with()
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value=None)

@@ -25,7 +25,8 @@ export function VisualIdentity({src, initials, label, color, variant, className 
   const variantClass = !showImage && !showFallbackImage && variantNumber !== null ? ` cadu-ds-visual-identity--v${variantNumber + 1}` : '';
   const imageClass = imageTreatment ? ` cadu-ds-visual-identity--${imageTreatment}` : '';
   const identityValue = String(initials || '').trim().length > 1 ? initials : (label || initials);
-  return <span className={`cadu-ds-visual-identity${variantClass}${imageClass} ${className}`} style={{'--cadu-identity-color': color || '#176b5e'}} title={label || undefined}>
+  // Missing evidence gets a neutral UI token, never a fabricated brand color.
+  return <span className={`cadu-ds-visual-identity${variantClass}${imageClass} ${className}`} style={{'--cadu-identity-color': color || '#71807d'}} title={label || undefined}>
     {showImage
       ? <img src={src} alt={imageAlt} onError={() => setImageFailed(true)}/>
       : showFallbackImage

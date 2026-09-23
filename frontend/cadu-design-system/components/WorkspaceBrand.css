@@ -181,11 +181,35 @@ body.portal--workspace .cadu-ds-brand-data-block li::before { opacity:.68; }
 body.portal--workspace .cadu-ds-brand-data-block li.is-long { padding-left:0; }
 body.portal--workspace .cadu-ds-brand-data-block li.is-long::before { display:none; }
 body.portal--workspace .cadu-ds-brand-readable-copy { display:grid; gap:9px; }
-body.portal--workspace .cadu-ds-brand-readable-copy p { margin:0; color:var(--cadu-muted-strong); font-size:13px; font-weight:400; line-height:1.58; }
-body.portal--workspace .cadu-ds-brand-readable-copy p + p { padding-left:13px; border-left:2px solid color-mix(in srgb,var(--cadu-accent) 38%,transparent); }
+body.portal--workspace .cadu-ds-brand-readable-copy p { margin:0; color:var(--cadu-muted-strong); font-size:14px; font-weight:400; line-height:1.58; }
+body.portal--workspace .cadu-ds-brand-readable-copy p + p { padding-left:0; border-left:0; }
 body.portal--workspace .cadu-ds-brand-table { border-top:0; }
 body.portal--workspace .cadu-ds-brand-table article { padding:10px 0; border-bottom:0; }
 body.portal--workspace .cadu-ds-brand-table b { font-weight:520; }
+
+body.portal--workspace .cadu-ds-brand-delete-warning {
+  display:grid;
+  gap:6px;
+  margin-top:20px;
+  color:var(--cadu-muted-strong);
+  font-size:13px;
+  line-height:1.45;
+}
+body.portal--workspace .cadu-ds-brand-delete-warning :is(strong,b,span) { display:block; }
+body.portal--workspace .cadu-ds-brand-delete-warning strong { color:var(--cadu-ink); font-weight:500; }
+body.portal--workspace .cadu-ds-brand-delete-warning b { color:var(--cadu-ink); font-size:16px; font-weight:650; }
+body.portal--workspace .cadu-ds-brand-delete-warning ul { display:grid; gap:4px; margin:2px 0 0; padding-left:18px; }
+body.portal--workspace .cadu-ds-brand-delete-dialog .cadu-ds-brand-form { margin-top:20px; }
+body.portal--workspace .cadu-ds-brand-delete-dialog button.is-danger { background:#9f3d32; color:#fff; }
+body.portal--workspace .cadu-ds-brand-delete-dialog button.is-danger:disabled { opacity:.42; cursor:not-allowed; }
+
+/* Prefer whitespace to decorative left rules throughout the dossier body. */
+body.portal--workspace .cadu-ds-brand-content :is(.cadu-ds-brand-signal-rail,.cadu-ds-brand-next,.cadu-ds-brand-review,.cadu-ds-brand-reprocess-note) { border-left:0; }
+body.portal--workspace .cadu-ds-brand-content :is(.cadu-ds-brand-signal-rail,.cadu-ds-brand-next) { padding-left:0; }
+body.portal--workspace .cadu-ds-brand-section > header span { font-size:13px; line-height:1.5; }
+body.portal--workspace .cadu-ds-brand-direction__lead small,
+body.portal--workspace .cadu-ds-brand-reading--direction small { font-size:11px; line-height:1.4; }
+body.portal--workspace .cadu-ds-brand-reading--direction b { font-size:14px; line-height:1.55; }
 
 body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-library {
   grid-template-columns: minmax(0, 1fr) 240px;

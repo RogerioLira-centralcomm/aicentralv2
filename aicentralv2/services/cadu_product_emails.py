@@ -224,8 +224,10 @@ def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_n
                            summary: str, differentiators: list[str], url: str, logo_url: str = '',
                            status: str = 'approved', coverage=None, costs=None, effort=None,
                            client_id: int | None = None) -> dict:
-    """Notify the requester only after a reviewable brand proposal is ready."""
-    subject = f"A leitura de {brand_name or 'sua marca'} está pronta para revisão"
+    """Notify the requester when a brand analysis reaches a final outcome."""
+    usable = status == 'approved'
+    failed = status == 'failed'
+    subject = f"A análise de {brand_name or 'sua marca'} {'não foi concluída' if failed else 'está pronta'}"
     if not recipient_email or not _enabled():
         reason = "missing_recipient" if not recipient_email else "product_emails_disabled"
         result = {"success": True, "skipped": True, "reason": reason}
@@ -239,16 +241,26 @@ def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_n
     description = str(summary or '').strip()
     if highlights:
         description = f"{description}\n\nDiferenciais observados: {highlights}".strip()
+    costs = costs or {}
+    tokens = int(costs.get('provider_tokens') or costs.get('estimated_tokens') or 0)
+    cost_brl = float(costs.get('actual_cost_brl') or 0)
+    consumption = []
+    if tokens:
+        consumption.append(f"{tokens:,}".replace(',', '.') + " tokens processados")
+    if cost_brl > 0:
+        consumption.append(f"custo operacional aproximado de R$ {cost_brl:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+    if consumption:
+        description = f"{description}\n\nConsumo da análise: {' · '.join(consumption)}".strip()
     return send_cadu_event(product="workspace", event="workspace.brand_audit_ready", template="produto-atividade.html",
         recipient=recipient_email, recipient_name=recipient_name or "Pessoa criadora",
         subject=subject,
         params={
             "BRAND": product_email_brand("workspace"),
-            "TITLE": f"A proposta de {brand_name or 'marca'} está pronta",
-            "DESCRIPTION": description or "Encontramos evidências para você revisar antes de aplicar à marca.",
-            "CTA_LABEL": "Abrir auditoria", "CTA_URL": url,
+            "TITLE": f"A base de {brand_name or 'marca'} está {'pronta para uso' if usable else 'disponível' if not failed else 'aguardando uma nova tentativa'}",
+            "DESCRIPTION": description or ("A análise organizou informações confiáveis da marca e já pode orientar o trabalho." if usable else "A análise foi concluída e os dados disponíveis podem ser consultados enquanto a base é enriquecida." if not failed else "A execução foi interrompida. Abra a marca para consultar o registro e iniciar uma nova análise."),
+            "CTA_LABEL": "Ver análise", "CTA_URL": url,
             "BRAND_LOGO_URL": logo_url, "AUDIT_STATUS": status,
-            "AUDIT_COVERAGE": coverage or {}, "AUDIT_COSTS": costs or {}, "AUDIT_EFFORT": effort or {},
+            "AUDIT_COVERAGE": coverage or {}, "AUDIT_COSTS": costs, "AUDIT_EFFORT": effort or {},
         }, client_id=client_id,
     )
 

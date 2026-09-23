@@ -94,9 +94,9 @@ export function ProjectDataStarter({conversationUrl, project, onContext, onSourc
 
 export function BrandCompletion({score = 0, missing = [], breakdown = [], processing = false, onAudit, onEdit}) {
   const normalized = Math.max(0, Math.min(100, Number(score) || 0));
-  const ready = normalized >= 80;
+  const ready = normalized >= 40;
   return <section className={`cadu-ds-brand-completion${ready ? ' is-ready' : ''}`} id="completar">
-    <div className="cadu-ds-brand-completion__score"><strong>{normalized}%</strong><span>{ready ? 'base utilizável' : 'cobertura da marca'}</span></div>
+    <div className="cadu-ds-brand-completion__score"><strong>{normalized}%</strong><span>completude da base</span></div>
     <div className="cadu-ds-brand-completion__body"><span>{ready ? 'Cobertura consolidada' : 'Próximo ganho de qualidade'}</span><h2>{ready ? 'A marca já orienta projetos e criação' : 'Complete os sinais que ainda fazem diferença'}</h2><p>{missing.length ? `Priorize: ${missing.slice(0, 3).join(', ')}.` : 'A auditoria preserva as lacunas sem bloquear os dados comprovados.'}</p>{breakdown.length > 0 && <div className="cadu-ds-brand-completion__map" aria-label="Cobertura por dimensão">{breakdown.map(item => { const pct = Math.max(0, Math.min(100, Math.round((Number(item.score) || 0) * 100 / Math.max(1, Number(item.max) || 1)))); return <div key={item.id}><span><b>{item.label}</b><small>{item.score}/{item.max}</small></span><i><em style={{width:`${pct}%`}}/></i></div>; })}</div>}</div>
     <div className="cadu-ds-brand-completion__actions"><button type="button" className="is-primary" disabled={processing} onClick={onAudit}>{processing ? 'Análise em andamento' : ready ? 'Atualizar análise' : 'Executar análise completa'}</button><button type="button" onClick={onEdit}>Editar dados</button></div>
   </section>;

@@ -83,7 +83,7 @@ class WorkspaceBrandsTest(TestCase):
     def test_automatic_publication_rejects_decision_below_current_gate(self):
         with self.assertRaisesRegex(ValueError, 'gate mínimo'):
             _auto_apply_brand_analysis(174, 7, 25, {}, {'brand_summary': 'Marca'}, {
-                'approved': True, 'blocked_fields': [], 'score': 64, 'coverage_target': 85,
+                'approved': True, 'blocked_fields': [], 'score': 39, 'publication_threshold': 40,
             })
 
     def test_automatic_publication_rejects_stale_score_version(self):
@@ -171,8 +171,8 @@ class WorkspaceBrandsTest(TestCase):
     def test_quality_gate_calibration_matrix_preserves_evidence_boundaries(self):
         cases = [
             ({'sources': ['https://a.test'], 'brand_summary': 'Resumo'}, {'coverage': {'official_pages': 1}}, .45, False),
-            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'products_services': ['Oferta'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 4}, {'coverage': {'official_pages': 2, 'approved_visuals': 1}}, .75, False),
-            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'logo_url': 'https://a.test/logo.svg', 'color_palette': [{'hex': '#123456'}], 'fonts': [{'family': 'Inter'}], 'products_services': ['Oferta'], 'differentiators': ['Diferencial'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 6}, {'coverage': {'official_pages': 3, 'approved_visuals': 5}}, .9, False),
+            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'products_services': ['Oferta'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 4}, {'coverage': {'official_pages': 2, 'approved_visuals': 1}}, .75, True),
+            ({'sources': ['https://a.test', 'https://a.test/about'], 'brand_summary': 'Resumo', 'target_audience': 'Público', 'logo_url': 'https://a.test/logo.svg', 'color_palette': [{'hex': '#123456'}], 'fonts': [{'family': 'Inter'}], 'products_services': ['Oferta'], 'differentiators': ['Diferencial'], 'proof_points': ['Prova'], 'evidence_ledger': [{'claim': 'Fato'}] * 6}, {'coverage': {'official_pages': 3, 'approved_visuals': 5}}, .9, True),
         ]
         decisions = [
             _automatic_brand_decision(analysis, metadata, {'status': 'ready', 'blocked_fields': [], 'confidence': confidence, 'quality_dimensions': {}}, 'complete')
@@ -228,7 +228,46 @@ class WorkspaceBrandsTest(TestCase):
         self.assertFalse(decision['approved'])
         self.assertLess(decision['score'], 85)
         self.assertTrue(decision['refinement_recommended'])
-        self.assertEqual(decision['blocked_fields'], ['competitors', 'digital_policies', 'campaigns'])
+        self.assertEqual(decision['blocked_fields'], ['campaigns', 'competitors', 'digital_policies'])
+        self.assertEqual(decision['enrichment_fields'], ['campaigns', 'competitors', 'digital_policies'])
+
+    def test_ready_analysis_above_40_publishes_despite_optional_gaps(self):
+        decision = _automatic_brand_decision(
+            {
+                'sources': ['https://brand.test', 'https://brand.test/about'],
+                'brand_summary': 'Marca com informações úteis e verificáveis.',
+                'target_audience': 'Público confirmado.',
+                'products_services': ['Serviço principal'],
+                'differentiators': ['Capilaridade'],
+                'proof_points': ['Página institucional'],
+                'evidence_ledger': [{'claim': f'Fato {index}'} for index in range(5)],
+            },
+            {'coverage': {'official_pages': 2, 'approved_visuals': 1}},
+            {'status': 'ready', 'blocked_fields': ['campaigns', 'competitors', 'personas'], 'confidence': .87},
+            'complete',
+        )
+
+        self.assertTrue(decision['approved'])
+        self.assertGreaterEqual(decision['score'], 40)
+        self.assertLess(decision['score'], 85)
+        self.assertEqual(decision['quality_level'], 'ready')
+        self.assertEqual(decision['critical_blocked_fields'], [])
+
+    def test_uploaded_logo_is_not_blocked_when_site_does_not_repeat_it(self):
+        decision = _automatic_brand_decision(
+            {
+                'sources': ['https://brand.test'], 'brand_summary': 'Resumo',
+                'target_audience': 'Público', 'products_services': ['Serviço'],
+                'logo_url': '/static/uploads/official-logo.png',
+                'evidence_ledger': [{'claim': 'Fato'}] * 6,
+            },
+            {'coverage': {'official_pages': 1, 'approved_visuals': 1}},
+            {'status': 'ready', 'blocked_fields': ['logo_url', 'campaigns'], 'confidence': .8},
+            'complete',
+        )
+
+        self.assertNotIn('logo_url', decision['blocked_fields'])
+        self.assertIn('campaigns', decision['enrichment_fields'])
 
     def test_uploaded_logo_evidence_resolves_to_persisted_asset(self):
         digest = 'a' * 64

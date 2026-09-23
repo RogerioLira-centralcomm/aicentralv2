@@ -549,8 +549,24 @@ def start_audit(context: RequestContext, *, request_id, brand_id=None, website_u
 
 def audit_status(context: RequestContext, brand_id) -> dict:
     brand = _brand(context, brand_id)
-    from .routes import _brand_review_pack
+    from .routes import (
+        BRAND_ANALYSIS_ENRICHMENT_TARGET,
+        BRAND_ANALYSIS_PUBLICATION_THRESHOLD,
+        _brand_audit_history,
+        _brand_review_pack,
+    )
     pack = _brand_review_pack(brand)
-    return {"brand_id": int(brand["id"]), "status": pack.get("status") or "not_started",
+    status = pack.get("status") or "not_started"
+    metadata = brand.get("analysis_metadata") if isinstance(brand.get("analysis_metadata"), dict) else {}
+    decision = metadata.get("automatic_decision") if isinstance(metadata.get("automatic_decision"), dict) else {}
+    history = _brand_audit_history(context.client_id, int(brand["id"])) if status not in {"not_started", "queued", "running"} else []
+    latest = next((item for item in history if not pack.get("job_id") or item.get("job_id") == pack.get("job_id")), history[0] if history else {})
+    return {"brand_id": int(brand["id"]), "status": status,
             "stage": pack.get("stage") or "", "progress": {"current": pack.get("index", 0), "total": pack.get("total", 4)},
-            "message": pack.get("message") or "", "error": pack.get("error") or ""}
+            "message": pack.get("message") or "", "error": pack.get("error") or "",
+            "result": "ready_for_use" if status == "approved" else "enrichment_recommended" if status == "insufficient_evidence" else status,
+            "published": status == "approved", "analysis_mode": latest.get("analysis_mode") or (pack.get("input") or {}).get("analysis_mode"),
+            "quality_level": decision.get("quality_level"),
+            "publication_threshold": decision.get("publication_threshold", BRAND_ANALYSIS_PUBLICATION_THRESHOLD),
+            "enrichment_target": decision.get("enrichment_target", BRAND_ANALYSIS_ENRICHMENT_TARGET),
+            "costs": latest.get("costs") or {}}

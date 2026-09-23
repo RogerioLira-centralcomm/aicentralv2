@@ -48,6 +48,26 @@ def test_brand_audit_email_uses_vault_key_when_env_key_is_absent():
     sender.enviar_email_com_template.assert_called_once()
 
 
+def test_brand_audit_email_presents_positive_result_and_analysis_cost():
+    sender = MagicMock()
+    sender.enviar_email_com_template.return_value = {"success": True}
+    with _app(enabled=True).app_context(), \
+         patch("aicentralv2.services.cadu_email_connector.get_brevo_product_service", return_value=sender), \
+         patch("aicentralv2.email_service.record_workspace_email_event"):
+        send_brand_audit_ready(
+            recipient_email="pessoa@example.com", recipient_name="Pessoa",
+            brand_name="Cemig", summary="Base consistente.", differentiators=["Capilaridade"],
+            url="https://workspace.example/marcas/29", status="approved",
+            costs={"provider_tokens": 12345, "actual_cost_brl": 7.5}, client_id=12,
+        )
+
+    kwargs = sender.enviar_email_com_template.call_args.kwargs
+    assert kwargs["subject"] == "A análise de Cemig está pronta"
+    assert kwargs["params"]["TITLE"] == "A base de Cemig está pronta para uso"
+    assert "12.345 tokens" in kwargs["params"]["DESCRIPTION"]
+    assert "R$ 7,50" in kwargs["params"]["DESCRIPTION"]
+
+
 def test_brand_audit_email_records_provider_failure():
     sender = MagicMock()
     sender.enviar_email_com_template.return_value = {

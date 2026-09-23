@@ -124,7 +124,7 @@ def delete_asset(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="brands.start_audit", capability="workspace", effect="write",
-               description="Inicia análise completa ou profunda da marca após confirmar o custo. A auditoria pertence à marca e não altera o projeto atual; informe brand_id ou use brand_ref/contexto de marca, mesmo que project_ref aponte para outro projeto. Pode usar imagens aprovadas da biblioteca, incluindo o logo selecionado.", exposures=("internal", "customer_agent"),
+               description="Inicia análise completa ou profunda da marca após confirmar o custo. Ambas publicam automaticamente uma base útil quando atingem o piso de evidência; a profunda amplia fontes, mercado e oportunidades sem elevar o gate de publicação. A auditoria pertence à marca, não altera o projeto atual e pode usar imagens aprovadas da biblioteca, incluindo o logo enviado pelo cliente.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["request_id","confirmed","confirmed_cost"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"confirmed_cost":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000},"analysis_mode":{"type":"string","enum":["complete","deep"]},"social_links":{"type":"array","items":{"type":"string","maxLength":500},"maxItems":12},"additional_sources":{"type":"array","items":{"type":"string","maxLength":2000},"maxItems":12},"excluded_sources":{"type":"array","items":{"type":"string","maxLength":2000},"maxItems":12},"existing_asset_ids":{"type":"array","items":{"type":"integer","minimum":1},"maxItems":12}},"additionalProperties":False})
 def start_audit(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}
@@ -132,7 +132,7 @@ def start_audit(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="brands.audit_status", capability="workspace", effect="read",
-               description="Consulta o andamento e resultado operacional da auditoria de uma marca.", exposures=("internal", "customer_agent"),
+               description="Consulta andamento, disponibilidade para uso, nível de qualidade, modalidade e custo da auditoria, sem expor confiança bruta ao cliente.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["brand_id"],"properties":{"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
 def audit_status(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: service.audit_status(context, arguments["brand_id"]))

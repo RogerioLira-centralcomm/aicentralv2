@@ -59,7 +59,9 @@ CADU_EXTRA_CREDIT_AMOUNTS = {
 }
 
 BRAND_SCORE_VERSION = 'brand-readiness-v3-2026-09'
-BRAND_ANALYSIS_SCORE_VERSION = 'brand-analysis-v3-2026-09'
+BRAND_ANALYSIS_SCORE_VERSION = 'brand-analysis-v4-2026-09'
+BRAND_ANALYSIS_PUBLICATION_THRESHOLD = 40
+BRAND_ANALYSIS_ENRICHMENT_TARGET = 85
 BRAND_ANALYSIS_CONTRACT_VERSION = 'brand-metadata-v2-2026-09'
 
 BRAND_METADATA_FIELDS = (
@@ -2084,7 +2086,17 @@ def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_r
     deep = str(analysis_mode or 'complete').lower() == 'deep'
     coverage = dict((analysis_metadata or {}).get('coverage') or {})
     sources = list(analysis.get('sources') or (analysis_metadata or {}).get('sources') or [])
-    quality = _brand_analysis_quality_score(analysis, analysis_metadata, central_review)
+    blocked_fields = _normalized_blocked_fields(central_review.get('blocked_fields'))
+    # A logo explicitly uploaded by the customer is authoritative input. It
+    # does not need to be rediscovered on the public website to be usable.
+    if str(analysis.get('logo_url') or '').startswith('/static/'):
+        blocked_fields.discard('logo_url')
+    # A website represented in the official crawl is already verified even
+    # when an individual reviewer could not fetch the URL again.
+    if int(coverage.get('official_pages') or 0) > 0 and str(analysis.get('website_url') or '').startswith(('http://', 'https://')):
+        blocked_fields.discard('website_url')
+    normalized_review = {**central_review, 'blocked_fields': sorted(blocked_fields)}
+    quality = _brand_analysis_quality_score(analysis, analysis_metadata, normalized_review)
     reasons = []
     try:
         confidence = float(central_review.get('confidence') or 0)
@@ -2092,23 +2104,25 @@ def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_r
         confidence = 0
     if str(central_review.get('status') or '') != 'ready':
         reasons.append('a consolidação central não foi concluída com segurança')
-    required_pages, required_sources = (3, 3) if deep else (1, 1)
+    # Complete and deep analyses share the same publication floor. Deep mode
+    # increases breadth; it is not a harsher pass/fail gate.
+    required_pages, required_sources = (1, 1)
     if int(coverage.get('official_pages') or 0) < required_pages:
         reasons.append(f'foram encontradas poucas páginas oficiais ({coverage.get("official_pages") or 0}/{required_pages})')
     if len(sources) < required_sources:
         reasons.append(f'foram encontradas poucas fontes verificáveis ({len(sources)}/{required_sources})')
     if not analysis.get('brand_summary') and not analysis.get('target_audience'):
         reasons.append('faltam resumo de marca e público-alvo verificáveis')
-    # Publication requires the same evidence floor promised by the interface.
-    # Lower scores remain reviewable, but never become the active brand context.
-    minimum_score = 85
-    if quality['score'] < minimum_score:
-        reasons.append(f'a cobertura normalizada ficou em {quality["score"]}/{minimum_score}')
-    # Visual and optional operational fields affect the score and remain in
-    # blocked_fields for transparency, but no longer veto a strong identity.
-    blocked_fields = list(central_review.get('blocked_fields') or [])
-    coverage_target = 85
-    refinement_recommended = quality['score'] < coverage_target
+    if quality['score'] < BRAND_ANALYSIS_PUBLICATION_THRESHOLD:
+        reasons.append(
+            f'a cobertura normalizada ficou em {quality["score"]}/{BRAND_ANALYSIS_PUBLICATION_THRESHOLD}'
+        )
+    # Uncertain optional fields stay visible as enrichment opportunities. Only
+    # blocked identity claims are withheld from the active profile.
+    critical_fields = {'name', 'brand_summary', 'target_audience', 'products_services'}
+    critical_blocked_fields = sorted(blocked_fields.intersection(critical_fields))
+    enrichment_fields = sorted(blocked_fields.difference(critical_fields))
+    refinement_recommended = quality['score'] < BRAND_ANALYSIS_ENRICHMENT_TARGET
     deep_recommended = refinement_recommended and (
         int(coverage.get('official_pages') or 0) < 3
         or len(sources) < 3
@@ -2121,25 +2135,31 @@ def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_r
         'score': quality['score'],
         'breakdown': quality['breakdown'],
         'score_version': quality['version'],
-        'blocked_fields': blocked_fields[:20],
+        'blocked_fields': sorted(blocked_fields)[:20],
+        'critical_blocked_fields': critical_blocked_fields[:20],
+        'enrichment_fields': enrichment_fields[:20],
         'review_status': str(central_review.get('status') or 'unavailable'),
         'deep_recommended': deep_recommended,
         'refinement_recommended': refinement_recommended,
-        'coverage_target': coverage_target,
-        'coverage_gap': max(0, coverage_target - quality['score']),
+        'publication_threshold': BRAND_ANALYSIS_PUBLICATION_THRESHOLD,
+        'enrichment_target': BRAND_ANALYSIS_ENRICHMENT_TARGET,
+        # Kept for older consumers; it now means enrichment, never a gate.
+        'coverage_target': BRAND_ANALYSIS_ENRICHMENT_TARGET,
+        'coverage_gap': max(0, BRAND_ANALYSIS_ENRICHMENT_TARGET - quality['score']),
+        'quality_level': 'deep' if quality['score'] >= BRAND_ANALYSIS_ENRICHMENT_TARGET else 'structured' if quality['score'] >= 70 else 'ready' if quality['score'] >= BRAND_ANALYSIS_PUBLICATION_THRESHOLD else 'insufficient',
         'coverage': coverage,
     }
 
 
 def _auto_apply_brand_analysis(client_id: int, user_id: int, brand_id: int, brand: dict, analysis: dict, decision: dict) -> dict:
     """Publish an evidence-qualified proposal without a manual approval step."""
-    minimum_score = int(decision.get('coverage_target') or 85)
+    minimum_score = int(decision.get('publication_threshold') or BRAND_ANALYSIS_PUBLICATION_THRESHOLD)
     if not decision.get('approved') or int(decision.get('score') or 0) < minimum_score:
         raise ValueError('A análise não atingiu o gate mínimo para publicação automática.')
     decision_version = str(decision.get('score_version') or '')
     if decision_version and decision_version != BRAND_ANALYSIS_SCORE_VERSION:
         raise ValueError('A decisão usa uma versão de score incompatível com o gate atual.')
-    blocked_fields = _normalized_blocked_fields(decision.get('blocked_fields'))
+    blocked_fields = _normalized_blocked_fields(decision.get('critical_blocked_fields'))
     published_analysis = {
         key: value for key, value in analysis.items()
         if key not in blocked_fields and not _field_is_blocked(key, blocked_fields)
@@ -2153,8 +2173,8 @@ def _auto_apply_brand_analysis(client_id: int, user_id: int, brand_id: int, bran
     review_pack = dict(metadata.get('review_pack') or {})
     review_pack.update({
         'status': 'approved', 'approved_at': _utc_timestamp(), 'approved_by': 'automatic_evidence_gate',
-        'approval_mode': 'automatic_partial' if blocked_fields else 'automatic',
-        'approval_reason': 'Campos comprovados publicados automaticamente; campos bloqueados permanecem abertos para validação humana.' if blocked_fields else 'Cobertura e confiança suficientes para publicação automática.',
+        'approval_mode': 'automatic_enriched' if decision.get('refinement_recommended') else 'automatic_deep',
+        'approval_reason': 'Base útil publicada automaticamente; lacunas opcionais permanecem como oportunidades de enriquecimento.' if decision.get('refinement_recommended') else 'Base aprofundada publicada automaticamente.',
         'analysis': analysis,
     })
     metadata.update({'review_pack': review_pack, 'ready_for_approval': True, 'automatic_decision': decision})
@@ -3110,7 +3130,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     history_status = 'insufficient_evidence'
                     _save_brand_review_job(
                         client_id, brand_id, job_id, status='insufficient_evidence', stage='complete', index=4, total=4,
-                        message='A análise não foi publicada: faltam evidências confiáveis para definir a marca.',
+                        message='A análise foi concluída, mas ainda não atingiu o piso mínimo para uso automático.',
                         error='', analysis_metadata=analysis_metadata,
                     )
                 _save_brand_audit_history(
@@ -3163,6 +3183,20 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                                                       'existing_asset_ids': list(existing_asset_ids or [])},
                                           costs=locals().get('token_usage', {}), error=str(exc),
                                           requested_by=user_id)
+                try:
+                    from .. import db
+                    from ..services.cadu_product_emails import send_brand_audit_ready
+                    person = db.obter_contato_por_id(user_id) or {}
+                    send_brand_audit_ready(
+                        recipient_email=str(person.get('email') or ''),
+                        recipient_name=str(person.get('nome_completo') or ''),
+                        brand_name=str((locals().get('review_proposal') or {}).get('name') or brand.get('name') or ''),
+                        summary='', differentiators=[],
+                        url=product_url('workspace', f'/marcas/{brand_id}'),
+                        status='failed', costs=locals().get('token_usage', {}), client_id=client_id,
+                    )
+                except Exception:
+                    current_app.logger.exception('Não foi possível enviar aviso de falha da auditoria da marca %s', brand_id)
                 return False
             return True
 
@@ -8379,14 +8413,26 @@ def brand_audit_status(brand_id):
         except Exception:
             current_app.logger.exception('Não foi possível encerrar auditoria de marca expirada')
     analysis = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
+    metadata = brand.get('analysis_metadata') if isinstance(brand.get('analysis_metadata'), dict) else {}
+    decision = metadata.get('automatic_decision') if isinstance(metadata.get('automatic_decision'), dict) else {}
+    status = pack.get('status') or 'not_started'
+    history = _brand_audit_history(client_id, brand_id) if status not in {'not_started', 'queued', 'running'} else []
+    latest = next((item for item in history if not pack.get('job_id') or item.get('job_id') == pack.get('job_id')), history[0] if history else {})
     return jsonify({
-        'status': pack.get('status') or 'not_started', 'stage': pack.get('stage'),
+        'status': status, 'stage': pack.get('stage'),
         'index': pack.get('index', 0), 'total': pack.get('total', 5),
         'message': pack.get('message'), 'error': pack.get('error'),
         'logo_url': analysis.get('logo_url') or analysis.get('logoUrl'),
         'review_count': len(pack.get('reviews') or []), 'created_at': pack.get('created_at'),
         'updated_at': pack.get('updated_at'),
         'pipeline_version': (pack.get('input') or {}).get('pipeline_version'),
+        'result': 'ready_for_use' if status == 'approved' else 'enrichment_recommended' if status == 'insufficient_evidence' else status,
+        'published': status == 'approved',
+        'quality_level': decision.get('quality_level'),
+        'publication_threshold': decision.get('publication_threshold', BRAND_ANALYSIS_PUBLICATION_THRESHOLD),
+        'enrichment_target': decision.get('enrichment_target', BRAND_ANALYSIS_ENRICHMENT_TARGET),
+        'analysis_mode': latest.get('analysis_mode') or (pack.get('input') or {}).get('analysis_mode'),
+        'costs': latest.get('costs') or {},
     })
 
 

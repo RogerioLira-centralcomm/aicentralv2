@@ -3716,10 +3716,18 @@ def _workspace_sidebar_projects(client_id: int) -> list[dict]:
 def workspace_sidebar_context():
     if not session.get('user_id'):
         return {}
-    client_id = int(session.get('cliente_id') or 0)
+    try:
+        client_id = max(0, int(session.get('cliente_id') or 0))
+    except (TypeError, ValueError):
+        current_app.logger.warning('ID de organização inválido na sessão da sidebar do Workspace')
+        client_id = 0
     try:
         usage = credit_position(client_id) or {}
-        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+        try:
+            user_id = max(0, int(session.get('user_id') or 0))
+        except (TypeError, ValueError):
+            user_id = 0
+        dock_items = _workspace_common_dock_items(client_id, user_id)
         usage_percent = round(float(usage.get('monthly_usage_percentage') or 0), 1)
     except Exception:
         current_app.logger.exception('Não foi possível preparar o shell compartilhado do Workspace')
@@ -5127,7 +5135,17 @@ def workspace_icon(size):
 @bp.get("/app")
 @login_required
 def dashboard():
-    client_id = int(session.get("cliente_id") or 0)
+    # Sessions are persisted across deployments. A stale or malformed value
+    # must not turn the authenticated app entry point into an HTTP 500.
+    def session_id(key: str) -> int:
+        try:
+            return max(0, int(session.get(key) or 0))
+        except (TypeError, ValueError):
+            current_app.logger.warning('ID inválido na sessão da Home: %s', key)
+            return 0
+
+    client_id = session_id("cliente_id")
+    user_id = session_id("user_id")
     try:
         from .. import db
         organization = dict(db.obter_cliente_por_id(client_id) or {})
@@ -5159,17 +5177,9 @@ def dashboard():
         _workspace_onboarding_table_available()
         and not projects
         and not brands
-        and not _workspace_onboarding_record(int(session.get('user_id') or 0), client_id)
+        and not _workspace_onboarding_record(user_id, client_id)
     ):
         return redirect(url_for('cadu_workspace.workspace_onboarding'), code=302)
-    sections = (
-        ("Usuários e equipe", "Pessoas, convites e permissões da equipe.", url_for("cadu_workspace.account_page", section="equipe"), "Workspace"),
-        ("Planos", "Plano contratado, limites e recursos habilitados.", url_for("cadu_workspace.account_page", section="planos"), "Workspace"),
-        ("Créditos", "Saldo, consumo e histórico compartilhado entre produtos.", url_for("cadu_workspace.account_page", section="creditos"), "Workspace"),
-        ("Financeiro", "Faturas, pagamentos e dados de cobrança.", url_for("cadu_workspace.account_page", section="faturamento"), "Conta"),
-        ("Integrações", "Conexões autorizadas para os produtos da equipe.", url_for("cadu_workspace.integrations"), "Workspace"),
-        ("Ajuda", "Orientação de uso e canais de atendimento.", url_for("cadu_workspace.public_page", page="ajuda"), "Suporte"),
-    )
     credit = credit_position(client_id)
     usage = float(credit.get('monthly_usage_percentage') or 0)
     credit_available = max(0, int(credit.get('available') or 0))
@@ -5227,15 +5237,15 @@ def dashboard():
         current_app.logger.warning('Não foi possível carregar recursos recentes do Workspace do cliente %s', client_id, exc_info=True)
         recent_project_resources = []
     dock_items = _workspace_common_dock_items(
-        client_id, int(session.get('user_id') or 0), projects=projects, brands=brands,
+        client_id, user_id, projects=projects, brands=brands,
         brand_project_counts=brand_project_counts, resources=recent_project_resources,
     )
     dock_resource_items = _workspace_dock_resource_items(client_id, projects, resources=recent_project_resources)
     continuity_feed = _workspace_continuity_feed(client_id, projects, {
-        'id': int(session.get('user_id') or 0),
+        'id': user_id,
         # Older Workspace sessions do not carry organization_id. In that
         # case the client is the organization boundary used by Cadu Family.
-        'organization_id': int(session.get('organization_id') or session.get('organizacao_id') or client_id),
+        'organization_id': session_id('organization_id') or session_id('organizacao_id') or client_id,
     }, resources=recent_project_resources)
     decisions = []
     for item in projects[:8]:
@@ -5272,12 +5282,10 @@ def dashboard():
         'activity': continuity_feed,
         'usagePercent': round(usage, 1),
         'creditAlert': credit_alert,
-        'preferences': _user_home_preferences(client_id, int(session.get('user_id') or 0)),
+        'preferences': _user_home_preferences(client_id, user_id),
     }
     return render_template(
-        "cadu_workspace/workspace_home_chat.html", sections=sections, projects=projects, brands=brands,
-        credit=credit, hero=secrets.choice(WORKSPACE_APP_HEROES),
-        data_health=_workspace_data_health(), home_data=home_data,
+        "cadu_workspace/workspace_home_chat.html", home_data=home_data,
     )
 
 

@@ -642,7 +642,7 @@ def oauth_protected_resource_metadata():
         "resource": _oauth_resource(),
         "authorization_servers": [_oauth_issuer()],
         "scopes_supported": list(auth.CLIENT_SCOPES),
-        "resource_documentation": _oauth_url("/workspace/app/integracoes/agents"),
+        "resource_documentation": _oauth_url("/app/agents"),
         "bearer_methods_supported": ["header"],
     })
 
@@ -794,9 +794,12 @@ def _session_scope() -> tuple[int, int]:
     return int(session.get("cliente_id") or 0), int(session.get("user_id") or 0)
 
 
+@bp.get("/app/agents")
 @bp.get("/workspace/app/integracoes/agents")
 @login_required
 def agents_page():
+    if request.path != "/app/agents":
+        return redirect("/app/agents", code=308)
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
     client_id, user_id = _session_scope()
     projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
@@ -807,6 +810,12 @@ def agents_page():
     except Exception:
         credit = {"available": 0, "monthly": 0, "monthly_usage_percentage": 0}
     grants = oauth.list_grants(client_id=client_id, user_id=user_id)
+    try:
+        from ..cadu_workspace.routes import _workspace_common_dock_items
+        dock_items = _workspace_common_dock_items(client_id, user_id)
+    except Exception:
+        current_app.logger.exception("Não foi possível carregar a dock para a página de agentes")
+        dock_items = []
     return render_template(
         "cadu_workspace/mcp_agents.html",
         keys=auth.list_keys(client_id=client_id, user_id=user_id),
@@ -819,9 +828,11 @@ def agents_page():
         client_types=auth.CLIENT_TYPES,
         mcp_ready=auth._available(),
         oauth_ready=oauth.available(),
+        workspace_dock_items=dock_items,
     )
 
 
+@bp.post("/app/agents/keys")
 @bp.post("/workspace/app/integracoes/agents/keys")
 @login_required
 def create_agent_key():
@@ -854,6 +865,7 @@ def create_agent_key():
     return jsonify({"success": True, "key": key, "endpoint": product_url("workspace", PUBLIC_MCP_PATH)})
 
 
+@bp.post("/app/agents/keys/<key_id>/revoke")
 @bp.post("/workspace/app/integracoes/agents/keys/<key_id>/revoke")
 @login_required
 def revoke_agent_key(key_id):
@@ -867,6 +879,7 @@ def revoke_agent_key(key_id):
     return jsonify({"success": True, "revoked": changed})
 
 
+@bp.post("/app/agents/grants/<grant_id>/revoke")
 @bp.post("/workspace/app/integracoes/agents/grants/<grant_id>/revoke")
 @login_required
 def revoke_agent_grant(grant_id):

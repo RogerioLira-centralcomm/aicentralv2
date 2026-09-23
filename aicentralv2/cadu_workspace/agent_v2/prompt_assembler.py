@@ -143,6 +143,16 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "Não trate os nomes como termos editoriais, não sugira sinônimos e não proponha outras direções. "
             "Apresente somente a confirmação objetiva da ação preparada: se o usuário quer renomear o projeto atual para o novo nome informado."
         )
+    if route.action == "describe_project":
+        brand_instruction += (
+            " O usuário pediu uma explicação do projeto ativo. Use o contexto retornado por workspace.get_project_context "
+            "e responda primeiro, de forma direta, com o que o projeto é e seu objetivo. Depois acrescente, quando disponíveis, "
+            "escopo, instruções de trabalho, público, posicionamento, marca vinculada, visibilidade, fontes existentes, estado de atualização "
+            "e decisões já registradas. Diferencie dados salvos de inferências e destaque no máximo três lacunas que realmente limitam o trabalho. "
+            "Não diga que não tem acesso ao projeto, não peça descrição, README ou briefing já representados na evidência "
+            "e não encerre com pergunta ou próximo passo genérico. Seja proativo: além de responder ao pedido, explique brevemente "
+            "como o contexto disponível pode orientar o próximo trabalho, sem transformar a resposta em uma lista longa."
+        )
     readiness = policy.get("briefing_readiness") if isinstance(policy.get("briefing_readiness"), dict) else None
     if readiness and not readiness.get("complete"):
         missing = ", ".join(readiness.get("missing") or [])

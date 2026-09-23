@@ -7,7 +7,7 @@ const labels = {
   brief: 'Briefing', document: 'Documento', note: 'Nota', executive_summary: 'Resumo executivo',
   media_plan: 'Plano de mídia', scenario: 'Cenário', research: 'Pesquisa', project_map: 'Mapa do projeto',
   html: 'Página interativa', image: 'Imagem', spreadsheet: 'Planilha', report: 'Relatório',
-  resource: 'Arquivo', brand_identity: 'Marca', meeting_summary: 'Resumo de reunião', meeting_agenda: 'Pauta',
+  resource: 'Arquivo', brand_identity: 'Marca', project_profile: 'Projeto', meeting_summary: 'Resumo de reunião', meeting_agenda: 'Pauta',
   link_reader: 'Referência',
   library: 'Biblioteca',
 };
@@ -428,6 +428,26 @@ function BrandIdentityArtifact({artifact}) {
   </article>;
 }
 
+function ProjectProfileArtifact({artifact}) {
+  const content = artifact.content || {};
+  const missing = [
+    !content.description && 'Adicionar uma descrição curta do propósito e do resultado esperado.',
+    !content.instructions && 'Registrar orientações, limites e critérios para o trabalho.',
+    !content.brands?.length && 'Vincular uma marca quando decisões precisarem herdar sua identidade.',
+  ].filter(Boolean);
+  const visibility = {private: 'Privado', team: 'Equipe', restricted: 'Acesso definido'}[content.visibility] || content.visibility || 'Privado';
+  const date = value => value ? new Intl.DateTimeFormat('pt-BR', {dateStyle: 'medium'}).format(new Date(value)) : '';
+  return <article className="cv-project-profile cv-mx-auto cv-w-full cv-max-w-[760px] cv-p-8 md:cv-p-12">
+    <header className="cv-project-profile__header"><span style={{background: content.color || '#176b5e'}}><Icon name="folder" size={20}/></span><div><p>Projeto ativo no chat</p><h3>{content.name || artifact.title}</h3><small>{content.status === 'ativo' ? 'Em andamento' : content.status} · {visibility}</small></div></header>
+    <p className="cv-project-profile__description">{content.description || 'Este projeto ainda não tem uma descrição. Defina em poucas linhas o que será realizado, para quem e qual resultado deve orientar as decisões.'}</p>
+    <section className="cv-project-profile__stats" aria-label="Metadados do projeto"><div><b>{content.file_count || 0}</b><span>arquivos</span></div><div><b>{content.conversation_count || 0}</b><span>conversas</span></div><div><b>{content.brands?.length || 0}</b><span>marcas vinculadas</span></div></section>
+    {content.instructions && <section className="cv-project-profile__section"><h4>Como trabalhar neste projeto</h4><p>{content.instructions}</p></section>}
+    {!!content.brands?.length && <section className="cv-project-profile__section"><h4>Contexto de marca</h4><div className="cv-project-profile__brands">{content.brands.map(brand => <span key={brand.ref}>{brand.name}</span>)}</div></section>}
+    {!!missing.length && <section className="cv-project-profile__next"><h4>Para deixar o contexto mais útil</h4>{missing.map(item => <p key={item}>{item}</p>)}</section>}
+    <footer className="cv-project-profile__meta">{date(content.created_at) && <span>Criado em {date(content.created_at)}</span>}{date(content.updated_at) && <span>Atualizado em {date(content.updated_at)}</span>}</footer>
+  </article>;
+}
+
 function ProjectMap({artifact, onChange}) {
   const content = artifact.content || {};
   const [zoom, setZoom] = useState(Number(content.layout?.zoom || 1));
@@ -489,6 +509,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
+    if (type === 'project_profile') return <ProjectProfileArtifact artifact={artifact}/>;
     if (type === 'library') return <LibraryArtifact artifact={artifact} onOpenResource={onOpenResource}/>;
     if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} onChange={onChange}/>;
     return textArtifact

@@ -145,6 +145,14 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /Editar contexto/);
   assert.match(project, /Fontes e arquivos/);
   assert.match(project, /Criar plano de mídia/);
+  assert.match(project, /Mesclar com outro projeto/);
+  assert.match(project, /Excluir projeto/);
+  assert.match(project, /confirmation_name/);
+  assert.match(project, /cadu-ds-project-editorial.*is-empty/);
+  assert.match(project, /renderDirectionText/);
+  assert.match(project, /<strong>\{match\[1\]\}<\/strong>/);
+  assert.match(template, /cadu_workspace\.merge_project/);
+  assert.match(template, /cadu_workspace\.delete_project/);
   assert.match(project, /WorkspaceAccountMenu/);
   assert.match(project, /cadu-ds-home-workarea cadu-ds-project-workarea/);
   assert.match(project, /dragDepth = useRef/);

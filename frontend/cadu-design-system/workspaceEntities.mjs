@@ -47,8 +47,26 @@ export function projectBrandKeys(project) {
 
 export function groupWorkspaceProjects(brands = [], projects = []) {
   const activeProjects = projects.filter(item => !isArchivedEntity(item)).slice().sort(compareWorkspaceActivity);
-  const groups = brands.map(brand => {
-    const keys = brandIdentityKeys(brand);
+  // Catalog and workspace payloads can contain the same brand through
+  // different records (for example an id-based row and a studio ref). Treat
+  // the visible brand label as the stable fallback identity and merge all of
+  // its keys before associating projects, so the sidebar never repeats a
+  // brand or its project tree.
+  const uniqueBrands = [];
+  const brandIndex = new Map();
+  brands.forEach(brand => {
+    const labelKey = normalizedEntityKey(entityLabel(brand));
+    const identityKeys = brandIdentityKeys(brand);
+    const existingIndex = labelKey ? brandIndex.get(labelKey) : undefined;
+    if (existingIndex !== undefined) {
+      identityKeys.forEach(key => uniqueBrands[existingIndex].keys.add(key));
+      return;
+    }
+    const index = uniqueBrands.length;
+    uniqueBrands.push({brand, keys:identityKeys});
+    if (labelKey) brandIndex.set(labelKey, index);
+  });
+  const groups = uniqueBrands.map(({brand, keys}) => {
     return {...brand, projects:activeProjects.filter(project => projectBrandKeys(project).some(key => keys.has(key)))};
   }).filter(brand => brand.projects.length)
     .sort((left, right) => entityTimestamp(right.projects[0]) - entityTimestamp(left.projects[0]) || compareWorkspaceActivity(left, right));

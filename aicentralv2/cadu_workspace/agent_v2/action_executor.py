@@ -23,10 +23,18 @@ def _completion(step_name: str, result: dict) -> dict:
         notes = len(resources.get("notes") or [])
         uploads = resources.get("uploads") or []
         visibility = result.get("visibility") or "private"
-        detail = f"{visibility} · {links} link(s) · {notes} fonte(s) textual(is)"
+        visibility_label = {"private": "Privado", "team": "Equipe", "restricted": "Acesso definido"}.get(visibility, visibility)
+        details = [visibility_label]
+        if links:
+            details.append(f"{links} {'link' if links == 1 else 'links'}")
+        if notes:
+            details.append(f"{notes} {'fonte textual' if notes == 1 else 'fontes textuais'}")
+        detail = " · ".join(details)
         completion = {"answer": f"Projeto “{name}” criado e preparado para receber o contexto solicitado.", "blocks": [
             {"type": "activity", "state": "completed", "label": "Projeto criado", "detail": detail},
-        ], "refresh_context": True}
+        ], "refresh_context": True, "open_surface": {
+            "type": "project_profile", "project_ref": result.get("project_ref"),
+        }, "activate_context": {"project_ref": result.get("project_ref"), "brand_ref": None}}
         if uploads:
             completion["uploads"] = uploads
             completion["blocks"].append({"type": "activity", "state": "running",
@@ -84,7 +92,7 @@ def _completion(step_name: str, result: dict) -> dict:
         ], "refresh_context": True}
     if step_name == "brands.create":
         name = result.get("name") or "Marca"
-        return {"answer": f"A marca “{name}” foi criada. O próximo passo é definir o logo principal e escolher a profundidade da auditoria.", "blocks": [
+        return {"answer": f"A marca “{name}” foi criada. A ficha da marca foi aberta para completar identidade, referências e auditoria.", "blocks": [
             {"type": "activity", "state": "completed", "label": "Marca criada", "detail": name},
             {"type": "questions", "title": "Completar a nova marca", "items": [
                 {"id": "logo-brand", "title": "Enviar logo principal",
@@ -94,7 +102,9 @@ def _completion(step_name: str, result: dict) -> dict:
                 {"id": "deep-audit-brand", "title": "Auditoria profunda",
                  "prompt": f"Inicie a auditoria profunda da marca {result.get('brand_id')}."},
             ]},
-        ], "refresh_context": True}
+        ], "refresh_context": True, "open_surface": {
+            "type": "brand_identity", "brand_ref": result.get("brand_ref"),
+        }, "activate_context": {"project_ref": None, "brand_ref": result.get("brand_ref")}}
     if step_name == "brands.prepare_logo_upload":
         replacing = result.get("purpose") == "replace_primary_logo"
         return {"answer": "O envio do novo logo principal está autorizado por 10 minutos.", "blocks": [

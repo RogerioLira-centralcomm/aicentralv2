@@ -153,14 +153,27 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   }
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-tree {
-    margin: 0;
-    padding-left: 0;
-    border-left: 0;
+    position:relative;
+    margin:0 0 3px 14px;
+    padding-left:9px;
+    border-left:1px solid #cfddda;
   }
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child {
     min-height: 25px;
-    padding: 3px 7px 3px 30px;
+    gap:7px;
+    padding:3px 7px;
+  }
+
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child svg {
+    width:13px;
+    height:13px;
+    flex:0 0 13px;
+    color:#718985;
+  }
+
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-tree--standalone {
+    margin-top:1px;
   }
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__brand-heading {

@@ -71,6 +71,31 @@ function SharingDialog({project, urls, csrfToken, onClose, onSaved}) {
   return <ProjectDialog title="Gerenciar acesso" detail="Escolha quem pode acessar este projeto." onClose={onClose}><form className="cadu-ds-project-form" aria-busy={busy || loadingTeam} onSubmit={save}><label>Visibilidade<select disabled={busy} value={visibility} onChange={event => setVisibility(event.target.value)}><option value="private">Privado</option><option value="team">Toda a equipe</option><option value="restricted">Pessoas específicas</option></select></label>{visibility === 'restricted' && <fieldset className="cadu-ds-sharing-people"><legend>Pessoas com acesso</legend>{loadingTeam ? <p>Carregando equipe…</p> : team.length ? team.map(person => <label key={person.id}><input type="checkbox" disabled={busy} checked={members.includes(String(person.id))} onChange={() => toggle(person.id)}/><span>{person.name}<small>{person.email}</small></span></label>) : <p>Nenhuma pessoa ativa disponível.</p>}</fieldset>}{error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}<footer><button type="button" disabled={busy} onClick={onClose}>Cancelar</button><button className="is-primary" disabled={busy || loadingTeam}>{busy ? 'Salvando…' : 'Salvar acesso'}</button></footer></form></ProjectDialog>;
 }
 
+function ProjectManagementDialog({project, projects, urls, csrfToken, mode, onClose}) {
+  const [targetId, setTargetId] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const isMerge = mode === 'merge';
+  const targets = (projects || []).filter(item => {
+    const id = String(item.projectRef || item.id || '').replace(/^ci:/, '');
+    return id && id !== String(project.id);
+  });
+  const confirmed = isMerge ? Boolean(targetId) : confirmation.trim().toLocaleLowerCase('pt-BR') === String(project.name || '').trim().toLocaleLowerCase('pt-BR');
+  return <ProjectDialog title={isMerge ? 'Mesclar com outro projeto' : 'Excluir projeto'} detail={isMerge ? 'Todo o histórico deste projeto será transferido para o projeto escolhido.' : 'O projeto deixará de aparecer no Workspace. Esta ação exige confirmação.'} onClose={onClose}>
+    <form className="cadu-ds-project-form cadu-ds-project-management-form" method="post" action={isMerge ? urls.merge : urls.deleteProject}>
+      <input type="hidden" name="_csrf" value={csrfToken}/>
+      {isMerge ? <>
+        <label>Projeto de destino<select name="target_project_id" required value={targetId} onChange={event => setTargetId(event.target.value)}><option value="">Escolher projeto</option>{targets.map(item => { const id = String(item.projectRef || item.id || '').replace(/^ci:/, ''); return <option key={id} value={id}>{item.title || item.name || 'Projeto'}</option>; })}</select></label>
+        <p className="cadu-ds-project-management-form__notice"><b>{project.name}</b> será marcado como mesclado. Fontes, conversas, entregas e vínculos passam para o destino.</p>
+        {!targets.length && <p className="cadu-ds-project-upload-error" role="alert">Não há outro projeto ativo disponível para receber os dados.</p>}
+      </> : <>
+        <p className="cadu-ds-project-management-form__notice">Fontes e histórico ficam preservados internamente, mas o projeto não poderá mais ser acessado.</p>
+        <label>Digite <b>{project.name}</b> para confirmar<input name="confirmation_name" autoComplete="off" value={confirmation} onChange={event => setConfirmation(event.target.value)}/></label>
+      </>}
+      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-danger" disabled={!confirmed}>{isMerge ? 'Mesclar projetos' : 'Excluir projeto'}</button></footer>
+    </form>
+  </ProjectDialog>;
+}
+
 function IdentityDialog({project, urls, csrfToken, onClose}) {
   return <ProjectDialog title="Editar contexto" detail="Registre apenas o que deve orientar conversas, planos e criações." onClose={onClose}>
     <form className="cadu-ds-project-form" method="post" action={urls.updateContext}>
@@ -351,9 +376,15 @@ function ProjectEditorialOverview({project, onEdit, canEdit}) {
     {title: 'Posicionamento', text: project.identity?.posicionamento},
     {title: 'Tom de voz', text: project.identity?.tom_de_voz},
   ].filter(chapter => String(chapter.text || '').trim());
-  return <section className="cadu-ds-project-editorial" id="direcao" aria-labelledby="project-editorial-title">
-    <header><span>Direção do trabalho</span><h2 id="project-editorial-title">O que sustenta este projeto</h2><p>{project.description || 'A direção ainda não foi registrada. Acrescente o contexto que orienta as próximas conversas e entregas.'}</p></header>
-    {chapters.length ? <div className="cadu-ds-project-editorial__chapters">{chapters.map(chapter => <section key={chapter.title}><h3>{chapter.title}</h3><p>{chapter.text}</p></section>)}</div> : <p className="cadu-ds-project-editorial__empty">Público, posicionamento, tom e orientações aparecerão aqui quando forem definidos.</p>}
+  const description = String(project.description || '').trim();
+  const hasDirection = Boolean(description || chapters.length);
+  const renderDirectionText = text => String(text || '').split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => {
+    const match = paragraph.trim().match(/^(.+?[.!?])(?:\s+)(.+)$/s);
+    return <p key={`${index}-${paragraph.slice(0, 20)}`}>{match ? <><strong>{match[1]}</strong> {match[2]}</> : paragraph}</p>;
+  });
+  return <section className={`cadu-ds-project-editorial${hasDirection ? '' : ' is-empty'}`} id="direcao" aria-labelledby="project-editorial-title">
+    <header><span>Direção do trabalho</span><h2 id="project-editorial-title">{hasDirection ? 'Direção do projeto' : 'Direção ainda não definida'}</h2>{description && <div className="cadu-ds-project-editorial__lead">{renderDirectionText(description)}</div>}</header>
+    {chapters.length ? <div className="cadu-ds-project-editorial__chapters">{chapters.map(chapter => <section key={chapter.title}><h3>{chapter.title}</h3><div>{renderDirectionText(chapter.text)}</div></section>)}</div> : <p className="cadu-ds-project-editorial__empty">Adicione objetivo, público, posicionamento ou tom quando essas informações forem necessárias para orientar o trabalho.</p>}
     <footer><span>{project.brand?.name ? `Identidade vinculada: ${project.brand.name}` : 'Marca ainda não vinculada'}</span>{canEdit && <button type="button" onClick={onEdit}>Editar direção</button>}</footer>
   </section>;
 }
@@ -589,7 +620,7 @@ export function WorkspaceProject({bootstrap}) {
           <button type="button" className="is-primary" onClick={startConversation}><ProjectIcon name="compose"/> Conversar no projeto</button>
           {canEdit && <button type="button" onClick={() => setDialog('identity')}><ProjectIcon name="text"/> Editar contexto</button>}
           {canEdit && <details className="cadu-ds-entity-nav__source-menu"><summary><ProjectIcon name="source"/> Adicionar fontes</summary><div><button type="button" onClick={() => setDialog('sources')}>Arquivos e áudios</button><button type="button" onClick={() => setDialog('sources')}>Nota ou input</button><button type="button" onClick={() => setDialog('link')}>Link ou página</button></div></details>}
-          <details className="cadu-ds-entity-nav__source-menu"><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a></div></details>
+          <details className="cadu-ds-entity-nav__source-menu"><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a>{bootstrap.canManageProjects && <><button type="button" onClick={() => setDialog('merge')}>Mesclar com outro projeto</button><button type="button" className="is-danger" onClick={() => setDialog('delete-project')}>Excluir projeto</button></>}</div></details>
         </EntityNavigator>
         <section className="cadu-ds-project-content">
         <header className="cadu-ds-project-hero" id="visao-geral"><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}</div>{actionableNotifications.length > 0 && <button type="button" className="cadu-ds-project-hero__attention" onClick={() => setNotificationsOpen(true)}>Atenções deste projeto ({actionableNotifications.length})</button>}</header>
@@ -606,5 +637,6 @@ export function WorkspaceProject({bootstrap}) {
       </div>
     </main>
     {dialog === 'sharing' && <SharingDialog project={{...project, sharing}} urls={projectLinks} csrfToken={bootstrap.csrf} onSaved={setSharing} onClose={() => setDialog('')} />}
+    {(dialog === 'merge' || dialog === 'delete-project') && <ProjectManagementDialog project={project} projects={bootstrap.projects || []} urls={projectLinks} csrfToken={bootstrap.csrf} mode={dialog === 'merge' ? 'merge' : 'delete'} onClose={() => setDialog('')}/>}
     {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification}/>} {dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
 }

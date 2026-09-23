@@ -274,6 +274,45 @@ def project_resource_map(project_ref):
     return jsonify(artifact={"type": "project_map", "title": content["title"], "content": content})
 
 
+@bp.get("/projects/<path:project_ref>/profile")
+def project_profile(project_ref):
+    """Return the canonical project metadata as a focused Chat surface."""
+    current = resolve(surface=request.args.get("surface") or "conversations", project_ref=project_ref)
+    if current.project_ref != project_ref or project_ref not in {item["ref"] for item in repository.entities(current.client_id)}:
+        abort(404, description="Projeto não encontrado neste ambiente.")
+    if not str(project_ref).startswith("ci:"):
+        abort(404, description="A ficha deste tipo de projeto ainda não está disponível.")
+    project_id = str(project_ref)[3:]
+    records = repository.rows(
+        """SELECT nome, descricao, instrucoes, status, cor, total_arquivos, total_conversas,
+                  created_at, updated_at
+             FROM cadu_ci_projetos
+            WHERE id=%s AND id_cliente=%s AND status <> 'deletado'""",
+        (project_id, current.client_id),
+    )
+    if not records:
+        abort(404, description="Projeto não encontrado neste ambiente.")
+    project = records[0]
+    visibility = (repository.project_visibility(current.client_id, project_ref) or {}).get("visibility", "private")
+    links = [item for item in repository.project_brand_links(current.client_id)
+             if str(item.get("project_ref") or "") == project_ref]
+    entities = {item["ref"]: item for item in repository.entities(current.client_id)}
+    brands = [entities.get(str(item.get("brand_ref") or ""), {}) for item in links]
+    brands = [{"ref": item.get("ref"), "name": item.get("name")} for item in brands if item]
+    return jsonify(artifact={
+        "type": "project_profile", "title": project.get("nome") or "Projeto",
+        "content": {
+            "name": project.get("nome"), "description": project.get("descricao") or "",
+            "instructions": project.get("instrucoes") or "", "status": project.get("status") or "ativo",
+            "visibility": visibility, "color": project.get("cor") or "#176b5e",
+            "file_count": int(project.get("total_arquivos") or 0),
+            "conversation_count": int(project.get("total_conversas") or 0),
+            "created_at": project.get("created_at"), "updated_at": project.get("updated_at"),
+            "brands": brands,
+        },
+    })
+
+
 @bp.get("/studio/library")
 def studio_library():
     """Return the Studio shelf in the same shape used by Conversations."""

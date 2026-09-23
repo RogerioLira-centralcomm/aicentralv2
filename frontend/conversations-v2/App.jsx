@@ -358,10 +358,19 @@ export default function App({bootstrap}) {
     const brandId = String(brandRef || '').replace(/^studio:/, '');
     if (!/^\d+$/.test(brandId)) return;
     const data = await request(`/workspace/api/v2/brands/${brandId}/identity`);
-    if (Array.isArray(data.projects)) setProjects(data.projects);
     if (data.artifact) {
       setArtifact(data.artifact); artifactRef.current = data.artifact;
       setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true);
+    }
+  }, []);
+
+  const loadProjectProfile = useCallback(async projectRef => {
+    if (!projectRef) return;
+    const data = await request(`/workspace/api/v2/projects/${encodeURIComponent(projectRef)}/profile`);
+    if (data.artifact) {
+      setArtifact(data.artifact); artifactRef.current = data.artifact;
+      setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true);
+      setSurfaceUrl('artifact', '');
     }
   }, []);
 
@@ -870,16 +879,40 @@ export default function App({bootstrap}) {
         ? {answer: completion.answer || 'Ação concluída.', blocks: completion.blocks || []}
         : {answer: approved ? 'Ação confirmada.' : 'Ação cancelada.'};
       setMessages(items => items.map(item => item.id === message.id ? {...item, kind: undefined, response} : item));
+      if (data.step?.status === 'completed' && completion.activate_context) {
+        try {
+          const activated = await request(bootstrap.endpoints.context, {
+            method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+            body: JSON.stringify(completion.activate_context),
+          });
+          rememberContext(activated.context || {});
+          if (completion.activate_context.project_ref) markProjectUsed(completion.activate_context.project_ref);
+        } catch (error) {
+          trace('A criação foi concluída, mas o novo contexto ainda não foi selecionado', error.message);
+        }
+      }
       if (data.step?.status === 'completed' && completion.refresh_context) {
         try { await loadContext(); }
         catch (error) { trace('Contexto será atualizado em seguida', error.message); }
+      }
+      if (data.step?.status === 'completed' && completion.open_surface?.type === 'brand_identity') {
+        try {
+          await loadBrandIdentity(completion.open_surface.brand_ref);
+          setSurfaceUrl('artifact', '');
+        } catch (error) {
+          trace('A marca foi criada, mas a ficha não pôde ser aberta agora', error.message);
+        }
+      }
+      if (data.step?.status === 'completed' && completion.open_surface?.type === 'project_profile') {
+        try { await loadProjectProfile(completion.open_surface.project_ref); }
+        catch (error) { trace('O projeto foi criado, mas a ficha não pôde ser aberta agora', error.message); }
       }
     } catch (error) {
       const detail = String(error?.message || 'Não foi possível concluir esta ação.');
       setMessages(items => items.map(item => item.id === message.id ? {...item, actionPending: false, actionError: detail} : item));
       trace('Falha na ação', detail, 'error');
     }
-  }, [bootstrap.endpoints.runs, trace, loadContext]);
+  }, [bootstrap.endpoints.runs, bootstrap.endpoints.context, trace, loadContext, loadBrandIdentity, loadProjectProfile, rememberContext]);
 
   const changeArtifact = useCallback(content => {
     artifactEditRevisionRef.current += 1;

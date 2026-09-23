@@ -29,3 +29,19 @@ test('workspace projects group by ids, refs, related refs or brand names without
   ]);
   assert.deepEqual(result.ungrouped.map(project => project.id), ['p4']);
 });
+
+test('workspace project groups merge duplicate brand records before associating projects', () => {
+  const brands = [
+    {id:'1', name:'Centralcomm'},
+    {ref:'studio:centralcomm', name:'CENTRALCOMM'},
+  ];
+  const projects = [
+    {id:'p1', name:'Mídia Paga', brand_id:'1'},
+    {id:'p2', name:'Portal', brand_ref:'studio:centralcomm'},
+  ];
+  const result = groupWorkspaceProjects(brands, projects);
+  assert.equal(result.groups.length, 1);
+  assert.equal(result.groups[0].name, 'Centralcomm');
+  assert.deepEqual(result.groups[0].projects.map(project => project.id), ['p1', 'p2']);
+  assert.deepEqual(result.ungrouped, []);
+});

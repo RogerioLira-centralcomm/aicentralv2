@@ -28,7 +28,10 @@ def policy_for(route: IntentRoute) -> dict:
         "artifact_first": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 240, "artifact_in_chat": False},
         "clarification": {"max_questions": 1, "max_next_steps": 1, "max_answer_chars": 360, "artifact_in_chat": False},
     }
-    return {"mode": route.response_mode, **policies[route.response_mode]}
+    policy = {"mode": route.response_mode, **policies[route.response_mode]}
+    if route.action == "describe_project":
+        policy.update({"max_questions": 0, "max_next_steps": 0})
+    return policy
 
 
 def requested_answer_chars(message: str) -> int:

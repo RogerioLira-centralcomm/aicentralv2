@@ -159,6 +159,10 @@ def workspace_brevo_email_event():
     try:
         connection = get_db()
         with connection.cursor() as cursor:
+            def table_exists(table_name):
+                cursor.execute('SELECT to_regclass(%s) AS table_name', (f'public.{table_name}',))
+                return bool((cursor.fetchone() or {}).get('table_name'))
+
             cursor.execute(
                 """UPDATE cadu_workspace_email_events
                        SET status = %s,
@@ -6781,6 +6785,157 @@ def update_project_status(project_id):
             pass
         abort(503, description='Não foi possível alterar o estado do projeto agora. Tente novamente.')
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+
+
+@bp.post('/workspace/app/projetos/<project_id>/excluir')
+@login_required
+def delete_project(project_id):
+    """Soft-delete a project after an explicit, tenant-scoped confirmation."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    project = _workspace_project(client_id, project_id)
+    if not project:
+        abort(404)
+    expected = ' '.join(str(project.get('nome') or '').split()).strip()
+    confirmation = ' '.join((request.form.get('confirmation_name') or '').split()).strip()
+    if not expected or confirmation.casefold() != expected.casefold():
+        abort(400, description='Digite o nome do projeto para confirmar a exclusão.')
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_ci_projetos SET status = 'deletado', updated_at = NOW()
+                               WHERE id = %s AND id_cliente = %s AND status <> 'deletado'""",
+                           (project_id, client_id))
+            if cursor.rowcount != 1:
+                abort(404)
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível excluir o projeto %s', project_id)
+        abort(503, description='Não foi possível excluir o projeto agora.')
+    return redirect(url_for('cadu_workspace.clean_projects'), code=303)
+
+
+@bp.post('/workspace/app/projetos/<project_id>/mesclar')
+@login_required
+def merge_project(project_id):
+    """Move a project's owned records to another project and retire the source."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    target_id = str(request.form.get('target_project_id') or '').strip()
+    if not target_id or target_id == str(project_id):
+        abort(400, description='Escolha outro projeto para receber os dados.')
+    source = _workspace_project(client_id, project_id)
+    target = _workspace_project(client_id, target_id)
+    if not source or not target:
+        abort(404)
+    if target.get('status') != 'ativo':
+        abort(409, description='O projeto de destino precisa estar ativo.')
+    source_ref, target_ref = f'ci:{project_id}', f'ci:{target_id}'
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('''DELETE FROM cadu_ci_projeto_links source
+                               USING cadu_ci_projeto_links target
+                               WHERE source.projeto_id = %s AND target.projeto_id = %s
+                                 AND source.id_cliente = %s AND target.id_cliente = %s
+                                 AND source.url = target.url''',
+                           (project_id, target_id, client_id, client_id))
+            # Tables with native UUID ownership. Children keep their IDs and audit history.
+            for table in ('cadu_ci_chunks', 'cadu_ci_projeto_arquivos', 'cadu_ci_projeto_links',
+                          'cadu_conversations', 'cadu_docs_client_images', 'cadu_artifacts'):
+                if not table_exists(table):
+                    continue
+                owner_column = 'projeto_id'
+                cursor.execute(f'UPDATE {table} SET {owner_column} = %s WHERE {owner_column} = %s AND id_cliente = %s',
+                               (target_id, project_id, client_id))
+            # Canonical Workspace records use text refs rather than foreign keys.
+            if table_exists('cadu_project_resources'):
+                cursor.execute('''DELETE FROM cadu_project_resources source
+                                   USING cadu_project_resources target
+                                   WHERE source.client_id = %s AND target.client_id = %s
+                                     AND source.project_ref = %s AND target.project_ref = %s
+                                     AND source.source_system = target.source_system
+                                     AND source.source_id = target.source_id''',
+                               (client_id, client_id, source_ref, target_ref))
+            for table in ('cadu_workspace_artifacts', 'studio_creative_analyses',
+                          'cadu_project_resources', 'cadu_workspace_notifications',
+                          'cadu_planner_plans', 'cadu_family_conversation_context',
+                          'cadu_workspace_ingestion_sessions', 'cadu_project_resource_clusters',
+                          'cadu_project_index_jobs', 'cadu_workspace_external_references',
+                          'google_workspace_resource_links', 'cadu_user_memories',
+                          'cadu_working_memories', 'cadu_planner_link_test_runs',
+                          'cadu_connect_report_workspaces'):
+                if not table_exists(table):
+                    continue
+                cursor.execute(f'UPDATE {table} SET project_ref = %s WHERE project_ref = %s AND client_id = %s',
+                               (target_ref, source_ref, client_id))
+            if table_exists('cadu_workspace_dock_shortcuts'):
+                cursor.execute('''DELETE FROM cadu_workspace_dock_shortcuts source
+                                   USING cadu_workspace_dock_shortcuts target
+                                   WHERE source.client_id=%s AND target.client_id=%s
+                                     AND source.user_id=target.user_id AND source.shortcut_type='project'
+                                     AND target.shortcut_type='project' AND source.target_ref=%s AND target.target_ref=%s''',
+                               (client_id, client_id, source_ref, target_ref))
+                cursor.execute('''UPDATE cadu_workspace_dock_shortcuts
+                                      SET project_ref = CASE WHEN project_ref=%s THEN %s ELSE project_ref END,
+                                          target_ref = CASE WHEN shortcut_type='project' AND target_ref=%s THEN %s ELSE target_ref END,
+                                          updated_at=NOW() WHERE client_id=%s AND (project_ref=%s OR target_ref=%s)''',
+                               (source_ref, target_ref, source_ref, target_ref, client_id, source_ref, source_ref))
+            if table_exists('cadu_connect_account_scopes'):
+                cursor.execute('''UPDATE cadu_connect_account_scopes SET workspace_project_ref=%s
+                                   WHERE workspace_client_id=%s AND workspace_project_ref=%s''',
+                               (target_ref, client_id, source_ref))
+            if table_exists('cadu_family_project_visibility'):
+                cursor.execute('''INSERT INTO cadu_family_project_visibility
+                                      (client_id, project_ref, visibility, updated_by, updated_at)
+                                   SELECT client_id, %s, visibility, updated_by, updated_at
+                                     FROM cadu_family_project_visibility WHERE client_id=%s AND project_ref=%s
+                                   ON CONFLICT (client_id, project_ref) DO NOTHING''',
+                               (target_ref, client_id, source_ref))
+                cursor.execute('DELETE FROM cadu_family_project_visibility WHERE client_id=%s AND project_ref=%s',
+                               (client_id, source_ref))
+            if table_exists('cadu_family_project_access'):
+                cursor.execute('''INSERT INTO cadu_family_project_access
+                                      (client_id, project_ref, user_id, role, source, granted_by, created_at, updated_at, revoked_at)
+                                   SELECT client_id, %s, user_id, role, source, granted_by, created_at, updated_at, revoked_at
+                                     FROM cadu_family_project_access WHERE client_id=%s AND project_ref=%s
+                                   ON CONFLICT (client_id, project_ref, user_id) DO NOTHING''',
+                               (target_ref, client_id, source_ref))
+                cursor.execute('DELETE FROM cadu_family_project_access WHERE client_id=%s AND project_ref=%s',
+                               (client_id, source_ref))
+            cursor.execute('''INSERT INTO cadu_family_project_brands (client_id, project_ref, brand_ref, created_by, created_at)
+                              SELECT client_id, %s, brand_ref, created_by, created_at
+                                FROM cadu_family_project_brands WHERE client_id = %s AND project_ref = %s
+                                 AND NOT EXISTS (SELECT 1 FROM cadu_family_project_brands existing
+                                                  WHERE existing.client_id=%s AND existing.project_ref=%s)
+                              ON CONFLICT (client_id, project_ref, brand_ref) DO NOTHING''',
+                           (target_ref, client_id, source_ref, client_id, target_ref))
+            cursor.execute('DELETE FROM cadu_family_project_brands WHERE client_id = %s AND project_ref = %s',
+                           (client_id, source_ref))
+            cursor.execute("""UPDATE cadu_ci_projetos
+                                  SET status = 'deletado',
+                                      descricao = CONCAT(COALESCE(descricao, ''), %s), updated_at = NOW()
+                                WHERE id = %s AND id_cliente = %s""",
+                           (f'\n\nMesclado no projeto {target.get("nome") or target_id}.', project_id, client_id))
+            cursor.execute('''UPDATE cadu_ci_projetos SET total_arquivos = (
+                                  SELECT COUNT(*) FROM cadu_ci_projeto_arquivos WHERE projeto_id = %s AND id_cliente = %s),
+                                  total_conversas = (SELECT COUNT(*) FROM cadu_conversations WHERE projeto_id = %s AND id_cliente = %s),
+                                  updated_at = NOW() WHERE id = %s AND id_cliente = %s''',
+                           (target_id, client_id, target_id, client_id, target_id, client_id))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível mesclar o projeto %s em %s', project_id, target_id)
+        abort(503, description='Não foi possível mesclar os projetos agora. Nenhum dado foi alterado.')
+    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=target_id), code=303)
 
 
 @bp.post('/workspace/api/projetos/<project_id>/consultar')

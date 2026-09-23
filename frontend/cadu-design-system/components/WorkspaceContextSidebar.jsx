@@ -54,13 +54,14 @@ function writeCollectionPayload(event, item, kind, label) {
 function SidebarBrandProjects({brands, projects, links}) {
   const {groups, ungrouped} = groupWorkspaceProjects(brands, projects);
   if (!groups.length && !ungrouped.length) return null;
+  const projectLink = project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', entityLabel(project, 'Projeto'))}><Icon name="folder" size={13}/><span>{entityLabel(project, 'Projeto')}</span></a>;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
     <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
     {groups.slice(0, 4).map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={entityIdentity(brand) || entityLabel(brand)}>
       <a className="cadu-ds-context-sidebar__brand-heading" href={entityHref(brand) || links.brands || '#'} title={entityLabel(brand, 'Marca')}><Icon name="brand" size={15}/><b>{entityLabel(brand, 'Marca')}</b></a>
-      <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.slice(0, 3).map(project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', entityLabel(project, 'Projeto'))}><span>{entityLabel(project, 'Projeto')}</span></a>)}</div>
+      <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.slice(0, 3).map(projectLink)}</div>
     </section>)}
-    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><b className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</b><div className="cadu-ds-context-sidebar__project-tree">{ungrouped.slice(0, 3).map(project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', entityLabel(project, 'Projeto'))}><span>{entityLabel(project, 'Projeto')}</span></a>)}</div></section>}
+    {ungrouped.length > 0 && <div className="cadu-ds-context-sidebar__project-tree cadu-ds-context-sidebar__project-tree--standalone">{ungrouped.slice(0, 3).map(projectLink)}</div>}
   </section>;
 }
 

@@ -138,9 +138,13 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
                 ))
             except Exception as exc:
                 resources["errors"].append({"type": "file_upload", "error": str(exc)[:240]})
-        result = {"project_ref": project_ref, "name": payload["name"], "status": "created"}
+        result = {
+            "project_ref": project_ref, "name": payload["name"], "status": "created",
+            "description": payload["description"], "instructions": payload["instructions"],
+            "visibility": visibility,
+        }
         if links or notes or file_uploads or people or visibility != "private":
-            result.update({"visibility": visibility, "shared_count": len(people), "resources": resources})
+            result.update({"shared_count": len(people), "resources": resources})
         return result
 
     return operations.execute(arguments["request_id"], context, "workspace.create_project", operation_payload, create)

@@ -112,6 +112,18 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "get_brand_context", "low", "analysis",
                            ("brand",), ("brands.get_context",))
 
+    project_overview = _has(
+        text,
+        r"\b(?:sobre\s+o\s+que\s+[ée]|do\s+que\s+(?:se\s+)?trata)\s+(?:esse|este|o)\s+projeto\b",
+    ) or _has(
+        text,
+        r"\b(?:qual|explique|resuma|conte)\b.{0,45}"
+        r"\b(?:objetivo|contexto|escopo|descri[cç][aã]o|projeto)\b",
+    )
+    if has_project and project_overview:
+        return IntentRoute("workspace", "describe_project", "low", "analysis",
+                           ("project",), ("workspace.get_project_context",))
+
     if _has(text, r"\b(?:list|liste|mostrar|mostre|quais|buscar|busque)\w*\b(?:\s+(?:os|meus|todos\s+os))?\s+projetos\b"):
         return IntentRoute("workspace", "list_projects", "low", "analysis", (),
                            ("workspace.list_projects",))

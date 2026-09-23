@@ -578,6 +578,10 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-project-dialog__footer { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-top:16px; padding-top:14px; border-top:1px solid var(--cadu-line); }
 .cadu-ds-project-dialog__footer a { color:var(--cadu-accent-strong); font-size:11px; font-weight:700; text-decoration:none; }
 .cadu-ds-project-dialog__footer button { min-height:34px; padding:0 11px; border:0; border-radius:8px; background:var(--cadu-accent); color:#08322d; font:700 11px var(--cadu-font-sans); }
+.cadu-ds-project-management-form select { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:400 13px/1.45 var(--cadu-font-sans); }
+.cadu-ds-project-management-form__notice { margin:0; padding:12px; border-left:3px solid var(--cadu-line-strong,var(--cadu-line)); background:var(--cadu-surface-soft); color:var(--cadu-muted-strong); font-size:11px; line-height:1.5; }
+.cadu-ds-project-management-form footer button.is-danger { background:var(--cadu-danger,#a34032); color:#fff; }
+.cadu-ds-project-management-form footer button:disabled { opacity:.42; cursor:not-allowed; }
 .cadu-ds-project-form__intro { margin:0; color:var(--cadu-muted); font-size:11px; line-height:1.5; }
 .cadu-ds-project-notice { display:flex; gap:12px; align-items:center; margin:22px 0 -2px; padding:12px 14px; border:1px solid #e7cf9b; border-radius:10px; background:#fff8e9; color:#755818; font-size:12px; }
 .cadu-ds-project-notice span { color:#856b2e; }
@@ -886,7 +890,9 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 }
 
 .cadu-ds-home-shell {
-  overflow:hidden;
+  overflow-x:hidden;
+  overflow-y:auto;
+  scrollbar-width:thin;
   border-radius:18px;
   box-shadow:0 0 0 1px color-mix(in srgb,var(--cadu-line) 72%,transparent);
 }
@@ -3624,8 +3630,6 @@ body.portal--workspace .cadu-ds-entity-rail {
   top:0;
   align-self:start;
   height:100dvh;
-  overflow:auto;
-  scrollbar-width:thin;
   background:color-mix(in srgb,var(--cadu-surface) 82%,var(--cadu-canvas));
 }
 body.portal--workspace .cadu-ds-entity-nav {
@@ -3633,6 +3637,7 @@ body.portal--workspace .cadu-ds-entity-nav {
   padding:22px 14px 18px;
   border-right:1px solid var(--cadu-line);
   background:color-mix(in srgb,var(--cadu-canvas) 70%,var(--cadu-surface));
+  overflow:hidden;
 }
 body.portal--workspace .cadu-ds-entity-nav__label {
   display:block;
@@ -3679,6 +3684,8 @@ body.portal--workspace .cadu-ds-entity-portal [id] { scroll-margin-top:24px; }
 body.portal--workspace .cadu-ds-entity-rail {
   padding:25px 18px 40px;
   border-left:1px solid var(--cadu-line);
+  overflow:auto;
+  scrollbar-width:thin;
 }
 body.portal--workspace .cadu-ds-entity-rail__header,
 body.portal--workspace .cadu-ds-entity-rail__group > header {
@@ -4015,7 +4022,7 @@ body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-project-hero
 body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-project-editorial {
   max-width:920px;
   margin:0 0 26px;
-  padding:48px 0 52px;
+  padding:32px 0 38px;
   border-bottom:1px solid var(--cadu-line);
 }
 body.portal--workspace .cadu-ds-project-editorial > header > span {
@@ -4025,42 +4032,51 @@ body.portal--workspace .cadu-ds-project-editorial > header > span {
   text-transform:uppercase;
 }
 body.portal--workspace .cadu-ds-project-editorial h2 {
-  margin:13px 0 18px;
+  margin:10px 0 14px;
   color:var(--cadu-ink);
-  font-size:clamp(26px,3vw,38px);
+  font-size:clamp(23px,2.4vw,32px);
   line-height:1.16;
   letter-spacing:-.04em;
 }
-body.portal--workspace .cadu-ds-project-editorial > header > p {
+body.portal--workspace .cadu-ds-project-editorial__lead {
   max-width:760px;
-  margin:0;
+}
+body.portal--workspace .cadu-ds-project-editorial__lead p {
+  margin:0 0 12px;
   color:var(--cadu-ink);
-  font:400 clamp(16px,1.5vw,19px)/1.6 var(--cadu-font-sans);
+  font:400 clamp(15px,1.35vw,17px)/1.62 var(--cadu-font-sans);
   white-space:pre-line;
 }
-body.portal--workspace .cadu-ds-project-editorial__chapters { margin-top:38px; }
+body.portal--workspace .cadu-ds-project-editorial__lead p:last-child { margin-bottom:0; }
+body.portal--workspace .cadu-ds-project-editorial__lead strong,
+body.portal--workspace .cadu-ds-project-editorial__chapters strong { font-weight:720; }
+body.portal--workspace .cadu-ds-project-editorial__chapters { display:grid; gap:28px; margin-top:32px; }
 body.portal--workspace .cadu-ds-project-editorial__chapters > section {
-  display:grid;
-  grid-template-columns:170px minmax(0,1fr);
-  gap:24px;
-  padding:22px 0;
+  display:block;
+  max-width:790px;
+  padding:0;
   border-top:0;
 }
 body.portal--workspace .cadu-ds-project-editorial__chapters h3 {
-  margin:2px 0 0;
+  margin:0 0 8px;
   color:var(--cadu-muted-strong);
   font:700 11px var(--cadu-font-sans);
   letter-spacing:.04em;
   text-transform:uppercase;
 }
 body.portal--workspace .cadu-ds-project-editorial__chapters p {
-  margin:0;
+  margin:0 0 12px;
   color:var(--cadu-ink);
   font-size:15px;
   line-height:1.7;
   white-space:pre-line;
 }
+body.portal--workspace .cadu-ds-project-editorial__chapters p:last-child { margin-bottom:0; }
 body.portal--workspace .cadu-ds-project-editorial__empty { color:var(--cadu-muted); font-size:14px; }
+body.portal--workspace .cadu-ds-project-editorial.is-empty { max-width:720px; padding:24px 0 28px; }
+body.portal--workspace .cadu-ds-project-editorial.is-empty h2 { margin-bottom:8px; font-size:21px; }
+body.portal--workspace .cadu-ds-project-editorial.is-empty .cadu-ds-project-editorial__empty { max-width:600px; margin:0; line-height:1.55; }
+body.portal--workspace .cadu-ds-project-editorial.is-empty footer { margin-top:18px; }
 body.portal--workspace .cadu-ds-project-editorial footer {
   display:flex;
   align-items:center;

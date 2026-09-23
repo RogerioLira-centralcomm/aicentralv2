@@ -68,6 +68,11 @@ body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resou
   box-shadow:none;
 }
 body.portal--workspace .cadu-ds-dock .cadu-ds-visual-identity.has-custom-background { background:var(--cadu-identity-color); }
+body.portal--workspace .cadu-ds-dock .cadu-ds-visual-identity.has-initials {
+  background:color-mix(in srgb,var(--cadu-identity-color,#176b5e) 14%,var(--cadu-nav-surface));
+  color:color-mix(in srgb,var(--cadu-identity-color,#176b5e) 76%,var(--cadu-nav-ink));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-identity-color,#176b5e) 24%,var(--cadu-nav-line));
+}
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--small { width:30px; height:30px; }
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--medium { width:36px; height:36px; }
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--large { width:40px; height:40px; }

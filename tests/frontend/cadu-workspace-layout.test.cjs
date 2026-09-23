@@ -88,7 +88,7 @@ async function dimensions(page, contentClass) {
 
   try {
     assert.match(workspaceHomeStyles, /#cadu-conversations-v2-root[^\{]+\.cadu-ds-prompt-suggestions\.is-workspace-home button/, 'Home: CTA vence a regra escura do root');
-    assert.match(workspaceHomeStyles, /\.cadu-ds-context-sidebar__project-tree[^\{]+\{[^}]*border-left:\s*0/, 'Home: projetos sem linha de árvore');
+    assert.match(workspaceHomeStyles, /\.cadu-ds-context-sidebar__project-tree[^\{]+\{[^}]*border-left:\s*1px\s+solid/, 'Home: projetos organizados por uma linha de árvore');
     assert.match(dockStyles, /\.cadu-ds-dock-context \.cadu-ds-dock-brand[^\{]+\{[^}]*translateX\(6px\)/, 'Dock: atalhos corrigidos para o eixo central');
     for (const contentClass of ['cadu-ds-home-content', 'cadu-ds-project-content', 'cadu-ds-brands-content']) {
       await page.setViewportSize({width: 1440, height: 1000});

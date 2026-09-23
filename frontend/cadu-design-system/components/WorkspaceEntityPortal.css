@@ -289,6 +289,7 @@ body.portal--workspace .cadu-ds-entity-nav__source-menu a,
 body.portal--workspace .cadu-ds-entity-nav__source-menu button { display:block; min-height:29px; padding:5px 7px; border:0; background:none; color:var(--cadu-muted-strong); font:400 11px var(--cadu-font-sans); text-align:left; text-decoration:none; cursor:pointer; }
 body.portal--workspace .cadu-ds-entity-nav__source-menu a:hover,
 body.portal--workspace .cadu-ds-entity-nav__source-menu button:hover { color:var(--cadu-accent-strong); }
+body.portal--workspace .cadu-ds-entity-nav__source-menu button.is-danger { color:var(--cadu-danger,#a34032); }
 body.portal--workspace .cadu-ds-entity-nav__actions :focus-visible { outline:2px solid var(--cadu-accent-strong); outline-offset:2px; }
 body.portal--workspace .cadu-ds-project-upload-drop button { margin-top:10px; padding:8px 12px; border:1px solid var(--cadu-accent-strong); border-radius:7px; background:var(--cadu-surface); color:var(--cadu-accent-strong); font:700 11px var(--cadu-font-sans); cursor:pointer; }
 body.portal--workspace .cadu-ds-project-upload-drop button:focus-visible { outline:2px solid var(--cadu-accent-strong); outline-offset:3px; }
@@ -339,14 +340,14 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-content-
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter {
   display:grid;
   grid-template-columns:1fr;
-  gap:10px;
-  margin:14px 0 0;
-  padding:18px 0 0;
+  gap:12px;
+  margin:10px 0 0;
+  padding:16px 0 0;
   border:0;
 }
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter header { grid-column:auto; }
-body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter h2 { font-size:17px; }
-body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter p { font-size:11px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter h2 { font-size:15px; line-height:1.22; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter p { font-size:10px; line-height:1.5; }
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter__paths button,
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-starter__generators a { min-height:40px; border-bottom:0; }
 
@@ -363,8 +364,8 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cad
   display:grid;
   gap:6px;
 }
-body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature > header h2 { font-size:17px; }
-body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature > header span:not(.cadu-ds-project-brand-feature__status) { font-size:11px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature > header h2 { font-size:15px; line-height:1.22; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature > header span:not(.cadu-ds-project-brand-feature__status) { font-size:10px; line-height:1.45; }
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature__status {
   justify-self:start;
   padding:0;

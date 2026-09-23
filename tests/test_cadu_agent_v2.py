@@ -1252,6 +1252,47 @@ def test_operational_questions_activate_existing_read_tools():
     assert brand.needs_tools == ("brands.get_context",)
 
 
+def test_project_overview_uses_active_project_context_without_follow_up():
+    route = route_request("Sobre o que é esse projeto?", has_project=True)
+
+    assert route.action == "describe_project"
+    assert route.needs_context == ("project",)
+    assert route.needs_tools == ("workspace.get_project_context",)
+    assert policy_for(route)["max_questions"] == 0
+    assert policy_for(route)["max_next_steps"] == 0
+
+
+def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
+    route = route_request("Do que se trata este projeto?", has_project=True)
+    payload = build_payload(
+        message="Do que se trata este projeto?",
+        request=context(project_ref="project-1"),
+        route=route,
+        resolved={"workspace.get_project_context": {"projeto": {"nome": "Campanhas"}}},
+        policy=policy_for(route),
+        user_label="Pessoa",
+    )
+
+    assert "responda diretamente" in payload["inputs"]["core"]
+    assert "não peça descrição, README ou briefing" in payload["inputs"]["core"]
+    assert "visibilidade, fontes existentes" in payload["inputs"]["core"]
+    assert "Seja proativo" in payload["inputs"]["core"]
+
+
+def test_new_project_and_brand_open_their_context_surfaces_after_creation():
+    project = _completion("workspace.create_project", {
+        "project_ref": "ci:project-1", "name": "Campanhas", "visibility": "private",
+    })
+    brand = _completion("brands.create", {
+        "brand_ref": "studio:81", "brand_id": 81, "name": "Acme",
+    })
+
+    assert project["open_surface"] == {"type": "project_profile", "project_ref": "ci:project-1"}
+    assert brand["open_surface"] == {"type": "brand_identity", "brand_ref": "studio:81"}
+    assert project["activate_context"] == {"project_ref": "ci:project-1", "brand_ref": None}
+    assert brand["activate_context"] == {"project_ref": None, "brand_ref": "studio:81"}
+
+
 def test_meeting_preflights_google_and_project_recipients():
     route = route_request("Agende um Meet amanhã às 10h", has_project=True)
     assert route.needs_tools == ("google.get_connector_status", "workspace.list_project_shares")

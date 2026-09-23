@@ -1775,6 +1775,23 @@ def test_large_project_search_keeps_ranked_evidence_inside_prompt_budget():
     assert evidence["workspace.search_project_content"]["results"][0]["title"] == "Público 0"
 
 
+def test_large_project_context_keeps_saved_fields_inside_prompt_budget():
+    route = route_request("Organize as tarefas desse projeto", has_project=True)
+    project = {"projeto_ref": "ci:project-1", "context_status": "available",
+               "projeto": {"nome": "Oriente 2026", "descricao": "Campanha para empresas"},
+               "fontes_verificadas": [{"fonte": f"Fonte {index}", "trecho": "dados " * 300}
+                                     for index in range(20)]}
+    payload = build_payload(
+        message="Organize as tarefas desse projeto", request=context(project_ref="ci:project-1"),
+        route=route, resolved={"workspace.get_project_context": project},
+        policy=policy_for(route), user_label="user-7", history="Conversa anterior. " * 1000,
+        max_context_chars=6000,
+    )
+    evidence = json.loads(payload["inputs"]["evidence"])
+    assert len(payload["inputs"]["evidence"]) <= 6000
+    assert evidence["workspace.get_project_context"]["projeto"]["nome"] == "Oriente 2026"
+
+
 def test_project_readout_routes_dense_work_to_an_editable_artifact():
     route = route_request(
         "Faça uma leitura de partida do projeto Nike: objetivo, entregas, riscos e decisões.",
@@ -1944,6 +1961,30 @@ def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
     assert "não peça descrição, README ou briefing" in payload["inputs"]["core"]
     assert "visibilidade, fontes existentes" in payload["inputs"]["core"]
     assert "Seja proativo" in payload["inputs"]["core"]
+
+
+def test_saved_project_context_repairs_false_provider_denial():
+    response = AgentResponse(answer="Não tenho contexto suficiente sobre o projeto nesta conversa.")
+    run = {"route": {"action": "describe_project"}, "resolved_context": SimpleNamespace(values={
+        "workspace.search_project_content": {
+            "context_status": "available",
+            "project": {"nome": "Orienta 2026", "descricao": "Portal para microempresas mineiras"},
+            "source_inventory": {"needs_index": 0},
+        },
+    })}
+
+    assert v2_service._repair_project_context_denial(response, run)
+    assert "Orienta 2026" in response.answer
+    assert "Portal para microempresas mineiras" in response.answer
+    assert response.questions == []
+
+
+def test_project_denial_is_not_repaired_when_lookup_failed():
+    response = AgentResponse(answer="Não tenho contexto suficiente sobre o projeto nesta conversa.")
+    run = {"route": {"action": "describe_project"}, "resolved_context": SimpleNamespace(values={
+        "workspace.search_project_content": {"context_status": "unavailable", "project": {"nome": "Orienta"}},
+    })}
+    assert not v2_service._repair_project_context_denial(response, run)
 
 
 def test_project_objective_question_searches_all_project_records_and_requires_real_source():
@@ -2847,6 +2888,18 @@ def test_empty_persisted_conversation_binding_accepts_authorized_turn_project(mo
     with app.test_request_context("/"):
         resolved = request_context.resolve(conversation_id="conversation", project_ref="ci:project-1")
     assert resolved.project_ref == "ci:project-1"
+
+
+def test_unavailable_selected_project_fails_instead_of_silently_dropping_context(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test"
+    monkeypatch.setattr(request_context.family_context, "identity", lambda: {"id": 7, "organization_id": 12})
+    monkeypatch.setattr(request_context.family_context, "resolve", lambda: {"client_id": 12})
+    monkeypatch.setattr(request_context.family_context, "inventory", lambda _client: [])
+    with app.test_request_context("/"):
+        with pytest.raises(Exception) as raised:
+            request_context.resolve(project_ref="ci:missing")
+    assert getattr(raised.value, "code", None) == 409
 
 
 def test_legacy_question_placeholder_is_rejected_before_routing():

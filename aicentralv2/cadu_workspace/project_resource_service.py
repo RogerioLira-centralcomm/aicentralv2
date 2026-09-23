@@ -274,12 +274,12 @@ def reconcile(client_id: int, project_ref: str, actor_id=None, *, include_archiv
                 (id, organization_id, client_id, project_ref, source_system, source_id, resource_type,
                  title, mime_type, purpose, category, status, version, content_hash, locator, metadata,
                  created_by, source_created_at, source_updated_at, first_seen_at, last_seen_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),clock_timestamp())
                 ON CONFLICT (client_id, project_ref, source_system, source_id) DO UPDATE SET
                  resource_type=EXCLUDED.resource_type,title=EXCLUDED.title,mime_type=EXCLUDED.mime_type,
                  purpose=EXCLUDED.purpose,category=EXCLUDED.category,status=EXCLUDED.status,
                  version=EXCLUDED.version,content_hash=EXCLUDED.content_hash,locator=EXCLUDED.locator,
-                 metadata=EXCLUDED.metadata,source_updated_at=EXCLUDED.source_updated_at,last_seen_at=NOW()
+                 metadata=EXCLUDED.metadata,source_updated_at=EXCLUDED.source_updated_at,last_seen_at=clock_timestamp()
                     RETURNING id""", (resource_id, client_id, client_id, project_ref, item["source_system"], item["source_id"],
                      item["resource_type"], item["title"], item["mime_type"], item["purpose"], item["category"], item["status"],
                      item["version"], item["content_hash"], item["locator"], Json(item["metadata"]), item["created_by"],
@@ -388,10 +388,39 @@ def list_recent_resources(client_id: int, project_refs: list[str], *, limit: int
 
 
 def list_for_context(context: RequestContext, *, include_archived=False) -> dict:
-    # MCP reads use the materialized registry. Mutations enqueue reconciliation;
-    # the project-detail UI retains an explicit repair-on-open path for rollout.
-    return list_resources(context.client_id, context.project_ref or "", reconcile_first=False,
-                          actor_id=context.user_id, include_archived=include_archived)
+    # The registry worker may lag behind source writes. Read the source tables
+    # directly when the registry is empty or reconciliation is still queued;
+    # this keeps chat/MCP reads correct without turning a read into a write.
+    project_ref = context.project_ref or ""
+    materialized = list_resources(context.client_id, project_ref, reconcile_first=False,
+                                  actor_id=context.user_id, include_archived=include_archived)
+    pending = False
+    try:
+        with get_db().transaction():
+            with get_db().cursor() as cursor:
+                if _relation(cursor, "cadu_project_resource_jobs"):
+                    cursor.execute("""SELECT EXISTS (
+                        SELECT 1 FROM cadu_project_resource_jobs
+                         WHERE client_id=%s AND project_ref=%s
+                           AND status IN ('queued','running','failed')
+                    ) AS pending""", (context.client_id, project_ref))
+                    pending = bool((cursor.fetchone() or {}).get("pending"))
+                if materialized.get("resources") and not pending:
+                    return materialized
+                records = _collect(cursor, context.client_id, project_ref)
+    except Exception:
+        if materialized.get("resources"):
+            return {**materialized, "direct_lookup_status": "unavailable"}
+        raise
+    resources = [
+        {**item, "id": resource_id_for_source(context.client_id, project_ref,
+                                              item["source_system"], item["source_id"])}
+        for item in records if include_archived or item.get("status") != "archived"
+    ]
+    counts = Counter(item["resource_type"] for item in resources)
+    return {"resources": resources, "relations": materialized.get("relations") or [],
+            "summary": {"total": len(resources), **dict(counts)},
+            "registry_pending": pending, "source": "source_tables"}
 
 
 def get_resource(client_id: int, project_ref: str, resource_id: str) -> dict | None:

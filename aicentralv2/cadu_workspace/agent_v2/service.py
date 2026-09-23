@@ -173,6 +173,45 @@ def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
     return replace(response, answer=streamed)
 
 
+_PROJECT_CONTEXT_DENIAL = re.compile(
+    r"\b(?:n[aã]o tenho (?:contexto|acesso|informa[cç][oõ]es)|"
+    r"n[aã]o h[aá] (?:contexto|informa[cç][oõ]es)|"
+    r"n[aã]o sei (?:nada|o suficiente))\b.{0,120}\bprojeto\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _repair_project_context_denial(response, run) -> bool:
+    """Use saved fields if the provider denies context that Python already read."""
+    if run["route"].get("action") != "describe_project" or not _PROJECT_CONTEXT_DENIAL.search(response.answer or ""):
+        return False
+    evidence = run["resolved_context"].values.get("workspace.search_project_content") or {}
+    if not isinstance(evidence, dict) or evidence.get("context_status") != "available":
+        return False
+    project = evidence.get("project") or {}
+    if not isinstance(project, dict):
+        return False
+    name = " ".join(str(project.get("nome") or "").split())[:180]
+    description = " ".join(str(project.get("descricao") or "").split())[:1000]
+    instructions = " ".join(str(project.get("instrucoes") or "").split())[:600]
+    if not any((name, description, instructions)):
+        return False
+    parts = [f"O projeto **{name}** está cadastrado no Workspace." if name else "Encontrei o projeto selecionado no Workspace."]
+    if description:
+        parts.append(f"Descrição salva: {description}")
+    if instructions:
+        parts.append(f"Instruções salvas: {instructions}")
+    inventory = evidence.get("source_inventory") or {}
+    if int(inventory.get("needs_index") or 0) > 0:
+        parts.append("Há arquivos do projeto que ainda precisam de indexação para uma leitura completa.")
+    response.answer = "\n\n".join(parts)
+    response.confidence = "medium"
+    response.questions = []
+    response.actions = []
+    response.blocks = []
+    return True
+
+
 def _html_failure_code(response, finish_reason=""):
     if response.artifact_patch:
         return None
@@ -707,7 +746,9 @@ def prepare(data):
                     VALUES (%s, %s, %s, %s, '{}'::jsonb, %s, %s, NOW(), NOW())""",
                     (str(uuid4()), run_id, call["name"],
                      "completed" if call["status"] == "completed" else "failed",
-                     Json({"available": call["status"] == "completed"}), call.get("code")))
+                     Json({"available": call["status"] == "completed",
+                           **({"project_evidence": call["project_evidence"]} if call.get("project_evidence") else {})}),
+                     call.get("code")))
                 cur.execute("""UPDATE cadu_agent_tool_calls SET duration_ms=%s
                                 WHERE run_id=%s AND tool_name=%s""",
                             (call.get("duration_ms"), run_id, call["name"]))
@@ -718,6 +759,7 @@ def prepare(data):
                  "route": execution["route"], "budget": execution["budget"],
                  "selected_context": bool(execution.get("selected_context")),
                  "context_diagnostics": built_context.diagnostics,
+                 "payload_diagnostics": execution.get("payload_diagnostics"),
                  "rollout": rollout.public_metadata()})
     except Exception:
         conn.rollback()
@@ -859,6 +901,7 @@ def stream(run):
                 answer_chunks.append(str(item["answer"]))
                 visible_answer = _streamable_answer("".join(answer_chunks))
                 if (run["route"].get("action") not in WORKSPACE_ONLY_ACTIONS
+                        and run["route"].get("action") != "describe_project"
                         and not run["route"].get("artifact_type")
                         and visible_answer and visible_answer != streamed_answer):
                     streamed_answer = visible_answer
@@ -878,6 +921,11 @@ def stream(run):
         else:
             response = normalize_response("".join(answer_chunks), run["policy"])
             response = _preserve_streamed_answer(response, streamed_answer, run["policy"])
+            if _repair_project_context_denial(response, run):
+                _journal(run["run_id"], "answer.repaired_project_context_denial", {
+                    "project_bound": True,
+                    "context_status": "available",
+                }, item_type="activity")
             if workspace_action:
                 response.answer = workspace_action["answer"]
                 response.blocks = [workspace_action["block"]]

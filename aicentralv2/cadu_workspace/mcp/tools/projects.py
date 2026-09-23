@@ -63,7 +63,8 @@ def search_knowledge(context: RequestContext, arguments: dict) -> dict:
         raise ToolInputError("Projeto indisponível para esta conta.")
     return {"project_ref": context.project_ref, "query": query,
             "results": packet.get("fontes_verificadas") or [],
-            "retrieval_mode": "hybrid_with_lexical_fallback",
+            "retrieval_status": packet.get("retrieval_status") or "unknown",
+            "retrieval_mode": "lexical" if packet.get("retrieval_status") == "lexical_fallback" else "hybrid",
             "next_step": "Use projects.get_source_chunks com source_id para ler o contexto adicional."}
 
 

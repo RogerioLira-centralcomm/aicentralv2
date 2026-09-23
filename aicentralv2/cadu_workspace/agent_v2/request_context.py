@@ -1,6 +1,6 @@
 """Build the canonical context exclusively from server-authorized state."""
 
-from flask import session
+from flask import abort, session
 
 from ...cadu_family import context as family_context
 from ...cadu_family import repository
@@ -38,8 +38,12 @@ def resolve(*, conversation_id=None, request_id=None, surface="conversations", a
     if resolved_project or resolved_brand:
         allowed = {item["ref"]: item for item in family_context.inventory(selected["client_id"])}
         if resolved_project and (resolved_project not in allowed or allowed[resolved_project]["kind"] != "project"):
+            if project_ref or (persisted and persisted.get("project_ref")):
+                abort(409, description="O projeto selecionado não está mais disponível. Selecione o projeto novamente.")
             resolved_project = None
         if resolved_brand and (resolved_brand not in allowed or allowed[resolved_brand]["kind"] != "brand"):
+            if brand_ref or (persisted and persisted.get("brand_ref")):
+                abort(409, description="A marca selecionada não está mais disponível. Selecione a marca novamente.")
             resolved_brand = None
         # A project with one explicit brand relationship carries that brand into
         # the conversation. Multiple brands remain unselected: the agent must

@@ -260,7 +260,11 @@ def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int
                 raise ValueError("Fonte indisponível para reindexação.")
             content = _source_content(source)
             content_hash = sha256(content.encode("utf-8")).hexdigest()
-            if source.get("content_hash") == content_hash and source.get("indexing_status") == "completed":
+            cursor.execute("""SELECT COUNT(*) AS chunk_count FROM cadu_ci_chunks
+                               WHERE arquivo_id=%s AND projeto_id=%s AND id_cliente=%s""",
+                           (source_id, project_id, client_id))
+            chunk_count = int((cursor.fetchone() or {}).get("chunk_count") or 0)
+            if source.get("content_hash") == content_hash and source.get("indexing_status") == "completed" and chunk_count:
                 connection.commit()
                 return {"source_id": int(source_id), "status": "unchanged", "charged_tokens": 0}
             chunks, embedding_tokens, embedding_model = indexed_content(content)

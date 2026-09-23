@@ -7,7 +7,7 @@ from ..db import get_db
 from .project_resource_service import reconcile
 
 
-def claim(max_attempts=5):
+def claim(max_attempts=5, *, client_id=None, project_ref=None):
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -16,12 +16,15 @@ def claim(max_attempts=5):
                  WHERE (status IN ('queued','failed') OR
                         (status='running' AND started_at < NOW()-INTERVAL '10 minutes'))
                    AND attempts < %s AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+                   AND (%s::bigint IS NULL OR client_id=%s)
+                   AND (%s::text IS NULL OR project_ref=%s)
                  ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) UPDATE cadu_project_resource_jobs job
                  SET status='running', attempts=attempts+1, started_at=NOW(), finished_at=NULL,
                      next_attempt_at=NULL, error_message=NULL
                 FROM candidate WHERE job.id=candidate.id
-            RETURNING job.id::text,job.client_id,job.project_ref,job.event_type,job.actor_id""", (max_attempts,))
+            RETURNING job.id::text,job.client_id,job.project_ref,job.event_type,job.actor_id""",
+                           (max_attempts, client_id, client_id, project_ref, project_ref))
             row = cursor.fetchone()
         connection.commit()
         return dict(row) if row else None
@@ -30,8 +33,8 @@ def claim(max_attempts=5):
         raise
 
 
-def process_one():
-    job = claim()
+def process_one(*, client_id=None, project_ref=None):
+    job = claim(client_id=client_id, project_ref=project_ref)
     if not job:
         return False
     connection = get_db()

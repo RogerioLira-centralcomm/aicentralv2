@@ -11,7 +11,7 @@ CORE = """Você é Cadu, parceiro sênior de trabalho. Responda em português cl
 da mesma conversa, nunca como tarefa isolada. `conversation_state`, `conversation_history` e a mensagem atual,
 nessa ordem, são canônicos: preserve assunto, referências, decisões e correções mesmo sem repetição de nomes.
 Use contexto e fontes quando ajudarem; em pedidos simples, não recite o projeto. Mesmo no modo rápido, dê contexto mínimo e use `entity` para pessoas, marcas e campanhas. Separe fato, hipótese e lacuna; não invente evidências.
-Em projetos, consulte o contexto autorizado e o histórico antes de pedir dados. Resuma o que existe e aponte apenas lacunas reais, sem alegar falta de acesso quando houver contexto.
+Em projetos, consulte o contexto autorizado e o histórico antes de pedir dados. Resuma o que existe e aponte apenas lacunas reais. Se o contexto estiver indisponível, diga que a consulta falhou sem concluir que o projeto não tem dados.
 Se houver `web.search`/`web.read`, use só o conteúdo limpo recebido, priorize fontes primárias,
 remova duplicatas, marque lacunas e cite apenas URLs recebidas. Em `agentic`, compare fontes.
 Se faltar evidência, diga. Responda primeiro e sugira até duas continuações. Pedido explícito de edição autoriza nova versão reversível; pergunta exploratória não autoriza edição. Ações externas ou irreversíveis exigem confirmação própria. Em perguntas pontuais, não crie `artifact_patch`; pedidos de leitura ampla do projeto usam o artefato de dossiê.
@@ -88,8 +88,8 @@ def _bounded_json(value: dict, limit: int) -> str:
     # Reserve recent dialogue before bulky tool/project evidence. Immediate
     # continuity must not disappear merely because a project has many assets.
     history = str(value.get("conversation_history") or "")
-    project_search = value.get("workspace.search_project_content")
-    evidence_reserve = min(9000, limit // 3) if isinstance(project_search, dict) else 0
+    project_evidence = value.get("workspace.search_project_content") or value.get("workspace.get_project_context")
+    evidence_reserve = min(9000, limit // 3) if isinstance(project_evidence, dict) else 0
     if history:
         low, high = 0, len(history)
         while low < high:
@@ -113,8 +113,9 @@ def _bounded_json(value: dict, limit: int) -> str:
             # The public tool retains its full response. The model receives a
             # bounded, ranked projection instead of losing all project evidence.
             header = {name: item.get(name) for name in (
-                "project_ref", "query", "revision", "resource_index_pending",
-                "source_retrieval_status", "unavailable_scopes", "evidence_rule",
+                "project_ref", "query", "mode", "revision", "context_status",
+                "resource_index_pending", "source_retrieval_status", "source_inventory",
+                "unavailable_scopes", "evidence_rule",
             )}
             project = item.get("project") if isinstance(item.get("project"), dict) else {}
             header["project"] = {name: str(project.get(name) or "")[:500]
@@ -132,6 +133,54 @@ def _bounded_json(value: dict, limit: int) -> str:
                         if name in row:
                             row[name] = str(row[name])[:350]
                     proposal = {**header, "results": [*header["results"], row]}
+                    if not fits({**compact, key: {**proposal, "truncated": True}}):
+                        break
+                    header = proposal
+                compact[key] = {**header, "truncated": True}
+        elif key == "workspace.get_project_context" and isinstance(item, dict):
+            # Keep saved project fields even when bulky history or source excerpts
+            # make the complete tool result too large for the provider input.
+            header = {name: item[name] for name in (
+                "project_ref", "projeto_ref", "context_status", "retrieval_status",
+            ) if name in item}
+            project = item.get("projeto") if isinstance(item.get("projeto"), dict) else {}
+            header["projeto"] = {name: str(project.get(name) or "")[:600] for name in (
+                "nome", "descricao", "instrucoes", "publico", "posicionamento", "tom_de_voz",
+            ) if project.get(name)}
+            project_custom = project.get("campos_personalizados")
+            if isinstance(project_custom, dict):
+                header["projeto"]["campos_personalizados"] = {
+                    str(name)[:80]: str(field)[:250] for name, field in list(project_custom.items())[:20]
+                }
+            direction = item.get("direction") if isinstance(item.get("direction"), dict) else {}
+            header["direction"] = {name: direction[name] for name in (
+                "revision", "updated_at",
+            ) if name in direction and direction[name]}
+            standard_fields = direction.get("standard_fields")
+            if isinstance(standard_fields, dict):
+                header["direction"]["standard_fields"] = {
+                    str(name)[:80]: str(field)[:350] for name, field in standard_fields.items() if field not in (None, "")
+                }
+            custom_fields = direction.get("custom_fields")
+            if isinstance(custom_fields, dict):
+                header["direction"]["custom_fields"] = {
+                    str(name)[:80]: str(field)[:250] for name, field in list(custom_fields.items())[:20]
+                }
+            header["fontes_verificadas"] = []
+            if not fits({**compact, key: {**header, "truncated": True}}):
+                header["projeto"].pop("campos_personalizados", None)
+                header["direction"].pop("custom_fields", None)
+            if not fits({**compact, key: {**header, "truncated": True}}):
+                header["direction"].pop("standard_fields", None)
+            if not fits({**compact, key: {**header, "truncated": True}}):
+                header["projeto"] = {name: str(project.get(name) or "")[:180]
+                                     for name in ("nome", "descricao") if project.get(name)}
+            if fits({**compact, key: {**header, "truncated": True}}):
+                for source in (item.get("fontes_verificadas") or [])[:12]:
+                    row = {name: source[name] for name in ("fonte", "trecho", "source_id", "chunk_id", "score") if name in source}
+                    if "trecho" in row:
+                        row["trecho"] = str(row["trecho"])[:400]
+                    proposal = {**header, "fontes_verificadas": [*header["fontes_verificadas"], row]}
                     if not fits({**compact, key: {**proposal, "truncated": True}}):
                         break
                     header = proposal
@@ -203,8 +252,9 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "pelo usuário. Em pedidos de panorama, acrescente, quando disponíveis, "
             "escopo, instruções de trabalho, público, posicionamento, marca vinculada, visibilidade, fontes existentes, estado de atualização "
             "e decisões já registradas. Diferencie dados salvos de inferências e destaque no máximo três lacunas que realmente limitam o trabalho. "
-            "Não diga que não tem acesso ao projeto, não peça descrição, README ou briefing já representados na evidência "
-            "e não encerre com pergunta ou próximo passo genérico. Seja proativo: além de responder ao pedido, explique brevemente "
+            "Quando houver evidência, não diga que não tem acesso ao projeto; não peça descrição, README ou briefing já representados nela. "
+            "Se a leitura falhar, informe a indisponibilidade da consulta sem afirmar que o projeto está vazio. "
+            "Não encerre com pergunta ou próximo passo genérico. Seja proativo: além de responder ao pedido, explique brevemente "
             "como o contexto disponível pode orientar o próximo trabalho, sem transformar a resposta em uma lista longa."
         )
     if route.action == "describe_project_for_rename":

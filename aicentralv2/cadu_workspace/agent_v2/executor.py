@@ -269,10 +269,20 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                             execution_mode=execution_mode, max_context_chars=budget.max_context_chars,
                             selected_context=getattr(request, "selected_context", None),
                             conversation_state=conversation_state)
+    provider_evidence = json.loads(payload["inputs"]["evidence"])
+    project_tools = ("workspace.search_project_content", "workspace.get_project_context")
+    payload_diagnostics = {
+        "project_bound": bool(request.project_ref),
+        "project_ref_in_current_context": json.loads(payload["inputs"]["current_context"]).get("project_ref") == request.project_ref,
+        "project_evidence_tools": [name for name in project_tools if name in provider_evidence],
+        "evidence_truncated": bool(provider_evidence.get("truncated")),
+        "evidence_chars": len(payload["inputs"]["evidence"]),
+    }
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,
         "plan": plan, "resolved_context": resolved,
         "selected_context": getattr(request, "selected_context", None),
         "provider_payload": payload,
+        "payload_diagnostics": payload_diagnostics,
     }

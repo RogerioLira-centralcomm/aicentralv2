@@ -1,9 +1,12 @@
 """The project search must distinguish saved data, metadata, and read content."""
 
+from contextlib import nullcontext
 from flask import Flask
 
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.tools import workspace
+from aicentralv2.cadu_workspace.project_query import is_overview_query
+from aicentralv2.cadu_workspace import project_resource_service
 
 
 CONTEXT = RequestContext(
@@ -109,11 +112,62 @@ def test_overview_balances_context_sources_resources_and_tasks(monkeypatch):
 
     result = workspace.search_project_content(CONTEXT, {"query": "Visão geral de tudo sobre esse projeto"})
 
-    assert calls == [{"result_limit": 12}]
+    assert calls == [{"result_limit": 12, "overview": True}]
     assert {item["result_type"] for item in result["results"]} == {
         "project_context", "indexed_source", "project_resource", "project_activity",
     }
     assert len(result["results"]) == 25
+
+
+def test_generic_project_question_returns_saved_context_without_keyword_overlap(monkeypatch):
+    monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
+    monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_, **__: {
+        **_project_packet(), "source_inventory": {"total": 2, "indexed": 1, "needs_index": 1},
+    })
+    monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [
+        {"label": "Público", "display_value": "Empresas B2B"},
+    ])
+    monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {"resources": [
+        {"id": "resource-1", "resource_type": "file", "title": "Briefing de lançamento", "metadata": {}},
+    ]})
+    monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {"tasks": []})
+
+    result = workspace.search_project_content(CONTEXT, {"query": "O que você sabe sobre esse projeto?"})
+
+    assert result["mode"] == "overview"
+    assert {item["result_type"] for item in result["results"]} >= {
+        "project_context", "indexed_source", "project_resource",
+    }
+    assert "unindexed_sources" in result["unavailable_scopes"]
+
+
+def test_project_overview_intent_keeps_specific_field_queries_as_searches():
+    assert is_overview_query("O que você sabe sobre esse projeto?")
+    assert is_overview_query("Visão geral de tudo sobre esse projeto")
+    assert not is_overview_query("Quem é o público desse projeto?")
+    assert not is_overview_query("Qual é o orçamento desse projeto?")
+
+
+def test_resource_read_uses_source_tables_while_registry_job_is_pending(monkeypatch):
+    class Db:
+        def transaction(self): return nullcontext()
+        def cursor(self): return _IndexStatusDb(pending=True)
+
+    monkeypatch.setattr(project_resource_service, "get_db", lambda: Db())
+    monkeypatch.setattr(project_resource_service, "list_resources", lambda *_, **__: {
+        "resources": [], "relations": [], "summary": {"total": 0},
+    })
+    monkeypatch.setattr(project_resource_service, "_relation", lambda *_: True)
+    monkeypatch.setattr(project_resource_service, "_collect", lambda *_: [
+        project_resource_service._record("workspace", "link:1", "link", "centralcomm.media"),
+    ])
+
+    result = project_resource_service.list_for_context(CONTEXT)
+
+    assert result["resources"][0]["title"] == "centralcomm.media"
+    assert result["registry_pending"] is True
+    assert result["source"] == "source_tables"
 
 
 def test_search_reports_partial_inventory_failure_without_losing_saved_context(monkeypatch):

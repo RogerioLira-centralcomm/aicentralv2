@@ -507,7 +507,7 @@ def conversation_message():
     if not rollout.runtime_v2:
         # Resolve the authoritative tenant before entering the legacy runtime;
         # this also rejects a foreign or missing supplied conversation.
-        resolve(
+        resolved_request = resolve(
             conversation_id=payload.get("conversation_id"), request_id=payload.get("request_id"),
             surface=str(payload.get("surface") or "conversations"),
             active_object=payload.get("active_object"), project_ref=payload.get("project_ref"),
@@ -519,8 +519,10 @@ def conversation_message():
             **payload,
             "profile": "workspace",
             "depth": requested_depth if requested_depth in {"focus", "analysis", "deep"} else "analysis",
+            "project_ref": resolved_request.project_ref,
+            "brand_ref": resolved_request.brand_ref,
         }
-        legacy_run = legacy_service.prepare(legacy_payload, family_context.resolve())
+        legacy_run = legacy_service.prepare(legacy_payload, family_context.resolve(), resolved_context=resolved_request)
         return Response(
             stream_with_context(legacy_service.stream(legacy_run)), mimetype="text/event-stream",
             headers={"Cache-Control": "no-cache, no-store", "X-Accel-Buffering": "no"},

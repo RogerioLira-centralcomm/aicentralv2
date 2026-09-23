@@ -1,11 +1,13 @@
 """Dify chat using the existing PHP conversation and message tables."""
 import json
 import re
+from contextlib import nullcontext
 from uuid import UUID, uuid4
 
-from flask import abort, session, current_app
+from flask import abort, session, current_app, has_app_context
 
 from ...cadu_family import context, dify, repository
+from ...db import get_db
 from .. import project_knowledge
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_tool_billing import InsufficientToolCredits
@@ -263,7 +265,13 @@ def lock_organization_generation(cur, organization_id):
         abort(409, description='Há uma geração em andamento nesta organização. Aguarde sua conclusão antes de enviar outra.')
 
 
-def project_knowledge_context(project_ref, brand_ref, client_id, query, *, result_limit=4, strict_retrieval=False):
+def _read_savepoint():
+    # Caught lookup/index errors must not leave the request transaction aborted.
+    return get_db().transaction() if has_app_context() else nullcontext()
+
+
+def project_knowledge_context(project_ref, brand_ref, client_id, query, *, result_limit=4,
+                              strict_retrieval=False, overview=False):
     """Build a small, attributable context packet for an authorized project.
 
     The Dify input remains a string for compatibility, but every record is
@@ -274,11 +282,14 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
         return ''
     project_id = project_ref[3:]
     try:
-        projects = repository.rows('''SELECT nome, descricao, instrucoes, publico, posicionamento, tom_de_voz,
+        with _read_savepoint():
+            projects = repository.rows('''SELECT nome, descricao, instrucoes, publico, posicionamento, tom_de_voz,
                                              COALESCE(campos_personalizados, '{}'::jsonb) AS campos_personalizados
-                                        FROM cadu_ci_projetos WHERE id = %s AND id_cliente = %s''',
+                                        FROM cadu_ci_projetos WHERE id = %s AND id_cliente = %s AND status <> 'deletado' ''',
                                    (project_id, client_id))
     except Exception:
+        if has_app_context():
+            current_app.logger.exception("Falha ao ler metadados do projeto para o agente")
         return ''
     if not projects:
         return ''
@@ -288,7 +299,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
     packet = {'projeto_ref': project_ref, 'projeto': projects[0]}
     if isinstance(brand_ref, str) and brand_ref.startswith('studio:'):
         try:
-            brands = repository.rows('''SELECT name, sector, website_url, logo_url, primary_color, secondary_color, brand_profile
+            with _read_savepoint():
+                brands = repository.rows('''SELECT name, sector, website_url, logo_url, primary_color, secondary_color, brand_profile
                                            FROM cx_clients
                                           WHERE id = %s AND crm_client_id = %s''',
                                      (brand_ref[7:], client_id))
@@ -306,9 +318,45 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
     result_limit = max(1, min(int(result_limit), 12))
     if terms:
         try:
-            try:
+            if overview:
+                # A generic project readout needs coverage across files. A
+                # semantic search for "what do you know?" is not meaningful.
+                with _read_savepoint():
+                    sources = repository.rows('''WITH first_chunks AS (
+                        SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
+                               LEFT(c.conteudo, 1000) AS trecho,
+                               0::double precision AS score, c.content_hash, c.embedding_model,
+                               ROW_NUMBER() OVER (PARTITION BY c.arquivo_id ORDER BY c.ordem, c.id) AS position,
+                               s.updated_at AS source_updated_at
+                          FROM cadu_ci_chunks c
+                          JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
+                         WHERE c.projeto_id=%s AND c.id_cliente=%s
+                           AND s.projeto_id=%s AND s.id_cliente=%s
+                           AND s.purpose='knowledge_source' AND s.indexing_status='completed'
+                    ) SELECT chunk_id, source_id, titulo, trecho, score, content_hash, embedding_model
+                        FROM first_chunks WHERE position=1
+                    ORDER BY source_updated_at DESC, source_id DESC LIMIT %s''',
+                    (project_id, client_id, project_id, client_id, result_limit))
+                with _read_savepoint():
+                    inventory = repository.rows('''SELECT COUNT(*) AS total,
+                        COUNT(*) FILTER (WHERE indexing_status='completed' AND EXISTS (
+                            SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
+                              AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
+                        )) AS indexed,
+                        COUNT(*) FILTER (WHERE indexing_status IS DISTINCT FROM 'completed' OR NOT EXISTS (
+                            SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
+                              AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
+                        )) AS needs_index
+                        FROM cadu_ci_projeto_arquivos s
+                       WHERE projeto_id=%s AND id_cliente=%s AND purpose='knowledge_source'
+                         AND indexing_status <> 'superseded' ''', (project_id, client_id))
+                packet['source_inventory'] = inventory[0] if inventory else {}
+                packet['retrieval_status'] = 'overview'
+            else:
+              try:
                 vector = project_knowledge.vector_literal(project_knowledge.query_embedding(terms))
-                sources = repository.rows('''WITH lexical AS (
+                with _read_savepoint():
+                    sources = repository.rows('''WITH lexical AS (
                     SELECT id, ts_rank_cd(search_vector, plainto_tsquery('portuguese', %s)) AS score
                       FROM cadu_ci_chunks WHERE projeto_id=%s AND id_cliente=%s
                         AND search_vector @@ plainto_tsquery('portuguese', %s) ORDER BY score DESC LIMIT 12
@@ -327,11 +375,12 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                       FROM ranked r JOIN cadu_ci_chunks c ON c.id=r.id
                      ORDER BY r.score DESC, c.ordem ASC LIMIT %s''',
                 (terms, project_id, client_id, terms, vector, project_id, client_id, vector, result_limit))
-            except project_knowledge.KnowledgeIndexError:
+              except project_knowledge.KnowledgeIndexError:
                 # An unavailable embedding credential must not hide the project
                 # brief during rollout; lexical retrieval is a temporary read
                 # fallback, never an indexing mode.
-                sources = repository.rows('''SELECT id AS chunk_id, arquivo_id AS source_id, titulo,
+                with _read_savepoint():
+                    sources = repository.rows('''SELECT id AS chunk_id, arquivo_id AS source_id, titulo,
                                                    LEFT(conteudo, 1000) AS trecho,
                                                    0::double precision AS score,
                                                    content_hash, embedding_model
@@ -341,13 +390,15 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                                           ORDER BY ordem ASC LIMIT %s''', (project_id, client_id, terms, result_limit))
                 packet['retrieval_status'] = 'lexical_fallback'
             packet['fontes_verificadas'] = [
-                _project_evidence(row, client_id, project_ref)
+                _project_evidence(row, client_id, project_ref, retrieval_mode='overview' if overview else 'hybrid')
                 for row in sources
             ]
             packet.setdefault('retrieval_status', 'complete')
         except Exception:
             # Indexing is additive. A missing legacy chunks table must never
             # suppress the explicitly saved project context.
+            if has_app_context():
+                current_app.logger.exception("Falha ao consultar fontes indexadas do projeto para o agente")
             if strict_retrieval:
                 raise
             packet['fontes_verificadas'] = []
@@ -357,7 +408,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
     return json.dumps(packet, ensure_ascii=False, default=str)
 
 
-def _project_evidence(row, client_id, project_ref):
+def _project_evidence(row, client_id, project_ref, *, retrieval_mode='hybrid'):
     """Keep the legacy display shape while attaching provenance when available."""
     evidence = {
         'fonte': row.get('titulo') or 'Fonte sem título',
@@ -370,7 +421,7 @@ def _project_evidence(row, client_id, project_ref):
         'resource_id': resource_id_for_source(client_id, project_ref, 'workspace', f"file:{row.get('source_id')}"),
         'source_id': row.get('source_id'),
         'chunk_id': row.get('chunk_id'),
-        'retrieval_mode': 'hybrid',
+        'retrieval_mode': retrieval_mode,
         'score': float(row.get('score') or 0),
         'content_hash': row.get('content_hash'),
         'embedding_model': row.get('embedding_model'),
@@ -534,7 +585,7 @@ def contextual_packet(project_context, query, media_catalog=None, team_workspace
     return json.dumps(packet, ensure_ascii=False)[:24000]
 
 
-def prepare(data, selected):
+def prepare(data, selected, *, resolved_context=None):
     user = context.identity()
     route_hint = choose_mode(modes(user['id']), validate_message(data.get('message')))[1]
     execution_mode = execution_mode_for(route_hint, work_depth(data.get('depth')))
@@ -561,8 +612,10 @@ def prepare(data, selected):
     saved_context = (repository.conversation_context(user, selected['client_id'], conversation_id) if existing else None) or session.get('family_context') or {}
     if saved_context.get('profile') in PROFILES:
         profile = saved_context['profile']
-    project_ref = saved_context.get('project_ref')
-    brand_ref = saved_context.get('brand_ref')
+    project_ref = (resolved_context.project_ref if resolved_context is not None
+                   else saved_context.get('project_ref') or data.get('project_ref'))
+    brand_ref = (resolved_context.brand_ref if resolved_context is not None
+                 else saved_context.get('brand_ref') or data.get('brand_ref'))
     # Most new conversations have no bound entity. Avoid a full inventory
     # lookup in that common path; bound contexts remain revalidated strictly.
     if project_ref or brand_ref:
@@ -624,6 +677,15 @@ def prepare(data, selected):
                     (conversation_id, user['id'], user['organization_id'], selected['client_id'], profile, project_ref, brand_ref))
             cur.execute('SELECT * FROM cadu_family_conversation_context WHERE conversation_id = %s', (conversation_id,))
             bound = cur.fetchone()
+            if bound and bound['user_id'] == user['id'] and bound['client_id'] == selected['client_id'] and (
+                    (not bound['project_ref'] and project_ref) or (not bound['brand_ref'] and brand_ref)):
+                cur.execute('''UPDATE cadu_family_conversation_context
+                                  SET project_ref=COALESCE(NULLIF(project_ref,''),%s),
+                                      brand_ref=COALESCE(NULLIF(brand_ref,''),%s)
+                                WHERE conversation_id=%s''',
+                            (project_ref, brand_ref, conversation_id))
+                cur.execute('SELECT * FROM cadu_family_conversation_context WHERE conversation_id = %s', (conversation_id,))
+                bound = cur.fetchone()
             if (bound['user_id'], bound['organization_id'], bound['client_id'], bound['profile'], bound['project_ref'], bound['brand_ref']) != (
                     user['id'], user['organization_id'], selected['client_id'], profile, project_ref, brand_ref):
                 abort(409, description='Esta conversa pertence a outro perfil ou contexto. Abra uma nova conversa.')

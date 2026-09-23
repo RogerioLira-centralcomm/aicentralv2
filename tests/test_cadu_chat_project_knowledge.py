@@ -53,6 +53,24 @@ class ChatProjectKnowledgeTest(TestCase):
             self.assertEqual(project_knowledge_context('projects:99', 'studio:11', 44, 'teste'), '')
             rows.assert_not_called()
 
+    @mock.patch('aicentralv2.cadu_workspace.conversations.service.project_knowledge.query_embedding')
+    @mock.patch('aicentralv2.cadu_workspace.conversations.service.repository.rows')
+    def test_overview_reads_each_indexed_source_without_embedding_the_question(self, rows, embedding):
+        rows.side_effect = [
+            [{'nome': 'Oriente 2026', 'descricao': 'Campanha regional'}],
+            [{'titulo': 'Briefing', 'trecho': 'Objetivo: empresas locais', 'source_id': 3,
+              'chunk_id': 12, 'score': 0}],
+            [{'total': 2, 'indexed': 1, 'needs_index': 1}],
+        ]
+
+        result = project_knowledge_context('ci:project-1', None, 44,
+                                           'O que você sabe sobre esse projeto?', overview=True)
+
+        embedding.assert_not_called()
+        self.assertIn('Briefing', result)
+        self.assertIn('"needs_index": 1', result)
+        self.assertIn('"retrieval_status": "overview"', result)
+
     def test_source_projection_never_uses_untrusted_fields(self):
         sources = project_sources('{"fontes_verificadas":[{"fonte":"Pesquisa","trecho":"Dado verificado","url":"https://fora"}]}')
         self.assertEqual(sources, [{'title': 'Pesquisa', 'excerpt': 'Dado verificado'}])

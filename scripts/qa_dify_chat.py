@@ -4,14 +4,19 @@ Run on the application host after configuring CADU_DIFY_API_KEY (or the
 encrypted Dify credential):
     python scripts/qa_dify_chat.py
 
+Set CADU_QA_PROJECT_CANARY to a distinctive, harmless phrase to check whether
+the configured Dify app uses project evidence delivered in the payload.
+
 The script never prints credentials or full provider events. It reports the
 first-token latency, total duration, terminal state and answer size for short,
 medium and high-complexity Cadu requests.
 """
 import json
 import os
+import re
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 import requests
@@ -41,19 +46,25 @@ CASES = (
 )
 
 
-def stream_case(base_url, api_key, label, query, expected_complexity):
+def stream_case(base_url, api_key, label, query, expected_complexity, *, project_canary=None):
     context = RequestContext(
         organization_id=1, client_id=1, user_id=1, conversation_id=None,
         surface='conversations', capabilities=('workspace', 'planner', 'reports', 'artifacts'),
+        project_ref='ci:qa-project' if project_canary else None,
     )
-    route = route_request(query)
+    route = route_request(query, has_project=bool(project_canary))
     policy = policy_for(route)
     requested_chars = requested_answer_chars(query)
     if requested_chars:
         policy['max_answer_chars'] = max(policy['max_answer_chars'], requested_chars)
     payload = build_payload(
         message=query, request=context, route=route,
-        resolved={'qa': True, 'expected_complexity': expected_complexity},
+        resolved=({"workspace.search_project_content": {
+            "project_ref": "ci:qa-project", "context_status": "available", "mode": "overview",
+            "project": {"nome": "Projeto QA", "descricao": project_canary},
+            "results": [{"result_type": "project_context", "title": "Objetivo",
+                         "display_value": project_canary, "evidence_level": "saved_project_data"}],
+        }} if project_canary else {'qa': True, 'expected_complexity': expected_complexity}),
         policy=policy, user_label='qa-cadu-v2', execution_mode='analysis',
         max_context_chars=16000,
     )
@@ -85,6 +96,11 @@ def stream_case(base_url, api_key, label, query, expected_complexity):
         contract = 'valid'
         if label == 'texto_longo' and answer_chars < 1800:
             contract = 'too_short'
+        focus = project_canary.split(':', 1)[-1].strip() if project_canary else ''
+        fold = lambda text: ' '.join(re.findall(r'[a-z0-9]+', unicodedata.normalize(
+            'NFKD', text).encode('ascii', 'ignore').decode('ascii').lower()))
+        if focus and fold(focus) not in fold(normalized.answer):
+            contract = 'project_context_ignored'
     except Exception as exc:
         answer_chars = len(answer)
         error = f'{type(exc).__name__}: {exc}'
@@ -120,6 +136,10 @@ def main():
     if not key:
         raise SystemExit('A credencial Dify não está configurada no cofre CentralX nem em CADU_DIFY_API_KEY.')
     results = [stream_case(base_url, key, *case) for case in CASES]
+    canary = os.getenv('CADU_QA_PROJECT_CANARY', '').strip()
+    if canary:
+        results.append(stream_case(base_url, key, 'project_context',
+                                   'Qual é o objetivo desse projeto?', 'baixa', project_canary=canary))
     print(json.dumps(results, ensure_ascii=False, indent=2))
 
 

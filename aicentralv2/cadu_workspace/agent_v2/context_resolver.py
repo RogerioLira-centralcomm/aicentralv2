@@ -7,6 +7,7 @@ from typing import Any
 from time import perf_counter
 
 from .contracts import IntentRoute, RequestContext
+from ..project_query import is_overview_query
 from ..mcp.registry import ToolError, ToolNotFound, ToolRegistry
 
 
@@ -64,7 +65,8 @@ def public_web_query(message: str, *, project_selected: bool = False) -> str:
     return " ".join(safe[:16]) if len(safe) >= 2 else ""
 
 
-def _arguments(tool_name: str, request: RequestContext, message: str, execution_mode: str = "analysis") -> dict[str, Any]:
+def _arguments(tool_name: str, request: RequestContext, message: str, execution_mode: str = "analysis",
+               route_action: str = "") -> dict[str, Any]:
     if tool_name == "web.search":
         depth = {"fast": "fast", "analysis": "analysis", "agentic": "agentic"}.get(execution_mode, "analysis")
         private_reference = bool(re.search(r"\b(?:nosso|nossa|meu|minha)\s+(?:cliente|projeto|campanha|marca|briefing)\b",
@@ -92,7 +94,7 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
     if tool_name == "artifacts.get" and request.active_object and request.active_object.type.startswith("artifact:"):
         return {"artifact_id": request.active_object.id}
     if tool_name == "workspace.search_project_content":
-        return {"query": message[:400]}
+        return {"query": message[:400], "mode": "overview" if route_action == "project_readout" or is_overview_query(message) else "search"}
     if tool_name == "workspace.get_project_context":
         return {"query": message[:400]}
     if tool_name == "workspace.list_projects":
@@ -113,13 +115,24 @@ def resolve_context(route: IntentRoute, request: RequestContext, message: str,
                     registry: ToolRegistry, execution_mode: str = "analysis") -> ResolvedContext:
     result = ResolvedContext(values={"current_context": request.to_dict()})
     for tool_name in route.needs_tools:
-        arguments = _arguments(tool_name, request, message, execution_mode)
+        arguments = _arguments(tool_name, request, message, execution_mode, route.action)
         started = perf_counter()
         try:
             value = registry.execute(tool_name, arguments, request)
             result.values[tool_name] = value
-            result.tool_calls.append({"name": tool_name, "status": "completed",
-                                      "duration_ms": round((perf_counter() - started) * 1000)})
+            call = {"name": tool_name, "status": "completed",
+                    "duration_ms": round((perf_counter() - started) * 1000)}
+            if tool_name in {"workspace.search_project_content", "workspace.get_project_context"} and isinstance(value, dict):
+                call["project_evidence"] = {
+                    "project_bound": bool(request.project_ref),
+                    "context_status": value.get("context_status") or "unknown",
+                    "source_retrieval_status": value.get("source_retrieval_status") or value.get("retrieval_status") or "unknown",
+                    "result_count": len(value.get("results") or []),
+                    "indexed_source_count": len(value.get("source_results") or value.get("fontes_verificadas") or []),
+                    "source_inventory": value.get("source_inventory") or {},
+                    "unavailable_scopes": list(value.get("unavailable_scopes") or []),
+                }
+            result.tool_calls.append(call)
         except (ToolError, ValueError) as exc:
             # Missing context is data for the response policy, never a provider
             # diagnostic to expose to the customer.

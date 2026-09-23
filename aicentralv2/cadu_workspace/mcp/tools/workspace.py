@@ -11,6 +11,7 @@ from ....cadu_family import repository
 from ....db import get_db
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
+from ...project_query import is_overview_query
 from ...project_portfolio_service import attach_summaries
 from ... import project_context_service, project_resource_service, project_task_service, project_source_service, workspace_ingestion_service
 from .. import operations
@@ -489,18 +490,25 @@ def share_project_with_team(context: RequestContext, arguments: dict) -> dict:
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "properties": {"query": {"type": "string", "maxLength": 400}}, "additionalProperties": False},
 )
-def get_project_context(context: RequestContext, arguments: dict, *, result_limit: int = 4) -> dict:
+def get_project_context(context: RequestContext, arguments: dict, *, result_limit: int = 4,
+                        overview: bool = False) -> dict:
+    _native_project_id(context)
     raw = project_knowledge_context(context.project_ref, context.brand_ref, context.client_id,
-                                    str(arguments.get("query") or ""), result_limit=result_limit)
+                                    str(arguments.get("query") or ""), result_limit=result_limit,
+                                    overview=overview)
     try:
-        packet = json.loads(raw) if raw else {"project_ref": context.project_ref}
+        packet = json.loads(raw) if raw else {
+            "project_ref": context.project_ref, "context_status": "unavailable", "retrieval_status": "unavailable",
+        }
     except (TypeError, ValueError):
-        packet = {"project_ref": context.project_ref}
+        packet = {"project_ref": context.project_ref, "context_status": "unavailable", "retrieval_status": "unavailable"}
+    packet["project_ref"] = context.project_ref
     try:
         direction = project_context_service.get_context(context.client_id, context.project_ref)
         packet.update({"direction": direction, "context_items": project_context_service.context_items(direction)})
+        packet["context_status"] = "available"
     except project_context_service.ProjectContextError:
-        pass
+        packet.setdefault("context_status", "available" if packet.get("projeto") else "unavailable")
     return packet
 
 
@@ -511,7 +519,8 @@ def get_project_context(context: RequestContext, arguments: dict, *, result_limi
     input_schema={
         "type": "object",
         "required": ["query"],
-        "properties": {"query": {"type": "string", "minLength": 2, "maxLength": 400}},
+        "properties": {"query": {"type": "string", "minLength": 2, "maxLength": 400},
+                       "mode": {"type": "string", "enum": ["search", "overview"]}},
         "additionalProperties": False,
     },
 )
@@ -520,9 +529,10 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     query = " ".join(str(arguments.get("query") or "").split())
     if len(query) < 2:
         raise ToolInputError("Informe o que deve ser pesquisado no projeto.")
-    overview = bool(re.search(r"\b(?:vis[aã]o\s+geral|panorama|dossi[eê]|tudo|completo)\b.{0,90}"
-                              r"\b(?:projeto|campanha)\b", query, re.IGNORECASE))
-    packet = (get_project_context(context, {"query": query}, result_limit=12) if overview
+    overview = arguments.get("mode") == "overview" or (
+        arguments.get("mode") != "search" and is_overview_query(query)
+    )
+    packet = (get_project_context(context, {"query": query}, result_limit=12, overview=True) if overview
               else get_project_context(context, {"query": query}))
     direction = packet.get("direction") or {}
     context_results = project_context_service.context_items(direction)
@@ -531,7 +541,7 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     def tokens(value):
         folded = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").lower()
         return {word for word in re.findall(r"[a-z0-9]{3,}", folded)
-                if word not in {"para", "como", "esse", "essa", "este", "esta", "sobre", "projeto", "dados", "conteudo", "quais", "qual", "com", "dos", "das", "uma", "por", "pesquisa", "pesquise", "busque", "buscar", "mostre", "tudo", "todos"}}
+                if word not in {"para", "como", "esse", "essa", "este", "esta", "sobre", "projeto", "dados", "conteudo", "quais", "qual", "com", "dos", "das", "uma", "por", "pesquisa", "pesquise", "busque", "buscar", "mostre", "tudo", "todos", "que", "voce", "sabe", "conhece"}}
 
     terms = tokens(query)
     def relevance(title, detail="", *, base=0):
@@ -542,8 +552,12 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     resource_results = []
     reference_activity_results = []
     unavailable = []
+    if packet.get("context_status") == "unavailable":
+        unavailable.append("project_context")
     if packet.get("retrieval_status") == "unavailable":
         unavailable.append("indexed_sources")
+    if int((packet.get("source_inventory") or {}).get("needs_index") or 0) > 0:
+        unavailable.append("unindexed_sources")
     registry_pending = False
     try:
         with get_db().cursor() as cursor:
@@ -625,6 +639,8 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
         ranked.sort(key=lambda item: item.get("score") or 0, reverse=True)
     return {
         "project_ref": context.project_ref,
+        "mode": "overview" if overview else "search",
+        "context_status": packet.get("context_status") or "unavailable",
         "query": query,
         "revision": direction.get("revision"),
         "project": packet.get("projeto") or {},
@@ -635,8 +651,10 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
         "unavailable_scopes": unavailable,
         "resource_index_pending": registry_pending,
         "source_retrieval_status": packet.get("retrieval_status") or "unknown",
+        "source_inventory": packet.get("source_inventory") or {},
         "evidence_rule": (
             "Links e recursos sem conteúdo indexado comprovam apenas seus metadados; não afirme ter lido o destino. "
+            "Se source_inventory.needs_index for maior que zero, diga que há arquivos ainda sem leitura indexada. "
             "Se resource_index_pending for verdadeiro, o inventário pode estar desatualizado; "
             "se unavailable_scopes não estiver vazio, informe a cobertura parcial."
         ),

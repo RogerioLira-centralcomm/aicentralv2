@@ -1,5 +1,5 @@
 from unittest import TestCase, mock
-from test_product_portals import _app
+from tests.test_product_portals import _app
 from aicentralv2.cadu_connect import report_workspace as workspace
 
 

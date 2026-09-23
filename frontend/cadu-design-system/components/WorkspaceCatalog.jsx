@@ -6,18 +6,17 @@ export function CatalogError({message}) {
 }
 
 export function CatalogFilters({items = []}) {
-  return <nav className="cadu-ds-catalog-filters" aria-label="Filtros do catálogo">{items.map(item => <a key={item.value} href={item.href} aria-current={item.active ? 'page' : undefined}>{item.label}</a>)}</nav>;
+  return <nav className="untitled-catalog-filters" aria-label="Filtros do catálogo">{items.map(item => <a key={item.value} href={item.href} aria-current={item.active ? 'page' : undefined}>{item.label}</a>)}</nav>;
 }
 
 export function WorkspaceCatalog({eyebrow, title, description, actionLabel, onAction, error, filters, query, onQueryChange, queryLabel, countLabel, children}) {
   const supportingCopy = description || (title === 'Marcas'
     ? 'Identidades, ativos e projetos organizados por marca.'
     : title === 'Projetos' ? 'Contextos de trabalho prontos para continuar.' : '');
-  return <section className="cadu-ds-brands-content">
-    <header><div>{eyebrow && <p>{eyebrow}</p>}<h1>{title}</h1>{supportingCopy && <span>{supportingCopy}</span>}<small>{countLabel}</small></div><button type="button" className="is-primary" onClick={onAction}>+ {actionLabel}</button></header>
+  return <section className="untitled-catalog-page">
+    <header className="untitled-catalog-header"><div>{eyebrow && <p>{eyebrow}</p>}<h1>{title}</h1>{supportingCopy && <span>{supportingCopy}</span>}</div><button type="button" onClick={onAction}>+ {actionLabel}</button></header>
     <CatalogError message={error}/>
-    <CatalogFilters items={filters}/>
-    <div className="cadu-ds-brands-tools"><input value={query} onChange={event => onQueryChange(event.target.value)} placeholder={queryLabel} aria-label={queryLabel}/><span>{countLabel}</span></div>
+    <div className="untitled-catalog-controls"><CatalogFilters items={filters}/><label className="untitled-catalog-search"><span aria-hidden="true">⌕</span><input value={query} onChange={event => onQueryChange(event.target.value)} placeholder={queryLabel} aria-label={queryLabel}/></label><small>{countLabel}</small></div>
     {!error && children}
   </section>;
 }

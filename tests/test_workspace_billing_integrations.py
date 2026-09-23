@@ -39,7 +39,9 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
         {'provider': 'meta_ads', 'status': 'error', 'name': 'Conta social'},
     ])
     def test_integration_summary_uses_organization_and_workspace_client_scope(self, accounts):
-        data = _workspace_integration_data(12, 44)
+        app = _app()
+        with app.test_request_context('/integracoes', headers={'Host': 'workspace.centralcomm.media'}):
+            data = _workspace_integration_data(12, 44)
 
         accounts.assert_called_once_with(44, workspace_client_id=12)
         self.assertEqual(data['connected_count'], 1)
@@ -66,14 +68,15 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, user_name='Apolo')
 
-        response = client.get('/workspace/app/faturamento', headers={'Host': 'workspace.centralcomm.media'})
+        response = client.get('/faturas', headers={'Host': 'workspace.centralcomm.media'})
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Histórico de faturas', html)
+        self.assertIn('cv-account-root', html)
+        self.assertIn('"section": "faturamento"', html)
         self.assertIn('INV-004', html)
-        self.assertIn('R$ 1.299,90', html)
-        self.assertIn('Em atraso', html)
+        self.assertIn('1299.9', html)
+        self.assertIn('overdue', html)
         self.assertNotIn('centralx', response.request.path.lower())
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_integration_data', return_value={
@@ -94,15 +97,14 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, organization_id=44, user_name='Apolo')
 
-        response = client.get('/workspace/app/integracoes', headers={'Host': 'workspace.centralcomm.media'})
+        response = client.get('/integracoes', headers={'Host': 'workspace.centralcomm.media'})
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Conexões prioritárias', html)
+        self.assertIn('cv-account-root', html)
+        self.assertIn('"section": "integracoes"', html)
         self.assertIn('Canva', html)
-        self.assertIn('Em breve', html)
-        self.assertIn('Conta mídia', html)
-        self.assertIn('Contas já autorizadas', html)
-        self.assertIn('Abrir contas no Reports', html)
+        self.assertIn('Slack', html)
+        self.assertIn('Conta m\\u00eddia', html)
         self.assertNotIn('client_secret', html)
         self.assertNotIn('api_key', html)

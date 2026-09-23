@@ -8517,9 +8517,12 @@ def account_page(section):
     account['agency_context'] = {
         'projects': [{'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'),
                       'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'),
-                      'sources': int(item.get('fontes_prontas') or 0),
+                      'sources': int(item.get('fontes_prontas') or 0), 'logoUrl': str(item.get('brand_logo_url') or ''),
+                      'visualColor': str(item.get('thumbnail_color') or item.get('cor') or ''),
                       'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in projects],
         'brands': [{'id': str(item.get('id')), 'name': str(item.get('name') or 'Marca'),
+                    'logoUrl': str((item.get('logo_variants') or {}).get('256') or item.get('display_logo') or ''),
+                    'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
                     'assetCount': int(item.get('asset_count') or 0),
                     'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in brands],
     }
@@ -8568,9 +8571,29 @@ def integrations():
         return redirect(url_for('cadu_workspace.integrations', **request.args.to_dict(flat=True)), code=308)
     client_id = int(session.get('cliente_id') or 0)
     organization_id = int(session.get('organization_id') or client_id)
+    account = _php_account_data(client_id)
+    account.update(_workspace_settings_data(client_id, int(session.get('user_id') or 0)))
+    account['integrations'] = _workspace_integration_data(client_id, organization_id)
+    projects = _workspace_projects(client_id)
+    brands = _workspace_brands(client_id)
+    account['agency_context'] = {
+        'projects': [{'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'),
+                      'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'),
+                      'sources': int(item.get('fontes_prontas') or 0),
+                      'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in projects],
+        'brands': [{'id': str(item.get('id')), 'name': str(item.get('name') or 'Marca'),
+                    'logoUrl': str((item.get('logo_variants') or {}).get('256') or item.get('display_logo') or ''),
+                    'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
+                    'assetCount': int(item.get('asset_count') or 0),
+                    'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in brands],
+    }
+    try:
+        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+    except Exception:
+        current_app.logger.exception('Não foi possível carregar a dock do Workspace para integrações')
+        dock_items = []
     return render_template(
-        'cadu_workspace/integrations.html',
-        integration_data=_workspace_integration_data(client_id, organization_id),
+        'cadu_workspace/account_react.html', section='integracoes', account=account, dock_items=dock_items,
     )
 
 

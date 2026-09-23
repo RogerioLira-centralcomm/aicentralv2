@@ -641,6 +641,74 @@ body.portal--workspace .cadu-ds-prompt-suggestions.is-workspace-home button:focu
   body.portal--workspace .cadu-ds-prompt-suggestions.is-workspace-home > div { grid-template-columns:1fr; }
 }
 
+/* Account v3: one responsive management canvas for agency, profile, billing
+   and integrations. Identity is visual, while headers stay below 120px. */
+.cadu-ds-account-shell .cadu-ds-account-content { max-width:1180px; margin:0 auto; }
+@media (min-width:901px) { .cadu-ds-account-shell .cadu-ds-account-tabs { display:none; } }
+.cadu-ds-account-shell .cadu-ds-account-page-header {
+  display:grid; grid-template-columns:56px minmax(0,1fr); align-items:center; gap:16px;
+  width:100%; max-width:none; min-height:82px; max-height:120px; overflow:hidden; box-sizing:border-box; padding:0 0 18px;
+}
+.cadu-ds-account-shell .cadu-ds-account-page-header>.cadu-ds-visual-identity { width:56px; height:56px; border-radius:16px; box-shadow:0 10px 26px color-mix(in srgb,var(--cadu-accent) 16%,transparent); }
+.cadu-ds-account-shell .cadu-ds-account-page-header>div { min-width:0; }
+.cadu-ds-account-shell .cadu-ds-account-page-header>div>span { color:var(--cadu-accent-strong); font-size:9px; font-weight:760; letter-spacing:.09em; text-transform:uppercase; }
+.cadu-ds-account-shell .cadu-ds-account-page-header h1 { margin:4px 0 0; font-size:clamp(25px,3vw,36px); }
+.cadu-ds-account-shell .cadu-ds-account-page-header p { margin:5px 0 0; font-size:12px; line-height:1.35; }
+.cadu-ds-account-shell .cadu-ds-account-stack { gap:28px; }
+.cadu-ds-account-shell .cadu-ds-account-table { max-width:100%; overflow-x:auto; overscroll-behavior-inline:contain; }
+.cadu-ds-account-shell .cadu-ds-account-table table { min-width:620px; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article>header { display:grid; grid-template-columns:38px minmax(0,1fr) auto; }
+.cadu-ds-account-shell .cadu-ds-brand-project-groups>article>header>.cadu-ds-visual-identity { width:38px; height:38px; border-radius:10px; }
+.cadu-ds-integration-hero { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px 20px; padding:20px; border:1px solid color-mix(in srgb,var(--cadu-accent) 30%,var(--cadu-line)); border-radius:14px; background:linear-gradient(135deg,var(--cadu-surface),color-mix(in srgb,var(--cadu-accent-soft) 45%,var(--cadu-surface))); }
+.cadu-ds-integration-hero span { color:var(--cadu-accent-strong); font-size:9px; font-weight:760; letter-spacing:.08em; text-transform:uppercase; }
+.cadu-ds-integration-hero h2 { margin:5px 0 0; color:var(--cadu-ink); font-size:20px; letter-spacing:-.035em; }
+.cadu-ds-integration-hero p { margin:6px 0 0; color:var(--cadu-muted); font-size:11px; }
+.cadu-ds-integration-hero>em { align-self:start; padding:5px 9px; border-radius:999px; background:var(--cadu-surface-soft); color:var(--cadu-muted); font-size:10px; font-style:normal; }
+.cadu-ds-integration-hero>em.is-connected { background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); }
+.cadu-ds-integration-actions { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:8px; }
+.cadu-ds-integration-actions :is(a,button),.cadu-ds-agent-connect { min-height:34px; box-sizing:border-box; padding:8px 12px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font-size:11px; font-weight:700; text-decoration:none; cursor:pointer; }
+.cadu-ds-integration-actions .is-primary { border-color:var(--cadu-accent-strong); background:var(--cadu-accent-strong); color:#fff; }
+.cadu-ds-integration-actions .is-danger { color:#a33d3d; }
+.cadu-ds-integration-services,.cadu-ds-integration-resources { display:grid; margin-top:14px; border-top:1px solid var(--cadu-line); }
+.cadu-ds-integration-services article,.cadu-ds-integration-resources article { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:12px; min-height:62px; border-bottom:1px solid var(--cadu-line); }
+.cadu-ds-integration-services article>i { display:grid; width:32px; height:32px; place-items:center; border-radius:9px; background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); font-size:10px; font-style:normal; font-weight:800; }
+.cadu-ds-integration-services article>div,.cadu-ds-integration-resources article>div { display:grid; gap:3px; min-width:0; }
+.cadu-ds-integration-services b,.cadu-ds-integration-resources b { overflow:hidden; color:var(--cadu-ink); font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-integration-services small,.cadu-ds-integration-resources small,.cadu-ds-integration-services em { color:var(--cadu-muted); font-size:10px; font-style:normal; }
+.cadu-ds-integration-resources .cadu-ds-visual-identity { width:32px; height:32px; border-radius:9px; }
+.cadu-ds-integration-resources form { display:flex; gap:6px; }
+.cadu-ds-integration-resources :is(select,button) { min-height:34px; border:1px solid var(--cadu-line); border-radius:7px; background:var(--cadu-surface); color:var(--cadu-ink); font-size:10px; }
+.cadu-ds-integration-resources button { padding:0 10px; background:var(--cadu-accent-strong); color:#fff; font-weight:700; }
+.cadu-ds-connector-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:15px 0; }
+.cadu-ds-connector-grid article { display:grid; grid-template-columns:34px minmax(0,1fr); gap:5px 10px; padding:15px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); }
+.cadu-ds-connector-grid i { grid-row:1/3; display:grid; width:32px; height:32px; place-items:center; border-radius:9px; background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); font-size:10px; font-style:normal; font-weight:800; }
+.cadu-ds-connector-grid span,.cadu-ds-connector-grid em { color:var(--cadu-muted); font-size:9px; font-style:normal; text-transform:uppercase; }
+.cadu-ds-connector-grid h3 { margin:0; color:var(--cadu-ink); font-size:14px; }
+.cadu-ds-connector-grid p,.cadu-ds-connector-grid em { grid-column:1/-1; margin:5px 0 0; line-height:1.45; }
+.cadu-ds-connector-grid p { color:var(--cadu-muted); font-size:11px; }
+.cadu-ds-agent-connect { display:inline-flex; align-items:center; color:var(--cadu-accent-strong); }
+@media (max-width:980px) {
+  .cadu-ds-account-shell .cadu-ds-account-content { padding-right:28px; padding-left:28px; }
+  .cadu-ds-connector-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:640px) {
+  .cadu-ds-account-shell .cadu-ds-account-content { padding:20px 16px max(44px,env(safe-area-inset-bottom)); }
+  .cadu-ds-account-shell .cadu-ds-account-tabs { margin:8px 0 24px; }
+  .cadu-ds-account-shell .cadu-ds-account-page-header { grid-template-columns:46px minmax(0,1fr); min-height:72px; gap:12px; padding-bottom:14px; }
+  .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu-ds-visual-identity { width:46px; height:46px; border-radius:13px; }
+  .cadu-ds-account-shell .cadu-ds-account-page-header h1 { font-size:25px; }
+  .cadu-ds-account-shell .cadu-ds-account-page-header p { max-width:34ch; font-size:11px; }
+  .cadu-ds-account-shell .cadu-ds-account-form footer { align-items:stretch; flex-direction:column; }
+  .cadu-ds-account-shell .cadu-ds-account-form footer button { width:100%; }
+  .cadu-ds-account-shell .cadu-ds-account-metrics { grid-template-columns:1fr; }
+  .cadu-ds-connector-grid { grid-template-columns:1fr; }
+  .cadu-ds-integration-hero { grid-template-columns:1fr; padding:16px; }
+  .cadu-ds-integration-hero>em,.cadu-ds-integration-actions { grid-column:1; }
+  .cadu-ds-integration-resources article { grid-template-columns:32px minmax(0,1fr); padding:10px 0; }
+  .cadu-ds-integration-resources form { grid-column:1/-1; }
+  .cadu-ds-integration-resources select { min-width:0; flex:1; }
+}
+
 /* Theme-safe entrance. The document already owns the correct background
    before React mounts; the product shell only resolves into that canvas. */
 body.portal--workspace > main#content.portal-content--workspace-react,
@@ -1633,10 +1701,6 @@ body.portal--workspace .cadu-ds-home-workarea {
     max-width:218px;
   }
 
-  .cadu-workspace-legacy-chrome-root.is-account-surface + .workspace-app-main,
-  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface) {
-    grid-template-columns:var(--cadu-dock-width,64px) var(--cadu-sidebar-width,239px) minmax(0,1fr)!important;
-  }
 }
 
 .cadu-ds-home-workarea .cadu-ds-account-content {
@@ -2624,13 +2688,6 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 @media(max-width:960px){.cadu-ds-brand-kit__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cadu-ds-brand-kit__grid article:nth-child(3){border-left:0;border-top:1px solid var(--cadu-line)}.cadu-ds-brand-kit__grid article:nth-child(4){border-top:1px solid var(--cadu-line)}}
 @media(max-width:760px){.cadu-ds-brand-content{padding:28px 18px 54px}.cadu-ds-brand-hero{grid-template-columns:58px minmax(0,1fr);gap:14px}.cadu-ds-brand-hero__identity{width:58px;height:58px;border-radius:17px}.cadu-ds-brand-hero__identity .cadu-ds-visual-identity{border-radius:17px;font-size:18px}.cadu-ds-brand-hero h1{font-size:34px}.cadu-ds-brand-hero__actions{grid-column:1/-1;justify-content:flex-start}.cadu-ds-brand-review{align-items:flex-start;flex-direction:column}.cadu-ds-brand-review>div:last-child{justify-content:flex-start}.cadu-ds-brand-layout,.cadu-ds-brand-grid,.cadu-ds-brand-lower-grid,.cadu-ds-brand-token-columns,.cadu-ds-brand-atlas__columns,.cadu-ds-brand-kit__grid{grid-template-columns:1fr;gap:32px}.cadu-ds-brand-kit__grid{gap:0}.cadu-ds-brand-kit__grid article,.cadu-ds-brand-kit__grid article:nth-child(n){border-left:0;border-top:1px solid var(--cadu-line)}.cadu-ds-brand-kit__grid article:first-child{border-top:0}.cadu-ds-brand-next{padding:22px 0 0;border-top:1px solid var(--cadu-line);border-left:0}.cadu-ds-brand-signal-rail{position:static;padding:22px 0 0;border-top:1px solid var(--cadu-line);border-left:0}.cadu-ds-brand-reading{grid-template-columns:1fr}.cadu-ds-brand-form__grid{grid-template-columns:1fr}.cadu-ds-brand-upload{align-items:stretch;flex-direction:column}.cadu-ds-brand-upload button{align-self:flex-start}.cadu-ds-brand-token>small{grid-column:auto}.cadu-ds-brand-audit-dialog__columns{grid-template-columns:1fr}.cadu-ds-brand-audit-dialog__scope{border-top:1px solid var(--cadu-line);border-left:0}}
 
-/* Account navigation stays visible on account surfaces, including the legacy
-   integrations page. The content column then uses the remaining width. */
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:var(--cadu-dock-width,64px) var(--cadu-sidebar-width,239px) minmax(0,1fr)!important;grid-template-rows:minmax(100dvh,auto)!important}
-.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{grid-column:2;grid-row:1;min-height:100dvh}
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface)> .workspace-app-main{grid-column:3!important;grid-row:1!important;min-width:0}
-@media(min-width:981px){.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:var(--cadu-dock-width,64px) var(--cadu-sidebar-width,239px) minmax(0,1fr)!important}.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{flex-basis:var(--cadu-sidebar-width,239px);padding:24px 18px 20px}}
-@media(max-width:760px){.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto!important}.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{grid-column:1;grid-row:1;min-height:0;max-height:none}.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface)> .workspace-app-main{grid-column:1!important;grid-row:2!important;padding-top:18px!important}}
 /* Project continuity affordances: reveal bounded lists without duplicating the artifact library. */
 .cadu-ds-project-continuity__more { margin-top:10px; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 11px var(--cadu-font-sans); cursor:pointer; }
 .cadu-ds-project-library-summary { padding:14px 0 0; border-bottom:1px solid var(--cadu-line); }
@@ -2797,20 +2854,6 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 .cadu-ds-account-shell .cadu-ds-account-table tbody tr { transition:background-color .16s ease; }
 .cadu-ds-account-shell .cadu-ds-account-table tbody tr:hover { background:var(--cadu-surface-soft); }
 
-/* Integrations is a legacy template, but it belongs to the same account shell. */
-.cadu-ds-legacy-account-page { min-height:100dvh; box-sizing:border-box; padding:clamp(28px,4vw,48px) clamp(24px,4vw,56px) 64px; background:var(--cadu-canvas); color:var(--cadu-ink); }
-.cadu-ds-legacy-account-page .workspace-integrations-intro { margin:0 0 28px; padding:0 0 22px; border-bottom:1px solid var(--cadu-line); }
-.cadu-ds-legacy-account-page .workspace-integrations-back { color:var(--cadu-accent-strong); font-size:11px; font-weight:700; text-decoration:none; }
-.cadu-ds-legacy-account-page h1 { margin:14px 0 8px; color:var(--cadu-ink); font-size:clamp(28px,3vw,38px); letter-spacing:-.05em; line-height:1.05; }
-.cadu-ds-legacy-account-page .workspace-integrations-intro p,
-.cadu-ds-legacy-account-page .workspace-integration-primary p,
-.cadu-ds-legacy-account-page .workspace-integration-section p { color:var(--cadu-muted); font-size:12px; line-height:1.5; }
-.cadu-ds-legacy-account-page .workspace-integration-primary,
-.cadu-ds-legacy-account-page .workspace-integration-section,
-.cadu-ds-legacy-account-page .workspace-integration-advanced { border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); box-shadow:none; }
-.cadu-ds-legacy-account-page .workspace-integration-primary { padding:20px; }
-.cadu-ds-legacy-account-page .workspace-integration-section { margin-top:14px; padding:20px; }
-.cadu-ds-legacy-account-page .workspace-integration-advanced { margin-top:14px; padding:16px 20px; }
 
 @media (max-width:760px) {
   .cadu-ds-account-page-header h1 {
@@ -2831,7 +2874,6 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
   .cadu-ds-account-shell .cadu-ds-conversion-steps { grid-template-columns:1fr; }
   .cadu-ds-account-shell .cadu-ds-credit-usage-guide__grid { grid-template-columns:1fr; }
   .cadu-ds-account-shell .cadu-ds-plan-grid { grid-template-columns:1fr; }
-  .cadu-ds-legacy-account-page { padding:28px 18px 54px; }
 }
 
 /* Home start: a quieter, centered entry point with the Workspace wave field
@@ -3556,7 +3598,6 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
     box-shadow:0 18px 44px rgba(20,43,48,.08);
   }
   .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) { grid-template-columns:var(--cadu-dock-width) minmax(0,1fr); }
-  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface) { grid-template-columns:var(--cadu-dock-width) var(--cadu-sidebar-width) minmax(0,1fr)!important; }
 }
 
 @media (max-width:760px) {
@@ -4184,3 +4225,43 @@ body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds
 body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__meta a{margin-left:2px;font-size:10px}
 body.portal--workspace .cadu-ds-project-page-intro{box-sizing:border-box;max-height:120px}
 @media(max-width:760px){body.portal--workspace .cadu-ds-entity-detail-header{min-height:72px;max-height:120px;margin-bottom:14px;padding:10px 0 12px}body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-project-hero.cadu-ds-entity-detail-header{grid-template-columns:minmax(0,1fr) auto;gap:10px}body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-entity-detail-header h1,body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header h1{font-size:24px}body.portal--workspace .cadu-ds-project-hero__meta a{max-width:150px}body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header{grid-template-columns:44px minmax(0,1fr);gap:11px}body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__identity,body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__identity .cadu-ds-visual-identity{width:44px;height:44px;border-radius:12px}body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__copy>span{display:none}body.portal--workspace .cadu-ds-project-hero__attention{max-width:92px;overflow:hidden;text-overflow:ellipsis}body.portal--workspace .cadu-ds-project-page-intro{max-height:120px}}
+
+/* Untitled-inspired React catalog. It intentionally does not reuse the legacy
+   catalog row classes, whose competing table/card rules caused layout drift. */
+.untitled-catalog-page{width:100%;min-width:0;box-sizing:border-box;padding:42px clamp(24px,4vw,56px) 64px;color:var(--cadu-ink)}
+.untitled-catalog-header{display:flex;min-height:78px;align-items:center;justify-content:space-between;gap:24px;padding-bottom:20px;border-bottom:1px solid var(--cadu-line)}
+.untitled-catalog-header>div{display:grid;min-width:0;gap:5px}
+.untitled-catalog-header p,.untitled-catalog-header span{margin:0;color:var(--cadu-muted);font-size:12px;line-height:1.4}
+.untitled-catalog-header h1{margin:0;font-size:32px;line-height:1.1;letter-spacing:-.035em}
+.untitled-catalog-header>button,.untitled-catalog-empty button{min-height:38px;padding:0 14px;border:1px solid var(--cadu-accent-strong);border-radius:8px;background:var(--cadu-accent-strong);color:#fff;font:650 12px var(--cadu-font-sans);white-space:nowrap;cursor:pointer}
+.untitled-catalog-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px) auto;align-items:center;gap:16px;padding:20px 0 14px}
+.untitled-catalog-controls>small{color:var(--cadu-muted);font-size:11px;white-space:nowrap}
+.untitled-catalog-filters{display:flex;min-width:0;gap:4px}
+.untitled-catalog-filters a{min-height:34px;box-sizing:border-box;padding:8px 11px;border-radius:7px;color:var(--cadu-muted-strong);font-size:11px;font-weight:620;text-decoration:none}
+.untitled-catalog-filters a:hover,.untitled-catalog-filters a:focus-visible{background:var(--cadu-surface-soft);color:var(--cadu-ink);outline:0}
+.untitled-catalog-filters a[aria-current="page"]{background:var(--cadu-accent-soft);color:var(--cadu-accent-strong)}
+.untitled-catalog-search{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:center;gap:7px;min-height:38px;padding:0 10px;border:1px solid var(--cadu-line);border-radius:8px;background:var(--cadu-surface)}
+.untitled-catalog-search>span{color:var(--cadu-muted);font-size:17px;line-height:1}
+.untitled-catalog-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--cadu-ink);font:400 12px var(--cadu-font-sans)}
+.untitled-catalog-list{min-width:0;overflow:hidden;border:1px solid var(--cadu-line);border-radius:10px;background:var(--cadu-surface)}
+.untitled-catalog-list__head,.untitled-catalog-item{display:grid;grid-template-columns:minmax(280px,1.7fr) repeat(3,minmax(100px,.55fr)) 24px;align-items:center;gap:18px}
+.untitled-catalog-list__head{min-height:38px;padding:0 16px;border-bottom:1px solid var(--cadu-line);background:var(--cadu-surface-soft);color:var(--cadu-muted);font-size:10px;font-weight:650}
+.untitled-catalog-item{min-height:72px;padding:8px 16px;border-bottom:1px solid color-mix(in srgb,var(--cadu-line) 76%,transparent);color:var(--cadu-ink);text-decoration:none}
+.untitled-catalog-item:last-of-type{border-bottom:0}
+.untitled-catalog-item:hover,.untitled-catalog-item:focus-visible{background:color-mix(in srgb,var(--cadu-accent-soft) 34%,transparent);outline:0}
+.untitled-catalog-item__identity{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:12px;min-width:0}
+.untitled-catalog-item__identity>.cadu-ds-visual-identity{width:44px;height:44px;border-radius:10px}
+.untitled-catalog-item__identity>span{display:grid;min-width:0;gap:3px}
+.untitled-catalog-item__identity b,.untitled-catalog-item__identity small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.untitled-catalog-item__identity b{font-size:13px;font-weight:680}
+.untitled-catalog-item__identity small,.untitled-catalog-item__value{color:var(--cadu-muted);font-size:11px}
+.untitled-catalog-item__metric{display:grid;gap:2px}
+.untitled-catalog-item__metric small{display:none;color:var(--cadu-muted);font-size:9px}
+.untitled-catalog-item__metric b{font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
+.untitled-catalog-item__status{justify-self:start;padding:4px 8px;border-radius:999px;background:var(--cadu-accent-soft);color:var(--cadu-accent-strong);font-size:10px;font-weight:650}
+.untitled-catalog-item__status.is-archived{background:var(--cadu-surface-soft);color:var(--cadu-muted)}
+.untitled-catalog-item__chevron{color:var(--cadu-muted);font-size:20px;font-weight:300;text-align:right}
+.untitled-catalog-empty{display:grid;justify-items:start;gap:12px;padding:40px;color:var(--cadu-muted);font-size:12px}
+.untitled-catalog-empty b{color:var(--cadu-ink);font-size:13px}
+@media(max-width:960px) and (min-width:641px){.untitled-catalog-page{padding:34px 24px 52px}.untitled-catalog-controls{grid-template-columns:minmax(0,1fr) minmax(200px,280px)}.untitled-catalog-controls>small{display:none}.untitled-catalog-list__head,.untitled-catalog-item{grid-template-columns:minmax(240px,1.6fr) repeat(3,minmax(72px,.5fr)) 18px;gap:12px}.untitled-catalog-item__identity small{max-width:34ch}}
+@media(max-width:640px){.untitled-catalog-page{padding:22px 16px max(42px,env(safe-area-inset-bottom))}.untitled-catalog-header{min-height:64px;gap:12px;padding-bottom:14px}.untitled-catalog-header h1{font-size:26px}.untitled-catalog-header span{display:none}.untitled-catalog-header>button{min-height:36px;padding:0 11px}.untitled-catalog-controls{display:grid;grid-template-columns:1fr;gap:10px;padding:14px 0 12px}.untitled-catalog-controls>small{display:none}.untitled-catalog-filters{width:100%;overflow-x:auto;scrollbar-width:none}.untitled-catalog-filters::-webkit-scrollbar{display:none}.untitled-catalog-filters a{flex:0 0 auto}.untitled-catalog-search{min-height:42px}.untitled-catalog-list{display:grid;gap:10px;overflow:visible;border:0;border-radius:0;background:transparent}.untitled-catalog-list__head{display:none}.untitled-catalog-item{display:grid;grid-template-columns:44px minmax(0,1fr) 18px;grid-template-rows:auto auto;gap:8px 11px;min-height:0;padding:14px;border:1px solid var(--cadu-line);border-radius:11px;background:var(--cadu-surface)}.untitled-catalog-item:last-of-type{border-bottom:1px solid var(--cadu-line)}.untitled-catalog-item__identity{display:contents}.untitled-catalog-item__identity>.cadu-ds-visual-identity{grid-column:1;grid-row:1 / span 2;width:44px;height:44px;align-self:start}.untitled-catalog-item__identity>span{grid-column:2;grid-row:1}.untitled-catalog-item__identity b{font-size:14px}.untitled-catalog-item__identity small{font-size:10px}.untitled-catalog-item__value,.untitled-catalog-item__status,.untitled-catalog-item__metric{grid-row:2;align-self:end}.untitled-catalog-item__value{grid-column:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.untitled-catalog-item__status{grid-column:2;font-size:9px}.untitled-catalog-item__metric{display:none}.untitled-catalog-item__chevron{grid-column:3;grid-row:1 / span 2;align-self:center}.untitled-catalog-list.is-brands .untitled-catalog-item{grid-template-rows:auto auto}.untitled-catalog-list.is-brands .untitled-catalog-item__metric:nth-of-type(2){display:flex;grid-column:2;grid-row:2;gap:5px;align-items:baseline}.untitled-catalog-list.is-brands .untitled-catalog-item__metric:nth-of-type(2) small{display:inline}.untitled-catalog-empty{padding:30px 18px;border:1px dashed var(--cadu-line);border-radius:11px;background:var(--cadu-surface)}}

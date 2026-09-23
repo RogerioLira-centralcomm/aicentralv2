@@ -4,14 +4,13 @@
 {% set legacy_surface = 'settings' %}
 {% if legacy_active == 'docs' and document is defined %}{% set legacy_surface = 'editor' %}
 {% elif legacy_active in ('docs','observabilidade') %}{% set legacy_surface = 'table' %}
-{% elif legacy_active in ('integracoes','skills') %}{% set legacy_surface = 'catalog' %}
+{% elif legacy_active == 'skills' %}{% set legacy_surface = 'catalog' %}
 {% elif legacy_active in ('conversas','conversas-v2') %}{% set legacy_surface = 'conversation' %}
 {% elif legacy_active in ('marcas','projetos') %}{% set legacy_surface = 'detail' %}{% endif %}
 <link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">
-<div id="cadu-workspace-legacy-chrome-root" class="cadu-workspace-legacy-chrome-root{% if legacy_active == 'integracoes' %} is-account-surface{% endif %}" aria-label="Navegação do Workspace"><noscript>Ative o JavaScript para usar a navegação do Workspace.</noscript></div>
+<div id="cadu-workspace-legacy-chrome-root" class="cadu-workspace-legacy-chrome-root" aria-label="Navegação do Workspace"><noscript>Ative o JavaScript para usar a navegação do Workspace.</noscript></div>
 <script id="cadu-workspace-legacy-chrome-bootstrap" type="application/json">{{ {
   'legacyMode': True,
-  'accountSurface': legacy_active == 'integracoes',
   'active': legacy_active,
   'surface': legacy_surface,
   'title': legacy_titles.get(legacy_active, 'Workspace'),

@@ -301,7 +301,11 @@ test('Workspace catalogs keep the dock inside the shared work area at full width
     assert.match(catalog, /cadu-ds-home-workarea cadu-ds-catalog-workarea/);
     assert.match(catalog, /cadu-ds-catalog-workarea[\s\S]*<CaduDock[\s\S]*<WorkspaceCatalog/);
   }
-  assert.match(styles, /\.cadu-ds-brands-content\{width:100%;max-width:none;/);
+  assert.match(styles, /\.untitled-catalog-page\{width:100%;min-width:0;/);
+  assert.match(styles, /\.untitled-catalog-list__head,.untitled-catalog-item\{display:grid/);
+  assert.match(styles, /@media\(max-width:640px\)[\s\S]*\.untitled-catalog-item\{display:grid/);
+  assert.doesNotMatch(projects, /cadu-ds-catalog-(?:list|row)/);
+  assert.doesNotMatch(brands, /cadu-ds-catalog-(?:list|row)/);
 });
 
 test('new Workspace surfaces keep structural content fluid at every viewport', () => {

@@ -34,7 +34,11 @@
     'invite': url_for('cadu_workspace.create_team_invite'),
     'inviteBase': '/workspace/app/equipe/convites',
     'memberBase': '/workspace/app/equipe',
-    'creditRequest': url_for('cadu_workspace.request_credit_package')
+    'creditRequest': url_for('cadu_workspace.request_credit_package'),
+    'googleSync': url_for('cadu_workspace.google_workspace_sync'),
+    'googleDisconnect': url_for('cadu_workspace.google_workspace_disconnect'),
+    'googleResourceBase': '/integracoes/google/resources',
+    'agentConnect': '/workspace/app/integracoes/agents'
   }
 }|tojson }}</script>
 {% endblock %}

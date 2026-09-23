@@ -91,7 +91,7 @@ function NoteBlock({block, tone = 'neutral'}) {
   </aside>;
 }
 
-function QuestionsBlock({block, onPrompt}) {
+function QuestionsBlock({block, onPrompt, interactive = true}) {
   const items = Array.isArray(block.items) ? block.items : [];
   const questions = items.filter(item => item?.question || item?.options?.length || item?.allow_custom);
   const [answers, setAnswers] = useState({});
@@ -99,12 +99,12 @@ function QuestionsBlock({block, onPrompt}) {
   const [customOpen, setCustomOpen] = useState({});
   if (questions.length) {
     const answerFor = (item, index) => customAnswers[item.id || index] || answers[item.id || index] || '';
-    const complete = questions.every((item, index) => !item.required || String(answerFor(item, index)).trim());
+    const complete = questions.every((item, index) => item.required === false || String(answerFor(item, index)).trim());
     const answerText = (item, answer) => /(?:renome|mudar|alterar|trocar).{0,45}nome|novo nome.{0,45}projeto/i.test(item.question || item.title || '')
       ? `Renomeie o projeto para “${answer}”.`
       : `${item.question || item.title}: ${answer}`;
-    const submit = () => onPrompt(questions.map((item, index) => answerText(item, answerFor(item, index))).join('\n'), null, {submit: true});
-    return <section className="cv-inline-questions cv-mt-6">
+    const submit = () => onPrompt(questions.map((item, index) => ({item, index})).filter(({item, index}) => item.required !== false || String(answerFor(item, index)).trim()).map(({item, index}) => answerText(item, answerFor(item, index))).join('\n'), null, {submit: true});
+    return <section className="cv-inline-questions cv-mt-6" aria-label={interactive ? 'Pergunta aguardando sua resposta' : 'Pergunta respondida'}>
       {block.title && <span className="cv-inline-questions__label">{block.title}</span>}
       {questions.map((item, index) => {
         const id = item.id || `question-${index}`;
@@ -118,17 +118,16 @@ function QuestionsBlock({block, onPrompt}) {
             const value = typeof option === 'string' ? option : option.value || option.label || option.title;
             const label = typeof option === 'string' ? option : option.label || option.title || value;
             const selected = !customOpen[id] && !customAnswer && answer === value;
-            return <button key={option.id || optionIndex} type="button" aria-pressed={selected} className={`cv-inline-question-option${selected ? ' is-selected' : ''}`} onClick={() => {
+            return <button key={option.id || optionIndex} type="button" disabled={!interactive} aria-pressed={selected} className={`cv-inline-question-option${selected ? ' is-selected' : ''}`} onClick={() => {
               setAnswers(current => ({...current, [id]: value}));
               setCustomAnswers(current => ({...current, [id]: ''}));
               setCustomOpen(current => ({...current, [id]: false}));
-              if (questions.length === 1 && item.required !== false) onPrompt(answerText(item, value), null, {submit: true});
             }}><span>{label}</span></button>;
-          })}{allowCustom && <button type="button" aria-pressed={Boolean(customOpen[id])} className={`cv-inline-question-option cv-inline-question-option--custom${customOpen[id] ? ' is-selected' : ''}`} onClick={() => { setCustomOpen(current => ({...current, [id]: true})); setAnswers(current => ({...current, [id]: ''})); window.requestAnimationFrame(() => document.getElementById(`${id}-custom-answer`)?.focus()); }}><span>Outra resposta</span></button>}</div>
-          {allowCustom && customOpen[id] && <input id={`${id}-custom-answer`} className="cv-inline-question-custom" value={customAnswer} onChange={event => setCustomAnswers(current => ({...current, [id]: event.target.value}))} placeholder={item.custom_placeholder || 'Digite sua resposta…'} aria-label={`Outra resposta para ${item.question || item.title}`}/>}
+          })}{allowCustom && <button type="button" disabled={!interactive} aria-pressed={Boolean(customOpen[id])} className={`cv-inline-question-option cv-inline-question-option--custom${customOpen[id] ? ' is-selected' : ''}`} onClick={() => { setCustomOpen(current => ({...current, [id]: true})); setAnswers(current => ({...current, [id]: ''})); window.requestAnimationFrame(() => document.getElementById(`${id}-custom-answer`)?.focus()); }}><span>Outra resposta</span></button>}</div>
+          {allowCustom && customOpen[id] && <input id={`${id}-custom-answer`} disabled={!interactive} className="cv-inline-question-custom" value={customAnswer} onChange={event => setCustomAnswers(current => ({...current, [id]: event.target.value}))} placeholder={item.custom_placeholder || 'Digite sua resposta…'} aria-label={`Outra resposta para ${item.question || item.title}`}/>}
         </fieldset>;
       })}
-      {(questions.length !== 1 || customOpen[questions[0]?.id || 'question-0']) && <button type="button" disabled={!complete} onClick={submit} className="cv-inline-questions__submit">Responder e continuar</button>}
+      {interactive && <button type="button" disabled={!complete} onClick={submit} className="cv-inline-questions__submit">Responder e continuar</button>}
     </section>;
   }
   return <section className="cv-inline-questions cv-mt-6">
@@ -198,7 +197,7 @@ function StepsBlock({block, onPrompt}) {
   return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><ol className="cv-m-0 cv-list-none cv-p-0"><BoundedItems items={block.items} label="etapas">{visible => visible.map((item, index) => <li key={item.id} className="cv-relative cv-flex cv-gap-3 cv-pb-4 last:cv-pb-0">{index < visible.length - 1 && <i className="cv-absolute cv-left-[7px] cv-top-5 cv-h-[calc(100%-16px)] cv-w-px cv-bg-white/10"/>}<span className={`cv-mt-1 cv-h-4 cv-w-4 cv-flex-none cv-rounded-full cv-border-2 ${item.state === 'done' ? 'cv-border-teal cv-bg-teal' : item.state === 'active' ? 'cv-animate-pulse cv-border-teal' : item.state === 'blocked' ? 'cv-border-[#ff7d83]' : 'cv-border-white/20'}`}/><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm cv-font-medium">{item.title}</strong>{item.detail && <small className="cv-mt-1 cv-block cv-text-xs cv-leading-5 cv-text-[#819b97]">{item.detail}</small>}{item.prompt && item.state !== 'done' && <button type="button" onClick={() => onPrompt(item.prompt)} className="cv-mt-2 cv-border-0 cv-bg-transparent cv-p-0 cv-text-[10px] cv-font-semibold cv-text-teal">Continuar esta etapa</button>}</span></li>)}</BoundedItems></ol></section>;
 }
 
-export function ResponseBlocks({blocks, onPrompt, onOpenResource}) {
+export function ResponseBlocks({blocks, onPrompt, onOpenResource, interactive = true}) {
   return <>{(blocks || []).map((block, index) => {
     const key = `${block.type}-${index}`;
     if (block.type === 'summary') return <SummaryBlock key={key} block={block}/>;
@@ -208,7 +207,7 @@ export function ResponseBlocks({blocks, onPrompt, onOpenResource}) {
     if (block.type === 'source' || block.type === 'sources' || block.type === 'source_group') return <SourcesBlock key={key} block={block} onPrompt={onPrompt} onOpenResource={onOpenResource}/>;
     if (block.type === 'assumption') return <NoteBlock key={key} block={block}/>;
     if (block.type === 'warning' || block.type === 'error') return <NoteBlock key={key} block={block} tone="warning"/>;
-    if (block.type === 'question' || block.type === 'questions') return <QuestionsBlock key={key} block={block} onPrompt={onPrompt}/>;
+    if (block.type === 'question' || block.type === 'questions') return <QuestionsBlock key={key} block={block} onPrompt={onPrompt} interactive={interactive}/>;
     if (block.type === 'decision') return <DecisionBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'checklist') return <ChecklistBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'insights') return <InsightsBlock key={key} block={block} onPrompt={onPrompt}/>;

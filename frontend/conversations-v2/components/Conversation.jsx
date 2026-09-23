@@ -69,6 +69,10 @@ function UserMessageContent({content, metadata}) {
   })}</p>;
 }
 
+function CopyMessageButton({text, state, onCopy}) {
+  return <button type="button" className={`cv-message-copy${state === 'copied' ? ' is-confirmed' : ''}`} onClick={() => onCopy(text)} aria-label={state === 'copied' ? 'Mensagem copiada' : 'Copiar mensagem'} title={state === 'copied' ? 'Copiado' : 'Copiar mensagem'}><Icon name={state === 'copied' ? 'check' : 'copy'} size={14}/><span className="cv-sr-only" aria-live="polite">{state === 'copied' ? 'Copiado' : state === 'failed' ? 'Não foi possível copiar' : 'Copiar mensagem'}</span></button>;
+}
+
 function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   const needsCredits = failure?.kind === 'credits';
   const needsRefresh = failure?.kind === 'session';
@@ -87,9 +91,9 @@ function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   </section>;
 }
 
-function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPrompt, creditsUrl}) {
-  const [copyState, setCopyState] = useState('idle');
+function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPrompt, creditsUrl, interactive}) {
   const copyTimer = useRef(null);
+  const [messageCopyState, setMessageCopyState] = useState('idle');
   const response = message.response || {answer: message.content};
   const text = normalizeAnswerText(response.answer || '')
     .replace(/^\s*[^|\n]{1,240}\|\s*Confian(?:ça|ca)\s*:\s*\**\s*(?:baixa|m[eé]dia|alta|low|medium|high)\**[.,]?\s*/i, '')
@@ -109,32 +113,24 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     contentBlocks.push({type: 'questions', items: legacyQuestions});
   }
   const presentedBlocks = consolidateSources(contentBlocks, response.citations);
-  const canCreateDocument = !message.artifact?.id && text.length > 500 && (
-    text.length > 1800 || response.citations?.length || contentBlocks.some(block =>
-      ['sources', 'source_group', 'images', 'insights', 'checklist', 'steps', 'metrics'].includes(block.type)
-    )
-  );
   useEffect(() => () => window.clearTimeout(copyTimer.current), []);
-  const copyAnswer = async () => {
+  const copyAnswer = async value => {
     try {
-      await copyText(text);
-      setCopyState('copied');
+      await copyText(value);
+      setMessageCopyState('copied');
       window.clearTimeout(copyTimer.current);
-      copyTimer.current = window.setTimeout(() => setCopyState('idle'), 1800);
+      copyTimer.current = window.setTimeout(() => setMessageCopyState('idle'), 1800);
     } catch {
-      setCopyState('failed');
+      setMessageCopyState('failed');
     }
   };
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
   if (message.kind === 'action') return null;
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
     <div className="cv-prose"><Markdown onOpenResource={onOpenResource}>{presentedText}</Markdown></div>
-    {!!presentedBlocks.length && <ResponseBlocks blocks={presentedBlocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
+    {!!presentedBlocks.length && <ResponseBlocks blocks={presentedBlocks} onPrompt={onPrompt} onOpenResource={onOpenResource} interactive={interactive}/>}
     {!!response.actions?.length && <section className="cv-mt-5 cv-border-t cv-border-white/[.07] cv-pt-4"><span className="cv-mb-2 cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas ações</span><div className="cv-flex cv-flex-wrap cv-gap-2">{response.actions.slice(0, 3).map((item, index) => <button key={index} type="button" onClick={() => onPrompt(item.prompt || '')} className={`${item.style === 'primary' ? 'cv-border-teal/30 cv-bg-teal/10 cv-text-teal' : 'cv-border-white/10 cv-bg-transparent cv-text-[#c7d8d4]'} cv-rounded-lg cv-border cv-px-3 cv-py-2 cv-text-xs hover:cv-bg-white/[.08]`}>{item.label}</button>)}</div></section>}
-    {!message.streaming && text && <div className="cv-answer-tools" aria-label="Ações da resposta">
-      <button type="button" onClick={copyAnswer} className={copyState === 'copied' ? 'is-confirmed' : ''} aria-label={copyState === 'copied' ? 'Resposta copiada' : 'Copiar resposta'} title={copyState === 'copied' ? 'Copiado' : 'Copiar resposta'}><Icon name={copyState === 'copied' ? 'check' : 'copy'} size={15}/><span className="cv-sr-only" aria-live="polite">{copyState === 'copied' ? 'Copiado' : copyState === 'failed' ? 'Não foi possível copiar' : 'Copiar'}</span></button>
-      {canCreateDocument && <button type="button" aria-label="Criar documento com esta resposta" title="Criar documento" onClick={() => onPrompt('Crie um documento editável com esta resposta. Preserve integralmente fatos, números, fontes, ressalvas e conclusões; use um título específico e subtítulos semânticos. Abra o documento ao lado para revisão e ofereça salvá-lo no projeto ativo.', {type:'assistant_response', label:'Resposta completa para o documento', text})}><Icon name="file" size={15}/><span className="cv-sr-only">Criar documento</span></button>}
-    </div>}
+    {!message.streaming && text && <CopyMessageButton text={text} state={messageCopyState} onCopy={copyAnswer}/>}
     {message.artifact?.id && <button type="button" onClick={() => onOpenArtifact(message.artifact)} className="cv-artifact-result">
       <span className="cv-artifact-result__icon"><Icon name="file" size={17}/></span>
       <span className="cv-artifact-result__copy"><b>{message.artifact.title || 'Documento editável'}</b><small>{message.artifact.project_ref ? 'Salvo no projeto' : 'Rascunho da conversa'}{message.artifact.current_version ? ` · versão ${message.artifact.current_version}` : ''}</small></span>
@@ -145,6 +141,14 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
 
 function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime, diagnostics, starterProject, starterBrand, starterHome}) {
   const thread = useRef(null);
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
+  const copyMessage = async (id, text) => {
+    try {
+      await copyText(text);
+      setCopiedMessageId(id);
+      window.setTimeout(() => setCopiedMessageId(current => current === id ? null : current), 1800);
+    } catch { setCopiedMessageId(null); }
+  };
   const showActivity = running;
   const hasStreamingAnswer = messages.some(message => message.role === 'assistant' && message.streaming);
   const captureSelection = () => {
@@ -167,7 +171,7 @@ function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource
     </div>
   </div>;
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
-    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><UserMessageContent content={message.content} metadata={message.metadata}/>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : ['worked', 'action'].includes(message.kind) ? null : <React.Fragment key={message.id}>{message.streaming && showActivity && !String(message.response?.answer || message.content || '').trim() && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-5"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}<article data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article></React.Fragment>)}
+    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-message-copy-wrap"><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><UserMessageContent content={message.content} metadata={message.metadata}/>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div><CopyMessageButton text={String(message.content || '')} state={copiedMessageId === message.id ? 'copied' : 'idle'} onCopy={text => copyMessage(message.id, text)}/></div></article> : ['worked', 'action'].includes(message.kind) ? null : <React.Fragment key={message.id}>{message.streaming && showActivity && !String(message.response?.answer || message.content || '').trim() && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-5"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}<article data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><Answer message={message} interactive={!running && messages[messages.length - 1] === message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/></article></React.Fragment>)}
     {showActivity && !hasStreamingAnswer && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-7"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics}/></article>}
     <PendingInteraction interaction={interaction} onPrompt={onPrompt} onDecision={onDecision}/>
   </div>;
@@ -234,7 +238,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
     <header className="cv-conversation-header cv-relative cv-z-50 cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-px-4 md:cv-px-6">
       {!historyOpen && <button ref={historyTrigger} type="button" onClick={onOpenHistory} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Abrir conversas recentes" aria-controls="cv-recent-sidebar" aria-expanded={historyOpen}><Icon name="menu"/></button>}
       {messages.length ? <h1 className={`cv-conversation-title cv-m-0 cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap ${artifactOpen ? 'cv-hidden 2xl:cv-block' : ''}`} title={displayTitle}>{displayTitle}</h1> : <span className="cv-flex-1"/>}
-      {interaction && <span className="cv-conversation-needs-action" title="Esta conversa aguarda sua decisão" aria-label="Ação necessária"><Icon name="alert" size={17}/></span>}
+      {interaction && <span className="cv-conversation-needs-action" title={interaction.kind === 'question' ? 'Esta conversa aguarda sua resposta' : 'Esta conversa aguarda sua decisão'} aria-label={interaction.kind === 'question' ? 'Aguardando sua resposta' : 'Ação necessária'}><Icon name="alert" size={17}/></span>}
       <span className="cv-conversation-context"><span className="cv-hidden cv-text-[11px] cv-text-[#78908c] sm:cv-inline">Contexto</span><ChatContextSelector context={context} projects={projects} brands={brands} onProjectChange={onProjectChange} disabled={running} loading={contextLoading} projectsOnly/></span>
       <button type="button" onClick={onOpenLibrary} className="cv-conversation-library-link" title="Abrir biblioteca do contexto"><Icon name="file" size={14}/><span>Biblioteca</span></button>
       <details ref={details} className="cv-conversation-support-popover cv-relative">

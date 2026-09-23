@@ -15,6 +15,7 @@ const CAPABILITIES = [
   {label: 'Analisar criativo', detail: 'Avalia uma peça anexada ao pedido', icon: 'image', prompt: 'Analise este criativo considerando a marca, o público e o objetivo do projeto.'},
   {label: 'Resumir reunião', detail: 'Extrai decisões, responsáveis e próximos passos', icon: 'file', prompt: 'Transforme este conteúdo em um resumo de reunião: decisões, pendências, responsáveis e próximos passos.'},
   {label: 'Criar pauta', detail: 'Prepara temas e decisões para a reunião', icon: 'calendar', prompt: 'Crie uma pauta de reunião objetiva usando o contexto do projeto, com temas, resultado esperado e decisões a tomar.'},
+  {label: 'Atividades por prazo', detail: 'Lista tarefas vencidas, próximas e sem prazo', icon: 'history', prompt: 'Liste as atividades e tarefas deste projeto agrupadas por prazo: vencidas, para hoje, próximos 7 dias, futuras, sem prazo e concluídas. Para cada item, informe título, estado, responsável e data de prazo. Use os dados atuais do projeto e indique claramente quando uma data ou responsável não estiver definido.'},
 ];
 
 const COMPOSER_MAX_HEIGHT = 120;
@@ -79,7 +80,7 @@ export function WorkspaceChatComposer({
   const [machine, dispatchComposer] = useReducer(composerReducer, {value, running, disabled}, composerState);
   const focused = useRef(false);
   const currentMode = MODE_OPTIONS.find(option => option.id === executionMode) || MODE_OPTIONS[1];
-  const availableCapabilities = hasProject ? CAPABILITIES : CAPABILITIES.filter(item => !['Estruturar briefing', 'Planejar mídia', 'Criar pauta'].includes(item.label));
+  const availableCapabilities = hasProject ? CAPABILITIES : CAPABILITIES.filter(item => !['Estruturar briefing', 'Planejar mídia', 'Criar pauta', 'Atividades por prazo'].includes(item.label));
   const selectCapability = capability => {
     onChange?.(capability.prompt);
     capabilityMenu.current?.removeAttribute('open');

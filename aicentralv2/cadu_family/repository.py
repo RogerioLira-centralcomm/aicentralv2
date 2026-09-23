@@ -386,9 +386,17 @@ def conversation_history_all(user, client_id, query='', limit=500):
                                   THEN 'ci:' || c.projeto_id::text END) AS project_ref,
                          x.brand_ref,
                          EXISTS (SELECT 1 FROM cadu_family_chat_runs r WHERE r.conversation_id=c.id AND r.status='running') AS running,
-                         'recent'::text AS section, FALSE AS automation_enabled, NULL::text AS schedule_label
+                         'recent'::text AS section, FALSE AS automation_enabled, NULL::text AS schedule_label,
+                         COALESCE(last_message.role = 'assistant' AND (
+                             COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"questions"}]'::jsonb
+                             OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"question"}]'::jsonb
+                             OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"decision"}]'::jsonb
+                         ), FALSE) AS awaiting_response
                     FROM cadu_conversations c
                LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
+               LEFT JOIN LATERAL (SELECT role, metadata FROM cadu_conversation_messages
+                                   WHERE conversation_id = c.id AND role IN ('user', 'assistant')
+                                   ORDER BY conversation_sequence DESC NULLS LAST, created_at DESC, id DESC LIMIT 1) last_message ON TRUE
                    WHERE c.id_contato_cliente = %s AND c.id_cliente = %s AND c.titulo ILIKE %s AND c.status = ANY(%s)
                      AND (x.conversation_id IS NULL OR
                           (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
@@ -402,14 +410,24 @@ def conversation_history_all(user, client_id, query='', limit=500):
                          EXISTS (SELECT 1 FROM cadu_family_chat_runs r WHERE r.conversation_id=c.id AND r.status='running') AS running,
                          COALESCE(o.section, 'recent') AS section,
                          COALESCE(o.automation_enabled, FALSE) AS automation_enabled,
-                         o.schedule_label
+                         o.schedule_label,
+                         COALESCE(last_message.role = 'assistant' AND (
+                             COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"questions"}]'::jsonb
+                             OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"question"}]'::jsonb
+                             OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"decision"}]'::jsonb
+                         ), FALSE) AS awaiting_response
                     FROM cadu_conversations c
                LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
                LEFT JOIN cadu_conversation_organization o ON o.conversation_id = c.id
+               LEFT JOIN LATERAL (SELECT role, metadata FROM cadu_conversation_messages
+                                   WHERE conversation_id = c.id AND role IN ('user', 'assistant')
+                                   ORDER BY conversation_sequence DESC NULLS LAST, created_at DESC, id DESC LIMIT 1) last_message ON TRUE
                    WHERE c.id_contato_cliente = %s AND c.id_cliente = %s AND c.titulo ILIKE %s AND c.status = ANY(%s)
                      AND (x.conversation_id IS NULL OR
                           (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
-                ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END, c.updated_at DESC, c.id DESC LIMIT %s''',
+                ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END,
+                         CASE WHEN COALESCE(o.section, 'recent') = 'pinned' THEN 0 ELSE 1 END,
+                         c.updated_at DESC, c.id DESC LIMIT %s''',
                 (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id,
                  active_statuses, limit))
 

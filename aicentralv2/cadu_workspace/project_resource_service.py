@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from uuid import NAMESPACE_URL, uuid5
@@ -435,6 +436,74 @@ def search_resources(client_id: int, project_ref: str, query: str, *, limit: int
         return all(term in haystack for term in terms)
 
     return [item for item in result if matches(item)][:max(1, min(int(limit), 100))]
+
+
+def search_project_items(context: RequestContext, query: str, *, limit: int = 30) -> list[dict]:
+    """Search the project's materialized items and tasks with bounded DB reads."""
+    project_ref = str(context.project_ref or "")
+    _project_id(project_ref)
+    query = " ".join(str(query or "").split())
+    if len(query) < 2:
+        raise ValueError("Informe ao menos dois caracteres para pesquisar.")
+    pattern = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    results = []
+    with get_db().cursor() as cursor:
+        if _relation(cursor, "cadu_project_resources"):
+            cursor.execute(
+                """SELECT id::text, title, resource_type, category, source_system, status,
+                          source_updated_at, source_created_at
+                     FROM cadu_project_resources
+                    WHERE client_id=%s AND project_ref=%s AND COALESCE(status, '') <> 'archived'
+                      AND concat_ws(' ', title, resource_type, category, source_system, locator, metadata::text) ILIKE %s ESCAPE E'\\\\'
+                 ORDER BY COALESCE(source_updated_at, source_created_at, last_seen_at) DESC, title
+                    LIMIT %s""",
+                (context.client_id, project_ref, pattern, min(max(int(limit), 1), 40)),
+            )
+            results.extend({
+                "id": row["id"], "kind": "resource", "title": row["title"],
+                "detail": " · ".join(part for part in (row.get("category"), row.get("resource_type"), row.get("source_system")) if part),
+                "resource_type": row.get("resource_type"), "updated_at": row.get("source_updated_at") or row.get("source_created_at"),
+            } for row in cursor.fetchall())
+        if _relation(cursor, "cadu_project_tasks"):
+            cursor.execute(
+                """SELECT id::text, title, status, priority, due_at, updated_at
+                     FROM cadu_project_tasks
+                    WHERE organization_id=%s AND client_id=%s AND project_ref=%s AND archived_at IS NULL
+                      AND concat_ws(' ', title, description, status, priority) ILIKE %s ESCAPE E'\\\\'
+                 ORDER BY due_at NULLS LAST, updated_at DESC
+                    LIMIT %s""",
+                (context.organization_id, context.client_id, project_ref, pattern, min(max(int(limit), 1), 40)),
+            )
+            results.extend({
+                "id": row["id"], "kind": "task", "title": row["title"],
+                "detail": " · ".join(part for part in (row.get("status"), f"Prazo {row['due_at'].strftime('%d/%m/%Y')}" if row.get("due_at") else "Sem prazo")),
+                "due_at": row.get("due_at"), "updated_at": row.get("updated_at"),
+            } for row in cursor.fetchall())
+        if _relation(cursor, "cadu_project_resource_events") and _relation(cursor, "cadu_project_resources"):
+            cursor.execute(
+                """SELECT event.id::text, resource.title, event.event_type, event.created_at
+                     FROM cadu_project_resource_events event
+                     JOIN cadu_project_resources resource ON resource.id=event.resource_id
+                    WHERE event.client_id=%s AND event.project_ref=%s
+                      AND concat_ws(' ', resource.title, event.event_type, event.details::text) ILIKE %s ESCAPE E'\\\\'
+                 ORDER BY event.created_at DESC LIMIT %s""",
+                (context.client_id, project_ref, pattern, min(max(int(limit), 1), 20)),
+            )
+            results.extend({
+                "id": row["id"], "kind": "activity", "title": row["title"],
+                "detail": str(row.get("event_type") or "Atividade").replace("_", " "),
+                "updated_at": row.get("created_at"),
+            } for row in cursor.fetchall())
+    def updated_timestamp(item: dict) -> float:
+        value = item.get("updated_at")
+        if not isinstance(value, datetime):
+            return 0
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.timestamp()
+
+    results.sort(key=updated_timestamp, reverse=True)
+    return results[:min(max(int(limit), 1), 60)]
 
 
 def resource_capabilities(resource: dict) -> dict:

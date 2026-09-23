@@ -32,6 +32,11 @@ export function pendingInteraction(messages, running) {
   }
   const response = message.response || {};
   const blocks = meaningfulResponseBlocks(response.blocks);
+  const questionBlock = [...blocks].reverse().find(block => ['question', 'questions'].includes(block.type) && Array.isArray(block.items) && block.items.length);
+  if (questionBlock) {
+    const question = questionBlock.items.find(item => item?.question || item?.title)?.question || questionBlock.title || 'Responda à pergunta para continuar';
+    return {kind: 'question', question};
+  }
   const decision = [...blocks].reverse().find(block => block.type === 'decision' && Array.isArray(block.items) && block.items.length);
   const question = decision?.summary || decision?.title || '';
   const options = decision?.items?.map(item => ({
@@ -44,7 +49,7 @@ export function pendingInteraction(messages, running) {
 }
 
 export function PendingInteraction({interaction, onPrompt, onDecision}) {
-  if (!interaction) return null;
+  if (!interaction || interaction.kind === 'question') return null;
   const freeform = interaction.kind !== 'action' && interaction.options.length === 1 && interaction.options[0].freeform;
   const choose = option => interaction.kind === 'action'
     ? onDecision(interaction.message, option.approved)

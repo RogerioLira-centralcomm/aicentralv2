@@ -752,11 +752,11 @@ def _dock_appearance(value: object) -> dict:
     return {'background_color': color, 'icon_size': size}
 
 
-def _workspace_dock_resource_items(client_id: int, project_rows: list[dict]) -> list[dict]:
+def _workspace_dock_resource_items(client_id: int, project_rows: list[dict], resources: Optional[list[dict]] = None) -> list[dict]:
     """Build launchable resource entries without putting them in the dock by default."""
     projects_by_ref = {f"ci:{row.get('id')}": row for row in project_rows if row.get('id')}
     try:
-        resources = project_resource_service.list_recent_resources(client_id, list(projects_by_ref), limit=80)
+        resources = resources if resources is not None else project_resource_service.list_recent_resources(client_id, list(projects_by_ref), limit=80)
     except Exception:
         current_app.logger.warning('Não foi possível carregar recursos para a dock do cliente %s', client_id, exc_info=True)
         return []
@@ -784,7 +784,9 @@ def _workspace_dock_resource_items(client_id: int, project_rows: list[dict]) -> 
 
 
 def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Optional[list[dict]] = None,
-                                  brands: Optional[list[dict]] = None) -> list[dict]:
+                                  brands: Optional[list[dict]] = None,
+                                  brand_project_counts: Optional[dict[str, int]] = None,
+                                  resources: Optional[list[dict]] = None) -> list[dict]:
     """Return the one shared visual dock used by every Workspace surface.
 
     Pages may add their own secondary navigation, but the dock itself is a
@@ -794,16 +796,17 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     """
     project_rows = _workspace_projects(client_id) if projects is None else projects
     brand_rows = _workspace_brands(client_id) if brands is None else brands
-    brand_project_counts: dict[str, int] = {}
-    try:
-        project_brand_links = family_repository.project_brand_links(client_id)
-    except Exception:
-        current_app.logger.warning('Não foi possível carregar contagens de vínculos de marcas do cliente %s', client_id, exc_info=True)
-        project_brand_links = []
-    for link in project_brand_links:
-        brand_ref = str(link.get('brand_ref') or '')
-        if brand_ref.startswith('studio:'):
-            brand_project_counts[brand_ref] = brand_project_counts.get(brand_ref, 0) + 1
+    if brand_project_counts is None:
+        brand_project_counts = {}
+        try:
+            project_brand_links = family_repository.project_brand_links(client_id)
+        except Exception:
+            current_app.logger.warning('Não foi possível carregar contagens de vínculos de marcas do cliente %s', client_id, exc_info=True)
+            project_brand_links = []
+        for link in project_brand_links:
+            brand_ref = str(link.get('brand_ref') or '')
+            if brand_ref.startswith('studio:'):
+                brand_project_counts[brand_ref] = brand_project_counts.get(brand_ref, 0) + 1
     # A brand logo can be resolved while attaching project identity even when
     # the brand row itself has no direct display_logo. Reuse that canonical
     # project-linked mark so the shared dock never regresses to initials.
@@ -837,7 +840,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
         'visualVariant': _dock_visual_variant('project', item.get('id')),
     } for item in project_rows]
-    resource_items = _workspace_dock_resource_items(client_id, project_rows)
+    resource_items = _workspace_dock_resource_items(client_id, project_rows, resources=resources)
 
     catalog = {('brand', item['id']): item for item in brand_items}
     catalog.update({('project', item['projectRef']): item for item in project_items})
@@ -3399,7 +3402,9 @@ def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int
             current_app.logger.exception('Não foi possível projetar a marca %s no projeto %s', brand_id, project_id)
 
 
-def _workspace_projects(client_id: int, query: str = "", status: str = "ativos", *, raise_on_error: bool = False) -> list[dict]:
+def _workspace_projects(client_id: int, query: str = "", status: str = "ativos", *, raise_on_error: bool = False,
+                        identity_brands: Optional[list[dict]] = None,
+                        identity_links: Optional[list[dict]] = None) -> list[dict]:
     """Project dossiers retained from Cadu, always isolated by organization."""
     status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
     status_clause = "p.status = 'ativo'" if status == 'ativos' else "p.status = 'arquivado'" if status == 'arquivados' else "p.status <> 'deletado'"
@@ -3429,22 +3434,39 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
         try:
             with get_db().cursor() as cursor:
                 cursor.execute(
-                    """SELECT p.id, p.nome, p.descricao, p.tipo, p.cor, p.status,
+                    """WITH scoped_projects AS (
+                              SELECT p.* FROM cadu_ci_projetos p
+                               WHERE p.id_cliente = %s AND """ + status_clause + """
+                          ), file_counts AS (
+                              SELECT a.projeto_id,
+                                     COUNT(*) FILTER (WHERE a.indexing_status = 'completed') AS fontes_prontas,
+                                     COUNT(*) AS fontes_total
+                                FROM cadu_ci_projeto_arquivos a
+                                JOIN scoped_projects p ON p.id = a.projeto_id
+                            GROUP BY a.projeto_id
+                          ), chunk_counts AS (
+                              SELECT ch.projeto_id, COUNT(*) AS chunks_total
+                                FROM cadu_ci_chunks ch
+                                JOIN scoped_projects p ON p.id = ch.projeto_id
+                            GROUP BY ch.projeto_id
+                          )
+                       SELECT p.id, p.nome, p.descricao, p.tipo, p.cor, p.status,
                               p.instrucoes, p.tom_de_voz, p.publico, p.posicionamento,
                               COALESCE(p.campos_personalizados, '{}'::jsonb) AS campos_personalizados,
                               p.context_revision,
                               p.total_arquivos, p.total_conversas, p.updated_at,
-                              COUNT(DISTINCT a.id) FILTER (WHERE a.indexing_status = 'completed') AS fontes_prontas,
-                              COUNT(DISTINCT a.id) AS fontes_total, COUNT(DISTINCT ch.id) AS chunks_total
-                         FROM cadu_ci_projetos p
-                    LEFT JOIN cadu_ci_projeto_arquivos a ON a.projeto_id = p.id
-                    LEFT JOIN cadu_ci_chunks ch ON ch.projeto_id = p.id
-                        WHERE p.id_cliente = %s AND """ + status_clause + """
-                     GROUP BY p.id ORDER BY p.updated_at DESC""",
+                              COALESCE(files.fontes_prontas, 0) AS fontes_prontas,
+                              COALESCE(files.fontes_total, 0) AS fontes_total,
+                              COALESCE(chunks.chunks_total, 0) AS chunks_total
+                         FROM scoped_projects p
+                    LEFT JOIN file_counts files ON files.projeto_id = p.id
+                    LEFT JOIN chunk_counts chunks ON chunks.projeto_id = p.id
+                     ORDER BY p.updated_at DESC""",
                     params,
                 )
                 records = [dict(row) for row in cursor.fetchall() if matches_query(dict(row))]
-            return _attach_project_identity(client_id, records)
+            return _attach_project_identity(client_id, records, brands=identity_brands,
+                                            project_brand_links=identity_links)
         except Exception:
             if attempt == 0:
                 retry_database_connection()
@@ -3468,7 +3490,8 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
                 records = [dict(row) for row in cursor.fetchall() if matches_query(dict(row))]
             for record in records:
                 record.update({'tom_de_voz': '', 'publico': '', 'posicionamento': ''})
-            return _attach_project_identity(client_id, records)
+            return _attach_project_identity(client_id, records, brands=identity_brands,
+                                            project_brand_links=identity_links)
         except Exception:
             if attempt == 0:
                 retry_database_connection()
@@ -3478,7 +3501,8 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
             return []
 
 
-def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]:
+def _attach_project_identity(client_id: int, projects: list[dict], *, brands: Optional[list[dict]] = None,
+                             project_brand_links: Optional[list[dict]] = None) -> list[dict]:
     """Add the linked brand mark while keeping older dossiers presentable."""
     if not projects:
         return projects
@@ -3511,13 +3535,14 @@ def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]
     except Exception:
         project_images = {}
     try:
-        brands = _workspace_brands(client_id)
+        brands = _workspace_brands(client_id) if brands is None else brands
         brands_by_ref = {f"studio:{brand['id']}": brand for brand in brands}
         # Older projects predate the explicit project↔brand link. When their
         # names match exactly, show the brand identity rather than an arbitrary
         # initial; the explicit link remains the source of truth when present.
         brands_by_name = {brand_key(brand.get('name')): brand for brand in brands if brand_key(brand.get('name'))}
-        for link in family_repository.project_brand_links(client_id):
+        project_brand_links = family_repository.project_brand_links(client_id) if project_brand_links is None else project_brand_links
+        for link in project_brand_links:
             brand = brands_by_ref.get(str(link.get('brand_ref') or ''))
             if brand:
                 links_by_project.setdefault(str(link.get('project_ref') or ''), []).append(brand)
@@ -3879,13 +3904,14 @@ def _project_recent_activity(project: dict) -> list[dict]:
     return activity[:10]
 
 
-def _workspace_continuity_feed(client_id: int, projects: list[dict], user: dict) -> list[dict]:
+def _workspace_continuity_feed(client_id: int, projects: list[dict], user: dict,
+                               resources: Optional[list[dict]] = None) -> list[dict]:
     """Return recent work from the Registry and Conversations in one bounded feed."""
     feed = []
     projects_by_ref = {f"ci:{project.get('id')}": project for project in projects if project.get('id')}
     labels = {'file': 'Fonte', 'artifact': 'Artefato', 'media_plan': 'Plano de mídia', 'report': 'Relatório', 'image': 'Imagem', 'video': 'Vídeo', 'analysis': 'Análise', 'link': 'Link'}
     try:
-        resources = project_resource_service.list_recent_resources(client_id, list(projects_by_ref), limit=24)
+        resources = resources[:24] if resources is not None else project_resource_service.list_recent_resources(client_id, list(projects_by_ref), limit=24)
     except Exception:
         current_app.logger.warning('Não foi possível montar recursos recentes do workspace do cliente %s', client_id, exc_info=True)
         resources = []
@@ -5115,8 +5141,18 @@ def dashboard():
         or session.get('organization_name')
         or f'Cliente {client_id}'
     ).strip()
-    projects = _workspace_projects(client_id)
     brands = _workspace_brands(client_id)
+    try:
+        project_brand_links = family_repository.project_brand_links(client_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar vínculos de marcas do cliente %s', client_id, exc_info=True)
+        project_brand_links = []
+    brand_project_counts: dict[str, int] = {}
+    for link in project_brand_links:
+        brand_ref = str(link.get('brand_ref') or '')
+        if brand_ref.startswith('studio:'):
+            brand_project_counts[brand_ref] = brand_project_counts.get(brand_ref, 0) + 1
+    projects = _workspace_projects(client_id, identity_brands=brands, identity_links=project_brand_links)
     # New authenticated organizations start with a focused setup instead of
     # landing on an empty enterprise shell. Existing records remain untouched.
     if (
@@ -5126,7 +5162,6 @@ def dashboard():
         and not _workspace_onboarding_record(int(session.get('user_id') or 0), client_id)
     ):
         return redirect(url_for('cadu_workspace.workspace_onboarding'), code=302)
-    customizations = list_customizations(client_id=client_id)
     sections = (
         ("Usuários e equipe", "Pessoas, convites e permissões da equipe.", url_for("cadu_workspace.account_page", section="equipe"), "Workspace"),
         ("Planos", "Plano contratado, limites e recursos habilitados.", url_for("cadu_workspace.account_page", section="planos"), "Workspace"),
@@ -5162,16 +5197,6 @@ def dashboard():
         'href': url_for('cadu_workspace.account_page', section='planos' if is_free_credit_state else 'creditos'),
         'cta': 'Ver planos' if is_free_credit_state else 'Comprar créditos',
     }
-    brand_project_counts: dict[str, int] = {}
-    try:
-        project_brand_links = family_repository.project_brand_links(client_id)
-    except Exception:
-        current_app.logger.warning('Não foi possível carregar contagens de vínculos de marcas do cliente %s', client_id, exc_info=True)
-        project_brand_links = []
-    for link in project_brand_links:
-        brand_ref = str(link.get('brand_ref') or '')
-        if brand_ref.startswith('studio:'):
-            brand_project_counts[brand_ref] = brand_project_counts.get(brand_ref, 0) + 1
     brand_items = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
                     'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
                     'visualInitials': str(item.get('display_initials') or 'M'),
@@ -5194,16 +5219,24 @@ def dashboard():
                       'visualInitials': str(item.get('thumbnail_initials') or 'P'),
                       'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
                       'visualVariant': _dock_visual_variant('project', item.get('id'))} for item in projects]
+    try:
+        recent_project_resources = project_resource_service.list_recent_resources(
+            client_id, [f"ci:{item.get('id')}" for item in projects if item.get('id')], limit=80,
+        )
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar recursos recentes do Workspace do cliente %s', client_id, exc_info=True)
+        recent_project_resources = []
     dock_items = _workspace_common_dock_items(
         client_id, int(session.get('user_id') or 0), projects=projects, brands=brands,
+        brand_project_counts=brand_project_counts, resources=recent_project_resources,
     )
-    dock_resource_items = _workspace_dock_resource_items(client_id, projects)
+    dock_resource_items = _workspace_dock_resource_items(client_id, projects, resources=recent_project_resources)
     continuity_feed = _workspace_continuity_feed(client_id, projects, {
         'id': int(session.get('user_id') or 0),
         # Older Workspace sessions do not carry organization_id. In that
         # case the client is the organization boundary used by Cadu Family.
         'organization_id': int(session.get('organization_id') or session.get('organizacao_id') or client_id),
-    })
+    }, resources=recent_project_resources)
     decisions = []
     for item in projects[:8]:
         missing = []
@@ -5243,7 +5276,7 @@ def dashboard():
     }
     return render_template(
         "cadu_workspace/workspace_home_chat.html", sections=sections, projects=projects, brands=brands,
-        customizations=customizations, credit=credit, hero=secrets.choice(WORKSPACE_APP_HEROES),
+        credit=credit, hero=secrets.choice(WORKSPACE_APP_HEROES),
         data_health=_workspace_data_health(), home_data=home_data,
     )
 
@@ -6197,6 +6230,25 @@ def project_tasks_api(project_id):
         return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
     from .project_task_service import list_tasks
     return jsonify(list_tasks(resolve_request_context(surface='workspace', project_ref=project_ref)))
+
+
+@bp.get('/workspace/api/projetos/<project_id>/buscar')
+@login_required
+def project_search_api(project_id):
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    project_ref = f'ci:{project_id}'
+    if not family_repository.project_user_can_view(client_id, project_ref, user_id):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
+    query = ' '.join(str(request.args.get('q') or '').split())
+    if len(query) < 2:
+        return jsonify({'results': []})
+    if len(query) > 160:
+        return jsonify({'error': 'Use até 160 caracteres na busca.'}), 400
+    try:
+        context = resolve_request_context(surface='workspace', project_ref=project_ref)
+        return jsonify({'results': project_resource_service.search_project_items(context, query)})
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
 
 
 @bp.post('/workspace/api/projetos/<project_id>/tarefas')

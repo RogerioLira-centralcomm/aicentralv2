@@ -141,7 +141,9 @@ PUBLIC_TOOLS = frozenset({
     "brands.create",
     "brands.update_identity",
     "brands.prepare_logo_upload",
+    "brands.prepare_asset_upload",
     "brands.use_asset_as_logo",
+    "brands.delete_asset",
     "brands.start_audit",
     "brands.audit_status",
     "artifacts.list",
@@ -190,7 +192,9 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "brands.create",
     "brands.update_identity",
     "brands.prepare_logo_upload",
+    "brands.prepare_asset_upload",
     "brands.use_asset_as_logo",
+    "brands.delete_asset",
     "brands.start_audit",
     "artifacts.create_draft",
     "artifacts.update_draft",
@@ -557,7 +561,7 @@ def public_upload_brand_logo():
         value = brand_mcp_service.save_logo_upload(principal.context, request.form.get("upload_token", ""), uploaded)
     except HTTPException as exc:
         return jsonify(error=exc.description), exc.code
-    return jsonify(logo=value), 201
+    return jsonify(logo=value, asset=value), 201
 
 
 @bp.get("/.well-known/oauth-protected-resource")

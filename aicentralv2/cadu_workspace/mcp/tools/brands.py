@@ -88,6 +88,30 @@ def prepare_logo_upload(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: service.prepare_logo_upload(context, arguments["brand_id"]))
 
 
+@register_tool(name="brands.prepare_asset_upload", capability="workspace", effect="draft",
+               description="Prepara o envio de um ativo para a biblioteca da marca: logo, referência, peça criativa, fundo, apoio ou ícone.",
+               exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","required":["request_id","brand_id","role"],"properties":{
+                   "request_id":{"type":"string","minLength":36,"maxLength":36},
+                   "brand_id":{"type":"integer","minimum":1},
+                   "role":{"type":"string","enum":sorted(service.BRAND_ASSET_ROLES)}},"additionalProperties":False})
+def prepare_asset_upload(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: service.prepare_asset_upload(context, arguments["brand_id"], arguments["role"]))
+
+
+@register_tool(name="brands.delete_asset", capability="workspace", effect="write",
+               description="Remove um ativo específico da biblioteca da marca após confirmação. Não apaga a marca.",
+               exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","required":["request_id","confirmed","brand_id","asset_id"],"properties":{
+                   "request_id":{"type":"string","minLength":36,"maxLength":36},
+                   "confirmed":{"type":"boolean","enum":[True]},
+                   "brand_id":{"type":"integer","minimum":1},"asset_id":{"type":"integer","minimum":1}},"additionalProperties":False})
+def delete_asset(context: RequestContext, arguments: dict) -> dict:
+    payload = {"brand_id": arguments["brand_id"], "asset_id": arguments["asset_id"]}
+    return _domain(lambda: operations.execute(arguments["request_id"], context, "brands.delete_asset", payload,
+        lambda: service.delete_asset(context, **payload)))
+
+
 @register_tool(name="brands.start_audit", capability="workspace", effect="write",
                description="Inicia análise completa ou profunda da marca após confirmar o custo. Pode usar imagens aprovadas da biblioteca, incluindo o logo selecionado.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["request_id","confirmed","confirmed_cost","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"confirmed_cost":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000},"analysis_mode":{"type":"string","enum":["complete","deep"]},"social_links":{"type":"array","items":{"type":"string","maxLength":500},"maxItems":12},"additional_sources":{"type":"array","items":{"type":"string","maxLength":2000},"maxItems":12},"excluded_sources":{"type":"array","items":{"type":"string","maxLength":2000},"maxItems":12},"existing_asset_ids":{"type":"array","items":{"type":"integer","minimum":1},"maxItems":12}},"additionalProperties":False})

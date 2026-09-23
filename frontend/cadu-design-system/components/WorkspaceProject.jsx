@@ -71,8 +71,8 @@ function SharingDialog({project, urls, csrfToken, onClose, onSaved}) {
   return <ProjectDialog title="Gerenciar acesso" detail="Escolha quem pode acessar este projeto." onClose={onClose}><form className="cadu-ds-project-form" aria-busy={busy || loadingTeam} onSubmit={save}><label>Visibilidade<select disabled={busy} value={visibility} onChange={event => setVisibility(event.target.value)}><option value="private">Privado</option><option value="team">Toda a equipe</option><option value="restricted">Pessoas específicas</option></select></label>{visibility === 'restricted' && <fieldset className="cadu-ds-sharing-people"><legend>Pessoas com acesso</legend>{loadingTeam ? <p>Carregando equipe…</p> : team.length ? team.map(person => <label key={person.id}><input type="checkbox" disabled={busy} checked={members.includes(String(person.id))} onChange={() => toggle(person.id)}/><span>{person.name}<small>{person.email}</small></span></label>) : <p>Nenhuma pessoa ativa disponível.</p>}</fieldset>}{error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}<footer><button type="button" disabled={busy} onClick={onClose}>Cancelar</button><button className="is-primary" disabled={busy || loadingTeam}>{busy ? 'Salvando…' : 'Salvar acesso'}</button></footer></form></ProjectDialog>;
 }
 
-function ProjectManagementDialog({project, projects, urls, csrfToken, mode, onClose}) {
-  const [targetId, setTargetId] = useState('');
+function ProjectManagementDialog({project, projects, urls, csrfToken, mode, initialTargetId = '', onClose}) {
+  const [targetId, setTargetId] = useState(initialTargetId);
   const [confirmation, setConfirmation] = useState('');
   const isMerge = mode === 'merge';
   const targets = (projects || []).filter(item => {
@@ -449,7 +449,11 @@ export function WorkspaceProject({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
   const [linkIcons, setLinkIcons] = useState({});
   const project = {...(bootstrap.project || {}), links:(bootstrap.project?.links || []).map(link => ({...link, ...(linkIcons[String(link.id)] || {})}))};
-  const [dialog, setDialog] = useState('');
+  const actionParams = new URLSearchParams(window.location.search);
+  const requestedAction = actionParams.get('acao');
+  const initialMergeTarget = actionParams.get('destino') || '';
+  const canEdit = project.status !== 'arquivado';
+  const [dialog, setDialog] = useState(() => !canEdit ? '' : requestedAction === 'mesclar' ? 'merge' : requestedAction === 'excluir' ? 'delete-project' : '');
   const [dropActive, setDropActive] = useState(false);
   const [dropQueue, setDropQueue] = useState([]);
   const dragDepth = useRef(0);
@@ -460,7 +464,6 @@ export function WorkspaceProject({bootstrap}) {
   const [remoteNotifications, setRemoteNotifications] = useState([]);
   const initialDockItems = bootstrap.dock?.items || [];
   const [dockItems, setDockItems] = useState(initialDockItems);
-  const canEdit = project.status !== 'arquivado';
   const missing = project.health?.missing || [];
   const isNewProject = missing.length >= 3 && !(project.files?.length || project.deliveries?.length || project.memory?.length || project.links?.length);
   const projectLinks = bootstrap.projectLinks || {};
@@ -637,6 +640,10 @@ export function WorkspaceProject({bootstrap}) {
       </div>
     </main>
     {dialog === 'sharing' && <SharingDialog project={{...project, sharing}} urls={projectLinks} csrfToken={bootstrap.csrf} onSaved={setSharing} onClose={() => setDialog('')} />}
-    {(dialog === 'merge' || dialog === 'delete-project') && <ProjectManagementDialog project={project} projects={bootstrap.projects || []} urls={projectLinks} csrfToken={bootstrap.csrf} mode={dialog === 'merge' ? 'merge' : 'delete'} onClose={() => setDialog('')}/>}
+    {(dialog === 'merge' || dialog === 'delete-project') && <ProjectManagementDialog
+      project={project} projects={bootstrap.projects || []} urls={projectLinks}
+      csrfToken={bootstrap.csrf} mode={dialog === 'merge' ? 'merge' : 'delete'}
+      initialTargetId={initialMergeTarget} onClose={() => setDialog('')}
+    />}
     {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification}/>} {dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
 }

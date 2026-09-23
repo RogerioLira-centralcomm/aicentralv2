@@ -341,7 +341,11 @@ export function WorkspaceBrand({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
   const brand = bootstrap.brand || {};
   const urls = bootstrap.brandLinks || {};
-  const [dialog, setDialog] = useState(() => new URLSearchParams(window.location.search).get('audit') === 'start' ? 'audit' : '');
+  const [dialog, setDialog] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('acao') === 'apagar' && bootstrap.canManageBrand) return 'delete';
+    return params.get('audit') === 'start' ? 'audit' : '';
+  });
   const [accountOpen, setAccountOpen] = useState(false);
   const dockItems = bootstrap.dock?.items || [];
   const [reviewTitle, reviewDescription] = reviewCopy(brand);

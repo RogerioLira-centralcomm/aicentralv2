@@ -159,10 +159,6 @@ def workspace_brevo_email_event():
     try:
         connection = get_db()
         with connection.cursor() as cursor:
-            def table_exists(table_name):
-                cursor.execute('SELECT to_regclass(%s) AS table_name', (f'public.{table_name}',))
-                return bool((cursor.fetchone() or {}).get('table_name'))
-
             cursor.execute(
                 """UPDATE cadu_workspace_email_events
                        SET status = %s,
@@ -6842,6 +6838,10 @@ def merge_project(project_id):
     connection = get_db()
     try:
         with connection.cursor() as cursor:
+            def table_exists(table_name):
+                cursor.execute('SELECT to_regclass(%s) AS table_name', (f'public.{table_name}',))
+                return bool((cursor.fetchone() or {}).get('table_name'))
+
             cursor.execute('''DELETE FROM cadu_ci_projeto_links source
                                USING cadu_ci_projeto_links target
                                WHERE source.projeto_id = %s AND target.projeto_id = %s
@@ -6864,6 +6864,22 @@ def merge_project(project_id):
                                      AND source.project_ref = %s AND target.project_ref = %s
                                      AND source.source_system = target.source_system
                                      AND source.source_id = target.source_id''',
+                               (client_id, client_id, source_ref, target_ref))
+            if table_exists('cadu_workspace_external_references'):
+                cursor.execute('''DELETE FROM cadu_workspace_external_references source
+                                   USING cadu_workspace_external_references target
+                                   WHERE source.client_id=%s AND target.client_id=%s
+                                     AND source.project_ref=%s AND target.project_ref=%s
+                                     AND source.provider=target.provider
+                                     AND source.external_id IS NOT NULL
+                                     AND source.external_id=target.external_id''',
+                               (client_id, client_id, source_ref, target_ref))
+            if table_exists('google_workspace_resource_links'):
+                cursor.execute('''DELETE FROM google_workspace_resource_links source
+                                   USING google_workspace_resource_links target
+                                   WHERE source.client_id=%s AND target.client_id=%s
+                                     AND source.project_ref=%s AND target.project_ref=%s
+                                     AND source.resource_id=target.resource_id''',
                                (client_id, client_id, source_ref, target_ref))
             for table in ('cadu_workspace_artifacts', 'studio_creative_analyses',
                           'cadu_project_resources', 'cadu_workspace_notifications',
@@ -6890,6 +6906,13 @@ def merge_project(project_id):
                                           updated_at=NOW() WHERE client_id=%s AND (project_ref=%s OR target_ref=%s)''',
                                (source_ref, target_ref, source_ref, target_ref, client_id, source_ref, source_ref))
             if table_exists('cadu_connect_account_scopes'):
+                cursor.execute('''DELETE FROM cadu_connect_account_scopes source
+                                   USING cadu_connect_account_scopes target
+                                   WHERE source.workspace_client_id=%s AND target.workspace_client_id=%s
+                                     AND source.workspace_project_ref=%s AND target.workspace_project_ref=%s
+                                     AND source.account_id=target.account_id
+                                     AND COALESCE(source.workspace_brand_ref,'')=COALESCE(target.workspace_brand_ref,'')''',
+                               (client_id, client_id, source_ref, target_ref))
                 cursor.execute('''UPDATE cadu_connect_account_scopes SET workspace_project_ref=%s
                                    WHERE workspace_client_id=%s AND workspace_project_ref=%s''',
                                (target_ref, client_id, source_ref))

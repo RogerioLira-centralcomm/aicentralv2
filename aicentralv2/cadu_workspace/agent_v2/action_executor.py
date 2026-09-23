@@ -9,7 +9,8 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "projects.reindex_source",
     "projects.create_note",
     "projects.create_link_reference",
-    "brands.create", "brands.prepare_logo_upload", "brands.update_identity", "brands.start_audit",
+    "brands.create", "brands.prepare_logo_upload", "brands.prepare_asset_upload",
+    "brands.update_identity", "brands.start_audit",
     "google.create_project_meeting",
 })
 

@@ -71,10 +71,28 @@ def _web_requires_confirmation(text: str) -> bool:
     )
 
 
+def _destructive_request_is_negated(text: str) -> bool:
+    return _has(
+        text,
+        r"\b(?:n[aã]o|nunca|jamais|sem)\b.{0,35}\b(?:apag|exclu|delet|remov|mescl|fund)\w*\b",
+    )
+
+
 def route_request(message: str, surface: str = "conversations", has_project: bool = False,
                   active_object_type: str = "", has_brand: bool = False) -> IntentRoute:
     text = normalize_colloquial(message)[:20000]
     forbid_project_persistence = _project_persistence_refusal(text)
+
+    if not _destructive_request_is_negated(text):
+        if _has(text, r"\b(?:mescl|fund)\w*\b.{0,45}\bprojetos?\b|\bprojetos?\b.{0,45}\b(?:mescl|fund)\w*\b"):
+            return IntentRoute("workspace", "open_project_merge" if has_project else "select_project_for_merge",
+                               "low", "direct" if has_project else "clarification", ("project",) if has_project else ())
+        if _has(text, r"\b(?:apag|exclu|delet|remov)\w*\b.{0,45}\bmarca\b|\bmarca\b.{0,45}\b(?:apag|exclu|delet|remov)\w*\b"):
+            return IntentRoute("workspace", "open_brand_delete" if has_brand else "select_brand_for_delete",
+                               "low", "direct" if has_brand else "clarification", ("brand",) if has_brand else ())
+        if _has(text, r"\b(?:apag|exclu|delet|remov)\w*\b.{0,45}\bprojeto\b|\bprojeto\b.{0,45}\b(?:apag|exclu|delet|remov)\w*\b"):
+            return IntentRoute("workspace", "open_project_delete" if has_project else "select_project_for_delete",
+                               "low", "direct" if has_project else "clarification", ("project",) if has_project else ())
 
     # Negative constraints are requirements, not weak hints. Resolve them
     # before rules such as "salve ... projeto" can match the same sentence.

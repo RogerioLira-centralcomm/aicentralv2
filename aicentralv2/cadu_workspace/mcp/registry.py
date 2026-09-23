@@ -7,6 +7,7 @@ from copy import deepcopy
 from typing import Any, Callable
 
 from ..agent_v2.contracts import RequestContext
+from ..workspace_action_policy import is_workspace_only_tool
 
 
 class ToolError(RuntimeError):
@@ -120,6 +121,8 @@ class ToolRegistry:
         self._tools: dict[str, ToolDefinition] = {}
 
     def register(self, definition: ToolDefinition) -> None:
+        if is_workspace_only_tool(definition.name):
+            raise ValueError("Ações destrutivas de marca ou projeto pertencem ao Workspace, não ao MCP.")
         if definition.name in self._tools:
             raise ValueError(f"Ferramenta duplicada: {definition.name}")
         if definition.effect not in {"read", "draft", "write"}:
@@ -133,6 +136,8 @@ class ToolRegistry:
 
     def validate(self, name: str, arguments: dict[str, Any], context: RequestContext,
                  exposure: str = "internal") -> ToolDefinition:
+        if is_workspace_only_tool(name):
+            raise ToolForbidden("Abra a página de detalhes no Workspace para concluir esta ação.")
         tool = self._tools.get(name)
         if not tool:
             raise ToolNotFound("Ferramenta indisponível.")

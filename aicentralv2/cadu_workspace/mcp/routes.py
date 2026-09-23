@@ -126,15 +126,17 @@ def upload_project_source():
 
 @bp.post("/brand-uploads")
 def upload_brand_logo():
-    """Multipart companion endpoint for signed brand logo upload intents."""
+    """Multipart companion endpoint for signed brand-library upload intents."""
     from .. import brand_mcp_service
     uploaded = request.files.get("file")
     if uploaded is None:
-        return jsonify(error="Envie o logo no campo file."), 400
+        return jsonify(error="Envie o ativo no campo file."), 400
     try:
         value = brand_mcp_service.save_logo_upload(
             g.cadu_mcp_principal.context, request.form.get("upload_token", ""), uploaded,
         )
     except HTTPException as exc:
         return jsonify(error=exc.description), exc.code
-    return jsonify(logo=value), 201
+    # Keep the original `logo` envelope for existing clients while exposing
+    # the generic name used by the expanded brand-library workflow.
+    return jsonify(logo=value, asset=value), 201

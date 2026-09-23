@@ -324,17 +324,30 @@ def _serializer():
 
 
 def prepare_logo_upload(context: RequestContext, brand_id) -> dict:
+    return prepare_asset_upload(context, brand_id, "logo")
+
+
+BRAND_ASSET_ROLES = frozenset({"logo", "reference", "creative", "background", "support", "icon"})
+
+
+def prepare_asset_upload(context: RequestContext, brand_id, role: str = "reference") -> dict:
+    _require_admin(context)
     brand = _brand(context, brand_id)
+    role = str(role or "reference").strip().lower()
+    if role not in BRAND_ASSET_ROLES:
+        raise BadRequest("Tipo de ativo de marca inválido.")
     token = _serializer().dumps({"client_id": context.client_id, "user_id": context.user_id,
-                                 "brand_id": int(brand["id"])})
+                                 "brand_id": int(brand["id"]), "role": role})
     return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
             "upload_token": token, "upload_url": "/workspace/mcp/brand-uploads", "method": "POST",
             "field": "file", "accepted": [".png", ".jpg", ".jpeg", ".webp"],
             "max_bytes": 5 * 1024 * 1024, "expires_in": UPLOAD_MAX_AGE,
-            "purpose": "replace_primary_logo" if brand.get("display_logo") or brand.get("logo_url") else "set_primary_logo"}
+            "role": role, "purpose": ("replace_primary_logo" if brand.get("display_logo") or brand.get("logo_url")
+                                       else "set_primary_logo") if role == "logo" else "add_brand_asset"}
 
 
 def save_logo_upload(context: RequestContext, token: str, uploaded) -> dict:
+    _require_admin(context)
     try:
         claims = _serializer().loads(str(token or ""), max_age=UPLOAD_MAX_AGE)
     except SignatureExpired as exc:
@@ -345,14 +358,31 @@ def save_logo_upload(context: RequestContext, token: str, uploaded) -> dict:
         raise BadRequest("A autorização de upload não pertence a este contexto.")
     brand = _brand(context, claims.get("brand_id"))
     if not uploaded or not uploaded.filename:
-        raise BadRequest("Envie o logo no campo file.")
+        raise BadRequest("Envie o ativo no campo file.")
+    role = str(claims.get("role") or "logo").lower()
+    if role not in BRAND_ASSET_ROLES:
+        raise BadRequest("Tipo de ativo de marca inválido.")
     from ..creative_modeling_service import CreativeModelingService
     try:
-        assets = CreativeModelingService().upload_client_brand_assets(int(brand["id"]), [uploaded], True, "logo")
+        assets = CreativeModelingService().upload_client_brand_assets(
+            int(brand["id"]), [uploaded], role == "logo", role,
+        )
     except ValueError as exc:
         raise BadRequest(str(exc)) from exc
     return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
-            "status": "uploaded", "assets": assets or []}
+            "status": "uploaded", "role": role, "assets": assets or []}
+
+
+def delete_asset(context: RequestContext, *, brand_id, asset_id) -> dict:
+    _require_admin(context)
+    brand = _brand(context, brand_id)
+    from ..creative_modeling_service import CreativeModelingService
+    try:
+        CreativeModelingService().delete_brand_asset(int(brand["id"]), int(asset_id))
+    except ValueError as exc:
+        raise BadRequest(str(exc)) from exc
+    return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
+            "asset_id": int(asset_id), "deleted": True}
 
 
 def start_audit(context: RequestContext, *, request_id, brand_id, website_url: str = "", analysis_mode: str = "complete", social_links=None, additional_sources=None, excluded_sources=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:

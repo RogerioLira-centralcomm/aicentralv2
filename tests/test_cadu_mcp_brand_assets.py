@@ -21,14 +21,30 @@ def _context(brand_ref="studio:81"):
 
 def test_brand_library_and_logo_tools_are_public_and_scope_separated():
     tools = {item["name"]: item for item in load_builtin_tools().list(_context(), "customer_agent")}
-    assert {"brands.list_assets", "brands.use_asset_as_logo"} <= PUBLIC_TOOLS
+    assert {"brands.list_assets", "brands.prepare_asset_upload", "brands.use_asset_as_logo",
+            "brands.delete_asset"} <= PUBLIC_TOOLS
     assert "brand_id" not in tools["brands.list_assets"]["inputSchema"].get("required", [])
     assert required_scope("brands.list_assets") == "projects:read"
     assert required_scope("brands.use_asset_as_logo") == "brands:write"
+    assert required_scope("brands.prepare_asset_upload") == "brands:write"
+    assert required_scope("brands.delete_asset") == "brands:write"
     assert tools["brands.start_audit"]["inputSchema"]["properties"]["analysis_mode"]["enum"] == ["complete", "deep"]
     assert "existing_asset_ids" in tools["brands.start_audit"]["inputSchema"]["properties"]
     assert "additional_sources" in tools["brands.start_audit"]["inputSchema"]["properties"]
     assert "excluded_sources" in tools["brands.start_audit"]["inputSchema"]["properties"]
+
+
+def test_brand_asset_mutations_require_admin(monkeypatch):
+    monkeypatch.setattr(brands.family_repository, "actor", lambda *_: {
+        "id": 7, "organization_id": 12,
+    })
+    monkeypatch.setattr(brands.family_repository, "account_role", lambda *_: "member")
+    with pytest.raises(Exception) as upload_error:
+        brands.prepare_asset_upload(_context(), 81, "reference")
+    with pytest.raises(Exception) as delete_error:
+        brands.delete_asset(_context(), brand_id=81, asset_id=35)
+    assert upload_error.value.code == 403
+    assert delete_error.value.code == 403
 
 
 def test_public_brand_context_can_be_passed_in_normal_tool_arguments():

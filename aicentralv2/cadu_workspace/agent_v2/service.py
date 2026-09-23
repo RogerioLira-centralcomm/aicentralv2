@@ -30,6 +30,7 @@ from .context_builder import (
 )
 from .conversation_runtime import RuntimeRollout, TurnIdentity
 from .memory_checkpoint import schedule as schedule_memory_checkpoint
+from ..workspace_action_policy import WORKSPACE_ONLY_ACTIONS, action_link
 
 
 PROJECT_MAP_MAX_RESOURCES = 120
@@ -672,8 +673,22 @@ def stream(run):
         yield _event("run.completed", **payload)
         return
     try:
-        provider_started = perf_counter()
-        for item in provider.events(run["provider_payload"], execution_mode):
+        route_action = str(run["route"].get("action") or "")
+        workspace_action = None
+        if route_action in WORKSPACE_ONLY_ACTIONS:
+            workspace_action = action_link(
+                route_action, project_ref=run["context"].project_ref,
+                brand_ref=run["context"].brand_ref,
+            )
+            answer_chunks.append(json.dumps({
+                "answer": workspace_action["answer"],
+                "ui": {"blocks": [workspace_action["block"]]},
+            }, ensure_ascii=False))
+            provider_events = ()
+        else:
+            provider_started = perf_counter()
+            provider_events = provider.events(run["provider_payload"], execution_mode)
+        for item in provider_events:
             if first_token_ms is None and (item.get("answer") or item.get("event") in {"message", "agent_message"}):
                 first_token_ms = round((perf_counter() - run_started) * 1000)
                 _journal(run["run_id"], "provider.first_token", {"first_token_ms": first_token_ms},
@@ -692,7 +707,9 @@ def stream(run):
             if item.get("event") in {"message", "agent_message"} and item.get("answer"):
                 answer_chunks.append(str(item["answer"]))
                 visible_answer = _streamable_answer("".join(answer_chunks))
-                if not run["route"].get("artifact_type") and visible_answer and visible_answer != streamed_answer:
+                if (run["route"].get("action") not in WORKSPACE_ONLY_ACTIONS
+                        and not run["route"].get("artifact_type")
+                        and visible_answer and visible_answer != streamed_answer):
                     streamed_answer = visible_answer
                     yield _event("answer.delta", answer=streamed_answer)
             if item.get("event") == "message_end":
@@ -702,6 +719,10 @@ def stream(run):
         else:
             response = normalize_response("".join(answer_chunks), run["policy"])
             response = _preserve_streamed_answer(response, streamed_answer, run["policy"])
+            if workspace_action:
+                response.answer = workspace_action["answer"]
+                response.blocks = [workspace_action["block"]]
+                response.actions = []
             response = _enrich_source_blocks(response, run)
             artifact = None
             # A response patch is only materialized when the route explicitly

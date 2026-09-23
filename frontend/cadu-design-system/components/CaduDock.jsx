@@ -167,10 +167,11 @@ export function DockResourceShortcut({item, active = false, dropTarget = false, 
   </button></DockTooltip>;
 }
 
-export function DockUsageRing({percent, onOpen}) {
+export function DockUsageRing({percent, href, onOpen}) {
   const value = Math.max(0, Math.min(100, Number(percent) || 0));
   const formatted = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(value);
-  return <DockTooltip label="Créditos e consumo"><button type="button" className="cadu-ds-usage-ring" style={{'--cadu-usage': `${value * 3.6}deg`}} onClick={onOpen} aria-label={`Utilização de créditos: ${formatted}%`}><span>{formatted}%</span></button></DockTooltip>;
+  const sharedProps = {className:'cadu-ds-usage-ring', style:{'--cadu-usage': `${value * 3.6}deg`}, 'aria-label':`Utilização de créditos: ${formatted}%`};
+  return <DockTooltip label="Créditos e consumo">{href ? <a {...sharedProps} href={href}><span>{formatted}%</span></a> : <button {...sharedProps} type="button" onClick={onOpen}><span>{formatted}%</span></button>}</DockTooltip>;
 }
 
 function DockPicker({candidates, items, busy, query, onQueryChange, linkUrl, onLinkUrlChange, linkTitle, onLinkTitleChange, onSave, onRemove, onClose}) {
@@ -511,18 +512,10 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
   const fallbackAvatar = avatarFallbackSource(bootstrap, userName);
   const resolvedUsagePercent = liveUsagePercent ?? usagePercent ?? bootstrap?.usagePercent ?? bootstrap?.usage_percent ?? bootstrap?.home?.usagePercent ?? 0;
   const resolvedAccountMenu = React.isValidElement(accountMenu) ? React.cloneElement(accountMenu, {usagePercent: resolvedUsagePercent}) : accountMenu;
-  // The avatar is the direct entry point to the persistent account sidebar.
-  // Account navigation already exposes Perfil, Agência, Créditos and the
-  // remaining sections, so an intermediate dropdown only duplicates it.
-  const resolvedAccountUrl = accountUrl || bootstrap?.urls?.agency || bootstrap?.urls?.agencia || bootstrap?.urls?.profile || bootstrap?.urls?.perfil;
-  const openUsage = () => {
-    const usageUrl = bootstrap?.urls?.usage || bootstrap?.urls?.credits;
-    if (usageUrl) {
-      window.location.assign(usageUrl);
-      return;
-    }
-    onOpenUsage?.();
-  };
+  // In conversations, the compact Dock is navigation rather than an account
+  // popover: avatar opens Perfil and the usage ring opens Uso directly.
+  const resolvedAccountUrl = accountUrl || bootstrap?.urls?.profile || bootstrap?.urls?.perfil || bootstrap?.urls?.agency || bootstrap?.urls?.agencia;
+  const usageUrl = bootstrap?.urls?.usage || bootstrap?.urls?.credits;
   const avatar = <VisualIdentity src={resolvedAvatar || fallbackAvatar} fallbackSrc={resolvedAvatar ? fallbackAvatar : ''} initials={userInitials || userName} label={userName} color="#1b6d64" imageAlt={`Foto de ${userName}`}/>;
   return <aside className={`cadu-ds-dock ${conversationMode ? 'cadu-ds-dock--conversation' : 'cadu-ds-dock--workspace'}`} aria-label="Atalhos do Workspace">
     <div className="cadu-ds-dock-solution"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/></div>
@@ -546,6 +539,6 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     {dockNotice && <div className="cadu-ds-dock-notice" role="status">{dockNotice}{undoItem && <button type="button" onClick={() => { saveItem(undoItem); setUndoItem(null); }}>Desfazer</button>}<button type="button" onClick={() => { setDockNotice(''); setUndoItem(null); }} aria-label="Dispensar aviso">×</button></div>}
     {addOpen && createPortal(<DockPicker candidates={candidates} items={items} busy={busy} query={candidateQuery} onQueryChange={setCandidateQuery} linkUrl={linkUrl} onLinkUrlChange={setLinkUrl} linkTitle={linkTitle} onLinkTitleChange={setLinkTitle} onSave={candidate => saveItem(candidate, items.length, true)} onRemove={removeItem} onClose={() => setAddOpen(false)}/>, document.body)}
     {externalView && createPortal(<section className="cadu-ds-dock-external-view" aria-label={`Visualização de ${externalView.title}`}><header className="cadu-ds-dock-external-view__bar"><div className="cadu-ds-dock-external-view__identity"><strong>{externalView.title}</strong><span>{externalView.host}</span></div><div className="cadu-ds-dock-external-view__actions"><a href={externalView.url} target="_blank" rel="noopener noreferrer">Abrir em nova aba</a><button type="button" onClick={() => setExternalView(null)} aria-label="Fechar visualização">Fechar</button></div></header><div className="cadu-ds-dock-external-view__content">{externalView.kind === 'image' ? <img src={externalView.url} alt={externalView.title} onError={() => setExternalHint(true)}/> : <iframe title={externalView.title} src={externalView.embedUrl} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="strict-origin-when-cross-origin" onError={() => setExternalHint(true)}/>}</div>{externalHint && <footer className="cadu-ds-dock-external-view__help"><span>Se o serviço não aparecer ou pedir permissão, abra-o em outra aba.</span><a href={externalView.url} target="_blank" rel="noopener noreferrer">Abrir fora</a><button type="button" onClick={() => { try { window.localStorage.setItem(`cadu:dock:external:${externalView.host}`, '1'); } catch (_) { /* Storage is optional. */ } window.open(externalView.url, '_blank', 'noopener,noreferrer'); setExternalView(null); }}>Sempre abrir fora</button></footer>}</section>, document.body)}
-    <div className="cadu-ds-dock-bottom">{openNotifications && <DockTooltip label="Notificações"><button type="button" className="cadu-ds-dock-notifications" onClick={openNotifications} aria-label="Abrir notificações"><Icon name="pulse" size={17}/>{resolvedNotifications.length > 0 && <i>{resolvedNotifications.length > 9 ? '9+' : resolvedNotifications.length}</i>}</button></DockTooltip>}<DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountMenu ? <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button> : <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir conta de ${userName}`}>{avatar}</a>}</DockTooltip>{resolvedAccountMenu}</div></div>
+    <div className="cadu-ds-dock-bottom">{openNotifications && <DockTooltip label="Notificações"><button type="button" className="cadu-ds-dock-notifications" onClick={openNotifications} aria-label="Abrir notificações"><Icon name="pulse" size={17}/>{resolvedNotifications.length > 0 && <i>{resolvedNotifications.length > 9 ? '9+' : resolvedNotifications.length}</i>}</button></DockTooltip>}<DockUsageRing percent={resolvedUsagePercent} href={usageUrl} onOpen={onOpenUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{(conversationMode || !resolvedAccountMenu) && resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir perfil de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup={resolvedAccountMenu ? 'menu' : undefined} aria-expanded={resolvedAccountMenu ? accountOpen : undefined}>{avatar}</button>}</DockTooltip>{!conversationMode && resolvedAccountMenu}</div></div>
   </aside>;
 }

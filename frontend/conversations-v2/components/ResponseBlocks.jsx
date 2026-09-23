@@ -49,6 +49,16 @@ function ActivityBlock({block}) {
   </div>;
 }
 
+function WorkspaceActionBlock({block}) {
+  const href = safeUrl(block.href);
+  if (!href) return null;
+  return <section className="cv-response-block cv-mt-5 cv-rounded-xl cv-border cv-border-teal/25 cv-bg-teal/[.06] cv-p-4">
+    <strong className="cv-block cv-text-sm cv-font-semibold cv-text-[#edf7f5]">{block.title || 'Continuar no Workspace'}</strong>
+    {block.summary && <p className="cv-mb-0 cv-mt-1 cv-text-xs cv-leading-5 cv-text-[#a9bfbb]">{block.summary}</p>}
+    <a href={href} className="cv-mt-3 cv-inline-flex cv-rounded-lg cv-bg-teal cv-px-3.5 cv-py-2.5 cv-text-xs cv-font-semibold cv-text-[#082c28] cv-no-underline">{block.label || 'Abrir no Workspace'}</a>
+  </section>;
+}
+
 function SourceFavicon({src, domain}) {
   const [failed, setFailed] = useState(false);
   const initial = (domain || 'F').slice(0, 1).toUpperCase();
@@ -216,6 +226,7 @@ export function ResponseBlocks({blocks, onPrompt, onOpenResource}) {
     if (block.type === 'summary') return <SummaryBlock key={key} block={block}/>;
     if (block.type === 'entity') return <EntityBlock key={key} block={block}/>;
     if (block.type === 'activity' || block.type === 'progress') return <ActivityBlock key={key} block={block}/>;
+    if (block.type === 'workspace_action') return <WorkspaceActionBlock key={key} block={block}/>;
     if (block.type === 'source' || block.type === 'sources' || block.type === 'source_group') return <SourcesBlock key={key} block={block} onPrompt={onPrompt} onOpenResource={onOpenResource}/>;
     if (block.type === 'assumption') return <NoteBlock key={key} block={block}/>;
     if (block.type === 'warning' || block.type === 'error') return <NoteBlock key={key} block={block} tone="warning"/>;

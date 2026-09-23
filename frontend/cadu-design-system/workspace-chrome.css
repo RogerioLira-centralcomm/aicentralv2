@@ -52,9 +52,7 @@
 
   body.portal--workspace .cadu-ds-dock-primary-action:hover { color:var(--cadu-accent); }
   body.portal--workspace .cadu-ds-dock-primary-action:focus-visible { color:var(--cadu-accent); outline:2px solid currentColor; outline-offset:2px; }
-  body.portal--workspace .cadu-ds-dock-primary-action svg { width:18px; height:18px; }
-  body.portal--workspace .cadu-ds-dock-primary-action--home svg { width:19px; height:19px; }
-  body.portal--workspace .cadu-ds-dock-primary-action--new svg { width:18px; height:18px; }
+  body.portal--workspace .cadu-ds-dock-primary-action svg { width:19px; height:19px; }
   body.portal--workspace .cadu-ds-dock-solution { margin:0 0 8px; }
 
   body.portal--workspace .cadu-ds-dock-context,
@@ -121,6 +119,12 @@
     object-position:center;
     mix-blend-mode:normal;
     filter:none;
+  }
+
+  /* Brand marks use the full available canvas without cropping wide artwork. */
+  body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand > .cadu-ds-visual-identity.has-rendered-image img {
+    padding:0;
+    object-fit:contain;
   }
 
   body.portal--workspace .cadu-ds-dock .cadu-ds-dock-resource--provider > .cadu-ds-visual-identity,

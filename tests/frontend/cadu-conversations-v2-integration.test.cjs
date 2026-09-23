@@ -111,9 +111,10 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(contextSidebar, /project-child[^\n]*<VisualIdentity/);
   assert.match(dock, /createPortal/);
   assert.match(dock, /role="tooltip"/);
-  assert.match(dock, /const resolvedAccountUrl = accountUrl \|\| bootstrap\?\.urls\?\.agency/);
-  assert.match(dock, /const openUsage = \(\) =>/);
-  assert.match(dock, /resolvedAccountMenu \? <button[^>]+aria-haspopup="menu"/);
+  assert.match(dock, /const resolvedAccountUrl = accountUrl \|\| bootstrap\?\.urls\?\.profile/);
+  assert.match(dock, /const usageUrl = bootstrap\?\.urls\?\.usage \|\| bootstrap\?\.urls\?\.credits/);
+  assert.match(dock, /\(conversationMode \|\| !resolvedAccountMenu\) && resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
+  assert.match(dock, /<DockUsageRing[^>]*href=\{usageUrl\}/);
   assert.match(dock, /<nav className="cadu-ds-dock-primary"/);
   assert.match(dock, /<nav className="cadu-ds-dock-primary"[\s\S]+<DockDropZone/);
   assert.match(dock, /cadu-ds-dock-primary-action--home[\s\S]+cadu-ds-dock-primary-action--new/);
@@ -1096,9 +1097,8 @@ test('dock and composer use one stable geometry without layered hover chrome', (
   assert.match(dockStyles, /position:sticky/);
   assert.match(dockStyles, /width:64px/);
   assert.match(dockStyles, /\.cadu-ds-dock-section--live \{ display:grid; place-items:center/);
-  assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:18px; height:18px; \}/);
-  assert.match(dockStyles, /\.cadu-ds-dock-primary-action--home svg \{ width:19px; height:19px; \}/);
-  assert.match(dockStyles, /\.cadu-ds-dock-primary-action--new svg \{ width:18px; height:18px; \}/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:19px; height:19px; \}/);
+  assert.doesNotMatch(dockStyles, /\.cadu-ds-dock-primary-action--(?:home|new) svg/);
   assert.match(dockStyles, /background:transparent;[\s\S]+color:#4d716d/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:hover \{ color:var\(--cadu-accent\); \}/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:focus-visible[\s\S]+outline:2px solid currentColor/);

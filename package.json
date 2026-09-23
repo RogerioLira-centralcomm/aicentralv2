@@ -7,11 +7,12 @@
     "build:vanilla": "tailwindcss -c ./tailwind.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --minify",
     "build:legacy": "tailwindcss -c ./tailwind.legacy.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output-legacy.css --minify",
     "build:artifact": "tailwindcss -c ./tailwind.artifact.config.js -i ./aicentralv2/static/css/tailwind/artifact.input.css -o ./aicentralv2/static/css/tailwind/artifact.css --minify",
-    "build": "npm run build:vanilla && npm run build:legacy && npm run build:artifact && npm run build:studio && npm run build:conversations && npm run build:auth && npm run build:editor",
+    "build": "npm run build:vanilla && npm run build:legacy && npm run build:artifact && npm run build:studio && npm run build:conversations && npm run build:auth && npm run build:editor && npm run build:audio",
     "build:conversations": "vite build --config vite.conversations.config.mjs",
     "build:auth": "vite build --config vite.auth.config.mjs",
     "test:workspace-layout": "node tests/frontend/cadu-workspace-layout.test.cjs",
     "build:editor": "vite build --config vite.studio-editor.config.mjs",
+    "build:audio": "vite build --config vite.studio-audio.config.mjs",
     "dev:conversations": "vite --config vite.conversations.config.mjs",
     "build:studio": "tailwindcss -c ./tailwind.studio.config.js -i ./aicentralv2/static/css/tailwind/video-studio.input.css -o ./aicentralv2/static/css/video-studio.css --minify"
   },

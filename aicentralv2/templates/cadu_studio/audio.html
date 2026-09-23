@@ -1,0 +1,27 @@
+{% extends "cadu_portals/base.html" %}
+{% block title %}Cadu Studio Áudio{% endblock %}
+{% block product_id %}studio{% endblock %}
+{% block navigation %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/audio/react/app.css') }}?v=1">{% endblock %}
+{% block content %}
+<div id="cadu-studio-audio-root"><noscript>Ative o JavaScript para usar o Cadu Studio Áudio.</noscript></div>
+<script id="cadu-studio-audio-bootstrap" type="application/json">{{ {
+  'apiRoot': '/studio/api',
+  'projectId': request.args.get('project_id') or (session.get('workspace_recent_project_ids') or [''])[0],
+  'credits': studio_credit.get('available', 0),
+  'usagePercent': studio_credit.get('monthly_usage_percentage', 0),
+  'user': {'name': session.get('user_name', 'Minha conta'), 'avatar': session.get('user_photo_url', '')},
+  'links': {
+    'home': studio_url('modelagem_criativos'),
+    'create': studio_url('modelagem_criar'),
+    'editor': studio_url('modelagem_trocar'),
+    'videos': studio_url('modelagem_video'),
+    'audio': url_for('studio_product.studio_audio'),
+    'analyzer': product_url('studio', '/analyzer'),
+    'library': studio_url('modelagem_criativos') ~ '#studioLibrary',
+    'credits': product_url('workspace', '/workspace/app/creditos'),
+    'profile': product_url('workspace', '/workspace/app/conta?section=perfil')
+  }
+}|tojson }}</script>
+{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_studio/audio/react/app.js') }}?v=1"></script>{% endblock %}

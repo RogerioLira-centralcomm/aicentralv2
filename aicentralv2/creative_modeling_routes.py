@@ -2305,6 +2305,7 @@ def register_creative_modeling_routes(blueprint):
 def register_studio_product_routes(blueprint):
     """Register short, product-owned workspace URLs on the Studio host."""
     blueprint.add_url_rule("/", endpoint="studio_home", view_func=modelagem_criativos)
+    blueprint.add_url_rule("/audio", endpoint="studio_audio", view_func=studio_audio)
     blueprint.add_url_rule(
         "/direcao-de-marca",
         endpoint="studio_workspace_brand",
@@ -2319,6 +2320,25 @@ def register_studio_product_routes(blueprint):
             f"/{path}", endpoint=f"studio_{page}",
             view_func=lambda page=page: modelagem_desk(page),
         )
+
+
+@studio_or_admin_required
+def studio_audio():
+    """Audio Studio interface prototype on the product host."""
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
+    try:
+        studio_credit = credit_position(int(session.get('cliente_id') or 0)) or {}
+    except Exception:
+        logger.warning('Nao foi possivel carregar o saldo do Studio Audio', exc_info=True)
+        studio_credit = {}
+    response = make_response(render_template(
+        'cadu_studio/audio.html',
+        studio_credit=studio_credit,
+    ))
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
 
 
 @admin_required

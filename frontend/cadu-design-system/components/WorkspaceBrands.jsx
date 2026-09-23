@@ -27,7 +27,6 @@ function normalizeBrandUrl(value) {
   const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
   try {
     const url = new URL(withProtocol);
-    if (!url.hostname.startsWith('www.')) url.hostname = `www.${url.hostname}`;
     return url.toString().replace(/\/$/, '');
   } catch (_) {
     return withProtocol;
@@ -35,27 +34,52 @@ function normalizeBrandUrl(value) {
 }
 
 function BrandCreateForm({bootstrap, onClose}) {
+  const nameInput = useRef(null);
   const [website, setWebsite] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [health, setHealth] = useState(null);
   const [checking, setChecking] = useState(false);
-  const checkHealth = () => {
+  const checkHealth = async () => {
     setChecking(true);
     const normalized = normalizeBrandUrl(website);
     setWebsite(normalized);
-    const hasName = Boolean(document.querySelector('[name="name"]')?.value.trim());
-    const hasReference = Boolean(normalized);
-    window.setTimeout(() => { setHealth({ok: hasName && hasReference, hasName, hasReference}); setChecking(false); }, 420);
+    const hasName = Boolean(nameInput.current?.value.trim());
+    if (!hasName || !normalized) {
+      setHealth({ok:false, message:'Informe o nome e o site oficial para continuar.'});
+      setChecking(false);
+      return {ok:false};
+    }
+    try {
+      const response = await fetch(bootstrap.urls.inspectBrandSite, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':bootstrap.csrf, Accept:'application/json'}, body:JSON.stringify({website_url:normalized, logo_url:logoUrl})});
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Não foi possível inspecionar o endereço.');
+      const inspection = payload.inspection || {};
+      const explicitLogoValid = !logoUrl.trim() || Boolean(inspection.explicit_logo?.valid_image);
+      const ok = Boolean(inspection.ready_for_analysis && explicitLogoValid);
+      const candidateCount = inspection.logo_candidates?.length || 0;
+      const websiteUrl = inspection.final_url || inspection.website_url || normalized;
+      setWebsite(websiteUrl);
+      setHealth({ok, inspection, message:ok ? `Site validado${candidateCount ? ` e ${candidateCount} candidato${candidateCount === 1 ? '' : 's'} de logo encontrado${candidateCount === 1 ? '' : 's'}` : ''}.` : inspection.warnings?.[0] || 'O site ou a logo não pôde ser validado.'});
+      return {ok, websiteUrl, suggestedLogoUrl:inspection.suggested_logo_url || ''};
+    } catch (error) {
+      setHealth({ok:false, message:error?.message || 'Não foi possível inspecionar o endereço.'});
+      return {ok:false};
+    } finally {
+      setChecking(false);
+    }
   };
-  return <form className="cadu-ds-brand-create-form" method="post" encType="multipart/form-data" action={bootstrap.urls.createBrand} onSubmit={event => { if (!health) { event.preventDefault(); checkHealth(); } }}>
+  return <form className="cadu-ds-brand-create-form" method="post" encType="multipart/form-data" action={bootstrap.urls.createBrand} onSubmit={async event => { if (!health?.ok) { event.preventDefault(); const form = event.currentTarget; const result = await checkHealth(); if (result.ok) { form.elements.website_url.value = result.websiteUrl; form.elements.suggested_logo_url.value = result.suggestedLogoUrl; form.submit(); } } }}>
     <input type="hidden" name="_csrf" value={bootstrap.csrf}/>
+    <input type="hidden" name="suggested_logo_url" value={health?.inspection?.suggested_logo_url || ''}/>
     <header><div><h2>Nova marca</h2><p>Cadastre a base primeiro. A análise completa fica para depois, com revisão do time.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
-    <label>Nome da marca<input name="name" required minLength="2" maxLength="150" autoFocus placeholder="Ex.: Nike"/></label>
+    <label>Nome da marca<input ref={nameInput} name="name" required minLength="2" maxLength="150" autoFocus placeholder="Ex.: Nike" onChange={() => setHealth(null)}/></label>
     <label>Site oficial <small>O endereço será completado automaticamente</small><input name="website_url" type="url" maxLength="2000" placeholder="www.exemplo.com.br" value={website} onChange={event => { setWebsite(event.target.value); setHealth(null); }} onBlur={() => setWebsite(normalizeBrandUrl(website))}/></label>
     <label>Setor <small>Opcional</small><input name="sector" maxLength="80" placeholder="Ex.: Varejo"/></label>
+    <label>Link da logo oficial <small>Opcional</small><input name="official_logo_url" type="url" maxLength="2000" placeholder="https://.../logo.svg" value={logoUrl} onChange={event => { setLogoUrl(event.target.value); setHealth(null); }}/></label>
     <label>Logo e referências<BrandCreateDrop/></label>
     <div className="cadu-ds-brand-create-options"><label><input name="primary_logo" type="checkbox" value="true" defaultChecked/> Usar a primeira imagem como logo principal</label><label><input name="analyze" type="checkbox" value="true"/> Analisar a marca depois de criar</label></div>
     <section className={`cadu-ds-brand-health${health ? (health.ok ? ' is-ready' : ' is-incomplete') : ''}`} aria-live="polite">
-      {checking ? <span className="cadu-ds-brand-spinner" aria-label="Checando informações"/> : health ? <span>{health.ok ? 'Informações básicas prontas.' : 'Informe o nome e o site oficial para continuar.'}</span> : <button type="button" onClick={checkHealth}>Checar informações</button>}
+      {checking ? <span className="cadu-ds-brand-spinner" aria-label="Inspecionando site e logo"/> : health ? <span>{health.message}</span> : <button type="button" onClick={checkHealth}>Inspecionar site e logo</button>}
     </section>
     <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary" disabled={checking}>Criar marca</button></footer>
   </form>;

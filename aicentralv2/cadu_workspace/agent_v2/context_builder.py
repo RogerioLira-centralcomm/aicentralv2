@@ -38,6 +38,14 @@ _GENERIC_REFERENCE = re.compile(
     r"\b(?:continue|continue\s+da[ií]|prossiga|retome|revise|ajuste|altere|melhore|resuma|"
     r"transforme|reescreva|complete|finalize|anteriormente)\b", re.IGNORECASE,
 )
+_BRAND_CREATE_REQUEST = re.compile(
+    r"\b(?:cri(?:a|e|ar)|cadastr(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|mont(?:a|e|ar)|abr(?:a|e|ir)|nova)\b"
+    r".{0,45}\bmarca\b", re.IGNORECASE,
+)
+_BRAND_DRAFT_FIELD = re.compile(
+    r"https?://|\b(?:www\.|nome|marca|site|website|endere[cç]o|setor|segmento|ramo|logo|refer[eê]ncia)",
+    re.IGNORECASE,
+)
 
 
 def selected_context(value):
@@ -131,7 +139,43 @@ def turn_context(message, messages):
     normalized = normalize_colloquial(message)
     format_match = _FORMAT_CONTINUATION.search(normalized)
     routing_message = f"Abra o link e crie um resumo editável estruturado como {format_match.group(1)}: {latest_url}" if format_match and latest_url else ""
-    resolved = "format_refinement" if routing_message else "latest_url" if _LINK_REFERENCE.search(normalized) and latest_url else "pending_action" if _SHORT_CONFIRMATION.match(normalized) and pending else "recent_turn" if _GENERIC_REFERENCE.search(normalized) else "none"
+    # Reassemble a short brand intake across turns. The latest assistant must
+    # still be discussing the brand fields, preventing an old abandoned draft
+    # from hijacking an unrelated short message.
+    brand_draft = None
+    if not routing_message and recent and (
+        _BRAND_DRAFT_FIELD.search(normalized)
+        or (len(normalized) <= 150 and sum(term in latest_assistant_answer.casefold()
+                                           for term in ("marca", "nome", "site", "segmento")) >= 2)
+    ):
+        start = next((index for index in range(len(recent) - 1, -1, -1)
+                      if recent[index].get("role") == "user"
+                      and _BRAND_CREATE_REQUEST.search(str(recent[index].get("content") or ""))), -1)
+        if start >= 0:
+            user_parts = [" ".join(str(item.get("content") or "").split())
+                          for item in recent[start:] if item.get("role") == "user"]
+            fragment = " ".join(str(message or "").split())
+            assistant_lower = latest_assistant_answer.casefold()
+            if not _BRAND_DRAFT_FIELD.search(fragment):
+                pieces = [item.strip() for item in fragment.split(",") if item.strip()]
+                url_piece = next((item for item in pieces if _TURN_URL.search(item) or re.fullmatch(
+                    r"(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/\S*)?", item, re.IGNORECASE)), "")
+                if len(pieces) >= 3 and url_piece and all(term in assistant_lower for term in ("nome", "site", "segmento")):
+                    remaining = [item for item in pieces if item != url_piece]
+                    fragment = f"marca chamada {remaining[0]}; site {url_piece}; segmento {remaining[1]}"
+                elif url_piece and "site" in assistant_lower:
+                    fragment = f"site {fragment}"
+                elif "segmento" in assistant_lower or "setor" in assistant_lower:
+                    fragment = f"segmento {fragment}"
+                elif "nome" in assistant_lower:
+                    fragment = f"marca chamada {fragment}"
+            elif _TURN_URL.fullmatch(fragment) and "site" in assistant_lower:
+                fragment = f"site {fragment}"
+            user_parts.append(fragment)
+            routing_message = "\n".join(part for part in user_parts if part)
+            brand_draft = {"source_message_id": str(recent[start].get("id") or ""),
+                           "turn_count": len(user_parts)}
+    resolved = "brand_draft" if brand_draft else "format_refinement" if routing_message else "latest_url" if _LINK_REFERENCE.search(normalized) and latest_url else "pending_action" if _SHORT_CONFIRMATION.match(normalized) and pending else "recent_turn" if _GENERIC_REFERENCE.search(normalized) else "none"
     entities = {}
     if latest_url:
         entities["url"] = latest_url
@@ -143,6 +187,7 @@ def turn_context(message, messages):
     return {"type": "conversation_turn", "active_entities": entities, "resolved_reference": resolved,
             "requires_selected_context": resolved != "none", "pending_action": pending,
             "routing_message": routing_message, "source_message_id": str((latest_url_message or {}).get("id") or ""),
+            "brand_draft": brand_draft,
             "latest_user_request": latest_user_request, "latest_assistant_answer": latest_assistant_answer,
             "recent_turns": transcript}
 

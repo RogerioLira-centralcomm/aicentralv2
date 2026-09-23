@@ -370,6 +370,58 @@ def test_brand_creation_and_audit_are_routed_to_internal_mcp_actions():
     assert rich_action["arguments"]["official_logo_url"] == "https://cdn.acme.com/logo.png"
     assert rich_action["arguments"]["reference_urls"] == ["https://behance.net/acme"]
 
+
+@pytest.mark.parametrize("message", [
+    "Crie a marca Acme, segmento tecnologia e o site é https://acme.com.br",
+    "Faça uma marca chamada Acme, atua no ramo de tecnologia, site da marca é https://acme.com.br",
+])
+def test_brand_creation_understands_natural_brazilian_field_order(message):
+    route = route_request(message)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert action["arguments"]["name"] == "Acme"
+    assert action["arguments"]["sector"] == "tecnologia"
+    assert action["arguments"]["website_url"] == "https://acme.com.br"
+
+
+@pytest.mark.parametrize("message", [
+    "Confere se o site https://acme.com.br e a logo estão certos",
+    "Checa esse link da marca: acme.com.br",
+    "Valide o site oficial da marca",
+])
+def test_brand_site_inspection_understands_brazilian_requests(message):
+    route = route_request(message, has_brand=True)
+    assert route.action == "inspect_brand_site"
+    assert route.needs_tools == ("brands.inspect_site",)
+
+
+def test_brand_draft_reassembles_a_missing_segment_across_turns():
+    turn = v2_service._conversation_turn_context("tecnologia", [
+        {"id": "u1", "role": "user", "content": "Crie uma marca chamada Acme com site https://acme.com.br"},
+        {"id": "a1", "role": "assistant", "content": "Para criar a marca, falta apenas o segmento."},
+    ])
+    execution = prepare_execution("tecnologia", context(), routing_message=turn["routing_message"])
+    action = next(step for step in execution["plan"] if step["kind"] == "action")
+
+    assert turn["resolved_reference"] == "brand_draft"
+    assert action["arguments"] == {
+        "name": "Acme", "website_url": "https://acme.com.br", "sector": "tecnologia",
+    }
+
+
+def test_brand_draft_accepts_compact_name_site_segment_answer():
+    turn = v2_service._conversation_turn_context("Acme, acme.com.br, tecnologia", [
+        {"id": "u1", "role": "user", "content": "Crie uma marca nova"},
+        {"id": "a1", "role": "assistant", "content": "Informe nome da marca, site oficial e segmento."},
+    ])
+    execution = prepare_execution("Acme, acme.com.br, tecnologia", context(), routing_message=turn["routing_message"])
+    action = next(step for step in execution["plan"] if step["kind"] == "action")
+
+    assert action["arguments"]["name"] == "Acme"
+    assert action["arguments"]["website_url"] == "https://acme.com.br"
+    assert action["arguments"]["sector"] == "tecnologia"
+
     audit_message = "Inicie uma auditoria profunda da marca"
     audit = route_request(audit_message, has_brand=True)
     audit_action = next(step for step in build_task_plan(audit, budget_for(audit), audit_message)

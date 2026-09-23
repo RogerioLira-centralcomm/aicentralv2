@@ -5359,6 +5359,39 @@ def review_workspace_document(document_id):
                                              source_context=source_context))
 
 
+@bp.post('/workspace/app/marcas/inspecionar-site')
+@login_required
+def inspect_brand_site_route():
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    payload = request.get_json(silent=True) or request.form
+    from .brand_site_inspector import inspect_brand_site
+    try:
+        result = inspect_brand_site(payload.get('website_url', ''), logo_url=payload.get('logo_url', ''))
+    except HTTPException as exc:
+        return jsonify(ok=False, error=exc.description), exc.code or 400
+    return jsonify(ok=True, inspection=result)
+
+
+@bp.post('/workspace/app/marcas/<int:brand_id>/inspecionar-site')
+@login_required
+def inspect_existing_brand_site_route(brand_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    client_id = int(session.get('cliente_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    payload = request.get_json(silent=True) or request.form
+    from .brand_site_inspector import inspect_brand_site
+    try:
+        result = inspect_brand_site(payload.get('website_url') or brand.get('website_url') or '',
+                                    logo_url=payload.get('logo_url', ''))
+    except HTTPException as exc:
+        return jsonify(ok=False, error=exc.description), exc.code or 400
+    return jsonify(ok=True, inspection=result)
+
+
 @bp.post('/workspace/app/marcas')
 @login_required
 def create_brand():
@@ -5366,6 +5399,16 @@ def create_brand():
         abort(403, description='Atualize a página e tente novamente.')
     client_id = int(session.get('cliente_id') or 0)
     data = _workspace_brand_form()
+    submitted_logo_url = _normalized_website_url(
+        request.form.get('official_logo_url') or request.form.get('suggested_logo_url') or '',
+    )
+    creation_metadata = {
+        'sources': [data['website_url']] if data.get('website_url') else [],
+        'submitted_assets': {
+            'official_logo_url': submitted_logo_url or None,
+            'status': 'awaiting_upload_or_verification',
+        },
+    }
     # A new brand starts without inferred visual tokens. The audit owns the
     # palette; administrative requests cannot seed identity evidence.
     data['primary_color'] = None
@@ -5378,12 +5421,12 @@ def create_brand():
                        (crm_client_id, name, sector, tone_of_voice, primary_color,
                         secondary_color, website_url, brand_profile, analysis_metadata,
                         price_policy)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, '{}'::jsonb,
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb,
                             'hide_price')
                  RETURNING id""",
                 (client_id, data['name'], data['sector'], data['profile']['tone_of_voice'],
                  data['primary_color'], data['secondary_color'], data['website_url'],
-                 json.dumps(data['profile'])),
+                 json.dumps(data['profile']), json.dumps(creation_metadata)),
             )
             brand_id = int(cursor.fetchone()['id'])
         connection.commit()
@@ -7585,6 +7628,7 @@ def brand_detail(brand_id):
             'uploadAssets': url_for('cadu_workspace.upload_brand_assets', brand_id=brand_id),
             'createProject': url_for('cadu_workspace.create_project'),
             'audit': url_for('cadu_workspace.audit_brand', brand_id=brand_id),
+            'inspectSite': url_for('cadu_workspace.inspect_existing_brand_site_route', brand_id=brand_id),
             'auditStatus': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
             'approve': url_for('cadu_workspace.approve_brand_reviews', brand_id=brand_id),
             'reevaluate': url_for('cadu_workspace.reevaluate_brand_audit', brand_id=brand_id),

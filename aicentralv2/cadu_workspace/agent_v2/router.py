@@ -213,6 +213,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(?:cri(?:a|e|ar)|cadastr(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|"
                   r"mont(?:a|e|ar)|abr(?:a|e|ir)|nova)\b.{0,35}\bmarca\b"):
         return IntentRoute("workspace", "create_brand", "medium", "decision", (), (), None, True)
+    if _has(text, r"\b(?:inspecion|valid|verific|chec|confer|confir)\w*\b.{0,55}\b(?:site|link|logo)\b|\b(?:site|link|logo)\b.{0,55}\b(?:inspecion|valid|verific|chec|confer|confir)\w*\b"):
+        return IntentRoute("workspace", "inspect_brand_site", "medium", "analysis", (), ("brands.inspect_site",))
     if has_brand and (_has(text, r"\b(envi|substitu|troc|troqu|alter|atualiz)\w*\b.{0,35}\blogo\b")
                       or _has(text, r"\blogo\b.{0,35}\b(envi|substitu|troc|troqu|alter|atualiz)\w*\b")):
         return IntentRoute("workspace", "prepare_brand_logo_upload", "low", "decision",

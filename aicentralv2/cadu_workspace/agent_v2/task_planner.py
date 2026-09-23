@@ -327,9 +327,25 @@ def _project_link_step(message: str):
 def _brand_create_step(message: str):
     text = str(message or "")
     url_pattern = r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?"
-    website_match = re.search(rf"\b(?:site|website|endere[cç]o)\s*(?:oficial)?\s*(?::|=)?\s*({url_pattern})", text, re.IGNORECASE)
-    name_match = re.search(r"\bmarca(?:\s+nova)?\s*(?:chamada|nomeada|:)?\s*[\"“]?([^\"”\n,;]{2,150})", text, re.IGNORECASE)
-    sector_match = re.search(r"\b(?:setor|segmento|ramo)\s*(?:de|da|do|:|=)?\s*[\"“]?([^\"”\n,;]{2,80}?)(?=\s+(?:com\s+)?(?:site|website|logo|refer[eê]ncias?)\b|[,;]|$)", text, re.IGNORECASE)
+    website_match = re.search(
+        rf"\b(?:site|website|endere[cç]o)(?:\s+(?:oficial|da\s+marca))?\s*(?:(?:[ée]|fica\s+em)|:|=)?\s*({url_pattern})",
+        text, re.IGNORECASE,
+    )
+    explicit_names = list(re.finditer(
+        r"\bmarca(?:[ \t]+nova)?[ \t]*(?:chamada|nomeada|:)[ \t]*[\"“]?([^\"”\n,;]{2,150})",
+        text, re.IGNORECASE,
+    ))
+    name_match = explicit_names[-1] if explicit_names else re.search(
+        r"\b(?:cri(?:a|e|ar)|cadastr(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|mont(?:a|e|ar)|abr(?:a|e|ir))"
+        r"[ \t]+(?:(?:um|uma|a)[ \t]+)?marca(?:[ \t]+nova)?[ \t]+[\"“]?([^\"”\n,;]{2,150})",
+        text, re.IGNORECASE,
+    )
+    sector_match = re.search(
+        r"\b(?:(?:setor|segmento|ramo)\s*(?:de|da|do|:|=|[ée])?|atua\s+no\s+(?:setor|segmento|ramo)\s+de)\s*"
+        r"[\"“]?([^\"”\n,;]{2,80}?)(?=\s+(?:e\s+(?:o\s+)?)?(?:com\s+)?"
+        r"(?:site|website|endere[cç]o|logo|refer[eê]ncias?)\b|[,;]|$)",
+        text, re.IGNORECASE,
+    )
     if not website_match or not name_match or not sector_match:
         return None
     url = website_match.group(1).rstrip(".,;:)")

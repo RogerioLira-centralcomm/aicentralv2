@@ -713,3 +713,12 @@ def test_resource_search_returns_registry_metadata_and_indexed_evidence():
     assert result["resources"] == [{"id": "resource-1", "title": "Briefing"}]
     assert result["indexed_content"][0]["resource_id"] == "resource-1"
     assert result["search_mode"] == "resource_metadata_plus_hybrid_index"
+
+
+def test_public_catalog_exposes_safe_brand_site_inspection():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", capabilities=("workspace",))
+    tools = {item["name"]: item for item in load_builtin_tools().list(context, "customer_agent")}
+    assert "brands.inspect_site" in PUBLIC_TOOLS
+    definition = tools["brands.inspect_site"]
+    assert {"website_url", "logo_url", "brand_id"} <= set(definition["inputSchema"]["properties"])

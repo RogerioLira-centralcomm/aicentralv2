@@ -1,6 +1,6 @@
 """Tenant-scoped brand workflows shared by Cadu's internal MCP transport."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 import json
@@ -158,6 +158,17 @@ def brand_context(context: RequestContext, brand_id) -> dict:
     }
 
 
+def inspect_site(context: RequestContext, website_url: str = "", logo_url: str = "", brand_id=None) -> dict:
+    # Context is intentionally required even though this read does not persist anything:
+    # transports must still authenticate and scope the caller to the tenant.
+    if not str(website_url or "").strip():
+        brand = _brand(context, _current_brand_id(context, brand_id))
+        website_url = brand.get("website_url") or ""
+        logo_url = logo_url or brand.get("display_logo") or brand.get("logo_url") or ""
+    from .brand_site_inspector import inspect_brand_site
+    return inspect_brand_site(website_url, logo_url=logo_url)
+
+
 def create_brand(context: RequestContext, *, request_id, name: str, website_url: str, sector: str,
                  official_logo_url: str = "", reference_urls=None) -> dict:
     _require_admin(context)
@@ -173,9 +184,38 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
     reference_urls = list(dict.fromkeys(
         _website(item) for item in (reference_urls or []) if str(item or "").strip()
     ))[:12]
+    # A retry with the same request id must not depend on the external site
+    # still being online. The transaction repeats this check under a lock to
+    # protect simultaneous first attempts.
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT id, name, website_url FROM cx_clients
+                 WHERE crm_client_id = %s AND brand_profile->>'mcp_request_id' = %s LIMIT 1""",
+            (context.client_id, operation_id),
+        )
+        replay = cursor.fetchone()
+    if replay:
+        links = family_repository.project_brand_links(context.client_id)
+        project_ref = next((str(item.get("project_ref") or "") for item in links
+                            if str(item.get("brand_ref") or "") == f"studio:{replay['id']}"), None)
+        uploads = {"logo": prepare_asset_upload(context, int(replay["id"]), "logo"),
+                   "reference": prepare_asset_upload(context, int(replay["id"]), "reference")}
+        return {"brand_id": int(replay["id"]), "brand_ref": f"studio:{replay['id']}",
+                "project_ref": project_ref, "name": replay["name"], "website_url": replay["website_url"],
+                "created": False, "detail_url": product_url("workspace", f"/marcas/{replay['id']}"),
+                "artifact": {"type": "brand_identity", "brand_ref": f"studio:{replay['id']}",
+                             "title": f"Identidade — {replay['name']}"}, "uploads": uploads}
+    inspection = inspect_site(context, website_url, official_logo_url)
+    if not inspection.get("ready_for_analysis"):
+        raise BadRequest((inspection.get("warnings") or ["O site oficial não pôde ser validado."])[0])
+    if official_logo_url and not (inspection.get("explicit_logo") or {}).get("valid_image"):
+        raise BadRequest("O link informado para a logo não retornou uma imagem válida.")
     profile = {"mcp_request_id": operation_id, "created_via": "cadu_mcp",
                "market_seed": {"sector": sector, "priorities": ["market", "audience", "competitors", "category_context"]}}
-    metadata = {"sources": [website_url, *reference_urls],
+    metadata = {"sources": [website_url, *reference_urls], "site_inspection": inspection,
+                "submitted_assets": {"official_logo_url": official_logo_url or None,
+                                     "reference_urls": reference_urls,
+                                     "status": "awaiting_upload_or_verification"},
                 "analysis_seed": {"sector": sector, "prioritize": ["market", "audience", "competitors", "category_context"]}}
     connection = get_db()
     try:
@@ -192,12 +232,15 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
                 links = family_repository.project_brand_links(context.client_id)
                 project_ref = next((str(item.get("project_ref") or "") for item in links
                                     if str(item.get("brand_ref") or "") == f"studio:{existing['id']}"), None)
+                uploads = {"logo": prepare_asset_upload(context, int(existing["id"]), "logo"),
+                           "reference": prepare_asset_upload(context, int(existing["id"]), "reference")}
                 return {"brand_id": int(existing["id"]), "brand_ref": f"studio:{existing['id']}",
                         "project_ref": project_ref, "name": existing["name"],
                         "website_url": existing["website_url"], "created": False,
                         "detail_url": product_url("workspace", f"/marcas/{existing['id']}"),
                         "artifact": {"type": "brand_identity", "brand_ref": f"studio:{existing['id']}",
-                                     "title": f"Identidade — {existing['name']}"}}
+                                     "title": f"Identidade — {existing['name']}"},
+                        "uploads": uploads}
             cursor.execute(
                 """INSERT INTO cx_clients
                        (crm_client_id, name, sector, website_url, brand_profile, analysis_metadata, price_policy)
@@ -205,18 +248,6 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
                 (context.client_id, name, sector, website_url, json.dumps(profile), json.dumps(metadata)),
             )
             brand_id = int(cursor.fetchone()["id"])
-            assets = ([('logo', official_logo_url, True)] if official_logo_url else []) + [
-                ('reference', item, False) for item in reference_urls
-            ]
-            for role, source_url, is_primary in assets:
-                cursor.execute(
-                    """INSERT INTO cx_client_brand_assets
-                           (client_id,role,source_kind,source_url,page_url,status,is_primary,metadata)
-                         VALUES (%s,%s,'website',%s,%s,'approved',%s,%s::jsonb)""",
-                    (brand_id, role, source_url, website_url, is_primary,
-                     json.dumps({"display_name": "Logo oficial" if role == "logo" else "Referência inicial",
-                                 "created_via": "cadu_mcp"})),
-                )
             project_id = str(uuid4())
             cursor.execute(
                 """INSERT INTO cadu_ci_projetos
@@ -246,7 +277,7 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
             "detail_url": detail_url,
             "artifact": {"type": "brand_identity", "brand_ref": f"studio:{brand_id}",
                          "title": f"Identidade — {name}"},
-            "uploads": uploads,
+            "uploads": uploads, "site_inspection": inspection,
             "onboarding": {
                 "current_step": "logo",
                 "steps": ["brand_created", "primary_logo", "audit_mode", "audit_review"],
@@ -325,7 +356,7 @@ def update_identity(context: RequestContext, *, request_id, brand_id, changes: d
             if "name" in normalized:
                 profile["name_autogenerated"] = False
             history.append({"request_id": operation_id, "source": "cadu_mcp", "user_id": context.user_id,
-                            "fields": sorted(normalized), "at": datetime.utcnow().isoformat() + "Z"})
+                            "fields": sorted(normalized), "at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")})
             metadata["identity_edit_history"] = history[-50:]
             cursor.execute(
                 """UPDATE cx_clients
@@ -494,7 +525,7 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
             metadata["review_pack"] = {
                 "job_id": job_id, "request_id": operation_id, "status": "queued", "stage": "queued",
                 "index": 0, "total": 4, "message": "A auditoria entrou na fila.", "error": "",
-                "created_at": datetime.utcnow().isoformat() + "Z",
+                "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "input": {"website_url": website_url, "has_images": bool(selected_asset_ids), "include_project_sources": False, "analysis_mode": analysis_mode, "social_links": social_links, "additional_sources": additional_sources, "excluded_sources": excluded_sources, "existing_asset_ids": selected_asset_ids, "cost_confirmed": True, **estimate},
                 "analysis": {}, "reviews": [],
             }

@@ -31,6 +31,17 @@ def get_brand_context(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: service.brand_context(context, arguments["brand_id"]))
 
 
+@register_tool(name="brands.inspect_site", capability="workspace", effect="read",
+               description="Inspeciona com segurança o site oficial, valida um link de logo e encontra candidatos de logo sem aprová-los automaticamente.",
+               exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","properties":{
+                   "website_url":{"type":"string","minLength":3,"maxLength":2000},
+                   "logo_url":{"type":"string","maxLength":2000},
+                   "brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
+def inspect_site(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: service.inspect_site(context, arguments.get("website_url", ""), arguments.get("logo_url", ""), arguments.get("brand_id")))
+
+
 @register_tool(name="brands.list_assets", capability="workspace", effect="read",
                description="Lista imagens aprovadas da biblioteca da marca atual, incluindo IDs, prévias e qual é o logo principal.",
                exposures=("internal", "customer_agent"),

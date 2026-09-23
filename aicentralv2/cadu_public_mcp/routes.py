@@ -142,6 +142,7 @@ PUBLIC_TOOLS = frozenset({
     "workspace.share_project_with_team",
     "brands.list",
     "brands.get_context",
+    "brands.inspect_site",
     "brands.list_assets",
     "brands.create",
     "brands.update_identity",

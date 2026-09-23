@@ -29,6 +29,13 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
         if request.request_id:
             arguments["request_id"] = request.request_id
         return arguments
+    if tool_name == "brands.inspect_site":
+        matches = re.findall(r"https?://[^\s<>{}\[\]\\\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>{}\[\]\\\"']*)?", message, re.IGNORECASE)
+        values = [item.rstrip(".,;:)") for item in matches]
+        arguments = {"website_url": values[0] if values else ""}
+        if len(values) > 1 and re.search(r"\blogo\b", message, re.IGNORECASE):
+            arguments["logo_url"] = values[1]
+        return arguments
     if tool_name == "artifacts.get" and request.active_object and request.active_object.type.startswith("artifact:"):
         return {"artifact_id": request.active_object.id}
     if tool_name == "workspace.search_project_content":

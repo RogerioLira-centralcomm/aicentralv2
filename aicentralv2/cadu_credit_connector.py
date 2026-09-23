@@ -225,11 +225,11 @@ class CaduCreditConnector:
                 (idempotency_key, id_cliente, id_contato_cliente, ferramenta,
                  etapa, modelo, tokens_entrada, tokens_saida, total_tokens,
                  tokens_cobrados, metadata, status, charged_at)
-               VALUES (%s,%s,%s,%s,%s,%s,0,0,0,%s,%s,%s::jsonb,'charged',NOW())
+               VALUES (%s,%s,%s,%s,%s,%s,0,0,0,%s,%s::jsonb,'charged',NOW())
             ON CONFLICT (idempotency_key) DO NOTHING
             RETURNING *""",
             (str(idempotency_key), actor.client_id, actor.user_id, str(app),
-             str(stage), str(model or 'cadu'), required, required, Json(metadata or {})),
+             str(stage), str(model or 'cadu'), required, Json(metadata or {})),
         )
         row = cursor.fetchone()
         if not row:

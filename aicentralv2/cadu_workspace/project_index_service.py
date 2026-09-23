@@ -66,7 +66,7 @@ def persist_indexed_source(
                 purpose, category, classification_status, classification_confidence,
                 classification_reason, classification_metadata, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'text_model', %s, %s, %s,
-                'knowledge_source', %s, %s, %s, %s, %s, %s::jsonb, NOW(), NOW())
+                'knowledge_source', %s, %s, %s, %s, %s::jsonb, NOW(), NOW())
          RETURNING id""",
         (
             project_id, client_id, user_id, name, mime, size, storage_path,

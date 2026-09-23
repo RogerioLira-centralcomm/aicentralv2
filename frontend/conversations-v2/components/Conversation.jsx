@@ -185,6 +185,10 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
   const stickToLatest = useRef(true);
   const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
   const [composerStatus, setComposerStatus] = useState('idle');
+  const [newFileOpen, setNewFileOpen] = useState(false);
+  const [newFileTitle, setNewFileTitle] = useState('');
+  const [newFileBrief, setNewFileBrief] = useState('');
+  const [newFileFormat, setNewFileFormat] = useState('md');
   const [scrollMode, setScrollMode] = useState('following');
   const previousConversation = useRef(conversationId);
   const interaction = pendingInteraction(messages, running);
@@ -241,6 +245,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
       {interaction && <span className="cv-conversation-needs-action" title={interaction.kind === 'question' ? 'Esta conversa aguarda sua resposta' : 'Esta conversa aguarda sua decisão'} aria-label={interaction.kind === 'question' ? 'Aguardando sua resposta' : 'Ação necessária'}><Icon name="alert" size={17}/></span>}
       <span className="cv-conversation-context"><span className="cv-hidden cv-text-[11px] cv-text-[#78908c] sm:cv-inline">Contexto</span><ChatContextSelector context={context} projects={projects} brands={brands} onProjectChange={onProjectChange} disabled={running} loading={contextLoading} projectsOnly/></span>
       <button type="button" onClick={onOpenLibrary} className="cv-conversation-library-link" title="Abrir biblioteca do contexto"><Icon name="file" size={14}/><span>Biblioteca</span></button>
+      {context?.project_ref && <button type="button" onClick={() => setNewFileOpen(true)} disabled={contextLoading || running} className="cv-conversation-library-link" title="Criar arquivo com o Cadu"><Icon name="file" size={14}/><span>Criar arquivo</span></button>}
       <details ref={details} className="cv-conversation-support-popover cv-relative">
         <summary className={`cv-conversation-runtime ${running ? 'is-running' : ''} ${automation?.automation_enabled ? 'is-automation' : ''}`} aria-label={running ? runtime || 'Atividade em execução' : automation?.automation_enabled ? 'Automação ativa' : 'Saúde e atividade'} title={running ? runtime || 'Atividade em execução' : automation?.automation_enabled ? automation.schedule_label || 'Automação ativa' : 'Saúde e atividade'}><Icon name="pulse" size={17}/>{running ? <span>{runtime || 'Executando'}</span> : automation?.automation_enabled && <span>{automation.schedule_label || 'Automação ativa'}</span>}</summary>
         <div className="cv-conversation-support-popover__panel">
@@ -256,6 +261,18 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
     }}><Icon name="chevron" size={14}/>Novas atualizações</button>}
     <ExecutionQueue items={queuedTurns} onUpdate={onUpdateQueuedTurn} onRemove={onRemoveQueuedTurn} onMove={onMoveQueuedTurn}/>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop} onOpenLink={onOpenResource} layout={shellV2 ? layout : 'desktop'} disabled={contextLoading} onStateChange={setComposerStatus} audioTranscriptionEndpoint={audioTranscriptionEndpoint} csrfToken={csrfToken}/>
+    {newFileOpen && <div className="cv-fixed cv-inset-0 cv-z-[100] cv-grid cv-place-items-center cv-bg-black/60 cv-p-4" onMouseDown={event => { if (event.target === event.currentTarget) setNewFileOpen(false); }}><form className="cv-grid cv-w-full cv-max-w-[440px] cv-gap-4 cv-rounded-2xl cv-bg-panel cv-p-6 cv-text-white" onSubmit={event => {
+      event.preventDefault();
+      const title = newFileTitle.trim();
+      const brief = newFileBrief.trim();
+      if (!title || !brief) return;
+      const prompt = newFileFormat === 'html'
+        ? `Crie uma página HTML editável intitulada “${title}” para o projeto selecionado. Objetivo: ${brief}. Use os dados disponíveis no contexto do projeto; identifique claramente propostas e lacunas. Gere um artefato completo para eu revisar antes de finalizar e indexar no projeto.`
+        : `Crie um documento editável intitulado “${title}” para o projeto selecionado. Objetivo: ${brief}. Formato desejado para exportação: .${newFileFormat}. Use os dados disponíveis no contexto do projeto; identifique claramente propostas e lacunas. Gere um artefato para eu revisar antes de finalizar e indexar no projeto.`;
+      try { window.sessionStorage.setItem('cadu:next-file-format', newFileFormat); } catch (_) { /* Storage may be unavailable. */ }
+      setNewFileOpen(false); setNewFileTitle(''); setNewFileBrief('');
+      onPrompt(prompt, null, {submit: true});
+    }}><h2 className="cv-m-0 cv-text-lg">Criar arquivo no projeto</h2><p className="cv-m-0 cv-text-sm cv-text-mist">O Cadu prepara o rascunho nesta conversa. Revise e finalize para indexar.</p><label className="cv-grid cv-gap-1 cv-text-sm">Nome<input required maxLength={180} value={newFileTitle} onChange={event => setNewFileTitle(event.target.value)} className="cv-rounded-lg cv-border cv-border-white/20 cv-bg-transparent cv-p-2"/></label><label className="cv-grid cv-gap-1 cv-text-sm">Formato<select value={newFileFormat} onChange={event => setNewFileFormat(event.target.value)} className="cv-rounded-lg cv-border cv-border-white/20 cv-bg-panel cv-p-2"><option value="md">Markdown (.md)</option><option value="txt">Texto (.txt)</option><option value="html">HTML (.html)</option></select></label><label className="cv-grid cv-gap-1 cv-text-sm">O que o arquivo deve conter?<textarea required rows={4} value={newFileBrief} onChange={event => setNewFileBrief(event.target.value)} className="cv-rounded-lg cv-border cv-border-white/20 cv-bg-transparent cv-p-2"/></label><div className="cv-flex cv-justify-end cv-gap-2"><button type="button" onClick={() => setNewFileOpen(false)} className="cv-rounded-lg cv-px-4 cv-py-2">Cancelar</button><button type="submit" className="cv-rounded-lg cv-bg-teal cv-px-4 cv-py-2 cv-font-semibold cv-text-[#052522]">Gerar rascunho</button></div></form></div>}
     {artifactOpen && <span className="cv-sr-only">Entrega aberta ao lado da conversa</span>}
   </section>;
 }

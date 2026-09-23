@@ -401,7 +401,8 @@ def _indexable_text(artifact: dict) -> str:
     return "\n".join(line.strip() for line in body.splitlines() if line.strip())
 
 
-def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_version: int) -> dict:
+def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_version: int,
+                        source_format: str | None = None) -> dict:
     """Make the latest approved document the project's sole indexed snapshot."""
     from ...cadu_family import repository
     from ...cadu_skills.repository import charge_project_rag
@@ -426,6 +427,9 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
     if not admin and not roles.intersection({"owner", "admin", "editor"}):
         raise BadRequest("Você não pode finalizar documentos neste projeto.")
     artifact = get_artifact(context, artifact_id)
+    source_format = str(source_format or ("html" if artifact["type"] == "html" else "md")).lower()
+    if source_format not in ({"html"} if artifact["type"] == "html" else {"md", "txt"}):
+        raise BadRequest("Formato de arquivo inválido para este documento.")
     if artifact.get("project_ref") not in {None, project_ref}:
         raise BadRequest("O documento pertence a outro projeto.")
     if int(artifact["current_version"]) != int(expected_version):
@@ -437,6 +441,7 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
         raise BadRequest("O documento precisa de conteúdo suficiente para entrar na base do projeto.")
     project_id = project_ref[3:]
     category = {"brief":"brief", "media_plan":"media_plan", "research":"research"}.get(artifact["type"], "other")
+    source_name = f"{artifact['title']}.{source_format}"
     connection = get_db()
     with connection.cursor() as cursor:
         cursor.execute("""SELECT id FROM cadu_ci_projeto_arquivos WHERE id_cliente=%s AND projeto_id=%s
@@ -484,7 +489,8 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
                                          idempotency_key=f"artifact-final:{artifact_id}:v{expected_version}")
             source_id = project_index_service.persist_indexed_source(
                 cursor, project_id=project_id, client_id=context.client_id, user_id=context.user_id,
-                name=artifact["title"], mime="text/plain", size=len(text.encode("utf-8")),
+                name=source_name, mime={"html": "text/html", "md": "text/markdown", "txt": "text/plain"}[source_format],
+                size=len(text.encode("utf-8")),
                 storage_path=f"workspace://artifact/{artifact_id}/v{expected_version}", source="artifact_final",
                 content=text, chunks=chunks, embedding_model=embedding_model, charged_tokens=charged,
                 classification=classification, metadata=metadata)

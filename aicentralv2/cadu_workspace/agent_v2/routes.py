@@ -1019,7 +1019,8 @@ def artifact_finalize_project(artifact_id):
     current = resolve(conversation_id=data.get("conversation_id"),
                       surface=str(data.get("surface") or "conversations"),
                       project_ref=data.get("project_ref"))
-    result = finalize_to_project(current, str(artifact_id), expected_version=data.get("expected_version"))
+    result = finalize_to_project(current, str(artifact_id), expected_version=data.get("expected_version"),
+                                 source_format=data.get("source_format"))
     return jsonify(**result)
 
 

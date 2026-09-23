@@ -31,7 +31,7 @@ DEFINITIONS = {
         ArtifactDefinition("scenario", "Cenário", "structured_document"),
         ArtifactDefinition("research", "Pesquisa", "research_document"),
         ArtifactDefinition("project_map", "Mapa do projeto", "project_map", indexable=False),
-        ArtifactDefinition("html", "Página interativa", "html", indexable=False,
+        ArtifactDefinition("html", "Página interativa", "html", indexable=True,
                            publishable=True, max_content_bytes=2_000_000),
         ArtifactDefinition("meeting_summary", "Resumo de reunião", "meeting"),
         ArtifactDefinition("meeting_agenda", "Pauta de reunião", "meeting"),
@@ -52,4 +52,3 @@ def definition(artifact_type: str) -> ArtifactDefinition:
 
 def describe() -> list[dict]:
     return [DEFINITIONS[name].to_dict() for name in sorted(DEFINITIONS)]
-

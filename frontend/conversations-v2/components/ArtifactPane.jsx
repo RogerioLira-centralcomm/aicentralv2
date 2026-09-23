@@ -152,6 +152,18 @@ function documentHtml(content) {
   return sections.join('') || '<p><br/></p>';
 }
 
+function downloadTextArtifact(artifact, format) {
+  const html = artifact.type === 'html' ? htmlDocument(artifact.content || {}, artifact.title) : documentHtml(artifact.content || {});
+  const plain = new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() || '';
+  const title = String(artifact.title || 'documento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'documento';
+  const markdown = artifact.type === 'html' ? `# ${artifact.title || 'Documento'}\n\n${plain}` : `# ${artifact.title || 'Documento'}\n\n${plain}`;
+  const data = format === 'html' ? html : format === 'md' ? markdown : plain;
+  const blob = new Blob([data], {type: format === 'html' ? 'text/html;charset=utf-8' : 'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href = url; link.download = `${title}.${format}`; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function cleanDocumentHtml(html) {
   const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
   const allowed = new Set(['P', 'BR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'A', 'IMG', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD', 'DIV', 'SPAN', 'PRE', 'CODE', 'HR', 'SUP', 'SUB']);
@@ -560,6 +572,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const [organizingImage, setOrganizingImage] = useState(false);
   const [tabMenu, setTabMenu] = useState(null);
   const [editingDocument, setEditingDocument] = useState(false);
+  const [sourceFormat, setSourceFormat] = useState('md');
   const type = artifact?.type || 'document';
   const indexable = artifact?.capabilities?.indexable ?? !['html', 'project_map', 'link_reader'].includes(type);
   const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
@@ -592,6 +605,12 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     setClosing(false);
     setEditingTitle(false);
     setEditingDocument(false);
+    let preferred = 'md';
+    try {
+      preferred = window.sessionStorage.getItem('cadu:next-file-format') || 'md';
+      if (artifact?.id) window.sessionStorage.removeItem('cadu:next-file-format');
+    } catch (_) { /* Storage may be unavailable. */ }
+    setSourceFormat(artifact?.type === 'html' ? 'html' : preferred === 'txt' ? 'txt' : 'md');
     setTitleDraft(type === 'image' ? imageFileName(artifact) : (artifact?.title || artifact?.content?.title || 'Trabalho em andamento'));
     setImageMetadata(null);
     setOrganizingImage(false);
@@ -678,6 +697,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
           {type === 'image' && src && <a href={src} target="_blank" rel="noreferrer">Abrir original</a>}
           {type === 'image' && src && <a href={src} download>Baixar arquivo</a>}
           {textArtifact && <button type="button" onClick={toggleTheme}>{lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}</button>}
+          {(textArtifact || type === 'html') && artifact.id && <div role="group" aria-label="Baixar arquivo"><button type="button" onClick={() => downloadTextArtifact(artifact, 'md')}>Baixar .md</button><button type="button" onClick={() => downloadTextArtifact(artifact, 'txt')}>Baixar .txt</button><button type="button" onClick={() => downloadTextArtifact(artifact, 'html')}>Baixar .html</button></div>}
           {artifact.id && onMoveToProject && <label className="cv-artifact-project-picker">Mover material<select value={artifact.project_ref || ''} disabled={saving} onChange={event => onMoveToProject(event.target.value)}><option value="">Espaço pessoal</option>{projects.map(item => { const ref = item.projectRef || item.ref || item.id; return <option key={ref} value={ref}>{item.name || item.title || ref}</option>; })}</select></label>}
           {publicLink && <button type="button" onClick={onUnpublish} disabled={publishing || saving}>Despublicar</button>}
           <button type="button" onClick={() => onSideChange?.(side === 'right' ? 'left' : 'right')}>{side === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}</button>
@@ -690,7 +710,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     <div className="cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-auto">{contentView}</div>
     {!artifact.pending && type === 'image' && <footer className="cv-image-metadata" aria-label="Informações da imagem"><dl><div><dt>Dimensões</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${imageMetadata.width} × ${imageMetadata.height} px` : 'Carregando…'}</dd></div><div><dt>Resolução</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${((imageMetadata.width * imageMetadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : '—'}</dd></div><div><dt>Arquivo</dt><dd>{formatFileSize(imageMetadata?.bytes)}</dd></div></dl></footer>}
     {publicLink && <div className="cv-artifact-public-link"><span>Link publicado</span><input aria-label="Link publicado" readOnly value={publicLink} onFocus={event => event.target.select()}/><a href={publicLink} target="_blank" rel="noreferrer">Abrir</a></div>}
-    {!artifact.pending && artifact.id && type !== 'image' && <footer className="cv-artifact-actions"><span>{saving ? 'Salvando…' : dirty ? 'Alterações pendentes' : artifact.status === 'active' && artifact.project_ref ? 'Versão final no projeto' : artifact.project_ref ? 'Salva no projeto' : 'Rascunho salvo automaticamente'}</span><div>{projectRef && type !== 'link_reader' && indexable && <button type="button" onClick={onSaveToProject} disabled={saving} className="cv-artifact-actions__project">{artifact.status === 'active' && artifact.project_ref ? 'Atualizar fonte do projeto' : 'Finalizar e indexar no projeto'}</button>}{projectRef && type !== 'link_reader' && !indexable && !artifact.project_ref && <button type="button" onClick={onAttachToProject} disabled={saving} className="cv-artifact-actions__project">Salvar no projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">Salvar agora</button>}</div></footer>}
+    {!artifact.pending && artifact.id && type !== 'image' && <footer className="cv-artifact-actions"><span>{saving ? 'Indexando…' : dirty ? 'Alterações pendentes' : artifact.status === 'active' && artifact.project_ref ? 'Versão indexada no projeto' : artifact.project_ref ? 'Salva no projeto' : 'Rascunho salvo automaticamente'}</span><div>{projectRef && type !== 'link_reader' && indexable && <><label className="cv-text-xs">Formato da fonte <select value={sourceFormat} disabled={saving} onChange={event => setSourceFormat(event.target.value)}><option value={type === 'html' ? 'html' : 'md'}>{type === 'html' ? '.html' : '.md'}</option>{type !== 'html' && <option value="txt">.txt</option>}</select></label><button type="button" onClick={() => onSaveToProject(sourceFormat)} disabled={saving} className="cv-artifact-actions__project">{artifact.status === 'active' && artifact.project_ref ? 'Atualizar fonte do projeto' : 'Finalizar e indexar no projeto'}</button></>}{projectRef && type !== 'link_reader' && !indexable && !artifact.project_ref && <button type="button" onClick={onAttachToProject} disabled={saving} className="cv-artifact-actions__project">Salvar no projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">Salvar agora</button>}</div></footer>}
     <dialog ref={dialog} className="cv-dialog cv-w-[min(540px,calc(100vw-32px))] cv-p-0">
       <section><header className="cv-flex cv-items-center cv-justify-between cv-border-b cv-border-white/10 cv-p-5"><div><h2 className="cv-m-0 cv-text-base">Versões</h2><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-text-mist">Restaure uma revisão anterior.</p></div><button type="button" onClick={() => dialog.current?.close()} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent"><Icon name="close" size={16}/></button></header>
         <div className="cv-scroll cv-max-h-[55vh] cv-overflow-y-auto cv-p-3">{loadingVersions ? <p className="cv-p-3 cv-text-sm cv-text-mist">Carregando…</p> : versions.length ? versions.map(item => <article key={item.version} className="cv-flex cv-items-center cv-gap-4 cv-rounded-xl cv-p-3 hover:cv-bg-white/[.04]"><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm">Versão {item.version}</strong><small className="cv-mt-1 cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-xs cv-text-mist">{item.change_summary || 'Revisão da entrega'}</small></div><button type="button" disabled={Number(item.version) === Number(artifact.current_version) || comparingVersion !== null} onClick={() => compareVersion(item.version)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{comparingVersion === item.version ? 'Comparando…' : 'Comparar'}</button><button type="button" disabled={Number(item.version) === Number(artifact.current_version)} onClick={async () => { await onRestoreVersion(item.version); dialog.current?.close(); }} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{Number(item.version) === Number(artifact.current_version) ? 'Atual' : 'Restaurar'}</button></article>) : <p className="cv-p-3 cv-text-sm cv-text-mist">Nenhuma versão disponível.</p>}{comparison && <section className="cv-m-3 cv-rounded-xl cv-border cv-border-white/10 cv-p-4" aria-live="polite"><h3 className="cv-m-0 cv-text-sm">Versão {comparison.version} → atual</h3>{comparison.error ? <p className="cv-text-xs cv-text-mist">{comparison.error}</p> : <div className="cv-mt-3 cv-grid cv-gap-4 md:cv-grid-cols-2"><div><strong className="cv-text-xs cv-text-[#e8b4a9]">Trechos removidos ou substituídos</strong>{comparison.removed.length ? comparison.removed.map((line, index) => <p key={index} className="cv-mb-0 cv-mt-2 cv-text-xs cv-text-mist">{line}</p>) : <p className="cv-text-xs cv-text-mist">Nenhum trecho textual removido.</p>}</div><div><strong className="cv-text-xs cv-text-[#9ee1cd]">Trechos adicionados ou revisados</strong>{comparison.added.length ? comparison.added.map((line, index) => <p key={index} className="cv-mb-0 cv-mt-2 cv-text-xs cv-text-mist">{line}</p>) : <p className="cv-text-xs cv-text-mist">Nenhum trecho textual adicionado.</p>}</div></div>}</section>}</div>

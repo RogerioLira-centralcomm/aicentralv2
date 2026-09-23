@@ -981,7 +981,7 @@ export default function App({bootstrap}) {
     } finally { setSaving(false); }
   }, [artifact, bootstrap.endpoints.artifacts, conversationId, trace]);
 
-  const saveArtifactToProject = useCallback(async () => {
+  const saveArtifactToProject = useCallback(async sourceFormat => {
     if (!artifact?.id || !context.project_ref) return;
     const revision = artifactEditRevisionRef.current;
     setSaving(true);
@@ -1004,7 +1004,7 @@ export default function App({bootstrap}) {
       }
       const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}/finalize-project`, {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-        body: JSON.stringify({conversation_id: conversationId, project_ref: context.project_ref, expected_version: currentArtifact.current_version}),
+        body: JSON.stringify({conversation_id: conversationId, project_ref: context.project_ref, expected_version: currentArtifact.current_version, source_format: sourceFormat}),
       });
       if (revision === artifactEditRevisionRef.current) { setArtifact(data.artifact); artifactRef.current = data.artifact; setArtifactDirty(false); }
       else { setArtifact(current => current?.id === data.artifact.id ? {...current, current_version:data.artifact.current_version, status:data.artifact.status} : current); setArtifactDirty(true); }

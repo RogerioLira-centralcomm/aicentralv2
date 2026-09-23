@@ -127,7 +127,12 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-conversations-workarea > .cv-conversation-stage > .cv-conversation-shell { overflow:visible; }
 #cadu-conversations-v2-root .cv-conversation-header { min-width:0; overflow:visible; }
 #cadu-conversations-v2-root .cv-conversation-header > span { min-width:0; }
+#cadu-conversations-v2-root .cv-conversation-context { display:flex; min-width:0; margin-left:auto; align-items:center; gap:8px; }
 #cadu-conversations-v2-root .cv-chat-context-readonly {
+  display:flex;
+  max-width:190px;
+  align-items:center;
+  gap:6px;
   border: 1px solid rgba(101, 216, 203, .18);
   border-radius: 999px;
   color: #8aa7a2;
@@ -136,6 +141,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   padding: 8px 10px;
   white-space: nowrap;
 }
+#cadu-conversations-v2-root .cv-chat-context-readonly svg { flex:none; color:#7fcfc3; }
+#cadu-conversations-v2-root .cv-chat-context-readonly span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-conversation-header .cv-context-selector { min-width:0; max-width:min(240px,34vw); }
 #cadu-conversations-v2-root .cv-conversation-header .cv-context-selector > summary { min-width:0; width:min(220px,34vw); }
 #cadu-conversations-v2-root .cv-conversation-support-popover { position:relative; z-index:80; }
@@ -393,8 +400,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 }
 
 #cadu-conversations-v2-root .cv-pending-interaction {
-  width:min(760px,calc(100% - 32px));
-  margin:4px auto 8px;
+  width:min(720px,100%);
+  margin:2px 0 28px;
   padding:14px;
   border-radius:18px;
   background:rgba(18,39,40,.78);
@@ -470,12 +477,12 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 
 #cadu-conversations-v2-root .cv-thread-scroll {
   overscroll-behavior: contain;
-  scroll-padding-bottom: 156px;
+  scroll-padding-bottom: 32px;
 }
 
 #cadu-conversations-v2-root .cv-thread-content {
   max-width: 940px !important;
-  padding-bottom: 164px !important;
+  padding-bottom: 32px !important;
 }
 
 #cadu-conversations-v2-root .cv-composer-stage {
@@ -884,10 +891,10 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-prose strong { color:inherit; font-weight:560; }
 .cv-prose code { padding: 2px 5px; border-radius: 5px; background: rgba(255,255,255,.07); font-size: .9em; }
 .cv-prose a { color: #69ddd0; text-underline-offset: 3px; }
-#cadu-conversations-v2-root .cv-answer-tools { display:flex; align-items:center; gap:3px; min-height:28px; margin-top:10px; opacity:.58; transition:opacity 140ms ease; }
+#cadu-conversations-v2-root .cv-answer-tools { display:flex; align-items:center; gap:3px; min-height:28px; margin-top:10px; opacity:.78; transition:opacity 140ms ease; }
 #cadu-conversations-v2-root .cv-message--assistant:hover .cv-answer-tools,
 #cadu-conversations-v2-root .cv-answer-tools:focus-within { opacity:1; }
-#cadu-conversations-v2-root .cv-answer-tools button { display:inline-flex; min-height:28px; align-items:center; gap:6px; padding:4px 7px; border:0; border-radius:7px; background:transparent; color:#829b96; font:500 11px/1.2 inherit; cursor:pointer; }
+#cadu-conversations-v2-root .cv-answer-tools button { display:inline-flex; min-height:28px; align-items:center; gap:6px; padding:4px 7px; border:0; border-radius:7px; background:transparent; color:#9ab2ad; font:500 11px/1.2 inherit; cursor:pointer; }
 #cadu-conversations-v2-root .cv-answer-tools button:hover { background:rgba(255,255,255,.045); color:#cfe0dc; }
 #cadu-conversations-v2-root .cv-answer-tools button.is-confirmed { color:#70d8ca; }
 #cadu-conversations-v2-root .cv-answer-tools button:focus-visible { outline:2px solid rgba(101,216,203,.45); outline-offset:1px; opacity:1; }
@@ -1240,7 +1247,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-link-intake__actions small { margin-right:0; }
   #cadu-conversations-v2-root .cv-brand-identity__stats { grid-template-columns: 1fr; }
   #cadu-conversations-v2-root .cv-pending-interaction {
-    width:calc(100% - 16px);
+    width:100%;
     max-height:min(38dvh,310px);
     overflow-y:auto;
     overscroll-behavior:contain;

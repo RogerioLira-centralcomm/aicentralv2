@@ -115,7 +115,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /const openUsage = \(\) =>/);
   assert.match(dock, /resolvedAccountMenu \? <button[^>]+aria-haspopup="menu"/);
   assert.match(dock, /<nav className="cadu-ds-dock-primary"/);
-  assert.match(dock, /<DockDropZone[\s\S]+<nav className="cadu-ds-dock-primary"/);
+  assert.match(dock, /<nav className="cadu-ds-dock-primary"[\s\S]+<DockDropZone/);
+  assert.match(dock, /cadu-ds-dock-primary-action--home[\s\S]+cadu-ds-dock-primary-action--new/);
   assert.match(dock, /Conta de \$\{userName\}/);
   assert.match(dock, /onReorderShortcuts/);
   assert.match(dock, /onDropShortcut/);
@@ -548,7 +549,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /\.cv-composer-actions[\s\S]*border-top: 0 !important/);
   assert.match(styles, /\.cv-composer-shell \{[\s\S]*overflow: visible/);
   assert.match(styles, /bottom: calc\(100% \+ 10px\)/);
-  assert.match(styles, /padding-bottom: 164px !important/);
+  assert.match(styles, /padding-bottom: 32px !important/);
+  assert.match(conversation, /<PendingInteraction interaction=\{interaction\}/);
+  assert.equal((conversation.match(/<PendingInteraction/g) || []).length, 1);
   assert.match(styles, /@media \(max-width: 1080px\)[\s\S]*\.cv-artifact-overlay/);
   assert.match(template, /cadu-conversations-v2-root/);
   assert.match(template, /cadu-conversations-v2-bootstrap/);

@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {VisualIdentity} from './VisualIdentity';
 import {Icon} from './Icon';
+import {markProjectUsed, recentProjectOptions} from '../projectOptions.mjs';
 
 function useDisclosure() {
   const root = useRef(null);
@@ -28,13 +29,14 @@ const selectorItemId = item => item?.ref || item?.projectRef || item?.brandRef |
 const selectorItemIds = item => [item?.ref, item?.projectRef, item?.brandRef, item?.id]
   .map(id => String(id || '')).filter(Boolean);
 
-function Selector({label, value, items = [], onChange, emptyLabel, className = '', icon}) {
+function Selector({label, value, items = [], onChange, emptyLabel, className = '', icon, menuLabel = ''}) {
   const {root, open, setOpen} = useDisclosure();
   const selected = items.find(item => selectorItemIds(item).includes(String(value || '')));
   const choose = id => { onChange?.(id); setOpen(false); };
   return <details ref={root} open={open} onToggle={event => setOpen(event.currentTarget.open)} className={`cadu-ds-selector ${className}`}>
-    <summary aria-label={label}>{icon}<span>{selected?.name || emptyLabel}</span><i aria-hidden="true">⌄</i></summary>
+    <summary aria-label={label}>{icon}<span>{selected?.name || emptyLabel}</span><Icon name="chevron" size={13}/></summary>
     <div className="cadu-ds-selector-menu" aria-label={label}>
+      {menuLabel && <span className="cadu-ds-selector-menu__label">{menuLabel}</span>}
       <button type="button" aria-pressed={!value} onClick={() => choose('')}>{emptyLabel}</button>
       {items.map(item => { const id = selectorItemId(item); return <button key={id} type="button" aria-pressed={String(id) === String(value)} onClick={() => choose(id)}>{item.name}</button>; })}
     </div>
@@ -57,7 +59,14 @@ export function AgencySwitcher(props) {
 }
 
 export function ProjectSelector({agencyName, ...props}) {
-  return <Selector label={`Projeto${agencyName ? ` da agência ${agencyName}` : ''}`} emptyLabel="Selecionar projeto" {...props} icon={<Icon name="folder" size={14}/>} className="cadu-ds-selector--project"/>;
+  const [, setRecencyVersion] = useState(0);
+  const items = recentProjectOptions(props.items, props.value);
+  const chooseProject = id => {
+    if (id) markProjectUsed(id);
+    setRecencyVersion(version => version + 1);
+    props.onChange?.(id);
+  };
+  return <Selector label={`Projeto${agencyName ? ` da agência ${agencyName}` : ''}`} emptyLabel="Selecionar projeto" {...props} onChange={chooseProject} items={items} menuLabel="Projetos recentes" icon={<Icon name="folder" size={14}/>} className="cadu-ds-selector--project"/>;
 }
 
 export function ChatContextSelector({context = {}, projects = [], brands = [], onProjectChange, onBrandChange, disabled = false, loading = false}) {

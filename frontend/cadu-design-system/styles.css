@@ -334,11 +334,12 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-selector summary { display:flex; min-height:36px; align-items:center; gap:8px; padding:0 9px; border:1px solid transparent; border-radius:9px; color:var(--cadu-nav-ink); cursor:pointer; list-style:none; font:600 12px var(--cadu-font-sans); }
 .cadu-ds-selector summary::-webkit-details-marker { display:none; }
 .cadu-ds-selector summary span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.cadu-ds-selector summary i { margin-left:auto; color:var(--cadu-nav-muted); font-size:13px; font-style:normal; }
+.cadu-ds-selector summary>svg:last-child { margin-left:auto; flex:none; color:var(--cadu-nav-muted); transform:rotate(90deg); }
 .cadu-ds-selector[open] summary,.cadu-ds-selector summary:hover { border-color:var(--cadu-nav-line); background:rgba(255,255,255,.045); }
 .cadu-ds-selector-menu { position:absolute; top:calc(100% + 8px); left:0; z-index:40; display:grid; width:min(310px,calc(100vw - 32px)); max-height:min(300px,42dvh); overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-gutter:stable; scrollbar-width:thin; padding:6px; border:1px solid var(--cadu-nav-line); border-radius:12px; background:var(--cadu-nav-bg); box-shadow:0 18px 46px rgba(0,0,0,.32); }
 .cadu-ds-selector-menu::-webkit-scrollbar { width:6px; }
 .cadu-ds-selector-menu::-webkit-scrollbar-thumb { border-radius:999px; background:color-mix(in srgb,var(--cadu-muted) 45%,transparent); }
+.cadu-ds-selector-menu__label { padding:5px 9px 4px; color:var(--cadu-muted); font-size:9px; font-weight:650; }
 .cadu-ds-selector-menu button { width:100%; min-height:36px; padding:0 9px; border:0; border-radius:8px; background:transparent; color:var(--cadu-nav-ink); text-align:left; font:500 12px var(--cadu-font-sans); cursor:pointer; }
 .cadu-ds-selector-menu button:hover,.cadu-ds-selector-menu button[aria-pressed="true"] { background:rgba(127,207,194,.13); color:#fff; }
 

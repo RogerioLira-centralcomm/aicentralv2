@@ -6,11 +6,45 @@
   body.portal--workspace .cadu-ds-dock {
     --cadu-dock-slot:40px;
     --cadu-dock-plate:34px;
-    --cadu-dock-plate-bg:color-mix(in srgb,var(--cadu-nav-surface) 82%,#244d49);
+    --cadu-dock-plate-bg:#66817c;
     width:64px;
     min-width:64px;
     max-width:64px;
     align-items:center;
+  }
+
+  body.portal--workspace .cadu-ds-dock-primary {
+    display:grid;
+    width:100%;
+    flex:0 0 auto;
+    justify-items:center;
+    gap:2px;
+    margin:0 0 8px;
+  }
+
+  body.portal--workspace .cadu-ds-dock-primary-action {
+    display:grid;
+    width:36px;
+    height:36px;
+    min-width:36px;
+    min-height:36px;
+    place-items:center;
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+    border:0;
+    border-radius:10px;
+    background:transparent;
+    color:#4d716d;
+    text-decoration:none;
+    cursor:pointer;
+  }
+
+  body.portal--workspace .cadu-ds-dock-primary-action:is(:hover,:focus-visible) {
+    background:rgba(23,107,94,.11);
+    color:#123d38;
+    outline:2px solid rgba(23,107,94,.2);
+    outline-offset:1px;
   }
 
   body.portal--workspace .cadu-ds-dock-context,

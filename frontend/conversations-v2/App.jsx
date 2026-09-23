@@ -10,6 +10,7 @@ import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult, normalizeAnswerText, reconcileCompletedResponse} from './lib/responseModel.mjs';
 import {attachmentIssues, attachmentSubmissionMessage, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
 import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
+import {conversationDisplayTitle} from './lib/conversationPresentation.mjs';
 import {brandContextPayload, conversationPayload, mergeServerEntities, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {enqueue, MAX_QUEUED_TURNS, moveQueued, readQueue, updateQueued, writeQueue} from './lib/executionQueue.mjs';
@@ -17,6 +18,7 @@ import {acceptAgentEvent} from './lib/agentEvents.mjs';
 import {executionReducer, initialExecutionState, isExecutionActive} from './lib/executionState.mjs';
 import {Icon} from './lib/icons';
 import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
+import {markProjectUsed} from '../cadu-design-system/projectOptions.mjs';
 import {useConversationViewport} from './hooks/useConversationViewport';
 import {useArtifactWorkspace} from './hooks/useArtifactWorkspace';
 import {useFileDrop} from './hooks/useFileDrop';
@@ -267,7 +269,7 @@ export default function App({bootstrap}) {
       const data = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/bootstrap`);
       setConversationId(id); conversationRef.current = id;
       setQueuedTurns((data.queue || readQueue(id)).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
-      setTitle(conversationTitle || data.conversation?.title || 'Conversa');
+      setTitle(conversationDisplayTitle(conversationTitle || data.conversation?.title, 'Conversa'));
       if (data.context) setContext(data.context);
       if (Array.isArray(data.conversations)) setConversations(recentConversations(data.conversations, 30));
       if (Array.isArray(data.entities)) {
@@ -339,6 +341,7 @@ export default function App({bootstrap}) {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
         body: JSON.stringify(projectContextPayload(projectRef)),
       });
+      if (projectRef) markProjectUsed(projectRef);
       rememberContext(data.context || {});
       reset();
       setHistoryOpen(showHistory);
@@ -594,7 +597,7 @@ export default function App({bootstrap}) {
     } : null);
     const turnId = uid();
     setMessages(items => [...items, {id: uid(), turnId, role: 'user', content: clean, files}]);
-    setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
+    setTitle(current => current === emptyTitle ? conversationDisplayTitle(clean) : current);
     setInput(''); setComposerContext(null); setHomeAttachments([]); if (!skipAttachments) setAttachments(items => { releasePreviews(items); return []; }); setRuntime('Trabalhando');
     let terminal = false;
     let runStarted = false;

@@ -11,6 +11,7 @@ import {openWorkspaceDetail, openWorkspaceResourceConversation} from '../workspa
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {completeDockOrder} from '../dockPlacement.mjs';
+import {markProjectUsed} from '../projectOptions.mjs';
 
 function withQuery(url, values) {
   const target = new URL(url, window.location.origin);
@@ -140,7 +141,7 @@ export function WorkspaceHome({bootstrap}) {
     } catch (error) { setToast(error.message || 'Não foi possível preparar os anexos.'); }
   };
   const dropContext = payload => {
-    if (payload.projectRef || payload.type === 'project') { setProjectRef(payload.projectRef || payload.id); setBrandRef(''); setAttachmentDestination('conversation'); }
+    if (payload.projectRef || payload.type === 'project') { const ref = payload.projectRef || payload.id; markProjectUsed(ref); setProjectRef(ref); setBrandRef(''); setAttachmentDestination('conversation'); }
     if (payload.type === 'brand') { setBrandRef(payload.brandRef || (payload.id ? `studio:${payload.id}` : '')); setProjectRef(''); setAttachmentDestination('conversation'); }
   };
   // Automatic items remain limited to brands with a visible logo. Projects

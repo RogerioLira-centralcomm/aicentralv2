@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Icon} from '../lib/icons';
+import {conversationDisplayTitle} from '../lib/conversationPresentation.mjs';
 
 function contextLabel(item, projects, brands) {
   const project = projects.find(candidate => (candidate.ref || candidate.projectRef || candidate.id) === item.project_ref);
@@ -89,7 +90,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
     onConversationAction?.(item, action);
   };
   const conversationList = (items, hideContext = false) => items.map(item => <div className="cv-conversation-row" key={item.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-cadu-conversation', String(item.id)); }}>
-    <button className="cv-conversation-card" type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined} title={item.title || 'Conversa sem título'}><span className="cv-conversation-card__copy"><b>{item.title || 'Conversa sem título'}</b>{!hideContext && contextLabel(item, projects, brands) && <small>{contextLabel(item, projects, brands)}</small>}</span><span className={`cv-conversation-card__state ${item.running ? 'is-running' : ''}`} title={item.running ? 'Processo em andamento' : item.section === 'automation' && item.automation_enabled ? 'Automação agendada' : ''}>{item.running ? <i/> : item.section === 'automation' && item.automation_enabled ? <TimerIcon/> : null}</span></button>
+    <button className="cv-conversation-card" type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined} title={conversationDisplayTitle(item.title, 'Conversa sem título')}><span className="cv-conversation-card__copy"><b>{conversationDisplayTitle(item.title, 'Conversa sem título')}</b>{!hideContext && contextLabel(item, projects, brands) && <small>{contextLabel(item, projects, brands)}</small>}</span><span className={`cv-conversation-card__state ${item.running ? 'is-running' : ''}`} title={item.running ? 'Processo em andamento' : item.section === 'automation' && item.automation_enabled ? 'Automação agendada' : ''}>{item.running ? <i/> : item.section === 'automation' && item.automation_enabled ? <TimerIcon/> : null}</span></button>
     <div className={`cv-conversation-actions ${String(actionMenuId) === String(item.id) ? 'is-open' : ''}`}>
       <button type="button" className="cv-conversation-actions__trigger" aria-label={`Ações de ${item.title || 'conversa'}`} aria-expanded={String(actionMenuId) === String(item.id)} onClick={event => { event.stopPropagation(); setActionMenuId(current => String(current) === String(item.id) ? '' : String(item.id)); }}><span aria-hidden="true">•••</span></button>
       {String(actionMenuId) === String(item.id) && <div className="cv-conversation-actions__menu" role="menu">

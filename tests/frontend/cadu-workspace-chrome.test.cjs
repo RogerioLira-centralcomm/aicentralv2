@@ -19,4 +19,13 @@ test('workspace chrome owns one stable dock geometry contract', () => {
   assert.match(chrome, /--cadu-dock-plate:34px/);
   assert.match(chrome, /width:64px/);
   assert.match(chrome, /object-fit:contain/);
+  assert.match(chrome, /\.has-fallback-content:not\(\.has-custom-background\)/);
+  assert.match(chrome, /background:color-mix\(in srgb,var\(--cadu-identity-color/);
+});
+
+test('visual identity exposes rendered-image and fallback states to the canonical chrome', () => {
+  const identity = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/VisualIdentity.jsx'), 'utf8');
+  assert.match(identity, /has-rendered-image/);
+  assert.match(identity, /has-fallback-content/);
+  assert.match(identity, /onError=\{\(\) => setImageFailed\(true\)\}/);
 });

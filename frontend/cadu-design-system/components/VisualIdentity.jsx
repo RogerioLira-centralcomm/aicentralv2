@@ -24,9 +24,10 @@ export function VisualIdentity({src, initials, label, color, variant, className 
   const variantNumber = Number.isFinite(Number(variant)) ? ((Number(variant) % 10) + 10) % 10 : null;
   const variantClass = !showImage && !showFallbackImage && variantNumber !== null ? ` cadu-ds-visual-identity--v${variantNumber + 1}` : '';
   const imageClass = imageTreatment ? ` cadu-ds-visual-identity--${imageTreatment}` : '';
+  const renderStateClass = showImage || showFallbackImage ? ' has-rendered-image' : ' has-fallback-content';
   const identityValue = String(initials || '').trim().length > 1 ? initials : (label || initials);
   // Missing evidence gets a neutral UI token, never a fabricated brand color.
-  return <span className={`cadu-ds-visual-identity${variantClass}${imageClass} ${className}`} style={{'--cadu-identity-color': color || '#71807d'}} title={nativeTitle ? label || undefined : undefined}>
+  return <span className={`cadu-ds-visual-identity${variantClass}${imageClass}${renderStateClass} ${className}`} style={{'--cadu-identity-color': color || '#71807d'}} title={nativeTitle ? label || undefined : undefined}>
     {showImage
       ? <img src={src} alt={imageAlt} onError={() => setImageFailed(true)}/>
       : showFallbackImage

@@ -47,29 +47,24 @@ export function projectBrandKeys(project) {
 
 export function groupWorkspaceProjects(brands = [], projects = []) {
   const activeProjects = projects.filter(item => !isArchivedEntity(item)).slice().sort(compareWorkspaceActivity);
-  // Catalog and workspace payloads can contain the same brand through
-  // different records (for example an id-based row and a studio ref). Treat
-  // the visible brand label as the stable fallback identity and merge all of
-  // its keys before associating projects, so the sidebar never repeats a
-  // brand or its project tree.
-  const uniqueBrands = [];
-  const brandIndex = new Map();
-  brands.forEach(brand => {
-    const labelKey = normalizedEntityKey(entityLabel(brand));
-    const identityKeys = brandIdentityKeys(brand);
-    const existingIndex = labelKey ? brandIndex.get(labelKey) : undefined;
-    if (existingIndex !== undefined) {
-      identityKeys.forEach(key => uniqueBrands[existingIndex].keys.add(key));
-      return;
-    }
-    const index = uniqueBrands.length;
-    uniqueBrands.push({brand, keys:identityKeys});
-    if (labelKey) brandIndex.set(labelKey, index);
-  });
-  const groups = uniqueBrands.map(({brand, keys}) => {
+  const candidates = brands.map(brand => {
+    const keys = brandIdentityKeys(brand);
     return {...brand, projects:activeProjects.filter(project => projectBrandKeys(project).some(key => keys.has(key)))};
-  }).filter(brand => brand.projects.length)
-    .sort((left, right) => entityTimestamp(right.projects[0]) - entityTimestamp(left.projects[0]) || compareWorkspaceActivity(left, right));
+  }).filter(brand => brand.projects.length);
+  // Some legacy payloads expose one catalog record and one studio record for
+  // the same brand. Merge equal labels only when both records actually point
+  // to at least one common project; equal display names alone are not enough.
+  const groups = [];
+  candidates.forEach(candidate => {
+    const candidateProjectIds = new Set(candidate.projects.map(entityIdentity).filter(Boolean));
+    const existing = groups.find(group => normalizedEntityKey(entityLabel(group)) === normalizedEntityKey(entityLabel(candidate))
+      && group.projects.some(project => candidateProjectIds.has(entityIdentity(project))));
+    if (!existing) { groups.push(candidate); return; }
+    const known = new Set(existing.projects.map(entityIdentity).filter(Boolean));
+    existing.projects = [...existing.projects, ...candidate.projects.filter(project => !known.has(entityIdentity(project)))]
+      .sort(compareWorkspaceActivity);
+  });
+  groups.sort((left, right) => entityTimestamp(right.projects[0]) - entityTimestamp(left.projects[0]) || compareWorkspaceActivity(left, right));
   const grouped = new Set(groups.flatMap(group => group.projects.map(entityIdentity)));
   return {groups, ungrouped:activeProjects.filter(project => !grouped.has(entityIdentity(project)))};
 }

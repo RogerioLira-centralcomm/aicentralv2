@@ -422,44 +422,29 @@ export default function App({bootstrap}) {
     }
   }, [changeBrand, changeProject]);
 
-  const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || new URLSearchParams(window.location.search).get('project') || '');
-  const requestedBrandRef = useRef(new URLSearchParams(window.location.search).get('brand_ref') || '');
-  const requestedFreeContext = useRef(new URLSearchParams(window.location.search).get('context_mode') === 'free');
+  const requestedContext = useRef({
+    projectRef: initialQuery.get('project_ref') || initialQuery.get('project') || '',
+    brandRef: initialQuery.get('brand_ref') || '',
+    free: initialQuery.get('context_mode') === 'free',
+    pending: hasTransferredContext,
+  });
   const requestedHistoryOpen = useRef(new URLSearchParams(window.location.search).get('history') === '1');
   useEffect(() => {
-    if (!requestedFreeContext.current || contextLoading || running) return;
-    requestedFreeContext.current = false;
-    changeProject('', {showHistory: false}).finally(() => setContextTransferReady(true));
-  }, [changeProject, contextLoading, running]);
-
-  useEffect(() => {
-    if (!requestedProjectRef.current || contextLoading || running) return;
-    const projectRef = requestedProjectRef.current;
-    requestedProjectRef.current = '';
+    const transfer = requestedContext.current;
+    if (!transfer.pending || contextLoading || running) return;
+    transfer.pending = false;
+    const payload = transfer.free
+      ? {project_ref: null, brand_ref: null}
+      : {project_ref: transfer.projectRef || null, brand_ref: transfer.brandRef || null};
     request(bootstrap.endpoints.context, {
       method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-      body: JSON.stringify(projectContextPayload(projectRef)),
+      body: JSON.stringify(payload),
     }).then(async data => {
       setContext(data.context || {});
       if (requestedHistoryOpen.current) setHistoryOpen(true);
       requestedHistoryOpen.current = false;
-    }).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'))
-      .finally(() => setContextTransferReady(true));
-  }, [contextLoading, running, bootstrap.endpoints.context, trace]);
-
-  useEffect(() => {
-    if (!requestedBrandRef.current || contextLoading || running) return;
-    const brandRef = requestedBrandRef.current;
-    requestedBrandRef.current = '';
-    request(bootstrap.endpoints.context, {
-      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-      body: JSON.stringify(brandContextPayload(brandRef)),
-    }).then(async data => {
-      setContext(data.context || {});
-      if (requestedHistoryOpen.current) setHistoryOpen(true);
-      requestedHistoryOpen.current = false;
-      await loadBrandIdentity(brandRef);
-    }).catch(error => trace('Não foi possível aplicar a marca selecionada', error.message, 'error'))
+      if (transfer.brandRef) await loadBrandIdentity(transfer.brandRef);
+    }).catch(error => trace('Não foi possível aplicar o contexto selecionado', error.message, 'error'))
       .finally(() => setContextTransferReady(true));
   }, [contextLoading, running, bootstrap.endpoints.context, loadBrandIdentity, trace]);
 
@@ -958,6 +943,20 @@ export default function App({bootstrap}) {
     } finally { setSaving(false); }
   }, [artifact, artifactDirty, bootstrap.endpoints.artifacts, conversationId, context.project_ref, trace]);
 
+  const attachArtifactToProject = useCallback(async () => {
+    if (!artifact?.id || !context.project_ref || saving) return;
+    setSaving(true);
+    try {
+      const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}/save-project`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({conversation_id: conversationId, project_ref: context.project_ref}),
+      });
+      setArtifact(data.artifact); artifactRef.current = data.artifact;
+      trace('Entrega salva no projeto', data.artifact?.title || 'Entrega');
+    } catch (error) { trace('Falha ao salvar no projeto', error.message, 'error'); }
+    finally { setSaving(false); }
+  }, [artifact, bootstrap.endpoints.artifacts, context.project_ref, conversationId, saving, trace]);
+
   const publishArtifact = useCallback(async () => {
     if (!artifact?.id || publishing || saving) return;
     const revision = artifactEditRevisionRef.current;
@@ -1040,8 +1039,7 @@ export default function App({bootstrap}) {
   const restoreVersion = useCallback(async version => {
     if (!artifact?.id || (artifactDirty && !(await confirmDiscard(false)))) return;
     try {
-      const snapshot = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}/versions/${version}`);
-      const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}`, {method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({conversation_id: conversationId, expected_version: artifact.current_version, content: snapshot.version.content, title: artifact.title, change_summary: `Versão ${version} restaurada`})});
+      const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}/versions/${version}/restore`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({conversation_id: conversationId, expected_version: artifact.current_version})});
       setArtifact(data.artifact); artifactRef.current = data.artifact; setArtifactDirty(false);
     } catch (error) { trace('Falha ao restaurar versão', error.message, 'error'); }
   }, [artifact, artifactDirty, confirmDiscard, bootstrap.endpoints.artifacts, conversationId, trace]);
@@ -1319,7 +1317,7 @@ export default function App({bootstrap}) {
             side={artifactSide} onSideChange={changeArtifactSide}
             onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
             studioEditorUrl={bootstrap.urls?.studioEditor}
-            onSaveToProject={saveArtifactToProject} onPublish={publishArtifact} onCopyPublishedUrl={copyPublishedUrl} onUnpublish={unpublishArtifact} onClose={closeSurface}
+            onSaveToProject={saveArtifactToProject} onAttachToProject={attachArtifactToProject} onPublish={publishArtifact} onCopyPublishedUrl={copyPublishedUrl} onUnpublish={unpublishArtifact} onClose={closeSurface}
             onRequestSummary={url => submit(`Abra e resuma este site público em um texto editável: ${url}`, {skipAttachments: true})}
             onSaveReference={async url => {
               if (activeProjectRef) return submit(`Adicione este link ${url} ao projeto como referência, sem abrir, ler ou indexar.`, {skipAttachments: true});

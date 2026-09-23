@@ -1069,12 +1069,23 @@ def reorder_dock_shortcuts():
     connection = get_db()
     try:
         with connection.cursor() as cursor:
-            cursor.execute('SELECT id::text FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s FOR UPDATE',
+            cursor.execute('''SELECT id::text
+                                FROM cadu_workspace_dock_shortcuts
+                               WHERE client_id=%s AND user_id=%s
+                            ORDER BY position, updated_at DESC
+                                 FOR UPDATE''',
                            (client_id, user_id))
-            expected = {row['id'] for row in cursor.fetchall()}
-            if expected != set(values):
-                abort(400, description='Envie a lista completa dos seus atalhos para reorganizá-los.')
-            for position, shortcut_id in enumerate(values):
+            current_ids = [row['id'] for row in cursor.fetchall()]
+            if not set(values).issubset(current_ids):
+                abort(400, description='A ordem contém atalhos que não pertencem à sua dock.')
+            # The client may be rendering a filtered or slightly stale shelf.
+            # Replace only the slots occupied by IDs it knows; shortcuts omitted
+            # by the client keep their exact positions and relative order.
+            reordered = iter(values)
+            selected = set(values)
+            ordered_ids = [next(reordered) if shortcut_id in selected else shortcut_id
+                           for shortcut_id in current_ids]
+            for position, shortcut_id in enumerate(ordered_ids):
                 cursor.execute("""UPDATE cadu_workspace_dock_shortcuts
                                  SET position=%s,updated_at=NOW()
                                WHERE id=%s AND client_id=%s AND user_id=%s""",

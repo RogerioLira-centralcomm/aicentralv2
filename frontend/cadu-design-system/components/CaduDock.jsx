@@ -215,6 +215,8 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
   const [draggedId, setDraggedId] = useState('');
   const [trashActive, setTrashActive] = useState(false);
   const [insertIndex, setInsertIndex] = useState(null);
+  const pointerDragRef = useRef(null);
+  const suppressShortcutClickRef = useRef(false);
   const [addOpen, setAddOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
@@ -343,6 +345,55 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
   };
   const handleReorder = next => isControlled ? onReorderShortcuts?.(next) : persistManagedOrder(next);
   const clearDrag = () => { setDraggedId(''); setInsertIndex(null); setTrashActive(false); };
+  const reorderItemAt = (item, index) => {
+    const next = reorderAtInsertion(items, shortcutIdentity(item), index, shortcutIdentity);
+    if (next.some((value, position) => value.id !== items[position]?.id)) handleReorder(next);
+  };
+  const startPointerReorder = (event, item) => {
+    if (!canReorder || event.pointerType === 'mouse' || event.button !== 0) return;
+    pointerDragRef.current = {item, pointerId:event.pointerId, startY:event.clientY, active:false, overTrash:false, index:null};
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const movePointerReorder = event => {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.active && Math.abs(event.clientY - drag.startY) < 7) return;
+    if (!drag.active) {
+      drag.active = true;
+      suppressShortcutClickRef.current = true;
+      setDraggedId(shortcutIdentity(drag.item));
+    }
+    event.preventDefault();
+    const hovered = document.elementFromPoint(event.clientX, event.clientY);
+    drag.overTrash = Boolean(hovered?.closest?.('.cadu-ds-dock-trash'));
+    setTrashActive(drag.overTrash);
+    if (drag.overTrash) { setInsertIndex(null); return; }
+    const surface = event.currentTarget.closest('.cadu-ds-dock-section--live');
+    const entries = [...(surface?.querySelectorAll('[data-dock-index]') || [])];
+    const centers = entries.map(entry => { const rect = entry.getBoundingClientRect(); return rect.top + rect.height / 2; });
+    drag.index = insertionIndexFromCenters(centers, event.clientY);
+    setInsertIndex(drag.index);
+  };
+  const finishPointerReorder = event => {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    pointerDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!drag.active) return;
+    event.preventDefault();
+    const targetIndex = drag.index ?? items.length;
+    clearDrag();
+    if (drag.overTrash) removeItem(drag.item);
+    else reorderItemAt(drag.item, targetIndex);
+    window.setTimeout(() => { suppressShortcutClickRef.current = false; }, 0);
+  };
+  const cancelPointerReorder = event => {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    pointerDragRef.current = null;
+    clearDrag();
+    window.setTimeout(() => { suppressShortcutClickRef.current = false; }, 0);
+  };
   const locateInsertion = event => {
     const scrollSurface = event.currentTarget.querySelector('.cadu-ds-dock-context');
     if (scrollSurface) {
@@ -387,8 +438,8 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     const index = insertIndex ?? items.length;
     clearDrag();
     if (payload?.dockSource === 'dock') {
-      const next = reorderAtInsertion(items, payload.shortcutId || `${payload.kind}:${payload.id}`, index, shortcutIdentity);
-      if (next.some((item, position) => item.id !== items[position]?.id)) handleReorder(next);
+      const item = items.find(value => shortcutIdentity(value) === (payload.shortcutId || `${payload.kind}:${payload.id}`));
+      if (item) reorderItemAt(item, index);
       return;
     }
     if (payload?.id) { saveItem(payload, index); return; }
@@ -463,7 +514,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
       <section className="cadu-ds-dock-section cadu-ds-dock-section--live" aria-label="Atalhos fixados">
         {items.map((item, index) => <React.Fragment key={shortcutIdentity(item)}>
           {insertIndex === index && <span className="cadu-ds-dock-insertion" aria-label={`Soltar na posição ${index + 1}`}/>}
-          <div className={`cadu-ds-dock-shortcut${draggedId === shortcutIdentity(item) ? ' is-dragging' : ''}`} data-dock-index={index} draggable={canReorder} onDragStart={canReorder ? event => { writePayload(event, item); setDraggedId(shortcutIdentity(item)); } : undefined} onDragEnd={clearDrag} onKeyDown={event => { if (event.altKey && event.key === 'ArrowUp') { event.preventDefault(); moveWithKeyboard(item, -1); } if (event.altKey && event.key === 'ArrowDown') { event.preventDefault(); moveWithKeyboard(item, 1); } }}>
+          <div className={`cadu-ds-dock-shortcut${draggedId === shortcutIdentity(item) ? ' is-dragging' : ''}`} data-dock-index={index} draggable={canReorder} onDragStart={canReorder ? event => { writePayload(event, item); setDraggedId(shortcutIdentity(item)); } : undefined} onDragEnd={clearDrag} onPointerDown={event => startPointerReorder(event, item)} onPointerMove={movePointerReorder} onPointerUp={finishPointerReorder} onPointerCancel={cancelPointerReorder} onClickCapture={event => { if (suppressShortcutClickRef.current) { event.preventDefault(); event.stopPropagation(); } }} onKeyDown={event => { if (event.altKey && event.key === 'ArrowUp') { event.preventDefault(); moveWithKeyboard(item, -1); } if (event.altKey && event.key === 'ArrowDown') { event.preventDefault(); moveWithKeyboard(item, 1); } }}>
             {item.kind === 'brand' ? <DockBrandShortcut brand={item} active={item.active} onOpen={openItem}/> : <DockResourceShortcut item={item} active={item.active} onOpen={openItem}/>}
           </div>
         </React.Fragment>)}

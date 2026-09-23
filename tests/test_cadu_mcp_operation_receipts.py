@@ -72,24 +72,16 @@ def test_restore_version_creates_a_new_version_without_mutating_the_snapshot():
         "version": 2,
         "expected_version": 5,
     }
-    snapshot = {"version": 2, "content": {"summary": "Versão aprovada"}}
-    restored = {"id": "artifact-1", "current_version": 6, "content": snapshot["content"]}
+    restored = {"id": "artifact-1", "current_version": 6, "content": {"summary": "Versão aprovada"}}
 
     with patch(
-        "aicentralv2.cadu_workspace.mcp.tools.artifacts.service.get_version",
-        return_value=snapshot,
-    ) as get_version, patch(
-        "aicentralv2.cadu_workspace.mcp.tools.artifacts.service.patch_artifact",
+        "aicentralv2.cadu_workspace.mcp.tools.artifacts.service.restore_version",
         return_value=restored,
-    ) as patch_artifact, patch(
+    ) as restore_version, patch(
         "aicentralv2.cadu_workspace.mcp.tools.artifacts.operations.execute",
         side_effect=lambda _request_id, _context, _name, _payload, callback: callback(),
     ):
         result = restore_artifact_version(_context(), arguments)
 
     assert result == restored
-    get_version.assert_called_once_with(_context(), "artifact-1", 2)
-    patch_artifact.assert_called_once_with(
-        _context(), "artifact-1", snapshot["content"], expected_version=5,
-        change_summary="Versão 2 restaurada via MCP",
-    )
+    restore_version.assert_called_once_with(_context(), "artifact-1", 2, expected_version=5)

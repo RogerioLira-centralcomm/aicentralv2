@@ -18,7 +18,7 @@ from .guardrails import _clean_runtime_html
 from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
-from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, materialize_artifact, patch_artifact, publish_artifact, unpublish_artifact
+from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, materialize_artifact, patch_artifact, publish_artifact, restore_version, unpublish_artifact
 from ..artifacts.service import finalize_to_project
 from .service import prepare as prepare_message, stream as stream_message
 from .provider import ProviderUnavailable
@@ -866,6 +866,16 @@ def artifact_versions(artifact_id):
 @bp.get("/artifacts/<uuid:artifact_id>/versions/<int:version>")
 def artifact_version(artifact_id, version):
     return jsonify(version=get_version(resolve(), str(artifact_id), version))
+
+
+@bp.post("/artifacts/<uuid:artifact_id>/versions/<int:version>/restore")
+def artifact_restore_version(artifact_id, version):
+    data = request.get_json(silent=True) or {}
+    artifact = restore_version(
+        resolve(conversation_id=data.get("conversation_id")), str(artifact_id), version,
+        expected_version=data.get("expected_version"),
+    )
+    return jsonify(artifact=artifact)
 
 
 @bp.patch("/artifacts/<uuid:artifact_id>")

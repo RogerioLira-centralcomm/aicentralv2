@@ -109,7 +109,7 @@ def _clean_editor_html(value, limit=100000):
             if attr in {"href", "src"} and not (value.startswith("https://") or value.startswith("http://") or value.startswith("data:image/")):
                 continue
             if attr in {"href", "src", "alt", "title", "target", "rel"}:
-                safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")[:2000]}"')
+                safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")}"')
         return f"<{name}{''.join(safe_attrs)}>"
 
     cleaned = re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)
@@ -214,7 +214,7 @@ def _clean_runtime_html(value, limit=100_000):
             if attr in {"href", "src", "action"} and not (value.startswith("https://") or value.startswith("http://") or value.startswith("/") and not value.startswith("//") or value.startswith("data:image/")):
                 continue
             if attr in {"class", "id", "role", "alt", "title", "target", "rel", "href", "src", "action", "type", "name", "value", "placeholder", "aria-label"} or attr.startswith("aria-") or attr.startswith("data-"):
-                safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")[:2000]}"')
+                safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")}"')
         return f"<{name}{''.join(safe_attrs)}>"
 
     cleaned = re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)

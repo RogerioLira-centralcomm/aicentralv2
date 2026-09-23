@@ -2004,6 +2004,32 @@ def test_normalizer_preserves_complete_editable_delivery_without_silent_cuts():
     assert response.artifact_patch["summary"] == ("síntese " * 600).strip()
 
 
+def test_normalizer_preserves_safe_inline_images_without_cutting_the_source():
+    source = "data:image/png;base64," + ("A" * 6000)
+    response = normalize_response({
+        "answer": "Imagem incluída.",
+        "artifact_patch": {"title": "Documento visual", "html": f'<p>Antes</p><img src="{source}" alt="Imagem"><p>Depois</p>'},
+    }, {"mode": "artifact_first", "allow_artifact": True, "artifact_type": "document"})
+
+    assert f'src="{source}"' in response.artifact_patch["html"]
+    assert response.artifact_patch["html"].endswith("<p>Depois</p>")
+
+
+@pytest.mark.parametrize(("artifact_type", "status", "message"), [
+    ("html", "published", "Retire a página da publicação"),
+    ("document", "archived", "Reative a entrega"),
+    ("link_reader", "draft", "somente para leitura"),
+])
+def test_restore_rejects_live_archived_and_read_only_artifacts(monkeypatch, artifact_type, status, message):
+    monkeypatch.setattr(artifact_service, "get_artifact", lambda *_: {
+        "id": "artifact-1", "type": artifact_type, "status": status, "current_version": 3,
+    })
+    monkeypatch.setattr(artifact_service, "get_version", lambda *_: pytest.fail("snapshot must not be read"))
+
+    with pytest.raises(Exception, match=message):
+        artifact_service.restore_version(context(), "artifact-1", 1, expected_version=3)
+
+
 def test_generic_client_delivery_language_opens_an_editable_result():
     route = route_request(
         "Organize tudo e deixe pronto para apresentar ao cliente amanhã.",

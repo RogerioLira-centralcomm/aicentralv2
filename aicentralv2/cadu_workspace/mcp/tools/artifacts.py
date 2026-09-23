@@ -145,11 +145,9 @@ def artifact_version(context: RequestContext, arguments: dict) -> dict:
 def restore_artifact_version(context: RequestContext, arguments: dict) -> dict:
     payload = {key: arguments[key] for key in ("artifact_id", "version", "expected_version")}
     def restore():
-        snapshot = service.get_version(context, arguments["artifact_id"], arguments["version"])
-        return service.patch_artifact(
-            context, arguments["artifact_id"], snapshot["content"],
+        return service.restore_version(
+            context, arguments["artifact_id"], arguments["version"],
             expected_version=arguments["expected_version"],
-            change_summary=f"Versão {arguments['version']} restaurada via MCP",
         )
     return _domain(lambda: operations.execute(
         arguments["request_id"], context, "artifacts.restore_version", payload, restore,

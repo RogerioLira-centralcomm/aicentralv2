@@ -76,7 +76,9 @@ def get_artifact(context: RequestContext, artifact_id: str) -> dict:
         row = cur.fetchone()
     if not row:
         raise NotFound("Artefato indisponível.")
-    return dict(row)
+    artifact = dict(row)
+    artifact["capabilities"] = definition(artifact["type"]).to_dict()
+    return artifact
 
 
 def materialize_artifact(artifact: dict):
@@ -137,6 +139,27 @@ def get_version(context: RequestContext, artifact_id: str, version: int) -> dict
     if not row:
         raise NotFound("Versão indisponível.")
     return dict(row)
+
+
+def restore_version(context: RequestContext, artifact_id: str, version: int, *, expected_version: int) -> dict:
+    """Create a new current version from an immutable snapshot.
+
+    Published content must be explicitly unpublished first so a restore cannot
+    alter a live public URL as a side effect. Archived and read-only resources
+    likewise require an explicit lifecycle action before their history changes.
+    """
+    artifact = get_artifact(context, artifact_id)
+    if artifact["status"] == "published":
+        raise Conflict("Retire a página da publicação antes de restaurar uma versão.")
+    if artifact["status"] == "archived":
+        raise Conflict("Reative a entrega antes de restaurar uma versão.")
+    if not definition(artifact["type"]).agent_editable:
+        raise BadRequest("Este tipo de entrega é uma referência somente para leitura.")
+    snapshot = get_version(context, artifact_id, version)
+    return patch_artifact(
+        context, artifact_id, snapshot["content"], expected_version=expected_version,
+        change_summary=f"Versão {int(version)} restaurada",
+    )
 
 
 def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, expected_version: int,

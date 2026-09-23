@@ -1037,7 +1037,8 @@ test('home and chat preserve an explicit free session and expose a project conte
 
   assert.match(home, /context_mode: projectRef \|\| brandRef \? 'bound' : 'free'/);
   assert.match(app, /contextTransferReady/);
-  assert.match(app, /changeProject\('', \{showHistory: false\}\)/);
+  assert.match(app, /const requestedContext = useRef/);
+  assert.match(app, /project_ref: transfer\.projectRef \|\| null, brand_ref: transfer\.brandRef \|\| null/);
   assert.match(app, /!contextTransferReady/);
   assert.match(conversation, /<ChatContextSelector[^>]+projectsOnly/);
   assert.match(selectors, /Sessão livre/);
@@ -1045,17 +1046,31 @@ test('home and chat preserve an explicit free session and expose a project conte
   assert.match(sidebar, /Usar um projeto/);
 });
 
+test('artifact capabilities keep save, index and restore lifecycle actions honest', () => {
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+
+  assert.match(artifact, /artifact\?\.capabilities\?\.indexable/);
+  assert.match(artifact, /!indexable && !artifact\.project_ref/);
+  assert.match(artifact, /Salvar no projeto/);
+  assert.match(app, /\/versions\/\$\{version\}\/restore/);
+  assert.match(app, /onAttachToProject=\{attachArtifactToProject\}/);
+});
+
 test('dock and composer use one stable geometry without layered hover chrome', () => {
   const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
-  const dockStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.css'), 'utf8');
+  const dockStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/workspace-chrome.css'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
 
   assert.match(dock, /className=\{`cadu-ds-dock-shortcut[\s\S]+draggable=\{canReorder\}/);
-  assert.match(dockStyles, /position:sticky !important/);
-  assert.match(dockStyles, /width:64px !important/);
+  assert.match(dock, /onPointerMove=\{movePointerReorder\}/);
+  assert.match(dock, /drag\.overTrash/);
+  assert.match(dockStyles, /position:sticky/);
+  assert.match(dockStyles, /width:64px/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:18px; height:18px; \}/);
-  assert.match(dockStyles, /background:transparent !important;[\s\S]+color:var\(--cadu-nav-muted\) !important/);
-  assert.match(dockStyles, /\.cadu-ds-dock-primary-action:is\(:hover,:focus-visible\) \{ color:var\(--cadu-accent\) !important; \}/);
+  assert.match(dockStyles, /background:transparent;[\s\S]+color:#4d716d/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action:hover \{ color:var\(--cadu-accent\); \}/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action:focus-visible[\s\S]+outline:2px solid currentColor/);
   assert.match(styles, /\.cv-conversations-workarea::after/);
   assert.match(styles, /height:150px/);
   assert.match(styles, /border-radius:9px !important/);

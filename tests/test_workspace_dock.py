@@ -60,6 +60,48 @@ class WorkspaceDockTest(TestCase):
         response = _client().post('/workspace/api/dock/shortcuts/order', json={'ids': [{}]}, headers={'X-CSRF-Token': 'known-token'})
         self.assertEqual(response.status_code, 400)
 
+    @mock.patch('aicentralv2.cadu_workspace.routes._user_dock_shortcuts', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._dock_shortcuts_available', return_value=True)
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_reorder_mixed_brand_and_project_preserves_unseen_shortcuts(self, get_db, _available, _shortcuts):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [
+            {'id': 'link-shortcut'},
+            {'id': 'brand-shortcut'},
+            {'id': 'project-shortcut'},
+        ]
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/api/dock/shortcuts/order', json={
+            'ids': ['project-shortcut', 'brand-shortcut'],
+        }, headers={'X-CSRF-Token': 'known-token'})
+
+        self.assertEqual(response.status_code, 200)
+        updates = [call.args[1] for call in cursor.execute.call_args_list if 'SET position=' in call.args[0]]
+        self.assertEqual([values[:2] for values in updates], [
+            (0, 'link-shortcut'),
+            (1, 'project-shortcut'),
+            (2, 'brand-shortcut'),
+        ])
+        connection.commit.assert_called_once_with()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._user_dock_shortcuts', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._dock_shortcuts_available', return_value=True)
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_reorder_rejects_shortcuts_from_another_user(self, get_db, _available, _shortcuts):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [{'id': 'brand-shortcut'}]
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/api/dock/shortcuts/order', json={
+            'ids': ['foreign-shortcut'],
+        }, headers={'X-CSRF-Token': 'known-token'})
+
+        self.assertEqual(response.status_code, 400)
+        connection.rollback.assert_called_once_with()
+
     @mock.patch('aicentralv2.cadu_workspace.routes._authorized_dock_target', return_value={'id': 'p-1'})
     @mock.patch('aicentralv2.cadu_workspace.routes._dock_shortcuts_available', return_value=True)
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')

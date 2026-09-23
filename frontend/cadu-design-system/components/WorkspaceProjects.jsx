@@ -16,13 +16,15 @@ function catalogHref(base, key, value, query) {
   return suffix ? `${base}?${suffix}` : base;
 }
 
+const normalizeProjectSearch = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+
 export function WorkspaceProjects({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
   const [query, setQuery] = useState(bootstrap.query || '');
   const [creating, setCreating] = useState(false);
   const [account, setAccount] = useState(false);
-  const needle = query.trim().toLocaleLowerCase('pt-BR');
-  const projects = useMemo(() => (bootstrap.projects || []).filter(project => !needle || `${project.name} ${project.brandName} ${project.description}`.toLocaleLowerCase('pt-BR').includes(needle)), [bootstrap.projects, needle]);
+  const needle = normalizeProjectSearch(query.trim());
+  const projects = useMemo(() => (bootstrap.projects || []).filter(project => !needle || normalizeProjectSearch(`${project.name} ${project.brandName} ${project.description} ${(project.contextItems || []).map(field => `${field.label} ${field.display_value}`).join(' ')}`).includes(needle)), [bootstrap.projects, needle]);
   const dockItems = bootstrap.dock?.items || [];
   useEffect(() => {
     const key = 'cadu:list:projects';

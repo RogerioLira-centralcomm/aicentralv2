@@ -153,6 +153,13 @@ test('project dossier reuses the React workspace shell while retaining project a
   const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
   assert.match(project, /cadu-ds-project-data-index/);
   assert.match(project, /Editar contexto/);
+  assert.match(project, /Histórico da direção/);
+  assert.match(project, /fetch\(urls\.directionHistory/);
+  assert.match(project, /Revisão \{item\.revision\}/);
+  assert.match(project, /Itens personalizados/);
+  assert.match(project, /project\.contextItems/);
+  assert.match(project, /value="context">Direção/);
+  assert.match(project, /onEditContext=\{\(\) => setDialog\('identity'\)\}/);
   assert.match(project, /Fontes e arquivos/);
   assert.match(project, /Criar plano de mídia/);
   assert.match(project, /Mesclar com outro projeto/);
@@ -214,6 +221,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(template, /'projectView': project_view/);
   assert.match(template, /cadu_workspace\.clean_project_section/);
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
+  assert.match(template, /'directionHistory': url_for\('cadu_workspace\.project_direction_history_api'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
   assert.match(template, /'updateBrands': url_for\('cadu_workspace\.update_project_brands'/);
   assert.match(template, /'tasks': url_for\('cadu_workspace\.project_tasks_api'/);

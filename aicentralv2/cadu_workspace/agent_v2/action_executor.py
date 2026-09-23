@@ -49,8 +49,12 @@ def _completion(step_name: str, result: dict) -> dict:
         return completion
     if step_name == "workspace.update_project_context":
         name = result.get("name") or "Projeto"
-        return {"answer": f"Projeto renomeado para “{name}” com sucesso.", "blocks": [
-            {"type": "activity", "state": "completed", "label": "Nome do projeto atualizado", "detail": name},
+        fields = result.get("updated_fields") or []
+        renamed_only = fields == ["name"] or not fields
+        return {"answer": (f"Projeto renomeado para “{name}” com sucesso." if renamed_only else
+                            f"Os dados do projeto “{name}” foram atualizados com sucesso."), "blocks": [
+            {"type": "activity", "state": "completed", "label": ("Nome do projeto atualizado" if renamed_only else "Contexto do projeto atualizado"),
+             "detail": name if renamed_only else " · ".join(fields)},
         ], "refresh_context": True}
     if step_name == "workspace.set_project_status":
         status = result.get("status") or "atualizado"

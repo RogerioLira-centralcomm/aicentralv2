@@ -274,7 +274,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
         return ''
     project_id = project_ref[3:]
     try:
-        projects = repository.rows('''SELECT nome, descricao, instrucoes, publico, posicionamento, tom_de_voz
+        projects = repository.rows('''SELECT nome, descricao, instrucoes, publico, posicionamento, tom_de_voz,
+                                             COALESCE(campos_personalizados, '{}'::jsonb) AS campos_personalizados
                                         FROM cadu_ci_projetos WHERE id = %s AND id_cliente = %s''',
                                    (project_id, client_id))
     except Exception:

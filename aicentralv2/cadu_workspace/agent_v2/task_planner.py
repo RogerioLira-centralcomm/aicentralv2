@@ -1,5 +1,6 @@
 """Bounded deterministic task plans; simple turns never invoke a planner LLM."""
 
+import json
 import re
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -136,6 +137,95 @@ def _project_rename_step(message: str):
         "requires_confirmation": True, "request_id": str(uuid4()),
         "arguments": {"name": name}, "effect": "write",
         "summary": f"Renomear o projeto atual para “{name}”.",
+    }
+
+
+def _section(text: str, labels: str) -> str:
+    match = re.search(
+        rf"(?:^|\n)\s*(?:#+\s*)?(?:{labels})\s*:?[ \t]*\n(.+?)(?=\n\s*(?:#+\s*)?[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][^\n]{{1,80}}\s*:?[ \t]*\n|\Z)",
+        text, re.IGNORECASE | re.DOTALL,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def _project_context_step(message: str):
+    """Build a bounded patch from explicit project data, including variable fields."""
+    text = str(message or "").strip()
+    if not text:
+        return None
+    if text.startswith("{"):
+        try:
+            selected = json.loads(text)
+            if isinstance(selected, dict) and selected.get("type") == "conversation_turn":
+                prior = str(selected.get("latest_assistant_answer") or "")
+                turns = "\n\n".join(str(item.get("content") or "") for item in selected.get("recent_turns") or []
+                                     if isinstance(item, dict))
+                text = "\n\n".join(value for value in (prior, turns) if value)
+        except (TypeError, ValueError):
+            pass
+    payload = {}
+    name_match = re.search(
+        r"(?:^|\n)\s*(?:#+\s*)?(?:nome do projeto|projeto)\s*:\s*\*{0,2}([^\n*]{2,150})",
+        text, re.IGNORECASE,
+    )
+    if name_match:
+        payload["name"] = " ".join(name_match.group(1).strip(" .—-*\"").split())[:150]
+    description = _section(text, r"descri[cç][aã]o|foco do projeto")
+    if description:
+        payload["description"] = description[:4000]
+    instructions = _section(text, r"diretrizes? operacionais?|regras? de opera[cç][aã]o|dire[cç][aã]o estrat[eé]gica")
+    if instructions:
+        payload["instructions"] = instructions[:12000]
+    custom = []
+    sections = (
+        ("objetivo", "Objetivo", r"objetivo(?: principal| central)?"),
+        ("canais", "Canais", r"canais?(?: de m[ií]dia)?(?: inclu[ií]dos)?"),
+        ("estrutura_de_funil", "Estrutura de funil", r"estrutura(?: estrat[eé]gica| de funil)|etapas? do funil"),
+        ("orcamento_mensal", "Orçamento mensal", r"or[cç]amento(?: mensal)?|diretriz de or[cç]amento"),
+        ("restricoes", "Restrições", r"restri[cç][oõ]es?(?: do projeto)?"),
+        ("indicadores", "Indicadores", r"indicadores?(?: principais)?|crit[eé]rios? de acompanhamento|kpis?"),
+    )
+    for key, label, aliases in sections:
+        value = _section(text, aliases)
+        if value:
+            custom.append({"key": key, "label": label, "value": value[:12000]})
+    budget = re.search(r"(?:R\$\s*)?[\d.]+(?:,\d{1,2})?\s*(?:por\s+m[eê]s|/\s*m[eê]s|mensais?)", text, re.IGNORECASE)
+    if budget and not any(item["key"] == "orcamento_mensal" for item in custom):
+        custom.append({"key": "orcamento_mensal", "label": "Orçamento mensal", "value": budget.group(0)})
+    channels = [name for name in ("Google Ads", "Instagram Ads", "Facebook Ads", "LinkedIn Ads", "TikTok Ads")
+                if re.search(rf"\b{re.escape(name)}\b", text, re.IGNORECASE)]
+    if channels and not any(item["key"] == "canais" for item in custom):
+        custom.append({"key": "canais", "label": "Canais", "value": channels})
+    generic_pattern = re.compile(
+        r"\b(?:adicion|inclu|cri|atualiz|alter|mud)\w*\b\s+(?:o\s+)?(?:campo|item|dado)\s+[\"“]?"
+        r"([^\"”:\n]{1,120})[\"”]?\s*(?:para|como|com|:)\s*(.+?)"
+        r"(?=(?:[.;!?]\s*|,\s*|\s+e\s+)(?:adicion|inclu|cri|atualiz|alter|mud)\w*\b\s+(?:o\s+)?(?:campo|item|dado)\b|[.!?]?$)",
+        re.IGNORECASE,
+    )
+    for generic in generic_pattern.finditer(text):
+        label = " ".join(generic.group(1).strip(" -:;,.").split())[:120]
+        value = re.split(r"\s+(?:na|no|da|do)\s+(?:dire[cç][aã]o|contexto|projeto)\b",
+                         generic.group(2), maxsplit=1, flags=re.IGNORECASE)[0].strip(" \n-:;,. ")[:12000]
+        if label and value:
+            custom.append({"key": label, "label": label, "value": value})
+    removal = re.search(
+        r"\b(?:remov|exclu|apag)\w*\b\s+(?:o\s+)?(?:campo|item|dado)\s+[\"“]?"
+        r"([^\"”.,;:\n]{1,120})",
+        text, re.IGNORECASE,
+    )
+    if removal:
+        payload["remove_custom_fields"] = [removal.group(1).strip()]
+    if custom:
+        payload["custom_fields"] = custom
+    replace_context = bool(re.search(r"\b(?:completamente|do zero|substitu\w*|novo contexto|deixar de ser)\b", text, re.IGNORECASE))
+    if replace_context:
+        payload["replace_custom_fields"] = True
+    if not payload:
+        return None
+    return {
+        "kind": "action", "name": "workspace.update_project_context", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": payload, "effect": "write",
+        "summary": "Atualizar os dados do projeto atual" + (" e substituir seu contexto anterior." if replace_context else "."),
     }
 
 
@@ -279,6 +369,10 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
         steps.append(_project_status_step(message))
     if route.action == "rename_project":
         action = _project_rename_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "update_project_context":
+        action = _project_context_step(message)
         if action:
             steps.append(action)
     if route.action == "link_project_brand":

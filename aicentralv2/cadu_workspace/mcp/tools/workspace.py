@@ -10,7 +10,7 @@ from ....db import get_db
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
 from ...project_portfolio_service import attach_summaries
-from ... import project_source_service, workspace_ingestion_service
+from ... import project_context_service, project_source_service, workspace_ingestion_service
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -166,45 +166,41 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
             "audience": {"type": "string", "maxLength": 4000},
             "positioning": {"type": "string", "maxLength": 4000},
             "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+            "custom_fields": {"type": "array", "maxItems": 40, "items": {"type": "object", "required": ["key", "value"], "properties": {
+                "key": {"type": "string", "minLength": 1, "maxLength": 80},
+                "label": {"type": "string", "maxLength": 120},
+                "type": {"type": "string", "enum": ["text", "list", "number", "currency", "date", "url"]},
+                "value": {},
+            }, "additionalProperties": False}},
+            "replace_custom_fields": {"type": "boolean"},
+            "remove_custom_fields": {"type": "array", "maxItems": 40, "items": {"type": "string", "maxLength": 80}},
+            "expected_revision": {"type": "integer", "minimum": 1},
         }, "additionalProperties": False,
     },
 )
 def update_project_context(context: RequestContext, arguments: dict) -> dict:
     _require_project_editor(context)
-    project_id = _native_project_id(context)
     fields = ("name", "description", "instructions", "tone_of_voice", "audience", "positioning", "color")
     payload = {key: arguments[key] for key in fields if key in arguments}
-    if not payload:
-        raise ToolInputError("Informe ao menos um campo do projeto para atualizar.")
-    if "name" in payload:
-        payload["name"] = " ".join(str(payload["name"]).split())[:150]
-        if len(payload["name"]) < 2:
-            raise ToolInputError("O projeto precisa de um nome com ao menos dois caracteres.")
-    if "color" in payload and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(payload["color"])):
-        raise ToolInputError("Use uma cor hexadecimal válida para o projeto.")
-    column = {"name": "nome", "description": "descricao", "instructions": "instrucoes",
-              "tone_of_voice": "tom_de_voz", "audience": "publico", "positioning": "posicionamento",
-              "color": "cor"}
+    custom_fields = arguments.get("custom_fields") or []
+    remove_custom_fields = arguments.get("remove_custom_fields") or []
+    operation_payload = {**payload, "custom_fields": custom_fields,
+                         "remove_custom_fields": remove_custom_fields,
+                         "replace_custom_fields": bool(arguments.get("replace_custom_fields"))}
 
     def update():
-        assignments = ", ".join(f"{column[key]}=%s" for key in payload)
-        connection = get_db()
         try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    f"UPDATE cadu_ci_projetos SET {assignments}, updated_at=NOW() "
-                    "WHERE id=%s AND id_cliente=%s RETURNING id,nome,updated_at",
-                    (*payload.values(), project_id, context.client_id),
-                )
-                result = cursor.fetchone()
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        return {"project_ref": context.project_ref, "project_id": str(result["id"]),
-                "name": result["nome"], "updated_fields": sorted(payload), "status": "updated"}
+            return project_context_service.update_context(
+                client_id=context.client_id, actor_id=context.user_id, project_ref=context.project_ref,
+                standard_fields=payload, custom_fields=custom_fields,
+                remove_custom_fields=remove_custom_fields,
+                replace_custom_fields=bool(arguments.get("replace_custom_fields")),
+                expected_revision=arguments.get("expected_revision"), source="conversation",
+            )
+        except project_context_service.ProjectContextError as exc:
+            raise ToolInputError(str(exc)) from exc
 
-    return operations.execute(arguments["request_id"], context, "workspace.update_project_context", payload, update)
+    return operations.execute(arguments["request_id"], context, "workspace.update_project_context", operation_payload, update)
 
 
 @register_tool(
@@ -293,9 +289,35 @@ def list_projects(context: RequestContext, arguments: dict) -> dict:
     except (TypeError, ValueError):
         raise ToolInputError("Limite inválido.")
     records = [row for row in repository.entities(context.client_id) if row.get("kind") == "project"]
+    native_ids = [str(row.get("ref"))[3:] for row in records if str(row.get("ref") or "").startswith("ci:")]
+    directions = {}
+    if native_ids:
+        try:
+            rows = repository.rows(
+                """SELECT id,nome,descricao,instrucoes,tom_de_voz,publico,posicionamento,cor,
+                          COALESCE(campos_personalizados,'{}'::jsonb) AS campos_personalizados,
+                          context_revision,updated_at
+                     FROM cadu_ci_projetos WHERE id_cliente=%s AND id::text=ANY(%s) AND status <> 'deletado'""",
+                (context.client_id, native_ids),
+            )
+            directions = {f"ci:{row['id']}": project_context_service._snapshot(row) for row in rows}
+        except Exception:
+            directions = {}
+    enriched = []
+    for row in records:
+        direction = directions.get(str(row.get("ref")))
+        item = {key: row.get(key) for key in ("ref", "name", "source")}
+        if direction:
+            item.update({"context_revision": direction["revision"],
+                         "context_items": project_context_service.context_items(direction)})
+        enriched.append(item)
     if query:
-        records = [row for row in records if query in str(row.get("name") or "").casefold()]
-    selected = [{key: row.get(key) for key in ("ref", "name", "source")} for row in records[:limit]]
+        enriched = [row for row in enriched if query in (
+            f"{row.get('name') or ''} " + " ".join(
+                f"{item.get('label')} {item.get('display_value')}" for item in row.get("context_items") or []
+            )
+        ).casefold()]
+    selected = enriched[:limit]
     try:
         selected = attach_summaries(context.client_id, selected)
     except Exception:
@@ -413,9 +435,15 @@ def get_project_context(context: RequestContext, arguments: dict) -> dict:
     raw = project_knowledge_context(context.project_ref, context.brand_ref, context.client_id,
                                     str(arguments.get("query") or ""))
     try:
-        return json.loads(raw) if raw else {"project_ref": context.project_ref}
+        packet = json.loads(raw) if raw else {"project_ref": context.project_ref}
     except (TypeError, ValueError):
-        return {"project_ref": context.project_ref}
+        packet = {"project_ref": context.project_ref}
+    try:
+        direction = project_context_service.get_context(context.client_id, context.project_ref)
+        packet.update({"direction": direction, "context_items": project_context_service.context_items(direction)})
+    except project_context_service.ProjectContextError:
+        pass
+    return packet
 
 
 @register_tool(
@@ -434,9 +462,16 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     if len(query) < 2:
         raise ToolInputError("Informe o que deve ser pesquisado no projeto.")
     packet = get_project_context(context, {"query": query})
+    direction = packet.get("direction") or {}
+    context_results = project_context_service.search_context(direction, query)
+    source_results = [{**item, "result_type": "indexed_source"}
+                      for item in (packet.get("fontes_verificadas") or [])]
     return {
         "project_ref": context.project_ref,
         "query": query,
+        "revision": direction.get("revision"),
         "project": packet.get("projeto") or {},
-        "results": packet.get("fontes_verificadas") or [],
+        "context_results": context_results,
+        "source_results": source_results,
+        "results": [*context_results, *source_results],
     }

@@ -45,6 +45,8 @@
     'createImage': product_url('studio', '/studio/modelagem-criativos/criar?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),
     'createVideo': product_url('studio', '/studio/modelagem-criativos/video?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),
     'updateContext': url_for('cadu_workspace.update_project_context', project_id=project_data.id),
+    'directionApi': url_for('cadu_workspace.update_project_direction_api', project_id=project_data.id),
+    'directionHistory': url_for('cadu_workspace.project_direction_history_api', project_id=project_data.id),
     'updateBrands': url_for('cadu_workspace.update_project_brands', project_id=project_data.id),
     'importBrand': url_for('cadu_workspace.import_project_brand', project_id=project_data.id),
     'createNote': url_for('cadu_workspace.create_project_note', project_id=project_data.id),

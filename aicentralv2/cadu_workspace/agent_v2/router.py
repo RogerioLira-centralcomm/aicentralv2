@@ -90,7 +90,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         if _has(text, r"\b(?:apag|exclu|delet|remov)\w*\b.{0,45}\bmarca\b|\bmarca\b.{0,45}\b(?:apag|exclu|delet|remov)\w*\b"):
             return IntentRoute("workspace", "open_brand_delete" if has_brand else "select_brand_for_delete",
                                "low", "direct" if has_brand else "clarification", ("brand",) if has_brand else ())
-        if _has(text, r"\b(?:apag|exclu|delet|remov)\w*\b.{0,45}\bprojeto\b|\bprojeto\b.{0,45}\b(?:apag|exclu|delet|remov)\w*\b"):
+        removes_project_field = _has(text, r"\b(?:apag|exclu|remov)\w*\b.{0,80}\b(?:campo|item|dado)\b")
+        if not removes_project_field and _has(text, r"\b(?:apag|exclu|delet|remov)\w*\b.{0,45}\bprojeto\b|\bprojeto\b.{0,45}\b(?:apag|exclu|delet|remov)\w*\b"):
             return IntentRoute("workspace", "open_project_delete" if has_project else "select_project_for_delete",
                                "low", "direct" if has_project else "clarification", ("project",) if has_project else ())
 
@@ -176,6 +177,16 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     rename_subject = re.split(r"\bpara\b", text, maxsplit=1, flags=re.IGNORECASE)[0]
     if has_project and project_rename and (not _has(rename_subject, r"\bmarca\b") or _has(rename_subject, r"\bprojeto\b")):
         return IntentRoute("workspace", "rename_project", "medium", "decision",
+                           ("project",), (), None, True)
+    project_context_update = _has(
+        text,
+        r"\b(?:atualiz|atuzl|alter|mud|redefin|substitu|reescrev)\w*\b.{0,100}\b(?:projeto|contexto|escopo|objetivo)\b|"
+        r"\b(?:projeto|contexto|escopo|objetivo)\b.{0,100}\b(?:atualiz|atuzl|alter|mud|redefin|substitu|reescrev)\w*\b|"
+        r"\b(?:adicion|inclu|cri|atualiz|alter|mud|remov|exclu)\w*\b.{0,80}\b(?:campo|item|dado)\b.{0,80}\b(?:projeto|dire[cç][aã]o|contexto)\b|"
+        r"\b(?:campo|item|dado)\b.{0,80}\b(?:projeto|dire[cç][aã]o|contexto)\b.{0,80}\b(?:adicion|inclu|cri|atualiz|alter|mud|remov|exclu)\w*\b",
+    )
+    if has_project and project_context_update:
+        return IntentRoute("workspace", "update_project_context", "medium", "decision",
                            ("project",), (), None, True)
     active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
     if active_artifact_type in {

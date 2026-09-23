@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from io import BytesIO
 from pathlib import Path
@@ -222,6 +224,77 @@ def test_project_rename_keeps_priority_when_a_brand_is_linked():
     brand_route = route_request("mude o nome da marca Centralcomm para Central X",
                                 has_project=True, has_brand=True)
     assert brand_route.action == "update_brand_identity"
+
+
+def test_project_context_update_builds_confirmable_patch_with_custom_fields():
+    message = """Atualize o projeto atual com estes dados.
+
+# Projeto: Campanhas de mídia paga
+
+## Objetivo principal
+Gerar demanda com até R$ 2.000 por mês.
+
+## Canais de mídia
+Google Ads e Instagram Ads
+
+## Diretrizes operacionais
+Separar as campanhas por etapa do funil.
+"""
+    route = route_request(message, has_project=True)
+    assert route.action == "update_project_context"
+    assert route.requires_confirmation is True
+    plan = build_task_plan(route, budget_for(route, "analysis"), message)
+    action = next(step for step in plan if step.get("kind") == "action")
+    assert action["name"] == "workspace.update_project_context"
+    assert action["arguments"]["name"] == "Campanhas de mídia paga"
+    assert action["arguments"]["instructions"] == "Separar as campanhas por etapa do funil."
+    fields = {item["key"]: item["value"] for item in action["arguments"]["custom_fields"]}
+    assert fields["objetivo"] == "Gerar demanda com até R$ 2.000 por mês."
+    assert "Google Ads" in fields["canais"]
+
+
+def test_project_context_update_understands_conversation_turn_selection():
+    selected = json.dumps({
+        "type": "conversation_turn",
+        "latest_assistant_answer": "# Projeto: Campanhas\n\n## Objetivo\nGerar leads.\n\n## Orçamento\nR$ 2.000 por mês",
+        "recent_turns": [],
+    })
+    route = route_request("atuzlie o projeto atual com esses dados", has_project=True)
+    assert route.action == "update_project_context"
+    plan = build_task_plan(route, budget_for(route, "analysis"), selected)
+    action = next(step for step in plan if step.get("kind") == "action")
+    assert action["arguments"]["name"] == "Campanhas"
+    assert {item["key"] for item in action["arguments"]["custom_fields"]} >= {"objetivo", "orcamento_mensal"}
+
+
+def test_project_context_update_accepts_arbitrary_custom_field_from_chat():
+    message = 'Adicione o campo "Praça prioritária" para Belo Horizonte na direção do projeto.'
+    route = route_request(message, has_project=True)
+    assert route.action == "update_project_context"
+    plan = build_task_plan(route, budget_for(route, "analysis"), message)
+    action = next(step for step in plan if step.get("kind") == "action")
+    assert action["arguments"]["custom_fields"] == [{
+        "key": "Praça prioritária", "label": "Praça prioritária", "value": "Belo Horizonte",
+    }]
+
+
+def test_project_context_update_accepts_multiple_custom_fields_from_chat():
+    message = ('Adicione o campo "Praça prioritária" para Belo Horizonte e '
+               'adicione o campo "Meta mensal" para 300 leads na direção do projeto.')
+    route = route_request(message, has_project=True)
+    plan = build_task_plan(route, budget_for(route, "analysis"), message)
+    action = next(step for step in plan if step.get("kind") == "action")
+    fields = {item["key"]: item["value"] for item in action["arguments"]["custom_fields"]}
+    assert fields == {"Praça prioritária": "Belo Horizonte", "Meta mensal": "300 leads"}
+
+
+def test_project_context_update_can_remove_arbitrary_custom_field_from_chat():
+    message = 'Remova o campo "Praça prioritária" da direção do projeto.'
+    route = route_request(message, has_project=True)
+    assert route.action == "update_project_context"
+    plan = build_task_plan(route, budget_for(route, "analysis"), message)
+    action = next(step for step in plan if step.get("kind") == "action")
+    assert action["arguments"]["remove_custom_fields"] == ["Praça prioritária"]
 
 
 def test_project_rename_keeps_priority_when_an_artifact_is_open():

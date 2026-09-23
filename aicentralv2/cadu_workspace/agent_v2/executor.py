@@ -120,7 +120,10 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             policy["max_duration_ms"] = budget.max_duration_ms
             policy["artifact_type"] = None
             policy["allow_artifact"] = False
-    plan = build_task_plan(route, budget, routed_message)
+    planning_message = routed_message
+    if route.action == "update_project_context" and getattr(request, "selected_context", None):
+        planning_message = str(request.selected_context.get("text") or planning_message)
+    plan = build_task_plan(route, budget, planning_message)
     if route.action == "schedule_project_meeting" and not any(step.get("kind") == "action" for step in plan):
         policy["action_preflight"] = {
             **(policy.get("action_preflight") or {}), "ready": False,

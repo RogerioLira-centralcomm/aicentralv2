@@ -37,6 +37,10 @@ function ProjectLinkImage({src}) {
   return src && !failed ? <img src={src} alt="" loading="lazy" onError={() => setFailed(true)}/> : <ProjectIcon name="link"/>;
 }
 
+function normalizeProjectSearch(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+}
+
 function writeDockResourcePayload(event, resource, projectId) {
   const target = new URL(window.location.href);
   target.searchParams.set('resource', resource.id);
@@ -96,15 +100,73 @@ function ProjectManagementDialog({project, projects, urls, csrfToken, mode, init
   </ProjectDialog>;
 }
 
+const PROJECT_CONTEXT_SOURCE_LABELS = {
+  conversation: 'Conversa',
+  confirmed_project_reset: 'Substituição confirmada',
+  workspace_api: 'API do Workspace',
+  workspace_form: 'Edição no Workspace',
+  workspace: 'Workspace',
+  mcp: 'MCP',
+};
+
+function contextHistoryDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-BR', {dateStyle:'short', timeStyle:'short'}).format(date);
+}
+
+function contextHistoryField(value) {
+  const removed = String(value || '').startsWith('-');
+  const key = String(value || '').replace(/^-/, '');
+  const labels = {name:'Nome', description:'Direção', audience:'Público', tone_of_voice:'Tom de voz', positioning:'Posicionamento', instructions:'Orientações'};
+  const label = labels[key] || key.replace(/_/g, ' ').replace(/^./, character => character.toLocaleUpperCase('pt-BR'));
+  return removed ? `${label} removido` : label;
+}
+
 function IdentityDialog({project, urls, csrfToken, onClose}) {
+  const [customFields, setCustomFields] = useState(() => Object.entries(project.customFields || {}).map(([key, item]) => ({
+    key, label:item?.label || key.replace(/_/g, ' '), type:item?.type || (Array.isArray(item?.value) ? 'list' : 'text'),
+    value:Array.isArray(item?.value) ? item.value.join('\n') : String(item?.value ?? ''),
+  })));
+  const addField = () => setCustomFields(current => [...current, {key:`campo_${crypto.randomUUID().slice(0, 8)}`, label:'', type:'text', value:''}]);
+  const updateField = (key, patch) => setCustomFields(current => current.map(item => item.key === key ? {...item, ...patch} : item));
+  const removeField = key => setCustomFields(current => current.filter(item => item.key !== key));
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const toggleHistory = async () => {
+    if (historyOpen) { setHistoryOpen(false); return; }
+    setHistoryOpen(true);
+    if (historyItems.length || historyLoading || !urls.directionHistory) return;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const response = await fetch(urls.directionHistory, {credentials:'same-origin', headers:{Accept:'application/json'}});
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.error || 'Não foi possível carregar o histórico.');
+      setHistoryItems(Array.isArray(value.items) ? value.items : []);
+    } catch (error) {
+      setHistoryError(error.message || 'Não foi possível carregar o histórico.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+  const serialized = JSON.stringify(Object.fromEntries(customFields.filter(item => item.label.trim()).map(item => [item.key, {
+    label:item.label.trim(), type:item.type, value:item.type === 'list' ? item.value.split('\n').map(value => value.trim()).filter(Boolean) : item.value.trim(),
+  }])));
   return <ProjectDialog title="Editar contexto" detail="Registre apenas o que deve orientar conversas, planos e criações." onClose={onClose}>
     <form className="cadu-ds-project-form" method="post" action={urls.updateContext}>
       <input type="hidden" name="_csrf" value={csrfToken}/>
+      <input type="hidden" name="expected_revision" value={project.contextRevision || 1}/>
+      <input type="hidden" name="custom_fields_json" value={serialized}/>
       <label>Nome do projeto<input name="name" required minLength="2" maxLength="150" defaultValue={project.name}/></label>
       <label>Direção do trabalho<textarea name="description" rows="3" maxLength="4000" defaultValue={project.description}/></label>
       <div className="cadu-ds-project-form__grid"><label>Público<textarea name="audience" rows="3" maxLength="4000" defaultValue={project.identity?.publico}/></label><label>Tom de voz<textarea name="tone_of_voice" rows="3" maxLength="4000" defaultValue={project.identity?.tom_de_voz}/></label></div>
       <label>Posicionamento<textarea name="positioning" rows="3" maxLength="4000" defaultValue={project.identity?.posicionamento}/></label>
       <label>Orientações para o Cadu<textarea name="instructions" rows="5" maxLength="12000" defaultValue={project.instructions}/></label>
+      <section className="cadu-ds-project-form__custom" aria-labelledby="project-custom-fields-title"><header><div><b id="project-custom-fields-title">Itens personalizados</b><small>Dados próprios deste projeto também entram no contexto das conversas.</small></div><button type="button" onClick={addField}>Adicionar item</button></header>{customFields.length ? <div>{customFields.map(field => <article key={field.key}><label>Nome do item<input value={field.label} maxLength="120" placeholder="Ex.: Orçamento mensal" onChange={event => updateField(field.key, {label:event.target.value})}/></label><label>Tipo<select value={field.type} onChange={event => updateField(field.key, {type:event.target.value})}><option value="text">Texto</option><option value="list">Lista</option><option value="number">Número</option><option value="currency">Moeda</option><option value="date">Data</option><option value="url">Link</option></select></label><label>Conteúdo<textarea rows="3" maxLength="12000" value={field.value} placeholder={field.type === 'list' ? 'Um item por linha' : 'Informação que deve orientar o projeto'} onChange={event => updateField(field.key, {value:event.target.value})}/></label><button type="button" onClick={() => removeField(field.key)} aria-label={`Remover ${field.label || 'item personalizado'}`}>Remover</button></article>)}</div> : <p>Nenhum item personalizado. Adicione objetivos, orçamento, canais, restrições ou qualquer dado específico deste trabalho.</p>}</section>
+      {urls.directionHistory && <section className="cadu-ds-project-form__history" aria-labelledby="project-context-history-title"><header><div><b id="project-context-history-title">Histórico da direção</b><small>Acompanhe quando e por onde o contexto foi alterado.</small></div><button type="button" aria-expanded={historyOpen} onClick={toggleHistory}>{historyOpen ? 'Ocultar histórico' : 'Ver histórico'}</button></header>{historyOpen && <div className="cadu-ds-project-form__history-body">{historyLoading ? <p role="status">Carregando histórico…</p> : historyError ? <p className="is-error" role="alert">{historyError}</p> : historyItems.length ? <ol>{historyItems.map(item => <li key={`${item.revision}-${item.created_at}`}><div><b>Revisão {item.revision}</b><small>{PROJECT_CONTEXT_SOURCE_LABELS[item.source] || item.source || 'Atualização'}{contextHistoryDate(item.created_at) ? ` · ${contextHistoryDate(item.created_at)}` : ''}</small></div><p>{(item.changed_fields || []).map(contextHistoryField).join(', ') || 'Contexto atualizado'}</p></li>)}</ol> : <p>Nenhuma alteração registrada ainda.</p>}</div>}</section>}
       <label>Cor de referência<input name="color" type="color" defaultValue={project.color}/></label>
       <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Salvar contexto</button></footer>
     </form>
@@ -376,10 +438,16 @@ function ProjectStateIllustration({name, alt}) {
 }
 
 function ProjectEditorialOverview({project, onEdit, canEdit}) {
+  const customChapters = Object.entries(project.customFields || {}).map(([key, item]) => ({
+    title:item?.label || key.replace(/_/g, ' '),
+    text:Array.isArray(item?.value) ? item.value.join('\n') : item?.value,
+    custom:true,
+  }));
   const chapters = [
     {title: 'Público', text: project.identity?.publico},
     {title: 'Posicionamento', text: project.identity?.posicionamento},
     {title: 'Tom de voz', text: project.identity?.tom_de_voz},
+    ...customChapters,
   ].filter(chapter => String(chapter.text || '').trim());
   const description = String(project.description || '').trim();
   const hasDirection = Boolean(description || chapters.length);
@@ -389,7 +457,7 @@ function ProjectEditorialOverview({project, onEdit, canEdit}) {
   });
   return <section className={`cadu-ds-project-editorial${hasDirection ? '' : ' is-empty'}`} id="direcao" aria-labelledby="project-editorial-title">
     <header><span>Direção do trabalho</span><h2 id="project-editorial-title">{hasDirection ? 'Direção do projeto' : 'Direção ainda não definida'}</h2>{description && <div className="cadu-ds-project-editorial__lead">{renderDirectionText(description)}</div>}</header>
-    {chapters.length ? <div className="cadu-ds-project-editorial__chapters">{chapters.map(chapter => <section key={chapter.title}><h3>{chapter.title}</h3><div>{renderDirectionText(chapter.text)}</div></section>)}</div> : <p className="cadu-ds-project-editorial__empty">Adicione objetivo, público, posicionamento ou tom quando essas informações forem necessárias para orientar o trabalho.</p>}
+    {chapters.length ? <div className="cadu-ds-project-editorial__chapters">{chapters.map((chapter, index) => <section key={`${chapter.title}-${index}`} className={chapter.custom ? 'is-custom' : ''}><h3>{chapter.title}</h3><div>{renderDirectionText(chapter.text)}</div></section>)}</div> : <p className="cadu-ds-project-editorial__empty">Adicione objetivo, público, posicionamento, tom de voz ou itens próprios deste projeto.</p>}
     <footer><span>{project.brand?.name ? `Identidade vinculada: ${project.brand.name}` : 'Marca ainda não vinculada'}</span>{canEdit && <button type="button" onClick={onEdit}>Editar direção</button>}</footer>
   </section>;
 }
@@ -497,12 +565,16 @@ function SourcePreview({item}) {
   return <span className={`cadu-ds-project-explorer__preview is-${item.sourceType}`}>{isExternal ? <ProjectLinkImage src={image}/> : image ? <img src={image} alt="" loading="lazy"/> : <ProjectIcon name={item.sourceType === 'creation' ? 'image' : item.sourceType === 'summary' ? 'text' : 'source'}/>}<small>{isExternal ? item.sourceType === 'activity' ? 'ATIV.' : item.sourceType === 'task' ? 'TAREFA' : 'REF.' : (item.mime || item.kind || item.sourceType || 'ITEM').split('/').pop().slice(0, 8).toUpperCase()}</small></span>;
 }
 
-function SourceActions({item, conversationUrl, onManage, onInspect}) {
-  const askUrl = conversationPromptUrl(conversationUrl, `Use a fonte "${item.title}" deste projeto para responder minha próxima dúvida. Primeiro resuma o papel dela no projeto e indique se a indexação está pronta.`);
-  return <span className="cadu-ds-project-explorer__actions"><button type="button" onClick={() => onInspect?.(item)}>Detalhes</button><a href={askUrl}>Perguntar</a>{['file','reference','activity','task'].includes(item.sourceType) && <button type="button" onClick={onManage}>{item.requiresReview ? 'Definir e indexar' : 'Alterar papel'}</button>}{item.href && <a href={item.href}>Abrir</a>}</span>;
+function SourceActions({item, conversationUrl, onManage, onInspect, onEditContext}) {
+  const contextItem = item.sourceType === 'context';
+  const editContext = onEditContext || item.editContext;
+  const askUrl = conversationPromptUrl(conversationUrl, contextItem
+    ? `Considere o campo "${item.title}" da direção deste projeto, cujo valor atual é "${item.detail}". Ajude-me a revisar ou aprimorar esse dado sem alterá-lo até eu confirmar.`
+    : `Use a fonte "${item.title}" deste projeto para responder minha próxima dúvida. Primeiro resuma o papel dela no projeto e indique se a indexação está pronta.`);
+  return <span className="cadu-ds-project-explorer__actions"><button type="button" onClick={() => onInspect?.(item)}>Detalhes</button><a href={askUrl}>Perguntar</a>{contextItem ? editContext && <button type="button" onClick={editContext}>Editar direção</button> : ['file','reference','activity','task'].includes(item.sourceType) && <button type="button" onClick={onManage}>{item.requiresReview ? 'Definir e indexar' : 'Alterar papel'}</button>}{item.href && <a href={item.href}>Abrir</a>}</span>;
 }
 
-function ProjectSourceExplorer({project, conversationUrl, onManage, currentUser}) {
+function ProjectSourceExplorer({project, conversationUrl, onManage, onEditContext, canEdit, currentUser}) {
   const preferenceKey = `cadu-project-explorer:${project.id || 'project'}`;
   const [view, setView] = useState(() => { try { return localStorage.getItem(preferenceKey) || 'visual'; } catch (_) { return 'visual'; } });
   const [query, setQuery] = useState('');
@@ -511,6 +583,9 @@ function ProjectSourceExplorer({project, conversationUrl, onManage, currentUser}
   useEffect(() => { try { localStorage.setItem(preferenceKey, view); } catch (_) {} }, [preferenceKey, view]);
   const withActor = item => item.actor || (item.createdBy && String(item.createdBy) === String(currentUser?.id) ? {name:currentUser.name, avatar:currentUser.avatar} : null);
   const items = [
+    ...(project.contextItems || []).map(item => ({...item, title:item.label, detail:item.display_value,
+      id:item.id, sourceType:'context', role:'brief', status:'completed', updatedAt:item.updated_at,
+      editContext:canEdit ? onEditContext : undefined})),
     ...(project.files || []).map(item => ({...item, actor:withActor(item), sourceType:'file', role:item.category || 'other'})),
     ...(project.links || []).map(item => ({...item, id:`link:${item.id}`, href:item.url,
       sourceType:item.projectItemKind === 'activity' ? 'activity' : item.projectItemKind === 'task' ? 'task' : 'reference',
@@ -518,16 +593,16 @@ function ProjectSourceExplorer({project, conversationUrl, onManage, currentUser}
     ...(project.artifacts || []).map(item => ({...item, id:`artifact:${item.id}`, sourceType:'summary', role:'report', status:item.status || 'completed'})),
     ...(project.deliveries || []).map(item => ({...item, id:`delivery:${item.id}`, sourceType:/imagem|vídeo|criativo/i.test(item.kind || '') ? 'creation' : 'summary', role:'report', status:item.status || 'completed'})),
   ].sort((a, b) => (validDate(b)?.getTime() || 0) - (validDate(a)?.getTime() || 0));
-  const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
-  const visibleItems = items.filter(item => (type === 'all' || item.sourceType === type) && (!normalizedQuery || `${item.title || ''} ${item.detail || ''} ${SOURCE_ROLES[item.role] || ''}`.toLocaleLowerCase('pt-BR').includes(normalizedQuery)));
+  const normalizedQuery = normalizeProjectSearch(query.trim());
+  const visibleItems = items.filter(item => (type === 'all' || item.sourceType === type) && (!normalizedQuery || normalizeProjectSearch(`${item.title || ''} ${item.detail || ''} ${SOURCE_ROLES[item.role] || ''}`).includes(normalizedQuery)));
   const groups = visibleItems.reduce((result, item) => { const key = dayKey(item); (result[key] ||= []).push(item); return result; }, {});
   const dates = Array.from({length:7}, (_, index) => { const date = new Date(); date.setDate(date.getDate() - (6 - index)); return date; });
-  const lanes = [['file','Arquivos'], ['reference','Referências'], ['activity','Atividades'], ['task','Tarefas'], ['creation','Criações'], ['summary','Resumos e entregas']];
-  const visualItem = item => <article key={item.id} className={`cadu-ds-project-explorer__visual-item${selected?.id === item.id ? ' is-selected' : ''}`}><SourcePreview item={item}/><div><small>{TRIAGE_CATEGORIES.find(option => option[0] === item.role)?.[1] || item.kind || 'Conteúdo'}</small><h3>{item.title || 'Item sem título'}</h3><p>{SOURCE_ROLES[item.role] || item.detail || SOURCE_ROLES.other}</p><footer><span>{itemTime(item)}{item.status && ` · ${sourceStatus(item.status)}`}</span><SourceActions item={item} conversationUrl={conversationUrl} onManage={onManage} onInspect={setSelected}/></footer></div></article>;
+  const lanes = [['context','Direção'], ['file','Arquivos'], ['reference','Referências'], ['activity','Atividades'], ['task','Tarefas'], ['creation','Criações'], ['summary','Resumos e entregas']];
+  const visualItem = item => <article key={item.id} className={`cadu-ds-project-explorer__visual-item${selected?.id === item.id ? ' is-selected' : ''}`}><SourcePreview item={item}/><div><small>{item.sourceType === 'context' ? 'Direção' : TRIAGE_CATEGORIES.find(option => option[0] === item.role)?.[1] || item.kind || 'Conteúdo'}</small><h3>{item.title || 'Item sem título'}</h3><p>{item.sourceType === 'context' ? item.detail : SOURCE_ROLES[item.role] || item.detail || SOURCE_ROLES.other}</p><footer><span>{item.sourceType === 'context' ? `Revisão ${item.revision}` : `${itemTime(item)}${item.status && ` · ${sourceStatus(item.status)}`}`}</span><SourceActions item={item} conversationUrl={conversationUrl} onManage={onManage} onEditContext={canEdit ? onEditContext : undefined} onInspect={setSelected}/></footer></div></article>;
   return <section className="cadu-ds-project-explorer" id="fontes"><header className="cadu-ds-project-explorer__header"><span>{items.length ? `${items.length} item${items.length === 1 ? '' : 's'} no projeto` : 'Biblioteca vazia'}</span><button type="button" onClick={onManage}>Adicionar conteúdo</button></header>
-    <div className="cadu-ds-project-explorer__toolbar"><nav aria-label="Visualização do projeto">{EXPLORER_VIEWS.map(([id,label]) => <button type="button" key={id} className={view === id ? 'is-active' : ''} onClick={() => setView(id)}>{label}</button>)}</nav><div className="cadu-ds-project-explorer__filters"><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no projeto" aria-label="Buscar fontes e atividade"/><select value={type} onChange={event => setType(event.target.value)} aria-label="Filtrar por tipo"><option value="all">Todos os tipos</option><option value="file">Arquivos</option><option value="reference">Referências</option><option value="activity">Atividades</option><option value="task">Tarefas</option><option value="creation">Criações</option><option value="summary">Resumos e entregas</option></select><span>{visibleItems.length}/{items.length}</span></div></div>
+    <div className="cadu-ds-project-explorer__toolbar"><nav aria-label="Visualização do projeto">{EXPLORER_VIEWS.map(([id,label]) => <button type="button" key={id} className={view === id ? 'is-active' : ''} onClick={() => setView(id)}>{label}</button>)}</nav><div className="cadu-ds-project-explorer__filters"><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no projeto" aria-label="Buscar na direção, fontes e atividade"/><select value={type} onChange={event => setType(event.target.value)} aria-label="Filtrar por tipo"><option value="all">Todos os tipos</option><option value="context">Direção</option><option value="file">Arquivos</option><option value="reference">Referências</option><option value="activity">Atividades</option><option value="task">Tarefas</option><option value="creation">Criações</option><option value="summary">Resumos e entregas</option></select><span>{visibleItems.length}/{items.length}</span></div></div>
     {!items.length ? <div className="cadu-ds-project-explorer__empty"><ProjectStateIllustration name="library-empty" alt="Biblioteca pronta para receber fontes do projeto"/><h3>Adicione a primeira fonte</h3><p>Briefings, arquivos, referências e relatórios ficam organizados aqui.</p><button type="button" onClick={onManage}>Adicionar fonte</button></div> : !visibleItems.length ? <div className="cadu-ds-project-explorer__empty"><h3>Nenhum resultado</h3><p>Altere a busca ou o tipo de conteúdo.</p><button type="button" onClick={() => { setQuery(''); setType('all'); }}>Limpar filtros</button></div> : view === 'time' ? <div className="cadu-ds-project-explorer__time"><header><span>Grupo</span>{dates.map(date => <time key={date.toISOString()}>{new Intl.DateTimeFormat('pt-BR',{weekday:'short'}).format(date)}<b>{date.getDate()}</b></time>)}</header>{lanes.filter(([laneType]) => type === 'all' || type === laneType).map(([laneType,label]) => <div className="cadu-ds-project-explorer__lane" key={laneType}><b>{label}</b>{dates.map(date => { const key = date.toISOString().slice(0,10); const matched = visibleItems.filter(item => item.sourceType === laneType && dayKey(item) === key); return <span key={key}>{matched.slice(0,3).map(item => <button type="button" title={item.title} key={item.id} onClick={() => setSelected(item)}><ProjectIcon name={laneType === 'creation' ? 'image' : ['reference','activity','task'].includes(laneType) ? 'spark' : laneType === 'summary' ? 'text' : 'source'}/></button>)}</span>; })}</div>)}</div> : <div className={`cadu-ds-project-explorer__groups is-${view}`}>{Object.entries(groups).map(([key, dayItems]) => { const actors = dayItems.map(item => item.actor).filter((actor, index, all) => actor?.name && all.findIndex(entry => entry?.name === actor.name) === index); return <section key={key}><header><div><h3>{dayLabel(dayItems[0])}</h3><span>{dayItems.length} item{dayItems.length === 1 ? '' : 's'}</span></div>{actors.length > 0 && <div className="cadu-ds-project-explorer__actors" aria-label="Pessoas que contribuíram neste dia">{actors.slice(0,3).map(actor => <SourceActor key={actor.name} actor={actor} compact/>)}{actors.length > 3 && <small>+{actors.length - 3}</small>}</div>}</header>{view === 'visual' ? <div className="cadu-ds-project-explorer__visual">{dayItems.map(visualItem)}</div> : <div className={`cadu-ds-project-explorer__rows is-${view}`}>{dayItems.map((item, index) => <article key={item.id}><time>{itemTime(item)}</time><SourcePreview item={item}/><span><b>{item.title || 'Item sem título'}</b><small>{SOURCE_ROLES[item.role] || item.detail || 'Conteúdo do projeto'}</small></span>{view === 'list' && <em>{sourceStatus(item.status || 'completed')}</em>}{item.actor?.name && (index === 0 || dayItems[index - 1]?.actor?.name !== item.actor.name) && <SourceActor actor={item.actor}/>}<SourceActions item={item} conversationUrl={conversationUrl} onManage={onManage} onInspect={setSelected}/></article>)}</div>}</section>; })}</div>}
-    {selected && <aside className="cadu-ds-project-explorer__inspector" aria-label={`Detalhes de ${selected.title}`}><button type="button" onClick={() => setSelected(null)} aria-label="Fechar detalhes">×</button><SourcePreview item={selected}/><div><small>{selected.sourceType === 'file' ? selected.mime : selected.kind || selected.sourceType}</small><h3>{selected.title}</h3><p>{SOURCE_ROLES[selected.role] || selected.detail || SOURCE_ROLES.other}</p><dl><div><dt>Papel</dt><dd>{TRIAGE_CATEGORIES.find(option => option[0] === selected.role)?.[1] || 'Outro'}</dd></div><div><dt>Indexação</dt><dd>{sourceStatus(selected.status || 'completed')}</dd></div>{itemDate(selected) && <div><dt>Adicionado</dt><dd>{dayLabel(selected)}</dd></div>}</dl><SourceActor actor={selected.actor}/><SourceActions item={selected} conversationUrl={conversationUrl} onManage={onManage}/></div></aside>}
+    {selected && <aside className="cadu-ds-project-explorer__inspector" aria-label={`Detalhes de ${selected.title}`}><button type="button" onClick={() => setSelected(null)} aria-label="Fechar detalhes">×</button><SourcePreview item={selected}/><div><small>{selected.sourceType === 'context' ? 'Direção do projeto' : selected.sourceType === 'file' ? selected.mime : selected.kind || selected.sourceType}</small><h3>{selected.title}</h3><p>{selected.sourceType === 'context' ? selected.detail : SOURCE_ROLES[selected.role] || selected.detail || SOURCE_ROLES.other}</p><dl>{selected.sourceType === 'context' ? <><div><dt>Tipo</dt><dd>{selected.field_kind === 'custom' ? 'Item personalizado' : 'Campo padrão'}</dd></div><div><dt>Revisão</dt><dd>{selected.revision}</dd></div></> : <><div><dt>Papel</dt><dd>{TRIAGE_CATEGORIES.find(option => option[0] === selected.role)?.[1] || 'Outro'}</dd></div><div><dt>Indexação</dt><dd>{sourceStatus(selected.status || 'completed')}</dd></div>{itemDate(selected) && <div><dt>Adicionado</dt><dd>{dayLabel(selected)}</dd></div>}</>}</dl><SourceActor actor={selected.actor}/><SourceActions item={selected} conversationUrl={conversationUrl} onManage={onManage} onEditContext={onEditContext}/></div></aside>}
   </section>;
 }
 
@@ -752,7 +827,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'direction' && <><ProjectPageIntro title="Direção" detail="O contexto que orienta conversas, decisões e entregas deste projeto."/><ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/></>}
         {projectView === 'tasks' && <><ProjectPageIntro title="Tarefas" detail="Próximos passos do Cadu, da equipe e das ferramentas ligadas ao projeto."/><ProjectTasksSection project={project} urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit}/></>}
         {projectView === 'activity' && <ProjectActivityPage project={project}/>}
-        {projectView === 'library' && <><ProjectPageIntro title="Biblioteca" detail="Arquivos, links, conversas e materiais reunidos em um lugar consultável."/><ProjectSourceExplorer project={project} conversationUrl={projectLinks.conversation} currentUser={bootstrap.user} onManage={() => setDialog('sources')}/></>}
+        {projectView === 'library' && <><ProjectPageIntro title="Biblioteca" detail="Direção, arquivos, links, conversas e materiais reunidos em um lugar consultável."/><ProjectSourceExplorer project={project} conversationUrl={projectLinks.conversation} currentUser={bootstrap.user} canEdit={canEdit} onManage={() => setDialog('sources')} onEditContext={() => setDialog('identity')}/></>}
         {projectView === 'indexing' && <><ProjectPageIntro title="Indexação" detail="Controle o que já pode ser consultado pelo Cadu e o que ainda precisa de atenção."/><ProjectIndexingSection files={project.files || []} onReview={() => setDialog('sources')}/></>}
         {projectView === 'conversations' && <><ProjectPageIntro title="Conversas" detail="Retome raciocínios, decisões e produções feitas dentro deste contexto." action={<button type="button" className="is-primary" onClick={startConversation}>Nova conversa</button>}/><ProjectContinuitySection project={{...project, artifacts:[]}} onStartConversation={startConversation}/></>}
         {projectView === 'deliveries' && <ProjectDeliveriesPage project={project} onStartConversation={startConversation}/>}
@@ -770,5 +845,5 @@ export function WorkspaceProject({bootstrap}) {
       csrfToken={bootstrap.csrf} mode={dialog === 'merge' ? 'merge' : 'delete'}
       initialTargetId={initialMergeTarget} onClose={() => setDialog('')}
     />}
-    {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification}/>} {dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
+    {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification}/>} {canEdit && dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
 }

@@ -11,6 +11,7 @@ import os
 import re
 import threading
 import time
+import unicodedata
 from typing import Optional
 from urllib.parse import quote, urlencode, urlparse
 from uuid import uuid4
@@ -34,7 +35,7 @@ from ..product_domains import product_url, workspace_public_url
 from ..smart_planner.logos import public_logo
 from ..creative_modeling_storage import CreativeAssetStorage, public_studio_asset_url
 from ..creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
-from . import notification_service, project_index_service, project_knowledge, project_resource_service, project_source_service, project_sources, workspace_ingestion_service
+from . import notification_service, project_context_service, project_index_service, project_knowledge, project_resource_service, project_source_service, project_sources, workspace_ingestion_service
 from .agent_v2.request_context import resolve as resolve_request_context
 from .mcp.registry import ToolInputError
 
@@ -3221,7 +3222,17 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
     """Project dossiers retained from Cadu, always isolated by organization."""
     status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
     status_clause = "p.status = 'ativo'" if status == 'ativos' else "p.status = 'arquivado'" if status == 'arquivados' else "p.status <> 'deletado'"
-    params = (client_id, '%' + query[:100] + '%', '%' + query[:100] + '%')
+    params = (client_id,)
+
+    def matches_query(record: dict) -> bool:
+        if not query.strip():
+            return True
+        fold = lambda value: unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode('ascii').casefold()
+        needle = fold(query[:100])
+        content = ' '.join(str(record.get(key) or '') for key in
+                           ('nome', 'descricao', 'instrucoes', 'publico', 'posicionamento', 'tom_de_voz'))
+        content += ' ' + json.dumps(record.get('campos_personalizados') or {}, ensure_ascii=False, default=str)
+        return needle in fold(content)
 
     def retry_database_connection() -> None:
         # A long-lived worker can retain a connection closed by PostgreSQL or
@@ -3239,6 +3250,8 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
                 cursor.execute(
                     """SELECT p.id, p.nome, p.descricao, p.tipo, p.cor, p.status,
                               p.instrucoes, p.tom_de_voz, p.publico, p.posicionamento,
+                              COALESCE(p.campos_personalizados, '{}'::jsonb) AS campos_personalizados,
+                              p.context_revision,
                               p.total_arquivos, p.total_conversas, p.updated_at,
                               COUNT(DISTINCT a.id) FILTER (WHERE a.indexing_status = 'completed') AS fontes_prontas,
                               COUNT(DISTINCT a.id) AS fontes_total, COUNT(DISTINCT ch.id) AS chunks_total
@@ -3246,11 +3259,10 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
                     LEFT JOIN cadu_ci_projeto_arquivos a ON a.projeto_id = p.id
                     LEFT JOIN cadu_ci_chunks ch ON ch.projeto_id = p.id
                         WHERE p.id_cliente = %s AND """ + status_clause + """
-                          AND (p.nome ILIKE %s OR COALESCE(p.descricao, '') ILIKE %s)
                      GROUP BY p.id ORDER BY p.updated_at DESC""",
                     params,
                 )
-                records = [dict(row) for row in cursor.fetchall()]
+                records = [dict(row) for row in cursor.fetchall() if matches_query(dict(row))]
             return _attach_project_identity(client_id, records)
         except Exception:
             if attempt == 0:
@@ -3269,11 +3281,10 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
                               0 AS fontes_prontas, 0 AS fontes_total, 0 AS chunks_total
                          FROM cadu_ci_projetos
                         WHERE id_cliente = %s AND """ + status_clause.replace('p.', '') + """
-                          AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s)
                      ORDER BY updated_at DESC""",
                     params,
                 )
-                records = [dict(row) for row in cursor.fetchall()]
+                records = [dict(row) for row in cursor.fetchall() if matches_query(dict(row))]
             for record in records:
                 record.update({'tom_de_voz': '', 'publico': '', 'posicionamento': ''})
             return _attach_project_identity(client_id, records)
@@ -3543,7 +3554,7 @@ def _project_context_health(project: dict) -> dict:
         score += 10
     else:
         missing.append('referências produzidas')
-    if project.get('brands'):
+    if project.get('brands') and not project.get('campos_personalizados'):
         score += 10
     else:
         missing.append('uma marca vinculada')
@@ -5437,7 +5448,7 @@ def projects():
         current_app.logger.exception('Não foi possível carregar o catálogo de projetos do cliente %s', client_id)
         catalog_records = []
         catalog_error = 'Os projetos estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
-    items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'visualVariant': _dock_visual_variant('project', item.get('id')), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
+    items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'visualVariant': _dock_visual_variant('project', item.get('id')), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'contextRevision': int(item.get('context_revision') or 1), 'contextItems': project_context_service.context_items({'revision': int(item.get('context_revision') or 1), 'updated_at': item.get('updated_at'), 'standard_fields': {'name': item.get('nome'), 'description': item.get('descricao'), 'instructions': item.get('instrucoes'), 'audience': item.get('publico'), 'tone_of_voice': item.get('tom_de_voz'), 'positioning': item.get('posicionamento'), 'color': item.get('cor')}, 'custom_fields': item.get('campos_personalizados') or {}}), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
     brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or ''), 'visualVariant': _dock_visual_variant('brand', item.get('id')), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
     dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
     return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items,
@@ -5714,6 +5725,19 @@ def project_detail(project_id, project_view='overview'):
             'color': str(project.get('cor') or '#176b5e'),
             'visualVariant': _dock_visual_variant('project', project.get('id')),
             'identity': {field: str(project.get(field) or '') for field in ('publico', 'tom_de_voz', 'posicionamento')},
+            'customFields': project.get('campos_personalizados') if isinstance(project.get('campos_personalizados'), dict) else {},
+            'contextRevision': int(project.get('context_revision') or 1),
+            'contextItems': project_context_service.context_items({
+                'revision': int(project.get('context_revision') or 1),
+                'updated_at': project.get('updated_at'),
+                'standard_fields': {
+                    'name': project.get('nome'), 'description': project.get('descricao'),
+                    'instructions': project.get('instrucoes'), 'audience': project.get('publico'),
+                    'tone_of_voice': project.get('tom_de_voz'), 'positioning': project.get('posicionamento'),
+                    'color': project.get('cor'),
+                },
+                'custom_fields': project.get('campos_personalizados') or {},
+            }),
             'brand': {
                 'id': str(active_brand.get('id') or ''),
                 'name': str(active_brand.get('name') or ''),
@@ -5829,6 +5853,52 @@ def clean_project_detail(project_id):
 @login_required
 def clean_project_section(project_id, project_view):
     return project_detail(project_id, project_view=project_view)
+
+
+@bp.get('/workspace/api/projetos/<project_id>/direcao')
+@login_required
+def project_direction_api(project_id):
+    client_id = int(session.get('cliente_id') or 0)
+    project_ref = f'ci:{project_id}'
+    if not family_repository.project_user_can_view(client_id, project_ref, int(session.get('user_id') or 0)):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
+    try:
+        return jsonify(project_context_service.get_context(client_id, project_ref))
+    except project_context_service.ProjectContextError as exc:
+        return jsonify({'error': str(exc)}), 404
+
+
+@bp.patch('/workspace/api/projetos/<project_id>/direcao')
+@login_required
+def update_project_direction_api(project_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    data = request.get_json(silent=True) or {}
+    try:
+        result = project_context_service.update_context(
+            client_id=client_id, actor_id=int(session.get('user_id') or 0), project_ref=f'ci:{project_id}',
+            standard_fields=data.get('standard_fields') or {}, custom_fields=data.get('custom_fields'),
+            remove_custom_fields=data.get('remove_custom_fields') or [],
+            replace_custom_fields=bool(data.get('replace_custom_fields')),
+            expected_revision=data.get('expected_revision'), source='workspace_api',
+        )
+        return jsonify({'project': result})
+    except project_context_service.ProjectContextConflict as exc:
+        return jsonify({'error': str(exc), 'code': 'revision_conflict'}), 409
+    except project_context_service.ProjectContextError as exc:
+        return jsonify({'error': str(exc), 'code': 'invalid_project_context'}), 400
+
+
+@bp.get('/workspace/api/projetos/<project_id>/direcao/historico')
+@login_required
+def project_direction_history_api(project_id):
+    client_id = int(session.get('cliente_id') or 0)
+    project_ref = f'ci:{project_id}'
+    if not family_repository.project_user_can_view(client_id, project_ref, int(session.get('user_id') or 0)):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
+    return jsonify({'items': project_context_service.history(client_id, project_ref, request.args.get('limit', 20))})
 
 
 @bp.get('/workspace/api/projetos/<project_id>/compartilhamento')
@@ -6446,33 +6516,30 @@ def update_project_context(project_id):
         abort(403, description='Atualize a página e tente novamente.')
     client_id = int(session.get('cliente_id') or 0)
     _editable_workspace_project(client_id, project_id)
-    name = ' '.join((request.form.get('name') or '').split())[:150]
-    if len(name) < 2:
-        abort(400, description='O projeto precisa de um nome com ao menos dois caracteres.')
-    description = (request.form.get('description') or '').strip()[:4000]
-    instructions = (request.form.get('instructions') or '').strip()[:12000]
-    tone = (request.form.get('tone_of_voice') or '').strip()[:4000]
-    audience = (request.form.get('audience') or '').strip()[:4000]
-    positioning = (request.form.get('positioning') or '').strip()[:4000]
-    color = (request.form.get('color') or '#176b5e').strip()
-    if not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
-        abort(400, description='Use uma cor hexadecimal válida para o projeto.')
-    connection = None
     try:
-        connection = get_db()
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """UPDATE cadu_ci_projetos SET nome = %s, descricao = %s, instrucoes = %s,
-                          tom_de_voz = %s, publico = %s, posicionamento = %s, cor = %s, updated_at = NOW()
-                    WHERE id = %s AND id_cliente = %s""",
-                (name, description, instructions, tone, audience, positioning, color, project_id, client_id),
-            )
-        connection.commit()
+        submitted_custom_fields = json.loads(request.form.get('custom_fields_json') or '{}')
+    except (TypeError, ValueError):
+        abort(400, description='Os campos personalizados possuem formato inválido.')
+    current_custom = _workspace_project(client_id, project_id).get('campos_personalizados') or {}
+    removed = sorted(set(current_custom) - set(submitted_custom_fields)) if isinstance(submitted_custom_fields, dict) else []
+    try:
+        project_context_service.update_context(
+            client_id=client_id, actor_id=int(session.get('user_id') or 0), project_ref=f'ci:{project_id}',
+            standard_fields={
+                'name': request.form.get('name'), 'description': request.form.get('description'),
+                'instructions': request.form.get('instructions'), 'tone_of_voice': request.form.get('tone_of_voice'),
+                'audience': request.form.get('audience'), 'positioning': request.form.get('positioning'),
+                'color': request.form.get('color') or '#176b5e',
+            },
+            custom_fields=submitted_custom_fields, remove_custom_fields=removed,
+            expected_revision=request.form.get('expected_revision') or None, source='workspace_form',
+        )
+    except project_context_service.ProjectContextConflict as exc:
+        abort(409, description=str(exc))
+    except project_context_service.ProjectContextError as exc:
+        abort(400, description=str(exc))
     except Exception:
-        try:
-            connection.rollback()
-        except Exception:
-            pass
+        current_app.logger.exception('Não foi possível salvar a direção do projeto %s', project_id)
         abort(503, description='Não foi possível salvar o contexto agora. Tente novamente.')
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
 

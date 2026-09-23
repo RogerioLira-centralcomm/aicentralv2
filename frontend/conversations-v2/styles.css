@@ -839,15 +839,22 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-composer-intensity__menu button.is-active { background:rgba(255,255,255,.065); color:#f2fbf9; }
 #cadu-conversations-v2-root .cv-composer-intensity__menu b { display:block; font-size:12px; font-weight:600; }
 #cadu-conversations-v2-root .cv-composer-intensity__menu small { display:block; margin-top:2px; color:#819a96; font-size:10px; }
-#cadu-conversations-v2-root .cv-composer-audio { color:#8ea9a4; cursor:pointer; }
+#cadu-conversations-v2-root .cv-composer-audio { position:relative; color:#8ea9a4; cursor:pointer; transition:background-color 140ms ease, color 140ms ease, transform 140ms ease; }
 #cadu-conversations-v2-root .cv-composer-audio:hover,
-#cadu-conversations-v2-root .cv-composer-audio.is-listening { background:rgba(85,216,198,.12); color:#71dfd1; }
-#cadu-conversations-v2-root .cv-composer-audio.is-unavailable { color:#c9a875; }
+#cadu-conversations-v2-root .cv-composer-audio:focus-visible { background:rgba(85,216,198,.12); color:#baf9f0; outline:2px solid rgba(113,223,209,.7); outline-offset:2px; }
+#cadu-conversations-v2-root .cv-composer-audio.is-listening { background:#a83f49; color:#fff; box-shadow:0 0 0 3px rgba(168,63,73,.18); }
+#cadu-conversations-v2-root .cv-composer-audio.is-listening::after { position:absolute; inset:-4px; border:1px solid rgba(220,108,115,.5); border-radius:14px; content:""; animation:cv-audio-pulse 1.35s ease-out infinite; pointer-events:none; }
+#cadu-conversations-v2-root .cv-composer-audio.is-unavailable { background:rgba(201,168,117,.14); color:#e4c48e; }
 #cadu-conversations-v2-root .cv-composer-audio__pause { width:11px; height:13px; border-right:3px solid currentColor; border-left:3px solid currentColor; }
-#cadu-conversations-v2-root .cv-composer-audio__loading { width:15px; height:15px; border:2px solid rgba(113,223,209,.25); border-top-color:currentColor; border-radius:50%; animation:cv-audio-spin .65s linear infinite; }
-#cadu-conversations-v2-root .cv-composer-audio.is-transcribing { color:#71dfd1; }
+#cadu-conversations-v2-root .cv-composer-audio__loading { width:15px; height:15px; border:2px solid rgba(5,37,34,.3); border-top-color:#052522; border-radius:50%; animation:cv-audio-spin .65s linear infinite; }
+#cadu-conversations-v2-root .cv-composer-audio.is-transcribing { background:#71dfd1; color:#052522; opacity:1; }
 @keyframes cv-audio-spin { to { transform:rotate(360deg); } }
-#cadu-conversations-v2-root .cv-composer-audio-status { position:absolute; right:0; bottom:calc(100% + 8px); max-width:260px; padding:7px 10px; border:1px solid rgba(201,168,117,.28); border-radius:9px; background:#182829; color:#d9c39d; font-size:10px; line-height:1.35; box-shadow:0 10px 28px rgba(0,0,0,.28); }
+@keyframes cv-audio-pulse { 0% { opacity:.75; transform:scale(.88); } 80%, 100% { opacity:0; transform:scale(1.16); } }
+#cadu-conversations-v2-root .cv-composer-audio-status { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+@media (prefers-reduced-motion:reduce) {
+  #cadu-conversations-v2-root .cv-composer-audio,
+  #cadu-conversations-v2-root .cv-composer-audio.is-listening::after { transition:none; animation:none; }
+}
 
 .cv-scroll { scrollbar-width: thin; scrollbar-color: rgba(120,155,149,.34) #0d191c; }
 .cv-scroll::-webkit-scrollbar { width: 4px; height: 4px; }

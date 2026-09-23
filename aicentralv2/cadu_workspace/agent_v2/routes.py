@@ -1,8 +1,10 @@
 """Versioned backend contract consumed by the React Conversations V2 UI."""
 
 import json
+import os
 import re
 import secrets
+from decimal import Decimal
 from dataclasses import replace
 from html import escape as html_escape
 from uuid import uuid4
@@ -744,14 +746,42 @@ def upload():
 
 @bp.post("/audio/transcriptions")
 def transcribe_voice_input():
-    resolve(surface="conversations")
-    from ..voice_input_service import transcribe_upload
+    current = resolve(surface="conversations")
+    from ...cadu_tool_billing import InsufficientToolCredits, ToolCharge, ToolTokenLedger
+    from ..voice_input_service import transcribe_upload, transcription_credit_tokens
 
     attachments.bound_multipart_request(request)
     audio = request.files.get("audio")
     if not audio or len(request.files) != 1:
         abort(400, description="Envie uma gravação de áudio por vez.")
     result = transcribe_upload(audio)
+    charged_credits = transcription_credit_tokens(result.get("duration"))
+    request_key = str(request.headers.get("X-Idempotency-Key") or uuid4()).strip()[:180]
+    try:
+        charge = ToolTokenLedger().charge(ToolCharge(
+            idempotency_key=f"workspace:voice-transcription:{current.client_id}:{request_key}",
+            client_id=current.client_id,
+            user_id=current.user_id,
+            tool="workspace.voice_transcription",
+            stage="transcription",
+            model=str(result.get("model") or "unknown"),
+            provider_total_tokens=charged_credits,
+            charged_tokens=charged_credits,
+            internal_cost_usd=Decimal(str(result.get("provider_cost_usd") or 0)),
+            additional_cost_usd=Decimal(str(result.get("provider_cost_usd") or 0)),
+            metadata={
+                "duration_seconds": result.get("duration"),
+                "language": result.get("language") or "",
+                "mime_type": str(audio.mimetype or "")[:100],
+                "provider": result.get("provider") or "unknown",
+                "fallback_count": int(result.get("fallback_count") or 0),
+                "billing_basis": "audio_duration",
+                "credits_per_minute": int(os.getenv("CADU_VOICE_CREDITS_PER_MINUTE", "300")),
+            },
+        ))
+    except InsufficientToolCredits as error:
+        abort(409, description=str(error))
+    result["charged_credits"] = int((charge or {}).get("tokens_cobrados") or charged_credits)
     return jsonify(transcript=result)
 
 

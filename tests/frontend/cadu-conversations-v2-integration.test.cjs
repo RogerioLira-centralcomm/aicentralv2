@@ -1242,6 +1242,7 @@ test('mobile workspace surfaces share the visual viewport and keep chat styling 
 
 test('home and conversation voice input share one silent record-transcribe-submit flow', () => {
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const home = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceHome.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const conversationTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
@@ -1250,8 +1251,16 @@ test('home and conversation voice input share one silent record-transcribe-submi
   assert.match(composer, /new MediaRecorder/);
   assert.match(composer, /voiceState === 'recording'.*finishVoice\(true\)/s);
   assert.match(composer, /onSubmit\?\.\(finalValue\)/);
+  assert.match(composer, /onChange\?\.\(finalValue\)/);
+  assert.match(composer, /onChange\?\.\(next\)/);
   assert.match(composer, /cv-composer-audio__pause/);
   assert.match(composer, /cv-composer-audio__loading/);
+  assert.match(composer, /voiceState === 'transcribing'.*cv-composer-audio__loading/s);
+  assert.doesNotMatch(composer, /setVoiceNotice\('Ouvindo/);
+  assert.doesNotMatch(composer, /setVoiceNotice\('Finalizando/);
+  assert.match(styles, /\.cv-composer-audio\.is-transcribing \{ background:#71dfd1; color:#052522;/);
+  assert.match(styles, /\.cv-composer-audio__loading .*animation:cv-audio-spin/);
+  assert.match(styles, /\.cv-composer-audio-status \{ position:absolute; width:1px; height:1px;/);
   assert.match(home, /audioTranscriptionEndpoint=\{bootstrap\.endpoints\.audioTranscriptions\}/);
   assert.match(conversation, /audioTranscriptionEndpoint=\{audioTranscriptionEndpoint\}/);
   assert.match(conversationTemplate, /audioTranscriptions.*transcribe_voice_input/);

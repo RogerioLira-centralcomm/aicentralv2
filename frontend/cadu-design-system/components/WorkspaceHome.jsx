@@ -23,13 +23,18 @@ const isDockResource = item => Boolean(item?.resourceRef) || item?.kind === 'res
 
 function HomeCreditAlert({creditAlert}) {
   if (!creditAlert?.visible) return null;
+  const balance = Number(creditAlert.available || 0).toLocaleString('pt-BR');
   return <section className={`cadu-ds-home-credit-alert ${creditAlert.isFree ? 'is-free' : 'is-low'}`} aria-live="polite" aria-label="Capacidade de créditos">
-    <div className="cadu-ds-home-credit-alert__copy">
-      <strong>{creditAlert.title}</strong>
-      <p>{creditAlert.description}</p>
-    </div>
+    <strong>{creditAlert.isFree ? creditAlert.title : `Saldo baixo · ${balance} créditos`}</strong>
     <a className="cadu-ds-home-credit-alert__action" href={creditAlert.href}>{creditAlert.cta}<span aria-hidden="true">↗</span></a>
   </section>;
+}
+
+function CaduVectorMark() {
+  return <svg className="cadu-ds-home-cadu-mark" viewBox="0 0 98 58" role="img" aria-label="Cadu">
+    <path d="M25 7h26L32 29l19 22H25L5 29z"/>
+    <path d="M55 7h38L74 29l19 22H55L36 29z"/>
+  </svg>;
 }
 
 const HOME_TITLES = [
@@ -229,7 +234,7 @@ export function WorkspaceHome({bootstrap}) {
         conversations={home.recentConversations || home.conversations || []}
       />}
         <section className="cadu-ds-home-content">
-        <div className="cadu-ds-home-intro"><h1>{homeTitle}</h1><p>Escreva o que você quer resolver.</p></div>
+        <div className="cadu-ds-home-intro"><CaduVectorMark/><h1>{homeTitle}</h1><p>Escreva o que você quer resolver.</p></div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
         <HomeCreditAlert creditAlert={home.creditAlert}/>
         </section>

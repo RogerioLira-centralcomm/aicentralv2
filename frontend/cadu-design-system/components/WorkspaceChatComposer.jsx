@@ -10,15 +10,17 @@ const MODE_OPTIONS = [
 ];
 
 const CAPABILITIES = [
-  {label: 'Pesquisar na internet', prompt: 'Pesquise na internet fontes atuais e relevantes para este trabalho, compare os achados e responda com links e implicações práticas.'},
-  {label: 'Estruturar briefing', prompt: 'Estruture um briefing para este projeto e destaque somente o que ainda precisa ser decidido.'},
-  {label: 'Planejar mídia', prompt: 'Crie um plano de mídia inicial para este projeto com hipóteses e decisões necessárias.'},
-  {label: 'Analisar criativo', prompt: 'Analise este criativo considerando a marca, o público e o objetivo do projeto.'},
-  {label: 'Resumir reunião', prompt: 'Transforme este conteúdo em um resumo de reunião: decisões, pendências, responsáveis e próximos passos.'},
-  {label: 'Criar pauta', prompt: 'Crie uma pauta de reunião objetiva usando o contexto do projeto, com temas, resultado esperado e decisões a tomar.'},
+  {label: 'Pesquisar na internet', detail: 'Busca fontes atuais e inclui os links', icon: 'search', prompt: 'Pesquise na internet fontes atuais e relevantes para este trabalho, compare os achados e responda com links e implicações práticas.'},
+  {label: 'Estruturar briefing', detail: 'Organiza o contexto e aponta decisões', icon: 'list', prompt: 'Estruture um briefing para este projeto e destaque somente o que ainda precisa ser decidido.'},
+  {label: 'Planejar mídia', detail: 'Cria um plano inicial com hipóteses', icon: 'table', prompt: 'Crie um plano de mídia inicial para este projeto com hipóteses e decisões necessárias.'},
+  {label: 'Analisar criativo', detail: 'Avalia uma peça anexada ao pedido', icon: 'image', prompt: 'Analise este criativo considerando a marca, o público e o objetivo do projeto.'},
+  {label: 'Resumir reunião', detail: 'Extrai decisões, responsáveis e próximos passos', icon: 'file', prompt: 'Transforme este conteúdo em um resumo de reunião: decisões, pendências, responsáveis e próximos passos.'},
+  {label: 'Criar pauta', detail: 'Prepara temas e decisões para a reunião', icon: 'calendar', prompt: 'Crie uma pauta de reunião objetiva usando o contexto do projeto, com temas, resultado esperado e decisões a tomar.'},
 ];
 
 const COMPOSER_MAX_HEIGHT = 120;
+
+const cleanVoiceText = value => String(value || '').replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
 
 function pastedUrl(value) {
   const match = String(value || '').match(/https?:\/\/[^\s<>\]\["']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>\]\["']*)?/i);
@@ -105,13 +107,14 @@ export function WorkspaceChatComposer({
     const body = new FormData();
     const extension = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'm4a' : 'webm';
     body.append('audio', blob, `mensagem.${extension}`);
-    const response = await fetch(audioTranscriptionEndpoint, {method:'POST', credentials:'same-origin', headers:{'X-CSRF-Token':csrfToken}, body});
+    const response = await fetch(audioTranscriptionEndpoint, {method:'POST', credentials:'same-origin', headers:{'X-CSRF-Token':csrfToken, 'X-Idempotency-Key':crypto.randomUUID()}, body});
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.transcript?.text) throw new Error(data.error || 'Não foi possível transcrever o áudio.');
     return data.transcript.text;
   };
   const finishVoice = autoSubmit => {
     voiceAutoSubmitRef.current = voiceAutoSubmitRef.current || Boolean(autoSubmit);
+    setVoiceNotice('');
     recognitionRef.current?.stop();
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
     else if (autoSubmit && voiceState !== 'transcribing' && voiceTextRef.current) onSubmit?.(combineVoiceText(voiceTextRef.current));
@@ -138,22 +141,23 @@ export function WorkspaceChatComposer({
       recorder.onerror = () => { recognitionRef.current?.stop(); recorderRef.current = null; voiceChunksRef.current = []; releaseVoiceStream(); setVoiceState('error'); setVoiceNotice('Não foi possível gravar o áudio.'); };
       recorder.onstop = async () => {
         const blob = new Blob(voiceChunksRef.current, {type:recorder.mimeType || 'audio/webm'});
-        releaseVoiceStream(); recorderRef.current = null; setVoiceState('transcribing');
+        releaseVoiceStream(); recorderRef.current = null; setVoiceState('transcribing'); setVoiceNotice('');
         try {
           const transcript = await transcribeRecording(blob);
           const finalValue = combineVoiceText(transcript || voiceTextRef.current);
           onChange?.(finalValue); latestValueRef.current = finalValue;
-          setVoiceState('idle');
+          setVoiceState('idle'); setVoiceNotice('');
           if (voiceAutoSubmitRef.current && finalValue.trim()) await onSubmit?.(finalValue);
           else window.requestAnimationFrame(() => textarea.current?.focus());
         } catch (error) {
-          const fallback = combineVoiceText(voiceTextRef.current);
-          if (fallback.trim()) { onChange?.(fallback); if (voiceAutoSubmitRef.current) await onSubmit?.(fallback); }
+          const fallback = combineVoiceText(cleanVoiceText(voiceTextRef.current));
+          if (fallback.trim()) { onChange?.(fallback); setVoiceNotice(''); if (voiceAutoSubmitRef.current) await onSubmit?.(fallback); }
           else { setVoiceNotice(error.message); window.clearTimeout(voiceNoticeTimer.current); voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200); }
           setVoiceState('idle');
         }
       };
-      recorder.start(250); setVoiceState('recording');
+      window.clearTimeout(voiceNoticeTimer.current);
+      recorder.start(250); setVoiceState('recording'); setVoiceNotice('');
       voiceLimitTimer.current = window.setTimeout(() => finishVoice(false), 295000);
     } catch (error) {
       setVoiceState('error');
@@ -262,7 +266,7 @@ export function WorkspaceChatComposer({
       <div className="cv-composer-actions cv-flex cv-items-center cv-justify-between">
         <div className="cv-flex cv-min-w-0 cv-items-center cv-gap-2">
           <details ref={capabilityMenu} className="cv-composer-capabilities">
-            <summary className="cv-composer-add cv-grid cv-h-8 cv-w-8 cv-cursor-pointer cv-list-none cv-place-items-center cv-rounded-full cv-border-0 cv-bg-transparent cv-text-mist" aria-label="Mais recursos" title="Mais recursos"><Icon name="plus" size={17}/></summary>
+            <summary className={`cv-composer-add ${homeMode ? 'is-labeled' : ''} cv-cursor-pointer cv-list-none cv-rounded-full cv-border-0 cv-bg-transparent cv-text-mist`} aria-label="Mais recursos" title="Mais recursos"><Icon name="plus" size={17}/>{homeMode && <span>Recursos</span>}</summary>
             <div className="cv-capability-menu" role="menu" aria-label="Escolher modo e recursos">
               <input ref={fileInput} type="file" multiple tabIndex="-1" aria-hidden="true" onChange={acceptFiles} style={{display: 'none'}}/>
               <input ref={imageInput} type="file" multiple accept="image/*" tabIndex="-1" aria-hidden="true" onChange={acceptFiles} style={{display: 'none'}}/>
@@ -277,8 +281,9 @@ export function WorkspaceChatComposer({
                 <div className="cv-capability-heading">Modo</div>
                 {MODE_OPTIONS.map(option => <button key={option.id} type="button" role="menuitemradio" aria-checked={executionMode === option.id} className={executionMode === option.id ? 'is-active' : ''} onClick={() => { onExecutionModeChange?.(option.id); capabilityMenu.current?.removeAttribute('open'); }}><span><b>{option.label}</b><small>{option.detail}</small></span>{executionMode === option.id && <Icon name="check" size={15}/>}</button>)}
               </div>
-              <div className="cv-capability-heading">Recursos</div>
-              {availableCapabilities.map(capability => <button key={capability.label} type="button" role="menuitem" onClick={() => selectCapability(capability)}><span><b>{capability.label}</b></span><Icon name="arrowUp" size={14}/></button>)}
+              <div className="cv-capability-heading">Começar com um recurso</div>
+              <p className="cv-capability-intro">Escolha uma ação para preparar o pedido. Você pode editar o texto antes de enviar.</p>
+              {availableCapabilities.map(capability => <button key={capability.label} type="button" role="menuitem" className="cv-capability-action" onClick={() => selectCapability(capability)}><Icon name={capability.icon} size={16}/><span><b>{capability.label}</b><small>{capability.detail}</small></span><span className="cv-capability-action__result">Preencher</span></button>)}
               <div className="cv-capability-heading cv-capability-heading--resources">Destino dos anexos</div>{[['conversation', 'Usar só nesta conversa'], ['knowledge', 'Adicionar como fonte do projeto'], ['attachment', 'Anexar ao projeto sem indexar']].map(([id, label]) => <button key={id} type="button" role="menuitemradio" aria-checked={attachmentDestination === id} disabled={id !== 'conversation' && !hasProject} className={attachmentDestination === id ? 'is-active' : ''} onClick={() => onAttachmentDestinationChange?.(id)}><span><b>{label}</b>{id !== 'conversation' && !hasProject && <small>Selecione um projeto primeiro</small>}</span>{attachmentDestination === id && <Icon name="check" size={15}/>}</button>)}
               <p>{hasProject ? 'As sugestões usam o projeto selecionado como contexto.' : 'Selecione um projeto para desbloquear ações de projeto e destino de anexos.'}</p>
             </div>
@@ -299,7 +304,7 @@ export function WorkspaceChatComposer({
               {MODE_OPTIONS.map(option => <button key={option.id} type="button" role="menuitemradio" aria-checked={executionMode === option.id} className={executionMode === option.id ? 'is-active' : ''} onClick={() => { onExecutionModeChange?.(option.id); intensityMenu.current?.removeAttribute('open'); }}><span><b>{option.label}</b><small>{option.detail}</small></span>{executionMode === option.id && <Icon name="check" size={15}/>}</button>)}
             </div>
           </details>
-          <button type="button" onClick={toggleVoice} disabled={voiceState === 'transcribing'} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'recording' ? 'is-listening' : ''} ${voiceState === 'transcribing' ? 'is-transcribing' : ''} ${voiceState === 'unsupported' ? 'is-unavailable' : ''}`} aria-label={voiceState === 'recording' ? 'Pausar e transcrever áudio' : voiceState === 'transcribing' ? 'Transcrevendo áudio' : 'Gravar mensagem de voz'} title={voiceState === 'recording' ? 'Pausar' : 'Gravar mensagem de voz'}>{voiceState === 'recording' ? <span className="cv-composer-audio__pause" aria-hidden="true"/> : voiceState === 'transcribing' ? <span className="cv-composer-audio__loading" aria-hidden="true"/> : <Icon name="audio" size={17}/>}</button>
+          <button type="button" onClick={toggleVoice} disabled={voiceState === 'transcribing'} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'recording' ? 'is-listening' : ''} ${voiceState === 'transcribing' ? 'is-transcribing' : ''} ${['unsupported', 'error'].includes(voiceState) ? 'is-unavailable' : ''}`} aria-label={voiceState === 'recording' ? 'Concluir gravação' : voiceState === 'transcribing' ? 'Transcrevendo áudio' : 'Gravar mensagem de voz'} title={voiceState === 'recording' ? 'Concluir gravação' : voiceState === 'transcribing' ? 'Transcrevendo' : 'Gravar mensagem de voz'} aria-busy={voiceState === 'transcribing'}>{voiceState === 'recording' ? <span className="cv-composer-audio__pause" aria-hidden="true"/> : voiceState === 'transcribing' ? <span className="cv-composer-audio__loading" aria-hidden="true"/> : <Icon name="audio" size={17}/>}</button>
           {running && allowQueue && <button type="submit" disabled={!value.trim() || queuedCount >= 5} className="cv-composer-queue cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist disabled:cv-opacity-35" aria-label="Adicionar pedido à fila" title="Adicionar à fila"><Icon name="plus" size={16}/></button>}
           <span className="cv-composer-action-slot">
             {running ? <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button>

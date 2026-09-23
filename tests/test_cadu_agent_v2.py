@@ -2332,6 +2332,11 @@ def test_new_campaign_plan_with_table_is_not_a_report_comparison_or_reformat():
     ])["text"] == "Plano anterior válido."
 
 
+def test_relevant_project_sources_do_not_force_web_research():
+    route = route_request("Pesquise fontes relevantes do projeto para montar um plano de campanha")
+    assert route.action == "plan_campaign"
+
+
 def test_explicit_campaign_document_keeps_artifact_first_contract():
     for message in (
         "Crie um documento editável com planejamento de mídia para Instagram",

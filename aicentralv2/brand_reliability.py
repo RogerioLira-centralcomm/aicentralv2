@@ -15,12 +15,25 @@ import unicodedata
 from typing import Any, Iterable
 
 
-TERMINAL_RUN_STATES = frozenset({'published', 'partial', 'blocked', 'failed_terminal'})
+TERMINAL_RUN_STATES = frozenset({
+    'approved', 'insufficient_evidence', 'published', 'partial', 'blocked', 'failed_terminal',
+})
 PROCESSED_FIELD_STATES = frozenset({
     'verified', 'probable', 'partial', 'conflicting', 'not_found',
     'not_applicable', 'invalid', 'blocked',
 })
 PUBLISHABLE_FIELD_STATES = frozenset({'verified'})
+EXPECTED_BRAND_FIELDS = frozenset({
+    'name', 'sector', 'website_url', 'brand_summary', 'tone_of_voice',
+    'target_audience', 'audience_segments', 'personas', 'archetype', 'ad_segments',
+    'products_services', 'differentiators', 'proof_points', 'competitors',
+    'campaign_opportunities', 'campaigns', 'logo_url', 'primary_color',
+    'secondary_color', 'color_palette', 'product_palettes', 'fonts', 'visual_motifs',
+    'mandatory_elements', 'forbidden_elements', 'creative_guidelines', 'visual_opinions',
+    'contacts', 'addresses', 'digital_policies', 'social_links', 'sources',
+    'evidence_ledger', 'field_provenance', 'confidence', 'quality_dimensions',
+    'review_evidence_summary', 'output_packages', 'analysis_metadata',
+})
 
 
 def _canonical_scalar(value: Any) -> str:
@@ -55,7 +68,8 @@ class ReliabilityThresholds:
     published_provenance_rate: float = 1.0
     unsafe_publication_rate: float = 0.0
     empty_confidence_rate: float = 0.0
-    minimum_labeled_published_facts: int = 1
+    minimum_labeled_published_facts: int = 100
+    minimum_labeled_brands: int = 5
 
 
 def evaluate_shadow(records: Iterable[dict], labels: Iterable[dict], *,
@@ -67,7 +81,7 @@ def evaluate_shadow(records: Iterable[dict], labels: Iterable[dict], *,
     """
     thresholds = thresholds or ReliabilityThresholds()
     records = [dict(item) for item in records]
-    labels = [dict(item) for item in labels]
+    labels = [dict(item) for item in labels if dict(item).get('reviewed', True) is not False]
     by_key = {(str(item.get('brand_id')), str(item.get('field_name'))): item for item in records}
     label_by_key = {(str(item.get('brand_id')), str(item.get('field_name'))): item for item in labels}
 
@@ -133,14 +147,21 @@ def evaluate_shadow(records: Iterable[dict], labels: Iterable[dict], *,
     total_runs = len(run_states)
     completed_runs = sum(state in TERMINAL_RUN_STATES for state in run_states.values())
     total_records = len(records)
+    brand_ids = {str(item.get('brand_id')) for item in records if item.get('brand_id') is not None}
+    processed_keys = {
+        (str(item.get('brand_id')), str(item.get('field_name')))
+        for item in records if str(item.get('status') or '').lower() in PROCESSED_FIELD_STATES
+    }
+    expected_record_count = len(brand_ids) * len(EXPECTED_BRAND_FIELDS)
+    reviewed_brand_count = len({key[0] for key in label_by_key})
     metrics = {
         'run_completion_rate': completed_runs / total_runs if total_runs else 0.0,
-        'field_processing_rate': processed / total_records if total_records else 0.0,
+        'field_processing_rate': len(processed_keys) / expected_record_count if expected_record_count else 0.0,
         'published_fact_precision': correct_published / labeled_published if labeled_published else 0.0,
         'published_provenance_rate': published_with_provenance / published if published else 0.0,
         'unsafe_publication_rate': unsafe_publications / published if published else 0.0,
         'empty_confidence_rate': empty_confidence / total_records if total_records else 0.0,
-        'golden_field_coverage': len(label_by_key) / total_records if total_records else 0.0,
+        'golden_field_coverage': len(label_by_key) / expected_record_count if expected_record_count else 0.0,
     }
     failures = []
     for name in ('run_completion_rate', 'field_processing_rate', 'published_fact_precision', 'published_provenance_rate'):
@@ -151,6 +172,8 @@ def evaluate_shadow(records: Iterable[dict], labels: Iterable[dict], *,
             failures.append(f'{name}_above_target')
     if labeled_published < thresholds.minimum_labeled_published_facts:
         failures.append('insufficient_labeled_published_facts')
+    if reviewed_brand_count < thresholds.minimum_labeled_brands:
+        failures.append('insufficient_labeled_brands')
 
     return {
         'decision': 'promote' if not failures else 'hold',
@@ -161,6 +184,7 @@ def evaluate_shadow(records: Iterable[dict], labels: Iterable[dict], *,
             'applicable_labels': applicable, 'published': published,
             'labeled_published': labeled_published, 'correct_published': correct_published,
             'unsafe_publications': unsafe_publications, 'empty_confidence': empty_confidence,
+            'expected_records': expected_record_count, 'reviewed_brands': reviewed_brand_count,
         },
         'states': dict(sorted(state_counts.items())),
         'categories': {

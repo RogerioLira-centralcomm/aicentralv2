@@ -83,6 +83,15 @@ class WorkspaceBrandReviewAgentsTest(TestCase):
 
         self.assertEqual(_validated_public_contacts(records)[0]['value'], '116')
 
+    def test_final_contact_gate_accepts_brazilian_number_with_country_code(self):
+        records = [{
+            'type': 'phone', 'label': 'WhatsApp', 'value': '+55 (31) 99876-5432',
+            'source_url': 'https://example.com/contato',
+            'excerpt': 'Fale pelo WhatsApp +55 (31) 99876-5432',
+        }]
+
+        self.assertEqual(_validated_public_contacts(records)[0]['value'], '+55 (31) 99876-5432')
+
     def test_deterministic_central_fallback_preserves_only_consensus(self):
         common = ['brand_summary', 'target_audience', 'products_services']
         result = _deterministic_central_review([

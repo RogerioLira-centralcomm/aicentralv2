@@ -76,8 +76,9 @@ def main() -> int:
             'instructions': 'Revise expected_status e expected_value; não use a saída do pipeline como verdade sem validação humana.',
             'labels': [{
                 'brand_id': row['brand_id'], 'field_name': row['field_name'],
-                'field_category': row['field_category'], 'applicable': True,
-                'expected_status': row['status'], 'expected_value': row['value'],
+                'field_category': row['field_category'], 'applicable': True, 'reviewed': False,
+                'expected_status': None, 'expected_value': None,
+                'candidate_status': row['status'], 'candidate_value': row['value'],
             } for row in records],
         }
     else:

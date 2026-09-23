@@ -671,12 +671,13 @@ def _validated_public_contacts(records, *, limit=12):
                 "telefone", "tel.", "atendimento", "ouvidoria", "sac",
                 "fale", "ligue", "whatsapp", "central", "deficiência auditiva",
             ))
-            service_code = len(digits) == 3 and digits.startswith("1")
-            toll_free = digits.startswith(("0800", "0300")) and len(digits) == 11
-            standard = len(digits) in {10, 11} and bool(re.search(r"[()\s.+-]", value))
+            local_digits = digits[2:] if digits.startswith("55") and len(digits) in {12, 13} else digits
+            service_code = len(local_digits) == 3 and local_digits.startswith("1")
+            toll_free = local_digits.startswith(("0800", "0300")) and len(local_digits) == 11
+            standard = len(local_digits) in {10, 11} and bool(re.search(r"[()\s.+-]", value))
             if not semantic or not (service_code or toll_free or standard):
                 continue
-            key = (kind, digits)
+            key = (kind, local_digits)
         elif kind in {"support", "social", "press"}:
             if not value.startswith(("http://", "https://")):
                 continue

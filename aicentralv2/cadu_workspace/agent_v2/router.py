@@ -263,7 +263,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     ) and _has(text, r"\b(?:m[ií]dia|campanha|funil|an[uú]ncios?|or[cç]amento|verba|instagram|google|meta)\b")
     explicit_document = _has(text, r"\b(?:documento|arquivo|artefato|edit[aá]vel)\b")
     explicit_web_research = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
-        text, r"\b(?:internet|web|online|fontes?\s+(?:externas?|atuais?|relevantes?)|dados?\s+atuais?)\b",
+        text, r"\b(?:internet|web|online|fontes?\s+(?:externas?|atuais?)|dados?\s+atuais?)\b",
     )
     if media_plan_request and not explicit_web_research:
         if explicit_document:

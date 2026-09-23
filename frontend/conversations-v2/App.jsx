@@ -247,10 +247,10 @@ export default function App({bootstrap}) {
     setDiscardRequest(null);
   }, []);
 
-  const reset = useCallback(() => {
+  const reset = useCallback(({preserveAttachments = false} = {}) => {
     setConversationId(null); conversationRef.current = null;
     setTitle(emptyTitle); setMessages([]); setInput(''); setComposerContext(null);
-    setAttachments(items => { releasePreviews(items); return []; });
+    if (!preserveAttachments) setAttachments(items => { releasePreviews(items); return []; });
     setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactOpen(false); setLibraryOpen(false); setArtifactDirty(false); setPublishedUrl('');
     setDiagnostics([]); setRuntime(''); runRef.current = null;
     setQueuedTurns([]);
@@ -260,9 +260,9 @@ export default function App({bootstrap}) {
     window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
   }, []);
 
-  const newConversation = useCallback(async () => {
-    if (running || !(await confirmDiscard())) return;
-    reset();
+  const newConversation = useCallback(async ({force = false} = {}) => {
+    if (running || (!force && !(await confirmDiscard()))) return;
+    reset({preserveAttachments: force});
     setHistoryOpen(false);
     setConversationUrl('', true);
     focusComposer();
@@ -925,6 +925,17 @@ export default function App({bootstrap}) {
           trace('A marca foi criada, mas a ficha não pôde ser aberta agora', error.message);
         }
       }
+      if (data.step?.status === 'completed' && completion.open_surface?.type === 'personal_conversation') {
+        try {
+          await newConversation({force: true});
+          if (completion.open_surface.seed_prompt) {
+            setInput(completion.open_surface.seed_prompt);
+            focusComposer();
+          }
+        } catch (error) {
+          trace('A marca foi criada, mas a conversa pessoal não pôde ser preparada', error.message);
+        }
+      }
       if (data.step?.status === 'completed' && completion.open_surface?.type === 'project_profile') {
         try { await loadProjectProfile(completion.open_surface.project_ref); }
         catch (error) { trace('O projeto foi criado, mas a ficha não pôde ser aberta agora', error.message); }
@@ -934,7 +945,7 @@ export default function App({bootstrap}) {
       setMessages(items => items.map(item => item.id === message.id ? {...item, actionPending: false, actionError: detail} : item));
       trace('Falha na ação', detail, 'error');
     }
-  }, [bootstrap.endpoints.runs, bootstrap.endpoints.context, trace, loadContext, loadBrandIdentity, loadProjectProfile, rememberContext]);
+  }, [bootstrap.endpoints.runs, bootstrap.endpoints.context, trace, loadContext, loadBrandIdentity, loadProjectProfile, rememberContext, newConversation, focusComposer]);
 
   const changeArtifact = useCallback(content => {
     artifactEditRevisionRef.current += 1;

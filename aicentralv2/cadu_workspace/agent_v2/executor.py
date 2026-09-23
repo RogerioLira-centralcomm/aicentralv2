@@ -216,6 +216,11 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             if not re.search(r"\b(?:setor|segmento|ramo)\s*(?:de|da|do|:|=)?\s*\S+", planning_message, re.IGNORECASE):
                 missing.append("segmento")
             policy["action_preflight"]["missing"] = missing
+            policy["action_preflight"]["next_step"] = (
+                "Entendi: você quer criar uma nova marca, acima do projeto atual. "
+                "Vou separar isso em uma conversa pessoal; para iniciar, informe nome, segmento e site oficial. "
+                "Os anexos e referências desta conversa serão preservados como base."
+            )
         plan = build_task_plan(route, budget, routed_message)
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,

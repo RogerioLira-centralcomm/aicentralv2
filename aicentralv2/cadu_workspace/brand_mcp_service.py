@@ -195,13 +195,10 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
         )
         replay = cursor.fetchone()
     if replay:
-        links = family_repository.project_brand_links(context.client_id)
-        project_ref = next((str(item.get("project_ref") or "") for item in links
-                            if str(item.get("brand_ref") or "") == f"studio:{replay['id']}"), None)
         uploads = {"logo": prepare_asset_upload(context, int(replay["id"]), "logo"),
                    "reference": prepare_asset_upload(context, int(replay["id"]), "reference")}
         return {"brand_id": int(replay["id"]), "brand_ref": f"studio:{replay['id']}",
-                "project_ref": project_ref, "name": replay["name"], "website_url": replay["website_url"],
+                "project_ref": None, "name": replay["name"], "website_url": replay["website_url"],
                 "created": False, "detail_url": product_url("workspace", f"/marcas/{replay['id']}"),
                 "artifact": {"type": "brand_identity", "brand_ref": f"studio:{replay['id']}",
                              "title": f"Identidade — {replay['name']}"}, "uploads": uploads}
@@ -230,13 +227,10 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
             existing = cursor.fetchone()
             if existing:
                 connection.commit()  # Release the idempotency advisory lock before related reads.
-                links = family_repository.project_brand_links(context.client_id)
-                project_ref = next((str(item.get("project_ref") or "") for item in links
-                                    if str(item.get("brand_ref") or "") == f"studio:{existing['id']}"), None)
                 uploads = {"logo": prepare_asset_upload(context, int(existing["id"]), "logo"),
                            "reference": prepare_asset_upload(context, int(existing["id"]), "reference")}
                 return {"brand_id": int(existing["id"]), "brand_ref": f"studio:{existing['id']}",
-                        "project_ref": project_ref, "name": existing["name"],
+                        "project_ref": None, "name": existing["name"],
                         "website_url": existing["website_url"], "created": False,
                         "detail_url": product_url("workspace", f"/marcas/{existing['id']}"),
                         "artifact": {"type": "brand_identity", "brand_ref": f"studio:{existing['id']}",
@@ -249,31 +243,14 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
                 (context.client_id, name, sector, website_url, json.dumps(profile), json.dumps(metadata)),
             )
             brand_id = int(cursor.fetchone()["id"])
-            project_id = str(uuid4())
-            cursor.execute(
-                """INSERT INTO cadu_ci_projetos
-                       (id, id_cliente, criado_por, nome, descricao, instrucoes, tipo, cor, status)
-                    VALUES (%s, %s, %s, %s, %s, %s, 'projeto', '#176b5e', 'ativo')""",
-                (project_id, context.client_id, context.user_id, name,
-                 f"Dossiê operacional da marca {name}.",
-                 "Contexto de marca vinculado; decisões de campanha devem ser registradas neste projeto."),
-            )
         connection.commit()
     except Exception:
         connection.rollback()
         raise
-    project_ref = f"ci:{project_id}"
-    try:
-        family_repository.set_project_brand_link(
-            context.client_id, context.user_id, project_ref, f"studio:{brand_id}", True,
-        )
-    except Exception:
-        current_app.logger.exception("Marca %s criada via MCP sem vínculo ao dossiê %s", brand_id, project_id)
-        project_ref = None
     detail_url = product_url("workspace", f"/marcas/{brand_id}")
     uploads = {"logo": prepare_asset_upload(context, brand_id, "logo"),
                "reference": prepare_asset_upload(context, brand_id, "reference")}
-    return {"brand_id": brand_id, "brand_ref": f"studio:{brand_id}", "project_ref": project_ref,
+    return {"brand_id": brand_id, "brand_ref": f"studio:{brand_id}", "project_ref": None,
             "name": name, "website_url": website_url, "created": True,
             "detail_url": detail_url,
             "artifact": {"type": "brand_identity", "brand_ref": f"studio:{brand_id}",

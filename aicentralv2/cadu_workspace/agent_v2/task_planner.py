@@ -366,7 +366,7 @@ def _brand_create_step(message: str):
         arguments["reference_urls"] = list(dict.fromkeys(references))[:12]
     return {"kind": "action", "name": "brands.create", "requires_confirmation": True,
             "request_id": str(uuid4()), "arguments": arguments,
-            "effect": "write", "summary": f"Criar a marca “{name[:150]}” neste cliente e vincular seu projeto."}
+            "effect": "write", "summary": f"Criar a marca “{name[:150]}” na organização, sem vinculá-la automaticamente a um projeto."}
 
 
 def _brand_audit_step(message: str):

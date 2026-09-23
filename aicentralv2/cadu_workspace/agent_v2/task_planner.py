@@ -85,7 +85,11 @@ def _create_project_step(message: str):
         return None
     captured = " ".join(match.group(1).split())
     subject = re.search(r"\bsobre\s*:\s*[\"“]?([^\"”\n.,;]{2,150})", text, re.IGNORECASE)
-    name = (subject.group(1) if subject else re.split(
+    explicitly_named = re.search(
+        r"\b(?:chamado|nomeado)\s+[\"“]?([^\"”\n,.;:]{2,150})",
+        text[match.start():], re.IGNORECASE,
+    )
+    name = (subject.group(1) if subject else explicitly_named.group(1) if explicitly_named else re.split(
         r"\s+(?:com\s+(?:links?|fontes?|arquivos?|documentos?|acesso|visibilidade|"
         r"(?:esses|estes|os)\s+(?:dados|detalhes|informa[cç][oõ]es))|privado|compartilhado|aberto\s+para)\b",
         captured, maxsplit=1, flags=re.IGNORECASE,
@@ -105,13 +109,16 @@ def _create_project_step(message: str):
     visibility = "team" if re.search(r"\b(?:toda\s+a\s+equipe|equipe\s+inteira|aberto\s+para\s+(?:a\s+)?equipe)\b", text, re.IGNORECASE) else "private"
     arguments = {"name": name[:150]}
     brand = re.search(
-        r"\b(?:na|para\s+a|vinculad[oa]\s+[àa])\s+marca\s+[\"“]?([^\"”\n,.;:]{2,150})",
+        r"\b(?:na|para\s+a|vinculad[oa]\s+[àa])\s+marca\s+[\"“]?"
+        r"([^\"”\n,.;:]{2,150}?)(?=\s+(?:chamado|nomeado)\b|[,.;:]|$)",
         text, re.IGNORECASE,
     )
     if brand:
         arguments["brand_name"] = " ".join(brand.group(1).split())[:150]
     if subject:
-        details = text[subject.start(1):].strip()
+        # Referenced turns are joined with the current instruction by a newline.
+        # Persist the source material, not "criar projeto com esses dados".
+        details = text[subject.start(1):].split("\n", 1)[0].strip()
         arguments["description"] = details[:4000]
         if len(details) > 4000:
             arguments["instructions"] = details[:12000]
@@ -319,18 +326,30 @@ def _project_link_step(message: str):
 
 def _brand_create_step(message: str):
     text = str(message or "")
-    url_match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE)
-    name_match = re.search(r"\bmarca\s*(?:chamada|nomeada|:)?\s*[\"“]?([^\"”\n,;]{2,150})", text, re.IGNORECASE)
-    if not url_match or not name_match:
+    url_pattern = r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?"
+    website_match = re.search(rf"\b(?:site|website|endere[cç]o)\s*(?:oficial)?\s*(?::|=)?\s*({url_pattern})", text, re.IGNORECASE)
+    name_match = re.search(r"\bmarca(?:\s+nova)?\s*(?:chamada|nomeada|:)?\s*[\"“]?([^\"”\n,;]{2,150})", text, re.IGNORECASE)
+    sector_match = re.search(r"\b(?:setor|segmento|ramo)\s*(?:de|da|do|:|=)?\s*[\"“]?([^\"”\n,;]{2,80}?)(?=\s+(?:com\s+)?(?:site|website|logo|refer[eê]ncias?)\b|[,;]|$)", text, re.IGNORECASE)
+    if not website_match or not name_match or not sector_match:
         return None
-    url = url_match.group(0).rstrip(".,;:)")
+    url = website_match.group(1).rstrip(".,;:)")
     if not re.match(r"^[a-z][a-z0-9+.-]*://", url, re.IGNORECASE):
         url = "https://" + url
-    name = re.split(r"\s+(?:com|site|website)\s+", name_match.group(1), maxsplit=1, flags=re.IGNORECASE)[0].strip(" .:-")
+    name = re.split(r"\s+(?:com|site|website|setor|segmento|ramo)\s+", name_match.group(1), maxsplit=1, flags=re.IGNORECASE)[0].strip(" .:-")
     if len(name) < 2:
         return None
+    sector = " ".join(sector_match.group(1).split()).strip(" .:-")[:80]
+    arguments = {"name": name[:150], "website_url": url, "sector": sector}
+    logo_match = re.search(rf"\blogo(?:\s+oficial)?\s*(?::|=)?\s*({url_pattern})", text, re.IGNORECASE)
+    if logo_match:
+        arguments["official_logo_url"] = logo_match.group(1).rstrip(".,;:)")
+    excluded = {website_match.group(1).rstrip(".,;:)"), arguments.get("official_logo_url")}
+    references = [candidate for found in re.finditer(url_pattern, text, re.IGNORECASE)
+                  if (candidate := found.group(0).rstrip(".,;:)")) not in excluded]
+    if references:
+        arguments["reference_urls"] = list(dict.fromkeys(references))[:12]
     return {"kind": "action", "name": "brands.create", "requires_confirmation": True,
-            "request_id": str(uuid4()), "arguments": {"name": name[:150], "website_url": url},
+            "request_id": str(uuid4()), "arguments": arguments,
             "effect": "write", "summary": f"Criar a marca “{name[:150]}” neste cliente e vincular seu projeto."}
 
 
@@ -424,6 +443,11 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
                       "requires_confirmation": False, "request_id": str(uuid4()),
                       "arguments": {}, "effect": "draft",
                       "summary": "Preparar o envio ou a substituição do logo principal da marca ativa."})
+    if route.action == "prepare_brand_reference_upload":
+        steps.append({"kind": "action", "name": "brands.prepare_asset_upload",
+                      "requires_confirmation": False, "request_id": str(uuid4()),
+                      "arguments": {"role": "reference"}, "effect": "draft",
+                      "summary": "Preparar o envio de uma referência visual para a marca ativa."})
     if route.action == "start_brand_audit":
         steps.append(_brand_audit_step(message))
     if route.artifact_type and len(steps) < 3:

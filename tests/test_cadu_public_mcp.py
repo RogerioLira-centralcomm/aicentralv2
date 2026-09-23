@@ -294,6 +294,16 @@ def test_public_create_project_contract_exposes_direction_brand_and_custom_field
     assert "confirmed" in definition["inputSchema"]["required"]
 
 
+def test_public_create_brand_contract_requires_market_seed_and_accepts_optional_assets():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", capabilities=("workspace",))
+    tools = load_builtin_tools().list(context, "customer_agent")
+    definition = next(item for item in tools if item["name"] == "brands.create")
+
+    assert {"name", "website_url", "sector", "confirmed"} <= set(definition["inputSchema"]["required"])
+    assert {"official_logo_url", "reference_urls"} <= set(definition["inputSchema"]["properties"])
+
+
 def test_non_ledger_write_receipt_does_not_promise_operations_get():
     assert "media.start_studio_session" not in RECOVERABLE_OPERATION_TOOLS
     assert "brands.start_audit" not in RECOVERABLE_OPERATION_TOOLS

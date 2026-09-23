@@ -143,7 +143,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         r"\b(?:o\s+que(?:\s+que)?|como)\s+(?:esse|este|o)\s+projeto\s+(?:faz|funciona|resolve|ajuda)\b",
     ) or _has(
         text,
-        r"\b(?:qual\s+[ée]\s+a\s+d[eo]|(?:esse|este|o)\s+projeto\s+[ée]\s+(?:sobre\s+)?o\s+qu[eê])\s+(?:esse\s+|este\s+)?projeto?\b",
+        r"\bqual\s+[ée]\s+a\s+d(?:esse|este|o)\s+projeto\b|"
+        r"\b(?:esse|este|o)\s+projeto\s+[ée]\s+(?:sobre\s+)?o\s+qu[eê]\b",
     )
     if has_project and project_overview:
         return IntentRoute("workspace", "describe_project", "low", "analysis",
@@ -209,11 +210,15 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(?:cri(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|mont(?:a|e|ar)|abr(?:a|e|ir)|"
                   r"cadastr(?:a|e|ar)|novo)\s+(?:a[ií]\s+)?(?:(?:um|o)\s+)?pro(?:jeto|ejto)\b"):
         return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
-    if _has(text, r"\b(cri(e|ar)|cadastre|cadastrar|nova)\b.{0,35}\bmarca\b"):
+    if _has(text, r"\b(?:cri(?:a|e|ar)|cadastr(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|"
+                  r"mont(?:a|e|ar)|abr(?:a|e|ir)|nova)\b.{0,35}\bmarca\b"):
         return IntentRoute("workspace", "create_brand", "medium", "decision", (), (), None, True)
     if has_brand and (_has(text, r"\b(envi|substitu|troc|troqu|alter|atualiz)\w*\b.{0,35}\blogo\b")
                       or _has(text, r"\blogo\b.{0,35}\b(envi|substitu|troc|troqu|alter|atualiz)\w*\b")):
         return IntentRoute("workspace", "prepare_brand_logo_upload", "low", "decision",
+                           ("brand",), (), None, False)
+    if has_brand and _has(text, r"\b(?:adicion|envi|inclu)\w*\b.{0,45}\brefer[eê]ncias?\s+(?:visuais?|da\s+marca)\b"):
+        return IntentRoute("workspace", "prepare_brand_reference_upload", "low", "decision",
                            ("brand",), (), None, False)
     if has_brand and _has(text, r"\b(ajust|alter|mud|troqu|atualiz|corrig|edit)\w*\b") and _has(
             text, r"\b(marca|identidade|nome|setor|site|cor|p[uú]blico|posicionamento|tom(?: de voz)?|ess[eê]ncia|descri[cç][aã]o|oferta|diferencia|prova|dire[cç][aã]o criativa)\b"):

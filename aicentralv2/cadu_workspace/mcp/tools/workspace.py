@@ -147,17 +147,26 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
 
     def create():
         try:
-            project_ref = repository.create_entity(context.client_id, context.user_id, payload)
+            project_ref, created = repository.create_entity(
+                context.client_id, context.user_id, payload, return_created=True,
+            )
         except ValueError as exc:
             raise ToolInputError(str(exc)) from exc
-        repository.seed_project_owner(context.client_id, project_ref, context.user_id)
-        repository.set_project_visibility(context.client_id, context.user_id, project_ref, visibility)
-        if brand_ref:
-            repository.set_project_brand_link(
-                context.client_id, context.user_id, project_ref, brand_ref, True,
-            )
-        for item in people:
-            repository.grant_project_access(context.client_id, project_ref, int(item["user_id"]), item["role"], context.user_id)
+        try:
+            repository.seed_project_owner(context.client_id, project_ref, context.user_id)
+            repository.set_project_visibility(context.client_id, context.user_id, project_ref, visibility)
+            if brand_ref:
+                repository.set_project_brand_link(
+                    context.client_id, context.user_id, project_ref, brand_ref, True,
+                )
+            for item in people:
+                repository.grant_project_access(context.client_id, project_ref, int(item["user_id"]), item["role"], context.user_id)
+        except Exception:
+            # A retry may return a pre-existing idempotent project; never remove
+            # that record. Only compensate the entity created by this attempt.
+            if created:
+                repository.discard_created_entity(context.client_id, project_ref)
+            raise
         project_context = replace(context, project_ref=project_ref)
         resources = {"links": [], "notes": [], "uploads": [], "errors": []}
         for item in links:

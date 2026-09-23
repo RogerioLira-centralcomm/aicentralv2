@@ -12,6 +12,7 @@ from werkzeug.exceptions import BadRequest, Conflict, Forbidden, NotFound
 
 from ..cadu_family import repository as family_repository
 from ..db import get_db
+from ..product_domains import product_url
 from .agent_v2.contracts import RequestContext
 
 
@@ -157,13 +158,25 @@ def brand_context(context: RequestContext, brand_id) -> dict:
     }
 
 
-def create_brand(context: RequestContext, *, request_id, name: str, website_url: str, sector: str = "") -> dict:
+def create_brand(context: RequestContext, *, request_id, name: str, website_url: str, sector: str,
+                 official_logo_url: str = "", reference_urls=None) -> dict:
+    _require_admin(context)
     operation_id = _request_id(request_id)
     website_url = _website(website_url)
     name = " ".join(str(name or "").split())[:150]
     if len(name) < 2:
         raise BadRequest("Informe um nome de marca com ao menos dois caracteres.")
-    profile = {"mcp_request_id": operation_id, "created_via": "cadu_mcp"}
+    sector = " ".join(str(sector or "").split())[:80]
+    if len(sector) < 2:
+        raise BadRequest("Informe o segmento da marca.")
+    official_logo_url = _website(official_logo_url) if str(official_logo_url or "").strip() else ""
+    reference_urls = list(dict.fromkeys(
+        _website(item) for item in (reference_urls or []) if str(item or "").strip()
+    ))[:12]
+    profile = {"mcp_request_id": operation_id, "created_via": "cadu_mcp",
+               "market_seed": {"sector": sector, "priorities": ["market", "audience", "competitors", "category_context"]}}
+    metadata = {"sources": [website_url, *reference_urls],
+                "analysis_seed": {"sector": sector, "prioritize": ["market", "audience", "competitors", "category_context"]}}
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -181,15 +194,29 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
                                     if str(item.get("brand_ref") or "") == f"studio:{existing['id']}"), None)
                 return {"brand_id": int(existing["id"]), "brand_ref": f"studio:{existing['id']}",
                         "project_ref": project_ref, "name": existing["name"],
-                        "website_url": existing["website_url"], "created": False}
+                        "website_url": existing["website_url"], "created": False,
+                        "detail_url": product_url("workspace", f"/marcas/{existing['id']}"),
+                        "artifact": {"type": "brand_identity", "brand_ref": f"studio:{existing['id']}",
+                                     "title": f"Identidade — {existing['name']}"}}
             cursor.execute(
                 """INSERT INTO cx_clients
                        (crm_client_id, name, sector, website_url, brand_profile, analysis_metadata, price_policy)
-                    VALUES (%s, %s, %s, %s, %s::jsonb, '{}'::jsonb, 'hide_price') RETURNING id""",
-                (context.client_id, name, " ".join(str(sector or "").split())[:80] or None,
-                 website_url, json.dumps(profile)),
+                    VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, 'hide_price') RETURNING id""",
+                (context.client_id, name, sector, website_url, json.dumps(profile), json.dumps(metadata)),
             )
             brand_id = int(cursor.fetchone()["id"])
+            assets = ([('logo', official_logo_url, True)] if official_logo_url else []) + [
+                ('reference', item, False) for item in reference_urls
+            ]
+            for role, source_url, is_primary in assets:
+                cursor.execute(
+                    """INSERT INTO cx_client_brand_assets
+                           (client_id,role,source_kind,source_url,page_url,status,is_primary,metadata)
+                         VALUES (%s,%s,'website',%s,%s,'approved',%s,%s::jsonb)""",
+                    (brand_id, role, source_url, website_url, is_primary,
+                     json.dumps({"display_name": "Logo oficial" if role == "logo" else "Referência inicial",
+                                 "created_via": "cadu_mcp"})),
+                )
             project_id = str(uuid4())
             cursor.execute(
                 """INSERT INTO cadu_ci_projetos
@@ -211,8 +238,15 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
     except Exception:
         current_app.logger.exception("Marca %s criada via MCP sem vínculo ao dossiê %s", brand_id, project_id)
         project_ref = None
+    detail_url = product_url("workspace", f"/marcas/{brand_id}")
+    uploads = {"logo": prepare_asset_upload(context, brand_id, "logo"),
+               "reference": prepare_asset_upload(context, brand_id, "reference")}
     return {"brand_id": brand_id, "brand_ref": f"studio:{brand_id}", "project_ref": project_ref,
             "name": name, "website_url": website_url, "created": True,
+            "detail_url": detail_url,
+            "artifact": {"type": "brand_identity", "brand_ref": f"studio:{brand_id}",
+                         "title": f"Identidade — {name}"},
+            "uploads": uploads,
             "onboarding": {
                 "current_step": "logo",
                 "steps": ["brand_created", "primary_logo", "audit_mode", "audit_review"],

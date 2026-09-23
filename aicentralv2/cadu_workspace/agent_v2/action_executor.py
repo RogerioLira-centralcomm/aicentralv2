@@ -104,24 +104,35 @@ def _completion(step_name: str, result: dict) -> dict:
         ], "refresh_context": True}
     if step_name == "brands.create":
         name = result.get("name") or "Marca"
-        return {"answer": f"A marca “{name}” foi criada. A ficha da marca foi aberta para completar identidade, referências e auditoria.", "blocks": [
+        blocks = [
             {"type": "activity", "state": "completed", "label": "Marca criada", "detail": name},
+            {"type": "links", "title": "Marca", "items": [
+                {"title": "Abrir detalhes da marca", "url": result.get("detail_url")},
+            ]},
             {"type": "questions", "title": "Completar a nova marca", "items": [
                 {"id": "logo-brand", "title": "Enviar logo principal",
                  "prompt": f"Quero enviar o logo principal da marca {result.get('brand_id')}."},
+                {"id": "reference-brand", "title": "Adicionar referências",
+                 "prompt": f"Quero adicionar referências visuais à marca {result.get('brand_id')}."},
                 {"id": "audit-brand", "title": "Auditoria completa",
                  "prompt": f"Inicie a auditoria completa da marca {result.get('brand_id')}."},
                 {"id": "deep-audit-brand", "title": "Auditoria profunda",
                  "prompt": f"Inicie a auditoria profunda da marca {result.get('brand_id')}."},
             ]},
-        ], "refresh_context": True, "open_surface": {
+        ]
+        blocks[1]["items"] = [item for item in blocks[1]["items"] if item.get("url")]
+        return {"answer": f"A marca “{name}” foi criada. A ficha da marca foi aberta para completar identidade, referências e auditoria.", "blocks": blocks,
+        "refresh_context": True, "open_surface": {
             "type": "brand_identity", "brand_ref": result.get("brand_ref"),
-        }, "activate_context": {"project_ref": None, "brand_ref": result.get("brand_ref")}}
-    if step_name == "brands.prepare_logo_upload":
+        }, "artifact": result.get("artifact"),
+        "activate_context": {"project_ref": None, "brand_ref": result.get("brand_ref")}}
+    if step_name in {"brands.prepare_logo_upload", "brands.prepare_asset_upload"}:
         replacing = result.get("purpose") == "replace_primary_logo"
-        return {"answer": "O envio do novo logo principal está autorizado por 10 minutos.", "blocks": [
+        is_reference = result.get("role") == "reference"
+        return {"answer": ("O envio da referência visual está autorizado por 10 minutos." if is_reference else
+                            "O envio do novo logo principal está autorizado por 10 minutos."), "blocks": [
             {"type": "activity", "state": "running",
-             "label": "Substituir logo principal" if replacing else "Enviar logo principal",
+             "label": "Enviar referência visual" if is_reference else "Substituir logo principal" if replacing else "Enviar logo principal",
              "detail": "PNG, JPG ou WebP, até 5 MB."},
         ], "refresh_context": False, "upload": {
             "url": result.get("upload_url"), "token": result.get("upload_token"),
@@ -165,9 +176,9 @@ def execute(step: dict, context) -> dict:
     if not isinstance(arguments, dict) or not request_id:
         raise ToolInputError("A proposta aprovada está incompleta.")
     sealed = {**arguments, "request_id": request_id}
-    if step["name"] != "brands.prepare_logo_upload":
+    if step["name"] not in {"brands.prepare_logo_upload", "brands.prepare_asset_upload"}:
         sealed["confirmed"] = True
-    if step["name"] in {"brands.prepare_logo_upload", "brands.start_audit", "brands.update_identity"} and "brand_id" not in sealed:
+    if step["name"] in {"brands.prepare_logo_upload", "brands.prepare_asset_upload", "brands.start_audit", "brands.update_identity"} and "brand_id" not in sealed:
         brand_ref = str(getattr(context, "brand_ref", "") or "")
         if not brand_ref.startswith("studio:") or not brand_ref[7:].isdigit():
             raise ToolInputError("Selecione uma marca antes de iniciar a auditoria.")

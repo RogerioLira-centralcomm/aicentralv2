@@ -56,8 +56,8 @@ def use_asset_as_logo(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="brands.create", capability="workspace", effect="write",
-               description="Cria uma marca com nome e site oficial após confirmação do usuário.", exposures=("internal", "customer_agent"),
-               input_schema={"type":"object","required":["request_id","confirmed","name","website_url"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"name":{"type":"string","minLength":2,"maxLength":150},"website_url":{"type":"string","minLength":3,"maxLength":2000},"sector":{"type":"string","maxLength":80}},"additionalProperties":False})
+               description="Cria uma marca com nome, site oficial e segmento. Logo oficial e referências são opcionais; retorna ficha e uploads.", exposures=("internal", "customer_agent"),
+               input_schema={"type":"object","required":["request_id","confirmed","name","website_url","sector"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"name":{"type":"string","minLength":2,"maxLength":150},"website_url":{"type":"string","minLength":3,"maxLength":2000},"sector":{"type":"string","minLength":2,"maxLength":80},"official_logo_url":{"type":"string","minLength":8,"maxLength":2000},"reference_urls":{"type":"array","maxItems":12,"items":{"type":"string","minLength":8,"maxLength":2000}}},"additionalProperties":False})
 def create_brand(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}
     return _domain(lambda: service.create_brand(context, **values))

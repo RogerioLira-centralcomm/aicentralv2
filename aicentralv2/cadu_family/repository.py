@@ -690,7 +690,7 @@ def active_entity_count(client_id):
     return count_distinct_entities([row['ref'] for row in active], entity_links(client_id))
 
 
-def create_entity(client_id, user_id, payload):
+def create_entity(client_id, user_id, payload, *, return_created=False):
     """Write to the PHP source of truth and serialize the plan limit per client."""
     from uuid import NAMESPACE_URL, uuid4, uuid5
     conn = get_db()
@@ -700,13 +700,29 @@ def create_entity(client_id, user_id, payload):
             idempotency_key = str(payload.get('idempotency_key') or '').strip()
             entity_id = str(uuid5(NAMESPACE_URL, f'cadu-project:{client_id}:{idempotency_key}')) if idempotency_key else str(uuid4())
             if idempotency_key:
-                cur.execute('''SELECT id FROM cadu_ci_projetos
-                                WHERE id = %s AND id_cliente = %s AND status <> 'deletado' LIMIT 1''',
+                cur.execute('''SELECT id,status FROM cadu_ci_projetos
+                                WHERE id = %s AND id_cliente = %s LIMIT 1''',
                             (entity_id, client_id))
                 existing = cur.fetchone()
                 if existing:
+                    if existing.get('status') == 'deletado':
+                        cur.execute('''UPDATE cadu_ci_projetos
+                                         SET nome=%s, descricao=%s, tipo=%s, instrucoes=%s,
+                                             tom_de_voz=%s, publico=%s, posicionamento=%s, cor=%s,
+                                             campos_personalizados=%s, status='ativo', updated_at=NOW()
+                                       WHERE id=%s AND id_cliente=%s''',
+                                    (payload['name'], payload.get('description', ''),
+                                     'marca' if payload['kind'] == 'brand' else 'projeto',
+                                     payload.get('instructions', ''), payload.get('tone_of_voice', ''),
+                                     payload.get('audience', ''), payload.get('positioning', ''),
+                                     payload.get('color'), Json(payload.get('custom_fields') or {}),
+                                     entity_id, client_id))
+                        conn.commit()
+                        ref = 'ci:' + str(existing['id'])
+                        return (ref, True) if return_created else ref
                     conn.commit()
-                    return 'ci:' + str(existing['id'])
+                    ref = 'ci:' + str(existing['id'])
+                    return (ref, False) if return_created else ref
             cur.execute('''SELECT plan_type FROM cadu_client_plans
                            WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1''', (client_id,))
             current = cur.fetchone()
@@ -725,7 +741,26 @@ def create_entity(client_id, user_id, payload):
                  payload.get('positioning', ''), payload.get('color'), Json(payload.get('custom_fields') or {}),
                  entity_id))
         conn.commit()
-        return 'ci:' + entity_id
+        ref = 'ci:' + entity_id
+        return (ref, True) if return_created else ref
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def discard_created_entity(client_id, project_ref):
+    """Compensate a failed post-create setup without touching replayed projects."""
+    source, source_id = str(project_ref or '').split(':', 1)
+    if source != 'ci':
+        raise ValueError('Somente projetos nativos podem ser descartados.')
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''UPDATE cadu_ci_projetos
+                              SET status = 'deletado', updated_at = NOW()
+                            WHERE id = %s AND id_cliente = %s AND status = 'ativo' ''',
+                        (source_id, client_id))
+        conn.commit()
     except Exception:
         conn.rollback()
         raise

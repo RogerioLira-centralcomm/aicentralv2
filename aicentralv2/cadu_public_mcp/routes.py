@@ -468,7 +468,13 @@ def public_rpc():
             )
             try:
                 value = context_runtime.execute(principal, name, arguments, "customer_agent", registry)
-                if name in {"projects.prepare_source_upload", "resources.add", "brands.prepare_logo_upload"} and isinstance(value, dict) and value.get("upload_url"):
+                if name == "brands.create" and isinstance(value, dict):
+                    nested = value.get("uploads") if isinstance(value.get("uploads"), dict) else {}
+                    value = {**value, "uploads": {
+                        key: {**item, "upload_url": product_url("workspace", f"{PUBLIC_MCP_PATH}/brand-uploads")}
+                        for key, item in nested.items() if isinstance(item, dict)
+                    }}
+                if name in {"projects.prepare_source_upload", "resources.add", "brands.prepare_logo_upload", "brands.prepare_asset_upload"} and isinstance(value, dict) and value.get("upload_url"):
                     value = {**value, "upload_url": product_url(
                         "workspace", f"{PUBLIC_MCP_PATH}/{'brand-uploads' if name.startswith('brands.') else 'uploads'}")}
                 usage.charge_credits(

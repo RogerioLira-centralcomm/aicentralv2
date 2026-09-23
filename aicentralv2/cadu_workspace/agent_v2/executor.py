@@ -159,6 +159,15 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             "reason": "A operação precisa de dados suficientes para gerar uma ação confirmável.",
             "original_action": original_action,
         }
+        if original_action == "create_brand":
+            missing = []
+            if not re.search(r"\bmarca(?:\s+nova)?\s*(?:chamada|nomeada|:)?\s*[\"“]?[^\"”\n,;]{2,150}", planning_message, re.IGNORECASE):
+                missing.append("nome da marca")
+            if not re.search(r"\b(?:site|website|endere[cç]o)\s*(?:oficial)?\s*(?::|=)?\s*(?:https?://|www\.)", planning_message, re.IGNORECASE):
+                missing.append("site oficial")
+            if not re.search(r"\b(?:setor|segmento|ramo)\s*(?:de|da|do|:|=)?\s*\S+", planning_message, re.IGNORECASE):
+                missing.append("segmento")
+            policy["action_preflight"]["missing"] = missing
         plan = build_task_plan(route, budget, routed_message)
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,

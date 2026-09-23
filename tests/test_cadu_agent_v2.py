@@ -346,13 +346,29 @@ def test_web_research_with_organized_sources_does_not_create_project_map():
 
 
 def test_brand_creation_and_audit_are_routed_to_internal_mcp_actions():
-    creation_message = 'Crie uma marca chamada Acme com site https://acme.com.br'
+    incomplete = prepare_execution('Crie uma marca chamada Acme com site https://acme.com.br', context())
+    assert incomplete["route"]["action"] == "clarify_create_brand"
+    assert incomplete["policy"]["action_preflight"]["missing"] == ["segmento"]
+
+    creation_message = 'Crie uma marca chamada Acme, segmento tecnologia, com site https://acme.com.br'
     creation = route_request(creation_message, has_project=True)
     creation_action = next(step for step in build_task_plan(creation, budget_for(creation), creation_message)
                            if step["kind"] == "action")
     assert creation.action == "create_brand"
     assert creation_action["name"] == "brands.create"
-    assert creation_action["arguments"] == {"name": "Acme", "website_url": "https://acme.com.br"}
+    assert creation_action["arguments"] == {
+        "name": "Acme", "website_url": "https://acme.com.br", "sector": "tecnologia",
+    }
+
+    rich_message = (
+        "Crie uma marca chamada Acme, segmento tecnologia, com site https://acme.com.br, "
+        "logo oficial https://cdn.acme.com/logo.png e referência https://behance.net/acme"
+    )
+    rich = route_request(rich_message)
+    rich_action = next(step for step in build_task_plan(rich, budget_for(rich), rich_message)
+                       if step["kind"] == "action")
+    assert rich_action["arguments"]["official_logo_url"] == "https://cdn.acme.com/logo.png"
+    assert rich_action["arguments"]["reference_urls"] == ["https://behance.net/acme"]
 
     audit_message = "Inicie uma auditoria profunda da marca"
     audit = route_request(audit_message, has_brand=True)
@@ -385,6 +401,17 @@ def test_brand_logo_replacement_prepares_the_existing_mcp_upload_flow():
     assert action["name"] == "brands.prepare_logo_upload"
     assert action["requires_confirmation"] is False
     assert action["arguments"] == {}
+
+
+def test_brand_reference_prompt_prepares_reference_upload():
+    message = "Quero adicionar referências visuais à marca"
+    route = route_request(message, has_brand=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert route.action == "prepare_brand_reference_upload"
+    assert action["name"] == "brands.prepare_asset_upload"
+    assert action["arguments"] == {"role": "reference"}
 
 
 def test_google_meet_link_uses_project_reference_flow():
@@ -1199,6 +1226,17 @@ def test_project_creation_uses_referenced_previous_turn_data():
 
     assert execution["route"]["action"] == "create_project"
     assert action["arguments"]["name"] == "Media Hacks"
+    assert "Criar projeto com esses dados" not in action["arguments"]["description"]
+
+
+def test_project_creation_extracts_name_after_brand_qualifier():
+    message = "Abre um projeto para a marca Centralcomm chamado Media Hacks"
+    route = route_request(message)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert action["arguments"]["name"] == "Media Hacks"
+    assert action["arguments"]["brand_name"] == "Centralcomm"
 
 
 def test_confirmable_route_without_valid_action_becomes_clarification():
@@ -1329,8 +1367,8 @@ def test_create_project_tool_writes_canonical_project_only_after_confirmation(mo
     from aicentralv2.cadu_workspace.mcp.tools import workspace
 
     captured = {}
-    monkeypatch.setattr(workspace.repository, "create_entity", lambda client_id, user_id, payload: captured.update(
-        client_id=client_id, user_id=user_id, payload=payload) or "ci:project-1")
+    monkeypatch.setattr(workspace.repository, "create_entity", lambda client_id, user_id, payload, **_kwargs: (
+        captured.update(client_id=client_id, user_id=user_id, payload=payload) or ("ci:project-1", True)))
     monkeypatch.setattr(workspace.repository, "seed_project_owner", lambda client_id, project_ref, user_id: captured.update(
         owner=(client_id, project_ref, user_id)))
     monkeypatch.setattr(workspace.repository, "set_project_visibility", lambda client_id, user_id, project_ref, visibility: captured.update(
@@ -1356,8 +1394,8 @@ def test_create_project_tool_persists_direction_custom_fields_and_brand_atomical
     monkeypatch.setattr(workspace.repository, "entities", lambda _client_id: [
         {"ref": "studio:25", "kind": "brand", "name": "Centralcomm"},
     ])
-    monkeypatch.setattr(workspace.repository, "create_entity", lambda _client_id, _user_id, payload:
-                        captured.update(payload=payload) or "ci:project-2")
+    monkeypatch.setattr(workspace.repository, "create_entity", lambda _client_id, _user_id, payload, **_kwargs:
+                        captured.update(payload=payload) or ("ci:project-2", True))
     monkeypatch.setattr(workspace.repository, "seed_project_owner", lambda *_: None)
     monkeypatch.setattr(workspace.repository, "set_project_visibility", lambda *_: None)
     monkeypatch.setattr(workspace.repository, "set_project_brand_link", lambda *args:
@@ -1374,6 +1412,26 @@ def test_create_project_tool_persists_direction_custom_fields_and_brand_atomical
     assert captured["payload"]["custom_fields"]["formato"]["value"] == "Evento"
     assert captured["brand_link"][3:5] == ("studio:25", True)
     assert result["brand_ref"] == "studio:25"
+
+
+def test_create_project_compensates_failed_core_setup(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import workspace
+
+    discarded = []
+    monkeypatch.setattr(workspace.repository, "create_entity", lambda *_args, **_kwargs: ("ci:new", True))
+    monkeypatch.setattr(workspace.repository, "seed_project_owner",
+                        lambda *_: (_ for _ in ()).throw(RuntimeError("falha")))
+    monkeypatch.setattr(workspace.repository, "discard_created_entity", lambda *args: discarded.append(args))
+    monkeypatch.setattr(workspace.operations, "execute",
+                        lambda _id, _context, _tool, _payload, operation: operation())
+
+    with pytest.raises(RuntimeError, match="falha"):
+        load_builtin_tools().execute("workspace.create_project", {
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b2",
+            "name": "Projeto", "confirmed": True,
+        }, context(), "internal")
+
+    assert discarded == [(12, "ci:new")]
 
 
 def test_project_creation_plan_bootstraps_links_upload_and_team_visibility():
@@ -1706,8 +1764,13 @@ def test_project_overview_uses_active_project_context_without_follow_up():
     assert policy_for(route)["max_next_steps"] == 0
 
 
-def test_colloquial_project_overview_uses_active_project_context():
-    route = route_request("Me explica um pouco mais sobre o que que esse projeto faz", has_project=True)
+@pytest.mark.parametrize("message", [
+    "Me explica um pouco mais sobre o que que esse projeto faz",
+    "Qual é a desse projeto?",
+    "Esse projeto é sobre o quê?",
+])
+def test_colloquial_project_overview_uses_active_project_context(message):
+    route = route_request(message, has_project=True)
 
     assert route.action == "describe_project"
     assert route.needs_tools == ("workspace.get_project_context",)
@@ -1736,10 +1799,14 @@ def test_new_project_and_brand_open_their_context_surfaces_after_creation():
     })
     brand = _completion("brands.create", {
         "brand_ref": "studio:81", "brand_id": 81, "name": "Acme",
+        "detail_url": "https://workspace.example/marcas/81",
+        "artifact": {"type": "brand_identity", "brand_ref": "studio:81"},
     })
 
     assert project["open_surface"] == {"type": "project_profile", "project_ref": "ci:project-1"}
     assert brand["open_surface"] == {"type": "brand_identity", "brand_ref": "studio:81"}
+    assert brand["artifact"] == {"type": "brand_identity", "brand_ref": "studio:81"}
+    assert brand["blocks"][1]["items"][0]["url"] == "https://workspace.example/marcas/81"
     assert project["activate_context"] == {"project_ref": "ci:project-1", "brand_ref": None}
     assert brand["activate_context"] == {"project_ref": None, "brand_ref": "studio:81"}
 

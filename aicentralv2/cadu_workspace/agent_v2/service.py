@@ -207,14 +207,42 @@ def _repair_project_context_denial(response, run) -> bool:
         parts.append("Há arquivos do projeto que ainda precisam de indexação para uma leitura completa.")
     elif source_count == 0:
         parts.append("Ainda não há documentos indexados na base do projeto; a descrição e as instruções acima já permitem começar.")
-    parts.append(
-        "Como proposta inicial, podemos transformar o objetivo em um plano de trabalho com entregas e atividades. "
-        "Para completar o projeto, vale registrar entregas prioritárias, responsáveis e prazos confirmados, além de métricas "
-        "para acompanhar recorrência no portal e interesse em crédito. Esses itens são sugestões, ainda não decisões salvas."
-    )
+    subject = f"{name} {description} {instructions}".casefold()
+    if any(term in subject for term in ("portal", "conteúdo", "conteudo", "campanha", "mídia", "midia", "crédito", "credito")):
+        proposal = (
+            "Como proposta, podemos avançar do objetivo e dos canais já registrados para uma jornada de conteúdo: "
+            "ligar dúvidas do público a pautas, trilhas e chamadas para ação. Depois, definir atividades e indicadores "
+            "para acompanhar retorno ao conteúdo e avanço na jornada. São sugestões para discussão, não decisões salvas."
+        )
+        options = ["Jornada e pautas", "Plano de atividades", "Indicadores"]
+    elif any(term in subject for term in ("evento", "encontro", "congresso", "lançamento", "lancamento")):
+        proposal = (
+            "Como proposta, podemos estruturar o trabalho em público e objetivo, programação e operação, divulgação "
+            "e avaliação. Datas, responsáveis e orçamento ficam em aberto até você confirmar."
+        )
+        options = ["Programação e operação", "Divulgação", "Plano de avaliação"]
+    elif any(term in subject for term in ("pesquisa", "diagnóstico", "diagnostico", "estudo", "levantamento")):
+        proposal = (
+            "Como proposta, podemos transformar o tema em uma pergunta de pesquisa, escolher fontes e método, "
+            "e explicitar qual decisão o estudo deve apoiar. Método, amostra e prazo precisam da sua validação."
+        )
+        options = ["Pergunta e método", "Fontes", "Decisão que a pesquisa deve apoiar"]
+    elif any(term in subject for term in ("produto", "plataforma", "software", "aplicativo", "app", "serviço", "servico")):
+        proposal = (
+            "Como proposta, podemos detalhar usuários e necessidades, escopo e critérios de aceite, e marcos de entrega. "
+            "Prioridades, responsáveis e prazos ficam em aberto até você confirmar."
+        )
+        options = ["Usuários e necessidades", "Escopo e critérios", "Marcos de entrega"]
+    else:
+        proposal = (
+            "Como proposta, podemos transformar o objetivo em resultados esperados, entregas e atividades, "
+            "e critérios para acompanhar o progresso. Responsáveis, datas e metas só entram depois da sua confirmação."
+        )
+        options = ["Resultados e prioridades", "Entregas e atividades", "Indicadores"]
+    parts.append(proposal)
     response.questions = [{
         "question": "O que você quer completar primeiro no projeto?",
-        "options": ["Plano de atividades", "Entregas e canais", "Métricas de acompanhamento"],
+        "options": options,
         "allow_custom": True,
     }]
     response.answer = "\n\n".join(parts)

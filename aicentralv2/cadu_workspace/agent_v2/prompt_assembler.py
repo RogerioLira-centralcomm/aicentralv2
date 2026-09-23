@@ -255,10 +255,14 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "Quando houver evidência, não diga que não tem acesso ao projeto; não peça descrição, README ou briefing já representados nela. "
             "Se a leitura falhar, informe a indisponibilidade da consulta sem afirmar que o projeto está vazio. "
             "Se houver poucas informações, responda com os fatos disponíveis e use conhecimento geral para propor um caminho inicial, "
-            "marcando claramente cada recomendação como proposta e sem inventar dados do projeto. Sugira até três informações concretas "
-            "que ajudariam a evoluir o projeto, priorizando público prioritário, entregas, atividades, responsáveis, cronograma e métricas "
-            "conforme o contexto. Termine com uma única pergunta prática para o usuário escolher o que quer completar primeiro; "
-            "não peça que repita dados já cadastrados nem use uma pergunta genérica."
+            "marcando claramente cada recomendação como proposta e sem inventar dados do projeto. Antes de sugerir complementos, "
+            "verifique metadados, instruções, tarefas, atividades, links, biblioteca e trechos indexados já retornados; não peça nem recomende "
+            "cadastrar de novo o que já está presente. Escolha no máximo três próximos itens que façam sentido para o tipo e a etapa do projeto. "
+            "Para campanhas e conteúdo, considere público, jornada, mensagem, canais, calendário e indicadores; para produtos digitais, usuários, "
+            "escopo, requisitos, critérios de aceite e marcos; para eventos, objetivo, programação, operação, divulgação e avaliação; para pesquisas, "
+            "pergunta, método, fontes e decisão a apoiar; nos demais casos, resultados, entregas, atividades, dependências e critérios de progresso. "
+            "Sugira responsáveis, datas, orçamento ou metas somente como campos a confirmar, nunca como fatos. Termine com uma pergunta prática "
+            "e opções específicas para o usuário escolher o que completar primeiro; aceite também uma resposta livre."
         )
     if route.action == "describe_project_for_rename":
         brand_instruction += (

@@ -6,6 +6,8 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from .contracts import ExecutionBudget, IntentRoute
+from ..meeting_reference import parse_meeting_invite
+from ..reference_context import clean_user_message
 
 
 def _project_meeting_step(message: str, now=None):
@@ -173,6 +175,7 @@ def _project_note_step(message: str):
 
 
 def _project_link_step(message: str):
+    meeting = parse_meeting_invite(message)
     match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?",
                       str(message or ""), re.IGNORECASE)
     if not match:
@@ -180,10 +183,25 @@ def _project_link_step(message: str):
     url = match.group(0).rstrip(".,;:)")
     if not re.match(r'^[a-z][a-z0-9+.-]*://', url, re.IGNORECASE):
         url = f'https://{url}'
+    approve_for_me = bool(re.search(
+        r"\b(?:aprovar?\s+por\s+mim|pode\s+aprovar|sem\s+(?:pedir\s+)?confirma[cç][aã]o)\b",
+        str(message or ""), re.IGNORECASE,
+    ))
+    arguments = {"url": meeting["url"] if meeting else url, "user_message": clean_user_message(message)[:5000]}
+    if meeting:
+        arguments.update({
+            "title": meeting["title"], "resource_kind": "meeting",
+            "platform": meeting["platform"], "external_id": meeting["external_id"],
+            "meeting": {key: meeting[key] for key in (
+                "starts_at", "ends_at", "timezone", "year_inferred", "dial_in", "pin", "related_urls"
+            )},
+            "tags": ["reunião", meeting["platform"]],
+        })
     return {
-        "kind": "action", "name": "projects.create_link_reference", "requires_confirmation": True,
-        "request_id": str(uuid4()), "arguments": {"url": url}, "effect": "write",
-        "summary": "Salvar o link no projeto e deixar o indexador classificar e organizar seus metadados.",
+        "kind": "action", "name": "projects.create_link_reference", "requires_confirmation": not approve_for_me,
+        "request_id": str(uuid4()), "arguments": arguments, "effect": "write",
+        "summary": (f"Salvar a reunião “{meeting['title']}” como fonte estruturada do projeto."
+                    if meeting else "Salvar o link no projeto e deixar o indexador classificar e organizar seus metadados."),
     }
 
 

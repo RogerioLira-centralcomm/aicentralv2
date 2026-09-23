@@ -3598,7 +3598,34 @@ def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
                  ORDER BY position ASC, created_at ASC""",
                 (project_id, client_id),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            links = [dict(row) for row in cursor.fetchall()]
+            cursor.execute("SELECT to_regclass('public.cadu_workspace_external_references') IS NOT NULL AS available")
+            if not bool((cursor.fetchone() or {}).get('available')):
+                return links
+            cursor.execute(
+                """SELECT reference.locator,reference.metadata,reference.created_at,
+                          session.user_id,session.origin,person.nome_completo AS actor_name
+                     FROM cadu_workspace_external_references reference
+                LEFT JOIN cadu_workspace_ingestion_items item ON item.id=reference.ingestion_item_id
+                LEFT JOIN cadu_workspace_ingestion_sessions session ON session.id=item.session_id
+                LEFT JOIN tbl_contato_cliente person ON person.id_contato_cliente=session.user_id
+                    WHERE reference.client_id=%s AND reference.project_ref=%s""",
+                (client_id, f'ci:{project_id}'),
+            )
+            context_by_url = {str(row.get('locator') or ''): dict(row) for row in cursor.fetchall()}
+            for link in links:
+                contextual = context_by_url.get(str(link.get('url') or ''))
+                if not contextual:
+                    continue
+                metadata = contextual.get('metadata') or {}
+                link.update({
+                    'context_summary': metadata.get('context_summary') or metadata.get('description'),
+                    'user_message': metadata.get('user_message'), 'timeline': metadata.get('timeline'),
+                    'project_item_kind': metadata.get('project_item_kind') or 'reference',
+                    'meeting': metadata.get('meeting'), 'origin': contextual.get('origin') or metadata.get('origin'),
+                    'actor_id': contextual.get('user_id'), 'actor_name': contextual.get('actor_name'),
+                })
+            return links
     except Exception:
         return []
 
@@ -3646,7 +3673,13 @@ def _project_recent_activity(project: dict) -> list[dict]:
     if project.get('updated_at'):
         activity.append({'title': 'Projeto atualizado', 'detail': project.get('nome'), 'at': project['updated_at']})
     for item in project.get('files', [])[:4]:
-        activity.append({'title': 'Fonte adicionada', 'detail': item.get('nome_arquivo') or 'Arquivo', 'at': item.get('created_at')})
+        metadata = item.get('classification_metadata') or {}
+        activity.append({
+            'title': 'Fonte adicionada',
+            'detail': metadata.get('description') or item.get('nome_arquivo') or 'Arquivo',
+            'at': item.get('created_at'), 'actor_id': item.get('criado_por'),
+            'actor_name': item.get('actor_name'), 'origin': metadata.get('created_via') or metadata.get('origin'),
+        })
     for item in project.get('conversations', [])[:3]:
         activity.append({'title': 'Conversa atualizada', 'detail': item.get('titulo') or 'Conversa sem título', 'at': item.get('updated_at')})
     for item in project.get('images', [])[:3]:
@@ -3655,8 +3688,16 @@ def _project_recent_activity(project: dict) -> list[dict]:
         activity.append({'title': 'Plano atualizado', 'detail': item.get('title') or 'Plano sem título', 'at': item.get('updated_at')})
     for item in project.get('creative_analyses', [])[:3]:
         activity.append({'title': 'Criativo analisado', 'detail': item.get('original_name') or 'Criativo', 'at': item.get('created_at')})
-    for item in project.get('links', [])[:3]:
-        activity.append({'title': 'Atalho adicionado', 'detail': item.get('titulo') or 'Link externo', 'at': item.get('created_at')})
+    recent_links = sorted(project.get('links', []), key=lambda item: item.get('created_at') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    for item in recent_links[:4]:
+        timeline = item.get('timeline') or {}
+        activity.append({
+            'title': timeline.get('label') or 'Referência adicionada',
+            'detail': item.get('context_summary') or timeline.get('detail') or item.get('titulo') or 'Link externo',
+            'at': item.get('created_at'), 'occurred_at': timeline.get('occurred_at'),
+            'actor_id': item.get('actor_id'), 'actor_name': item.get('actor_name'),
+            'origin': item.get('origin'), 'resource_url': item.get('url'),
+        })
     activity.sort(key=lambda item: item.get('at') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     return activity[:10]
 
@@ -3994,12 +4035,15 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT id, criado_por, nome_arquivo, mime, tamanho, storage_path, doc_form, indexing_status,
-                          word_count, tokens, erro_msg, purpose, category, classification_status,
-                          classification_confidence, classification_reason, classification_metadata, created_at
-                     FROM cadu_ci_projeto_arquivos
-                    WHERE projeto_id = %s AND id_cliente = %s AND indexing_status <> 'superseded'
-                 ORDER BY created_at DESC""",
+                """SELECT file.id, file.criado_por, person.nome_completo AS actor_name,
+                          file.nome_arquivo, file.mime, file.tamanho, file.storage_path, file.doc_form, file.indexing_status,
+                          file.word_count, file.tokens, file.erro_msg, file.purpose, file.category, file.classification_status,
+                          file.classification_confidence, file.classification_reason,
+                          file.classification_metadata, file.created_at
+                     FROM cadu_ci_projeto_arquivos file
+                LEFT JOIN tbl_contato_cliente person ON person.id_contato_cliente=file.criado_por
+                    WHERE file.projeto_id = %s AND file.id_cliente = %s AND file.indexing_status <> 'superseded'
+                 ORDER BY file.created_at DESC""",
                 (project_id, client_id),
             )
             project['files'] = [dict(row) for row in cursor.fetchall()]
@@ -4107,6 +4151,15 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
     }
     project['context_health'] = _project_context_health(project)
     project['activity'] = _project_recent_activity(project)
+    try:
+        from .project_task_service import list_tasks
+        task_context = resolve_request_context(surface='workspace', project_ref=f'ci:{project_id}')
+        task_result = list_tasks(task_context)
+        project['tasks'] = task_result.get('tasks') or []
+        project['tasks_available'] = bool(task_result.get('available'))
+    except Exception:
+        current_app.logger.exception('Não foi possível carregar tarefas do projeto %s', project_id)
+        project['tasks'], project['tasks_available'] = [], False
     try:
         from .project_resource_service import list_resources
         registry = list_resources(client_id, f'ci:{project_id}', actor_id=session.get('user_id'))
@@ -5666,7 +5719,7 @@ def project_detail(project_id):
         artifact_items.sort(key=lambda item: str(item.get('updatedAt') or ''), reverse=True)
         project_resources = [
             item for item in project.get('resources') or []
-            if str(item.get('source_system') or '') != 'planner_docs'
+            if str(item.get('source_system') or '') not in {'planner_docs', 'external_reference'}
         ]
         project_data = {
             'id': str(project.get('id')), 'name': str(project.get('nome') or 'Projeto'),
@@ -5711,6 +5764,7 @@ def project_detail(project_id):
                        'classificationReason': str(item.get('classification_reason') or ''),
                        'createdAt': item.get('created_at'),
                        'createdBy': str(item.get('criado_por') or ''),
+                       'actor': {'id': str(item.get('criado_por') or ''), 'name': str(item.get('actor_name') or '')},
                        'canIndex': int(item.get('word_count') or 0) >= 20,
                        'requiresReview': str(item.get('purpose') or 'project_attachment') == 'project_attachment' and str(item.get('indexing_status') or '') == 'paused' and str(item.get('classification_status') or '') in {'pending', 'classified', 'needs_review'},
                        'confirmUrl': url_for('cadu_workspace.confirm_project_source', project_id=project_id, source_id=item.get('id')),
@@ -5733,10 +5787,31 @@ def project_detail(project_id):
             'resourceRegistryAvailable': bool(project.get('resource_registry_available')),
             'memory': [{'id': str(item.get('id')), 'kind': str(item.get('kind') or 'Memória'),
                         'summary': str(item.get('summary') or '')} for item in (project.get('memory') or {}).get('confirmed', [])],
+            'tasksAvailable': bool(project.get('tasks_available')),
+            'tasks': [{'id': str(item.get('id')), 'title': str(item.get('title') or 'Tarefa'),
+                       'description': str(item.get('description') or ''), 'status': str(item.get('status') or 'todo'),
+                       'priority': str(item.get('priority') or 'normal'), 'startsAt': item.get('starts_at'),
+                       'dueAt': item.get('due_at'), 'completedAt': item.get('completed_at'),
+                       'sourceProvider': str(item.get('source_provider') or 'cadu'),
+                       'externalUrl': str(item.get('external_url') or ''),
+                       'assignee': {'id': str(item.get('assignee_id') or ''), 'name': str(item.get('assignee_name') or '')},
+                       'creator': {'id': str(item.get('created_by') or ''), 'name': str(item.get('creator_name') or '')},
+                       'createdAt': item.get('created_at'), 'updatedAt': item.get('updated_at')}
+                      for item in project.get('tasks') or []],
             'activity': [{'id': f"{index}:{item.get('title')}", 'title': str(item.get('title') or 'Atualização'),
-                          'detail': str(item.get('detail') or '')} for index, item in enumerate(project.get('activity') or [])],
+                          'detail': str(item.get('detail') or ''), 'at': item.get('at'),
+                          'occurredAt': item.get('occurred_at'), 'origin': str(item.get('origin') or ''),
+                          'resourceUrl': str(item.get('resource_url') or ''),
+                          'actor': {'id': str(item.get('actor_id') or ''), 'name': str(item.get('actor_name') or '')}}
+                         for index, item in enumerate(project.get('activity') or [])],
             'links': [{'id': str(item.get('id')), 'title': str(item.get('titulo') or 'Atalho'), 'url': str(item.get('url') or ''),
-                       'provider': str(item.get('provider') or ''), 'createdAt': item.get('created_at')} for item in project.get('links') or []],
+                       'provider': str(item.get('provider') or ''), 'createdAt': item.get('created_at'),
+                       'detail': str(item.get('context_summary') or ''), 'origin': str(item.get('origin') or ''),
+                       'meeting': item.get('meeting') or {}, 'userMessage': str(item.get('user_message') or ''),
+                       'projectItemKind': str(item.get('project_item_kind') or 'reference'),
+                       'occurredAt': (item.get('meeting') or {}).get('starts_at'),
+                       'actor': {'id': str(item.get('actor_id') or ''), 'name': str(item.get('actor_name') or '')}}
+                      for item in project.get('links') or []],
             'health': project.get('context_health') or {},
             'sharing': {
                 'visibility': family_repository.project_visibility(client_id, f'ci:{project_id}').get('visibility', 'private'),
@@ -5773,6 +5848,53 @@ def project_sharing_api(project_id):
         'members': family_repository.project_access(client_id, project_ref),
         'team': family_repository.team(client_id),
     })
+
+
+@bp.get('/workspace/api/projetos/<project_id>/tarefas')
+@login_required
+def project_tasks_api(project_id):
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    project_ref = f'ci:{project_id}'
+    if not family_repository.project_user_can_view(client_id, project_ref, user_id):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
+    from .project_task_service import list_tasks
+    return jsonify(list_tasks(resolve_request_context(surface='workspace', project_ref=project_ref)))
+
+
+@bp.post('/workspace/api/projetos/<project_id>/tarefas')
+@login_required
+def create_project_task_api(project_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    from .project_task_service import create_task
+    try:
+        task = create_task(
+            resolve_request_context(surface='workspace', project_ref=f'ci:{project_id}'),
+            request.get_json(silent=True) or {},
+        )
+        return jsonify({'task': task}), 201
+    except HTTPException as error:
+        return jsonify({'error': error.description}), error.code
+
+
+@bp.patch('/workspace/api/projetos/<project_id>/tarefas/<uuid:task_id>')
+@login_required
+def update_project_task_api(project_id, task_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    from .project_task_service import update_task
+    try:
+        task = update_task(
+            resolve_request_context(surface='workspace', project_ref=f'ci:{project_id}'),
+            str(task_id), request.get_json(silent=True) or {},
+        )
+        return jsonify({'task': task})
+    except HTTPException as error:
+        return jsonify({'error': error.description}), error.code
 
 
 @bp.get('/workspace/api/notificacoes')

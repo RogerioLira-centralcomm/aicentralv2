@@ -168,6 +168,17 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /Continue de onde o time parou/);
   assert.match(project, /ProjectDataIndex/);
   assert.match(project, /Índice do projeto/);
+  assert.match(project, /function ProjectTasksSection/);
+  assert.match(project, /Tarefas e cronograma/);
+  assert.match(project, /cadu-ds-project-gantt/);
+  assert.match(project, /Referência por link/);
+  assert.match(project, /request\(urls\.tasks/);
+  assert.match(project, /new Date\(draft\.starts_at\)\.toISOString\(\)/);
+  assert.match(project, /startsAt:item\.occurredAt \|\| ''/);
+  assert.match(project, /Referências externas/);
+  assert.match(project, /\['activity','Atividades'\]/);
+  assert.match(project, /\['task','Tarefas'\]/);
+  assert.doesNotMatch(project, /title:'Links principais'/);
   assert.match(project, /<b title=\{project\.name\}>\{project\.name\}<\/b>/);
   assert.match(project, /cadu-ds-project-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-project-content/);
   assert.match(styles, /\.cadu-ds-home-content \{ width:100%; max-width:none; margin:0;/);
@@ -188,6 +199,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
   assert.match(template, /'updateBrands': url_for\('cadu_workspace\.update_project_brands'/);
+  assert.match(template, /'tasks': url_for\('cadu_workspace\.project_tasks_api'/);
   assert.match(template, /'importBrand': url_for\('cadu_workspace\.import_project_brand'/);
   assert.doesNotMatch(template, /'legacy': url_for\('cadu_workspace\.project_detail'/);
   assert.match(template, /'conversation': url_for\('cadu_workspace\.conversations', project_ref='ci:' ~ project_data\.id, history='1'\)/);
@@ -432,6 +444,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
   const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
   assert.match(app, /restoreConversationMessages\(data\.messages, uid\)/);
+  assert.match(app, /O histórico foi aberto pelo modo de compatibilidade/);
+  assert.match(app, /loadRecent\(\);\s*if \(!requestedConversationId\.current\) loadContext\(\)/);
   assert.match(historyModel, /metadata\.artifact_id/);
   assert.match(app, /fetchArtifact\(lastArtifact\)/);
   assert.match(app, /confirmDiscard/);
@@ -500,7 +514,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(pendingInteraction, /Adicionar referência/);
   assert.match(pendingInteraction, /Adicionar ao projeto/);
   assert.doesNotMatch(conversation, /cv-action-confirmation/);
-  assert.match(app, /active\.run\.actions/);
+  assert.match(app, /restorePendingActions\(active\.run, uid\)/);
   assert.match(artifact, /cv-link-embed__frame/);
   assert.match(artifact, /allow-popups-to-escape-sandbox/);
   assert.match(markdown, /onOpenResource\(\{url: href/);
@@ -558,11 +572,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(contextModel, /execution_mode: executionMode/);
   assert.match(app, /setExecutionMode\(event\.policy\.execution_mode\)/);
   assert.match(contextModel, /selected_context/);
-  assert.match(responseBlocks, /Continuar com/);
+  assert.match(responseBlocks, /cv-source-group__favicons/);
   assert.doesNotMatch(responseBlocks, /Responder com fontes/);
-  assert.match(responseBlocks, /Leitura indisponível/);
   assert.match(responseBlocks, /onError=\{\(\) => setFailed\(true\)\}/);
-  assert.match(responseBlocks, /Copiar referências/);
+  assert.match(responseBlocks, /Ver todas/);
   assert.match(responseBlocks, /block\.type === 'insights'/);
   assert.match(responseBlocks, /block\.type === 'files'/);
   assert.match(responseBlocks, /block\.type === 'summary'/);
@@ -654,15 +667,43 @@ test('conversation continuations preserve structured questions and server contex
   assert.match(app, /Contexto sincronizado pelo servidor/);
 });
 
-test('source results use resilient favicons, clear actions and hide technical fetch errors', () => {
+test('source results use a compact summary with resilient favicons', () => {
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   assert.doesNotMatch(responseBlocks, /Responder com fontes/);
-  assert.match(responseBlocks, /Continuar com \{selectedItems\.length\} fonte/);
-  assert.match(responseBlocks, /Leitura indisponível/);
+  assert.match(responseBlocks, /cv-source-group__favicons/);
+  assert.match(responseBlocks, /Ver todas/);
   assert.match(responseBlocks, /onError=\{\(\) => setFailed\(true\)\}/);
-  assert.match(responseBlocks, /Copiar referências/);
-  assert.match(styles, /button\.is-primary:hover/);
+  assert.doesNotMatch(responseBlocks, /priorize fontes oficiais|Nenhuma fonte oficial|Selecionar oficiais/);
+  assert.match(styles, /cv-source-group__summary/);
+  assert.match(app, /kind === 'source_collection'/);
+  assert.match(app, /Fontes consultadas/);
+  assert.match(conversation, /consolidateSources\(contentBlocks, response\.citations\)/);
+  assert.doesNotMatch(conversation, /WorkspaceSourceList/);
+});
+
+test('source consolidation and markdown repair produce the expected behavior', async () => {
+  const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
+  assert.match(markdown, /<em key=\{index\}>/);
+  assert.match(markdown, /<strong key=\{index\}>/);
+  assert.match(markdown, /<del key=\{index\}>/);
+  assert.match(markdown, /<blockquote key=/);
+  assert.match(markdown, /<pre key=/);
+  assert.match(markdown, /<hr key=/);
+  const sourceModel = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/sourceModel.mjs')).href);
+  const markdownModel = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/markdownModel.mjs')).href);
+  const sourceBlock = {type: 'sources', items: [{url: 'https://example.com/a'}]};
+  assert.deepEqual(sourceModel.consolidateSources([sourceBlock], [{url: 'https://duplicate.test'}]), [sourceBlock]);
+  assert.equal(sourceModel.consolidateSources([], [{url: 'https://example.com'}]).length, 1);
+  assert.deepEqual(sourceModel.sourceSummary([
+    {url: 'https://www.wikipedia.org/a'}, {url: 'https://youtube.com/b'}, {url: 'https://youtube.com/c'}, {url: 'https://example.com/d'}, {url: 'https://fourth.test/e'},
+  ]), {count: 5, domains: ['wikipedia.org', 'youtube.com', 'example.com', 'fourth.test'], label: 'wikipedia.org, youtube.com, example.com', remaining: 1});
+  assert.equal(markdownModel.normalizeInlineMarkdown('**One Love* e \\*literal\\*'), '*One Love* e \uE000literal\uE000');
+  assert.equal(markdownModel.restoreEscapedMarkdown('\uE000literal\uE000'), '*literal*');
+  assert.deepEqual(markdownModel.splitInlineMarkdown('campaign_start_date'), ['campaign_start_date']);
+  assert.ok(markdownModel.splitInlineMarkdown('Texto com _ênfase_ correta').includes('_ênfase_'));
 });
 
 test('conversation failures are converted into an actionable user-facing state', async () => {
@@ -890,6 +931,16 @@ test('conversation history model restores messages, selected context and latest 
   assert.deepEqual(restored.messages[1].artifact, {id: '41', title: 'Plano', type: 'document'});
   assert.deepEqual(restored.messages[3].artifact, {id: '42', title: 'entrega', type: undefined});
   assert.deepEqual(model.restoreConversationMessages(null, () => 'unused'), {messages: [], selectedContext: null, lastArtifact: ''});
+  const pending = model.restorePendingActions({
+    id: 'run-1',
+    actions: [{step_id: 'step-1', name: 'projects.create_link_reference'}],
+  }, () => 'action-1');
+  assert.deepEqual(pending, [{
+    id: 'action-1', role: 'assistant', kind: 'action',
+    action: {step_id: 'step-1', name: 'projects.create_link_reference', run_id: 'run-1'},
+    runId: 'run-1',
+  }]);
+  assert.deepEqual(model.restorePendingActions(null, () => 'unused'), []);
   assert.deepEqual(model.recentConversations([
     {id: 1, status: 'active'},
     {id: 2, status: 'Arquivada'},

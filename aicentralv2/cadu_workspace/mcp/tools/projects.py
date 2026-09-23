@@ -7,6 +7,7 @@ from ... import project_source_service
 from ... import project_index_service
 from ... import project_resource_service
 from ... import workspace_ingestion_service
+from ... import project_task_service
 from ...conversations.service import project_knowledge_context
 from ....db import get_db
 import json
@@ -138,7 +139,7 @@ def inspect_file_support(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.classify_intake", capability="workspace", effect="read",
-    description="Classifica arquivo, link ou texto antes de salvar: sugere destino, categoria e se indexação precisa de confirmação.",
+    description="Classifica arquivo, link ou texto antes de salvar; também extrai de convites Meet, Teams e Zoom o título, horário, fuso e dados de acesso sem abrir o link.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "properties": {
         "filename": {"type": "string", "maxLength": 220},
@@ -194,18 +195,82 @@ def ingestion_status(context: RequestContext, arguments: dict) -> dict:
         "platform": {"type": "string", "maxLength": 120},
         "external_id": {"type": "string", "maxLength": 512},
         "description": {"type": "string", "maxLength": 4000},
+        "user_message": {"type": "string", "maxLength": 5000, "description": "Mensagem final e factual do usuário que dá contexto ao link; preserve-a sem instruções internas do agente."},
+        "project_item_kind": {"type": "string", "enum": ["reference", "activity", "task", "decision", "document_reference"]},
         "tags": {"type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1, "maxLength": 64}},
+        "meeting": {"type": "object", "properties": {
+            "starts_at": {"type": ["string", "null"]}, "ends_at": {"type": ["string", "null"]},
+            "timezone": {"type": ["string", "null"]}, "year_inferred": {"type": "boolean"},
+            "dial_in": {"type": ["string", "null"]}, "pin": {"type": ["string", "null"]},
+            "related_urls": {"type": "array", "maxItems": 10, "items": {"type": "string"}},
+        }, "additionalProperties": False},
     }, "additionalProperties": False},
 )
 def create_link_reference(context: RequestContext, arguments: dict) -> dict:
     payload = {key: arguments[key] for key in (
-        "url", "title", "resource_kind", "platform", "external_id", "description", "tags"
+        "url", "title", "resource_kind", "platform", "external_id", "description", "user_message", "project_item_kind", "tags", "meeting"
     ) if key in arguments}
     return _domain(lambda: operations.execute(
         arguments["request_id"], context, "projects.create_link_reference", payload,
         lambda: workspace_ingestion_service.ingest_link(
             context, **payload, origin="mcp", request_id=arguments["request_id"],
         ),
+    ))
+
+
+@register_tool(
+    name="projects.list_tasks", capability="workspace", effect="read", requires_project=True,
+    description="Lista tarefas nativas do Cadu no projeto. Referências de ClickUp, Trello, Asana e Monday continuam disponíveis como recursos externos.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+)
+def list_tasks(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: project_task_service.list_tasks(context))
+
+
+@register_tool(
+    name="projects.create_task", capability="workspace", effect="write", requires_project=True,
+    description="Cria uma tarefa leve no projeto Cadu, com início, prazo, prioridade e responsável opcionais.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "title"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "title": {"type": "string", "minLength": 2, "maxLength": 180},
+        "description": {"type": "string", "maxLength": 4000},
+        "status": {"type": "string", "enum": sorted(project_task_service.STATUSES)},
+        "priority": {"type": "string", "enum": sorted(project_task_service.PRIORITIES)},
+        "starts_at": {"type": "string", "maxLength": 40}, "due_at": {"type": "string", "maxLength": 40},
+        "assignee_id": {"type": "integer", "minimum": 1},
+    }, "additionalProperties": False},
+)
+def create_task(context: RequestContext, arguments: dict) -> dict:
+    payload = {key: value for key, value in arguments.items() if key not in {"request_id", "confirmed"}}
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "projects.create_task", payload,
+        lambda: project_task_service.create_task(context, {**payload, "origin": "mcp"}),
+    ))
+
+
+@register_tool(
+    name="projects.update_task", capability="workspace", effect="write", requires_project=True,
+    description="Atualiza status, datas, prioridade, responsável ou texto de uma tarefa nativa do Cadu.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "task_id"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]}, "task_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "title": {"type": "string", "minLength": 2, "maxLength": 180}, "description": {"type": "string", "maxLength": 4000},
+        "status": {"type": "string", "enum": sorted(project_task_service.STATUSES)},
+        "priority": {"type": "string", "enum": sorted(project_task_service.PRIORITIES)},
+        "starts_at": {"type": ["string", "null"], "maxLength": 40}, "due_at": {"type": ["string", "null"], "maxLength": 40},
+        "assignee_id": {"type": ["integer", "null"], "minimum": 1},
+    }, "additionalProperties": False},
+)
+def update_task(context: RequestContext, arguments: dict) -> dict:
+    payload = {key: value for key, value in arguments.items() if key not in {"request_id", "confirmed", "task_id"}}
+    operation_payload = {"task_id": arguments["task_id"], **payload}
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "projects.update_task", operation_payload,
+        lambda: project_task_service.update_task(context, arguments["task_id"], payload),
     ))
 
 

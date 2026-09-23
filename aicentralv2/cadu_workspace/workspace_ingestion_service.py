@@ -16,6 +16,7 @@ from psycopg.types.json import Json
 from ..db import get_db
 from .agent_v2.contracts import RequestContext
 from . import project_source_service
+from .reference_context import reference_context
 
 
 def _relation(cursor, table: str) -> bool:
@@ -25,7 +26,8 @@ def _relation(cursor, table: str) -> bool:
 
 def _preserve_external_reference(context: RequestContext, descriptor: dict, *, external_id: str = "",
                                  platform: str = "", description: str = "", tags=None,
-                                 ingestion_item_id: str = "") -> dict:
+                                 ingestion_item_id: str = "", meeting: dict | None = None,
+                                 context_data: dict | None = None, origin: str = "chat") -> dict:
     """Upsert the provider-neutral source of truth without requiring a connector."""
     connection = get_db()
     reference_id = str(uuid4())
@@ -37,6 +39,12 @@ def _preserve_external_reference(context: RequestContext, descriptor: dict, *, e
         "resource_kind": descriptor.get("resource_kind"),
         "access_type": descriptor.get("access_type"),
         "connector_recommended": bool(descriptor.get("connector_recommended")),
+        "meeting": dict(meeting or {}) or None,
+        "user_message": (context_data or {}).get("user_message"),
+        "context_summary": (context_data or {}).get("context_summary"),
+        "project_item_kind": (context_data or {}).get("project_item_kind") or "reference",
+        "timeline": (context_data or {}).get("timeline"),
+        "origin": str(origin or "chat")[:32],
     }
     sync_status = "needs_authorization" if descriptor.get("connector_recommended") else "pending"
     try:
@@ -93,13 +101,21 @@ def _preserve_external_reference(context: RequestContext, descriptor: dict, *, e
 
 def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_kind: str = "",
                 platform: str = "", external_id: str = "", description: str = "",
-                tags: list[str] | None = None, origin: str = "chat", request_id: str = "") -> dict:
+                tags: list[str] | None = None, meeting: dict | None = None,
+                user_message: str = "", project_item_kind: str = "",
+                origin: str = "chat", request_id: str = "") -> dict:
     """Preserve a project link and record its enrichment lifecycle.
 
     The link remains useful even when the ingestion migration has not yet been
     deployed. In that rollout state the existing link pipeline still succeeds.
     """
     descriptor = project_source_service.describe_link(url, title)
+    context_data = reference_context(message=user_message, url=descriptor["url"], descriptor=descriptor,
+                                     meeting=meeting, requested_kind=project_item_kind)
+    if not title and context_data.get("suggested_title"):
+        title = context_data["suggested_title"]
+        descriptor = project_source_service.describe_link(url, title)
+    description = str(description or context_data.get("context_summary") or "")[:4000]
     session_id, item_id = str(uuid4()), str(uuid4())
     connection = get_db()
     tracked = False
@@ -117,7 +133,10 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
                          WHERE idempotency_key IS NOT NULL DO NOTHING""",
                     (session_id, context.organization_id, context.client_id, context.user_id,
                      context.project_ref, origin, request_id or None,
-                     Json({"input_type": "url", "provider": descriptor["provider"]})),
+                     Json({"input_type": "url", "provider": descriptor["provider"],
+                           "user_message": context_data.get("user_message"),
+                           "context_summary": context_data.get("context_summary"),
+                           "project_item_kind": context_data.get("project_item_kind"), "timeline": context_data.get("timeline")})),
                 )
                 if cursor.rowcount:
                     cursor.execute(
@@ -129,7 +148,10 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
                                    'classified',1,%s,'not_requested',%s,NOW(),NOW())""",
                         (item_id, session_id, context.client_id, descriptor["title"], descriptor["url"],
                          descriptor["provider"], "Plataforma e tipo classificados pela URL.",
-                         Json({key: value for key, value in descriptor.items() if key != "url"})),
+                         Json({**{key: value for key, value in descriptor.items() if key != "url"},
+                               "user_message": context_data.get("user_message"),
+                               "context_summary": context_data.get("context_summary"),
+                               "project_item_kind": context_data.get("project_item_kind"), "timeline": context_data.get("timeline")})),
                     )
                     tracked = True
         connection.commit()
@@ -141,6 +163,7 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
         result = project_source_service.create_link_reference(
             context, url=url, title=title, resource_kind=resource_kind, platform=platform,
             external_id=external_id, description=description, tags=tags,
+            meeting=meeting,
         )
     except Exception:
         if tracked:
@@ -152,7 +175,8 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
     external = _preserve_external_reference(
         context, {**descriptor, "resource_kind": result["resource_kind"]},
         external_id=external_id, platform=platform, description=description, tags=tags,
-        ingestion_item_id=item_id if tracked else "",
+        ingestion_item_id=item_id if tracked else "", meeting=meeting,
+        context_data=context_data, origin=origin,
     )
     if external.get("reference_id"):
         try:
@@ -166,7 +190,10 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
             current_app.logger.exception(
                 "Falha ao enfileirar referência externa %s", external["reference_id"],
             )
-    return {**result, "external_reference": external, "ingestion": {
+    return {**result, "context_summary": context_data.get("context_summary"),
+            "project_item_kind": context_data.get("project_item_kind"),
+            "user_message": context_data.get("user_message"), "timeline": context_data.get("timeline"),
+            "external_reference": external, "ingestion": {
         "tracked": tracked, "session_id": session_id if tracked else None,
         "item_id": item_id if tracked else None,
         "status": "completed", "next": _next_step(result),

@@ -243,8 +243,13 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             and _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*)\b.{0,45}\bprojeto\b")
         )
     )
+    meeting_invite_signal = bool(
+        has_project and inline_project_url
+        and _has(text, r"\b(?:google meet|microsoft teams|zoom|como participar|join meeting|fuso hor[aá]rio|time zone)\b")
+        and _has(text, r"\b\d{1,2}:\d{2}\s*(?:am|pm)?\b")
+    )
     if (_has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*).{0,45}\b(link|url|refer[eê]ncia|pasta)\b")
-            or project_link_signal):
+            or project_link_signal or meeting_invite_signal):
         url_match = inline_project_url
         has_url = bool(url_match and _usable_public_url(url_match.group(0)))
         if not has_project:

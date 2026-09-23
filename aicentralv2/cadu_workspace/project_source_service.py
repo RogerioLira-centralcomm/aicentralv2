@@ -19,6 +19,7 @@ from werkzeug.utils import secure_filename
 from ..cadu_skills.repository import charge_project_rag
 from ..db import get_db
 from . import project_index_service, project_knowledge, project_sources
+from .meeting_reference import parse_meeting_invite
 from .agent_v2.contracts import RequestContext
 
 
@@ -116,6 +117,16 @@ def classify_intake(*, filename: str = "", mime_type: str = "", url: str = "", t
             "requires_confirmation": purpose == "knowledge_source",
         }
     if normalized_text:
+        meeting = parse_meeting_invite(normalized_text)
+        if meeting:
+            descriptor = describe_link(meeting["url"], meeting["title"])
+            return {
+                "input_type": "link", "purpose": requested_purpose or "project_attachment",
+                "category": "reference", "index_recommended": False,
+                "processing": "structured_reference", "requires_confirmation": True,
+                "reason": "Convite de reunião reconhecido; os dados serão preservados como metadados sem abrir o link.",
+                "link": descriptor, "meeting": meeting,
+            }
         haystack = normalized_text[:5000].casefold()
         artifact_type = "meeting_summary" if any(token in haystack for token in ("reunião", "reuniao", "ata", "decisões", "decisoes")) else "meeting_agenda" if any(token in haystack for token in ("pauta", "agenda")) else "note"
         return {
@@ -142,7 +153,9 @@ _LINK_PROVIDERS = {
     "sharepoint.com": ("sharepoint", "SharePoint", "document", "authenticated"),
     "onedrive.live.com": ("onedrive", "OneDrive", "drive_file", "unknown"),
     "app.slack.com": ("slack", "Slack", "workspace_item", "authenticated"),
-    "teams.microsoft.com": ("microsoft_teams", "Microsoft Teams", "workspace_item", "authenticated"),
+    "teams.microsoft.com": ("microsoft_teams", "Microsoft Teams", "meeting", "authenticated"),
+    "teams.live.com": ("microsoft_teams", "Microsoft Teams", "meeting", "authenticated"),
+    "zoom.us": ("zoom", "Zoom", "meeting", "authenticated"),
     "monday.com": ("monday", "Monday.com", "board", "authenticated"),
     "app.asana.com": ("asana", "Asana", "workspace_item", "authenticated"),
     "airtable.com": ("airtable", "Airtable", "spreadsheet", "authenticated"),
@@ -210,7 +223,8 @@ def _link_metadata(value: str, title: str = "") -> dict:
 
 def create_link_reference(context: RequestContext, *, url: str, title: str = "",
                           resource_kind: str = "", platform: str = "", external_id: str = "",
-                          description: str = "", tags: Optional[list[str]] = None) -> dict:
+                          description: str = "", tags: Optional[list[str]] = None,
+                          meeting: Optional[dict] = None) -> dict:
     """Save a project URL as a reference and schedule registry reconciliation.
 
     Deliberately does not download, parse, or index the remote page. Those are
@@ -231,6 +245,7 @@ def create_link_reference(context: RequestContext, *, url: str, title: str = "",
     normalized_tags = list(dict.fromkeys(
         str(item or "").strip()[:64] for item in (tags or []) if str(item or "").strip()
     ))[:20]
+    meeting = dict(meeting or {}) if isinstance(meeting, dict) else {}
     connection = get_db()
     link_id = None
     created = False
@@ -280,7 +295,7 @@ def create_link_reference(context: RequestContext, *, url: str, title: str = "",
             "access_type": link["access_type"], "embed_type": link["embed_type"],
             "connector_recommended": link["connector_recommended"], "created": created,
             "platform": platform or link["provider"], "external_id": external_id or None,
-            "description": description or None, "tags": normalized_tags,
+            "description": description or None, "tags": normalized_tags, "meeting": meeting or None,
             "purpose": "project_attachment", "indexing": "not_requested",
             "access": "not_checked", "content": "not_read",
             "registry_sync": registry_sync}

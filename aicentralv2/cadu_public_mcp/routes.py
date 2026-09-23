@@ -124,6 +124,9 @@ PUBLIC_TOOLS = frozenset({
     "projects.create_note",
     "projects.prepare_source_upload",
     "projects.reindex_source",
+    "projects.list_tasks",
+    "projects.create_task",
+    "projects.update_task",
     "workspace.create_project",
     "workspace.update_project_context",
     "workspace.set_project_status",
@@ -182,6 +185,8 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "projects.create_note",
     "projects.prepare_source_upload",
     "projects.reindex_source",
+    "projects.create_task",
+    "projects.update_task",
     "workspace.create_project",
     "workspace.update_project_context",
     "workspace.set_project_status",
@@ -391,6 +396,14 @@ def public_rpc():
                     "Para uma entrega editável — inclusive uma página HTML — use artifacts.create_draft com type=html, document, research ou outro tipo suportado. "
                     "Para texto que deve virar fonte pesquisável, use projects.create_note. Para um recurso mantido em outra plataforma, "
                     "use projects.create_link_reference e informe resource_kind, platform, external_id, description e tags quando disponíveis. "
+                    "Inclua user_message com a mensagem final e factual da pessoa para que o Cadu gere contexto e timeline; "
+                    "não envie raciocínio interno, prompts de sistema ou instruções ocultas do agente. "
+                    "Uma referência pertence ao projeto e pode virar activity, task ou decision no campo project_item_kind; "
+                    "atalhos da dock são preferências separadas e nunca substituem a referência do projeto. "
+                    "Para acompanhamento leve dentro do Cadu use projects.list_tasks, projects.create_task e projects.update_task; "
+                    "tarefas de plataformas externas devem preservar provider, URL e identificador, sem prometer sincronização quando não houver conector. "
+                    "Quando receber um convite colado do Meet, Teams ou Zoom, envie o bloco a projects.classify_intake(text) e preserve "
+                    "o objeto meeting retornado em projects.create_link_reference. "
                     "Antes de oferecer edição, consulte resources.capabilities: PDF e referências sem conexão são somente leitura; "
                     "para derivar uma entrega use resources.create_editable_copy, que preserva e relaciona a origem; "
                     "para imagens use resources.start_image_edit, que prepara uma cópia no Studio sem alterar o original. "

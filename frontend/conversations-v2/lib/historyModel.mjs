@@ -43,3 +43,11 @@ export function restoreConversationMessages(items, makeId) {
 
   return {messages, selectedContext, lastArtifact};
 }
+
+export function restorePendingActions(activeRun, makeId) {
+  if (!activeRun?.id || !Array.isArray(activeRun.actions)) return [];
+  return activeRun.actions.map(action => ({
+    id: makeId(), role: 'assistant', kind: 'action',
+    action: {...action, run_id: activeRun.id}, runId: activeRun.id,
+  }));
+}

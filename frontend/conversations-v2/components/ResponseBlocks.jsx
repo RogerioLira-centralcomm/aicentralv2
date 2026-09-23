@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {Icon} from '../lib/icons';
 import {safeUrl} from '../lib/api';
 import {checklistPrompt} from '../lib/responseModel.mjs';
+import {sourceCollection, sourceDomain, sourceSummary} from '../lib/sourceModel.mjs';
 
 function BlockHeader({block}) {
   if (!block.title && !block.summary) return null;
@@ -67,77 +68,22 @@ function SourceFavicon({src, domain}) {
     : <span aria-hidden="true">{initial}</span>}</span>;
 }
 
-function sourceFailure(item) {
-  const detail = String(item?.detail || item?.content || '');
-  return ['failed', 'blocked', 'unavailable'].includes(String(item?.read_status || '').toLowerCase())
-    || /\b(?:error|erro)\s*(?:40[0134]|429|5\d\d)|bad request|cannot process the request|access denied|unauthorized/i.test(detail);
-}
-
-function sourceDomain(item) {
-  const href = safeUrl(item?.url);
-  try { return href ? new URL(href).hostname.replace(/^www\./, '') : ''; } catch (_) { return ''; }
-}
-
-function SourcesBlock({block, onPrompt, onOpenResource}) {
+function SourcesBlock({block, onOpenResource}) {
   const items = Array.isArray(block.items) ? block.items : block.resource ? [block.resource] : [];
-  const usableItems = items.filter(item => !sourceFailure(item));
-  const recommendedIds = usableItems.filter(item => {
-    const domain = sourceDomain(item);
-    return /(^|\.)gov\.br$|(^|\.)edu\.br$|unidas\.com\.br$/i.test(domain);
-  }).slice(0, 3).map(item => item.id);
-  const [selected, setSelected] = useState(recommendedIds);
-  const [copied, setCopied] = useState(false);
   if (!items.length) return null;
-  const selectedItems = usableItems.filter(item => selected.includes(item.id));
-  const compiledText = JSON.stringify(selectedItems.slice(0, 8).map(item => ({
-    source_id: item.id, title: item.title || 'Fonte', url: item.url || '',
-    content: String(item.content || item.detail || '').slice(0, 1200),
-  })));
-  const toggle = item => setSelected(current => current.includes(item.id) ? current.filter(id => id !== item.id) : [...current, item.id]);
-  const selectRecommended = () => setSelected(recommendedIds);
-  const compile = () => onPrompt?.('Responda ao pedido original usando as fontes selecionadas. Organize a resposta em fatos comprovados, linha do tempo quando fizer sentido e lacunas; não invente informações.', {type: 'web_sources', label: 'Fontes selecionadas', text: compiledText});
-  const draft = () => onPrompt?.('Crie um rascunho editável a partir das fontes selecionadas. Organize um título e os parágrafos em texto fiel ao conteúdo, sem inventar informações.', {type: 'web_sources', label: 'Fontes para o rascunho', text: compiledText});
-  const copy = async () => {
-    const readable = selectedItems.map(item => [item.title || 'Fonte', item.url, item.content || item.detail].filter(Boolean).join('\n')).join('\n\n');
-    try { await navigator.clipboard?.writeText(readable); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch (_) {}
-  };
+  const summary = sourceSummary(items);
+  const openSources = () => onOpenResource?.(sourceCollection(block, items));
   return <section className="cv-source-group cv-mt-5">
-    <div className="cv-source-group__header">
-      <div><strong>{block.title || 'Fontes consultadas'}</strong><span>{items.length} resultado{items.length === 1 ? '' : 's'} · priorize fontes oficiais e institucionais</span></div>
-      {selectedItems.length > 0 && <span className="cv-source-group__count">{selectedItems.length} selecionada{selectedItems.length === 1 ? '' : 's'}</span>}
-    </div>
-    <div className="cv-source-group__guide"><span>{recommendedIds.length ? 'Comece pelas fontes oficiais identificadas e revise a seleção antes de continuar.' : 'Nenhuma fonte oficial foi identificada automaticamente. Escolha manualmente as referências úteis.'}</span>{recommendedIds.length > 0 && <button type="button" onClick={selectRecommended}>Selecionar oficiais</button>}</div>
-    <div className="cv-source-group__list">
-      <BoundedItems items={items} label="fontes">{visible => visible.map((item, index) => {
-        const href = safeUrl(item?.url);
-        const unavailable = sourceFailure(item);
-        const active = !unavailable && selected.includes(item.id);
-        const domain = sourceDomain(item);
-        return <div key={item.id || index} className={`cv-source-result ${active ? 'is-selected' : ''} ${unavailable ? 'is-unavailable' : ''}`}>
-          <details className="cv-source-card">
-            <summary>
-              <button type="button" disabled={unavailable} className="cv-source-result__select" onClick={event => { event.preventDefault(); event.stopPropagation(); toggle(item); }} aria-pressed={active}>
-                <span className="cv-source-result__check" aria-hidden="true">{active ? '✓' : ''}</span>
-                <span className="cv-source-result__select-label">{active ? 'Selecionada' : 'Selecionar'}</span>
-              </button>
-              <SourceFavicon src={item.favicon} domain={domain}/>
-              <span className="cv-source-result__copy"><b>{item.title || item.name || item.label || 'Fonte'}</b><small>{domain || item.kind || 'Fonte externa'}</small></span>
-              {unavailable && <span className="cv-source-result__status">Leitura indisponível</span>}
-              <span className="cv-source-card__chevron" aria-hidden="true">⌄</span>
-            </summary>
-            <div className="cv-source-card__body">
-              <p>{unavailable ? 'O site não permitiu a leitura automática. Você ainda pode abrir o endereço original.' : item.detail || 'Conteúdo disponível para apoiar a próxima resposta.'}</p>
-              {item.published_at && <small className="cv-source-card__date">Atualizado em {item.published_at}</small>}
-              <footer className="cv-source-card__footer">
-                <span>{unavailable ? 'Não incluída' : active ? 'Incluída na seleção' : 'Fonte pública'}</span>
-                {href && <button type="button" onClick={() => onOpenResource?.({...item, url: href, kind: 'Link público'})} className="cv-source-result__open" aria-label={`Abrir ${item.title || 'fonte'} no leitor`}>Abrir no leitor <Icon name="external" size={12}/></button>}
-              </footer>
-            </div>
-          </details>
-        </div>;
-      })}</BoundedItems>
-    </div>
-    {selectedItems.length > 0 && <div className="cv-source-group__actions"><button type="button" onClick={compile} className="is-primary">Continuar com {selectedItems.length} fonte{selectedItems.length === 1 ? '' : 's'}</button><button type="button" onClick={draft}>Criar rascunho</button><button type="button" onClick={copy}>{copied ? 'Copiado' : 'Copiar referências'}</button></div>}
+    <button type="button" className="cv-source-group__summary" onClick={openSources} aria-label={`Ver ${items.length} ${items.length === 1 ? 'fonte' : 'fontes'} da resposta`}>
+      <span className="cv-source-group__favicons" aria-hidden="true">
+        {items.slice(0, 4).map((item, index) => <SourceFavicon key={item.id || index} src={item.favicon} domain={sourceDomain(item?.url)}/>)}
+      </span>
+      <span className="cv-source-group__copy">
+        <strong>{summary.label}{summary.remaining ? ` e mais ${summary.remaining}` : ''}</strong>
+        <small>{items.length} {items.length === 1 ? 'fonte' : 'fontes'} · Ver todas</small>
+      </span>
+      <Icon name="external" size={12}/>
+    </button>
   </section>;
 }
 

@@ -5,10 +5,10 @@ import {safeUrl} from '../lib/api';
 import {ResponseBlocks} from './ResponseBlocks';
 import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
 import {ExecutionQueue} from './ExecutionQueue';
-import {WorkspaceSourceList} from '../../cadu-design-system/components/WorkspaceSourceList';
 import {WorkspaceTaskProgress} from '../../cadu-design-system/components/WorkspaceTaskProgress';
 import {meaningfulResponseBlocks, normalizeAnswerText} from '../lib/responseModel.mjs';
 import {formatResponseParagraphs} from '../lib/responsePresentation.mjs';
+import {consolidateSources} from '../lib/sourceModel.mjs';
 import {ConversationSupport} from './ConversationSupport';
 import {PendingInteraction, pendingInteraction} from './PendingInteraction';
 import {conversationDisplayTitle} from '../lib/conversationPresentation.mjs';
@@ -102,6 +102,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
   const blocks = meaningfulResponseBlocks(response.blocks);
   const presentedText = formatResponseParagraphs(text);
   const contentBlocks = blocks.filter(block => !['question', 'questions', 'decision'].includes(block.type));
+  const presentedBlocks = consolidateSources(contentBlocks, response.citations);
   const canCreateDocument = !message.artifact?.id && text.length > 500 && (
     text.length > 1800 || response.citations?.length || contentBlocks.some(block =>
       ['sources', 'source_group', 'images', 'insights', 'checklist', 'steps', 'metrics'].includes(block.type)
@@ -122,9 +123,8 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
   if (message.kind === 'action') return null;
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
     <div className="cv-prose"><Markdown onOpenResource={onOpenResource}>{presentedText}</Markdown></div>
-    {!!contentBlocks.length && <ResponseBlocks blocks={contentBlocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
+    {!!presentedBlocks.length && <ResponseBlocks blocks={presentedBlocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
-    {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}
     {!!response.actions?.length && <section className="cv-mt-5 cv-border-t cv-border-white/[.07] cv-pt-4"><span className="cv-mb-2 cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-[#78918d]">Próximas ações</span><div className="cv-flex cv-flex-wrap cv-gap-2">{response.actions.slice(0, 3).map((item, index) => <button key={index} type="button" onClick={() => onPrompt(item.prompt || '')} className={`${item.style === 'primary' ? 'cv-border-teal/30 cv-bg-teal/10 cv-text-teal' : 'cv-border-white/10 cv-bg-transparent cv-text-[#c7d8d4]'} cv-rounded-lg cv-border cv-px-3 cv-py-2 cv-text-xs hover:cv-bg-white/[.08]`}>{item.label}</button>)}</div></section>}
     {!message.streaming && text && <div className="cv-answer-tools" aria-label="Ações da resposta">
       <button type="button" onClick={copyAnswer} className={copyState === 'copied' ? 'is-confirmed' : ''} aria-label={copyState === 'copied' ? 'Resposta copiada' : 'Copiar resposta'} title={copyState === 'copied' ? 'Copiado' : 'Copiar resposta'}><Icon name={copyState === 'copied' ? 'check' : 'copy'} size={15}/><span className="cv-sr-only" aria-live="polite">{copyState === 'copied' ? 'Copiado' : copyState === 'failed' ? 'Não foi possível copiar' : 'Copiar'}</span></button>

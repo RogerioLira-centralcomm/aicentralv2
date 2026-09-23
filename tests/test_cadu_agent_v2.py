@@ -30,6 +30,7 @@ from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace import brand_mcp_service
 from aicentralv2.cadu_workspace import project_source_service
 from aicentralv2.cadu_workspace import project_resource_jobs
+from aicentralv2.cadu_workspace.reference_context import clean_user_message, reference_context
 from aicentralv2.cadu_family import repository
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
@@ -267,6 +268,114 @@ def test_google_meet_link_uses_project_reference_flow():
     assert descriptor["connector_recommended"] is True
 
 
+def test_pasted_meet_invite_becomes_a_structured_project_reference():
+    message = r"""Apolo e Ale
+Quarta-feira, 23 de setembro · 11:00am – 12:00pm
+Fuso horário: America/Sao\_Paulo
+Como participar do Google Meet
+Link da videochamada: https://meet.google.com/tqa-evgi-bhy
+Ou disque: (BR) +55 19 4560-9774 PIN: 695 562 298#
+Outros números de telefone: https://tel.meet/tqa-evgi-bhy?pin=7318077496149"""
+    route = route_request(message, has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert route.action == "create_project_link"
+    assert action["requires_confirmation"] is True
+    assert action["arguments"]["title"] == "Apolo e Ale"
+    assert action["arguments"]["url"] == "https://meet.google.com/tqa-evgi-bhy"
+    assert action["arguments"]["resource_kind"] == "meeting"
+    assert action["arguments"]["platform"] == "Google Meet"
+    assert action["arguments"]["external_id"] == "tqa-evgi-bhy"
+    assert action["arguments"]["meeting"] == {
+        "starts_at": "2026-09-23T11:00:00-03:00",
+        "ends_at": "2026-09-23T12:00:00-03:00",
+        "timezone": "America/Sao_Paulo",
+        "year_inferred": True,
+        "dial_in": "(BR) +55 19 4560-9774",
+        "pin": "695 562 298#",
+        "related_urls": ["https://tel.meet/tqa-evgi-bhy?pin=7318077496149"],
+    }
+    classified = project_source_service.classify_intake(text=message)
+    assert classified["input_type"] == "link"
+    assert classified["processing"] == "structured_reference"
+    assert classified["meeting"]["title"] == "Apolo e Ale"
+    assert classified["meeting"]["timezone"] == "America/Sao_Paulo"
+
+
+def test_meeting_link_providers_are_normalized_for_mcp_and_api_consumers():
+    teams = project_source_service.describe_link("https://teams.microsoft.com/l/meetup-join/abc")
+    zoom = project_source_service.describe_link("https://us02web.zoom.us/j/123456")
+
+    assert (teams["provider"], teams["resource_kind"]) == ("microsoft_teams", "meeting")
+    assert (zoom["provider"], zoom["resource_kind"]) == ("zoom", "meeting")
+
+
+def test_meeting_invite_prefers_the_title_near_the_date_and_handles_midnight():
+    parsed = project_source_service.classify_intake(text="""Guarde isso como referência do alinhamento
+Apolo e Ale
+Quarta-feira, 23 de setembro · 11:30pm – 12:30am
+Fuso horário: America/Sao_Paulo
+Link da videochamada: https://meet.google.com/tqa-evgi-bhy""")
+
+    assert parsed["meeting"]["title"] == "Apolo e Ale"
+    assert parsed["meeting"]["starts_at"] == "2026-09-23T23:30:00-03:00"
+    assert parsed["meeting"]["ends_at"] == "2026-09-24T00:30:00-03:00"
+
+
+def test_reference_messages_are_cleaned_and_keep_factual_user_context():
+    cleaned = clean_user_message(
+        "  Referência para o briefing da campanha Primavera  \n"
+        "[Documento](https://docs.google.com/document/d/abc)\n\n"
+    )
+    descriptor = project_source_service.describe_link("https://docs.google.com/document/d/abc")
+    contextual = reference_context(
+        message=cleaned, url="https://docs.google.com/document/d/abc", descriptor=descriptor,
+    )
+
+    assert cleaned == "Referência para o briefing da campanha Primavera\nDocumento: https://docs.google.com/document/d/abc"
+    assert contextual["user_message"] == cleaned
+    assert contextual["context_summary"] == "Referência para o briefing da campanha Primavera Documento"
+    assert contextual["suggested_title"] == "Referência para o briefing da campanha Primavera Documento"
+    assert contextual["project_item_kind"] == "document_reference"
+    assert contextual["timeline"]["label"] == "Documento adicionado"
+
+
+def test_contextless_meeting_uses_only_factual_metadata_in_project_timeline():
+    meeting = {
+        "platform": "Google Meet", "starts_at": "2026-09-23T11:00:00-03:00",
+    }
+    descriptor = project_source_service.describe_link("https://meet.google.com/tqa-evgi-bhy", "Apolo e Ale")
+    contextual = reference_context(
+        message="Apolo e Ale\nhttps://meet.google.com/tqa-evgi-bhy",
+        url="https://meet.google.com/tqa-evgi-bhy", descriptor=descriptor, meeting=meeting,
+    )
+
+    assert contextual["context_summary"] == "Reunião “Apolo e Ale” via Google Meet, em 23/09/2026 às 11:00."
+    assert contextual["timeline"] == {
+        "event_type": "meeting_reference_added", "label": "Reunião adicionada",
+        "detail": "Reunião “Apolo e Ale” via Google Meet, em 23/09/2026 às 11:00.",
+        "occurred_at": "2026-09-23T11:00:00-03:00", "item_kind": "activity",
+    }
+
+
+def test_link_context_distinguishes_project_references_tasks_and_decisions_from_shortcuts():
+    descriptor = project_source_service.describe_link("https://example.com/item")
+    task = reference_context(
+        message="Tarefa de revisar a entrega até sexta: https://example.com/item",
+        url="https://example.com/item", descriptor=descriptor,
+    )
+    decision = reference_context(
+        message="Decisão aprovada sobre o conceito: https://example.com/item",
+        url="https://example.com/item", descriptor=descriptor,
+    )
+
+    assert task["project_item_kind"] == "task"
+    assert task["timeline"]["label"] == "Tarefa adicionada"
+    assert decision["project_item_kind"] == "decision"
+    assert decision["timeline"]["label"] == "Decisão adicionada"
+
+
 def test_long_form_prompt_requires_editorial_structure_without_bullet_wall():
     assert "um título específico" in CORE
     assert "de três a sete subtítulos" in CORE
@@ -416,6 +525,9 @@ def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):
         def execute(self, *_):
             pass
 
+        def fetchone(self):
+            return None
+
     class Connection:
         committed = False
         rolled_back = False
@@ -502,6 +614,7 @@ def test_personal_link_reference_persists_without_project(monkeypatch):
         def __enter__(self): return self
         def __exit__(self, *_): return False
         def execute(self, query, params): calls.append((query, params))
+        def fetchone(self): return None
 
     class Connection:
         def cursor(self): return Cursor()
@@ -514,7 +627,7 @@ def test_personal_link_reference_persists_without_project(monkeypatch):
 
     artifact = artifact_service.create_draft(personal, "link_reader", {"url": "https://example.com"}, title="Exemplo")
 
-    insert_params = calls[0][1]
+    insert_params = next(params for query, params in calls if "INSERT INTO cadu_workspace_artifacts" in query)
     assert insert_params[3] is None
     assert insert_params[5] == "link_reader"
     assert artifact["project_ref"] is None
@@ -522,16 +635,20 @@ def test_personal_link_reference_persists_without_project(monkeypatch):
 
 def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     catalog = load_builtin_tools()
-    names = {item["name"] for item in catalog.list(
+    public_tools = catalog.list(
         context(capabilities=("workspace", "artifacts")), "customer_agent",
-    )}
+    )
+    names = {item["name"] for item in public_tools}
     assert {
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
         "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.inspect_file_support",
         "projects.prepare_source_upload", "projects.classify_intake", "projects.create_link_reference",
+        "projects.list_tasks", "projects.create_task", "projects.update_task",
         "brands.list", "brands.prepare_logo_upload",
         "brands.audit_status",
     } <= names
+    link_tool = next(item for item in public_tools if item["name"] == "projects.create_link_reference")
+    assert "meeting" in link_tool["inputSchema"]["properties"]
     planner_names = {item["name"] for item in catalog.list(
         context(capabilities=("planner",)), "customer_agent",
     )}
@@ -570,6 +687,34 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
             "confirmed": False, "url": "https://example.com", "mode": "destination",
         }, context(capabilities=("planner",)), "internal")
+
+
+def test_link_reference_mcp_contract_forwards_structured_meeting_metadata(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import projects
+
+    captured = {}
+    monkeypatch.setattr(repository, "project_user_can_view", lambda *_: True)
+    monkeypatch.setattr(repository, "actor", lambda user_id: {"id": user_id, "organization_id": 12, "role": "admin"})
+    monkeypatch.setattr(repository, "account_role", lambda _actor: "admin")
+    monkeypatch.setattr(repository, "project_access", lambda *_: [{"user_id": 7, "role": "editor"}])
+    monkeypatch.setattr(projects.operations, "execute", lambda _id, _ctx, _name, _payload, operation: operation())
+    monkeypatch.setattr(projects.workspace_ingestion_service, "ingest_link",
+                        lambda _context, **payload: captured.update(payload) or payload)
+    meeting = {
+        "starts_at": "2026-09-23T11:00:00-03:00", "ends_at": "2026-09-23T12:00:00-03:00",
+        "timezone": "America/Sao_Paulo", "year_inferred": True, "dial_in": "+55 19 4560-9774",
+        "pin": "695 562 298#", "related_urls": ["https://tel.meet/example"],
+    }
+    load_builtin_tools().execute("projects.create_link_reference", {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "confirmed": True,
+        "url": "https://meet.google.com/tqa-evgi-bhy", "title": "Apolo e Ale",
+        "resource_kind": "meeting", "platform": "Google Meet", "external_id": "tqa-evgi-bhy",
+        "meeting": meeting, "user_message": "Convite da reunião Apolo e Ale",
+    }, context(project_ref="ci:42"), "customer_agent")
+
+    assert captured["meeting"] == meeting
+    assert captured["user_message"] == "Convite da reunião Apolo e Ale"
+    assert captured["origin"] == "mcp"
 
 
 def test_planner_link_test_is_idempotent_and_hides_share_token(monkeypatch):
@@ -713,14 +858,24 @@ def test_intake_classification_keeps_links_and_chat_text_out_of_the_index():
     assert brief["purpose"] == "knowledge_source"
 
 
-def test_project_link_is_an_explicit_confirmed_reference_action():
+def test_project_link_is_an_explicit_direct_reference_action():
     message = "Adicione este link ao projeto: https://docs.google.com/document/d/abc"
     route = route_request(message, has_project=True)
     action = next(step for step in build_task_plan(route, budget_for(route), message) if step["kind"] == "action")
 
     assert route.action == "create_project_link"
     assert action["name"] == "projects.create_link_reference"
+    assert action["requires_confirmation"] is True
     assert action["arguments"]["url"].startswith("https://docs.google.com/")
+
+
+def test_project_link_can_be_explicitly_approved_by_the_user_in_the_request():
+    message = "Adicione este link ao projeto e pode aprovar por mim: https://example.com/referencia"
+    route = route_request(message, has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message) if step["kind"] == "action")
+
+    assert action["name"] == "projects.create_link_reference"
+    assert action["requires_confirmation"] is False
 
 
 def test_project_url_without_link_noun_is_saved_without_calling_the_provider():
@@ -926,7 +1081,10 @@ def test_create_project_tool_writes_canonical_project_only_after_confirmation(mo
         "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "name": "Campanha Primavera", "confirmed": True,
     }, context(), "internal")
 
-    assert result == {"project_ref": "ci:project-1", "name": "Campanha Primavera", "status": "created"}
+    assert result == {
+        "project_ref": "ci:project-1", "name": "Campanha Primavera", "status": "created",
+        "description": "", "instructions": "", "visibility": "private",
+    }
     assert captured["payload"]["kind"] == "project"
     assert captured["owner"] == (12, "ci:project-1", 7)
     assert captured["visibility"] == (12, 7, "ci:project-1", "private")

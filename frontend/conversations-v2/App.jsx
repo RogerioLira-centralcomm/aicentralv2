@@ -9,7 +9,7 @@ import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult, normalizeAnswerText, reconcileCompletedResponse} from './lib/responseModel.mjs';
 import {attachmentIssues, attachmentSubmissionMessage, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
-import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
+import {recentConversations, restoreConversationMessages, restorePendingActions} from './lib/historyModel.mjs';
 import {conversationDisplayTitle} from './lib/conversationPresentation.mjs';
 import {brandContextPayload, conversationPayload, mergeServerEntities, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
@@ -29,6 +29,11 @@ import {persistConversationContext, takePendingHomeAttachments} from './lib/stor
 import {completeDockOrder} from '../cadu-design-system/dockPlacement.mjs';
 
 const emptyTitle = 'Cadu';
+
+function sourceDomainLabel(value) {
+  try { return new URL(String(value || '')).hostname.replace(/^www\./, ''); }
+  catch (_) { return 'Fonte externa'; }
+}
 
 function setSurfaceUrl(surface, artifactId = '', replace = false, resource = null) {
   const url = new URL(window.location.href);
@@ -215,8 +220,8 @@ export default function App({bootstrap}) {
   }, [bootstrap.endpoints.history, conversations, trace]);
 
   useEffect(() => {
-    if (requestedConversationId.current) return;
-    loadContext(); loadRecent();
+    loadRecent();
+    if (!requestedConversationId.current) loadContext();
   }, [loadContext, loadRecent]);
   useEffect(() => {
     if (!historyOpen) return undefined;
@@ -289,10 +294,7 @@ export default function App({bootstrap}) {
       setSurfaceUrl(lastArtifact ? 'artifact' : 'conversation', lastArtifact || '', true);
       const active = {run: data.active_run || null};
       if (active.run?.id) {
-        const pendingActions = (active.run.actions || []).map(action => ({
-          id: uid(), role: 'assistant', kind: 'action',
-          action: {...action, run_id: active.run.id}, runId: active.run.id,
-        }));
+        const pendingActions = restorePendingActions(active.run, uid);
         if (pendingActions.length) setMessages(items => [...items, ...pendingActions]);
         runRef.current = active.run.id;
         if (active.run.status !== 'running') {
@@ -329,10 +331,30 @@ export default function App({bootstrap}) {
       } else setRuntime('');
       if (isConversationMobile()) setHistoryOpen(false);
     } catch (error) {
-      setRuntime('Não foi possível abrir');
-      trace('Falha ao abrir conversa', error.message, 'error');
+      try {
+        const fallback = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
+        const recovered = restoreConversationMessages(fallback.messages, uid);
+        setConversationId(id); conversationRef.current = id;
+        setTitle(conversationDisplayTitle(conversationTitle, 'Conversa'));
+        setMessages(recovered.messages);
+        setComposerContext(recovered.selectedContext);
+        if (recovered.lastArtifact) await fetchArtifact(recovered.lastArtifact);
+        try {
+          const active = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/active-run`);
+          const pendingActions = restorePendingActions(active.run, uid);
+          if (pendingActions.length) setMessages(items => [...items, ...pendingActions]);
+        } catch (_) { /* The recovered history remains usable without an active action. */ }
+        setConversationUrl(id, true);
+        setRuntime('');
+        trace('Conversa recuperada', 'O histórico foi aberto pelo modo de compatibilidade.');
+        await loadContext();
+      } catch (fallbackError) {
+        setRuntime('Não foi possível abrir');
+        trace('Falha ao abrir conversa', fallbackError.message || error.message, 'error');
+        await Promise.allSettled([loadContext(), loadRecent()]);
+      }
     } finally { setOpeningId(null); setHistoryLoading(false); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint]);
+  }, [running, confirmDiscard, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint, loadContext, loadRecent]);
 
   const changeProject = useCallback(async (projectRef, {showHistory = true} = {}) => {
     if (running || !(await confirmDiscard())) return;
@@ -1087,6 +1109,7 @@ export default function App({bootstrap}) {
     const kind = String(item.kind || '').toLowerCase();
     const resource = ['image', 'logo'].includes(kind)
       ? {tabKey: `resource:${item.id || item.url}`, type: 'image', title: item.title || 'Imagem do Studio', content: {url: item.url, alt: item.title || 'Imagem do Studio', source: item.source || 'studio'}}
+      : kind === 'source_collection' ? {tabKey: `resource:${item.id || 'sources'}`, type: 'library', title: item.title || 'Fontes da resposta', content: {groups: [{id: 'sources', title: 'Fontes consultadas', layout: 'list', items: (item.items || []).map((source, index) => ({...source, id: source.id || `source-${index}`, kind: 'link', detail: sourceDomainLabel(source.url)}))}]}}
       : ['link', 'website', 'webpage'].includes(kind) && item.url ? {tabKey: `resource:${item.id || item.url}`, type: 'link_reader', title: item.title || 'Link externo', content: item} : {tabKey: `resource:${item.id || item.title}`, type: 'resource', title: item.title || 'Arquivo', content: item};
     setArtifact(resource); artifactRef.current = resource;
     setArtifactDirty(false); setArtifactOpen(true);

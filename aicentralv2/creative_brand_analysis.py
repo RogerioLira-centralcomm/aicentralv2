@@ -410,6 +410,9 @@ def _upload_manifest(file_storage):
             'filename': _text(item.filename, 240), 'mime_type': _text(item.mimetype, 120),
             'size_bytes': len(content), 'sha256': sha256(content).hexdigest(),
             'order': index + 1, 'image_index': index, 'source': 'human_upload',
+            # The matching multimodal message part is an inline data URL.
+            # Never imply that a provider can retrieve our private /static path.
+            'llm_transport': 'inline_data_url', 'llm_accessible': True,
         })
     return result
 

@@ -702,6 +702,18 @@ def _dock_external_url(value: object) -> str:
     return raw
 
 
+def _dock_appearance(value: object) -> dict:
+    """Return the small, CSS-safe set of per-shortcut presentation options."""
+    raw = value if isinstance(value, dict) else {}
+    color = str(raw.get('background_color') or '').strip().lower()
+    if color and not re.fullmatch(r'#[0-9a-f]{6}', color):
+        color = ''
+    size = str(raw.get('icon_size') or 'medium').strip().lower()
+    if size not in {'small', 'medium', 'large'}:
+        size = 'medium'
+    return {'background_color': color, 'icon_size': size}
+
+
 def _workspace_dock_resource_items(client_id: int, project_rows: list[dict]) -> list[dict]:
     """Build launchable resource entries without putting them in the dock by default."""
     projects_by_ref = {f"ci:{row.get('id')}": row for row in project_rows if row.get('id')}
@@ -796,6 +808,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     for row in _user_dock_shortcuts(client_id, user_id):
         if row['shortcut_type'] == 'external':
             metadata = row.get('metadata') if isinstance(row.get('metadata'), dict) else {}
+            appearance = _dock_appearance(metadata)
             external_url = _dock_external_url(metadata.get('url'))
             if external_url:
                 hostname = urlparse(external_url).hostname or 'Link'
@@ -804,6 +817,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
                                  'name': title, 'href': external_url, 'shortcutId': row['id'],
                                  'logoUrl': str(metadata.get('icon_url') or ''),
                                  'iconStatus': str(metadata.get('icon_status') or ''),
+                                 'dockBackground': appearance['background_color'], 'dockSize': appearance['icon_size'],
                                  'visualInitials': hostname[:2].upper(), 'visualColor': '#244944', 'pinned': True})
             continue
         key = (row['shortcut_type'], row['target_ref'])
@@ -811,7 +825,9 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
             key = ('resource', row['target_ref'])
         item = catalog.get(key)
         if item:
-            explicit.append({**item, 'shortcutId': row['id'], 'pinned': True})
+            appearance = _dock_appearance(row.get('metadata'))
+            explicit.append({**item, 'shortcutId': row['id'], 'pinned': True,
+                             'dockBackground': appearance['background_color'], 'dockSize': appearance['icon_size']})
     # Explicitly pinned brands must remain visible even without a logo. React
     # renders their stable initials and primary color as the dock avatar.
     if explicit:
@@ -941,6 +957,32 @@ def delete_dock_shortcut(shortcut_id):
     if not found:
         abort(404, description='Atalho não encontrado.')
     return '', 204
+
+
+@bp.patch('/workspace/api/dock/shortcuts/<uuid:shortcut_id>')
+@login_required
+def update_dock_shortcut(shortcut_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    appearance = _dock_appearance(request.get_json(silent=True) or {})
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_workspace_dock_shortcuts
+                                  SET metadata=COALESCE(metadata, '{}'::jsonb) || %s::jsonb, updated_at=NOW()
+                                WHERE id=%s AND client_id=%s AND user_id=%s
+                            RETURNING id::text, metadata""",
+                           (Json(appearance), str(shortcut_id), int(session.get('cliente_id') or 0),
+                            int(session.get('user_id') or 0)))
+            row = cursor.fetchone()
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Falha ao atualizar aparência do atalho %s', shortcut_id)
+        abort(503, description='Não foi possível atualizar a aparência agora.')
+    if not row:
+        abort(404, description='Atalho não encontrado.')
+    return jsonify(shortcut=dict(row), appearance=appearance)
 
 
 @bp.post('/workspace/api/dock/shortcuts/<uuid:shortcut_id>/icon')

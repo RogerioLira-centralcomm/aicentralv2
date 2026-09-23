@@ -934,6 +934,8 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         resolver_payload = json.loads(user_content[0]["text"])
         self.assertEqual(resolver_payload["deterministic_evidence"]["upload_manifest"][0]["filename"], "referencia.png")
         self.assertTrue(resolver_payload["deterministic_evidence"]["upload_manifest"][0]["evidence_id"].startswith("upload:"))
+        self.assertTrue(resolver_payload["deterministic_evidence"]["upload_manifest"][0]["llm_accessible"])
+        self.assertEqual(resolver_payload["deterministic_evidence"]["upload_manifest"][0]["llm_transport"], "inline_data_url")
 
     def test_bloqueia_url_local(self):
         with self.assertRaisesRegex(ValueError, "site público"):

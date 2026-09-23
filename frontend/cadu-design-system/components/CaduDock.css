@@ -57,6 +57,13 @@ body.portal--workspace .cadu-ds-dock-shortcut.is-dragging { opacity:.35; }
 body.portal--workspace .cadu-ds-dock-resource--provider .cadu-ds-visual-identity { background:#fff; box-shadow:inset 0 0 0 1px rgba(20,40,58,.11); }
 body.portal--workspace .cadu-ds-dock-resource--provider .cadu-ds-visual-identity img { box-sizing:border-box; padding:6px; object-fit:contain; }
 body.portal--workspace .cadu-ds-dock-resource--generated .cadu-ds-visual-identity img { padding:0; object-fit:cover; }
+/* Uploaded marks already carry their own art direction. Do not manufacture a
+   second colored tile unless the user explicitly chooses one in Account. */
+body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource) .cadu-ds-visual-identity.has-image-background { background:transparent; box-shadow:none; }
+body.portal--workspace .cadu-ds-dock .cadu-ds-visual-identity.has-custom-background { background:var(--cadu-identity-color); }
+body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--small { width:30px; height:30px; }
+body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--medium { width:36px; height:36px; }
+body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--large { width:40px; height:40px; }
 body.portal--workspace .cadu-ds-dock-insertion {
   display:block;
   width:42px;
@@ -143,10 +150,15 @@ body.portal--workspace .cadu-ds-dock-picker input:focus { border-color:#176b5e; 
 .cadu-ds-dock-picker .cadu-ds-dock-picker__hint { margin-top:16px; color:#708287; font-size:11px; }
 .cadu-ds-dock-picker .cadu-ds-dock-picker__empty { padding:15px 8px; color:#60767a; }
 .cadu-ds-dock-picker__manage { display:grid; gap:3px; }
-.cadu-ds-dock-picker__manage > div { display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:42px; padding:3px 8px; border-radius:8px; font-size:12px; }
+.cadu-ds-dock-picker__manage > div { display:grid; grid-template-columns:32px minmax(90px,1fr) auto auto auto; align-items:center; gap:10px; min-height:54px; padding:6px 8px; border-radius:8px; font-size:12px; }
 .cadu-ds-dock-picker__manage > div:hover { background:#eef5f3; }
 .cadu-ds-dock-picker__manage span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-dock-picker__managed > .cadu-ds-visual-identity { width:30px; height:30px; border-radius:8px; }
+.cadu-ds-dock-picker__managed label { display:flex; align-items:center; gap:5px; color:#60767a; font-size:9px; font-weight:650; }
+.cadu-ds-dock-picker__managed input[type="color"] { width:28px; min-height:28px; height:28px; padding:2px; border-radius:7px; cursor:pointer; }
+.cadu-ds-dock-picker__managed select { min-height:28px; padding:0 6px; border:1px solid #cbdad8; border-radius:7px; background:#fff; color:#14283a; font:11px var(--cadu-font-sans); }
 .cadu-ds-dock-picker__manage button { flex:0 0 auto; min-height:30px; padding:0 7px; border:0; border-radius:7px; background:transparent; color:#176b5e; font:600 11px var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-dock-picker__manage button.is-danger { color:#a33737; }
 .cadu-ds-dock-picker :is(button,input):focus-visible { outline:2px solid #176b5e; outline-offset:2px; }
 @media(max-width:520px) { .cadu-ds-dock-picker-backdrop { padding:10px; } .cadu-ds-dock-picker { max-height:calc(100dvh - 20px); } .cadu-ds-dock-picker__header { padding:20px 18px 12px; } .cadu-ds-dock-picker__tabs { padding-inline:18px; } .cadu-ds-dock-picker__content { padding:16px 18px 20px; } }
 @media (prefers-reduced-motion:reduce) { body.portal--workspace .cadu-ds-dock-insertion,body.portal--workspace .cadu-ds-dock-trash { animation:none; } body.portal--workspace .cadu-ds-dock-shortcut { transition:none; } }

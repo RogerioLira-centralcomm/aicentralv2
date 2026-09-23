@@ -2,7 +2,7 @@ from unittest import TestCase, mock
 
 from flask import Flask
 
-from aicentralv2.cadu_workspace.routes import _dock_external_url, bp
+from aicentralv2.cadu_workspace.routes import _dock_appearance, _dock_external_url, bp
 
 
 def _client():
@@ -16,6 +16,24 @@ def _client():
 
 
 class WorkspaceDockTest(TestCase):
+    def test_dock_appearance_rejects_css_and_unknown_sizes(self):
+        self.assertEqual(_dock_appearance({'background_color': '#AABBCC', 'icon_size': 'large'}),
+                         {'background_color': '#aabbcc', 'icon_size': 'large'})
+        self.assertEqual(_dock_appearance({'background_color': 'url(javascript:1)', 'icon_size': 'huge'}),
+                         {'background_color': '', 'icon_size': 'medium'})
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_update_shortcut_persists_only_safe_appearance(self, get_db):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': '1', 'metadata': {'background_color': '#112233', 'icon_size': 'small'}}
+        get_db.return_value = connection
+        response = _client().patch('/workspace/api/dock/shortcuts/11111111-1111-1111-1111-111111111111',
+                                   json={'background_color': '#112233', 'icon_size': 'small', 'css': 'bad'},
+                                   headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(cursor.execute.call_args.args[1][0].obj,
+                         {'background_color': '#112233', 'icon_size': 'small'})
     @mock.patch('aicentralv2.cadu_workspace.routes._authorized_dock_target', return_value={'id': 'p-1'})
     @mock.patch('aicentralv2.cadu_workspace.routes._dock_shortcuts_available', return_value=True)
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')

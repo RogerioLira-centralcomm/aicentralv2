@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from dataclasses import replace
 from copy import deepcopy
 from time import monotonic
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -18,6 +19,7 @@ from ..cadu_workspace.agent_v2.contracts import RequestContext
 from ..cadu_workspace.mcp.registry import ToolError, load_builtin_tools
 from ..product_domains import product_url
 from . import auth, oauth, usage
+from ..cadu_workspace.mcp import context_runtime
 
 
 bp = Blueprint("cadu_public_mcp", __name__)
@@ -62,6 +64,10 @@ def _redirect_with_query(uri: str, **values) -> str:
 # The public surface is an intentional subset of internal capabilities. New
 # internal tools do not become internet-facing by accident.
 PUBLIC_TOOLS = frozenset({
+    "context.open",
+    "context.get",
+    "context.update",
+    "context.close",
     "operations.get",
     "media.list_jobs",
     "media.get_job",
@@ -138,6 +144,8 @@ PUBLIC_TOOLS = frozenset({
     "reports.compare_report_to_plan",
 })
 PUBLIC_WRITE_TOOLS = frozenset({
+    "context.update",
+    "context.close",
     "media.start_studio_session",
     "media.generate_image",
     "media.edit_image",
@@ -272,8 +280,7 @@ def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
             if item["name"] in PUBLIC_TOOLS
             and (item["name"] != "credits.purchase_package" or auth.can_purchase_credits(principal))
             and (
-                auth.required_scope(item["name"]) in principal.scopes or
-                (auth.required_scope(item["name"]) == "projects:content_write" and "projects:write" in principal.scopes)
+                auth.has_scope(principal, auth.required_scope(item["name"]))
             )]
 
 
@@ -304,6 +311,12 @@ def public_rpc():
     params = payload.get("params") or {}
     if not isinstance(params, dict):
         return _headers(jsonify(_error(request_id, -32602, "Parâmetros inválidos."))), 400
+    protocol = request.headers.get("MCP-Protocol-Version", "")
+    if protocol.startswith("2026-"):
+        if request.headers.get("Mcp-Method") != method:
+            return _headers(jsonify(_error(request_id, -32600, "O header Mcp-Method não corresponde ao corpo."))), 400
+        if method == "tools/call" and request.headers.get("Mcp-Name") != params.get("name"):
+            return _headers(jsonify(_error(request_id, -32600, "O header Mcp-Name não corresponde ao corpo."))), 400
     try:
         principal = auth.authenticate(_request_context_for_auth(params))
     except auth.PublicMcpAuthError as exc:
@@ -322,7 +335,7 @@ def public_rpc():
     try:
         registry = load_builtin_tools()
         current = principal.context
-        if method == "initialize":
+        if method in {"initialize", "server/discover"}:
             result = {
                 "protocolVersion": params.get("protocolVersion") if isinstance(params.get("protocolVersion"), str) else PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
@@ -331,6 +344,8 @@ def public_rpc():
                                "icons": [{"src": product_url("workspace", MCP_ICON_PATH),
                                           "mimeType": "image/svg+xml", "sizes": ["any"]}]},
                 "instructions": (
+                    "Para preservar projeto, marca, artefatos e operações entre chamadas, use context.open e "
+                    "reenvie o context_handle retornado nas ferramentas seguintes. "
                     "Use project_ref no nível params ou configure um projeto padrão na chave. "
                     "Para adicionar texto ao projeto, use projects.create_note; para links, projects.create_link_reference. "
                     "Para consultar a base RAG de um projeto, use projects.search_knowledge e depois "
@@ -385,7 +400,7 @@ def public_rpc():
                 started_at=started_at, input_bytes=len(request.get_data(cache=True) or b""),
             )
             try:
-                value = registry.execute(name, arguments, current, "customer_agent")
+                value = context_runtime.execute(principal, name, arguments, "customer_agent", registry)
                 if name in {"projects.prepare_source_upload", "brands.prepare_logo_upload"} and isinstance(value, dict):
                     value = {**value, "upload_url": product_url(
                         "workspace", f"{PUBLIC_MCP_PATH}/{'uploads' if name.startswith('projects.') else 'brand-uploads'}")}
@@ -447,8 +462,16 @@ def _multipart_principal(tool_name: str):
     try:
         principal = auth.authenticate(request.form.to_dict())
         auth.ensure_scope(principal, tool_name)
+        handle = str(request.form.get("context_handle") or "")
+        if handle:
+            principal = replace(
+                principal,
+                context=context_runtime.resolve_context(principal, handle, "customer_agent"),
+            )
     except auth.PublicMcpAuthError as exc:
         return None, (jsonify(error=str(exc)), 401)
+    except ToolError as exc:
+        return None, (jsonify(error=str(exc)), 400)
     return principal, None
 
 

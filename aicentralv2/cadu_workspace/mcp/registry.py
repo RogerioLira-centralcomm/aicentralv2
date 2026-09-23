@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from copy import deepcopy
 from typing import Any, Callable
 
 from ..agent_v2.contracts import RequestContext
@@ -93,10 +94,16 @@ class ToolDefinition:
     output_schema: dict[str, Any] | None = None
 
     def public_schema(self) -> dict[str, Any]:
+        input_schema = deepcopy(self.input_schema)
+        if not self.name.startswith("context.") and input_schema.get("type") == "object":
+            input_schema.setdefault("properties", {})["context_handle"] = {
+                "type": "string", "minLength": 20, "maxLength": 180,
+                "description": "Handle retornado por context.open; reutilize para preservar o contexto entre ferramentas.",
+            }
         value = {
             "name": self.name,
             "description": self.description,
-            "inputSchema": self.input_schema,
+            "inputSchema": input_schema,
             "annotations": {
                 "readOnlyHint": self.effect == "read", "destructiveHint": self.effect == "write",
                 "idempotentHint": self.effect == "read",
@@ -190,5 +197,5 @@ def register_tool(*, name: str, description: str, capability: str, effect: str =
 
 def load_builtin_tools() -> ToolRegistry:
     # Imports register functions once through Python's module cache.
-    from .tools import account, artifacts, brands, google, media, operations, planner, projects, reports, resources, web, workspace  # noqa: F401
+    from .tools import account, artifacts, brands, context, google, media, operations, planner, projects, reports, resources, web, workspace  # noqa: F401
     return registry

@@ -10,6 +10,7 @@ from uuid import uuid4
 from flask import abort, current_app, has_app_context, has_request_context, session, url_for
 from psycopg.types.json import Json
 
+from ...db import close_db
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
@@ -755,6 +756,9 @@ def prepare(data):
 
 
 def stream(run):
+    # Admission is complete before the SSE response starts. Do not reserve a
+    # PostgreSQL connection while the provider is producing tokens.
+    close_db()
     run_started = perf_counter()
     execution_mode = run.get("execution_mode") or "analysis"
     provider_started = None
@@ -805,8 +809,10 @@ def stream(run):
                              WHERE id=%s AND status='running'""",
                             (round((perf_counter() - run_started) * 1000), run["run_id"]))
             conn.commit()
+            close_db()
         except Exception:
             conn.rollback()
+            close_db()
             current_app.logger.exception("Falha ao finalizar proposta de ação %s", run["run_id"])
         payload = {"status": "completed", "conversation_id": run["conversation_id"],
                    "total_duration_ms": round((perf_counter() - run_started) * 1000)}
@@ -830,6 +836,7 @@ def stream(run):
                     cur.execute("UPDATE cadu_family_chat_runs SET task_id = %s WHERE id = %s AND status = 'running'",
                                 (task_id, run["run_id"]))
                 conn.commit()
+                close_db()
             if item.get("event") in {"message", "agent_message"} and item.get("answer"):
                 answer_chunks.append(str(item["answer"]))
                 visible_answer = _streamable_answer("".join(answer_chunks))
@@ -909,6 +916,7 @@ def stream(run):
                     (run["conversation_id"], max(0, int(usage.get("prompt_tokens") or 0)),
                      max(0, int(usage.get("completion_tokens") or 0)), run["conversation_id"]))
             conn.commit()
+            close_db()
             if usage:
                 try:
                     charge = CaduCreditConnector().charge_provider(
@@ -926,6 +934,7 @@ def stream(run):
                                         (int(charge.get("tokens_cobrados") or charge.get("charged_tokens") or 0),
                                          charge.get("custo_interno") or charge.get("internal_cost_usd") or 0, run["run_id"]))
                         conn.commit()
+                        close_db()
                 except Exception:
                     # The answer is already durable. Billing reconciliation uses
                     # the idempotency key and must not corrupt the customer turn.
@@ -963,8 +972,10 @@ def stream(run):
                                   max(0, int(usage.get("completion_tokens") or 0)), state,
                                   terminal_error_code or "provider_failed", run["run_id"]))
             conn.commit()
+            close_db()
         except Exception:
             conn.rollback()
+            close_db()
             current_app.logger.exception("Falha ao finalizar run V2 %s", run["run_id"])
         # Provider continuity is a rebuildable projection. Its failure must not
         # roll back the canonical terminal state or leave the conversation busy.
@@ -984,8 +995,10 @@ def stream(run):
                                 (provider_id, run["conversation_id"],
                                  run["context"].client_id, run["context"].user_id))
                 session_conn.commit()
+                close_db()
             except Exception:
                 session_conn.rollback()
+                close_db()
                 current_app.logger.exception(
                     "Falha ao projetar sessão do provedor; conversa=%s runtime=%s",
                     run["conversation_id"], runtime.get("id") or execution_mode,
@@ -1010,8 +1023,10 @@ def stream(run):
                         updated_at = NOW() WHERE id = %s""",
                     (run["conversation_id"], run["conversation_id"]))
             conn.commit()
+            close_db()
         except Exception:
             conn.rollback()
+            close_db()
             assistant_id = None
             current_app.logger.exception("Falha ao persistir resposta parcial; run=%s", run["run_id"])
     terminal_event = "run.completed" if state == "completed" else "run.cancelled" if state == "cancelled" else "run.failed"

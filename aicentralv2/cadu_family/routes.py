@@ -234,7 +234,11 @@ def conversation_history():
     query = request.args.get('q', '').strip()
     if len(query) > 150:
         abort(400, description='Use até 150 caracteres na busca.')
-    records = repository.conversation_history_all(user, selected['client_id'], query=query)
+    try:
+        limit = min(100, max(1, int(request.args.get('limit', 50))))
+    except (TypeError, ValueError):
+        abort(400, description='Limite de conversas inválido.')
+    records = repository.conversation_history_all(user, selected['client_id'], query=query, limit=limit)
     return jsonify(conversations=records,
                    can_manage=bool(current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                                    and selected.get('role') in ('admin', 'member')))

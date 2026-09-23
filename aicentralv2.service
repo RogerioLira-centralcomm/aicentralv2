@@ -11,7 +11,10 @@ Environment="PATH=/var/www/aicentralv2/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="AICENTRAL_ENV=production"
 # O systemd já supervisiona o processo principal. Não use pidfile: um arquivo
 # remanescente após restart/kill faz o Gunicorn recusar a próxima inicialização.
-ExecStart=/var/www/aicentralv2/venv/bin/gunicorn --bind 127.0.0.1:8001 --workers 4 --timeout 120 --access-logfile /var/www/aicentralv2/logs/access.log --error-logfile /var/www/aicentralv2/logs/error.log run:app
+# Streaming is I/O-bound. 4 x 64 gthread slots leave headroom above the
+# expected 200 simultaneous users without holding a database connection for
+# the lifetime of each SSE response.
+ExecStart=/var/www/aicentralv2/venv/bin/gunicorn --bind 127.0.0.1:8001 --worker-class gthread --workers 4 --threads 64 --timeout 300 --graceful-timeout 30 --keep-alive 5 --access-logfile /var/www/aicentralv2/logs/access.log --error-logfile /var/www/aicentralv2/logs/error.log run:app
 ExecReload=/bin/kill -s HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=30

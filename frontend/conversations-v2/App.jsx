@@ -46,7 +46,9 @@ function setSurfaceUrl(surface, artifactId = '', replace = false, resource = nul
 }
 
 function setConversationUrl(conversationId = '', replace = true) {
-  const url = new URL(window.location.href);
+  // Entry-only parameters (prompt, project, brand and mode) must never survive
+  // the first admitted turn: replaying them on refresh duplicates bootstrap work.
+  const url = new URL(window.location.pathname, window.location.origin);
   if (conversationId) url.searchParams.set('conversation_id', String(conversationId));
   else url.searchParams.delete('conversation_id');
   url.searchParams.delete('surface');
@@ -59,6 +61,7 @@ export default function App({bootstrap}) {
   const viewport = useConversationViewport();
   const {layout, keyboardOpen} = viewport;
   const initialQuery = new URLSearchParams(window.location.search);
+  const requestedConversationId = useRef(initialQuery.get('conversation_id') || '');
   const [context, setContext] = useState({});
   const [projects, setProjects] = useState([]);
   const [brands, setBrands] = useState(() => bootstrap.brands || []);
@@ -161,8 +164,9 @@ export default function App({bootstrap}) {
   const loadRecent = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const data = await request(bootstrap.endpoints.history);
-      setConversations(recentConversations(data.conversations, 500));
+      const separator = bootstrap.endpoints.history.includes('?') ? '&' : '?';
+      const data = await request(`${bootstrap.endpoints.history}${separator}limit=50`);
+      setConversations(recentConversations(data.conversations, 50));
     } catch (_) {
       setConversations([]);
     } finally { setHistoryLoading(false); }
@@ -206,7 +210,10 @@ export default function App({bootstrap}) {
     }
   }, [bootstrap.endpoints.history, conversations, trace]);
 
-  useEffect(() => { loadContext(); loadRecent(); }, [loadContext, loadRecent]);
+  useEffect(() => {
+    if (requestedConversationId.current) return;
+    loadContext(); loadRecent();
+  }, [loadContext, loadRecent]);
   useEffect(() => {
     if (!historyOpen) return undefined;
     const interval = window.setInterval(loadRecent, conversations.some(item => item.running) ? 4000 : 12000);
@@ -257,14 +264,18 @@ export default function App({bootstrap}) {
     setOpeningId(id);
     setRuntime('Abrindo conversa');
     try {
-      const data = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
+      const data = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/bootstrap`);
       setConversationId(id); conversationRef.current = id;
-      try {
-        const queued = await request(queueEndpoint(id));
-        setQueuedTurns((queued.items || []).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
-      } catch (_) { setQueuedTurns(readQueue(id)); }
-      setTitle(conversationTitle || 'Conversa');
+      setQueuedTurns((data.queue || readQueue(id)).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
+      setTitle(conversationTitle || data.conversation?.title || 'Conversa');
       if (data.context) setContext(data.context);
+      if (Array.isArray(data.conversations)) setConversations(recentConversations(data.conversations, 30));
+      if (Array.isArray(data.entities)) {
+        setProjects(data.entities.filter(item => item.kind === 'project'));
+        setBrands(current => mergeServerEntities(current, data.entities.filter(item => item.kind === 'brand').map(item => ({
+          ...item, logoUrl: item.logo_url, visualInitials: item.name, visualColor: item.color || item.visualColor || '#176b5e',
+        }))));
+      }
       setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false); setLibraryOpen(false);
       const {messages: restored, selectedContext: restoredContext, lastArtifact} = restoreConversationMessages(data.messages, uid);
       setMessages(restored);
@@ -272,7 +283,7 @@ export default function App({bootstrap}) {
       if (lastArtifact) await fetchArtifact(lastArtifact);
       setConversationUrl(id, true);
       setSurfaceUrl(lastArtifact ? 'artifact' : 'conversation', lastArtifact || '', true);
-      const active = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/active-run`).catch(() => ({run: null}));
+      const active = {run: data.active_run || null};
       if (active.run?.id) {
         const pendingActions = (active.run.actions || []).map(action => ({
           id: uid(), role: 'assistant', kind: 'action',
@@ -316,7 +327,7 @@ export default function App({bootstrap}) {
     } catch (error) {
       setRuntime('Não foi possível abrir');
       trace('Falha ao abrir conversa', error.message, 'error');
-    } finally { setOpeningId(null); }
+    } finally { setOpeningId(null); setHistoryLoading(false); setContextLoading(false); }
   }, [running, confirmDiscard, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint]);
 
   const changeProject = useCallback(async (projectRef, {showHistory = true} = {}) => {
@@ -409,7 +420,6 @@ export default function App({bootstrap}) {
   const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || new URLSearchParams(window.location.search).get('project') || '');
   const requestedBrandRef = useRef(new URLSearchParams(window.location.search).get('brand_ref') || '');
   const requestedHistoryOpen = useRef(new URLSearchParams(window.location.search).get('history') === '1');
-  const requestedConversationId = useRef(new URLSearchParams(window.location.search).get('conversation_id') || '');
   useEffect(() => {
     if (!requestedProjectRef.current || contextLoading || running) return;
     const projectRef = requestedProjectRef.current;
@@ -440,13 +450,11 @@ export default function App({bootstrap}) {
   }, [contextLoading, running, bootstrap.endpoints.context, loadBrandIdentity, trace]);
 
   useEffect(() => {
-    if (!requestedConversationId.current || historyLoading || running) return;
+    if (!requestedConversationId.current || running) return;
     const id = requestedConversationId.current;
     requestedConversationId.current = '';
-    const item = conversations.find(conversation => String(conversation.id) === id);
-    if (item) openConversation(id, item.title);
-    else trace('Conversa não encontrada', 'Ela pode ter sido arquivada ou não estar disponível para esta conta.', 'error');
-  }, [conversations, historyLoading, running, openConversation, trace]);
+    openConversation(id, '');
+  }, [running, openConversation]);
 
   const classifyAttachment = useCallback(async file => {
     try {

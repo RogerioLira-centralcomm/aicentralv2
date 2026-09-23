@@ -1,9 +1,12 @@
 """Authenticated JSON-RPC transport for the internal Cadu MCP."""
 
+from dataclasses import replace
+
 from flask import Blueprint, g, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 from .authorization import MCPUnauthorized, authorize
+from . import context_runtime
 from .registry import ToolError, load_builtin_tools
 
 
@@ -29,6 +32,7 @@ def protect_internal_mcp():
             "surface": request.form.get("surface") or "conversations",
             "project_ref": request.form.get("project_ref"),
             "brand_ref": request.form.get("brand_ref"),
+            "context_handle": request.form.get("context_handle"),
         }
     protocol = request.headers.get("MCP-Protocol-Version", "")
     if protocol.startswith("2026-"):
@@ -38,8 +42,16 @@ def protect_internal_mcp():
             return jsonify(_error(payload.get("id"), -32600, "O header Mcp-Name não corresponde ao corpo.")), 400
     try:
         g.cadu_mcp_principal = authorize(params if isinstance(params, dict) else {})
+        handle = str((params or {}).get("context_handle") or "")
+        if handle:
+            g.cadu_mcp_principal = replace(
+                g.cadu_mcp_principal,
+                context=context_runtime.resolve_context(g.cadu_mcp_principal, handle, g.cadu_mcp_principal.exposure),
+            )
     except MCPUnauthorized as exc:
         return jsonify(_error(None, -32001, str(exc))), 401
+    except ToolError as exc:
+        return jsonify(_error(None, -32602, str(exc), {"code": exc.code})), 400
 
 
 @bp.after_request
@@ -62,7 +74,7 @@ def rpc():
         principal = g.cadu_mcp_principal
         current = principal.context
         registry = load_builtin_tools()
-        if method == "initialize":
+        if method in {"initialize", "server/discover"}:
             requested = params.get("protocolVersion")
             result = {
                 "protocolVersion": requested if isinstance(requested, str) else CURRENT_PROTOCOL_VERSION,
@@ -73,7 +85,9 @@ def rpc():
             result = {"tools": registry.list(current, principal.exposure)}
         elif method == "tools/call":
             name = str(params.get("name") or "")
-            value = registry.execute(name, params.get("arguments") or {}, current, principal.exposure)
+            value = context_runtime.execute(
+                principal, name, params.get("arguments") or {}, principal.exposure, registry,
+            )
             result = {"content": [{"type": "text", "text": __import__("json").dumps(value, ensure_ascii=False, default=str)}],
                       "structuredContent": value, "isError": False}
         else:

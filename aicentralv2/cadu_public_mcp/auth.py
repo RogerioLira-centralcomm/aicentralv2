@@ -20,8 +20,8 @@ KEY_PREFIX = "cadu_mcp_"
 CLIENT_TYPES = ("gpt", "codex", "cursor", "vscode", "generic")
 CLIENT_SCOPES = ("resources:read", "projects:read", "projects:content_write", "projects:write", "brands:write",
                  "artifacts:write", "account:read", "account:write", "credits:read",
-                 "google:read", "google:write")
-DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "projects:content_write", "account:read", "credits:read", "google:read"))
+                 "google:read", "google:write", "contexts:read", "contexts:write", "operations:read")
+DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "projects:content_write", "account:read", "credits:read", "google:read", "contexts:read", "contexts:write", "operations:read"))
 
 
 class PublicMcpAuthError(RuntimeError):
@@ -193,7 +193,11 @@ def _load_key(raw_key: str) -> dict:
 def required_scope(tool_name: str) -> str:
     name = str(tool_name or "")
     if name == "operations.get":
-        return "projects:read"
+        return "operations:read"
+    if name in {"context.update", "context.close"}:
+        return "contexts:write"
+    if name.startswith("context."):
+        return "contexts:read"
     if name in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
         return "projects:content_write"
     if name.startswith("credits."):
@@ -230,10 +234,24 @@ def required_scope(tool_name: str) -> str:
 
 def ensure_scope(principal: PublicMcpPrincipal, tool_name: str) -> None:
     scope = required_scope(tool_name)
-    if scope not in set(principal.scopes) and not (scope == "projects:content_write" and "projects:write" in principal.scopes):
+    if not has_scope(principal, scope):
         raise PublicMcpAuthError(f"A chave não possui o escopo necessário: {scope}.")
     if tool_name == "credits.purchase_package" and not can_purchase_credits(principal):
         raise PublicMcpAuthError("Somente administradores da conta podem comprar créditos.")
+
+
+def has_scope(principal: PublicMcpPrincipal, scope: str) -> bool:
+    """Accept pre-context grants during the OAuth migration window."""
+    scopes = set(principal.scopes)
+    if scope in scopes:
+        return True
+    if scope == "projects:content_write" and "projects:write" in scopes:
+        return True
+    if scope in {"contexts:read", "operations:read"} and "projects:read" in scopes:
+        return True
+    if scope == "contexts:write" and scopes.intersection({"projects:content_write", "projects:write"}):
+        return True
+    return False
 
 
 def can_purchase_credits(principal: PublicMcpPrincipal) -> bool:

@@ -643,18 +643,19 @@ def _current_creative_url(raw_url):
     return target + (('?' + parsed.query) if parsed.query else '')
 
 
-def conversation_messages(user_id, client_id, conversation_id):
+def conversation_messages(user_id, client_id, conversation_id, limit=500):
     owned = rows('''SELECT id FROM cadu_conversations
                     WHERE id = %s AND id_contato_cliente = %s AND id_cliente = %s''',
                  (conversation_id, user_id, client_id))
     if not owned:
         return None
+    limit = min(500, max(1, int(limit or 100)))
     messages = rows('''SELECT * FROM (SELECT id, role, content, files, metadata, created_at,
                              to_jsonb(m)->'tool_calls' AS tool_calls, conversation_sequence
                     FROM cadu_conversation_messages m WHERE conversation_id = %s
                      AND role IN ('user', 'assistant')
-                    ORDER BY conversation_sequence DESC NULLS LAST, created_at DESC, id DESC LIMIT 500) recent
-                    ORDER BY conversation_sequence NULLS LAST, created_at, id''', (conversation_id,))
+                    ORDER BY conversation_sequence DESC NULLS LAST, created_at DESC, id DESC LIMIT %s) recent
+                    ORDER BY conversation_sequence NULLS LAST, created_at, id''', (conversation_id, limit))
     from ..cadu_workspace.conversations.legacy_results import project_message
     base = current_app.config.get('CADU_LEGACY_ASSET_BASE_URL')
     return [project_message(message, base) for message in messages]

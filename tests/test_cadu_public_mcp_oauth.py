@@ -47,6 +47,26 @@ def test_unauthenticated_mcp_challenge_points_to_protected_resource_metadata():
     assert challenge and "resource_metadata=" in challenge[0]
 
 
+def test_2026_transport_requires_routing_headers_before_authentication():
+    client = _app().test_client()
+    response = client.post(PUBLIC_MCP_PATH, headers={"MCP-Protocol-Version": "2026-07-28"},
+                           json={"jsonrpc": "2.0", "id": "1", "method": "tools/list", "params": {}})
+    assert response.status_code == 400
+    assert "Mcp-Method" in response.get_json()["error"]["message"]
+
+
+def test_server_discover_preserves_stateless_public_capabilities():
+    client = _app().test_client()
+    principal = MagicMock()
+    principal.context = MagicMock(capabilities=("workspace",))
+    principal.scopes = ("contexts:read",)
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=principal):
+        response = client.post(PUBLIC_MCP_PATH, json={"jsonrpc": "2.0", "id": "1",
+                                                      "method": "server/discover", "params": {}})
+    assert response.status_code == 200
+    assert response.get_json()["result"]["protocolVersion"] == "2026-07-28"
+
+
 def test_explicit_empty_scopes_never_expand_to_defaults():
     assert auth.normalize_scopes([], allow_writes=True) == ()
     assert auth.normalize_scopes("", allow_writes=True) == ()

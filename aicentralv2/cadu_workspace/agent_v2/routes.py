@@ -550,9 +550,7 @@ def queued_turns(conversation_id):
         abort(404, description=str(exc))
 
 
-@bp.get("/conversations/<conversation_id>/active-run")
-def active_conversation_run(conversation_id):
-    current = resolve(conversation_id=conversation_id)
+def _active_run(conversation_id, current):
     rows = repository.rows("""SELECT run.id::text,run.status,run.execution_mode,run.created_at
         FROM cadu_family_chat_runs run
         JOIN cadu_conversations conversation ON conversation.id=run.conversation_id
@@ -567,10 +565,41 @@ def active_conversation_run(conversation_id):
         (conversation_id, current.user_id, current.client_id, current.user_id, current.client_id))
     active = rows[0] if rows else None
     if active:
-        active["actions"] = journal.waiting_actions(
-            active["id"], current.client_id, current.user_id,
-        )
-    return jsonify(run=active)
+        active["actions"] = journal.waiting_actions(active["id"], current.client_id, current.user_id)
+    return active
+
+
+@bp.get("/conversations/<conversation_id>/bootstrap")
+def conversation_bootstrap(conversation_id):
+    """Restore one conversation in one bounded request after reload."""
+    current = resolve(conversation_id=conversation_id)
+    actor = family_context.identity()
+    messages = repository.conversation_messages(
+        current.user_id, current.client_id, conversation_id, limit=100,
+    )
+    if messages is None:
+        abort(404, description="Conversa não encontrada.")
+    rows = repository.rows("""SELECT titulo AS title,updated_at,status
+        FROM cadu_conversations WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s""",
+        (conversation_id, current.user_id, current.client_id))
+    conversation = rows[0] if rows else {"title": "Conversa"}
+    try:
+        queued = turn_queue.list_items(conversation_id, current)
+    except ValueError:
+        queued = []
+    entities = family_context.inventory(current.client_id)
+    return jsonify(
+        conversation={"id": conversation_id, **conversation},
+        context=current.to_dict(), entities=entities,
+        conversations=repository.conversation_history(actor, current.client_id, limit=30),
+        messages=messages, queue=queued, active_run=_active_run(conversation_id, current),
+    )
+
+
+@bp.get("/conversations/<conversation_id>/active-run")
+def active_conversation_run(conversation_id):
+    current = resolve(conversation_id=conversation_id)
+    return jsonify(run=_active_run(conversation_id, current))
 
 
 @bp.post("/conversations/<conversation_id>/queue")

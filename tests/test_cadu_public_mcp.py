@@ -13,10 +13,14 @@ from aicentralv2.cadu_tool_billing import InsufficientToolCredits
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 from aicentralv2.cadu_workspace.mcp.tools.resources import (
-    add_resource, create_editable_copy, inspect_input, list_versions as list_resource_versions,
+    _image_suffix, add_resource, create_editable_copy, inspect_input, list_versions as list_resource_versions,
     relate as relate_resources, search_resources, set_archived, start_image_edit, update_metadata,
 )
 from aicentralv2.cadu_workspace.project_resource_service import resource_capabilities
+from aicentralv2.cadu_workspace import project_resource_service
+from aicentralv2.cadu_workspace.workspace_ingestion_service import _preserve_external_reference
+from aicentralv2.creative_modeling_storage import CreativeAssetStorage, GENERATED_PREFIX, REFERENCE_PREFIX
+from aicentralv2.creative_media.studio_maintenance import PostgresStudioMaintenance
 
 
 def test_public_context_is_tenant_bound_and_uses_default_project():
@@ -395,6 +399,41 @@ def test_start_image_edit_materializes_base_without_charging_or_mutating_source(
     assert accepted["source_id"] == "resource-1"
 
 
+def test_studio_image_format_uses_signature_not_filename():
+    assert _image_suffix(b"\x89PNG\r\n\x1a\nrest") == ".png"
+    assert _image_suffix(b"\xff\xd8\xffrest") == ".jpg"
+    assert _image_suffix(b"RIFF1234WEBPrest") == ".webp"
+    with pytest.raises(Exception, match="imagem PNG, JPG ou WebP"):
+        _image_suffix(b"not-an-image")
+
+
+def test_creative_asset_delete_handles_reference_and_generated_files(tmp_path, monkeypatch):
+    import aicentralv2.creative_modeling_storage as storage_module
+
+    monkeypatch.setattr(storage_module, "_root", lambda folder="client_logos": tmp_path / folder)
+    reference = tmp_path / "creative_references" / "reference.png"
+    generated = tmp_path / "creative_generated" / "generated.png"
+    reference.parent.mkdir(parents=True)
+    generated.parent.mkdir(parents=True)
+    reference.write_bytes(b"png")
+    generated.write_bytes(b"png")
+
+    storage = CreativeAssetStorage()
+    assert storage.delete(f"{REFERENCE_PREFIX}reference.png") is True
+    assert storage.delete(f"{GENERATED_PREFIX}generated.png") is True
+    assert not reference.exists()
+    assert not generated.exists()
+    assert storage.delete("/tmp/not-owned.png") is False
+
+
+def test_studio_maintenance_dispatches_cleanup_to_creative_storage():
+    with patch.object(CreativeAssetStorage, "delete", return_value=True) as delete:
+        assert PostgresStudioMaintenance._delete_asset(
+            f"{REFERENCE_PREFIX}reference.png"
+        ) is True
+    delete.assert_called_once_with(f"{REFERENCE_PREFIX}reference.png")
+
+
 def test_resources_add_file_upload_is_preparation_not_false_completion():
     context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
                              surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
@@ -413,6 +452,22 @@ def test_resources_add_file_upload_is_preparation_not_false_completion():
         context, request_id=arguments["request_id"], use_as_knowledge=None,
         category="reference", description="Arquivo original",
     )
+
+
+def test_external_reference_rolls_back_when_optional_table_is_absent():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = {"available": False}
+    with patch("aicentralv2.cadu_workspace.workspace_ingestion_service.get_db", return_value=connection):
+        result = _preserve_external_reference(context, {
+            "url": "https://example.com/item", "title": "Item", "provider": "web",
+            "resource_kind": "web_page", "access_type": "public", "connector_recommended": False,
+        })
+    assert result == {"available": False}
+    connection.rollback.assert_called_once_with()
+    connection.commit.assert_not_called()
 
 
 def test_resources_inspect_input_routes_text_without_persisting_it():
@@ -455,6 +510,23 @@ def test_set_archived_is_explicit_recoverable_and_source_aware():
     assert result["archived"] is True
     assert result["recoverable"] is True
     archive.assert_called_once_with(context, "resource-1", True)
+
+
+def test_artifact_restore_returns_its_previous_status():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:project-1", capabilities=("workspace",))
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.rowcount = 1
+    with patch.object(project_resource_service, "get_db", return_value=connection), \
+         patch.object(project_resource_service, "get_resource", side_effect=[
+             {"id": "resource-1", "source_system": "cadu_workspace_artifacts", "source_id": "artifact-1"},
+             {"id": "resource-1", "status": "draft"},
+         ]), patch.object(project_resource_service, "reconcile"):
+        result = project_resource_service.set_resource_archived(context, "resource-1", False)
+    assert result["status"] == "draft"
+    statement = " ".join(cursor.execute.call_args_list[0].args[0].split())
+    assert "COALESCE(archived_from_status,'active')" in statement
 
 
 def test_archived_native_resource_advertises_restore_not_edit():

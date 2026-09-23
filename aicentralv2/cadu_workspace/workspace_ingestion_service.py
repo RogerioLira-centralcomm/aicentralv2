@@ -42,6 +42,7 @@ def _preserve_external_reference(context: RequestContext, descriptor: dict, *, e
     try:
         with connection.cursor() as cursor:
             if not _relation(cursor, "cadu_workspace_external_references"):
+                connection.rollback()
                 return {"available": False}
             cursor.execute("""SELECT pg_get_constraintdef(oid) AS definition
                                 FROM pg_constraint

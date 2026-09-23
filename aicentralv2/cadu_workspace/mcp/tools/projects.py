@@ -113,10 +113,14 @@ def get_source_chunks(context: RequestContext, arguments: dict) -> dict:
     name="projects.list_resources", capability="workspace", effect="read", requires_project=True,
     description="Lista o inventário central do projeto: arquivos, artefatos versionados, planos, relatórios, mídia e referências de plataformas externas.",
     exposures=("internal", "customer_agent"),
-    input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+    input_schema={"type": "object", "properties": {
+        "include_archived": {"type": "boolean"},
+    }, "additionalProperties": False},
 )
 def list_project_resources(context: RequestContext, arguments: dict) -> dict:
-    return _domain(lambda: project_resource_service.list_for_context(context))
+    return _domain(lambda: project_resource_service.list_for_context(
+        context, include_archived=arguments.get("include_archived", False),
+    ))
 
 
 @register_tool(

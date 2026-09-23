@@ -403,4 +403,5 @@ class CreativeAssetStorage:
         for prefix, folder in prefixes.items():
             if public_path and str(public_path).startswith(prefix):
                 (_root(folder) / Path(str(public_path)).name).unlink(missing_ok=True)
-                return
+                return True
+        return False

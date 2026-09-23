@@ -199,8 +199,8 @@ class PostgresStudioMaintenance:
 
     @staticmethod
     def _delete_asset(storage_key):
-        from ..creative_modeling_storage import ClientLogoStorage
-        return ClientLogoStorage().delete(storage_key)
+        from ..creative_modeling_storage import CreativeAssetStorage
+        return CreativeAssetStorage().delete(storage_key)
 
 
 def drain_studio_maintenance(connection, *, limit=10, email_sender=None, asset_delete=None, base_url=""):

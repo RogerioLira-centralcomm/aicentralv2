@@ -10,6 +10,10 @@ ALTER TABLE cadu_workspace_external_references
     DROP CONSTRAINT IF EXISTS cadu_workspace_external_references_reference_type_check,
     ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 
+-- Artifacts keep their lifecycle state when temporarily archived.
+ALTER TABLE cadu_workspace_artifacts
+    ADD COLUMN IF NOT EXISTS archived_from_status TEXT;
+
 ALTER TABLE cadu_workspace_external_references
     ADD CONSTRAINT cadu_workspace_external_references_reference_type_check CHECK (
         reference_type IN (

@@ -34,6 +34,16 @@ def _project_resource(context: RequestContext, resource_id: str) -> dict:
     return resource
 
 
+def _image_suffix(payload: bytes) -> str:
+    if payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if payload.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if payload.startswith(b"RIFF") and len(payload) >= 12 and payload[8:12] == b"WEBP":
+        return ".webp"
+    raise ToolInputError("O recurso não contém uma imagem PNG, JPG ou WebP válida.")
+
+
 def _studio_image_reference(context: RequestContext, resource: dict, request_id: str) -> dict:
     """Copy an authorized project image into Studio-owned reference storage."""
     from ....creative_modeling_storage import CreativeAssetStorage
@@ -41,7 +51,6 @@ def _studio_image_reference(context: RequestContext, resource: dict, request_id:
 
     locator = str(resource.get("locator") or "").strip()
     title = str(resource.get("title") or "imagem").strip()[:180]
-    mime_type = str(resource.get("mime_type") or "").lower()
     source_system = str(resource.get("source_system") or "")
     source_id = str(resource.get("source_id") or "")
     payload = None
@@ -73,9 +82,7 @@ def _studio_image_reference(context: RequestContext, resource: dict, request_id:
     if len(payload) > 5 * 1024 * 1024:
         raise ToolInputError("A imagem excede 5 MB e precisa ser otimizada antes da edição no Studio.")
 
-    suffix = Path(title).suffix.lower()
-    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
-        suffix = {"image/png": ".png", "image/webp": ".webp"}.get(mime_type, ".jpg")
+    suffix = _image_suffix(bytes(payload))
     upload = FileStorage(
         stream=BytesIO(payload), filename=f"{Path(title).stem or 'imagem'}{suffix}",
         content_type={".png": "image/png", ".webp": "image/webp"}.get(suffix, "image/jpeg"),
@@ -208,6 +215,7 @@ def add_resource(context: RequestContext, arguments: dict) -> dict:
             "query": {"type": "string", "minLength": 2, "maxLength": 400},
             "resource_type": {"type": "string", "maxLength": 40},
             "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+            "include_archived": {"type": "boolean"},
         },
         "additionalProperties": False,
     },
@@ -220,6 +228,7 @@ def search_resources(context: RequestContext, arguments: dict) -> dict:
             arguments["query"],
             limit=arguments.get("limit", 20),
             resource_type=arguments.get("resource_type"),
+            include_archived=arguments.get("include_archived", False),
         )
     except ValueError as exc:
         raise ToolInputError(str(exc)) from exc

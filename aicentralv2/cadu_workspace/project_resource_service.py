@@ -247,7 +247,7 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
     return records
 
 
-def reconcile(client_id: int, project_ref: str, actor_id=None) -> dict:
+def reconcile(client_id: int, project_ref: str, actor_id=None, *, include_archived=False) -> dict:
     project_id = _project_id(project_ref)
     connection = get_db()
     try:
@@ -306,12 +306,15 @@ def reconcile(client_id: int, project_ref: str, actor_id=None) -> dict:
     except Exception:
         connection.rollback()
         raise
-    return {"available": True, **list_resources(client_id, project_ref, reconcile_first=False)}
+    return {"available": True, **list_resources(
+        client_id, project_ref, reconcile_first=False, include_archived=include_archived,
+    )}
 
 
-def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, actor_id=None) -> dict:
+def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, actor_id=None,
+                   include_archived=False) -> dict:
     if reconcile_first:
-        return reconcile(client_id, project_ref, actor_id)
+        return reconcile(client_id, project_ref, actor_id, include_archived=include_archived)
     with get_db().cursor() as cursor:
         if not _relation(cursor, "cadu_project_resources"):
             return {"resources": [], "summary": {}}
@@ -321,11 +324,12 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
             "ocr_status", "embedding_status", "deleted_at",
         ) if column in columns]
         optional_sql = ", " + ", ".join(optional) if optional else ""
+        status_filter = "" if include_archived else " AND status <> 'archived'"
         cursor.execute(f"""SELECT id::text, source_system, source_id, resource_type, title, mime_type,
                                   purpose, category, status, version, content_hash, locator, metadata,
                                   source_created_at, source_updated_at, last_seen_at{optional_sql}
                              FROM cadu_project_resources
-                            WHERE client_id=%s AND project_ref=%s AND status <> 'archived'
+                            WHERE client_id=%s AND project_ref=%s{status_filter}
                          ORDER BY COALESCE(source_updated_at, source_created_at, last_seen_at) DESC, title""",
                        (client_id, project_ref))
         resources = [dict(row) for row in cursor.fetchall()]
@@ -377,11 +381,11 @@ def list_recent_resources(client_id: int, project_refs: list[str], *, limit: int
         return [dict(row) for row in cursor.fetchall()]
 
 
-def list_for_context(context: RequestContext) -> dict:
+def list_for_context(context: RequestContext, *, include_archived=False) -> dict:
     # MCP reads use the materialized registry. Mutations enqueue reconciliation;
     # the project-detail UI retains an explicit repair-on-open path for rollout.
     return list_resources(context.client_id, context.project_ref or "", reconcile_first=False,
-                          actor_id=context.user_id)
+                          actor_id=context.user_id, include_archived=include_archived)
 
 
 def get_resource(client_id: int, project_ref: str, resource_id: str) -> dict | None:
@@ -404,12 +408,14 @@ def get_resource(client_id: int, project_ref: str, resource_id: str) -> dict | N
 
 
 def search_resources(client_id: int, project_ref: str, query: str, *, limit: int = 20,
-                     resource_type: str | None = None) -> list[dict]:
+                     resource_type: str | None = None, include_archived=False) -> list[dict]:
     """Search canonical resource metadata within one project boundary."""
     query = " ".join(str(query or "").split()).casefold()
     if len(query) < 2:
         raise ValueError("Informe o que deve ser pesquisado nos recursos do projeto.")
-    result = list_resources(client_id, project_ref, reconcile_first=False).get("resources", [])
+    result = list_resources(
+        client_id, project_ref, reconcile_first=False, include_archived=include_archived,
+    ).get("resources", [])
     terms = [item for item in query.split() if item]
     if resource_type:
         result = [item for item in result if str(item.get("resource_type") or "") == resource_type]
@@ -731,9 +737,14 @@ def set_resource_archived(context: RequestContext, resource_id: str, archived: b
                                (bool(archived), source_id, context.client_id, context.project_ref))
             elif source == "cadu_workspace_artifacts":
                 cursor.execute("""UPDATE cadu_workspace_artifacts
-                                      SET status=%s,updated_at=NOW()
+                                      SET archived_from_status=CASE
+                                              WHEN %s AND status<>'archived' THEN status
+                                              ELSE archived_from_status END,
+                                          status=CASE WHEN %s THEN 'archived'
+                                              ELSE COALESCE(archived_from_status,'active') END,
+                                          updated_at=NOW()
                                     WHERE id=%s AND client_id=%s AND project_ref=%s""",
-                               ("archived" if archived else "active", source_id,
+                               (bool(archived), bool(archived), source_id,
                                 context.client_id, context.project_ref))
             else:
                 raise ValueError("A origem deste recurso ainda não oferece arquivamento recuperável.")
@@ -744,5 +755,7 @@ def set_resource_archived(context: RequestContext, resource_id: str, archived: b
         connection.rollback()
         raise
     reconcile(context.client_id, context.project_ref or "", context.user_id)
+    restored = get_resource(context.client_id, context.project_ref or "", resource_id) or {}
     return {"resource_id": str(resource_id), "archived": bool(archived),
-            "status": "archived" if archived else "active", "recoverable": True}
+            "status": restored.get("status") or ("archived" if archived else "active"),
+            "recoverable": True}

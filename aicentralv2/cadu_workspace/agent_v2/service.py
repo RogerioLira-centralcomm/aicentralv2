@@ -104,6 +104,12 @@ def _revision_target(message, context, previous_messages):
             artifact = get_artifact(context, artifact_id)
         except Exception:
             continue
+        artifact_project = artifact.get("project_ref")
+        if artifact_project:
+            if not repository.project_user_can_view(context.client_id, artifact_project, context.user_id):
+                continue
+        elif int(artifact.get("created_by") or 0) != context.user_id:
+            continue
         authorized.append(artifact)
         title = _plain(artifact.get("title"))
         content = _plain(json.dumps(artifact.get("content") or {}, ensure_ascii=False))
@@ -129,7 +135,8 @@ def _revision_target(message, context, previous_messages):
         if fallback and named_kind and named_kind not in _plain(fallback.get("title")):
             fallback = None
         if fallback:
-            return replace(context, active_object=ActiveObject(f"artifact:{fallback['type']}", str(fallback["id"])))
+            return replace(context, project_ref=fallback.get("project_ref"),
+                           active_object=ActiveObject(f"artifact:{fallback['type']}", str(fallback["id"])))
         return context
     matches.sort(key=lambda pair: pair[0], reverse=True)
     named_matches = [item for item in matches if item[3]]
@@ -143,7 +150,8 @@ def _revision_target(message, context, previous_messages):
             "type": "artifact_ambiguity", "text": "Mais de um arquivo corresponde ao pedido: " + "; ".join(names),
         })
     artifact = matches[0][1]
-    return replace(context, active_object=ActiveObject(f"artifact:{artifact['type']}", str(artifact["id"])))
+    return replace(context, project_ref=artifact.get("project_ref"),
+                   active_object=ActiveObject(f"artifact:{artifact['type']}", str(artifact["id"])))
 
 
 def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):

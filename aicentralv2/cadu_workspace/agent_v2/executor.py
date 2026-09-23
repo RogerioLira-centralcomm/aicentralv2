@@ -5,13 +5,14 @@ import re
 from dataclasses import asdict, replace
 from typing import Optional
 
-from .context_resolver import resolve_context
+from .context_resolver import public_web_query, resolve_context
 from .prompt_assembler import build_payload
 from .response_policy import budget_for, policy_for, requested_answer_chars, requested_output_tokens
 from .router import route_request
 from .task_planner import build_task_plan
 from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
+from ...db import close_db
 
 
 _BRIEFING_FIELDS = (
@@ -102,7 +103,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     if readiness:
         policy["briefing_readiness"] = readiness
     policy["artifact_fallback_title"] = {
-        "project_readout": "Leitura inicial do projeto",
+        "project_readout": "Dossiê do projeto",
         "create_brief": "Briefing do projeto",
         "create_meeting_summary": "Resumo da reunião",
         "create_meeting_agenda": "Pauta da reunião",
@@ -113,7 +114,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "save_to_project": "Documento do projeto",
     }.get(route.action, "Resultado do trabalho")
     policy["artifact_chat_message"] = {
-        "project_readout": "Concluí a leitura inicial. Organizei objetivos, entregas, riscos e decisões em um resumo editável.",
+        "project_readout": "Organizei as informações do projeto em um dossiê com seções e fontes. Abra o material para ler ou editar.",
         "create_brief": "Estruturei o briefing em uma versão editável. Os poucos pontos em aberto continuam destacados.",
         "create_meeting_summary": "Organizei a reunião em uma ata editável. Revise decisões e pendências antes de salvar no projeto.",
         "create_meeting_agenda": "Preparei a pauta editável. Ajuste os temas e o resultado esperado de cada bloco.",
@@ -127,7 +128,40 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     policy["artifact_scope"] = "session" if route.action in {
         "create_text_draft", "create_client_delivery", "create_substantial_delivery"
     } else "context"
-    resolved = resolve_context(route, request, routed_message, load_builtin_tools(), execution_mode)
+    project_web = route.action == "search_web" and bool(request.project_ref)
+    resolution_route = replace(route, needs_tools=("workspace.search_project_content",)) if project_web else route
+    registry = load_builtin_tools()
+    resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode)
+    internal_search = resolved.values.get("workspace.search_project_content") or {}
+    public_query = public_web_query(routed_message, project_selected=bool(request.project_ref))
+    explicit_external = bool(re.search(
+        r"\b(?:pesquis\w*|busqu\w*|investig\w*|consult\w*)\b.{0,80}"
+        r"\b(?:internet|web|online|fontes? externas?)\b", routed_message, re.IGNORECASE))
+    needs_current_facts = bool(re.search(
+        r"\b(?:hoje|atual|recente|202[5-9]|pre[cç]os?|cota[cç][aã]o|not[ií]cias?)\b",
+        routed_message, re.IGNORECASE))
+    internal_has_evidence = bool((internal_search.get("results") or []) if isinstance(internal_search, dict) else [])
+    should_search_public = bool(public_query) and (
+        (project_web and (explicit_external or needs_current_facts or not internal_has_evidence))
+        or (route.action == "search_project" and not internal_has_evidence)
+    )
+    if project_web and not public_query:
+        resolved.values["external_search_skipped"] = (
+            "O pedido mistura contexto privado e tema público sem uma consulta externa segura. "
+            "Use somente a evidência interna e não afirme ter pesquisado a internet."
+        )
+    if should_search_public:
+        close_db()
+        external = resolve_context(replace(route, needs_tools=("web.search",)), request,
+                                   public_query, registry, execution_mode)
+        resolved.values.update({key: value for key, value in external.values.items() if key != "current_context"})
+        resolved.missing.extend(external.missing)
+        resolved.tool_calls.extend(external.tool_calls)
+        if external.missing:
+            resolved.values["tool_status"] = {
+                "unavailable": list(dict.fromkeys(resolved.missing)),
+                "message": "A pesquisa pública complementar não ficou disponível nesta resposta.",
+            }
     if route.action == "select_brand_for_audit":
         # Do not leave a provider enough latitude to turn an unbound request
         # into an unsupported brand analysis. The next safe action is a

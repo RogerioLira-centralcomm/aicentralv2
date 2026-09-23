@@ -88,6 +88,7 @@ def markdown_to_safe_html(value):
             continue
         flush_items()
         if not text:
+            index += 1
             continue
         heading = re.match(r'^#{1,6}\s+(.+)$', text)
         if heading:

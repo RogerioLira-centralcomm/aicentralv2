@@ -20,7 +20,8 @@ KEY_PREFIX = "cadu_mcp_"
 CLIENT_TYPES = ("gpt", "codex", "cursor", "vscode", "generic")
 CLIENT_SCOPES = ("resources:read", "projects:read", "projects:content_write", "projects:write", "brands:write",
                  "artifacts:write", "account:read", "account:write", "credits:read",
-                 "google:read", "google:write", "contexts:read", "contexts:write", "operations:read")
+                 "google:read", "google:write", "contexts:read", "contexts:write", "operations:read",
+                 "offline_access")
 DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "projects:content_write", "account:read", "credits:read", "google:read", "contexts:read", "contexts:write", "operations:read"))
 
 
@@ -215,7 +216,7 @@ def required_scope(tool_name: str) -> str:
                 "brands.prepare_asset_upload", "brands.use_asset_as_logo", "brands.delete_asset",
                 "brands.start_audit"}:
         return "brands:write"
-    if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.restore_version", "artifacts.finalize_to_project"}:
+    if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.restore_version", "artifacts.finalize_to_project", "artifacts.move_project"}:
         return "artifacts:write"
     if name == "resources.create_editable_copy":
         return "artifacts:write"

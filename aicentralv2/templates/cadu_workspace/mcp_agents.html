@@ -30,7 +30,7 @@
       <article class="workspace-mcp-platform-row" data-platform-row="{{ id }}">
         <img src="{{ url_for('static', filename=logo) }}" alt="" loading="lazy">
         <div class="workspace-mcp-platform-row__copy"><h3>{{ name }}</h3><p>{{ description }}</p></div>
-        <button type="button" class="workspace-button is-primary" data-select-client="{{ id }}" {% if not oauth_ready %}disabled{% endif %}>{{ 'Instalar' if id == 'cursor' else 'Ver instruções' }}</button>
+        <button type="button" class="workspace-button is-primary" data-select-client="{{ id }}" {% if not oauth_ready %}disabled{% endif %}>{{ 'Instalar' if id == 'cursor' else 'Configurar conexão' }}</button>
       </article>
       {% endfor %}
     </div>
@@ -51,7 +51,7 @@
     {% else %}<p class="workspace-mcp-connections__empty">Nenhuma conexão ainda. Escolha um aplicativo acima para começar.</p>{% endif %}
   </section>
 
-  <details class="workspace-mcp-advanced"><summary>Configuração avançada{% if keys %} · {{ keys|length }} chave{{ 's' if keys|length != 1 else '' }} manual{{ 'is' if keys|length != 1 else '' }}{% endif %}</summary>
+  <details class="workspace-mcp-advanced"><summary>Configuração avançada{% if keys %} · {{ keys|length }} {{ 'chaves manuais' if keys|length != 1 else 'chave manual' }}{% endif %}</summary>
   <section class="workspace-mcp-setup workspace-mcp-legacy" aria-labelledby="mcp-setup-title"><header><span>Compatibilidade</span><h2 id="mcp-setup-title">Conectar com chave manual</h2><p>Use apenas quando o aplicativo ainda não suporta OAuth. A conexão já permite consultar e adicionar materiais aos projetos que você pode editar.</p></header>
     <form class="workspace-mcp-key-form" data-create-key>
       <div class="workspace-mcp-form-section"><label for="mcp-client">Onde você vai usar?</label><select id="mcp-client" name="client_type" required><option value="codex">Codex</option><option value="cursor">Cursor</option><option value="vscode">VS Code</option><option value="generic">Outro aplicativo MCP</option></select><small>O ChatGPT ainda precisa de login OAuth; a chave desta página não pode ser instalada nele.</small></div>
@@ -97,7 +97,7 @@
     cursor: {title: 'Cursor', instruction: 'Confirme a instalação no Cursor.', steps: ['O Cursor receberá somente o endereço público do Cadu.', 'Entre no Cadu quando o Cursor solicitar.', 'Confira as ferramentas Cadu no editor.']},
     claude: {title: 'Claude', instruction: 'Adicione o endereço como conector personalizado.', steps: ['Em Personalizar → Conectores, adicione o endereço copiado.', 'Selecione Conectar e autorize no Cadu.', 'Ative o conector na conversa. Em planos de equipe, um administrador precisa adicioná-lo primeiro.']},
     'claude-code': {title: 'Claude Code', instruction: 'Execute o comando e entre com sua conta Cadu.', steps: ['Copie o comando acima e execute no terminal.', 'Confira cadu em claude mcp list.', 'No Claude Code, abra /mcp e conclua o login.']},
-    chatgpt: {title: 'ChatGPT', instruction: 'Use o endereço em um app privado de teste. O plugin público Cadu ainda aguarda publicação.', steps: ['Em Apps → Criar, informe o endereço copiado e selecione OAuth.', 'Autorize no Cadu e execute Scan Tools.', 'Use o app de teste em uma conversa. Essa opção depende do plano e das permissões do workspace.']},
+    chatgpt: {title: 'ChatGPT', instruction: 'Crie um app privado com o endereço MCP do Cadu.', steps: ['Em Configurações → Apps → Criar, informe o endereço copiado e selecione OAuth.', 'Autorize no Cadu e execute Verificar ferramentas.', 'Use o app de teste em uma conversa. As ações disponíveis dependem do plano e das permissões do workspace.']},
     generic: {title: 'Outro aplicativo MCP', instruction: 'Adicione o endereço em um cliente MCP remoto com OAuth.', steps: ['Registre o servidor como cadu.', 'Entre no Cadu quando solicitado.', 'Confira as ferramentas disponíveis.']},
   };
   const selectOauthClient = async client => {

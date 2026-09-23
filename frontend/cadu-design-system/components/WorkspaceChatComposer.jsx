@@ -10,7 +10,6 @@ const MODE_OPTIONS = [
 ];
 
 const CAPABILITIES = [
-  {label: 'Pesquisar na internet', detail: 'Busca fontes atuais e inclui os links', icon: 'search', prompt: 'Pesquise na internet fontes atuais e relevantes para este trabalho, compare os achados e responda com links e implicações práticas.'},
   {label: 'Estruturar briefing', detail: 'Organiza o contexto e aponta decisões', icon: 'list', prompt: 'Estruture um briefing para este projeto e destaque somente o que ainda precisa ser decidido.'},
   {label: 'Planejar mídia', detail: 'Cria um plano inicial com hipóteses', icon: 'table', prompt: 'Crie um plano de mídia inicial para este projeto com hipóteses e decisões necessárias.'},
   {label: 'Analisar criativo', detail: 'Avalia uma peça anexada ao pedido', icon: 'image', prompt: 'Analise este criativo considerando a marca, o público e o objetivo do projeto.'},

@@ -279,6 +279,7 @@ export default function App({bootstrap}) {
       setTitle(conversationDisplayTitle(conversationTitle || data.conversation?.title, 'Conversa'));
       if (data.context) setContext(data.context);
       if (Array.isArray(data.conversations)) setConversations(recentConversations(data.conversations, 30));
+      void loadRecent();
       if (Array.isArray(data.entities)) {
         setProjects(data.entities.filter(item => item.kind === 'project'));
         setBrands(current => mergeServerEntities(current, data.entities.filter(item => item.kind === 'brand').map(item => ({
@@ -1028,6 +1029,21 @@ export default function App({bootstrap}) {
     finally { setSaving(false); }
   }, [artifact, bootstrap.endpoints.artifacts, context.project_ref, conversationId, saving, trace]);
 
+  const moveArtifactToProject = useCallback(async projectRef => {
+    if (!artifact?.id || saving) return;
+    if (artifactDirty && !(await saveArtifact())) return;
+    setSaving(true);
+    try {
+      const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(artifact.id)}/move-project`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+        body: JSON.stringify({conversation_id: conversationId, project_ref: projectRef}),
+      });
+      setArtifact(data.artifact); artifactRef.current = data.artifact;
+      trace(projectRef ? 'Material movido para o projeto' : 'Material retirado do projeto', data.artifact?.title || 'Documento');
+    } catch (error) { trace('Falha ao mover material', error.message, 'error'); }
+    finally { setSaving(false); }
+  }, [artifact, artifactDirty, bootstrap.endpoints.artifacts, conversationId, saveArtifact, saving, trace]);
+
   const publishArtifact = useCallback(async () => {
     if (!artifact?.id || publishing || saving) return;
     const revision = artifactEditRevisionRef.current;
@@ -1387,9 +1403,9 @@ export default function App({bootstrap}) {
               setArtifactTabs([]); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); closeSurface();
             }}
             side={artifactSide} onSideChange={changeArtifactSide}
-            onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef}
+            onChange={changeArtifact} onTitleChange={changeArtifactTitle} projectRef={activeProjectRef} projects={projects}
             studioEditorUrl={bootstrap.urls?.studioEditor}
-            onSaveToProject={saveArtifactToProject} onAttachToProject={attachArtifactToProject} onPublish={publishArtifact} onCopyPublishedUrl={copyPublishedUrl} onUnpublish={unpublishArtifact} onClose={closeSurface}
+            onSaveToProject={saveArtifactToProject} onAttachToProject={attachArtifactToProject} onMoveToProject={moveArtifactToProject} onPublish={publishArtifact} onCopyPublishedUrl={copyPublishedUrl} onUnpublish={unpublishArtifact} onClose={closeSurface}
             onRequestSummary={url => submit(`Abra e resuma este site público em um texto editável: ${url}`, {skipAttachments: true})}
             onSaveReference={async url => {
               if (activeProjectRef) return submit(`Adicione este link ${url} ao projeto como referência, sem abrir, ler ou indexar.`, {skipAttachments: true});

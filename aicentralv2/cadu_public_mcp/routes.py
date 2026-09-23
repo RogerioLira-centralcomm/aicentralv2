@@ -174,6 +174,7 @@ PUBLIC_TOOLS = frozenset({
     "artifacts.get_version",
     "artifacts.restore_version",
     "artifacts.finalize_to_project",
+    "artifacts.move_project",
     "reports.list_project_reports",
     "reports.get_report_metrics",
     "reports.compare_report_to_plan",
@@ -223,6 +224,7 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "artifacts.update_draft",
     "artifacts.restore_version",
     "artifacts.finalize_to_project",
+    "artifacts.move_project",
 })
 
 # Only these tools persist their result in cadu_mcp_operations. Other writes
@@ -262,6 +264,7 @@ RECOVERABLE_OPERATION_TOOLS = frozenset({
     "artifacts.update_draft",
     "artifacts.restore_version",
     "artifacts.finalize_to_project",
+    "artifacts.move_project",
 })
 
 

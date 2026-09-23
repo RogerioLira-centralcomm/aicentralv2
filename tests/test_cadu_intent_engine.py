@@ -80,6 +80,41 @@ def test_entity_question_routes_to_shared_web_research():
     assert route.needs_tools == ("web.search",)
 
 
+def test_project_overview_opens_a_dossier_but_specific_question_stays_in_chat():
+    overview = route_request("Me dê uma visão geral de tudo sobre esse projeto", "conversations", True)
+    assert overview.action == "project_readout"
+    assert overview.response_mode == "artifact_first"
+    assert overview.needs_tools == ("workspace.search_project_content",)
+    specific = route_request("Qual é o objetivo deste projeto?", "conversations", True)
+    assert specific.action == "describe_project"
+    assert specific.artifact_type is None
+
+
+def test_project_benchmark_question_uses_web_route_without_exposing_project_name():
+    from aicentralv2.cadu_workspace.agent_v2.context_resolver import public_web_query
+
+    route = route_request("Qual benchmark atual de CAC para nosso projeto Acme?", "conversations", True)
+    assert route.action == "search_web"
+    assert public_web_query("Qual benchmark atual de CAC para nosso projeto Acme?", project_selected=True) == "benchmark atual CAC"
+
+
+def test_revision_uses_latest_saved_artifact_and_its_current_project():
+    from aicentralv2.cadu_workspace.agent_v2.service import _revision_target
+
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id="conv-1",
+                             surface="conversations", project_ref="ci:old",
+                             capabilities=("workspace", "artifacts"))
+    latest = {"id": "artifact-1", "type": "document", "title": "Briefing de mídia",
+              "project_ref": "ci:new", "created_by": 7, "current_version": 3,
+              "content": {"html": "<h2>O que ainda precisa ser decidido</h2><p>Texto salvo pelo usuário.</p>"}}
+    messages = [{"metadata": {"artifact_id": "artifact-1"}}]
+    with patch("aicentralv2.cadu_workspace.agent_v2.service.get_artifact", return_value=latest), \
+         patch("aicentralv2.cadu_workspace.agent_v2.service.repository.project_user_can_view", return_value=True):
+        target = _revision_target("Mude a parte O que ainda precisa ser decidido", context, messages)
+    assert target.active_object.id == "artifact-1"
+    assert target.project_ref == "ci:new"
+
+
 def test_mcp_intent_tool_uses_same_interpreter_without_side_effects():
     context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id="conv-1",
                              surface="conversations", project_ref="project:9",

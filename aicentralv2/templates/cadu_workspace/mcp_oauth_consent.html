@@ -16,9 +16,13 @@
   'account:write': 'Alterar conta e convidar equipe',
   'credits:read': 'Consultar saldo e uso de créditos',
   'google:read': 'Consultar conexões Google',
-  'google:write': 'Vincular dados do Google aos projetos'
+  'google:write': 'Vincular dados do Google aos projetos',
+  'contexts:read': 'Consultar o contexto de trabalho',
+  'contexts:write': 'Selecionar contexto de trabalho',
+  'operations:read': 'Consultar o resultado das ações',
+  'offline_access': 'Manter a conexão ativa sem novo login'
 } %}
-{% set default_scopes = ['resources:read','projects:read','projects:content_write','account:read','credits:read','google:read'] %}
+{% set default_scopes = ['resources:read','projects:read','projects:content_write','account:read','credits:read','google:read','contexts:read','contexts:write','operations:read','offline_access'] %}
 <main class="workspace-oauth-consent">
   <section class="workspace-oauth-consent__card">
     <header class="workspace-oauth-consent__head"><img class="workspace-oauth-consent__brand" src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="Cadu"><h1>Conectar ao Cadu</h1><p>{{ authorization.client.client_name }} quer acessar sua conta.</p></header>

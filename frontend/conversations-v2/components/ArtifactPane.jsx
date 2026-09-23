@@ -152,17 +152,57 @@ function documentHtml(content) {
   return sections.join('') || '<p><br/></p>';
 }
 
-function RichDocumentArtifact({artifact, onChange}) {
+function cleanDocumentHtml(html) {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  const allowed = new Set(['P', 'BR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'A', 'IMG', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD', 'DIV', 'SPAN', 'PRE', 'CODE', 'HR', 'SUP', 'SUB']);
+  const discard = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'META', 'LINK', 'SVG', 'MATH', 'TEMPLATE', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'VIDEO', 'AUDIO']);
+  const visit = node => {
+    for (const child of Array.from(node.children)) {
+      if (discard.has(child.tagName)) { child.remove(); continue; }
+      visit(child);
+      if (!allowed.has(child.tagName)) { child.replaceWith(...Array.from(child.childNodes)); continue; }
+      for (const attribute of Array.from(child.attributes)) child.removeAttribute(attribute.name);
+    }
+  };
+  // Keep only document formatting and safe links/images, never executable markup.
+  const links = Array.from(doc.body.querySelectorAll('a')).map(node => [node, node.getAttribute('href')]);
+  const images = Array.from(doc.body.querySelectorAll('img')).map(node => [node, node.getAttribute('src'), node.getAttribute('alt')]);
+  visit(doc.body);
+  for (const [node, raw] of links) {
+    if (!node.isConnected) continue;
+    const url = safeUrl(raw);
+    if (url) { node.setAttribute('href', url); node.setAttribute('rel', 'noopener noreferrer'); node.setAttribute('target', '_blank'); }
+  }
+  for (const [node, raw, alt] of images) {
+    if (!node.isConnected) continue;
+    const imageData = /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(raw || '');
+    const url = imageData ? raw : safeUrl(raw);
+    if (url) node.setAttribute('src', url);
+    if (alt) node.setAttribute('alt', alt);
+  }
+  return doc.body.innerHTML;
+}
+
+function RichDocumentArtifact({artifact, onChange, editing = false}) {
   const content = artifact.content || {};
   const canvas = useRef(null);
   const urlInput = useRef(null);
   const [urlRequest, setUrlRequest] = useState(null);
-  const html = documentHtml(content);
+  const html = useMemo(() => cleanDocumentHtml(documentHtml(content)), [content]);
+  const reading = useMemo(() => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const sections = Array.from(doc.body.querySelectorAll('h1,h2,h3')).map((node, index) => {
+      const id = `cadu-section-${index}`;
+      node.id = id;
+      return {id, title: node.textContent?.trim() || `Seção ${index + 1}`, level: node.tagName};
+    });
+    return {html: doc.body.innerHTML, sections};
+  }, [html]);
   useEffect(() => {
     if (!canvas.current || canvas.current.innerHTML === html) return;
     if (document.activeElement !== canvas.current) canvas.current.innerHTML = html;
   }, [artifact.id, html]);
-  const emit = () => onChange({...content, html: canvas.current?.innerHTML || ''});
+  const emit = () => onChange({...content, html: cleanDocumentHtml(canvas.current?.innerHTML || '')});
   const command = (name, value = null) => {
     canvas.current?.focus();
     document.execCommand(name, false, value);
@@ -177,7 +217,14 @@ function RichDocumentArtifact({artifact, onChange}) {
   };
   const pasteIntoDocument = event => {
     const image = Array.from(event.clipboardData?.items || []).find(item => item.type.startsWith('image/'));
-    if (!image) return;
+    if (!image) {
+      const pastedHtml = event.clipboardData?.getData('text/html');
+      if (pastedHtml) {
+        event.preventDefault();
+        command('insertHTML', cleanDocumentHtml(pastedHtml));
+      }
+      return;
+    }
     const file = image.getAsFile();
     if (!file) return;
     event.preventDefault();
@@ -188,6 +235,10 @@ function RichDocumentArtifact({artifact, onChange}) {
   const addTable = () => {
     command('insertHTML', '<table><thead><tr><th>Item</th><th>Valor</th><th>Observação</th></tr></thead><tbody><tr><td>Exemplo</td><td>—</td><td>Edite este campo</td></tr><tr><td>Outro item</td><td>—</td><td>Edite este campo</td></tr></tbody></table><p><br></p>');
   };
+  if (!editing) return <div className="cv-artifact-reading">
+    {reading.sections.length > 1 && <nav className="cv-artifact-reading__toc" aria-label="Seções do documento"><strong>Neste material</strong>{reading.sections.map(section => <a key={section.id} className={section.level === 'H3' ? 'is-nested' : ''} href={`#${section.id}`}>{section.title}</a>)}</nav>}
+    <article className="cv-rich-document cv-rich-document--reading cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6"><div className="cv-rich-document__canvas" dangerouslySetInnerHTML={{__html: reading.html}}/></article>
+  </div>;
   return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6">
     <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento" onMouseDown={event => event.preventDefault()}>
       <button type="button" onClick={() => command('undo')} aria-label="Desfazer última edição" title="Desfazer"><Icon name="undo" size={16}/></button>
@@ -495,7 +546,7 @@ function ProjectMap({artifact, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, studioEditorUrl, onSaveToProject, onAttachToProject, onPublish, onCopyPublishedUrl, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOrganizeImage, onOpenResource}) {
+export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, projects = [], studioEditorUrl, onSaveToProject, onAttachToProject, onMoveToProject, onPublish, onCopyPublishedUrl, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOrganizeImage, onOpenResource}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -508,6 +559,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const [imageMetadata, setImageMetadata] = useState(null);
   const [organizingImage, setOrganizingImage] = useState(false);
   const [tabMenu, setTabMenu] = useState(null);
+  const [editingDocument, setEditingDocument] = useState(false);
   const type = artifact?.type || 'document';
   const indexable = artifact?.capabilities?.indexable ?? !['html', 'project_map', 'link_reader'].includes(type);
   const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
@@ -532,14 +584,14 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     if (type === 'project_profile') return <ProjectProfileArtifact artifact={artifact}/>;
     if (type === 'library') return <LibraryArtifact artifact={artifact} onOpenResource={onOpenResource}/>;
-    if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} onChange={onChange}/>;
     return textArtifact
-      ? <RichDocumentArtifact artifact={artifact} onChange={onChange}/>
+      ? <RichDocumentArtifact artifact={artifact} onChange={onChange} editing={editingDocument}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, textArtifact, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
+  }, [artifact, type, textArtifact, editingDocument, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
   useEffect(() => {
     setClosing(false);
     setEditingTitle(false);
+    setEditingDocument(false);
     setTitleDraft(type === 'image' ? imageFileName(artifact) : (artifact?.title || artifact?.content?.title || 'Trabalho em andamento'));
     setImageMetadata(null);
     setOrganizingImage(false);
@@ -612,6 +664,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     <header className="cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4">
       <div className="cv-min-w-0 cv-flex-1">{type !== 'image' && <span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Entrega'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>}{type === 'image' || textArtifact ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label={type === 'image' ? 'Nome do arquivo' : 'Título do documento'}/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o título">{displayTitle}{dirty && <i className="cv-artifact-title-dirty" title="Alterações não salvas"/>}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
       {type === 'html' && artifact.id && <button type="button" onClick={publicLink ? onCopyPublishedUrl : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Copiar link' : 'Publicar'}</button>}
+      {textArtifact && !artifact.pending && !artifact.failed && <button type="button" className="cv-artifact-edit-mode" onClick={() => setEditingDocument(value => !value)}>{editingDocument ? 'Visualizar' : 'Editar'}</button>}
       {!artifact.pending && !artifact.failed && <details className="cv-artifact-more">
         <summary aria-label="Mais ações da entrega">Ações <span aria-hidden="true">⌄</span></summary>
         <div>
@@ -625,6 +678,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
           {type === 'image' && src && <a href={src} target="_blank" rel="noreferrer">Abrir original</a>}
           {type === 'image' && src && <a href={src} download>Baixar arquivo</a>}
           {textArtifact && <button type="button" onClick={toggleTheme}>{lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}</button>}
+          {artifact.id && onMoveToProject && <label className="cv-artifact-project-picker">Mover material<select value={artifact.project_ref || ''} disabled={saving} onChange={event => onMoveToProject(event.target.value)}><option value="">Espaço pessoal</option>{projects.map(item => { const ref = item.projectRef || item.ref || item.id; return <option key={ref} value={ref}>{item.name || item.title || ref}</option>; })}</select></label>}
           {publicLink && <button type="button" onClick={onUnpublish} disabled={publishing || saving}>Despublicar</button>}
           <button type="button" onClick={() => onSideChange?.(side === 'right' ? 'left' : 'right')}>{side === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}</button>
           {artifact.id && <button type="button" onClick={openVersions}><Icon name="history" size={14}/>Ver versões <small>v{artifact.current_version || 1}</small></button>}

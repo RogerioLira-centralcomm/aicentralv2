@@ -3093,6 +3093,10 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
 }
 .cadu-ds-task-progress__spark::after { animation-name:cadu-ds-task-pulse-y; animation-delay:-.32s; }
 .cadu-ds-task-progress__text { overflow:hidden; color:#a9c2bd; text-overflow:ellipsis; white-space:nowrap; animation:cadu-ds-task-text 220ms ease-out both; }
+.cadu-ds-task-progress__history { margin:9px 0 0 19px; color:#829f99; font-size:11px; }
+.cadu-ds-task-progress__history summary { width:max-content; cursor:pointer; }
+.cadu-ds-task-progress__history ul { max-height:86px; margin:7px 0 0; padding:0 0 0 14px; overflow:auto; }
+.cadu-ds-task-progress__history li { margin:3px 0; }
 @keyframes cadu-ds-task-pulse { 0%,100% { opacity:.3; transform:scaleX(.48); } 50% { opacity:1; transform:scaleX(1); } }
 @keyframes cadu-ds-task-pulse-y { 0%,100% { opacity:.3; transform:rotate(90deg) scaleX(.48); } 50% { opacity:1; transform:rotate(90deg) scaleX(1); } }
 @keyframes cadu-ds-task-text { from { opacity:.28; filter:blur(2px); transform:translateY(2px); } to { opacity:1; filter:blur(0); transform:translateY(0); } }

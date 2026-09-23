@@ -2,6 +2,7 @@
 
 from werkzeug.exceptions import HTTPException
 
+from ....cadu_family import repository
 from ...agent_v2.contracts import RequestContext
 from ...artifacts import service
 from ...artifacts.catalog import definition, describe
@@ -171,6 +172,41 @@ def finalize_artifact(context: RequestContext, arguments: dict) -> dict:
         "artifacts.finalize_to_project", payload,
         lambda: service.finalize_to_project(context, arguments["artifact_id"],
                                             expected_version=arguments["expected_version"])))
+
+
+@register_tool(
+    name="artifacts.move_project", capability="artifacts", effect="write", requires_project=True,
+    description="Move um documento do projeto selecionado para outro projeto autorizado ou para o espaço pessoal; atualiza os índices dos projetos envolvidos.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "artifact_id", "destination_project_ref"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "destination_project_ref": {"type": "string", "maxLength": 120,
+                                    "description": "Referência ci: do projeto de destino; string vazia move para o espaço pessoal."},
+    }, "additionalProperties": False},
+)
+def move_project(context: RequestContext, arguments: dict) -> dict:
+    destination = str(arguments["destination_project_ref"] or "").strip()
+    if destination and not destination.startswith("ci:"):
+        raise ToolInputError("Informe um projeto de destino válido.")
+    current = _domain(lambda: service.get_artifact(context, arguments["artifact_id"]))
+    if current.get("project_ref") != context.project_ref:
+        raise ToolInputError("Selecione o projeto atual do documento antes de movê-lo.")
+    actor = repository.actor(context.user_id) or {}
+    account_admin = (int(actor.get("organization_id") or 0) == context.client_id
+                     and repository.account_role(actor) == "admin")
+    for project_ref in {context.project_ref, destination} - {None, ""}:
+        if not repository.project_user_can_view(context.client_id, project_ref, context.user_id):
+            raise ToolInputError("Você não tem acesso ao projeto de destino.")
+        roles = {item.get("role") for item in repository.project_access(context.client_id, project_ref)
+                 if int(item.get("user_id") or 0) == context.user_id}
+        if not account_admin and not roles.intersection({"owner", "admin", "editor"}):
+            raise ToolInputError("Você não pode mover materiais deste projeto.")
+    payload = {"artifact_id": arguments["artifact_id"], "destination_project_ref": destination}
+    return _domain(lambda: operations.execute(arguments["request_id"], context,
+        "artifacts.move_project", payload,
+        lambda: service.attach_to_project(context, arguments["artifact_id"], destination or None)))
 
 
 @register_tool(

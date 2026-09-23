@@ -4,19 +4,13 @@ function statusFromActivity(runtime, diagnostics) {
   const explicit = String(runtime || '').trim();
   if (explicit && explicit !== 'Trabalhando') return explicit;
   const latest = diagnostics?.[diagnostics.length - 1];
-  const title = String(latest?.title || '').toLowerCase();
-  const detail = String(latest?.detail || '').toLowerCase();
-  if (detail.includes('web.search') || title.includes('pesquisa')) return 'Buscando fontes relevantes';
-  if (detail.includes('web.read') || title.includes('leitura')) return 'Lendo as fontes encontradas';
-  if (title.includes('contexto')) return 'Consultando o contexto disponível';
-  if (title.includes('artefato')) return 'Preparando o material';
-  if (title.includes('resposta')) return 'Finalizando a resposta';
-  if (title.includes('preparando')) return 'Preparando o contexto';
-  return 'Entendendo o pedido';
+  const title = String(latest?.title || '').trim();
+  return title && latest?.tone !== 'error' ? title : 'Processando pedido';
 }
 
 export function WorkspaceTaskProgress({running = false, runtime = '', diagnostics = []}) {
   const status = useMemo(() => statusFromActivity(runtime, diagnostics), [runtime, diagnostics]);
+  const recent = useMemo(() => (diagnostics || []).filter(item => item?.title && item.tone !== 'error').slice(-3), [diagnostics]);
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!running) return undefined;
@@ -34,5 +28,6 @@ export function WorkspaceTaskProgress({running = false, runtime = '', diagnostic
       </div>
       {elapsed >= 4 && <small aria-hidden="true">{elapsed}s</small>}
     </div>
+    {recent.length > 1 && <details className="cadu-ds-task-progress__history"><summary>Atividade recente</summary><ul>{recent.map(item => <li key={item.id || `${item.title}-${item.detail || ''}`}>{item.title}</li>)}</ul></details>}
   </div>;
 }

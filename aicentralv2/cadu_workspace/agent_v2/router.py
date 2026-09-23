@@ -100,6 +100,10 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _web_requires_confirmation(text):
         return IntentRoute("research", "confirm_web_research", "low", "clarification",
                            ("project", "brand") if has_project else (), (), None, False)
+    if _has(text, r"\b(?:n[aã]o|sem|nunca)\b.{0,30}\b(?:pesquis\w*|busqu\w*|consult\w*)\b.{0,30}\b(?:internet|web|online|fontes? externas?)\b"):
+        return IntentRoute("workspace", "search_project" if has_project else "answer", "medium", "analysis",
+                           ("project",) if has_project else (),
+                           ("workspace.search_project_content",) if has_project else ())
     if _explicit_artifact_creation_refusal(text):
         web_requested = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
             text, r"\b(?:internet|web|online|fontes?\s+externas?|dados?\s+atuais?)\b",
@@ -132,12 +136,17 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            ("brand",), ("brands.get_context",))
 
     project_overview = _has(
+        text, r"\b(?:vis[aã]o\s+geral|panorama|dossi[eê]|tudo)\b.{0,70}\b(?:projeto|campanha)\b",
+    ) or _has(
         text,
         r"\b(?:sobre\s+o\s+que\s+[ée]|do\s+que\s+(?:se\s+)?trata)\s+(?:esse|este|o)\s+projeto\b",
     ) or _has(
         text,
         r"\b(?:qual|expliqu\w*|resum\w*|conte(?:-me)?|fala(?:\s+pra\s+mim)?|me\s+(?:fala|conta|explica))\b.{0,70}"
-        r"\b(?:objetivo|contexto|escopo|descri[cç][aã]o|projeto)\b",
+        r"\b(?:objetivo|contexto|escopo|descri[cç][aã]o)\b",
+    ) or _has(
+        text,
+        r"\b(?:explique|resuma|descreva|fale\s+sobre|conte\s+sobre)\s+(?:(?:esse|este|o|nosso)\s+)?projeto\b",
     ) or _has(
         text,
         r"\b(?:o\s+que(?:\s+que)?|como)\s+(?:esse|este|o)\s+projeto\s+(?:faz|funciona|resolve|ajuda)\b",
@@ -146,9 +155,15 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         r"\bqual\s+[ée]\s+a\s+d(?:esse|este|o)\s+projeto\b|"
         r"\b(?:esse|este|o)\s+projeto\s+[ée]\s+(?:sobre\s+)?o\s+qu[eê]\b",
     )
-    if has_project and project_overview:
+    specific_project_field = _has(
+        text, r"\b(?:qual|quais|como)\b.{0,30}\b(?:objetivo|prazo|p[uú]blico|respons[aá]vel|escopo)\b"
+    ) and not _has(text, r"\b(?:tudo|completo|detalhado|panorama|vis[aã]o geral)\b")
+    if has_project and specific_project_field:
         return IntentRoute("workspace", "describe_project", "low", "analysis",
                            ("project",), ("workspace.get_project_context",))
+    if has_project and project_overview:
+        return IntentRoute("workspace", "project_readout", "high", "artifact_first",
+                           ("project",), ("workspace.search_project_content",), "executive_summary")
 
     project_context_question = _has(
         text,
@@ -158,9 +173,11 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     )
     if has_project and project_context_question:
         rename_requested = _has(text, r"\b(?:mud|alter|troc|renome)\w*\b.{0,55}\b(?:nome|projeto)\b")
-        action = "describe_project_for_rename" if rename_requested else "describe_project"
-        return IntentRoute("workspace", action, "low", "analysis",
-                           ("project",), ("workspace.get_project_context",))
+        if rename_requested:
+            return IntentRoute("workspace", "describe_project_for_rename", "low", "analysis",
+                               ("project",), ("workspace.get_project_context",))
+        return IntentRoute("workspace", "project_readout", "high", "artifact_first",
+                           ("project",), ("workspace.search_project_content",), "executive_summary")
 
     if has_project and _has(text, r"\b(?:listar|liste|mostrar|mostre|ver|quais)\w*\b.{0,45}\btarefas?\b"):
         return IntentRoute("workspace", "list_project_tasks", "low", "analysis",
@@ -404,7 +421,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "create_text_draft", "high", "artifact_first",
                            ("project", "brand") if has_project else (), (), "document")
     web_request = _has(text, r"\b(pesquis|busqu|procure|encontre|verifi)\w*\b")
-    web_signal = _has(text, r"\b(internet|web|online|fontes? externas?|fontes? online|not[ií]cias?|recente|recentes|atual|atualizado|mercado|concorrentes?)\b")
+    web_signal = _has(text, r"\b(internet|web|online|fontes? externas?|fontes? online|not[ií]cias?|recente|recentes|atual|atualizado|mercado|benchmark|estat[ií]stica|setor|concorrentes?)\b")
     live_signal = _has(text, r"\bhoje\b") and _has(
         text, r"\b(cota[cç][aã]o|pre[cç]o|clima|tempo|placar|resultado|tr[aâ]nsito|not[ií]cia|agenda p[uú]blica)\b",
     )

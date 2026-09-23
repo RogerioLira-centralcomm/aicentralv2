@@ -984,6 +984,33 @@ def artifact_save_project(artifact_id):
     return jsonify(artifact=artifact)
 
 
+@bp.post("/artifacts/<uuid:artifact_id>/move-project")
+def artifact_move_project(artifact_id):
+    data = request.get_json(silent=True) or {}
+    current = resolve(conversation_id=data.get("conversation_id"),
+                      surface=str(data.get("surface") or "conversations"))
+    project_ref = str(data.get("project_ref") or "").strip()
+    allowed = {str(item.get("ref") or "") for item in family_context.inventory(current.client_id)
+               if item.get("kind") == "project"}
+    existing = get_artifact(current, str(artifact_id))
+    if not existing.get("project_ref") and int(existing.get("created_by") or 0) != current.user_id:
+        abort(403, description="Este material pessoal pertence a outro usuário.")
+    if existing.get("project_ref") and existing["project_ref"] not in allowed:
+        abort(404, description="Projeto de origem não encontrado neste ambiente.")
+    if project_ref and project_ref not in allowed:
+        abort(404, description="Projeto de destino não encontrado neste ambiente.")
+    actor = repository.actor(current.user_id) or {}
+    account_admin = (int(actor.get("organization_id") or 0) == current.client_id
+                     and repository.account_role(actor) == "admin")
+    for candidate in {existing.get("project_ref"), project_ref} - {None, ""}:
+        roles = {item.get("role") for item in repository.project_access(current.client_id, candidate)
+                 if int(item.get("user_id") or 0) == current.user_id}
+        if not account_admin and not roles.intersection({"owner", "admin", "editor"}):
+            abort(403, description="Você não pode mover materiais deste projeto.")
+    artifact = attach_to_project(current, str(artifact_id), project_ref or None)
+    return jsonify(artifact=artifact)
+
+
 @bp.post("/artifacts/<uuid:artifact_id>/finalize-project")
 def artifact_finalize_project(artifact_id):
     data = request.get_json(silent=True) or {}

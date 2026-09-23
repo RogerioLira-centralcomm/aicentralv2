@@ -7,3 +7,8 @@ def test_chat_plan_markdown_is_converted_without_preserving_html():
     assert '<ul><li>Alcance</li><li><strong>Conversão</strong></li></ul>' in html
     assert '&lt;script&gt;alert(1)&lt;/script&gt;' in html
     assert '<script>' not in html
+
+
+def test_chat_plan_markdown_advances_through_blank_lines():
+    html = markdown_to_safe_html('Primeiro parágrafo\n\nSegundo parágrafo')
+    assert html == '<p>Primeiro parágrafo</p><p>Segundo parágrafo</p>'

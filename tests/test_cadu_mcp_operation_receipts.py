@@ -5,7 +5,7 @@ import pytest
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.registry import ToolInputError, load_builtin_tools
 from aicentralv2.cadu_workspace.mcp.tools.operations import get_operation
-from aicentralv2.cadu_workspace.mcp.tools.artifacts import describe_types, restore_artifact_version
+from aicentralv2.cadu_workspace.mcp.tools.artifacts import describe_types, move_project, restore_artifact_version
 
 
 def _context():
@@ -85,3 +85,29 @@ def test_restore_version_creates_a_new_version_without_mutating_the_snapshot():
 
     assert result == restored
     restore_version.assert_called_once_with(_context(), "artifact-1", 2, expected_version=5)
+
+
+def test_mcp_move_checks_both_projects_and_updates_the_artifact():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="ci:source", capabilities=("workspace", "artifacts"))
+    arguments = {"request_id": "be777b36-a973-419c-802a-886bf1d125b0", "confirmed": True,
+                 "artifact_id": "artifact-1", "destination_project_ref": "ci:target"}
+    with patch("aicentralv2.cadu_workspace.mcp.tools.artifacts.service.get_artifact",
+               return_value={"id": "artifact-1", "project_ref": "ci:source"}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.artifacts.repository.actor",
+               return_value={"organization_id": 12}), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.artifacts.repository.account_role",
+               return_value="editor"), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.artifacts.repository.project_user_can_view",
+               return_value=True) as can_view, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.artifacts.repository.project_access",
+               return_value=[{"user_id": 7, "role": "editor"}]) as access, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.artifacts.service.attach_to_project",
+               return_value={"id": "artifact-1", "project_ref": "ci:target"}) as attach, \
+         patch("aicentralv2.cadu_workspace.mcp.tools.artifacts.operations.execute",
+               side_effect=lambda _id, _context, _name, _payload, callback: callback()):
+        result = move_project(context, arguments)
+    assert result["project_ref"] == "ci:target"
+    assert {call.args[1] for call in can_view.call_args_list} == {"ci:source", "ci:target"}
+    assert {call.args[1] for call in access.call_args_list} == {"ci:source", "ci:target"}
+    attach.assert_called_once_with(context, "artifact-1", "ci:target")

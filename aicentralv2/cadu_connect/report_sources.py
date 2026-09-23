@@ -9,6 +9,7 @@ from datetime import date
 
 from flask import abort, flash, redirect, request, send_file, session, url_for
 from PIL import Image, ImageOps, UnidentifiedImageError
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 from ..auth import login_required
@@ -63,16 +64,26 @@ def authorized_report(rows, report_id, *, lock=False):
     return reports[0], selected
 
 
+def bound_multipart_request(upload_request):
+    """Read at most one report batch before multipart parsing starts."""
+    size_limit = LIMITS['bytes_per_batch'] + 1024 * 1024
+    if upload_request.content_length is not None and upload_request.content_length > size_limit:
+        raise RequestEntityTooLarge('O lote de prints excede o limite permitido.')
+    body = upload_request.stream.read(size_limit + 1)
+    if len(body) > size_limit:
+        raise RequestEntityTooLarge('O lote de prints excede o limite permitido.')
+    upload_request._cached_data = body
+
+
 def register(bp, rows):
     @bp.post('/relatorios/<int:report_id>/fontes')
     @login_required
     def report_upload_sources(report_id):
-        # Set before accessing multipart data. Application/proxy may impose a lower limit.
-        size_limit = LIMITS['bytes_per_batch'] + 1024 * 1024
-        request.max_content_length = min(request.max_content_length or size_limit, size_limit)
         report, selected = authorized_report(rows, report_id, lock=True)
         if selected['role'] == 'viewer':
             abort(403)
+        # Authenticate before reading; then bound the body before form parsing.
+        bound_multipart_request(request)
         token = session.get('family_csrf', '')
         if not token or not secrets.compare_digest(token, request.form.get('_csrf', '')):
             abort(403)

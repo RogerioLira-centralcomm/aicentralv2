@@ -20,7 +20,7 @@
       <section class="workspace-integration-primary" aria-labelledby="google-workspace-title">
         <div class="workspace-integration-primary__head">
           <div class="workspace-integration-brand-mark" aria-hidden="true">G</div>
-          <div><span class="workspace-integrations-eyebrow">Conexão principal</span><h2 id="google-workspace-title">Google Workspace</h2><p>Use uma conta Google para conectar arquivos, calendário, reuniões e métricas.</p></div>
+          <div><span class="workspace-integrations-eyebrow">Conexão principal</span><h2 id="google-workspace-title">Google Workspace</h2><p>Use uma conta Google para conectar arquivos, calendário, reuniões e documentos ao seu trabalho.</p></div>
           <span class="workspace-integration-status is-{{ google.connection.status if google.connection else 'pending' }}">{{ google_status }}</span>
         </div>
         {% if google.connection %}
@@ -29,7 +29,6 @@
         <div class="workspace-integration-connect-prompt"><div><strong>Conecte a conta usada pela sua organização</strong><p>Você poderá escolher depois quais arquivos e informações entram em cada projeto.</p></div><a class="workspace-button is-primary" href="{{ google.connect_url }}">Conectar Google</a></div>
         {% endif %}
         {% if google.services %}<div class="workspace-integration-services" aria-label="Serviços disponíveis">{% for service in google.services %}<div class="workspace-integration-service is-{{ service.status }}"><span class="workspace-integration-service__icon is-{{ service.key }}"><i class="{{ service.icon }}" aria-hidden="true"></i></span><div><strong>{{ service.name }}</strong><small>{{ service.description }}</small></div><span class="workspace-integration-service__state">{{ service.status_label }}</span></div>{% endfor %}</div>{% endif %}
-        {% if google.configuration.missing %}<details class="workspace-integration-technical-note"><summary>Há uma configuração pendente</summary><p>Alguns recursos ainda dependem de uma configuração no ambiente da organização.</p><small>Itens pendentes: {{ google.configuration.missing|join(', ') }}.</small><a href="{{ google.cloud_console_url }}" target="_blank" rel="noreferrer">Ver configuração técnica no Google Cloud ↗</a></details>{% endif %}
         {% if google.connection %}
         <div class="workspace-integration-feedback" data-google-feedback role="status"></div>
         <details class="workspace-integration-imports"><summary>Arquivos e reuniões importados <span>{{ google.resources|length + google.meet_artifacts|length }}</span></summary><div class="workspace-integration-imports__body">

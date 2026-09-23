@@ -4,6 +4,7 @@ from PIL import Image
 from werkzeug.datastructures import FileStorage
 from aicentralv2.cadu_connect import report_sources as sources
 from flask import Flask
+from werkzeug.exceptions import RequestEntityTooLarge
 
 
 def upload(fmt='PNG'):
@@ -14,6 +15,16 @@ def upload(fmt='PNG'):
 
 
 class ReportSourceTests(TestCase):
+    def test_report_multipart_is_bounded_before_parsing(self):
+        with mock.patch.dict(sources.LIMITS, bytes_per_batch=3):
+            oversized = mock.MagicMock(content_length=1024 * 1024 + 4)
+            with self.assertRaises(RequestEntityTooLarge):
+                sources.bound_multipart_request(oversized)
+            oversized.stream.read.assert_not_called()
+            streamed = mock.MagicMock(content_length=None, stream=io.BytesIO(b'a' * (1024 * 1024 + 4)))
+            with self.assertRaises(RequestEntityTooLarge):
+                sources.bound_multipart_request(streamed)
+
     def test_decodes_supported_images_and_normalizes_png(self):
         for fmt in ('PNG', 'JPEG', 'WEBP'):
             result = sources.prepare_image(upload(fmt))

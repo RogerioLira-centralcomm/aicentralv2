@@ -254,8 +254,11 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "e decisões já registradas. Diferencie dados salvos de inferências e destaque no máximo três lacunas que realmente limitam o trabalho. "
             "Quando houver evidência, não diga que não tem acesso ao projeto; não peça descrição, README ou briefing já representados nela. "
             "Se a leitura falhar, informe a indisponibilidade da consulta sem afirmar que o projeto está vazio. "
-            "Não encerre com pergunta ou próximo passo genérico. Seja proativo: além de responder ao pedido, explique brevemente "
-            "como o contexto disponível pode orientar o próximo trabalho, sem transformar a resposta em uma lista longa."
+            "Se houver poucas informações, responda com os fatos disponíveis e use conhecimento geral para propor um caminho inicial, "
+            "marcando claramente cada recomendação como proposta e sem inventar dados do projeto. Sugira até três informações concretas "
+            "que ajudariam a evoluir o projeto, priorizando público prioritário, entregas, atividades, responsáveis, cronograma e métricas "
+            "conforme o contexto. Termine com uma única pergunta prática para o usuário escolher o que quer completar primeiro; "
+            "não peça que repita dados já cadastrados nem use uma pergunta genérica."
         )
     if route.action == "describe_project_for_rename":
         brand_instruction += (

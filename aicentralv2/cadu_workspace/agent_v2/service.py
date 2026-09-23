@@ -202,11 +202,23 @@ def _repair_project_context_denial(response, run) -> bool:
     if instructions:
         parts.append(f"Instruções salvas: {instructions}")
     inventory = evidence.get("source_inventory") or {}
+    source_count = int(inventory.get("total") or 0)
     if int(inventory.get("needs_index") or 0) > 0:
         parts.append("Há arquivos do projeto que ainda precisam de indexação para uma leitura completa.")
+    elif source_count == 0:
+        parts.append("Ainda não há documentos indexados na base do projeto; a descrição e as instruções acima já permitem começar.")
+    parts.append(
+        "Como proposta inicial, podemos transformar o objetivo em um plano de trabalho com entregas e atividades. "
+        "Para completar o projeto, vale registrar entregas prioritárias, responsáveis e prazos confirmados, além de métricas "
+        "para acompanhar recorrência no portal e interesse em crédito. Esses itens são sugestões, ainda não decisões salvas."
+    )
+    response.questions = [{
+        "question": "O que você quer completar primeiro no projeto?",
+        "options": ["Plano de atividades", "Entregas e canais", "Métricas de acompanhamento"],
+        "allow_custom": True,
+    }]
     response.answer = "\n\n".join(parts)
     response.confidence = "medium"
-    response.questions = []
     response.actions = []
     response.blocks = []
     return True

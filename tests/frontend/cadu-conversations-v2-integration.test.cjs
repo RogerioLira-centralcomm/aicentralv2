@@ -106,7 +106,9 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /role="tooltip"/);
   assert.match(dock, /const resolvedAccountUrl = accountUrl \|\| bootstrap\?\.urls\?\.agency/);
   assert.match(dock, /const openUsage = \(\) =>/);
-  assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
+  assert.match(dock, /resolvedAccountMenu \? <button[^>]+aria-haspopup="menu"/);
+  assert.match(dock, /<nav className="cadu-ds-dock-primary"/);
+  assert.match(dock, /<DockDropZone[\s\S]+<nav className="cadu-ds-dock-primary"/);
   assert.match(dock, /Conta de \$\{userName\}/);
   assert.match(dock, /onReorderShortcuts/);
   assert.match(dock, /onDropShortcut/);

@@ -165,6 +165,12 @@
 .cadu-ds-account-menu__progress { height:5px; overflow:hidden; border-radius:99px; background:color-mix(in srgb,var(--cadu-ink) 12%,transparent); }
 .cadu-ds-account-menu__progress i { display:block; height:100%; border-radius:inherit; background:var(--cadu-accent); transition:width .25s ease; }
 .cadu-ds-account-menu__usage>a { color:var(--cadu-accent-strong); font-size:11px; font-weight:650; text-decoration:none; }
+.cadu-ds-account-menu__dock { margin-top:12px; padding-top:12px; border-top:1px solid var(--cadu-line); }
+.cadu-ds-account-menu__dock>button { display:flex; width:100%; min-height:46px; align-items:center; justify-content:space-between; gap:12px; padding:8px 10px; border:0; border-radius:9px; background:transparent; color:var(--cadu-ink); text-align:left; cursor:pointer; }
+.cadu-ds-account-menu__dock>button:hover,.cadu-ds-account-menu__dock>button:focus-visible { background:var(--cadu-surface-soft); outline:0; }
+.cadu-ds-account-menu__dock>button>span:first-child { display:grid; gap:2px; }
+.cadu-ds-account-menu__dock b { font-size:12px; }
+.cadu-ds-account-menu__dock small { color:var(--cadu-muted); font-size:10px; }
 .cadu-ds-account-menu nav { display:grid; gap:2px; margin-top:8px; }
 .cadu-ds-account-menu nav a { padding:9px 10px; border-radius:9px; color:var(--cadu-ink); font-size:12px; font-weight:620; text-decoration:none; }
 .cadu-ds-account-menu nav a:hover,.cadu-ds-account-menu nav a:focus-visible { background:var(--cadu-surface-soft); color:var(--cadu-accent-strong); outline:0; }
@@ -218,14 +224,22 @@ body.portal--workspace .cadu-ds-dock-context:has(.is-drop-target) .cadu-ds-dock-
 .cadu-ds-dock-account-wrap .cadu-ds-account-menu { top:auto; right:auto; bottom:calc(100% + 10px); left:calc(100% + 10px); }
 .cadu-ds-dock-avatar-button .cadu-ds-visual-identity { display:grid; width:36px; height:36px; border-radius:50%; }
 .cadu-ds-dock-avatar-link { display:block; color:inherit; text-decoration:none; }
-.cadu-ds-shortcut-dialog { width:min(700px,calc(100vw - 32px)); }
-.cadu-ds-shortcut-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px; margin-top:22px; }
-.cadu-ds-shortcut-grid article { display:grid; gap:8px; min-height:144px; align-content:start; padding:11px; border:1px solid var(--cadu-line); border-radius:13px; background:var(--cadu-surface-soft); }
+.cadu-ds-shortcut-dialog { width:min(560px,calc(100vw - 32px)); }
+.cadu-ds-shortcut-section { display:grid; gap:8px; margin-top:18px; }
+.cadu-ds-shortcut-section>header { display:flex; align-items:center; justify-content:space-between; color:var(--cadu-muted); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+.cadu-ds-shortcut-grid { display:grid; gap:4px; margin:0; }
+.cadu-ds-shortcut-grid article { display:grid; grid-template-columns:18px 36px minmax(0,1fr) auto; gap:10px; min-height:48px; align-items:center; padding:6px 8px; border:0; border-radius:10px; background:var(--cadu-surface-soft); }
 .cadu-ds-shortcut-grid article.is-pinned { cursor:grab; background:var(--cadu-surface); }
 .cadu-ds-shortcut-grid article:active { cursor:grabbing; }
-.cadu-ds-shortcut-grid .cadu-ds-visual-identity { width:42px; height:42px; border-radius:11px; }
-.cadu-ds-shortcut-grid b { overflow:hidden; color:var(--cadu-ink); font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
-.cadu-ds-shortcut-grid button { justify-self:start; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 11px var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-shortcut-grid__handle { color:var(--cadu-muted); font-size:12px; letter-spacing:-3px; }
+.cadu-ds-shortcut-grid .cadu-ds-visual-identity { width:34px; height:34px; border-radius:9px; }
+.cadu-ds-shortcut-grid article>span:nth-child(3) { display:grid; min-width:0; gap:2px; }
+.cadu-ds-shortcut-grid b,.cadu-ds-shortcut-grid small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-shortcut-grid b { color:var(--cadu-ink); font-size:12px; }
+.cadu-ds-shortcut-grid small { color:var(--cadu-muted); font-size:9px; }
+.cadu-ds-shortcut-grid button { justify-self:end; padding:7px 8px; border:0; border-radius:7px; background:transparent; color:var(--cadu-accent-strong); font:650 11px var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-shortcut-grid button:hover { background:var(--cadu-surface-soft); }
+.cadu-ds-shortcut-grid button.is-danger { color:#a33737; }
 .cadu-ds-project-resource-strip button { overflow:hidden; max-width:180px; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:600 12px var(--cadu-font-sans); text-align:left; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
 .cadu-ds-project-resource-inspector { display:grid; gap:16px; }.cadu-ds-project-resource-inspector img { width:100%; max-height:320px; border-radius:12px; object-fit:contain; background:var(--cadu-surface-soft); }.cadu-ds-project-resource-inspector dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:0; }.cadu-ds-project-resource-inspector dl div { padding:10px; border-radius:10px; background:var(--cadu-surface-soft); }.cadu-ds-project-resource-inspector dt { color:var(--cadu-muted); font-size:11px; }.cadu-ds-project-resource-inspector dd { margin:4px 0 0; color:var(--cadu-ink); font-size:13px; font-weight:650; }.cadu-ds-project-resource-inspector>a { justify-self:start; text-decoration:none; }
 
@@ -264,7 +278,7 @@ body.portal--workspace .cadu-ds-dock-context:has(.is-drop-target) .cadu-ds-dock-
 .cadu-ds-home-workarea .cadu-ds-home-content { flex:1; min-width:0; }
 .cadu-ds-dock-brand .cadu-ds-visual-identity:not([class*="--v"]),.cadu-ds-dock-resource .cadu-ds-visual-identity:not([class*="--v"]) { box-sizing:border-box; padding:3px; background:var(--cadu-identity-color); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-identity-color) 32%,transparent); }
 .cadu-ds-dock-brand .cadu-ds-visual-identity img,.cadu-ds-dock-resource .cadu-ds-visual-identity img { object-fit:contain; object-position:center; }
-.cadu-ds-dock-brand,.cadu-ds-dock-resource { margin-left:10px; }
+.cadu-ds-dock-brand,.cadu-ds-dock-resource { margin-inline:auto; }
 .cadu-ds-dock-brand .cadu-ds-visual-identity--brand img { mix-blend-mode:normal; filter:brightness(1.16) contrast(1.08); }
 .cadu-ds-dock-brand .cadu-ds-visual-identity,.cadu-ds-dock-resource .cadu-ds-visual-identity { filter:brightness(1.08); }
 .cadu-ds-project-hero__identity .cadu-ds-visual-identity img,.cadu-ds-brand-hero__identity .cadu-ds-visual-identity img { object-fit:contain; object-position:center; }
@@ -349,7 +363,7 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 }
 .cadu-ds-home-chat-shell .cadu-ds-selector-menu { top:auto; bottom:calc(100% + 10px); z-index:60; }
 .cadu-ds-dialog { position:fixed; inset:0; width:min(560px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; overflow:auto; }
-.cadu-ds-shortcut-dialog { width:min(700px,calc(100vw - 32px)); }
+.cadu-ds-shortcut-dialog { width:min(560px,calc(100vw - 32px)); }
 .cadu-ds-project-dialog { max-height:calc(100dvh - 32px); }
 .cadu-ds-project-upload-drop { display:grid; min-height:126px; place-items:center; margin:12px 0 0; border:1px dashed color-mix(in srgb,var(--cadu-accent) 55%,var(--cadu-line)); border-radius:12px; background:var(--cadu-surface-soft); transition:border-color 160ms ease,background 160ms ease,box-shadow 160ms ease; }
 .cadu-ds-project-upload-drop.is-dragging { border-color:var(--cadu-accent-strong); background:color-mix(in srgb,var(--cadu-accent-soft) 70%,var(--cadu-surface)); box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--cadu-accent) 30%,transparent); }
@@ -3250,13 +3264,14 @@ body.portal--workspace .cadu-ds-dock-context { gap:10px; padding:2px 0 8px; }
 body.portal--workspace .cadu-ds-dock-section { gap:8px; }
 body.portal--workspace .cadu-ds-dock-section + .cadu-ds-dock-section { margin-top:4px; padding-top:12px; border-top:1px solid color-mix(in srgb,var(--cadu-nav-line) 72%,transparent); }
 body.portal--workspace .cadu-ds-dock-brand,
-body.portal--workspace .cadu-ds-dock-resource { display:grid; flex:0 0 40px; width:40px; height:40px; margin:0 0 0 10px; padding:3px; place-items:center; border:1px solid transparent; border-radius:12px; background:transparent; color:var(--cadu-nav-ink); }
+body.portal--workspace .cadu-ds-dock-resource { display:grid; flex:0 0 40px; width:40px; height:40px; margin:0 auto; padding:3px; place-items:center; border:1px solid transparent; border-radius:12px; background:transparent; color:var(--cadu-nav-ink); }
 body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity,
 body.portal--workspace .cadu-ds-dock-resource .cadu-ds-visual-identity { width:100%; height:100%; margin:0; border-radius:9px; }
 body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity img,
 body.portal--workspace .cadu-ds-dock-resource .cadu-ds-visual-identity img { width:100%; height:100%; padding:2px; object-fit:contain; object-position:center; }
+body.portal--workspace .cadu-ds-dock-primary { display:grid; width:44px; justify-items:center; gap:4px; margin-top:2px; padding-top:10px; border-top:1px solid color-mix(in srgb,var(--cadu-nav-line) 72%,transparent); }
 body.portal--workspace .cadu-ds-dock-new,
-body.portal--workspace .cadu-ds-dock-home { width:36px; height:36px; margin:0 0 12px; border:1px solid transparent; border-radius:10px; color:#4d716d; }
+body.portal--workspace .cadu-ds-dock-home { display:grid; width:36px; height:36px; margin:0; padding:0; place-items:center; border:1px solid transparent; border-radius:10px; background:transparent; color:#4d716d; text-decoration:none; }
 body.portal--workspace .cadu-ds-dock-new:hover,
 body.portal--workspace .cadu-ds-dock-new:focus-visible,
 body.portal--workspace .cadu-ds-dock-home:hover,
@@ -3288,7 +3303,7 @@ body.portal--workspace .cadu-ds-dock-section + .cadu-ds-dock-section,
 .cadu-ds-dock--conversation .cadu-ds-dock-section + .cadu-ds-dock-section { margin-top:10px; padding-top:0; border-top:0; }
 .cadu-ds-dock-brand-tree { display:grid; justify-items:center; gap:6px; }
 .cadu-ds-dock-brand-tree + .cadu-ds-dock-brand-tree { margin-top:10px; }
-.cadu-ds-dock-brand-tree > .cadu-ds-dock-resource { width:34px; height:34px; margin-left:5px; opacity:.88; }
+.cadu-ds-dock-brand-tree > .cadu-ds-dock-resource { width:34px; height:34px; margin-inline:auto; opacity:.88; }
 .cadu-ds-dock-brand-tree > .cadu-ds-dock-resource .cadu-ds-visual-identity { font-size:10px; }
 
 /* Light dock contrast: transparent/white marks receive a solid brand backing;

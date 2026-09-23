@@ -1,9 +1,86 @@
 # Plano — MCP público do Cadu com OAuth 2.1
 
-Status: proposta executável para substituir a experiência baseada em chave manual
-por conexão de conta, inspirada no fluxo do Higgsfield. O objetivo não é copiar
-a interface de outro produto: é entregar o mesmo resultado operacional — informar
-o endereço do MCP, entrar no Cadu, revisar permissões e voltar ao agente conectado.
+Status: revisão de experiência em 23/09/2026. OAuth, metadados, consentimento,
+ícone e uma tela de instalação já existem no código; a publicação e o comportamento
+em cada cliente ainda precisam ser comprovados. A captura do fluxo anterior mostrou
+configuração manual com segredo e a mensagem “unknown MCP server”. O aceite agora
+exige que a pessoa reconheça o Cadu, conclua a conexão e veja uma ferramenta útil
+funcionar no cliente escolhido.
+
+## Revisão: lacunas identificadas no fluxo real
+
+1. **“Unknown MCP server” é falha de experiência bloqueante.** O texto sozinho
+   não identifica a causa. Pode indicar configuração não carregada, URL incorreta,
+   falha de rede, descoberta OAuth, autenticação, `initialize` ou apresentação do
+   host. Registrar em qual etapa ocorreu antes de atribuir a culpa ao servidor.
+2. **Identidade em três superfícies.** A página Cadu, o consentimento e o cliente
+   precisam mostrar nome consistente. `serverInfo.title`, `serverInfo.icons` e
+   `/.well-known/cadu-mcp-public` já existem, mas o host pode usar apenas o nome
+   local da configuração ou metadados de um plugin. Validar o que cada host exibe;
+   não prometer que `serverInfo` sozinho fará o logo aparecer no Codex.
+3. **O fluxo principal ainda termina em copiar TOML para Codex.** A tela deve
+   apresentar passos verificáveis de instalação, autenticação e teste. Quando uma
+   instalação direta não for suportada pelo host, mostrar o comando/configuração
+   oficial e o ponto exato onde verificar que `cadu` foi registrado.
+4. **O estado de OAuth não governa toda a interface.** A página recebe
+   `mcp_ready` da disponibilidade das chaves legadas, enquanto o OAuth informa
+   disponibilidade separadamente. Mostrar estado real de cada caminho e impedir
+   instrução de conexão quando a infraestrutura necessária não estiver pronta.
+5. **O teste atual cobre apenas uma chave legada.** Para OAuth, conferir o grant,
+   `initialize`, `tools/list` e uma leitura sem custo ou com custo explicado,
+   exibindo sucesso ou erro por etapa; não declarar “conectado” só porque o
+   consentimento foi aprovado.
+6. **A linguagem de configuração ainda promove Bearer manual.** O bloco de
+   parâmetros deve priorizar URL + login Cadu. Chave e header ficam em uma área
+   avançada, com aviso de que são um método de compatibilidade.
+7. **A instalação do ChatGPT depende de publicação própria.** Enquanto o plugin
+   Cadu não estiver disponível, exibir estado indisponível e uma alternativa
+   comprovada, sem sugerir que selecionar ChatGPT completará a instalação.
+
+### Jornada obrigatória por cliente
+
+```text
+Escolher aplicativo → instalar/adicionar Cadu → confirmar que o cliente reconhece
+o servidor → entrar no Cadu → aprovar conta e permissões → voltar ao aplicativo
+→ ver “Cadu conectado” → executar uma primeira consulta → administrar ou revogar
+```
+
+Cada etapa deve ter estado `pendente`, `em andamento`, `concluída` ou `falhou`,
+com uma ação de recuperação específica. Se o host mostrar “unknown MCP server”,
+a tela Cadu orienta a conferir registro local, URL, autenticação e ferramentas,
+nesta ordem, e oferece um diagnóstico sem pedir que a pessoa cole segredos no chat.
+
+### Identidade e descoberta: critérios de aceite
+
+- A instalação usa o nome local `cadu` e a URL canônica; a tela de consentimento
+  mostra marca Cadu, nome verificado do aplicativo solicitante e conta escolhida.
+- `initialize` retorna `serverInfo.name`, `title`, descrição e ícone com URL pública
+  acessível; validar formato e renderização nos hosts que suportam esses campos.
+- Para plugin, fornecer nome, descrição, ícones e material de diretório próprios;
+  validar a identidade exibida antes de liberar o cliente.
+- Em Codex desktop, CLI e IDE, verificar configuração carregada, OAuth concluído,
+  servidor listado e ferramentas disponíveis em uma sessão nova. Registrar captura
+  e versão do cliente. “Unknown MCP server”, servidor sem ferramentas ou sem ação
+  de autenticar bloqueiam a liberação desse cliente.
+- Se o host não renderizar ícone MCP, a documentação não promete logo na lista;
+  o nome local, a descrição e o consentimento ainda devem identificar o Cadu.
+
+### Diagnóstico acionável
+
+| Etapa que falhou | Evidência necessária | Mensagem e recuperação para a pessoa |
+|---|---|---|
+| Servidor não registrado | Configuração/instalador e lista do host | “Cadu não foi adicionado neste aplicativo”; abrir passos do host |
+| URL ou rede | Resposta HTTP do endpoint canônico | “Não foi possível alcançar o Cadu”; conferir URL e tentar de novo |
+| Descoberta OAuth | `401`, `WWW-Authenticate` e dois documentos well-known | “O aplicativo não conseguiu iniciar o login”; oferecer diagnóstico técnico |
+| Login/consentimento | Redirecionamento e grant | “Conexão aguardando autorização”; retomar ou cancelar |
+| Inicialização | `initialize` e versão negociada | “O aplicativo não reconheceu o servidor Cadu”; registrar erro e versão |
+| Ferramentas | `tools/list`, escopos e catálogo | “Cadu conectado, mas sem ferramentas disponíveis”; revisar permissões |
+| Primeira ação | Resultado e custo informado | Mostrar consulta concluída ou erro com próxima ação |
+
+O diagnóstico deve ter identificador de tentativa, cliente e versão, etapa,
+status HTTP e código de erro sanitizado. Nunca incluir tokens, cabeçalhos de
+autorização, documentos privados ou prompts. A equipe precisa conseguir seguir a
+tentativa de instalação até a primeira ferramenta usada.
 
 ## 1. Resultado esperado
 
@@ -50,11 +127,12 @@ aplicativo, usuário, escopos, último uso e opção de revogação.
 
 | Cliente | Entrada | Autenticação | Resultado |
 |---|---|---|---|
-| Codex desktop/CLI/IDE | Adicionar URL ou configuração mínima | Botão **Authenticate** abre o Cadu | Configuração compartilhada no host Codex |
-| ChatGPT web | Plugin Cadu no diretório | Login e consentimento do Cadu | Tools disponíveis no ChatGPT |
+| Codex desktop/CLI/IDE | `codex mcp add cadu --url ...` | `codex mcp login cadu` abre o Cadu | `codex mcp list` e tools disponíveis em nova conversa |
+| ChatGPT web | App privado de desenvolvimento quando permitido; plugin público após publicação | Login e consentimento do Cadu | Scan Tools e primeira consulta concluídos |
 | Cursor | Marketplace/deep link ou URL MCP | Navegador abre o Cadu | Servidor salvo sem API key |
 | VS Code | `vscode:mcp/install` sem segredo | Navegador abre o Cadu | Servidor salvo e autenticado |
 | Claude | Custom connector com URL | Navegador abre o Cadu | Connector ativo |
+| Claude Code | `claude mcp add --transport http cadu ...` | `/mcp` abre o login Cadu | `claude mcp list` mostra conectado |
 | MCP genérico | URL informada manualmente | OAuth 2.1 quando suportado | Fallback de chave somente se necessário |
 
 O botão principal da tela passa de **Criar conexão** para **Conectar agente**.
@@ -384,9 +462,14 @@ Saída: sessões persistem sem chave manual e podem ser revogadas imediatamente.
 - gerar deep links sem segredo para VS Code e Cursor;
 - instrução mínima para Codex e clientes genéricos;
 - tela de aplicativos conectados e permissões;
-- teste de conexão usando o grant do próprio fluxo.
+- mostrar prontidão OAuth e disponibilidade do cliente antes de instalar;
+- acompanhar registro, autorização, inicialização, ferramentas e primeira ação;
+- teste de conexão usando o grant do próprio fluxo;
+- diagnóstico e recuperação para “unknown MCP server” por etapa;
+- revisar nome, ícone e descrição em cada cliente real.
 
-Saída: experiência de instalação equivalente ao resultado do Higgsfield.
+Saída: uma pessoa conclui a primeira consulta no cliente sem compartilhar chave,
+e nenhum cliente anunciado como disponível termina em “unknown MCP server”.
 
 ### Fase 5 — plugin Cadu para ChatGPT
 
@@ -439,6 +522,10 @@ Saída: OAuth como único caminho nos hosts compatíveis, sem interrupção abru
 - VS Code;
 - Claude custom connector;
 - MCP Inspector como cliente de referência.
+- em cada host, registrar versão, nome/ícone efetivamente exibidos, estado de
+  autenticação, `initialize`, ferramentas listadas e primeira consulta;
+- repetir com configuração nova, sessão existente e grant revogado;
+- reproduzir “unknown MCP server” e demonstrar recuperação compreensível.
 
 ### Regressão
 
@@ -460,6 +547,14 @@ OAuth só vira padrão quando:
 - runbook de incidente e rotação estiver publicado;
 - política de privacidade explicar o uso de agentes externos;
 - a equipe conseguir desativar DCR ou um cliente individual sem derrubar o MCP.
+- o caminho OAuth principal estiver pronto no ambiente publicado, com o estado
+  da interface refletindo a disponibilidade real;
+- Codex reconhecer `cadu` após instalação e autenticação em desktop, CLI e IDE,
+  sem “unknown MCP server” no caminho documentado;
+- cada cliente divulgado como disponível concluir `initialize`, `tools/list` e
+  uma primeira consulta com a identidade Cadu visível onde o host permitir;
+- erros de instalação separarem registro, rede, OAuth, inicialização e escopos,
+  com ação de recuperação e identificador de suporte sem expor credenciais.
 
 ## 14. Fora do primeiro release
 

@@ -1168,7 +1168,7 @@ def init_routes(app):
     
     @app.route('/favicon.ico')
     def favicon():
-        return '', 204
+        return current_app.send_static_file('images/cadu/products/cadu-favicon.ico')
     
     # ==================== COMPONENTES ====================
     

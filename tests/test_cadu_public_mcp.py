@@ -102,9 +102,12 @@ def test_public_transport_is_separate_and_requires_bearer_auth():
     metadata = client.get("/.well-known/cadu-mcp-public")
     assert metadata.status_code == 200
     assert metadata.get_json()["endpoint"].endswith(PUBLIC_MCP_PATH)
-    assert metadata.get_json()["authentication"]["type"] == "bearer_api_key"
-    assert metadata.get_json()["icon_url"].endswith("/static/images/cadu/products/cadu-mcp-icon.svg")
-    assert metadata.get_json()["icons"][0]["mimeType"] == "image/svg+xml"
+    assert metadata.get_json()["authentication"]["type"] == "oauth2"
+    assert metadata.get_json()["name"] == "cadu"
+    assert metadata.get_json()["title"] == "Cadu"
+    assert metadata.get_json()["icon_url"].endswith("/mcp/cadu/v1/icon.png")
+    assert metadata.get_json()["favicon_url"].endswith("/mcp/cadu/v1/favicon.ico")
+    assert metadata.get_json()["icons"][0]["mimeType"] == "image/png"
 
     with patch(
         "aicentralv2.cadu_public_mcp.routes.auth.authenticate",
@@ -162,8 +165,9 @@ def test_initialize_advertises_cadu_icon_to_mcp_clients():
             "method": "initialize", "params": {}})
     assert response.status_code == 200
     info = response.get_json()["result"]["serverInfo"]
+    assert info["name"] == "cadu"
     assert info["title"] == "Cadu"
-    assert info["icons"][0]["src"].endswith("/static/images/cadu/products/cadu-mcp-icon.svg")
+    assert info["icons"][0]["src"].endswith("/mcp/cadu/v1/icon.png")
 
 
 def test_mcp_purchase_requires_authenticated_page_confirmation():

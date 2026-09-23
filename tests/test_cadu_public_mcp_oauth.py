@@ -33,6 +33,31 @@ def test_oauth_discovery_is_consistent_with_public_mcp_resource():
     assert authorization.headers["Cache-Control"] == "no-store"
 
 
+def test_oauth_readiness_requires_every_table_used_by_the_flow():
+    with patch("aicentralv2.cadu_public_mcp.oauth._table_available", return_value=True) as table:
+        assert oauth.available() is True
+    assert {call.args[0] for call in table.call_args_list} == {
+        "cadu_oauth_clients", "cadu_oauth_grants", "cadu_oauth_authorization_codes",
+        "cadu_oauth_access_tokens", "cadu_oauth_refresh_tokens",
+    }
+    with patch("aicentralv2.cadu_public_mcp.oauth._table_available",
+               side_effect=lambda name: name != "cadu_oauth_refresh_tokens"):
+        assert oauth.available() is False
+
+
+def test_public_mcp_urls_have_branded_icon_and_browser_landing():
+    client = _app().test_client()
+    icon = client.get("/mcp/cadu/v1/icon.png")
+    favicon = client.get("/mcp/cadu/v1/favicon.ico")
+    landing = client.get(PUBLIC_MCP_PATH, headers={"Accept": "text/html"})
+    transport_get = client.get(PUBLIC_MCP_PATH, headers={"Accept": "text/event-stream"})
+
+    assert icon.status_code == 200 and icon.mimetype == "image/png"
+    assert favicon.status_code == 200 and favicon.mimetype == "image/x-icon"
+    assert landing.status_code == 200 and b"Cadu MCP" in landing.data
+    assert transport_get.status_code == 405
+
+
 def test_unauthenticated_mcp_challenge_points_to_protected_resource_metadata():
     client = _app().test_client()
     from aicentralv2.cadu_public_mcp.auth import PublicMcpAuthError

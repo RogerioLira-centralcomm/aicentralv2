@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Aplicativo conectado</title>
+  <rect width="128" height="128" rx="24" fill="#f0f6f3"/>
+  <circle cx="42" cy="45" r="11" fill="#57998b"/>
+  <circle cx="86" cy="45" r="11" fill="#57998b"/>
+  <circle cx="64" cy="84" r="11" fill="#57998b"/>
+  <path d="M51 50l13 23 13-23M53 45h22" fill="none" stroke="#57998b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

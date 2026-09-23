@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from pathlib import Path
 from dataclasses import replace
 from copy import deepcopy
 from time import monotonic
@@ -25,6 +26,9 @@ from ..cadu_workspace.mcp import context_runtime
 bp = Blueprint("cadu_public_mcp", __name__)
 PUBLIC_MCP_PATH = "/mcp/cadu/v1"
 MCP_ICON_PATH = "/static/images/cadu/products/cadu-mcp-icon.svg"
+MCP_PUBLIC_ICON_PATH = f"{PUBLIC_MCP_PATH}/icon.png"
+MCP_FAVICON_PATH = f"{PUBLIC_MCP_PATH}/favicon.ico"
+MCP_ASSET_DIR = Path(__file__).resolve().parents[1] / "static/images/cadu/products"
 PROTOCOL_VERSION = "2026-07-28"
 
 
@@ -38,6 +42,15 @@ def _oauth_url(path: str) -> str:
 
 def _oauth_issuer() -> str:
     return _oauth_url("").rstrip("/")
+
+
+def _mcp_icons() -> list[dict]:
+    return [
+        {"src": product_url("workspace", MCP_PUBLIC_ICON_PATH),
+         "mimeType": "image/png", "sizes": ["512x512"]},
+        {"src": product_url("workspace", MCP_ICON_PATH),
+         "mimeType": "image/svg+xml", "sizes": ["any"]},
+    ]
 
 
 def _oauth_json(payload, status=200):
@@ -351,6 +364,27 @@ def _workspace_api_csrf() -> bool:
     return bool(token and secrets.compare_digest(token, supplied))
 
 
+@bp.get(MCP_PUBLIC_ICON_PATH)
+def public_mcp_icon():
+    return send_file(MCP_ASSET_DIR / "cadu-mcp-512.png",
+                     mimetype="image/png", max_age=86400)
+
+
+@bp.get(MCP_FAVICON_PATH)
+def public_mcp_favicon():
+    return send_file(MCP_ASSET_DIR / "cadu-mcp-favicon.ico",
+                     mimetype="image/x-icon", max_age=86400)
+
+
+@bp.get(PUBLIC_MCP_PATH)
+def public_mcp_landing():
+    # MCP clients may probe GET for an event stream. This stateless transport
+    # uses POST; browser visitors get a branded explanation instead of a 405.
+    if "text/html" not in request.headers.get("Accept", ""):
+        return _headers(jsonify({"error": "Use POST para chamadas MCP."})), 405
+    return render_template("cadu_workspace/mcp_public_landing.html", endpoint=_oauth_resource())
+
+
 @bp.post(PUBLIC_MCP_PATH)
 def public_rpc():
     payload = request.get_json(silent=True)
@@ -388,10 +422,9 @@ def public_rpc():
             result = {
                 "protocolVersion": params.get("protocolVersion") if isinstance(params.get("protocolVersion"), str) else PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "cadu-public-mcp", "title": "Cadu", "version": "1.0.0",
+                "serverInfo": {"name": "cadu", "title": "Cadu", "version": "1.0.0",
                                "description": "Projetos, marcas e documentos da sua conta Cadu.",
-                               "icons": [{"src": product_url("workspace", MCP_ICON_PATH),
-                                          "mimeType": "image/svg+xml", "sizes": ["any"]}]},
+                               "icons": _mcp_icons()},
                 "instructions": (
                     "O Cadu entende pedidos naturais em português do Brasil. Use intent.interpret para frases como "
                     "'joga isso no projeto', 'faz um documento disso' ou 'não salva ainda'. Quando 'isso' se referir "
@@ -732,13 +765,15 @@ def oauth_revoke():
 def public_metadata():
     """Stable bootstrap metadata for MCP clients and the Workspace UI."""
     return jsonify({
-        "name": "cadu-public-mcp",
+        "name": "cadu",
         "version": "1.0.0",
         "endpoint": product_url("workspace", PUBLIC_MCP_PATH),
-        "icon_url": product_url("workspace", MCP_ICON_PATH),
-        "icons": [{"src": product_url("workspace", MCP_ICON_PATH),
-                   "mimeType": "image/svg+xml", "sizes": ["any"]}],
-        "authentication": {"type": "bearer_api_key", "header": "Authorization", "prefix": auth.KEY_PREFIX},
+        "icon_url": product_url("workspace", MCP_PUBLIC_ICON_PATH),
+        "favicon_url": product_url("workspace", MCP_FAVICON_PATH),
+        "icons": _mcp_icons(),
+        "title": "Cadu",
+        "description": "Projetos, marcas, documentos e mídia da sua conta Cadu.",
+        "authentication": {"type": "oauth2", "legacy_api_key_supported": auth._available()},
         "oauth": {
             "status": "ready" if oauth.available() else "pending_migration",
             "protected_resource_metadata": _oauth_url("/.well-known/oauth-protected-resource/mcp/cadu/v1"),
@@ -766,10 +801,11 @@ def agents_page():
         credit = credit_position(client_id)
     except Exception:
         credit = {"available": 0, "monthly": 0, "monthly_usage_percentage": 0}
+    grants = oauth.list_grants(client_id=client_id, user_id=user_id)
     return render_template(
         "cadu_workspace/mcp_agents.html",
         keys=auth.list_keys(client_id=client_id, user_id=user_id),
-        grants=oauth.list_grants(client_id=client_id, user_id=user_id),
+        grants=grants,
         projects=projects,
         usage=usage.summary(client_id=client_id, user_id=user_id),
         credit=credit,
@@ -777,6 +813,7 @@ def agents_page():
         metadata_url=product_url("workspace", "/.well-known/cadu-mcp-public"),
         client_types=auth.CLIENT_TYPES,
         mcp_ready=auth._available(),
+        oauth_ready=oauth.available(),
     )
 
 

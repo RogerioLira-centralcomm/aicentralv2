@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cadu MCP — Conecte sua conta</title>
+  <meta name="description" content="Conecte seu agente ao Cadu com sua conta e permissões escolhidas por você.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Cadu MCP">
+  <meta property="og:description" content="Projetos, marcas e documentos do Cadu no seu agente de IA.">
+  <meta property="og:image" content="{{ url_for('cadu_public_mcp.public_mcp_icon', _external=True) }}">
+  <meta name="twitter:card" content="summary">
+  {% include 'cadu_workspace/_mcp_favicon.html' %}
+  <style>
+    *{box-sizing:border-box}body{min-height:100vh;margin:0;display:grid;place-items:center;padding:24px;background:#eef6f2;color:#183d39;font-family:Inter,system-ui,sans-serif}
+    main{width:min(100%,610px);padding:clamp(24px,5vw,48px);border:1px solid #dce9e5;border-radius:24px;background:#fff;box-shadow:0 20px 60px #184d3b12}
+    img{width:88px;height:88px;border-radius:20px}h1{margin:22px 0 10px;font-size:clamp(32px,5vw,46px);letter-spacing:-.05em}p{color:#58746b;line-height:1.55}small{display:block;margin:26px 0 8px;color:#476c61;font-weight:700}
+    code{display:block;padding:13px;overflow-wrap:anywhere;border:1px solid #dce9e5;border-radius:9px;background:#f6faf8;color:#205e50;font-size:13px}
+    a{display:inline-block;margin-top:25px;padding:12px 17px;border-radius:9px;background:#137961;color:#fff;text-decoration:none;font-weight:700}
+  </style>
+</head>
+<body>
+  <main>
+    <img src="{{ url_for('cadu_public_mcp.public_mcp_icon') }}" alt="Ícone Cadu MCP">
+    <h1>Cadu MCP</h1>
+    <p>Conecte seus projetos, marcas e documentos a um agente de IA com autorização pela sua conta Cadu.</p>
+    <small>Endereço oficial do servidor</small>
+    <code>{{ endpoint }}</code>
+    <a href="{{ url_for('cadu_public_mcp.agents_page') }}">Ver opções de conexão</a>
+  </main>
+</body>
+</html>

@@ -1,6 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Não foi possível conectar — Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
+{% block favicon %}{% include 'cadu_workspace/_mcp_favicon.html' %}{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-mcp-setup.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}<main class="workspace-oauth-consent"><section class="workspace-oauth-consent__card is-error"><header class="workspace-oauth-consent__head"><img class="workspace-oauth-consent__brand" src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="Cadu"><h1>Conexão não concluída</h1><p>Confira os dados e tente novamente.</p></header><div class="workspace-oauth-illustration is-error" aria-hidden="true"><div class="workspace-oauth-illustration__node is-client"><span>×</span></div><div class="workspace-oauth-illustration__bridge"><i></i><b>!</b><i></i></div><div class="workspace-oauth-illustration__node is-cadu"><img src="{{ url_for('static', filename='images/cadu/products/cadu-mcp-icon.svg') }}" alt=""></div></div><p class="workspace-oauth-error-detail">{{ error.description }}</p><a class="workspace-button is-primary" href="{{ url_for('cadu_public_mcp.agents_page') }}">Voltar às integrações</a></section></main>{% endblock %}

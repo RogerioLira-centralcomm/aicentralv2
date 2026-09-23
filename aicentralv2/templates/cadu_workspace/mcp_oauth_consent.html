@@ -1,6 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Autorizar {{ authorization.client.client_name }} — Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
+{% block favicon %}{% include 'cadu_workspace/_mcp_favicon.html' %}{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-mcp-setup.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
@@ -21,7 +22,7 @@
 <main class="workspace-oauth-consent">
   <section class="workspace-oauth-consent__card">
     <header class="workspace-oauth-consent__head"><img class="workspace-oauth-consent__brand" src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="Cadu"><h1>Conectar ao Cadu</h1><p>{{ authorization.client.client_name }} quer acessar sua conta.</p></header>
-    <div class="workspace-oauth-illustration" aria-hidden="true"><div class="workspace-oauth-illustration__node is-client"><img src="{{ authorization.client.logo_uri or url_for('static', filename='images/cadu/technology-logos/openai.svg') }}" alt=""></div><div class="workspace-oauth-illustration__bridge"><i></i><span>✓</span><i></i></div><div class="workspace-oauth-illustration__node is-cadu"><img src="{{ url_for('static', filename='images/cadu/products/cadu-mcp-icon.svg') }}" alt=""></div></div>
+    <div class="workspace-oauth-illustration" aria-hidden="true"><div class="workspace-oauth-illustration__node is-client"><img src="{{ authorization.client.logo_uri or url_for('static', filename='images/cadu/products/mcp-client-placeholder.svg') }}" alt="" data-client-logo data-fallback="{{ url_for('static', filename='images/cadu/products/mcp-client-placeholder.svg') }}"></div><div class="workspace-oauth-illustration__bridge"><i></i><span>✓</span><i></i></div><div class="workspace-oauth-illustration__node is-cadu"><img src="{{ url_for('static', filename='images/cadu/products/cadu-mcp-icon.svg') }}" alt=""></div></div>
     <p class="workspace-oauth-consent__summary">Escolha o projeto e confira o que será compartilhado.</p>
     {% if error %}<p class="workspace-mcp-alert" role="alert">{{ error }}</p>{% endif %}
     <form method="post" class="workspace-oauth-consent__form">
@@ -38,3 +39,10 @@
   </section>
 </main>
 {% endblock %}
+{% block portal_scripts %}<script>
+  document.querySelectorAll('[data-client-logo]').forEach(image => {
+    image.addEventListener('error', () => {
+      if (image.src !== image.dataset.fallback) image.src = image.dataset.fallback;
+    });
+  });
+</script>{% endblock %}

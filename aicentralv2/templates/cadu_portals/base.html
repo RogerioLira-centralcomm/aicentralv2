@@ -10,7 +10,7 @@
   {% if session.get('user_id') %}<meta name="csrf-token" content="{{ session.get('family_csrf', '') }}">{% endif %}
   <title>{% block title %}{{ portal_name }}{% endblock %}</title>
   {% block meta %}{% endblock %}
-  {% if portal_icon %}<link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ portal_icon) }}"><link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ portal_icon) }}">{% else %}<link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}">{% endif %}
+  {% block favicon %}{% if portal_icon %}<link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ portal_icon) }}"><link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ portal_icon) }}">{% else %}<link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}">{% endif %}{% endblock %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">

@@ -62,7 +62,13 @@ def _table_available(name: str) -> bool:
 
 
 def available() -> bool:
-    return _table_available("cadu_oauth_clients") and _table_available("cadu_oauth_access_tokens")
+    return all(_table_available(name) for name in (
+        "cadu_oauth_clients",
+        "cadu_oauth_grants",
+        "cadu_oauth_authorization_codes",
+        "cadu_oauth_access_tokens",
+        "cadu_oauth_refresh_tokens",
+    ))
 
 
 def validate_redirect_uri(value: str, *, allow_loopback: bool = True) -> str:

@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 
 from ..conversations.guardrails import history_context, normalize_colloquial, temporal_context
 from ..conversations import conversation_memory
+from ..intent_engine import interpret
 
 
 _TURN_URL = re.compile(r"https?://[^\s<>\]\[\"']+", re.IGNORECASE)
@@ -44,7 +45,11 @@ def selected_context(value):
     limit = 40000 if kind == "assistant_response" else 12000
     if not 3 <= len(text) <= limit:
         return None
-    return {"type": kind, "label": str(value.get("label") or "Contexto selecionado")[:80], "text": text}
+    result = {"type": kind, "label": str(value.get("label") or "Contexto selecionado")[:80], "text": text}
+    source_message_id = str(value.get("source_message_id") or "")[:80]
+    if source_message_id:
+        result["source_message_id"] = source_message_id
+    return result
 
 
 def _metadata_response(message):
@@ -54,14 +59,27 @@ def _metadata_response(message):
 
 
 def previous_assistant_context(message, messages):
-    if not re.search(
+    explicit_reference = re.search(
         r"\b(?:[uú]ltima resposta|resposta anterior|texto anterior|conte[uú]do anterior|"
-        r"esse texto|este texto|essa resposta|esta resposta|o que voc[eê] (?:escreveu|gerou|respondeu))\b",
+        r"esse texto|este texto|essa resposta|esta resposta|esse resumo|este resumo|"
+        r"esse conte[uú]do|este conte[uú]do|esse material|este material|essa pesquisa|esta pesquisa|"
+        r"o que voc[eê] (?:escreveu|gerou|respondeu))\b",
         str(message or ""), re.IGNORECASE,
-    ):
+    )
+    natural_intent = interpret(str(message or ""), has_project=True)
+    actionable_reference = (
+        natural_intent.intent in {"create_artifact", "persist_content"}
+        and natural_intent.source == "referenced_content"
+    )
+    if not explicit_reference and not actionable_reference:
         return None
     previous = next((item for item in reversed(messages or []) if item.get("role") == "assistant" and str(item.get("content") or "").strip()), None)
-    return selected_context({"type": "assistant_response", "label": "Última resposta do assistente", "text": previous.get("content")}) if previous else None
+    return selected_context({
+        "type": "assistant_response",
+        "label": "Última resposta do assistente",
+        "text": previous.get("content"),
+        "source_message_id": previous.get("id"),
+    }) if previous else None
 
 
 def turn_context(message, messages):

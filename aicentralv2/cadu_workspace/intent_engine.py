@@ -16,7 +16,7 @@ from .conversations.guardrails import normalize_colloquial
 
 
 _REFERENCE = re.compile(
-    r"\b(?:isso|isto|aquilo|esse|essa|este|esta|aquele|aquela)\b|"
+    r"\b(?:isso|isto|aquilo|disso|disto|daquilo|esse|essa|este|esta|desse|dessa|deste|desta|aquele|aquela)\b|"
     r"\b(?:[uú]ltima|[uú]ltimo)\s+(?:resposta|texto|resumo|vers[aã]o)\b|"
     r"\bo\s+que\s+(?:voc[eê]\s+)?(?:escreveu|respondeu|gerou|fez|montou)\b|"
     r"\b(?:nossa|essa)\s+conversa\b",

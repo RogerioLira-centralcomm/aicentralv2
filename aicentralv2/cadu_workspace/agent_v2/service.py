@@ -14,14 +14,20 @@ from ...db import close_db
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
-from ..conversations.guardrails import normalize_colloquial, validate_files
+from ..conversations.guardrails import validate_files
 from ..artifacts import create_draft, get_artifact, patch_artifact
 from . import provider
 from .executor import prepare_execution
 from .guardrails import normalize_response
 from .request_context import resolve
 from . import journal
-from .context_builder import ConversationContextBuilder, selected_context
+from .context_builder import (
+    ConversationContextBuilder,
+    previous_assistant_context,
+    selected_context,
+    turn_context,
+    turn_selected_context,
+)
 from .conversation_runtime import RuntimeRollout, TurnIdentity
 from .memory_checkpoint import schedule as schedule_memory_checkpoint
 
@@ -177,179 +183,22 @@ def _message(value):
 
 
 def _selected_context(value):
-    if not isinstance(value, dict):
-        return None
-    kind = str(value.get("type") or "selection")[:40]
-    raw_text = str(value.get("text") or "").replace("\r\n", "\n").replace("\r", "\n")
-    if kind == "assistant_response":
-        text = "\n".join(line.rstrip() for line in raw_text.split("\n")).strip()
-        limit = 40000
-    else:
-        text = " ".join(raw_text.split())
-        limit = 12000
-    if not 3 <= len(text) <= limit:
-        return None
-    label = str(value.get("label") or "Contexto selecionado")[:80]
-    return {"type": kind, "label": label, "text": text}
+    """Compatibility wrapper for callers predating ConversationContextBuilder."""
+    return selected_context(value)
 
 
 def _previous_assistant_context(message, messages):
-    """Resolve explicit references to the previous answer without model guesswork."""
-    if not re.search(
-        r"\b(?:[uú]ltima resposta|resposta anterior|texto anterior|conte[uú]do anterior|"
-        r"esse texto|este texto|essa resposta|esta resposta|o que voc[eê] (?:escreveu|gerou|respondeu))\b",
-        str(message or ""), re.IGNORECASE,
-    ):
-        return None
-    previous = next((item for item in reversed(messages or []) if item.get("role") == "assistant" and str(item.get("content") or "").strip()), None)
-    if not previous:
-        return None
-    return _selected_context({
-        "type": "assistant_response",
-        "label": "Última resposta do assistente",
-        "text": previous.get("content"),
-    })
-
-
-_TURN_URL = re.compile(r"https?://[^\s<>\]\[\"']+", re.IGNORECASE)
-_LINK_REFERENCE = re.compile(
-    r"\b(?:esse|este|aquele|o)\s+(?:link|site|endere[cç]o|url)|"
-    r"\b(?:link|site|url)\s+que\s+(?:eu\s+)?(?:enviei|mandei|passei|adicionei)|"
-    r"\bcom\s+base\s+(?:nele|nisso|no\s+link)\b",
-    re.IGNORECASE,
-)
-_SHORT_CONFIRMATION = re.compile(
-    r"^\s*(?:sim|pode|pode\s+(?:criar|fazer|gerar|seguir)|fa[cç]a|crie|gere|continue|prossiga|ok)\s*[.!]?\s*$",
-    re.IGNORECASE,
-)
-_FORMAT_CONTINUATION = re.compile(
-    r"\b(?:pode\s+ser|fa[cç]a|quero)\s+(?:um|uma|em\s+formato\s+de)?\s*"
-    r"(plano|relat[oó]rio|apresenta[cç][aã]o|briefing|documento|texto)\b",
-    re.IGNORECASE,
-)
-_GENERIC_REFERENCE = re.compile(
-    r"\b(?:isso|isto|aquilo|nele|nela|deles|delas|esse|essa|este|esta|aquele|aquela)\b|"
-    r"\b(?:o|a|esse|essa|aquele|aquela)\s+(?:arquivo|anexo|documento|texto|resposta|imagem|"
-    r"plano|relat[oó]rio|apresenta[cç][aã]o|briefing|projeto|marca|campanha|conte[uú]do)\b|"
-    r"\b(?:continue|continue\s+da[ií]|prossiga|retome|revise|ajuste|altere|melhore|resuma|"
-    r"transforme|reescreva|complete|finalize)\b",
-    re.IGNORECASE,
-)
-
-
-def _metadata_response(message):
-    metadata = message.get("metadata") if isinstance(message, dict) else None
-    if not isinstance(metadata, dict):
-        return {}
-    response = metadata.get("response")
-    return response if isinstance(response, dict) else {}
+    """Compatibility wrapper around the canonical reference resolver."""
+    return previous_assistant_context(message, messages)
 
 
 def _conversation_turn_context(message, messages):
-    """Build bounded operational state and resolve references before inference."""
-    recent = [item for item in (messages or []) if item.get("role") in {"user", "assistant"}][-12:]
-    if not recent:
-        return None
-    latest_url = ""
-    latest_url_message = None
-    pending = None
-    files = []
-    artifact = None
-    latest_user_request = ""
-    latest_assistant_answer = ""
-    inspected_latest_assistant = False
-    for item in reversed(recent):
-        role = item.get("role")
-        content = str(item.get("content") or "")
-        if not latest_url:
-            match = _TURN_URL.search(content)
-            if match:
-                latest_url = match.group(0).rstrip(".,;:!?)")
-                latest_url_message = item
-        if role == "user" and not latest_user_request and content.strip():
-            latest_user_request = " ".join(content.split())[:1200]
-        if role == "assistant" and not latest_assistant_answer and content.strip():
-            latest_assistant_answer = " ".join(content.split())[:1600]
-        for file in item.get("files") or []:
-            if not isinstance(file, dict):
-                continue
-            identity = str(file.get("id") or file.get("url") or file.get("name") or "")
-            if identity and all(existing.get("identity") != identity for existing in files):
-                files.append({
-                    "identity": identity,
-                    "name": str(file.get("name") or "Arquivo")[:180],
-                    "url": str(file.get("url") or "")[:2000],
-                })
-        metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
-        if artifact is None and metadata.get("artifact_id"):
-            artifact = {"id": str(metadata["artifact_id"]), "title": str(metadata.get("artifact_title") or "Artefato")[:180]}
-        # Only the latest assistant turn can own a pending action. Looking past
-        # it would revive stale suggestions after the subject already changed.
-        if role == "assistant" and not inspected_latest_assistant:
-            inspected_latest_assistant = True
-            response = _metadata_response(item)
-            for block in reversed(response.get("blocks") or []):
-                if not isinstance(block, dict):
-                    continue
-                for option in reversed(block.get("items") or []):
-                    if isinstance(option, dict) and option.get("auto_submit") and option.get("prompt"):
-                        pending = {"title": str(option.get("title") or "Continuar"), "prompt": str(option["prompt"])}
-                        break
-                if pending:
-                    break
-    normalized_message = normalize_colloquial(message)
-    refers_to_link = bool(_LINK_REFERENCE.search(normalized_message))
-    generic_reference = bool(_GENERIC_REFERENCE.search(normalized_message))
-    confirms = bool(_SHORT_CONFIRMATION.match(normalized_message))
-    format_match = _FORMAT_CONTINUATION.search(normalized_message)
-    transcript = []
-    for item in recent[-6:]:
-        content = " ".join(str(item.get("content") or "").split())[:1000]
-        if content:
-            transcript.append({"role": item.get("role"), "content": content})
-    routing_message = ""
-    if format_match and latest_url:
-        routing_message = (
-            f"Abra o link e crie um resumo editável estruturado como {format_match.group(1)}: {latest_url}"
-        )
-    resolved_reference = "none"
-    if routing_message:
-        resolved_reference = "format_refinement"
-    elif refers_to_link and latest_url:
-        resolved_reference = "latest_url"
-    elif confirms and pending:
-        resolved_reference = "pending_action"
-    elif generic_reference:
-        resolved_reference = "recent_turn"
-    active_entities = {}
-    if latest_url:
-        active_entities["url"] = latest_url
-    if files:
-        active_entities["files"] = files[:5]
-    if artifact:
-        active_entities["artifact"] = artifact
-    return {
-        "type": "conversation_turn",
-        "active_entities": active_entities,
-        "resolved_reference": resolved_reference,
-        "requires_selected_context": resolved_reference != "none",
-        "pending_action": pending,
-        "routing_message": routing_message,
-        "source_message_id": str((latest_url_message or {}).get("id") or ""),
-        "latest_user_request": latest_user_request,
-        "latest_assistant_answer": latest_assistant_answer,
-        "recent_turns": transcript,
-    }
+    """Compatibility wrapper around the canonical turn context builder."""
+    return turn_context(message, messages)
 
 
 def _turn_selected_context(turn):
-    if not turn or not turn.get("requires_selected_context"):
-        return None
-    return _selected_context({
-        "type": "conversation_turn",
-        "label": "Continuidade da conversa",
-        "text": json.dumps(turn, ensure_ascii=False, separators=(",", ":")),
-    })
+    return turn_selected_context(turn)
 
 
 def _run_was_cancelled(run_id: str) -> bool:
@@ -869,6 +718,19 @@ def stream(run):
                 artifact_content = response.artifact_patch or {}
                 if artifact_type == "project_map":
                     artifact_content = _project_map_content(run, response.artifact_patch)
+                selected = run["context"].selected_context or {}
+                source_message_id = selected.get("source_message_id") if isinstance(selected, dict) else None
+                if source_message_id:
+                    existing_provenance = artifact_content.get("_provenance")
+                    existing_provenance = existing_provenance if isinstance(existing_provenance, dict) else {}
+                    artifact_content = {
+                        **artifact_content,
+                        "_provenance": {
+                            **existing_provenance,
+                            "conversation_id": str(run["conversation_id"]),
+                            "source_message_id": str(source_message_id),
+                        },
+                    }
                 artifact_title = str(artifact_content.get("title") or response.answer)[:120]
                 active = run["context"].active_object
                 if (active and active.type == f"artifact:{artifact_type}"

@@ -47,10 +47,13 @@ def interpret_intent(context: RequestContext, arguments: dict) -> dict:
     return result
 
 
-def _document_content(title: str, source: str) -> dict:
+def _document_content(title: str, source: str, provenance: dict | None = None) -> dict:
     paragraphs = [" ".join(item.split()) for item in str(source or "").split("\n\n") if item.strip()]
     html = "".join(f"<p>{escape(item)}</p>" for item in paragraphs)
-    return {"title": title, "html": html or f"<p>{escape(str(source or '').strip())}</p>"}
+    content = {"title": title, "html": html or f"<p>{escape(str(source or '').strip())}</p>"}
+    if provenance:
+        content["_provenance"] = provenance
+    return content
 
 
 @register_tool(
@@ -66,13 +69,16 @@ def _document_content(title: str, source: str) -> dict:
         "request": {"type": "string", "minLength": 1, "maxLength": 20000},
         "source": {"type": "object", "required": ["content"], "properties": {
             "content": {"type": "string", "minLength": 1, "maxLength": 100000},
+            "type": {"type": "string", "enum": ["inline_content", "cadu_message", "artifact"]},
+            "id": {"type": "string", "maxLength": 180},
         }, "additionalProperties": False},
         "title": {"type": "string", "minLength": 1, "maxLength": 180},
         "confirmed": {"type": "boolean", "enum": [True]},
     }, "additionalProperties": False},
 )
 def execute_intent(context: RequestContext, arguments: dict) -> dict:
-    source = arguments["source"]["content"]
+    source_input = arguments["source"]
+    source = source_input["content"]
     result = interpret(arguments["request"], has_project=bool(context.project_ref),
                        has_source=True, surface="mcp")
     if result.intent not in {"create_artifact", "persist_content"}:
@@ -85,12 +91,19 @@ def execute_intent(context: RequestContext, arguments: dict) -> dict:
     if not title:
         title = " ".join(source.split())[:90].rstrip(".,;:") or "Documento da conversa"
     target = context if result.intent == "persist_content" else replace(context, project_ref=None)
+    provenance = {
+        "conversation_id": str(context.conversation_id or "") or None,
+        "source_type": str(source_input.get("type") or "inline_content"),
+        "source_id": str(source_input.get("id") or "") or None,
+    }
+    provenance = {key: value for key, value in provenance.items() if value is not None}
     fingerprint = {"intent_id": result.intent_id, "title": title,
-                   "destination": result.destination, "source": source}
+                   "destination": result.destination, "source": source,
+                   "source_type": provenance.get("source_type"), "source_id": provenance.get("source_id")}
     artifact = operations.execute(
         arguments["request_id"], target, "intent.execute", fingerprint,
         lambda: artifact_service.create_draft(
-            target, "document", _document_content(title, source), title=title,
+            target, "document", _document_content(title, source, provenance), title=title,
             conversation_id=context.conversation_id,
         ),
     )

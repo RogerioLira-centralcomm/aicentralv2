@@ -5,6 +5,7 @@ from unittest.mock import patch
 from aicentralv2.cadu_workspace.intent_engine import interpret
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.contracts import AgentResponse, RequestContext
+from aicentralv2.cadu_workspace.agent_v2.context_builder import previous_assistant_context
 from aicentralv2.cadu_workspace.agent_v2.service import _enrich_source_blocks
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 
@@ -44,6 +45,25 @@ def test_negation_wins_over_project_persistence():
     assert result.intent == "create_artifact"
     assert result.destination == "session"
     assert result.negated is True
+
+
+@pytest.mark.parametrize("phrase", [
+    "joga esse resumo no projeto",
+    "adicione esse conteúdo ao projeto",
+    "faz um documento com esse material",
+    "salva esta pesquisa no projeto",
+    "joga isso no projeto",
+    "faz um doc disso",
+    "guarda isso pra mim",
+])
+def test_informal_reference_preserves_the_complete_previous_answer(phrase):
+    answer = "Resumo completo.\n\n" + " ".join(["Evidência detalhada da pesquisa."] * 100)
+    selected = previous_assistant_context(phrase, [
+        {"id": "assistant-message-42", "role": "assistant", "content": answer},
+    ])
+    assert selected["type"] == "assistant_response"
+    assert selected["text"] == answer
+    assert selected["source_message_id"] == "assistant-message-42"
 
 
 def test_public_mcp_requires_source_for_host_pronoun():
@@ -111,10 +131,16 @@ def test_mcp_executes_informal_persistence_with_explicit_source_and_idempotency_
         result = load_builtin_tools().execute("intent.execute", {
             "request_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "request": "joga isso no projeto",
-            "source": {"content": "Resumo verificado\n\nSegundo parágrafo."},
+            "source": {"type": "cadu_message", "id": "assistant-message-42",
+                       "content": "Resumo verificado\n\nSegundo parágrafo."},
             "title": "Resumo", "confirmed": True,
         }, context, "customer_agent")
     assert result["artifact_id"] == "artifact-1"
     assert result["project_ref"] == "project:9"
     assert create.call_args.args[0].project_ref == "project:9"
     assert "<p>Resumo verificado</p>" in create.call_args.args[2]["html"]
+    assert create.call_args.args[2]["_provenance"] == {
+        "conversation_id": "conv-1",
+        "source_type": "cadu_message",
+        "source_id": "assistant-message-42",
+    }

@@ -2,15 +2,17 @@
 
 import json
 import re
+import unicodedata
 from dataclasses import replace
 from uuid import uuid4
 
+from flask import current_app
 from ....cadu_family import repository
 from ....db import get_db
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
 from ...project_portfolio_service import attach_summaries
-from ... import project_context_service, project_source_service, workspace_ingestion_service
+from ... import project_context_service, project_resource_service, project_task_service, project_source_service, workspace_ingestion_service
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -504,7 +506,7 @@ def get_project_context(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="workspace.search_project_content", capability="workspace", requires_project=True,
-    description="Pesquisa somente no conteúdo indexado e nos dados do projeto atual.",
+    description="Pesquisa direção, metadados, biblioteca, atividades, tarefas, links e fontes indexadas do projeto atual, com origem e peso.",
     exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object",
@@ -514,20 +516,119 @@ def get_project_context(context: RequestContext, arguments: dict) -> dict:
     },
 )
 def search_project_content(context: RequestContext, arguments: dict) -> dict:
+    _native_project_id(context)
     query = " ".join(str(arguments.get("query") or "").split())
     if len(query) < 2:
         raise ToolInputError("Informe o que deve ser pesquisado no projeto.")
     packet = get_project_context(context, {"query": query})
     direction = packet.get("direction") or {}
-    context_results = project_context_service.search_context(direction, query)
+    context_results = project_context_service.context_items(direction)
     source_results = [{**item, "result_type": "indexed_source"}
                       for item in (packet.get("fontes_verificadas") or [])]
+    def tokens(value):
+        folded = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").lower()
+        return {word for word in re.findall(r"[a-z0-9]{3,}", folded)
+                if word not in {"para", "como", "esse", "essa", "este", "esta", "sobre", "projeto", "dados", "conteudo", "quais", "qual", "com", "dos", "das", "uma", "por", "pesquisa", "pesquise", "busque", "buscar", "mostre", "tudo", "todos"}}
+
+    terms = tokens(query)
+    def relevance(title, detail="", *, base=0):
+        title_terms, detail_terms = tokens(title), tokens(detail)
+        matched = len(terms & title_terms) * 4 + len(terms & detail_terms)
+        return base + matched if matched or not terms else 0
+
+    resource_results = []
+    reference_activity_results = []
+    unavailable = []
+    if packet.get("retrieval_status") == "unavailable":
+        unavailable.append("indexed_sources")
+    registry_pending = False
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("SELECT to_regclass('public.cadu_project_resource_jobs') IS NOT NULL AS available")
+            if (cursor.fetchone() or {}).get("available"):
+                cursor.execute("""SELECT COALESCE((
+                    SELECT status IN ('queued','running','failed')
+                      FROM cadu_project_resource_jobs
+                     WHERE client_id=%s AND project_ref=%s
+                     ORDER BY created_at DESC, id DESC LIMIT 1
+                ), FALSE) AS pending""", (context.client_id, context.project_ref))
+                registry_pending = bool((cursor.fetchone() or {}).get("pending"))
+    except Exception:
+        current_app.logger.exception("Estado do indexador indisponível na pesquisa unificada")
+        unavailable.append("resource_index_status")
+    try:
+        resources = project_resource_service.list_for_context(context).get("resources") or []
+        for item in resources:
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            details = " ".join(str(metadata.get(key) or "") for key in
+                               ("description", "context_summary", "user_message", "project_item_kind", "resource_kind", "platform"))
+            item_kind = str(metadata.get("project_item_kind") or "")
+            details += " " + {"activity": "atividade", "decision": "decisão", "task": "tarefa"}.get(item_kind, "")
+            score = relevance(item.get("title"), details, base=2)
+            if not score:
+                continue
+            resource_results.append({
+                "result_type": "project_resource", "resource_id": str(item.get("id") or ""),
+                "resource_type": item.get("resource_type"), "title": item.get("title"),
+                "category": item.get("category"), "status": item.get("status"),
+                "source_system": item.get("source_system"), "locator": item.get("locator"),
+                "description": details[:600], "score": score,
+                "updated_at": item.get("source_updated_at") or item.get("last_seen_at"),
+                "evidence_level": "metadata_only",
+            })
+            if item_kind in {"activity", "decision", "task"}:
+                timeline = metadata.get("timeline") if isinstance(metadata.get("timeline"), dict) else {}
+                reference_activity_results.append({
+                    "result_type": "project_activity", "resource_id": str(item.get("id") or ""),
+                    "activity_kind": item_kind, "title": timeline.get("label") or item.get("title"),
+                    "description": str(metadata.get("context_summary") or metadata.get("user_message") or "")[:600],
+                    "occurred_at": timeline.get("occurred_at") or item.get("source_created_at"),
+                    "score": score + 1, "evidence_level": "saved_project_metadata",
+                })
+    except Exception:
+        current_app.logger.exception("Inventário do projeto indisponível na pesquisa unificada")
+        unavailable.append("project_resources")
+    task_results = []
+    try:
+        for item in (project_task_service.list_tasks(context).get("tasks") or []):
+            score = relevance(item.get("title"), item.get("description"), base=3)
+            if score:
+                task_results.append({
+                    "result_type": "project_activity", "task_id": str(item.get("id") or ""),
+                    "title": item.get("title"), "description": str(item.get("description") or "")[:600],
+                    "status": item.get("status"), "priority": item.get("priority"),
+                    "due_at": item.get("due_at"), "updated_at": item.get("updated_at"),
+                    "score": score, "evidence_level": "saved_project_data",
+                })
+    except Exception:
+        current_app.logger.exception("Atividades do projeto indisponíveis na pesquisa unificada")
+        unavailable.append("project_activities")
+    resource_results.sort(key=lambda item: item["score"], reverse=True)
+    task_results.extend(reference_activity_results)
+    task_results.sort(key=lambda item: item["score"], reverse=True)
+    ranked = ([{**item, "result_type": "project_context", "score": score,
+                "evidence_level": "saved_project_data"}
+               for item in context_results
+               if (score := relevance(item.get("label"), item.get("display_value"), base=6))]
+              + [{**item, "score": 4 + float(item.get("score") or 0),
+                  "evidence_level": "indexed_content"} for item in source_results]
+              + resource_results + task_results)
+    ranked.sort(key=lambda item: item.get("score") or 0, reverse=True)
     return {
         "project_ref": context.project_ref,
         "query": query,
         "revision": direction.get("revision"),
         "project": packet.get("projeto") or {},
-        "context_results": context_results,
+        "context_results": [item for item in ranked if item.get("result_type") == "project_context"],
         "source_results": source_results,
-        "results": [*context_results, *source_results],
+        "resource_results": resource_results[:20], "activity_results": task_results[:15],
+        "results": ranked[:30],
+        "unavailable_scopes": unavailable,
+        "resource_index_pending": registry_pending,
+        "source_retrieval_status": packet.get("retrieval_status") or "unknown",
+        "evidence_rule": (
+            "Links e recursos sem conteúdo indexado comprovam apenas seus metadados; não afirme ter lido o destino. "
+            "Se resource_index_pending for verdadeiro, o inventário pode estar desatualizado; "
+            "se unavailable_scopes não estiver vazio, informe a cobertura parcial."
+        ),
     }

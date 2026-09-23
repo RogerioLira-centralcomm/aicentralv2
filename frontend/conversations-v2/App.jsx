@@ -720,15 +720,19 @@ export default function App({bootstrap}) {
           setRuntime('Entendendo o pedido');
         } else if (kind === 'route.selected') {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
-          if (event.policy?.artifact_type) {
-            pendingArtifact = {tabKey: `pending:${turnId}`, type: event.policy.artifact_type, title: 'Preparando entrega', pending: true};
+          if (event.target_artifact?.title) {
+            setRuntime(`Revisando ${event.target_artifact.title}`);
+            trace('Documento selecionado para revisão', event.target_artifact.title);
+          }
+          if (event.policy?.artifact_type && !String(event.route?.action || '').startsWith('update_')) {
+            pendingArtifact = {tabKey: `pending:${turnId}`, type: event.policy.artifact_type, title: event.target_artifact?.title || 'Preparando entrega', pending: true};
             setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== pendingArtifact.tabKey), pendingArtifact]);
             if (!artifactRef.current || !artifactOpen) {
               setArtifact(pendingArtifact); artifactRef.current = pendingArtifact; setArtifactOpen(true);
             }
           }
-          setRuntime('Preparando o contexto');
-          trace('Preparando contexto');
+          if (!event.target_artifact?.title) setRuntime('Preparando o contexto');
+          trace(event.target_artifact?.title ? 'Lendo o documento atual' : 'Preparando contexto');
         }
         else if (kind === 'tool.started') {
           if (event.name === 'web.search') setRuntime('Buscando fontes relevantes');
@@ -775,11 +779,12 @@ export default function App({bootstrap}) {
               const withoutPending = items.filter(item => artifactKey(item) !== pendingArtifact?.tabKey && artifactKey(item) !== artifactKey(latestArtifact));
               return [...withoutPending, latestArtifact];
             });
-            if (!artifactRef.current || artifactKey(artifactRef.current) === pendingArtifact?.tabKey) {
+            if (event.revised || !artifactRef.current || artifactKey(artifactRef.current) === pendingArtifact?.tabKey
+                || artifactKey(artifactRef.current) === artifactKey(latestArtifact)) {
               setArtifact(latestArtifact); artifactRef.current = latestArtifact; setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true);
             }
           }
-          trace('Entrega criada', event.artifact?.title || '');
+          trace(event.revised ? 'Documento revisado' : 'Entrega criada', event.artifact?.title || '');
         } else if (kind === 'provider.first_token') {
           setRuntime('Escrevendo a resposta');
         } else if (kind === 'answer.delta') {

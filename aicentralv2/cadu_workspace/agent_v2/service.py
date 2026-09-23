@@ -2,6 +2,8 @@
 
 import json
 import re
+import unicodedata
+from html import unescape
 from dataclasses import asdict, replace
 from time import perf_counter
 from urllib.parse import urlparse
@@ -16,10 +18,12 @@ from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
 from ..conversations.guardrails import validate_files
 from ..artifacts import create_draft, get_artifact, patch_artifact
+from ..artifacts.service import list_artifacts
 from . import provider
 from .executor import prepare_execution
 from .guardrails import normalize_response
 from .request_context import resolve
+from .contracts import ActiveObject
 from . import journal
 from .context_builder import (
     ConversationContextBuilder,
@@ -40,6 +44,106 @@ PROJECT_MAP_GROUP_MAX_HEIGHT = 520
 
 def _event(kind, **values):
     return "data: " + json.dumps({"event": kind, **values}, ensure_ascii=False, default=str) + "\n\n"
+
+
+def _plain(value):
+    folded = unicodedata.normalize("NFKD", str(value or "").casefold())
+    return " ".join(re.findall(r"[a-z0-9]+", "".join(char for char in folded if not unicodedata.combining(char))))
+
+
+def _revision_summary(before, after):
+    """Describe changed document sections from persisted content, not model claims."""
+    def sections(content):
+        markup = str((content or {}).get("html") or "")
+        headings = list(re.finditer(r"<h[1-3]\b[^>]*>(.*?)</h[1-3]>", markup, re.I | re.S))
+        return {
+            _plain(unescape(re.sub(r"<[^>]+>", "", match.group(1)))): (
+                unescape(re.sub(r"<[^>]+>", "", match.group(1))).strip(),
+                unescape(re.sub(r"<[^>]+>", " ", markup[match.end():headings[index + 1].start() if index + 1 < len(headings) else len(markup)]))
+            )
+            for index, match in enumerate(headings)
+        }
+    old_sections, new_sections = sections(before), sections(after)
+    changed = [(new_sections.get(name) or old_sections[name])[0]
+               for name in dict.fromkeys([*old_sections, *new_sections])
+               if old_sections.get(name) != new_sections.get(name)]
+    if changed:
+        return "Seções revisadas: " + ", ".join(changed[:4])[:420]
+    keys = [key for key in dict.fromkeys([*(before or {}), *(after or {})])
+            if key not in {"title", "_provenance"} and (before or {}).get(key) != (after or {}).get(key)]
+    return "Campos revisados: " + ", ".join(keys[:5]) if keys else "Título atualizado"
+
+
+def _revision_target(message, context, previous_messages):
+    """Resolve a named document or section across the conversation and active project."""
+    if not re.search(r"\b(?:mud|alter|revis|atualiz|corrig|edit|ajust|melhor|inclu|acrescent|reescrev|refin|apliqu|aplicar|implement|j[aá]\s+est[aá]\s+decid|n[aã]o\s+precisa\s+mais)", message, re.I):
+        return context
+    section = re.search(r"\b(?:parte|se[cç][aã]o|trecho|bloco|t[oó]pico)\s+[“\"]?([^\n,.;:!?\"”]{5,100})", message, re.I)
+    section_name = _plain(re.split(r"\s+(?:isso|que\s+j[aá]|porque|pois)\b", section.group(1), maxsplit=1, flags=re.I)[0]) if section else ""
+    request_text = _plain(message)
+    active_id = context.active_object.id if context.active_object and context.active_object.type.startswith("artifact:") else ""
+    candidates = []
+    for item in reversed(previous_messages[-40:]):
+        metadata = item.get("metadata") if isinstance(item, dict) else None
+        artifact_id = metadata.get("artifact_id") if isinstance(metadata, dict) else None
+        if artifact_id and str(artifact_id) not in candidates:
+            candidates.append(str(artifact_id))
+    if active_id and active_id not in candidates:
+        candidates.insert(0, active_id)
+    conversation_candidates = set(candidates)
+    if context.project_ref and (section_name or re.search(r"\b(?:briefing|documento|plano|relat[oó]rio|apresenta[cç][aã]o)\b", message, re.I)):
+        try:
+            candidates.extend(str(item["id"]) for item in list_artifacts(context, limit=20)
+                              if str(item["id"]) not in candidates)
+        except Exception:
+            pass
+    matches = []
+    authorized = []
+    for index, artifact_id in enumerate(dict.fromkeys(candidates)):
+        try:
+            artifact = get_artifact(context, artifact_id)
+        except Exception:
+            continue
+        authorized.append(artifact)
+        title = _plain(artifact.get("title"))
+        content = _plain(json.dumps(artifact.get("content") or {}, ensure_ascii=False))
+        title_named = len(title) >= 8 and title not in {"resultado do trabalho", "documento editavel"} and title in request_text
+        section_found = len(section_name) >= 8 and section_name in content
+        score = (100 if section_found else 0) + (80 if title_named else 0) + (15 if artifact_id == active_id else 0) - index
+        if section_name and not section_found and not title_named:
+            continue
+        matches.append((score, artifact, section_found, title_named))
+    if not matches:
+        if section_name:
+            return replace(context, active_object=None, selected_context={
+                "type": "artifact_missing", "text": f"Não encontrei um arquivo autorizado com a seção: {section_name}",
+            })
+        fallback = next((item for item in authorized if str(item["id"]) == active_id), None)
+        recent = [item for item in authorized if str(item["id"]) in conversation_candidates]
+        if not fallback and len(recent) == 1:
+            fallback = recent[0]
+        if not fallback and len(authorized) == 1:
+            fallback = authorized[0]
+        named_kind = next((kind for kind in ("briefing", "plano de midia", "relatorio", "apresentacao")
+                           if kind in request_text), "")
+        if fallback and named_kind and named_kind not in _plain(fallback.get("title")):
+            fallback = None
+        if fallback:
+            return replace(context, active_object=ActiveObject(f"artifact:{fallback['type']}", str(fallback["id"])))
+        return context
+    matches.sort(key=lambda pair: pair[0], reverse=True)
+    named_matches = [item for item in matches if item[3]]
+    section_matches = [item for item in matches if item[2]]
+    ambiguous = named_matches if len(named_matches) > 1 else (
+        section_matches if section_name and not named_matches and len(section_matches) > 1 else []
+    )
+    if ambiguous:
+        names = [str(item[1].get("title") or "Documento") for item in ambiguous][:3]
+        return replace(context, active_object=None, selected_context={
+            "type": "artifact_ambiguity", "text": "Mais de um arquivo corresponde ao pedido: " + "; ".join(names),
+        })
+    artifact = matches[0][1]
+    return replace(context, active_object=ActiveObject(f"artifact:{artifact['type']}", str(artifact["id"])))
 
 
 def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
@@ -496,6 +600,7 @@ def prepare(data):
     previous_messages = (repository.conversation_messages(
         current.user_id, current.client_id, conversation_id
     ) if identity.conversation_supplied else []) or []
+    current = _revision_target(message, current, previous_messages)
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
     builder = ConversationContextBuilder()
     try:
@@ -645,8 +750,13 @@ def stream(run):
         context_diagnostics=run.get("context_diagnostics") or {},
         rollout=run.get("rollout") or {},
     )
-    _journal(run["run_id"], "route.selected", {"route": run["route"], "policy": run["policy"]})
-    yield _event("route.selected", route=run["route"], policy=run["policy"])
+    target = (getattr(run["resolved_context"], "values", {}) or {}).get("artifacts.get") or {}
+    target_summary = (
+        {"id": str(target.get("id")), "title": str(target.get("title") or "Documento")[:180]}
+        if target.get("id") else None
+    )
+    _journal(run["run_id"], "route.selected", {"route": run["route"], "policy": run["policy"], "target_artifact": target_summary})
+    yield _event("route.selected", route=run["route"], policy=run["policy"], target_artifact=target_summary)
     waiting_actions = journal.waiting_actions(
         run["run_id"], run["context"].client_id, run["context"].user_id,
     )
@@ -685,7 +795,30 @@ def stream(run):
     try:
         route_action = str(run["route"].get("action") or "")
         workspace_action = None
-        if route_action in WORKSPACE_ONLY_ACTIONS:
+        if route_action == "choose_artifact":
+            selection = run["context"].selected_context or {}
+            if selection.get("type") == "artifact_ambiguity":
+                titles = [title.strip() for title in str(selection.get("text") or "").partition(":")[2].split(";") if title.strip()][:3]
+                if len(titles) != len(set(_plain(title) for title in titles)):
+                    answer_chunks.append(json.dumps({
+                        "answer": "Encontrei arquivos com o mesmo título. Abra o arquivo certo e peça para aplicar a revisão nele.",
+                        "ui": {"blocks": []},
+                    }, ensure_ascii=False))
+                else:
+                    answer_chunks.append(json.dumps({
+                        "answer": "Encontrei mais de um arquivo que corresponde ao pedido. Escolha onde devo aplicar a revisão.",
+                        "ui": {"blocks": [{"type": "questions", "title": "Escolha o arquivo", "items": [{
+                            "id": "artifact-choice", "question": "Em qual arquivo devo aplicar a revisão pedida anteriormente?",
+                            "required": True, "allow_custom": True, "options": titles,
+                        }]}]},
+                    }, ensure_ascii=False))
+            else:
+                answer_chunks.append(json.dumps({
+                    "answer": "Não encontrei a seção indicada nos arquivos disponíveis. Abra o documento que quer revisar ou informe o título dele.",
+                    "ui": {"blocks": []},
+                }, ensure_ascii=False))
+            provider_events = ()
+        elif route_action in WORKSPACE_ONLY_ACTIONS:
             workspace_action = action_link(
                 route_action, project_ref=run["context"].project_ref,
                 brand_ref=run["context"].brand_ref,
@@ -798,14 +931,29 @@ def stream(run):
                     existing_artifact = get_artifact(run["context"], active.id)
                 else:
                     existing_artifact = None
-                if existing_artifact and existing_artifact.get("type") == artifact_type:
-                    artifact = patch_artifact(
-                        run["context"], active.id,
-                        {**(existing_artifact.get("content") or {}), **artifact_content},
-                        expected_version=existing_artifact["current_version"],
-                        title=artifact_title,
-                        change_summary="Revisão pelo Cadu",
-                    )
+                revised_artifact = bool(existing_artifact and existing_artifact.get("type") == artifact_type)
+                if revised_artifact:
+                    # A revision changes the document body. Keep its identity and
+                    # title unless the user explicitly asked to rename it.
+                    if not re.search(r"\b(?:renome\w*|mud\w*\s+o\s+t[ií]tulo|alter\w*\s+o\s+t[ií]tulo)\b", run["message"], re.I):
+                        artifact_title = existing_artifact["title"]
+                    if "title" in artifact_content or "title" in (existing_artifact.get("content") or {}):
+                        artifact_content["title"] = artifact_title
+                    revised_content = {**(existing_artifact.get("content") or {}), **artifact_content}
+                    if (revised_content == (existing_artifact.get("content") or {})
+                            and artifact_title == existing_artifact["title"]):
+                        response.answer = "Não encontrei uma mudança concreta para salvar neste documento. Diga qual trecho quer ajustar."
+                        response.artifact_patch = None
+                    else:
+                        artifact = patch_artifact(
+                            run["context"], active.id, revised_content,
+                            expected_version=existing_artifact["current_version"],
+                            title=artifact_title,
+                            change_summary=_revision_summary(existing_artifact.get("content") or {}, revised_content),
+                        )
+                elif str(run["route"].get("action") or "").startswith("update_"):
+                    response.answer = "Não encontrei o documento certo para revisar. Abra o arquivo ou indique seu título. Nenhuma versão nova foi salva."
+                    response.artifact_patch = None
                 else:
                     artifact = create_draft(
                         replace(run["context"], project_ref=None)
@@ -814,10 +962,13 @@ def stream(run):
                         title=artifact_title,
                         conversation_id=run["conversation_id"],
                     )
-                _complete_step(run["run_id"], "artifact", {"artifact_id": str(artifact["id"])})
-                _journal(run["run_id"], "artifact.created", {"artifact_id": str(artifact["id"]),
-                         "type": artifact_type}, item_type="artifact")
-                yield _event("artifact.created", artifact=artifact)
+                if artifact:
+                    _complete_step(run["run_id"], "artifact", {"artifact_id": str(artifact["id"])})
+                    _journal(run["run_id"], "artifact.created", {"artifact_id": str(artifact["id"]),
+                             "type": artifact_type}, item_type="artifact")
+                    yield _event("artifact.created", artifact=artifact, revised=revised_artifact)
+            elif str(run["route"].get("action") or "").startswith("update_") and artifact_type:
+                response.answer = "Não consegui aplicar a revisão ao documento. Nenhuma versão nova foi salva."
             _complete_step(run["run_id"], "generate", {"answer_chars": len(response.answer)})
             _journal(run["run_id"], "answer.completed", {"response": asdict(response)}, item_type="message")
             yield _event("answer.completed", response=asdict(response))

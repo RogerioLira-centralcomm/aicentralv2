@@ -12,6 +12,21 @@ const labels = {
   library: 'Biblioteca',
 };
 
+function comparableLines(content) {
+  const html = String(content?.html || '');
+  if (html) return html.split(/<\/(?:p|li|h[1-6]|blockquote|div)>/i)
+    .map(part => part.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  return Object.entries(content || {}).filter(([key]) => !['title', '_provenance'].includes(key))
+    .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`);
+}
+
+function versionChanges(before, after) {
+  const oldLines = comparableLines(before), newLines = comparableLines(after);
+  const oldSet = new Set(oldLines), newSet = new Set(newLines);
+  return {removed: oldLines.filter(line => !newSet.has(line)).slice(0, 12), added: newLines.filter(line => !oldSet.has(line)).slice(0, 12)};
+}
+
 function LibraryArtifact({artifact, onOpenResource}) {
   const groups = Array.isArray(artifact.content?.groups) ? artifact.content.groups : [];
   const drag = (event, item) => {
@@ -484,6 +499,8 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
+  const [comparison, setComparison] = useState(null);
+  const [comparingVersion, setComparingVersion] = useState(null);
   const [closing, setClosing] = useState(false);
   const [lightTheme, setLightTheme] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -565,9 +582,18 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   };
   const openVersions = async () => {
     setLoadingVersions(true);
+    setComparison(null);
     dialog.current?.showModal();
     await onLoadVersions();
     setLoadingVersions(false);
+  };
+  const compareVersion = async version => {
+    setComparingVersion(version);
+    try {
+      const data = await request(`/workspace/api/v2/artifacts/${encodeURIComponent(artifact.id)}/versions/${version}`);
+      setComparison({version, ...versionChanges(data.version?.content, artifact.content)});
+    } catch (error) { setComparison({version, error: error.message || 'Não foi possível comparar as versões.'}); }
+    finally { setComparingVersion(null); }
   };
   if (!artifact) return null;
   return <aside className={`cv-artifact-panel cv-artifact-overlay cv-artifact-panel--${side} cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label="Entrega">
@@ -606,13 +632,14 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
       </details>}
       <button type="button" onClick={requestClose} className={`cv-artifact-return cv-grid cv-h-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05] ${mobile ? 'is-mobile' : 'cv-w-8'}`} aria-label={mobile ? 'Voltar à conversa' : 'Fechar entrega'}><Icon name={mobile ? 'chevron' : 'close'} size={17}/>{mobile && <span>Conversa</span>}</button>
     </header>
+    {artifact.current_version > 1 && artifact.change_summary && !artifact.pending && <div className="cv-flex cv-items-center cv-gap-3 cv-border-b cv-border-white/[.07] cv-bg-[#173a35] cv-px-4 cv-py-2 cv-text-xs" role="status"><strong className="cv-whitespace-nowrap cv-text-[#9ee1cd]">Versão {artifact.current_version}</strong><span className="cv-min-w-0 cv-flex-1 cv-truncate cv-text-[#d4e8e0]" title={artifact.change_summary}>{artifact.change_summary.replace(/^Cadu:\s*/, '')}</span><button type="button" onClick={openVersions} className="cv-whitespace-nowrap cv-border-0 cv-bg-transparent cv-text-[#9ee1cd] cv-underline">Ver versões</button></div>}
     <div className="cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-auto">{contentView}</div>
     {!artifact.pending && type === 'image' && <footer className="cv-image-metadata" aria-label="Informações da imagem"><dl><div><dt>Dimensões</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${imageMetadata.width} × ${imageMetadata.height} px` : 'Carregando…'}</dd></div><div><dt>Resolução</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${((imageMetadata.width * imageMetadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : '—'}</dd></div><div><dt>Arquivo</dt><dd>{formatFileSize(imageMetadata?.bytes)}</dd></div></dl></footer>}
     {publicLink && <div className="cv-artifact-public-link"><span>Link publicado</span><input aria-label="Link publicado" readOnly value={publicLink} onFocus={event => event.target.select()}/><a href={publicLink} target="_blank" rel="noreferrer">Abrir</a></div>}
     {!artifact.pending && artifact.id && type !== 'image' && <footer className="cv-artifact-actions"><span>{saving ? 'Salvando…' : dirty ? 'Alterações pendentes' : artifact.status === 'active' && artifact.project_ref ? 'Versão final no projeto' : artifact.project_ref ? 'Salva no projeto' : 'Rascunho salvo automaticamente'}</span><div>{projectRef && type !== 'link_reader' && indexable && <button type="button" onClick={onSaveToProject} disabled={saving} className="cv-artifact-actions__project">{artifact.status === 'active' && artifact.project_ref ? 'Atualizar fonte do projeto' : 'Finalizar e indexar no projeto'}</button>}{projectRef && type !== 'link_reader' && !indexable && !artifact.project_ref && <button type="button" onClick={onAttachToProject} disabled={saving} className="cv-artifact-actions__project">Salvar no projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">Salvar agora</button>}</div></footer>}
     <dialog ref={dialog} className="cv-dialog cv-w-[min(540px,calc(100vw-32px))] cv-p-0">
       <section><header className="cv-flex cv-items-center cv-justify-between cv-border-b cv-border-white/10 cv-p-5"><div><h2 className="cv-m-0 cv-text-base">Versões</h2><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-text-mist">Restaure uma revisão anterior.</p></div><button type="button" onClick={() => dialog.current?.close()} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent"><Icon name="close" size={16}/></button></header>
-        <div className="cv-scroll cv-max-h-[55vh] cv-overflow-y-auto cv-p-3">{loadingVersions ? <p className="cv-p-3 cv-text-sm cv-text-mist">Carregando…</p> : versions.length ? versions.map(item => <article key={item.version} className="cv-flex cv-items-center cv-gap-4 cv-rounded-xl cv-p-3 hover:cv-bg-white/[.04]"><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm">Versão {item.version}</strong><small className="cv-mt-1 cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-xs cv-text-mist">{item.change_summary || 'Revisão da entrega'}</small></div><button type="button" disabled={Number(item.version) === Number(artifact.current_version)} onClick={async () => { await onRestoreVersion(item.version); dialog.current?.close(); }} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{Number(item.version) === Number(artifact.current_version) ? 'Atual' : 'Restaurar'}</button></article>) : <p className="cv-p-3 cv-text-sm cv-text-mist">Nenhuma versão disponível.</p>}</div>
+        <div className="cv-scroll cv-max-h-[55vh] cv-overflow-y-auto cv-p-3">{loadingVersions ? <p className="cv-p-3 cv-text-sm cv-text-mist">Carregando…</p> : versions.length ? versions.map(item => <article key={item.version} className="cv-flex cv-items-center cv-gap-4 cv-rounded-xl cv-p-3 hover:cv-bg-white/[.04]"><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm">Versão {item.version}</strong><small className="cv-mt-1 cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-xs cv-text-mist">{item.change_summary || 'Revisão da entrega'}</small></div><button type="button" disabled={Number(item.version) === Number(artifact.current_version) || comparingVersion !== null} onClick={() => compareVersion(item.version)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{comparingVersion === item.version ? 'Comparando…' : 'Comparar'}</button><button type="button" disabled={Number(item.version) === Number(artifact.current_version)} onClick={async () => { await onRestoreVersion(item.version); dialog.current?.close(); }} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{Number(item.version) === Number(artifact.current_version) ? 'Atual' : 'Restaurar'}</button></article>) : <p className="cv-p-3 cv-text-sm cv-text-mist">Nenhuma versão disponível.</p>}{comparison && <section className="cv-m-3 cv-rounded-xl cv-border cv-border-white/10 cv-p-4" aria-live="polite"><h3 className="cv-m-0 cv-text-sm">Versão {comparison.version} → atual</h3>{comparison.error ? <p className="cv-text-xs cv-text-mist">{comparison.error}</p> : <div className="cv-mt-3 cv-grid cv-gap-4 md:cv-grid-cols-2"><div><strong className="cv-text-xs cv-text-[#e8b4a9]">Trechos removidos ou substituídos</strong>{comparison.removed.length ? comparison.removed.map((line, index) => <p key={index} className="cv-mb-0 cv-mt-2 cv-text-xs cv-text-mist">{line}</p>) : <p className="cv-text-xs cv-text-mist">Nenhum trecho textual removido.</p>}</div><div><strong className="cv-text-xs cv-text-[#9ee1cd]">Trechos adicionados ou revisados</strong>{comparison.added.length ? comparison.added.map((line, index) => <p key={index} className="cv-mb-0 cv-mt-2 cv-text-xs cv-text-mist">{line}</p>) : <p className="cv-text-xs cv-text-mist">Nenhum trecho textual adicionado.</p>}</div></div>}</section>}</div>
       </section>
     </dialog>
   </aside>;

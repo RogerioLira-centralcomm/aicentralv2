@@ -39,6 +39,9 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         routed_message, request.surface, bool(request.project_ref),
         request.active_object.type if request.active_object else "", bool(request.brand_ref),
     )
+    if (request.selected_context or {}).get("type") in {"artifact_ambiguity", "artifact_missing"}:
+        route = replace(route, action="choose_artifact", complexity="low", response_mode="clarification",
+                        needs_context=(), needs_tools=(), artifact_type=None, requires_confirmation=False)
     selected = getattr(request, "selected_context", None) or {}
     previous_text = str(selected.get("text") or "") if selected.get("type") == "assistant_response" else ""
     planning_terms = bool(re.search(
@@ -119,7 +122,8 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "create_client_delivery": "Organizei o conteúdo em uma entrega privada e editável, pronta para sua revisão.",
         "create_substantial_delivery": "Organizei o conteúdo completo em um documento editável para facilitar a revisão.",
         "save_to_project": "Organizei o conteúdo referenciado em um documento editável dentro do projeto ativo.",
-    }.get(route.action, "Organizei o resultado em uma versão editável para você revisar.")
+    }.get(route.action, "Atualizei o documento existente com as decisões desta conversa." if route.action.startswith("update_") and route.artifact_type else "Organizei o resultado em uma versão editável para você revisar.")
+    policy["require_artifact_patch"] = bool(route.action.startswith("update_") and route.artifact_type)
     policy["artifact_scope"] = "session" if route.action in {
         "create_text_draft", "create_client_delivery", "create_substantial_delivery"
     } else "context"

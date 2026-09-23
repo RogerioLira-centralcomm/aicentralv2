@@ -178,7 +178,7 @@ def create_draft(context: RequestContext, artifact_type: str, content: dict, *, 
 def get_artifact(context: RequestContext, artifact_id: str) -> dict:
     with get_db().cursor() as cur:
         cur.execute("""SELECT a.id, a.organization_id, a.client_id, a.project_ref, a.conversation_id, a.type, a.title, a.status,
-                              a.current_version, a.created_by, a.created_at, a.updated_at, v.content
+                              a.current_version, a.created_by, a.created_at, a.updated_at, v.content, v.change_summary
                          FROM cadu_workspace_artifacts a
                          JOIN cadu_workspace_artifact_versions v
                            ON v.artifact_id = a.id AND v.version = a.current_version

@@ -150,6 +150,18 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "describe_project", "low", "analysis",
                            ("project",), ("workspace.get_project_context",))
 
+    project_context_question = _has(
+        text,
+        r"\b(?:quais?|que)\s+(?:dados?|informa[cç][õo]es?|contexto)\b.{0,90}\b(?:projeto|voc[eê]\s+tem|vc\s+tem|dispon[ií]veis?)\b|"
+        r"\b(?:dados?|informa[cç][õo]es?)\s+(?:do|desse|deste)\s+projeto\b|"
+        r"\b(?:o\s+que|quais?)\b.{0,45}\b(?:j[aá]\s+)?(?:sabemos?|temos?)\b.{0,45}\bprojeto\b",
+    )
+    if has_project and project_context_question:
+        rename_requested = _has(text, r"\b(?:mud|alter|troc|renome)\w*\b.{0,55}\b(?:nome|projeto)\b")
+        action = "describe_project_for_rename" if rename_requested else "describe_project"
+        return IntentRoute("workspace", action, "low", "analysis",
+                           ("project",), ("workspace.get_project_context",))
+
     if has_project and _has(text, r"\b(?:listar|liste|mostrar|mostre|ver|quais)\w*\b.{0,45}\btarefas?\b"):
         return IntentRoute("workspace", "list_project_tasks", "low", "analysis",
                            ("project",), ("projects.list_tasks",))
@@ -196,11 +208,23 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "update_project_context", "medium", "decision",
                            ("project",), (), None, True)
     active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
+    asks_for_advice = _has(text, r"\b(?:o\s+que|como|quais?)\b.{0,55}\b(?:mudaria|alteraria|melhoraria|recomendaria|sugere|sugeriria)\b")
     if active_artifact_type in {
         "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html", "meeting_summary", "meeting_agenda",
-    } and _has(text, r"\b(ajust|alter|mud|troqu|revis|atualiz|corrig|edit|refin|melhore\b|melhorar\b)"):
+    } and asks_for_advice:
+        return IntentRoute("workspace", f"review_{active_artifact_type}", "high", "analysis",
+                           ("current_object", "project") if has_project else ("current_object",),
+                           ("artifacts.get", "workspace.search_project_content") if has_project else ("artifacts.get",))
+    if active_artifact_type in {
+        "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html", "meeting_summary", "meeting_agenda",
+    } and not asks_for_advice and _has(text, r"\b(ajust|alter|mud|troqu|revis|atualiz|corrig|edit|refin|melhore\b|melhorar\b|inclu|acrescent|apliqu|aplicar|implement|j[aá]\s+est[aá]\s+decid|n[aã]o\s+precisa\s+mais)"):
+        revision_tools = ("artifacts.get", "workspace.search_project_content") if has_project else ("artifacts.get",)
+        if _has(text, r"\b(?:pesquis|busqu|consult)\w*\b.{0,80}\b(?:web|internet|fonte\s+externa|dados\s+atuais)\b"):
+            revision_tools += ("web.search",)
         return IntentRoute("workspace", f"update_{active_artifact_type}", "high", "artifact_first",
-                           ("current_object",), ("artifacts.get",), active_artifact_type)
+                           ("current_object", "project") if has_project else ("current_object",),
+                           revision_tools,
+                           active_artifact_type)
     if _has(text, r"\b(resumo|ata|s[ií]ntese).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(resumo|ata|s[ií]ntese)\b"):
         return IntentRoute("workspace", "create_meeting_summary", "medium", "artifact_first",
                            ("project",) if has_project else (), (), "meeting_summary")

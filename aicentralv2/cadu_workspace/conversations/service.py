@@ -339,16 +339,19 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                                              WHERE projeto_id = %s AND id_cliente = %s
                                                AND search_vector @@ plainto_tsquery('portuguese', %s)
                                           ORDER BY ordem ASC LIMIT %s''', (project_id, client_id, terms, result_limit))
+                packet['retrieval_status'] = 'lexical_fallback'
             packet['fontes_verificadas'] = [
                 _project_evidence(row, client_id, project_ref)
                 for row in sources
             ]
+            packet.setdefault('retrieval_status', 'complete')
         except Exception:
             # Indexing is additive. A missing legacy chunks table must never
             # suppress the explicitly saved project context.
             if strict_retrieval:
                 raise
             packet['fontes_verificadas'] = []
+            packet['retrieval_status'] = 'unavailable'
     # The payload assembler applies the context budget while preserving valid
     # JSON; slicing here could truncate the packet in the middle of a string.
     return json.dumps(packet, ensure_ascii=False, default=str)

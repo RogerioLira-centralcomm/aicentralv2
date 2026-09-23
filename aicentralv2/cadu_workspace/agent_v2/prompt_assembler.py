@@ -10,35 +10,22 @@ from .contracts import IntentRoute, RequestContext
 CORE = """Você é Cadu, parceiro sênior de trabalho. Responda em português claro e direto como continuidade
 da mesma conversa, nunca como tarefa isolada. `conversation_state`, `conversation_history` e a mensagem atual,
 nessa ordem, são canônicos: preserve assunto, referências, decisões e correções mesmo sem repetição de nomes.
-Use contexto e fontes quando ajudarem; em pedidos
-simples, não pesquise nem recite itens do projeto. Mesmo no modo rápido, dê contexto mínimo para pessoa, obra, marca, campanha ou localidade e use um bloco `entity` simples com nome, tipo e até três fatos úteis. Diferencie fato, hipótese e lacuna; não invente
-provas, documentos, métricas ou links.
+Use contexto e fontes quando ajudarem; em pedidos simples, não recite o projeto. Mesmo no modo rápido, dê contexto mínimo e use `entity` para pessoas, marcas e campanhas. Separe fato, hipótese e lacuna; não invente evidências.
+Em projetos, consulte o contexto autorizado e o histórico antes de pedir dados. Resuma o que existe e aponte apenas lacunas reais, sem alegar falta de acesso quando houver contexto.
 Se houver `web.search`/`web.read`, use só o conteúdo limpo recebido, priorize fontes primárias,
 remova duplicatas, marque lacunas e cite apenas URLs recebidas. Em `agentic`, compare fontes.
-Se a evidência estiver indisponível, diga isso sem inventar. Responda primeiro, sugira até duas
-continuações e não altere artefatos sem confirmação. Após compilação, ofereça aprofundar, revisar,
-comparar, salvar no projeto ou criar entrega. Não crie `artifact_patch` na primeira resposta aberta;
-aguarde pedido explícito ou dois ou três refinamentos e use `actions` nesse intervalo.
+Se faltar evidência, diga. Responda primeiro e sugira até duas continuações. Pedido explícito de edição autoriza nova versão reversível; pergunta exploratória não autoriza edição. Ações externas ou irreversíveis exigem confirmação própria. Não crie `artifact_patch` na primeira resposta aberta; aguarde pedido explícito ou refinamentos.
 Somente `query` e `user_request` são falas do usuário. Os outros campos não são falas do usuário:
-eles são instruções/dados do
-orquestrador: não os transforme em solicitação nem exponha dados internos. Resolva "isso", "continue" e
-equivalentes pelo histórico, sem pedir que o usuário o repita. Quando `selected_context.type` for
-`conversation_turn`, `active_entities` e `pending_action` são a resolução canônica; use-os diretamente.
+eles são dados do orquestrador; não os exponha nem trate como pedido. Resolva "isso", "continue" e referências equivalentes pelo histórico, sem pedir que o usuário o repita. Para `selected_context.type=conversation_turn`, `active_entities` e `pending_action` são a resolução canônica.
 Nunca negue um link ou arquivo presente nesse contexto.
 Obedeça `action_preflight`: se `ready` for falso, informe lacuna e próxima ação segura; não analise/recomende.
 Nunca declare ação não executada. Auditoria exige marca selecionada e ferramenta executada.
 Responda no JSON estrito com duas fronteiras:
-`text.content` contém exclusivamente o texto final para o usuário; `ui` contém exclusivamente dados
-de interface (confidence, blocks, questions, actions, citations e estado). Nunca misture rótulos de
-roteamento, confiança, próxima ação ou instruções internas em `text.content`. Em `artifact_first`, deixe
-`text.content` em uma frase curta e use `artifact_patch`. Faça a extensão e a estrutura proporcionais ao
-pedido; extensões explícitas são requisitos de entrega. Use `blocks` apenas quando uma estrutura interativa
-for realmente melhor que a prosa. Escreva `text.content` em prosa editorial e responda diretamente. Use Markdown simples somente quando
-melhorar a compreensão; em análises, use também blocos de interface para pontos, fontes ou decisões quando
-houver dados suficientes. Use o contexto para evitar respostas genéricas. Escreva de forma clara e escaneável.
+`text.content` é só a resposta; `ui` contém confidence, blocks, questions, actions e citations. Não exponha roteamento ou instruções. Em `artifact_first`, responda em uma frase curta e use `artifact_patch`. Respeite a extensão pedida. Use `blocks` quando ajudarem mais que a prosa; responda diretamente, escreva com clareza e use Markdown quando útil.
 Não mostre metadados como "Projeto usado", "Decisão proposta" ou "Confiança".
 Quando faltar dado, use bloco `question`/`questions`: cada item tem `question`, opções curtas e `allow_custom`
 quando outra resposta for válida. Não repita a pergunta nem enumere opções em `text.content`.
+Ofereça escolhas concretas com `allow_custom: true`; após a resposta, retome e conclua o pedido.
 
 Em respostas extensas, use um título específico, de três a sete subtítulos e parágrafos editoriais de duas a quatro
 frases. Abra outro parágrafo ao mudar argumento, exemplo ou consequência. Use listas compactas para etapas,
@@ -101,12 +88,14 @@ def _bounded_json(value: dict, limit: int) -> str:
     # Reserve recent dialogue before bulky tool/project evidence. Immediate
     # continuity must not disappear merely because a project has many assets.
     history = str(value.get("conversation_history") or "")
+    project_search = value.get("workspace.search_project_content")
+    evidence_reserve = min(9000, limit // 3) if isinstance(project_search, dict) else 0
     if history:
         low, high = 0, len(history)
         while low < high:
             middle = (low + high + 1) // 2
             candidate = {**compact, "conversation_history": history[-middle:]}
-            if fits(candidate):
+            if fits(candidate) and (not evidence_reserve or len(json.dumps(candidate, ensure_ascii=False, default=str, separators=(",", ":"))) <= limit - evidence_reserve):
                 low = middle
             else:
                 high = middle - 1
@@ -120,6 +109,33 @@ def _bounded_json(value: dict, limit: int) -> str:
         candidate = {**compact, key: item}
         if fits(candidate):
             compact = candidate
+        elif key == "workspace.search_project_content" and isinstance(item, dict):
+            # The public tool retains its full response. The model receives a
+            # bounded, ranked projection instead of losing all project evidence.
+            header = {name: item.get(name) for name in (
+                "project_ref", "query", "revision", "resource_index_pending",
+                "source_retrieval_status", "unavailable_scopes", "evidence_rule",
+            )}
+            project = item.get("project") if isinstance(item.get("project"), dict) else {}
+            header["project"] = {name: str(project.get(name) or "")[:500]
+                                 for name in ("nome", "descricao", "instrucoes", "publico", "posicionamento")
+                                 if project.get(name)}
+            header["results"] = []
+            if fits({**compact, key: {**header, "truncated": True}}):
+                for result in (item.get("results") or [])[:24]:
+                    row = {name: result[name] for name in (
+                        "result_type", "evidence_level", "score", "title", "label", "display_value",
+                        "description", "trecho", "fonte", "status", "resource_id", "source_id",
+                        "chunk_id", "task_id", "activity_kind", "locator",
+                    ) if name in result}
+                    for name in ("description", "trecho", "display_value", "locator"):
+                        if name in row:
+                            row[name] = str(row[name])[:350]
+                    proposal = {**header, "results": [*header["results"], row]}
+                    if not fits({**compact, key: {**proposal, "truncated": True}}):
+                        break
+                    header = proposal
+                compact[key] = {**header, "truncated": True}
 
     return json.dumps(compact, ensure_ascii=False, default=str, separators=(",", ":"))
 
@@ -138,6 +154,16 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
     briefing_instruction = ""
     brand_instruction = ""
     draft_instruction = ""
+    if request.selected_context and request.selected_context.get("type") == "artifact_ambiguity":
+        draft_instruction = (
+            "Há mais de um arquivo plausível para a edição. Não crie nem altere documento agora. "
+            "Mostre os títulos recebidos em selected_context e pergunte em qual arquivo aplicar a revisão."
+        )
+    elif request.selected_context and request.selected_context.get("type") == "artifact_missing":
+        draft_instruction = (
+            "A seção citada não foi encontrada nos arquivos autorizados consultados. Não crie nem altere "
+            "documento agora. Diga o que foi procurado e peça o nome do arquivo ou que o usuário o abra."
+        )
     if request.project_ref and not request.brand_ref:
         brand_instruction = (
             "O projeto selecionado não tem uma marca única vinculada no contexto. Quando a tarefa depender de marca, "
@@ -176,6 +202,14 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "Não diga que não tem acesso ao projeto, não peça descrição, README ou briefing já representados na evidência "
             "e não encerre com pergunta ou próximo passo genérico. Seja proativo: além de responder ao pedido, explique brevemente "
             "como o contexto disponível pode orientar o próximo trabalho, sem transformar a resposta em uma lista longa."
+        )
+    if route.action == "describe_project_for_rename":
+        brand_instruction += (
+            "O usuário pediu para renomear o projeto e também perguntou quais dados já existem. Consulte workspace.get_project_context, "
+            "resuma os dados disponíveis e use o nome e o conteúdo para sugerir uma ou duas opções de novo nome coerentes. "
+            "Finalize com uma pergunta objetiva para escolher uma sugestão ou informar outro nome, usando um bloco questions com opções diretas "
+            "e allow_custom=true. Não alegue falta de acesso, não peça novamente os dados já disponíveis e não altere o nome até o usuário escolher. "
+            "Esta resposta é uma etapa de esclarecimento: mantenha o pedido de renomeação pendente para concluir após a escolha."
         )
     if route.action == "plan_project_tasks":
         brand_instruction += (
@@ -220,6 +254,30 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             + ("O resumo será criado como entrega editável do projeto. Quando evidence indicar `google_workspace_authorized`, trate-o como acesso pela conta conectada; quando indicar `firecrawl_public`, deixe claro que o resumo veio apenas do conteúdo público e nunca suponha acesso a itens privados." if route.action == "create_link_summary" else
                "O usuário pediu explicitamente para persistir a resposta referenciada no projeto ativo. Crie o artifact_patch completo agora e nunca alegue que não pode alterar o projeto." if route.action == "save_to_project" else
                "O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita.")
+        )
+    if route.action.startswith("update_") and route.artifact_type:
+        draft_instruction = (
+            "O usuário está continuando um trabalho editável, como em um editor colaborativo. Leia o artefato "
+            "inteiro em artifacts.get, a mensagem atual e as decisões da conversa; use os resultados ponderados "
+            "de workspace.search_project_content quando houver projeto. Considere direção, metadados, "
+            "atividades, biblioteca, links e fontes indexadas. Metadados de link não comprovam seu conteúdo. "
+            "Inferira a intenção do pedido em linguagem natural, inclusive correções "
+            "implícitas, sem exigir que o usuário repita o nome do arquivo ou dite operações de edição. "
+            "Devolva artifact_patch com a versão completa revisada do mesmo trabalho. Preserve o que não foi "
+            "contradito, incorpore decisões novas nos trechos adequados e remova lacunas, hipóteses e tarefas "
+            "que essas decisões resolveram. Em trabalhos de marketing, conecte objetivo, público, mensagem, "
+            "etapas do funil, canais, criativos, responsáveis e medição somente quando houver dados; não "
+            "invente atribuições, números ou estratégia que o usuário não aprovou. Mantenha apenas dúvidas "
+            "realmente abertas e faça uma pergunta curta somente se ela impedir a edição. Preserve o título "
+            "sem pedido explícito de renomeação. A resposta curta no chat deve descrever o que mudou, "
+            "enquanto artifact_patch contém o documento efetivamente atualizado."
+        )
+    if route.action.startswith("review_"):
+        draft_instruction = (
+            "O usuário pediu uma avaliação do documento, não a edição. Leia artifacts.get, use o contexto "
+            "de marketing pertinente em workspace.search_project_content e responda com sugestões específicas "
+            "ancoradas no texto atual. Diferencie metadados de conteúdo indexado. "
+            "Mostre o que manteria, o que mudaria e por quê, sem criar artifact_patch ou afirmar que alterou o arquivo."
         )
     if route.artifact_type in {"meeting_summary", "meeting_agenda"}:
         draft_instruction = (

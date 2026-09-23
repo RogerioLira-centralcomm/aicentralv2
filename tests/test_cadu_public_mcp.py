@@ -68,7 +68,11 @@ def test_project_ref_is_selectable_in_public_tool_arguments_without_changing_int
     task_batch = next(item for item in catalog if item["name"] == "projects.create_tasks")
     initial_tasks = next(item for item in catalog if item["name"] == "projects.create_initial_task_list")
     task_update = next(item for item in catalog if item["name"] == "projects.update_task")
+    project_search = next(item for item in catalog if item["name"] == "workspace.search_project_content")
     assert "project_ref" in upload["inputSchema"]["properties"]
+    assert "project_ref" in project_search["inputSchema"]["properties"]
+    assert "metadados" in project_search["description"]
+    assert project_search["annotations"]["readOnlyHint"] is True
     assert {"resource_kind", "platform", "external_id", "description", "tags"} <= \
         external["inputSchema"]["properties"].keys()
     assert "html" in html["inputSchema"]["properties"]["type"]["enum"]

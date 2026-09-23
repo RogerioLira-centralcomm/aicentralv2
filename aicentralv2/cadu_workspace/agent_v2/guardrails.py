@@ -671,7 +671,8 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         invalid_html_patch = True
     if invalid_html_patch:
         answer = "Não consegui gerar o conteúdo visual desta página. Tente novamente para eu reconstruir o dashboard."
-    artifact_first = (can_materialize_artifact and policy.get("mode") == "artifact_first"
+    artifact_first = (can_materialize_artifact and not policy.get("require_artifact_patch")
+                      and policy.get("mode") == "artifact_first"
                       and policy.get("artifact_type") not in {None, "html", "project_map"})
     if artifact_first and not patch:
         patch = _fallback_artifact(answer, policy)
@@ -680,7 +681,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
         blocks = _fallback_blocks(answer, policy)
     if artifact_first and dense_answer:
         answer = str(policy.get("artifact_chat_message") or "Organizei o resultado em uma versão editável para você revisar.")
-    elif dense_answer and not blocks and policy.get("mode") != "clarification" and can_materialize_artifact:
+    elif dense_answer and not blocks and policy.get("mode") != "clarification" and can_materialize_artifact and not policy.get("require_artifact_patch"):
         patch = patch or _fallback_artifact(answer, policy)
         answer = "Organizei os detalhes em uma versão editável para você revisar."
     elif blocks and not provider_blocks:

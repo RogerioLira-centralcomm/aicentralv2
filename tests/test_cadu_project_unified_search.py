@@ -1,0 +1,149 @@
+"""The project search must distinguish saved data, metadata, and read content."""
+
+from flask import Flask
+
+from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
+from aicentralv2.cadu_workspace.mcp.tools import workspace
+
+
+CONTEXT = RequestContext(
+    organization_id=12, client_id=12, user_id=7, conversation_id=None,
+    surface="workspace", project_ref="ci:project-1", capabilities=("workspace",),
+)
+
+
+class _IndexStatusDb:
+    def __init__(self, pending=False):
+        self.pending = pending
+
+    def cursor(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def execute(self, *_):
+        pass
+
+    def fetchone(self):
+        return {"available": True, "pending": self.pending}
+
+
+def _project_packet():
+    return {
+        "projeto": {"nome": "Campanha de e-mail"},
+        "direction": {"revision": 4},
+        "fontes_verificadas": [{"fonte": "Pesquisa de público", "trecho": "Público B2B", "score": 0.2}],
+    }
+
+
+def test_search_combines_project_direction_resources_tasks_and_indexed_content(monkeypatch):
+    monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
+    monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [
+        {"id": "context:custom:publico", "label": "Público", "display_value": "Público B2B"},
+    ])
+    monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {
+        "resources": [{"id": "resource-1", "resource_type": "link", "title": "Pesquisa de público",
+                       "locator": "https://example.com/pesquisa", "metadata": {"description": "Referência B2B"}}],
+    })
+    monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {
+        "tasks": [{"id": "task-1", "title": "Validar público B2B", "status": "todo"}],
+    })
+
+    result = workspace.search_project_content(CONTEXT, {"query": "público B2B"})
+
+    assert {item["result_type"] for item in result["results"]} == {
+        "project_context", "indexed_source", "project_resource", "project_activity",
+    }
+    assert result["results"][0]["result_type"] == "project_context"
+    assert result["resource_results"][0]["evidence_level"] == "metadata_only"
+    assert result["source_results"][0]["trecho"] == "Público B2B"
+    assert result["unavailable_scopes"] == []
+
+
+def test_search_includes_project_activity_saved_as_reference(monkeypatch):
+    monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
+    monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [])
+    monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {"resources": [{
+        "id": "reference-1", "resource_type": "link", "title": "Reunião de campanha",
+        "metadata": {"project_item_kind": "decision", "context_summary": "Aprovar campanha B2B",
+                     "timeline": {"label": "Decisão de campanha", "occurred_at": "2026-09-23"}},
+    }]})
+    monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {"tasks": []})
+
+    result = workspace.search_project_content(CONTEXT, {"query": "campanha B2B"})
+
+    activity = result["activity_results"][0]
+    assert activity["resource_id"] == "reference-1"
+    assert activity["activity_kind"] == "decision"
+    assert activity["evidence_level"] == "saved_project_metadata"
+
+
+def test_search_reports_partial_inventory_failure_without_losing_saved_context(monkeypatch):
+    monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
+    monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [
+        {"id": "context:standard:audience", "label": "Público", "display_value": "B2B"},
+    ])
+    monkeypatch.setattr(workspace.project_resource_service, "list_for_context",
+                        lambda *_: (_ for _ in ()).throw(RuntimeError("registry unavailable")))
+    monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {"tasks": []})
+
+    with Flask(__name__).app_context():
+        result = workspace.search_project_content(CONTEXT, {"query": "público"})
+
+    assert result["unavailable_scopes"] == ["project_resources"]
+    assert any(item["result_type"] == "project_context" for item in result["results"])
+
+
+def test_search_marks_resource_index_as_pending(monkeypatch):
+    monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb(pending=True))
+    monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [])
+    monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {"resources": []})
+    monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {"tasks": []})
+
+    result = workspace.search_project_content(CONTEXT, {"query": "público"})
+
+    assert result["resource_index_pending"] is True
+
+
+def test_search_does_not_report_unavailable_sources_as_no_matches(monkeypatch):
+    monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
+    monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_: {
+        **_project_packet(), "fontes_verificadas": [], "retrieval_status": "unavailable",
+    })
+    monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [])
+    monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {"resources": []})
+    monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {"tasks": []})
+
+    result = workspace.search_project_content(CONTEXT, {"query": "público"})
+
+    assert result["source_retrieval_status"] == "unavailable"
+    assert "indexed_sources" in result["unavailable_scopes"]
+
+
+def test_search_checks_project_access_before_reading_context(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.registry import ToolInputError
+
+    def denied(_context):
+        raise ToolInputError("Sem acesso")
+
+    monkeypatch.setattr(workspace, "_native_project_id", denied)
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_: (_ for _ in ()).throw(AssertionError("read")))
+    try:
+        workspace.search_project_content(CONTEXT, {"query": "público"})
+    except ToolInputError:
+        pass
+    else:
+        raise AssertionError("A busca deve verificar o acesso antes de consultar dados")

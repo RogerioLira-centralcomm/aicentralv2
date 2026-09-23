@@ -1720,12 +1720,59 @@ def test_direct_dense_answer_never_becomes_an_implicit_artifact():
     assert "artefato ao lado" not in response.answer.lower()
 
 
+def test_revision_without_artifact_patch_does_not_fabricate_a_document():
+    response = normalize_response({"answer": "Revisei a estratégia e atualizei o briefing."}, {
+        "mode": "artifact_first", "artifact_type": "brief", "allow_artifact": True,
+        "require_artifact_patch": True, "max_answer_chars": 1800,
+        "max_questions": 0, "max_next_steps": 0,
+    })
+    assert response.artifact_patch is None
+
+
+def test_missing_section_does_not_fall_back_to_unrelated_active_document(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2.contracts import ActiveObject
+    from dataclasses import replace
+
+    current = replace(context(), active_object=ActiveObject("artifact:brief", "brief-1"))
+    monkeypatch.setattr(v2_service, "get_artifact", lambda *_: {
+        "id": "brief-1", "type": "brief", "title": "Briefing do projeto",
+        "content": {"html": "<h2>Objetivo</h2><p>Campanha</p>"},
+    })
+    monkeypatch.setattr(v2_service, "list_artifacts", lambda *_, **__: [])
+
+    resolved = v2_service._revision_target("Altere a seção Público-alvo com as decisões recentes", current, [])
+
+    assert resolved.active_object is None
+    assert resolved.selected_context["type"] == "artifact_missing"
+
+
 def test_project_search_uses_one_semantic_tool():
     route = route_request("Pesquise nos documentos do projeto o que definimos sobre orçamento", has_project=True)
     assert route.action == "search_project"
     assert route.needs_tools == ("workspace.search_project_content",)
     assert "studio" not in route.needs_context
     assert "reports" not in route.needs_context
+
+
+def test_large_project_search_keeps_ranked_evidence_inside_prompt_budget():
+    route = route_request("Pesquise os documentos do projeto sobre público", has_project=True)
+    search = {
+        "project_ref": "ci:project-1", "query": "público", "project": {"nome": "Campanha"},
+        "results": [{"result_type": "project_resource", "title": f"Público {index}",
+                     "description": "segmentação e campanha " * 45, "score": 6,
+                     "evidence_level": "metadata_only"} for index in range(60)],
+        "resource_index_pending": False, "unavailable_scopes": [],
+    }
+    payload = build_payload(
+        message="Pesquise os documentos do projeto sobre público", request=context(project_ref="ci:project-1"),
+        route=route, resolved={"workspace.search_project_content": search},
+        policy=policy_for(route), user_label="user-7", history="Conversa anterior. " * 1000,
+        max_context_chars=6000,
+    )
+    evidence = json.loads(payload["inputs"]["evidence"])
+    assert len(payload["inputs"]["evidence"]) <= 6000
+    assert evidence["workspace.search_project_content"]["results"]
+    assert evidence["workspace.search_project_content"]["results"][0]["title"] == "Público 0"
 
 
 def test_project_readout_routes_dense_work_to_an_editable_artifact():
@@ -1902,11 +1949,13 @@ def test_new_project_and_brand_open_their_context_surfaces_after_creation():
     })
 
     assert project["open_surface"] == {"type": "project_profile", "project_ref": "ci:project-1"}
-    assert brand["open_surface"] == {"type": "brand_identity", "brand_ref": "studio:81"}
+    assert brand["open_surface"]["type"] == "personal_conversation"
+    assert brand["open_surface"]["brand_ref"] == "studio:81"
+    assert "sem vincular a marca a um projeto automaticamente" in brand["open_surface"]["seed_prompt"]
     assert brand["artifact"] == {"type": "brand_identity", "brand_ref": "studio:81"}
     assert brand["blocks"][1]["items"][0]["url"] == "https://workspace.example/marcas/81"
     assert project["activate_context"] == {"project_ref": "ci:project-1", "brand_ref": None}
-    assert brand["activate_context"] == {"project_ref": None, "brand_ref": "studio:81"}
+    assert brand["activate_context"] == {"project_ref": None, "brand_ref": None}
 
 
 def test_meeting_preflights_google_and_project_recipients():

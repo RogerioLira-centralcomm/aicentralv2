@@ -120,6 +120,11 @@ export function paintAgentPanel() {
   result.append(meta);
 }
 
+export function showSavedAgentPlan(saved) {
+  plan = saved && typeof saved === 'object' && saved.patch ? saved : null;
+  paintAgentPanel();
+}
+
 function paintWorkspaceSpend() {
   if (!state) return;
   const totals = workspaceSpendTotals();

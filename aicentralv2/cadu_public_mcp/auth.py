@@ -37,6 +37,8 @@ class PublicMcpPrincipal:
     label: str
     scopes: tuple[str, ...]
     context: RequestContext
+    credential_type: str = "api_key"
+    grant_id: str | None = None
 
 
 def _hash_key(value: str) -> str:
@@ -53,11 +55,11 @@ def _available() -> bool:
 
 
 def normalize_scopes(scopes=None, *, allow_writes: bool = False) -> tuple[str, ...]:
+    use_defaults = scopes is None
     if isinstance(scopes, str):
         scopes = scopes.split()
-    values = {str(item).strip().lower() for item in (scopes or DEFAULT_SCOPES) if str(item).strip()}
-    if not values:
-        values = set(DEFAULT_SCOPES)
+    source = DEFAULT_SCOPES if use_defaults else scopes
+    values = {str(item).strip().lower() for item in (source or ()) if str(item).strip()}
     # Preserve keys issued before purchases became role-based.
     values.discard("credits:purchase")
     unknown = values - set(CLIENT_SCOPES)
@@ -190,7 +192,9 @@ def _load_key(raw_key: str) -> dict:
 
 def required_scope(tool_name: str) -> str:
     name = str(tool_name or "")
-    if name in {"media.start_studio_session", "media.generate_image"}:
+    if name == "operations.get":
+        return "projects:read"
+    if name in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
         return "projects:content_write"
     if name.startswith("credits."):
         return "credits:read"
@@ -267,10 +271,19 @@ def _public_context(row: dict, params: dict) -> RequestContext:
 
 
 def authenticate(params: dict) -> PublicMcpPrincipal:
-    row = _load_key(_bearer())
+    raw_token = _bearer()
+    credential_type = "api_key"
+    if raw_token.startswith(KEY_PREFIX):
+        row = _load_key(raw_token)
+    else:
+        from . import oauth
+        row = oauth.load_access_token(raw_token)
+        credential_type = "oauth"
     context = _public_context(row, params)
     return PublicMcpPrincipal(
-        key_id=str(row["id"]), client_id=int(row["client_id"]), user_id=int(row["user_id"]),
+        key_id=str(row.get("credential_id") or row.get("id")), client_id=int(row["client_id"]), user_id=int(row["user_id"]),
         client_type=str(row["client_type"]), label=str(row["label"]),
         scopes=normalize_scopes(row.get("scopes"), allow_writes=True), context=context,
+        credential_type=credential_type,
+        grant_id=str(row.get("grant_id")) if row.get("grant_id") else None,
     )

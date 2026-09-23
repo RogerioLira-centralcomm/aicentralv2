@@ -255,4 +255,27 @@
   $('#referenceGrid')?.addEventListener('click', enforceSingleGlobalReference, true); $('#libraryGrid')?.addEventListener('click', enforceSingleGlobalReference, true);
   $('#promptForm')?.addEventListener('submit', () => { state.originalPrompt = $('#promptInput').value.trim(); }, true);
   $('#retryCreation')?.addEventListener('click', () => { hideComposerFeedback(); $('#promptForm').requestSubmit(); });
+  const resumeLinkedSession = async () => {
+    const query = new URLSearchParams(window.location.search);
+    const sessionId = String(query.get('studio_session_id') || '').trim();
+    const clientId = String(query.get('creative_client_id') || '').trim();
+    if (!sessionId || !/^\d+$/.test(clientId)) return;
+    try {
+      const session = await request(`${apiRoot}/format-lab/studio/sessions/${encodeURIComponent(sessionId)}?client_id=${encodeURIComponent(clientId)}`, { headers: { Accept: 'application/json' } });
+      const prompt = String(session.original_prompt || '').trim();
+      if (prompt) { $('#promptInput').value = prompt; state.originalPrompt = prompt; resizePrompt($('#promptInput')); }
+      const assets = Array.isArray(session.assets) ? session.assets : [];
+      const latest = assets.slice().reverse().find(asset => asset.kind === 'image' && asset.asset_url && asset.status !== 'discarded');
+      if (latest) {
+        renderResults([{ image_url: latest.asset_url, asset_id: latest.id }]);
+        $('#resultsView').hidden = false;
+        $('#workspaceEmpty').hidden = true;
+        setState('generated');
+        setHint('Imagem desta sessão recuperada. Você pode continuar no editor ou criar outra versão.');
+      } else if (prompt) setHint('Pedido recuperado da conversa. Revise a direção antes de gerar.');
+    } catch (error) {
+      setHint(error.message || 'Não foi possível recuperar esta sessão do Studio.');
+    }
+  };
+  void resumeLinkedSession();
 })();

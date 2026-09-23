@@ -6,6 +6,7 @@ from hashlib import sha256
 from io import BytesIO
 from json import dumps
 from pathlib import Path
+from urllib.parse import urlencode
 from uuid import UUID
 
 from werkzeug.datastructures import FileStorage
@@ -23,8 +24,12 @@ from .agent_v2.contracts import RequestContext
 from .mcp.registry import ToolInputError
 
 
-def _studio_url(client_id: int, session_id: str) -> str:
-    return product_url("studio", f"/criar?studio_session_id={session_id}&creative_client_id={client_id}")
+def _studio_url(client_id: int, session_id: str, source_url: str = "") -> str:
+    path = "/imagem" if source_url else "/criar"
+    params = {"studio_session_id": session_id, "creative_client_id": client_id}
+    if source_url:
+        params["source"] = source_url
+    return product_url("studio", f"{path}?{urlencode(params)}")
 
 
 def _index_generated_image(context: RequestContext, request_id: str, prompt: str,
@@ -52,6 +57,8 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
     """Compile, direct, render, persist and return a Studio image to an agent."""
     request_id = str(UUID(str(arguments["request_id"])))
     original = str(arguments["prompt"]).strip()
+    source_url = str(arguments.get("source_url") or "").strip()
+    is_edit = bool(source_url)
     brand_id = arguments.get("brand_id")
     modeling = CreativeModelingService()
     personal_client_id = modeling.repository.resolve_client_id(context.client_id, "crm")
@@ -62,6 +69,7 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
     store = _session_store(studio_client_id)
     history = StudioCreationHistory(get_db())
     fingerprint = sha256(dumps({"prompt": original, "brand_id": brand_id,
+                                "source_url": source_url,
                                 "aspect_ratio": arguments.get("aspect_ratio", "1:1"),
                                 "quality": arguments.get("quality", "padrão")},
                                sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
@@ -74,16 +82,17 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
         raise ToolInputError("Esta imagem já está em criação. Consulte novamente em alguns instantes.")
     try:
         session = store.create(studio_client_id, context.user_id, {
-            "studio_type": "create", "title": original[:100], "original_prompt": original,
-            "metadata": {"source": "cadu_mcp", "media_kind": "ad" if brand_id else "image",
+            "studio_type": "edit" if is_edit else "create", "title": original[:100], "original_prompt": original,
+            "metadata": {"source": "cadu_mcp", "media_kind": "image_edit" if is_edit else "ad" if brand_id else "image",
                          "workspace_project_ref": context.project_ref or "",
+                         "source_url": source_url,
                          "mcp_request_id": request_id},
         })
     except Exception as error:
         history.fail_image(request_id, personal_client_id, str(error))
         raise
     session_id = session["id"]
-    studio_url = _studio_url(studio_client_id, session_id)
+    studio_url = _studio_url(studio_client_id, session_id, source_url)
     try:
         brand_context = (select_brand_logo(build_brand_context(modeling.get_client(studio_client_id)), None)
                          if brand_id else {})
@@ -102,7 +111,8 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
         CaduCreditConnector(modeling.credit_ledger).authorize(
             CreditActor.from_values(payer, context.user_id), 1100)
         optimized = studio_prompt.optimize_prompt(
-            original, mode="create", context={"brand_context": brand_context,
+            original, mode="edit" if is_edit else "create", context={"brand_context": brand_context,
+                                               "source_url": source_url,
                                                "aspect_ratio": arguments.get("aspect_ratio", "1:1")},
             text_callable=metered_prompt)
         prompt_charge = {}
@@ -113,16 +123,18 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
                 stage="prompt_optimization", provider_result=provider_calls[-1],
                 fallback_cost=modeling._estimate("prompt"), media=False,
                 metadata={"studio_session_id": session_id, "studio_root_session_id": session_id}) or {}
-        director_context = {"brand_context": brand_context,
+        references = [{"url": source_url, "source": "user", "role": "primary",
+                       "label": "Imagem principal a preservar"}] if is_edit else []
+        director_context = {"brand_context": brand_context, "references": references,
                             "creation_intent": "branded_creative" if brand_id else "neutral_asset",
                             "format": arguments.get("aspect_ratio", "1:1")}
-        studio_create.assert_available(studio_client_id, context.user_id, 1, 0)
+        studio_create.assert_available(studio_client_id, context.user_id, 1, len(references))
         directions, director_provider = studio_create.create(
             {"prompt": optimized["optimized_prompt"], "count": 1, "context": director_context},
             chat_completion)
         director_charge, _ = studio_create.charge(
             director_provider, studio_client_id, context.user_id, 1, "", request_id,
-            studio_session_id=session_id, studio_root_session_id=session_id)
+            reference_count=len(references), studio_session_id=session_id, studio_root_session_id=session_id)
         direction = directions["directions"][0]
         session = store.save(studio_client_id, context.user_id, session_id, {
             "expected_revision": session["revision"], "status": "active",
@@ -134,6 +146,7 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
         })
         payload = {"request_id": request_id, "prompt": direction["prompt"],
                    "reference_plan": direction.get("reference_plan") or [],
+                   "references": references,
                    "aspect_ratio": arguments.get("aspect_ratio", "1:1"),
                    "quality": arguments.get("quality", "padrão"),
                    "creation_intent": "branded_creative" if brand_id else "neutral_asset",
@@ -143,6 +156,7 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
         image_url = rendered["image_url"]
         result = {"status": "completed", "image_url": product_url("studio", image_url),
                   "studio_url": studio_url,
+                  "operation": "image_edit" if is_edit else "image_create",
                   "session_id": session_id, "direction": direction,
                   "charged_credits": (int(rendered.get("charged_credits") or 0)
                                       + int(director_charge or 0)
@@ -177,5 +191,5 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
         history.complete_image(request_id, personal_client_id, result)
         return result
     except Exception as error:
-        history.fail_image(request_id, studio_client_id, str(error))
+        history.fail_image(request_id, personal_client_id, str(error))
         raise

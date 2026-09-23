@@ -3,6 +3,8 @@
 Documentação navegável da versão inicial: [`cadu-mcp-v1.html`](./cadu-mcp-v1.html).
 Arquitetura do agente e fronteira entre Harness, tools, skills e MCP:
 [`cadu-agent-architecture.md`](./cadu-agent-architecture.md).
+Plano de migração do MCP público para OAuth 2.1 e conexão de clientes:
+[`cadu-public-mcp-oauth-plan.md`](./cadu-public-mcp-oauth-plan.md).
 
 Este documento é a referência para criar os próximos servidores MCP sem
 duplicar autorização, regras de tenant ou consultas de produto.

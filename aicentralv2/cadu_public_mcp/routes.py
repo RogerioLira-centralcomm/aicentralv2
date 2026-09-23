@@ -6,8 +6,9 @@ import json
 import secrets
 from copy import deepcopy
 from time import monotonic
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Blueprint, abort, jsonify, render_template, request, send_file, session
+from flask import Blueprint, abort, current_app, jsonify, redirect, render_template, request, send_file, session
 from werkzeug.exceptions import HTTPException
 
 from ..auth import login_required
@@ -16,7 +17,7 @@ from ..cadu_tool_billing import InsufficientToolCredits
 from ..cadu_workspace.agent_v2.contracts import RequestContext
 from ..cadu_workspace.mcp.registry import ToolError, load_builtin_tools
 from ..product_domains import product_url
-from . import auth, usage
+from . import auth, oauth, usage
 
 
 bp = Blueprint("cadu_public_mcp", __name__)
@@ -24,13 +25,50 @@ PUBLIC_MCP_PATH = "/mcp/cadu/v1"
 MCP_ICON_PATH = "/static/images/cadu/products/cadu-mcp-icon.svg"
 PROTOCOL_VERSION = "2026-07-28"
 
+
+def _oauth_resource() -> str:
+    return product_url("workspace", PUBLIC_MCP_PATH)
+
+
+def _oauth_url(path: str) -> str:
+    return product_url("workspace", path)
+
+
+def _oauth_issuer() -> str:
+    return _oauth_url("").rstrip("/")
+
+
+def _oauth_json(payload, status=200):
+    response = jsonify(payload)
+    response.status_code = status
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
+def _oauth_error(exc: oauth.OAuthError):
+    response = _oauth_json({"error": exc.error, "error_description": exc.description}, exc.status)
+    if exc.status == 429:
+        response.headers["Retry-After"] = "3600"
+    return response
+
+
+def _redirect_with_query(uri: str, **values) -> str:
+    parsed = urlsplit(uri)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query.update({key: value for key, value in values.items() if value is not None})
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
+
 # The public surface is an intentional subset of internal capabilities. New
 # internal tools do not become internet-facing by accident.
 PUBLIC_TOOLS = frozenset({
+    "operations.get",
     "media.list_jobs",
     "media.get_job",
     "media.start_studio_session",
     "media.generate_image",
+    "media.edit_image",
+    "media.plan_video",
     "media.creation_capabilities",
     "planner.list_plans",
     "planner.search_catalog",
@@ -102,6 +140,8 @@ PUBLIC_TOOLS = frozenset({
 PUBLIC_WRITE_TOOLS = frozenset({
     "media.start_studio_session",
     "media.generate_image",
+    "media.edit_image",
+    "media.plan_video",
     "account.update_profile",
     "account.update_agency",
     "account.invite_team_member",
@@ -128,6 +168,34 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "artifacts.finalize_to_project",
 })
 
+# Only these tools persist their result in cadu_mcp_operations. Other writes
+# still receive an execution receipt, but must not promise generic recovery.
+RECOVERABLE_OPERATION_TOOLS = frozenset({
+    "media.generate_image",
+    "media.edit_image",
+    "media.plan_video",
+    "account.update_profile",
+    "account.update_agency",
+    "account.invite_team_member",
+    "credits.purchase_package",
+    "google.link_resource_to_project",
+    "projects.create_link_reference",
+    "projects.prepare_source_upload",
+    "projects.reindex_source",
+    "projects.create_note",
+    "workspace.create_project",
+    "workspace.update_project_context",
+    "workspace.set_project_status",
+    "workspace.link_current_brand",
+    "workspace.set_project_visibility",
+    "workspace.share_project_with_people",
+    "workspace.share_project_with_team",
+    "brands.use_asset_as_logo",
+    "artifacts.create_draft",
+    "artifacts.update_draft",
+    "artifacts.finalize_to_project",
+})
+
 
 @bp.get(f"{PUBLIC_MCP_PATH}/media/assets/<asset_id>/content")
 def media_asset_content(asset_id):
@@ -138,7 +206,9 @@ def media_asset_content(asset_id):
     except auth.PublicMcpAuthError:
         response = jsonify({"error": "Acesso não autorizado."})
         response.status_code = 401
-        response.headers["WWW-Authenticate"] = 'Bearer realm="cadu-mcp-public"'
+        response.headers["WWW-Authenticate"] = (
+            f'Bearer realm="cadu-mcp-public", resource_metadata="{_oauth_url("/.well-known/oauth-protected-resource/mcp/cadu/v1")}"'
+        )
         return _headers(response)
     from ..creative_media.storage import read_path
     from ..db import get_db
@@ -179,13 +249,13 @@ def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
     tools = load_builtin_tools().list(principal.context, exposure)
     for item in tools:
         if item["name"] in PUBLIC_TOOLS and (item["name"].startswith(("projects.", "artifacts.")) or
-                                             item["name"] in {"media.start_studio_session", "media.generate_image"} or
+                                             item["name"] in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"} or
                                              item["name"] in {"workspace.get_project_context", "workspace.search_project_content"}):
             item["inputSchema"] = deepcopy(item["inputSchema"])
             item["inputSchema"].setdefault("properties", {})["project_ref"] = {
                 "type": "string", "description": "Projeto de destino no formato ci:ID; informe quando não houver projeto padrão."
             }
-            if item["name"] in {"media.start_studio_session", "media.generate_image"}:
+            if item["name"] in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
                 item["inputSchema"]["properties"]["brand_ref"] = {
                     "type": "string", "description": "Marca ativa no formato studio:ID, quando não vier do projeto."
                 }
@@ -194,6 +264,10 @@ def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
             item["inputSchema"].setdefault("properties", {})["brand_ref"] = {
                 "type": "string", "description": "Marca ativa no formato studio:ID; use brand_id quando a ferramenta exigir."
             }
+        if item["name"] in PUBLIC_TOOLS:
+            security = [{"type": "oauth2", "scopes": [auth.required_scope(item["name"])]}]
+            item["securitySchemes"] = security
+            item.setdefault("_meta", {})["securitySchemes"] = security
     return [item for item in tools
             if item["name"] in PUBLIC_TOOLS
             and (item["name"] != "credits.purchase_package" or auth.can_purchase_credits(principal))
@@ -233,10 +307,16 @@ def public_rpc():
     try:
         principal = auth.authenticate(_request_context_for_auth(params))
     except auth.PublicMcpAuthError as exc:
-        response = jsonify(_error(request_id, -32001, str(exc)))
+        challenge = (
+            f'Bearer realm="cadu-mcp-public", error="invalid_token", '
+            f'resource_metadata="{_oauth_url("/.well-known/oauth-protected-resource/mcp/cadu/v1")}"'
+        )
+        response = jsonify(_error(request_id, -32001, str(exc), {
+            "_meta": {"mcp/www_authenticate": [challenge]},
+        }))
         response.status_code = 401
-        response.headers["WWW-Authenticate"] = 'Bearer realm="cadu-mcp-public", error="invalid_token"'
-        response.headers["X-Cadu-MCP-Auth"] = "api-key-beta"
+        response.headers["WWW-Authenticate"] = challenge
+        response.headers["X-Cadu-MCP-Auth"] = "oauth2, api-key-legacy"
         return _headers(response)
 
     try:
@@ -283,20 +363,23 @@ def public_rpc():
             if not isinstance(arguments, dict):
                 raise ValueError("Os argumentos da ferramenta precisam ser um objeto.")
             arguments = dict(arguments)
-            if name.startswith(("projects.", "artifacts.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session", "media.generate_image"}:
+            if name.startswith(("projects.", "artifacts.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
                 arguments.pop("project_ref", None)
-            if name in {"media.start_studio_session", "media.generate_image"}:
+            if name in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
                 arguments.pop("brand_ref", None)
             if name.startswith("brands."):
                 arguments.pop("brand_ref", None)
             if name in PUBLIC_WRITE_TOOLS and "request_id" not in arguments:
-                arguments["request_id"] = request_id
+                # JSON-RPC ids may be numbers or arbitrary strings. Command
+                # idempotency uses a separate UUID that remains portable.
+                arguments["request_id"] = usage.new_request_id()
             tool_request_id = usage.new_request_id(arguments.get("request_id") or request_id)
             started_at = monotonic()
             credit_cost = usage.tool_cost(name)
             usage.authorize_credits(client_id=principal.client_id, user_id=principal.user_id, tool_name=name)
             usage.record(
-                key_id=principal.key_id, client_id=principal.client_id, user_id=principal.user_id,
+                key_id=principal.key_id, credential_type=principal.credential_type,
+                client_id=principal.client_id, user_id=principal.user_id,
                 client_type=principal.client_type, method=method, tool_name=name,
                 request_id=tool_request_id, status="started", credit_cost=credit_cost,
                 started_at=started_at, input_bytes=len(request.get_data(cache=True) or b""),
@@ -312,8 +395,19 @@ def public_rpc():
                     metadata={"client_type": principal.client_type},
                 )
                 encoded = json.dumps(value, ensure_ascii=False, default=str)
+                if name in PUBLIC_WRITE_TOOLS and isinstance(value, dict):
+                    value = dict(value)
+                    value["_receipt"] = {
+                        "operation_id": tool_request_id,
+                        "tool": name,
+                        "status": "completed",
+                    }
+                    if name in RECOVERABLE_OPERATION_TOOLS:
+                        value["_receipt"]["recover_with"] = "operations.get"
+                    encoded = json.dumps(value, ensure_ascii=False, default=str)
                 usage.record(
-                    key_id=principal.key_id, client_id=principal.client_id, user_id=principal.user_id,
+                    key_id=principal.key_id, credential_type=principal.credential_type,
+                    client_id=principal.client_id, user_id=principal.user_id,
                     client_type=principal.client_type, method=method, tool_name=name,
                     request_id=tool_request_id, status="completed", credit_cost=credit_cost,
                     started_at=started_at, output_bytes=len(encoded.encode("utf-8")),
@@ -321,7 +415,8 @@ def public_rpc():
                 result = {"content": [{"type": "text", "text": encoded}], "structuredContent": value, "isError": False}
             except Exception as exc:
                 usage.record(
-                    key_id=principal.key_id, client_id=principal.client_id, user_id=principal.user_id,
+                    key_id=principal.key_id, credential_type=principal.credential_type,
+                    client_id=principal.client_id, user_id=principal.user_id,
                     client_type=principal.client_type, method=method, tool_name=name,
                     request_id=tool_request_id, status="failed", credit_cost=0,
                     started_at=started_at, error_code=type(exc).__name__,
@@ -400,9 +495,140 @@ def public_upload_brand_logo():
     return jsonify(logo=value), 201
 
 
+@bp.get("/.well-known/oauth-protected-resource")
+@bp.get("/.well-known/oauth-protected-resource/mcp/cadu/v1")
+def oauth_protected_resource_metadata():
+    return _oauth_json({
+        "resource": _oauth_resource(),
+        "authorization_servers": [_oauth_issuer()],
+        "scopes_supported": list(auth.CLIENT_SCOPES),
+        "resource_documentation": _oauth_url("/workspace/app/integracoes/agents"),
+        "bearer_methods_supported": ["header"],
+    })
+
+
+@bp.get("/.well-known/oauth-authorization-server")
+def oauth_authorization_server_metadata():
+    return _oauth_json({
+        "issuer": _oauth_issuer(),
+        "authorization_endpoint": _oauth_url("/oauth/authorize"),
+        "token_endpoint": _oauth_url("/oauth/token"),
+        "registration_endpoint": _oauth_url("/oauth/register"),
+        "revocation_endpoint": _oauth_url("/oauth/revoke"),
+        "scopes_supported": list(auth.CLIENT_SCOPES),
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "code_challenge_methods_supported": ["S256"],
+        "token_endpoint_auth_methods_supported": ["none"],
+        "authorization_response_iss_parameter_supported": True,
+    })
+
+
+@bp.post("/oauth/register")
+def oauth_register_client():
+    try:
+        registration_ip = request.remote_addr or None
+        return _oauth_json(oauth.register_client(request.get_json(silent=True) or {},
+                                                 registration_ip=registration_ip), 201)
+    except oauth.OAuthError as exc:
+        return _oauth_error(exc)
+
+
+@bp.route("/oauth/authorize", methods=["GET", "POST"])
+@login_required
+def oauth_authorize():
+    session.setdefault("family_csrf", secrets.token_urlsafe(32))
+    values = request.values
+    try:
+        authorization = oauth.validate_authorization_request(values)
+        if authorization["resource"] != _oauth_resource():
+            raise oauth.OAuthError("invalid_target", "O resource solicitado não pertence ao MCP público do Cadu.")
+    except oauth.OAuthError as exc:
+        return render_template("cadu_workspace/mcp_oauth_error.html", error=exc), exc.status
+
+    if request.method == "POST":
+        if not _workspace_api_csrf():
+            abort(403, description="Atualize a página e tente novamente.")
+        if request.form.get("decision") != "authorize":
+            return redirect(_redirect_with_query(authorization["redirect_uri"],
+                                                  error="access_denied", state=authorization["state"],
+                                                  iss=_oauth_issuer()))
+        approved = [scope for scope in authorization["scopes"]
+                    if request.form.get(f"scope:{scope}") == "on"]
+        if not approved:
+            return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
+                                   projects=[], csrf=session["family_csrf"],
+                                   error="Selecione ao menos uma permissão."), 400
+        client_id, user_id = _session_scope()
+        actor = repository.actor(user_id) or {}
+        if "account:write" in approved and (
+            int(actor.get("organization_id") or 0) != client_id
+            or repository.account_role(actor) != "admin"
+        ):
+            approved.remove("account:write")
+        if not approved:
+            client_id, _ = _session_scope()
+            projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
+            return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
+                                   projects=projects, csrf=session["family_csrf"],
+                                   error="Sua função não permite as permissões selecionadas."), 403
+        default_project_ref = request.form.get("default_project_ref") or None
+        if default_project_ref:
+            projects = {item["ref"] for item in repository.entities(client_id) if item.get("kind") == "project"}
+            if default_project_ref not in projects:
+                abort(400, description="O projeto selecionado não pertence a esta conta.")
+        code = oauth.create_authorization_code(
+            authorization=authorization, client_id=client_id, user_id=user_id,
+            scopes=approved, default_project_ref=default_project_ref,
+        )
+        return redirect(_redirect_with_query(authorization["redirect_uri"], code=code,
+                                              state=authorization["state"], iss=_oauth_issuer()))
+
+    client_id, _ = _session_scope()
+    projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
+    return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
+                           projects=projects, csrf=session["family_csrf"], error=None)
+
+
+@bp.post("/oauth/token")
+def oauth_token():
+    grant_type = str(request.form.get("grant_type") or "")
+    try:
+        if grant_type == "authorization_code":
+            tokens = oauth.exchange_code(
+                code=str(request.form.get("code") or ""),
+                client_id=str(request.form.get("client_id") or ""),
+                redirect_uri=str(request.form.get("redirect_uri") or ""),
+                code_verifier=str(request.form.get("code_verifier") or ""),
+                resource=str(request.form.get("resource") or ""),
+            )
+        elif grant_type == "refresh_token":
+            tokens = oauth.refresh_tokens(
+                refresh_token=str(request.form.get("refresh_token") or ""),
+                client_id=str(request.form.get("client_id") or ""),
+                resource=str(request.form.get("resource") or ""),
+            )
+        else:
+            raise oauth.OAuthError("unsupported_grant_type", "grant_type não suportado.")
+        return _oauth_json(tokens)
+    except oauth.OAuthError as exc:
+        return _oauth_error(exc)
+
+
+@bp.post("/oauth/revoke")
+def oauth_revoke():
+    try:
+        oauth.revoke_token(str(request.form.get("token") or ""))
+    except Exception:
+        current_app.logger.exception("Falha operacional ao revogar token OAuth do MCP")
+        return _oauth_json({"error": "temporarily_unavailable",
+                            "error_description": "Não foi possível concluir a revogação."}, 503)
+    return _oauth_json({})
+
+
 @bp.get("/.well-known/cadu-mcp-public")
 def public_metadata():
-    """Stable bootstrap metadata while OAuth 2.1 is being added."""
+    """Stable bootstrap metadata for MCP clients and the Workspace UI."""
     return jsonify({
         "name": "cadu-public-mcp",
         "version": "1.0.0",
@@ -411,7 +637,12 @@ def public_metadata():
         "icons": [{"src": product_url("workspace", MCP_ICON_PATH),
                    "mimeType": "image/svg+xml", "sizes": ["any"]}],
         "authentication": {"type": "bearer_api_key", "header": "Authorization", "prefix": auth.KEY_PREFIX},
-        "oauth": {"status": "planned", "discovery": None},
+        "oauth": {
+            "status": "ready" if oauth.available() else "pending_migration",
+            "protected_resource_metadata": _oauth_url("/.well-known/oauth-protected-resource/mcp/cadu/v1"),
+            "authorization_server_metadata": _oauth_url("/.well-known/oauth-authorization-server"),
+            "pkce_methods": ["S256"],
+        },
         "scopes": list(auth.CLIENT_SCOPES),
         "credit_policy": "Cada tools/call bem-sucedido consome a tarifa pública compartilhada do Cadu.",
     })
@@ -436,6 +667,7 @@ def agents_page():
     return render_template(
         "cadu_workspace/mcp_agents.html",
         keys=auth.list_keys(client_id=client_id, user_id=user_id),
+        grants=oauth.list_grants(client_id=client_id, user_id=user_id),
         projects=projects,
         usage=usage.summary(client_id=client_id, user_id=user_id),
         credit=credit,
@@ -488,6 +720,19 @@ def revoke_agent_key(key_id):
         changed = auth.revoke_key(key_id=key_id, client_id=client_id, user_id=user_id)
     except auth.PublicMcpAuthError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True, "revoked": changed})
+
+
+@bp.post("/workspace/app/integracoes/agents/grants/<grant_id>/revoke")
+@login_required
+def revoke_agent_grant(grant_id):
+    if not _workspace_api_csrf():
+        abort(403, description="Atualize a página e tente novamente.")
+    client_id, user_id = _session_scope()
+    try:
+        changed = oauth.revoke_grant(grant_id=grant_id, client_id=client_id, user_id=user_id)
+    except oauth.OAuthError as exc:
+        return jsonify({"success": False, "error": exc.description}), exc.status
     return jsonify({"success": True, "revoked": changed})
 
 

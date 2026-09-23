@@ -190,5 +190,5 @@ def register_tool(*, name: str, description: str, capability: str, effect: str =
 
 def load_builtin_tools() -> ToolRegistry:
     # Imports register functions once through Python's module cache.
-    from .tools import account, artifacts, brands, google, media, planner, projects, reports, resources, web, workspace  # noqa: F401
+    from .tools import account, artifacts, brands, google, media, operations, planner, projects, reports, resources, web, workspace  # noqa: F401
     return registry

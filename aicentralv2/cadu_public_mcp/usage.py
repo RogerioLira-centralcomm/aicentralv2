@@ -12,9 +12,14 @@ from ..db import get_db
 
 
 PUBLIC_TOOL_COSTS = {
+    "operations.get": 0,
+    "media.creation_capabilities": 0,
+    "media.start_studio_session": 0,
     "media.list_jobs": 1,
     "media.get_job": 1,
     "media.generate_image": 0,
+    "media.edit_image": 0,
+    "media.plan_video": 0,
     "account.get": 0,
     "account.list_team": 0,
     "credits.get_balance": 0,
@@ -84,6 +89,7 @@ def available() -> bool:
 
 
 def record(*, key_id: str, client_id: int, user_id: int, client_type: str,
+           credential_type: str = "api_key",
            method: str, tool_name: str = "", request_id: str = "", status: str,
            credit_cost: int = 0, started_at: float | None = None,
            input_bytes: int = 0, output_bytes: int = 0, error_code: str = "") -> None:
@@ -95,15 +101,16 @@ def record(*, key_id: str, client_id: int, user_id: int, client_type: str,
         with connection.cursor() as cursor:
             cursor.execute(
                 """INSERT INTO cadu_public_mcp_usage
-                    (key_id, client_id, user_id, client_type, method, tool_name,
+                    (key_id, credential_type, credential_id, client_id, user_id, client_type, method, tool_name,
                      request_id, status, credit_cost, duration_ms, input_bytes,
                      output_bytes, error_code, metadata)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (key_id, request_id, method, tool_name) DO UPDATE SET
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (credential_type, credential_id, request_id, method, tool_name) DO UPDATE SET
                     status=EXCLUDED.status, credit_cost=EXCLUDED.credit_cost,
                     duration_ms=EXCLUDED.duration_ms, output_bytes=EXCLUDED.output_bytes,
                     error_code=EXCLUDED.error_code, updated_at=NOW()""",
-                (key_id, int(client_id), int(user_id), client_type, method, tool_name,
+                (key_id if credential_type == "api_key" else None, credential_type, key_id,
+                 int(client_id), int(user_id), client_type, method, tool_name,
                  request_id[:160], status, int(credit_cost or 0), duration_ms,
                  int(input_bytes or 0), int(output_bytes or 0), error_code[:120] or None,
                  Json({})),

@@ -1,6 +1,6 @@
 import {showProcessing,updateProcessing,followingJob} from './media-progress.js';
 import {sourceAspect} from './cadu-video/aspect.js';
-import { bindStudio, resetStudio, recordStudioChange, defaultEdit, paintStudio, resetClipHistory } from "./cadu-video/studio.js";
+import { bindStudio, resetStudio, recordStudioChange, defaultEdit, paintStudio, resetClipHistory, showSavedAgentPlan } from "./cadu-video/studio.js";
 import { quoteAnimate, submitAnimate } from "./trocr/animate-api.js";
 import { startPoll } from "./trocr/animate-poller.js";
 import { deleteLibrary, get, loadVideoProject, post, saveVideoProject, studioApi, swapApi } from "./cadu-video/api.js?v=2";
@@ -57,7 +57,27 @@ async function boot() {
   document.addEventListener("cadu:brand-change", (event) => {
     applyBrand(event.detail?.clientId, { reset: true });
   });
-  await applyBrand(params.get("client") || Desk.read());
+  const linkedClient = params.get("creative_client_id") || params.get("client") || Desk.read();
+  await applyBrand(linkedClient);
+  const linkedSessionId = String(params.get("studio_session_id") || "").trim();
+  if (linkedSessionId && /^\d+$/.test(String(linkedClient || ""))) {
+    try {
+      const saved = await get(`${studioApi}/sessions/${encodeURIComponent(linkedSessionId)}?client_id=${encodeURIComponent(linkedClient)}`);
+      const session = saved?.data || saved;
+      const prompt = String(session?.original_prompt || "").trim();
+      if (prompt) {
+        const field = document.getElementById("mcStudioAgentPrompt");
+        if (field) field.value = prompt.slice(0, 2000);
+        document.getElementById("mcVideoAgentTab")?.click();
+        const status = document.getElementById("mcStudioAgentStatus");
+        if (status) status.textContent = "Pedido recuperado da sessão. Revise o plano antes de gerar ou editar o vídeo.";
+      }
+      if (session?.metadata?.video_plan) showSavedAgentPlan(session.metadata.video_plan);
+    } catch (_) {
+      const status = document.getElementById("mcStudioAgentStatus");
+      if (status) status.textContent = "Não foi possível recuperar esta sessão. O Studio continua disponível para uma nova criação.";
+    }
+  }
   const pending = sessionStorage.getItem(JOB_KEY);
   if (pending && !state.generating) resume(pending);
 }

@@ -1,12 +1,13 @@
 from unittest.mock import MagicMock, Mock, patch
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 from flask import Flask
 
 from aicentralv2.cadu_public_mcp.auth import DEFAULT_SCOPES, PublicMcpAuthError, PublicMcpPrincipal, _public_context, ensure_scope, normalize_scopes
 from aicentralv2.cadu_public_mcp import usage
-from aicentralv2.cadu_public_mcp.routes import PUBLIC_MCP_PATH, PUBLIC_TOOLS, _public_catalog, _request_context_for_auth, bp
+from aicentralv2.cadu_public_mcp.routes import PUBLIC_MCP_PATH, PUBLIC_TOOLS, RECOVERABLE_OPERATION_TOOLS, _public_catalog, _request_context_for_auth, bp
 from aicentralv2.cadu_public_mcp.usage import tool_cost
 from aicentralv2.cadu_tool_billing import InsufficientToolCredits
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
@@ -37,6 +38,10 @@ def test_legacy_purchase_scope_does_not_break_existing_keys():
     assert normalize_scopes(["credits:read", "credits:purchase"], allow_writes=True) == ("credits:read",)
 
 
+def test_empty_effective_scope_does_not_restore_default_permissions():
+    assert normalize_scopes([], allow_writes=True) == ()
+
+
 def test_project_ref_is_selectable_in_public_tool_arguments_without_changing_internal_schema():
     context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
                              surface="workspace", project_ref=None, capabilities=("workspace",))
@@ -47,6 +52,8 @@ def test_project_ref_is_selectable_in_public_tool_arguments_without_changing_int
         catalog = _public_catalog(principal)
     upload = next(item for item in catalog if item["name"] == "projects.prepare_source_upload")
     assert "project_ref" in upload["inputSchema"]["properties"]
+    assert upload["securitySchemes"] == [{"type": "oauth2", "scopes": ["projects:content_write"]}]
+    assert upload["_meta"]["securitySchemes"] == upload["securitySchemes"]
     internal = next(item for item in load_builtin_tools().list(context) if item["name"] == "projects.prepare_source_upload")
     assert "project_ref" not in internal["inputSchema"]["properties"]
     params = _request_context_for_auth({"name": "projects.prepare_source_upload",
@@ -79,6 +86,16 @@ def test_public_transport_is_separate_and_requires_bearer_auth():
         )
     assert response.status_code == 401
     assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+
+def test_agent_setup_exposes_native_installers_without_overpromising_codex():
+    template = Path("aicentralv2/templates/cadu_workspace/mcp_agents.html").read_text()
+
+    assert "vscode:mcp/install?" in template
+    assert "https://cursor.com/en-US/install-mcp" in template
+    assert "O Codex ainda não oferece um link público de instalação" in template
+    assert "data-install-client" in template
+    assert "O instalador do Cursor receberá a URL e a chave privada" in template
 
 
 def test_public_mcp_insufficient_credits_points_to_workspace():
@@ -193,13 +210,72 @@ def test_public_upload_intent_returns_public_companion_url():
     assert response.status_code == 200
     assert response.get_json()["result"]["structuredContent"]["upload_url"] == \
         "https://workspace.centralcomm.media/mcp/cadu/v1/uploads"
+    receipt = response.get_json()["result"]["structuredContent"]["_receipt"]
+    assert receipt == {
+        "operation_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "tool": "projects.prepare_source_upload",
+        "status": "completed",
+        "recover_with": "operations.get",
+    }
 
 def test_public_catalog_is_allowlisted_and_metered():
     assert "google.sync_workspace" not in PUBLIC_TOOLS
     assert "google.link_resource_to_project" in PUBLIC_TOOLS
     assert {"resources.search", "resources.get", "resources.capabilities"} <= PUBLIC_TOOLS
+    assert "operations.get" in PUBLIC_TOOLS
+    assert tool_cost("operations.get") == 0
     assert tool_cost("google.get_connector_status") == 1
     assert tool_cost("reports.compare_report_to_plan") == 3
+
+
+def test_public_transport_generates_command_uuid_independent_from_jsonrpc_id():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")
+    app.register_blueprint(bp)
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref=None, capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex",
+                                   label="Teste", scopes=("projects:write",), context=context)
+    registry = MagicMock()
+    registry.execute.return_value = {"project_ref": "ci:new"}
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=principal), \
+         patch("aicentralv2.cadu_public_mcp.routes.load_builtin_tools", return_value=registry), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.authorize_credits"), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.charge_credits"), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.record"):
+        response = app.test_client().post(PUBLIC_MCP_PATH, json={"jsonrpc": "2.0", "id": "rpc-1",
+            "method": "tools/call", "params": {"name": "workspace.create_project", "arguments": {}}})
+    operation_id = response.get_json()["result"]["structuredContent"]["_receipt"]["operation_id"]
+    assert operation_id != "rpc-1"
+    assert len(operation_id) == 36
+    assert registry.execute.call_args.args[1]["request_id"] == operation_id
+
+
+def test_non_ledger_write_receipt_does_not_promise_operations_get():
+    assert "media.start_studio_session" not in RECOVERABLE_OPERATION_TOOLS
+    assert "brands.start_audit" not in RECOVERABLE_OPERATION_TOOLS
+    assert "projects.create_note" in RECOVERABLE_OPERATION_TOOLS
+
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")
+    app.register_blueprint(bp)
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref=None, capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex",
+                                   label="Teste", scopes=("projects:content_write",), context=context)
+    registry = MagicMock()
+    registry.execute.return_value = {"session_id": "session-1", "status": "draft"}
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.authenticate", return_value=principal), \
+         patch("aicentralv2.cadu_public_mcp.routes.load_builtin_tools", return_value=registry), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.authorize_credits"), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.charge_credits"), \
+         patch("aicentralv2.cadu_public_mcp.routes.usage.record"):
+        response = app.test_client().post(PUBLIC_MCP_PATH, json={"jsonrpc": "2.0", "id": "rpc-2",
+            "method": "tools/call", "params": {"name": "media.start_studio_session",
+                                                   "arguments": {"kind": "image", "prompt": "Produto"}}})
+    receipt = response.get_json()["result"]["structuredContent"]["_receipt"]
+    assert receipt["status"] == "completed"
+    assert "recover_with" not in receipt
 
 
 def test_resource_capabilities_do_not_overpromise_provider_writes():

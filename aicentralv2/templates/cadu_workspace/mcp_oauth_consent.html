@@ -1,0 +1,40 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Autorizar {{ authorization.client.client_name }} — Cadu{% endblock %}
+{% block product_id %}workspace{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v={{ cadu_workspace_asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-mcp-setup.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content %}
+{% set scope_labels = {
+  'resources:read': 'Consultar materiais e recursos',
+  'projects:read': 'Consultar projetos',
+  'projects:content_write': 'Adicionar conteúdo aos projetos',
+  'projects:write': 'Criar e administrar projetos',
+  'brands:write': 'Criar e editar marcas',
+  'artifacts:write': 'Criar e revisar documentos',
+  'account:read': 'Consultar dados básicos da conta',
+  'account:write': 'Alterar conta e convidar equipe',
+  'credits:read': 'Consultar saldo e uso de créditos',
+  'google:read': 'Consultar conexões Google',
+  'google:write': 'Vincular dados do Google aos projetos'
+} %}
+{% set default_scopes = ['resources:read','projects:read','projects:content_write','account:read','credits:read','google:read'] %}
+<main class="workspace-oauth-consent">
+  <section class="workspace-oauth-consent__card">
+    <header class="workspace-oauth-consent__head"><img class="workspace-oauth-consent__brand" src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="Cadu"><h1>Conectar ao Cadu</h1><p>{{ authorization.client.client_name }} quer acessar sua conta.</p></header>
+    <div class="workspace-oauth-illustration" aria-hidden="true"><div class="workspace-oauth-illustration__node is-client"><img src="{{ authorization.client.logo_uri or url_for('static', filename='images/cadu/technology-logos/openai.svg') }}" alt=""></div><div class="workspace-oauth-illustration__bridge"><i></i><span>✓</span><i></i></div><div class="workspace-oauth-illustration__node is-cadu"><img src="{{ url_for('static', filename='images/cadu/products/cadu-mcp-icon.svg') }}" alt=""></div></div>
+    <p class="workspace-oauth-consent__summary">Escolha o projeto e confira o que será compartilhado.</p>
+    {% if error %}<p class="workspace-mcp-alert" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" class="workspace-oauth-consent__form">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      {% for name in ['client_id','redirect_uri','response_type','code_challenge','code_challenge_method','resource','state','scope'] %}<input type="hidden" name="{{ name }}" value="{{ request.values.get(name, '') }}">{% endfor %}
+      <div class="workspace-mcp-form-section"><label for="oauth-project">Projeto inicial <span>(opcional)</span></label><select id="oauth-project" name="default_project_ref"><option value="">Escolher durante a conversa</option>{% for project in projects %}<option value="{{ project.ref }}">{{ project.name }}</option>{% endfor %}</select></div>
+      <fieldset class="workspace-mcp-permissions"><legend>O aplicativo poderá</legend><p>Desmarque o que não quiser compartilhar.</p><div class="workspace-mcp-permissions__grid">
+        {% for scope in authorization.scopes %}<label><input type="checkbox" name="scope:{{ scope }}" {% if scope in default_scopes %}checked{% endif %}> {{ scope_labels.get(scope, scope) }}</label>{% endfor %}
+      </div></fieldset>
+      <p class="workspace-oauth-consent__credits">O uso deste aplicativo consome os créditos da sua conta Cadu.</p>
+      <div class="workspace-oauth-consent__actions"><button class="workspace-button is-primary" type="submit" name="decision" value="authorize">Autorizar conexão</button><button class="workspace-button" type="submit" name="decision" value="deny">Cancelar</button></div>
+    </form>
+    <footer>Você pode revogar o acesso a qualquer momento em Integrações.</footer>
+  </section>
+</main>
+{% endblock %}

@@ -13,21 +13,27 @@ from urllib.parse import urlencode
 
 
 _CREATION_CONTRACTS = {
-    "image": {"required": ["prompt"], "optional": ["brand_id", "title", "aspect_ratio", "references"],
-              "review": "Diretor criativo prepara direções; usuário escolhe e aprova antes da geração.",
+    "image": {"required": ["request_id", "confirmed", "confirmed_cost", "prompt"],
+              "optional": ["brand_id", "aspect_ratio", "quality"],
+              "review": "O diretor prepara uma direção; o MCP gera após confirmação explícita e a sessão permite revisão posterior.",
               "prompt_pipeline": ["studio_prompt.optimize_prompt", "studio_create.create", "studio_create.create_image"]},
-    "ad": {"required": ["prompt", "brand_id"], "optional": ["title", "aspect_ratio", "references", "format"],
-           "review": "Anúncio exige contexto de marca aprovada e direção criativa antes de gerar.",
+    "ad": {"required": ["request_id", "confirmed", "confirmed_cost", "prompt", "brand_id"],
+           "optional": ["aspect_ratio", "quality"],
+           "review": "Anúncio exige marca validada; o diretor prepara uma direção antes da geração confirmada.",
            "prompt_pipeline": ["studio_prompt.optimize_prompt", "studio_create.create", "studio_create.create_image"]},
-    "image_edit": {"required": ["prompt", "source_url"], "optional": ["brand_id", "title", "mask", "references"],
+    "image_edit": {"required": ["request_id", "confirmed", "confirmed_cost", "prompt", "source_url"],
+                   "optional": ["brand_id", "aspect_ratio", "quality"],
                    "review": "Editar preserva a imagem base fora da alteração solicitada.",
-                   "prompt_pipeline": ["studio_prompt.optimize_prompt", "studio_create.create_image"]},
-    "video": {"required": ["prompt"], "optional": ["brand_id", "title", "source_url", "duration", "aspect_ratio"],
+                   "prompt_pipeline": ["studio_prompt.optimize_prompt", "studio_create.create", "studio_create.create_image"]},
+    "video": {"required": ["request_id", "confirmed_cost", "kind=video", "prompt"],
+              "optional": ["brand_id", "source_id", "duration"],
+              "source_rule": "Para gerar, selecione no Studio uma imagem da biblioteca ou duas ou mais cenas.",
               "review": "Roteiro e plano de vídeo são revisados antes do job assíncrono.",
-              "prompt_pipeline": ["studio_agent.plan_request", "video_script.build_video_script", "AnimateService.submit"]},
-    "video_edit": {"required": ["prompt", "source_url"], "optional": ["brand_id", "title", "duration", "aspect_ratio"],
+              "prompt_pipeline": ["studio_agent.plan_request", "Video Studio review", "AnimateService.submit"]},
+    "video_edit": {"required": ["request_id", "confirmed_cost", "kind=video_edit", "prompt"],
+                   "one_of": ["source_id", "source_url"], "optional": ["brand_id", "duration"],
                    "review": "A edição considera o vídeo base, suas cenas e áudio; não recria livremente o filme.",
-                   "prompt_pipeline": ["studio_agent.plan_request", "video_script.build_video_script", "AnimateService.submit"]},
+                   "prompt_pipeline": ["studio_agent.plan_request", "Video Studio review", "Studio export"]},
 }
 
 
@@ -38,8 +44,10 @@ _CREATION_CONTRACTS = {
 )
 def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
     return {"operations": _CREATION_CONTRACTS, "session_tool": "media.start_studio_session",
-            "generation_available_via_mcp": ["image"], "generation_tool": "media.generate_image",
-            "note": "Imagem pode ser gerada pelo MCP. Vídeo e edição continuam exigindo preparo no Studio; não informe que uma mídia foi criada antes do retorno."}
+            "generation_available_via_mcp": ["image", "image_edit"],
+            "generation_tools": {"image": "media.generate_image", "image_edit": "media.edit_image"},
+            "video_plan_tool": "media.plan_video",
+            "note": "Imagem pode ser criada ou editada pelo MCP. O vídeo tem plano otimizado no MCP, mas a geração exige selecionar uma imagem ou stills no Studio; não informe que a mídia foi criada antes do job concluir."}
 
 
 @register_tool(
@@ -57,7 +65,7 @@ def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
                   "additionalProperties": False},
 )
 def generate_image(context: RequestContext, arguments: dict) -> dict:
-    from ...brand_mcp_service import _brand
+    from ...brand_mcp_service import _brand, _current_brand_id
     from ...media_creation_service import generate_studio_image
 
     if context.project_ref:
@@ -73,11 +81,126 @@ def generate_image(context: RequestContext, arguments: dict) -> dict:
             raise ToolForbidden("Você não pode criar materiais neste projeto.")
 
     brand_id = arguments.get("brand_id")
+    if brand_id is None:
+        try:
+            brand_id = _current_brand_id(context)
+        except Exception:
+            if context.brand_ref:
+                raise
     if brand_id is not None:
         _brand(context, brand_id)
+        arguments = {**arguments, "brand_id": brand_id}
     fingerprint = {key: arguments.get(key) for key in ("prompt", "brand_id", "aspect_ratio", "quality")}
     return operations.execute(arguments["request_id"], context, "media.generate_image", fingerprint,
                               lambda: generate_studio_image(context, arguments))
+
+
+@register_tool(
+    name="media.edit_image", capability="workspace", effect="write",
+    description=("Edita uma imagem no Studio preservando a imagem base fora do pedido. "
+                 "Usa otimização de prompt, diretor criativo e geração cobrada; retorna a imagem e o link da sessão."),
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "confirmed_cost", "prompt", "source_url"],
+                  "properties": {"request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+                                 "confirmed": {"type": "boolean", "enum": [True]},
+                                 "confirmed_cost": {"type": "boolean", "enum": [True]},
+                                 "prompt": {"type": "string", "minLength": 3, "maxLength": 4000},
+                                 "source_url": {"type": "string", "minLength": 8, "maxLength": 2000},
+                                 "brand_id": {"type": "integer", "minimum": 1},
+                                 "aspect_ratio": {"type": "string", "enum": ["1:1", "4:5", "9:16", "16:9"]},
+                                 "quality": {"type": "string", "enum": ["econômica", "padrão", "alta"]}},
+                  "additionalProperties": False},
+)
+def edit_image(context: RequestContext, arguments: dict) -> dict:
+    from ...brand_mcp_service import _brand, _current_brand_id
+    from ...media_creation_service import generate_studio_image
+    from ....cadu_family import repository as family_repository
+    source = str(arguments["source_url"])
+    if not (source.startswith("/static/uploads/creative_") or source.startswith("https://")):
+        raise ToolInputError("Use uma imagem salva no Studio ou um URL HTTPS público.")
+    if context.project_ref:
+        if not family_repository.project_user_can_view(context.client_id, context.project_ref, context.user_id):
+            raise ToolForbidden("Você não tem acesso ao projeto selecionado.")
+        actor = family_repository.actor(context.user_id) or {}
+        admin = (int(actor.get("organization_id") or 0) == context.client_id
+                 and family_repository.account_role(actor) == "admin")
+        roles = {item.get("role") for item in family_repository.project_access(context.client_id, context.project_ref)
+                 if int(item.get("user_id") or 0) == context.user_id}
+        if not admin and not roles.intersection({"owner", "admin", "editor"}):
+            raise ToolForbidden("Você não pode editar materiais neste projeto.")
+    brand_id = arguments.get("brand_id")
+    if brand_id is None:
+        try:
+            brand_id = _current_brand_id(context)
+        except Exception:
+            if context.brand_ref:
+                raise
+    if brand_id is not None:
+        _brand(context, brand_id)
+        arguments = {**arguments, "brand_id": brand_id}
+    fingerprint = {key: arguments.get(key) for key in ("prompt", "source_url", "brand_id", "aspect_ratio", "quality")}
+    return operations.execute(arguments["request_id"], context, "media.edit_image", fingerprint,
+                              lambda: generate_studio_image(context, arguments))
+
+
+@register_tool(
+    name="media.plan_video", capability="workspace", effect="write",
+    description=("Interpreta um pedido de criação ou edição de vídeo com o prompt e a skill oficiais "
+                 "do Video Studio, salva o plano numa sessão e retorna link para revisão. "
+                 "Não submete job nem informa vídeo pronto."),
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed_cost", "kind", "prompt"],
+                  "properties": {"request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+                                 "confirmed_cost": {"type": "boolean", "enum": [True]},
+                                 "kind": {"type": "string", "enum": ["video", "video_edit"]},
+                                 "prompt": {"type": "string", "minLength": 3, "maxLength": 2000},
+                                 "brand_id": {"type": "integer", "minimum": 1},
+                                 "source_id": {"type": "string", "maxLength": 180},
+                                 "source_url": {"type": "string", "maxLength": 2000},
+                                 "duration": {"type": "integer", "enum": [4, 5, 8, 10, 15, 20, 30]}},
+                  "additionalProperties": False},
+)
+def plan_video(context: RequestContext, arguments: dict) -> dict:
+    from ....cadu_credit_connector import CaduCreditConnector
+    from ....creative_media.studio_agent import plan_request
+    from ....creative_media.studio import _session_store
+    from ....creative_modeling_service import CreativeModelingService
+    from ....services.cadu_ai_connector import CaduAIConnector
+
+    def run():
+        session = start_studio_session(context, arguments)
+        studio_client_id = (int(str(session["brand_ref"])[7:]) if session.get("brand_ref")
+                            else int(CreativeModelingService().repository.resolve_client_id(context.client_id, "crm")))
+        connector = CaduAIConnector(CaduCreditConnector())
+
+        def metered_plan(messages, **options):
+            return connector.complete(
+                messages, client_id=context.client_id, user_id=context.user_id,
+                idempotency_key=f"studio:mcp-video-plan:{arguments['request_id']}",
+                app="Cadu Studio", stage="video_agent_plan", estimated_tokens=2400,
+                metadata={"studio_client_id": studio_client_id,
+                          "studio_session_id": session["session_id"], "billing_class": "agent"},
+                **options)
+
+        source_id = str(arguments.get("source_id") or "")
+        plan = plan_request(arguments["prompt"], {
+            "generation_mode": "single_image" if source_id and arguments["kind"] == "video" else "storyboard",
+            "duration": arguments.get("duration") or 8,
+            "selected_scene": {"id": source_id} if arguments["kind"] == "video" else {},
+            "has_clip": arguments["kind"] == "video_edit",
+            "clip": {"id": source_id} if arguments["kind"] == "video_edit" else {},
+        }, text_callable=metered_plan)
+        store = _session_store(studio_client_id)
+        saved = store.read(studio_client_id, context.user_id, session["session_id"])
+        store.save(studio_client_id, context.user_id, session["session_id"], {
+            "expected_revision": saved["revision"], "status": "active",
+            "metadata": {**(saved.get("metadata") or {}), "video_plan": plan},
+        })
+        return {**session, "plan": plan, "generation_status": "not_started",
+                "required_next_step": "Revise o plano e selecione a imagem, as cenas ou o clipe no Video Studio antes de gerar."}
+
+    fingerprint = {key: arguments.get(key) for key in ("kind", "prompt", "brand_id", "source_id", "source_url", "duration")}
+    return operations.execute(arguments["request_id"], context, "media.plan_video", fingerprint, run)
 
 
 def _asset(row):
@@ -160,6 +283,7 @@ def get_media_job(context: RequestContext, arguments: dict) -> dict:
         "prompt": {"type": "string", "minLength": 3, "maxLength": 4000},
         "title": {"type": "string", "maxLength": 160},
         "source_url": {"type": "string", "maxLength": 2000},
+        "source_id": {"type": "string", "maxLength": 180},
         "brand_id": {"type": "integer", "minimum": 1},
         "request_id": {"type": "string", "maxLength": 160},
     }, "additionalProperties": False},
@@ -172,7 +296,10 @@ def start_studio_session(context: RequestContext, arguments: dict) -> dict:
 
     kind = arguments["kind"]
     source_url = str(arguments.get("source_url") or "").strip()
-    if kind.endswith("_edit") and not source_url:
+    source_id = str(arguments.get("source_id") or "").strip()
+    if kind == "image_edit" and not source_url:
+        raise ToolInputError("Informe a imagem de origem para editar.")
+    if kind == "video_edit" and not (source_url or source_id):
         raise ToolInputError("Informe a imagem ou o vídeo de origem para editar.")
     if source_url and not (source_url.startswith("https://") or source_url.startswith("/static/")):
         raise ToolInputError("A origem deve ser um URL HTTPS ou um ativo do Studio.")
@@ -212,7 +339,7 @@ def start_studio_session(context: RequestContext, arguments: dict) -> dict:
                "metadata": {"source": "cadu_mcp", "media_kind": kind,
                             "mcp_request_id": request_id, "mcp_fingerprint": fingerprint,
                             "workspace_project_ref": context.project_ref or "",
-                            "brand_id": brand_id, "source_url": source_url}}
+                            "brand_id": brand_id, "source_url": source_url, "source_id": source_id}}
     store = _session_store(studio_client_id)
     created = None
     if request_id and not current_app.testing:

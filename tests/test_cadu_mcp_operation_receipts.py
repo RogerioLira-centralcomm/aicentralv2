@@ -1,0 +1,53 @@
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
+from aicentralv2.cadu_workspace.mcp.registry import ToolInputError, load_builtin_tools
+from aicentralv2.cadu_workspace.mcp.tools.operations import get_operation
+
+
+def _context():
+    return RequestContext(
+        organization_id=12, client_id=12, user_id=7, conversation_id=None,
+        surface="workspace", project_ref=None, capabilities=("workspace",),
+    )
+
+
+def test_operation_receipt_is_registered_for_external_agents():
+    names = {item["name"] for item in load_builtin_tools().list(_context(), "customer_agent")}
+    assert "operations.get" in names
+
+
+def test_operation_receipt_query_is_tenant_and_user_scoped():
+    cursor = MagicMock()
+    cursor.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [{
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "tool_name": "projects.create_note", "status": "completed",
+        "result": {"source_id": 91}, "error_code": None,
+        "started_at": None, "finished_at": None, "updated_at": None,
+    }]
+    connection = MagicMock()
+    connection.cursor.return_value = cursor
+    with patch("aicentralv2.cadu_workspace.mcp.tools.operations.get_db", return_value=connection):
+        result = get_operation(_context(), {
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+            "tool_name": "projects.create_note",
+        })
+    assert result["status"] == "completed"
+    assert result["receipts"][0]["result"] == {"source_id": 91}
+    assert cursor.execute.call_args.args[1] == (
+        "be777b36-a973-419c-802a-886bf1d125b0", 12, 7, "projects.create_note",
+    )
+
+
+def test_operation_receipt_does_not_disclose_missing_or_foreign_operations():
+    cursor = MagicMock()
+    cursor.__enter__.return_value = cursor
+    cursor.fetchall.return_value = []
+    connection = MagicMock()
+    connection.cursor.return_value = cursor
+    with patch("aicentralv2.cadu_workspace.mcp.tools.operations.get_db", return_value=connection), \
+         pytest.raises(ToolInputError, match="não encontrada"):
+        get_operation(_context(), {"request_id": "be777b36-a973-419c-802a-886bf1d125b0"})

@@ -47,12 +47,12 @@ function AuditCelebration({brand, logoUrl}) {
 
 function FilledReading({items, emptyLabel = 'Adicione contexto para orientar as próximas decisões.'}) {
   const filled = items.filter(item => item.value && (!Array.isArray(item.value) || item.value.length));
-  return filled.length ? <div className="cadu-ds-brand-reading cadu-ds-brand-reading--direction">{filled.map(item => { const evidence = item.value && typeof item.value === 'object' && !Array.isArray(item.value) && 'value' in item.value ? item.value : null; const parts = asList(evidence ? evidence.value : item.value).map(value => String(value).trim()).filter(Boolean); const isLong = parts.length > 1 || parts[0]?.length > 180; return <article key={item.label} className={isLong ? 'is-long' : ''}><small>{item.label}</small>{parts.length > 1 ? <div className="cadu-ds-brand-readable-copy">{parts.map((part, index) => <p key={`${item.label}-${index}`}>{part}</p>)}</div> : <b>{parts[0]}</b>}{evidence?.source_url && <a href={evidence.source_url} target="_blank" rel="noreferrer" className="cadu-ds-brand-field-source">Fonte</a>}</article>; })}</div> : <div className="cadu-ds-brand-reading-empty">{emptyLabel}</div>;
+  return filled.length ? <div className="cadu-ds-brand-reading cadu-ds-brand-reading--direction">{filled.map(item => { const evidence = enrichedField(item.value); const parts = asList(evidence ? evidence.value : item.value).map(value => String(value).trim()).filter(Boolean); const isLong = parts.length > 1 || parts[0]?.length > 180; return <article key={item.label} className={isLong ? 'is-long' : ''}><small>{item.label}</small>{parts.length > 1 ? <div className="cadu-ds-brand-readable-copy">{parts.map((part, index) => <p key={`${item.label}-${index}`}>{part}</p>)}</div> : <b>{parts[0]}</b>}{evidence?.source_url && <a href={evidence.source_url} target="_blank" rel="noreferrer" className="cadu-ds-brand-field-source">Fonte</a>}</article>; })}</div> : <div className="cadu-ds-brand-reading-empty">{emptyLabel}</div>;
 }
 
 function BrandDialog({title, detail, onClose, children, className = ''}) {
   return <CaduDialog className={`cadu-ds-brand-dialog ${className}`} label={title} onClose={onClose}>
-    <header><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
+    <header><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div>{onClose && <button type="button" onClick={onClose} aria-label="Fechar">×</button>}</header>
     {children}
   </CaduDialog>;
 }
@@ -115,14 +115,11 @@ function BrandAuditUploads() {
   const chooseLogo = index => {
     syncInputs(files.map(item => item.file), index);
   };
-  return <div className="cadu-ds-brand-audit-uploads">
+  return <div className={`cadu-ds-brand-audit-uploads${active ? ' is-active' : ''}`} onDragEnter={event => { event.preventDefault(); setActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setActive(false); }} onDrop={event => { event.preventDefault(); setActive(false); distribute(event.dataTransfer.files); }}>
     <input ref={picker} type="file" accept="image/*" multiple hidden onChange={event => { distribute(event.target.files); event.target.value = ''; }}/>
     <input ref={logoInput} name="logo_image" type="file" accept="image/*" hidden aria-hidden="true" tabIndex="-1"/>
     <input ref={referencesInput} name="images" type="file" accept="image/*" multiple hidden aria-hidden="true" tabIndex="-1"/>
-    <button type="button" className={`cadu-ds-brand-audit-uploads__picker${active ? ' is-active' : ''}`} onClick={() => picker.current?.click()} onDragEnter={event => { event.preventDefault(); setActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setActive(false); }} onDrop={event => { event.preventDefault(); setActive(false); distribute(event.dataTransfer.files); }}>
-      <strong>{files.length ? `${files.length} imagem${files.length === 1 ? '' : 's'} pronta${files.length === 1 ? '' : 's'}` : 'Adicionar imagens'}</strong>
-      <span>Clique ou solte aqui · logo e até três referências</span>
-    </button>
+    <button type="button" className="cadu-ds-brand-audit-uploads__picker" onClick={() => picker.current?.click()}>{files.length ? 'Adicionar outras imagens' : 'Selecionar imagens'}</button>
     {files.length > 0 && <div className="cadu-ds-brand-audit-uploads__files" aria-label="Imagens adicionadas">{files.map((item, index) => <button type="button" key={`${item.file.name}-${item.file.lastModified}`} className={index === logoIndex ? 'is-logo' : ''} aria-label={`${item.file.name}: usar como logo`} aria-pressed={index === logoIndex} onClick={() => chooseLogo(index)}><img src={item.preview} alt=""/><span>{index === logoIndex ? 'Logo' : 'Referência'}</span><small title={item.file.name}>{item.file.name}</small></button>)}</div>}
   </div>;
 }
@@ -163,6 +160,10 @@ function BrandAuditSources({initialAdditional = [], initialExcluded = []}) {
 function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   const [mode, setMode] = useState(() => Number(brand.readiness?.score || 0) < 85 && Number(creditAvailable || 0) > 0 ? 'deep' : 'complete');
   const [showAllAssets, setShowAllAssets] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const requestController = useRef(null);
+  useEffect(() => () => requestController.current?.abort('unmounted'), []);
   const existingSocialLinks = brand.auditInput?.socialLinks || brand.analysisMetadata?.socialLinks || [];
   const existingAdditionalSources = brand.auditInput?.additionalSources || brand.reviewPack?.input?.additional_sources || [];
   const existingExcludedSources = brand.auditInput?.excludedSources || brand.reviewPack?.input?.excluded_sources || [];
@@ -171,19 +172,56 @@ function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   const visibleAssets = showAllAssets ? reusableAssets : reusableAssets.slice(0, assetPreviewLimit);
   const hasPrimaryAsset = reusableAssets.some(asset => asset.isPrimary);
   const hasDeepCredit = Number(creditAvailable || 0) > 0;
-  const estimates = mode === 'deep' ? {tokens: 'até 150 mil créditos', time: '6–12 min'} : {tokens: 'até 75 mil créditos', time: '3–8 min'};
+  const estimates = mode === 'deep' ? {tokens: '150 mil créditos', time: '6–12 min'} : {tokens: '75 mil créditos', time: '3–8 min'};
   let officialSite = brand.websiteUrl || '';
   try { officialSite = new URL(officialSite).hostname.replace(/^www\./, ''); } catch (_) { /* Keep the available label. */ }
-  return <BrandDialog title="Atualizar análise da marca" detail="Sua identidade atual permanece protegida até você aprovar a nova análise." onClose={onClose} className="cadu-ds-brand-audit-dialog">
-    <form className="cadu-ds-brand-form" method="post" encType="multipart/form-data" action={urls.audit}>
+  const submitAudit = async event => {
+    event.preventDefault();
+    if (submitting) return;
+    const form = event.currentTarget;
+    setSubmitError('');
+    setSubmitting(true);
+    const controller = new AbortController();
+    requestController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort('timeout'), 20000);
+    try {
+      const response = await fetch(form.action, {
+        method:'POST', body:new FormData(form), credentials:'same-origin',
+        headers:{Accept:'application/json'},
+        signal:controller.signal,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Não foi possível iniciar a análise agora.');
+      const destination = new URL(window.location.href);
+      destination.search = '';
+      destination.searchParams.set('audit', 'queued');
+      window.location.assign(destination.toString());
+    } catch (error) {
+      setSubmitting(false);
+      const timedOut = controller.signal.reason === 'timeout';
+      const cancelled = controller.signal.aborted && !timedOut;
+      setSubmitError(timedOut ? 'O servidor demorou para responder. Seus arquivos e fontes foram preservados; tente novamente.' : cancelled ? 'O envio foi cancelado. Seus arquivos e fontes continuam disponíveis.' : error?.message || 'Não foi possível iniciar a análise agora.');
+    } finally {
+      window.clearTimeout(timeout);
+      if (requestController.current === controller) requestController.current = null;
+    }
+  };
+  const cancelSubmit = () => requestController.current?.abort('cancelled');
+  return <BrandDialog title={submitting ? 'Iniciando análise' : 'Atualizar análise da marca'} detail={submitting ? 'Registrando a solicitação e preparando a fila.' : 'Sua identidade atual permanece protegida até você aprovar a nova análise.'} onClose={submitting ? cancelSubmit : onClose} className={`cadu-ds-brand-audit-dialog${submitting ? ' cadu-ds-brand-audit-dialog--starting' : ''}`}>
+    {submitting && <section className="cadu-ds-brand-audit-starting" role="status" aria-live="assertive">
+      <div className="cadu-ds-brand-audit-starting__mark" aria-hidden="true">{brand.logoUrl ? <img src={brand.logoUrl} alt=""/> : <span>{String(brand.name || 'M').slice(0, 1)}</span>}<i/></div>
+      <div><p>Preparando solicitação</p><h2>Estamos iniciando a análise de {brand.name}</h2><span>Assim que a fila confirmar o recebimento, você verá o progresso completo na página.</span><button type="button" onClick={cancelSubmit}>Cancelar envio</button></div>
+    </section>}
+    <form className={`cadu-ds-brand-form${submitting ? ' is-submitting' : ''}`} aria-hidden={submitting || undefined} method="post" encType="multipart/form-data" action={urls.audit} onSubmit={submitAudit}>
       <Hidden name="_csrf" value={csrfToken}/>
       <Hidden name="social_links" value={existingSocialLinks.join('\n')}/>
       <div className="cadu-ds-brand-audit-dialog__columns">
         <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-sources-title"><header><strong id="audit-sources-title">Fontes atuais</strong><span>O Cadu encontra os links oficiais.</span></header>{brand.websiteUrl ? <><Hidden name="website_url" value={brand.websiteUrl}/><div className="cadu-ds-brand-audit-site"><small>Site oficial</small><b>{officialSite}</b></div></> : <label>Site oficial<input type="url" name="website_url" maxLength="2000" placeholder="https://"/></label>}<BrandAuditSources initialAdditional={existingAdditionalSources} initialExcluded={existingExcludedSources}/>{reusableAssets.length > 0 ? <div className="cadu-ds-brand-audit-existing"><Hidden name="existing_assets_present" value="true"/><strong>Ativos disponíveis</strong><div>{visibleAssets.map((asset, index) => <label key={asset.id}><input type="checkbox" name="existing_asset_ids" value={asset.id} defaultChecked={asset.isPrimary || asset.role !== 'logo' || (!hasPrimaryAsset && index === 0)}/><img src={asset.displayUrl} alt=""/><small>{asset.metadata?.label || assetLabels[asset.role] || 'Ativo'}</small></label>)}</div>{!showAllAssets && reusableAssets.length > assetPreviewLimit && <button type="button" className="cadu-ds-brand-audit-existing__more" onClick={() => setShowAllAssets(true)}>Ver todos os {reusableAssets.length} ativos</button>}</div> : <p className="cadu-ds-brand-audit-empty">Nenhum ativo salvo. Você pode adicionar imagens ao lado.</p>}</section>
-        <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-files-title"><header><strong id="audit-files-title">Novos arquivos</strong><span>Use somente o que deseja analisar agora.</span></header><BrandAuditUploads/></section>
-        <aside className="cadu-ds-brand-audit-dialog__column cadu-ds-brand-audit-dialog__scope" aria-labelledby="audit-mode-title"><header><strong id="audit-mode-title">Tipo de análise</strong><span>Escolha o alcance desta atualização.</span></header><label className={mode === 'complete' ? 'is-selected' : ''}><span><input type="radio" name="analysis_mode" value="complete" checked={mode === 'complete'} onChange={() => setMode('complete')}/><b>Completa</b><em>3–8 min</em></span><small>Identidade, oferta, público e direção visual.</small></label><label className={`${mode === 'deep' ? 'is-selected ' : ''}${!hasDeepCredit ? 'is-disabled' : ''}`}><span><input type="radio" name="analysis_mode" value="deep" checked={mode === 'deep'} disabled={!hasDeepCredit} onChange={() => setMode('deep')}/><b>Profunda</b><em>6–12 min</em></span><small>{hasDeepCredit ? 'Mercado, concorrência e campanhas.' : 'Disponível quando houver saldo de créditos.'}</small></label><div className="cadu-ds-brand-audit-dialog__estimate"><small>Consumo máximo</small><strong>{estimates.tokens}</strong></div></aside>
+        <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-files-title"><header><strong id="audit-files-title">Novos arquivos</strong><span>Selecione ou solte até quatro imagens para analisar agora.</span></header><BrandAuditUploads/></section>
+        <aside className="cadu-ds-brand-audit-dialog__column cadu-ds-brand-audit-dialog__scope" aria-labelledby="audit-mode-title"><header><strong id="audit-mode-title">Tipo de análise</strong><span>Escolha o alcance desta atualização.</span></header><label className={mode === 'complete' ? 'is-selected' : ''}><span><input type="radio" name="analysis_mode" value="complete" checked={mode === 'complete'} onChange={() => setMode('complete')}/><b>Completa</b><em>3–8 min</em></span><small>Identidade, oferta, público e direção visual.</small></label><label className={`${mode === 'deep' ? 'is-selected ' : ''}${!hasDeepCredit ? 'is-disabled' : ''}`}><span><input type="radio" name="analysis_mode" value="deep" checked={mode === 'deep'} disabled={!hasDeepCredit} onChange={() => setMode('deep')}/><b>Profunda</b><em>6–12 min</em></span><small>{hasDeepCredit ? 'Mercado, concorrência e campanhas.' : 'Disponível quando houver saldo de créditos.'}</small></label></aside>
       </div>
-      <div className="cadu-ds-brand-audit-dialog__footer"><label className="cadu-ds-brand-check"><input type="checkbox" name="confirmed_cost" value="true" required/> Confirmo o consumo de {estimates.tokens}.</label><footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Atualizar análise</button></footer></div>
+      <Hidden name="confirmed_cost" value="true"/>
+      <div className="cadu-ds-brand-audit-dialog__footer"><span className="cadu-ds-brand-audit-dialog__cost">{submitError ? <em role="alert">{submitError}</em> : <>Consumo estimado: <strong>{estimates.tokens}</strong></>}</span><footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Atualizar análise</button></footer></div>
     </form>
   </BrandDialog>;
 }
@@ -310,12 +348,54 @@ function CopyButton({value, label = 'Copiar'}) {
   return <button type="button" className="cadu-ds-brand-copy" onClick={copy}>{done ? 'Copiado' : label}</button>;
 }
 
+function BrandDesignerKit({brand, colors, fonts, verified}) {
+  const palette = asList(colors).map(color => typeof color === 'string' ? {hex:color} : color).filter(color => color?.hex).slice(0, 6);
+  return <section className="cadu-ds-brand-designer-kit" aria-label="Kit rápido da marca">
+    <div className="cadu-ds-brand-designer-kit__identity">
+      <VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || palette[0]?.hex}/>
+      <span><b>{brand.name}</b><small>{verified ? 'Identidade aprovada' : 'Dados em revisão'}</small></span>
+    </div>
+    {palette.length > 0 && <div className="cadu-ds-brand-designer-kit__section"><strong>Paleta</strong><div className="cadu-ds-brand-designer-kit__palette">{palette.map((color, index) => <button type="button" key={`${color.hex}-${index}`} title={`Copiar ${color.hex}`} onClick={() => navigator.clipboard?.writeText(color.hex)}><i style={{background:color.hex}}/><span><b>{color.hex}</b><small>{color.role || color.name || 'Cor da marca'}</small></span></button>)}</div></div>}
+    {fonts.length > 0 && <div className="cadu-ds-brand-designer-kit__section"><strong>Tipografia</strong><div className="cadu-ds-brand-designer-kit__fonts">{fonts.slice(0, 5).map((font, index) => { const item = typeof font === 'string' ? {family:font} : font; return <div key={`${item.family}-${index}`}><b>{item.family}</b><small>{item.role || 'Uso identificado'}</small></div>; })}</div></div>}
+  </section>;
+}
+
 function BrandSignalRail({brand, fonts, colors, projects, onProject, verified}) {
   const fontUrl = family => `https://fonts.google.com/?query=${encodeURIComponent(family)}`;
   return <aside className="cadu-ds-brand-next cadu-ds-brand-signal-rail"><section className="cadu-ds-brand-signal-rail__tokens"><header><p>Sistema visual</p><h3>Cores e tipografia</h3><span className={`cadu-ds-brand-origin${verified ? ' is-verified' : ''}`}>{verified ? 'Identidade aprovada' : 'Dados ainda não verificados'}</span></header>{colors.length ? <div className="cadu-ds-brand-signal-rail__colors">{colors.slice(0, 6).map((color, index) => { const item = typeof color === 'object' ? color : {hex: color}; return item.hex ? <div key={`${item.hex}-${index}`}><i style={{background:item.hex}}/><span><b>{item.hex}</b><small>{item.role || item.name || 'Cor da marca'}</small></span><CopyButton value={item.hex} label="Copiar"/></div> : null; })}</div> : null}{fonts.length ? <div className="cadu-ds-brand-signal-rail__fonts">{fonts.slice(0, 4).map((font, index) => { const item = typeof font === 'object' ? font : {family: font}; const family = item.family || item.classification; return family ? <a key={`${family}-${index}`} href={fontUrl(family)} target="_blank" rel="noreferrer"><span><small>{item.role || 'tipografia'}</small><b>{family}</b></span><i aria-hidden="true">↗</i></a> : null; })}</div> : null}</section><section className="cadu-ds-brand-signal-rail__projects"><header><p>Projetos da marca</p><h3>{projects.length ? `${projects.length} vinculado${projects.length === 1 ? '' : 's'}` : 'Nenhum projeto vinculado'}</h3></header>{projects.length ? <nav aria-label={`Projetos que usam ${brand.name}`}>{projects.map(project => <button type="button" key={project.id} onClick={() => onProject(project)}><VisualIdentity src={project.logoUrl} initials={project.initials || project.name} label={project.name} color={project.color}/><span><b>{project.name}</b><small>{project.sources} fontes prontas</small></span><i aria-hidden="true">›</i></button>)}</nav> : <p className="cadu-ds-brand-rail-empty">Vincule a marca quando ela fizer parte do contexto de um projeto.</p>}</section></aside>;
 }
 
 const asList = value => Array.isArray(value) ? value : value ? [value] : [];
+const legacyStringField = (raw, key) => {
+  const match = new RegExp(`["']${key}["']\\s*:`).exec(raw);
+  if (!match) return '';
+  let cursor = match.index + match[0].length;
+  while (/\s/.test(raw[cursor] || '')) cursor += 1;
+  const quote = raw[cursor];
+  if (quote !== '"' && quote !== "'") return '';
+  let result = '';
+  for (cursor += 1; cursor < raw.length; cursor += 1) {
+    const char = raw[cursor];
+    if (char === '\\' && cursor + 1 < raw.length) {
+      const escaped = raw[cursor + 1];
+      result += escaped === 'n' ? '\n' : escaped === 'r' ? '\r' : escaped === 't' ? '\t' : escaped;
+      cursor += 1;
+    } else if (char === quote) return result;
+    else result += char;
+  }
+  return '';
+};
+const enrichedField = value => {
+  if (value && typeof value === 'object' && !Array.isArray(value) && 'value' in value) return value;
+  if (typeof value !== 'string' || !value.trim().startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'value' in parsed) return parsed;
+  } catch (_) { /* Some existing records contain a Python-style mapping. */ }
+  const content = legacyStringField(value, 'value');
+  if (!content) return null;
+  return {value:content, source_url:legacyStringField(value, 'source_url')};
+};
 const normalizedUrl = value => { try { const url = new URL(String(value || '')); return `${url.hostname.replace(/^www\./, '').toLowerCase()}${url.pathname.replace(/\/$/, '')}`; } catch (_) { return String(value || '').split('?', 1)[0].replace(/\/$/, '').toLowerCase(); } };
 const uniqueSources = sources => [...new Map(asList(sources).filter(Boolean).map(source => {
   const item = typeof source === 'string' ? {url:source} : {...source, url:source.url || source.source_url || source.href};
@@ -345,18 +425,22 @@ function BrandKit({brand, profile}) {
   return <section className="cadu-ds-brand-kit" aria-label="Kit de contexto da marca"><header><div><p>Pronto para usar</p><h2>Contexto para conversas e artefatos</h2></div></header><div className="cadu-ds-brand-kit__grid"><article><small>Logo principal</small>{brand.logoUrl ? <img src={brand.logoUrl} alt={`Logo ${brand.name}`}/> : <b>Logo ainda não disponível</b>}<CopyButton value={brand.logoUrl} label="Copiar link do logo"/></article><article><small>Site oficial</small><a href={brand.websiteUrl} target="_blank" rel="noreferrer">{brand.websiteUrl || 'Não informado'}</a><CopyButton value={brand.websiteUrl} label="Copiar site"/></article><article><small>Link da marca no Workspace</small><span>{publicLink}</span><CopyButton value={publicLink} label="Copiar link"/></article><article><small>Paleta aprovada</small><div className="cadu-ds-brand-kit__colors">{(profile.colorPalette || []).slice(0, 6).map((color, index) => <button type="button" key={`${color.hex}-${index}`} title={`Copiar ${color.hex}`} onClick={() => navigator.clipboard?.writeText(color.hex)} style={{background: color.hex}}><span>{color.hex}</span></button>)}</div><small>Clique em uma cor para copiar.</small></article></div></section>;
 }
 
-function AuditAtlas({profile, metadata, verified = false}) {
-  const sources = uniqueSources(metadata.sources || []);
-  const socialRecords = asList(metadata.socialLinks).map(value => typeof value === 'string' ? {label: 'Canal oficial', value, source_url: value} : value);
-  const records = [...asList(profile.contacts), ...asList(profile.addresses), ...asList(profile.digitalPolicies), ...socialRecords];
-  return <><section className="cadu-ds-brand-atlas" id="inteligencia"><header><div><p>Base de decisão</p><h2>Marca, mercado e execução</h2><span>{verified ? 'Dados aprovados da auditoria, separados por uso e com a proveniência preservada.' : 'Dados disponíveis para revisão, separados por uso e com a proveniência preservada.'}</span></div></header><div className="cadu-ds-brand-atlas__columns"><div><ListBlock title="Produtos e serviços" items={profile.productsServices}/><ListBlock title="Diferenciais confirmados" items={profile.differentiators}/><ListBlock title="Provas e sinais" items={profile.proofPoints}/><ListBlock title="Concorrentes e alternativas" items={profile.competitors}/><ListBlock title="Oportunidades de campanha" items={profile.campaignOpportunities}/></div><div><ListBlock title="Segmentos de audiência" items={profile.audienceSegments}/><ListBlock title="Personas e decisores" items={profile.personas}/><ListBlock title="Públicos e ângulos de anúncio" items={profile.adSegments}/><ListBlock title="Direção criativa" items={profile.creativeGuidelines}/><ListBlock title="Elementos visuais recorrentes" items={profile.visualMotifs}/><ListBlock title="Obrigatório preservar" items={profile.mandatoryElements}/><ListBlock title="Evitar" items={profile.forbiddenElements}/></div></div></section>{records.length ? <section className="cadu-ds-brand-section cadu-ds-brand-records"><header><div><p>Presença pública</p><h2>Contatos, endereços, políticas e canais</h2></div></header><div className="cadu-ds-brand-table">{records.map((record, index) => <article key={`${record.source_url || record.value}-${index}`}><div><b>{record.label || record.title || record.type || 'Registro público'}</b><span>{record.value || record.address || record.excerpt || 'Detalhe disponível na fonte'}</span></div>{record.source_url && <a href={record.source_url} target="_blank" rel="noreferrer">Fonte</a>}</article>)}</div></section> : null}<section className="cadu-ds-brand-section cadu-ds-brand-sources" id="fontes"><header><div><p>Rastreabilidade</p><h2>Fontes usadas na auditoria</h2></div></header><div className="cadu-ds-brand-table">{sources.length ? sources.map((source, index) => <article key={`${source.url}-${index}`}><div><b>{source.title || `Fonte pública ${index + 1}`}</b><span>{source.url}</span></div><a href={source.url} target="_blank" rel="noreferrer">Abrir</a></article>) : <p className="cadu-ds-brand-empty">A auditoria ainda não registrou fontes públicas.</p>}</div></section></>;
+function AuditAtlas({profile, verified = false}) {
+  const blocks = [
+    ['Produtos e serviços', profile.productsServices], ['Diferenciais confirmados', profile.differentiators],
+    ['Provas e sinais', profile.proofPoints], ['Concorrentes e alternativas', profile.competitors],
+    ['Oportunidades de campanha', profile.campaignOpportunities], ['Segmentos de audiência', profile.audienceSegments],
+    ['Personas e decisores', profile.personas], ['Públicos e ângulos de anúncio', profile.adSegments],
+    ['Direção criativa', profile.creativeGuidelines], ['Elementos visuais recorrentes', profile.visualMotifs],
+    ['Obrigatório preservar', profile.mandatoryElements], ['Evitar', profile.forbiddenElements],
+  ].filter(([, items]) => asList(items).length);
+  return <section className="cadu-ds-brand-atlas" id="inteligencia"><header><div><p>Base de decisão</p><h2>Marca, mercado e execução</h2><span>{verified ? 'Dados aprovados da auditoria, separados por uso e com a proveniência preservada.' : 'Dados disponíveis para revisão, separados por uso e com a proveniência preservada.'}</span></div></header><div className="cadu-ds-brand-atlas__columns">{blocks.map(([title, items]) => <ListBlock key={title} title={title} items={items}/>)}</div></section>;
 }
 
 function BrandDossierSections({profile}) {
   const archetype = profile.archetype && profile.archetype.primary ? [`${profile.archetype.primary}${profile.archetype.secondary ? ` / ${profile.archetype.secondary}` : ''}: ${profile.archetype.rationale || 'Leitura de personalidade da marca.'}`] : [];
   const sections = [
     ['Fundamentos', [...asList(profile.brandValues), ...archetype]],
-    ['Tipografia identificada', normalizeFonts(profile.fonts)],
   ].filter(([, items]) => items.length);
   if (!sections.length) return null;
   return <section className="cadu-ds-brand-section"><header><div><p>Dossiê da marca</p><h2>Informações completas para trabalhar</h2><span>Conteúdo organizado por decisão, sem expor operações internas da auditoria.</span></div></header><div className="cadu-ds-brand-atlas__columns">{sections.map(([title, items]) => <ListBlock key={title} title={title} items={items}/>)}</div></section>;
@@ -434,7 +518,7 @@ export function WorkspaceBrand({bootstrap}) {
     ...(!isProcessing ? [{id:'completar', label:'Cobertura da marca', icon:'pulse'}] : []),
     ...(!isProcessing && showDossier ? [
       {id:'direcao', label:'Direção da marca', icon:'compose'},
-      ...(atlasHasContent ? [{id:'inteligencia', label:'Todos os dados', icon:'pulse'}, {id:'fontes', label:'Fontes', icon:'external', count:uniqueSources(brand.analysisMetadata?.sources || []).length}] : []),
+      ...(atlasHasContent ? [{id:'inteligencia', label:'Todos os dados', icon:'pulse'}] : []),
       ...(campaigns.length ? [{id:'campanhas', label:'Campanhas', icon:'folder', count:campaigns.length}] : []),
       ...(auditHistory.length ? [{id:'auditoria', label:'Auditorias', icon:'history', count:auditHistory.length}] : []),
     ] : []),
@@ -456,8 +540,14 @@ export function WorkspaceBrand({bootstrap}) {
     }
   };
   const sourceDetail = href => { try { const url = new URL(href); return url.pathname && url.pathname !== '/' ? decodeURIComponent(url.pathname).replace(/\/$/, '').split('/').filter(Boolean).at(-1)?.replace(/[-_]/g, ' ') : url.hostname; } catch (_) { return href; } };
+  const rawPublicRecords = [...asList(profile.contacts), ...asList(profile.addresses), ...asList(profile.digitalPolicies), ...asList(brand.analysisMetadata?.socialLinks).map(value => typeof value === 'string' ? {label:'Canal oficial', value, source_url:value} : value)];
+  const publicRecords = [...new Map(rawPublicRecords.filter(Boolean).map(record => {
+    const identity = `${record.label || record.title || record.type || ''}|${record.value || record.address || record.excerpt || ''}|${record.source_url || record.url || ''}`.trim().toLocaleLowerCase('pt-BR');
+    return [identity, record];
+  }).filter(([identity]) => identity)).values()];
   const brandRailGroups = [
-    {title:'Fontes públicas', items:uniqueSources([{url:brand.websiteUrl,title:'Site oficial'}, ...(brand.analysisMetadata?.sourceRecords || []), ...(brand.analysisMetadata?.sources || [])]).map((record, index) => ({id:record.url, title:sourceLabel(record, index), detail:sourceDetail(record.url), origin:index === 0 ? 'Site informado pela marca' : 'Fonte usada na auditoria', href:record.url, external:true, icon:'external'}))},
+    {title:'Presença pública', items:publicRecords.map((record, index) => ({id:`record-${index}-${record.value || record.address}`, title:record.label || record.title || record.type || 'Registro público', detail:record.value || record.address || record.excerpt || 'Detalhe disponível', href:record.source_url || record.url, external:true, icon:'external'}))},
+    {title:'Fontes da auditoria', items:uniqueSources([{url:brand.websiteUrl,title:'Site oficial'}, ...(brand.analysisMetadata?.sourceRecords || []), ...(brand.analysisMetadata?.sources || [])]).map((record, index) => ({id:record.url, title:sourceLabel(record, index), detail:sourceDetail(record.url), origin:index === 0 ? 'Site informado pela marca' : 'Fonte usada na auditoria', href:record.url, external:true, icon:'external'}))},
     {title:'Projetos da marca', items:linkedProjects.map(item => ({...item, title:item.name, detail:`${item.sources || 0} fontes prontas`}))},
   ];
   return <div className={`cadu-ds-home-shell cadu-ds-brand-shell is-${lifecycle}`}>
@@ -465,7 +555,7 @@ export function WorkspaceBrand({bootstrap}) {
       <div className="cadu-ds-home-workarea cadu-ds-brand-workarea">
         {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}
         <div className="cadu-ds-entity-portal cadu-ds-entity-portal--brand">
-        {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} identity={<span><small>Marca</small><b>{brand.name}</b></span>}>
+        {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
           {!isProcessing && <>
             <span>Gestão</span>
             {verified && <button type="button" className="is-primary" onClick={openConversation}>Conversar sobre a marca</button>}
@@ -477,7 +567,7 @@ export function WorkspaceBrand({bootstrap}) {
         </EntityNavigator>}
         <section className="cadu-ds-brand-content">
           <a className="cadu-ds-brand-back" href={bootstrap.urls.brands}>← Marcas</a>
-          <header className="cadu-ds-brand-hero" id="marca-visao"><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Identidade de marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Aprovada' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available_unverified' ? 'Dados não verificados' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
+          <header className="cadu-ds-brand-hero" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Identidade de marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Aprovada' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available_unverified' ? 'Dados não verificados' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
           {isProcessing ? <BrandState type="processing" brand={brand} logoUrl={auditLogoUrl} progress={auditProgress}/> : <><BrandCompletion score={readinessScore} missing={brand.readiness?.missing || []} breakdown={brand.readiness?.breakdown || []} processing={false} onAudit={() => setDialog('audit')} onEdit={() => setDialog('identity')}/>
           {showDossier && lifecycle !== 'data_available_unverified' && <section className={`cadu-ds-brand-review cadu-ds-brand-review--${status || 'idle'}`}><div><p>Estado da base</p><h2>{reviewTitle}</h2><span>{reviewDescription}</span>{canShowSynthesis && <button type="button" onClick={() => setDialog('reviews')}>Consultar síntese da análise</button>}</div></section>}
           {!showDossier && <BrandState
@@ -491,15 +581,16 @@ export function WorkspaceBrand({bootstrap}) {
             <div className="cadu-ds-brand-layout__main">
               <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><button type="button" onClick={openConversation}>Atualizar com o Cadu</button></header><div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{profile.brandSummary || profile.positioning}</p></div><FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:profile.productsServices},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:profile.differentiators},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
               <CampaignSection campaigns={campaigns} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
-              {atlasHasContent && <AuditAtlas profile={profile} metadata={brand.analysisMetadata || {}} verified={verified}/>}
+              {atlasHasContent && <AuditAtlas profile={profile} verified={verified}/>}
               <AuditScreenshot metadata={brand.analysisMetadata || {}}/>
               <BrandDossierSections profile={profile}/>
               <AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
               <AuditHistory history={auditHistory}/>
+              <EntityContextRail className="cadu-ds-brand-responsive-management" title="Informações rápidas da marca" groups={brandRailGroups}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/></EntityContextRail>
             </div>
           </div></> : <><AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/><AuditHistory history={auditHistory}/></>}</>}
         </section>
-        {!isProcessing && <EntityContextRail title="Gestão da marca" groups={showDossier ? brandRailGroups : []}><div className="cadu-ds-entity-rail__readiness"><span>Base da marca</span><strong>{readinessScore}%</strong><small>{verified ? 'identidade aprovada' : 'em preparação'}</small></div>{verified && <><a className="cadu-ds-entity-rail__studio" href={urls.createImage}>Criar imagem no Studio</a><a className="cadu-ds-entity-rail__studio" href={urls.createVideo}>Criar vídeo no Studio</a></>}<button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail>}
+        {!isProcessing && <EntityContextRail title="Gestão da marca" groups={showDossier ? brandRailGroups : []}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><div className="cadu-ds-entity-rail__readiness"><span>Base da marca</span><strong>{readinessScore}%</strong><small>{verified ? 'identidade aprovada' : 'em preparação'}</small></div>{verified && <><a className="cadu-ds-entity-rail__studio" href={urls.createImage}>Criar imagem no Studio</a><a className="cadu-ds-entity-rail__studio" href={urls.createVideo}>Criar vídeo no Studio</a></>}<button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail>}
         </div>
       </div>
     </main>

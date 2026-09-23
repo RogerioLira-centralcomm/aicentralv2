@@ -33,8 +33,8 @@ function RailGroup({title, items = []}) {
   })}</div>{items.length > 5 && <button type="button" className="cadu-ds-entity-rail__expand" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Mostrar menos' : `Ver todos (${items.length})`}</button>}</section>;
 }
 
-export function EntityContextRail({title = 'Em destaque', action, groups = [], children}) {
-  return <aside className="cadu-ds-entity-rail" aria-label={title}><header className="cadu-ds-entity-rail__header"><span>{title}</span>{action}</header>{children}{groups.map(group => <RailGroup key={group.title} {...group}/>)}</aside>;
+export function EntityContextRail({title = 'Em destaque', action, groups = [], children, className = ''}) {
+  return <aside className={`cadu-ds-entity-rail ${className}`.trim()} aria-label={title}><header className="cadu-ds-entity-rail__header"><span>{title}</span>{action}</header>{children}{groups.map(group => <RailGroup key={group.title} {...group}/>)}</aside>;
 }
 
 const DOCUMENT_TEMPLATES = {

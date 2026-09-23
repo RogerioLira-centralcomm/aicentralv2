@@ -52,7 +52,7 @@ function brandDocument(processing = false) {
         <aside class="cadu-ds-dock"><button class="cadu-ds-dock-home">Início</button><button class="cadu-ds-dock-brand"><span class="cadu-ds-visual-identity cadu-ds-visual-identity--brand"><img alt="Marca" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20' fill='%23007766'/%3E%3C/svg%3E"></span></button></aside>
         <div class="cadu-ds-entity-portal cadu-ds-entity-portal--brand">${processing ? '' : '<aside class="cadu-ds-entity-nav"><nav><a class="is-active">Visão geral</a></nav></aside>'}
           <section class="cadu-ds-brand-content"><header class="cadu-ds-brand-hero"><div class="cadu-ds-brand-hero__identity"></div><div><h1>Marca</h1></div></header>
-            ${processing ? '<section class="cadu-ds-brand-state cadu-ds-brand-state--processing"><div class="cadu-ds-brand-state__visual"><i class="cadu-ds-brand-orbit cadu-ds-brand-orbit--one"></i><div class="cadu-ds-brand-audit-mark"><img alt="" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'40\'%3E%3C/svg%3E"></div></div><div class="cadu-ds-brand-state__copy"><h2>Processando</h2><div class="cadu-ds-brand-audit-progress"><div class="is-active"><i></i><span>Fontes oficiais</span></div><div><i></i><span>Identidade visual</span></div></div></div></section>' : '<section class="cadu-ds-brand-review"><div>Base aprovada</div></section><header class="cadu-ds-brand-data-viewer__header"><h2>Informações organizadas</h2></header><div class="cadu-ds-brand-data-viewer"><section class="cadu-ds-brand-library"><div class="cadu-ds-brand-library__stage"><img alt="Ativo"></div><aside><button class="is-active"><img alt=""><span><b>Logo</b></span></button></aside></section></div>'}
+            ${processing ? '<section class="cadu-ds-brand-state cadu-ds-brand-state--processing"><div class="cadu-ds-brand-state__visual"><i class="cadu-ds-brand-orbit cadu-ds-brand-orbit--one"></i><div class="cadu-ds-brand-audit-mark"><img alt="" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'40\'%3E%3C/svg%3E"></div></div><div class="cadu-ds-brand-state__copy"><h2>Processando</h2><div class="cadu-ds-brand-audit-progress"><div class="is-active"><i></i><span>Fontes oficiais</span></div><div><i></i><span>Identidade visual</span></div></div></div></section>' : '<section class="cadu-ds-brand-review"><div>Base aprovada</div></section><header class="cadu-ds-brand-data-viewer__header"><h2>Informações organizadas</h2></header><div class="cadu-ds-brand-data-viewer"><section class="cadu-ds-brand-library"><div class="cadu-ds-brand-library__stage"><img alt="Ativo"></div><aside><button class="is-active"><img alt=""><span><b>Logo</b></span></button></aside></section><aside class="cadu-ds-entity-rail cadu-ds-brand-responsive-management">Informações rápidas da marca</aside></div>'}
           </section>${processing ? '' : '<aside class="cadu-ds-entity-rail">Gestão<button class="cadu-ds-entity-rail__action">Criar ou vincular projeto</button><button class="cadu-ds-entity-rail__danger">Apagar marca</button></aside>'}</div>
       </div></main></div></div></main></body></html>`;
 }
@@ -215,12 +215,12 @@ async function dimensions(page, contentClass) {
       };
     });
     assert.match(brand.portalColumns, /239px/, 'Marca: navegação contextual preservada');
-    assert.equal(brand.heroDisplay, 'flex', 'Marca: hero sem coluna de ações redundante');
+    assert.equal(brand.heroDisplay, 'grid', 'Marca: hero reserva uma coluna consistente para a identidade visual');
     assert.equal(brand.reviewBackground, 'rgba(0, 0, 0, 0)', 'Marca: estado da base sem card decorativo');
     assert.equal(brand.logoFit, 'contain', 'Marca: logo da Dock usa toda a área sem recorte');
     assert.ok(Math.abs(brand.homeCenter - brand.dockCenter) < 1, 'Marca: acesso centralizado na Dock');
     assert.ok(Math.abs(brand.brandCenter - brand.dockCenter) < 1, 'Marca: atalho de marca centralizado na Dock');
-    assert.equal(brand.activeBackground, 'rgba(0, 0, 0, 0)', 'Marca: link ativo da sidebar sem card');
+    assert.notEqual(brand.activeBackground, 'rgba(0, 0, 0, 0)', 'Marca: link ativo segue a superfície usada em projetos');
     assert.equal(brand.activeShadow, 'none', 'Marca: link ativo da sidebar sem barra lateral');
     assert.equal(brand.stageBackground, 'rgba(0, 0, 0, 0)', 'Marca: visualizador de ativos integrado ao canvas');
     assert.equal(brand.assetBackground, 'rgba(0, 0, 0, 0)', 'Marca: lista de ativos sem cards');
@@ -230,6 +230,16 @@ async function dimensions(page, contentClass) {
     assert.equal(brand.railDangerDisplay, 'block', 'Marca: ação destrutiva do rail ocupa linha própria');
     assert.ok(brand.railDangerTop > brand.railActionBottom, 'Marca: ações do rail não colidem');
     assert.equal(brand.overflow, 0, 'Marca: sem overflow desktop');
+
+    await page.setViewportSize({width: 1024, height: 800});
+    await page.setContent(brandDocument(false));
+    const compactBrandManagement = await page.$eval('.cadu-ds-brand-responsive-management', node => getComputedStyle(node).display);
+    assert.notEqual(compactBrandManagement, 'none', 'Marca: informações da sidebar continuam acessíveis no desktop compacto');
+
+    await page.setViewportSize({width: 390, height: 844});
+    await page.setContent(brandDocument(false));
+    const mobileBrandManagement = await page.$eval('.cadu-ds-brand-responsive-management', node => getComputedStyle(node).display);
+    assert.notEqual(mobileBrandManagement, 'none', 'Marca: informações da sidebar continuam acessíveis no mobile');
 
     await page.setViewportSize({width: 1440, height: 800});
     await page.setContent(projectDocument());

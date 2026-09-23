@@ -86,6 +86,36 @@ def test_search_includes_project_activity_saved_as_reference(monkeypatch):
     assert activity["evidence_level"] == "saved_project_metadata"
 
 
+def test_overview_balances_context_sources_resources_and_tasks(monkeypatch):
+    calls = []
+    def project_context(*args, **kwargs):
+        calls.append(kwargs)
+        return _project_packet()
+
+    monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
+    monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
+    monkeypatch.setattr(workspace, "get_project_context", project_context)
+    monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [
+        {"id": f"context-{index}", "label": f"Direção {index}", "display_value": "Informação salva"}
+        for index in range(20)
+    ])
+    monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {
+        "resources": [{"id": f"resource-{index}", "resource_type": "link", "title": f"Biblioteca {index}",
+                       "metadata": {"description": "Referência da campanha"}} for index in range(20)],
+    })
+    monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {
+        "tasks": [{"id": "task-1", "title": "Aprovar criativos", "status": "todo"}],
+    })
+
+    result = workspace.search_project_content(CONTEXT, {"query": "Visão geral de tudo sobre esse projeto"})
+
+    assert calls == [{"result_limit": 12}]
+    assert {item["result_type"] for item in result["results"]} == {
+        "project_context", "indexed_source", "project_resource", "project_activity",
+    }
+    assert len(result["results"]) == 25
+
+
 def test_search_reports_partial_inventory_failure_without_losing_saved_context(monkeypatch):
     monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
     monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")

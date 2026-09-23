@@ -489,9 +489,9 @@ def share_project_with_team(context: RequestContext, arguments: dict) -> dict:
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "properties": {"query": {"type": "string", "maxLength": 400}}, "additionalProperties": False},
 )
-def get_project_context(context: RequestContext, arguments: dict) -> dict:
+def get_project_context(context: RequestContext, arguments: dict, *, result_limit: int = 4) -> dict:
     raw = project_knowledge_context(context.project_ref, context.brand_ref, context.client_id,
-                                    str(arguments.get("query") or ""))
+                                    str(arguments.get("query") or ""), result_limit=result_limit)
     try:
         packet = json.loads(raw) if raw else {"project_ref": context.project_ref}
     except (TypeError, ValueError):
@@ -520,7 +520,10 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     query = " ".join(str(arguments.get("query") or "").split())
     if len(query) < 2:
         raise ToolInputError("Informe o que deve ser pesquisado no projeto.")
-    packet = get_project_context(context, {"query": query})
+    overview = bool(re.search(r"\b(?:vis[aã]o\s+geral|panorama|dossi[eê]|tudo|completo)\b.{0,90}"
+                              r"\b(?:projeto|campanha)\b", query, re.IGNORECASE))
+    packet = (get_project_context(context, {"query": query}, result_limit=12) if overview
+              else get_project_context(context, {"query": query}))
     direction = packet.get("direction") or {}
     context_results = project_context_service.context_items(direction)
     source_results = [{**item, "result_type": "indexed_source"}
@@ -534,7 +537,7 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     def relevance(title, detail="", *, base=0):
         title_terms, detail_terms = tokens(title), tokens(detail)
         matched = len(terms & title_terms) * 4 + len(terms & detail_terms)
-        return base + matched if matched or not terms else 0
+        return base + matched if matched or not terms or overview else 0
 
     resource_results = []
     reference_activity_results = []
@@ -606,20 +609,26 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     resource_results.sort(key=lambda item: item["score"], reverse=True)
     task_results.extend(reference_activity_results)
     task_results.sort(key=lambda item: item["score"], reverse=True)
-    ranked = ([{**item, "result_type": "project_context", "score": score,
+    context_ranked = [{**item, "result_type": "project_context", "score": score,
                 "evidence_level": "saved_project_data"}
                for item in context_results
                if (score := relevance(item.get("label"), item.get("display_value"), base=6))]
-              + [{**item, "score": 4 + float(item.get("score") or 0),
-                  "evidence_level": "indexed_content"} for item in source_results]
-              + resource_results + task_results)
-    ranked.sort(key=lambda item: item.get("score") or 0, reverse=True)
+    source_ranked = [{**item, "score": 4 + float(item.get("score") or 0),
+                      "evidence_level": "indexed_content"} for item in source_results]
+    if overview:
+        # A dossier needs breadth across the project, even when its generic
+        # request contains no terms from an individual resource title.
+        groups = [context_ranked[:8], source_ranked[:12], resource_results[:15], task_results[:12]]
+        ranked = [group[index] for index in range(15) for group in groups if index < len(group)][:30]
+    else:
+        ranked = context_ranked + source_ranked + resource_results + task_results
+        ranked.sort(key=lambda item: item.get("score") or 0, reverse=True)
     return {
         "project_ref": context.project_ref,
         "query": query,
         "revision": direction.get("revision"),
         "project": packet.get("projeto") or {},
-        "context_results": [item for item in ranked if item.get("result_type") == "project_context"],
+        "context_results": context_ranked,
         "source_results": source_results,
         "resource_results": resource_results[:20], "activity_results": task_results[:15],
         "results": ranked[:30],

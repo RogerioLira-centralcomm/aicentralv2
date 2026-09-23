@@ -136,9 +136,12 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     public_query = public_web_query(routed_message, project_selected=bool(request.project_ref))
     explicit_external = bool(re.search(
         r"\b(?:pesquis\w*|busqu\w*|investig\w*|consult\w*)\b.{0,80}"
-        r"\b(?:internet|web|online|fontes? externas?)\b", routed_message, re.IGNORECASE))
+        r"\b(?:internet|web|online|fontes? externas?)\b|"
+        r"\b(?:internet|web|online|fontes? externas?)\b.{0,80}"
+        r"\b(?:pesquis\w*|busqu\w*|investig\w*|consult\w*)\b",
+        routed_message, re.IGNORECASE))
     needs_current_facts = bool(re.search(
-        r"\b(?:hoje|atual|recente|202[5-9]|pre[cç]os?|cota[cç][aã]o|not[ií]cias?)\b",
+        r"\b(?:hoje|atuais?|recentes?|202[5-9]|pre[cç]os?|cota[cç][aã]o|not[ií]cias?)\b",
         routed_message, re.IGNORECASE))
     internal_has_evidence = bool((internal_search.get("results") or []) if isinstance(internal_search, dict) else [])
     should_search_public = bool(public_query) and (

@@ -18,8 +18,8 @@ class ResolvedContext:
 
 
 _PUBLIC_SIGNAL = re.compile(
-    r"\b(?:mercado|benchmark|tend[eê]ncia|concorr[eê]ncia|concorrentes?|pre[cç]o|cota[cç][aã]o|"
-    r"estat[ií]stica|not[ií]cias?|legisla[cç][aã]o|regra|atual|recente|hoje|202[5-9]|"
+    r"\b(?:mercado|benchmarks?|tend[eê]ncias?|concorr[eê]ncias?|concorrentes?|pre[cç]os?|cota[cç][aã]o|"
+    r"estat[ií]sticas?|not[ií]cias?|legisla[cç][aã]o|regras?|atuais?|recentes?|hoje|202[5-9]|"
     r"cpc|cpm|cac|ctr|google ads|meta ads|tiktok|instagram)\b", re.IGNORECASE,
 )
 _PRIVATE_SCOPE = re.compile(
@@ -28,7 +28,7 @@ _PRIVATE_SCOPE = re.compile(
     r"(?:projeto|cliente|campanha|marca|briefing|arquivo|documento)\b.*$", re.IGNORECASE,
 )
 _PUBLIC_TERMS = frozenset({
-    "atual", "atuais", "recente", "recentes", "hoje", "mercado", "setor", "benchmark",
+    "atual", "atuais", "recente", "recentes", "hoje", "mercado", "setor", "benchmark", "benchmarks",
     "tendencia", "tendencias", "concorrencia", "concorrentes", "preco", "precos",
     "cotacao", "estatistica", "estatisticas", "noticia", "noticias", "regra", "regras",
     "legislacao", "marketing", "midia", "digital", "publicidade", "campanha", "campanhas",

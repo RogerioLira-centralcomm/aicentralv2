@@ -135,9 +135,10 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "get_brand_context", "low", "analysis",
                            ("brand",), ("brands.get_context",))
 
-    project_overview = _has(
+    broad_project_overview = _has(
         text, r"\b(?:vis[aã]o\s+geral|panorama|dossi[eê]|tudo)\b.{0,70}\b(?:projeto|campanha)\b",
-    ) or _has(
+    )
+    project_overview = broad_project_overview or _has(
         text,
         r"\b(?:sobre\s+o\s+que\s+[ée]|do\s+que\s+(?:se\s+)?trata)\s+(?:esse|este|o)\s+projeto\b",
     ) or _has(
@@ -162,8 +163,11 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "describe_project", "low", "analysis",
                            ("project",), ("workspace.get_project_context",))
     if has_project and project_overview:
-        return IntentRoute("workspace", "project_readout", "high", "artifact_first",
-                           ("project",), ("workspace.search_project_content",), "executive_summary")
+        if broad_project_overview:
+            return IntentRoute("workspace", "project_readout", "high", "artifact_first",
+                               ("project",), ("workspace.search_project_content",), "executive_summary")
+        return IntentRoute("workspace", "describe_project", "low", "analysis",
+                           ("project",), ("workspace.get_project_context",))
 
     project_context_question = _has(
         text,
@@ -427,7 +431,11 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     )
     history_signal = _has(text, r"\b(hist[oó]ria|trajet[oó]ria|legado|evolu[cç][aã]o|origem)\b") and _has(text, r"\b(marca|campanha|empresa|artista|pessoa|obra|case)\b")
     project_only = (
-        _has(text, r"\b(no|na|nos|nas|dentro do|dentro da)\b.{0,60}\b(projeto|arquivo|documento|nota|base)\b")
+        _has(text, r"\b(?:no|na|nos|nas|dentro do|dentro da)\s+"
+             r"(?:(?:nosso|nossa|meu|minha|deste|desse)\s+)?"
+             r"(?:projeto|arquivo|documento|nota|base)\b")
+        or _has(text, r"\b(?:no|na|nos|nas)\s+(?:arquivos?|documentos?|fontes?|notas?|base)\s+"
+                r"(?:do|da|deste|desse)\s+projeto\b")
         or _has(text, r"\b(as|os)\s+(fontes?|arquivos?|documentos?)\s+(do|da|dos|das)\s+projeto\b")
     )
     freshness_request = _has(text, r"\b(atualiz|acompanhe)\w*\b") and web_signal

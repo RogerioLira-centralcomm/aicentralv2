@@ -279,7 +279,6 @@ export default function App({bootstrap}) {
       setTitle(conversationDisplayTitle(conversationTitle || data.conversation?.title, 'Conversa'));
       if (data.context) setContext(data.context);
       if (Array.isArray(data.conversations)) setConversations(recentConversations(data.conversations, 30));
-      void loadRecent();
       if (Array.isArray(data.entities)) {
         setProjects(data.entities.filter(item => item.kind === 'project'));
         setBrands(current => mergeServerEntities(current, data.entities.filter(item => item.kind === 'brand').map(item => ({

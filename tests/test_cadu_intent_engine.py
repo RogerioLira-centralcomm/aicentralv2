@@ -96,6 +96,12 @@ def test_project_benchmark_question_uses_web_route_without_exposing_project_name
     route = route_request("Qual benchmark atual de CAC para nosso projeto Acme?", "conversations", True)
     assert route.action == "search_web"
     assert public_web_query("Qual benchmark atual de CAC para nosso projeto Acme?", project_selected=True) == "benchmark atual CAC"
+    assert public_web_query("Na internet, busque benchmarks recentes de CAC para nosso projeto Acme",
+                            project_selected=True) == "benchmarks recentes CAC"
+    assert route_request("Na internet, busque benchmarks recentes de CAC para nosso projeto Acme",
+                         "conversations", True).action == "search_web"
+    assert route_request("Pesquise no nosso projeto sobre benchmark de CAC",
+                         "conversations", True).action == "search_project"
 
 
 def test_revision_uses_latest_saved_artifact_and_its_current_project():

@@ -104,31 +104,47 @@ def events(payload, execution_mode="analysis"):
     url, headers = settings(execution_mode)
     read_timeout = {"fast": 30, "analysis": 120, "agentic": 240}.get(execution_mode, 120)
     received_answer = False
+    request_payload = dict(payload or {})
+    recovered_stale_conversation = False
     try:
-        with requests.post(url + "/chat-messages", json=payload, headers=headers, stream=True,
-                           timeout=(10, read_timeout), allow_redirects=False) as response:
-            if response.status_code != 200:
-                raise ProviderUnavailable("O runtime V2 não conseguiu iniciar a resposta.")
-            parts = []
-            for line in response.iter_lines(chunk_size=1, decode_unicode=True):
-                if line.startswith("data:"):
-                    parts.append(line[5:].lstrip())
-                elif not line and parts:
-                    raw, parts = "\n".join(parts), []
-                    if raw == "[DONE]":
-                        return
-                    value = json.loads(raw)
-                    if isinstance(value, dict):
-                        if value.get("event") == "error":
-                            if received_answer:
-                                current_app.logger.warning(
-                                    "Runtime V2 encerrou o stream após iniciar a resposta; preservando conteúdo recebido."
-                                )
-                                return
-                            raise ProviderUnavailable("O runtime V2 retornou um erro durante a resposta.")
-                        if value.get("event") in {"message", "agent_message"} and value.get("answer"):
-                            received_answer = True
-                        yield value
+        while True:
+            with requests.post(url + "/chat-messages", json=request_payload, headers=headers, stream=True,
+                               timeout=(10, read_timeout), allow_redirects=False) as response:
+                if response.status_code != 200:
+                    # A Dify conversation belongs to one application and can
+                    # disappear after retention or credential changes. Rebuild
+                    # it once from Cadu's canonical history instead of trapping
+                    # the customer on a permanently invalid provider session.
+                    if request_payload.get("conversation_id") and not recovered_stale_conversation \
+                            and response.status_code in {400, 404}:
+                        recovered_stale_conversation = True
+                        request_payload.pop("conversation_id", None)
+                        current_app.logger.warning(
+                            "Sessão Dify rejeitada; reconstruindo a conversa pelo transcript canônico."
+                        )
+                        continue
+                    raise ProviderUnavailable("O runtime V2 não conseguiu iniciar a resposta.")
+                parts = []
+                for line in response.iter_lines(chunk_size=1, decode_unicode=True):
+                    if line.startswith("data:"):
+                        parts.append(line[5:].lstrip())
+                    elif not line and parts:
+                        raw, parts = "\n".join(parts), []
+                        if raw == "[DONE]":
+                            return
+                        value = json.loads(raw)
+                        if isinstance(value, dict):
+                            if value.get("event") == "error":
+                                if received_answer:
+                                    current_app.logger.warning(
+                                        "Runtime V2 encerrou o stream após iniciar a resposta; preservando conteúdo recebido."
+                                    )
+                                    return
+                                raise ProviderUnavailable("O runtime V2 retornou um erro durante a resposta.")
+                            if value.get("event") in {"message", "agent_message"} and value.get("answer"):
+                                received_answer = True
+                            yield value
+                return
     except (requests.RequestException, ValueError) as exc:
         if received_answer:
             current_app.logger.warning(

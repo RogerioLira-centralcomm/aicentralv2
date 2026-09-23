@@ -91,8 +91,14 @@ def test_prompt_payload_keeps_long_memory_separate_from_recent_history():
                             'regra': 'O transcript original prevalece.'},
     )
     evidence = json.loads(payload['inputs']['evidence'])
+    boundary = json.loads(payload['inputs']['prompt_boundary'])
     assert evidence['conversation_state']['primeira_mensagem_usuario'] == 'Pergunta antiga'
     assert evidence['conversation_history'] == 'Usuário: mensagem recente'
+    assert boundary['conversation_history_is_canonical'] is True
+    assert boundary['conversation_order'] == [
+        'conversation_state', 'conversation_history', 'user_message',
+    ]
+    assert 'history_is_reference_only' not in boundary
 
 
 def test_prompt_budget_preserves_structured_memory_before_large_tool_evidence():

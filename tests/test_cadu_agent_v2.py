@@ -2760,3 +2760,52 @@ def test_provider_fails_when_dify_errors_before_any_content(monkeypatch):
     app = Flask(__name__)
     with app.app_context(), pytest.raises(provider.ProviderUnavailable):
         list(provider.events({"query": "teste"}, "analysis"))
+
+
+def test_provider_rebuilds_a_rejected_conversation_once_from_canonical_context(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2 import provider
+
+    payloads = []
+
+    class Response:
+        def __init__(self, status_code, lines=()):
+            self.status_code = status_code
+            self.lines = lines
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def iter_lines(self, **_):
+            return iter(self.lines)
+
+    responses = iter([
+        Response(404),
+        Response(200, [
+            'data: {"event":"message","conversation_id":"dify-new","answer":"Bob Marley"}',
+            '',
+            'data: {"event":"message_end","conversation_id":"dify-new"}',
+            '',
+        ]),
+    ])
+
+    def post(*_, **kwargs):
+        payloads.append(dict(kwargs["json"]))
+        return next(responses)
+
+    monkeypatch.setattr(provider, "settings", lambda *_: ("https://dify.example/v1", {}))
+    monkeypatch.setattr(provider.requests, "post", post)
+    app = Flask(__name__)
+    with app.app_context():
+        events = list(provider.events({
+            "query": "Quais músicas eram mais ouvidas?",
+            "conversation_id": "dify-stale",
+            "inputs": {"evidence": "Bob Marley"},
+        }, "analysis"))
+
+    assert payloads[0]["conversation_id"] == "dify-stale"
+    assert "conversation_id" not in payloads[1]
+    assert payloads[1]["inputs"]["evidence"] == "Bob Marley"
+    assert events[0]["conversation_id"] == "dify-new"

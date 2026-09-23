@@ -5,6 +5,7 @@ from aicentralv2.cadu_workspace.agent_v2.context_builder import ConversationCont
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.agent_v2.conversation_runtime import RuntimeRollout, TurnIdentity
 from aicentralv2.cadu_workspace.agent_v2 import memory_checkpoint
+from aicentralv2.cadu_workspace.agent_v2 import service as runtime_service
 from aicentralv2.cadu_workspace.conversations import conversation_memory
 
 
@@ -101,6 +102,49 @@ def test_context_builder_preserves_recent_bob_marley_turn_after_reload(monkeypat
     assert built.diagnostics["history_message_count"] == 2
     assert built.diagnostics["memory_present"] is True
     assert built.routing_message == "De quem eu estava falando?"
+
+
+def test_provider_conversation_is_reused_per_canonical_conversation_and_runtime():
+    class Cursor:
+        def __init__(self):
+            self.statement = ""
+            self.params = ()
+
+        def execute(self, statement, params):
+            self.statement = " ".join(statement.split())
+            self.params = params
+
+        def fetchone(self):
+            return {"provider_conversation_id": "dify-bob-marley-thread"}
+
+    cur = Cursor()
+    execution = {"provider_payload": {"query": "Quais músicas eram mais ouvidas?"}}
+    found = runtime_service._resume_provider_conversation(
+        cur, execution, conversation_id=CONVERSATION_ID, runtime_id="cadu-analyst",
+        client_id=12, user_id=7,
+    )
+
+    assert found == "dify-bob-marley-thread"
+    assert execution["provider_payload"]["conversation_id"] == "dify-bob-marley-thread"
+    assert execution["provider_payload"]["query"] == "Quais músicas eram mais ouvidas?"
+    assert "cadu_agent_provider_sessions" in cur.statement
+    assert cur.params == (CONVERSATION_ID, "cadu-analyst", 12, 7)
+
+
+def test_provider_conversation_upsert_is_scoped_and_runtime_specific():
+    executed = []
+
+    class Cursor:
+        def execute(self, statement, params):
+            executed.append((" ".join(statement.split()), params))
+
+    runtime_service._save_provider_conversation(
+        Cursor(), conversation_id=CONVERSATION_ID, runtime_id="cadu-operator",
+        provider_conversation_id="dify-agent-thread", client_id=12, user_id=7,
+    )
+
+    assert "ON CONFLICT (conversation_id,runtime_id)" in executed[0][0]
+    assert executed[0][1] == (CONVERSATION_ID, 12, 7, "cadu-operator", "dify-agent-thread")
 
 
 def test_memory_checkpoint_is_scheduled_outside_the_response(monkeypatch):

@@ -123,6 +123,46 @@ def _complete_step(run_id, kind, output=None, error_code=None):
             current_app.logger.exception("Falha ao salvar checkpoint %s do Turn %s", kind, run_id)
 
 
+def _provider_conversation(cur, *, conversation_id, runtime_id, client_id, user_id):
+    """Return the scoped provider session for this canonical conversation/runtime."""
+    cur.execute("""SELECT provider_conversation_id
+                     FROM cadu_agent_provider_sessions
+                    WHERE conversation_id=%s AND runtime_id=%s
+                      AND client_id=%s AND user_id=%s""",
+                (conversation_id, runtime_id, client_id, user_id))
+    row = cur.fetchone()
+    return str(row.get("provider_conversation_id") or "") if row else ""
+
+
+def _save_provider_conversation(cur, *, conversation_id, runtime_id,
+                                provider_conversation_id, client_id, user_id):
+    """Bind Dify continuity to Cadu's canonical, access-scoped conversation."""
+    value = str(provider_conversation_id or "").strip()
+    if not value:
+        return
+    cur.execute("""INSERT INTO cadu_agent_provider_sessions
+        (conversation_id,client_id,user_id,runtime_id,provider_conversation_id,created_at,updated_at)
+        VALUES (%s,%s,%s,%s,%s,NOW(),NOW())
+        ON CONFLICT (conversation_id,runtime_id) DO UPDATE SET
+            client_id=EXCLUDED.client_id,user_id=EXCLUDED.user_id,
+            provider_conversation_id=EXCLUDED.provider_conversation_id,updated_at=NOW()
+        WHERE cadu_agent_provider_sessions.client_id=EXCLUDED.client_id
+          AND cadu_agent_provider_sessions.user_id=EXCLUDED.user_id""",
+                (conversation_id, client_id, user_id, runtime_id, value))
+
+
+def _resume_provider_conversation(cur, execution, *, conversation_id, runtime_id,
+                                  client_id, user_id):
+    """Attach the prior Dify session to the next provider payload, if available."""
+    value = _provider_conversation(
+        cur, conversation_id=conversation_id, runtime_id=runtime_id,
+        client_id=client_id, user_id=user_id,
+    )
+    if value:
+        execution["provider_payload"]["conversation_id"] = value
+    return value
+
+
 def _message(value):
     text = " ".join(str(value or "").split())
     if not 1 <= len(text) <= 20000:
@@ -662,10 +702,14 @@ def prepare(data):
                             WHERE conversation_id = %s AND status = 'running'""", (conversation_id,))
             if cur.fetchone():
                 abort(409, description="Aguarde a resposta atual ou interrompa a geração.")
-            # CentralX owns the canonical conversation history and sends a
-            # bounded copy in the V2 evidence envelope. Reusing the provider's
-            # conversation id would create a second, invisible memory that can
-            # retain obsolete prompts and conflict with the persisted thread.
+            # Cadu remains the canonical transcript, while the scoped Dify
+            # session preserves the provider's native turn-by-turn continuity.
+            # Sessions are isolated by runtime because each mode may point to a
+            # different Dify application whose conversation IDs are not portable.
+            provider_conversation_id = _resume_provider_conversation(
+                cur, execution, conversation_id=conversation_id, runtime_id=runtime["id"],
+                client_id=current.client_id, user_id=current.user_id,
+            )
             cur.execute("""INSERT INTO cadu_family_chat_runs
                 (id, conversation_id, user_id, client_id, status, runtime_version, execution_mode,
                  runtime_id, provider_config_version, route, request_context, response_policy, context_chars, created_at)
@@ -705,6 +749,7 @@ def prepare(data):
     return {
         "run_id": run_id, "conversation_id": conversation_id, "message": message,
         "context": current, "runtime": runtime, "context_diagnostics": built_context.diagnostics,
+        "provider_conversation_id": provider_conversation_id,
         "rollout": rollout.public_metadata(), **execution,
     }
 
@@ -729,6 +774,7 @@ def stream(run):
             "brand_ref": run["context"].brand_ref,
         }, runtime_id=runtime.get("id", ""),
         provider_config_version=runtime.get("config_version", ""),
+        provider_conversation_reused=bool(run.get("provider_conversation_id")),
         context_diagnostics=run.get("context_diagnostics") or {},
         rollout=run.get("rollout") or {},
     )
@@ -920,6 +966,30 @@ def stream(run):
         except Exception:
             conn.rollback()
             current_app.logger.exception("Falha ao finalizar run V2 %s", run["run_id"])
+        # Provider continuity is a rebuildable projection. Its failure must not
+        # roll back the canonical terminal state or leave the conversation busy.
+        if provider_id:
+            session_conn = repository.get_db()
+            try:
+                with session_conn.cursor() as cur:
+                    _save_provider_conversation(
+                        cur, conversation_id=run["conversation_id"],
+                        runtime_id=runtime.get("id") or execution_mode,
+                        provider_conversation_id=provider_id,
+                        client_id=run["context"].client_id, user_id=run["context"].user_id,
+                    )
+                    cur.execute("""UPDATE cadu_conversations
+                                      SET dify_conversation_id=COALESCE(dify_conversation_id,%s)
+                                    WHERE id=%s AND id_cliente=%s AND id_contato_cliente=%s""",
+                                (provider_id, run["conversation_id"],
+                                 run["context"].client_id, run["context"].user_id))
+                session_conn.commit()
+            except Exception:
+                session_conn.rollback()
+                current_app.logger.exception(
+                    "Falha ao projetar sessão do provedor; conversa=%s runtime=%s",
+                    run["conversation_id"], runtime.get("id") or execution_mode,
+                )
     # A cancelled provider may still deliver a late chunk after the stop was
     # recorded. Never turn that stale text into conversation history. Failed
     # runs may retain an already-visible partial answer with an explicit state.

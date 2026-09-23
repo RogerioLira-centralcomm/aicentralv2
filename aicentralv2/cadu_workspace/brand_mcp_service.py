@@ -206,13 +206,14 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
                 "artifact": {"type": "brand_identity", "brand_ref": f"studio:{replay['id']}",
                              "title": f"Identidade — {replay['name']}"}, "uploads": uploads}
     inspection = inspect_site(context, website_url, official_logo_url)
-    if not inspection.get("ready_for_analysis"):
-        raise BadRequest((inspection.get("warnings") or ["O site oficial não pôde ser validado."])[0])
-    if official_logo_url and not (inspection.get("explicit_logo") or {}).get("valid_image"):
-        raise BadRequest("O link informado para a logo não retornou uma imagem válida.")
+    explicit_logo = inspection.get("explicit_logo") or {}
+    if explicit_logo.get("unsafe"):
+        raise BadRequest("O link informado para a logo não aponta para um endereço público seguro.")
+    inspection_status = ("verified" if inspection.get("ready_for_analysis")
+                         and (not official_logo_url or explicit_logo.get("valid_image")) else "pending")
     profile = {"mcp_request_id": operation_id, "created_via": "cadu_mcp",
                "market_seed": {"sector": sector, "priorities": ["market", "audience", "competitors", "category_context"]}}
-    metadata = {"sources": [website_url, *reference_urls], "site_inspection": inspection,
+    metadata = {"sources": [website_url, *reference_urls], "site_inspection": {**inspection, "status": inspection_status},
                 "submitted_assets": {"official_logo_url": official_logo_url or None,
                                      "reference_urls": reference_urls,
                                      "status": "awaiting_upload_or_verification"},
@@ -450,7 +451,7 @@ def delete_asset(context: RequestContext, *, brand_id, asset_id) -> dict:
             "asset_id": int(asset_id), "deleted": True}
 
 
-def start_audit(context: RequestContext, *, request_id, brand_id, website_url: str = "", analysis_mode: str = "complete", social_links=None, additional_sources=None, excluded_sources=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
+def start_audit(context: RequestContext, *, request_id, brand_id=None, website_url: str = "", analysis_mode: str = "complete", social_links=None, additional_sources=None, excluded_sources=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
     _require_admin(context)
     operation_id = _request_id(request_id)
     if not confirmed_cost:
@@ -462,7 +463,7 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
     estimate = {"estimated_tokens": 150000 if analysis_mode == "deep" else 75000,
                 "estimated_credits": 150000 if analysis_mode == "deep" else 75000,
                 "estimated_time": "6–12 min" if analysis_mode == "deep" else "3–8 min"}
-    brand = _brand(context, brand_id)
+    brand = _brand(context, _current_brand_id(context, brand_id))
     selected_asset_ids = None
     if existing_asset_ids is None:
         approved_assets = [item for item in (brand.get("assets") or [])
@@ -539,7 +540,9 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
         connection.rollback()
         raise
     _start_brand_review_job(context.client_id, context.user_id, int(brand["id"]), job_id, website_url, [], analysis_mode=analysis_mode, social_links=social_links, additional_sources=additional_sources, excluded_sources=excluded_sources, existing_asset_ids=selected_asset_ids)
-    return {"brand_id": int(brand["id"]), "job_id": job_id, "status": "queued", "queued": True,
+    return {"brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
+            "brand_name": brand.get("name"), "scope": "brand", "project_context_changed": False,
+            "job_id": job_id, "status": "queued", "queued": True,
             "analysis_mode": analysis_mode, "additional_sources": additional_sources, "excluded_sources": excluded_sources, "existing_asset_ids": selected_asset_ids, "cost_authorized": True, **estimate,
             "status_url": f"/workspace/app/marcas/{brand['id']}/auditoria/status"}
 

@@ -48,10 +48,12 @@ def enqueue(job: dict):
         with conn.cursor() as cur:
             cur.execute(
                 '''INSERT INTO cadu_workspace_brand_audit_jobs
-                   (job_id, client_id, brand_id, payload)
-                   VALUES (%s, %s, %s, %s::jsonb)
+                   (job_id, client_id, brand_id, payload, analysis_mode, request_reason, requested_by)
+                   VALUES (%s, %s, %s, %s::jsonb, %s, %s, NULLIF(%s, 0))
                    ON CONFLICT (job_id) DO NOTHING''',
-                (job['job_id'], job['client_id'], job['brand_id'], json.dumps(_payload(job))),
+                (job['job_id'], job['client_id'], job['brand_id'], json.dumps(_payload(job)),
+                 str(job.get('analysis_mode') or 'complete'), str(job.get('request_reason') or 'manual'),
+                 int(job.get('user_id') or 0)),
             )
         conn.commit()
     except Exception:

@@ -27,6 +27,16 @@ test('runtime v2 translates internal events into public UI events', () => {
   assert.equal(runtime.normalize({event:'run.completed', status:'cancelled'}).status, 'stopped');
 });
 
+test('planning tables parse as cells and render through the chat component', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/markdownModel.mjs')).href);
+  assert.deepEqual(model.splitTableRow('| Topo | R$ 800 | A\\|B |'), ['Topo', 'R$ 800', 'A|B']);
+  assert.equal(model.isTableDivider('|---|---:|:---|', 3), true);
+  assert.equal(model.isTableDivider('|---|texto|:---|', 3), false);
+  const source = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
+  assert.match(source, /<table className="cv-markdown-table">/);
+  assert.match(source, /<th scope="col"/);
+});
+
 test('the old conversation entries now hand off to the React V2 screen', () => {
   const routes = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
   assert.match(routes, /Compatibility entry; the customer-facing conversation surface is React V2/);

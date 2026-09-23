@@ -5,12 +5,14 @@ from aicentralv2.cadu_workspace import brand_site_inspector as inspector
 
 
 class Response:
-    def __init__(self, status=200, content_type="text/html", body=b"", location=""):
+    def __init__(self, status=200, content_type="text/html", body=b"", location="", peer="93.184.216.34"):
         self.status_code = status
         self.headers = {"Content-Type": content_type}
         if location:
             self.headers["Location"] = location
         self._body = body
+        sock = type("Sock", (), {"getpeername": lambda self: (peer, 443)})()
+        self.raw = type("Raw", (), {"_connection": type("Connection", (), {"sock": sock})()})()
 
     def iter_content(self, _size):
         yield self._body
@@ -55,3 +57,23 @@ def test_explicit_logo_must_return_image(monkeypatch):
                                           session=Session([Response(body=b"<html></html>"), Response(content_type="text/plain")]))
     assert result["explicit_logo"]["valid_image"] is False
     assert "não retornou uma imagem válida" in result["warnings"][0]
+
+
+def test_connected_private_ip_is_rejected_after_public_dns(monkeypatch):
+    public_dns(monkeypatch)
+    with pytest.raises(BadRequest, match="não corresponde"):
+        inspector.inspect_brand_site("https://acme.example", session=Session([Response(peer="127.0.0.1")]))
+
+
+def test_invalid_port_is_a_domain_error(monkeypatch):
+    public_dns(monkeypatch)
+    with pytest.raises(BadRequest):
+        inspector.inspect_brand_site("https://acme.example:not-a-port")
+
+
+def test_html_without_content_type_can_be_analyzed(monkeypatch):
+    public_dns(monkeypatch)
+    result = inspector.inspect_brand_site("https://acme.example", session=Session([
+        Response(content_type="", body=b"<html><title>Acme</title></html>"),
+    ]))
+    assert result["ready_for_analysis"] is True

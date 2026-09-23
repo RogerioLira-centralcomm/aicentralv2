@@ -1,5 +1,7 @@
 """Execute server-authored, user-approved action steps through the MCP registry."""
 
+import unicodedata
+
 from ..mcp.registry import ToolError, ToolInputError, load_builtin_tools
 
 ALLOWED_ACTION_TOOLS = frozenset({
@@ -14,6 +16,26 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "brands.update_identity", "brands.start_audit",
     "google.create_project_meeting",
 })
+
+
+def _normalized(value) -> str:
+    return " ".join(unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore")
+                    .decode("ascii").lower().split())
+
+
+def _resolve_audit_brand(sealed: dict, context, registry) -> None:
+    """Resolve an explicitly named brand without changing project/conversation context."""
+    query = str(sealed.pop("_brand_query", "") or "").strip()
+    if not query or "brand_id" in sealed:
+        return
+    response = registry.execute("brands.list", {"query": query, "limit": 20}, context, "internal")
+    brands = list((response or {}).get("brands") or [])
+    normalized = _normalized(query)
+    exact = [item for item in brands if _normalized(item.get("name")) == normalized]
+    matches = exact or (brands if len(brands) == 1 else [])
+    if len(matches) != 1:
+        raise ToolInputError("Não encontrei uma única marca com esse nome. Informe o nome exato ou o ID da marca.")
+    sealed["brand_id"] = int(matches[0]["brand_id"])
 
 
 def _completion(step_name: str, result: dict) -> dict:
@@ -141,9 +163,10 @@ def _completion(step_name: str, result: dict) -> dict:
         }}
     if step_name == "brands.start_audit":
         mode = result.get("analysis_mode") or "complete"
-        return {"answer": "A auditoria da marca entrou na fila.", "blocks": [
+        brand_name = result.get("brand_name") or f"Marca {result.get('brand_id')}"
+        return {"answer": f"A auditoria de “{brand_name}” entrou na fila.", "blocks": [
             {"type": "activity", "state": "running", "label": "Auditoria da marca iniciada", "detail": mode},
-        ], "refresh_context": True}
+        ], "refresh_context": False}
     if step_name == "brands.update_identity":
         fields = result.get("updated_fields") or []
         return {"answer": "A identidade da marca foi atualizada nos campos solicitados.", "blocks": [
@@ -178,12 +201,15 @@ def execute(step: dict, context) -> dict:
     sealed = {**arguments, "request_id": request_id}
     if step["name"] not in {"brands.prepare_logo_upload", "brands.prepare_asset_upload"}:
         sealed["confirmed"] = True
+    registry = load_builtin_tools()
+    if step["name"] == "brands.start_audit":
+        _resolve_audit_brand(sealed, context, registry)
     if step["name"] in {"brands.prepare_logo_upload", "brands.prepare_asset_upload", "brands.start_audit", "brands.update_identity"} and "brand_id" not in sealed:
         brand_ref = str(getattr(context, "brand_ref", "") or "")
         if not brand_ref.startswith("studio:") or not brand_ref[7:].isdigit():
             raise ToolInputError("Selecione uma marca antes de iniciar a auditoria.")
         sealed["brand_id"] = int(brand_ref[7:])
-    result = load_builtin_tools().execute(step["name"], sealed, context, "internal")
+    result = registry.execute(step["name"], sealed, context, "internal")
     if not isinstance(result, dict):
         raise ToolError("A ação não devolveu um receipt válido.")
     return {"tool": step["name"], "request_id": request_id, "result": result,

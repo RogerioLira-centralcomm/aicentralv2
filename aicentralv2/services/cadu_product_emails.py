@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from flask import current_app
@@ -11,7 +12,21 @@ from .cadu_email_connector import send_cadu_event
 
 
 def _enabled() -> bool:
-    return bool(current_app.config.get("CADU_PRODUCT_EMAILS_ENABLED", False))
+    explicit = os.getenv("CADU_PRODUCT_EMAILS_ENABLED")
+    if explicit is not None:
+        # An explicit operational kill switch always wins, including "0".
+        return explicit.strip().lower() in {"true", "1", "yes", "on"}
+    if current_app.config.get("CADU_PRODUCT_EMAILS_ENABLED", False):
+        return True
+    # Config used to inspect only BREVO_API_KEY from the process environment,
+    # while delivery already supports the encrypted integration vault. Keep
+    # both decisions aligned so a valid vaulted key does not get silently
+    # skipped.
+    try:
+        from .integration_credentials import resolve_brevo_api_key
+        return bool(resolve_brevo_api_key())
+    except Exception:
+        return False
 
 
 def _decimal(value, default="0") -> Decimal:
@@ -207,17 +222,26 @@ def send_studio_work_completed(*, recipient_email: str, recipient_name: str, tit
 
 def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_name: str,
                            summary: str, differentiators: list[str], url: str, logo_url: str = '',
-                           status: str = 'approved', coverage=None, costs=None, effort=None) -> dict:
+                           status: str = 'approved', coverage=None, costs=None, effort=None,
+                           client_id: int | None = None) -> dict:
     """Notify the requester only after a reviewable brand proposal is ready."""
+    subject = f"A leitura de {brand_name or 'sua marca'} está pronta para revisão"
     if not recipient_email or not _enabled():
-        return {"success": True, "skipped": True}
+        reason = "missing_recipient" if not recipient_email else "product_emails_disabled"
+        result = {"success": True, "skipped": True, "reason": reason}
+        from ..email_service import record_workspace_email_event
+        record_workspace_email_event(
+            recipient_email=recipient_email or '', event_type="workspace.brand_audit_ready",
+            subject=subject, result=result, client_id=client_id,
+        )
+        return result
     highlights = "; ".join(str(item).strip() for item in (differentiators or [])[:3] if str(item).strip())
     description = str(summary or '').strip()
     if highlights:
         description = f"{description}\n\nDiferenciais observados: {highlights}".strip()
     return send_cadu_event(product="workspace", event="workspace.brand_audit_ready", template="produto-atividade.html",
         recipient=recipient_email, recipient_name=recipient_name or "Pessoa criadora",
-        subject=f"A leitura de {brand_name or 'sua marca'} está pronta para revisão",
+        subject=subject,
         params={
             "BRAND": product_email_brand("workspace"),
             "TITLE": f"A proposta de {brand_name or 'marca'} está pronta",
@@ -225,7 +249,7 @@ def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_n
             "CTA_LABEL": "Abrir auditoria", "CTA_URL": url,
             "BRAND_LOGO_URL": logo_url, "AUDIT_STATUS": status,
             "AUDIT_COVERAGE": coverage or {}, "AUDIT_COSTS": costs or {}, "AUDIT_EFFORT": effort or {},
-        },
+        }, client_id=client_id,
     )
 
 

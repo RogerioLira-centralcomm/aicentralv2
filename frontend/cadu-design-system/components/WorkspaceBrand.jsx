@@ -166,7 +166,8 @@ function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   const [inspecting, setInspecting] = useState(false);
   const [auditWebsite, setAuditWebsite] = useState(brand.websiteUrl || '');
   const requestController = useRef(null);
-  useEffect(() => () => requestController.current?.abort('unmounted'), []);
+  const inspectionController = useRef(null);
+  useEffect(() => () => { requestController.current?.abort('unmounted'); inspectionController.current?.abort('unmounted'); }, []);
   const existingSocialLinks = brand.auditInput?.socialLinks || brand.analysisMetadata?.socialLinks || [];
   const existingAdditionalSources = brand.auditInput?.additionalSources || brand.reviewPack?.input?.additional_sources || [];
   const existingExcludedSources = brand.auditInput?.excludedSources || brand.reviewPack?.input?.excluded_sources || [];
@@ -180,13 +181,17 @@ function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   try { officialSite = new URL(officialSite).hostname.replace(/^www\./, ''); } catch (_) { /* Keep the available label. */ }
   const inspectSite = async () => {
     setInspecting(true); setInspection(null);
+    const controller = new AbortController();
+    inspectionController.current?.abort('replaced');
+    inspectionController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort('timeout'), 30000);
     try {
-      const response = await fetch(urls.inspectSite, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken, Accept:'application/json'}, body:JSON.stringify({website_url:auditWebsite})});
+      const response = await fetch(urls.inspectSite, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken, Accept:'application/json'}, body:JSON.stringify({website_url:auditWebsite}), signal:controller.signal});
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'Não foi possível validar o site.');
       setInspection(payload.inspection);
-    } catch (error) { setInspection({reachable:false, warnings:[error?.message || 'Não foi possível validar o site.']}); }
-    finally { setInspecting(false); }
+    } catch (error) { if (controller.signal.reason !== 'unmounted' && controller.signal.reason !== 'replaced') setInspection({reachable:false, warnings:[controller.signal.reason === 'timeout' ? 'A inspeção demorou demais. Tente novamente.' : error?.message || 'Não foi possível validar o site.']}); }
+    finally { window.clearTimeout(timeout); if (inspectionController.current === controller) { inspectionController.current = null; setInspecting(false); } }
   };
   const submitAudit = async event => {
     event.preventDefault();

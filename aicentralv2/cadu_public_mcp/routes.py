@@ -427,7 +427,9 @@ def public_rpc():
                     "Para a marca atual, liste a biblioteca com brands.list_assets; troque o site com "
                     "brands.update_identity(changes.website_url), ou defina um asset aprovado como logo com "
                     "brands.use_asset_as_logo. Em brands.start_audit escolha analysis_mode complete ou deep e, "
-                    "se desejar, informe existing_asset_ids da mesma biblioteca. "
+                    "se desejar, informe existing_asset_ids da mesma biblioteca. A auditoria pertence à marca, não ao projeto: "
+                    "brand_id ou brand_ref identifica o alvo e tem prioridade mesmo quando project_ref aponta para outro projeto; "
+                    "não use context.update nem altere o vínculo do projeto para executar a auditoria. "
                     "Para créditos, credits.purchase_package apenas cria um pedido pendente; mostre confirmation_url "
                     "ao administrador e aguarde a confirmação autenticada no Cadu."
                 ),

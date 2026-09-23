@@ -370,10 +370,28 @@ def _brand_create_step(message: str):
 
 
 def _brand_audit_step(message: str):
-    mode = "deep" if re.search(r"\b(profunda|profundo|deep)\b", str(message or ""), re.IGNORECASE) else "complete"
+    text = " ".join(str(message or "").split())
+    mode = "deep" if re.search(r"\b(profunda|profundo|deep)\b", text, re.IGNORECASE) else "complete"
+    arguments = {"analysis_mode": mode, "confirmed_cost": True}
+    explicit_id = re.search(r"\bmarca\s*(?:#|id\s*)?(\d+)\b", text, re.IGNORECASE)
+    brand_query = None
+    if explicit_id:
+        arguments["brand_id"] = int(explicit_id.group(1))
+    else:
+        quoted = re.search(r"\bmarca\s+(?:chamada\s+)?[\"“]([^\"”\n]{2,150})[\"”]", text, re.IGNORECASE)
+        named = quoted or re.search(
+            r"\bmarca\s+(?:chamada\s+)?([^,;.!?\n]{2,150}?)(?=\s+(?:de\s+forma\s+)?"
+            r"(?:completa|profunda|deep)\b|$)", text, re.IGNORECASE,
+        )
+        if named:
+            candidate = " ".join(named.group(1).split()).strip(" .:-\"“”")
+            if candidate.lower() not in {"ativa", "atual", "completa", "profunda", "do projeto", "deste projeto"}:
+                brand_query = candidate
+                arguments["_brand_query"] = candidate
+    target = f"“{brand_query}”" if brand_query else "ativa"
     return {"kind": "action", "name": "brands.start_audit", "requires_confirmation": True,
-            "request_id": str(uuid4()), "arguments": {"analysis_mode": mode, "confirmed_cost": True},
-            "effect": "write", "summary": f"Iniciar auditoria {'profunda' if mode == 'deep' else 'completa'} da marca ativa, com uso de créditos."}
+            "request_id": str(uuid4()), "arguments": arguments,
+            "effect": "write", "summary": f"Iniciar auditoria {'profunda' if mode == 'deep' else 'completa'} da marca {target}, com uso de créditos."}
 
 
 def _brand_identity_step(message: str):

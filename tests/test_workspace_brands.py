@@ -13,7 +13,7 @@ from aicentralv2.cadu_workspace.routes import (
     _auto_apply_brand_analysis, _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
     _brand_audit_checkpoint_reusable, _brand_audit_history, _brand_audit_reliability_summary, _brand_campaigns_with_institutional, _brand_review_pack, _institutional_brand_campaign, _normalized_website_url, _resolve_uploaded_logo_path, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
-    _save_brand_review_job, bp,
+    _save_brand_audit_evidence, _save_brand_review_job, bp,
 )
 
 
@@ -79,6 +79,51 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(persisted_profile['color_palette'][0]['hex'], '#4FFF82')
         self.assertEqual(persisted_profile['fonts'][0]['family'], 'Montserrat')
         self.assertIn("source_kind = 'website'", cursor.execute.call_args_list[1].args[0])
+
+    def test_automatic_publication_rejects_decision_below_current_gate(self):
+        with self.assertRaisesRegex(ValueError, 'gate mínimo'):
+            _auto_apply_brand_analysis(174, 7, 25, {}, {'brand_summary': 'Marca'}, {
+                'approved': True, 'blocked_fields': [], 'score': 64, 'coverage_target': 85,
+            })
+
+    def test_automatic_publication_rejects_stale_score_version(self):
+        with self.assertRaisesRegex(ValueError, 'versão de score incompatível'):
+            _auto_apply_brand_analysis(174, 7, 25, {}, {'brand_summary': 'Marca'}, {
+                'approved': True, 'blocked_fields': [], 'score': 95,
+                'coverage_target': 85, 'score_version': 'brand-analysis-v1',
+            })
+
+    def test_audit_snapshot_persists_explicit_state_for_every_metadata_field(self):
+        cursor = mock.MagicMock()
+        cursor.fetchone.return_value = {'id': 321}
+        connection = mock.MagicMock()
+        connection.cursor.return_value.__enter__.return_value = cursor
+        analysis = {
+            'brand_summary': 'Marca comprovada.',
+            'field_provenance': {
+                'brand_summary': {
+                    'evidence_status': 'verified', 'confidence': .92,
+                    'source_count': 2,
+                },
+            },
+            'analysis_metadata': {'automatic_decision': {'blocked_fields': ['fonts']}},
+        }
+
+        with mock.patch('aicentralv2.cadu_workspace.routes.get_db', return_value=connection), \
+             mock.patch('aicentralv2.cadu_workspace.routes._save_brand_campaigns'):
+            _save_brand_audit_evidence(12, 29, 'job-1', analysis, decision='partial')
+
+        field_calls = [
+            call for call in cursor.execute.call_args_list
+            if 'cadu_workspace_brand_identity_fields' in call.args[0]
+        ]
+        self.assertEqual(len(field_calls), 39)
+        by_name = {call.args[1][3]: call.args[1] for call in field_calls}
+        self.assertEqual(by_name['brand_summary'][4], 'identity')
+        self.assertEqual(by_name['brand_summary'][7], 'verified')
+        self.assertEqual(by_name['brand_summary'][9], .92)
+        self.assertEqual(by_name['fonts'][7], 'blocked')
+        self.assertEqual(by_name['competitors'][7], 'not_found')
 
     def test_human_field_approval_can_replace_stale_identity_values(self):
         merged = _merge_brand_analysis(
@@ -412,6 +457,14 @@ class WorkspaceBrandsTest(TestCase):
     def test_create_requires_session_csrf(self):
         response = _client().post('/workspace/app/marcas', data={'name': 'Marca segura'})
         self.assertEqual(response.status_code, 403)
+
+    def test_create_rejects_unverified_logo_metadata(self):
+        response = _client().post('/workspace/app/marcas', data={
+            '_csrf': 'known-token', 'name': 'Marca segura',
+            'website_url': 'https://example.com',
+            'suggested_logo_url': 'https://internal.invalid/logo.svg',
+        })
+        self.assertEqual(response.status_code, 400)
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
     def test_member_cannot_start_or_approve_brand_review(self, _brand):

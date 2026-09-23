@@ -59,13 +59,22 @@ def _record_workspace_email_event(*, recipient_email, event_type, subject, resul
                        VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                     (
                         tenant_id, recipient_email, event_type, subject,
-                        'sent' if result.get('success') else 'failed',
+                        ('skipped' if result.get('skipped') else
+                         'sent' if result.get('success') else 'failed'),
                         result.get('messageId') or result.get('message_id'),
                         str(result.get('error') or '')[:4000] or None,
                     ),
                 )
     except Exception:
         logger.warning('Não foi possível registrar o envio transacional do Workspace.', exc_info=True)
+
+
+def record_workspace_email_event(*, recipient_email, event_type, subject, result, client_id=None):
+    """Public delivery receipt hook used by the centralized Cadu connector."""
+    return _record_workspace_email_event(
+        recipient_email=recipient_email, event_type=event_type, subject=subject,
+        result=result, client_id=client_id,
+    )
 
 
 def send_email(subject, recipients, text_body=None, html_body=None, sender=None):

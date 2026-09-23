@@ -210,6 +210,12 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(?:cri(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|mont(?:a|e|ar)|abr(?:a|e|ir)|"
                   r"cadastr(?:a|e|ar)|novo)\s+(?:a[ií]\s+)?(?:(?:um|o)\s+)?pro(?:jeto|ejto)\b"):
         return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
+    # Audit is brand-scoped even when the conversation is currently inside a
+    # project. It must win over generic verbs such as "faça", which are also
+    # accepted by the create-brand grammar below.
+    if _has(text, r"\b(?:inicie|iniciar|fa[çc]a|faz|fazer|rodar|rode|refa[çc]a|reprocess)\w*.{0,35}\bauditoria\b.{0,25}\bmarca\b|\bauditoria\b.{0,25}\bmarca\b|\baudit\w*.{0,30}\bmarca\b"):
+        return IntentRoute("workspace", "start_brand_audit", "high", "decision",
+                           ("brand",), (), None, True)
     if _has(text, r"\b(?:cri(?:a|e|ar)|cadastr(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|"
                   r"mont(?:a|e|ar)|abr(?:a|e|ir)|nova)\b.{0,35}\bmarca\b"):
         return IntentRoute("workspace", "create_brand", "medium", "decision", (), (), None, True)
@@ -225,9 +231,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if has_brand and _has(text, r"\b(ajust|alter|mud|troqu|atualiz|corrig|edit)\w*\b") and _has(
             text, r"\b(marca|identidade|nome|setor|site|cor|p[uú]blico|posicionamento|tom(?: de voz)?|ess[eê]ncia|descri[cç][aã]o|oferta|diferencia|prova|dire[cç][aã]o criativa)\b"):
         return IntentRoute("workspace", "update_brand_identity", "medium", "decision",
-                           ("brand",), (), None, True)
-    if _has(text, r"\b(inicie|iniciar|fa[çc]a|rodar|rode|refa[çc]a|reprocess).{0,35}\bauditoria\b.{0,25}\bmarca\b|\bauditoria\b.{0,25}\bmarca\b"):
-        return IntentRoute("workspace", "start_brand_audit", "high", "decision",
                            ("brand",), (), None, True)
     if _has(text, r"\b(pauta|agenda).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(pauta|agenda)\b"):
         return IntentRoute("workspace", "create_meeting_agenda", "medium", "artifact_first",
@@ -253,8 +256,25 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             ("project",), ("workspace.search_project_content",),
             "executive_summary",
         )
-    # Cross-domain comparisons must win over the generic media-plan route.
-    if (_has(text, r"\b(relat[oó]rio|m[eé]trica|resultado|performance|agosto|campanha)\b")
+    media_plan_request = _has(
+        text,
+        r"\b(?:mont\w*|cri\w*|elabor\w*|desenh\w*|planej\w*|estrutur\w*|prepar\w*|ger\w*)\b"
+        r".{0,100}\b(?:plano|planejamento|campanha|tabela\s+de\s+or[cç]amento)\b",
+    ) and _has(text, r"\b(?:m[ií]dia|campanha|funil|an[uú]ncios?|or[cç]amento|verba|instagram|google|meta)\b")
+    explicit_document = _has(text, r"\b(?:documento|arquivo|artefato|edit[aá]vel)\b")
+    explicit_web_research = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
+        text, r"\b(?:internet|web|online|fontes?\s+externas?|dados?\s+atuais?)\b",
+    )
+    if media_plan_request and not explicit_web_research:
+        if explicit_document:
+            return IntentRoute("workspace", "create_text_draft", "high", "artifact_first",
+                               ("project", "brand") if has_project else (), (), "document")
+        return IntentRoute("workspace", "plan_campaign", "high", "analysis",
+                           ("project", "brand") if has_project else ())
+    # Cross-domain comparisons require an actual comparison signal; merely
+    # naming a campaign and a plan must not turn plan creation into a report read.
+    if (_has(text, r"\b(relat[oó]rio|m[eé]trica|resultado|performance|agosto)\b")
+            and _has(text, r"\b(?:compar\w*|confront\w*|versus|vs\.?|contra)\b")
             and _has(text, r"\bplano(?: de m[ií]dia)?\b")):
         return IntentRoute("reports", "compare_report_to_plan", "high", "analysis",
                            ("project", "reports", "media_plan"), ("reports.compare_report_to_plan",))
@@ -411,6 +431,10 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             and _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b")):
         return IntentRoute("workspace", "save_to_project", "medium", "artifact_first",
                            ("project",), (), "document", True)
+    if _has(text, r"\b(?:mont\w*|organiz\w*|estrutur\w*|coloc\w*|convert\w*|transform\w*|"
+                  r"reescrev\w*|apresent\w*)\b.{0,85}\b(?:tabela|quadro|se[cç][oõ]es?|"
+                  r"sess[oõ]es?)\b|\b(?:em|numa?|como)\s+(?:uma?\s+)?tabela\b"):
+        return IntentRoute("workspace", "reformat_previous_answer", "high", "analysis")
     if _has(text, r"\b(compare|comparar|qual (?:é|e) (?:a |o )?melhor|recomenda|decid)\b"):
         return IntentRoute(surface if surface in {"planner", "studio", "reports"} else "workspace",
                            "recommend", "medium", "decision", ("current_object",) if has_project else ())

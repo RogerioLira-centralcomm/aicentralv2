@@ -35,10 +35,12 @@ function normalizeBrandUrl(value) {
 
 function BrandCreateForm({bootstrap, onClose}) {
   const nameInput = useRef(null);
+  const inspectionController = useRef(null);
   const [website, setWebsite] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [health, setHealth] = useState(null);
   const [checking, setChecking] = useState(false);
+  useEffect(() => () => inspectionController.current?.abort('unmounted'), []);
   const checkHealth = async () => {
     setChecking(true);
     const normalized = normalizeBrandUrl(website);
@@ -49,8 +51,12 @@ function BrandCreateForm({bootstrap, onClose}) {
       setChecking(false);
       return {ok:false};
     }
+    const controller = new AbortController();
+    inspectionController.current?.abort('replaced');
+    inspectionController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort('timeout'), 30000);
     try {
-      const response = await fetch(bootstrap.urls.inspectBrandSite, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':bootstrap.csrf, Accept:'application/json'}, body:JSON.stringify({website_url:normalized, logo_url:logoUrl})});
+      const response = await fetch(bootstrap.urls.inspectBrandSite, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':bootstrap.csrf, Accept:'application/json'}, body:JSON.stringify({website_url:normalized, logo_url:logoUrl}), signal:controller.signal});
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'Não foi possível inspecionar o endereço.');
       const inspection = payload.inspection || {};
@@ -59,18 +65,19 @@ function BrandCreateForm({bootstrap, onClose}) {
       const candidateCount = inspection.logo_candidates?.length || 0;
       const websiteUrl = inspection.final_url || inspection.website_url || normalized;
       setWebsite(websiteUrl);
-      setHealth({ok, inspection, message:ok ? `Site validado${candidateCount ? ` e ${candidateCount} candidato${candidateCount === 1 ? '' : 's'} de logo encontrado${candidateCount === 1 ? '' : 's'}` : ''}.` : inspection.warnings?.[0] || 'O site ou a logo não pôde ser validado.'});
-      return {ok, websiteUrl, suggestedLogoUrl:inspection.suggested_logo_url || ''};
+      setHealth({ok, inspection, inspectionToken:payload.inspection_token || '', message:ok ? `Site validado${candidateCount ? ` e ${candidateCount} candidato${candidateCount === 1 ? '' : 's'} de logo encontrado${candidateCount === 1 ? '' : 's'}` : ''}.` : inspection.warnings?.[0] || 'O site ou a logo não pôde ser validado.'});
+      return {ok, websiteUrl, inspectionToken:payload.inspection_token || ''};
     } catch (error) {
-      setHealth({ok:false, message:error?.message || 'Não foi possível inspecionar o endereço.'});
+      if (controller.signal.reason !== 'unmounted' && controller.signal.reason !== 'replaced') setHealth({ok:false, message:controller.signal.reason === 'timeout' ? 'A inspeção demorou demais. Tente novamente.' : error?.message || 'Não foi possível inspecionar o endereço.'});
       return {ok:false};
     } finally {
-      setChecking(false);
+      window.clearTimeout(timeout);
+      if (inspectionController.current === controller) { inspectionController.current = null; setChecking(false); }
     }
   };
-  return <form className="cadu-ds-brand-create-form" method="post" encType="multipart/form-data" action={bootstrap.urls.createBrand} onSubmit={async event => { if (!health?.ok) { event.preventDefault(); const form = event.currentTarget; const result = await checkHealth(); if (result.ok) { form.elements.website_url.value = result.websiteUrl; form.elements.suggested_logo_url.value = result.suggestedLogoUrl; form.submit(); } } }}>
+  return <form className="cadu-ds-brand-create-form" method="post" encType="multipart/form-data" action={bootstrap.urls.createBrand} onSubmit={async event => { if (!health?.ok) { event.preventDefault(); const form = event.currentTarget; const result = await checkHealth(); if (result.ok) { form.elements.website_url.value = result.websiteUrl; form.elements.inspection_token.value = result.inspectionToken; form.submit(); } } }}>
     <input type="hidden" name="_csrf" value={bootstrap.csrf}/>
-    <input type="hidden" name="suggested_logo_url" value={health?.inspection?.suggested_logo_url || ''}/>
+    <input type="hidden" name="inspection_token" value={health?.inspectionToken || ''}/>
     <header><div><h2>Nova marca</h2><p>Cadastre a base primeiro. A análise completa fica para depois, com revisão do time.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
     <label>Nome da marca<input ref={nameInput} name="name" required minLength="2" maxLength="150" autoFocus placeholder="Ex.: Nike" onChange={() => setHealth(null)}/></label>
     <label>Site oficial <small>O endereço será completado automaticamente</small><input name="website_url" type="url" maxLength="2000" placeholder="www.exemplo.com.br" value={website} onChange={event => { setWebsite(event.target.value); setHealth(null); }} onBlur={() => setWebsite(normalizeBrandUrl(website))}/></label>

@@ -19,3 +19,31 @@ const INLINE_MARKDOWN_PATTERN = /(\*\*[^*\n]+\*\*|(?<![\w])__[^_\n]+__(?![\w])|\
 export function splitInlineMarkdown(value) {
   return String(value || '').split(INLINE_MARKDOWN_PATTERN);
 }
+
+export function splitTableRow(value) {
+  let row = String(value || '').trim();
+  if (row.startsWith('|')) row = row.slice(1);
+  if (row.endsWith('|') && !row.endsWith('\\|')) row = row.slice(0, -1);
+  const cells = [];
+  let cell = '';
+  for (let index = 0; index < row.length; index += 1) {
+    const char = row[index];
+    if (char === '\\' && row[index + 1] === '|') {
+      cell += '|';
+      index += 1;
+    } else if (char === '|') {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+export function isTableDivider(value, columnCount) {
+  const cells = splitTableRow(value);
+  return columnCount >= 2 && cells.length === columnCount
+    && cells.every(cell => /^:?-{3,}:?$/.test(cell));
+}

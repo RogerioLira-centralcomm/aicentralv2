@@ -304,6 +304,21 @@ def test_public_create_brand_contract_requires_market_seed_and_accepts_optional_
     assert {"official_logo_url", "reference_urls"} <= set(definition["inputSchema"]["properties"])
 
 
+def test_public_brand_audit_can_target_brand_ref_independently_of_project():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", project_ref="workspace:other-project",
+                             capabilities=("workspace",))
+    principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex",
+                                   label="Teste", scopes=tuple(DEFAULT_SCOPES | {"brands:write"}), context=context)
+    with patch("aicentralv2.cadu_public_mcp.routes.auth.can_purchase_credits", return_value=False):
+        tools = _public_catalog(principal)
+    definition = next(item for item in tools if item["name"] == "brands.start_audit")
+
+    assert "brand_id" not in definition["inputSchema"]["required"]
+    assert "brand_ref" in definition["inputSchema"]["properties"]
+    assert "não altera o projeto" in definition["description"]
+
+
 def test_non_ledger_write_receipt_does_not_promise_operations_get():
     assert "media.start_studio_session" not in RECOVERABLE_OPERATION_TOOLS
     assert "brands.start_audit" not in RECOVERABLE_OPERATION_TOOLS

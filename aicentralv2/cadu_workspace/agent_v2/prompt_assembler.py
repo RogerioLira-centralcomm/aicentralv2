@@ -79,6 +79,25 @@ def _bounded_json(value: dict, limit: int) -> str:
         compact["conversation_state"]["mensagens_originais_recuperadas"].pop()
     if not fits(compact) and compact.get("conversation_state"):
         compact["conversation_state"]["estado"] = {}
+    selected = compact.get("selected_context")
+    if not fits(compact) and isinstance(selected, dict) and selected.get("type") == "assistant_response":
+        original = str(selected.get("text") or "")
+        low, high = 0, len(original) // 2
+        marker = "\n\n[... trecho intermediário omitido por limite de contexto ...]\n\n"
+        while low < high:
+            middle = (low + high + 1) // 2
+            candidate = {**compact, "selected_context": {
+                **selected, "text": original[:middle] + marker + original[-middle:],
+                "truncated": True,
+            }}
+            if fits(candidate):
+                low = middle
+            else:
+                high = middle - 1
+        compact["selected_context"] = {
+            **selected, "text": original[:low] + marker + original[-low:] if low else "",
+            "truncated": True,
+        }
 
     # Reserve recent dialogue before bulky tool/project evidence. Immediate
     # continuity must not disappear merely because a project has many assets.
@@ -224,6 +243,26 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                 "Se um indicador não estiver disponível, omita-o ou mostre a lacuna de forma discreta. Use gráficos somente quando houver séries ou categorias suficientes, "
                 "inclua tabela para os dados detalhados e mantenha no próprio artefato uma nota curta de fonte/período. O resultado deve nascer como rascunho privado, nunca sugerir que já foi publicado."
             )
+    planning_instruction = ""
+    if policy.get("planning_response"):
+        planning_instruction = (
+            "Esta entrega é um planejamento de mídia ou uma reformatação dele. Responda no chat com "
+            "profundidade proporcional ao conteúdo; não crie uma estrutura genérica de redação. "
+            "Na primeira versão, inclua tabelas Markdown válidas, com cabeçalho, linha separadora e "
+            "quebras de linha reais, para organizar briefing/premissas, etapas ou canais, verba, KPI "
+            "e decisões de otimização conforme os dados disponíveis. Explique a tese e o racional fora "
+            "das tabelas. Confira que percentuais e valores somam a verba informada. Não invente "
+            "métricas nem trate fontes gerais como prova de desempenho. Quando o pedido for mudar "
+            "o formato da resposta anterior, preserve seus números, recomendações, ressalvas, fontes "
+            "e próximos passos; a mudança de formato não autoriza resumir ou trocar de assunto."
+        )
+    elif policy.get("planning_artifact"):
+        planning_instruction = (
+            "O usuário pediu um documento de planejamento de mídia. Entregue o plano completo em "
+            "artifact_patch.html, com título, seções específicas e tabelas HTML para premissas, "
+            "etapas/canais, verba e KPIs conforme os dados disponíveis. Deixe text.content curto, "
+            "como exige artifact_first. Confira as somas e não invente métricas ou fontes."
+        )
     depth_instruction = ""
     person_query = any(token in message.lower() for token in (
         "quem é", "quem foi", "morreu", "biografia", "história", "historia", "carreira", "obra", "artista", "cantor", "autor",
@@ -236,7 +275,7 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
     elif person_query and execution_mode == "agentic":
         depth_instruction = "Para uma pergunta sobre uma pessoa, marca ou campanha, aprofunde: explique a trajetória ou evolução, os pontos altos da obra/campanha e por que ela foi relevante, separando fatos confirmados de interpretação e sem inventar detalhes."
     inputs = {
-        "core": CORE + "".join(f"\n\n{item}" for item in (briefing_instruction, brand_instruction, draft_instruction, depth_instruction) if item),
+        "core": CORE + "".join(f"\n\n{item}" for item in (briefing_instruction, brand_instruction, draft_instruction, depth_instruction, planning_instruction) if item),
         "prompt_boundary": json.dumps({
             "user_message": "query and user_request",
             "orchestrator_fields": ["core", "task", "current_context", "evidence", "response_policy", "output_contract"],

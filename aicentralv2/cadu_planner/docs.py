@@ -36,6 +36,14 @@ def markdown_to_safe_html(value):
     lines = str(value or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
     output, items, ordered = [], [], None
 
+    def table_cells(raw):
+        row = raw.strip()
+        if row.startswith('|'):
+            row = row[1:]
+        if row.endswith('|') and not row.endswith('\\|'):
+            row = row[:-1]
+        return [cell.replace('\\|', '|').strip() for cell in re.split(r'(?<!\\)\|', row)]
+
     def inline(text):
         text = escape(text, quote=False)
         text = re.sub(r'`([^`\n]+)`', r'<code>\1</code>', text)
@@ -49,8 +57,26 @@ def markdown_to_safe_html(value):
             output.append('<%s>%s</%s>' % (tag, ''.join('<li>%s</li>' % inline(item) for item in items), tag))
         items, ordered = [], None
 
-    for raw in lines:
+    index = 0
+    while index < len(lines):
+        raw = lines[index]
         text = raw.strip()
+        header = table_cells(text)
+        divider = table_cells(lines[index + 1]) if index + 1 < len(lines) else []
+        if ('|' in text and len(header) >= 2 and len(divider) == len(header)
+                and all(re.fullmatch(r':?-{3,}:?', cell) for cell in divider)):
+            flush_items()
+            head = ''.join('<th scope="col">%s</th>' % inline(cell) for cell in header)
+            rows = []
+            index += 2
+            while index < len(lines) and '|' in lines[index]:
+                cells = table_cells(lines[index])
+                if len(cells) != len(header):
+                    break
+                rows.append('<tr>%s</tr>' % ''.join('<td>%s</td>' % inline(cell) for cell in cells))
+                index += 1
+            output.append('<table><thead><tr>%s</tr></thead><tbody>%s</tbody></table>' % (head, ''.join(rows)))
+            continue
         marker = re.match(r'^(?:([-*+])|(\d+)\.)\s+(.+)$', text)
         if marker:
             is_ordered = bool(marker.group(2))
@@ -58,6 +84,7 @@ def markdown_to_safe_html(value):
                 flush_items()
             ordered = is_ordered
             items.append(marker.group(3))
+            index += 1
             continue
         flush_items()
         if not text:
@@ -69,6 +96,7 @@ def markdown_to_safe_html(value):
             output.append('<blockquote>%s</blockquote>' % inline(text[1:].lstrip()))
         else:
             output.append('<p>%s</p>' % inline(text))
+        index += 1
     flush_items()
     return ''.join(output) or '<p></p>'
 

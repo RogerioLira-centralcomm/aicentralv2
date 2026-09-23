@@ -43,7 +43,7 @@ DEFAULT_VISUAL_VERIFIER_MODEL = os.getenv(
 DEFAULT_BRAND_FALLBACK_MODEL = os.getenv(
     "CREATIVE_BRAND_FALLBACK_MODEL", "openai/gpt-5.4"
 )
-BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v7-2026-09"
+BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v8-2026-09"
 
 # Deep research is deliberately divided by evidence domain. A single request
 # was mixing operational records, market context and visual interpretation in
@@ -384,7 +384,12 @@ def _image_parts(file_storage):
     for item in files[:12]:
         if not item or not item.filename:
             continue
-        validate_logo(item)
+        try:
+            validate_logo(item)
+        except ValueError:
+            # A bad optional reference must not abort website collection or
+            # discard the other valid assets in the same audit.
+            continue
         content = item.read()
         item.stream.seek(0)
         mime = (item.mimetype or "image/png").lower()
@@ -399,12 +404,17 @@ def _image_parts(file_storage):
 def _upload_manifest(file_storage):
     files = list(file_storage) if isinstance(file_storage, (list, tuple)) else [file_storage]
     result = []
-    for index, item in enumerate(files[:12]):
+    for item in files[:12]:
         if not item or not getattr(item, 'filename', None):
+            continue
+        try:
+            validate_logo(item)
+        except ValueError:
             continue
         position = item.stream.tell()
         content = item.read()
         item.stream.seek(position)
+        index = len(result)
         result.append({
             'evidence_id': 'upload:' + sha256(content).hexdigest()[:16],
             'filename': _text(item.filename, 240), 'mime_type': _text(item.mimetype, 120),
@@ -617,7 +627,11 @@ def _public_contact_records(pages):
                 "telefone", "tel.", "tel ", "atendimento", "ouvidoria",
                 "sac", "fale", "ligue", "whatsapp", "central",
             ))
-            if len(digits) < 8 or not has_contact_context or value in seen_contacts:
+            has_human_formatting = bool(re.search(r"[()\s.+-]", value))
+            is_toll_free = digits.startswith(("0800", "0300")) and len(digits) in {11, 12}
+            is_standard_br_phone = len(digits) in {10, 11} and has_human_formatting
+            if (not has_contact_context or value in seen_contacts
+                    or not (is_standard_br_phone or is_toll_free)):
                 continue
             seen_contacts.add(value)
             contacts.append({"type": "phone", "value": value, "label": "Telefone público", "country": "BR",
@@ -1568,11 +1582,14 @@ def _campaigns(value, opportunities=None):
 def _field_provenance(value, quality_dimensions, analysis=None):
     """Sanitize the GPT evidence map; missing evidence remains explicitly blocked."""
     keys = (
-        "brand_summary", "tone_of_voice", "logo_url", "primary_color",
-        "secondary_color", "color_palette", "fonts", "target_audience",
-        "campaign_opportunities", "competitors", "contacts", "addresses",
-        "digital_policies", "products_services", "differentiators", "proof_points",
-        "visual_motifs", "mandatory_elements", "forbidden_elements",
+        "name", "sector", "website_url", "brand_summary", "tone_of_voice",
+        "target_audience", "audience_segments", "personas", "archetype", "ad_segments",
+        "products_services", "differentiators", "proof_points", "competitors",
+        "campaign_opportunities", "campaigns", "logo_url", "primary_color",
+        "secondary_color", "color_palette", "product_palettes", "fonts", "visual_motifs",
+        "mandatory_elements", "forbidden_elements", "creative_guidelines", "visual_opinions",
+        "contacts", "addresses", "digital_policies", "social_links", "sources",
+        "evidence_ledger",
     )
     raw = value if isinstance(value, dict) else {}
     analysis = analysis if isinstance(analysis, dict) else {}
@@ -1595,17 +1612,66 @@ def _field_provenance(value, quality_dimensions, analysis=None):
             status = "verified" if urls else ("partial" if analysis.get(key) not in (None, "", [], {}) else "blocked")
         if status == "partial" and not urls:
             urls = shared_sources
-        visual_fields = {"logo_url", "primary_color", "secondary_color", "color_palette", "fonts",
-                         "visual_motifs", "mandatory_elements", "forbidden_elements"}
-        fallback = quality_dimensions["visual"] if key in visual_fields else quality_dimensions["identity"]
+        visual_fields = {
+            "logo_url", "primary_color", "secondary_color", "color_palette",
+            "product_palettes", "fonts", "visual_motifs", "mandatory_elements",
+            "forbidden_elements", "creative_guidelines", "visual_opinions",
+        }
+        campaign_fields = {"campaign_opportunities", "campaigns", "competitors", "ad_segments"}
+        presence_fields = {"contacts", "addresses", "digital_policies", "social_links"}
+        fallback = quality_dimensions.get("visual", 0) if key in visual_fields else quality_dimensions.get("identity", 0)
+        explicit_confidence = _unit_confidence(item.get("confidence")) if item else 0
+        if explicit_confidence:
+            field_confidence = explicit_confidence
+        elif status == "verified" and urls:
+            field_confidence = min(.98, .84 + min(len(set(urls)), 3) * .04)
+        elif status == "partial" and urls:
+            field_confidence = min(.79, .54 + min(len(set(urls)), 4) * .06)
+        elif status == "blocked":
+            field_confidence = 0
+        else:
+            field_confidence = _unit_confidence(fallback)
         result[key] = {
             "source_urls": list(dict.fromkeys(urls)),
             "source_count": len(set(urls)),
-            "classification": "campaign" if key in {"campaign_opportunities", "competitors"} else ("visual_identity" if key in visual_fields else "brand_core"),
-            "confidence": _unit_confidence(item.get("confidence") if item else fallback),
+            "classification": (
+                "campaign" if key in campaign_fields
+                else "visual_identity" if key in visual_fields
+                else "public_presence" if key in presence_fields
+                else "governance" if key in {"sources", "evidence_ledger"}
+                else "brand_core"
+            ),
+            "confidence": round(field_confidence, 2),
             "evidence_status": status,
             "requires_evidence_gate": key in {"logo_url", "color_palette", "competitors"},
         }
+    return result
+
+
+def _confidence_from_provenance(provenance, analysis=None):
+    """Build dimension confidence when a provider omits scalar confidence."""
+    provenance = provenance if isinstance(provenance, dict) else {}
+    analysis = analysis if isinstance(analysis, dict) else {}
+    groups = {
+        "identity": (
+            "brand_summary", "tone_of_voice", "products_services",
+            "differentiators", "proof_points",
+        ),
+        "audience": ("target_audience", "audience_segments", "personas", "archetype"),
+        "visual": (
+            "logo_url", "primary_color", "secondary_color", "color_palette",
+            "fonts", "visual_motifs", "mandatory_elements", "forbidden_elements",
+        ),
+    }
+    result = {}
+    for dimension, keys in groups.items():
+        scores = []
+        for key in keys:
+            if analysis.get(key) in (None, "", [], {}):
+                continue
+            item = provenance.get(key) if isinstance(provenance.get(key), dict) else {}
+            scores.append(_unit_confidence(item.get("confidence")))
+        result[dimension] = round(sum(scores) / len(scores), 2) if scores else 0
     return result
 
 
@@ -1626,6 +1692,41 @@ def _confidence(value):
         except (TypeError, ValueError):
             continue
     return result
+
+
+def _deterministic_central_review(reviews, analysis):
+    """Consolidate saved opinions when the final provider is unavailable."""
+    usable = [item for item in reviews if isinstance(item, dict) and item.get("status") != "unavailable"]
+    accepted_sets = [set(_string_list(item.get("accepted_fields"), limit=32, item_limit=120)) for item in usable]
+    accepted = set.intersection(*accepted_sets) if accepted_sets else set()
+    blocked = {
+        field
+        for item in reviews if isinstance(item, dict)
+        for field in _string_list(item.get("blocked_fields"), limit=32, item_limit=120)
+        if field != "revisão indisponível"
+    }
+    accepted -= blocked
+    essential = {"brand_summary", "target_audience", "products_services"}
+    ready = essential.issubset(accepted)
+    confidences = [_unit_confidence(item.get("confidence")) for item in usable]
+    consensus_confidence = round(sum(confidences) / len(confidences), 2) if confidences else 0
+    if not accepted:
+        consensus_confidence = min(consensus_confidence, .35)
+    dimensions = analysis.get("quality_dimensions") if isinstance(analysis.get("quality_dimensions"), dict) else {}
+    return {
+        "decision": "ready" if ready else "needs_review",
+        "confidence": min(consensus_confidence, .85),
+        "summary": (
+            "Consolidação determinística aplicada: os campos essenciais foram aceitos por todos os pareceres disponíveis."
+            if ready else
+            "Consolidação determinística aplicada; não houve consenso suficiente nos campos essenciais."
+        ),
+        "findings": [f"Consenso entre pareceres: {field}" for field in sorted(accepted)[:8]],
+        "concerns": ["O parecer central não retornou JSON válido."],
+        "blocked_fields": sorted(blocked | (set() if ready else {"consolidação central indisponível"})),
+        "accepted_fields": sorted(accepted),
+        "quality_dimensions": dimensions,
+    }
 
 
 _PLACEMENT_ANCHORS = ("topo", "centro", "base")
@@ -2506,7 +2607,7 @@ class CreativeBrandAnalyzer:
         minimum_visuals = 10 if deep else 5
         if coverage["approved_visuals"] < minimum_visuals:
             quality_flags.append("evidência visual insuficiente")
-        quality_dimensions = {
+        preliminary_dimensions = {
             "identity": round(_unit_confidence(confidence.get("identity")), 2),
             "visual": round(_unit_confidence(confidence.get("visual")), 2),
             "marketing": round(_unit_confidence(confidence.get("audience")), 2),
@@ -2517,8 +2618,20 @@ class CreativeBrandAnalyzer:
             "sources": round(min(1, len(sources) / (8 if deep else 4)), 2),
         }
         field_provenance = _field_provenance(
-            normalization_result.get("field_provenance"), quality_dimensions, result
+            normalization_result.get("field_provenance"), preliminary_dimensions, result
         )
+        computed_confidence = _confidence_from_provenance(field_provenance, result)
+        confidence = {
+            key: round(_unit_confidence(confidence.get(key)), 2)
+            if key in confidence else computed_confidence.get(key, 0)
+            for key in ("identity", "audience", "visual")
+        }
+        quality_dimensions = {
+            **preliminary_dimensions,
+            "identity": confidence["identity"],
+            "visual": confidence["visual"],
+            "marketing": confidence["audience"],
+        }
         output_packages = {
             "workspace": ["brand_summary", "tone_of_voice", "target_audience", "contacts", "competitors", "campaigns"],
             "studio": ["logo_url", "color_palette", "fonts", "visual_motifs", "mandatory_elements", "forbidden_elements"],
@@ -2774,22 +2887,7 @@ class CreativeBrandAnalyzer:
                 stage='revisor_central', billing_callback=billing_callback,
             )
         except Exception as exc:
-            prior_blocked = list(dict.fromkeys(
-                field
-                for review in reviews
-                for field in _string_list(review.get('blocked_fields'), limit=24, item_limit=120)
-            ))
-            fallback_dimensions = safe_analysis.get('quality_dimensions') \
-                if isinstance(safe_analysis.get('quality_dimensions'), dict) else {}
-            result = {
-                'decision': 'needs_review',
-                'confidence': .35,
-                'summary': 'Consolidação determinística aplicada porque o parecer central ficou indisponível.',
-                'concerns': ['O parecer central não retornou JSON válido.'],
-                'blocked_fields': list(dict.fromkeys(prior_blocked + ['consolidação central indisponível'])),
-                'accepted_fields': [],
-                'quality_dimensions': fallback_dimensions,
-            }
+            result = _deterministic_central_review(reviews, safe_analysis)
             response = {'model': self.review_model}
         try:
             confidence = max(0, min(1, float(result.get('confidence') or 0)))

@@ -1,6 +1,6 @@
 import React from 'react';
 import {safeUrl} from '../lib/api';
-import {normalizeInlineMarkdown, restoreEscapedMarkdown, splitInlineMarkdown} from '../lib/markdownModel.mjs';
+import {normalizeInlineMarkdown, restoreEscapedMarkdown, splitInlineMarkdown, splitTableRow, isTableDivider} from '../lib/markdownModel.mjs';
 
 function Inline({text, onOpenResource}) {
   const normalized = normalizeInlineMarkdown(text);
@@ -43,17 +43,37 @@ export function Markdown({children, onOpenResource}) {
     blocks.push(<p key={`p-${index}`}><Inline text={paragraph.join(' ')} onOpenResource={onOpenResource}/></p>);
     paragraph = [];
   };
-  String(children || '').replace(/\r\n/g, '\n').split('\n').forEach((raw, index) => {
+  const lines = String(children || '').replace(/\r\n/g, '\n').split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    const raw = lines[index];
     const line = raw.trim();
+    const headers = splitTableRow(line);
+    if (!fence && line.includes('|') && isTableDivider(lines[index + 1], headers.length)) {
+      flush(); flushParagraph(index);
+      const rows = [];
+      index += 1;
+      while (index + 1 < lines.length && lines[index + 1].trim().includes('|')) {
+        const cells = splitTableRow(lines[index + 1]);
+        if (cells.length !== headers.length) break;
+        rows.push(cells);
+        index += 1;
+      }
+      blocks.push(<div className="cv-table-scroll" role="region" aria-label="Tabela da resposta" tabIndex={0} key={`table-${index}`}>
+        <table className="cv-markdown-table"><thead><tr>{headers.map((cell, column) => <th scope="col" key={column}><Inline text={cell} onOpenResource={onOpenResource}/></th>)}</tr></thead>
+          <tbody>{rows.map((cells, row) => <tr key={row}>{cells.map((cell, column) => <td key={column}><Inline text={cell} onOpenResource={onOpenResource}/></td>)}</tr>)}</tbody>
+        </table>
+      </div>);
+      continue;
+    }
     const fenceMarker = line.match(/^```([a-z0-9_-]*)\s*$/i);
     if (fenceMarker) {
       flush(); flushParagraph(index);
       if (fence) { blocks.push(<pre key={`code-${fence.key}`}><code className={fence.language ? `language-${fence.language}` : undefined}>{fence.lines.join('\n')}</code></pre>); fence = null; }
       else fence = {key: index, language: fenceMarker[1], lines: []};
-      return;
+      continue;
     }
-    if (fence) { fence.lines.push(raw); return; }
-    if (!line) { flush(); flushParagraph(index); return; }
+    if (fence) { fence.lines.push(raw); continue; }
+    if (!line) { flush(); flushParagraph(index); continue; }
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
     const bullet = line.match(/^[-*+]\s+(.+)$/);
     const numbered = line.match(/^\d+[.)]\s+(.+)$/);
@@ -78,7 +98,7 @@ export function Markdown({children, onOpenResource}) {
       flush();
       paragraph.push(line);
     }
-  });
+  }
   if (fence) blocks.push(<pre key={`code-${fence.key}`}><code className={fence.language ? `language-${fence.language}` : undefined}>{fence.lines.join('\n')}</code></pre>);
   flush(); flushParagraph('last');
   return <>{blocks.map(block => block?.kind === 'list' ? React.createElement(block.listType, {key: `l-${block.key}`}, block.items) : block)}</>;

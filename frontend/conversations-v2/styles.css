@@ -740,6 +740,12 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-message__label { display:block; margin:0 0 6px; color:#8ea6a1; font-size:10px; font-weight:650; letter-spacing:.02em; }
 #cadu-conversations-v2-root .cv-message--user .cv-message__label { padding-right:3px; color:#8fc8be; }
 #cadu-conversations-v2-root .cv-assistant-answer { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+#cadu-conversations-v2-root .cv-table-scroll { max-width:100%; margin:16px 0; overflow-x:auto; border:1px solid var(--cv-line); border-radius:10px; background:var(--cv-panel); }
+#cadu-conversations-v2-root .cv-table-scroll:focus-visible { outline:2px solid var(--cv-accent); outline-offset:2px; }
+#cadu-conversations-v2-root .cv-markdown-table { width:100%; min-width:520px; border-collapse:collapse; color:var(--cv-text); font-size:13px; line-height:1.5; }
+#cadu-conversations-v2-root .cv-markdown-table :is(th,td) { min-width:100px; padding:10px 12px; border-bottom:1px solid var(--cv-line); text-align:left; vertical-align:top; overflow-wrap:anywhere; }
+#cadu-conversations-v2-root .cv-markdown-table th { background:var(--cv-raised); color:#e5f8f4; font-weight:650; }
+#cadu-conversations-v2-root .cv-markdown-table tbody tr:last-child td { border-bottom:0; }
 #cadu-conversations-v2-root .cv-assistant-answer .cv-prose strong { color:#edf5f3; font-weight:560; }
 
 #cadu-conversations-v2-root .cv-response-summary { padding:2px 0 2px 14px; border:0; border-left:2px solid rgba(101,216,203,.5); background:transparent; }

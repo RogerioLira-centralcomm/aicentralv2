@@ -54,10 +54,18 @@ def selected_context(value):
     kind = str(value.get("type") or "selection")[:40]
     raw = str(value.get("text") or "").replace("\r\n", "\n").replace("\r", "\n")
     text = "\n".join(line.rstrip() for line in raw.split("\n")).strip() if kind == "assistant_response" else " ".join(raw.split())
-    limit = 40000 if kind == "assistant_response" else 12000
-    if not 3 <= len(text) <= limit:
+    if len(text) < 3:
+        return None
+    original_chars = len(text)
+    if kind == "assistant_response" and original_chars > 22000:
+        # Retain both the setup and the conclusions of a long answer. An
+        # explicit gap is safer than silently losing the entire reference.
+        text = text[:11000].rstrip() + "\n\n[... trecho intermediário omitido por limite de contexto ...]\n\n" + text[-11000:].lstrip()
+    elif kind != "assistant_response" and original_chars > 12000:
         return None
     result = {"type": kind, "label": str(value.get("label") or "Contexto selecionado")[:80], "text": text}
+    if kind == "assistant_response" and original_chars > 22000:
+        result.update({"truncated": True, "original_chars": original_chars})
     source_message_id = str(value.get("source_message_id") or "")[:80]
     if source_message_id:
         result["source_message_id"] = source_message_id
@@ -78,12 +86,18 @@ def previous_assistant_context(message, messages):
         r"o que voc[eê] (?:escreveu|gerou|respondeu))\b",
         str(message or ""), re.IGNORECASE,
     )
+    format_reference = re.search(
+        r"\b(?:mont\w*|organiz\w*|estrutur\w*|coloc\w*|convert\w*|transform\w*|"
+        r"reescrev\w*|apresent\w*)\b.{0,85}\b(?:tabela|quadro|se[cç][oõ]es?|sess[oõ]es?|"
+        r"formato|lista|t[oó]picos?)\b|\b(?:em|numa?|como)\s+(?:uma?\s+)?tabela\b",
+        str(message or ""), re.IGNORECASE,
+    )
     natural_intent = interpret(str(message or ""), has_project=True)
     actionable_reference = (
         natural_intent.intent in {"create_artifact", "persist_content"}
         and natural_intent.source == "referenced_content"
     )
-    if not explicit_reference and not actionable_reference:
+    if not explicit_reference and not actionable_reference and not format_reference:
         return None
     previous = next((item for item in reversed(messages or []) if item.get("role") == "assistant" and str(item.get("content") or "").strip()), None)
     return selected_context({

@@ -17,6 +17,7 @@ from urllib.parse import quote, urlencode, urlparse
 from uuid import uuid4
 import secrets
 import requests
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import HTTPException
@@ -57,8 +58,41 @@ CADU_EXTRA_CREDIT_AMOUNTS = {
     'extra agencia': 1_000_000,
 }
 
-BRAND_SCORE_VERSION = 'brand-readiness-v2-2026-09'
-BRAND_ANALYSIS_SCORE_VERSION = 'brand-analysis-v2-2026-09'
+BRAND_SCORE_VERSION = 'brand-readiness-v3-2026-09'
+BRAND_ANALYSIS_SCORE_VERSION = 'brand-analysis-v3-2026-09'
+BRAND_ANALYSIS_CONTRACT_VERSION = 'brand-metadata-v2-2026-09'
+
+BRAND_METADATA_FIELDS = (
+    'name', 'sector', 'website_url', 'brand_summary', 'tone_of_voice',
+    'target_audience', 'audience_segments', 'personas', 'archetype', 'ad_segments',
+    'products_services', 'differentiators', 'proof_points', 'competitors',
+    'campaign_opportunities', 'campaigns', 'logo_url', 'primary_color',
+    'secondary_color', 'color_palette', 'product_palettes', 'fonts', 'visual_motifs',
+    'mandatory_elements', 'forbidden_elements', 'creative_guidelines', 'visual_opinions',
+    'contacts', 'addresses', 'digital_policies', 'social_links', 'sources',
+    'evidence_ledger', 'field_provenance', 'confidence', 'quality_dimensions',
+    'review_evidence_summary', 'output_packages', 'analysis_metadata',
+)
+
+
+def _brand_field_category(field_name: str) -> str:
+    if field_name in {'name', 'sector', 'website_url', 'brand_summary', 'tone_of_voice'}:
+        return 'identity'
+    if field_name in {'target_audience', 'audience_segments', 'personas', 'archetype', 'ad_segments'}:
+        return 'audience'
+    if field_name in {'products_services', 'differentiators', 'proof_points', 'competitors'}:
+        return 'market'
+    if field_name in {'campaign_opportunities', 'campaigns'}:
+        return 'campaign'
+    if field_name in {
+        'logo_url', 'primary_color', 'secondary_color', 'color_palette', 'product_palettes',
+        'fonts', 'visual_motifs', 'mandatory_elements', 'forbidden_elements',
+        'creative_guidelines', 'visual_opinions',
+    }:
+        return 'visual'
+    if field_name in {'contacts', 'addresses', 'digital_policies', 'social_links'}:
+        return 'presence'
+    return 'governance'
 
 
 def _utc_timestamp() -> str:
@@ -1835,10 +1869,17 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
         missing.append('auditoria de marca')
     if not profile.get('brand_summary') or not profile.get('target_audience'):
         missing.append('diretrizes de identidade')
+    automatic_decision = metadata.get('automatic_decision') if isinstance(metadata.get('automatic_decision'), dict) else {}
+    publication_readiness = max(0, min(100, int(automatic_decision.get('score') or 0)))
+    evidence_coverage = round(evidence_score * 100 / 15)
     brand['readiness'] = {
         'score': score, 'missing': missing, 'breakdown': breakdown,
         'version': BRAND_SCORE_VERSION, 'target': 85,
         'refinement_recommended': score < 85,
+        'profile_completeness': score,
+        'evidence_coverage': evidence_coverage,
+        'publication_readiness': publication_readiness,
+        'publication_score_version': str(automatic_decision.get('score_version') or ''),
     }
     brand['activity'] = sorted((
         {'title': 'Ativo registrado', 'detail': item.get('role') or 'Ativo de marca', 'at': item.get('created_at')}
@@ -2092,6 +2133,12 @@ def _automatic_brand_decision(analysis: dict, analysis_metadata: dict, central_r
 
 def _auto_apply_brand_analysis(client_id: int, user_id: int, brand_id: int, brand: dict, analysis: dict, decision: dict) -> dict:
     """Publish an evidence-qualified proposal without a manual approval step."""
+    minimum_score = int(decision.get('coverage_target') or 85)
+    if not decision.get('approved') or int(decision.get('score') or 0) < minimum_score:
+        raise ValueError('A análise não atingiu o gate mínimo para publicação automática.')
+    decision_version = str(decision.get('score_version') or '')
+    if decision_version and decision_version != BRAND_ANALYSIS_SCORE_VERSION:
+        raise ValueError('A decisão usa uma versão de score incompatível com o gate atual.')
     blocked_fields = _normalized_blocked_fields(decision.get('blocked_fields'))
     published_analysis = {
         key: value for key, value in analysis.items()
@@ -2347,15 +2394,25 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
         raise
 
 
-def _save_brand_audit_history(client_id: int, brand_id: int, job_id: str, *, analysis_mode='complete', status='queued', input_data=None, analysis=None, reviews=None, costs=None, error=''):
+def _save_brand_audit_history(client_id: int, brand_id: int, job_id: str, *, analysis_mode='complete', status='queued', input_data=None, analysis=None, reviews=None, costs=None, error='', requested_by=None):
     """Persist a compact, source-aware audit trail without affecting the active proposal."""
     input_data = dict(input_data or {})
     analysis = dict(analysis or {})
     metadata = dict(analysis.get('analysis_metadata') or {})
     source_urls = list(dict.fromkeys([str(item) for item in metadata.get('sources') or [] if item]))[:30]
     evidence_pages = [item for item in metadata.get('evidence_pages') or [] if isinstance(item, dict)][:24]
-    sources = [{'url': url, 'kind': 'official'} for url in source_urls]
-    sources.extend({'url': str(item.get('url')), 'title': str(item.get('title') or ''), 'kind': 'page'} for item in evidence_pages if item.get('url'))
+    sources_by_url = {
+        url: {'url': url, 'kind': 'official'}
+        for url in source_urls
+    }
+    for item in evidence_pages:
+        url = str(item.get('url') or '').strip()
+        if not url:
+            continue
+        existing = sources_by_url.setdefault(url, {'url': url, 'kind': 'page'})
+        if item.get('title'):
+            existing['title'] = str(item.get('title') or '')
+    sources = list(sources_by_url.values())[:30]
     review_items = list(reviews or [])[:6]
     pending_reviews = sum(1 for item in review_items if str(item.get('status') or '') in {'review', 'needs_review'})
     collected = {
@@ -2385,16 +2442,19 @@ def _save_brand_audit_history(client_id: int, brand_id: int, job_id: str, *, ana
         with connection.cursor() as cursor:
             cursor.execute(
                 '''INSERT INTO cadu_workspace_brand_audit_runs
-                   (job_id, client_id, brand_id, analysis_mode, status, input, sources, collected_data, costs, reviews, human_effort, completed_at)
-                   VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
+                   (job_id, client_id, brand_id, analysis_mode, status, input, sources, collected_data, costs, reviews, human_effort, requested_by, completed_at)
+                   VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, NULLIF(%s, 0),
                            CASE WHEN %s IN ('pending_approval', 'approved', 'insufficient_evidence', 'failed') THEN NOW() ELSE NULL END)
                    ON CONFLICT (job_id) DO UPDATE SET
                      status = EXCLUDED.status, input = EXCLUDED.input, sources = EXCLUDED.sources,
                      collected_data = EXCLUDED.collected_data, costs = EXCLUDED.costs, reviews = EXCLUDED.reviews,
-                     human_effort = EXCLUDED.human_effort, updated_at = NOW(),
+                     human_effort = EXCLUDED.human_effort,
+                     requested_by = COALESCE(cadu_workspace_brand_audit_runs.requested_by, EXCLUDED.requested_by),
+                     updated_at = NOW(),
                      completed_at = COALESCE(cadu_workspace_brand_audit_runs.completed_at, EXCLUDED.completed_at)''',
                 (job_id, client_id, brand_id, analysis_mode, status, json.dumps(input_data), json.dumps(sources),
-                 json.dumps(collected), json.dumps(costs or {}), json.dumps(review_items), json.dumps(effort), status),
+                 json.dumps(collected), json.dumps(costs or {}), json.dumps(review_items), json.dumps(effort),
+                 int(requested_by or 0), status),
             )
         connection.commit()
     except Exception:
@@ -2421,14 +2481,21 @@ def _save_brand_audit_evidence(client_id: int, brand_id: int, job_id: str, analy
                 url = str(page.get('url') or '')[:4000]
                 if not url.startswith(('http://', 'https://')):
                     continue
+                parsed_url = urlparse(url)
+                canonical_url = parsed_url._replace(
+                    scheme=parsed_url.scheme.lower(), netloc=parsed_url.netloc.lower(), fragment='',
+                ).geturl().rstrip('/') or url
                 excerpt = str(page.get('content') or page.get('markdown') or '')[:4000]
                 cursor.execute(
                     '''INSERT INTO cadu_workspace_brand_audit_sources
-                       (job_id, client_id, brand_id, url, source_type, title, excerpt, content_hash, relevance)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                       (job_id, client_id, brand_id, url, canonical_url, source_type, authority, status,
+                        title, excerpt, content_hash, relevance)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                        ON CONFLICT (job_id, url) DO UPDATE SET title=EXCLUDED.title, excerpt=EXCLUDED.excerpt,
-                         content_hash=EXCLUDED.content_hash, relevance=EXCLUDED.relevance''',
-                    (job_id, client_id, brand_id, url, 'official_page', str(page.get('title') or '')[:1000], excerpt,
+                         canonical_url=EXCLUDED.canonical_url, content_hash=EXCLUDED.content_hash,
+                         relevance=EXCLUDED.relevance, status=EXCLUDED.status''',
+                    (job_id, client_id, brand_id, url, canonical_url, 'official_page', 'first_party', 'valid',
+                     str(page.get('title') or '')[:1000], excerpt,
                      sha256(excerpt.encode('utf-8')).hexdigest() if excerpt else None, page.get('score') or None),
                 )
             for item in ledger[:24]:
@@ -2466,15 +2533,82 @@ def _save_brand_audit_evidence(client_id: int, brand_id: int, job_id: str, analy
                      str(detail.get('model') or '')[:128] or None, int(detail.get('input_tokens') or 0),
                      int(detail.get('output_tokens') or 0), detail.get('cost_usd'), detail.get('duration_ms')),
                 )
+            provenance_payload = (analysis or {}).get('field_provenance') or {}
+            evidence_hash = sha256(json.dumps(
+                provenance_payload, ensure_ascii=False, sort_keys=True, default=str,
+            ).encode('utf-8')).hexdigest()
             cursor.execute(
                 '''INSERT INTO cadu_workspace_brand_profile_snapshots
-                   (job_id, client_id, brand_id, decision, profile, field_provenance)
-                   VALUES (%s,%s,%s,%s,%s::jsonb,%s::jsonb)
+                   (job_id, client_id, brand_id, decision, profile, field_provenance,
+                    pipeline_version, contract_version, score_version, evidence_hash)
+                   VALUES (%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s)
                    ON CONFLICT (job_id) DO UPDATE SET decision=EXCLUDED.decision, profile=EXCLUDED.profile,
-                     field_provenance=EXCLUDED.field_provenance''',
+                     field_provenance=EXCLUDED.field_provenance, pipeline_version=EXCLUDED.pipeline_version,
+                     contract_version=EXCLUDED.contract_version, score_version=EXCLUDED.score_version,
+                     evidence_hash=EXCLUDED.evidence_hash
+                   RETURNING id''',
                 (job_id, client_id, brand_id, str(decision or 'pending')[:24], json.dumps(analysis or {}),
-                 json.dumps((analysis or {}).get('field_provenance') or {})),
+                 json.dumps(provenance_payload), BRAND_ANALYSIS_PIPELINE_VERSION,
+                 BRAND_ANALYSIS_CONTRACT_VERSION, BRAND_ANALYSIS_SCORE_VERSION, evidence_hash),
             )
+            snapshot = cursor.fetchone() or {}
+            snapshot_id = snapshot.get('id') if isinstance(snapshot, dict) else snapshot[0]
+            provenance = (analysis or {}).get('field_provenance')
+            provenance = provenance if isinstance(provenance, dict) else {}
+            analysis_metadata = (analysis or {}).get('analysis_metadata')
+            analysis_metadata = analysis_metadata if isinstance(analysis_metadata, dict) else {}
+            automatic_decision = analysis_metadata.get('automatic_decision')
+            automatic_decision = automatic_decision if isinstance(automatic_decision, dict) else {}
+            blocked_fields = _normalized_blocked_fields(automatic_decision.get('blocked_fields'))
+            for field_name in BRAND_METADATA_FIELDS:
+                value = (analysis or {}).get(field_name)
+                field_evidence = provenance.get(field_name)
+                field_evidence = field_evidence if isinstance(field_evidence, dict) else {}
+                status = str(field_evidence.get('evidence_status') or '').lower()
+                if _field_is_blocked(field_name, blocked_fields):
+                    status = 'blocked'
+                elif status not in {'verified', 'partial', 'blocked', 'conflicting', 'invalid', 'not_found', 'not_applicable'}:
+                    status = 'not_found' if value in (None, '', [], {}) else 'partial'
+                try:
+                    confidence = max(0.0, min(1.0, float(field_evidence.get('confidence') or 0)))
+                except (TypeError, ValueError):
+                    confidence = 0.0
+                evidence_count = max(0, int(field_evidence.get('source_count') or 0))
+                source_urls = list(field_evidence.get('source_urls') or [])[:8]
+                evidence_ids = [
+                    'source:' + sha256(str(url).encode('utf-8')).hexdigest()[:16]
+                    for url in source_urls if str(url).startswith(('http://', 'https://'))
+                ]
+                value_origin = 'inferred' if field_name in {'personas', 'archetype'} else (
+                    'generated' if field_name == 'campaign_opportunities' else 'observed'
+                )
+                reason_code = {
+                    'not_found': 'no_evidence_found', 'blocked': 'evidence_gate_blocked',
+                    'partial': 'insufficient_direct_evidence', 'conflicting': 'source_conflict',
+                    'invalid': 'invalid_value', 'not_applicable': 'not_applicable',
+                }.get(status)
+                cursor.execute(
+                    '''INSERT INTO cadu_workspace_brand_identity_fields
+                       (client_id, brand_id, snapshot_id, field_name, field_category, value, value_origin,
+                        status, reason_code, confidence, confidence_components, evidence_ids,
+                        evidence_count, pipeline_version, contract_version, score_version, last_verified_at)
+                       VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,
+                               CASE WHEN %s = 'verified' THEN NOW() ELSE NULL END)
+                       ON CONFLICT (brand_id, snapshot_id, field_name) DO UPDATE SET
+                         field_category=EXCLUDED.field_category, value=EXCLUDED.value,
+                         value_origin=EXCLUDED.value_origin, status=EXCLUDED.status,
+                         reason_code=EXCLUDED.reason_code, confidence=EXCLUDED.confidence,
+                         confidence_components=EXCLUDED.confidence_components,
+                         evidence_ids=EXCLUDED.evidence_ids, evidence_count=EXCLUDED.evidence_count,
+                         pipeline_version=EXCLUDED.pipeline_version, contract_version=EXCLUDED.contract_version,
+                         score_version=EXCLUDED.score_version, last_verified_at=EXCLUDED.last_verified_at,
+                         updated_at=NOW()''',
+                    (client_id, brand_id, snapshot_id, field_name, _brand_field_category(field_name),
+                     json.dumps(value, ensure_ascii=False, default=str), value_origin, status, reason_code,
+                     confidence, json.dumps({'evidence_status': status, 'source_count': evidence_count}),
+                     json.dumps(evidence_ids), evidence_count, BRAND_ANALYSIS_PIPELINE_VERSION,
+                     BRAND_ANALYSIS_CONTRACT_VERSION, BRAND_ANALYSIS_SCORE_VERSION, status),
+                )
         connection.commit()
         # Campaigns are independent audit findings. Keep them queryable even
         # when the evidence gate blocks publication of the broader profile;
@@ -2692,6 +2826,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                                 'additional_sources': list(additional_sources or []), 'excluded_sources': list(excluded_sources or []), 'analysis_mode': analysis_mode,
                                 'existing_asset_ids': list(existing_asset_ids or []),
                                 'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
+                    requested_by=user_id,
                 )
                 _save_brand_review_job(client_id, brand_id, job_id,
                     status='running', stage='evidence', index=1, total=4,
@@ -2984,26 +3119,37 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                                 'existing_asset_ids': list(existing_asset_ids or []),
                                 'pipeline_version': BRAND_ANALYSIS_PIPELINE_VERSION},
                     analysis={**review_proposal, 'analysis_metadata': analysis_metadata},
-                    reviews=reviews, costs=token_usage,
+                    reviews=reviews, costs=token_usage, requested_by=user_id,
                 )
                 _save_brand_audit_evidence(
                     client_id, brand_id, job_id,
                     {**review_proposal, 'analysis_metadata': analysis_metadata},
                     costs=token_usage, decision=history_status,
                 )
-                # This notification means the context was actually published;
-                # insufficient evidence is exposed as a diagnostic, never as
-                # a misleading “analysis ready” message.
+                # Notify the requester of the final review outcome. Approved
+                # and insufficient-evidence results are both useful outcomes;
+                # the explicit status prevents a misleading success receipt.
                 try:
                     from .. import db
                     from ..services.cadu_product_emails import send_brand_audit_ready
                     person = db.obter_contato_por_id(user_id) or {}
-                    send_brand_audit_ready(recipient_email=str(person.get('email') or ''), recipient_name=str(person.get('nome_completo') or ''),
+                    email_result = send_brand_audit_ready(recipient_email=str(person.get('email') or ''), recipient_name=str(person.get('nome_completo') or ''),
                         brand_name=str(review_proposal.get('name') or ''), summary=str(review_proposal.get('brand_summary') or ''),
                         differentiators=list(review_proposal.get('differentiators') or []), url=product_url('workspace', f'/marcas/{brand_id}'),
                         logo_url=str(review_proposal.get('logo_url') or ''), status=history_status,
                         coverage=analysis_metadata.get('coverage') or {}, costs=token_usage,
-                        effort={'estimated_person_hours': 8 if analysis_mode == 'deep' else 4, 'estimated_minutes_saved': 480 if analysis_mode == 'deep' else 240})
+                        effort={'estimated_person_hours': 8 if analysis_mode == 'deep' else 4, 'estimated_minutes_saved': 480 if analysis_mode == 'deep' else 240},
+                        client_id=client_id)
+                    if email_result.get('skipped'):
+                        current_app.logger.warning(
+                            'Aviso da auditoria da marca %s não enviado: %s.',
+                            brand_id, email_result.get('reason') or 'envio ignorado',
+                        )
+                    elif not email_result.get('success'):
+                        current_app.logger.error(
+                            'Falha no aviso da auditoria da marca %s: %s.',
+                            brand_id, str(email_result.get('error') or 'erro do provedor')[:360],
+                        )
                 except Exception:
                     current_app.logger.exception('Não foi possível enviar aviso da auditoria da marca %s', brand_id)
             except Exception as exc:
@@ -3015,7 +3161,8 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                                           input_data={'website_url': website_url, 'social_links': list(social_links or []),
                                                       'analysis_mode': analysis_mode,
                                                       'existing_asset_ids': list(existing_asset_ids or [])},
-                                          costs=locals().get('token_usage', {}), error=str(exc))
+                                          costs=locals().get('token_usage', {}), error=str(exc),
+                                          requested_by=user_id)
                 return False
             return True
 
@@ -5370,7 +5517,14 @@ def inspect_brand_site_route():
         result = inspect_brand_site(payload.get('website_url', ''), logo_url=payload.get('logo_url', ''))
     except HTTPException as exc:
         return jsonify(ok=False, error=exc.description), exc.code or 400
-    return jsonify(ok=True, inspection=result)
+    token = URLSafeTimedSerializer(current_app.secret_key, salt='workspace-brand-site-inspection').dumps({
+        'client_id': int(session.get('cliente_id') or 0),
+        'user_id': int(session.get('user_id') or 0),
+        'website_url': result.get('final_url') or result.get('website_url'),
+        'submitted_logo_url': str(payload.get('logo_url') or ''),
+        'suggested_logo_url': result.get('suggested_logo_url') or '',
+    })
+    return jsonify(ok=True, inspection=result, inspection_token=token)
 
 
 @bp.post('/workspace/app/marcas/<int:brand_id>/inspecionar-site')
@@ -5399,9 +5553,28 @@ def create_brand():
         abort(403, description='Atualize a página e tente novamente.')
     client_id = int(session.get('cliente_id') or 0)
     data = _workspace_brand_form()
-    submitted_logo_url = _normalized_website_url(
-        request.form.get('official_logo_url') or request.form.get('suggested_logo_url') or '',
-    )
+    submitted_logo_url = ''
+    inspection_token = str(request.form.get('inspection_token') or '')
+    if inspection_token:
+        try:
+            inspected = URLSafeTimedSerializer(
+                current_app.secret_key, salt='workspace-brand-site-inspection',
+            ).loads(inspection_token, max_age=600)
+        except (BadSignature, SignatureExpired):
+            abort(400, description='A inspeção do site expirou. Valide o endereço novamente.')
+        if (int(inspected.get('client_id') or 0) != client_id
+                or int(inspected.get('user_id') or 0) != int(session.get('user_id') or 0)
+                or str(inspected.get('website_url') or '') != str(data.get('website_url') or '')):
+            abort(400, description='O site mudou depois da inspeção. Valide o endereço novamente.')
+        posted_logo = _normalized_website_url(request.form.get('official_logo_url') or '')
+        inspected_logo = _normalized_website_url(inspected.get('submitted_logo_url') or '')
+        if posted_logo != inspected_logo:
+            abort(400, description='A logo mudou depois da inspeção. Valide os links novamente.')
+        submitted_logo_url = _normalized_website_url(
+            inspected_logo or inspected.get('suggested_logo_url') or '',
+        )
+    elif request.form.get('official_logo_url') or request.form.get('suggested_logo_url'):
+        abort(400, description='Valide o site e a logo antes de criar a marca.')
     creation_metadata = {
         'sources': [data['website_url']] if data.get('website_url') else [],
         'submitted_assets': {

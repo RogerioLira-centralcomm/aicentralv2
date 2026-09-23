@@ -1,9 +1,81 @@
+from io import BytesIO
 from unittest import TestCase
 
-from aicentralv2.creative_brand_analysis import CreativeBrandAnalyzer
+from werkzeug.datastructures import FileStorage
+
+from aicentralv2.creative_brand_analysis import (
+    CreativeBrandAnalyzer,
+    _confidence_from_provenance,
+    _deterministic_central_review,
+    _field_provenance,
+    _image_parts,
+    _public_contact_records,
+    _upload_manifest,
+)
 
 
 class WorkspaceBrandReviewAgentsTest(TestCase):
+    def test_missing_provider_confidence_is_derived_from_sourced_provenance(self):
+        analysis = {
+            'brand_summary': 'Marca comprovada.',
+            'target_audience': 'Público comprovado.',
+            'color_palette': [{'hex': '#123456'}],
+            'sources': ['https://brand.test', 'https://brand.test/about'],
+        }
+        provenance = _field_provenance({
+            'brand_summary': {
+                'source_urls': ['https://brand.test/about'],
+                'evidence_status': 'verified',
+            },
+            'target_audience': {
+                'source_urls': ['https://brand.test'],
+                'evidence_status': 'verified',
+            },
+            'color_palette': {
+                'source_urls': ['https://brand.test'],
+                'evidence_status': 'partial',
+            },
+        }, {}, analysis)
+
+        confidence = _confidence_from_provenance(provenance, analysis)
+
+        self.assertGreaterEqual(confidence['identity'], .85)
+        self.assertGreaterEqual(confidence['audience'], .85)
+        self.assertGreater(confidence['visual'], 0)
+        self.assertLess(confidence['visual'], .85)
+
+    def test_invalid_optional_image_does_not_abort_valid_images(self):
+        invalid = FileStorage(stream=BytesIO(b'not an image'), filename='notes.txt', content_type='text/plain')
+        valid = FileStorage(stream=BytesIO(b'png bytes'), filename='logo.png', content_type='image/png')
+
+        parts = _image_parts([invalid, valid])
+        manifest = _upload_manifest([invalid, valid])
+
+        self.assertEqual(len(parts), 1)
+        self.assertEqual(len(manifest), 1)
+        self.assertEqual(manifest[0]['filename'], 'logo.png')
+        self.assertEqual(manifest[0]['image_index'], 0)
+
+    def test_contact_extraction_rejects_unformatted_numeric_identifiers(self):
+        contacts, _addresses = _public_contact_records([{
+            'url': 'https://brand.test/atendimento',
+            'content': 'Central de atendimento 4095675861. Telefone (31) 3219-8000.',
+        }])
+
+        self.assertEqual([item['value'] for item in contacts], ['(31) 3219-8000'])
+
+    def test_deterministic_central_fallback_preserves_only_consensus(self):
+        common = ['brand_summary', 'target_audience', 'products_services']
+        result = _deterministic_central_review([
+            {'status': 'ready', 'confidence': .82, 'accepted_fields': [*common, 'proof_points'], 'blocked_fields': []},
+            {'status': 'ready', 'confidence': .88, 'accepted_fields': [*common, 'differentiators'], 'blocked_fields': []},
+        ], {'quality_dimensions': {'identity': .9}})
+
+        self.assertEqual(result['decision'], 'ready')
+        self.assertEqual(result['confidence'], .85)
+        self.assertEqual(result['accepted_fields'], sorted(common))
+        self.assertNotIn('consolidação central indisponível', result['blocked_fields'])
+
     def test_failed_provider_attempts_remain_visible_after_fallback_exhaustion(self):
         analyzer = CreativeBrandAnalyzer(
             llm=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError('indisponível')),

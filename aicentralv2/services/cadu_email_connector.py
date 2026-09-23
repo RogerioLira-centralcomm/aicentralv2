@@ -32,7 +32,8 @@ CADU_EMAIL_EVENTS: dict[str, dict[str, str]] = {
 def send_cadu_event(*, product: str, event: str, template: str,
                     recipient: str | Iterable[str], recipient_name: str,
                     subject: str, params: dict[str, Any] | None = None,
-                    internal: bool = False, cc: str | Iterable[str] | None = None) -> dict:
+                    internal: bool = False, cc: str | Iterable[str] | None = None,
+                    client_id: int | None = None) -> dict:
     """Send one named Cadu event through the centralized product connector."""
     definition = CADU_EMAIL_EVENTS.get(event)
     if definition is None:
@@ -45,7 +46,7 @@ def send_cadu_event(*, product: str, event: str, template: str,
     payload = dict(params or {})
     payload.setdefault("BRAND", product_email_brand(product))
     payload.setdefault("CADU_EVENT", event)
-    return get_brevo_product_service(product).enviar_email_com_template(
+    result = get_brevo_product_service(product).enviar_email_com_template(
         template_name=template,
         template_folder=template_folder,
         to_email=recipient,
@@ -54,3 +55,19 @@ def send_cadu_event(*, product: str, event: str, template: str,
         params=payload,
         cc_email=cc,
     )
+    # Product e-mails previously bypassed the Workspace delivery ledger. Keep
+    # the provider result observable without making delivery part of the
+    # business transaction itself.
+    try:
+        from ..email_service import record_workspace_email_event
+        recipients = [recipient] if isinstance(recipient, str) else list(recipient or [])
+        for address in recipients:
+            record_workspace_email_event(
+                recipient_email=str(address or ''), event_type=event,
+                subject=subject, result=result, client_id=client_id,
+            )
+    except Exception:
+        # The recorder already logs database failures; delivery remains the
+        # source of truth returned to the caller.
+        pass
+    return result

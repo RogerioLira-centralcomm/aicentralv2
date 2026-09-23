@@ -431,6 +431,29 @@ def test_brand_draft_accepts_compact_name_site_segment_answer():
     assert audit_action["arguments"] == {"analysis_mode": "deep", "confirmed_cost": True}
 
 
+def test_brand_audit_named_inside_another_project_keeps_brand_target_in_action():
+    message = "Audite a marca Cemig de forma profunda"
+    route = route_request(message, has_project=True, has_brand=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert route.action == "start_brand_audit"
+    assert action["requires_confirmation"] is True
+    assert action["arguments"] == {
+        "analysis_mode": "deep", "confirmed_cost": True, "_brand_query": "Cemig",
+    }
+    assert "Cemig" in action["summary"]
+
+
+def test_brand_audit_accepts_explicit_brand_id_without_changing_context():
+    message = "Faça a auditoria da marca 81"
+    route = route_request(message, has_project=True, has_brand=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert action["arguments"]["brand_id"] == 81
+
+
 def test_brand_identity_edit_is_a_confirmed_partial_mcp_action():
     message = "Troque o público-alvo para pequenas empresas de saúde"
     route = route_request(message, has_brand=True)
@@ -952,6 +975,8 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     assert "workspace.link_current_brand" in internal_names
     assert "google.create_project_meeting" in internal_names
     assert {"brands.create", "brands.start_audit"} <= names
+    audit_definition = next(item for item in public_tools if item["name"] == "brands.start_audit")
+    assert "brand_id" not in audit_definition["inputSchema"]["required"]
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
         catalog.execute("brands.create", {
@@ -1961,6 +1986,36 @@ def test_approved_action_executes_only_the_sealed_tool_and_arguments(monkeypatch
     assert receipt["completion"]["answer"] == "Ação concluída."
 
 
+def test_brand_audit_resolves_named_brand_without_replacing_project_context(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2 import action_executor
+
+    calls = []
+
+    class Registry:
+        def execute(self, name, arguments, current, exposure):
+            calls.append((name, arguments.copy(), current.project_ref, current.brand_ref, exposure))
+            if name == "brands.list":
+                return {"brands": [{"brand_id": 99, "name": "Cemig"}]}
+            return {"brand_id": 99, "brand_name": "Cemig", "analysis_mode": "deep"}
+
+    monkeypatch.setattr(action_executor, "load_builtin_tools", lambda: Registry())
+    current = context(project_ref="workspace:wrong-project", brand_ref="studio:81")
+    receipt = action_executor.execute({
+        "kind": "action", "status": "running", "name": "brands.start_audit",
+        "input_snapshot": {
+            "name": "brands.start_audit", "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+            "arguments": {"analysis_mode": "deep", "confirmed_cost": True, "_brand_query": "Cemig"},
+        },
+    }, current)
+
+    assert calls[0][:2] == ("brands.list", {"query": "Cemig", "limit": 20})
+    assert calls[1][0] == "brands.start_audit"
+    assert calls[1][1]["brand_id"] == 99
+    assert calls[1][2:4] == ("workspace:wrong-project", "studio:81")
+    assert receipt["completion"]["refresh_context"] is False
+    assert "Cemig" in receipt["completion"]["answer"]
+
+
 def test_project_note_action_emits_a_semantic_completion_item(monkeypatch):
     from aicentralv2.cadu_workspace.agent_v2 import action_executor
 
@@ -2198,6 +2253,58 @@ def test_explicit_previous_answer_reference_is_resolved_deterministically():
         "label": "Última resposta do assistente",
         "text": "# Estratégia\n\nConteúdo completo.",
     }
+
+
+def test_table_followup_keeps_the_previous_media_plan_and_full_output_budget():
+    from aicentralv2.cadu_workspace.agent_v2.context_builder import previous_assistant_context
+
+    message = "monte a estrutura em uma tabela organizada em sessoes"
+    original = "# Campanha CentralComm\n\nTopo R$ 800, meio R$ 600, fundo R$ 600."
+    selected = previous_assistant_context(message, [
+        {"role": "user", "content": "Planeje a campanha"},
+        {"role": "assistant", "content": original},
+    ])
+    assert selected["text"] == original
+    assert selected["type"] == "assistant_response"
+
+    route = route_request(message)
+    assert (route.action, route.response_mode, route.complexity) == (
+        "reformat_previous_answer", "analysis", "high",
+    )
+    current = context()
+    current = __import__("dataclasses").replace(current, selected_context=selected)
+    execution = prepare_execution(message, current)
+    assert execution["policy"]["planning_response"] is True
+    assert execution["policy"]["max_answer_chars"] >= 18000
+    assert execution["budget"]["max_output_tokens"] >= 4000
+    assert "preserve seus números" in execution["provider_payload"]["inputs"]["core"]
+
+
+def test_initial_campaign_planning_gets_tables_and_sufficient_room():
+    execution = prepare_execution(
+        "Pesquise fontes para montar plano para campanha de topo, meio e fundo de funil no Instagram com verba de R$ 2.000",
+        context(),
+    )
+    assert execution["policy"]["planning_response"] is True
+    assert execution["budget"]["max_output_tokens"] >= 4000
+    assert "tabelas Markdown válidas" in execution["provider_payload"]["inputs"]["core"]
+
+
+def test_complete_media_plan_stays_visible_in_chat_and_normalization_keeps_table():
+    execution = prepare_execution("Monte um planejamento completo para campanha de mídia no Instagram", context())
+    assert execution["route"]["response_mode"] == "analysis"
+    assert execution["policy"]["allow_artifact"] is False
+    source = (
+        "## Distribuição\n\n| Etapa | Verba |\n|---|---:|\n"
+        "| Topo | R$ 800 |\n| Meio | R$ 600 |\n| Fundo | R$ 600 |"
+    )
+    result = normalize_response({"text": {"content": source}, "ui": {}}, execution["policy"])
+    assert result.answer == source
+
+
+def test_table_reformat_route_does_not_override_explicit_document_creation():
+    route = route_request("Crie um documento editável com esta tabela")
+    assert route.action == "create_text_draft"
 
 
 def test_link_reference_resolves_the_original_url_from_recent_turns():

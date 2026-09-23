@@ -279,6 +279,11 @@ if [ "$RUN_MIGRATIONS" = "1" ]; then
 "$VENV_PYTHON" migrations/run_add_creative_client_intelligence.py
 "$VENV_PYTHON" migrations/run_add_creative_client_brand_assets.py
 "$VENV_PYTHON" migrations/run_add_creative_brand_lineage.py
+"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_history.py
+"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_jobs.py
+"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_evidence.py
+"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_versioning.py
+"$VENV_PYTHON" migrations/run_add_workspace_brand_field_reliability.py
 "$VENV_PYTHON" migrations/run_add_creative_format_studio.py
 "$VENV_PYTHON" migrations/run_add_studio_sessions.py
 "$VENV_PYTHON" migrations/run_add_cadu_studio_creation_history.py

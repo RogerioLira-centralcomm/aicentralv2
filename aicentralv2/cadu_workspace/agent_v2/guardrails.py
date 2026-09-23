@@ -92,7 +92,8 @@ def _clean_editor_html(value, limit=100000):
     html = re.sub(r"<!--.*?-->|<\s*(?:script|style|iframe|object|embed|form)\b[^>]*>.*?<\s*/\s*(?:script|style|iframe|object|embed|form)\s*>", "", html,
                   flags=re.IGNORECASE | re.DOTALL)
     allowed = {"p", "br", "strong", "b", "em", "i", "u", "h1", "h2", "h3", "ul", "ol", "li",
-               "blockquote", "a", "img", "figure", "figcaption", "hr", "div", "span"}
+               "blockquote", "a", "img", "figure", "figcaption", "hr", "div", "span",
+               "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption"}
 
     def tag(match):
         closing, name, attrs = match.group(1), match.group(2).lower(), match.group(3) or ""
@@ -108,7 +109,7 @@ def _clean_editor_html(value, limit=100000):
                 continue
             if attr in {"href", "src"} and not (value.startswith("https://") or value.startswith("http://") or value.startswith("data:image/")):
                 continue
-            if attr in {"href", "src", "alt", "title", "target", "rel"}:
+            if attr in {"href", "src", "alt", "title", "target", "rel"} or (name == "th" and attr == "scope" and value in {"col", "row"}):
                 safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")}"')
         return f"<{name}{''.join(safe_attrs)}>"
 

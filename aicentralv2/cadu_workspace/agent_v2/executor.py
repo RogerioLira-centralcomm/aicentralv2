@@ -39,6 +39,25 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         routed_message, request.surface, bool(request.project_ref),
         request.active_object.type if request.active_object else "", bool(request.brand_ref),
     )
+    selected = getattr(request, "selected_context", None) or {}
+    previous_text = str(selected.get("text") or "") if selected.get("type") == "assistant_response" else ""
+    planning_request = route.action == "plan_campaign" or bool(re.search(
+        r"\b(?:plano|planejamento|campanha)\b.{0,100}\b(?:campanha|m[ií]dia|funil|an[uú]ncios?|"
+        r"or[cç]amento|verba|google|instagram|meta)\b|"
+        r"\b(?:topo|meio|fundo)\s+(?:de\s+)?funil\b",
+        message, re.IGNORECASE,
+    ))
+    planning_followup = route.action == "reformat_previous_answer" and bool(re.search(
+        r"\b(?:campanha|m[ií]dia|funil|planejamento|verba|an[uú]ncios?)\b",
+        previous_text, re.IGNORECASE,
+    ))
+    if planning_request and route.action == "answer" and route.response_mode == "direct":
+        route = replace(route, action="plan_campaign", complexity="high", response_mode="analysis")
+    elif planning_request and route.action == "analyze_plan" and route.response_mode == "decision":
+        route = replace(route, complexity="high", response_mode="analysis")
+    elif (planning_request and route.action == "create_substantial_delivery"
+          and not re.search(r"\b(?:documento|arquivo|artefato|edit[aá]vel)\b", message, re.IGNORECASE)):
+        route = replace(route, action="plan_campaign", response_mode="analysis", artifact_type=None)
     readiness = None
     if route.action == "create_brief":
         readiness = briefing_readiness(message, history)
@@ -48,6 +67,15 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             route = replace(route, response_mode="clarification", artifact_type=None)
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
+    planning_delivery = planning_request or planning_followup
+    if planning_delivery:
+        budget = replace(budget, max_output_tokens=max(budget.max_output_tokens, 4000),
+                         max_context_chars=max(budget.max_context_chars, 28000))
+        if route.artifact_type:
+            policy["planning_artifact"] = True
+        elif route.response_mode in {"analysis", "direct"}:
+            policy["max_answer_chars"] = max(policy["max_answer_chars"], 18000)
+            policy["planning_response"] = True
     explicit_answer_chars = requested_answer_chars(message)
     if explicit_answer_chars and route.response_mode in {"direct", "analysis"}:
         policy["max_answer_chars"] = max(policy["max_answer_chars"], explicit_answer_chars)

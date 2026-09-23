@@ -1323,9 +1323,9 @@
 .pi-list-table--fiscal .pi-col-owner { width: 8%; }
 .pi-list-table--fiscal .pi-col-period { width: 8%; }
 .pi-list-table--fiscal .pi-col-net { width: 8%; }
-.pi-list-table--fiscal .pi-col-situation { width: 12%; }
-.pi-list-table--fiscal .pi-col-invoice { width: 6%; }
-.pi-list-table--fiscal .pi-col-payment { width: 9%; }
+.pi-list-table--fiscal .pi-col-situation { width: 11%; }
+.pi-list-table--fiscal .pi-col-invoice { width: 7%; }
+.pi-list-table--fiscal .pi-col-payment { width: 10%; }
 .pi-list-table--fiscal .pi-col-actions { width: 4%; }
 
 .pi-page .pi-list-table--fiscal thead th {
@@ -1369,6 +1369,12 @@
 .pi-fiscal-pay,
 .pi-fiscal-situation {
   min-width: 0;
+}
+
+.pi-page .pi-list-table--fiscal tbody .pi-row > td.pi-fiscal-nf,
+.pi-page .pi-list-table--fiscal tbody .pi-row > td.pi-fiscal-pay {
+  overflow: hidden;
+  vertical-align: top;
 }
 
 .pi-fiscal-pi .pi-code-link,
@@ -1683,6 +1689,15 @@
 }
 
 .pi-nf-cell {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.pi-pay-cell {
+  display: flex;
+  min-width: 0;
   align-items: flex-start;
   flex-direction: column;
   gap: 0.2rem;

@@ -2970,33 +2970,41 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
    details. This is the shared task pattern for research, source review and
    multi-step Workspace actions. */
 .cadu-ds-task-progress {
-  display:block;
+  display:flex;
   width:min(72ch,100%);
-  min-height:24px;
+  min-height:28px;
+  align-items:center;
   color:#9bb3ae;
   font:400 13px/1.55 Inter,ui-sans-serif,system-ui,sans-serif;
 }
-.cadu-ds-task-progress__header { padding-bottom:10px; border-bottom:1px solid rgba(181,218,211,.1); color:#849b97; }
-.cadu-ds-task-progress__results { display:grid; gap:9px; padding:12px 0 3px; }
-.cadu-ds-task-progress__results > div { display:flex; align-items:flex-start; gap:9px; color:#a9bdb9; }
-.cadu-ds-task-progress__results > div > span { color:#65d8cb; font-size:11px; line-height:20px; }
-.cadu-ds-task-progress__results p { margin:0; }
-.cadu-ds-task-progress__results small { display:block; margin-top:1px; color:#708985; font-size:11px; }
-.cadu-ds-task-progress__current { display:flex; align-items:center; gap:9px; padding-top:10px; }
-.cadu-ds-task-progress__spinner {
-  width:12px;
-  height:12px;
-  flex:0 0 12px;
-  border:1.5px solid rgba(101,216,203,.24);
-  border-top-color:#65d8cb;
-  border-radius:50%;
-  animation:cadu-ds-task-spin .8s linear infinite;
+.cadu-ds-task-progress__current { display:flex; min-width:0; align-items:center; gap:9px; }
+.cadu-ds-task-progress__announcement { display:flex; min-width:0; align-items:center; gap:9px; }
+.cadu-ds-task-progress__current small { color:#637d78; font-size:10px; font-variant-numeric:tabular-nums; }
+.cadu-ds-task-progress__spark {
+  position:relative;
+  width:14px;
+  height:14px;
+  flex:0 0 14px;
 }
-.cadu-ds-task-progress__text { animation:cadu-ds-task-text 160ms ease-out both; }
-@keyframes cadu-ds-task-spin { to { transform:rotate(360deg); } }
-@keyframes cadu-ds-task-text { from { opacity:.35; transform:translateY(2px); } to { opacity:1; transform:translateY(0); } }
+.cadu-ds-task-progress__spark::before,
+.cadu-ds-task-progress__spark::after {
+  position:absolute;
+  inset:6px 0 auto;
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,rgba(101,216,203,.18),#65d8cb,rgba(101,216,203,.18));
+  content:"";
+  transform-origin:center;
+  animation:cadu-ds-task-pulse 1.35s ease-in-out infinite;
+}
+.cadu-ds-task-progress__spark::after { animation-name:cadu-ds-task-pulse-y; animation-delay:-.32s; }
+.cadu-ds-task-progress__text { overflow:hidden; color:#a9c2bd; text-overflow:ellipsis; white-space:nowrap; animation:cadu-ds-task-text 220ms ease-out both; }
+@keyframes cadu-ds-task-pulse { 0%,100% { opacity:.3; transform:scaleX(.48); } 50% { opacity:1; transform:scaleX(1); } }
+@keyframes cadu-ds-task-pulse-y { 0%,100% { opacity:.3; transform:rotate(90deg) scaleX(.48); } 50% { opacity:1; transform:rotate(90deg) scaleX(1); } }
+@keyframes cadu-ds-task-text { from { opacity:.28; filter:blur(2px); transform:translateY(2px); } to { opacity:1; filter:blur(0); transform:translateY(0); } }
 @media (prefers-reduced-motion:reduce) {
-  .cadu-ds-task-progress__spinner { animation-duration:1.8s; }
+  .cadu-ds-task-progress__spark::before,
+  .cadu-ds-task-progress__spark::after,
   .cadu-ds-task-progress__text { animation:none; }
 }
 .cadu-ds-source-list {

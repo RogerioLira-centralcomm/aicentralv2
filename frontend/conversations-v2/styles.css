@@ -866,8 +866,9 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cv-scroll::-webkit-scrollbar-thumb { background: rgba(120,155,149,.34); border-radius: 999px; }
 .cv-scroll::-webkit-scrollbar-thumb:hover { background: rgba(127,205,193,.5); }
 
-.cv-prose { color:#dbe6e3; font-size:15px; font-weight:400; line-height:1.58; max-width:72ch; }
-.cv-prose > * { margin:0 0 12px; }
+.cv-prose { color:#dbe6e3; font-size:15px; font-weight:400; line-height:1.62; max-width:68ch; }
+.cv-prose > * { margin:0 0 15px; }
+.cv-prose p { max-width:68ch; text-wrap:pretty; }
 .cv-prose > *:last-child { margin-bottom: 0; }
 .cv-prose h2,
 .cv-prose h3 { color:#f0f7f5; letter-spacing:-.012em; }

@@ -576,8 +576,9 @@ test('mobile workspace enters the shared chat shell without an intermediate home
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   assert.match(main, /bootstrap\.homeMode && window\.matchMedia\?\.\('\(max-width: 767px\)'\)/);
-  assert.match(main, /window\.location\.replace\(`\$\{target\.pathname\}\$\{target\.search\}`\)/);
-  assert.match(main, /'prompt', 'project_ref', 'brand_ref', 'mode', 'conversation_id', 'auto_send'/);
+  assert.match(main, /const conversationBootstrap = mobileHomeEntry/);
+  assert.match(main, /mobileHomeEntry \? <App bootstrap=\{conversationBootstrap\}/);
+  assert.doesNotMatch(main, /window\.location\.replace/);
   assert.match(app, /function setConversationUrl/);
   assert.match(app, /setConversationUrl\(event\.conversation_id, true\)/);
   assert.match(app, /setConversationUrl\('', true\)/);
@@ -709,10 +710,12 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(markdown, /paragraph\.join\(' '\)/);
   assert.match(markdown, /words\.length <= 4 && emphasis\.length <= 44/);
   assert.match(markdown, /heading\[1\]\.length <= 2 \? 'h2' : 'h3'/);
-  assert.match(styles, /\.cv-prose \{ color:#dbe6e3; font-size:15px; font-weight:400; line-height:1\.58; max-width:72ch; \}/);
+  assert.match(styles, /\.cv-prose \{ color:#dbe6e3; font-size:15px; font-weight:400; line-height:1\.62; max-width:68ch; \}/);
   assert.match(fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8'), /kind === 'answer\.delta'/);
-  assert.match(progress, /Trabalhando\{elapsed/);
-  assert.match(progress, /Etapas concluídas/);
+  assert.doesNotMatch(progress, /FALLBACK_STEPS/);
+  assert.match(progress, /cadu-ds-task-progress__spark/);
+  assert.match(progress, /small aria-hidden="true"/);
+  assert.doesNotMatch(progress, /Etapas concluídas/);
   assert.match(conversation, /message\.streaming && showActivity/);
   assert.match(conversation, /text\.length > 5000/);
   assert.match(conversation, /Editar em documento/);

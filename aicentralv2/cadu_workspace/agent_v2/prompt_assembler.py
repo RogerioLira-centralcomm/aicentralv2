@@ -45,7 +45,9 @@ etapas, critérios ou próximos passos ficarem mais claros assim; "em parágrafo
 prosa, não ausência de estrutura. Salvo pedido explícito, bullets ocupam no máximo um terço do texto. Use
 tabela para comparar e cronologia para história; alterne parágrafos, subtítulos e exemplos. Use negrito só em
 termos curtos e raros, nunca em frases ou em cada item de uma lista. Não use cards simulados ou divisores.
-Não entregue texto longo como um bloco contínuo sem título ou seções."""
+Não entregue texto longo como um bloco contínuo sem título ou seções. Prefira parágrafos editoriais curtos,
+com duas a quatro frases e aproximadamente quatro linhas na interface; abra um novo parágrafo quando mudar
+o argumento, o exemplo ou a consequência, sem fragmentar frases nem transformar toda resposta em lista."""
 
 
 def _bounded_json(value: dict, limit: int) -> str:

@@ -8,6 +8,7 @@ import {ExecutionQueue} from './ExecutionQueue';
 import {WorkspaceSourceList} from '../../cadu-design-system/components/WorkspaceSourceList';
 import {WorkspaceTaskProgress} from '../../cadu-design-system/components/WorkspaceTaskProgress';
 import {meaningfulResponseBlocks, normalizeAnswerText} from '../lib/responseModel.mjs';
+import {formatResponseParagraphs} from '../lib/responsePresentation.mjs';
 import {ConversationSupport} from './ConversationSupport';
 import {PendingInteraction, pendingInteraction} from './PendingInteraction';
 
@@ -56,6 +57,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     .replace(/\s+Próxima ação:\s*[^.]+\.?/ig, '')
     .trim();
   const blocks = meaningfulResponseBlocks(response.blocks);
+  const presentedText = formatResponseParagraphs(text);
   const contentBlocks = blocks.filter(block => !['question', 'questions', 'decision'].includes(block.type));
   useEffect(() => () => window.clearTimeout(copyTimer.current), []);
   const copyAnswer = async () => {
@@ -71,7 +73,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
   if (message.kind === 'failure') return <FailureCard failure={message.failure} prompt={message.prompt} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl}/>;
   if (message.kind === 'action') return null;
   return <div className="cv-message-enter cv-assistant-answer cv-max-w-[72ch]">
-    <div className="cv-prose"><Markdown onOpenResource={onOpenResource}>{text}</Markdown></div>
+    <div className="cv-prose"><Markdown onOpenResource={onOpenResource}>{presentedText}</Markdown></div>
     {!!contentBlocks.length && <ResponseBlocks blocks={contentBlocks} onPrompt={onPrompt} onOpenResource={onOpenResource}/>}
     {!!response.assumptions?.length && <details className="cv-mt-4 cv-text-xs cv-text-mist"><summary className="cv-cursor-pointer">{response.assumptions.length === 1 ? 'Premissa usada' : `${response.assumptions.length} premissas usadas`}</summary><ul>{response.assumptions.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
     {!!response.citations?.length && <WorkspaceSourceList items={response.citations.slice(0, 4).map(item => ({title: item.title || 'Fonte', href: safeUrl(item?.url)}))}/>}

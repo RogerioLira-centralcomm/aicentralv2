@@ -537,7 +537,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /recentConversations\(data\.conversations, 50\)/);
   assert.match(app, /const brandRef = item\?\.brandRef \|\| \(item\?\.id \? `studio:\$\{item\.id\}` : ''\)/);
   assert.match(app, /loadBrandIdentity/);
-  assert.match(app, /reset\(\);\s*setHistoryOpen\(false\)/);
+  assert.match(app, /reset\(\{preserveAttachments: force\}\);\s*setHistoryOpen\(false\)/);
   assert.match(app, /if \(!conversationRef\.current && isConversationMobile\(\)\) setHistoryOpen\(false\)/);
   assert.doesNotMatch(app, /window\.matchMedia\('\(max-width: 900px\)'\)/);
   assert.match(sidebar, /cv-recent-sidebar/);
@@ -576,7 +576,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(pendingInteraction, /freeform: true/);
   assert.match(pendingInteraction, /cv-pending-interaction__respond/);
   assert.match(conversation, /cv-artifact-result/);
-  assert.match(conversation, /Abrir e editar/);
+  assert.match(conversation, /Abrir material/);
   assert.match(artifact, /return textArtifact/);
   assert.match(promptAssembler, /cada item tem `question`/);
   assert.match(promptAssembler, /Não repita a pergunta/);
@@ -626,7 +626,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /closest\('\.cv-prose'\)/);
   assert.match(conversation, /composerContext/);
   assert.match(composer, /Mais recursos/);
-  assert.match(composer, /Pesquisar na internet/);
+  assert.doesNotMatch(composer, /Pesquisar na internet/);
   assert.match(composer, /Intensidade do agente/);
   assert.match(composer, /Gravar mensagem de voz/);
   assert.match(composer, /Destino dos anexos/);

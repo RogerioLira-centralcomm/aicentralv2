@@ -168,6 +168,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /Continue de onde o time parou/);
   assert.match(project, /ProjectDataIndex/);
   assert.match(project, /Índice do projeto/);
+  assert.match(project, /<b title=\{project\.name\}>\{project\.name\}<\/b>/);
   assert.match(project, /cadu-ds-project-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-project-content/);
   assert.match(styles, /\.cadu-ds-home-content \{ width:100%; max-width:none; margin:0;/);
   assert.match(styles, /\.cadu-ds-home-content \.cadu-ds-composer,[\s\S]*width:100%; max-width:none;/);
@@ -178,6 +179,11 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(styles, /\.cadu-ds-project-page-drop__card/);
   assert.match(styles, /\.cadu-ds-project-source-section/);
   assert.match(styles, /\.cadu-ds-project-workspace/);
+  const entityStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceEntityPortal.css'), 'utf8');
+  assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-nav \{[\s\S]*position:fixed[\s\S]*overflow-y:hidden/);
+  assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-rail \{[\s\S]*height:auto;[\s\S]*overflow:visible/);
+  assert.match(entityStyles, /font-size:clamp\(36px,3\.35vw,48px\)/);
+  assert.match(entityStyles, /overflow-wrap:anywhere/);
   assert.match(template, /'projectMode': True/);
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
@@ -188,6 +194,8 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.doesNotMatch(template, /'conversation':[^\n]*prompt=/);
   assert.match(route, /request\.args\.get\('legacy'\) == '1':[\s\S]*clean_project_detail/);
   assert.match(route, /project_detail_react\.html/);
+  assert.match(route, /def _first_existing_brand_asset_url\(\*values\)/);
+  assert.match(route, /'logoUrl': _first_existing_brand_asset_url\([\s\S]*logo_variants[\s\S]*logo_upload_path[\s\S]*logo_url/);
   assert.match(route, /'colorPalette':/);
   assert.match(route, /'fonts':/);
   assert.match(route, /cadu_workspace_artifacts/);
@@ -1098,7 +1106,8 @@ test('dock and composer use one stable geometry without layered hover chrome', (
   assert.match(dockStyles, /width:64px/);
   assert.match(dockStyles, /\.cadu-ds-dock-section--live \{ display:grid; place-items:center/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:19px; height:19px; \}/);
-  assert.doesNotMatch(dockStyles, /\.cadu-ds-dock-primary-action--(?:home|new) svg/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action--home svg \{ width:21px; height:21px; \}/);
+  assert.doesNotMatch(dockStyles, /\.cadu-ds-dock-primary-action--new svg/);
   assert.match(dockStyles, /background:transparent;[\s\S]+color:#4d716d/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:hover \{ color:var\(--cadu-accent\); \}/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:focus-visible[\s\S]+outline:2px solid currentColor/);

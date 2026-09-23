@@ -53,6 +53,9 @@
   body.portal--workspace .cadu-ds-dock-primary-action:hover { color:var(--cadu-accent); }
   body.portal--workspace .cadu-ds-dock-primary-action:focus-visible { color:var(--cadu-accent); outline:2px solid currentColor; outline-offset:2px; }
   body.portal--workspace .cadu-ds-dock-primary-action svg { width:19px; height:19px; }
+  /* The home glyph uses less of its 24px viewBox than new-chat. Compensate
+     optically so both marks have the same perceived area in the Dock. */
+  body.portal--workspace .cadu-ds-dock-primary-action--home svg { width:21px; height:21px; }
   body.portal--workspace .cadu-ds-dock-solution { margin:0 0 8px; }
 
   body.portal--workspace .cadu-ds-dock-context,
@@ -162,5 +165,28 @@
     background:var(--cadu-accent);
     box-shadow:none;
     transform:translateY(-50%);
+  }
+}
+
+/* Project typography is part of the canonical Workspace frame. Keep these
+   limits after legacy bundles so long dossier names cannot restore hero-scale
+   type through source-order conflicts. */
+body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-project-hero h1 {
+  max-width:840px;
+  font-size:clamp(36px,3.35vw,48px);
+  line-height:1.08;
+  letter-spacing:-.045em;
+  overflow-wrap:anywhere;
+  text-wrap:balance;
+}
+
+body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-project-editorial h2 {
+  font-size:clamp(22px,1.9vw,28px);
+  letter-spacing:-.035em;
+}
+
+@media (max-width:900px) {
+  body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-project-hero h1 {
+    font-size:clamp(30px,8vw,40px);
   }
 }

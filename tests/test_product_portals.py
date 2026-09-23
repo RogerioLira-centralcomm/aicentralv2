@@ -71,6 +71,23 @@ def _app():
 
 
 class ProductPortalsTest(TestCase):
+    def test_brand_logo_candidates_skip_a_stale_preferred_asset(self):
+        resolved = {"stale-512.png": "", "logo-256.png": "/assets/logo-256.png"}
+        with mock.patch.object(
+            workspace_routes,
+            "_existing_brand_asset_url",
+            side_effect=lambda value: resolved.get(value, ""),
+        ) as resolver:
+            logo = workspace_routes._first_existing_brand_asset_url(
+                "stale-512.png", "logo-256.png", "https://brand.example/logo.svg"
+            )
+
+        self.assertEqual(logo, "/assets/logo-256.png")
+        self.assertEqual(
+            resolver.call_args_list,
+            [mock.call("stale-512.png"), mock.call("logo-256.png")],
+        )
+
     def test_each_product_domain_has_a_root_entry(self):
         client = _app().test_client()
         expected = {

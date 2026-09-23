@@ -1464,6 +1464,15 @@ def _existing_brand_asset_url(value) -> str:
     return url
 
 
+def _first_existing_brand_asset_url(*values) -> str:
+    """Resolve candidates independently so a stale preferred file can fall back."""
+    for value in values:
+        resolved = _existing_brand_asset_url(value)
+        if resolved:
+            return resolved
+    return ''
+
+
 def _brand_seed_visual_url(value, website_url: str = '') -> str:
     """Use local visuals or first-party site visuals for the brand header."""
     url = _existing_brand_asset_url(value)
@@ -5673,7 +5682,17 @@ def project_detail(project_id):
                 'crmClientId': str(active_brand.get('crm_client_id') or ''),
                 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=active_brand['id']) if active_brand else '',
                 'auditHref': f"{url_for('cadu_workspace.clean_brand_detail', brand_id=active_brand['id'])}?audit=start" if active_brand else '',
-                'logoUrl': str(active_brand.get('display_logo') or ''),
+                # Project identity uses the same canonical logo chain as the
+                # brand dossier. Asset-backed marks must not fall back to
+                # initials merely because the legacy display field is empty.
+                'logoUrl': _first_existing_brand_asset_url(
+                    (active_brand.get('logo_variants') or {}).get('512'),
+                    (active_brand.get('logo_variants') or {}).get('256'),
+                    active_brand.get('display_logo'),
+                    active_brand.get('resolved_logo_path'),
+                    active_brand.get('logo_upload_path'),
+                    active_brand.get('logo_url'),
+                ) if active_brand else '',
                 'initials': str(active_brand.get('display_initials') or ''),
                 'color': str(active_brand.get('primary_color') or ''),
                 'secondaryColor': str(active_brand.get('secondary_color') or ''),

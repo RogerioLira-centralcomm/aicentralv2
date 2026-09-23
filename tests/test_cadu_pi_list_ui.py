@@ -350,7 +350,9 @@ class CaduPiListUiContractTest(unittest.TestCase):
     def test_invoice_actions_are_neutral_and_status_change_refreshes_groups(self):
         fiscal = (PARTIALS / "_fiscal_row.html").read_text()
         self.assertIn("pi-nf-cell", fiscal)
+        self.assertIn("pi-pay-cell", fiscal)
         self.assertIn("pi-nf-state", fiscal)
+        self.assertIn("nf_status_int not in [2, 3]", fiscal)
         self.assertIn("pi-nf-action", fiscal)
         self.assertIn("Registrar pagamento", fiscal)
         self.assertIn("Zona {{ zona }}", fiscal)
@@ -399,8 +401,45 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("Lucrativa", filled)
         self.assertIn("Resultado preenchido", filled)
         self.assertIn("NF 92", filled)
+        self.assertIn("NF Emitida", filled)
         self.assertIn("Registrar pagamento", filled)
         self.assertIn("Ver PI", filled)
+        awaiting = template.render(
+            origem_lista="faturamento",
+            nomes_meses={},
+            pi={
+                "id_pi": 90,
+                "codigo_pi_cc": "103048",
+                "titulo_pi": "Campanha teste",
+                "cliente_nome": "Cliente",
+                "nf_id": 2,
+                "nf_numero_nota": "57",
+                "nf_status": 2,
+                "nf_status_descricao": "Aguardando pagamento",
+            },
+        )
+        self.assertIn("NF 57", awaiting)
+        self.assertNotIn("Aguardando pagamento", awaiting)
+        self.assertIn("Registrar pagamento", awaiting)
+        paid = template.render(
+            origem_lista="faturamento",
+            nomes_meses={},
+            pi={
+                "id_pi": 91,
+                "codigo_pi_cc": "37936",
+                "titulo_pi": "Campanha paga",
+                "cliente_nome": "Cliente",
+                "nf_id": 3,
+                "nf_numero_nota": "94",
+                "nf_status": 3,
+                "nf_status_descricao": "Pagamento realizado",
+                "nf_data_pagamento_realizado": "2026-08-07",
+            },
+        )
+        self.assertIn("NF 94", paid)
+        self.assertNotIn("Pagamento realizado", paid)
+        self.assertIn("Pago", paid)
+        self.assertIn("em 2026-08-07", paid)
         pending = template.render(
             origem_lista="faturamento",
             nomes_meses={},

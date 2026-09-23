@@ -13,6 +13,7 @@
 {% set saude = pi.get('saude_pi') or 'sem_dados' %}
 {% set sit_state = 'ok' if resultado_ok else 'pending' %}
 {% set nf_status = pi.get('nf_status') %}
+{% set nf_status_int = nf_status|int if nf_status is not none else none %}
 {% set pago = nf_status == 3 %}
 {% set titulo = pi_row.title_text(pi) %}
 {% set plataformas = (pi.get('campanhas_plataformas') or '')|trim %}
@@ -116,7 +117,9 @@
     {% if pi.get('nf_numero_nota') %}
     <strong class="pi-nf-number">NF {{ pi.nf_numero_nota }}</strong>
     {% endif %}
+    {% if nf_status_int not in [2, 3] %}
     <span class="pi-nf-state">{{ pi.nf_status_descricao or 'Emitida' }}</span>
+    {% endif %}
     {% if origem_lista == 'faturamento' and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
     <button type="button"
             onclick='continuarConfirmacaoSpedy({{ pi.id_pi }}, {{ pi.nf_id }})'
@@ -139,6 +142,7 @@
 </td>
 
 <td class="pi-fiscal-pay" data-label="Pagamento" onclick="event.stopPropagation()">
+  <div class="pi-pay-cell">
   {% if not pi.get('nf_id') %}
   <span class="cx-cell-empty empty-na">—</span>
   {% elif pago %}
@@ -154,6 +158,7 @@
     Registrar pagamento
   </button>
   {% endif %}
+  </div>
 </td>
 
 <td class="pi-fiscal-actions" data-label="Ações" onclick="event.stopPropagation()">

@@ -56,12 +56,32 @@ def test_runtime_rollout_supports_internal_and_client_stages():
         assert customer.shell_v2 is False
         internal = RuntimeRollout.current(client_id=99, user_id=8, is_internal=True)
         assert internal.runtime_v2 is True
-        assert internal.memory_v2 is False
+        assert internal.memory_v2 is True
         assert internal.shell_v2 is True
         outside = RuntimeRollout.current(client_id=99, user_id=8)
         assert outside.public_metadata() == {
-            "runtime_v2": False, "memory_v2": False, "shell_v2": False,
+            "runtime_v2": True, "memory_v2": True, "shell_v2": False,
         }
+
+
+def test_memory_is_global_even_when_legacy_rollout_value_is_staged():
+    app = Flask(__name__)
+    app.config.update(
+        CADU_CONVERSATION_RUNTIME_V2="staged",
+        CADU_CONVERSATION_MEMORY_V2="staged",
+        CADU_CHAT_SHELL_V2="staged",
+    )
+    with app.app_context():
+        rollout = RuntimeRollout.current(client_id=999, user_id=888)
+        assert rollout.runtime_v2 is True
+        assert rollout.memory_v2 is True
+
+
+def test_memory_keeps_an_explicit_emergency_off_switch():
+    app = Flask(__name__)
+    app.config.update(CADU_CONVERSATION_MEMORY_V2="off")
+    with app.app_context():
+        assert RuntimeRollout.current(client_id=12, user_id=7, is_internal=True).memory_v2 is False
 
 
 def test_context_builder_preserves_recent_bob_marley_turn_after_reload(monkeypatch):

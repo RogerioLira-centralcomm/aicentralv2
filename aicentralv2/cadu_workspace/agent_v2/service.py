@@ -602,7 +602,7 @@ def prepare(data):
         built_context = builder.build(
             message=message, messages=previous_messages, request_context=current,
             conversation_id=conversation_id if identity.conversation_supplied else None,
-            memory_enabled=rollout.memory_v2 and rollout.runtime_v2,
+            memory_enabled=rollout.memory_v2,
         )
     except Exception:
         current_app.logger.exception("Memória longa indisponível; conversa=%s", conversation_id)

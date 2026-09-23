@@ -339,6 +339,23 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary span { max-width:96px; overflow:hidden; text-overflow:ellipsis; }
 }
 
+/* Mobile starts in the conversation shell: keep the viewport quiet until the
+   first turn and expose secondary actions as one bottom sheet. */
+@media (max-width:767px) {
+  #cadu-conversations-v2-root .cv-conversation--empty .cv-empty-state { display:none; }
+  #cadu-conversations-v2-root .cv-composer-intensity__trigger { display:none; }
+  #cadu-conversations-v2-root .cv-composer-mobile-actions,
+  #cadu-conversations-v2-root .cv-composer-mobile-modes { display:block; }
+  #cadu-conversations-v2-root .cv-capability-menu { position:fixed; right:8px; bottom:calc(78px + env(safe-area-inset-bottom)); left:8px; width:auto; max-height:min(72dvh, 560px); overflow:auto; padding:12px; border-radius:18px; box-shadow:0 18px 50px rgba(0,0,0,.42); }
+  #cadu-conversations-v2-root .cv-composer-mobile-actions button,
+  #cadu-conversations-v2-root .cv-composer-mobile-modes button { min-height:46px; padding:9px 10px; }
+  #cadu-conversations-v2-root .cv-composer-mobile-actions button:disabled { opacity:.48; cursor:not-allowed; }
+  #cadu-conversations-v2-root .cv-composer-coming-soon { color:#78918d; font-size:10px; white-space:nowrap; }
+}
+
+#cadu-conversations-v2-root .cv-composer-mobile-actions,
+#cadu-conversations-v2-root .cv-composer-mobile-modes { display:none; }
+
 #cadu-conversations-v2-root .cv-composer-action-slot {
   display:grid;
   width:36px;

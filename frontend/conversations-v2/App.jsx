@@ -26,7 +26,7 @@ import {findLibraryItem, libraryGroups} from './lib/libraryModel.mjs';
 import {persistConversationContext, takePendingHomeAttachments} from './lib/storage.mjs';
 import {completeDockOrder} from '../cadu-design-system/dockPlacement.mjs';
 
-const emptyTitle = 'Novo chat';
+const emptyTitle = 'Cadu';
 
 function setSurfaceUrl(surface, artifactId = '', replace = false, resource = null) {
   const url = new URL(window.location.href);
@@ -43,6 +43,15 @@ function setSurfaceUrl(surface, artifactId = '', replace = false, resource = nul
     url.searchParams.delete('resource_project_ref');
   }
   window.history[replace ? 'replaceState' : 'pushState']({caduSurface: surface, resource}, '', url);
+}
+
+function setConversationUrl(conversationId = '', replace = true) {
+  const url = new URL(window.location.href);
+  if (conversationId) url.searchParams.set('conversation_id', String(conversationId));
+  else url.searchParams.delete('conversation_id');
+  url.searchParams.delete('surface');
+  url.searchParams.delete('artifact_id');
+  window.history[replace ? 'replaceState' : 'pushState']({caduSurface: 'conversation', conversationId: conversationId || null}, '', url);
 }
 
 export default function App({bootstrap}) {
@@ -239,7 +248,7 @@ export default function App({bootstrap}) {
     if (running || !(await confirmDiscard())) return;
     reset();
     setHistoryOpen(false);
-    setSurfaceUrl('conversation', '', true);
+    setConversationUrl('', true);
     focusComposer();
   }, [running, confirmDiscard, reset, focusComposer]);
 
@@ -261,6 +270,7 @@ export default function App({bootstrap}) {
       setMessages(restored);
       setComposerContext(restoredContext);
       if (lastArtifact) await fetchArtifact(lastArtifact);
+      setConversationUrl(id, true);
       setSurfaceUrl(lastArtifact ? 'artifact' : 'conversation', lastArtifact || '', true);
       const active = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/active-run`).catch(() => ({run: null}));
       if (active.run?.id) {
@@ -654,6 +664,7 @@ export default function App({bootstrap}) {
         if (kind === 'run.started') {
           runStarted = true;
           setConversationId(event.conversation_id); conversationRef.current = event.conversation_id;
+          setConversationUrl(event.conversation_id, true);
           runRef.current = event.run_id; runStartedRef.current = Date.now();
           const contextDiagnostics = event.context_diagnostics || {};
           trace('Contexto da conversa preparado', [

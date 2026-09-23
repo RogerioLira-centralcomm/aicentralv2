@@ -59,6 +59,8 @@ export function WorkspaceChatComposer({
 }) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
+  const fileInput = useRef(null);
+  const imageInput = useRef(null);
   const intensityMenu = useRef(null);
   const recognitionRef = useRef(null);
   const voiceBaseRef = useRef('');
@@ -74,6 +76,15 @@ export function WorkspaceChatComposer({
     onChange?.(capability.prompt);
     capabilityMenu.current?.removeAttribute('open');
     textarea.current?.focus();
+  };
+  const pickFiles = inputRef => {
+    capabilityMenu.current?.removeAttribute('open');
+    inputRef.current?.click();
+  };
+  const acceptFiles = event => {
+    const files = Array.from(event.target.files || []);
+    if (files.length) onAttach?.(files);
+    event.target.value = '';
   };
   const toggleVoice = () => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -197,6 +208,19 @@ export function WorkspaceChatComposer({
           <details ref={capabilityMenu} className="cv-composer-capabilities">
             <summary className="cv-composer-add cv-grid cv-h-8 cv-w-8 cv-cursor-pointer cv-list-none cv-place-items-center cv-rounded-full cv-border-0 cv-bg-transparent cv-text-mist" aria-label="Mais recursos" title="Mais recursos"><Icon name="plus" size={17}/></summary>
             <div className="cv-capability-menu" role="menu" aria-label="Escolher modo e recursos">
+              <input ref={fileInput} type="file" multiple tabIndex="-1" aria-hidden="true" onChange={acceptFiles} style={{display: 'none'}}/>
+              <input ref={imageInput} type="file" multiple accept="image/*" tabIndex="-1" aria-hidden="true" onChange={acceptFiles} style={{display: 'none'}}/>
+              <div className="cv-composer-mobile-actions">
+                <div className="cv-capability-heading">Adicionar</div>
+                <button type="button" role="menuitem" onClick={() => pickFiles(fileInput)}><span><b>Arquivo</b><small>PDF, documento ou qualquer arquivo</small></span><Icon name="file" size={15}/></button>
+                <button type="button" role="menuitem" onClick={() => pickFiles(imageInput)}><span><b>Imagem</b><small>Adicionar uma imagem ao pedido</small></span><Icon name="image" size={15}/></button>
+                <button type="button" role="menuitem" onClick={() => onContextDrop?.({type: 'project', projectRef: projects[0]?.ref || projects[0]?.projectRef || projects[0]?.id})} disabled={!projects.length}><span><b>Projeto</b><small>{projects.length ? `Usar ${projects[0]?.name || 'um projeto'} como contexto` : 'Nenhum projeto disponível'}</small></span><Icon name="folder" size={15}/></button>
+                {['Drive', 'Documento', 'Planilha', 'Apresentação', 'Automação', 'Ferramenta'].map(label => <button key={label} type="button" role="menuitem" disabled><span><b>{label}</b><small>Disponível após conectar este recurso</small></span><span className="cv-composer-coming-soon">Em breve</span></button>)}
+              </div>
+              <div className="cv-composer-mobile-modes">
+                <div className="cv-capability-heading">Modo</div>
+                {MODE_OPTIONS.map(option => <button key={option.id} type="button" role="menuitemradio" aria-checked={executionMode === option.id} className={executionMode === option.id ? 'is-active' : ''} onClick={() => { onExecutionModeChange?.(option.id); capabilityMenu.current?.removeAttribute('open'); }}><span><b>{option.label}</b><small>{option.detail}</small></span>{executionMode === option.id && <Icon name="check" size={15}/>}</button>)}
+              </div>
               <div className="cv-capability-heading">Recursos</div>
               {availableCapabilities.map(capability => <button key={capability.label} type="button" role="menuitem" onClick={() => selectCapability(capability)}><span><b>{capability.label}</b></span><Icon name="arrowUp" size={14}/></button>)}
               <div className="cv-capability-heading cv-capability-heading--resources">Destino dos anexos</div>{[['conversation', 'Usar só nesta conversa'], ['knowledge', 'Adicionar como fonte do projeto'], ['attachment', 'Anexar ao projeto sem indexar']].map(([id, label]) => <button key={id} type="button" role="menuitemradio" aria-checked={attachmentDestination === id} disabled={id !== 'conversation' && !hasProject} className={attachmentDestination === id ? 'is-active' : ''} onClick={() => onAttachmentDestinationChange?.(id)}><span><b>{label}</b>{id !== 'conversation' && !hasProject && <small>Selecione um projeto primeiro</small>}</span>{attachmentDestination === id && <Icon name="check" size={15}/>}</button>)}

@@ -10,9 +10,13 @@ def register(app):
     # Operational commands are top-level so deployment runbooks can use the
     # documented `flask conversation-memory-*` names without a blueprint group.
     from ..cadu_workspace.conversations.conversation_memory import rebuild_command
-    from ..cadu_workspace.agent_v2.memory_checkpoint import worker_command as memory_worker_command
+    from ..cadu_workspace.agent_v2.memory_checkpoint import (
+        worker_command as memory_worker_command,
+        worker_loop_command as memory_worker_loop_command,
+    )
     app.cli.add_command(rebuild_command)
     app.cli.add_command(memory_worker_command)
+    app.cli.add_command(memory_worker_loop_command)
 
     @app.context_processor
     def family_flags():

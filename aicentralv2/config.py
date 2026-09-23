@@ -129,8 +129,11 @@ class Config:
 	CADU_CHAT_ADMISSION_TOKENS = int(os.getenv('CADU_CHAT_ADMISSION_TOKENS', '8000'))
 	# Conversation rollout accepts: all/on, off, internal, allowlist or staged.
 	# "staged" enables CentralComm users plus the configured client/user IDs.
-	CADU_CONVERSATION_RUNTIME_V2 = os.getenv('CADU_CONVERSATION_RUNTIME_V2', 'staged')
-	CADU_CONVERSATION_MEMORY_V2 = os.getenv('CADU_CONVERSATION_MEMORY_V2', 'staged')
+	CADU_CONVERSATION_RUNTIME_V2 = os.getenv('CADU_CONVERSATION_RUNTIME_V2', 'all')
+	# Conversation memory is a baseline chat capability, not a customer rollout.
+	# The runtime still accepts an explicit emergency off switch, but values such
+	# as staged/internal/allowlist must never exclude a tenant from continuity.
+	CADU_CONVERSATION_MEMORY_V2 = os.getenv('CADU_CONVERSATION_MEMORY_V2', 'all')
 	CADU_CHAT_SHELL_V2 = os.getenv('CADU_CHAT_SHELL_V2', 'staged')
 	CADU_CONVERSATION_ROLLOUT_CLIENTS = os.getenv('CADU_CONVERSATION_ROLLOUT_CLIENTS', '')
 	CADU_CONVERSATION_ROLLOUT_USERS = os.getenv('CADU_CONVERSATION_ROLLOUT_USERS', '')

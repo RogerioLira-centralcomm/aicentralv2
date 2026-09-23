@@ -1,10 +1,13 @@
 """Durable asynchronous checkpoints for the rebuildable memory projection."""
 
+import time
+
 import click
 from flask import current_app
 from flask.cli import with_appcontext
 
 from ...cadu_family import repository
+from ...db import close_db
 
 
 MAX_ATTEMPTS = 3
@@ -105,3 +108,18 @@ def process_one():
 def worker_command():
     """Process at most one durable memory projection job."""
     click.echo('Processado.' if process_one() else 'Fila vazia.')
+
+
+@click.command('conversation-memory-worker-loop')
+@with_appcontext
+def worker_loop_command():
+    """Continuously consume durable memory checkpoints under a supervisor."""
+    while True:
+        try:
+            if not process_one():
+                close_db()
+                time.sleep(2)
+        except Exception:
+            current_app.logger.exception('Worker de memória interrompeu um ciclo')
+            close_db()
+            time.sleep(5)

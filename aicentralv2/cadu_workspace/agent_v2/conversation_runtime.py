@@ -40,6 +40,14 @@ def _flag(name: str, *, client_id=None, user_id=None, is_internal=False, default
     return False
 
 
+def _global_capability(name: str, *, default="all") -> bool:
+    """Enable baseline capabilities for every tenant unless explicitly disabled."""
+    value = current_app.config.get(name, default)
+    if not isinstance(value, str):
+        return bool(value)
+    return value.strip().lower() not in {"0", "false", "off", "no", "none"}
+
+
 @dataclass(frozen=True)
 class TurnIdentity:
     conversation_id: str
@@ -74,8 +82,8 @@ class RuntimeRollout:
     @classmethod
     def current(cls, *, client_id=None, user_id=None, is_internal=False):
         return cls(
-            runtime_v2=_flag("CADU_CONVERSATION_RUNTIME_V2", client_id=client_id, user_id=user_id, is_internal=is_internal),
-            memory_v2=_flag("CADU_CONVERSATION_MEMORY_V2", client_id=client_id, user_id=user_id, is_internal=is_internal),
+            runtime_v2=_global_capability("CADU_CONVERSATION_RUNTIME_V2"),
+            memory_v2=_global_capability("CADU_CONVERSATION_MEMORY_V2"),
             shell_v2=_flag("CADU_CHAT_SHELL_V2", client_id=client_id, user_id=user_id, is_internal=is_internal),
         )
 

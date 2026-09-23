@@ -570,6 +570,24 @@ test('chat theme is locked dark and interaction flows avoid native browser promp
   assert.match(styles, /cv-composer-input \{ min-height:46px;[^\n]*font-size:16px !important/);
 });
 
+test('mobile workspace enters the shared chat shell without an intermediate home', () => {
+  const main = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+  assert.match(main, /bootstrap\.homeMode && window\.matchMedia\?\.\('\(max-width: 767px\)'\)/);
+  assert.match(main, /window\.location\.replace\(`\$\{target\.pathname\}\$\{target\.search\}`\)/);
+  assert.match(main, /'prompt', 'project_ref', 'brand_ref', 'mode', 'conversation_id', 'auto_send'/);
+  assert.match(app, /function setConversationUrl/);
+  assert.match(app, /setConversationUrl\(event\.conversation_id, true\)/);
+  assert.match(app, /setConversationUrl\('', true\)/);
+  assert.match(composer, /cv-composer-mobile-actions/);
+  assert.match(composer, /accept="image\/\*"/);
+  assert.match(composer, /Disponível após conectar este recurso/);
+  assert.match(styles, /@media \(max-width:767px\)[\s\S]*cv-conversation--empty \.cv-empty-state \{ display:none; \}/);
+  assert.match(styles, /cv-composer-intensity__trigger \{ display:none; \}/);
+});
+
 test('conversation continuations preserve structured questions and server context', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');

@@ -13,19 +13,22 @@ if (root && bootstrapNode) {
     const bootstrap = JSON.parse(bootstrapNode.textContent);
     const mobileHomeEntry = Boolean(bootstrap.homeMode && window.matchMedia?.('(max-width: 767px)').matches);
     if (mobileHomeEntry) {
-      const target = new URL(bootstrap.urls?.newConversation || '/chat', window.location.origin);
-      const current = new URL(window.location.href);
-      ['prompt', 'project_ref', 'brand_ref', 'mode', 'conversation_id', 'auto_send'].forEach(key => {
-        if (current.searchParams.has(key)) target.searchParams.set(key, current.searchParams.get(key));
-      });
-      target.searchParams.set('from', 'workspace');
-      window.location.replace(`${target.pathname}${target.search}`);
+      root.classList.remove('cv-home-root');
+      root.classList.add('cv-conversation-root');
+      root.setAttribute('aria-label', 'Conversa com o Cadu');
     }
-    if (!mobileHomeEntry) {
-      const workspaceMode = bootstrap.homeMode || bootstrap.projectMode || bootstrap.brandMode || bootstrap.brandsMode || bootstrap.projectsMode || bootstrap.accountMode || bootstrap.legacyMode;
-      const surface = bootstrap.homeMode ? <WorkspaceHome bootstrap={bootstrap}/> : bootstrap.projectMode ? <WorkspaceProject bootstrap={bootstrap}/> : bootstrap.brandMode ? <WorkspaceBrand bootstrap={bootstrap}/> : bootstrap.brandsMode ? <WorkspaceBrands bootstrap={bootstrap}/> : bootstrap.projectsMode ? <WorkspaceProjects bootstrap={bootstrap}/> : bootstrap.accountMode ? <WorkspaceAccount bootstrap={bootstrap}/> : bootstrap.legacyMode ? <WorkspaceLegacyChrome bootstrap={bootstrap}/> : <App bootstrap={bootstrap}/>;
-      createRoot(root).render(<ThemeProvider skin={workspaceMode ? 'workspace' : 'conversations'} theme={workspaceMode ? 'light' : 'dark'} persistKey={workspaceMode ? 'cadu-workspace-theme' : 'cadu-conversations-theme'} locked={!workspaceMode}><WorkspaceNotificationsProvider bootstrap={bootstrap}>{surface}</WorkspaceNotificationsProvider></ThemeProvider>);
-    }
+    const conversationBootstrap = mobileHomeEntry ? {
+      ...bootstrap,
+      ...(bootstrap.home || {}),
+      homeMode:false,
+      projects:bootstrap.home?.projects || [],
+      brands:bootstrap.home?.brands || [],
+      conversations:bootstrap.home?.recentConversations || bootstrap.home?.conversations || [],
+      dock:bootstrap.home?.dock || {items:[]},
+    } : bootstrap;
+    const workspaceMode = !mobileHomeEntry && (bootstrap.homeMode || bootstrap.projectMode || bootstrap.brandMode || bootstrap.brandsMode || bootstrap.projectsMode || bootstrap.accountMode || bootstrap.legacyMode);
+    const surface = mobileHomeEntry ? <App bootstrap={conversationBootstrap}/> : bootstrap.homeMode ? <WorkspaceHome bootstrap={bootstrap}/> : bootstrap.projectMode ? <WorkspaceProject bootstrap={bootstrap}/> : bootstrap.brandMode ? <WorkspaceBrand bootstrap={bootstrap}/> : bootstrap.brandsMode ? <WorkspaceBrands bootstrap={bootstrap}/> : bootstrap.projectsMode ? <WorkspaceProjects bootstrap={bootstrap}/> : bootstrap.accountMode ? <WorkspaceAccount bootstrap={bootstrap}/> : bootstrap.legacyMode ? <WorkspaceLegacyChrome bootstrap={bootstrap}/> : <App bootstrap={bootstrap}/>;
+    createRoot(root).render(<ThemeProvider skin={workspaceMode ? 'workspace' : 'conversations'} theme={workspaceMode ? 'light' : 'dark'} persistKey={workspaceMode ? 'cadu-workspace-theme' : 'cadu-conversations-theme'} locked={!workspaceMode}><WorkspaceNotificationsProvider bootstrap={conversationBootstrap}>{surface}</WorkspaceNotificationsProvider></ThemeProvider>);
   } catch (error) {
     root.innerHTML = `<p role="alert" style="padding:24px;color:${root.classList.contains('cv-account-root') ? '#17302c' : '#edf7f5'}">Não foi possível abrir esta área. Atualize a página.</p>`;
     console.error(error);

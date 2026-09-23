@@ -578,6 +578,8 @@ test('mobile workspace enters the shared chat shell without an intermediate home
   assert.match(main, /bootstrap\.homeMode && window\.matchMedia\?\.\('\(max-width: 767px\)'\)/);
   assert.match(main, /const conversationBootstrap = mobileHomeEntry/);
   assert.match(main, /mobileHomeEntry \? <App bootstrap=\{conversationBootstrap\}/);
+  assert.match(main, /root\.classList\.remove\('cv-home-root'\)/);
+  assert.match(main, /root\.classList\.add\('cv-conversation-root'\)/);
   assert.doesNotMatch(main, /window\.location\.replace/);
   assert.match(app, /function setConversationUrl/);
   assert.match(app, /setConversationUrl\(event\.conversation_id, true\)/);
@@ -587,6 +589,8 @@ test('mobile workspace enters the shared chat shell without an intermediate home
   assert.match(composer, /Disponível após conectar este recurso/);
   assert.match(styles, /@media \(max-width:767px\)[\s\S]*cv-conversation--empty \.cv-empty-state \{ display:none; \}/);
   assert.match(styles, /cv-composer-intensity__trigger \{ display:none; \}/);
+  assert.match(styles, /data-keyboard-open="true"\] \.cv-conversation-header \{ height:calc\(58px/);
+  assert.match(styles, /cv-conversation--empty>\.cv-composer-stage\[data-composer-state="focused"\]/);
 });
 
 test('conversation continuations preserve structured questions and server context', () => {

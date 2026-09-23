@@ -341,6 +341,9 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 
 /* Mobile starts in the conversation shell: keep the viewport quiet until the
    first turn and expose secondary actions as one bottom sheet. */
+#cadu-conversations-v2-root .cv-composer-mobile-actions,
+#cadu-conversations-v2-root .cv-composer-mobile-modes { display:none; }
+
 @media (max-width:767px) {
   #cadu-conversations-v2-root .cv-conversation--empty .cv-empty-state { display:none; }
   #cadu-conversations-v2-root .cv-composer-intensity__trigger { display:none; }
@@ -352,9 +355,6 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-composer-mobile-actions button:disabled { opacity:.48; cursor:not-allowed; }
   #cadu-conversations-v2-root .cv-composer-coming-soon { color:#78918d; font-size:10px; white-space:nowrap; }
 }
-
-#cadu-conversations-v2-root .cv-composer-mobile-actions,
-#cadu-conversations-v2-root .cv-composer-mobile-modes { display:none; }
 
 #cadu-conversations-v2-root .cv-composer-action-slot {
   display:grid;
@@ -1490,7 +1490,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-conversations-workarea { height:var(--cv-visual-height,100dvh)!important; }
   #cadu-conversations-v2-root .cv-conversation-stage { height:100%!important; min-height:0; }
   #cadu-conversations-v2-root .cv-conversation-header { height:calc(58px + env(safe-area-inset-top))!important; min-height:calc(58px + env(safe-area-inset-top)); padding-top:env(safe-area-inset-top)!important; padding-left:max(8px,env(safe-area-inset-left))!important; padding-right:max(8px,env(safe-area-inset-right))!important; }
-  #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-conversation-header { height:calc(50px + env(safe-area-inset-top))!important; min-height:calc(50px + env(safe-area-inset-top)); }
+  #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-conversation-header { height:calc(58px + env(safe-area-inset-top))!important; min-height:calc(58px + env(safe-area-inset-top)); }
   #cadu-conversations-v2-root .cv-composer-stage { padding-left:max(8px,env(safe-area-inset-left)); padding-right:max(8px,env(safe-area-inset-right)); }
   #cadu-conversations-v2-root .cv-artifact-panel > header { min-height:calc(52px + env(safe-area-inset-top)); padding-top:env(safe-area-inset-top); }
   #cadu-conversations-v2-root .cv-artifact-return.is-mobile { display:flex; min-width:78px; gap:2px; order:-1; padding:0 7px; color:#a5d6ce; font-size:11px; }
@@ -1529,6 +1529,18 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-empty-suggestions { display:none; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-conversation-support-popover { display:none; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-composer-stage { padding-bottom:4px; }
+
+  #cadu-conversations-v2-root .cv-conversation--empty .cv-chat-context-readonly,
+  #cadu-conversations-v2-root .cv-conversation--empty .cv-conversation-library-link { display:none; }
+
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage .cv-composer-shell { position:relative; min-height:56px; max-height:min(38dvh,260px); }
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage .cv-composer-input { min-height:54px; padding:16px 90px 14px 48px; }
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage[data-composer-state="focused"] .cv-composer-input,
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage[data-composer-state="typing"] .cv-composer-input { min-height:92px; padding:14px 14px 50px; }
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage .cv-composer-actions { position:absolute; right:7px; bottom:7px; left:7px; z-index:2; min-height:40px; padding:0; pointer-events:none; }
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage .cv-composer-actions>div,
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage .cv-composer-actions :is(button,details,summary) { pointer-events:auto; }
+  #cadu-conversations-v2-root .cv-conversation--empty>.cv-composer-stage .cv-attachment-list { padding-bottom:2px; }
 }
 
 /* An empty conversation keeps the input at the bottom. The transition into

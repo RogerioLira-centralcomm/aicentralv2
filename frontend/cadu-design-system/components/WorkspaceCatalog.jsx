@@ -10,8 +10,11 @@ export function CatalogFilters({items = []}) {
 }
 
 export function WorkspaceCatalog({eyebrow, title, description, actionLabel, onAction, error, filters, query, onQueryChange, queryLabel, countLabel, children}) {
+  const supportingCopy = description || (title === 'Marcas'
+    ? 'Identidades, ativos e projetos organizados por marca.'
+    : title === 'Projetos' ? 'Contextos de trabalho prontos para continuar.' : '');
   return <section className="cadu-ds-brands-content">
-    <header><div><p>{eyebrow}</p><h1>{title}</h1><span>{description}</span></div><button type="button" className="is-primary" onClick={onAction}>{actionLabel}</button></header>
+    <header><div>{eyebrow && <p>{eyebrow}</p>}<h1>{title}</h1>{supportingCopy && <span>{supportingCopy}</span>}<small>{countLabel}</small></div><button type="button" className="is-primary" onClick={onAction}>+ {actionLabel}</button></header>
     <CatalogError message={error}/>
     <CatalogFilters items={filters}/>
     <div className="cadu-ds-brands-tools"><input value={query} onChange={event => onQueryChange(event.target.value)} placeholder={queryLabel} aria-label={queryLabel}/><span>{countLabel}</span></div>

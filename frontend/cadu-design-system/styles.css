@@ -3083,6 +3083,54 @@ body.portal--workspace .cadu-ds-home-content .cadu-ds-prompt-suggestions {
   .cv-animate-pulse { animation:none !important; }
 }
 
+/* Desktop catalog vitrines. The cards behave like an identity shelf rather
+   than a stretched admin table: recognizable first, operational second. */
+@media (min-width:761px) {
+  .cadu-ds-catalog-workarea { background:var(--cadu-canvas); }
+  .cadu-ds-brands-content { padding:56px clamp(34px,4vw,68px) 72px; }
+  .cadu-ds-brands-content>header { align-items:center; padding-bottom:30px; border-bottom:1px solid var(--cadu-line); }
+  .cadu-ds-brands-content>header>div { display:grid; grid-template-columns:auto 1fr; column-gap:18px; align-items:end; }
+  .cadu-ds-brands-content>header h1 { grid-column:1; margin:0; font-size:clamp(38px,3.4vw,54px); }
+  .cadu-ds-brands-content>header span { grid-column:1 / -1; max-width:54ch; margin-top:12px; font-size:13px; line-height:1.5; }
+  .cadu-ds-brands-content>header small { grid-column:2; grid-row:1; padding-bottom:6px; color:var(--cadu-muted); font-size:11px; }
+  .cadu-ds-brands-content>.cadu-ds-catalog-filters { float:left; flex-wrap:nowrap; margin:22px 0 20px; }
+  .cadu-ds-brands-tools { justify-content:flex-end; min-height:40px; margin:20px 0; padding:0; border:0; }
+  .cadu-ds-brands-tools input { width:min(340px,40vw); min-height:40px; border-color:color-mix(in srgb,var(--cadu-line) 82%,transparent); background:var(--cadu-surface); }
+  .cadu-ds-brands-tools span { display:none; }
+  .cadu-ds-catalog-list { display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:12px; clear:both; overflow:visible; border:0; border-radius:0; background:transparent; }
+  .cadu-ds-catalog-list__head { display:none; }
+  .cadu-ds-catalog-row { position:relative; display:grid; grid-template-columns:54px minmax(0,1fr); grid-template-rows:auto 1fr auto; gap:0 14px; min-width:0; min-height:196px; box-sizing:border-box; padding:20px; overflow:hidden; border:1px solid var(--cadu-line); border-radius:14px; background:var(--cadu-surface); transition:border-color .16s ease,transform .16s ease; }
+  .cadu-ds-catalog-row::before { position:absolute; inset:0 0 auto; height:2px; background:var(--cadu-identity-color,var(--cadu-accent-strong)); content:''; opacity:.72; }
+  .cadu-ds-catalog-row:hover,.cadu-ds-catalog-row:focus-visible { border-color:color-mix(in srgb,var(--cadu-accent-strong) 32%,var(--cadu-line)); background:var(--cadu-surface); transform:translateY(-2px); outline:0; }
+  .cadu-ds-catalog-row:focus-visible { box-shadow:0 0 0 3px color-mix(in srgb,var(--cadu-accent) 22%,transparent); }
+  .cadu-ds-catalog-row>.cadu-ds-visual-identity { grid-column:1; grid-row:1 / span 2; width:54px; height:54px; border-radius:14px; }
+  .cadu-ds-catalog-row>.cadu-ds-visual-identity + .cadu-ds-catalog-row__main { grid-column:2; grid-row:1 / span 2; align-content:start; margin:2px 0 0; padding:0; }
+  .cadu-ds-catalog-row__main b { font-size:16px; font-weight:700; letter-spacing:-.02em; }
+  .cadu-ds-catalog-row__main small { margin-top:6px; overflow:hidden; font-size:11px; line-height:1.45; text-overflow:ellipsis; white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .cadu-ds-catalog-row__meta { position:relative; grid-row:3; min-width:0; align-self:end; margin-top:22px; padding-top:21px; border-top:1px solid color-mix(in srgb,var(--cadu-line) 76%,transparent); overflow:visible; color:var(--cadu-ink); font-size:12px; font-weight:680; text-align:left; white-space:nowrap; }
+  .cadu-ds-catalog-row__meta::before { position:absolute; top:7px; left:0; color:var(--cadu-muted); font-size:9px; font-weight:550; }
+  .cadu-ds-catalog-row__number { text-align:left; }
+  .cadu-ds-catalog-row__files { display:block; justify-items:start; }
+  .cadu-ds-catalog-row__files b { font-size:12px; }
+  .cadu-ds-catalog-row__files small { display:none; }
+  .cadu-ds-catalog-row__mobile-meta,.cadu-ds-catalog-row__chevron { display:none; }
+  .cadu-ds-brands-shell--brands .cadu-ds-catalog-row { grid-template-columns:54px repeat(3,minmax(0,1fr)); }
+  .cadu-ds-brands-shell--brands .cadu-ds-catalog-row__main { grid-column:2 / -1!important; }
+  .cadu-ds-brands-shell--brands .cadu-ds-catalog-row__meta:nth-of-type(2)::before { content:'Projetos'; }
+  .cadu-ds-brands-shell--brands .cadu-ds-catalog-row__meta:nth-of-type(3)::before { content:'Conversas'; }
+  .cadu-ds-brands-shell--brands .cadu-ds-catalog-row__meta:nth-of-type(4)::before { content:'Arquivos'; }
+  .cadu-ds-brands-shell--projects .cadu-ds-catalog-row { grid-template-columns:54px 1.35fr 1fr .7fr; }
+  .cadu-ds-brands-shell--projects .cadu-ds-catalog-row__main { grid-column:2 / -1!important; }
+  .cadu-ds-brands-shell--projects .cadu-ds-catalog-row__meta:nth-of-type(2)::before { content:'Marca'; }
+  .cadu-ds-brands-shell--projects .cadu-ds-catalog-row__meta:nth-of-type(3)::before { content:'Status'; }
+  .cadu-ds-brands-shell--projects .cadu-ds-catalog-row__meta:nth-of-type(4)::before { content:'Fontes'; }
+  .cadu-ds-brands-empty { grid-column:1 / -1; border:1px dashed var(--cadu-line); border-radius:14px; }
+}
+
+@media (min-width:761px) and (max-width:1180px) {
+  .cadu-ds-catalog-list { grid-template-columns:repeat(2,minmax(240px,1fr)); }
+}
+
 @media (max-width:760px) {
   body.portal--workspace .cadu-ds-home-content {
     min-height:calc(100dvh - 20px);
@@ -3255,6 +3303,7 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
 .cadu-ds-brand-screenshot figure { display:grid; gap:12px; margin:22px 0 0; }.cadu-ds-brand-screenshot figure img { display:block; width:100%; max-height:440px; object-fit:cover; object-position:top; border:1px solid var(--cadu-line); border-radius:16px; background:var(--cadu-surface-soft); }.cadu-ds-brand-screenshot figcaption { display:flex; justify-content:space-between; gap:16px; align-items:center; color:var(--cadu-muted); font-size:11px; }.cadu-ds-brand-screenshot figcaption>span { max-width:72ch; }.cadu-ds-brand-screenshot figcaption>div { display:flex; gap:6px; flex-shrink:0; }.cadu-ds-brand-screenshot figcaption i { width:18px; height:18px; border-radius:50%; border:1px solid color-mix(in srgb,var(--cadu-ink) 18%,transparent); box-shadow:0 0 0 2px var(--cadu-surface); }
 
 .cadu-ds-mobile-chrome,.cadu-ds-mobile-navigation { display:none; }
+.cadu-ds-catalog-row__mobile-meta,.cadu-ds-catalog-row__chevron { display:none; }
 
 /* Final mobile Workspace contract. Keep this after desktop polish so late
    dock and composer rules cannot restore desktop chrome on small screens. */
@@ -3294,6 +3343,73 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
   .cadu-ds-project-hero__actions>.is-primary,.cadu-ds-brand-hero__actions>.is-primary { min-height:44px; }
   .cadu-ds-account-tabs { margin:10px 0 30px; padding-bottom:4px; scroll-snap-type:x proximity; }
   .cadu-ds-account-tabs a { min-height:40px; display:flex; align-items:center; scroll-snap-align:start; }
+}
+
+/* Cadu mobile surfaces: compact global shell, dense lists and persistent
+   entity navigation. Mobile is treated as its own operating surface. */
+@media (max-width:760px) {
+  .cadu-ds-mobile-chrome { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; padding-inline:8px; }
+  .cadu-ds-mobile-chrome>button { min-width:44px; padding:0; }
+  .cadu-ds-mobile-chrome__context { display:block!important; text-align:center; }
+  .cadu-ds-mobile-chrome__context strong { font-size:14px; font-weight:680; }
+  .cadu-ds-mobile-chrome__actions { justify-content:flex-end; }
+  .cadu-ds-mobile-chrome__actions>button span { color:var(--cadu-ink); font-size:15px; letter-spacing:1px; }
+  .cadu-ds-mobile-navigation { justify-content:flex-start; background:rgba(9,26,28,.44); }
+  .cadu-ds-mobile-navigation>section { width:min(88vw,360px); box-shadow:18px 0 52px rgba(20,40,58,.22); }
+  .cadu-ds-mobile-navigation header { padding-inline:18px; }
+  .cadu-ds-mobile-navigation header strong { font-size:18px; }
+  .cadu-ds-mobile-navigation__quick { display:grid; gap:4px; padding:14px 14px 10px; }
+  .cadu-ds-mobile-navigation__quick a,.cadu-ds-mobile-navigation__account a { display:flex; min-height:44px; align-items:center; gap:10px; padding:0 10px; border-radius:9px; color:var(--cadu-ink); font-size:13px; font-weight:680; text-decoration:none; }
+  .cadu-ds-mobile-navigation__quick a:first-child { background:var(--cadu-accent-strong); color:#fff; }
+  .cadu-ds-mobile-navigation__workspace { display:grid; grid-template-columns:1fr auto; gap:2px 12px; margin:4px 16px 10px; padding:14px 0; border-block:1px solid var(--cadu-line); }
+  .cadu-ds-mobile-navigation__workspace strong { font-size:12px; }
+  .cadu-ds-mobile-navigation__workspace small { grid-column:1; color:var(--cadu-muted); font-size:10px; }
+  .cadu-ds-mobile-navigation__workspace a { grid-column:2; grid-row:1 / span 2; align-self:center; color:var(--cadu-accent-strong); font-size:10px; text-decoration:none; }
+  .cadu-ds-mobile-navigation nav { grid-template-columns:1fr; padding:0 14px 12px; }
+  .cadu-ds-mobile-navigation nav a { min-height:43px; padding:0 10px; }
+  .cadu-ds-mobile-navigation__context { padding:12px 18px; }
+  .cadu-ds-mobile-navigation__account { margin:4px 14px; padding-top:8px; border-top:1px solid var(--cadu-line); }
+
+  .cadu-ds-brands-content { padding:24px 16px 40px; }
+  .cadu-ds-brands-content>header { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; }
+  .cadu-ds-brands-content>header>div { min-width:0; }
+  .cadu-ds-brands-content>header p,.cadu-ds-brands-content>header span { display:none; }
+  .cadu-ds-brands-content>header small { display:block; color:var(--cadu-muted); font-size:11px; }
+  .cadu-ds-brands-content h1 { margin:0 0 3px; font-size:26px; letter-spacing:-.035em; }
+  .cadu-ds-brands-content>.is-primary { min-height:36px; padding:0 12px; white-space:nowrap; }
+  .cadu-ds-catalog-filters { display:flex; width:100%; margin:18px 0 10px; overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
+  .cadu-ds-catalog-filters::-webkit-scrollbar { display:none; }
+  .cadu-ds-brands-tools { margin:0 0 8px; padding:0; border:0; }
+  .cadu-ds-brands-tools input { min-height:44px; border-color:color-mix(in srgb,var(--cadu-line) 80%,transparent); background:var(--cadu-surface); }
+  .cadu-ds-brands-tools>span { display:none; }
+  .cadu-ds-catalog-list { border:0; border-radius:0; background:transparent; }
+  .cadu-ds-catalog-row { position:relative; grid-template-columns:44px minmax(0,1fr) 18px; grid-template-rows:auto auto; gap:3px 11px; min-height:76px; padding:11px 2px; border-bottom:1px solid color-mix(in srgb,var(--cadu-line) 72%,transparent); background:transparent; }
+  .cadu-ds-catalog-row>.cadu-ds-visual-identity { grid-column:1; grid-row:1 / span 2; width:44px; height:44px; align-self:center; border-radius:12px; }
+  .cadu-ds-catalog-row>.cadu-ds-visual-identity + .cadu-ds-catalog-row__main { grid-column:2; grid-row:1; }
+  .cadu-ds-catalog-row__main { align-self:end; }
+  .cadu-ds-catalog-row__main b { font-size:14px; }
+  .cadu-ds-catalog-row__main small { font-size:10px; }
+  .cadu-ds-catalog-row__meta { display:none; }
+  .cadu-ds-catalog-row__mobile-meta { display:block; grid-column:2; grid-row:2; align-self:start; overflow:hidden; color:var(--cadu-muted); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+  .cadu-ds-catalog-row__chevron { display:block; grid-column:3; grid-row:1 / span 2; align-self:center; color:var(--cadu-muted); font-size:24px; font-weight:300; }
+
+  body.portal--workspace .cadu-ds-entity-portal--brand>.cadu-ds-entity-nav,
+  body.portal--workspace .cadu-ds-entity-portal--project>.cadu-ds-entity-nav { position:sticky; top:54px; z-index:60; display:block; width:100%; min-width:0; padding:0; border:0; border-bottom:1px solid var(--cadu-line); background:color-mix(in srgb,var(--cadu-canvas) 94%,var(--cadu-surface)); box-shadow:none; }
+  body.portal--workspace .cadu-ds-entity-nav__identity,
+  body.portal--workspace .cadu-ds-entity-nav__label,
+  body.portal--workspace .cadu-ds-entity-nav__actions { display:none; }
+  body.portal--workspace .cadu-ds-entity-nav nav { display:flex; gap:2px; padding:0 12px; overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
+  body.portal--workspace .cadu-ds-entity-nav nav::-webkit-scrollbar { display:none; }
+  body.portal--workspace .cadu-ds-entity-nav nav a,
+  body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav nav a { flex:none; min-height:44px; padding:0 10px; border-radius:0; background:transparent; font-size:11px; }
+  body.portal--workspace .cadu-ds-entity-nav nav a svg,
+  body.portal--workspace .cadu-ds-entity-nav nav a small { display:none; }
+  .cadu-ds-brand-content,.cadu-ds-project-content { padding:20px 16px 42px; }
+  .cadu-ds-brand-back { margin-bottom:14px; }
+  .cadu-ds-brand-hero,.cadu-ds-project-hero { margin-bottom:18px; padding-bottom:18px; }
+  .cadu-ds-brand-hero h1,.cadu-ds-project-hero h1 { font-size:28px; line-height:1.05; }
+  .cadu-ds-brand-data-viewer__header { display:none; }
+  .cadu-ds-brand-section,.cadu-ds-project-workspace,.cadu-ds-project-content-library { scroll-margin-top:108px; }
 }
 
 /* One mobile contract for authenticated Workspace surfaces. This final layer

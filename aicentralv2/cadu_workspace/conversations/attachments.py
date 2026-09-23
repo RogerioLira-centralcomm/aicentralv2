@@ -25,6 +25,22 @@ MAX_OFFICE_ENTRIES = 5000
 MAX_OFFICE_UNCOMPRESSED_BYTES = 60 * 1024 * 1024
 
 
+def bound_multipart_request(request):
+    """Limit the full multipart body before Werkzeug parses it.
+
+    Flask's ``request.max_content_length`` is read-only in supported versions.
+    Caching only the bounded body lets its form parser read the same bytes while
+    also covering requests that do not announce a Content-Length.
+    """
+    limit = MAX_BYTES + 65536
+    if request.content_length is not None and request.content_length > limit:
+        raise RequestEntityTooLarge('O envio excede o limite de 15 MB por arquivo.')
+    body = request.stream.read(limit + 1)
+    if len(body) > limit:
+        raise RequestEntityTooLarge('O envio excede o limite de 15 MB por arquivo.')
+    request._cached_data = body
+
+
 def validate_office(data, suffix):
     """Accept only bounded, structurally valid OOXML packages.
 

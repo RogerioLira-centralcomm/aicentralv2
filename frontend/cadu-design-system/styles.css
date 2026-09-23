@@ -3984,7 +3984,7 @@ body.portal--workspace .cadu-ds-project-editorial > header > p {
   max-width:760px;
   margin:0;
   color:var(--cadu-ink);
-  font:normal clamp(17px,1.7vw,21px)/1.6 Georgia,serif;
+  font:400 clamp(16px,1.5vw,19px)/1.6 var(--cadu-font-sans);
   white-space:pre-line;
 }
 body.portal--workspace .cadu-ds-project-editorial__chapters { margin-top:38px; }
@@ -3993,7 +3993,7 @@ body.portal--workspace .cadu-ds-project-editorial__chapters > section {
   grid-template-columns:170px minmax(0,1fr);
   gap:24px;
   padding:22px 0;
-  border-top:1px solid var(--cadu-line);
+  border-top:0;
 }
 body.portal--workspace .cadu-ds-project-editorial__chapters h3 {
   margin:2px 0 0;

@@ -12,13 +12,6 @@ if (root && bootstrapNode) {
   try {
     const bootstrap = JSON.parse(bootstrapNode.textContent);
     const workspaceMode = bootstrap.homeMode || bootstrap.projectMode || bootstrap.brandMode || bootstrap.brandsMode || bootstrap.projectsMode || bootstrap.accountMode || bootstrap.legacyMode;
-    if (workspaceMode) {
-      const syncWorkspaceViewport = () => document.documentElement.style.setProperty('--workspace-visual-height', `${Math.round(window.visualViewport?.height || window.innerHeight)}px`);
-      syncWorkspaceViewport();
-      window.visualViewport?.addEventListener('resize', syncWorkspaceViewport, {passive: true});
-      window.visualViewport?.addEventListener('scroll', syncWorkspaceViewport, {passive: true});
-      window.addEventListener('orientationchange', syncWorkspaceViewport, {passive: true});
-    }
     const surface = bootstrap.homeMode ? <WorkspaceHome bootstrap={bootstrap}/> : bootstrap.projectMode ? <WorkspaceProject bootstrap={bootstrap}/> : bootstrap.brandMode ? <WorkspaceBrand bootstrap={bootstrap}/> : bootstrap.brandsMode ? <WorkspaceBrands bootstrap={bootstrap}/> : bootstrap.projectsMode ? <WorkspaceProjects bootstrap={bootstrap}/> : bootstrap.accountMode ? <WorkspaceAccount bootstrap={bootstrap}/> : bootstrap.legacyMode ? <WorkspaceLegacyChrome bootstrap={bootstrap}/> : <App bootstrap={bootstrap}/>;
     createRoot(root).render(<ThemeProvider skin={workspaceMode ? 'workspace' : 'conversations'} theme={workspaceMode ? 'light' : 'dark'} persistKey={workspaceMode ? 'cadu-workspace-theme' : 'cadu-conversations-theme'} locked={!workspaceMode}><WorkspaceNotificationsProvider bootstrap={bootstrap}>{surface}</WorkspaceNotificationsProvider></ThemeProvider>);
   } catch (error) {

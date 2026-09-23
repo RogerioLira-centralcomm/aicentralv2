@@ -18,6 +18,17 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro {
     text-align:center;
   }
+  body.portal--workspace .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child--root {
+    display:grid;
+    grid-template-columns:16px minmax(0,1fr);
+    gap:8px;
+    min-height:30px;
+    padding:3px 8px;
+    color:var(--cadu-ink);
+  }
+  body.portal--workspace .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child--root svg {
+    color:var(--cadu-muted);
+  }
 }
 
 /* The empty home is one clear invitation, not a second navigation menu. */

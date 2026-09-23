@@ -39,6 +39,15 @@ class AttachmentValidationTest(TestCase):
         with mock.patch.object(attachments, 'MAX_BYTES', 3), self.assertRaises(RequestEntityTooLarge):
             attachments.validate(FileStorage(BytesIO(b'abcd'), filename='a.txt'))
 
+    def test_multipart_body_is_bounded_before_form_parsing(self):
+        oversized = mock.MagicMock(content_length=None, stream=BytesIO(b'a' * (65536 + 5)))
+        with mock.patch.object(attachments, 'MAX_BYTES', 3), self.assertRaises(RequestEntityTooLarge):
+            attachments.bound_multipart_request(oversized)
+        declared = mock.MagicMock(content_length=65540)
+        with mock.patch.object(attachments, 'MAX_BYTES', 3), self.assertRaises(RequestEntityTooLarge):
+            attachments.bound_multipart_request(declared)
+        declared.stream.read.assert_not_called()
+
     def test_text_does_not_need_local_disk_storage(self):
         file, kind, _ = attachments.validate(FileStorage(BytesIO('Olá'.encode()), filename='a.md'))
         self.assertEqual(kind, 'document')

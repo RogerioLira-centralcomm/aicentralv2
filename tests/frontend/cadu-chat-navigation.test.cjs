@@ -1,7 +1,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {chromium} = require('playwright');
+const playwright = require('playwright');
+
+const browserName = process.env.CADU_BROWSER || 'chromium';
+const browserType = playwright[browserName];
+if (!browserType) throw new Error(`Navegador Playwright inválido: ${browserName}`);
 
 const root = path.resolve(__dirname, '../..');
 const assetRoot = path.join(root, 'aicentralv2/static/cadu_workspace/conversations/react');
@@ -13,7 +17,7 @@ const bootstrap = {
 const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu-skin="conversations"><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/static/app.css"></head><body class="portal portal--workspace"><main id="content" class="portal-content--workspace-react"><div id="cadu-conversations-v2-root"></div><script id="cadu-conversations-v2-bootstrap" type="application/json">${JSON.stringify(bootstrap)}</script><script type="module" src="/static/app.js"></script></main></body></html>`;
 
 (async () => {
-  const browser = await chromium.launch({headless: true, ...(process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {})});
+  const browser = await browserType.launch({headless: true, ...(browserName === 'chromium' && process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {})});
   try {
     const page = await browser.newPage({viewport: {width: 390, height: 844}});
     const errors = [];
@@ -175,6 +179,27 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
     assert.equal(await page.locator('.cv-conversations-shell').getAttribute('data-surface'), 'artifact');
     await page.locator('.cv-artifact-return.is-mobile').click();
     await page.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.surface === 'conversation');
+    const responsiveCases = [
+      {width: 390, height: 844, layout: 'phone'},
+      {width: 430, height: 932, layout: 'phone'},
+      {width: 768, height: 1024, layout: 'tablet'},
+      {width: 820, height: 1180, layout: 'tablet'},
+      {width: 1024, height: 1366, layout: 'tablet'},
+      {width: 844, height: 390, layout: 'tablet'},
+      {width: 932, height: 430, layout: 'tablet'},
+      {width: 1024, height: 768, layout: 'tablet'},
+      {width: 1180, height: 820, layout: 'tablet'},
+      {width: 1366, height: 1024, layout: 'desktop'},
+    ];
+    for (const testCase of responsiveCases) {
+      await page.setViewportSize({width: testCase.width, height: testCase.height});
+      await page.goto('http://cadu.test/chat');
+      await page.locator('.cv-composer-input').waitFor();
+      assert.equal(await page.locator('.cv-conversations-shell').getAttribute('data-layout'), testCase.layout,
+        `${testCase.width}×${testCase.height}: layout correto`);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      assert.ok(overflow <= 1, `${testCase.width}×${testCase.height}: sem overflow horizontal`);
+    }
     await page.setViewportSize({width: 1366, height: 1024});
     await page.goto('http://cadu.test/chat?surface=artifact&artifact_id=a1');
     await page.locator('.cv-artifact-panel').waitFor();
@@ -186,6 +211,6 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
     const after = await page.locator('.cv-artifact-panel').evaluate(element => element.getBoundingClientRect().width);
     assert.ok(after > before, 'desktop: divisor amplia o artefato');
     assert.deepEqual(errors, []);
-    console.log('PASS: navegação mobile, histórico, rascunho, scroll, artefato e breakpoints.');
+    console.log(`PASS (${browserName}): navegação mobile, histórico, rascunho, scroll, artefato e breakpoints.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

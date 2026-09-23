@@ -26,6 +26,7 @@ from . import journal, long_jobs, observability
 from .long_jobs import LongJobSpec
 from . import action_executor
 from . import turn_queue
+from .conversation_runtime import RuntimeRollout
 from ..mcp.registry import ToolError
 from ..conversations import attachments
 from ...cadu_planner import docs
@@ -52,8 +53,10 @@ def conversations_v2_lab():
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
     dock_brands = []
     menu_projects = []
+    rollout_client_id = session.get("client_id")
     try:
         current = resolve()
+        rollout_client_id = current.client_id
         from ..routes import _workspace_brands, _workspace_common_dock_items, _workspace_projects
         from ...cadu_skills.repository import credit_position
         links = repository.project_brand_links(current.client_id)
@@ -87,7 +90,21 @@ def conversations_v2_lab():
         current_app.logger.exception("Não foi possível preparar marcas para a dock do Chat")
         dock_items = []
         usage_percent = 0
-    return render_template("cadu_workspace/conversations_v2_lab.html", chat_brands=dock_brands, chat_projects=menu_projects, dock_items=dock_items, usage_percent=usage_percent)
+    conversation_rollout = RuntimeRollout.current(
+        client_id=rollout_client_id,
+        user_id=session.get("user_id"),
+        is_internal=bool(session.get("is_centralcomm")),
+    ).public_metadata()
+    if not conversation_rollout["shell_v2"]:
+        return render_template(
+            "cadu_workspace/conversations.html",
+            conversation_runtime_v2=conversation_rollout["runtime_v2"],
+        )
+    return render_template(
+        "cadu_workspace/conversations_v2_lab.html",
+        chat_brands=dock_brands, chat_projects=menu_projects, dock_items=dock_items,
+        usage_percent=usage_percent, conversation_rollout=conversation_rollout,
+    )
 
 
 @lab_bp.get("/workspace/observabilidade")
@@ -443,6 +460,31 @@ def conversation_message():
     # credentials still fail closed in provider.py, but an exposed UI must not
     # answer with a rollout 404 before admission reaches the agent.
     payload = request.get_json(silent=True) or {}
+    rollout = RuntimeRollout.current(
+        client_id=session.get("client_id") or session.get("cliente_id"), user_id=session.get("user_id"),
+        is_internal=bool(session.get("is_centralcomm")),
+    )
+    if not rollout.runtime_v2:
+        # Resolve the authoritative tenant before entering the legacy runtime;
+        # this also rejects a foreign or missing supplied conversation.
+        resolve(
+            conversation_id=payload.get("conversation_id"), request_id=payload.get("request_id"),
+            surface=str(payload.get("surface") or "conversations"),
+            active_object=payload.get("active_object"), project_ref=payload.get("project_ref"),
+            brand_ref=payload.get("brand_ref"),
+        )
+        from ..conversations import service as legacy_service
+        requested_depth = payload.get("depth") or payload.get("execution_mode") or "analysis"
+        legacy_payload = {
+            **payload,
+            "profile": "workspace",
+            "depth": requested_depth if requested_depth in {"focus", "analysis", "deep"} else "analysis",
+        }
+        legacy_run = legacy_service.prepare(legacy_payload, family_context.resolve())
+        return Response(
+            stream_with_context(legacy_service.stream(legacy_run)), mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache, no-store", "X-Accel-Buffering": "no"},
+        )
     run = prepare_message(payload)
     spec = long_jobs.spec_for_message(run.get("message") or payload.get("message"))
     if spec:
@@ -607,7 +649,7 @@ def upload():
     current = resolve(surface="conversations")
     if not repository.family_table_available("cadu_family_chat_uploads"):
         abort(409, description="O armazenamento de anexos ainda não está disponível.")
-    request.max_content_length = attachments.MAX_BYTES + 65536
+    attachments.bound_multipart_request(request)
     files = request.files.getlist("file")
     if len(files) != 1 or len(request.files) != 1:
         abort(400, description="Envie um arquivo de cada vez.")

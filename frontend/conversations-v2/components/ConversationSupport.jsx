@@ -9,7 +9,7 @@ function entityName(items, ref) {
   return item?.name || item?.title || '';
 }
 
-export function ConversationSupport({context, projects, brands, messages, diagnostics, executionMode, running, runtime, automation, onPrompt}) {
+export function ConversationSupport({context, projects, brands, messages, diagnostics, executionMode, running, runtime, automation, onPrompt, technicalState}) {
   const lastUser = [...(messages || [])].reverse().find(message => message.role === 'user');
   const projectName = entityName(projects, context?.project_ref);
   const brandName = entityName(brands, context?.brand_ref);
@@ -40,5 +40,12 @@ export function ConversationSupport({context, projects, brands, messages, diagno
     {requestPreview && <div className="cv-conversation-support__request"><span>Último pedido</span><p>“{requestPreview}”</p></div>}
     <div className="cv-conversation-support__next"><span>Próximos movimentos</span>{suggestions.map(([label, prompt]) => <button key={label} type="button" onClick={() => onPrompt(prompt)}>{label}<Icon name="chevron" size={13}/></button>)}</div>
     {!!diagnostics?.length && <details className="cv-conversation-support__technical"><summary>Ver atividade técnica</summary><div>{diagnostics.slice(-6).map(item => <div key={item.id} className="cv-conversation-support__event"><i className={item.tone === 'error' ? 'is-error' : ''}/><span><b>{item.title}</b>{item.detail && <small>{item.detail}</small>}</span></div>)}</div></details>}
+    <details className="cv-conversation-support__technical"><summary>Estado da interface</summary><div className="cv-conversation-support__ui-state">
+      <span><b>Composer</b><small>{technicalState?.composerStatus || 'idle'}</small></span>
+      <span><b>Layout</b><small>{technicalState?.layout || 'desktop'} · {technicalState?.orientation || 'portrait'}</small></span>
+      <span><b>Viewport</b><small>{technicalState?.visualWidth || '—'} × {technicalState?.visualHeight || '—'}</small></span>
+      <span><b>Teclado</b><small>{technicalState?.keyboardOpen ? 'aberto' : 'fechado'}</small></span>
+      <span><b>Scroll</b><small>{technicalState?.scrollMode === 'reading' ? 'leitura manual' : 'acompanhando'}</small></span>
+    </div></details>
   </div>;
 }

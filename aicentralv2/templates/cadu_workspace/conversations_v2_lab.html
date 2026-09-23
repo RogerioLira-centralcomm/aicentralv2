@@ -21,6 +21,7 @@
   'projects': chat_projects|default([]),
   'dock': {'items': dock_items|default([])},
   'usagePercent': usage_percent|default(0),
+  'rollout': conversation_rollout|default({'runtime_v2': True, 'memory_v2': True, 'shell_v2': True}),
   'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '') or session.get('google_picture', ''), 'photoUrl': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '') or session.get('google_picture', ''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge', '')},
   'urls': {
     'home': url_for('cadu_workspace.dashboard'),

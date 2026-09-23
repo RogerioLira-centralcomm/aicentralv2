@@ -46,7 +46,9 @@ function setSurfaceUrl(surface, artifactId = '', replace = false, resource = nul
 }
 
 export default function App({bootstrap}) {
-  const {layout, keyboardOpen} = useConversationViewport();
+  const shellV2 = bootstrap.rollout?.shell_v2 !== false;
+  const viewport = useConversationViewport();
+  const {layout, keyboardOpen} = viewport;
   const initialQuery = new URLSearchParams(window.location.search);
   const [context, setContext] = useState({});
   const [projects, setProjects] = useState([]);
@@ -653,6 +655,13 @@ export default function App({bootstrap}) {
           runStarted = true;
           setConversationId(event.conversation_id); conversationRef.current = event.conversation_id;
           runRef.current = event.run_id; runStartedRef.current = Date.now();
+          const contextDiagnostics = event.context_diagnostics || {};
+          trace('Contexto da conversa preparado', [
+            `run ${String(event.run_id || '').slice(0, 8)}`,
+            `${contextDiagnostics.history_message_count || 0} mensagens`,
+            `${contextDiagnostics.retrieved_message_count || 0} recuperadas`,
+            contextDiagnostics.memory_present ? `memória ${contextDiagnostics.memory_version || 'ativa'}` : 'sem resumo',
+          ].join(' · '));
           const resolved = event.resolved_context || {};
           if (resolved.project_ref !== (context.project_ref || null) || resolved.brand_ref !== (context.brand_ref || null)) {
             trace('Contexto sincronizado pelo servidor', resolved.project_ref || resolved.brand_ref || 'Conversa sem projeto');
@@ -1233,7 +1242,7 @@ export default function App({bootstrap}) {
           <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} navUrls={bootstrap.urls} activeId={conversationId} onOpen={openConversation} onOpenLibrary={openLibrary} onNewConversation={newConversation} onOrganize={organizeConversation} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState}/>
+          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState}/>
           {libraryOpen && <LibraryView library={library} onClose={closeSurface} onOpenResource={showResource}/>}
           {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura do artefato" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
             event.currentTarget.setPointerCapture(event.pointerId);

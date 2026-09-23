@@ -117,13 +117,15 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
   </div>;
 }
 
-export function Conversation({inactive, conversationId, title, context, projects, brands, starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation}) {
+export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, projects, brands, starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation}) {
   const details = useRef(null);
   const historyTrigger = useRef(null);
   const wasHistoryOpen = useRef(historyOpen);
   const threadScroll = useRef(null);
   const stickToLatest = useRef(true);
   const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
+  const [composerStatus, setComposerStatus] = useState('idle');
+  const [scrollMode, setScrollMode] = useState('following');
   const previousConversation = useRef(conversationId);
   const interaction = pendingInteraction(messages, running);
   const scrollToLatest = useCallback(() => {
@@ -133,6 +135,7 @@ export function Conversation({inactive, conversationId, title, context, projects
   const trackScrollPosition = useCallback(event => {
     const element = event.currentTarget;
     stickToLatest.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120;
+    setScrollMode(stickToLatest.current ? 'following' : 'reading');
     if (stickToLatest.current) setHasUnreadBelow(false);
   }, []);
   const stopFollowingLatest = useCallback(() => { stickToLatest.current = false; }, []);
@@ -180,7 +183,7 @@ export function Conversation({inactive, conversationId, title, context, projects
       <details ref={details} className="cv-conversation-support-popover cv-relative">
         <summary className={`cv-conversation-runtime ${running ? 'is-running' : ''} ${automation?.automation_enabled ? 'is-automation' : ''}`} aria-label={running ? runtime || 'Atividade em execução' : automation?.automation_enabled ? 'Automação ativa' : 'Saúde e atividade'} title={running ? runtime || 'Atividade em execução' : automation?.automation_enabled ? automation.schedule_label || 'Automação ativa' : 'Saúde e atividade'}><Icon name="pulse" size={17}/>{running ? <span>{runtime || 'Executando'}</span> : automation?.automation_enabled && <span>{automation.schedule_label || 'Automação ativa'}</span>}</summary>
         <div className="cv-conversation-support-popover__panel">
-          <ConversationSupport context={context} projects={projects} brands={brands} messages={messages} diagnostics={diagnostics} executionMode={executionMode} running={running} runtime={runtime} automation={automation} onPrompt={onPrompt}/>
+          <ConversationSupport context={context} projects={projects} brands={brands} messages={messages} diagnostics={diagnostics} executionMode={executionMode} running={running} runtime={runtime} automation={automation} onPrompt={onPrompt} technicalState={{layout, keyboardOpen: viewport?.keyboardOpen, visualWidth: viewport?.visualWidth, visualHeight: viewport?.visualHeight, orientation: viewport?.orientation, composerStatus, scrollMode}}/>
         </div>
       </details>
     </header>
@@ -192,7 +195,7 @@ export function Conversation({inactive, conversationId, title, context, projects
     }}><Icon name="chevron" size={14}/>Novas atualizações</button>}
     <ExecutionQueue items={queuedTurns} onUpdate={onUpdateQueuedTurn} onRemove={onRemoveQueuedTurn} onMove={onMoveQueuedTurn}/>
     <PendingInteraction interaction={interaction} onPrompt={onPrompt} onDecision={onDecision}/>
-    <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop}/>
+    <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop} layout={shellV2 ? layout : 'desktop'} disabled={contextLoading} onStateChange={setComposerStatus}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;
 }

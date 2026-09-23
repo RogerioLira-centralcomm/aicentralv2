@@ -46,7 +46,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const contextSidebar = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceContextSidebar.jsx'), 'utf8');
   const mobileChrome = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceMobileChrome.jsx'), 'utf8');
-  const viewportHook = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/hooks/useWorkspaceViewport.js'), 'utf8');
+  const viewportHook = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/hooks/useUnifiedViewport.js'), 'utf8');
   const designSystemStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/workspace_home_chat.html'), 'utf8');
   assert.match(home, /window\.location\.assign\(bootstrap\.urls\.newConversation\)/);
@@ -56,8 +56,9 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(home, /WorkspaceHomeWidgets/);
   assert.match(contextSidebar, /SidebarCollection/);
   assert.match(contextSidebar, /variant=\{item\.visualVariant\}/);
-  assert.match(contextSidebar, /recentConversations = useMemo/);
-  assert.match(contextSidebar, /recentConversations[\s\S]*?slice\(0, 5\)/);
+  assert.doesNotMatch(contextSidebar, /Conversas recentes|recentConversations/);
+  assert.match(contextSidebar, /\.slice\(0, 5\)/);
+  assert.match(contextSidebar, /\.sort\(operational\)\.slice\(0, 3\)/);
   assert.match(contextSidebar, /recentFiles.length > 0/);
   assert.doesNotMatch(contextSidebar, /Atalhos de trabalho/);
   assert.doesNotMatch(contextSidebar, /\{id: 'recent'/);
@@ -79,7 +80,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(mobileChrome, /event\.key === 'Escape'/);
   assert.match(mobileChrome, /event\.key !== 'Tab'/);
   assert.match(mobileChrome, /event\.preventDefault\(\)/);
-  assert.match(viewportHook, /window\.matchMedia\(query\)/);
+  assert.match(viewportHook, /window\.matchMedia\(PHONE_QUERY\)/);
   assert.match(viewportHook, /window\.visualViewport/);
   assert.match(viewportHook, /--workspace-visual-height/);
   assert.match(viewportHook, /data-workspace-keyboard-open/);
@@ -96,16 +97,17 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(navigation, /target\.searchParams\.set\('project_ref', projectRef\)/);
   assert.match(navigation, /target\.searchParams\.set\('history', '1'\)/);
   assert.match(dock, /DockTooltip/);
-  assert.match(contextSidebar, /const visibleProjects = projects;/);
-  assert.match(contextSidebar, /const groups = brands\.map\(brand =>/);
-  assert.match(contextSidebar, /brand\.logoUrl && <VisualIdentity/);
+  assert.match(contextSidebar, /const visibleProjects = projects\.filter/);
+  assert.match(contextSidebar, /function SidebarRunningProjects/);
+  assert.doesNotMatch(contextSidebar, /Projetos em andamento<\/span>\}\{links\.projects/);
+  assert.match(contextSidebar, /cadu-ds-context-sidebar__project-child--root/);
   assert.doesNotMatch(contextSidebar, /project-child[^\n]*<VisualIdentity/);
   assert.match(dock, /createPortal/);
   assert.match(dock, /role="tooltip"/);
-  assert.match(dock, /const resolvedAccountUrl = accountUrl;/);
+  assert.match(dock, /const resolvedAccountUrl = accountUrl \|\| bootstrap\?\.urls\?\.agency/);
   assert.match(dock, /const openUsage = \(\) =>/);
   assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
-  assert.match(dock, /Abrir uso e conta de \$\{userName\}/);
+  assert.match(dock, /Conta de \$\{userName\}/);
   assert.match(dock, /onReorderShortcuts/);
   assert.match(dock, /onDropShortcut/);
   assert.doesNotMatch(dock, /Organizar atalhos/);
@@ -369,7 +371,7 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
 
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
-  const conversationViewport = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useConversationViewport.js'), 'utf8');
+  const conversationViewport = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/hooks/useUnifiedViewport.js'), 'utf8');
   const responsiveHistory = fs.readFileSync(path.join(root, 'frontend/conversations-v2/hooks/useResponsiveHistory.js'), 'utf8');
   const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
@@ -484,7 +486,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-conversation-title/);
   assert.match(composer, /cv-composer-shell/);
   assert.match(conversation, /cv-thread-content/);
-  assert.match(composer, /COMPOSER_MAX_HEIGHT = 240/);
+  assert.match(composer, /COMPOSER_MAX_HEIGHT = 120/);
+  assert.match(composer, /data-composer-state=\{machine\.status\}/);
+  assert.match(composer, /textarea\.current\?\.blur\(\)/);
+  assert.match(composer, /cv-composer-action-slot/);
   assert.match(conversation, /data-cv-answer/);
   assert.match(conversation, /label: 'Trecho selecionado'/);
   assert.match(conversation, /cv-chat-failure/);
@@ -965,13 +970,13 @@ test('meeting summaries use a dedicated semantic React editor', () => {
 });
 
 test('mobile workspace surfaces share the visual viewport and keep chat styling isolated', () => {
-  const main = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
+  const viewport = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/hooks/useUnifiedViewport.js'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   const conversationStyles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const layoutFixes = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/react/chat-layout-fixes.css'), 'utf8');
 
-  assert.match(main, /--workspace-visual-height/);
-  assert.match(main, /visualViewport\?\.addEventListener\('resize'/);
+  assert.match(viewport, /--workspace-visual-height/);
+  assert.match(viewport, /viewport\?\.addEventListener\('resize'/);
   assert.match(styles, /One mobile contract for authenticated Workspace surfaces/);
   assert.match(conversationStyles, /cv-conversation--empty \.cv-empty-state/);
   assert.match(layoutFixes, /#cadu-conversations-v2-root\.cv-home-root \.cadu-ds-home-workarea/);

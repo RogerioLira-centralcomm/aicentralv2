@@ -61,3 +61,20 @@ CREATE INDEX IF NOT EXISTS idx_cadu_conversation_memory_segments_lookup
     ON cadu_conversation_memory_segments (conversation_id, end_position DESC);
 CREATE INDEX IF NOT EXISTS idx_cadu_conversation_memory_segments_text
     ON cadu_conversation_memory_segments USING GIN (to_tsvector('portuguese', summary));
+
+-- Durable projection queue. One pending row per conversation coalesces rapid
+-- turns and survives worker/process restarts.
+CREATE TABLE IF NOT EXISTS cadu_conversation_memory_jobs (
+    conversation_id TEXT PRIMARY KEY REFERENCES cadu_conversations(id) ON DELETE CASCADE,
+    organization_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente),
+    client_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente),
+    user_id INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente),
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    claimed_at TIMESTAMPTZ,
+    finished_at TIMESTAMPTZ,
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    last_error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_cadu_conversation_memory_jobs_pending
+    ON cadu_conversation_memory_jobs (requested_at)
+    WHERE finished_at IS NULL;

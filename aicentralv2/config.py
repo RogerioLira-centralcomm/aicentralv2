@@ -127,6 +127,13 @@ class Config:
 	# Minimum balance required before a Conversas request reaches Dify. The
 	# final debit still follows measured provider usage.
 	CADU_CHAT_ADMISSION_TOKENS = int(os.getenv('CADU_CHAT_ADMISSION_TOKENS', '8000'))
+	# Conversation rollout accepts: all/on, off, internal, allowlist or staged.
+	# "staged" enables CentralComm users plus the configured client/user IDs.
+	CADU_CONVERSATION_RUNTIME_V2 = os.getenv('CADU_CONVERSATION_RUNTIME_V2', 'staged')
+	CADU_CONVERSATION_MEMORY_V2 = os.getenv('CADU_CONVERSATION_MEMORY_V2', 'staged')
+	CADU_CHAT_SHELL_V2 = os.getenv('CADU_CHAT_SHELL_V2', 'staged')
+	CADU_CONVERSATION_ROLLOUT_CLIENTS = os.getenv('CADU_CONVERSATION_ROLLOUT_CLIENTS', '')
+	CADU_CONVERSATION_ROLLOUT_USERS = os.getenv('CADU_CONVERSATION_ROLLOUT_USERS', '')
 	# Conversations V2 is the published Workspace surface. Separate credentials
 	# keep runtime modes isolated while the legacy renderer remains compatibility-only.
 	CADU_CONVERSATIONS_V2_ENABLED = os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '1').lower() in ('true', '1', 'yes', 'on')

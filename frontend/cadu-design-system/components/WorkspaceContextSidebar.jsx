@@ -67,35 +67,15 @@ function SidebarCollection({label, href, items, kind}) {
   </section>;
 }
 
-function SidebarBrandProjectGroups({brands, projects, links}) {
-  const brandRef = item => String(item?.ref || item?.brandRef || `studio:${item?.id || ''}`);
+function SidebarRunningProjects({projects}) {
   const alphabetic = (left, right) => String(left?.name || left?.title || '').localeCompare(String(right?.name || right?.title || ''), 'pt-BR', {sensitivity: 'base'});
   const projectTimestamp = project => Date.parse(project?.updatedAt || project?.updated_at || project?.lastActivityAt || project?.last_activity_at || project?.createdAt || project?.created_at || '') || 0;
   const operational = (left, right) => projectTimestamp(right) - projectTimestamp(left) || alphabetic(left, right);
-  const visibleProjects = projects.filter(project => !['arquivado', 'archived', 'deletado', 'deleted'].includes(String(project?.status || '').toLocaleLowerCase('pt-BR'))).sort(operational);
-  const allGroups = [...brands].sort(alphabetic).map(brand => {
-    const ref = brandRef(brand);
-    return {...brand, projects: visibleProjects.filter(project => {
-      const refs = project.related_refs || project.relatedRefs || (project.brandRef ? [project.brandRef] : []);
-      return refs.map(String).includes(ref) || String(project.brandRef || '') === ref;
-    }).sort(operational)};
-  });
-  const groupedProjects = new Set(allGroups.flatMap(group => group.projects.map(project => String(project.id || project.ref || project.projectRef))));
-  const groups = allGroups.filter(group => group.projects.length > 0).sort((left, right) => projectTimestamp(right.projects[0]) - projectTimestamp(left.projects[0]) || alphabetic(left, right)).slice(0, 5).map(group => ({...group, projects:group.projects.slice(0, 3)}));
-  const ungrouped = visibleProjects.filter(project => !groupedProjects.has(String(project.id || project.ref || project.projectRef))).slice(0, 3);
-  if (!groups.length && !ungrouped.length) return null;
-  return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
-    <div className="cadu-ds-context-sidebar__section-label"><span>Projetos em andamento</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
-    {groups.map(brand => {
-      const key = brandRef(brand);
-      return <section className="cadu-ds-context-sidebar__brand-group" key={key}>
-        <div className="cadu-ds-context-sidebar__brand-row">
-          <a className="cadu-ds-context-sidebar__brand-heading" href={brand.href || '#'} title={brand.name || brand.title}><Icon name="folder" size={15}/><b>{brand.name || brand.title}</b></a>
-        </div>
-        {brand.projects.length > 0 && <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>}
-      </section>;
-    })}
-    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><div className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</div><div className="cadu-ds-context-sidebar__project-tree">{ungrouped.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><span>{project.name || project.title || 'Projeto'}</span></a>)}</div></section>}
+  const visibleProjects = projects.filter(project => !['arquivado', 'archived', 'deletado', 'deleted'].includes(String(project?.status || '').toLocaleLowerCase('pt-BR'))).sort(operational).slice(0, 3);
+  if (!visibleProjects.length) return null;
+  return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Projetos em andamento">
+    <div className="cadu-ds-context-sidebar__section-label"><span>Projetos em andamento</span></div>
+    <div className="cadu-ds-context-sidebar__project-tree">{visibleProjects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child cadu-ds-context-sidebar__project-child--root" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><Icon name="folder" size={14}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>
   </section>;
 }
 
@@ -120,7 +100,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
     </nav>}
     {mode === 'home' && <nav className="cadu-ds-context-sidebar__nav cadu-ds-context-sidebar__nav--mobile" aria-label="Destinos do Workspace">{MOBILE_HOME_ITEMS.map(item => links[item.key] ? <a key={item.id} href={links[item.key]}><Icon name={item.icon} size={16}/><span>{item.label}</span></a> : null)}</nav>}
     {mode === 'home' && <>
-      <SidebarBrandProjectGroups brands={brands} projects={projects} links={links}/>
+      <SidebarRunningProjects projects={projects}/>
     </>}
     {mode === 'home' && recentFiles.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Arquivos recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>

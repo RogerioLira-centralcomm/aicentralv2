@@ -132,3 +132,53 @@ def test_repository_allows_the_conversation_memory_schema_probe(monkeypatch):
     monkeypatch.setattr(repository, 'rows', lambda *_: [{'available': True}])
     with Flask(__name__).test_request_context('/'):
         assert repository.family_table_available('cadu_conversation_memory_state') is True
+
+
+def test_force_checkpoint_replaces_stale_projection_from_message_zero(monkeypatch):
+    executed = []
+    data = messages(4)
+
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return None
+        def execute(self, sql, params): executed.append((sql, params))
+        def fetchone(self):
+            return {'conversation_id': 'conversation-1', 'version': 4,
+                    'covers_message_count': 4, 'status': 'ready'}
+
+    class Connection:
+        def cursor(self): return Cursor()
+        def commit(self): executed.append(('commit', ()))
+        def rollback(self): executed.append(('rollback', ()))
+
+    monkeypatch.setattr(conversation_memory, 'available', lambda: True)
+    monkeypatch.setattr(conversation_memory, '_message_count', lambda *_: 4)
+    monkeypatch.setattr(conversation_memory, '_opening_message', lambda *_: data[0])
+    monkeypatch.setattr(conversation_memory.repository, 'rows', lambda *_: [{
+        'covers_message_count': 3,
+        'state': {'goal': 'estado obsoleto'},
+        'source_message_ids': ['old'],
+    }])
+
+    def after(*args):
+        assert args[-1] == 0
+        return data
+
+    monkeypatch.setattr(conversation_memory, '_messages_after', after)
+    monkeypatch.setattr(conversation_memory.repository, 'get_db', lambda: Connection())
+    result = conversation_memory.checkpoint(
+        conversation_id='conversation-1', organization_id=1, client_id=1, user_id=2, force=True,
+    )
+
+    assert result['covers_message_count'] == 4
+    assert any('DELETE FROM cadu_conversation_memory_segments' in sql for sql, _ in executed)
+    assert executed[-1][0] == 'commit'
+
+
+def test_memory_packet_is_empty_without_state_or_retrieved_evidence(monkeypatch):
+    monkeypatch.setattr(conversation_memory, 'available', lambda: True)
+    monkeypatch.setattr(conversation_memory.repository, 'rows', lambda *_: [])
+    assert conversation_memory.packet(
+        conversation_id='conversation-1', organization_id=1, client_id=1,
+        user_id=2, query='Olá, tudo bem?',
+    ) == {}

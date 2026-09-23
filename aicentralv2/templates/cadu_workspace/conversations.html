@@ -6,7 +6,7 @@
 {% block content %}
 {% set workspace_active = 'conversas' %}
 <div class="workspace-app-shell workspace-app-shell--conversations">{% include 'cadu_workspace/_app_sidebar.html' %}<div class="workspace-app-main workspace-conversations-main">
-  <section class="workspace-conversations" aria-label="Conversas com o Cadu" data-runtime="{{ 'v2' if config.CADU_CONVERSATIONS_V2_UI_ENABLED else 'legacy' }}" data-v2-endpoint="/workspace/api/v2/conversations/messages" data-studio-create-url="{{ product_url('studio', '/studio/modelagem-criativos/criar') }}" data-studio-editor-url="{{ product_url('studio', '/studio/modelagem-criativos/imagem') }}">
+  <section class="workspace-conversations" aria-label="Conversas com o Cadu" data-runtime="{{ 'v2' if conversation_runtime_v2|default(config.CADU_CONVERSATIONS_V2_UI_ENABLED) else 'legacy' }}" data-v2-endpoint="/workspace/api/v2/conversations/messages" data-studio-create-url="{{ product_url('studio', '/studio/modelagem-criativos/criar') }}" data-studio-editor-url="{{ product_url('studio', '/studio/modelagem-criativos/imagem') }}">
     <button type="button" id="conversation-history-toggle" class="conversation-history-toggle" aria-controls="conversation-sidebar" aria-expanded="false">Conversas</button>
     <button type="button" id="conversation-work-memory-toggle" class="conversation-work-memory-toggle" aria-controls="conversation-work-memory" aria-expanded="false">Contexto pessoal</button>
     <aside id="conversation-sidebar" class="workspace-conversation-sidebar" aria-label="Histórico de conversas">

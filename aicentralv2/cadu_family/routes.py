@@ -15,7 +15,11 @@ from . import product_pages
 
 bp = Blueprint('cadu_family', __name__, url_prefix='/familia')
 from ..cadu_workspace.conversations.jobs import worker_command
+from ..cadu_workspace.conversations.conversation_memory import rebuild_command as memory_rebuild_command
+from ..cadu_workspace.agent_v2.memory_checkpoint import worker_command as memory_worker_command
 bp.cli.add_command(worker_command)
+bp.cli.add_command(memory_rebuild_command)
+bp.cli.add_command(memory_worker_command)
 
 
 def planner_url(path='', **query):
@@ -765,7 +769,7 @@ def conversation_upload():
     selected = writable_context()
     user = context.identity()
     # Bound multipart parsing as well as the individual file read.
-    request.max_content_length = attachments.MAX_BYTES + 65536
+    attachments.bound_multipart_request(request)
     files = request.files.getlist('file')
     if len(files) != 1 or len(request.files) != 1:
         abort(400, description='Envie um arquivo de cada vez.')

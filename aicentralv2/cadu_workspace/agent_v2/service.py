@@ -5,21 +5,24 @@ import re
 from dataclasses import asdict, replace
 from time import perf_counter
 from urllib.parse import urlparse
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-from flask import abort, current_app, has_app_context, url_for
+from flask import abort, current_app, has_app_context, has_request_context, session, url_for
 from psycopg.types.json import Json
 
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
-from ..conversations.guardrails import history_context, normalize_colloquial, temporal_context, validate_files
+from ..conversations.guardrails import normalize_colloquial, validate_files
 from ..artifacts import create_draft, get_artifact, patch_artifact
 from . import provider
 from .executor import prepare_execution
 from .guardrails import normalize_response
 from .request_context import resolve
 from . import journal
+from .context_builder import ConversationContextBuilder, selected_context
+from .conversation_runtime import RuntimeRollout, TurnIdentity
+from .memory_checkpoint import schedule as schedule_memory_checkpoint
 
 
 PROJECT_MAP_MAX_RESOURCES = 120
@@ -563,16 +566,18 @@ def _enrich_source_blocks(response, run):
 
 def prepare(data):
     message = _message(data.get("message"))
-    try:
-        run_id = str(UUID(str(data.get("request_id"))))
-    except (TypeError, ValueError):
-        abort(400, description="Identificador de envio inválido.")
-    conversation_id = str(data.get("conversation_id") or uuid4())
+    identity = TurnIdentity.from_payload(data)
+    run_id = identity.run_id
+    conversation_id = identity.conversation_id
     current = resolve(conversation_id=conversation_id, request_id=run_id,
                       surface=str(data.get("surface") or "conversations"),
                       active_object=data.get("active_object"),
                       project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))
-    current = replace(current, selected_context=_selected_context(data.get("selected_context")))
+    rollout = RuntimeRollout.current(
+        client_id=current.client_id, user_id=current.user_id,
+        is_internal=bool(session.get("is_centralcomm")) if has_request_context() else False,
+    )
+    current = replace(current, selected_context=selected_context(data.get("selected_context")))
     file_ids = validate_files(data.get("files"))
     uploads = repository.rows(
         """SELECT id, provider_id, kind, name FROM cadu_family_chat_uploads
@@ -590,38 +595,25 @@ def prepare(data):
         abort(409, description=str(exc))
     previous_messages = (repository.conversation_messages(
         current.user_id, current.client_id, conversation_id
-    ) if data.get("conversation_id") else []) or []
-    turn_context = _conversation_turn_context(message, previous_messages)
-    if not current.selected_context:
-        selected = _previous_assistant_context(message, previous_messages) or _turn_selected_context(turn_context)
-        if selected:
-            current = replace(current, selected_context=selected)
+    ) if identity.conversation_supplied else []) or []
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
-    from ..conversations import conversation_memory
+    builder = ConversationContextBuilder()
     try:
-        long_memory = conversation_memory.packet(
-            conversation_id=conversation_id if data.get("conversation_id") else None,
-            organization_id=current.organization_id, client_id=current.client_id,
-            user_id=current.user_id, query=message,
+        built_context = builder.build(
+            message=message, messages=previous_messages, request_context=current,
+            conversation_id=conversation_id if identity.conversation_supplied else None,
+            memory_enabled=rollout.memory_v2 and rollout.runtime_v2,
         )
     except Exception:
-        # Memory is a rebuildable projection. A schema rollout, stale index or
-        # transient database error must never make the canonical chat unusable.
         current_app.logger.exception("Memória longa indisponível; conversa=%s", conversation_id)
-        long_memory = {}
-    if turn_context:
-        long_memory = {**long_memory, "turn_context": turn_context}
-    timing = temporal_context(message)
-    if timing.get("matched"):
-        long_memory = {**long_memory, "temporal_context": timing}
-    routing_message = message
-    if turn_context:
-        if turn_context.get("routing_message"):
-            routing_message = turn_context["routing_message"]
-        elif turn_context.get("resolved_reference") == "pending_action":
-            routing_message = (turn_context.get("pending_action") or {}).get("prompt") or message
-    execution = prepare_execution(message, current, history_context(previous_messages), requested_mode,
-                                  conversation_state=long_memory, routing_message=routing_message)
+        built_context = builder.build(
+            message=message, messages=previous_messages, request_context=current,
+            conversation_id=conversation_id if identity.conversation_supplied else None, memory_enabled=False,
+        )
+    current = built_context.request_context
+    execution = prepare_execution(message, current, built_context.history, requested_mode,
+                                  conversation_state=built_context.state,
+                                  routing_message=built_context.routing_message)
     if uploads:
         execution["provider_payload"]["files"] = [
             {"type": row["kind"], "transfer_method": "local_file", "upload_file_id": row["provider_id"]}
@@ -638,7 +630,7 @@ def prepare(data):
                             WHERE id = %s AND id_contato_cliente = %s AND id_cliente = %s FOR UPDATE""",
                         (conversation_id, current.user_id, current.client_id))
             existing = cur.fetchone()
-            if data.get("conversation_id") and not existing:
+            if identity.conversation_supplied and not existing:
                 abort(404)
             if not existing:
                 cur.execute("""INSERT INTO cadu_conversations
@@ -704,13 +696,16 @@ def prepare(data):
         _journal(run_id, "run.admitted", {"execution_mode": execution["execution_mode"],
                  "runtime_id": runtime["id"], "provider_config_version": runtime["config_version"],
                  "route": execution["route"], "budget": execution["budget"],
-                 "selected_context": bool(execution.get("selected_context"))})
+                 "selected_context": bool(execution.get("selected_context")),
+                 "context_diagnostics": built_context.diagnostics,
+                 "rollout": rollout.public_metadata()})
     except Exception:
         conn.rollback()
         raise
     return {
         "run_id": run_id, "conversation_id": conversation_id, "message": message,
-        "context": current, "runtime": runtime, **execution,
+        "context": current, "runtime": runtime, "context_diagnostics": built_context.diagnostics,
+        "rollout": rollout.public_metadata(), **execution,
     }
 
 
@@ -734,6 +729,8 @@ def stream(run):
             "brand_ref": run["context"].brand_ref,
         }, runtime_id=runtime.get("id", ""),
         provider_config_version=runtime.get("config_version", ""),
+        context_diagnostics=run.get("context_diagnostics") or {},
+        rollout=run.get("rollout") or {},
     )
     _journal(run["run_id"], "route.selected", {"route": run["route"], "policy": run["policy"]})
     yield _event("route.selected", route=run["route"], policy=run["policy"])
@@ -923,9 +920,34 @@ def stream(run):
         except Exception:
             conn.rollback()
             current_app.logger.exception("Falha ao finalizar run V2 %s", run["run_id"])
+    # A cancelled provider may still deliver a late chunk after the stop was
+    # recorded. Never turn that stale text into conversation history. Failed
+    # runs may retain an already-visible partial answer with an explicit state.
+    if state == "failed" and streamed_answer.strip() and not assistant_id:
+        try:
+            assistant_id = str(uuid4())
+            conn = repository.get_db()
+            with conn.cursor() as cur:
+                cur.execute("""INSERT INTO cadu_conversation_messages
+                    (id, conversation_id, role, content, tokens_entrada, tokens_saida, metadata, created_at)
+                    VALUES (%s, %s, 'assistant', %s, %s, %s, %s, NOW())""",
+                    (assistant_id, run["conversation_id"], streamed_answer,
+                     max(0, int(usage.get("prompt_tokens") or 0)),
+                     max(0, int(usage.get("completion_tokens") or 0)),
+                     Json({"runtime": "v2", "terminal_state": state, "partial": True})))
+                cur.execute("""UPDATE cadu_conversations
+                    SET total_mensagens = (SELECT COUNT(*) FROM cadu_conversation_messages WHERE conversation_id = %s),
+                        updated_at = NOW() WHERE id = %s""",
+                    (run["conversation_id"], run["conversation_id"]))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            assistant_id = None
+            current_app.logger.exception("Falha ao persistir resposta parcial; run=%s", run["run_id"])
     terminal_event = "run.completed" if state == "completed" else "run.cancelled" if state == "cancelled" else "run.failed"
     terminal_payload = {
         "status": state,
+        "message_terminal_state": state,
         "conversation_id": run["conversation_id"],
         "message_id": assistant_id,
         "total_duration_ms": round((perf_counter() - run_started) * 1000),
@@ -935,17 +957,16 @@ def stream(run):
         terminal_payload["code"] = terminal_error_code or "provider_failed"
     _journal(run["run_id"], terminal_event, terminal_payload,
              item_type="error" if state == "failed" else "activity")
-    yield _event(terminal_event, **terminal_payload)
-    # The terminal event has already released the UI and the persisted run is
-    # no longer active. This best-effort projection cannot delay the answer or
-    # keep the conversation locked.
-    if state == "completed" and assistant_id:
+    # Persist only a lightweight queue row before yielding the terminal event.
+    # The projection itself runs in a supervised worker; enqueueing first means
+    # a client disconnect immediately after completion cannot lose the job.
+    if state == "completed" and assistant_id and (run.get("rollout") or {}).get("memory_v2", True):
         try:
-            from ..conversations import conversation_memory
-            conversation_memory.checkpoint(
+            schedule_memory_checkpoint(
                 conversation_id=run["conversation_id"], organization_id=run["context"].organization_id,
                 client_id=run["context"].client_id, user_id=run["context"].user_id,
             )
         except Exception:
-            current_app.logger.exception("Checkpoint de memória da conversa falhou; conversa=%s",
+            current_app.logger.exception("Não foi possível agendar checkpoint de memória; conversa=%s",
                                          run["conversation_id"])
+    yield _event(terminal_event, **terminal_payload)

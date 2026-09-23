@@ -1,6 +1,7 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useReducer, useRef} from 'react';
 import {Icon} from './Icon';
 import {ProjectSelector} from './WorkspaceSelectors';
+import {composerReducer, composerState} from '../lib/composerState.mjs';
 
 const MODE_OPTIONS = [
   {id: 'fast', label: 'Rápido', detail: 'Resposta direta'},
@@ -17,7 +18,7 @@ const CAPABILITIES = [
   {label: 'Criar pauta', prompt: 'Crie uma pauta de reunião objetiva usando o contexto do projeto, com temas, resultado esperado e decisões a tomar.'},
 ];
 
-const COMPOSER_MAX_HEIGHT = 240;
+const COMPOSER_MAX_HEIGHT = 120;
 
 function pastedUrl(value) {
   const match = String(value || '').match(/https?:\/\/[^\s<>\]\["']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>\]\["']*)?/i);
@@ -54,6 +55,7 @@ export function WorkspaceChatComposer({
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
   composerContext, onClearContext, onContextDrop, onAttach, allowQueue = false, queuedCount = 0, embedded = false, homeMode = false,
   projects = [], projectRef = '', onProjectChange, showProjectSelector = true,
+  layout = 'desktop', disabled = false, onStateChange,
 }) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
@@ -64,6 +66,8 @@ export function WorkspaceChatComposer({
   const [contextActive, setContextActive] = React.useState(false);
   const [voiceState, setVoiceState] = React.useState('idle');
   const [voiceNotice, setVoiceNotice] = React.useState('');
+  const [machine, dispatchComposer] = useReducer(composerReducer, {value, running, disabled}, composerState);
+  const focused = useRef(false);
   const currentMode = MODE_OPTIONS.find(option => option.id === executionMode) || MODE_OPTIONS[1];
   const availableCapabilities = hasProject ? CAPABILITIES : CAPABILITIES.filter(item => !['Estruturar briefing', 'Planejar mídia', 'Criar pauta'].includes(item.label));
   const selectCapability = capability => {
@@ -114,8 +118,16 @@ export function WorkspaceChatComposer({
     if (!textarea.current) return;
     textarea.current.style.height = 'auto';
     const viewportHeight = window.visualViewport?.height || window.innerHeight;
-    textarea.current.style.height = `${Math.min(textarea.current.scrollHeight, COMPOSER_MAX_HEIGHT, viewportHeight * .35)}px`;
+    const height = Math.min(textarea.current.scrollHeight, COMPOSER_MAX_HEIGHT, viewportHeight * .35);
+    textarea.current.style.height = `${height}px`;
+    textarea.current.style.overflowY = textarea.current.scrollHeight > height ? 'auto' : 'hidden';
   }, [value]);
+  useEffect(() => {
+    if (disabled) dispatchComposer({type: 'disable'});
+    else if (running) dispatchComposer({type: 'stream'});
+    else if (['streaming', 'submitting', 'disabled'].includes(machine.status)) dispatchComposer({type: 'complete', focused: focused.current});
+  }, [disabled, running, machine.status]);
+  useEffect(() => { onStateChange?.(machine.status); }, [machine.status, onStateChange]);
   useEffect(() => {
     if (composerContext?.type !== 'question') return;
     window.requestAnimationFrame(() => textarea.current?.focus());
@@ -146,11 +158,29 @@ export function WorkspaceChatComposer({
     if (!raw) return;
     try { onContextDrop?.(JSON.parse(raw)); } catch (_) { /* Ignore non-context drops. */ }
   };
-  return <div className={`${stageClass}${contextActive ? ' is-context-drop' : ''}`} onDragEnter={event => { event.preventDefault(); setContextActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setContextActive(false); }} onDrop={handleDrop}>
-    <form onSubmit={event => { event.preventDefault(); onSubmit?.(); }} className={`${shellClass} cv-pointer-events-auto cv-mx-auto cv-w-full ${embedded ? '' : 'cv-max-w-[760px]'}`}>
+  const submitComposer = async event => {
+    event.preventDefault();
+    if (disabled) return;
+    dispatchComposer({type: 'submit'});
+    capabilityMenu.current?.removeAttribute('open');
+    intensityMenu.current?.removeAttribute('open');
+    const compact = layout === 'phone' || layout === 'tablet';
+    if (compact) {
+      focused.current = false;
+      textarea.current?.blur();
+    }
+    try {
+      await onSubmit?.();
+      if (!compact && !running) window.requestAnimationFrame(() => textarea.current?.focus());
+    } catch (error) {
+      dispatchComposer({type: 'error', error: error?.message});
+    }
+  };
+  return <div className={`${stageClass}${contextActive ? ' is-context-drop' : ''}`} data-composer-state={machine.status} onDragEnter={event => { event.preventDefault(); setContextActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setContextActive(false); }} onDrop={handleDrop}>
+    <form onSubmit={submitComposer} className={`${shellClass} cv-pointer-events-auto cv-mx-auto cv-w-full ${embedded ? '' : 'cv-max-w-[760px]'}`}>
       {!!composerContext && <div className="cv-flex cv-items-center cv-gap-2 cv-px-3 cv-py-2"><span className="cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[11px] cv-text-[#8fbab4]">↳ {composerContext.label}: “{composerContext.text}”</span><button type="button" onClick={onClearContext} className="cv-grid cv-h-5 cv-w-5 cv-place-items-center cv-rounded cv-border-0 cv-bg-transparent cv-text-[#78918d] hover:cv-bg-white/[.06] hover:cv-text-white" aria-label="Remover contexto">×</button></div>}
       {!!attachments.length && <div className="cv-attachment-list">{attachments.map((item, index) => { const suggested = item.intake?.purpose === 'knowledge_source' ? 'knowledge' : item.intake?.purpose === 'project_attachment' ? 'attachment' : ''; const label = suggested === 'knowledge' ? 'Fonte sugerida' : suggested === 'attachment' ? 'Anexo sugerido' : item.intake?.state === 'pending' ? 'Classificando…' : ''; const state = item.error ? 'Não foi possível anexar' : item.uploading ? 'Enviando' : label || 'Pronto para enviar'; return <span key={item.localId || `${item.name}-${index}`} className={`cv-attachment-chip ${item.previewUrl ? 'is-image' : 'is-file'} ${item.error ? 'has-error' : ''}`} aria-label={`${item.name}. ${state}.`} title={item.name}><span className="cv-attachment-preview">{item.previewUrl ? <img src={item.previewUrl} alt="" className="cv-attachment-thumb"/> : <Icon name="file" size={19}/>}</span><button type="button" disabled={item.uploading} onClick={() => onRemoveAttachment?.(index)} className="cv-attachment-remove" aria-label={`Remover ${item.name}`}>×</button>{label && <button type="button" disabled={!suggested || !hasProject || item.uploading} onClick={() => suggested && onAttachmentPurposeChange?.(index, suggested)} className={`cv-attachment-intake ${item.destination === suggested ? 'is-applied' : ''}`} aria-label={label} title={label}>{item.destination === suggested ? '✓' : '•'}</button>}</span>; })}</div>}
-      <textarea ref={textarea} value={value} onChange={event => onChange?.(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows="1" maxLength="20000" autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck placeholder={composerContext?.type === 'question' ? 'Digite sua resposta…' : 'Pergunte ou peça uma alteração…'} aria-label={composerContext?.type === 'question' ? `Resposta para: ${composerContext.text}` : 'Mensagem'} className="cv-composer-input cv-block cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
+      <textarea ref={textarea} value={value} disabled={disabled} onFocus={() => { focused.current = true; dispatchComposer({type: 'focus', hasValue: Boolean(value.trim())}); }} onBlur={() => { focused.current = false; dispatchComposer({type: 'blur'}); }} onChange={event => { onChange?.(event.target.value); dispatchComposer({type: 'change', hasValue: Boolean(event.target.value.trim()), focused: focused.current}); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows="1" maxLength="20000" enterKeyHint="send" autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck placeholder={composerContext?.type === 'question' ? 'Digite sua resposta…' : 'Pergunte ou peça uma alteração…'} aria-label={composerContext?.type === 'question' ? `Resposta para: ${composerContext.text}` : 'Mensagem'} className="cv-composer-input cv-block cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
       {!!detectedUrl && detectedProfile && <div className="cv-link-intake cv-px-4 cv-pb-2" role="status" aria-live="polite">
         <div className="cv-link-intake__card">
           <span className="cv-link-intake__icon" aria-hidden="true">{detectedProfile.icon}</span>
@@ -190,8 +220,11 @@ export function WorkspaceChatComposer({
             </div>
           </details>
           <button type="button" onClick={toggleVoice} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'listening' ? 'is-listening' : ''} ${voiceState === 'unsupported' ? 'is-unavailable' : ''}`} aria-label={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'} title={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'}><Icon name="audio" size={17}/></button>
-          {running && <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button>}
-          {(!running || allowQueue) && <button type="submit" disabled={(!value.trim() && !attachments.length) || attachments.some(item => item.uploading) || (running && queuedCount >= 5)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label={running ? 'Adicionar pedido à fila' : 'Enviar mensagem'} title={running ? 'Adicionar à fila' : 'Enviar mensagem'}><Icon name="arrowUp" size={17}/></button>}
+          {running && allowQueue && <button type="submit" disabled={!value.trim() || queuedCount >= 5} className="cv-composer-queue cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist disabled:cv-opacity-35" aria-label="Adicionar pedido à fila" title="Adicionar à fila"><Icon name="plus" size={16}/></button>}
+          <span className="cv-composer-action-slot">
+            {running ? <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button>
+              : <button type="submit" disabled={disabled || (!value.trim() && !attachments.length) || attachments.some(item => item.uploading)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label="Enviar mensagem" title="Enviar mensagem"><Icon name="arrowUp" size={17}/></button>}
+          </span>
         </div>
         {voiceNotice && <span className="cv-composer-audio-status" role="status">{voiceNotice}</span>}
       </div>

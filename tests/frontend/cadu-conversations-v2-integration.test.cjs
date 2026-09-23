@@ -1105,9 +1105,15 @@ test('dock and composer use one stable geometry without layered hover chrome', (
   assert.match(dockStyles, /position:sticky/);
   assert.match(dockStyles, /width:64px/);
   assert.match(dockStyles, /\.cadu-ds-dock-section--live \{ display:grid; place-items:center/);
-  assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:19px; height:19px; \}/);
-  assert.match(dockStyles, /\.cadu-ds-dock-primary-action--home svg \{ width:21px; height:21px; \}/);
-  assert.doesNotMatch(dockStyles, /\.cadu-ds-dock-primary-action--new svg/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:20px; height:20px; \}/);
+  assert.doesNotMatch(dockStyles, /\.cadu-ds-dock-primary-action--(?:home|new) svg/);
+  assert.match(dock, /prepareDockRemovalFeedback/);
+  assert.match(dock, /if \(AudioContext\) context = new AudioContext\(\)/);
+  assert.match(dock, /navigator\.vibrate\?\.\(18\)/);
+  assert.match(dock, /if \(!response\.ok\) throw new Error[\s\S]*setRemovingId\(shortcutIdentity\(item\)\);[\s\S]*feedback\.confirm\(\)/);
+  assert.match(dock, /dockExitDelay/);
+  assert.match(dock, /cadu-ds-dock-shortcut\$\{draggedId[\s\S]*is-removing/);
+  assert.match(dock, /<div className="cadu-ds-dock-bottom">\{draggedId && <div className=\{`cadu-ds-dock-trash/);
   assert.match(dockStyles, /background:transparent;[\s\S]+color:#4d716d/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:hover \{ color:var\(--cadu-accent\); \}/);
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:focus-visible[\s\S]+outline:2px solid currentColor/);

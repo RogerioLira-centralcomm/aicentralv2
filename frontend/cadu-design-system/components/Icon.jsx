@@ -2,10 +2,10 @@ import React from 'react';
 
 export function Icon({name, size = 18, className = ''}) {
   const paths = {
-    home: <><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5M9.5 20v-6h5v6"/></>,
+    home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/></>,
     plus: <path d="M12 5v14M5 12h14"/>,
     compose: <><path d="m14.5 5.5 4 4"/><path d="M5 19h4l10.5-10.5a2.8 2.8 0 0 0-4-4L5 15v4Z"/><path d="M13.5 6.5 17.5 10.5"/></>,
-    newChat: <><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 1.414 0l2.586 2.586a1 1 0 0 1 0 1.414L12 17l-4 1 1-4Z"/></>,
+    newChat: <><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M17.5 3.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></>,
     folder: <><path d="M3 7.5h7l2 2h9v9H3z"/><path d="M3 7.5V5h7l2 2"/></>,
     file: <><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></>,
     image: <><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2-2L20 18"/></>,

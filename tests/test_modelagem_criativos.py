@@ -844,6 +844,36 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
 
     @patch(
         "aicentralv2.creative_brand_analysis._compact_web_evidence",
+        return_value=({
+            "source_url": "https://marca.com.br",
+            "title": "Marca coletada",
+            "description": "Descrição oficial preservada.",
+            "pages": [{
+                "url": "https://marca.com.br/sobre", "title": "Sobre",
+                "content": "Conteúdo institucional verificável.",
+            }],
+            "asset_candidates": [], "deterministic_contacts": [],
+            "deterministic_addresses": [], "external_sources": [],
+            "competitor_sources": [], "social_links": [],
+        }, {"titulo": "Marca coletada", "logo_url": None}),
+    )
+    def test_preserva_coleta_quando_todos_os_modulos_de_pesquisa_falham(self, _evidence):
+        def unavailable(*_args, **_kwargs):
+            raise RuntimeError("resposta JSON truncada")
+
+        result = CreativeBrandAnalyzer(llm=unavailable).analyze("marca.com.br")
+
+        self.assertEqual(result["name"], "Marca coletada")
+        self.assertEqual(result["sources"], [
+            "https://marca.com.br", "https://marca.com.br/sobre",
+        ])
+        self.assertTrue(result["analysis_metadata"]["research_degraded_mode"])
+        self.assertEqual(result["analysis_metadata"]["successful_research_modules"], [])
+        self.assertEqual(len(result["analysis_metadata"]["research_module_errors"]), 3)
+        self.assertGreater(result["analysis_metadata"]["pages_analyzed"], 0)
+
+    @patch(
+        "aicentralv2.creative_brand_analysis._compact_web_evidence",
         return_value=(
             {
                 "source_url": "https://marca.com.br",

@@ -43,7 +43,7 @@ DEFAULT_VISUAL_VERIFIER_MODEL = os.getenv(
 DEFAULT_BRAND_FALLBACK_MODEL = os.getenv(
     "CREATIVE_BRAND_FALLBACK_MODEL", "openai/gpt-5.4"
 )
-BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v5-2026-09"
+BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v6-2026-09"
 
 # Deep research is deliberately divided by evidence domain. A single request
 # was mixing operational records, market context and visual interpretation in
@@ -1844,6 +1844,43 @@ def _deep_research_request(module_id, remit, fields, signals, evidence, website_
     return system, payload
 
 
+def _deterministic_research_seed(evidence, web_record, normalized_url):
+    """Preserve collected first-party evidence when every research model fails.
+
+    This seed deliberately contains no inferred strategy. It is only a durable
+    checkpoint that lets normalization, visual extraction and reviewers keep
+    working instead of turning an expensive audit into an empty failed run.
+    """
+    pages = [page for page in (evidence.get("pages") or []) if isinstance(page, dict)]
+    source_urls = list(dict.fromkeys(
+        str(page.get("url") or "").strip() for page in pages if page.get("url")
+    ))
+    source_url = str(evidence.get("source_url") or normalized_url or "").strip()
+    if source_url and source_url not in source_urls:
+        source_urls.insert(0, source_url)
+    title = _text(evidence.get("title") or (web_record or {}).get("titulo"), 150)
+    description = _text(evidence.get("description") or (web_record or {}).get("descricao"), 1200)
+    ledger = []
+    for page in pages[:12]:
+        excerpt = _text(page.get("content") or page.get("description"), 240)
+        if not excerpt:
+            continue
+        ledger.append({
+            "claim": _text(page.get("title") or "Página oficial coletada", 180),
+            "status": "fact", "source_url": page.get("url"),
+            "excerpt": excerpt, "confidence": 1.0,
+        })
+    return {
+        "name": title,
+        "brand_summary": description,
+        "sources": source_urls[:16],
+        "social_links": list(evidence.get("social_links") or [])[:12],
+        "contacts": list(evidence.get("deterministic_contacts") or [])[:12],
+        "addresses": list(evidence.get("deterministic_addresses") or [])[:12],
+        "evidence_ledger": ledger,
+    }
+
+
 def _creative_line_context(client, logo_attached=False):
     client = client if isinstance(client, dict) else {}
     profile = client.get("brand_profile") if isinstance(client.get("brand_profile"), dict) else {}
@@ -1995,6 +2032,8 @@ class CreativeBrandAnalyzer:
         ]
         analysis_model = DEFAULT_DEEP_BRAND_MODEL if deep else self.model
         research_module_errors = []
+        successful_research_modules = []
+        research_degraded_mode = False
         call_trace = []
         if deep or normalized_url:
             # Smaller domain-bound calls are more reliable than one giant
@@ -2011,9 +2050,13 @@ class CreativeBrandAnalyzer:
                 try:
                     response, partial, traces = self._json_call(
                         [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                        model=analysis_model, max_tokens=1800 if deep else 1200,
+                        model=analysis_model, max_tokens=2400 if deep else 2800,
                         temperature=0.08, timeout=60, stage=f'pesquisa_{module_id}',
                         billing_callback=billing_callback,
+                        # Perplexity research does not receive response_format;
+                        # the GPT complete flow does, preventing truncated prose
+                        # wrappers from invalidating otherwise useful modules.
+                        response_format=None if deep else {"type": "json_object"},
                     )
                     call_trace.extend(traces)
                     for key in fields:
@@ -2025,12 +2068,17 @@ class CreativeBrandAnalyzer:
                                 )
                             else:
                                 result[key] = partial[key]
+                    successful_research_modules.append(module_id)
                     research_models.append(response.get("model") or analysis_model)
                 except Exception as exc:
                     call_trace.extend(getattr(exc, 'call_trace', traces))
                     research_module_errors.append(f"{module_id}: {_text(str(exc), 180)}")
             if not result:
-                raise ValueError("Nenhum módulo de pesquisa conseguiu retornar evidência verificável.")
+                # Collection and uploaded visuals are independent evidence
+                # stages. Keep them alive even when every research response is
+                # truncated, invalid or temporarily unavailable.
+                result = _deterministic_research_seed(evidence, web_record, normalized_url)
+                research_degraded_mode = True
             text_response = {"model": ", ".join(dict.fromkeys(research_models)) or analysis_model}
         else:
             text_response = self.llm(
@@ -2478,6 +2526,8 @@ class CreativeBrandAnalyzer:
                 "research_provider": "perplexity" if "perplexity" in analysis_model.lower() else "configured_llm",
                 "research_modules": [module[0] for module in (DEEP_RESEARCH_MODULES if deep else COMPLETE_RESEARCH_MODULES)] if normalized_url else ["perfil_base"],
                 "research_module_errors": research_module_errors,
+                "successful_research_modules": successful_research_modules,
+                "research_degraded_mode": research_degraded_mode,
                 "call_trace": call_trace,
                 "reliability": {
                     "provider_calls": len(call_trace),

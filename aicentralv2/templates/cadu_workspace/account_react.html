@@ -18,7 +18,7 @@
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'user': {'id': session.get('user_id'), 'name': session.get('user_name','Minha conta'), 'email': session.get('user_email',''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url',''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge','')},
   'urls': {
-    'home': url_for('cadu_workspace.dashboard'), 'newConversation': '/chat', 'projects': url_for('cadu_workspace.clean_projects'), 'brands': url_for('cadu_workspace.clean_brands'),
+    'home': url_for('cadu_workspace.dashboard'), 'newConversation': '/chat', 'conversations': '/chat', 'docs': url_for('cadu_workspace.documents'), 'projects': url_for('cadu_workspace.clean_projects'), 'brands': url_for('cadu_workspace.clean_brands'),
     'agencia': url_for('cadu_workspace.account_page', section='agencia'), 'perfil': url_for('cadu_workspace.account_page', section='perfil'), 'equipe': url_for('cadu_workspace.account_page', section='equipe'), 'integracoes': url_for('cadu_workspace.integrations'),
     'planos': url_for('cadu_workspace.account_page', section='planos'), 'uso': url_for('cadu_workspace.account_page', section='uso'), 'creditos': url_for('cadu_workspace.account_page', section='creditos'),
     'faturamento': url_for('cadu_workspace.account_page', section='faturamento'),

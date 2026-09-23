@@ -1,14 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Icon} from './Icon';
 import {useWorkspaceNotifications} from './WorkspaceNotifications';
-
-const destinations = [
-  ['home', 'Home', 'home'],
-  ['projects', 'Projetos', 'folder'],
-  ['brands', 'Marcas', 'brand'],
-  ['library', 'Biblioteca', 'file'],
-  ['automations', 'Automações', 'pulse'],
-];
+import {workspaceChatHref, workspaceMobileDestinationItems, workspaceMobileSolutionItems} from '../workspaceSolutions';
 
 export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace', workspaceName = '', links = {}, contextItems = []}) {
   const notifications = useWorkspaceNotifications();
@@ -47,6 +40,9 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
   }, [open]);
   const go = () => setOpen(false);
   const availableContextItems = contextItems.filter(item => item?.href || item?.url).slice(0, 8);
+  const destinations = workspaceMobileDestinationItems(links);
+  const solutions = workspaceMobileSolutionItems(links);
+  const chatSearchHref = links.search || workspaceChatHref(links, {history: true});
   return <>
     <header className="cadu-ds-mobile-chrome">
       <button ref={trigger} type="button" onClick={() => setOpen(true)} aria-label="Abrir menu" aria-haspopup="dialog" aria-expanded={open} aria-controls="workspace-mobile-navigation"><Icon name="menu" size={20}/></button>
@@ -56,9 +52,10 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
     {open && <div className="cadu-ds-mobile-navigation" role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section ref={panel} id="workspace-mobile-navigation" role="dialog" aria-modal="true" aria-label="Navegação do Workspace">
         <header><div><strong>Cadu</strong></div><button type="button" onClick={() => setOpen(false)} aria-label="Fechar navegação"><Icon name="close" size={18}/></button></header>
-        <div className="cadu-ds-mobile-navigation__quick">{links.newConversation && <a href={links.newConversation} onClick={go}><Icon name="compose" size={18}/>Nova conversa</a>}<a href={links.search || links.conversations || '#'} onClick={go}><Icon name="search" size={18}/>Buscar</a></div>
+        <div className="cadu-ds-mobile-navigation__quick">{links.newConversation && <a href={links.newConversation} onClick={go}><Icon name="compose" size={18}/>Novo chat</a>}{chatSearchHref && <a href={chatSearchHref} onClick={go}><Icon name="search" size={18}/>Buscar chats</a>}</div>
         <div className="cadu-ds-mobile-navigation__workspace"><strong>{workspaceName || 'Workspace atual'}</strong><small>Workspace</small>{links.agency && <a href={links.agency} onClick={go}>Trocar workspace</a>}</div>
-        <nav aria-label="Áreas principais">{destinations.map(([key, label, icon]) => links[key] ? <a key={key} href={links[key]} onClick={go}><Icon name={icon} size={18}/><span>{label}</span></a> : null)}</nav>
+        <nav aria-label="Áreas principais">{destinations.map(item => <a key={item.id} href={item.href} onClick={go}><Icon name={item.icon} size={18}/><span>{item.name}</span></a>)}</nav>
+        {solutions.length > 0 && <nav aria-label="Outras soluções">{solutions.map(item => <a key={item.id} href={item.href} onClick={go}><span>{item.name}</span></a>)}</nav>}
         {availableContextItems.length > 0 && <div className="cadu-ds-mobile-navigation__context"><span>Fixadas e recentes</span>{availableContextItems.map((item, index) => <a key={item.id || item.href || index} href={item.href || item.url} onClick={go}><b>{item.title || item.name || 'Item do Workspace'}</b>{item.detail && <small>{item.detail}</small>}</a>)}</div>}
         {links.agency && <div className="cadu-ds-mobile-navigation__account"><a href={links.agency} onClick={go}><Icon name="home" size={18}/>Conta</a></div>}
       </section>

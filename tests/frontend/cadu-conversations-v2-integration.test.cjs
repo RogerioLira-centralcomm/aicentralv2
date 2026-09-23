@@ -45,6 +45,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   const brands = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrands.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const contextSidebar = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceContextSidebar.jsx'), 'utf8');
+  const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const mobileChrome = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceMobileChrome.jsx'), 'utf8');
   const viewportHook = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/hooks/useUnifiedViewport.js'), 'utf8');
   const designSystemStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
@@ -58,7 +59,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(contextSidebar, /Conversas recentes|recentConversations/);
   assert.match(contextSidebar, /groups\.slice\(0, 4\)/);
   assert.match(contextSidebar, /brand\.projects\.slice\(0, 3\)/);
-  assert.match(contextSidebar, /const activeProjects = projects\.filter[\s\S]*\.sort\(operational\)/);
+  assert.match(contextSidebar, /groupWorkspaceProjects\(brands, projects\)/);
   assert.match(contextSidebar, /recentFiles.length > 0/);
   assert.doesNotMatch(contextSidebar, /Atalhos de trabalho/);
   assert.doesNotMatch(contextSidebar, /\{id: 'recent'/);
@@ -66,6 +67,12 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(feedback, /WorkspaceAccountControl/);
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
   assert.doesNotMatch(home, /matchedProjects|Buscar projetos/);
+  assert.match(home, /embedded homeMode\/>/);
+  assert.doesNotMatch(home, /cadu-ds-home-project-selector|showProjectSelector=\{false\}/);
+  assert.match(selectors, /icon=\{<Icon name="folder" size=\{14\}\/>\}/);
+  assert.match(selectors, /item\?\.ref \|\| item\?\.projectRef/);
+  assert.match(selectors, /selectorItemIds\(item\)\.includes/);
+  assert.doesNotMatch(composer, /· ID \$\{detectedProfile\.id/);
   assert.match(home, /agencyName=\{home\.agency\?\.name\}/);
   assert.match(contextSidebar, /agencyName = ''/);
   assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Cliente'\}<\/strong>/);
@@ -99,7 +106,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /DockTooltip/);
   assert.match(contextSidebar, /function SidebarBrandProjects/);
   assert.match(contextSidebar, /Marcas e projetos/);
-  assert.match(contextSidebar, /project\.brandName/);
+  assert.match(contextSidebar, /workspaceEntities\.mjs/);
   assert.match(contextSidebar, /brand\.projects\.slice\(0, 3\)/);
   assert.doesNotMatch(contextSidebar, /project-child[^\n]*<VisualIdentity/);
   assert.match(dock, /createPortal/);

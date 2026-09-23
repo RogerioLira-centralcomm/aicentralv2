@@ -195,7 +195,7 @@ export function WorkspaceChatComposer({
       {!!detectedUrl && detectedProfile && <div className="cv-link-intake cv-px-4 cv-pb-2" role="status" aria-live="polite">
         <div className="cv-link-intake__card">
           <span className="cv-link-intake__icon" aria-hidden="true">{detectedProfile.icon}</span>
-          <div className="cv-link-intake__meta"><strong>{detectedProfile.name}</strong><small>{detectedProfile.provider} · {detectedProfile.type}{detectedProfile.id ? ` · ID ${detectedProfile.id.slice(0, 8)}…` : ''}</small></div>
+          <div className="cv-link-intake__meta"><strong>{detectedProfile.name}</strong><small>{detectedProfile.provider} · {detectedProfile.type}</small></div>
           <span className="cv-link-intake__state">Referência apenas</span>
         </div>
         <div className="cv-link-intake__actions" id="cv-link-intake-note">

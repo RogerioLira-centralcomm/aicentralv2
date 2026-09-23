@@ -419,17 +419,6 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     } catch (error) { setDockNotice(error.message || 'Não foi possível remover o atalho.'); }
     finally { setBusy(false); }
   };
-  const updateAppearance = async (item, appearance) => {
-    if (!item.shortcutId) return;
-    setBusy(true);
-    try {
-      const response = await fetch(`${endpoint}/${item.shortcutId}`, {method:'PATCH', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':token}, body:JSON.stringify(appearance)});
-      if (!response.ok) throw new Error('Não foi possível atualizar a aparência.');
-      const next = items.map(current => shortcutIdentity(current) === shortcutIdentity(item) ? {...current, dockBackground:appearance.background_color || '', dockSize:appearance.icon_size || 'medium'} : current);
-      if (isControlled) onShortcutAdded?.(next.find(current => shortcutIdentity(current) === shortcutIdentity(item)), next); else setManagedItems(next);
-    } catch (error) { setDockNotice(error.message || 'Não foi possível atualizar a aparência.'); }
-    finally { setBusy(false); }
-  };
   const dropOnTrash = event => {
     event.preventDefault();
     event.stopPropagation();

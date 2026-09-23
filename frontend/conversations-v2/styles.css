@@ -327,8 +327,10 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-actions,
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group { flex-wrap:nowrap; }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary,
-#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { min-height:36px; box-sizing:border-box; }
-#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary { display:inline-flex; align-items:center; gap:6px; padding:0 11px; border:1px solid rgba(54,111,104,.26); border-radius:10px; background:rgba(232,242,240,.78); color:#173d39; font-size:12px; font-weight:650; white-space:nowrap; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { min-height:32px; box-sizing:border-box; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary { display:inline-flex; height:32px; align-items:center; gap:6px; padding:0 7px; border:0; border-radius:8px; background:transparent; color:#496963; font-size:10px; font-weight:500; white-space:nowrap; }
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary:hover,
+#cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details[open] > summary { border:0; background:rgba(37,118,105,.08); color:#173d39; }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-intensity__trigger { border:0; border-radius:10px; background:transparent; box-shadow:none; }
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-input { min-width:0; }
 @media (max-width:760px) {
@@ -673,12 +675,12 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   line-height: 18px;
 }
 
-#cadu-conversations-v2-root .cv-link-intake__card { display:flex; align-items:center; gap:9px; min-width:0; padding:8px 9px; border:1px solid rgba(126,220,207,.16); border-radius:10px; background:rgba(53,148,137,.07); }
-#cadu-conversations-v2-root .cv-link-intake__icon { display:grid; width:26px; height:26px; flex:none; place-items:center; border-radius:7px; background:#173b3a; color:#8be4d8; font-size:14px; }
+#cadu-conversations-v2-root .cv-link-intake__card { display:flex; align-items:center; gap:9px; min-width:0; padding:8px 9px; border:1px solid rgba(61,139,130,.28); border-radius:10px; background:rgba(34,111,103,.1); }
+#cadu-conversations-v2-root .cv-link-intake__icon { display:grid; width:26px; height:26px; flex:none; place-items:center; border-radius:7px; background:#174d48; color:#b8fff5; font-size:14px; }
 #cadu-conversations-v2-root .cv-link-intake__meta { display:grid; min-width:0; gap:1px; }
-#cadu-conversations-v2-root .cv-link-intake__meta strong { overflow:hidden; color:#d8ebe7; font-size:11px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
-#cadu-conversations-v2-root .cv-link-intake__meta small { overflow:hidden; color:#86a49f; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
-#cadu-conversations-v2-root .cv-link-intake__state { margin-left:auto; flex:none; color:#b6c7c4; font-size:10px; }
+#cadu-conversations-v2-root .cv-link-intake__meta strong { overflow:hidden; color:var(--cv-text); font-size:11px; font-weight:560; text-overflow:ellipsis; white-space:nowrap; }
+#cadu-conversations-v2-root .cv-link-intake__meta small { overflow:hidden; color:var(--cv-muted); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+#cadu-conversations-v2-root .cv-link-intake__state { margin-left:auto; flex:none; color:var(--cv-muted); font-size:10px; }
 #cadu-conversations-v2-root .cv-link-intake__actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; padding-top:5px; }
 #cadu-conversations-v2-root .cv-link-intake__actions span { margin-right:auto; color:#9eafac; font-size:10px; }
 #cadu-conversations-v2-root .cv-link-intake__actions small { margin-right:auto; color:#93aaa5; font-size:10px; line-height:1.35; }

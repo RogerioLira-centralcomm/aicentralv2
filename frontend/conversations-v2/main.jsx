@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App';
 import './styles.css';
 import '../cadu-design-system/styles.css';
+import '../cadu-design-system/workspace-chrome.css';
 import {ThemeProvider, WorkspaceAccount, WorkspaceBrand, WorkspaceBrands, WorkspaceHome, WorkspaceLegacyChrome, WorkspaceNotificationsProvider, WorkspaceProject, WorkspaceProjects} from '../cadu-design-system';
 
 const root = document.getElementById('cadu-conversations-v2-root') || document.getElementById('cadu-workspace-legacy-chrome-root');

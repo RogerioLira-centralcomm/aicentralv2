@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Icon} from './Icon';
-import {VisualIdentity} from './VisualIdentity';
+import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects} from '../workspaceEntities.mjs';
 
 // The dock owns global shortcuts. The context rail owns the stable information
 // architecture of the Workspace before listing project-specific content.
@@ -51,31 +51,16 @@ function writeCollectionPayload(event, item, kind, label) {
   event.dataTransfer.setData('text/plain', serialized);
 }
 
-function SidebarCollection({label, href, items, kind}) {
-  if (!items.length) return null;
-  return <section className="cadu-ds-context-sidebar__collection" aria-label={label}>
-    <div className="cadu-ds-context-sidebar__section-label"><span>{label}</span>{href && <a href={href}>Ver todos</a>}</div>
-    {items.slice(0, 5).map(item => {
-      const labelText = item.name || item.title || (kind === 'brand' ? 'Marca' : 'Projeto');
-      return <a key={item.id || item.ref || item.href} className="cadu-ds-context-sidebar__collection-item" href={item.href || item.url || '#'} title={labelText} draggable onDragStart={event => writeCollectionPayload(event, item, kind, labelText)}>
-        <span className="cadu-ds-context-sidebar__collection-identity">
-          <VisualIdentity src={kind === 'brand' ? item.logoUrl : item.previewUrl || item.dockLogoUrl} initials={item.visualInitials || labelText} label={labelText} color={item.visualColor} variant={item.visualVariant} imageTreatment={kind === 'brand' ? 'brand' : ''}/>
-        </span>
-        <span><b>{labelText}</b>{kind === 'brand' && item.projectCount > 0 && <small>{item.projectCount} {item.projectCount === 1 ? 'projeto' : 'projetos'}</small>}</span>
-      </a>;
-    })}
-  </section>;
-}
-
-function SidebarRunningProjects({projects}) {
-  const alphabetic = (left, right) => String(left?.name || left?.title || '').localeCompare(String(right?.name || right?.title || ''), 'pt-BR', {sensitivity: 'base'});
-  const projectTimestamp = project => Date.parse(project?.updatedAt || project?.updated_at || project?.lastActivityAt || project?.last_activity_at || project?.createdAt || project?.created_at || '') || 0;
-  const operational = (left, right) => projectTimestamp(right) - projectTimestamp(left) || alphabetic(left, right);
-  const visibleProjects = projects.filter(project => !['arquivado', 'archived', 'deletado', 'deleted'].includes(String(project?.status || '').toLocaleLowerCase('pt-BR'))).sort(operational).slice(0, 3);
-  if (!visibleProjects.length) return null;
-  return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Projetos em andamento">
-    <div className="cadu-ds-context-sidebar__section-label"><span>Projetos em andamento</span></div>
-    <div className="cadu-ds-context-sidebar__project-tree">{visibleProjects.map(project => <a key={project.id || project.ref || project.projectRef} className="cadu-ds-context-sidebar__project-child cadu-ds-context-sidebar__project-child--root" href={project.href || project.url} title={project.name || project.title} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', project.name || project.title || 'Projeto')}><Icon name="folder" size={14}/><span>{project.name || project.title || 'Projeto'}</span></a>)}</div>
+function SidebarBrandProjects({brands, projects, links}) {
+  const {groups, ungrouped} = groupWorkspaceProjects(brands, projects);
+  if (!groups.length && !ungrouped.length) return null;
+  return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
+    <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
+    {groups.slice(0, 4).map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={entityIdentity(brand) || entityLabel(brand)}>
+      <a className="cadu-ds-context-sidebar__brand-heading" href={entityHref(brand) || links.brands || '#'} title={entityLabel(brand, 'Marca')}><Icon name="brand" size={15}/><b>{entityLabel(brand, 'Marca')}</b></a>
+      <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.slice(0, 3).map(project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', entityLabel(project, 'Projeto'))}><span>{entityLabel(project, 'Projeto')}</span></a>)}</div>
+    </section>)}
+    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group cadu-ds-context-sidebar__brand-group--ungrouped"><b className="cadu-ds-context-sidebar__brand-heading-label">Outros projetos</b><div className="cadu-ds-context-sidebar__project-tree">{ungrouped.slice(0, 3).map(project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', entityLabel(project, 'Projeto'))}><span>{entityLabel(project, 'Projeto')}</span></a>)}</div></section>}
   </section>;
 }
 
@@ -100,7 +85,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
     </nav>}
     {mode === 'home' && <nav className="cadu-ds-context-sidebar__nav cadu-ds-context-sidebar__nav--mobile" aria-label="Destinos do Workspace">{MOBILE_HOME_ITEMS.map(item => links[item.key] ? <a key={item.id} href={links[item.key]}><Icon name={item.icon} size={16}/><span>{item.label}</span></a> : null)}</nav>}
     {mode === 'home' && <>
-      <SidebarRunningProjects projects={projects}/>
+      <SidebarBrandProjects brands={brands} projects={projects} links={links}/>
     </>}
     {mode === 'home' && recentFiles.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Arquivos recentes">
       <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>

@@ -1,0 +1,103 @@
+/* Canonical Workspace chrome.
+   This file is loaded after the historical design-system bundle. Dock and
+   sidebar geometry belong here so page styles cannot silently redefine them. */
+
+@media (min-width:761px) {
+  body.portal--workspace .cadu-ds-dock {
+    --cadu-dock-slot:40px;
+    --cadu-dock-plate:34px;
+    --cadu-dock-plate-bg:color-mix(in srgb,var(--cadu-nav-surface) 82%,#244d49);
+    width:64px;
+    min-width:64px;
+    max-width:64px;
+    align-items:center;
+  }
+
+  body.portal--workspace .cadu-ds-dock-context,
+  body.portal--workspace .cadu-ds-dock-section--live,
+  body.portal--workspace .cadu-ds-dock-shortcut {
+    width:100%;
+    justify-items:center;
+    align-items:center;
+  }
+
+  body.portal--workspace .cadu-ds-dock-shortcut { min-height:var(--cadu-dock-slot); }
+
+  body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource) {
+    display:grid;
+    width:var(--cadu-dock-slot);
+    min-width:var(--cadu-dock-slot);
+    height:var(--cadu-dock-slot);
+    min-height:var(--cadu-dock-slot);
+    flex:0 0 var(--cadu-dock-slot);
+    place-items:center;
+    box-sizing:border-box;
+    margin:0 auto;
+    padding:3px;
+    border:0;
+    border-radius:12px;
+    background:transparent;
+    box-shadow:none;
+    transform:none;
+  }
+
+  body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource) > .cadu-ds-visual-identity {
+    display:grid;
+    width:var(--cadu-dock-plate);
+    min-width:var(--cadu-dock-plate);
+    height:var(--cadu-dock-plate);
+    min-height:var(--cadu-dock-plate);
+    place-items:center;
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    border:1px solid color-mix(in srgb,#fff 10%,transparent);
+    border-radius:9px;
+    background:var(--cadu-dock-plate-bg);
+    color:#f1fbf8;
+    box-shadow:inset 0 0 0 1px rgba(3,24,23,.14);
+    filter:none;
+  }
+
+  body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource) > .cadu-ds-visual-identity img {
+    display:block;
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:5px;
+    border-radius:inherit;
+    object-fit:contain;
+    object-position:center;
+    mix-blend-mode:normal;
+    filter:none;
+  }
+
+  body.portal--workspace .cadu-ds-dock .cadu-ds-dock-resource--provider > .cadu-ds-visual-identity,
+  body.portal--workspace .cadu-ds-dock .cadu-ds-dock-resource--generated > .cadu-ds-visual-identity,
+  body.portal--workspace .cadu-ds-dock .cadu-ds-visual-identity.has-custom-background,
+  body.portal--workspace .cadu-ds-dock .cadu-ds-visual-identity.has-image-background {
+    background:var(--cadu-dock-plate-bg);
+    box-shadow:inset 0 0 0 1px rgba(3,24,23,.14);
+  }
+
+  body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource):is(:hover,:focus-visible) {
+    background:color-mix(in srgb,var(--cadu-accent) 11%,transparent);
+    outline:0;
+  }
+
+  body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource).is-active {
+    background:color-mix(in srgb,var(--cadu-accent) 16%,transparent);
+    box-shadow:none;
+  }
+
+  body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource).is-active::after {
+    inset:50% -9px auto auto;
+    width:3px;
+    height:18px;
+    border-radius:999px 0 0 999px;
+    background:var(--cadu-accent);
+    box-shadow:none;
+    transform:translateY(-50%);
+  }
+}

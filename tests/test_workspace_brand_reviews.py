@@ -92,6 +92,14 @@ class WorkspaceBrandReviewAgentsTest(TestCase):
 
         self.assertEqual(_validated_public_contacts(records)[0]['value'], '+55 (31) 99876-5432')
 
+    def test_final_contact_gate_accepts_tel_label_without_period(self):
+        records = [{
+            'type': 'phone', 'label': 'Contato', 'value': '(31) 3219-8000',
+            'source_url': 'https://example.com/contato', 'excerpt': 'Tel 31 3219-8000',
+        }]
+
+        self.assertEqual(_validated_public_contacts(records)[0]['value'], '(31) 3219-8000')
+
     def test_deterministic_central_fallback_preserves_only_consensus(self):
         common = ['brand_summary', 'target_audience', 'products_services']
         result = _deterministic_central_review([

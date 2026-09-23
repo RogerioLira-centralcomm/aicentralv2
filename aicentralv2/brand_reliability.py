@@ -23,6 +23,7 @@ PROCESSED_FIELD_STATES = frozenset({
     'not_applicable', 'invalid', 'blocked',
 })
 PUBLISHABLE_FIELD_STATES = frozenset({'verified'})
+PUBLISHED_RUN_STATES = frozenset({'approved', 'published'})
 EXPECTED_BRAND_FIELDS = frozenset({
     'name', 'sector', 'website_url', 'brand_summary', 'tone_of_voice',
     'target_audience', 'audience_segments', 'personas', 'archetype', 'ad_segments',
@@ -100,14 +101,15 @@ def evaluate_shadow(records: Iterable[dict], labels: Iterable[dict], *,
 
     for record in records:
         state = str(record.get('status') or '').lower()
+        run_status = str(record.get('run_status') or record.get('decision') or 'partial').lower()
         state_counts[state or 'missing'] += 1
         if state in PROCESSED_FIELD_STATES:
             processed += 1
         if record.get('confidence') is None:
             empty_confidence += 1
         run_id = str(record.get('run_id') or record.get('snapshot_id') or record.get('brand_id'))
-        run_states[run_id] = str(record.get('run_status') or record.get('decision') or 'partial').lower()
-        if state in PUBLISHABLE_FIELD_STATES:
+        run_states[run_id] = run_status
+        if run_status in PUBLISHED_RUN_STATES and state in PUBLISHABLE_FIELD_STATES:
             published += 1
             evidence_count = int(record.get('evidence_count') or 0)
             if evidence_count > 0:
@@ -137,7 +139,8 @@ def evaluate_shadow(records: Iterable[dict], labels: Iterable[dict], *,
                 'expected_value': label.get('expected_value') if has_expected_value else None,
                 'actual_value': (record or {}).get('value'),
             })
-        if actual_state in PUBLISHABLE_FIELD_STATES:
+        actual_run_status = str((record or {}).get('run_status') or (record or {}).get('decision') or '').lower()
+        if actual_run_status in PUBLISHED_RUN_STATES and actual_state in PUBLISHABLE_FIELD_STATES:
             stats['published'] += 1
             labeled_published += 1
             if state_matches and value_matches:

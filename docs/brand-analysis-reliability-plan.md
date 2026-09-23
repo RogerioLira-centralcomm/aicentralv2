@@ -27,8 +27,10 @@ O primeiro incremento de segurança já está aplicado:
 Os itens restantes exigem aplicação controlada da migração, shadow mode, conjunto ouro e rollout gradual; não devem ser ativados diretamente em produção sem os critérios definidos neste documento.
 
 O comando read-only `scripts/brand_reliability_shadow.py` exporta a base do
-conjunto-ouro e avalia snapshots sem alterar o perfil ativo. A decisão é sempre
-`hold` se faltar amostra rotulada ou qualquer SLO estiver fora do limite.
+conjunto-ouro e avalia snapshots sem alterar o perfil ativo. Por padrão ele
+isola a versão vigente do pipeline; versões anteriores só entram quando
+informadas explicitamente. A decisão é sempre `hold` se faltar amostra rotulada
+ou qualquer SLO estiver fora do limite.
 
 ```bash
 .venv/bin/python scripts/brand_reliability_shadow.py template --brand-id 29 --output output/brand-golden-template.json

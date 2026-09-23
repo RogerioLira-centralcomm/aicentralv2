@@ -24,7 +24,7 @@ def test_shadow_promotes_only_when_every_gate_passes():
 
 def test_shadow_holds_on_wrong_value_missing_evidence_and_empty_confidence():
     records = [{
-        'brand_id': 29, 'snapshot_id': 1, 'run_status': 'running',
+        'brand_id': 29, 'snapshot_id': 1, 'run_status': 'approved',
         'field_name': 'contacts', 'field_category': 'presence', 'value': ['12345678901'],
         'status': 'verified', 'confidence': None, 'evidence_count': 0,
     }]
@@ -76,3 +76,19 @@ def test_unreviewed_candidate_labels_do_not_count_as_ground_truth():
     result = evaluate_shadow(records, labels)
     assert result['counts']['applicable_labels'] == 0
     assert result['metrics']['golden_field_coverage'] == 0
+
+
+def test_verified_field_in_rejected_run_is_not_counted_as_published():
+    records = [{
+        'brand_id': 1, 'run_id': 'a', 'run_status': 'insufficient_evidence',
+        'field_name': 'name', 'status': 'verified', 'value': 'Marca',
+        'confidence': 0, 'evidence_count': 0,
+    }]
+    labels = [{
+        'brand_id': 1, 'field_name': 'name', 'expected_status': 'verified',
+        'expected_value': 'Marca',
+    }]
+    result = evaluate_shadow(records, labels)
+    assert result['counts']['published'] == 0
+    assert result['counts']['unsafe_publications'] == 0
+    assert result['counts']['labeled_published'] == 0

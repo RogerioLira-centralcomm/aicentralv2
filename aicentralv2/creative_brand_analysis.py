@@ -668,7 +668,7 @@ def _validated_public_contacts(records, *, limit=12):
             digits = re.sub(r"\D", "", value)
             context = f"{label} {excerpt}".lower()
             semantic = any(token in context for token in (
-                "telefone", "tel.", "atendimento", "ouvidoria", "sac",
+                "telefone", "tel.", "tel ", "atendimento", "ouvidoria", "sac",
                 "fale", "ligue", "whatsapp", "central", "deficiência auditiva",
             ))
             local_digits = digits[2:] if digits.startswith("55") and len(digits) in {12, 13} else digits

@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from aicentralv2.brand_reliability import evaluate_shadow  # noqa: E402
+from aicentralv2.creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION  # noqa: E402
 
 
 def _connect():
@@ -30,12 +31,14 @@ def _connect():
     )
 
 
-def _latest_records(brand_ids: list[int] | None) -> list[dict]:
-    params: list[object] = []
-    where = ''
+def _latest_records(brand_ids: list[int] | None, pipeline_version: str) -> list[dict]:
+    params: list[object] = [pipeline_version]
+    predicates = ["COALESCE(NULLIF(s.pipeline_version, ''), "
+                  "s.profile -> 'analysis_metadata' ->> 'pipeline_version', 'legacy') = %s"]
     if brand_ids:
-        where = 'WHERE s.brand_id = ANY(%s)'
+        predicates.append('s.brand_id = ANY(%s)')
         params.append(brand_ids)
+    where = 'WHERE ' + ' AND '.join(predicates)
     query = f'''
         WITH latest AS (
             SELECT DISTINCT ON (s.brand_id) s.id, s.brand_id, s.job_id, s.decision
@@ -68,8 +71,9 @@ def main() -> int:
     parser.add_argument('--golden', type=Path, help='JSON de rótulos humanos para evaluate')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--brand-id', type=int, action='append', dest='brand_ids')
+    parser.add_argument('--pipeline-version', default=BRAND_ANALYSIS_PIPELINE_VERSION)
     args = parser.parse_args()
-    records = _latest_records(args.brand_ids)
+    records = _latest_records(args.brand_ids, args.pipeline_version)
     if args.mode == 'template':
         payload = {
             'generated_at': datetime.now(timezone.utc).isoformat(),
@@ -88,7 +92,7 @@ def main() -> int:
         labels = golden.get('labels', golden) if isinstance(golden, dict) else golden
         payload = {
             'generated_at': datetime.now(timezone.utc).isoformat(),
-            'scope': {'brand_ids': args.brand_ids or 'latest_all'},
+            'scope': {'brand_ids': args.brand_ids or 'latest_all', 'pipeline_version': args.pipeline_version},
             **evaluate_shadow(records, labels),
         }
     _write_json(args.output, payload)

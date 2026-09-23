@@ -1,6 +1,6 @@
 # Plano definitivo de confiabilidade da análise de marcas
 
-Status: P0 e núcleo de P1/P2 implementados; P3–P5 dependem de calibração e rollout
+Status: P0 e núcleo de P1/P2 implementados; runner de conjunto-ouro/shadow mode implementado; P3–P5 dependem de rotulagem humana, volume e rollout
 Base de diagnóstico: Cemig, BDMG, Centralcomm, Banco Mercantil e UNIDAS
 Pipeline atual: `brand-analysis-pipeline-v7-2026-09`
 
@@ -25,6 +25,15 @@ O primeiro incremento de segurança já está aplicado:
 - as migrações da auditoria de marca foram ligadas ao fluxo controlado de deploy.
 
 Os itens restantes exigem aplicação controlada da migração, shadow mode, conjunto ouro e rollout gradual; não devem ser ativados diretamente em produção sem os critérios definidos neste documento.
+
+O comando read-only `scripts/brand_reliability_shadow.py` exporta a base do
+conjunto-ouro e avalia snapshots sem alterar o perfil ativo. A decisão é sempre
+`hold` se faltar amostra rotulada ou qualquer SLO estiver fora do limite.
+
+```bash
+.venv/bin/python scripts/brand_reliability_shadow.py template --brand-id 29 --output output/brand-golden-template.json
+.venv/bin/python scripts/brand_reliability_shadow.py evaluate --golden data/brand-golden.json --output output/brand-shadow-report.json
+```
 
 ## 1. Objetivo
 

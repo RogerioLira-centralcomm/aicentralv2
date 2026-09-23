@@ -11,6 +11,7 @@ from aicentralv2.creative_brand_analysis import (
     _image_parts,
     _public_contact_records,
     _upload_manifest,
+    _validated_public_contacts,
 )
 
 
@@ -63,6 +64,24 @@ class WorkspaceBrandReviewAgentsTest(TestCase):
         }])
 
         self.assertEqual([item['value'] for item in contacts], ['(31) 3219-8000'])
+
+    def test_final_contact_gate_rejects_truncated_toll_free_number(self):
+        records = [
+            {'type': 'phone', 'label': 'Central de atendimento', 'value': '0800 2121',
+             'source_url': 'https://example.com/contato', 'excerpt': 'Central de atendimento 0800 2121 211'},
+            {'type': 'phone', 'label': 'Central de atendimento', 'value': '0800 2121 211',
+             'source_url': 'https://example.com/contato', 'excerpt': 'Central de atendimento 0800 2121 211'},
+        ]
+
+        self.assertEqual([item['value'] for item in _validated_public_contacts(records)], ['0800 2121 211'])
+
+    def test_final_contact_gate_keeps_traceable_short_service_code(self):
+        records = [{
+            'type': 'phone', 'label': 'Fale com a Cemig', 'value': '116',
+            'source_url': 'https://www.cemig.com.br/atendimento', 'excerpt': 'FALE COM A CEMIG 116',
+        }]
+
+        self.assertEqual(_validated_public_contacts(records)[0]['value'], '116')
 
     def test_deterministic_central_fallback_preserves_only_consensus(self):
         common = ['brand_summary', 'target_audience', 'products_services']

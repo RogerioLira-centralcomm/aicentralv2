@@ -647,6 +647,58 @@ def _public_contact_records(pages):
     return contacts[:12], addresses[:8]
 
 
+def _validated_public_contacts(records, *, limit=12):
+    """Validate every final contact, including values proposed by a model."""
+    accepted = []
+    for item in records if isinstance(records, list) else []:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type") or "").strip().lower()
+        value = str(item.get("value") or "").strip()
+        source_url = str(item.get("source_url") or "").strip()
+        excerpt = str(item.get("excerpt") or "").strip()
+        label = str(item.get("label") or "").strip()
+        if not value or not source_url.startswith(("http://", "https://")) or not excerpt:
+            continue
+        if kind == "email":
+            if not _PUBLIC_EMAIL_RE.fullmatch(value):
+                continue
+            key = (kind, value.casefold())
+        elif kind == "phone":
+            digits = re.sub(r"\D", "", value)
+            context = f"{label} {excerpt}".lower()
+            semantic = any(token in context for token in (
+                "telefone", "tel.", "atendimento", "ouvidoria", "sac",
+                "fale", "ligue", "whatsapp", "central", "deficiência auditiva",
+            ))
+            service_code = len(digits) == 3 and digits.startswith("1")
+            toll_free = digits.startswith(("0800", "0300")) and len(digits) == 11
+            standard = len(digits) in {10, 11} and bool(re.search(r"[()\s.+-]", value))
+            if not semantic or not (service_code or toll_free or standard):
+                continue
+            key = (kind, digits)
+        elif kind in {"support", "social", "press"}:
+            if not value.startswith(("http://", "https://")):
+                continue
+            key = (kind, value.rstrip("/").casefold())
+        else:
+            continue
+        accepted.append((key, dict(item)))
+
+    phone_digits = {key[1] for key, _ in accepted if key[0] == "phone"}
+    seen, result = set(), []
+    for key, item in accepted:
+        if key[0] == "phone" and any(
+                key[1] != other and len(key[1]) < len(other) and other.startswith(key[1])
+                for other in phone_digits):
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result[:limit]
+
+
 def _candidate(
     raw_url,
     page_url,
@@ -2371,7 +2423,7 @@ class CreativeBrandAnalyzer:
                     continue
                 seen.add(key)
                 unique.append(item)
-            result[field] = unique
+            result[field] = _validated_public_contacts(unique) if field == "contacts" else unique
         visual_parts = image_content + _visual_evidence_parts(evidence)
         visual_candidate_manifest = [{
             "url": item.get("url"), "kind": item.get("kind"), "source": item.get("source"),

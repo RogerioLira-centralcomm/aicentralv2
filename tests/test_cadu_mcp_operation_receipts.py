@@ -5,6 +5,7 @@ import pytest
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.registry import ToolInputError, load_builtin_tools
 from aicentralv2.cadu_workspace.mcp.tools.operations import get_operation
+from aicentralv2.cadu_workspace.mcp.tools.artifacts import describe_types, restore_artifact_version
 
 
 def _context():
@@ -51,3 +52,44 @@ def test_operation_receipt_does_not_disclose_missing_or_foreign_operations():
     with patch("aicentralv2.cadu_workspace.mcp.tools.operations.get_db", return_value=connection), \
          pytest.raises(ToolInputError, match="não encontrada"):
         get_operation(_context(), {"request_id": "be777b36-a973-419c-802a-886bf1d125b0"})
+
+
+def test_customer_agents_receive_the_canonical_persisted_artifact_catalog():
+    result = describe_types(_context(), {})
+    types = {item["type"]: item for item in result["types"]}
+
+    assert "document" in types
+    assert types["html"]["publishable"] is True
+    assert types["link_reader"]["agent_editable"] is False
+    assert "image" not in types
+    assert "resource" not in types
+
+
+def test_restore_version_creates_a_new_version_without_mutating_the_snapshot():
+    arguments = {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "artifact_id": "artifact-1",
+        "version": 2,
+        "expected_version": 5,
+    }
+    snapshot = {"version": 2, "content": {"summary": "Versão aprovada"}}
+    restored = {"id": "artifact-1", "current_version": 6, "content": snapshot["content"]}
+
+    with patch(
+        "aicentralv2.cadu_workspace.mcp.tools.artifacts.service.get_version",
+        return_value=snapshot,
+    ) as get_version, patch(
+        "aicentralv2.cadu_workspace.mcp.tools.artifacts.service.patch_artifact",
+        return_value=restored,
+    ) as patch_artifact, patch(
+        "aicentralv2.cadu_workspace.mcp.tools.artifacts.operations.execute",
+        side_effect=lambda _request_id, _context, _name, _payload, callback: callback(),
+    ):
+        result = restore_artifact_version(_context(), arguments)
+
+    assert result == restored
+    get_version.assert_called_once_with(_context(), "artifact-1", 2)
+    patch_artifact.assert_called_once_with(
+        _context(), "artifact-1", snapshot["content"], expected_version=5,
+        change_summary="Versão 2 restaurada via MCP",
+    )

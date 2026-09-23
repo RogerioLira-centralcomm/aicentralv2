@@ -10,28 +10,29 @@ from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
 from ...db import get_db
 from ..agent_v2.contracts import RequestContext
+from .catalog import ALLOWED_TYPES, definition
 
 
-ALLOWED_TYPES = {
-    "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research",
-    "project_map", "html", "meeting_summary", "meeting_agenda", "link_reader",
-}
 ALLOWED_STATUS = {"draft", "active", "published", "archived"}
-MAX_CONTENT_BYTES = 256_000
 
 
-def _content(value) -> dict:
+def _content(value, artifact_type: str) -> dict:
     if not isinstance(value, dict):
         raise BadRequest("O conteúdo do artefato precisa ser estruturado.")
-    if len(json.dumps(value, ensure_ascii=False, default=str).encode("utf-8")) > MAX_CONTENT_BYTES:
-        raise BadRequest("O artefato excede o tamanho permitido.")
+    size = len(json.dumps(value, ensure_ascii=False, default=str).encode("utf-8"))
+    maximum = definition(artifact_type).max_content_bytes
+    if size > maximum:
+        raise BadRequest(
+            f"A entrega possui {size} bytes e excede o limite de {maximum}; "
+            "o conteúdo foi recusado integralmente, sem cortes. Divida-o em blocos ou anexos."
+        )
     return value
 
 
 def create_draft(context: RequestContext, artifact_type: str, content: dict, *, title="", conversation_id=None) -> dict:
     if artifact_type not in ALLOWED_TYPES:
         raise BadRequest("Tipo de artefato inválido.")
-    content = _content(content)
+    content = _content(content, artifact_type)
     artifact_id, version_id = str(uuid4()), str(uuid4())
     title = " ".join(str(title or "").split())[:180] or "Novo artefato"
     conn = get_db()
@@ -140,7 +141,6 @@ def get_version(context: RequestContext, artifact_id: str, version: int) -> dict
 
 def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, expected_version: int,
                    title=None, status=None, change_summary="") -> dict:
-    content = _content(content)
     if status is not None and status not in ALLOWED_STATUS:
         raise BadRequest("Status de artefato inválido.")
     try:
@@ -150,12 +150,13 @@ def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, 
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT current_version FROM cadu_workspace_artifacts
+            cur.execute("""SELECT current_version,type FROM cadu_workspace_artifacts
                             WHERE id = %s AND organization_id = %s AND client_id = %s FOR UPDATE""",
                         (str(artifact_id), context.organization_id, context.client_id))
             row = cur.fetchone()
             if not row:
                 raise NotFound("Artefato indisponível.")
+            content = _content(content, row.get("type") or "document")
             if int(row["current_version"]) != expected_version:
                 raise Conflict("O artefato foi alterado. Atualize antes de salvar novamente.")
             next_version = expected_version + 1
@@ -248,7 +249,7 @@ def _indexable_text(artifact: dict) -> str:
     else:
         body = "\n\n".join(str(value) for value in [content.get("summary"),
             *[f"{field.get('key') or ''}\n{field.get('value') or ''}" for field in content.get("fields") or []]] if value)
-    return "\n".join(line.strip() for line in body.splitlines() if line.strip())[:50000]
+    return "\n".join(line.strip() for line in body.splitlines() if line.strip())
 
 
 def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_version: int) -> dict:
@@ -280,6 +281,8 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
         raise BadRequest("O documento pertence a outro projeto.")
     if int(artifact["current_version"]) != int(expected_version):
         raise Conflict("O documento mudou. Reabra a versão recente antes de finalizar.")
+    if not definition(artifact["type"]).indexable:
+        raise BadRequest("Esta entrega pode permanecer vinculada ao projeto, mas não entra na base textual.")
     text = _indexable_text(artifact)
     if len(text) < 20:
         raise BadRequest("O documento precisa de conteúdo suficiente para entrar na base do projeto.")

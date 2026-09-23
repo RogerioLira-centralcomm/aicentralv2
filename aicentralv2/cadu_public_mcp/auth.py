@@ -213,7 +213,7 @@ def required_scope(tool_name: str) -> str:
         return "account:read"
     if name in {"brands.create", "brands.update_identity", "brands.prepare_logo_upload", "brands.use_asset_as_logo", "brands.start_audit"}:
         return "brands:write"
-    if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.finalize_to_project"}:
+    if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.restore_version", "artifacts.finalize_to_project"}:
         return "artifacts:write"
     if name.startswith("artifacts."):
         return "projects:read"

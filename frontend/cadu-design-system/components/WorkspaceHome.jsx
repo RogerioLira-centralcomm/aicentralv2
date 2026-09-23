@@ -137,7 +137,7 @@ export function WorkspaceHome({bootstrap}) {
       const pending = staged.filter(item => item.id).map(item => ({id: item.id, name: item.name}));
       if (pending.length) sessionStorage.setItem('cadu:home-pending-attachments', JSON.stringify(pending));
       if (!skipAttachments) setAttachments(items => { releasePreviews(items); return []; });
-      window.location.assign(withQuery(bootstrap.urls.newConversation, {prompt, project_ref: projectRef, brand_ref: brandRef, mode: resolvedExecutionMode, auto_send: '1'}));
+      window.location.assign(withQuery(bootstrap.urls.newConversation, {prompt, project_ref: projectRef, brand_ref: brandRef, context_mode: projectRef || brandRef ? 'bound' : 'free', mode: resolvedExecutionMode, auto_send: '1'}));
     } catch (error) { setToast(error.message || 'Não foi possível preparar os anexos.'); }
   };
   const dropContext = payload => {

@@ -63,6 +63,7 @@ export default function App({bootstrap}) {
   const viewport = useConversationViewport();
   const {layout, keyboardOpen} = viewport;
   const initialQuery = new URLSearchParams(window.location.search);
+  const hasTransferredContext = initialQuery.get('context_mode') === 'free' || Boolean(initialQuery.get('project_ref') || initialQuery.get('project') || initialQuery.get('brand_ref'));
   const requestedConversationId = useRef(initialQuery.get('conversation_id') || '');
   const [context, setContext] = useState({});
   const [projects, setProjects] = useState([]);
@@ -102,6 +103,7 @@ export default function App({bootstrap}) {
   const [conversationDockItems, setConversationDockItems] = useState(() => bootstrap.dock?.items || []);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [contextLoading, setContextLoading] = useState(true);
+  const [contextTransferReady, setContextTransferReady] = useState(!hasTransferredContext);
   const [openingId, setOpeningId] = useState(null);
   const [discardRequest, setDiscardRequest] = useState(null);
   const {artifactTabs, setArtifactTabs, artifactSide, changeArtifactSide} = useArtifactWorkspace(artifact);
@@ -225,8 +227,8 @@ export default function App({bootstrap}) {
   const confirmDiscard = useCallback((includeAttachments = true) => {
     const hasAttachments = includeAttachments && attachments.length > 0;
     if (!artifactDirty && !hasAttachments) return Promise.resolve(true);
-    const copy = artifactDirty && hasAttachments ? 'O artefato e os anexos preparados ainda não foram salvos.'
-      : artifactDirty ? 'O artefato tem alterações que ainda não foram salvas.'
+    const copy = artifactDirty && hasAttachments ? 'A entrega e os anexos preparados ainda não foram salvos.'
+      : artifactDirty ? 'A entrega tem alterações que ainda não foram salvas.'
         : 'Os anexos preparados ainda não foram enviados.';
     return new Promise(resolve => {
       discardResolverRef.current = resolve;
@@ -350,7 +352,7 @@ export default function App({bootstrap}) {
       trace('Falha ao alterar contexto', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, trace, projects, loadContext]);
+  }, [running, confirmDiscard, bootstrap.endpoints.context, rememberContext, reset, trace, projects, loadContext]);
 
   const loadBrandIdentity = useCallback(async brandRef => {
     const brandId = String(brandRef || '').replace(/^studio:/, '');
@@ -363,7 +365,7 @@ export default function App({bootstrap}) {
     }
   }, []);
 
-  const changeBrand = useCallback(async brandRef => {
+  const changeBrand = useCallback(async (brandRef, {showHistory = true} = {}) => {
     if (running || !(await confirmDiscard())) return;
     setContextLoading(true); setRuntime('Atualizando marca');
     try {
@@ -371,14 +373,14 @@ export default function App({bootstrap}) {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
         body: JSON.stringify(brandContextPayload(brandRef)),
       });
-      rememberContext(data.context || {}); reset(); setHistoryOpen(true);
+      rememberContext(data.context || {}); reset(); setHistoryOpen(showHistory);
       await loadBrandIdentity(brandRef);
       trace('Marca aplicada à conversa');
     } catch (error) {
       trace('Falha ao abrir a marca', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, reset, loadBrandIdentity, trace, loadContext]);
+  }, [running, confirmDiscard, bootstrap.endpoints.context, rememberContext, reset, loadBrandIdentity, trace, loadContext]);
 
   const conversationAction = useCallback(async (item, action) => {
     const id = String(item?.id || '');
@@ -422,7 +424,14 @@ export default function App({bootstrap}) {
 
   const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || new URLSearchParams(window.location.search).get('project') || '');
   const requestedBrandRef = useRef(new URLSearchParams(window.location.search).get('brand_ref') || '');
+  const requestedFreeContext = useRef(new URLSearchParams(window.location.search).get('context_mode') === 'free');
   const requestedHistoryOpen = useRef(new URLSearchParams(window.location.search).get('history') === '1');
+  useEffect(() => {
+    if (!requestedFreeContext.current || contextLoading || running) return;
+    requestedFreeContext.current = false;
+    changeProject('', {showHistory: false}).finally(() => setContextTransferReady(true));
+  }, [changeProject, contextLoading, running]);
+
   useEffect(() => {
     if (!requestedProjectRef.current || contextLoading || running) return;
     const projectRef = requestedProjectRef.current;
@@ -434,7 +443,8 @@ export default function App({bootstrap}) {
       setContext(data.context || {});
       if (requestedHistoryOpen.current) setHistoryOpen(true);
       requestedHistoryOpen.current = false;
-    }).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
+    }).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'))
+      .finally(() => setContextTransferReady(true));
   }, [contextLoading, running, bootstrap.endpoints.context, trace]);
 
   useEffect(() => {
@@ -449,7 +459,8 @@ export default function App({bootstrap}) {
       if (requestedHistoryOpen.current) setHistoryOpen(true);
       requestedHistoryOpen.current = false;
       await loadBrandIdentity(brandRef);
-    }).catch(error => trace('Não foi possível aplicar a marca selecionada', error.message, 'error'));
+    }).catch(error => trace('Não foi possível aplicar a marca selecionada', error.message, 'error'))
+      .finally(() => setContextTransferReady(true));
   }, [contextLoading, running, bootstrap.endpoints.context, loadBrandIdentity, trace]);
 
   useEffect(() => {
@@ -642,7 +653,7 @@ export default function App({bootstrap}) {
     };
     const failPendingArtifact = message => {
       if (!pendingArtifact) return;
-      const failed = {...pendingArtifact, pending: false, failed: true, title: 'Artefato não concluído', error: message || 'A geração terminou antes de preparar o conteúdo.'};
+      const failed = {...pendingArtifact, pending: false, failed: true, title: 'Entrega não concluída', error: message || 'A geração terminou antes de preparar o conteúdo.'};
       setArtifactTabs(items => items.map(item => artifactKey(item) === pendingArtifact.tabKey ? failed : item));
       if (artifactKey(artifactRef.current) === pendingArtifact.tabKey) { setArtifact(failed); artifactRef.current = failed; }
     };
@@ -694,7 +705,7 @@ export default function App({bootstrap}) {
         } else if (kind === 'route.selected') {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
           if (event.policy?.artifact_type) {
-            pendingArtifact = {tabKey: `pending:${turnId}`, type: event.policy.artifact_type, title: 'Preparando artefato', pending: true};
+            pendingArtifact = {tabKey: `pending:${turnId}`, type: event.policy.artifact_type, title: 'Preparando entrega', pending: true};
             setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== pendingArtifact.tabKey), pendingArtifact]);
             if (!artifactRef.current || !artifactOpen) {
               setArtifact(pendingArtifact); artifactRef.current = pendingArtifact; setArtifactOpen(true);
@@ -752,7 +763,7 @@ export default function App({bootstrap}) {
               setArtifact(latestArtifact); artifactRef.current = latestArtifact; setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true);
             }
           }
-          trace('Artefato criado', event.artifact?.title || '');
+          trace('Entrega criada', event.artifact?.title || '');
         } else if (kind === 'provider.first_token') {
           setRuntime('Escrevendo a resposta');
         } else if (kind === 'answer.delta') {
@@ -788,7 +799,7 @@ export default function App({bootstrap}) {
           setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'failure', failure: chatFailure({message: event.message, status: 503}), prompt: clean}]);
           setInput(clean);
         } else if (kind === 'run.cancelled' || (kind === 'run.completed' && event.status === 'cancelled')) {
-          failPendingArtifact('A geração foi interrompida antes de concluir o artefato.');
+          failPendingArtifact('A geração foi interrompida antes de concluir a entrega.');
           terminal = true; setRuntime('Interrompido'); trace('Execução interrompida');
         } else if (kind === 'run.completed') {
           if (!longJobPromise && pendingArtifact && !artifactResolved) failPendingArtifact();
@@ -841,11 +852,11 @@ export default function App({bootstrap}) {
 
   const initialPromptRef = useRef(initialQuery.get('auto_send') === '1' ? initialQuery.get('prompt') || '' : '');
   useEffect(() => {
-    if (!initialPromptRef.current || running || contextLoading) return;
+    if (!initialPromptRef.current || running || contextLoading || !contextTransferReady) return;
     const prompt = initialPromptRef.current;
     initialPromptRef.current = '';
     submit(prompt);
-  }, [contextLoading, running, submit]);
+  }, [contextLoading, contextTransferReady, running, submit]);
 
   const stop = useCallback(async () => {
     const runId = runRef.current;
@@ -909,7 +920,7 @@ export default function App({bootstrap}) {
       setArtifactDirty(true);
       return false;
     } catch (error) {
-      trace(error.status === 409 ? 'Artefato alterado em outra sessão' : 'Falha ao salvar artefato', error.message, 'error');
+      trace(error.status === 409 ? 'Entrega alterada em outra sessão' : 'Falha ao salvar entrega', error.message, 'error');
       return false;
     } finally { setSaving(false); }
   }, [artifact, bootstrap.endpoints.artifacts, conversationId, trace]);
@@ -980,7 +991,7 @@ export default function App({bootstrap}) {
         setArtifactDirty(true);
       }
       setPublishedUrl(url);
-      trace('Página publicada', url ? 'O link está disponível no artefato para abrir ou copiar.' : 'A página foi publicada.');
+      trace('Página publicada', url ? 'O link está disponível na entrega para abrir ou copiar.' : 'A página foi publicada.');
     } catch (error) {
       trace('Falha ao publicar página', error.message, 'error');
     } finally { setPublishing(false); }
@@ -991,9 +1002,9 @@ export default function App({bootstrap}) {
     const url = publishedUrl || `${window.location.origin}/public/cadu/artifacts/${encodeURIComponent(artifact.id)}`;
     try {
       const copied = await copyText(url);
-      trace('Link da página', copied ? 'Copiado para a área de transferência.' : 'Selecione o link no artefato para copiar.');
+      trace('Link da página', copied ? 'Copiado para a área de transferência.' : 'Selecione o link na entrega para copiar.');
     } catch (_) {
-      trace('Link da página', 'Selecione o link no artefato para copiar.');
+      trace('Link da página', 'Selecione o link na entrega para copiar.');
     }
   }, [artifact, publishedUrl, trace]);
 
@@ -1008,7 +1019,7 @@ export default function App({bootstrap}) {
       setArtifact(data.artifact || {...artifact, status: 'draft'});
       artifactRef.current = data.artifact || {...artifact, status: 'draft'};
       setPublishedUrl('');
-      trace('Página retirada da publicação', 'O artefato continua salvo e pode ser publicado novamente.');
+      trace('Página retirada da publicação', 'A entrega continua salva e pode ser publicada novamente.');
     } catch (error) {
       trace('Falha ao retirar página da publicação', error.message, 'error');
     } finally { setPublishing(false); }
@@ -1039,7 +1050,7 @@ export default function App({bootstrap}) {
     if (!item || !(await confirmDiscard(false))) return false;
     if (item.artifact_id) {
       try { await fetchArtifact(item.artifact_id); }
-      catch (error) { trace('Não foi possível abrir o artefato', error.message, 'error'); return false; }
+      catch (error) { trace('Não foi possível abrir a entrega', error.message, 'error'); return false; }
       return true;
     }
     const kind = String(item.kind || '').toLowerCase();
@@ -1102,7 +1113,7 @@ export default function App({bootstrap}) {
     if (layout !== 'desktop') setHistoryOpen(false);
     if (item?.id && item.id !== artifactRef.current?.id) {
       try { await fetchArtifact(item.id); }
-      catch (error) { setArtifact({tabKey: `failed:${item.id}`, type: 'document', title: 'Artefato indisponível', failed: true, error: error.message}); setArtifactOpen(true); }
+      catch (error) { setArtifact({tabKey: `failed:${item.id}`, type: 'document', title: 'Entrega indisponível', failed: true, error: error.message}); setArtifactOpen(true); }
     }
     else setArtifactOpen(true);
     setSurfaceUrl('artifact', item?.id || artifactRef.current?.id || '');
@@ -1147,7 +1158,7 @@ export default function App({bootstrap}) {
       if (surface === 'artifact') {
         const id = params.get('artifact_id');
         const libraryRef = params.get('resource_ref');
-        if (id && id !== artifactRef.current?.id) fetchArtifact(id).catch(error => { setArtifact({tabKey: `failed:${id}`, type: 'document', title: 'Artefato indisponível', failed: true, error: error.message}); setArtifactOpen(true); });
+        if (id && id !== artifactRef.current?.id) fetchArtifact(id).catch(error => { setArtifact({tabKey: `failed:${id}`, type: 'document', title: 'Entrega indisponível', failed: true, error: error.message}); setArtifactOpen(true); });
         else if (libraryRef) loadResourceReference(libraryRef, params.get('resource_project_ref') || '').catch(error => { setArtifact({tabKey: `failed:${libraryRef}`, type: 'resource', title: 'Recurso indisponível', failed: true, error: error.message}); setArtifactOpen(true); });
         else if (event.state?.resource) openResource(event.state.resource);
         else if (artifactRef.current) setArtifactOpen(true);
@@ -1164,7 +1175,7 @@ export default function App({bootstrap}) {
     if (params.get('surface') === 'library') openLibrary(false);
     const artifactId = params.get('surface') === 'artifact' ? params.get('artifact_id') : '';
     const libraryRef = params.get('surface') === 'artifact' ? params.get('resource_ref') : '';
-    if (artifactId && artifactId !== artifactRef.current?.id) fetchArtifact(artifactId).catch(error => { setArtifact({tabKey: `failed:${artifactId}`, type: 'document', title: 'Artefato indisponível', failed: true, error: error.message}); setArtifactOpen(true); });
+    if (artifactId && artifactId !== artifactRef.current?.id) fetchArtifact(artifactId).catch(error => { setArtifact({tabKey: `failed:${artifactId}`, type: 'document', title: 'Entrega indisponível', failed: true, error: error.message}); setArtifactOpen(true); });
     else if (libraryRef && initialResourceRef.current) {
       initialResourceRef.current = '';
       loadResourceReference(libraryRef, params.get('resource_project_ref') || '').catch(error => { setArtifact({tabKey: `failed:${libraryRef}`, type: 'resource', title: 'Recurso indisponível', failed: true, error: error.message}); setArtifactOpen(true); });
@@ -1261,12 +1272,12 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} onShortcutAdded={(_, next) => setConversationDockItems(next)} onShortcutRemoved={(_, next) => setConversationDockItems(next)} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
-          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} navUrls={bootstrap.urls} activeId={conversationId} onOpen={openConversation} onOpenLibrary={openLibrary} onNewConversation={newConversation} onOrganize={organizeConversation} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} navUrls={bootstrap.urls} activeId={conversationId} onOpen={openConversation} onOpenLibrary={openLibrary} onNewConversation={newConversation} onProjectChange={ref => changeProject(ref, {showHistory: false})} onOrganize={organizeConversation} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState}/>
+          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: false})} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState}/>
           {libraryOpen && <LibraryView library={library} onClose={closeSurface} onOpenResource={showResource}/>}
-          {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura do artefato" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
+          {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura da entrega" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
             event.currentTarget.setPointerCapture(event.pointerId);
             const stage = event.currentTarget.parentElement.getBoundingClientRect();
             const move = pointer => setArtifactWidth(Math.max(30, Math.min(60, Math.round((artifactSide === 'right' ? stage.right - pointer.clientX : pointer.clientX - stage.left) / stage.width * 100))));

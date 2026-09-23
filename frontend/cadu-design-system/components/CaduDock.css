@@ -171,3 +171,57 @@ body.portal--workspace .cadu-ds-dock-picker input:focus { border-color:#176b5e; 
 .cadu-ds-dock-external-view__help { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-height:48px; box-sizing:border-box; padding:8px 20px; border-top:1px solid #d7e3e1; background:#eef5f3; color:#4b6268; font-size:12px; }
 .cadu-ds-dock-external-view__help span { flex:1 1 250px; }
 @media(max-width:760px) { .cadu-ds-dock-external-view { inset:0; } .cadu-ds-dock-external-view__bar { padding:10px 12px; } .cadu-ds-dock-external-view__actions { gap:5px; } .cadu-ds-dock-external-view__actions a,.cadu-ds-dock-external-view__actions button { padding:0 8px; } }
+
+/* Canonical dock geometry. Keep this final layer small and authoritative so
+   older Workspace skins cannot reintroduce offsets or mismatched controls. */
+@media (min-width:761px) {
+  body.portal--workspace .cadu-ds-dock {
+    position:sticky !important;
+    inset:auto !important;
+    top:0 !important;
+    width:64px !important;
+    min-width:64px !important;
+    max-width:64px !important;
+    height:100dvh !important;
+    flex:0 0 64px !important;
+    align-self:flex-start;
+    margin:0 !important;
+    padding:12px 0 10px !important;
+  }
+}
+body.portal--workspace .cadu-ds-dock-solution { margin:0 0 8px !important; }
+body.portal--workspace .cadu-ds-dock-primary {
+  display:grid;
+  width:40px;
+  justify-items:center;
+  gap:2px;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+}
+body.portal--workspace .cadu-ds-dock-primary-action {
+  display:grid;
+  width:36px;
+  height:36px;
+  place-items:center;
+  margin:0 !important;
+  padding:0;
+  border:0 !important;
+  border-radius:0;
+  background:transparent !important;
+  color:var(--cadu-nav-muted) !important;
+  box-shadow:none !important;
+  outline:0;
+  text-decoration:none;
+}
+body.portal--workspace .cadu-ds-dock-primary-action svg { width:18px; height:18px; }
+body.portal--workspace .cadu-ds-dock-primary-action:is(:hover,:focus-visible) { color:var(--cadu-accent) !important; }
+body.portal--workspace .cadu-ds-dock-shortcut {
+  width:44px;
+  min-height:44px;
+  margin:0 !important;
+  cursor:grab;
+  touch-action:none;
+}
+body.portal--workspace .cadu-ds-dock-shortcut:active { cursor:grabbing; }
+body.portal--workspace .cadu-ds-dock-shortcut > :is(button,a) { margin:0 !important; }

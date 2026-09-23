@@ -871,7 +871,7 @@ test('conversation history model restores messages, selected context and latest 
   assert.deepEqual(restored.messages[0].files, [{id: 'f1'}]);
   assert.equal(restored.messages[1].response.answer, 'Fallback');
   assert.deepEqual(restored.messages[1].artifact, {id: '41', title: 'Plano', type: 'document'});
-  assert.deepEqual(restored.messages[3].artifact, {id: '42', title: 'artefato', type: undefined});
+  assert.deepEqual(restored.messages[3].artifact, {id: '42', title: 'entrega', type: undefined});
   assert.deepEqual(model.restoreConversationMessages(null, () => 'unused'), {messages: [], selectedContext: null, lastArtifact: ''});
   assert.deepEqual(model.recentConversations([
     {id: 1, status: 'active'},
@@ -1000,7 +1000,7 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(app, /onCloseOtherTabs/);
   assert.match(app, /onCloseAllTabs/);
   assert.match(styles, /\.cv-artifact-tab-menu/);
-  assert.match(artifact, /Preparando o artefato/);
+  assert.match(artifact, /Preparando a entrega/);
   assert.match(styles, /\.cv-artifact-loading/);
 });
 
@@ -1009,6 +1009,56 @@ test('document editor never exposes a provider envelope as editable prose', () =
   assert.match(artifact, /decoded\?\.text\?\.content \|\| decoded\?\.answer/);
   assert.match(artifact, /An incomplete protocol envelope must not become editable content/);
   assert.match(artifact, /artifact_patch/);
+});
+
+test('pasted Google links stay compact and open inside the artifact reader without an API key', () => {
+  const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+
+  assert.match(composer, /onOpenLink\(\{url: detectedUrl/);
+  assert.match(composer, /href=\{detectedUrl\} target="_blank"/);
+  assert.match(conversation, /onOpenLink=\{onOpenResource\}/);
+  assert.doesNotMatch(composer, /Referência apenas/);
+  assert.doesNotMatch(composer, /Salvar não abre, lê ou indexa/);
+  assert.match(artifact, /if \(\/docs\\\.google\\\.com\/i\.test\(domain\)\)/);
+  assert.match(artifact, /guardar o link mesmo sem integração/);
+  assert.match(artifact, /embeddedfolderview\?id=/);
+  assert.match(styles, /\.cv-link-intake__card \{ display:flex; align-items:center; gap:8px/);
+});
+
+test('home and chat preserve an explicit free session and expose a project context selector', () => {
+  const home = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceHome.jsx'), 'utf8');
+  const selectors = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceSelectors.jsx'), 'utf8');
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
+
+  assert.match(home, /context_mode: projectRef \|\| brandRef \? 'bound' : 'free'/);
+  assert.match(app, /contextTransferReady/);
+  assert.match(app, /changeProject\('', \{showHistory: false\}\)/);
+  assert.match(app, /!contextTransferReady/);
+  assert.match(conversation, /<ChatContextSelector[^>]+projectsOnly/);
+  assert.match(selectors, /Sessão livre/);
+  assert.match(sidebar, /cv-free-session-panel/);
+  assert.match(sidebar, /Usar um projeto/);
+});
+
+test('dock and composer use one stable geometry without layered hover chrome', () => {
+  const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
+  const dockStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.css'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
+
+  assert.match(dock, /className=\{`cadu-ds-dock-shortcut[\s\S]+draggable=\{canReorder\}/);
+  assert.match(dockStyles, /position:sticky !important/);
+  assert.match(dockStyles, /width:64px !important/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action svg \{ width:18px; height:18px; \}/);
+  assert.match(dockStyles, /background:transparent !important;[\s\S]+color:var\(--cadu-nav-muted\) !important/);
+  assert.match(dockStyles, /\.cadu-ds-dock-primary-action:is\(:hover,:focus-visible\) \{ color:var\(--cadu-accent\) !important; \}/);
+  assert.match(styles, /\.cv-conversations-workarea::after/);
+  assert.match(styles, /height:150px/);
+  assert.match(styles, /border-radius:9px !important/);
 });
 
 test('meeting summaries use a dedicated semantic React editor', () => {

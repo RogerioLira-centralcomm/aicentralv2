@@ -517,7 +517,7 @@ def conversation_message():
             yield event("long_job.created", job={"id": job["id"], "title": spec.title, "kind": spec.kind,
                                                    "source_target": spec.source_target,
                                                    "token_budget": spec.token_budget})
-            response = {"answer": "Iniciei o trabalho em segundo plano. O conteúdo será construído por etapas e o artefato aparecerá assim que a primeira versão estiver pronta.",
+            response = {"answer": "Iniciei o trabalho em segundo plano. O conteúdo será construído por etapas e a primeira versão editável aparecerá assim que estiver pronta.",
                         "confidence": "high", "assumptions": [], "questions": [], "actions": [],
                         "artifact_patch": None, "citations": [], "blocks": []}
             yield event("answer.completed", response=response)
@@ -928,7 +928,7 @@ def public_artifact(artifact_id):
     title = html_escape(str(artifact.get("title") or "Cadu"), quote=True)
     css = str(content.get("css") or "").replace("</style", "<\\/style")
     javascript = str(content.get("js") or "").replace("</script", "<\\/script")
-    body = _clean_runtime_html(content.get("html"), 100_000)
+    body = _clean_runtime_html(content.get("html"), None)
     logo = str(content.get("logo_url") or "").strip()
     if not (logo.startswith("https://") or logo.startswith("/")):
         logo = ""

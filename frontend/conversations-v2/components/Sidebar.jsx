@@ -13,7 +13,7 @@ function TimerIcon() {
   return <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="9" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.3"/><path d="M8 9V6.2M6.2 2.1h3.6M11.8 4.2l1-1" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>;
 }
 
-export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', navUrls = {}, activeId, onOpen, onOpenLibrary, onNewConversation, onOrganize, onConversationAction, open, onClose, loading, openingId}) {
+export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', navUrls = {}, activeId, onOpen, onOpenLibrary, onNewConversation, onProjectChange, onOrganize, onConversationAction, open, onClose, loading, openingId}) {
   const sidebarRef = useRef(null);
   const previousFocus = useRef(null);
   const [query, setQuery] = useState('');
@@ -122,6 +122,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
       </header>
       {conversations.length > 6 && <label className="cv-recent-search"><Icon name="search" size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar conversa" aria-label="Buscar conversa"/></label>}
       <div className="cv-recent-list">
+        {!activeProject && <section className="cv-free-session-panel"><span>Sessão livre</span><strong>Comece sem amarrar a conversa a um projeto.</strong><button type="button" onClick={onNewConversation}><Icon name="compose" size={15}/>Nova conversa</button>{!!projects.length && <details><summary>Usar um projeto</summary><div>{projects.slice(0, 5).map(project => { const ref = project.ref || project.projectRef || project.id; return <button type="button" key={ref} onClick={() => onProjectChange?.(ref)}><Icon name="folder" size={13}/><span>{project.name}</span></button>; })}</div></details>}</section>}
         <button type="button" className="cv-recent-library-button" onClick={onOpenLibrary}><Icon name="file" size={16}/>Biblioteca</button>
         {dropSection('pinned', 'Conversas fixadas', pinned)}
         {dropSection('automation', 'Automações', automations)}

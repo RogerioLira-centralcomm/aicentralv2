@@ -53,7 +53,7 @@ export function WorkspaceChatComposer({
   value = '', onChange, onSubmit, attachments = [], onRemoveAttachment, onAttachmentPurposeChange,
   attachmentDestination = 'conversation', onAttachmentDestinationChange, hasProject = false,
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
-  composerContext, onClearContext, onContextDrop, onAttach, allowQueue = false, queuedCount = 0, embedded = false, homeMode = false,
+  composerContext, onClearContext, onContextDrop, onOpenLink, onAttach, allowQueue = false, queuedCount = 0, embedded = false, homeMode = false,
   projects = [], projectRef = '', onProjectChange, showProjectSelector = true,
   layout = 'desktop', disabled = false, onStateChange,
 }) {
@@ -195,12 +195,13 @@ export function WorkspaceChatComposer({
       {!!detectedUrl && detectedProfile && <div className="cv-link-intake cv-px-4 cv-pb-2" role="status" aria-live="polite">
         <div className="cv-link-intake__card">
           <span className="cv-link-intake__icon" aria-hidden="true">{detectedProfile.icon}</span>
-          <div className="cv-link-intake__meta"><strong>{detectedProfile.name}</strong><small>{detectedProfile.provider} · {detectedProfile.type}</small></div>
-          <span className="cv-link-intake__state">Referência apenas</span>
-        </div>
-        <div className="cv-link-intake__actions" id="cv-link-intake-note">
-          {hasProject ? <button type="button" onClick={saveLink}>Salvar como referência</button> : <span>Selecione um projeto para salvar</span>}
-          <small>Salvar não abre, lê ou indexa o conteúdo.</small>
+          <div className="cv-link-intake__meta"><strong>{detectedProfile.name}</strong><small>{detectedProfile.provider}</small></div>
+          <div className="cv-link-intake__actions">
+            {onOpenLink
+              ? <button type="button" onClick={() => onOpenLink({url: detectedUrl, title: detectedProfile.name, kind: detectedProfile.type, provider: detectedProfile.provider, access_type: 'reference'})}>Ver</button>
+              : <a href={detectedUrl} target="_blank" rel="noreferrer">Abrir</a>}
+            {hasProject && <button type="button" onClick={saveLink}>Salvar</button>}
+          </div>
         </div>
       </div>}
       <div className="cv-composer-actions cv-flex cv-items-center cv-justify-between">

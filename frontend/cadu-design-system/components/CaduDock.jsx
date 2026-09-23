@@ -463,8 +463,8 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
       <section className="cadu-ds-dock-section cadu-ds-dock-section--live" aria-label="Atalhos fixados">
         {items.map((item, index) => <React.Fragment key={shortcutIdentity(item)}>
           {insertIndex === index && <span className="cadu-ds-dock-insertion" aria-label={`Soltar na posição ${index + 1}`}/>}
-          <div className={`cadu-ds-dock-shortcut${draggedId === shortcutIdentity(item) ? ' is-dragging' : ''}`} data-dock-index={index} onDragEnd={clearDrag} onKeyDown={event => { if (event.altKey && event.key === 'ArrowUp') { event.preventDefault(); moveWithKeyboard(item, -1); } if (event.altKey && event.key === 'ArrowDown') { event.preventDefault(); moveWithKeyboard(item, 1); } }}>
-            {item.kind === 'brand' ? <DockBrandShortcut brand={item} active={item.active} onOpen={openItem} onDragStart={event => { writePayload(event, item); setDraggedId(shortcutIdentity(item)); }}/> : <DockResourceShortcut item={item} active={item.active} onOpen={openItem} onDragStart={event => { writePayload(event, item); setDraggedId(shortcutIdentity(item)); }}/>}
+          <div className={`cadu-ds-dock-shortcut${draggedId === shortcutIdentity(item) ? ' is-dragging' : ''}`} data-dock-index={index} draggable={canReorder} onDragStart={canReorder ? event => { writePayload(event, item); setDraggedId(shortcutIdentity(item)); } : undefined} onDragEnd={clearDrag} onKeyDown={event => { if (event.altKey && event.key === 'ArrowUp') { event.preventDefault(); moveWithKeyboard(item, -1); } if (event.altKey && event.key === 'ArrowDown') { event.preventDefault(); moveWithKeyboard(item, 1); } }}>
+            {item.kind === 'brand' ? <DockBrandShortcut brand={item} active={item.active} onOpen={openItem}/> : <DockResourceShortcut item={item} active={item.active} onOpen={openItem}/>}
           </div>
         </React.Fragment>)}
         {insertIndex === items.length && <span className="cadu-ds-dock-insertion" aria-label={`Soltar na posição ${items.length + 1}`}/>}

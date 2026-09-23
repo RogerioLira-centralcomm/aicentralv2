@@ -723,6 +723,17 @@ def test_project_link_is_an_explicit_confirmed_reference_action():
     assert action["arguments"]["url"].startswith("https://docs.google.com/")
 
 
+def test_project_url_without_link_noun_is_saved_without_calling_the_provider():
+    message = "adicionar ao projeto https://docs.google.com/document/d/abc/edit?tab=t.0"
+    route = route_request(message, has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message) if step["kind"] == "action")
+
+    assert route.action == "create_project_link"
+    assert route.needs_tools == ()
+    assert action["name"] == "projects.create_link_reference"
+    assert action["arguments"]["url"] == "https://docs.google.com/document/d/abc/edit?tab=t.0"
+
+
 def test_project_link_noun_phrase_is_saved_instead_of_answered_as_drive_help():
     message = "link importante da pasta no projeto https://drive.google.com/drive/folders/abc"
     route = route_request(message, has_project=True)
@@ -1971,6 +1982,55 @@ def test_normalizer_bounds_artifact_fields_and_citations():
     assert response.citations == [
         {"title": "Fonte", "url": "https://example.com", "excerpt": "Trecho"}
     ]
+
+
+def test_normalizer_preserves_complete_editable_delivery_without_silent_cuts():
+    long_value = "conteúdo integral " * 400
+    fields = [
+        {"key": f"Seção {index}", "value": long_value, "state": "confirmed"}
+        for index in range(105)
+    ]
+    response = normalize_response({
+        "answer": "A versão editável está pronta.",
+        "artifact_patch": {
+            "title": "Entrega completa",
+            "summary": "síntese " * 600,
+            "fields": fields,
+        },
+    }, {"mode": "artifact_first", "allow_artifact": True, "artifact_type": "document"})
+
+    assert len(response.artifact_patch["fields"]) == 105
+    assert response.artifact_patch["fields"][-1]["value"] == long_value.strip()
+    assert response.artifact_patch["summary"] == ("síntese " * 600).strip()
+
+
+def test_generic_client_delivery_language_opens_an_editable_result():
+    route = route_request(
+        "Organize tudo e deixe pronto para apresentar ao cliente amanhã.",
+        has_project=True,
+    )
+
+    assert route.action == "create_client_delivery"
+    assert route.response_mode == "artifact_first"
+    assert route.artifact_type == "document"
+
+
+def test_generic_delivery_language_never_shadows_a_specialized_editor():
+    meeting = route_request("Prepare uma pauta pronta para a reunião com o cliente.", has_project=True)
+    page = route_request("Monte uma landing page pronta para apresentar ao cliente.", has_project=True)
+
+    assert meeting.action == "create_meeting_agenda"
+    assert meeting.artifact_type == "meeting_agenda"
+    assert page.action == "create_html"
+    assert page.artifact_type == "html"
+
+
+def test_detailed_long_form_result_becomes_an_editable_delivery():
+    route = route_request("Monte um relatório completo com 900 palavras.", has_project=True)
+
+    assert route.action == "create_substantial_delivery"
+    assert route.response_mode == "artifact_first"
+    assert route.artifact_type == "document"
 
 
 def test_artifact_first_recovers_dense_markdown_into_editable_sections():

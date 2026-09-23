@@ -136,10 +136,13 @@ PUBLIC_TOOLS = frozenset({
     "brands.start_audit",
     "brands.audit_status",
     "artifacts.list",
+    "artifacts.describe_types",
     "artifacts.get",
     "artifacts.create_draft",
     "artifacts.update_draft",
     "artifacts.list_versions",
+    "artifacts.get_version",
+    "artifacts.restore_version",
     "artifacts.finalize_to_project",
     "reports.list_project_reports",
     "reports.get_report_metrics",
@@ -176,6 +179,7 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "brands.start_audit",
     "artifacts.create_draft",
     "artifacts.update_draft",
+    "artifacts.restore_version",
     "artifacts.finalize_to_project",
 })
 
@@ -205,6 +209,7 @@ RECOVERABLE_OPERATION_TOOLS = frozenset({
     "brands.use_asset_as_logo",
     "artifacts.create_draft",
     "artifacts.update_draft",
+    "artifacts.restore_version",
     "artifacts.finalize_to_project",
 })
 

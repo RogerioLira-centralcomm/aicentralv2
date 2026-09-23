@@ -31,9 +31,9 @@ def _document(artifact: dict, content: dict) -> str:
     title = str(artifact.get("title") or "Documento")
     artifact_type = str(artifact.get("type") or "document")
     if artifact_type == "html":
-        body = _clean_runtime_html(content.get("html"), 100_000)
-        css = str(content.get("css") or "")[:80_000].replace("</style", "<\\/style")
-        javascript = str(content.get("js") or "")[:80_000].replace("</script", "<\\/script")
+        body = _clean_runtime_html(content.get("html"), None)
+        css = str(content.get("css") or "").replace("</style", "<\\/style")
+        javascript = str(content.get("js") or "").replace("</script", "<\\/script")
         def color(value):
             return value if isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{3,8}", value) else ""
         primary, secondary = color(content.get("primary_color")), color(content.get("secondary_color"))
@@ -58,7 +58,7 @@ def _document(artifact: dict, content: dict) -> str:
 html,body{{margin:0;min-height:100%;background:#f8fafc}}{css}</style></head>
 <body>{brand_header}{body}{f'<script>{javascript}</script>' if javascript else ''}</body></html>"""
     else:
-        body = _clean_editor_html(content.get("html") or content.get("content") or "", 100_000)
+        body = _clean_editor_html(content.get("html") or content.get("content") or "", None)
         css = ""
         javascript = ""
     safe_title = (title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

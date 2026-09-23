@@ -69,18 +69,24 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "create_meeting_agenda": "Pauta da reunião",
         "create_text_draft": "Documento editável",
         "create_link_summary": "Resumo do site",
+        "create_client_delivery": "Entrega para revisão",
+        "create_substantial_delivery": "Documento completo",
         "save_to_project": "Documento do projeto",
     }.get(route.action, "Resultado do trabalho")
     policy["artifact_chat_message"] = {
-        "project_readout": "Concluí a leitura inicial. Organizei objetivos, entregas, riscos e decisões no artefato ao lado.",
-        "create_brief": "Estruturei o briefing no artefato ao lado. Os poucos pontos em aberto continuam editáveis.",
-        "create_meeting_summary": "Organizei a reunião no artefato ao lado. Revise decisões e pendências antes de salvar no projeto.",
-        "create_meeting_agenda": "Preparei a pauta no artefato ao lado. Ajuste os temas e o resultado esperado de cada bloco.",
+        "project_readout": "Concluí a leitura inicial. Organizei objetivos, entregas, riscos e decisões em um resumo editável.",
+        "create_brief": "Estruturei o briefing em uma versão editável. Os poucos pontos em aberto continuam destacados.",
+        "create_meeting_summary": "Organizei a reunião em uma ata editável. Revise decisões e pendências antes de salvar no projeto.",
+        "create_meeting_agenda": "Preparei a pauta editável. Ajuste os temas e o resultado esperado de cada bloco.",
         "create_text_draft": "Organizei o conteúdo completo em um documento editável, com título e seções para facilitar a leitura. Revise antes de salvar no projeto.",
-        "create_link_summary": "Preparei um resumo editável do conteúdo disponível no artefato ao lado.",
+        "create_link_summary": "Preparei um resumo editável do conteúdo disponível.",
+        "create_client_delivery": "Organizei o conteúdo em uma entrega privada e editável, pronta para sua revisão.",
+        "create_substantial_delivery": "Organizei o conteúdo completo em um documento editável para facilitar a revisão.",
         "save_to_project": "Organizei o conteúdo referenciado em um documento editável dentro do projeto ativo.",
-    }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
-    policy["artifact_scope"] = "session" if route.action == "create_text_draft" else "context"
+    }.get(route.action, "Organizei o resultado em uma versão editável para você revisar.")
+    policy["artifact_scope"] = "session" if route.action in {
+        "create_text_draft", "create_client_delivery", "create_substantial_delivery"
+    } else "context"
     resolved = resolve_context(route, request, routed_message, load_builtin_tools(), execution_mode)
     if route.action == "schedule_project_meeting":
         google_status = resolved.values.get("google.get_connector_status") or {}

@@ -112,7 +112,8 @@ def _clean_editor_html(value, limit=100000):
                 safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")[:2000]}"')
         return f"<{name}{''.join(safe_attrs)}>"
 
-    return re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)[:limit]
+    cleaned = re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)
+    return cleaned if limit is None else cleaned[:limit]
 
 
 def _clean_actions(values, limit):
@@ -216,7 +217,8 @@ def _clean_runtime_html(value, limit=100_000):
                 safe_attrs.append(f' {attr}="{value.replace(chr(34), "&quot;")[:2000]}"')
         return f"<{name}{''.join(safe_attrs)}>"
 
-    return re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)[:limit]
+    cleaned = re.sub(r"<\s*(/?)\s*([a-zA-Z0-9]+)([^>]*)>", tag, html)
+    return cleaned if limit is None else cleaned[:limit]
 
 
 def _as_bool(value):
@@ -442,24 +444,22 @@ def _clean_patch(value):
         if key:
             fields.append({
                 "key": key,
-                "value": _clean_text(item.get("value"), 4000),
+                "value": str(item.get("value") or "").strip(),
                 "state": state if state in allowed_states else "inferred",
             })
-        if len(fields) >= 100:
-            break
     patch = {
         "title": _clean_text(value.get("title"), 300),
-        "summary": _clean_text(value.get("summary"), 2000),
+        "summary": str(value.get("summary") or "").strip(),
         "fields": fields,
     }
     if any(key in value for key in ("html", "css", "js")):
         patch.update({
             "fields": [],
-            "html": (_clean_runtime_html(value.get("html"), 100_000)
+            "html": (_clean_runtime_html(value.get("html"), None)
                      if value.get("css") or value.get("js") else
-                     _clean_editor_html(value.get("html"), 100_000)),
-            "css": str(value.get("css") or "")[:30_000],
-            "js": str(value.get("js") or "")[:40_000],
+                     _clean_editor_html(value.get("html"), None)),
+            "css": str(value.get("css") or ""),
+            "js": str(value.get("js") or ""),
             "logo_url": _brand_asset_url(value.get("logo_url")),
             "primary_color": _clean_brand_color(value.get("primary_color")),
             "secondary_color": _clean_brand_color(value.get("secondary_color")),
@@ -586,10 +586,10 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     if not blocks:
         blocks = _fallback_blocks(answer, policy)
     if artifact_first and dense_answer:
-        answer = str(policy.get("artifact_chat_message") or "Organizei o resultado no artefato ao lado para você revisar e editar.")
+        answer = str(policy.get("artifact_chat_message") or "Organizei o resultado em uma versão editável para você revisar.")
     elif dense_answer and not blocks and policy.get("mode") != "clarification" and can_materialize_artifact:
         patch = patch or _fallback_artifact(answer, policy)
-        answer = "Organizei os detalhes no artefato ao lado para você revisar e editar."
+        answer = "Organizei os detalhes em uma versão editável para você revisar."
     elif blocks and not provider_blocks:
         # When we derive an interactive component from a list already present
         # in the prose, keep only its introduction to avoid rendering the same

@@ -200,13 +200,22 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         needs_tool = "projects.list_sources" if _has(text, r"\b(fontes?|base de conhecimento|indexad[oa])\b") else "projects.list_resources"
         return IntentRoute("workspace", "list_project_resources", "low", "analysis",
                            ("project",), (needs_tool,))
+    inline_project_url = re.search(
+        r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?",
+        text,
+        re.IGNORECASE,
+    )
     project_link_signal = has_project and (
         _has(text, r"\b(link|url|refer[eê]ncia|pasta)\b.{0,70}\bprojeto\b")
         or _has(text, r"\bprojeto\b.{0,70}\b(link|url|refer[eê]ncia|pasta)\b")
+        or (
+            inline_project_url
+            and _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*)\b.{0,45}\bprojeto\b")
+        )
     )
     if (_has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*).{0,45}\b(link|url|refer[eê]ncia|pasta)\b")
             or project_link_signal):
-        url_match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE)
+        url_match = inline_project_url
         has_url = bool(url_match and _usable_public_url(url_match.group(0)))
         if not has_project:
             return IntentRoute("workspace", "select_project_for_link" if has_url else "clarify_project_link",
@@ -309,6 +318,18 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if canonical.intent == "research_entity":
         return IntentRoute("research", "search_web", "high", "analysis",
                            ("project", "brand") if has_project else (), ("web.search",))
+    # Product language comes after specialized and canonical intents. It turns
+    # a generic request for something ready to use into an editable delivery
+    # without shadowing persistence, meeting, HTML or project operations.
+    if _has(
+        text,
+        r"\b(?:organiz|consolid|estrutur|prepar|deix|mont|transform)\w*\b.{0,90}"
+        r"\b(?:pronto|final|entrega|material|cliente|apresentar|compartilhar|reuni[aã]o)\b|"
+        r"\b(?:vers[aã]o final|material para (?:o )?cliente|pronto para apresentar|"
+        r"pronto para enviar|entrega final)\b",
+    ):
+        return IntentRoute("workspace", "create_client_delivery", "high", "artifact_first",
+                           ("project", "brand") if has_project else (), (), "document")
     if (not forbid_project_persistence
             and _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b")):
         return IntentRoute("workspace", "save_to_project", "medium", "artifact_first",
@@ -326,7 +347,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         r"\b(guia|relat[oó]rio|an[aá]lise|planejamento|documento)\b.{0,45}\b(completo|detalhado|aprofundado|extenso)\b|"
         r"\b(completo|detalhado|aprofundado|extenso)\b.{0,45}\b(guia|relat[oó]rio|an[aá]lise|planejamento|documento)\b",
     )
-    return IntentRoute(
-        surface if surface != "conversations" else "workspace", "answer",
-        "high" if substantial else "low", "analysis" if substantial else "direct",
-    )
+    if substantial:
+        return IntentRoute(surface if surface != "conversations" else "workspace",
+                           "create_substantial_delivery", "high", "artifact_first",
+                           ("project", "brand") if has_project else (), (), "document")
+    return IntentRoute(surface if surface != "conversations" else "workspace", "answer", "low", "direct")

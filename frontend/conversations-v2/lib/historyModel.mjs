@@ -34,7 +34,7 @@ export function restoreConversationMessages(items, makeId) {
       response,
       artifact: metadata.artifact_id ? {
         id: String(metadata.artifact_id),
-        title: response.artifact_patch?.title || 'artefato',
+        title: response.artifact_patch?.title || 'entrega',
         type: response.artifact_patch?.type,
       } : null,
     };

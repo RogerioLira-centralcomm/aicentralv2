@@ -4,6 +4,7 @@ from werkzeug.exceptions import HTTPException
 
 from ...agent_v2.contracts import RequestContext
 from ...artifacts import service
+from ...artifacts.catalog import definition, describe
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -13,6 +14,16 @@ def _domain(call):
         return call()
     except HTTPException as exc:
         raise ToolInputError(str(exc.description)) from exc
+
+
+@register_tool(
+    name="artifacts.describe_types", capability="artifacts", effect="read",
+    description="Lista as entregas reais suportadas, seus editores e capacidades; não inclui superfícies visuais temporárias.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+)
+def describe_types(_context: RequestContext, _arguments: dict) -> dict:
+    return {"types": describe()}
 
 
 @register_tool(
@@ -79,6 +90,8 @@ def update_draft(context: RequestContext, arguments: dict) -> dict:
     current = _domain(lambda: service.get_artifact(context, arguments["artifact_id"]))
     if current["status"] not in {"draft", "active"}:
         raise ToolInputError("Somente artefatos em rascunho ou ativos podem ser editados por esta ferramenta.")
+    if not definition(current["type"]).agent_editable:
+        raise ToolInputError("Este tipo de entrega é uma referência somente para leitura.")
     payload = {key: arguments[key] for key in ("artifact_id", "expected_version", "content")}
     payload.update({key: arguments[key] for key in ("title", "change_summary") if key in arguments})
     return _domain(lambda: operations.execute(arguments["request_id"], context, "artifacts.update_draft", payload,
@@ -100,6 +113,47 @@ def artifact_versions(context: RequestContext, arguments: dict) -> dict:
     return {"versions": _domain(lambda: service.list_versions(
         context, arguments["artifact_id"], limit=arguments.get("limit", 50),
     ))}
+
+
+@register_tool(
+    name="artifacts.get_version", capability="artifacts", effect="read",
+    description="Obtém uma versão imutável específica para comparação ou revisão.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["artifact_id", "version"], "properties": {
+        "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "version": {"type": "integer", "minimum": 1},
+    }, "additionalProperties": False},
+)
+def artifact_version(context: RequestContext, arguments: dict) -> dict:
+    return {"version": _domain(lambda: service.get_version(
+        context, arguments["artifact_id"], arguments["version"],
+    ))}
+
+
+@register_tool(
+    name="artifacts.restore_version", capability="artifacts", effect="draft",
+    description="Restaura uma versão anterior criando uma nova versão; nunca apaga o histórico.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "artifact_id", "version", "expected_version"],
+                  "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "version": {"type": "integer", "minimum": 1},
+        "expected_version": {"type": "integer", "minimum": 1},
+    }, "additionalProperties": False},
+)
+def restore_artifact_version(context: RequestContext, arguments: dict) -> dict:
+    payload = {key: arguments[key] for key in ("artifact_id", "version", "expected_version")}
+    def restore():
+        snapshot = service.get_version(context, arguments["artifact_id"], arguments["version"])
+        return service.patch_artifact(
+            context, arguments["artifact_id"], snapshot["content"],
+            expected_version=arguments["expected_version"],
+            change_summary=f"Versão {arguments['version']} restaurada via MCP",
+        )
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "artifacts.restore_version", payload, restore,
+    ))
 
 
 @register_tool(

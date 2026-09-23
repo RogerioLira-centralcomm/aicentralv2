@@ -11,7 +11,8 @@ import {meaningfulResponseBlocks, normalizeAnswerText} from '../lib/responseMode
 import {formatResponseParagraphs} from '../lib/responsePresentation.mjs';
 import {ConversationSupport} from './ConversationSupport';
 import {PendingInteraction, pendingInteraction} from './PendingInteraction';
-import {conversationContextLabel, conversationDisplayTitle} from '../lib/conversationPresentation.mjs';
+import {conversationDisplayTitle} from '../lib/conversationPresentation.mjs';
+import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
 
 async function copyText(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -126,7 +127,7 @@ function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource
   </div>;
 }
 
-export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, projects, brands, starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation}) {
+export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, projects, brands, starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, onProjectChange, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation}) {
   const details = useRef(null);
   const historyTrigger = useRef(null);
   const wasHistoryOpen = useRef(historyOpen);
@@ -138,7 +139,6 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
   const previousConversation = useRef(conversationId);
   const interaction = pendingInteraction(messages, running);
   const displayTitle = conversationDisplayTitle(title);
-  const activeContext = conversationContextLabel(context, projects, brands);
   const scrollToLatest = useCallback(() => {
     const element = threadScroll.current;
     if (element) element.scrollTop = element.scrollHeight;
@@ -189,7 +189,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
       {!historyOpen && <button ref={historyTrigger} type="button" onClick={onOpenHistory} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Abrir conversas recentes" aria-controls="cv-recent-sidebar" aria-expanded={historyOpen}><Icon name="menu"/></button>}
       <h1 className={`cv-conversation-title cv-m-0 cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap ${artifactOpen ? 'cv-hidden 2xl:cv-block' : ''}`} title={displayTitle}>{displayTitle}</h1>
       {interaction && <span className="cv-conversation-needs-action" title="Esta conversa aguarda sua decisão" aria-label="Ação necessária"><Icon name="alert" size={17}/></span>}
-      <span className="cv-conversation-context"><span className="cv-hidden cv-text-[11px] cv-text-[#78908c] sm:cv-inline">Contexto</span><span className="cv-chat-context-readonly" title="O contexto é identificado pela conversa ou por arrastar um projeto para o chat">{!contextLoading && <Icon name={activeContext.kind === 'project' ? 'folder' : activeContext.kind === 'brand' ? 'brand' : 'compose'} size={13}/>}<span>{contextLoading ? 'Lendo…' : activeContext.label}</span></span></span>
+      <span className="cv-conversation-context"><span className="cv-hidden cv-text-[11px] cv-text-[#78908c] sm:cv-inline">Contexto</span><ChatContextSelector context={context} projects={projects} brands={brands} onProjectChange={onProjectChange} disabled={running} loading={contextLoading} projectsOnly/></span>
       <button type="button" onClick={onOpenLibrary} className="cv-conversation-library-link" title="Abrir biblioteca do contexto"><Icon name="file" size={14}/><span>Biblioteca</span></button>
       <details ref={details} className="cv-conversation-support-popover cv-relative">
         <summary className={`cv-conversation-runtime ${running ? 'is-running' : ''} ${automation?.automation_enabled ? 'is-automation' : ''}`} aria-label={running ? runtime || 'Atividade em execução' : automation?.automation_enabled ? 'Automação ativa' : 'Saúde e atividade'} title={running ? runtime || 'Atividade em execução' : automation?.automation_enabled ? automation.schedule_label || 'Automação ativa' : 'Saúde e atividade'}><Icon name="pulse" size={17}/>{running ? <span>{runtime || 'Executando'}</span> : automation?.automation_enabled && <span>{automation.schedule_label || 'Automação ativa'}</span>}</summary>
@@ -205,7 +205,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
       scrollToLatest();
     }}><Icon name="chevron" size={14}/>Novas atualizações</button>}
     <ExecutionQueue items={queuedTurns} onUpdate={onUpdateQueuedTurn} onRemove={onRemoveQueuedTurn} onMove={onMoveQueuedTurn}/>
-    <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop} layout={shellV2 ? layout : 'desktop'} disabled={contextLoading} onStateChange={setComposerStatus}/>
-    {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
+    <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop} onOpenLink={onOpenResource} layout={shellV2 ? layout : 'desktop'} disabled={contextLoading} onStateChange={setComposerStatus}/>
+    {artifactOpen && <span className="cv-sr-only">Entrega aberta ao lado da conversa</span>}
   </section>;
 }

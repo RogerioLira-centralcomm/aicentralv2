@@ -1904,7 +1904,7 @@ def test_project_overview_uses_active_project_context_without_follow_up():
 
     assert route.action == "describe_project"
     assert route.needs_context == ("project",)
-    assert route.needs_tools == ("workspace.get_project_context",)
+    assert route.needs_tools == ("workspace.search_project_content",)
     assert policy_for(route)["max_questions"] == 0
     assert policy_for(route)["max_next_steps"] == 0
 
@@ -1918,7 +1918,7 @@ def test_colloquial_project_overview_uses_active_project_context(message):
     route = route_request(message, has_project=True)
 
     assert route.action == "describe_project"
-    assert route.needs_tools == ("workspace.get_project_context",)
+    assert route.needs_tools == ("workspace.search_project_content",)
 
 
 def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
@@ -1927,7 +1927,7 @@ def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
         message="Do que se trata este projeto?",
         request=context(project_ref="project-1"),
         route=route,
-        resolved={"workspace.get_project_context": {"projeto": {"nome": "Campanhas"}}},
+        resolved={"workspace.search_project_content": {"project": {"nome": "Campanhas"}, "results": []}},
         policy=policy_for(route),
         user_label="Pessoa",
     )
@@ -1936,6 +1936,23 @@ def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
     assert "não peça descrição, README ou briefing" in payload["inputs"]["core"]
     assert "visibilidade, fontes existentes" in payload["inputs"]["core"]
     assert "Seja proativo" in payload["inputs"]["core"]
+
+
+def test_project_objective_question_searches_all_project_records_and_requires_real_source():
+    message = "Qual é o objetivo deste projeto? Responda em até três frases e indique de onde veio a informação."
+    route = route_request(message, has_project=True)
+    assert route.action == "describe_project"
+    assert route.needs_tools == ("workspace.search_project_content",)
+    payload = build_payload(
+        message=message,
+        request=context(project_ref="ci:project-1"),
+        route=route,
+        resolved={"workspace.search_project_content": {"project": {"nome": "Campanhas"}, "results": []}},
+        policy=policy_for(route),
+        user_label="Pessoa",
+    )
+    assert "atividades, documentos, links" in payload["inputs"]["core"]
+    assert "não cite uma fonte hipotética" in payload["inputs"]["core"]
 
 
 def test_new_project_and_brand_open_their_context_surfaces_after_creation():

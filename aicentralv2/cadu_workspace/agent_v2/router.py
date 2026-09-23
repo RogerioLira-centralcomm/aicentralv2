@@ -161,13 +161,13 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     ) and not _has(text, r"\b(?:tudo|completo|detalhado|panorama|vis[aã]o geral)\b")
     if has_project and specific_project_field:
         return IntentRoute("workspace", "describe_project", "low", "analysis",
-                           ("project",), ("workspace.get_project_context",))
+                           ("project",), ("workspace.search_project_content",))
     if has_project and project_overview:
         if broad_project_overview:
             return IntentRoute("workspace", "project_readout", "high", "artifact_first",
                                ("project",), ("workspace.search_project_content",), "executive_summary")
         return IntentRoute("workspace", "describe_project", "low", "analysis",
-                           ("project",), ("workspace.get_project_context",))
+                           ("project",), ("workspace.search_project_content",))
 
     project_context_question = _has(
         text,

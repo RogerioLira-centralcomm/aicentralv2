@@ -195,8 +195,12 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         )
     if route.action == "describe_project":
         brand_instruction += (
-            " O usuário pediu uma explicação do projeto ativo. Use o contexto retornado por workspace.get_project_context "
-            "e responda primeiro, de forma direta, com o que o projeto é e seu objetivo. Depois acrescente, quando disponíveis, "
+            " O usuário pediu uma explicação do projeto ativo. Use a direção, os metadados e os resultados com origem "
+            "retornados por workspace.search_project_content. Para perguntas sobre um campo específico, procure também "
+            "nas atividades, documentos, links e demais registros do projeto antes de concluir que a informação falta. "
+            "Quando o usuário pedir a origem, cite o registro ou campo concreto encontrado; não cite uma fonte hipotética. "
+            "Responda primeiro, de forma direta, com o que o projeto é e seu objetivo. Respeite o limite de extensão pedido "
+            "pelo usuário. Em pedidos de panorama, acrescente, quando disponíveis, "
             "escopo, instruções de trabalho, público, posicionamento, marca vinculada, visibilidade, fontes existentes, estado de atualização "
             "e decisões já registradas. Diferencie dados salvos de inferências e destaque no máximo três lacunas que realmente limitam o trabalho. "
             "Não diga que não tem acesso ao projeto, não peça descrição, README ou briefing já representados na evidência "

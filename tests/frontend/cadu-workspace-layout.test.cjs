@@ -145,11 +145,13 @@ async function dimensions(page, contentClass) {
     const conversationMobile = await page.evaluate(() => ({
       dockDisplay: getComputedStyle(document.querySelector('.cadu-ds-dock')).display,
       recentPosition: getComputedStyle(document.querySelector('.cv-recent-sidebar')).position,
+      workareaPaddingBottom: getComputedStyle(document.querySelector('.cv-conversations-workarea')).paddingBottom,
       scrollWidth: document.documentElement.scrollWidth,
       viewport: document.documentElement.clientWidth,
     }));
     assert.equal(conversationMobile.dockDisplay, 'none', 'Conversas: Dock oculta no mobile');
     assert.equal(conversationMobile.recentPosition, 'fixed', 'Conversas: recentes sobrepostos no mobile');
+    assert.equal(conversationMobile.workareaPaddingBottom, '0px', 'Conversas: não reserva espaço para a Dock mobile oculta');
     assert.equal(conversationMobile.scrollWidth, conversationMobile.viewport, 'Conversas: sem overflow mobile');
 
     for (const viewport of [

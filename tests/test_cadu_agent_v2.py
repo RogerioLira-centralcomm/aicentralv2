@@ -2695,6 +2695,26 @@ def test_html_runtime_markup_keeps_tailwind_classes_and_removes_script_tags():
     assert response.artifact_patch["logo_url"] == "/static/logo.svg"
 
 
+def test_html_runtime_without_separate_css_keeps_layout_classes():
+    response = normalize_response({
+        "answer": "Dashboard pronto.",
+        "artifact_patch": {"title": "Dashboard", "html": "<main class='grid p-6'><h1>Resultado</h1></main>"},
+    }, {"allow_artifact": True, "artifact_type": "html", "mode": "artifact_first", "max_questions": 0, "max_next_steps": 0})
+
+    assert response.artifact_patch is not None
+    assert 'class="grid p-6"' in response.artifact_patch["html"]
+
+
+def test_html_runtime_rejects_title_only_artifact_patch():
+    response = normalize_response({
+        "answer": "Dashboard pronto.",
+        "artifact_patch": {"title": "Dashboard"},
+    }, {"allow_artifact": True, "artifact_type": "html", "mode": "artifact_first", "max_questions": 0, "max_next_steps": 0})
+
+    assert response.artifact_patch is None
+    assert response.answer == "Não consegui gerar o conteúdo visual desta página. Tente novamente para eu reconstruir o dashboard."
+
+
 def test_analysis_answer_preserves_natural_sentence_boundaries():
     response = normalize_response(
         {"answer": "A Nike combina performance e cultura. A oportunidade está em comunidade."},

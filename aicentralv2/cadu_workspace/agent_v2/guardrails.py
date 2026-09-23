@@ -417,7 +417,7 @@ def _decode_provider_value(raw):
     return value
 
 
-def _clean_patch(value):
+def _clean_patch(value, artifact_type=None):
     if not isinstance(value, dict):
         return None
     # A provider envelope is protocol, never editable document content. Reject
@@ -456,7 +456,7 @@ def _clean_patch(value):
         patch.update({
             "fields": [],
             "html": (_clean_runtime_html(value.get("html"), None)
-                     if value.get("css") or value.get("js") else
+                     if artifact_type == "html" or value.get("css") or value.get("js") else
                      _clean_editor_html(value.get("html"), None)),
             "css": str(value.get("css") or ""),
             "js": str(value.get("js") or ""),
@@ -575,9 +575,18 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     # Failing closed is important here: only the executor may opt into an
     # artifact after the router selected a concrete artifact type.
     can_materialize_artifact = bool(policy.get("allow_artifact", False))
-    patch = _clean_patch(value.get("artifact_patch"))
+    artifact_type = policy.get("artifact_type")
+    patch = _clean_patch(value.get("artifact_patch"), artifact_type=artifact_type)
+    invalid_html_patch = False
     if not can_materialize_artifact:
         patch = None
+    elif artifact_type == "html" and patch and not str(patch.get("html") or "").strip():
+        # A title-only patch creates a valid artifact record with an empty
+        # document, which the browser can only present as a blank white page.
+        patch = None
+        invalid_html_patch = True
+    if invalid_html_patch:
+        answer = "Não consegui gerar o conteúdo visual desta página. Tente novamente para eu reconstruir o dashboard."
     artifact_first = (can_materialize_artifact and policy.get("mode") == "artifact_first"
                       and policy.get("artifact_type") not in {None, "html", "project_map"})
     if artifact_first and not patch:

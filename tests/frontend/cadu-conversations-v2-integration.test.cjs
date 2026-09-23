@@ -628,6 +628,8 @@ test('chat theme is locked dark and interaction flows avoid native browser promp
   assert.match(tokens, /\[data-cadu-skin="conversations"\]\[data-cadu-theme="light"\]/);
   assert.doesNotMatch(`${artifact}\n${app}`, /window\.(?:alert|confirm|prompt)\s*\(/);
   assert.match(artifact, /cv-artifact-url-dialog/);
+  assert.match(artifact, /srcDoc=\{htmlDocument\(content, artifact\.title\)\}/, 'HTML usa a prévia já carregada sem depender de uma segunda requisição');
+  assert.match(artifact, /Esta página não possui conteúdo/, 'HTML vazio apresenta diagnóstico em vez de uma tela branca');
   assert.match(artifact, /<CaduDialog/);
   assert.match(styles, /@media\(max-width:560px\)[^\n]*cv-conversation-title[^\n]*font-size:15px!important/);
   assert.match(styles, /cv-composer-input \{ min-height:46px;[^\n]*font-size:16px !important/);

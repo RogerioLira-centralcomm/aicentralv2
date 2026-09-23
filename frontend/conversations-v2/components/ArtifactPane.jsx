@@ -199,8 +199,11 @@ function RichDocumentArtifact({artifact, onChange}) {
 }
 
 function HtmlArtifact({artifact}) {
-  const rendered = artifact.id ? `/workspace/api/v2/artifacts/${encodeURIComponent(artifact.id)}/render?version=${encodeURIComponent(artifact.current_version || 1)}` : '';
-  return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" src={rendered || undefined} srcDoc={rendered ? undefined : htmlDocument(artifact.content || {}, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
+  const content = artifact.content || {};
+  if (!String(content.html || '').trim()) {
+    return <div className="cv-artifact-loading is-failed" role="status"><strong>Esta página não possui conteúdo</strong><span>O HTML desta versão não foi gerado. Peça ao Cadu para criar novamente o dashboard.</span></div>;
+  }
+  return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={htmlDocument(content, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
 }
 
 function imageSource(artifact) {

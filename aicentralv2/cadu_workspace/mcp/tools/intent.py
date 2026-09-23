@@ -3,6 +3,7 @@
 from dataclasses import replace
 from html import escape
 
+from ....cadu_family import repository
 from ...intent_engine import interpret
 from ...agent_v2.contracts import RequestContext
 from ...artifacts import service as artifact_service
@@ -56,6 +57,31 @@ def _document_content(title: str, source: str, provenance: dict | None = None) -
     return content
 
 
+def _verified_provenance(context: RequestContext, source_input: dict, content: str) -> dict:
+    source_type = str(source_input.get("type") or "inline_content")
+    source_id = str(source_input.get("id") or "").strip()
+    provenance = {
+        "conversation_id": str(context.conversation_id or "") or None,
+        "source_type": source_type,
+        "source_id": source_id or None,
+    }
+    if source_type == "cadu_message":
+        if not source_id or not context.conversation_id:
+            raise ToolInputError("Uma mensagem de origem exige source.id e conversation_id válidos.")
+        rows = repository.rows("""SELECT 1 FROM cadu_conversation_messages m
+            JOIN cadu_conversations c ON c.id=m.conversation_id
+            WHERE m.id=%s AND m.conversation_id=%s AND m.content=%s
+              AND c.id_cliente=%s AND c.id_contato_cliente=%s LIMIT 1""",
+            (source_id, context.conversation_id, content, context.client_id, context.user_id))
+        if not rows:
+            raise ToolInputError("A mensagem de origem não pertence a esta conversa ou seu conteúdo diverge.")
+    elif source_type == "artifact":
+        if not source_id:
+            raise ToolInputError("Um artefato de origem exige source.id.")
+        artifact_service.get_artifact(context, source_id)
+    return {key: value for key, value in provenance.items() if value is not None}
+
+
 @register_tool(
     name="intent.execute", capability="artifacts", effect="write",
     description=(
@@ -91,12 +117,7 @@ def execute_intent(context: RequestContext, arguments: dict) -> dict:
     if not title:
         title = " ".join(source.split())[:90].rstrip(".,;:") or "Documento da conversa"
     target = context if result.intent == "persist_content" else replace(context, project_ref=None)
-    provenance = {
-        "conversation_id": str(context.conversation_id or "") or None,
-        "source_type": str(source_input.get("type") or "inline_content"),
-        "source_id": str(source_input.get("id") or "") or None,
-    }
-    provenance = {key: value for key, value in provenance.items() if value is not None}
+    provenance = _verified_provenance(context, source_input, source)
     fingerprint = {"intent_id": result.intent_id, "title": title,
                    "destination": result.destination, "source": source,
                    "source_type": provenance.get("source_type"), "source_id": provenance.get("source_id")}

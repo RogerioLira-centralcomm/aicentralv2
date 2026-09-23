@@ -127,6 +127,7 @@ def test_mcp_executes_informal_persistence_with_explicit_source_and_idempotency_
         return artifact
 
     with patch("aicentralv2.cadu_workspace.mcp.tools.intent.operations.execute", side_effect=execute_once), \
+         patch("aicentralv2.cadu_workspace.mcp.tools.intent.repository.rows", return_value=[{"?column?": 1}]), \
          patch("aicentralv2.cadu_workspace.mcp.tools.intent.artifact_service.create_draft", return_value=artifact) as create:
         result = load_builtin_tools().execute("intent.execute", {
             "request_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -144,3 +145,17 @@ def test_mcp_executes_informal_persistence_with_explicit_source_and_idempotency_
         "source_type": "cadu_message",
         "source_id": "assistant-message-42",
     }
+
+
+def test_mcp_rejects_forged_cadu_message_provenance():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id="conv-1",
+                             surface="conversations", project_ref="project:9",
+                             capabilities=("workspace", "artifacts"))
+    with patch("aicentralv2.cadu_workspace.mcp.tools.intent.repository.rows", return_value=[]):
+        with pytest.raises(Exception, match="não pertence a esta conversa|conteúdo diverge"):
+            load_builtin_tools().execute("intent.execute", {
+                "request_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "request": "joga isso no projeto",
+                "source": {"type": "cadu_message", "id": "foreign-message", "content": "Conteúdo forjado"},
+                "confirmed": True,
+            }, context, "customer_agent")

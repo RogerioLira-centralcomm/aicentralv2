@@ -2994,7 +2994,11 @@ class CreativeModelingService:
                 # the visual resolver after ownership and logo identity have
                 # been reconciled; otherwise a partner mark can leak into the
                 # active brand simply because it appeared on the official site.
-                "status": "pending" if role == "logo" else "approved",
+                # The persistence contract names unreviewed assets
+                # ``candidate`` (not ``pending``). Keep discovered logos out
+                # of the active identity until the visual resolver approves
+                # them, while still using a value accepted by the database.
+                "status": "candidate" if role == "logo" else "approved",
                 "is_primary": bool(candidate.get("is_primary") and role == "logo"),
                 "metadata": {
                     "category": candidate.get("category"),

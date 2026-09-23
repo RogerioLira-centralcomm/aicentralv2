@@ -1375,7 +1375,7 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual([item["role"] for item in assets], ["reference", "logo"])
         self.assertFalse(assets[1]["is_primary"])
 
-    def test_logo_coletada_do_site_fica_pendente_ate_resolucao_visual(self):
+    def test_logo_coletada_do_site_fica_candidata_ate_resolucao_visual(self):
         saved = []
         self.repo.add_client_brand_asset = (
             lambda client_id, data: saved.append(data) or len(saved)
@@ -1385,7 +1385,7 @@ class CreativeServiceTest(unittest.TestCase):
             "role": "logo", "source_url": "https://marca.com/parceiro.svg",
         }]})
 
-        self.assertEqual(saved[0]["status"], "pending")
+        self.assertEqual(saved[0]["status"], "candidate")
         self.assertFalse(saved[0]["is_primary"])
 
     def test_treino_de_formato_devolve_pipeline(self):

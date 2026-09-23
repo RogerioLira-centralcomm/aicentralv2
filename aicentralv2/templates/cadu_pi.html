@@ -1,4 +1,5 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 
 {% block page_label %}{% if origem_lista in ['nf_emitida', 'faturamento'] %}Financeiro{% else %}Comercial{% endif %}{% endblock %}
 {% block page_subtitle %}{% if origem_lista == 'nf_emitida' %}Notas fiscais e pagamentos dos PIs{% elif origem_lista == 'faturamento' %}PIs no financeiro{% else %}Gestão comercial e operacional de PIs{% endif %}{% endblock %}
@@ -6,9 +7,9 @@
 {% block title %}PIs - CentralComm AI{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=3">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=16">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=17">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -25,15 +26,7 @@
 
   <main class="pi-list-surface{% if origem_lista != 'nf_emitida' %} camp-list-content{% endif %}{% if sub_status_atual|string in ['1', '2', '3'] %} pi-list-surface--grid{% endif %}">
   {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="mb-2 space-y-1">
-        {% for category, message in messages %}
-          <div class="cx-alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span class="text-[10px]">{{ message }}</span>
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
+    {% if messages %}<div class="mb-3">{{ flash_messages(messages) }}</div>{% endif %}
   {% endwith %}
     {% if (visao_por_agencia|default(false) and agencias_grupo) or (not visao_por_agencia|default(false) and pis) %}
       <div class="cx-table-scroll{% if sub_status_atual|string in ['1', '2', '3'] %} cx-table-scroll--grid{% endif %}">
@@ -377,77 +370,77 @@
 {# ====== SIDEBAR PI — dados complementares ====== #}
 <div class="sidebar-overlay" id="piSidebarOverlay" onclick="fecharSidebarPi()" hidden aria-hidden="true"></div>
 <div class="sidebar-panel" id="piSidebarPanel" hidden aria-hidden="true">
-  <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
-    <h3 class="font-bold text-gray-800 text-base truncate" id="piSidebarTitle">Detalhes do PI</h3>
-    <button type="button" onclick="fecharSidebarPi()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-      <i class="fa-solid fa-xmark text-gray-500"></i>
+  <div class="pi-sidebar-header">
+    <h3 class="truncate" id="piSidebarTitle">Detalhes do PI</h3>
+    <button type="button" onclick="fecharSidebarPi()" class="cx-btn cx-btn-icon cx-btn-ghost cx-btn-sm" aria-label="Fechar painel">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
   </div>
-  <div class="flex flex-wrap gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/80">
-    <button type="button" class="pi-sidebar-tab-btn active" data-tab="resumo">Resumo</button>
-    <button type="button" class="pi-sidebar-tab-btn" data-tab="anotacoes">Anotações</button>
-    <button type="button" class="pi-sidebar-tab-btn" data-tab="documentos">Documentos</button>
-    <button type="button" class="pi-sidebar-tab-btn" data-tab="contatos">Contatos</button>
-    <button type="button" class="pi-sidebar-tab-btn" data-tab="historico">Histórico</button>
+  <div class="cx-tabs pi-sidebar-tabs flex-wrap gap-y-1 px-4 py-2 border-b border-slate-200 bg-slate-50" role="tablist" aria-label="Seções do PI">
+    <button type="button" class="cx-tab cx-tab-active pi-sidebar-tab-btn" role="tab" data-tab="resumo">Resumo</button>
+    <button type="button" class="cx-tab pi-sidebar-tab-btn" role="tab" data-tab="anotacoes">Anotações</button>
+    <button type="button" class="cx-tab pi-sidebar-tab-btn" role="tab" data-tab="documentos">Documentos</button>
+    <button type="button" class="cx-tab pi-sidebar-tab-btn" role="tab" data-tab="contatos">Contatos</button>
+    <button type="button" class="cx-tab pi-sidebar-tab-btn" role="tab" data-tab="historico">Histórico</button>
   </div>
 
   <div class="pi-sidebar-tab-content p-4" id="pi-tab-resumo">
-    <div class="space-y-3 text-sm">
-      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Cliente</span><div class="font-semibold text-gray-800 mt-0.5" id="piResumoCliente">—</div></div>
-      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Agência</span><div class="text-gray-700 mt-0.5" id="piResumoAgencia">—</div></div>
-      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Executivo</span><div class="text-gray-700 mt-0.5" id="piResumoExecutivo">—</div></div>
-      <div><span class="text-[10px] font-semibold uppercase text-gray-400">Status</span><div class="mt-0.5" id="piResumoStatus">—</div></div>
+    <div class="pi-sidebar-dl">
+      <div><span class="cx-label">Cliente</span><div class="pi-sidebar-dl__value" id="piResumoCliente">—</div></div>
+      <div><span class="cx-label">Agência</span><div class="pi-sidebar-dl__value" id="piResumoAgencia">—</div></div>
+      <div><span class="cx-label">Executivo</span><div class="pi-sidebar-dl__value" id="piResumoExecutivo">—</div></div>
+      <div><span class="cx-label">Status</span><div class="mt-0.5" id="piResumoStatus">—</div></div>
     </div>
   </div>
 
   <div class="pi-sidebar-tab-content p-4 hidden" id="pi-tab-anotacoes">
-    <div class="space-y-3">
-      <div>
-        <label class="text-[10px] font-semibold text-gray-600 block mb-1">Observações de operação</label>
-        <textarea id="piObsOperacao" rows="3" class="w-full text-[11px] border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400" placeholder="Instruções e notas da operação..."></textarea>
+    <div class="grid gap-3">
+      <label class="cx-field">
+        <span class="cx-label">Observações de operação</span>
+        <textarea id="piObsOperacao" rows="3" class="cx-textarea cx-textarea-sm w-full" placeholder="Instruções e notas da operação..."></textarea>
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Observações financeiras</span>
+        <textarea id="piObsFinanceiro" rows="3" class="cx-textarea cx-textarea-sm w-full" placeholder="Notas para o financeiro..."></textarea>
+      </label>
+      <div id="piAnotacoesEmpty" class="hidden cx-empty-state py-4">
+        <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+        <p>Nenhuma anotação ainda. Use os campos acima para registrar informações.</p>
       </div>
-      <div>
-        <label class="text-[10px] font-semibold text-gray-600 block mb-1">Observações financeiras</label>
-        <textarea id="piObsFinanceiro" rows="3" class="w-full text-[11px] border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400" placeholder="Notas para o financeiro..."></textarea>
-      </div>
-      <div id="piAnotacoesEmpty" class="hidden text-center py-4 text-gray-400 text-[11px]">
-        <i class="fa-solid fa-pen-to-square text-2xl mb-2 block text-gray-300"></i>
-        Nenhuma anotação ainda. Use os campos acima para registrar informações.
-      </div>
-      <button type="button" onclick="PiListUI.salvarComplementar()" class="pi-sidebar-save-btn w-full py-2 text-[11px] font-semibold bg-gray-800 text-white rounded-lg hover:bg-gray-700">Salvar anotações</button>
+      <button type="button" onclick="PiListUI.salvarComplementar()" class="cx-btn cx-btn-primary cx-btn-sm w-full pi-sidebar-save-btn">Salvar anotações</button>
     </div>
   </div>
 
   <div class="pi-sidebar-tab-content p-4 hidden" id="pi-tab-documentos">
-    <div class="space-y-3 mb-4">
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Pasta principal (Drive)</label><input type="url" id="piGdrivePrinc" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5" placeholder="https://..."></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Pasta financeiro</label><input type="url" id="piGdriveFinanc" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5"></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Pasta peças</label><input type="url" id="piGdrivePecas" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5"></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Arquivos assinados</label><input type="url" id="piGdriveArq" class="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5"></div>
-      <button type="button" onclick="PiListUI.salvarComplementar()" class="pi-sidebar-save-btn w-full py-2 text-[11px] font-semibold bg-gray-800 text-white rounded-lg hover:bg-gray-700">Salvar pastas</button>
+    <div class="grid gap-3 mb-4">
+      <label class="cx-field"><span class="cx-label">Pasta principal (Drive)</span><input type="url" id="piGdrivePrinc" class="cx-input cx-input-sm w-full" placeholder="https://..."></label>
+      <label class="cx-field"><span class="cx-label">Pasta financeiro</span><input type="url" id="piGdriveFinanc" class="cx-input cx-input-sm w-full"></label>
+      <label class="cx-field"><span class="cx-label">Pasta peças</span><input type="url" id="piGdrivePecas" class="cx-input cx-input-sm w-full"></label>
+      <label class="cx-field"><span class="cx-label">Arquivos assinados</span><input type="url" id="piGdriveArq" class="cx-input cx-input-sm w-full"></label>
+      <button type="button" onclick="PiListUI.salvarComplementar()" class="cx-btn cx-btn-primary cx-btn-sm w-full pi-sidebar-save-btn">Salvar pastas</button>
     </div>
-    <h4 class="text-[10px] font-semibold uppercase text-gray-400 mb-2">Links vinculados</h4>
+    <h4 class="cx-label mb-2">Links vinculados</h4>
     <div id="piLinksLista" class="mb-3"></div>
-    <div id="piLinksEmpty" class="text-center py-4 text-gray-400 text-[11px]">
-      <i class="fa-solid fa-link text-2xl mb-2 block text-gray-300"></i>
-      Nenhum link vinculado. Adicione o primeiro abaixo.
+    <div id="piLinksEmpty" class="cx-empty-state py-4">
+      <i class="fa-solid fa-link" aria-hidden="true"></i>
+      <p>Nenhum link vinculado. Adicione o primeiro abaixo.</p>
     </div>
     <div class="flex gap-2 mt-2 pi-sidebar-edit-row">
-      <input type="url" id="piNovoLinkUrl" placeholder="URL" class="flex-1 text-[11px] border border-gray-200 rounded px-2 py-1.5">
-      <input type="text" id="piNovoLinkDesc" placeholder="Descrição" class="w-28 text-[11px] border border-gray-200 rounded px-2 py-1.5">
-      <button type="button" onclick="PiListUI.adicionarLink()" class="px-3 py-1.5 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">+</button>
+      <input type="url" id="piNovoLinkUrl" placeholder="URL" class="cx-input cx-input-sm flex-1 min-w-0">
+      <input type="text" id="piNovoLinkDesc" placeholder="Descrição" class="cx-input cx-input-sm w-28">
+      <button type="button" onclick="PiListUI.adicionarLink()" class="cx-btn cx-btn-secondary cx-btn-sm" aria-label="Adicionar link">+</button>
     </div>
   </div>
 
   <div class="pi-sidebar-tab-content p-4 hidden" id="pi-tab-contatos">
-    <div class="space-y-3 text-[11px]">
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Financ. cliente</label><select id="pi_contato_fin_cliente" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Mídia cliente</label><select id="pi_contato_midia_cliente" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Financ. agência</label><select id="pi_contato_fin_agencia" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Mídia agência</label><select id="pi_contato_midia_agencia" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Financ. parceiro</label><select id="pi_contato_fin_parceiro" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
-      <div><label class="text-[10px] font-semibold text-gray-600 block mb-1">Mídia parceiro</label><select id="pi_contato_midia_parceiro" class="w-full border border-gray-200 rounded px-2 py-1.5"></select></div>
-      <button type="button" onclick="PiListUI.salvarComplementar()" class="pi-sidebar-save-btn w-full py-2 text-[11px] font-semibold bg-gray-800 text-white rounded-lg hover:bg-gray-700">Salvar contatos</button>
+    <div class="grid gap-3">
+      <label class="cx-field"><span class="cx-label">Financ. cliente</span><select id="pi_contato_fin_cliente" class="cx-select cx-select-sm w-full"></select></label>
+      <label class="cx-field"><span class="cx-label">Mídia cliente</span><select id="pi_contato_midia_cliente" class="cx-select cx-select-sm w-full"></select></label>
+      <label class="cx-field"><span class="cx-label">Financ. agência</span><select id="pi_contato_fin_agencia" class="cx-select cx-select-sm w-full"></select></label>
+      <label class="cx-field"><span class="cx-label">Mídia agência</span><select id="pi_contato_midia_agencia" class="cx-select cx-select-sm w-full"></select></label>
+      <label class="cx-field"><span class="cx-label">Financ. parceiro</span><select id="pi_contato_fin_parceiro" class="cx-select cx-select-sm w-full"></select></label>
+      <label class="cx-field"><span class="cx-label">Mídia parceiro</span><select id="pi_contato_midia_parceiro" class="cx-select cx-select-sm w-full"></select></label>
+      <button type="button" onclick="PiListUI.salvarComplementar()" class="cx-btn cx-btn-primary cx-btn-sm w-full pi-sidebar-save-btn">Salvar contatos</button>
     </div>
   </div>
 
@@ -670,7 +663,7 @@
         </div>
         <div>
           <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Status</label>
-          <select id="nf_status" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+          <select id="nf_status" class="cx-select cx-select-xs w-full">
             <option value="">Selecione</option>
             {% for st in statuses_nf %}
             <option value="{{ st.id }}">{{ st.descricao }}</option>
@@ -1133,7 +1126,7 @@
 
 <script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=2"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
-<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=10"></script>
 <script>
 function showConfirm(title, msg, onConfirm) {
   document.getElementById('modal_confirm_title').textContent = title;

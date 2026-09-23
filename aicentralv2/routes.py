@@ -3298,6 +3298,8 @@ def init_routes(app):
             estados = db.obter_estados()
             setores = db.obter_setores()
 
+            query_params = {k: v for k, v in request.args.items() if k != 'page'}
+
             return render_template(
                 'clientes.html',
                 clientes=resultado['clientes'],
@@ -3307,6 +3309,7 @@ def init_routes(app):
                 per_page=resultado['per_page'],
                 vendedores_cc=vendedores_cc,
                 filtros=filtros,
+                query_params=query_params,
                 agencias=agencias,
                 tipos_cliente=tipos_cliente,
                 estados=estados,
@@ -3318,6 +3321,8 @@ def init_routes(app):
             app.logger.error(str(e))
             app.logger.error(traceback.format_exc())
             flash(f'Erro ao buscar clientes: {str(e)}', 'error')
+            query_params = {k: v for k, v in request.args.items() if k != 'page'}
+
             return render_template(
                 'clientes.html',
                 clientes=[],
@@ -3326,6 +3331,7 @@ def init_routes(app):
                 page=1,
                 per_page=25,
                 filtros={},
+                query_params=query_params,
                 vendedores_cc=[]
             )
 

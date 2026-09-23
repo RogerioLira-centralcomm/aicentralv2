@@ -2767,8 +2767,8 @@
   pointer-events: none;
 }
 
-.pi-page.pi-operation .camp-list-toolbar .camp-filter-control input,
-.pi-page.pi-operation .camp-list-toolbar .camp-filter-control select {
+.pi-page.pi-operation .camp-list-toolbar .camp-filter-control:not(.cx-drawer-input-wrap) input,
+.pi-page.pi-operation .camp-list-toolbar .camp-filter-control:not(.cx-drawer-input-wrap) select {
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
@@ -2778,6 +2778,15 @@
   padding: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.pi-page.pi-operation .camp-list-toolbar .cx-drawer-input-wrap {
+  width: 100%;
+  min-width: 12rem;
+}
+
+.pi-page.pi-operation .camp-list-toolbar .cx-field .cx-select {
+  min-width: 10rem;
 }
 
 .pi-page.pi-operation .camp-list-toolbar .camp-filter-control input[type="search"] {

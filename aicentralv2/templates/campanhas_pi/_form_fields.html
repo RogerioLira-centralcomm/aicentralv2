@@ -7,14 +7,14 @@
 
 <h4 class="camp-form-section-title">Configuração e entrega</h4>
 <div class="camp-form-grid">
-  <div class="camp-field camp-col-2">
+  <div class="camp-field camp-col-2 cx-field">
     <label for="nome_campanha">Nome da campanha</label>
-    <input type="text" id="nome_campanha" name="nome_campanha" required
+    <input type="text" id="nome_campanha" name="nome_campanha" required class="cx-input cx-input-sm w-full"
            value="{{ form_camp.nome_campanha if form_camp else '' }}" placeholder="Nome da campanha">
   </div>
-  <div class="camp-field camp-col-2">
+  <div class="camp-field camp-col-2 cx-field">
     <label for="id_cliente">Cliente</label>
-    <select id="id_cliente" name="id_cliente" disabled>
+    <select id="id_cliente" name="id_cliente" disabled class="cx-select cx-select-sm w-full">
       <option value="">Selecione...</option>
       {% for cli in clientes %}
         <option value="{{ cli.id_cliente }}" {% if form_camp and form_camp.id_cliente|string == cli.id_cliente|string %}selected{% endif %}>{{ cli.nome_fantasia or cli.razao_social }}</option>
@@ -23,79 +23,79 @@
     <input type="hidden" id="id_cliente_hidden" name="id_cliente" value="{{ form_camp.id_cliente if form_camp else '' }}">
   </div>
 
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="obj_contratados">Objetivo contratado</label>
-    <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal"
+    <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal" class="cx-input cx-input-sm w-full text-right"
            data-mask="numero" value="{{ form_camp.obj_contratados if form_camp and form_camp.obj_contratados is not none else '' }}"
-           placeholder="0" class="text-right">
+           placeholder="0">
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="valor_plataforma">Valor da plataforma <span class="text-red-400">*</span></label>
-    <input type="text" id="valor_plataforma" name="valor_plataforma" required data-mask="real"
+    <input type="text" id="valor_plataforma" name="valor_plataforma" required data-mask="real" class="cx-input cx-input-sm w-full"
            value="{{ form_camp.valor_plataforma if form_camp and form_camp.valor_plataforma is not none else '' }}"
            placeholder="R$ 0,00">
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="custo_midia_orcado">Custo de mídia orçado</label>
-    <input type="text" id="custo_midia_orcado" name="custo_midia_orcado" data-mask="real"
+    <input type="text" id="custo_midia_orcado" name="custo_midia_orcado" data-mask="real" class="cx-input cx-input-sm w-full"
            value="{{ form_camp.custo_midia_orcado if form_camp and form_camp.custo_midia_orcado is not none else '' }}"
            placeholder="R$ 0,00" title="Orçamento operacional de mídia, distinto do valor comercial da plataforma">
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="dist_pct">Distribuição</label>
-    <input type="text" id="dist_pct" readonly tabindex="-1" class="text-right" value="0,00%">
+    <input type="text" id="dist_pct" readonly tabindex="-1" class="cx-input cx-input-sm w-full text-right bg-slate-50" value="0,00%">
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="id_status">Status</label>
-    <select id="id_status" name="id_status">
+    <select id="id_status" name="id_status" class="cx-select cx-select-sm w-full">
       {% for st in statuses %}
         <option value="{{ st.id }}" {% if (form_camp and form_camp.id_status|string == st.id|string) or (not form_camp and st.descricao|lower == 'aguardando') %}selected{% endif %}>{{ st.descricao }}</option>
       {% endfor %}
     </select>
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="periodo_inicio">Data de início <span class="text-red-400">*</span></label>
     <div class="camp-date-wrap">
-      <input type="date" id="periodo_inicio" name="periodo_inicio" required
+      <input type="date" id="periodo_inicio" name="periodo_inicio" required class="cx-input cx-input-sm w-full"
              value="{{ form_camp.periodo_inicio.strftime('%Y-%m-%d') if form_camp and form_camp.periodo_inicio else '' }}">
       <button type="button" data-open-date="periodo_inicio" aria-label="Abrir calendário de início"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
     </div>
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="periodo_fim">Data de término <span class="text-red-400">*</span></label>
     <div class="camp-date-wrap">
-      <input type="date" id="periodo_fim" name="periodo_fim" required
+      <input type="date" id="periodo_fim" name="periodo_fim" required class="cx-input cx-input-sm w-full"
              value="{{ form_camp.periodo_fim.strftime('%Y-%m-%d') if form_camp and form_camp.periodo_fim else '' }}">
       <button type="button" data-open-date="periodo_fim" aria-label="Abrir calendário de término"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
     </div>
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="id_plataforma">Plataforma</label>
-    <select id="id_plataforma" name="id_plataforma">
+    <select id="id_plataforma" name="id_plataforma" class="cx-select cx-select-sm w-full">
       <option value="">Selecione...</option>
       {% for plt in plataformas %}
         <option value="{{ plt.id_plataforma }}" {% if form_camp and form_camp.id_plataforma|string == plt.id_plataforma|string %}selected{% endif %}>{{ plt.descricao }}</option>
       {% endfor %}
     </select>
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="id_objetivos_campanha">Objetivo</label>
-    <select id="id_objetivos_campanha" name="id_objetivos_campanha">
+    <select id="id_objetivos_campanha" name="id_objetivos_campanha" class="cx-select cx-select-sm w-full">
       <option value="">Selecione...</option>
       {% for obj in objetivos %}
         <option value="{{ obj.id_objetivos_campanha }}" {% if form_camp and form_camp.id_objetivos_campanha|string == obj.id_objetivos_campanha|string %}selected{% endif %}>{{ obj.descricao }}</option>
       {% endfor %}
     </select>
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="totalizador_atingido">Atingido</label>
-    <input type="text" id="totalizador_atingido" name="totalizador_atingido" data-mask="numero"
+    <input type="text" id="totalizador_atingido" name="totalizador_atingido" data-mask="numero" class="cx-input cx-input-sm w-full text-right"
            value="{{ form_camp.totalizador_atingido if form_camp and form_camp.totalizador_atingido is not none else '' }}"
-           placeholder="0" class="text-right">
+           placeholder="0">
   </div>
-  <div class="camp-field">
+  <div class="camp-field cx-field">
     <label for="totalizador_gasto">Gasto</label>
-    <input type="text" id="totalizador_gasto" name="totalizador_gasto" data-mask="real"
+    <input type="text" id="totalizador_gasto" name="totalizador_gasto" data-mask="real" class="cx-input cx-input-sm w-full"
            value="{{ form_camp.totalizador_gasto if form_camp and form_camp.totalizador_gasto is not none else '' }}"
            placeholder="R$ 0,00">
   </div>
@@ -105,9 +105,9 @@
       <span>Under</span>
     </label>
   </div>
-  <div class="camp-field camp-col-4">
+  <div class="camp-field camp-col-4 cx-field">
     <label for="link_dash">Link do dashboard</label>
-    <input type="url" id="link_dash" name="link_dash"
+    <input type="url" id="link_dash" name="link_dash" class="cx-input cx-input-sm w-full"
            value="{{ form_camp.link_dash if form_camp else '' }}" placeholder="https://...">
   </div>
 </div>
@@ -120,9 +120,9 @@
       ('perc_com_vendas', '% Comissão'), ('perc_pl_incentivos', '% PL incentivos'),
       ('perc_impostos', '% Impostos')
     ] %}
-      <div class="camp-field{% if field == 'perc_margem_cc' %} camp-field--lead{% endif %}">
+      <div class="camp-field cx-field{% if field == 'perc_margem_cc' %} camp-field--lead{% endif %}">
         <label for="{{ field }}">{{ label }}</label>
-        <input type="text" id="{{ field }}" name="{{ field }}"
+        <input type="text" id="{{ field }}" name="{{ field }}" class="cx-input cx-input-sm w-full"
                value="{{ form_camp[field] if form_camp and form_camp[field] is not none else '' }}" placeholder="0,00">
       </div>
     {% endfor %}
@@ -131,9 +131,9 @@
       ('val_com_vendas', 'Comissão'), ('val_pl_incentivos', 'PL incentivos'),
       ('val_impostos', 'Impostos')
     ] %}
-      <div class="camp-field">
+      <div class="camp-field cx-field">
         <label for="{{ field }}">{{ label }}</label>
-        <input type="text" id="{{ field }}" name="{{ field }}"
+        <input type="text" id="{{ field }}" name="{{ field }}" class="cx-input cx-input-sm w-full bg-slate-50"
                value="{{ form_camp[field] if form_camp and form_camp[field] is not none else '' }}"
                placeholder="R$ 0,00" readonly tabindex="-1">
       </div>

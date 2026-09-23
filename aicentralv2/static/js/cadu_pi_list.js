@@ -679,7 +679,10 @@
       el.classList.toggle('hidden', el.id !== 'pi-tab-' + tab);
     });
     document.querySelectorAll('.pi-sidebar-tab-btn').forEach(function (btn) {
-      btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+      var isActive = btn.getAttribute('data-tab') === tab;
+      btn.classList.toggle('cx-tab-active', isActive);
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
   }
 

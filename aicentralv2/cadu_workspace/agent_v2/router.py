@@ -118,6 +118,17 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
             or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):
         return IntentRoute("planner", "link_test", "medium", "decision", (), (), None, True)
+    # A linked brand is usually present in project context. An implicit name
+    # change still targets the active project unless the user names the brand
+    # as the object of the change.
+    project_rename = (
+        _has(text, r"\b(?:mud|alter|troc|renome)\w*\b.{0,25}\bnome\b.{0,120}\bpara\b")
+        or _has(text, r"\brenome\w*\b.{0,120}\bpara\b")
+    )
+    rename_subject = re.split(r"\bpara\b", text, maxsplit=1, flags=re.IGNORECASE)[0]
+    if has_project and project_rename and (not _has(rename_subject, r"\bmarca\b") or _has(rename_subject, r"\bprojeto\b")):
+        return IntentRoute("workspace", "rename_project", "medium", "decision",
+                           ("project",), (), None, True)
     active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
     if active_artifact_type in {
         "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html", "meeting_summary", "meeting_agenda",
@@ -209,16 +220,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             r"\b(arquivar|arquive|desativar|desative|reativar|reative|restaurar|restaure)\b.{0,30}\bprojeto\b",
     ):
         return IntentRoute("workspace", "set_project_status", "medium", "decision",
-                           ("project",), (), None, True)
-    # Inside an active project, "mude o nome de X para Y" normally refers to
-    # the project itself. It is still a write operation, so surface one exact
-    # confirmation instead of treating X/Y as terminology to rewrite.
-    project_rename = (
-        _has(text, r"\b(?:mud|alter|troc|renome)\w*\b.{0,25}\bnome\b.{0,120}\bpara\b")
-        or _has(text, r"\brenome\w*\b.{0,120}\bpara\b")
-    )
-    if has_project and project_rename:
-        return IntentRoute("workspace", "rename_project", "medium", "decision",
                            ("project",), (), None, True)
     if has_project and _has(text, r"\b(vincul|associ|conect).{0,35}\bmarca\b"):
         return IntentRoute("workspace", "link_project_brand" if has_brand else "select_brand_for_project",

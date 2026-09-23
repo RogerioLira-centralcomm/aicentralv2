@@ -3,7 +3,8 @@
 from ..mcp.registry import ToolError, ToolInputError, load_builtin_tools
 
 ALLOWED_ACTION_TOOLS = frozenset({
-    "planner.link_test", "workspace.create_project", "workspace.set_project_status",
+    "planner.link_test", "workspace.create_project", "workspace.update_project_context",
+    "workspace.set_project_status",
     "workspace.link_current_brand",
     "projects.reindex_source",
     "projects.create_note",
@@ -36,6 +37,11 @@ def _completion(step_name: str, result: dict) -> dict:
                                           "label": "Algumas fontes precisam ser repetidas",
                                           "detail": f"{len(resources['errors'])} item(ns) não concluído(s)."})
         return completion
+    if step_name == "workspace.update_project_context":
+        name = result.get("name") or "Projeto"
+        return {"answer": f"Projeto renomeado para “{name}” com sucesso.", "blocks": [
+            {"type": "activity", "state": "completed", "label": "Nome do projeto atualizado", "detail": name},
+        ], "refresh_context": True}
     if step_name == "workspace.set_project_status":
         status = result.get("status") or "atualizado"
         return {"answer": f"Projeto {status}.", "blocks": [

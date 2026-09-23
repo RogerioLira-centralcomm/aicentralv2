@@ -748,11 +748,11 @@ def stream(run):
         _journal(run["run_id"], "tool.completed" if call["status"] == "completed" else "tool.unavailable",
                  call, item_type="activity", duration_ms=call.get("duration_ms"))
         yield _event("tool.completed" if call["status"] == "completed" else "tool.unavailable", **call)
-    # Saving a pasted project link is intentionally a bounded action. Do not
-    # ask the provider to interpret, browse or generate follow-up choices for
-    # it: that used to fabricate a second flow after the user had already
-    # selected the active project. The approval receipt is the complete answer.
-    if any(action.get("name") == "projects.create_link_reference" for action in waiting_actions):
+    # These are bounded mutations whose server-authored approval proposal is
+    # the complete response. Calling the provider afterwards can fabricate a
+    # success message before the user has approved and executed the action.
+    proposal_only_actions = {"projects.create_link_reference", "workspace.update_project_context"}
+    if any(action.get("name") in proposal_only_actions for action in waiting_actions):
         conn = repository.get_db()
         try:
             with conn.cursor() as cur:
@@ -764,7 +764,7 @@ def stream(run):
             conn.commit()
         except Exception:
             conn.rollback()
-            current_app.logger.exception("Falha ao finalizar proposta de referência %s", run["run_id"])
+            current_app.logger.exception("Falha ao finalizar proposta de ação %s", run["run_id"])
         payload = {"status": "completed", "conversation_id": run["conversation_id"],
                    "total_duration_ms": round((perf_counter() - run_started) * 1000)}
         _journal(run["run_id"], "run.completed", payload, item_type="activity")

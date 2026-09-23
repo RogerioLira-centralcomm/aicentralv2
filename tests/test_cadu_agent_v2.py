@@ -148,6 +148,31 @@ def test_implicit_project_rename_in_active_context_requires_exact_confirmation()
     assert action["summary"] == "Renomear o projeto atual para “Campanhas de anúncios”."
 
 
+def test_project_rename_keeps_priority_when_a_brand_is_linked():
+    route = route_request("mudar nome do projeto para Campanhas",
+                          has_project=True, has_brand=True)
+    assert route.action == "rename_project"
+    assert route.requires_confirmation is True
+    plan = build_task_plan(route, budget_for(route, "agentic"), "mudar nome do projeto para Campanhas")
+    action = next(step for step in plan if step.get("kind") == "action")
+    assert action["arguments"] == {"name": "Campanhas"}
+    brand_route = route_request("mude o nome da marca Centralcomm para Central X",
+                                has_project=True, has_brand=True)
+    assert brand_route.action == "update_brand_identity"
+
+
+def test_project_rename_keeps_priority_when_an_artifact_is_open():
+    route = route_request(
+        "mudar nome do projeto para Campanhas",
+        has_project=True,
+        has_brand=True,
+        active_object_type="artifact:media_plan",
+    )
+    assert route.action == "rename_project"
+    assert route.artifact_type is None
+    assert route.requires_confirmation is True
+
+
 def test_project_rename_wording_does_not_hijack_free_conversation():
     route = route_request("mude o nome de mídia paga para Campanhas de anúncios", has_project=False)
     assert route.action == "answer"
@@ -1334,6 +1359,29 @@ def test_project_note_action_emits_a_semantic_completion_item(monkeypatch):
     assert receipt["completion"]["blocks"][0]["type"] == "sources"
 
 
+def test_project_rename_action_is_authorized_and_refreshes_context(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2 import action_executor
+
+    class Registry:
+        def execute(self, name, arguments, current, exposure):
+            assert name == "workspace.update_project_context"
+            assert arguments["name"] == "Campanhas"
+            assert arguments["confirmed"] is True
+            return {"project_id": 41, "name": "Campanhas"}
+
+    monkeypatch.setattr(action_executor, "load_builtin_tools", lambda: Registry())
+    receipt = action_executor.execute({
+        "kind": "action", "status": "running", "name": "workspace.update_project_context",
+        "input_snapshot": {"name": "workspace.update_project_context",
+                           "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+                           "arguments": {"name": "Campanhas"}},
+    }, context())
+
+    assert receipt["result"]["name"] == "Campanhas"
+    assert receipt["completion"]["answer"] == "Projeto renomeado para “Campanhas” com sucesso."
+    assert receipt["completion"]["refresh_context"] is True
+
+
 def test_resource_worker_reclaims_stale_jobs_with_backoff(monkeypatch):
     calls = []
 
@@ -2457,6 +2505,61 @@ def test_v2_credit_admission_error_is_machine_readable():
         "credits_url": "https://workspace.centralcomm.media/creditos",
         "details": {"required_tokens": 8000, "available_tokens": 0},
     }
+
+
+def test_project_rename_proposal_completes_without_calling_provider(monkeypatch):
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, *_):
+            pass
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+    def unexpected_provider(*_):
+        raise AssertionError("o provedor não deve responder a uma proposta de renomeação")
+        yield
+
+    monkeypatch.setattr(v2_service.provider, "events", unexpected_provider)
+    monkeypatch.setattr(v2_service.repository, "get_db", lambda: Connection())
+    monkeypatch.setattr(v2_service.journal, "record", lambda _run, kind, payload, **_: {"event": kind, **payload})
+    monkeypatch.setattr(v2_service.journal, "waiting_actions", lambda *_: [{
+        "step_id": "11111111-1111-4111-8111-111111111111",
+        "name": "workspace.update_project_context",
+        "summary": "Renomear o projeto atual para “Campanhas”.",
+        "status": "waiting_confirmation",
+    }])
+    run = {
+        "run_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "conversation_id": "conversation",
+        "context": context(),
+        "route": {"artifact_type": None},
+        "policy": {"max_questions": 1, "max_next_steps": 1, "artifact_in_chat": False},
+        "resolved_context": SimpleNamespace(tool_calls=[]),
+        "provider_payload": {},
+        "execution_mode": "agentic",
+    }
+
+    app = Flask(__name__)
+    with app.app_context():
+        output = "".join(v2_service.stream(run))
+
+    assert '"event": "action.proposed"' in output
+    assert '"name": "workspace.update_project_context"' in output
+    assert '"event": "run.completed"' in output
+    assert '"event": "answer.completed"' not in output
 
 
 def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):

@@ -10,7 +10,7 @@ import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult, normalizeAnswerText, reconcileCompletedResponse} from './lib/responseModel.mjs';
 import {attachmentIssues, attachmentSubmissionMessage, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
 import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
-import {brandContextPayload, conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
+import {brandContextPayload, conversationPayload, mergeServerEntities, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {enqueue, MAX_QUEUED_TURNS, moveQueued, readQueue, updateQueued, writeQueue} from './lib/executionQueue.mjs';
 import {acceptAgentEvent} from './lib/agentEvents.mjs';
@@ -164,15 +164,15 @@ export default function App({bootstrap}) {
       // The server is authoritative: an empty context means an intentional
       // free session and must not resurrect a stale project from the browser.
       rememberContext(data.context || {});
-      setProjects(current => (data.entities || []).filter(item => item.kind === 'project').map(item => ({
-        ...item,
-        ...(current.find(existing => (existing.ref || existing.projectRef || existing.id) === item.ref) || {}),
-      })));
+      setProjects(current => mergeServerEntities(
+        current,
+        (data.entities || []).filter(item => item.kind === 'project'),
+      ));
       setBrands(current => {
         const fromContext = (data.entities || []).filter(item => item.kind === 'brand').map(item => ({
           ...item, logoUrl: item.logo_url, visualInitials: item.name, visualColor: item.color || item.visualColor || '#176b5e',
         }));
-        return fromContext.map(item => ({...item, ...(current.find(existing => (existing.ref || existing.brandRef) === item.ref) || {})}));
+        return mergeServerEntities(current, fromContext);
       });
     } catch (error) {
       trace('Contexto indisponível', error.message, 'error');

@@ -6,6 +6,19 @@ export function brandContextPayload(brandRef) {
   return {project_ref: null, brand_ref: brandRef || null};
 }
 
+function entityKey(entity) {
+  return String(entity?.ref || entity?.projectRef || entity?.brandRef || entity?.id || '');
+}
+
+export function mergeServerEntities(current = [], incoming = []) {
+  return incoming.map(item => {
+    const existing = current.find(candidate => entityKey(candidate) === entityKey(item));
+    // Preserve client-only presentation fields, but the freshly loaded server
+    // representation is authoritative for names, status and other persisted data.
+    return {...(existing || {}), ...item};
+  });
+}
+
 export function conversationPayload({
   message,
   requestId,

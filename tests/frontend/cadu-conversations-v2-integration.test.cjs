@@ -827,6 +827,10 @@ test('conversation context model keeps project, brand and active artifact explic
   const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs')).href);
   assert.deepEqual(model.projectContextPayload('project-1'), {project_ref: 'project-1', brand_ref: null});
   assert.deepEqual(model.projectContextPayload(''), {project_ref: null, brand_ref: null});
+  assert.deepEqual(model.mergeServerEntities(
+    [{ref: 'ci:project-1', name: 'Mídia Paga', previewUrl: 'blob:local-preview'}],
+    [{ref: 'ci:project-1', kind: 'project', name: 'Campanhas'}],
+  ), [{ref: 'ci:project-1', kind: 'project', name: 'Campanhas', previewUrl: 'blob:local-preview'}]);
   assert.deepEqual(model.conversationPayload({
     message: 'Revise', requestId: 'request-1', conversationId: 'conversation-1', providerFileIds: ['file-1'],
     executionMode: 'analysis', context: {project_ref: 'project-1', brand_ref: 'brand-1'},

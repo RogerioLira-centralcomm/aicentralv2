@@ -1909,6 +1909,14 @@ def test_project_overview_uses_active_project_context_without_follow_up():
     assert policy_for(route)["max_next_steps"] == 0
 
 
+def test_project_knowledge_question_uses_active_project_context():
+    route = route_request("O que você sabe sobre esse projeto?", has_project=True)
+
+    assert route.action == "describe_project"
+    assert route.needs_context == ("project",)
+    assert route.needs_tools == ("workspace.search_project_content",)
+
+
 @pytest.mark.parametrize("message", [
     "Me explica um pouco mais sobre o que que esse projeto faz",
     "Qual é a desse projeto?",

@@ -7834,10 +7834,12 @@ def brand_audit_status(brand_id):
             })
         except Exception:
             current_app.logger.exception('Não foi possível encerrar auditoria de marca expirada')
+    analysis = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
     return jsonify({
         'status': pack.get('status') or 'not_started', 'stage': pack.get('stage'),
         'index': pack.get('index', 0), 'total': pack.get('total', 5),
         'message': pack.get('message'), 'error': pack.get('error'),
+        'logo_url': analysis.get('logo_url') or analysis.get('logoUrl'),
         'review_count': len(pack.get('reviews') or []), 'created_at': pack.get('created_at'),
         'updated_at': pack.get('updated_at'),
         'pipeline_version': (pack.get('input') or {}).get('pipeline_version'),

@@ -810,6 +810,54 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         self.assertIn('https://marca.com/politicas/privacidade', urls)
         self.assertNotIn('https://marca.com/imprensa/relatorio-anual.pdf', urls)
 
+    def test_normaliza_valor_enriquecido_sem_expor_dicionario_na_marca(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        value = {
+            'value': 'Consumidores residenciais, empresas e poder público.',
+            'source_url': 'https://marca.com.br/clientes',
+            'excerpt': 'Atendemos clientes residenciais e empresariais.',
+            'confidence': 'high',
+        }
+
+        self.assertEqual(
+            analysis._text(value, 4000),
+            'Consumidores residenciais, empresas e poder público.',
+        )
+        self.assertEqual(
+            analysis._string_list([value]),
+            ['Consumidores residenciais, empresas e poder público.'],
+        )
+
+    def test_modulos_de_pesquisa_acumulam_listas_sem_apagar_evidencia(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        merged = analysis._merge_research_value(
+            ['Energia elétrica', 'Atendimento digital'],
+            ['Geração distribuída', 'Energia elétrica'],
+        )
+
+        self.assertEqual(merged, [
+            'Energia elétrica', 'Atendimento digital', 'Geração distribuída',
+        ])
+
+    def test_proveniencia_omitida_mantem_campo_coletado_como_parcial(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        provenance = analysis._field_provenance({}, {
+            'identity': .8, 'visual': .7,
+        }, {
+            'target_audience': 'Consumidores residenciais e empresas.',
+            'sources': ['https://marca.com.br/clientes'],
+        })
+
+        self.assertEqual(provenance['target_audience']['evidence_status'], 'partial')
+        self.assertEqual(
+            provenance['target_audience']['source_urls'],
+            ['https://marca.com.br/clientes'],
+        )
+        self.assertEqual(provenance['products_services']['evidence_status'], 'blocked')
+
     @patch(
         "aicentralv2.creative_brand_analysis._compact_web_evidence",
         return_value=({

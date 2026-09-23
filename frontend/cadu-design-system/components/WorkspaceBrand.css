@@ -427,42 +427,161 @@ body.portal--workspace .cadu-ds-brand-shell .cadu-ds-entity-rail > .cadu-ds-enti
 }
 
 body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-entity-portal {
-  grid-template-columns: 184px minmax(0, 1fr);
+  display:block;
+  min-height:100dvh;
 }
 
-body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-content { max-width: 1040px; }
+body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-content {
+  box-sizing:border-box;
+  max-width:none;
+  min-height:100dvh;
+  padding:38px clamp(42px,6vw,96px) 54px;
+}
+
+body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-hero {
+  display:grid;
+  max-width:1180px;
+  margin:0 auto;
+  padding:0;
+}
+
+body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-hero h1 {
+  font-size:clamp(38px,4vw,54px);
+  letter-spacing:-.05em;
+}
+
+body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-hero__meta a { display:none; }
 
 body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state {
-  min-height: clamp(360px, 58vh, 620px);
-  align-items: center;
+  display:grid;
+  width:min(1180px,100%);
+  min-height:clamp(430px,64vh,660px);
+  grid-template-columns:minmax(280px,.82fr) minmax(420px,1.18fr);
+  align-items:center;
+  gap:clamp(54px,7vw,112px);
+  margin:0 auto;
+  padding:30px 0 50px;
+  border:0;
+  background:transparent;
 }
 
 body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state__visual {
-  position: relative;
-  overflow: hidden;
+  position:relative;
+  width:min(360px,100%);
+  aspect-ratio:1;
+  justify-self:end;
+  overflow:visible;
+  border:0;
+  border-radius:50%;
+  background:color-mix(in srgb,var(--cadu-accent-soft) 64%,transparent);
 }
 
-body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state__visual::after {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  width: 54px;
-  height: 54px;
-  border: 2px solid color-mix(in srgb, var(--cadu-accent) 18%, transparent);
-  border-top-color: var(--cadu-accent-strong);
-  border-radius: 50%;
-  content: "";
-  transform: translate(-50%, -50%);
-  animation: cadu-brand-audit-spin 1.1s linear infinite;
+body.portal--workspace .cadu-ds-brand-audit-mark {
+  position:absolute;
+  z-index:3;
+  inset:50% auto auto 50%;
+  display:grid;
+  width:58%;
+  aspect-ratio:1.55;
+  place-items:center;
+  padding:22px;
+  border-radius:22px;
+  background:var(--cadu-surface);
+  box-shadow:0 24px 60px color-mix(in srgb,var(--cadu-accent-strong) 18%,transparent);
+  transform:translate(-50%,-50%) rotate(-5deg);
+  animation:cadu-brand-card-float 3.4s ease-in-out infinite;
 }
 
-@keyframes cadu-brand-audit-spin {
-  to { transform: translate(-50%, -50%) rotate(360deg); }
+body.portal--workspace .cadu-ds-brand-audit-mark img { width:100%; max-height:100%; object-fit:contain; }
+body.portal--workspace .cadu-ds-brand-audit-mark span { color:var(--cadu-accent-strong); font-size:64px; font-weight:760; }
+body.portal--workspace .cadu-ds-brand-orbit { position:absolute; z-index:1; border:1px solid color-mix(in srgb,var(--cadu-accent) 48%,transparent); border-radius:50%; }
+body.portal--workspace .cadu-ds-brand-orbit::after { position:absolute; top:-7px; left:50%; width:14px; height:14px; border-radius:50%; background:var(--cadu-accent); content:""; }
+body.portal--workspace .cadu-ds-brand-orbit--one { inset:3% 7%; animation:cadu-brand-orbit 8s linear infinite; }
+body.portal--workspace .cadu-ds-brand-orbit--two { inset:14% -2%; transform:rotate(62deg); animation:cadu-brand-orbit-reverse 10s linear infinite; }
+body.portal--workspace .cadu-ds-brand-orbit--three { inset:-4% 20%; transform:rotate(118deg); animation:cadu-brand-orbit 12s linear infinite; }
+body.portal--workspace .cadu-ds-brand-orbit--two::after { background:color-mix(in srgb,var(--cadu-accent) 62%,white); }
+body.portal--workspace .cadu-ds-brand-orbit--three::after { background:var(--cadu-accent-strong); }
+
+body.portal--workspace .cadu-ds-brand-state__copy { max-width:680px; }
+body.portal--workspace .cadu-ds-brand-state__copy > p { margin:0 0 12px; color:var(--cadu-accent-strong); font-size:13px; font-weight:720; }
+body.portal--workspace .cadu-ds-brand-state__copy > h2 { max-width:16ch; margin:0; font-size:clamp(38px,4.2vw,58px); line-height:1.02; letter-spacing:-.055em; text-wrap:balance; }
+body.portal--workspace .cadu-ds-brand-state__copy > span { display:block; max-width:62ch; margin-top:20px; color:var(--cadu-muted); font-size:16px; line-height:1.55; }
+body.portal--workspace .cadu-ds-brand-state__copy > small { display:block; margin-top:26px; color:var(--cadu-muted); font-size:12px; }
+
+body.portal--workspace .cadu-ds-brand-audit-progress { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:34px; }
+body.portal--workspace .cadu-ds-brand-audit-progress > div { position:relative; display:grid; gap:10px; color:var(--cadu-muted); font-size:11px; }
+body.portal--workspace .cadu-ds-brand-audit-progress > div::before { position:absolute; z-index:0; top:8px; right:0; left:0; height:2px; background:var(--cadu-line); content:""; }
+body.portal--workspace .cadu-ds-brand-audit-progress > div:first-child::before { left:9px; }
+body.portal--workspace .cadu-ds-brand-audit-progress > div:last-child::before { right:calc(100% - 9px); }
+body.portal--workspace .cadu-ds-brand-audit-progress i { position:relative; z-index:1; width:16px; height:16px; border:2px solid var(--cadu-line); border-radius:50%; background:var(--cadu-canvas); }
+body.portal--workspace .cadu-ds-brand-audit-progress .is-complete::before,
+body.portal--workspace .cadu-ds-brand-audit-progress .is-active::before { background:var(--cadu-accent); }
+body.portal--workspace .cadu-ds-brand-audit-progress .is-complete i { border-color:var(--cadu-accent-strong); background:var(--cadu-accent-strong); }
+body.portal--workspace .cadu-ds-brand-audit-progress .is-active i { border-color:var(--cadu-accent); box-shadow:0 0 0 5px var(--cadu-accent-soft); }
+body.portal--workspace .cadu-ds-brand-audit-progress :is(.is-complete,.is-active) span { color:var(--cadu-accent-strong); font-weight:650; }
+
+@keyframes cadu-brand-card-float { 0%,100% { transform:translate(-50%,-50%) rotate(-5deg); } 50% { transform:translate(-50%,calc(-50% - 12px)) rotate(-1deg); } }
+@keyframes cadu-brand-orbit { to { transform:rotate(360deg); } }
+@keyframes cadu-brand-orbit-reverse { from { transform:rotate(62deg); } to { transform:rotate(-298deg); } }
+
+body.portal--workspace .cadu-ds-brand-celebration {
+  position:fixed;
+  z-index:120;
+  inset:0 0 0 64px;
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  padding:40px;
+  overflow:hidden;
+  background:color-mix(in srgb,var(--cadu-canvas) 96%,var(--cadu-accent-soft));
+  text-align:center;
+  animation:cadu-brand-celebration-exit .5s ease 2.5s both;
+}
+body.portal--workspace .cadu-ds-brand-celebration__mark { position:relative; z-index:2; display:grid; width:180px; aspect-ratio:1.55; place-items:center; padding:24px; border-radius:22px; background:var(--cadu-surface); box-shadow:0 24px 70px color-mix(in srgb,var(--cadu-accent) 20%,transparent); animation:cadu-brand-celebration-mark .8s cubic-bezier(.2,.85,.25,1.2) both; }
+body.portal--workspace .cadu-ds-brand-celebration__mark img { width:100%; max-height:100%; object-fit:contain; }
+body.portal--workspace .cadu-ds-brand-celebration__mark span { color:var(--cadu-accent-strong); font-size:64px; font-weight:760; }
+body.portal--workspace .cadu-ds-brand-celebration > p { z-index:2; margin:28px 0 8px; color:var(--cadu-accent-strong); font-size:13px; font-weight:720; }
+body.portal--workspace .cadu-ds-brand-celebration > h2 { z-index:2; max-width:18ch; margin:0; color:var(--cadu-ink); font-size:clamp(38px,5vw,64px); line-height:1.02; letter-spacing:-.055em; text-wrap:balance; }
+body.portal--workspace .cadu-ds-brand-celebration > span { z-index:2; margin-top:16px; color:var(--cadu-muted); font-size:15px; }
+body.portal--workspace .cadu-ds-brand-celebration__fireworks { position:absolute; inset:0; pointer-events:none; }
+body.portal--workspace .cadu-ds-brand-celebration__fireworks i { --angle:calc(var(--particle) * 12.857deg); position:absolute; top:50%; left:50%; width:8px; height:20px; border-radius:8px; background:var(--cadu-accent); opacity:0; transform:translate(-50%,-50%) rotate(var(--angle)) translateY(-70px) scale(.3); animation:cadu-brand-firework 1.15s cubic-bezier(.1,.72,.28,1) calc(var(--particle) * 18ms) both; }
+body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n) { background:var(--cadu-accent-strong); }
+body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1) { background:color-mix(in srgb,var(--cadu-accent) 55%,white); }
+@keyframes cadu-brand-firework { 0% { opacity:0; transform:translate(-50%,-50%) rotate(var(--angle)) translateY(-50px) scale(.2); } 20% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-50%) rotate(var(--angle)) translateY(-310px) scale(1); } }
+@keyframes cadu-brand-celebration-mark { from { opacity:0; transform:translateY(22px) scale(.72) rotate(-6deg); } to { opacity:1; transform:none; } }
+@keyframes cadu-brand-celebration-exit { to { opacity:0; visibility:hidden; } }
+
+@media (min-width:901px) {
+  body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(.cadu-ds-brand-state--processing)) > .cadu-ds-entity-nav {
+    position:fixed;
+    z-index:12;
+    top:0;
+    bottom:0;
+    left:64px;
+    height:auto;
+    max-height:100dvh;
+    overflow:hidden;
+  }
+  body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(.cadu-ds-brand-state--processing)) > .cadu-ds-brand-content { grid-column:2; padding:48px clamp(28px,3vw,46px) 72px; }
+  body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(.cadu-ds-brand-state--processing)) > .cadu-ds-entity-rail { position:relative; grid-column:3; top:auto; align-self:start; height:auto; min-height:100dvh; overflow:visible; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state__visual::after {
-    animation: none;
-  }
+  body.portal--workspace :is(.cadu-ds-brand-audit-mark,.cadu-ds-brand-orbit,.cadu-ds-brand-celebration,.cadu-ds-brand-celebration__mark,.cadu-ds-brand-celebration__fireworks i) { animation:none; }
+  body.portal--workspace .cadu-ds-brand-celebration__fireworks { display:none; }
+}
+
+@media (max-width:900px) {
+  body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-content { padding:24px 20px 42px; }
+  body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state { grid-template-columns:1fr; gap:36px; padding-top:42px; }
+  body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state__visual { width:min(260px,76vw); justify-self:center; }
+  body.portal--workspace .cadu-ds-brand-state__copy { justify-self:center; }
+  body.portal--workspace .cadu-ds-brand-state__copy > h2 { font-size:clamp(34px,10vw,48px); }
+  body.portal--workspace .cadu-ds-brand-audit-progress { grid-template-columns:1fr; gap:14px; }
+  body.portal--workspace .cadu-ds-brand-audit-progress > div { grid-template-columns:18px 1fr; align-items:center; }
+  body.portal--workspace .cadu-ds-brand-audit-progress > div::before { top:-14px; bottom:auto; right:auto!important; left:7px!important; width:2px; height:28px; }
+  body.portal--workspace .cadu-ds-brand-audit-progress > div:first-child::before { display:none; }
+  body.portal--workspace .cadu-ds-brand-celebration { inset:0; padding:24px; }
 }
 
 @media (max-width: 900px) {

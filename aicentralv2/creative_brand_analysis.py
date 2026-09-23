@@ -43,7 +43,7 @@ DEFAULT_VISUAL_VERIFIER_MODEL = os.getenv(
 DEFAULT_BRAND_FALLBACK_MODEL = os.getenv(
     "CREATIVE_BRAND_FALLBACK_MODEL", "openai/gpt-5.4"
 )
-BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v6-2026-09"
+BRAND_ANALYSIS_PIPELINE_VERSION = "brand-analysis-pipeline-v7-2026-09"
 
 # Deep research is deliberately divided by evidence domain. A single request
 # was mixing operational records, market context and visual interpretation in
@@ -1359,6 +1359,8 @@ def _website_response_error(raw):
 
 
 def _text(value, limit):
+    if isinstance(value, dict):
+        value = value.get("value") or value.get("text") or value.get("name") or value.get("title") or ""
     value = str(value or "").strip()
     return value[:limit] or None
 
@@ -1468,6 +1470,49 @@ def _string_list(value, limit=5, item_limit=300):
     ]
 
 
+def _merge_research_value(current, incoming, *, limit=12):
+    """Merge independent research modules without discarding earlier evidence."""
+    if incoming in (None, "", [], {}):
+        return current
+    if current in (None, "", [], {}):
+        return incoming
+    if isinstance(current, list) and isinstance(incoming, list):
+        merged, seen = [], set()
+        for item in current + incoming:
+            if isinstance(item, dict):
+                identity = json.dumps(item, ensure_ascii=False, sort_keys=True, default=str)
+            else:
+                identity = str(item).strip().casefold()
+            if not identity or identity in seen:
+                continue
+            seen.add(identity)
+            merged.append(item)
+            if len(merged) >= limit:
+                break
+        return merged
+    # Prefer the richer scalar. Enriched values retain their source metadata;
+    # plain strings prefer the most descriptive non-empty formulation.
+    if isinstance(incoming, dict) and incoming.get("value"):
+        return incoming
+    if isinstance(current, dict) and current.get("value"):
+        return current
+    return incoming if len(str(incoming)) > len(str(current)) else current
+
+
+def _value_source_urls(value):
+    """Collect explicit provenance embedded in enriched extraction values."""
+    values = value if isinstance(value, list) else [value]
+    urls = []
+    for item in values:
+        if not isinstance(item, dict):
+            continue
+        candidates = item.get("source_urls") or [item.get("source_url") or item.get("url")]
+        for candidate in candidates if isinstance(candidates, list) else [candidates]:
+            if isinstance(candidate, str) and candidate.startswith(("http://", "https://")):
+                urls.append(candidate)
+    return list(dict.fromkeys(urls))[:8]
+
+
 def _sourced_records(value, fields, limit=8):
     """Keep only public, source-backed extraction records from the LLM."""
     records = []
@@ -1520,7 +1565,7 @@ def _campaigns(value, opportunities=None):
     return records
 
 
-def _field_provenance(value, quality_dimensions):
+def _field_provenance(value, quality_dimensions, analysis=None):
     """Sanitize the GPT evidence map; missing evidence remains explicitly blocked."""
     keys = (
         "brand_summary", "tone_of_voice", "logo_url", "primary_color",
@@ -1530,6 +1575,8 @@ def _field_provenance(value, quality_dimensions):
         "visual_motifs", "mandatory_elements", "forbidden_elements",
     )
     raw = value if isinstance(value, dict) else {}
+    analysis = analysis if isinstance(analysis, dict) else {}
+    shared_sources = _merge_source_urls(analysis.get("sources"), limit=8)
     result = {}
     for key in keys:
         item = raw.get(key) if isinstance(raw.get(key), dict) else {}
@@ -1537,9 +1584,17 @@ def _field_provenance(value, quality_dimensions):
             url for url in _string_list(item.get("source_urls"), limit=8, item_limit=2000)
             if url.startswith(("http://", "https://"))
         ]
+        if not urls:
+            urls = _value_source_urls(analysis.get(key))
         status = str(item.get("evidence_status") or "").lower()
         if status not in {"verified", "partial", "blocked"}:
-            status = "verified" if urls else "blocked"
+            # Missing field_provenance in an otherwise valid normalization
+            # response is an integration omission, not proof that the field is
+            # invalid. Keep collected fields reviewable and let reviewers make
+            # the final evidence decision.
+            status = "verified" if urls else ("partial" if analysis.get(key) not in (None, "", [], {}) else "blocked")
+        if status == "partial" and not urls:
+            urls = shared_sources
         visual_fields = {"logo_url", "primary_color", "secondary_color", "color_palette", "fonts",
                          "visual_motifs", "mandatory_elements", "forbidden_elements"}
         fallback = quality_dimensions["visual"] if key in visual_fields else quality_dimensions["identity"]
@@ -2106,7 +2161,7 @@ class CreativeBrandAnalyzer:
                                     limit=16,
                                 )
                             else:
-                                result[key] = partial[key]
+                                result[key] = _merge_research_value(result.get(key), partial[key])
                     successful_research_modules.append(module_id)
                     research_models.append(response.get("model") or analysis_model)
                 except Exception as exc:
@@ -2462,7 +2517,7 @@ class CreativeBrandAnalyzer:
             "sources": round(min(1, len(sources) / (8 if deep else 4)), 2),
         }
         field_provenance = _field_provenance(
-            normalization_result.get("field_provenance"), quality_dimensions
+            normalization_result.get("field_provenance"), quality_dimensions, result
         )
         output_packages = {
             "workspace": ["brand_summary", "tone_of_voice", "target_audience", "contacts", "competitors", "campaigns"],

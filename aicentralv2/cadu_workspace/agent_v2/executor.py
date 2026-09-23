@@ -1,5 +1,6 @@
 """Compose a V2 run without coupling orchestration to Flask routes or Dify."""
 
+import json
 import re
 from dataclasses import asdict, replace
 from typing import Optional
@@ -121,14 +122,44 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             policy["artifact_type"] = None
             policy["allow_artifact"] = False
     planning_message = routed_message
-    if route.action == "update_project_context" and getattr(request, "selected_context", None):
-        planning_message = str(request.selected_context.get("text") or planning_message)
+    selected = getattr(request, "selected_context", None)
+    if route.action in {"update_project_context", "create_project"} and selected:
+        selected_text = str(selected.get("text") or "")
+        if selected.get("type") == "conversation_turn":
+            try:
+                selected_turn = json.loads(selected_text)
+                previous_request = str(selected_turn.get("latest_user_request") or "").strip()
+                if previous_request:
+                    selected_text = previous_request
+            except (TypeError, ValueError):
+                pass
+        # Keep the explicit current command as well as the referenced payload.
+        # The planner can therefore understand "criar projeto com esses dados"
+        # without relying on a provider session or silently dropping the turn.
+        planning_message = f"{selected_text}\n{routed_message}".strip()
     plan = build_task_plan(route, budget, planning_message)
-    if route.action == "schedule_project_meeting" and not any(step.get("kind") == "action" for step in plan):
+    has_action = any(step.get("kind") == "action" for step in plan)
+    if route.action == "schedule_project_meeting" and not has_action:
         policy["action_preflight"] = {
             **(policy.get("action_preflight") or {}), "ready": False,
             "missing": ["data e horário futuros"],
         }
+    if route.requires_confirmation and not has_action and not route.artifact_type:
+        original_action = route.action
+        route = replace(route, action=f"clarify_{original_action}", response_mode="clarification",
+                        requires_confirmation=False, needs_tools=())
+        execution_mode = execution_mode_for(route, requested_mode)
+        budget = budget_for(route, execution_mode)
+        policy = policy_for(route)
+        policy["execution_mode"] = execution_mode
+        policy["max_output_tokens"] = budget.max_output_tokens
+        policy["max_duration_ms"] = budget.max_duration_ms
+        policy["action_preflight"] = {
+            "ready": False,
+            "reason": "A operação precisa de dados suficientes para gerar uma ação confirmável.",
+            "original_action": original_action,
+        }
+        plan = build_task_plan(route, budget, routed_message)
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,

@@ -48,12 +48,24 @@ def _require_project_editor(context: RequestContext) -> None:
     exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object",
-        "required": ["request_id", "name"],
+        "required": ["request_id", "name", "confirmed"],
         "properties": {
             "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
             "name": {"type": "string", "minLength": 2, "maxLength": 150},
             "description": {"type": "string", "maxLength": 4000},
             "instructions": {"type": "string", "maxLength": 12000},
+            "tone_of_voice": {"type": "string", "maxLength": 4000},
+            "audience": {"type": "string", "maxLength": 4000},
+            "positioning": {"type": "string", "maxLength": 4000},
+            "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+            "custom_fields": {"type": "array", "maxItems": 40, "items": {"type": "object", "required": ["key", "value"], "properties": {
+                "key": {"type": "string", "minLength": 1, "maxLength": 80},
+                "label": {"type": "string", "maxLength": 120},
+                "type": {"type": "string", "enum": ["text", "list", "number", "currency", "date", "url"]},
+                "value": {},
+            }, "additionalProperties": False}},
+            "brand_ref": {"type": "string", "minLength": 3, "maxLength": 120},
+            "brand_name": {"type": "string", "minLength": 2, "maxLength": 150},
             "visibility": {"type": "string", "enum": ["private", "team", "restricted"]},
             "people": {"type": "array", "maxItems": 50, "items": {"type": "object", "required": ["user_id", "role"], "properties": {
                 "user_id": {"type": "integer", "minimum": 1}, "role": {"type": "string", "enum": ["admin", "editor", "member", "viewer"]},
@@ -91,6 +103,29 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
     links = list(arguments.get("links") or [])
     notes = list(arguments.get("notes") or [])
     file_uploads = list(arguments.get("file_uploads") or [])
+    direction_fields = {
+        key: arguments[key] for key in ("tone_of_voice", "audience", "positioning", "color")
+        if key in arguments
+    }
+    custom_fields = list(arguments.get("custom_fields") or [])
+    try:
+        normalized_custom_fields = project_context_service._custom_fields(custom_fields)
+    except project_context_service.ProjectContextError as exc:
+        raise ToolInputError(str(exc)) from exc
+    if direction_fields.get("color") and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(direction_fields["color"])):
+        raise ToolInputError("Use uma cor hexadecimal válida.")
+    brand_ref = str(arguments.get("brand_ref") or "").strip()
+    brand_name = " ".join(str(arguments.get("brand_name") or "").split())
+    brands = ([item for item in repository.entities(context.client_id) if item.get("kind") == "brand"]
+              if brand_ref or brand_name else [])
+    if brand_ref:
+        if not any(str(item.get("ref")) == brand_ref for item in brands):
+            raise ToolInputError("A marca informada não existe neste workspace.")
+    elif brand_name:
+        matches = [item for item in brands if str(item.get("name") or "").casefold() == brand_name.casefold()]
+        if len(matches) != 1:
+            raise ToolInputError("Informe brand_ref: o nome da marca não foi encontrado de forma única.")
+        brand_ref = str(matches[0]["ref"])
     if people:
         visibility = "restricted"
     if visibility != "private" or people:
@@ -104,7 +139,11 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
             raise ToolInputError("Todas as pessoas precisam pertencer à equipe ativa.")
     operation_payload = {**payload, "visibility": visibility, "people": people,
                          "links": links, "notes": notes,
-                         "file_uploads": file_uploads}
+                         "file_uploads": file_uploads, "direction": direction_fields,
+                         "custom_fields": custom_fields, "brand_ref": brand_ref or None}
+    payload.update(direction_fields)
+    if normalized_custom_fields:
+        payload["custom_fields"] = normalized_custom_fields
 
     def create():
         try:
@@ -113,6 +152,10 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
             raise ToolInputError(str(exc)) from exc
         repository.seed_project_owner(context.client_id, project_ref, context.user_id)
         repository.set_project_visibility(context.client_id, context.user_id, project_ref, visibility)
+        if brand_ref:
+            repository.set_project_brand_link(
+                context.client_id, context.user_id, project_ref, brand_ref, True,
+            )
         for item in people:
             repository.grant_project_access(context.client_id, project_ref, int(item["user_id"]), item["role"], context.user_id)
         project_context = replace(context, project_ref=project_ref)
@@ -145,6 +188,10 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
         }
         if links or notes or file_uploads or people or visibility != "private":
             result.update({"shared_count": len(people), "resources": resources})
+        if direction_fields or normalized_custom_fields:
+            result["direction"] = {**direction_fields, "custom_fields": normalized_custom_fields}
+        if brand_ref:
+            result["brand_ref"] = brand_ref
         return result
 
     return operations.execute(arguments["request_id"], context, "workspace.create_project", operation_payload, create)

@@ -10,7 +10,7 @@ from aicentralv2.cadu_workspace.agent_v2.response_policy import (
     budget_for, policy_for, requested_answer_chars, requested_output_tokens,
 )
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
-from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness
+from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness, prepare_execution
 from aicentralv2.cadu_workspace.agent_v2.action_executor import _completion
 from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
@@ -1155,6 +1155,60 @@ def test_project_commands_route_to_real_registry_capabilities():
     assert action["requires_confirmation"] is True
 
 
+def test_project_creation_wins_over_brand_qualifier_and_keeps_subject_details():
+    message = "Crie um projeto novo na marca Centralcomm, sobre: Media Hacks. Evento para clientes."
+    route = route_request(message)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert route.action == "create_project"
+    assert action["arguments"]["name"] == "Media Hacks"
+    assert action["arguments"]["brand_name"] == "Centralcomm"
+    assert "Evento para clientes" in action["arguments"]["description"]
+
+
+@pytest.mark.parametrize("message", [
+    "Cria um projeto chamado Verão 2027",
+    "Faz um projeto chamado Verão 2027",
+    "Monta aí um projeto chamado Verão 2027",
+    "Abre um projeto chamado Verão 2027",
+    "Cadastra um proejto chamado Verão 2027",
+])
+def test_brazilian_project_creation_phrasings_share_the_same_route(message):
+    route = route_request(message)
+    action = next(step for step in build_task_plan(route, budget_for(route), message)
+                  if step["kind"] == "action")
+
+    assert route.action == "create_project"
+    assert action["arguments"]["name"] == "Verão 2027"
+
+
+def test_project_creation_uses_referenced_previous_turn_data():
+    selected = {
+        "type": "conversation_turn",
+        "label": "Continuidade da conversa",
+        "text": json.dumps({
+            "latest_user_request": "Crie um projeto novo na marca Centralcomm, sobre: Media Hacks. Evento anual.",
+        }),
+    }
+    execution = prepare_execution(
+        "Criar projeto com esses dados",
+        context(selected_context=selected),
+    )
+    action = next(step for step in execution["plan"] if step["kind"] == "action")
+
+    assert execution["route"]["action"] == "create_project"
+    assert action["arguments"]["name"] == "Media Hacks"
+
+
+def test_confirmable_route_without_valid_action_becomes_clarification():
+    execution = prepare_execution("Criar projeto com esses dados", context())
+
+    assert execution["route"]["action"] == "clarify_create_project"
+    assert execution["route"]["requires_confirmation"] is False
+    assert not any(step["kind"] == "action" for step in execution["plan"])
+
+
 def test_project_archive_is_a_confirmed_workspace_action():
     route = route_request("Arquive este projeto", has_project=True)
     action = next(step for step in build_task_plan(route, budget_for(route), "Arquive este projeto")
@@ -1293,6 +1347,33 @@ def test_create_project_tool_writes_canonical_project_only_after_confirmation(mo
     assert captured["payload"]["kind"] == "project"
     assert captured["owner"] == (12, "ci:project-1", 7)
     assert captured["visibility"] == (12, 7, "ci:project-1", "private")
+
+
+def test_create_project_tool_persists_direction_custom_fields_and_brand_atomically(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import workspace
+
+    captured = {}
+    monkeypatch.setattr(workspace.repository, "entities", lambda _client_id: [
+        {"ref": "studio:25", "kind": "brand", "name": "Centralcomm"},
+    ])
+    monkeypatch.setattr(workspace.repository, "create_entity", lambda _client_id, _user_id, payload:
+                        captured.update(payload=payload) or "ci:project-2")
+    monkeypatch.setattr(workspace.repository, "seed_project_owner", lambda *_: None)
+    monkeypatch.setattr(workspace.repository, "set_project_visibility", lambda *_: None)
+    monkeypatch.setattr(workspace.repository, "set_project_brand_link", lambda *args:
+                        captured.update(brand_link=args))
+    monkeypatch.setattr(workspace.operations, "execute", lambda _id, _context, _tool, _payload, operation: operation())
+
+    result = load_builtin_tools().execute("workspace.create_project", {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b1", "name": "Media Hacks",
+        "confirmed": True, "brand_name": "centralcomm", "audience": "Clientes B2B",
+        "custom_fields": [{"key": "formato", "label": "Formato", "value": "Evento"}],
+    }, context(), "internal")
+
+    assert captured["payload"]["audience"] == "Clientes B2B"
+    assert captured["payload"]["custom_fields"]["formato"]["value"] == "Evento"
+    assert captured["brand_link"][3:5] == ("studio:25", True)
+    assert result["brand_ref"] == "studio:25"
 
 
 def test_project_creation_plan_bootstraps_links_upload_and_team_visibility():
@@ -1623,6 +1704,13 @@ def test_project_overview_uses_active_project_context_without_follow_up():
     assert route.needs_tools == ("workspace.get_project_context",)
     assert policy_for(route)["max_questions"] == 0
     assert policy_for(route)["max_next_steps"] == 0
+
+
+def test_colloquial_project_overview_uses_active_project_context():
+    route = route_request("Me explica um pouco mais sobre o que que esse projeto faz", has_project=True)
+
+    assert route.action == "describe_project"
+    assert route.needs_tools == ("workspace.get_project_context",)
 
 
 def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
@@ -2101,6 +2189,24 @@ def test_pending_action_prompt_drives_routing_while_user_message_stays_original(
     )
     assert execution["route"]["action"] == "create_text_draft"
     assert execution["provider_payload"]["query"] == "pode criar"
+
+
+@pytest.mark.parametrize("message", [
+    "Criar projeto com esses dados",
+    "Agora explique o que ele fez de diferente",
+    "Falei dele anteriormente",
+])
+def test_deictic_follow_ups_recover_recent_turn(message):
+    turn = v2_service._conversation_turn_context(
+        message,
+        [
+            {"id": "u1", "role": "user", "content": "Quem foi Bob Marley?"},
+            {"id": "a1", "role": "assistant", "content": "Bob Marley foi um músico jamaicano."},
+        ],
+    )
+
+    assert turn["resolved_reference"] == "recent_turn"
+    assert turn["requires_selected_context"] is True
 
 
 def test_document_prompt_contract_uses_selected_answer_and_editorial_sections():

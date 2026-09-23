@@ -74,17 +74,28 @@ def _link_test_step(message: str):
 
 def _create_project_step(message: str):
     """Create only when the user supplied a usable name; never infer one from a task."""
-    match = re.search(r"\b(?:crie|criar|novo)\s+(?:(?:um|o)\s+)?projeto\s*(?:chamado|nomeado|:)?\s*[\"“]?([^\"”\n.]{2,150})",
-                      str(message or ""), re.IGNORECASE)
+    text = str(message or "")
+    match = re.search(
+        r"\b(?:cri(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|mont(?:a|e|ar)|abr(?:a|e|ir)|"
+        r"cadastr(?:a|e|ar)|novo)\s+(?:a[ií]\s+)?(?:(?:um|o)\s+)?pro(?:jeto|ejto)(?:\s+novo)?\s*"
+        r"(?:chamado|nomeado|:)?\s*[\"“]?([^\"”\n.]{2,150})",
+        text, re.IGNORECASE,
+    )
     if not match:
         return None
-    name = re.split(
-        r"\s+(?:com\s+(?:links?|fontes?|arquivos?|documentos?|acesso|visibilidade)|privado|compartilhado|aberto\s+para)\b",
-        " ".join(match.group(1).split()), maxsplit=1, flags=re.IGNORECASE,
-    )[0].strip(' -:;,."')
+    captured = " ".join(match.group(1).split())
+    subject = re.search(r"\bsobre\s*:\s*[\"“]?([^\"”\n.,;]{2,150})", text, re.IGNORECASE)
+    name = (subject.group(1) if subject else re.split(
+        r"\s+(?:com\s+(?:links?|fontes?|arquivos?|documentos?|acesso|visibilidade|"
+        r"(?:esses|estes|os)\s+(?:dados|detalhes|informa[cç][oõ]es))|privado|compartilhado|aberto\s+para)\b",
+        captured, maxsplit=1, flags=re.IGNORECASE,
+    )[0]).strip(' -:;,."')
+    if re.fullmatch(r"com\s+(?:esses|estes|os)\s+(?:dados|detalhes|informa[cç][oõ]es)", name, re.IGNORECASE):
+        return None
+    # A parent brand is a qualifier, never part of the project name.
+    name = re.split(r"\s+na\s+marca\b", name, maxsplit=1, flags=re.IGNORECASE)[0].strip()
     if len(name) < 2:
         return None
-    text = str(message or "")
     urls = []
     for value in re.findall(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?", text, re.IGNORECASE):
         url = value.rstrip(".,;:)")
@@ -93,6 +104,17 @@ def _create_project_step(message: str):
         urls.append({"url": url})
     visibility = "team" if re.search(r"\b(?:toda\s+a\s+equipe|equipe\s+inteira|aberto\s+para\s+(?:a\s+)?equipe)\b", text, re.IGNORECASE) else "private"
     arguments = {"name": name[:150]}
+    brand = re.search(
+        r"\b(?:na|para\s+a|vinculad[oa]\s+[àa])\s+marca\s+[\"“]?([^\"”\n,.;:]{2,150})",
+        text, re.IGNORECASE,
+    )
+    if brand:
+        arguments["brand_name"] = " ".join(brand.group(1).split())[:150]
+    if subject:
+        details = text[subject.start(1):].strip()
+        arguments["description"] = details[:4000]
+        if len(details) > 4000:
+            arguments["instructions"] = details[:12000]
     if visibility != "private":
         arguments["visibility"] = visibility
     if urls:

@@ -715,10 +715,15 @@ def create_entity(client_id, user_id, payload):
                 raise ValueError(f'O plano permite {limit} projeto(s)/marca(s) ativos.')
             cur.execute('''INSERT INTO cadu_ci_projetos
                 (id, id_cliente, criado_por, nome, descricao, tipo, instrucoes,
+                 tom_de_voz, publico, posicionamento, cor, campos_personalizados,
                  dify_dataset_id, status, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ativo', NOW(), NOW())''',
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, 'ativo', NOW(), NOW())''',
                 (entity_id, client_id, user_id, payload['name'], payload.get('description', ''),
-                 'marca' if payload['kind'] == 'brand' else 'projeto', payload.get('instructions', ''), entity_id))
+                 'marca' if payload['kind'] == 'brand' else 'projeto', payload.get('instructions', ''),
+                 payload.get('tone_of_voice', ''), payload.get('audience', ''),
+                 payload.get('positioning', ''), payload.get('color'), Json(payload.get('custom_fields') or {}),
+                 entity_id))
         conn.commit()
         return 'ci:' + entity_id
     except Exception:

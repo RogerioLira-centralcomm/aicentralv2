@@ -28,11 +28,15 @@ _FORMAT_CONTINUATION = re.compile(
     r"(plano|relat[oó]rio|apresenta[cç][aã]o|briefing|documento|texto)\b", re.IGNORECASE,
 )
 _GENERIC_REFERENCE = re.compile(
-    r"\b(?:isso|isto|aquilo|nele|nela|deles|delas|esse|essa|este|esta|aquele|aquela)\b|"
+    r"\b(?:isso|isto|aquilo|nisso|daquilo|nele|nela|dele|dela|deles|delas|ele|ela|esse|essa|estes|estas|"
+    r"esses|essas|este|esta|aquele|aquela)\b|"
+    r"\b(?:com|usando|a partir d[eo])\s+(?:isso|esses|essas|estes|estas)\s+(?:dados|informa[cç][oõ]es|detalhes)\b|"
+    r"\b(?:o\s+que\s+(?:(?:eu\s+)?|te\s+)(?:falei|disse|mandei|enviei)|"
+    r"(?:falei|disse)\s+(?:dele|dela)\s+anteriormente|(?:isso|aquilo)\s+a[ií]|o\s+anterior)\b|"
     r"\b(?:o|a|esse|essa|aquele|aquela)\s+(?:arquivo|anexo|documento|texto|resposta|imagem|"
     r"plano|relat[oó]rio|apresenta[cç][aã]o|briefing|projeto|marca|campanha|conte[uú]do)\b|"
     r"\b(?:continue|continue\s+da[ií]|prossiga|retome|revise|ajuste|altere|melhore|resuma|"
-    r"transforme|reescreva|complete|finalize)\b", re.IGNORECASE,
+    r"transforme|reescreva|complete|finalize|anteriormente)\b", re.IGNORECASE,
 )
 
 

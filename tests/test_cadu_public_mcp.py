@@ -282,6 +282,18 @@ def test_public_transport_generates_command_uuid_independent_from_jsonrpc_id():
     assert registry.execute.call_args.args[1]["request_id"] == operation_id
 
 
+def test_public_create_project_contract_exposes_direction_brand_and_custom_fields():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                             surface="workspace", capabilities=("workspace",))
+    tools = load_builtin_tools().list(context, "customer_agent")
+    definition = next(item for item in tools if item["name"] == "workspace.create_project")
+    properties = definition["inputSchema"]["properties"]
+
+    assert {"confirmed", "brand_ref", "brand_name", "tone_of_voice", "audience",
+            "positioning", "color", "custom_fields"} <= set(properties)
+    assert "confirmed" in definition["inputSchema"]["required"]
+
+
 def test_non_ledger_write_receipt_does_not_promise_operations_get():
     assert "media.start_studio_session" not in RECOVERABLE_OPERATION_TOOLS
     assert "brands.start_audit" not in RECOVERABLE_OPERATION_TOOLS

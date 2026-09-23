@@ -136,8 +136,14 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         r"\b(?:sobre\s+o\s+que\s+[ée]|do\s+que\s+(?:se\s+)?trata)\s+(?:esse|este|o)\s+projeto\b",
     ) or _has(
         text,
-        r"\b(?:qual|explique|resuma|conte)\b.{0,45}"
+        r"\b(?:qual|expliqu\w*|resum\w*|conte(?:-me)?|fala(?:\s+pra\s+mim)?|me\s+(?:fala|conta|explica))\b.{0,70}"
         r"\b(?:objetivo|contexto|escopo|descri[cç][aã]o|projeto)\b",
+    ) or _has(
+        text,
+        r"\b(?:o\s+que(?:\s+que)?|como)\s+(?:esse|este|o)\s+projeto\s+(?:faz|funciona|resolve|ajuda)\b",
+    ) or _has(
+        text,
+        r"\b(?:qual\s+[ée]\s+a\s+d[eo]|(?:esse|este|o)\s+projeto\s+[ée]\s+(?:sobre\s+)?o\s+qu[eê])\s+(?:esse\s+|este\s+)?projeto?\b",
     )
     if has_project and project_overview:
         return IntentRoute("workspace", "describe_project", "low", "analysis",
@@ -197,6 +203,12 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(resumo|ata|s[ií]ntese).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(resumo|ata|s[ií]ntese)\b"):
         return IntentRoute("workspace", "create_meeting_summary", "medium", "artifact_first",
                            ("project",) if has_project else (), (), "meeting_summary")
+    # The explicit command object wins over relationship qualifiers. In
+    # "crie um projeto na marca X", the brand is the parent, not the object
+    # being created.
+    if _has(text, r"\b(?:cri(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|mont(?:a|e|ar)|abr(?:a|e|ir)|"
+                  r"cadastr(?:a|e|ar)|novo)\s+(?:a[ií]\s+)?(?:(?:um|o)\s+)?pro(?:jeto|ejto)\b"):
+        return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
     if _has(text, r"\b(cri(e|ar)|cadastre|cadastrar|nova)\b.{0,35}\bmarca\b"):
         return IntentRoute("workspace", "create_brand", "medium", "decision", (), (), None, True)
     if has_brand and (_has(text, r"\b(envi|substitu|troc|troqu|alter|atualiz)\w*\b.{0,35}\blogo\b")
@@ -210,11 +222,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(inicie|iniciar|fa[çc]a|rodar|rode|refa[çc]a|reprocess).{0,35}\bauditoria\b.{0,25}\bmarca\b|\bauditoria\b.{0,25}\bmarca\b"):
         return IntentRoute("workspace", "start_brand_audit", "high", "decision",
                            ("brand",), (), None, True)
-    # Project creation may include URLs, notes and upload requests. It must win
-    # over the generic bare-link route so the sources bootstrap the new project
-    # instead of being treated as an orphan reference.
-    if _has(text, r"\b(?:crie|criar|novo)\s+(?:(?:um|o)\s+)?projeto\b"):
-        return IntentRoute("workspace", "create_project", "medium", "decision", (), (), None, True)
     if _has(text, r"\b(pauta|agenda).{0,35}\b(reuni[aã]o|call|alinhamento)\b|\b(reuni[aã]o|call|alinhamento).{0,35}\b(pauta|agenda)\b"):
         return IntentRoute("workspace", "create_meeting_agenda", "medium", "artifact_first",
                            ("project",) if has_project else (), (), "meeting_agenda")

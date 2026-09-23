@@ -153,6 +153,21 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "e não encerre com pergunta ou próximo passo genérico. Seja proativo: além de responder ao pedido, explique brevemente "
             "como o contexto disponível pode orientar o próximo trabalho, sem transformar a resposta em uma lista longa."
         )
+    if route.action == "plan_project_tasks":
+        brand_instruction += (
+            " O usuário quer organizar tarefas do projeto. Antes de propor qualquer item, use workspace.get_project_context, "
+            "projects.list_tasks e projects.list_resources para interpretar e separar o inventário em contexto, decisões, trabalho já feito, "
+            "relatórios, PDFs, arquivos, links, criativos e lacunas. Relacione cada tarefa aos resource_refs canônicos que realmente a sustentam "
+            "e explique essa ligação no campo evidence. O objetivo é reunir informação para decisão e continuidade, não prever o futuro. "
+            "Considere literalmente qualquer instrução adicional do usuário. Baseie cada tarefa em contexto verificável; não invente responsável, início "
+            "ou prazo e só os inclua quando estiverem confirmados. Apresente uma lista objetiva para revisão e peça uma única "
+            "confirmação antes de qualquer escrita. Depois da confirmação, o agente com MCP deve usar "
+            "projects.create_initial_task_list quando não houver tarefas ou projects.create_tasks quando a lista já existir, "
+            "sempre com request_id único e confirmed=true. Para mudanças posteriores, use projects.update_task; campos nulos "
+            "removem responsável, início ou prazo. Nunca declare tarefas criadas ou atualizadas sem o retorno da ferramenta."
+            " Além do texto de revisão, devolva task_proposal com context_summary, user_instruction, initial_list e tasks; "
+            "cada tarefa deve conter title, description, priority, resource_refs e evidence. Não inclua tarefa sem base técnica."
+        )
     readiness = policy.get("briefing_readiness") if isinstance(policy.get("briefing_readiness"), dict) else None
     if readiness and not readiness.get("complete"):
         missing = ", ".join(readiness.get("missing") or [])
@@ -196,8 +211,9 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         draft_instruction = (
             "Gere um artefato HTML visual para o objetivo do usuário. Use Tailwind CSS e componentes simples, com layout limpo, responsivo, acessível e pronto para relatório, tabela, resumo executivo ou dashboard conforme o pedido. "
             "Quando evidence tiver projeto/marca, use somente logo, cores, tipografia e identidade presentes ali; nunca invente logo, cor ou dado. Prefira variáveis CSS e classes Tailwind, contraste alto, tabelas legíveis e estados vazios honestos. "
-            "Entregue sempre artifact_patch com title e html utilizável na prévia do artefato. "
+            "Entregue sempre artifact_patch com title e html utilizável na prévia do artefato. Nunca coloque HTML em summary, text.content ou JSON serializado dentro de outro campo. "
             "Retorne HTML body fragment em artifact_patch.html, CSS complementar em artifact_patch.css e JavaScript de interação em artifact_patch.js. "
+            "Feche todas as estruturas antes de responder; se o espaço for limitado, reduza a quantidade de seções em vez de cortar HTML ou CSS. "
             "O código deve funcionar sozinho no navegador: sem dependências externas, fetch, bibliotecas CDN ou necessidade de publicação. "
             "Para controles interativos pedidos pelo usuário, inclua o JavaScript funcional no campo js; não o coloque dentro do HTML. Não escreva Markdown no artefato."
         )
@@ -245,13 +261,14 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "artifact_patch": (
                 {"title": "string", "html": "HTML simples sem Markdown, CSS ou JavaScript"}
                 if route.artifact_type == "document" else
-                {"title": "string", "summary": "string", "html": "HTML body fragment", "css": "CSS", "js": "JavaScript", "logo_url": "HTTPS opcional da marca", "primary_color": "HEX opcional", "secondary_color": "HEX opcional"}
+                {"title": "string", "html": "HTML body fragment completo", "css": "CSS completo", "js": "JavaScript opcional", "logo_url": "HTTPS opcional da marca", "primary_color": "HEX opcional", "secondary_color": "HEX opcional"}
                 if route.artifact_type == "html" else
                 {"title": "string", "summary": "síntese factual curta", "fields": [{"key": "Participantes|Contexto|Decisões|Encaminhamentos|Pendências", "value": "texto editável", "state": "confirmed|inferred|missing"}]}
                 if route.artifact_type in {"meeting_summary", "meeting_agenda"} else
                 {"title": "string", "summary": "string", "fields": [{"key": "string", "value": "string", "state": "confirmed|inferred|assumed|missing|conflicting"}]}
                 if route.artifact_type else None
             ),
+            "task_proposal": ({"context_summary": "síntese factual", "user_instruction": "orientação adicional", "initial_list": "boolean", "tasks": [{"title": "string", "description": "string", "priority": "low|normal|high", "resource_refs": ["UUID"], "evidence": "base factual"}]} if route.action == "plan_project_tasks" else None),
         }, ensure_ascii=False, separators=(",", ":")),
     }
     # Transitional aliases for the production Dify workflow that predates the

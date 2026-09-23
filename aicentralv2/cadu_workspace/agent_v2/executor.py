@@ -60,6 +60,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     policy["max_duration_ms"] = budget.max_duration_ms
     policy["artifact_type"] = route.artifact_type
     policy["allow_artifact"] = route.artifact_type is not None
+    policy["allow_task_proposal"] = route.action == "plan_project_tasks"
     if readiness:
         policy["briefing_readiness"] = readiness
     policy["artifact_fallback_title"] = {

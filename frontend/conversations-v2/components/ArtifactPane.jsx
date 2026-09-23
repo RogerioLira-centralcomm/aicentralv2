@@ -201,7 +201,8 @@ function RichDocumentArtifact({artifact, onChange}) {
 function HtmlArtifact({artifact}) {
   const content = artifact.content || {};
   if (!String(content.html || '').trim()) {
-    return <div className="cv-artifact-loading is-failed" role="status"><strong>Esta página não possui conteúdo</strong><span>O HTML desta versão não foi gerado. Peça ao Cadu para criar novamente o dashboard.</span></div>;
+    const malformed = /^\s*(?:```(?:json)?\s*)?\{\s*"(?:text|ui|answer|artifact_patch)"/i.test(String(content.summary || ''));
+    return <div className="cv-artifact-loading is-failed" role="alert"><strong>{malformed ? 'A geração retornou um formato inválido' : 'Esta página não possui conteúdo'}</strong><span>{malformed ? 'O sistema preservou a versão para diagnóstico, mas ela não pode ser renderizada. Peça ao Cadu para regenerar o HTML completo.' : 'O HTML desta versão não foi gerado. Peça ao Cadu para criar novamente o dashboard.'}</span></div>;
   }
   return <iframe title={artifact.title || 'Página interativa'} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={htmlDocument(content, artifact.title)} className="cv-h-full cv-w-full cv-border-0 cv-bg-white"/>;
 }

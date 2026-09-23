@@ -137,6 +137,40 @@ def _clean_actions(values, limit):
     return actions
 
 
+def _clean_task_proposal(value):
+    if not isinstance(value, dict):
+        return None
+    tasks = []
+    for item in value.get("tasks") if isinstance(value.get("tasks"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        title = _clean_text(item.get("title"), 180)
+        evidence = _clean_text(item.get("evidence"), 2000)
+        if len(title) < 2 or not evidence:
+            continue
+        refs = []
+        for ref in item.get("resource_refs") if isinstance(item.get("resource_refs"), list) else []:
+            cleaned = _clean_uuid(ref)
+            if cleaned and cleaned not in refs:
+                refs.append(cleaned)
+        tasks.append({
+            "title": title, "description": _clean_text(item.get("description"), 4000),
+            "priority": str(item.get("priority") or "normal") if str(item.get("priority") or "normal") in {"low", "normal", "high"} else "normal",
+            "status": "todo", "resource_refs": refs[:20],
+            "evidence": evidence,
+        })
+        if len(tasks) >= 50:
+            break
+    if not tasks:
+        return None
+    context_summary = _clean_text(value.get("context_summary"), 4000)
+    if len(context_summary) < 10:
+        return None
+    return {"tasks": tasks, "context_summary": context_summary,
+            "user_instruction": _clean_text(value.get("user_instruction"), 4000),
+            "initial_list": _as_bool(value.get("initial_list"))}
+
+
 def _clean_citations(values):
     citations = []
     for item in values if isinstance(values, list) else []:
@@ -423,6 +457,7 @@ def _clean_patch(value, artifact_type=None):
     # A provider envelope is protocol, never editable document content. Reject
     # the patch so a legitimate artifact route can rebuild it from the already
     # normalized customer answer instead of persisting JSON in the editor.
+    recovered_html = recovered_css = recovered_js = None
     for candidate in (value.get("html"), value.get("summary")):
         if not isinstance(candidate, str):
             continue
@@ -433,6 +468,15 @@ def _clean_patch(value, artifact_type=None):
         if isinstance(decoded, dict) and (
                 isinstance(decoded.get("text"), dict) or "ui" in decoded
                 or "artifact_patch" in decoded or "answer" in decoded):
+            if artifact_type == "html" and candidate is value.get("summary"):
+                nested_patch = decoded.get("artifact_patch") if isinstance(decoded.get("artifact_patch"), dict) else {}
+                nested_text = decoded.get("text") if isinstance(decoded.get("text"), dict) else {}
+                possible = nested_patch.get("html") or nested_text.get("content")
+                if isinstance(possible, str) and possible.strip():
+                    recovered_html = possible
+                    recovered_css = str(nested_patch.get("css") or "")
+                    recovered_js = str(nested_patch.get("js") or "")
+                    break
             return None
     fields = []
     allowed_states = {"confirmed", "inferred", "assumed", "missing", "conflicting"}
@@ -452,6 +496,21 @@ def _clean_patch(value, artifact_type=None):
         "summary": str(value.get("summary") or "").strip(),
         "fields": fields,
     }
+    if recovered_html:
+        lowered = recovered_html.lstrip().lower()
+        if lowered.startswith(("<!doctype", "<html")) and "</html>" in lowered:
+            styles = re.findall(r"<style\b[^>]*>(.*?)</style\s*>", recovered_html, flags=re.I | re.S)
+            scripts = re.findall(r"<script\b[^>]*>(.*?)</script\s*>", recovered_html, flags=re.I | re.S)
+            body = re.search(r"<body\b[^>]*>(.*?)</body\s*>", recovered_html, flags=re.I | re.S)
+            if body:
+                recovered_html = re.sub(
+                    r"<(?:script|style)\b[^>]*>.*?</(?:script|style)\s*>", "", body.group(1),
+                    flags=re.I | re.S,
+                ).strip()
+                recovered_css = "\n".join(filter(None, [recovered_css.strip(), *styles])).strip()
+                recovered_js = "\n".join(filter(None, [recovered_js.strip(), *scripts])).strip()
+        value = {**value, "html": recovered_html, "css": recovered_css or "", "js": recovered_js or "", "summary": ""}
+        patch["summary"] = ""
     if any(key in value for key in ("html", "css", "js")):
         patch.update({
             "fields": [],
@@ -580,7 +639,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     invalid_html_patch = False
     if not can_materialize_artifact:
         patch = None
-    elif artifact_type == "html" and patch and not str(patch.get("html") or "").strip():
+    elif artifact_type == "html" and (not patch or not str(patch.get("html") or "").strip()):
         # A title-only patch creates a valid artifact record with an empty
         # document, which the browser can only present as a blank white page.
         patch = None
@@ -616,6 +675,7 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     # high-confidence assertion needs a validated citation in the response.
     if confidence == "high" and not citations:
         confidence = "medium"
+    task_proposal = _clean_task_proposal(value.get("task_proposal")) if policy.get("allow_task_proposal") else None
     return AgentResponse(answer=answer, confidence=confidence, assumptions=assumptions,
                          questions=questions, actions=actions, artifact_patch=patch,
-                         citations=citations, blocks=blocks)
+                         citations=citations, blocks=blocks, task_proposal=task_proposal)

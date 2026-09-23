@@ -232,7 +232,8 @@ def required_scope(tool_name: str) -> str:
     if name.startswith("artifacts."):
         return "projects:read"
     if name in {"projects.create_note", "projects.prepare_source_upload", "projects.create_link_reference",
-                "projects.create_task", "projects.update_task"}:
+                "projects.create_task", "projects.create_tasks", "projects.create_initial_task_list",
+                "projects.update_task"}:
         return "projects:content_write"
     if name in {"workspace.create_project", "workspace.update_project_context", "workspace.set_project_status",
                 "workspace.link_current_brand", "workspace.set_project_visibility",

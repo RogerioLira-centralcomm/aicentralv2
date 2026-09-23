@@ -6,6 +6,12 @@ from .contracts import ExecutionBudget, IntentRoute
 
 
 def budget_for(route: IntentRoute, execution_mode: str = "analysis") -> ExecutionBudget:
+    if route.artifact_type == "html":
+        # Visual artifacts need enough room for a complete body, stylesheet and
+        # optional behavior. A smaller generic agent budget encouraged the
+        # provider to stop in the middle of CSS while still reporting success.
+        return ExecutionBudget(max_llm_calls=3, max_tool_calls=12, max_context_chars=36000,
+                               max_output_tokens=6000, max_duration_ms=240000)
     if execution_mode == "fast":
         return ExecutionBudget(max_llm_calls=1, max_tool_calls=1, max_context_chars=6000,
                                max_output_tokens=900, max_duration_ms=30000)

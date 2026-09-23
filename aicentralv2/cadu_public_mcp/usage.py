@@ -43,6 +43,8 @@ PUBLIC_TOOL_COSTS = {
     "projects.create_link_reference": 2,
     "projects.list_tasks": 1,
     "projects.create_task": 1,
+    "projects.create_tasks": 1,
+    "projects.create_initial_task_list": 1,
     "projects.update_task": 1,
     "brands.list": 1,
     "reports.list_project_reports": 1,

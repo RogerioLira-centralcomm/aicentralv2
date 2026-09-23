@@ -91,6 +91,66 @@ def test_provider_envelope_cannot_become_editable_artifact_html():
     assert "{\"text\"" not in str(response.artifact_patch)
 
 
+def test_html_provider_envelope_is_recovered_only_when_complete():
+    complete = normalize_response({
+        "text": {"content": "Página pronta."},
+        "artifact_patch": {
+            "title": "Dashboard",
+            "summary": '{"text":{"content":"<html><head><style>main{color:red}</style></head><body><main>OK</main></body></html>"}}',
+        },
+    }, {"mode": "artifact_first", "allow_artifact": True, "artifact_type": "html",
+        "max_questions": 0, "max_next_steps": 0})
+    assert complete.artifact_patch["html"] == "<main>OK</main>"
+    assert complete.artifact_patch["css"] == "main{color:red}"
+
+    truncated = normalize_response({
+        "text": {"content": "Página pronta."},
+        "artifact_patch": {"title": "Dashboard", "summary": '{"text":{"content":"<html><style>main{'},
+    }, {"mode": "artifact_first", "allow_artifact": True, "artifact_type": "html",
+        "max_questions": 0, "max_next_steps": 0})
+    assert truncated.artifact_patch is None
+    assert "Não consegui gerar" in truncated.answer
+
+
+def test_html_persistence_normalizes_full_document_and_rejects_invalid_content():
+    normalized = artifact_service._content({
+        "html": "<!doctype html><html><head><style>main{color:red}</style></head>"
+                "<body><main>Resultado</main><script>document.title='ok'</script></body></html>",
+    }, "html")
+    assert normalized["html"] == "<main>Resultado</main>"
+    assert "main{color:red}" in normalized["css"]
+    assert "document.title='ok'" in normalized["js"]
+
+    with pytest.raises(Exception, match="não possui conteúdo utilizável"):
+        artifact_service._content({"summary": "sem html"}, "html")
+    with pytest.raises(Exception, match="incompleto ou truncado"):
+        artifact_service._content({"html": "<html><style>main{"}, "html")
+
+
+def test_html_budget_and_rebuild_intent_keep_the_artifact_complete_and_active():
+    route = route_request("remontar o html com a análise anterior", has_project=True,
+                          active_object_type="artifact:html")
+    assert route.action == "update_html"
+    assert route.artifact_type == "html"
+    assert budget_for(route, execution_mode_for(route)).max_output_tokens == 6000
+    payload = build_payload(message="remontar o html", request=RequestContext(
+        organization_id=12, client_id=12, user_id=7, conversation_id="conversation",
+        surface="conversations", project_ref="ci:project", capabilities=("workspace",),
+    ), route=route, policy=policy_for(route), resolved={}, history="", user_label="Cliente",
+        execution_mode=execution_mode_for(route))
+    contract = payload["inputs"]["output_contract"]
+    assert '"summary"' not in contract.split('"artifact_patch":', 1)[1]
+
+
+def test_html_failure_observability_distinguishes_token_limit_from_invalid_schema():
+    empty = AgentResponse(answer="Não consegui gerar.")
+    valid = AgentResponse(answer="Pronto.", artifact_patch={"html": "<main>OK</main>"})
+    assert v2_service._html_failure_code(empty, "length") == "html_generation_truncated"
+    assert v2_service._html_failure_code(empty, "max_tokens") == "html_generation_truncated"
+    assert v2_service._html_failure_code(empty, "stop") == "html_generation_invalid"
+    assert v2_service._html_failure_code(valid, "length") is None
+
+
 def test_explicit_long_form_request_uses_analysis_without_forcing_an_artifact():
     message = "Escreva um guia completo de aproximadamente 1.800 palavras. Não crie artefato."
     route = route_request(message)
@@ -666,6 +726,40 @@ def test_personal_link_reference_persists_without_project(monkeypatch):
     assert artifact["project_ref"] is None
 
 
+def test_project_task_planning_uses_project_context_and_existing_tasks():
+    route = route_request(
+        "Analise o contexto do projeto e proponha a primeira lista de tarefas",
+        has_project=True,
+    )
+
+    assert route.action == "plan_project_tasks"
+    assert route.requires_confirmation is True
+    assert route.needs_tools == ("workspace.get_project_context", "projects.list_tasks", "projects.list_resources")
+
+
+def test_task_proposal_keeps_only_evidence_backed_resource_links():
+    resource_id = "f2f8d99a-14f8-4f35-9f83-e5e61bfc11c9"
+    response = normalize_response({
+        "text": {"content": "Organizei os próximos passos para sua revisão."},
+        "task_proposal": {
+            "context_summary": "O relatório e o briefing indicam uma decisão ainda pendente.",
+            "user_instruction": "Priorize validações humanas.",
+            "initial_list": True,
+            "tasks": [
+                {"title": "Validar a decisão", "priority": "high", "resource_refs": [resource_id],
+                 "evidence": "O relatório registra a decisão como pendente."},
+                {"title": "Prever resultado sem evidência"},
+            ],
+        },
+    }, {"mode": "analysis", "max_answer_chars": 1800, "max_questions": 1,
+        "max_next_steps": 2, "allow_artifact": False, "allow_task_proposal": True})
+
+    assert response.task_proposal["tasks"] == [{
+        "title": "Validar a decisão", "description": "", "priority": "high", "status": "todo",
+        "resource_refs": [resource_id], "evidence": "O relatório registra a decisão como pendente.",
+    }]
+
+
 def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     catalog = load_builtin_tools()
     public_tools = catalog.list(
@@ -676,7 +770,8 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
         "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.inspect_file_support",
         "projects.prepare_source_upload", "projects.classify_intake", "projects.create_link_reference",
-        "projects.list_tasks", "projects.create_task", "projects.update_task",
+        "projects.list_tasks", "projects.create_task", "projects.create_tasks",
+        "projects.create_initial_task_list", "projects.update_task",
         "brands.list", "brands.prepare_logo_upload",
         "brands.audit_status",
     } <= names
@@ -2651,6 +2746,37 @@ def test_public_html_artifact_does_not_require_a_session_and_keeps_tailwind_runt
     assert b"alert(2)" not in response.data
     assert b"Relat\xc3\xb3rio p\xc3\xbablico" in response.data
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_public_html_artifact_refuses_legacy_empty_version(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.public_bp)
+    monkeypatch.setattr(v2_routes, "get_public_artifact", lambda _artifact_id: {
+        "id": _artifact_id, "type": "html", "title": "Página inválida", "status": "published",
+        "content": {"summary": '{"text":{"content":"<html><style>main{'},
+    })
+
+    response = app.test_client().get("/public/cadu/artifacts/11111111-1111-4111-8111-111111111111")
+
+    assert response.status_code == 410
+
+
+def test_public_html_artifact_recovers_complete_legacy_envelope(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.public_bp)
+    legacy = '{"text":{"content":"<html><head><style>main{color:teal}</style></head><body><main>Recuperado</main></body></html>"}}'
+    monkeypatch.setattr(v2_routes, "get_public_artifact", lambda _artifact_id: {
+        "id": _artifact_id, "type": "html", "title": "Página recuperada", "status": "published",
+        "content": {"summary": legacy},
+    })
+
+    response = app.test_client().get("/public/cadu/artifacts/11111111-1111-4111-8111-111111111111")
+
+    assert response.status_code == 200
+    assert b"Recuperado" in response.data
+    assert b"main{color:teal}" in response.data
 
 
 def test_private_html_preview_keeps_requested_interaction_and_full_width_layout():

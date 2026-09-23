@@ -126,6 +126,8 @@ PUBLIC_TOOLS = frozenset({
     "projects.reindex_source",
     "projects.list_tasks",
     "projects.create_task",
+    "projects.create_tasks",
+    "projects.create_initial_task_list",
     "projects.update_task",
     "workspace.create_project",
     "workspace.update_project_context",
@@ -186,6 +188,8 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "projects.prepare_source_upload",
     "projects.reindex_source",
     "projects.create_task",
+    "projects.create_tasks",
+    "projects.create_initial_task_list",
     "projects.update_task",
     "workspace.create_project",
     "workspace.update_project_context",
@@ -228,6 +232,10 @@ RECOVERABLE_OPERATION_TOOLS = frozenset({
     "projects.prepare_source_upload",
     "projects.reindex_source",
     "projects.create_note",
+    "projects.create_task",
+    "projects.create_tasks",
+    "projects.create_initial_task_list",
+    "projects.update_task",
     "workspace.create_project",
     "workspace.update_project_context",
     "workspace.set_project_status",
@@ -400,7 +408,7 @@ def public_rpc():
                     "não envie raciocínio interno, prompts de sistema ou instruções ocultas do agente. "
                     "Uma referência pertence ao projeto e pode virar activity, task ou decision no campo project_item_kind; "
                     "atalhos da dock são preferências separadas e nunca substituem a referência do projeto. "
-                    "Para acompanhamento leve dentro do Cadu use projects.list_tasks, projects.create_task e projects.update_task; "
+                    "Para acompanhamento dentro do Cadu use projects.list_tasks, projects.create_task, projects.create_tasks, projects.create_initial_task_list e projects.update_task; "
                     "tarefas de plataformas externas devem preservar provider, URL e identificador, sem prometer sincronização quando não houver conector. "
                     "Quando receber um convite colado do Meet, Teams ou Zoom, envie o bloco a projects.classify_intake(text) e preserve "
                     "o objeto meeting retornado em projects.create_link_reference. "

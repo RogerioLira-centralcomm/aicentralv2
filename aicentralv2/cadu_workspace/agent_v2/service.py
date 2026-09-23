@@ -61,6 +61,15 @@ def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
     return replace(response, answer=streamed)
 
 
+def _html_failure_code(response, finish_reason=""):
+    if response.artifact_patch:
+        return None
+    reason = str(finish_reason or "").strip().lower()
+    if reason in {"length", "max_tokens", "token_limit", "max_output_tokens"}:
+        return "html_generation_truncated"
+    return "html_generation_invalid"
+
+
 def _decode_partial_json_string(value: str) -> str:
     """Decode the completed portion of a JSON string without exposing its envelope."""
     output, index = [], 0
@@ -621,6 +630,7 @@ def stream(run):
     state, assistant_id = "failed", None
     terminal_message = None
     terminal_error_code = None
+    provider_finish_reason = ""
     runtime = run.get("runtime") or {}
     _journal(run["run_id"], "run.started", {"conversation_id": run["conversation_id"],
              "execution_mode": execution_mode})
@@ -713,7 +723,15 @@ def stream(run):
                     streamed_answer = visible_answer
                     yield _event("answer.delta", answer=streamed_answer)
             if item.get("event") == "message_end":
-                usage = (item.get("metadata") or {}).get("usage") or {}
+                metadata = item.get("metadata") or {}
+                usage = metadata.get("usage") or {}
+                provider_finish_reason = str(
+                    metadata.get("finish_reason") or metadata.get("stop_reason")
+                    or item.get("finish_reason") or item.get("stop_reason") or ""
+                ).strip()
+                _journal(run["run_id"], "provider.completed", {
+                    "finish_reason": provider_finish_reason or "unknown",
+                }, item_type="activity")
         if _run_was_cancelled(run["run_id"]):
             state = "cancelled"
         else:
@@ -724,11 +742,32 @@ def stream(run):
                 response.blocks = [workspace_action["block"]]
                 response.actions = []
             response = _enrich_source_blocks(response, run)
+            if run["route"].get("action") == "plan_project_tasks" and response.task_proposal:
+                proposal = dict(response.task_proposal)
+                proposal.pop("initial_list", None)
+                existing_tasks = run["resolved_context"].values.get("projects.list_tasks") or {}
+                tool_name = ("projects.create_initial_task_list" if not (existing_tasks.get("tasks") or [])
+                             else "projects.create_tasks")
+                proposed_action = journal.propose_action(
+                    run["run_id"], tool_name, proposal,
+                    "Criar as tarefas propostas e manter os vínculos com as fontes do projeto.",
+                )
+                public_action = {**proposed_action, "run_id": run["run_id"]}
+                _journal(run["run_id"], "action.proposed", public_action, item_type="action")
+                yield _event("action.proposed", action=public_action)
             artifact = None
             # A response patch is only materialized when the route explicitly
             # requested an artifact. General answers must never silently turn
             # into a document just because a provider returned dense text.
             artifact_type = run["route"].get("artifact_type")
+            if artifact_type == "html":
+                terminal_error_code = _html_failure_code(response, provider_finish_reason)
+                if terminal_error_code:
+                    _journal(run["run_id"], "artifact.invalid", {
+                        "code": terminal_error_code,
+                        "finish_reason": provider_finish_reason or "unknown",
+                        "type": "html",
+                    }, item_type="error")
             project_map_registry = run["resolved_context"].values.get("projects.list_resources") or {}
             project_map_resources = (
                 project_map_registry.get("resources")
@@ -852,11 +891,11 @@ def stream(run):
                                    task_id = COALESCE(%s, task_id), finished_at = NOW(),
                                    first_token_ms=%s, total_duration_ms=%s, provider_duration_ms=%s,
                                    input_tokens=%s, output_tokens=%s,
-                                   terminal_error_code=CASE WHEN %s='failed' THEN %s ELSE NULL END
+                                   terminal_error_code=%s
                                WHERE id = %s""", (state, task_id, first_token_ms, total_duration_ms,
                                   provider_duration_ms, max(0, int(usage.get("prompt_tokens") or 0)),
-                                  max(0, int(usage.get("completion_tokens") or 0)), state,
-                                  terminal_error_code or "provider_failed", run["run_id"]))
+                                  max(0, int(usage.get("completion_tokens") or 0)),
+                                  terminal_error_code, run["run_id"]))
             conn.commit()
             close_db()
         except Exception:

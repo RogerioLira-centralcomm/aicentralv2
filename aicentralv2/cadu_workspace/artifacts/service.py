@@ -14,11 +14,112 @@ from .catalog import ALLOWED_TYPES, definition
 
 
 ALLOWED_STATUS = {"draft", "active", "published", "archived"}
+_VOID_HTML_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+
+class _BalancedFragment(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack = []
+        self.invalid = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in _VOID_HTML_TAGS:
+            self.stack.append(tag)
+
+    def handle_startendtag(self, tag, attrs):
+        return None
+
+    def handle_endtag(self, tag):
+        if tag in _VOID_HTML_TAGS:
+            return
+        if not self.stack or self.stack[-1] != tag:
+            self.invalid = True
+            return
+        self.stack.pop()
+
+
+def _balanced_css(value: str) -> bool:
+    cleaned = re.sub(r"/\*.*?\*/", "", str(value or ""), flags=re.S)
+    cleaned = re.sub(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"", "", cleaned)
+    return cleaned.count("{") == cleaned.count("}") and not cleaned.rstrip().endswith(("{", ":", ","))
+
+
+def _nested_html(value):
+    """Recover HTML from legacy/provider envelopes without accepting partial JSON."""
+    if isinstance(value, dict):
+        patch = value.get("artifact_patch")
+        if isinstance(patch, dict) and str(patch.get("html") or "").strip():
+            return str(patch["html"]), str(patch.get("css") or ""), str(patch.get("js") or "")
+        text = value.get("text")
+        if isinstance(text, dict) and str(text.get("content") or "").lstrip().lower().startswith(("<!doctype", "<html")):
+            return str(text["content"]), "", ""
+        for key in ("structured_output", "output", "data"):
+            recovered = _nested_html(value.get(key))
+            if recovered:
+                return recovered
+    return None
+
+
+def normalize_html_content(value: dict) -> dict:
+    content = dict(value)
+    html = str(content.get("html") or "").strip()
+    if not html:
+        serialized = str(content.get("summary") or "").strip().lstrip("\ufeff")
+        if serialized.startswith(("{", "```")):
+            if serialized.startswith("```json") and serialized.endswith("```"):
+                serialized = serialized[7:-3].strip()
+            elif serialized.startswith("```") and serialized.endswith("```"):
+                serialized = serialized[3:-3].strip()
+            try:
+                recovered = _nested_html(json.loads(serialized))
+            except (TypeError, ValueError):
+                recovered = None
+            if recovered:
+                html, recovered_css, recovered_js = recovered
+                content["html"] = html
+                content["css"] = str(content.get("css") or recovered_css)
+                content["js"] = str(content.get("js") or recovered_js)
+                content.pop("summary", None)
+    html = str(content.get("html") or "").strip()
+    if not html:
+        raise BadRequest("A página HTML não possui conteúdo utilizável. Gere novamente o dashboard completo.")
+    lowered = html.lower()
+    if ((lowered.startswith(("<!doctype", "<html")) and "</html>" not in lowered)
+            or ("<style" in lowered and "</style>" not in lowered)
+            or ("<script" in lowered and "</script>" not in lowered)):
+        raise BadRequest("O HTML está incompleto ou truncado e não foi salvo. Gere novamente a página completa.")
+    # The runtime owns the outer document. Accept complete documents from MCP
+    # clients, but project only their body/styles/scripts into the canonical contract.
+    if lowered.startswith(("<!doctype", "<html")):
+        styles = re.findall(r"<style\b[^>]*>(.*?)</style\s*>", html, flags=re.I | re.S)
+        scripts = re.findall(r"<script\b[^>]*>(.*?)</script\s*>", html, flags=re.I | re.S)
+        body = re.search(r"<body\b[^>]*>(.*?)</body\s*>", html, flags=re.I | re.S)
+        if not body:
+            raise BadRequest("O documento HTML não contém um corpo completo e não foi salvo.")
+        content["html"] = re.sub(
+            r"<(?:script|style)\b[^>]*>.*?</(?:script|style)\s*>", "", body.group(1),
+            flags=re.I | re.S,
+        ).strip()
+        content["css"] = "\n".join(filter(None, [str(content.get("css") or "").strip(), *styles])).strip()
+        content["js"] = "\n".join(filter(None, [str(content.get("js") or "").strip(), *scripts])).strip()
+    if not re.search(r"<\s*[a-z][^>]*>", str(content.get("html") or ""), flags=re.I):
+        raise BadRequest("A página HTML precisa conter marcação renderizável.")
+    fragment = _BalancedFragment()
+    fragment.feed(str(content.get("html") or ""))
+    fragment.close()
+    if fragment.invalid or fragment.stack or not str(content.get("html") or "").rstrip().endswith(">"):
+        raise BadRequest("O fragmento HTML está incompleto ou truncado e não foi salvo.")
+    if not _balanced_css(str(content.get("css") or "")):
+        raise BadRequest("O CSS está incompleto ou truncado e não foi salvo.")
+    return content
 
 
 def _content(value, artifact_type: str) -> dict:
     if not isinstance(value, dict):
         raise BadRequest("O conteúdo do artefato precisa ser estruturado.")
+    if artifact_type == "html":
+        value = normalize_html_content(value)
     size = len(json.dumps(value, ensure_ascii=False, default=str).encode("utf-8"))
     maximum = definition(artifact_type).max_content_bytes
     if size > maximum:
@@ -87,6 +188,14 @@ def get_artifact(context: RequestContext, artifact_id: str) -> dict:
     if not row:
         raise NotFound("Artefato indisponível.")
     artifact = dict(row)
+    if artifact.get("type") == "html":
+        try:
+            artifact["content"] = normalize_html_content(artifact.get("content") or {})
+        except BadRequest:
+            # Keep malformed legacy rows readable by the private UI so it can
+            # explain the failure and offer regeneration instead of turning a
+            # diagnostic GET into an unrelated transport error.
+            pass
     artifact["capabilities"] = definition(artifact["type"]).to_dict()
     return artifact
 
@@ -404,6 +513,9 @@ def publish_artifact(context: RequestContext, artifact_id: str) -> dict:
     artifact = get_artifact(context, artifact_id)
     if artifact.get("type") != "html":
         raise BadRequest("Somente artefatos HTML podem ser publicados como página pública.")
+    # Legacy rows may predate strict creation/update validation. Never expose a
+    # public URL for an empty, serialized or visibly truncated document.
+    _content(artifact.get("content"), "html")
     conn = get_db()
     try:
         with conn.cursor() as cur:

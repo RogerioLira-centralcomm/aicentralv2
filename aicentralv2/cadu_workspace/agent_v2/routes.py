@@ -20,7 +20,7 @@ from .guardrails import _clean_runtime_html
 from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
-from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, materialize_artifact, patch_artifact, publish_artifact, restore_version, unpublish_artifact
+from ..artifacts import attach_to_project, create_draft, get_artifact, get_public_artifact, get_version, list_versions, materialize_artifact, normalize_html_content, patch_artifact, publish_artifact, restore_version, unpublish_artifact
 from ..artifacts.service import finalize_to_project
 from .service import prepare as prepare_message, stream as stream_message
 from .provider import ProviderUnavailable
@@ -1017,6 +1017,10 @@ def artifact_unpublish(artifact_id):
 def public_artifact(artifact_id):
     artifact = get_public_artifact(str(artifact_id))
     content = artifact.get("content") if isinstance(artifact.get("content"), dict) else {}
+    try:
+        content = normalize_html_content(content)
+    except HTTPException:
+        abort(410, description="Esta página publicada não possui uma versão HTML válida.")
     title = html_escape(str(artifact.get("title") or "Cadu"), quote=True)
     css = str(content.get("css") or "").replace("</style", "<\\/style")
     javascript = str(content.get("js") or "").replace("</script", "<\\/script")

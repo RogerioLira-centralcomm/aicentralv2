@@ -108,6 +108,30 @@ def waiting_actions(run_id: str, client_id: int, user_id: int) -> list[dict]:
     return actions
 
 
+def propose_action(run_id: str, name: str, arguments: dict, summary: str) -> dict:
+    """Seal a validated provider proposal as a user-confirmable server action."""
+    step_id, request_id = str(uuid4()), str(uuid4())
+    snapshot = {"kind": "action", "name": name, "requires_confirmation": True,
+                "request_id": request_id, "arguments": arguments, "effect": "write",
+                "summary": str(summary or "Confirmar ação")[:500]}
+    connection = repository.get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COALESCE(MAX(position),0)+1 AS position FROM cadu_agent_run_steps WHERE run_id=%s",
+                           (run_id,))
+            position = int(cursor.fetchone()["position"])
+            cursor.execute("""INSERT INTO cadu_agent_run_steps
+                (id,run_id,position,kind,name,status,requires_confirmation,input_snapshot)
+                VALUES (%s,%s,%s,'action',%s,'waiting_confirmation',true,%s)""",
+                (step_id, run_id, position, name, Json(snapshot)))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return {"step_id": step_id, "name": name, "summary": snapshot["summary"],
+            "effect": "write", "arguments": arguments}
+
+
 def decide_step(run_id: str, step_id: str, client_id: int, user_id: int, approved: bool, note="") -> dict:
     connection = repository.get_db()
     try:

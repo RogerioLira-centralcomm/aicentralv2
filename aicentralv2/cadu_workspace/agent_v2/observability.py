@@ -7,7 +7,7 @@ _SAFE_EVENT_FIELDS = {
     "status", "code", "conversation_id", "message_id", "message_terminal_state",
     "execution_mode", "runtime_id", "provider_config_version", "first_token_ms",
     "total_duration_ms", "name", "tool_name", "step_id", "artifact_id", "type",
-    "context_diagnostics", "rollout", "budget",
+    "context_diagnostics", "rollout", "budget", "finish_reason",
 }
 
 
@@ -29,7 +29,9 @@ def dashboard(client_id: int, limit=60) -> dict:
              ROUND(AVG(total_duration_ms))::int AS avg_duration_ms,
              COALESCE(SUM(input_tokens),0) AS input_tokens,
              COALESCE(SUM(output_tokens),0) AS output_tokens,
-             COALESCE(SUM(charged_credits),0) AS charged_credits
+             COALESCE(SUM(charged_credits),0) AS charged_credits,
+             COUNT(*) FILTER (WHERE terminal_error_code='html_generation_invalid') AS invalid_html,
+             COUNT(*) FILTER (WHERE terminal_error_code='html_generation_truncated') AS truncated_html
           FROM cadu_family_chat_runs
          WHERE client_id=%s AND runtime_version='v2' AND created_at >= NOW()-INTERVAL '30 days'""",
                                   (client_id,))[0]
@@ -70,6 +72,11 @@ def dashboard(client_id: int, limit=60) -> dict:
         if int(summary.get("avg_first_token_ms") or 0) > 5000:
             alerts.append({"severity": "medium", "code": "first_token_slow",
                            "message": "O primeiro retorno médio ultrapassou 5 segundos."})
+        invalid_html = int(summary.get("invalid_html") or 0)
+        truncated_html = int(summary.get("truncated_html") or 0)
+        if invalid_html or truncated_html:
+            alerts.append({"severity": "medium", "code": "html_generation_invalid",
+                           "message": f"{invalid_html + truncated_html} gerações HTML inválidas nos últimos 30 dias ({truncated_html} truncadas)."})
         return {"available": True, "summary": summary, "modes": modes, "runs": runs,
                 "resource_queue": queue, "alerts": alerts}
     except Exception:

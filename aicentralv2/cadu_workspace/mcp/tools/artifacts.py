@@ -63,7 +63,7 @@ def get_artifact(context: RequestContext, arguments: dict) -> dict:
         "request_id": {"type": "string", "minLength": 16, "maxLength": 80},
         "type": {"type": "string", "enum": sorted(service.ALLOWED_TYPES)},
         "title": {"type": "string", "minLength": 1, "maxLength": 180},
-        "content": {"type": "object"},
+        "content": {"type": "object", "description": "Para type=html, envie html (fragmento de body) não vazio; css e js são opcionais. Não envie HTML em summary."},
     }, "additionalProperties": False},
 )
 def create_draft(context: RequestContext, arguments: dict) -> dict:
@@ -82,7 +82,7 @@ def create_draft(context: RequestContext, arguments: dict) -> dict:
         "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
         "expected_version": {"type": "integer", "minimum": 1},
         "title": {"type": "string", "minLength": 1, "maxLength": 180},
-        "content": {"type": "object"},
+        "content": {"type": "object", "description": "Para artefato HTML, preserve o contrato {html, css?, js?}; conteúdo vazio ou truncado é recusado."},
         "change_summary": {"type": "string", "maxLength": 500},
     }, "additionalProperties": False},
 )

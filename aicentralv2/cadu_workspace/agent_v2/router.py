@@ -142,6 +142,23 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "describe_project", "low", "analysis",
                            ("project",), ("workspace.get_project_context",))
 
+    if has_project and _has(text, r"\b(?:listar|liste|mostrar|mostre|ver|quais)\w*\b.{0,45}\btarefas?\b"):
+        return IntentRoute("workspace", "list_project_tasks", "low", "analysis",
+                           ("project",), ("projects.list_tasks",))
+
+    project_task_list = _has(
+        text,
+        r"\b(?:cri\w*|proponh\w*|mont\w*|organiz\w*)\b.{0,55}\b(?:lista\s+de\s+)?tarefas?\b|"
+        r"\b(?:primeira\s+)?lista\s+de\s+tarefas\b|\b(?:tarefas?|pr[oó]ximos?\s+passos?)\b.{0,55}"
+        r"\b(?:projeto|contexto|fontes?|conversas?)\b|\b(?:projeto|contexto|fontes?|conversas?)\b.{0,55}"
+        r"\b(?:tarefas?|pr[oó]ximos?\s+passos?)\b",
+    )
+    if has_project and project_task_list:
+        return IntentRoute(
+            "workspace", "plan_project_tasks", "high", "analysis", ("project",),
+            ("workspace.get_project_context", "projects.list_tasks", "projects.list_resources"), None, True,
+        )
+
     if _has(text, r"\b(?:list|liste|mostrar|mostre|quais|buscar|busque)\w*\b(?:\s+(?:os|meus|todos\s+os))?\s+projetos\b"):
         return IntentRoute("workspace", "list_projects", "low", "analysis", (),
                            ("workspace.list_projects",))
@@ -327,7 +344,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             or _has(text, r"\b(arquivo|documento|recurso|fonte)s?\b.{0,45}\b(mapa|organiz|agrupe|agrupar|visualiz)")):
         return IntentRoute("workspace", "organize_project_resources", "high", "artifact_first",
                            ("project",), ("projects.list_resources",), "project_map")
-    if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz).{0,45}\b(html|landing page|p[aá]gina|site|interface)\b"):
+    if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz|refa[cç]|remont).{0,45}\b(html|landing page|p[aá]gina|site|interface|dashboard|painel)\b"):
         return IntentRoute("workspace", "update_html", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), "html")
     if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|site|interface|dashboard interativo|painel interativo)\b")

@@ -178,8 +178,8 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /ProjectDataIndex/);
   assert.match(project, /Índice do projeto/);
   assert.match(project, /function ProjectTasksSection/);
-  assert.match(project, /Transforme o contexto em próximos passos/);
-  assert.match(project, /Criar lista com o Cadu/);
+  assert.match(project, /Transforme contexto em próximos passos/);
+  assert.match(project, /Criar com o Cadu/);
   assert.match(project, /projects\.create_initial_task_list/);
   assert.match(project, /resource_refs:task\.resourceRefs/);
   assert.match(project, /Fontes relacionadas/);
@@ -1275,4 +1275,32 @@ test('home and conversation voice input share one silent record-transcribe-submi
   assert.match(conversation, /audioTranscriptionEndpoint=\{audioTranscriptionEndpoint\}/);
   assert.match(conversationTemplate, /audioTranscriptions.*transcribe_voice_input/);
   assert.match(homeTemplate, /audioTranscriptions.*transcribe_voice_input/);
+});
+
+test('project empty and processing states use the workspace illustration system', () => {
+  const project = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProject.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+  const illustrationDirectory = path.join(root, 'aicentralv2/static/images/cadu/project-states');
+  const names = ['tasks-empty', 'library-empty', 'indexing-processing', 'activity-empty', 'deliveries-empty', 'views-empty'];
+
+  assert.match(project, /function ProjectStateIllustration/);
+  assert.match(project, /\/static\/images\/cadu\/project-states\/\$\{name\}\.png/);
+  assert.match(styles, /\.cadu-ds-project-state__illustration/);
+  assert.match(styles, /prefers-reduced-motion:reduce/);
+  names.forEach(name => {
+    assert.match(project, new RegExp(`name="${name}"`));
+    assert.equal(fs.existsSync(path.join(illustrationDirectory, `${name}.png`)), true, `${name}.png should exist`);
+  });
+});
+
+test('brand and project details share a compact operational header', () => {
+  const project = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProject.jsx'), 'utf8');
+  const brand = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrand.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+
+  assert.match(project, /cadu-ds-project-hero cadu-ds-entity-detail-header/);
+  assert.match(brand, /cadu-ds-brand-hero cadu-ds-entity-detail-header/);
+  assert.match(styles, /\.cadu-ds-entity-detail-header\{[^}]*max-height:120px/);
+  assert.match(styles, /\.cadu-ds-project-hero__meta/);
+  assert.doesNotMatch(brand, /cadu-ds-brand-back/);
 });

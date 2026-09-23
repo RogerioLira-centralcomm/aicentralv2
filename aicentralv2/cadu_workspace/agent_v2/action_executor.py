@@ -9,6 +9,7 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "projects.reindex_source",
     "projects.create_note",
     "projects.create_link_reference",
+    "projects.create_tasks", "projects.create_initial_task_list",
     "brands.create", "brands.prepare_logo_upload", "brands.prepare_asset_upload",
     "brands.update_identity", "brands.start_audit",
     "google.create_project_meeting",
@@ -90,6 +91,12 @@ def _completion(step_name: str, result: dict) -> dict:
             }]})
         return {"answer": f"“{title}” foi adicionado às referências do projeto.", "blocks": [
             *blocks,
+        ], "refresh_context": True}
+    if step_name in {"projects.create_tasks", "projects.create_initial_task_list"}:
+        count = int(result.get("created") or len(result.get("tasks") or []))
+        return {"answer": f"{count} tarefa(s) criada(s) com as fontes do projeto preservadas.", "blocks": [
+            {"type": "activity", "state": "completed", "label": "Próximos passos organizados",
+             "detail": f"{count} tarefa(s) criada(s) após confirmação."},
         ], "refresh_context": True}
     if step_name == "brands.create":
         name = result.get("name") or "Marca"

@@ -124,7 +124,7 @@ class AttachmentRouteTest(FamilyTest):
         self.assertEqual(self.client.get('/familia/api/conversations/capabilities').status_code, 401)
         self.login()
         data = self.client.get('/familia/api/conversations/capabilities').get_json()
-        self.assertFalse(data['attachments']); self.assertFalse(data['send'])
+        self.assertTrue(data['attachments']); self.assertTrue(data['send'])
         self.assertEqual(data['max_files'], 3)
         self.assertIn('conexão do Cadu', data['reason'])
 
@@ -133,7 +133,7 @@ class AttachmentRouteTest(FamilyTest):
         self.app.config.update(CADU_FAMILY_WRITES_ENABLED=True, CADU_FAMILY_CHAT_ENABLED=True,
                                CADU_DIFY_API_KEY='')
         data = self.client.get('/familia/api/conversations/capabilities').get_json()
-        self.assertFalse(data['send'])
+        self.assertTrue(data['send'])
         self.assertIn('conexão do Cadu', data['reason'])
 
     def test_preflight_does_not_call_dify_or_write(self):

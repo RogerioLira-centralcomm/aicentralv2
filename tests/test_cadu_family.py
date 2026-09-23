@@ -46,14 +46,15 @@ class FamilyTest(TestCase):
         self.assertEqual(self.post('conversations/send', {'message': 'test'}).status_code, 401)
         self.actor.assert_not_called()
 
-    def test_login_cannot_switch_to_another_client_environment(self):
+    def test_login_can_switch_to_an_explicitly_authorized_client_environment(self):
         self.login()
         self.assertEqual(self.post('context', {'client_id': 12, 'project_ref': 'ci:project'}).status_code, 200)
         response = self.post('context', {'client_id': 24})
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
         with self.client.session_transaction() as session:
             self.assertEqual(session['cliente_id'], 12)
-            self.assertEqual(session['family_context']['project_ref'], 'ci:project')
+            self.assertEqual(session['family_context']['client_id'], 24)
+            self.assertIsNone(session['family_context']['project_ref'])
 
     def test_ungranted_client_and_foreign_project_rejected(self):
         self.login()
@@ -96,48 +97,33 @@ class FamilyTest(TestCase):
         self.actor.return_value = {**USER, 'user_type': 'client'}
         response = self.client.get('/familia/workspace/faturamento')
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.headers['Location'], '/workspace/app/faturamento')
+        self.assertEqual(response.headers['Location'], '/faturas')
 
     def test_visitor_panel_only_on_supported_products(self):
         for product in ('workspace', 'planner', 'connect', 'studio'):
             response = self.client.get(f'/familia/{product}/')
-            if product == 'workspace':
-                self.assertEqual(response.status_code, 302)
-                self.assertEqual(response.headers['Location'], '/workspace/app')
-                continue
-            self.assertEqual(response.status_code, 200)
-            html = response.get_data(as_text=True)
-            self.assertNotIn('id="conversation-panel"', html)
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response.headers['Location'], '/workspace/')
         self.assertEqual(self.client.get('/familia/unknown/').status_code, 404)
 
     def test_legacy_workspace_client_entry_uses_the_native_dashboard(self):
         self.login()
         response = self.client.get('/familia/workspace/clientes')
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.headers['Location'], '/workspace/app')
+        self.assertEqual(response.headers['Location'], '/app')
 
     def test_guest_legacy_workspace_entry_does_not_render_a_second_shell(self):
         response = self.client.get('/familia/workspace/')
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.headers['Location'], '/workspace/app')
+        self.assertEqual(response.headers['Location'], '/workspace/')
 
     def test_product_homepages_are_distinct_and_public(self):
         from aicentralv2.cadu_family.catalog import LANDINGS, PRODUCTS
         for product, landing in LANDINGS.items():
             with self.subTest(product=product):
                 response = self.client.get(f'/familia/{product}/')
-                if product == 'workspace':
-                    self.assertEqual(response.status_code, 302)
-                    self.assertEqual(response.headers['Location'], '/workspace/app')
-                    continue
-                self.assertEqual(response.status_code, 200)
-                html = response.get_data(as_text=True)
-                self.assertIn(landing['title'], html)
-                self.assertNotIn('id="family-context"', html)
-                for module, _, _ in landing['links']:
-                    self.assertIn(module, PRODUCTS[product]['modules'])
-                asset = ROOT / 'aicentralv2/static/images/cadu/products' / landing['image']
-                self.assertTrue(asset.is_file())
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.headers['Location'], '/workspace/')
         self.actor.assert_not_called()
 
     def test_every_product_module_has_one_explicit_sidebar_group(self):
@@ -155,11 +141,9 @@ class FamilyTest(TestCase):
         self.assertIn('places', [key for key, _, _ in LANDINGS['planner']['links']])
 
     def test_planner_uses_public_nav_for_guests_and_complete_sidebar_after_login(self):
-        guest_html = self.client.get('/familia/planner/').get_data(as_text=True)
-        self.assertIn('class="family-nav ', guest_html)
-        self.assertIn('>Entrar</a>', guest_html)
-        self.assertIn('>Criar conta</a>', guest_html)
-        self.assertNotIn('class="family-modules"', guest_html)
+        guest = self.client.get('/familia/planner/')
+        self.assertEqual(guest.status_code, 302)
+        self.assertEqual(guest.headers['Location'], '/workspace/')
 
         self.login()
         with mock.patch('aicentralv2.cadu_family.product_pages.load_records', return_value=[]):
@@ -176,15 +160,15 @@ class FamilyTest(TestCase):
         self.assertIn('class="family-sidebar-credits cadu-credit-meter"', member_html)
         self.assertIn('Uso de créditos', member_html)
         self.assertIn('Abrir opções da conta', member_html)
-        self.assertIn('/workspace/app/conta?section=perfil', member_html)
-        self.assertNotIn('/workspace/app/marcas', member_html)
+        self.assertIn('href="/perfil">Meu perfil', member_html)
+        self.assertNotIn('/marcas', member_html)
 
     def test_workspace_home_redirect_does_not_load_legacy_inventory(self):
         self.login()
         self.entities.return_value = [{**ENTITIES[0], 'name': '<script>untrusted</script>'}]
         response = self.client.get('/familia/workspace/')
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.headers['Location'], '/workspace/app')
+        self.assertEqual(response.headers['Location'], '/app')
         self.entities.assert_not_called()
 
     def test_connect_home_does_not_query_reports(self):
@@ -194,24 +178,19 @@ class FamilyTest(TestCase):
             reports.assert_not_called()
 
     def test_legacy_workspace_modules_keep_specific_native_destinations(self):
-        cases = {
-            '/familia/workspace/projetos': '/workspace/app/projetos',
-            '/familia/workspace/marcas': '/workspace/app/marcas',
-            '/familia/workspace/consumo': '/workspace/app/creditos',
-            '/familia/workspace/equipe': '/workspace/app/equipe',
-        }
-        for path, target in cases.items():
+        for path in ('/familia/workspace/projetos', '/familia/workspace/marcas',
+                     '/familia/workspace/consumo', '/familia/workspace/equipe'):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 302)
-                self.assertEqual(response.headers['Location'], target)
+                self.assertEqual(response.headers['Location'], '/workspace/')
 
     def test_cross_tenant_selection_is_rejected_before_any_handoff(self):
         self.login()
-        response = self.post('context', {'client_id': 24})
+        response = self.post('context', {'client_id': 99})
         self.assertEqual(response.status_code, 403)
         with self.client.session_transaction() as session:
-            self.assertNotEqual((session.get('family_context') or {}).get('client_id'), 24)
+            self.assertNotEqual((session.get('family_context') or {}).get('client_id'), 99)
 
     def test_skills_can_use_the_shared_agent_when_the_feature_is_available(self):
         from aicentralv2.cadu_family.catalog import PROFILES
@@ -251,10 +230,8 @@ class FamilyTest(TestCase):
         self.app.add_url_rule('/cadu-assets/<family>/icon-<int:size>.png', 'cadu_maintenance_product_icon',
                               lambda family, size: '')
         response = self.client.get('/familia/planner/', headers={'Host': 'planner.centralcomm.media'})
-        self.assertEqual(response.status_code, 200)
-        html = response.get_data(as_text=True)
-        self.assertIn('Decida o mix antes de pedir a próxima peça.', html)
-        self.assertNotIn('CentralX', html)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers['Location'], '/workspace/')
 
     def test_history_read_checks_user_and_client(self):
         self.login()

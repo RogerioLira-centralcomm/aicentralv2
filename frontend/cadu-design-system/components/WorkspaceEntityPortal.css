@@ -126,8 +126,8 @@ body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) {
   grid-template-columns:18px minmax(0,1fr) 12px;
   gap:8px;
   align-items:center;
-  min-height:40px;
-  padding:7px 0;
+  min-height:var(--cadu-sidebar-row-height,30px);
+  padding:4px 0;
   color:var(--cadu-ink);
   text-decoration:none;
 }
@@ -143,17 +143,17 @@ body.portal--workspace .cadu-ds-entity-rail__group > div > a:hover b { text-deco
 body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) > i { color:var(--cadu-accent-strong); font-size:12px; font-style:normal; }
 body.portal--workspace .cadu-ds-entity-rail__expand { width:100%; margin-top:5px; padding:7px 0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 10px var(--cadu-font-sans); text-align:left; cursor:pointer; }
 
-/* Brand and project detail rails share the same 274px navigation measure. */
+/* Brand and project detail rails share the Workspace navigation measures. */
 @media (min-width:901px) and (max-width:1240px) {
   body.portal--workspace .cadu-ds-entity-portal.cadu-ds-entity-portal--brand,
   body.portal--workspace .cadu-ds-entity-portal.cadu-ds-entity-portal--project {
-    grid-template-columns:274px minmax(0,1fr);
+    grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px);
   }
 }
 
 body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav {
-  width:274px;
-  min-width:274px;
+  width:var(--cadu-sidebar-width,239px);
+  min-width:var(--cadu-sidebar-width,239px);
   padding:22px 18px 28px;
 }
 
@@ -244,7 +244,7 @@ body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav__action
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-dock,
   body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-dock { grid-column:1; position:sticky; top:0; height:100dvh; min-height:100dvh; border-right:0; }
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal,
-  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal { grid-column:2; grid-template-columns:clamp(190px,16vw,228px) minmax(0,1fr) clamp(190px,17vw,228px); min-width:0; }
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal { grid-column:2; grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); min-width:0; }
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-nav,
   body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav { width:auto; min-width:0; }
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail,
@@ -261,11 +261,11 @@ body.portal--workspace .cadu-ds-entity-nav__identity small { color:var(--cadu-mu
 body.portal--workspace .cadu-ds-entity-nav__identity b { overflow:hidden; color:var(--cadu-ink); font-size:13px; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-entity-nav nav { gap:0; }
 body.portal--workspace .cadu-ds-entity-nav nav a,
-body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav nav a { min-height:30px; padding:4px 6px; gap:7px; font-size:11px; }
+body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav nav a { min-height:var(--cadu-sidebar-row-height,30px); padding:3px 6px; gap:7px; font-size:11px; }
 body.portal--workspace .cadu-ds-entity-nav nav a svg { width:14px; height:14px; }
 body.portal--workspace .cadu-ds-entity-nav__actions { margin-top:16px; padding:14px 5px 0; }
 body.portal--workspace .cadu-ds-entity-nav__actions > button,
-body.portal--workspace .cadu-ds-entity-nav__source-menu summary { display:flex; align-items:center; gap:8px; width:100%; min-height:32px; padding:5px 7px; border:0; border-radius:7px; background:none; color:var(--cadu-ink); font:650 11px var(--cadu-font-sans); text-align:left; cursor:pointer; }
+body.portal--workspace .cadu-ds-entity-nav__source-menu summary { display:flex; align-items:center; gap:8px; width:100%; min-height:var(--cadu-sidebar-row-height,30px); padding:3px 7px; border:0; border-radius:7px; background:none; color:var(--cadu-ink); font:650 11px var(--cadu-font-sans); text-align:left; cursor:pointer; }
 body.portal--workspace .cadu-ds-entity-nav__actions > button.is-primary { background:var(--cadu-accent-strong); color:#fff; }
 body.portal--workspace .cadu-ds-entity-nav__actions svg { width:14px; height:14px; flex:0 0 14px; }
 body.portal--workspace .cadu-ds-entity-nav__source-menu summary { list-style:none; }
@@ -284,7 +284,32 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-hero::af
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-hero__attention { align-self:center; flex:0 0 auto; padding:8px 10px; border:1px solid var(--cadu-line); border-radius:8px; background:none; color:var(--cadu-ink); font:600 11px var(--cadu-font-sans); cursor:pointer; }
 @media (max-width:1100px) and (min-width:901px) {
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal,
-  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal { grid-template-columns:180px minmax(0,1fr) 190px; }
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
   body.portal--workspace .cadu-ds-entity-portal > .cadu-ds-project-content,
   body.portal--workspace .cadu-ds-entity-portal > .cadu-ds-brand-content { padding-right:24px; padding-left:24px; }
 }
+
+/* Final entity geometry. Keep this after shared project breakpoints so older
+   page-specific measures cannot resize either navigation rail. */
+@media (min-width:901px) {
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea) {
+    grid-template-columns:64px minmax(0,1fr);
+    gap:0;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea) > .cadu-ds-entity-portal {
+    width:100%;
+    margin:0;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea) > .cadu-ds-entity-portal { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-nav { width:auto; min-width:0; padding-right:8px; padding-left:8px; }
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-brand-content { min-width:0; padding-right:28px; padding-left:28px; }
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail { min-width:0; padding-right:12px; padding-left:12px; }
+}
+@media (min-width:901px) and (max-width:1100px) {
+  body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-brand-completion { grid-template-columns:72px minmax(0,1fr); gap:18px; }
+  body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-brand-completion__actions { grid-column:1 / -1; padding-top:0; }
+  body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-brand-completion__map { grid-template-columns:repeat(3,minmax(72px,1fr)); }
+}
+body.portal--workspace .cadu-ds-entity-portal--brand :is(.cadu-ds-entity-nav,.cadu-ds-entity-rail) { border:0; background:var(--cadu-canvas); }
+body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group a { min-width:0; }
+body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group a b { white-space:normal; line-height:1.3; }

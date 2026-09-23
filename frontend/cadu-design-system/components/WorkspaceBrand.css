@@ -463,7 +463,7 @@ body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-s
 /* Brand workspace: one continuous canvas with compact navigation. */
 @media (min-width:901px) {
   body.portal--workspace .cadu-ds-brand-workarea { grid-template-columns:64px minmax(0,1fr); }
-  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal { grid-template-columns:172px minmax(0,1fr) 208px; }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-nav { padding:20px 8px 26px; }
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-brand-content { padding-right:34px; padding-left:34px; }
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail { padding-right:14px; padding-left:14px; }

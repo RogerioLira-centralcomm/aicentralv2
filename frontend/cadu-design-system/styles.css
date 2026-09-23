@@ -608,64 +608,6 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-home-workarea { min-height:100dvh; }
 .cadu-ds-home-workarea .cadu-ds-dock { min-height:100dvh; }
 .cadu-ds-project-page-drop { inset:0; }
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) { display:grid; grid-template-columns:76px minmax(0,1fr); grid-template-rows:minmax(100dvh,auto); }
-.cadu-workspace-legacy-chrome-root .cadu-ds-dock { grid-column:1; grid-row:1; min-height:100dvh; }
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) > .workspace-app-main { grid-column:2; grid-row:1; }
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface) { grid-template-columns:76px 224px minmax(0,1fr); }
-.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar { grid-column:2; grid-row:1; }
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface) > .workspace-app-main { grid-column:3; grid-row:1; }
-
-@media (max-width:760px) {
-  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) { grid-template-columns:minmax(0,1fr); grid-template-rows:auto; }
-  .cadu-workspace-legacy-chrome-root .cadu-ds-dock { grid-column:1; grid-row:1; }
-  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) > .workspace-app-main { grid-column:1; grid-row:1; padding-bottom:82px!important; }
-}
-
-/* Workspace home foundation -------------------------------------------------
-   One shell owns dock/sidebar geometry. Home suggestions intentionally use a
-   light action-list skin; the dark treatment remains exclusive to chat. */
-@media (min-width:761px) {
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) {
-    --cadu-dock-width:64px;
-    --cadu-sidebar-width:276px;
-    display:grid;
-    grid-template-columns:var(--cadu-dock-width) var(--cadu-sidebar-width) minmax(0,1fr);
-    align-items:stretch;
-    padding:0;
-  }
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-dock {
-    grid-column:1;
-    width:var(--cadu-dock-width);
-    min-width:var(--cadu-dock-width);
-  }
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-context-sidebar {
-    grid-column:2;
-    width:var(--cadu-sidebar-width);
-    min-width:var(--cadu-sidebar-width);
-    margin:0;
-  }
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-home-content {
-    grid-column:3;
-    min-width:0;
-  }
-}
-
-/* Cascade lock for the shared Workspace shell. Keep this final: legacy page
-   styles load through the same bundle, but must not redefine shell geometry. */
-@media (min-width:761px) {
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) {
-    display:grid;
-    grid-template-columns:64px 276px minmax(0,1fr);
-    gap:0;
-    padding:0;
-  }
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-dock { grid-column:1; width:64px; min-width:64px; }
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-context-sidebar { grid-column:2; width:276px; min-width:276px; margin:0; }
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-home-content { grid-column:3; min-width:0; }
-  body.portal--workspace .cadu-ds-home-intro { width:min(920px,100%); margin:0 auto 26px; text-align:center; }
-  body.portal--workspace .cadu-ds-home-intro h1,
-  body.portal--workspace .cadu-ds-home-intro > p:last-child { margin-right:auto; margin-left:auto; text-align:center; }
-}
 body.portal--workspace .cadu-ds-dock-new,
 body.portal--workspace .cadu-ds-dock-home { width:30px; height:30px; margin:0 auto 6px; border-radius:8px; }
 body.portal--workspace .cadu-ds-dock-brand .cadu-ds-visual-identity,
@@ -712,7 +654,7 @@ body.portal--workspace > main#content.portal-content--workspace-react > #cadu-co
     gap:1px;
   }
   body.portal--workspace .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__nav a {
-    min-height:34px;
+    min-height:var(--cadu-sidebar-row-height);
     padding:0 8px;
     border-radius:8px;
   }
@@ -932,10 +874,6 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
   box-shadow:0 0 0 1px color-mix(in srgb,var(--cadu-line) 72%,transparent);
 }
 .cadu-ds-home-navbar { border-bottom:0; }
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) {
-  overflow:hidden;
-  border-radius:18px;
-}
 .cadu-ds-dialog.cadu-ds-activity-drawer {
   inset:0 0 0 auto;
   width:min(420px,100vw);
@@ -943,29 +881,6 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
   height:100dvh;
   margin:0;
   border-radius:0;
-}
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) {
-  display:grid;
-  grid-template-columns:76px minmax(0,1fr);
-  grid-template-rows:72px minmax(calc(100dvh - 72px),auto);
-  width:100%;
-  max-width:none;
-}
-.cadu-workspace-legacy-chrome-root { display:contents; }
-.cadu-workspace-legacy-chrome-root .cadu-ds-home-navbar { grid-column:1/-1; grid-row:1; }
-.cadu-workspace-legacy-chrome-root .cadu-ds-dock { grid-column:1; grid-row:2; min-height:calc(100dvh - 72px); }
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) > .workspace-app-main {
-  grid-column:2;
-  grid-row:2;
-  width:100%;
-  max-width:none;
-  min-width:0;
-  box-sizing:border-box;
-}
-@media (max-width:760px) {
-  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) { grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto; }
-  .cadu-workspace-legacy-chrome-root .cadu-ds-home-navbar { grid-column:1; }
-  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) > .workspace-app-main { grid-column:1; grid-row:2; padding-top:28px!important; }
 }
 
 .cadu-ds-account-content { width:100%; max-width:none; min-width:0; box-sizing:border-box; padding:clamp(38px,5vw,68px) clamp(24px,4vw,64px) 72px; }
@@ -1419,6 +1334,10 @@ body.portal--workspace {
   --cadu-ink:#14283a;
   --cadu-muted:#526873;
   --cadu-line:rgba(20,40,58,.12);
+  --cadu-sidebar-row-height:30px;
+  --cadu-dock-width:64px;
+  --cadu-sidebar-width:239px;
+  --cadu-secondary-sidebar-width:270px;
 }
 
 body.portal--workspace .cadu-ds-home-workarea {
@@ -1678,12 +1597,12 @@ body.portal--workspace .cadu-ds-home-workarea {
   transition:flex-basis 180ms ease,padding 180ms ease;
 }
 
-/* Workspace navigation rail: a consistent 275px reading column on desktop.
+/* Workspace navigation rail: one consistent primary reading column on desktop.
    The dock remains the compact shortcut rail; this rail owns labels, projects,
    brands and account navigation. */
 @media (min-width: 981px) {
   .cadu-ds-context-sidebar {
-    flex-basis:275px;
+    flex-basis:var(--cadu-sidebar-width,239px);
     padding:16px 18px 13px;
   }
 
@@ -1693,7 +1612,7 @@ body.portal--workspace .cadu-ds-home-workarea {
 
   .cadu-workspace-legacy-chrome-root.is-account-surface + .workspace-app-main,
   .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface) {
-    grid-template-columns:76px 275px minmax(0,1fr)!important;
+    grid-template-columns:var(--cadu-dock-width,64px) var(--cadu-sidebar-width,239px) minmax(0,1fr)!important;
   }
 }
 
@@ -1795,9 +1714,9 @@ body.portal--workspace .cadu-ds-home-workarea {
 }
 
 .cadu-ds-context-sidebar__collection-item {
-  min-height:34px;
+  min-height:var(--cadu-sidebar-row-height,30px);
   gap:8px;
-  padding:3px 6px;
+  padding:2px 6px;
 }
 
 .cadu-ds-context-sidebar__collection-item .cadu-ds-visual-identity {
@@ -2760,10 +2679,10 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 
 /* Account navigation stays visible on account surfaces, including the legacy
    integrations page. The content column then uses the remaining width. */
-.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:76px 224px minmax(0,1fr)!important;grid-template-rows:minmax(100dvh,auto)!important}
+.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:var(--cadu-dock-width,64px) var(--cadu-sidebar-width,239px) minmax(0,1fr)!important;grid-template-rows:minmax(100dvh,auto)!important}
 .cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{grid-column:2;grid-row:1;min-height:100dvh}
 .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface)> .workspace-app-main{grid-column:3!important;grid-row:1!important;min-width:0}
-@media(min-width:981px){.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:76px 275px minmax(0,1fr)!important}.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{flex-basis:275px;padding:24px 18px 20px}}
+@media(min-width:981px){.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:var(--cadu-dock-width,64px) var(--cadu-sidebar-width,239px) minmax(0,1fr)!important}.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{flex-basis:var(--cadu-sidebar-width,239px);padding:24px 18px 20px}}
 @media(max-width:760px){.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface){grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto!important}.cadu-workspace-legacy-chrome-root.is-account-surface .cadu-ds-context-sidebar{grid-column:1;grid-row:1;min-height:0;max-height:none}.workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root.is-account-surface)> .workspace-app-main{grid-column:1!important;grid-row:2!important;padding-top:18px!important}}
 /* Project continuity affordances: reveal bounded lists without duplicating the artifact library. */
 .cadu-ds-project-continuity__more { margin-top:10px; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 11px var(--cadu-font-sans); cursor:pointer; }
@@ -3526,13 +3445,13 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
   }
   body.portal--workspace .cadu-ds-context-sidebar__toggle:hover,
   body.portal--workspace .cadu-ds-context-sidebar__toggle:focus-visible { border:0; background:var(--cadu-surface-soft); }
-  body.portal--workspace .cadu-ds-context-sidebar__nav { gap:3px; }
+  body.portal--workspace .cadu-ds-context-sidebar__nav { gap:0; }
   body.portal--workspace .cadu-ds-context-sidebar__nav a {
-    min-height:40px;
-    padding:0 10px;
-    border-radius:10px;
-    font-size:12px;
-    font-weight:600;
+    min-height:var(--cadu-sidebar-row-height);
+    padding:0 8px;
+    border-radius:8px;
+    font-size:11px;
+    font-weight:550;
   }
   body.portal--workspace .cadu-ds-context-sidebar__nav a:hover,
   body.portal--workspace .cadu-ds-context-sidebar__nav a:focus-visible,
@@ -3607,9 +3526,9 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
 
 /* Final shared-shell invariants. */
 @media (min-width:761px) {
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) { display:grid; grid-template-columns:64px 276px minmax(0,1fr); gap:0; padding:0; }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) { display:grid; grid-template-columns:var(--cadu-dock-width) var(--cadu-sidebar-width) minmax(0,1fr); gap:0; padding:0; }
   body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-dock { grid-column:1; width:64px; min-width:64px; }
-  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-context-sidebar { grid-column:2; width:276px; min-width:276px; margin:0; }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-context-sidebar { grid-column:2; width:var(--cadu-sidebar-width); min-width:var(--cadu-sidebar-width); margin:0; }
   body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-home-content { grid-column:3; min-width:0; }
   body.portal--workspace .cadu-ds-home-intro { width:min(920px,100%); margin:0 auto 26px; text-align:center; }
   body.portal--workspace .cadu-ds-home-intro h1,
@@ -3643,8 +3562,8 @@ body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-conte
 body.portal--workspace .cadu-ds-entity-portal {
   display:grid;
   flex:1;
-  /* Keep the entity rail aligned with the 274px workspace sidebar used on Home. */
-  grid-template-columns:274px minmax(0,1fr) 276px;
+  /* Shared desktop measures: primary navigation, content, secondary context. */
+  grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px);
   min-width:0;
   min-height:100dvh;
   background:var(--cadu-canvas);
@@ -3842,7 +3761,7 @@ body.portal--workspace .cadu-ds-brand-library__filters button:hover,
 body.portal--workspace .cadu-ds-brand-library__filters button.is-active { border-color:var(--cadu-line); background:var(--cadu-surface); color:var(--cadu-ink); }
 
 @media (max-width:1240px) {
-  body.portal--workspace .cadu-ds-entity-portal { grid-template-columns:172px minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-entity-portal { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr); }
   body.portal--workspace .cadu-ds-entity-rail { display:none; }
 }
 @media (max-width:900px) {

@@ -323,7 +323,21 @@ export function WorkspaceBrand({bootstrap}) {
     ] : []),
     {id:'biblioteca', label:'Biblioteca', icon:'file', count:(brand.assets || []).length},
   ];
-  const sourceLabel = (record, index) => { const href = record.url || record; try { const url = new URL(href); return index === 0 ? 'Site oficial' : record.title || url.hostname.replace(/^www\./, ''); } catch (_) { return index === 0 ? 'Site oficial' : record.title || 'Fonte pública'; } };
+  const sourceLabel = (record, index) => {
+    const href = record.url || record;
+    try {
+      const url = new URL(href);
+      const hostname = url.hostname.replace(/^www\./, '');
+      const recorded = String(record.title || '').trim();
+      const page = decodeURIComponent(url.pathname).split('/').filter(Boolean).at(-1)?.replace(/[-_]/g, ' ');
+      if (index === 0) return 'Site oficial';
+      if (recorded && !recorded.toLocaleLowerCase('pt-BR').includes(hostname.toLocaleLowerCase('pt-BR'))) return recorded;
+      if (page?.toLocaleLowerCase('pt-BR') === 'about') return 'Sobre a marca';
+      return page ? page.replace(/\b\w/g, letter => letter.toUpperCase()) : hostname;
+    } catch (_) {
+      return index === 0 ? 'Site oficial' : record.title || 'Fonte pública';
+    }
+  };
   const sourceDetail = href => { try { const url = new URL(href); return url.pathname && url.pathname !== '/' ? decodeURIComponent(url.pathname).replace(/\/$/, '').split('/').filter(Boolean).at(-1)?.replace(/[-_]/g, ' ') : url.hostname; } catch (_) { return href; } };
   const brandRailGroups = [
     {title:'Fontes públicas', items:[{url:brand.websiteUrl,title:'Site oficial'}, ...(brand.analysisMetadata?.sourceRecords || [])].filter(item => item.url).filter((item, index, all) => all.findIndex(other => other.url === item.url) === index).map((record, index) => ({id:record.url, title:sourceLabel(record, index), detail:sourceDetail(record.url), origin:index === 0 ? 'Site informado pela marca' : 'Fonte usada na auditoria', href:record.url, external:true, icon:'external'}))},

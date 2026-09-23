@@ -72,29 +72,68 @@ function CreateBrandProjectDialog({brand, action, csrfToken, onClose}) {
   </BrandDialog>;
 }
 
+function BrandAuditUploads() {
+  const picker = useRef(null);
+  const logoInput = useRef(null);
+  const referencesInput = useRef(null);
+  const [files, setFiles] = useState([]);
+  const [logoIndex, setLogoIndex] = useState(0);
+  const [active, setActive] = useState(false);
+  useEffect(() => () => files.forEach(item => URL.revokeObjectURL(item.preview)), [files]);
+  const syncInputs = (selected, primaryIndex) => {
+    if (!selected.length || !logoInput.current || !referencesInput.current) return 0;
+    const safeIndex = Math.min(primaryIndex, selected.length - 1);
+    const logoTransfer = new DataTransfer();
+    const referenceTransfer = new DataTransfer();
+    selected.forEach((file, index) => (index === safeIndex ? logoTransfer : referenceTransfer).items.add(file));
+    logoInput.current.files = logoTransfer.files;
+    referencesInput.current.files = referenceTransfer.files;
+    setLogoIndex(safeIndex);
+    return safeIndex;
+  };
+  const distribute = (items, primaryIndex = 0) => {
+    const selected = Array.from(items || []).filter(file => file.type.startsWith('image/')).slice(0, 4);
+    if (!selected.length) return;
+    syncInputs(selected, primaryIndex);
+    setFiles(selected.map(file => ({file, preview:URL.createObjectURL(file)})));
+  };
+  const chooseLogo = index => {
+    syncInputs(files.map(item => item.file), index);
+  };
+  return <div className="cadu-ds-brand-audit-uploads">
+    <input ref={picker} type="file" accept="image/*" multiple hidden onChange={event => { distribute(event.target.files); event.target.value = ''; }}/>
+    <input ref={logoInput} name="logo_image" type="file" accept="image/*" hidden aria-hidden="true" tabIndex="-1"/>
+    <input ref={referencesInput} name="images" type="file" accept="image/*" multiple hidden aria-hidden="true" tabIndex="-1"/>
+    <button type="button" className={`cadu-ds-brand-audit-uploads__picker${active ? ' is-active' : ''}`} onClick={() => picker.current?.click()} onDragEnter={event => { event.preventDefault(); setActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setActive(false); }} onDrop={event => { event.preventDefault(); setActive(false); distribute(event.dataTransfer.files); }}>
+      <strong>{files.length ? `${files.length} imagem${files.length === 1 ? '' : 's'} pronta${files.length === 1 ? '' : 's'}` : 'Adicionar imagens'}</strong>
+      <span>Clique ou solte aqui · logo e até três referências</span>
+    </button>
+    {files.length > 0 && <div className="cadu-ds-brand-audit-uploads__files" aria-label="Imagens adicionadas">{files.map((item, index) => <button type="button" key={`${item.file.name}-${item.file.lastModified}`} className={index === logoIndex ? 'is-logo' : ''} aria-label={`${item.file.name}: usar como logo`} aria-pressed={index === logoIndex} onClick={() => chooseLogo(index)}><img src={item.preview} alt=""/><span>{index === logoIndex ? 'Logo' : 'Referência'}</span><small title={item.file.name}>{item.file.name}</small></button>)}</div>}
+  </div>;
+}
+
 function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
   const [mode, setMode] = useState(() => Number(brand.readiness?.score || 0) < 85 && Number(creditAvailable || 0) > 0 ? 'deep' : 'complete');
-  const pipelineNumber = /pipeline-v(\d+)/.exec(brand.analysisPipelineVersion || '')?.[1];
+  const [showAllAssets, setShowAllAssets] = useState(false);
   const existingSocialLinks = brand.auditInput?.socialLinks || brand.analysisMetadata?.socialLinks || [];
   const reusableAssets = (brand.assets || []).filter(asset => asset.reusable);
-  const visibleAssets = reusableAssets.slice(0, mode === 'deep' ? 40 : 24);
+  const assetPreviewLimit = mode === 'deep' ? 12 : 8;
+  const visibleAssets = showAllAssets ? reusableAssets : reusableAssets.slice(0, assetPreviewLimit);
   const hasPrimaryAsset = reusableAssets.some(asset => asset.isPrimary);
   const hasDeepCredit = Number(creditAvailable || 0) > 0;
-  const estimates = mode === 'deep' ? {pages: 'até 40', evidence: 'até 180', tokens: 'até 150 mil', time: '6–12 min', steps:['Coletar site, redes e ativos oficiais','Extrair identidade, público, presença e mercado em módulos','Validar OCR, visuais, políticas, concorrência e campanhas','Consolidar uma síntese final com evidências e lacunas']} : {pages: 'até 24', evidence: 'até 120', tokens: 'até 75 mil', time: '3–8 min', steps:['Coletar site, redes e ativos oficiais','Extrair identidade/oferta, público e presença em módulos','Validar visual e normalizar apenas evidências comprovadas','Consolidar uma síntese final para decisão']};
-  return <BrandDialog title="Atualizar análise da marca" detail="A identidade atual permanece protegida até você revisar e aprovar uma nova versão." onClose={onClose} className="cadu-ds-brand-audit-dialog">
+  const estimates = mode === 'deep' ? {tokens: 'até 150 mil créditos', time: '6–12 min'} : {tokens: 'até 75 mil créditos', time: '3–8 min'};
+  let officialSite = brand.websiteUrl || '';
+  try { officialSite = new URL(officialSite).hostname.replace(/^www\./, ''); } catch (_) { /* Keep the available label. */ }
+  return <BrandDialog title="Atualizar análise da marca" detail="Sua identidade atual permanece protegida até você aprovar a nova análise." onClose={onClose} className="cadu-ds-brand-audit-dialog">
     <form className="cadu-ds-brand-form" method="post" encType="multipart/form-data" action={urls.audit}>
       <Hidden name="_csrf" value={csrfToken}/>
-      <aside className="cadu-ds-brand-reprocess-note"><strong>{brand.reviewPack?.status || brand.analysisMetadata?.pagesAnalyzed ? 'Dados preservados nesta nova análise' : 'Como a análise funciona'}</strong><span>{pipelineNumber ? `Versão ${pipelineNumber} da análise. ` : ''}O endereço, a logo principal e os ativos atuais permanecem protegidos até uma nova versão ser revisada.</span>{brand.preserved?.logoUrl && <small>Logo principal atual preservada.</small>}</aside>
-      <div className="cadu-ds-brand-audit-dialog__columns"><div>
-        <label>Site oficial <small>opcional se usar ativos da biblioteca</small><input type="url" name="website_url" maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/></label>
-        <label>Links oficiais<textarea name="social_links" rows="3" defaultValue={existingSocialLinks.join('\n')} placeholder="https://instagram.com/sua-marca&#10;https://www.linkedin.com/company/sua-marca" /></label>
-        {reusableAssets.length > 0 && <div className="cadu-ds-brand-audit-existing"><Hidden name="existing_assets_present" value="true"/><strong>Escolha os ativos desta análise</strong><span>{visibleAssets.length} ativos disponíveis neste modo. A análise prioriza {mode === 'deep' ? 'até 12' : 'até 8'} peças variadas entre os itens marcados.</span><div>{visibleAssets.map((asset, index) => <label key={asset.id}><input type="checkbox" name="existing_asset_ids" value={asset.id} defaultChecked={asset.isPrimary || asset.role !== 'logo' || (!hasPrimaryAsset && index === 0)}/><img src={asset.displayUrl} alt=""/><small>{asset.metadata?.label || assetLabels[asset.role] || 'Ativo'}</small></label>)}</div></div>}
-        <label>Logo oficial <small>opcional · atualiza o avatar</small><BrandAssetDrop name="logo_image" maxFiles={1}/></label>
-        <label>Outras referências <small>opcional</small><BrandAssetDrop name="images"/></label>
-      </div><aside className="cadu-ds-brand-audit-dialog__scope"><strong>Profundidade da análise</strong><label><span><input type="radio" name="analysis_mode" value="complete" checked={mode === 'complete'} onChange={() => setMode('complete')}/><b>Completa</b></span><small>Identidade, oferta, público, site, redes e direção visual essencial.</small></label><label className={!hasDeepCredit ? 'is-disabled' : ''}><span><input type="radio" name="analysis_mode" value="deep" checked={mode === 'deep'} disabled={!hasDeepCredit} onChange={() => setMode('deep')}/><b>Profunda</b></span><small>{hasDeepCredit ? 'Inclui presença pública, mercado, concorrência e campanhas.' : 'Disponível quando houver saldo de créditos. Faça upgrade ou compre créditos para liberar.'}</small></label><div className="cadu-ds-brand-audit-dialog__estimate"><strong>Estimativa desta execução</strong><p>{estimates.pages} páginas · {estimates.evidence} evidências · {estimates.tokens} créditos · {estimates.time}</p></div></aside></div>
-      <label className="cadu-ds-brand-check"><input type="checkbox" name="include_project_sources" value="true"/> Adicionar as páginas oficiais ao projeto vinculado após aprovação.</label>
-      <label className="cadu-ds-brand-check"><input type="checkbox" name="confirmed_cost" value="true" required/> Autorizo o consumo estimado de créditos desta análise.</label>
-      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Atualizar análise {mode === 'deep' ? 'profunda' : 'completa'}</button></footer>
+      <Hidden name="social_links" value={existingSocialLinks.join('\n')}/>
+      <div className="cadu-ds-brand-audit-dialog__columns">
+        <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-sources-title"><header><strong id="audit-sources-title">Fontes atuais</strong><span>O Cadu encontra os links oficiais.</span></header>{brand.websiteUrl ? <><Hidden name="website_url" value={brand.websiteUrl}/><div className="cadu-ds-brand-audit-site"><small>Site oficial</small><b>{officialSite}</b></div></> : <label>Site oficial<input type="url" name="website_url" maxLength="2000" placeholder="https://"/></label>}{reusableAssets.length > 0 ? <div className="cadu-ds-brand-audit-existing"><Hidden name="existing_assets_present" value="true"/><strong>Ativos disponíveis</strong><div>{visibleAssets.map((asset, index) => <label key={asset.id}><input type="checkbox" name="existing_asset_ids" value={asset.id} defaultChecked={asset.isPrimary || asset.role !== 'logo' || (!hasPrimaryAsset && index === 0)}/><img src={asset.displayUrl} alt=""/><small>{asset.metadata?.label || assetLabels[asset.role] || 'Ativo'}</small></label>)}</div>{!showAllAssets && reusableAssets.length > assetPreviewLimit && <button type="button" className="cadu-ds-brand-audit-existing__more" onClick={() => setShowAllAssets(true)}>Ver todos os {reusableAssets.length} ativos</button>}</div> : <p className="cadu-ds-brand-audit-empty">Nenhum ativo salvo. Você pode adicionar imagens ao lado.</p>}</section>
+        <section className="cadu-ds-brand-audit-dialog__column" aria-labelledby="audit-files-title"><header><strong id="audit-files-title">Novos arquivos</strong><span>Use somente o que deseja analisar agora.</span></header><BrandAuditUploads/></section>
+        <aside className="cadu-ds-brand-audit-dialog__column cadu-ds-brand-audit-dialog__scope" aria-labelledby="audit-mode-title"><header><strong id="audit-mode-title">Tipo de análise</strong><span>Escolha o alcance desta atualização.</span></header><label className={mode === 'complete' ? 'is-selected' : ''}><span><input type="radio" name="analysis_mode" value="complete" checked={mode === 'complete'} onChange={() => setMode('complete')}/><b>Completa</b><em>3–8 min</em></span><small>Identidade, oferta, público e direção visual.</small></label><label className={`${mode === 'deep' ? 'is-selected ' : ''}${!hasDeepCredit ? 'is-disabled' : ''}`}><span><input type="radio" name="analysis_mode" value="deep" checked={mode === 'deep'} disabled={!hasDeepCredit} onChange={() => setMode('deep')}/><b>Profunda</b><em>6–12 min</em></span><small>{hasDeepCredit ? 'Mercado, concorrência e campanhas.' : 'Disponível quando houver saldo de créditos.'}</small></label><div className="cadu-ds-brand-audit-dialog__estimate"><small>Consumo máximo</small><strong>{estimates.tokens}</strong></div></aside>
+      </div>
+      <div className="cadu-ds-brand-audit-dialog__footer"><label className="cadu-ds-brand-check"><input type="checkbox" name="confirmed_cost" value="true" required/> Confirmo o consumo de {estimates.tokens}.</label><footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Atualizar análise</button></footer></div>
     </form>
   </BrandDialog>;
 }

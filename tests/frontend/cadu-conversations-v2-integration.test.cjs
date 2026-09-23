@@ -193,6 +193,7 @@ test('project dossier reuses the React workspace shell while retaining project a
 
 test('brand dossier uses the shared React dock and design-system dialogs', () => {
   const brand = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrand.jsx'), 'utf8');
+  const brandStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrand.css'), 'utf8');
   const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/brand_detail_react.html'), 'utf8');
   const route = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
@@ -206,6 +207,15 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   assert.match(brand, /IdentityDialog/);
   assert.match(brand, /LinkProjectsDialog/);
   assert.match(brand, /AuditDialog/);
+  assert.match(brand, /cadu-ds-brand-audit-dialog__columns/);
+  assert.match(brand, /BrandAuditUploads/);
+  assert.match(brand, /O Cadu encontra os links oficiais/);
+  assert.doesNotMatch(brand, /<textarea name="social_links"/);
+  assert.doesNotMatch(brand, /<Hidden name="include_project_sources" value="true"/);
+  assert.match(brand, /Ver todos os \{reusableAssets\.length\} ativos/);
+  assert.match(brand, /onDrop=\{event => \{ event\.preventDefault\(\); setActive\(false\); distribute\(event\.dataTransfer\.files\); \}\}/);
+  assert.match(brand, /aria-label=\{`\$\{item\.file\.name\}: usar como logo`\}/);
+  assert.match(brandStyles, /grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) minmax\(260px,\.88fr\)/);
   assert.match(brand, /insufficient_information/);
   assert.match(brand, /data_available_unverified/);
   assert.match(brand, /showDossier/);

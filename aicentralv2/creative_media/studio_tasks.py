@@ -4,12 +4,19 @@ import os
 import time
 import uuid
 import subprocess
+import threading
 from pathlib import Path
 from flask import request, session, current_app
 from .http import studio_http as _http
 from .studio_auth import studio_or_admin_required_api
 from .studio_csrf import studio_csrf_required
 from .studio import _scope, _record, _write, probe, waveform_levels
+
+
+_TRANSCRIBE_MODEL = None
+_TRANSCRIBE_MODEL_PATH = None
+_TRANSCRIBE_MODEL_LOCK = threading.Lock()
+_TRANSCRIBE_RUN_LOCK = threading.Lock()
 
 
 def public(row):
@@ -90,24 +97,34 @@ def transcribe(source):
     """Model is provisioned by the installer, never downloaded on an HTTP request."""
     try:from faster_whisper import WhisperModel
     except ImportError as error:raise ValueError('Transcrição não instalada no worker. Execute deploy/install_media_worker.sh.') from error
-    model_path=os.getenv('MEDIA_TRANSCRIBE_MODEL_PATH')
+    model_path=os.getenv('MEDIA_TRANSCRIBE_MODEL_PATH') or str(Path(current_app.instance_path)/'media-models'/'whisper-small')
     if not model_path or not Path(model_path).is_dir():raise ValueError('Modelo de transcrição não preparado no servidor.')
-    model=WhisperModel(model_path,device='cpu',compute_type='int8',cpu_threads=2,local_files_only=True)
-    segments,info=model.transcribe(str(source),beam_size=5,vad_filter=True,word_timestamps=True)
+    global _TRANSCRIBE_MODEL, _TRANSCRIBE_MODEL_PATH
+    if _TRANSCRIBE_MODEL is None or _TRANSCRIBE_MODEL_PATH != model_path:
+        with _TRANSCRIBE_MODEL_LOCK:
+            if _TRANSCRIBE_MODEL is None or _TRANSCRIBE_MODEL_PATH != model_path:
+                _TRANSCRIBE_MODEL=WhisperModel(model_path,device='cpu',compute_type='int8',cpu_threads=2,local_files_only=True)
+                _TRANSCRIBE_MODEL_PATH=model_path
+    model=_TRANSCRIBE_MODEL
     rows=[];timed_words=[]
-    for segment in segments:
-        words=list(segment.words or [])
-        timed_words.extend({'start':float(w.start),'end':float(w.end),'text':w.word.strip(),'probability':float(getattr(w,'probability',0))} for w in words)
-        if not words:
-            if segment.text.strip():rows.append({'start':round(float(segment.start),3),'end':round(float(segment.end),3),'text':segment.text.strip()[:300]})
-            continue
-        group=[]
-        for word in words:
-            if group and (word.end-group[0].start>4 or len(''.join(w.word for w in group))+len(word.word)>70):
-                rows.append({'start':round(float(group[0].start),3),'end':round(float(group[-1].end),3),'text':''.join(w.word for w in group).strip()});group=[]
-            group.append(word)
-        if group:rows.append({'start':round(float(group[0].start),3),'end':round(float(group[-1].end),3),'text':''.join(w.word for w in group).strip()})
-        if len(rows)>500:raise ValueError('Transcrição excede 500 legendas. Divida o projeto.')
+    # CTranslate2 model instances are kept warm but one CPU inference runs at
+    # a time per web process, preventing two voice notes from exhausting the
+    # worker and making both requests slower.
+    with _TRANSCRIBE_RUN_LOCK:
+        segments,info=model.transcribe(str(source),beam_size=5,vad_filter=True,word_timestamps=True)
+        for segment in segments:
+            words=list(segment.words or [])
+            timed_words.extend({'start':float(w.start),'end':float(w.end),'text':w.word.strip(),'probability':float(getattr(w,'probability',0))} for w in words)
+            if not words:
+                if segment.text.strip():rows.append({'start':round(float(segment.start),3),'end':round(float(segment.end),3),'text':segment.text.strip()[:300]})
+                continue
+            group=[]
+            for word in words:
+                if group and (word.end-group[0].start>4 or len(''.join(w.word for w in group))+len(word.word)>70):
+                    rows.append({'start':round(float(group[0].start),3),'end':round(float(group[-1].end),3),'text':''.join(w.word for w in group).strip()});group=[]
+                group.append(word)
+            if group:rows.append({'start':round(float(group[0].start),3),'end':round(float(group[-1].end),3),'text':''.join(w.word for w in group).strip()})
+            if len(rows)>500:raise ValueError('Transcrição excede 500 legendas. Divida o projeto.')
     return {'captions':rows,'words':timed_words,'language':info.language}
 
 

@@ -66,7 +66,7 @@ if command -v systemd-analyze >/dev/null; then
 fi
 sudo install -m 644 "$studio_unit" /etc/systemd/system/cadu-media-worker.service
 sudo mkdir -p /etc/systemd/system/aicentralv2.service.d
-printf '[Service]\nEnvironment="MEDIA_WORKER_MODE=supervised"\n' | sudo tee /etc/systemd/system/aicentralv2.service.d/media-worker.conf >/dev/null
+printf '[Service]\nEnvironment="MEDIA_WORKER_MODE=supervised"\nEnvironment="MEDIA_TRANSCRIBE_MODEL_PATH=%s"\n' "$studio_model" | sudo tee /etc/systemd/system/aicentralv2.service.d/media-worker.conf >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable cadu-media-worker
 sudo systemctl restart cadu-media-worker

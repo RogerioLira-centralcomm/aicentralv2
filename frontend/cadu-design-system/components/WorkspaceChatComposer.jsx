@@ -55,7 +55,7 @@ export function WorkspaceChatComposer({
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
   composerContext, onClearContext, onContextDrop, onOpenLink, onAttach, allowQueue = false, queuedCount = 0, embedded = false, homeMode = false,
   projects = [], projectRef = '', onProjectChange, showProjectSelector = true,
-  layout = 'desktop', disabled = false, onStateChange,
+  layout = 'desktop', disabled = false, onStateChange, audioTranscriptionEndpoint = '', csrfToken = '',
 }) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
@@ -63,7 +63,14 @@ export function WorkspaceChatComposer({
   const imageInput = useRef(null);
   const intensityMenu = useRef(null);
   const recognitionRef = useRef(null);
+  const recorderRef = useRef(null);
+  const voiceStreamRef = useRef(null);
+  const voiceChunksRef = useRef([]);
   const voiceBaseRef = useRef('');
+  const voiceTextRef = useRef('');
+  const voiceAutoSubmitRef = useRef(false);
+  const voiceLimitTimer = useRef(null);
+  const latestValueRef = useRef(value);
   const voiceNoticeTimer = useRef(null);
   const [contextActive, setContextActive] = React.useState(false);
   const [voiceState, setVoiceState] = React.useState('idle');
@@ -86,45 +93,92 @@ export function WorkspaceChatComposer({
     if (files.length) onAttach?.(files);
     event.target.value = '';
   };
-  const toggleVoice = () => {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) {
+  useEffect(() => { latestValueRef.current = value; }, [value]);
+  const combineVoiceText = transcript => [voiceBaseRef.current, String(transcript || '').trim()].filter(Boolean).join(voiceBaseRef.current ? ' ' : '');
+  const releaseVoiceStream = () => {
+    window.clearTimeout(voiceLimitTimer.current); voiceLimitTimer.current = null;
+    voiceStreamRef.current?.getTracks?.().forEach(track => track.stop());
+    voiceStreamRef.current = null;
+  };
+  const transcribeRecording = async blob => {
+    if (!audioTranscriptionEndpoint || !blob?.size) return voiceTextRef.current;
+    const body = new FormData();
+    const extension = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'm4a' : 'webm';
+    body.append('audio', blob, `mensagem.${extension}`);
+    const response = await fetch(audioTranscriptionEndpoint, {method:'POST', credentials:'same-origin', headers:{'X-CSRF-Token':csrfToken}, body});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.transcript?.text) throw new Error(data.error || 'Não foi possível transcrever o áudio.');
+    return data.transcript.text;
+  };
+  const finishVoice = autoSubmit => {
+    voiceAutoSubmitRef.current = voiceAutoSubmitRef.current || Boolean(autoSubmit);
+    recognitionRef.current?.stop();
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    else if (autoSubmit && voiceState !== 'transcribing' && voiceTextRef.current) onSubmit?.(combineVoiceText(voiceTextRef.current));
+  };
+  const toggleVoice = async () => {
+    if (voiceState === 'recording' || voiceState === 'transcribing') {
+      finishVoice(false);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder || !audioTranscriptionEndpoint) {
       setVoiceState('unsupported');
-      setVoiceNotice('Ditado por voz não está disponível neste navegador.');
+      setVoiceNotice('A gravação de voz não está disponível neste navegador.');
       window.clearTimeout(voiceNoticeTimer.current);
       voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200);
       return;
     }
-    if (voiceState === 'listening') {
-      recognitionRef.current?.stop();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, channelCount:1}});
+      const preferred = ['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'].find(type => MediaRecorder.isTypeSupported?.(type));
+      const recorder = new MediaRecorder(stream, preferred ? {mimeType:preferred} : undefined);
+      voiceStreamRef.current = stream; recorderRef.current = recorder; voiceChunksRef.current = [];
+      voiceBaseRef.current = latestValueRef.current.trim(); voiceTextRef.current = ''; voiceAutoSubmitRef.current = false;
+      recorder.ondataavailable = event => { if (event.data?.size) voiceChunksRef.current.push(event.data); };
+      recorder.onerror = () => { recognitionRef.current?.stop(); recorderRef.current = null; voiceChunksRef.current = []; releaseVoiceStream(); setVoiceState('error'); setVoiceNotice('Não foi possível gravar o áudio.'); };
+      recorder.onstop = async () => {
+        const blob = new Blob(voiceChunksRef.current, {type:recorder.mimeType || 'audio/webm'});
+        releaseVoiceStream(); recorderRef.current = null; setVoiceState('transcribing');
+        try {
+          const transcript = await transcribeRecording(blob);
+          const finalValue = combineVoiceText(transcript || voiceTextRef.current);
+          onChange?.(finalValue); latestValueRef.current = finalValue;
+          setVoiceState('idle');
+          if (voiceAutoSubmitRef.current && finalValue.trim()) await onSubmit?.(finalValue);
+          else window.requestAnimationFrame(() => textarea.current?.focus());
+        } catch (error) {
+          const fallback = combineVoiceText(voiceTextRef.current);
+          if (fallback.trim()) { onChange?.(fallback); if (voiceAutoSubmitRef.current) await onSubmit?.(fallback); }
+          else { setVoiceNotice(error.message); window.clearTimeout(voiceNoticeTimer.current); voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200); }
+          setVoiceState('idle');
+        }
+      };
+      recorder.start(250); setVoiceState('recording');
+      voiceLimitTimer.current = window.setTimeout(() => finishVoice(false), 295000);
+    } catch (error) {
+      setVoiceState('error');
+      setVoiceNotice(error?.name === 'NotAllowedError' ? 'Permita o microfone para usar a voz.' : 'Não foi possível iniciar a gravação.');
+      window.clearTimeout(voiceNoticeTimer.current);
+      voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200);
       return;
     }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) return;
     const recognition = new Recognition();
-    voiceBaseRef.current = value.trim();
     recognition.lang = 'pt-BR';
     recognition.interimResults = true;
-    recognition.continuous = false;
-    recognition.onstart = () => setVoiceState('listening');
+    recognition.continuous = true;
     recognition.onresult = event => {
       const transcript = Array.from(event.results).map(result => result[0]?.transcript || '').join(' ').trim();
-      onChange?.([voiceBaseRef.current, transcript].filter(Boolean).join(voiceBaseRef.current ? ' ' : ''));
+      voiceTextRef.current = transcript;
+      const next = combineVoiceText(transcript); latestValueRef.current = next; onChange?.(next);
     };
-    recognition.onerror = event => {
-      setVoiceState('error');
-      setVoiceNotice(event?.error === 'not-allowed' ? 'Permita o microfone para usar o ditado.' : 'Não foi possível iniciar o ditado.');
-      window.clearTimeout(voiceNoticeTimer.current);
-      voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200);
-    };
-    recognition.onend = () => { recognitionRef.current = null; setVoiceState('idle'); };
+    recognition.onerror = () => { recognitionRef.current = null; };
+    recognition.onend = () => { recognitionRef.current = null; };
     recognitionRef.current = recognition;
-    try { recognition.start(); } catch (_) {
-      setVoiceState('error');
-      setVoiceNotice('Não foi possível iniciar o ditado.');
-      window.clearTimeout(voiceNoticeTimer.current);
-      voiceNoticeTimer.current = window.setTimeout(() => setVoiceNotice(''), 4200);
-    }
+    try { recognition.start(); } catch (_) { recognitionRef.current = null; }
   };
-  useEffect(() => () => { recognitionRef.current?.stop(); window.clearTimeout(voiceNoticeTimer.current); }, []);
+  useEffect(() => () => { recognitionRef.current?.stop(); if (recorderRef.current?.state === 'recording') { recorderRef.current.onstop = null; recorderRef.current.stop(); } releaseVoiceStream(); window.clearTimeout(voiceNoticeTimer.current); }, []);
   useEffect(() => {
     if (!textarea.current) return;
     textarea.current.style.height = 'auto';
@@ -172,6 +226,7 @@ export function WorkspaceChatComposer({
   const submitComposer = async event => {
     event.preventDefault();
     if (disabled) return;
+    if (voiceState === 'recording' || voiceState === 'transcribing') { finishVoice(true); return; }
     dispatchComposer({type: 'submit'});
     capabilityMenu.current?.removeAttribute('open');
     intensityMenu.current?.removeAttribute('open');
@@ -244,11 +299,11 @@ export function WorkspaceChatComposer({
               {MODE_OPTIONS.map(option => <button key={option.id} type="button" role="menuitemradio" aria-checked={executionMode === option.id} className={executionMode === option.id ? 'is-active' : ''} onClick={() => { onExecutionModeChange?.(option.id); intensityMenu.current?.removeAttribute('open'); }}><span><b>{option.label}</b><small>{option.detail}</small></span>{executionMode === option.id && <Icon name="check" size={15}/>}</button>)}
             </div>
           </details>
-          <button type="button" onClick={toggleVoice} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'listening' ? 'is-listening' : ''} ${voiceState === 'unsupported' ? 'is-unavailable' : ''}`} aria-label={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'} title={voiceState === 'listening' ? 'Parar ditado por voz' : 'Ditado por voz'}><Icon name="audio" size={17}/></button>
+          <button type="button" onClick={toggleVoice} disabled={voiceState === 'transcribing'} className={`cv-composer-audio cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist ${voiceState === 'recording' ? 'is-listening' : ''} ${voiceState === 'transcribing' ? 'is-transcribing' : ''} ${voiceState === 'unsupported' ? 'is-unavailable' : ''}`} aria-label={voiceState === 'recording' ? 'Pausar e transcrever áudio' : voiceState === 'transcribing' ? 'Transcrevendo áudio' : 'Gravar mensagem de voz'} title={voiceState === 'recording' ? 'Pausar' : 'Gravar mensagem de voz'}>{voiceState === 'recording' ? <span className="cv-composer-audio__pause" aria-hidden="true"/> : voiceState === 'transcribing' ? <span className="cv-composer-audio__loading" aria-hidden="true"/> : <Icon name="audio" size={17}/>}</button>
           {running && allowQueue && <button type="submit" disabled={!value.trim() || queuedCount >= 5} className="cv-composer-queue cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-transparent cv-text-mist disabled:cv-opacity-35" aria-label="Adicionar pedido à fila" title="Adicionar à fila"><Icon name="plus" size={16}/></button>}
           <span className="cv-composer-action-slot">
             {running ? <button type="button" onClick={onStop} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-white/10" aria-label="Interromper geração"><span className="cv-h-2.5 cv-w-2.5 cv-rounded-sm cv-bg-[#d7e4e2]"/></button>
-              : <button type="submit" disabled={disabled || (!value.trim() && !attachments.length) || attachments.some(item => item.uploading)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label="Enviar mensagem" title="Enviar mensagem"><Icon name="arrowUp" size={17}/></button>}
+              : <button type="submit" disabled={disabled || (!value.trim() && !attachments.length && voiceState !== 'recording' && voiceState !== 'transcribing') || attachments.some(item => item.uploading)} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-xl cv-border-0 cv-bg-teal cv-text-[#052522] disabled:cv-cursor-not-allowed disabled:cv-opacity-35" aria-label="Enviar mensagem" title="Enviar mensagem"><Icon name="arrowUp" size={17}/></button>}
           </span>
         </div>
         {voiceNotice && <span className="cv-composer-audio-status" role="status">{voiceNotice}</span>}

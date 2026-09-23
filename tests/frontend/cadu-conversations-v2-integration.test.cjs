@@ -248,7 +248,14 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   assert.match(brand, /Ver todos os \{reusableAssets\.length\} ativos/);
   assert.match(brand, /onDrop=\{event => \{ event\.preventDefault\(\); setActive\(false\); distribute\(event\.dataTransfer\.files\); \}\}/);
   assert.match(brand, /aria-label=\{`\$\{item\.file\.name\}: usar como logo`\}/);
+  assert.match(brand, /new AbortController\(\)/);
+  assert.match(brand, /requestController\.current\?\.abort\('cancelled'\)/);
+  assert.match(brand, /cadu-ds-brand-form\$\{submitting \? ' is-submitting' : ''\}/);
+  assert.match(brand, /cadu-ds-brand-responsive-management/);
+  assert.match(brand, /JSON\.parse\(value\)/);
+  assert.doesNotMatch(brand, /if \(submitting\) return <BrandDialog/);
   assert.match(brandStyles, /grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) minmax\(260px,\.88fr\)/);
+  assert.match(brandStyles, /@media\(max-width:1240px\)[\s\S]*cadu-ds-brand-responsive-management/);
   assert.match(brand, /insufficient_information/);
   assert.match(brand, /data_available_unverified/);
   assert.match(brand, /showDossier/);
@@ -498,7 +505,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(artifact, /sandbox="allow-scripts"/);
   assert.match(artifact, /Despublicar/);
   assert.match(app, /\/unpublish/);
-  assert.match(composer, /Ditado por voz não está disponível neste navegador/);
+  assert.match(composer, /A gravação de voz não está disponível neste navegador/);
   assert.match(artifact, /static\/css\/tailwind\/artifact\.css/);
   assert.match(artifact, /data-cadu-brand-header/);
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
@@ -559,7 +566,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(composer, /Mais recursos/);
   assert.match(composer, /Pesquisar na internet/);
   assert.match(composer, /Intensidade do agente/);
-  assert.match(composer, /Ditado por voz/);
+  assert.match(composer, /Gravar mensagem de voz/);
   assert.match(composer, /Destino dos anexos/);
   assert.match(composer, /Escolher modo e recursos/);
   assert.match(styles, /\.cv-attachment-chip \{[^}]*width:48px; height:48px/);
@@ -1198,4 +1205,22 @@ test('mobile workspace surfaces share the visual viewport and keep chat styling 
   assert.match(conversationStyles, /cv-conversation--empty \.cv-empty-state/);
   assert.match(layoutFixes, /#cadu-conversations-v2-root\.cv-home-root \.cadu-ds-home-workarea/);
   assert.doesNotMatch(layoutFixes, /#cadu-conversations-v2-root \.cadu-ds-home-workarea \{/);
+});
+
+test('home and conversation voice input share one silent record-transcribe-submit flow', () => {
+  const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
+  const home = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceHome.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const conversationTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
+  const homeTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/workspace_home_chat.html'), 'utf8');
+  assert.match(composer, /navigator\.mediaDevices\?\.getUserMedia/);
+  assert.match(composer, /new MediaRecorder/);
+  assert.match(composer, /voiceState === 'recording'.*finishVoice\(true\)/s);
+  assert.match(composer, /onSubmit\?\.\(finalValue\)/);
+  assert.match(composer, /cv-composer-audio__pause/);
+  assert.match(composer, /cv-composer-audio__loading/);
+  assert.match(home, /audioTranscriptionEndpoint=\{bootstrap\.endpoints\.audioTranscriptions\}/);
+  assert.match(conversation, /audioTranscriptionEndpoint=\{audioTranscriptionEndpoint\}/);
+  assert.match(conversationTemplate, /audioTranscriptions.*transcribe_voice_input/);
+  assert.match(homeTemplate, /audioTranscriptions.*transcribe_voice_input/);
 });

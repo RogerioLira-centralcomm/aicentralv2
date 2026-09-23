@@ -742,6 +742,19 @@ def upload():
     return jsonify(file={"id": upload_id, "name": validated.filename, "kind": kind, "size": size}), 201
 
 
+@bp.post("/audio/transcriptions")
+def transcribe_voice_input():
+    resolve(surface="conversations")
+    from ..voice_input_service import transcribe_upload
+
+    attachments.bound_multipart_request(request)
+    audio = request.files.get("audio")
+    if not audio or len(request.files) != 1:
+        abort(400, description="Envie uma gravação de áudio por vez.")
+    result = transcribe_upload(audio)
+    return jsonify(transcript=result)
+
+
 @bp.post("/resources/<uuid:resource_id>/editable-copy")
 def resource_editable_copy(resource_id):
     current = resolve(surface="conversations")

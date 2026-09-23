@@ -630,6 +630,31 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-project-memory { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:42px; margin-top:62px; padding-top:32px; border-top:1px solid var(--cadu-line); }.cadu-ds-project-memory article>header { margin-bottom:19px; }.cadu-ds-project-memory h2 { font-size:21px; }.cadu-ds-project-memory article>div:not(.cadu-ds-project-link-list):not(.cadu-ds-project-activity) { padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--cadu-line) 76%,transparent); }.cadu-ds-project-memory article>div>b { color:var(--cadu-accent-strong); font-size:10px; font-weight:720; text-transform:capitalize; }.cadu-ds-project-memory article>div>p { margin:5px 0 0; color:var(--cadu-ink); font-size:13px; line-height:1.5; }.cadu-ds-project-link-list { display:grid; gap:3px; margin-bottom:16px; }.cadu-ds-project-link-list a { display:grid; gap:3px; padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--cadu-line) 76%,transparent); color:var(--cadu-ink); text-decoration:none; }.cadu-ds-project-link-list a:hover b { color:var(--cadu-accent-strong); }.cadu-ds-project-link-list b { font-size:12px; }.cadu-ds-project-link-list small { overflow:hidden; color:var(--cadu-muted); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }.cadu-ds-project-activity { display:flex; gap:9px; align-items:start; padding:8px 0; }.cadu-ds-project-activity>span { width:6px; height:6px; margin-top:5px; border-radius:50%; background:var(--cadu-accent); }.cadu-ds-project-activity p { display:grid; gap:2px; margin:0; }.cadu-ds-project-activity b { font-size:11px; }.cadu-ds-project-activity small { color:var(--cadu-muted); font-size:10px; }.cadu-ds-project-archive { margin-top:44px; padding-top:18px; border-top:1px solid var(--cadu-line); }.cadu-ds-project-archive button { padding:0; border:0; background:transparent; color:var(--cadu-muted); font-size:11px; }.cadu-ds-project-archive button:hover { color:#ad4a38; }
 .cadu-ds-project-dialog { max-height:min(760px,calc(100dvh - 32px)); overflow:auto; }.cadu-ds-project-dialog__header { padding-bottom:16px; border-bottom:1px solid var(--cadu-line); }.cadu-ds-project-dialog__eyebrow { margin:0 0 5px !important; color:var(--cadu-accent-strong) !important; font-size:10px !important; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }.cadu-ds-project-form { display:grid; gap:14px; margin-top:20px; }.cadu-ds-project-form label { display:grid; gap:6px; color:var(--cadu-ink); font-size:12px; font-weight:650; }.cadu-ds-project-form label small { color:var(--cadu-muted); font-weight:400; }.cadu-ds-project-form input,.cadu-ds-project-form textarea { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:400 13px/1.45 var(--cadu-font-sans); }.cadu-ds-project-form textarea { resize:vertical; }.cadu-ds-project-form input[type='color'] { width:42px; height:32px; padding:3px; }.cadu-ds-project-form__grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }.cadu-ds-project-form footer { display:flex; justify-content:flex-end; gap:8px; margin-top:4px; }.cadu-ds-project-form footer button,.cadu-ds-project-form>button { min-height:36px; padding:0 12px; border:0; border-radius:8px; background:var(--cadu-surface-soft); color:var(--cadu-ink); }.cadu-ds-project-form footer .is-primary,.cadu-ds-project-form>.is-primary { background:var(--cadu-accent); color:#08322d; }.cadu-ds-project-source-actions { display:grid; gap:8px; margin-top:18px; }.cadu-ds-project-source-section { overflow:hidden; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); }.cadu-ds-project-source-section[open] { border-color:color-mix(in srgb,var(--cadu-accent) 38%,var(--cadu-line)); box-shadow:0 8px 24px rgba(18,43,40,.05); }.cadu-ds-project-source-section summary { display:flex; min-height:58px; align-items:center; justify-content:space-between; gap:14px; padding:9px 13px; color:var(--cadu-ink); cursor:pointer; list-style:none; }.cadu-ds-project-source-section summary::-webkit-details-marker { display:none; }.cadu-ds-project-source-section summary>span { display:grid; gap:3px; text-align:left; }.cadu-ds-project-source-section summary b { font-size:13px; }.cadu-ds-project-source-section summary small { color:var(--cadu-muted); font-size:10px; line-height:1.35; }.cadu-ds-project-source-section summary i { color:var(--cadu-muted); font-size:16px; font-style:normal; transition:transform 160ms ease; }.cadu-ds-project-source-section[open] summary i { transform:rotate(180deg); }.cadu-ds-project-source-section__body { padding:0 13px 13px; }.cadu-ds-project-source-section .cadu-ds-project-form { margin-top:4px; }.cadu-ds-project-upload-drop { display:grid; min-height:144px; place-items:center; margin:0; border:1px dashed color-mix(in srgb,var(--cadu-accent) 55%,var(--cadu-line)); border-radius:12px; background:var(--cadu-surface-soft); transition:border-color 160ms ease,background 160ms ease,box-shadow 160ms ease; }.cadu-ds-project-upload-drop.is-dragging { border-color:var(--cadu-accent-strong); background:color-mix(in srgb,var(--cadu-accent-soft) 70%,var(--cadu-surface)); box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--cadu-accent) 30%,transparent); }.cadu-ds-project-upload-drop label { display:grid; justify-items:center; gap:7px; width:100%; padding:24px 18px; color:var(--cadu-ink); text-align:center; cursor:pointer; }.cadu-ds-project-upload-drop label b { font-size:13px; }.cadu-ds-project-upload-drop label>span:last-child { max-width:390px; color:var(--cadu-muted); font-size:11px; line-height:1.45; }.cadu-ds-project-upload-drop__icon { display:grid; width:34px; height:34px; place-items:center; border-radius:10px; background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); }.cadu-ds-project-upload-drop__icon .cadu-ds-project-icon { width:18px; height:18px; }.cadu-ds-project-upload-note { margin:9px 0 0; color:var(--cadu-muted); font-size:10px; line-height:1.45; }.cadu-ds-project-upload-error { display:flex; gap:8px; align-items:flex-start; margin:14px 0 0; padding:11px 12px; border:1px solid #efc8bf; border-radius:10px; background:#fff6f3; color:#914334; font-size:11px; line-height:1.45; }.cadu-ds-project-triage { display:grid; gap:10px; margin-top:18px; padding-top:16px; border-top:1px solid var(--cadu-line); }
 .cadu-ds-project-form select { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:400 13px/1.45 var(--cadu-font-sans); }
+.cadu-ds-brand-create-dialog { width:min(560px,calc(100vw - 32px)); max-height:min(760px,calc(100dvh - 32px)); overflow:auto; }
+.cadu-ds-brand-create-form { display:grid; gap:12px; margin-top:20px; }
+.cadu-ds-brand-create-form label { display:grid; gap:6px; color:var(--cadu-ink); font:650 12px/1.3 var(--cadu-font-sans); }
+.cadu-ds-brand-create-form label small { color:var(--cadu-muted); font:400 10px/1.35 var(--cadu-font-sans); }
+.cadu-ds-brand-create-form input { width:100%; min-height:40px; box-sizing:border-box; padding:9px 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:400 13px/1.45 var(--cadu-font-sans); }
+.cadu-ds-brand-create-form input[type='checkbox'] { width:16px; min-height:16px; padding:0; accent-color:var(--cadu-accent-strong); }
+.cadu-ds-brand-create-form footer { display:flex; justify-content:flex-end; gap:8px; margin-top:4px; }
+.cadu-ds-brand-create-form footer button { min-height:38px; padding:0 14px; border:0; border-radius:8px; background:var(--cadu-surface-soft); color:var(--cadu-ink); font:650 13px/1 var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-brand-create-form footer button.is-primary { background:var(--cadu-accent-strong); color:#fff; font-size:13px; }
+.cadu-ds-brand-create-form footer button:disabled { cursor:wait; opacity:.55; }
+.cadu-ds-brand-create-form>header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:2px; }
+.cadu-ds-brand-create-form>header h2 { margin:0; color:var(--cadu-ink); font-size:22px; letter-spacing:-.03em; }
+.cadu-ds-brand-create-form>header p { max-width:440px; margin:6px 0 0; color:var(--cadu-muted); font-size:12px; line-height:1.45; }
+.cadu-ds-brand-create-form>header button { width:30px; height:30px; padding:0; border:0; background:transparent; color:var(--cadu-muted); font-size:24px; line-height:1; cursor:pointer; }
+.cadu-ds-brand-create-form label small { display:block; margin-top:-2px; font-size:10px; }
+.cadu-ds-brand-create-form input:not([type='checkbox']) { min-height:40px; }
+.cadu-ds-brand-create-options { display:grid; gap:8px; padding:3px 0 4px; }
+.cadu-ds-brand-create-options label { display:flex; flex-direction:row; align-items:center; gap:9px; font-size:12px; font-weight:600; }
+.cadu-ds-brand-create-options input[type='checkbox'] { width:16px; height:16px; margin:0; accent-color:var(--cadu-accent-strong); }
+.cadu-ds-brand-health { display:flex; min-height:20px; align-items:center; justify-content:center; margin-top:2px; color:var(--cadu-muted); font-size:11px; line-height:1.35; }
+.cadu-ds-brand-health button { padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:700 11px var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-brand-health.is-ready { color:#146452; }
+.cadu-ds-brand-health.is-incomplete { color:#9a5a33; }
+.cadu-ds-brand-spinner { width:16px; height:16px; border:2px solid color-mix(in srgb,var(--cadu-accent) 22%,transparent); border-top-color:var(--cadu-accent-strong); border-radius:50%; animation:cadu-brand-spin .7s linear infinite; }
+@keyframes cadu-brand-spin { to { transform:rotate(360deg); } }
 .cadu-ds-project-modal-list { display:grid; gap:2px; margin-top:20px; }.cadu-ds-project-modal-list h3 { margin:0 0 3px; color:var(--cadu-ink); font-size:13px; }.cadu-ds-project-modal-list>div { display:flex; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid var(--cadu-line); }.cadu-ds-project-modal-list>div>span { display:grid; gap:3px; }.cadu-ds-project-modal-list b { font-size:12px; }.cadu-ds-project-modal-list small { color:var(--cadu-muted); font-size:10px; }.cadu-ds-project-modal-list>p { margin:0; padding:12px 0 2px; color:var(--cadu-muted); font-size:12px; }
 @media (max-width:760px) { .cadu-ds-project-content { padding:34px 18px 54px; }.cadu-ds-project-navbar>span,.cadu-ds-project-navbar>strong { display:none; }.cadu-ds-project-hero { grid-template-columns:54px minmax(0,1fr); gap:14px; }.cadu-ds-project-hero__identity { width:54px; height:54px; border-radius:16px; }.cadu-ds-project-hero__identity .cadu-ds-visual-identity { border-radius:16px; font-size:18px; }.cadu-ds-project-hero h1 { font-size:32px; }.cadu-ds-project-hero__actions { grid-column:1/-1; }.cadu-ds-project-signals { display:grid; grid-template-columns:repeat(2,1fr); gap:14px 0; }.cadu-ds-project-signals>div { min-width:0; padding-left:0; margin-right:14px; }.cadu-ds-project-grid,.cadu-ds-project-continuity__columns,.cadu-ds-project-library__columns,.cadu-ds-project-memory { grid-template-columns:1fr; gap:32px; }.cadu-ds-project-next { padding:22px 0 0; border-top:1px solid var(--cadu-line); border-left:0; }.cadu-ds-project-context dl,.cadu-ds-project-form__grid { grid-template-columns:1fr; }.cadu-ds-project-continuity,.cadu-ds-project-library,.cadu-ds-project-memory { margin-top:48px; }.cadu-ds-project-notice { flex-wrap:wrap; }.cadu-ds-project-notice form { margin-left:0; } }
 .cadu-ds-project-brand-feature__body { min-width:0; }
@@ -1459,6 +1484,56 @@ body.portal--workspace {
   --cadu-dock-width:64px;
   --cadu-sidebar-width:239px;
   --cadu-secondary-sidebar-width:270px;
+}
+
+/* Dialogs de marca/projeto: uma única hierarquia visual, sem linhas de
+   separação decorativas entre cabeçalho, conteúdo e CTA. */
+.cadu-ds-project-dialog,
+.cadu-ds-brand-dialog {
+  border:0;
+}
+.cadu-ds-project-dialog__header,
+.cadu-ds-brand-dialog > header {
+  padding-bottom:0;
+  border-bottom:0;
+}
+.cadu-ds-project-dialog .cadu-ds-project-form footer,
+.cadu-ds-brand-dialog > form > footer,
+.cadu-ds-brand-dialog__footer,
+.cadu-ds-brand-audit-dialog__footer {
+  margin-top:10px;
+  padding-top:0;
+  border-top:0;
+}
+.cadu-ds-project-dialog .cadu-ds-project-form footer button,
+.cadu-ds-brand-dialog footer button,
+.cadu-ds-brand-dialog__footer button {
+  min-height:38px;
+  padding:0 14px;
+  font:650 13px/1 var(--cadu-font-sans);
+}
+.cadu-ds-project-dialog .cadu-ds-project-form footer .is-primary,
+.cadu-ds-brand-dialog footer button.is-primary,
+.cadu-ds-brand-dialog__footer button.is-primary {
+  background:var(--cadu-accent-strong);
+  color:#fff;
+}
+.cadu-ds-brand-audit-dialog__footer footer button {
+  min-height:38px;
+  padding:0 14px;
+  font:650 13px/1 var(--cadu-font-sans);
+}
+.cadu-ds-brand-audit-dialog__footer footer button.is-primary {
+  background:var(--cadu-accent-strong);
+  color:#fff;
+}
+.cadu-ds-brand-audit-dialog__scope {
+  border-left:0;
+  border-top:0;
+  background:transparent;
+}
+.cadu-ds-brand-audit-dialog__scope > label {
+  border-bottom:0;
 }
 
 body.portal--workspace .cadu-ds-home-workarea {
@@ -4302,5 +4377,17 @@ body.portal--workspace .cadu-ds-project-page-intro{box-sizing:border-box;max-hei
   .untitled-catalog-list.is-projects .untitled-catalog-item__identity>.cadu-ds-visual-identity{grid-row:1 / span 3}
   .untitled-catalog-list.is-projects .untitled-catalog-item__value{grid-column:2;grid-row:2;align-self:start}
   .untitled-catalog-list.is-projects .untitled-catalog-item__status{grid-column:2;grid-row:3;align-self:start}
-  .untitled-catalog-list.is-projects .untitled-catalog-item__chevron{grid-row:1 / span 3}
+.untitled-catalog-list.is-projects .untitled-catalog-item__chevron{grid-row:1 / span 3}
 }
+
+/* Final modal pass: keep dialog content quiet and the CTA consistent. */
+.cadu-ds-brand-dialog > header,
+.cadu-ds-project-dialog__header { border-bottom:0; padding-bottom:0; }
+.cadu-ds-brand-audit-dialog__footer,
+.cadu-ds-brand-dialog > form > footer,
+.cadu-ds-project-dialog__footer { border-top:0; padding-top:0; }
+.cadu-ds-brand-audit-dialog__scope { border:0; background:transparent; }
+.cadu-ds-brand-audit-dialog__scope > label { border-bottom:0; }
+.cadu-ds-brand-audit-dialog__footer footer button,
+.cadu-ds-brand-dialog footer button,
+.cadu-ds-project-dialog footer button { min-height:38px; padding:0 14px; font:650 13px/1 var(--cadu-font-sans); }

@@ -216,6 +216,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
   const isControlled = typeof onReorderShortcuts === 'function';
   const [managedItems, setManagedItems] = useState(() => shortcutItems);
   const [draggedId, setDraggedId] = useState('');
+  const [trashActive, setTrashActive] = useState(false);
   const [insertIndex, setInsertIndex] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -344,7 +345,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     }
   };
   const handleReorder = next => isControlled ? onReorderShortcuts?.(next) : persistManagedOrder(next);
-  const clearDrag = () => { setDraggedId(''); setInsertIndex(null); };
+  const clearDrag = () => { setDraggedId(''); setInsertIndex(null); setTrashActive(false); };
   const locateInsertion = event => {
     const scrollSurface = event.currentTarget.querySelector('.cadu-ds-dock-context');
     if (scrollSurface) {
@@ -421,6 +422,13 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     } catch (error) { setDockNotice(error.message || 'Não foi possível remover o atalho.'); }
     finally { setBusy(false); }
   };
+  const dropOnTrash = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = items.find(current => shortcutIdentity(current) === draggedId);
+    clearDrag();
+    if (item) removeItem(item);
+  };
   const openItem = item => {
     if (item.kind !== 'external') { if (item.kind === 'brand') onOpenBrand?.(item); else onOpenResource?.(item); return; }
     const presentation = dockExternalPresentation(item.href);
@@ -435,9 +443,10 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
   const fallbackAvatar = avatarFallbackSource(bootstrap, userName);
   const resolvedUsagePercent = liveUsagePercent ?? usagePercent ?? bootstrap?.usagePercent ?? bootstrap?.usage_percent ?? bootstrap?.home?.usagePercent ?? 0;
   const resolvedAccountMenu = React.isValidElement(accountMenu) ? React.cloneElement(accountMenu, {usagePercent: resolvedUsagePercent}) : accountMenu;
-  // The avatar owns the account menu. A direct account URL is opt-in so the
-  // presence of the usage route cannot bypass Perfil, Agência and Créditos.
-  const resolvedAccountUrl = accountUrl;
+  // The avatar is the direct entry point to the persistent account sidebar.
+  // Account navigation already exposes Perfil, Agência, Créditos and the
+  // remaining sections, so an intermediate dropdown only duplicates it.
+  const resolvedAccountUrl = accountUrl || bootstrap?.urls?.agency || bootstrap?.urls?.agencia || bootstrap?.urls?.profile || bootstrap?.urls?.perfil;
   const openUsage = () => {
     const usageUrl = bootstrap?.urls?.usage || bootstrap?.urls?.credits;
     if (usageUrl) {
@@ -461,11 +470,12 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
         </React.Fragment>)}
         {insertIndex === items.length && <span className="cadu-ds-dock-insertion" aria-label={`Soltar na posição ${items.length + 1}`}/>}
         <DockTooltip label="Adicionar à dock"><button type="button" className="cadu-ds-dock-add" onClick={() => setAddOpen(true)} aria-label="Adicionar à dock" aria-haspopup="dialog"><Icon name="plus" size={17}/></button></DockTooltip>
+        {draggedId && <div className={`cadu-ds-dock-trash${trashActive ? ' is-active' : ''}`} role="button" aria-label="Remover atalho da dock" onDragEnter={event => { event.preventDefault(); event.stopPropagation(); setTrashActive(true); setInsertIndex(null); }} onDragOver={event => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setTrashActive(false); }} onDrop={dropOnTrash}><Icon name="trash" size={17}/><span>Remover</span></div>}
       </section>
     </div></DockDropZone>
     {dockNotice && <div className="cadu-ds-dock-notice" role="status">{dockNotice}{undoItem && <button type="button" onClick={() => { saveItem(undoItem); setUndoItem(null); }}>Desfazer</button>}<button type="button" onClick={() => { setDockNotice(''); setUndoItem(null); }} aria-label="Dispensar aviso">×</button></div>}
     {addOpen && createPortal(<DockPicker candidates={candidates} items={items} busy={busy} query={candidateQuery} onQueryChange={setCandidateQuery} linkUrl={linkUrl} onLinkUrlChange={setLinkUrl} linkTitle={linkTitle} onLinkTitleChange={setLinkTitle} onSave={saveItem} onRemove={removeItem} onClose={() => setAddOpen(false)} identity={shortcutIdentity}/>, document.body)}
     {externalView && createPortal(<section className="cadu-ds-dock-external-view" aria-label={`Visualização de ${externalView.title}`}><header className="cadu-ds-dock-external-view__bar"><div className="cadu-ds-dock-external-view__identity"><strong>{externalView.title}</strong><span>{externalView.host}</span></div><div className="cadu-ds-dock-external-view__actions"><a href={externalView.url} target="_blank" rel="noopener noreferrer">Abrir em nova aba</a><button type="button" onClick={() => setExternalView(null)} aria-label="Fechar visualização">Fechar</button></div></header><div className="cadu-ds-dock-external-view__content">{externalView.kind === 'image' ? <img src={externalView.url} alt={externalView.title} onError={() => setExternalHint(true)}/> : <iframe title={externalView.title} src={externalView.embedUrl} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="strict-origin-when-cross-origin" onError={() => setExternalHint(true)}/>}</div>{externalHint && <footer className="cadu-ds-dock-external-view__help"><span>Se o serviço não aparecer ou pedir permissão, abra-o em outra aba.</span><a href={externalView.url} target="_blank" rel="noopener noreferrer">Abrir fora</a><button type="button" onClick={() => { try { window.localStorage.setItem(`cadu:dock:external:${externalView.host}`, '1'); } catch (_) { /* Storage is optional. */ } window.open(externalView.url, '_blank', 'noopener,noreferrer'); setExternalView(null); }}>Sempre abrir fora</button></footer>}</section>, document.body)}
-    <div className="cadu-ds-dock-bottom">{openNotifications && <DockTooltip label="Notificações"><button type="button" className="cadu-ds-dock-notifications" onClick={openNotifications} aria-label="Abrir notificações"><Icon name="pulse" size={17}/>{resolvedNotifications.length > 0 && <i>{resolvedNotifications.length > 9 ? '9+' : resolvedNotifications.length}</i>}</button></DockTooltip>}<DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && resolvedAccountMenu}</div></div>
+    <div className="cadu-ds-dock-bottom">{openNotifications && <DockTooltip label="Notificações"><button type="button" className="cadu-ds-dock-notifications" onClick={openNotifications} aria-label="Abrir notificações"><Icon name="pulse" size={17}/>{resolvedNotifications.length > 0 && <i>{resolvedNotifications.length > 9 ? '9+' : resolvedNotifications.length}</i>}</button></DockTooltip>}<DockUsageRing percent={resolvedUsagePercent} onOpen={openUsage}/><div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && resolvedAccountMenu}</div></div>
   </aside>;
 }

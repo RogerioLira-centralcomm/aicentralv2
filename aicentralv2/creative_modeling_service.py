@@ -2990,7 +2990,11 @@ class CreativeModelingService:
                 "width": candidate.get("width"),
                 "height": candidate.get("height"),
                 "score": candidate.get("score"),
-                "status": "approved",
+                # Crawled images are evidence candidates. Approval belongs to
+                # the visual resolver after ownership and logo identity have
+                # been reconciled; otherwise a partner mark can leak into the
+                # active brand simply because it appeared on the official site.
+                "status": "pending" if role == "logo" else "approved",
                 "is_primary": bool(candidate.get("is_primary") and role == "logo"),
                 "metadata": {
                     "category": candidate.get("category"),

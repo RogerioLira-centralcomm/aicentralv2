@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequest
 from aicentralv2.product_domains import product_url
 from aicentralv2.creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
 from aicentralv2.cadu_workspace.routes import (
-    _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
+    _auto_apply_brand_analysis, _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
     _brand_audit_checkpoint_reusable, _brand_audit_history, _brand_audit_reliability_summary, _brand_review_pack, _normalized_website_url, _resolve_uploaded_logo_path, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
     _save_brand_review_job, bp,
@@ -32,6 +32,39 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    def test_automatic_publication_replaces_stale_identity_with_approved_revision(self):
+        cursor = mock.MagicMock()
+        cursor.fetchone.return_value = {'id': 25}
+        connection = mock.MagicMock()
+        connection.cursor.return_value.__enter__.return_value = cursor
+        analysis = {
+            'logo_url': '/static/uploads/official.png',
+            'primary_color': '#4FFF82', 'secondary_color': '#FBBA07',
+            'color_palette': [{'hex': '#4FFF82'}, {'hex': '#FBBA07'}],
+            'fonts': [{'family': 'Montserrat'}],
+        }
+        brand = {
+            'brand_profile': {'color_palette': [{'hex': '#000000'}], 'fonts': [{'family': 'Arial'}]},
+            'analysis_metadata': {},
+        }
+
+        with mock.patch('aicentralv2.cadu_workspace.routes.get_db', return_value=connection), \
+             mock.patch('aicentralv2.cadu_workspace.routes._fill_empty_project_identity_from_brand'), \
+             mock.patch('aicentralv2.cadu_workspace.routes._save_brand_campaigns'), \
+             mock.patch('aicentralv2.cadu_workspace.routes._sync_approved_brand_to_projects'):
+            _auto_apply_brand_analysis(174, 7, 25, brand, analysis, {
+                'approved': True, 'blocked_fields': [], 'score': 95,
+            })
+
+        update_params = cursor.execute.call_args_list[0].args[1]
+        self.assertEqual(update_params[3], '/static/uploads/official.png')
+        self.assertEqual(update_params[4], '/static/uploads/official.png')
+        self.assertEqual(update_params[5:7], ('#4FFF82', '#FBBA07'))
+        persisted_profile = json.loads(update_params[8])
+        self.assertEqual(persisted_profile['color_palette'][0]['hex'], '#4FFF82')
+        self.assertEqual(persisted_profile['fonts'][0]['family'], 'Montserrat')
+        self.assertIn("source_kind = 'website'", cursor.execute.call_args_list[1].args[0])
+
     def test_human_field_approval_can_replace_stale_identity_values(self):
         merged = _merge_brand_analysis(
             {'brand_profile': {'tone_of_voice': 'Tom antigo', 'color_palette': [{'hex': '#000000'}]}},
@@ -146,6 +179,41 @@ class WorkspaceBrandsTest(TestCase):
         brand = {'assets': [{'sha256': digest, 'asset_path': '/static/uploads/brand-logo.webp'}]}
 
         self.assertEqual(_resolve_uploaded_logo_path(analysis, brand), '/static/uploads/brand-logo.webp')
+
+    def test_uploaded_logo_uses_durable_client_pointer_when_asset_row_is_missing(self):
+        analysis = {
+            'logo_upload_evidence_id': 'upload:abc',
+            'analysis_metadata': {'extraction_manifest': {'uploads': [
+                {'evidence_id': 'upload:abc', 'sha256': 'a' * 64, 'order': 1},
+            ]}},
+        }
+        brand = {'assets': [], 'logo_upload_path': '/static/uploads/official-logo.png'}
+
+        self.assertEqual(
+            _resolve_uploaded_logo_path(analysis, brand),
+            '/static/uploads/official-logo.png',
+        )
+
+    def test_automatic_decision_never_publishes_without_ready_central_review(self):
+        decision = _automatic_brand_decision(
+            {
+                'sources': ['https://a.test', 'https://b.test', 'https://c.test'],
+                'brand_summary': 'Marca comprovada.', 'target_audience': 'Público.',
+                'tone_of_voice': 'Claro', 'creative_guidelines': 'Direção.',
+                'products_services': ['Serviço'], 'differentiators': ['Diferencial'],
+                'proof_points': ['Prova'], 'audience_segments': ['Segmento'],
+                'logo_url': '/static/logo.png', 'primary_color': '#112233',
+                'secondary_color': '#445566', 'color_palette': [{'hex': '#112233'}],
+                'fonts': [{'family': 'Inter'}], 'visual_motifs': ['Motivo'],
+                'evidence_ledger': [{'claim': 'Fato'}] * 6,
+            },
+            {'coverage': {'official_pages': 4, 'approved_visuals': 8}},
+            {'status': 'needs_review', 'blocked_fields': ['consolidação central indisponível'], 'confidence': .35},
+            'complete',
+        )
+
+        self.assertFalse(decision['approved'])
+        self.assertIn('consolidação central', ' '.join(decision['reasons']))
 
     def test_blocked_visual_identity_never_receives_full_visual_score(self):
         decision = _automatic_brand_decision(

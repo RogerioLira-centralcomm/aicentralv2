@@ -132,6 +132,7 @@ class WorkspaceBrandReviewAgentsTest(TestCase):
 
         central = reviews[-1]
         self.assertEqual(central['id'], 'revisor_central')
-        self.assertEqual(central['status'], 'ready')
-        self.assertEqual(central['confidence'], .68)
-        self.assertIn('brand_summary', central['accepted_fields'])
+        self.assertEqual(central['status'], 'needs_review')
+        self.assertEqual(central['confidence'], .35)
+        self.assertEqual(central['accepted_fields'], [])
+        self.assertIn('consolidação central indisponível', central['blocked_fields'])

@@ -756,6 +756,17 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         self.assertEqual(accepted, [])
         self.assertEqual(rejected[0]['triage_reason'], 'ativo visual da plataforma hospedeira')
 
+    def test_rejeita_logos_de_plataformas_embutidas_no_site_da_marca(self):
+        candidates = [
+            _candidate('https://centralcomm.media/imagens/logos/dv360.svg', 'https://centralcomm.media'),
+            _candidate('https://centralcomm.media/imagens/logos/cfc.svg', 'https://centralcomm.media'),
+        ]
+
+        accepted, rejected = _ocr_vet_visual_candidates(candidates)
+
+        self.assertEqual(accepted, [])
+        self.assertEqual(len(rejected), 2)
+
     def test_extrai_contatos_publicos_com_url_e_trecho_de_origem(self):
         contacts, addresses = _public_contact_records([{
             "url": "https://www.exemplo.com.br/atendimento",
@@ -1308,6 +1319,19 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(captured["client_id"], 10)
         self.assertEqual([item["role"] for item in assets], ["reference", "logo"])
         self.assertFalse(assets[1]["is_primary"])
+
+    def test_logo_coletada_do_site_fica_pendente_ate_resolucao_visual(self):
+        saved = []
+        self.repo.add_client_brand_asset = (
+            lambda client_id, data: saved.append(data) or len(saved)
+        )
+
+        self.service._import_candidate_brand_assets(10, {"brand_assets": [{
+            "role": "logo", "source_url": "https://marca.com/parceiro.svg",
+        }]})
+
+        self.assertEqual(saved[0]["status"], "pending")
+        self.assertFalse(saved[0]["is_primary"])
 
     def test_treino_de_formato_devolve_pipeline(self):
         result = self.service.train_format({

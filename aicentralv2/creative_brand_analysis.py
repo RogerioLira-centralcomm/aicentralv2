@@ -10,6 +10,7 @@ import ipaddress
 import json
 import os
 import re
+from html import unescape
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlparse
 
@@ -541,6 +542,41 @@ def _clean_web_text(value, limit=6000):
     return _text(text, limit)
 
 
+def _direct_http_scrape(url, domain=None):
+    """Small first-party fallback when Firecrawl is unavailable."""
+    response = requests.get(
+        url, timeout=15, allow_redirects=True,
+        headers={"User-Agent": "CentralX-Brand-Audit/2026"},
+    )
+    response.raise_for_status()
+    final_url = str(response.url or url)
+    if domain and not _same_domain(final_url, domain):
+        raise RuntimeError("O site redirecionou para um domínio diferente.")
+    content_type = str(response.headers.get("Content-Type") or "").lower()
+    if "html" not in content_type and "xhtml" not in content_type:
+        raise RuntimeError("A página oficial não retornou HTML.")
+    html = response.text[:2_000_000]
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+    description_match = re.search(
+        r"<meta[^>]+name=[\"']description[\"'][^>]+content=[\"']([^\"']+)", html, re.I,
+    ) or re.search(
+        r"<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+name=[\"']description[\"']", html, re.I,
+    )
+    links = [urljoin(final_url, value) for value in re.findall(r"<a[^>]+href=[\"']([^\"'#]+)", html, re.I)]
+    images = [{"url": urljoin(final_url, src), "alt": unescape(alt or "")}
+              for src, alt in re.findall(r"<img[^>]+src=[\"']([^\"']+)[\"'][^>]*?(?:alt=[\"']([^\"']*)[\"'])?", html, re.I)]
+    text = re.sub(r"<(script|style|noscript)[^>]*>.*?</\1>", " ", html, flags=re.I | re.S)
+    text = unescape(re.sub(r"<[^>]+>", "\n", text))
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return {
+        "markdown": text[:120_000], "links": list(dict.fromkeys(links))[:500], "images": images[:200],
+        "metadata": {"sourceURL": final_url, "url": final_url,
+                     "title": unescape(title_match.group(1).strip()) if title_match else "",
+                     "description": unescape(description_match.group(1).strip()) if description_match else ""},
+    }, final_url
+
+
 _PUBLIC_EMAIL_RE = re.compile(r"(?<![\w.+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?![\w-])", re.I)
 _PUBLIC_PHONE_RE = re.compile(r"(?<!\d)(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?(?:9\s*)?\d{4}[-.\s]?\d{4}(?!\d)")
 _PUBLIC_ADDRESS_RE = re.compile(
@@ -617,6 +653,8 @@ def _candidate(
             or any(token in text for token in (
                 '/images/cadu/', '/cadu/products/', '/maintenance/images/workspace-',
                 'centralx-logo', 'cadu-logo', 'workspace-48', 'workspace-64',
+                '/logos/dv360', '/logos/cfc', '/logos/google', '/logos/meta',
+                '/logos/tiktok', '/logos/amazon', '/logos/linkedin',
             ))
         )
     )
@@ -1049,12 +1087,19 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
     if not url:
         return {}, None
     domain = _normalizar_dominio(url)
+    firecrawl_warning = None
+    direct_fallback = False
     try:
         raw, effective_url = _firecrawl_scrape_com_variantes(
             url, formats=_HOME_FORMATS, timeout_s=25
         )
     except RuntimeError as exc:
-        return {"source_url": url, "firecrawl_warning": str(exc)[:300]}, None
+        firecrawl_warning = str(exc)[:300]
+        try:
+            raw, effective_url = _direct_http_scrape(url, domain)
+            direct_fallback = True
+        except Exception:
+            return {"source_url": url, "firecrawl_warning": firecrawl_warning}, None
     website_error = _website_response_error(raw)
     if website_error:
         return {
@@ -1072,17 +1117,17 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
         with ThreadPoolExecutor(max_workers=3) as executor:
             pending = {
                 executor.submit(
-                    _firecrawl_scrape,
+                    _direct_http_scrape if direct_fallback else _firecrawl_scrape,
                     page_url,
-                    formats=_PAGE_FORMATS,
-                    timeout_s=25,
+                    **({"domain": domain} if direct_fallback else {"formats": _PAGE_FORMATS, "timeout_s": 25}),
                 ): page_url
                 for page_url in page_urls
             }
             for future in as_completed(pending):
                 try:
-                    pages.append((pending[future], future.result()))
-                except RuntimeError:
+                    page_result = future.result()
+                    pages.append((pending[future], page_result[0] if direct_fallback else page_result))
+                except (RuntimeError, requests.RequestException):
                     continue
     candidates = []
     evidence_pages = []
@@ -1150,6 +1195,8 @@ def _compact_web_evidence(url, *, deep=False, social_links=None):
     record["logo_url"] = strong_logo.get("url") if strong_logo else None
     return {
         "source_url": effective_url,
+        "firecrawl_warning": firecrawl_warning,
+        "collection_fallback": "direct_http" if direct_fallback else None,
         "title": record.get("titulo"),
         "description": record.get("descricao"),
         "logo_url": record.get("logo_url"),
@@ -2583,24 +2630,20 @@ class CreativeBrandAnalyzer:
                 stage='revisor_central', billing_callback=billing_callback,
             )
         except Exception as exc:
-            usable_sources = list(safe_analysis.get('sources') or [])
-            essential_ready = bool(
-                usable_sources
-                and safe_analysis.get('brand_summary')
-                and (safe_analysis.get('target_audience') or safe_analysis.get('products_services'))
-            )
+            prior_blocked = list(dict.fromkeys(
+                field
+                for review in reviews
+                for field in _string_list(review.get('blocked_fields'), limit=24, item_limit=120)
+            ))
             fallback_dimensions = safe_analysis.get('quality_dimensions') \
                 if isinstance(safe_analysis.get('quality_dimensions'), dict) else {}
             result = {
-                'decision': 'ready' if essential_ready else 'needs_review',
-                'confidence': .68 if essential_ready else .35,
+                'decision': 'needs_review',
+                'confidence': .35,
                 'summary': 'Consolidação determinística aplicada porque o parecer central ficou indisponível.',
                 'concerns': ['O parecer central não retornou JSON válido.'],
-                'blocked_fields': ['consolidação central indisponível'],
-                'accepted_fields': [key for key in (
-                    'brand_summary', 'target_audience', 'products_services',
-                    'differentiators', 'proof_points', 'logo_url', 'fonts',
-                ) if safe_analysis.get(key) not in (None, '', [], {})],
+                'blocked_fields': list(dict.fromkeys(prior_blocked + ['consolidação central indisponível'])),
+                'accepted_fields': [],
                 'quality_dimensions': fallback_dimensions,
             }
             response = {'model': self.review_model}

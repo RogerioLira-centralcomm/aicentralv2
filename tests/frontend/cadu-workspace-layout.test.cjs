@@ -51,7 +51,7 @@ function brandDocument(processing = false) {
       <div class="cadu-ds-home-shell cadu-ds-brand-shell ${processing ? 'is-audit_processing' : 'is-approved'}"><main class="cadu-ds-home-main"><div class="cadu-ds-home-workarea cadu-ds-brand-workarea">
         <aside class="cadu-ds-dock"><button class="cadu-ds-dock-home">Início</button><button class="cadu-ds-dock-brand"><span class="cadu-ds-visual-identity cadu-ds-visual-identity--brand"><img alt="Marca" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20' fill='%23007766'/%3E%3C/svg%3E"></span></button></aside>
         <div class="cadu-ds-entity-portal cadu-ds-entity-portal--brand">${processing ? '' : '<aside class="cadu-ds-entity-nav"><nav><a class="is-active">Visão geral</a></nav></aside>'}
-          <section class="cadu-ds-brand-content"><header class="cadu-ds-brand-hero"><div class="cadu-ds-brand-hero__identity"></div><div><h1>Marca</h1></div></header>
+          <section class="cadu-ds-brand-content"${processing ? '' : ' style="min-height:1600px"'}><header class="cadu-ds-brand-hero"><div class="cadu-ds-brand-hero__identity"></div><div><h1>Marca</h1></div></header>
             ${processing ? '<section class="cadu-ds-brand-state cadu-ds-brand-state--processing"><div class="cadu-ds-brand-state__visual"><i class="cadu-ds-brand-orbit cadu-ds-brand-orbit--one"></i><div class="cadu-ds-brand-audit-mark"><img alt="" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'40\'%3E%3C/svg%3E"></div></div><div class="cadu-ds-brand-state__copy"><h2>Processando</h2><div class="cadu-ds-brand-audit-progress"><div class="is-active"><i></i><span>Fontes oficiais</span></div><div><i></i><span>Identidade visual</span></div></div></div></section>' : '<section class="cadu-ds-brand-review"><div>Base aprovada</div></section><header class="cadu-ds-brand-data-viewer__header"><h2>Informações organizadas</h2></header><div class="cadu-ds-brand-data-viewer"><section class="cadu-ds-brand-library"><div class="cadu-ds-brand-library__stage"><img alt="Ativo"></div><aside><button class="is-active"><img alt=""><span><b>Logo</b></span></button></aside></section><aside class="cadu-ds-entity-rail cadu-ds-brand-responsive-management">Informações rápidas da marca</aside></div>'}
           </section>${processing ? '' : '<aside class="cadu-ds-entity-rail">Gestão<button class="cadu-ds-entity-rail__action">Criar ou vincular projeto</button><button class="cadu-ds-entity-rail__danger">Apagar marca</button></aside>'}</div>
       </div></main></div></div></main></body></html>`;
@@ -193,6 +193,8 @@ async function dimensions(page, contentClass) {
       const brandShortcut = document.querySelector('.cadu-ds-dock-brand').getBoundingClientRect();
       const activeLink = document.querySelector('.cadu-ds-entity-nav a.is-active');
       const assetRow = document.querySelector('.cadu-ds-brand-library > aside button');
+      const nav = document.querySelector('.cadu-ds-entity-nav');
+      const rail = document.querySelector('.cadu-ds-entity-rail:not(.cadu-ds-brand-responsive-management)');
       return {
         portalColumns: getComputedStyle(portal).gridTemplateColumns,
         heroDisplay: getComputedStyle(hero).display,
@@ -211,6 +213,12 @@ async function dimensions(page, contentClass) {
         railDangerDisplay: getComputedStyle(railDanger).display,
         railDangerTop: railDanger.getBoundingClientRect().top,
         railActionBottom: railAction.getBoundingClientRect().bottom,
+        navPosition: getComputedStyle(nav).position,
+        navTop: nav.getBoundingClientRect().top,
+        portalHeight: portal.getBoundingClientRect().height,
+        railHeight: rail.getBoundingClientRect().height,
+        leftColumnBackground: getComputedStyle(portal, '::before').backgroundColor,
+        rightColumnBackground: getComputedStyle(portal, '::after').backgroundColor,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
     });
@@ -229,7 +237,16 @@ async function dimensions(page, contentClass) {
     assert.equal(brand.railActionDisplay, 'block', 'Marca: ação principal do rail ocupa linha própria');
     assert.equal(brand.railDangerDisplay, 'block', 'Marca: ação destrutiva do rail ocupa linha própria');
     assert.ok(brand.railDangerTop > brand.railActionBottom, 'Marca: ações do rail não colidem');
+    assert.equal(brand.navPosition, 'fixed', 'Marca: sidebar 1 permanece fixa na viewport');
+    assert.equal(brand.navTop, 0, 'Marca: sidebar 1 começa no topo da página');
+    assert.ok(brand.railHeight >= brand.portalHeight - 1, 'Marca: sidebar 2 acompanha toda a altura do documento');
+    assert.notEqual(brand.leftColumnBackground, 'rgba(0, 0, 0, 0)', 'Marca: fundo da sidebar 1 cobre toda a coluna');
+    assert.notEqual(brand.rightColumnBackground, 'rgba(0, 0, 0, 0)', 'Marca: fundo da sidebar 2 cobre toda a coluna');
     assert.equal(brand.overflow, 0, 'Marca: sem overflow desktop');
+
+    await page.evaluate(() => window.scrollTo(0, 520));
+    const brandNavTopAfterScroll = await page.$eval('.cadu-ds-entity-nav', node => node.getBoundingClientRect().top);
+    assert.equal(brandNavTopAfterScroll, 0, 'Marca: sidebar 1 permanece fixa durante o scroll');
 
     await page.setViewportSize({width: 1024, height: 800});
     await page.setContent(brandDocument(false));
@@ -274,12 +291,16 @@ async function dimensions(page, contentClass) {
     await page.setContent(brandDocument(true));
     const processingBrand = await page.evaluate(() => ({
       display: getComputedStyle(document.querySelector('.cadu-ds-entity-portal')).display,
+      leftColumnDisplay: getComputedStyle(document.querySelector('.cadu-ds-entity-portal'), '::before').display,
+      rightColumnDisplay: getComputedStyle(document.querySelector('.cadu-ds-entity-portal'), '::after').display,
       nav: document.querySelector('.cadu-ds-entity-nav'),
       rail: document.querySelector('.cadu-ds-entity-rail'),
       stateHeight: document.querySelector('.cadu-ds-brand-state').getBoundingClientRect().height,
       progressColor: getComputedStyle(document.querySelector('.cadu-ds-brand-audit-progress .is-active i')).borderColor,
     }));
     assert.equal(processingBrand.display, 'block', 'Marca em análise: conteúdo em coluna única');
+    assert.equal(processingBrand.leftColumnDisplay, 'none', 'Marca em análise: não simula a sidebar esquerda ausente');
+    assert.equal(processingBrand.rightColumnDisplay, 'none', 'Marca em análise: não simula a sidebar direita ausente');
     assert.equal(processingBrand.nav, null, 'Marca em análise: navegação contextual não é exibida');
     assert.equal(processingBrand.rail, null, 'Marca em análise: rail de ações não é exibido');
     assert.ok(processingBrand.stateHeight >= 360, 'Marca em análise: andamento permanece dominante');

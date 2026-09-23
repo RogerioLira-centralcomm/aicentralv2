@@ -293,13 +293,51 @@ body.sidebar-open {
 }
 .sidebar-overlay.open { opacity: 1; pointer-events: all; }
 
-.pi-sidebar-tab-btn {
-  padding: 6px 12px; font-size: 11px; font-weight: 600;
-  border-radius: 6px; border: none; background: transparent;
-  color: #64748b; cursor: pointer; transition: all 0.15s;
+.pi-sidebar-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--cx-border, #e2e8f0);
+  background: #fff;
+  padding: 0.75rem 1rem;
 }
-.pi-sidebar-tab-btn:hover { background: #f1f5f9; color: #334155; }
-.pi-sidebar-tab-btn.active { background: #6366f1; color: #fff; }
+
+.pi-sidebar-header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.pi-sidebar-tabs .cx-tab {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.pi-sidebar-dl {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pi-sidebar-dl__value {
+  margin-top: 0.125rem;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.sidebar-panel .cx-empty-state {
+  font-size: 0.75rem;
+}
+
+.sidebar-panel .cx-empty-state i {
+  font-size: 1.5rem;
+  color: #cbd5e1;
+}
 
 .pi-status-badge {
   display: inline-flex; align-items: center;

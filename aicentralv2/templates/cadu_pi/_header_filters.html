@@ -114,27 +114,24 @@
   </div>
 
   <div class="camp-list-toolbar">
-    <div class="camp-filter-field">
-      <label for="filtro_busca">Buscar</label>
-      <div class="camp-filter-control">
-        <i class="fa-solid fa-search" aria-hidden="true"></i>
+    <div class="camp-filter-field cx-field">
+      <label for="filtro_busca" class="cx-label">Buscar</label>
+      <div class="cx-drawer-input-wrap camp-filter-control">
+        <i class="fa-solid fa-search cx-drawer-input-icon" aria-hidden="true"></i>
         <input type="search" name="busca" id="filtro_busca" value="{{ filtros.get('search', '') }}"
-               placeholder="Código, título ou cliente" autocomplete="off">
+               placeholder="Código, título ou cliente" autocomplete="off" class="cx-input cx-input-sm w-full">
         <span class="pi-filter-feedback" data-filter-feedback aria-live="polite"></span>
       </div>
     </div>
 
-    <div class="camp-filter-field">
-      <label for="filtro_executivo">Executivo</label>
-      <div class="camp-filter-control">
-        <i class="fa-solid fa-user-tie" aria-hidden="true"></i>
-        <select name="resp_comercial" id="filtro_executivo">
-          <option value="">Todos os executivos</option>
-          {% for v in vendedores %}
-          <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>{{ v.nome_completo }}</option>
-          {% endfor %}
-        </select>
-      </div>
+    <div class="camp-filter-field cx-field">
+      <label for="filtro_executivo" class="cx-label">Executivo</label>
+      <select name="resp_comercial" id="filtro_executivo" class="cx-select cx-select-sm w-full">
+        <option value="">Todos os executivos</option>
+        {% for v in vendedores %}
+        <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>{{ v.nome_completo }}</option>
+        {% endfor %}
+      </select>
     </div>
 
     {% if lista_financeira %}
@@ -152,13 +149,13 @@
       </div>
     </div>
     {% else %}
-    <div class="camp-filter-field pi-filter-field--client">
-      <label for="filtro_cliente_busca">Cliente</label>
-      <div class="camp-filter-control">
-        <i class="fa-regular fa-building" aria-hidden="true"></i>
+    <div class="camp-filter-field pi-filter-field--client cx-field">
+      <label for="filtro_cliente_busca" class="cx-label">Cliente</label>
+      <div class="cx-drawer-input-wrap camp-filter-control">
+        <i class="fa-regular fa-building cx-drawer-input-icon" aria-hidden="true"></i>
         <input type="hidden" name="id_cliente" id="filtro_cliente_id" value="{{ filtros.get('id_cliente', '') }}">
         <input type="search" id="filtro_cliente_busca" value="{{ filtros.get('cliente_nome', '') }}"
-               placeholder="Todos os clientes" autocomplete="off">
+               placeholder="Todos os clientes" autocomplete="off" class="cx-input cx-input-sm w-full">
         <button type="button" id="btn_limpar_cliente" class="pi-filter-input-clear {% if not filtros.get('id_cliente') %}hidden{% endif %}"
                 aria-label="Remover filtro de cliente"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
@@ -182,21 +179,18 @@
     </div>
     {% endif %}
 
-    <div class="camp-filter-field">
-      <label for="filtro_mes_ref">Competência</label>
-      <div class="camp-filter-control">
-        <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>
-        <select name="mes_ref_comp" id="filtro_mes_ref">
-          <option value="">Todos os meses</option>
-          {% for m in meses_ref %}
-          <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
-          {% endfor %}
-        </select>
-      </div>
+    <div class="camp-filter-field cx-field">
+      <label for="filtro_mes_ref" class="cx-label">Competência</label>
+      <select name="mes_ref_comp" id="filtro_mes_ref" class="cx-select cx-select-sm w-full">
+        <option value="">Todos os meses</option>
+        {% for m in meses_ref %}
+        <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
+        {% endfor %}
+      </select>
     </div>
 
     <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=menu_sub_status or none, origem=origem_lista or none, visao=visao_comercial or none) }}"
-       class="pi-op-btn pi-filter-clear-link" title="Limpar filtros">
+       class="cx-btn cx-btn-ghost cx-btn-sm pi-filter-clear-link" title="Limpar filtros">
       <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
       <span>Limpar</span>
     </a>
@@ -211,7 +205,7 @@
     {% if not visao_por_agencia|default(false)
           and sub_status_atual|string in ['1', '2', '3']
           and not (menu_sub_status == '4' and origem_lista == 'operacao') %}
-    <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()" class="pi-op-btn" aria-expanded="false">
+    <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()" class="cx-btn cx-btn-ghost cx-btn-sm" aria-expanded="false">
       <i class="fa-solid fa-angles-down" id="icon_expandir_todas" aria-hidden="true"></i>
       <span id="label_expandir_todas">Expandir todas</span>
     </button>

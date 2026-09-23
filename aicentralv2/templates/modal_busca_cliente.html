@@ -45,9 +45,9 @@
     </div>
 
     <!-- Resultados -->
-    <div class="divider"></div>
+    <hr class="clientes-busca-divider">
     <div id="resultados_clientes" class="max-h-96 overflow-y-auto">
-      <p class="text-center text-base-content/50 py-8">Digite os filtros e clique em buscar</p>
+      <p class="text-center text-slate-400 py-8">Digite os filtros e clique em buscar</p>
     </div>
 
     <!-- Ações do Modal -->
@@ -72,7 +72,7 @@ function limparFiltrosBuscaCliente() {
   document.getElementById('filtro_nome').value = '';
   document.getElementById('filtro_cnpj').value = '';
   document.getElementById('filtro_razao').value = '';
-  document.getElementById('resultados_clientes').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite os filtros e clique em buscar</p>';
+  document.getElementById('resultados_clientes').innerHTML = '<p class="text-center text-slate-400 py-8">Digite os filtros e clique em buscar</p>';
 }
 
 async function buscarClientes(trigger = 'manual') {
@@ -101,8 +101,6 @@ async function buscarClientes(trigger = 'manual') {
     const result = await response.json();
 
     if (result.success) {
-      console.log('DEBUG resposta da API:', result);
-      console.log('DEBUG clientes retornados:', result.clientes);
       exibirResultadosClientes(result.clientes);
     } else {
       showToast(result.message || 'Erro ao buscar clientes', 'error');
@@ -116,12 +114,10 @@ async function buscarClientes(trigger = 'manual') {
 // Debounce para evitar muitas requisições em tempo real
 let timeoutBusca = null;
 function limparOutrosFiltrosEBuscar(campoAtivo) {
-  // Limpar os outros campos IMEDIATAMENTE (não no timeout)
   if (campoAtivo !== 'nome') document.getElementById('filtro_nome').value = '';
   if (campoAtivo !== 'cnpj') document.getElementById('filtro_cnpj').value = '';
   if (campoAtivo !== 'razao') document.getElementById('filtro_razao').value = '';
   
-  // Só depois fazer o debounce para buscar
   clearTimeout(timeoutBusca);
   timeoutBusca = setTimeout(() => {
     buscarClientes('auto');
@@ -132,27 +128,23 @@ function buscarClientesAoDigitar() {
   clearTimeout(timeoutBusca);
   timeoutBusca = setTimeout(() => {
     buscarClientes('auto');
-  }, 300); // Aguarda 300ms após o último dígito digitado
+  }, 300);
 }
 
 function exibirResultadosClientes(clientes) {
   const resultados = document.getElementById('resultados_clientes');
 
   if (!clientes || clientes.length === 0) {
-    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum cliente encontrado</p>';
+    resultados.innerHTML = '<p class="text-center text-slate-400 py-8">Nenhum cliente encontrado</p>';
     return;
   }
 
   let html = '<div class="space-y-2">';
   
   clientes.forEach(cliente => {
-    console.log('Cliente:', cliente);
-    
     const documento = cliente.cnpj || '-';
     const pessoa = cliente.tipo_pessoa === 'PJ' ? 'PJ' : 'PF';
     const clienteId = cliente.pk_id_tbl_cliente;
-    
-    console.log('Cliente ID:', clienteId);
     
     if (!clienteId) {
       console.error('ERRO: Cliente sem ID:', cliente);
@@ -160,7 +152,7 @@ function exibirResultadosClientes(clientes) {
     }
     
     html += `
-      <div class="border border-base-300 rounded-lg p-3 hover:bg-base-200 cursor-pointer transition" 
+      <div class="clientes-busca-result border border-slate-200 rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition" 
            data-cliente-id="${clienteId}" 
            data-cliente-nome="${cliente.nome_fantasia}"
            onclick="selecionarClienteClick(this)">
@@ -168,7 +160,7 @@ function exibirResultadosClientes(clientes) {
           <div class="flex-1">
             <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
             <p class="text-xs text-slate-500">${cliente.razao_social || '-'}</p>
-            <p class="text-xs text-base-content/50">${pessoa} | ${documento}</p>
+            <p class="text-xs text-slate-400">${pessoa} | ${documento}</p>
           </div>
           <span class="cx-badge">${pessoa}</span>
         </div>
@@ -183,48 +175,33 @@ function exibirResultadosClientes(clientes) {
 function selecionarClienteClick(element) {
   const clienteId = element.getAttribute('data-cliente-id');
   const nomeFantasia = element.getAttribute('data-cliente-nome');
-  console.log('Clicado em cliente:', {clienteId, nomeFantasia});
   selecionarCliente(clienteId, nomeFantasia);
 }
 
 function selecionarCliente(clienteId, nomeFantasia) {
-  console.log('=== selecionarCliente ===');
-  console.log('clienteId:', clienteId, 'tipo:', typeof clienteId);
-  console.log('nomeFantasia:', nomeFantasia);
-  
-  // Validação
   if (!clienteId || clienteId === 'undefined' || clienteId === '' || clienteId === 'null') {
-    console.error('ERRO: clienteId inválido');
     showToast('Erro: Cliente inválido. Tente novamente.', 'error');
     return;
   }
   
-  // Verificar se estamos em um formulário de cotação
   const clienteInput = document.getElementById('client_id');
   if (clienteInput) {
-    console.log('Modo: Preenchendo formulário de cotação');
     clienteInput.value = clienteId;
     
-    // Atualizar o texto do botão
     const nomeClienteSpan = document.getElementById('nome_cliente_selecionado');
     if (nomeClienteSpan) {
       nomeClienteSpan.textContent = nomeFantasia;
     }
     
-    // Disparar evento change para atualizar contatos e briefings
     const event = new Event('change', { bubbles: true });
     clienteInput.dispatchEvent(event);
     
     document.getElementById('modal_busca_cliente').close();
   } else {
-    console.log('Modo: Redirecionando para cotações');
-    const redirectUrl = `/cotacoes?cliente_id=${clienteId}`;
-    console.log('Redirect URL:', redirectUrl);
-    window.location.href = redirectUrl;
+    window.location.href = `/cotacoes?cliente_id=${clienteId}`;
   }
 }
 
-// Aplicar máscaras ao digitar
 document.addEventListener('DOMContentLoaded', function() {
   const cnpjInput = document.getElementById('filtro_cnpj');
   if (cnpjInput) {
@@ -238,10 +215,8 @@ function aplicarMascaraCNPJCPF(valor) {
   valor = valor.replace(/\D/g, '');
   
   if (valor.length <= 11) {
-    // CPF
     valor = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   } else {
-    // CNPJ
     valor = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   }
   

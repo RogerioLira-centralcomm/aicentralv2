@@ -159,6 +159,117 @@
 .clientes-segmented-abc button.is-b { background: #475569; }
 .clientes-segmented-abc button.is-c { background: #64748b; }
 
+.clientes-segmented--radio label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  border: 0;
+  border-right: 1px solid var(--cx-border, #e2e8f0);
+  background: #fff;
+  padding: 0.35rem 0.7rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.clientes-segmented--radio label:last-child {
+  border-right: 0;
+}
+
+.clientes-segmented--radio label:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.clientes-segmented--radio label.is-active {
+  background: var(--cx-brand, #1e4d4f);
+  color: #fff;
+}
+
+.clientes-segmented--radio label.is-active.is-danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.clientes-busca-divider {
+  margin: 0 0 1rem;
+  border: 0;
+  border-top: 1px solid var(--cx-border, #e2e8f0);
+}
+
+.clientes-busca-result:focus-visible {
+  outline: 2px solid var(--cx-brand, #1e4d4f);
+  outline-offset: 2px;
+}
+
+.cliente-contato-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  border: 1px solid var(--cx-border, #e2e8f0);
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.375rem 0.5rem;
+}
+
+.cliente-contato-main {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cliente-contato-main:hover .cliente-contato-nome {
+  color: var(--cx-brand, #1e4d4f);
+}
+
+.cliente-contato-nome {
+  display: block;
+  overflow: hidden;
+  color: #1f2937;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cliente-contato-email {
+  display: block;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cliente-contato-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.cliente-contato-status {
+  cursor: pointer;
+}
+
+.cliente-contato-empty {
+  padding: 0.75rem;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.cliente-contato-empty--error {
+  color: #dc2626;
+}
+
 .clientes-filter-actions {
   justify-content: flex-end;
   border-top: 1px solid var(--cx-border, #e2e8f0);
@@ -326,7 +437,7 @@
   padding: 0.375rem 0.75rem 0;
 }
 
-.modal-cliente-tabs .tab-btn {
+.modal-cliente-tabs .cx-tab {
   min-height: 2.375rem;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -338,12 +449,12 @@
   white-space: nowrap;
 }
 
-.modal-cliente-tabs .tab-btn:hover { color: #0f172a; }
-.modal-cliente-tabs .tab-btn.tab-active {
+.modal-cliente-tabs .cx-tab:hover { color: #0f172a; }
+.modal-cliente-tabs .cx-tab.cx-tab-active {
   border-bottom-color: var(--cx-brand, #1e4d4f);
   color: var(--cx-brand, #1e4d4f);
 }
-.modal-cliente-tabs .tab-btn:focus-visible { outline: 2px solid var(--cx-brand, #1e4d4f); outline-offset: -2px; }
+.modal-cliente-tabs .cx-tab:focus-visible { outline: 2px solid var(--cx-brand, #1e4d4f); outline-offset: -2px; }
 
 #modal_cliente .modal-cliente-body {
   min-height: 0;
@@ -407,7 +518,7 @@
   max-width: 100%;
 }
 
-#modal_cliente .modal-cliente-body label:not(.status-toggle-btn):not(.pessoa-toggle-btn) {
+#modal_cliente .modal-cliente-body .cx-label {
   color: #475569;
   font-size: 0.8125rem;
   font-weight: 700;
@@ -434,13 +545,6 @@
   border-color: var(--cx-brand, #1e4d4f);
   outline: 0;
   box-shadow: var(--cx-focus, 0 0 0 3px rgba(30, 77, 79, 0.14));
-}
-
-#modal_cliente .status-toggle-btn,
-#modal_cliente .pessoa-toggle-btn {
-  min-height: 2.375rem;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.8125rem;
 }
 
 #modal_cliente #form_cliente > div:last-child {
@@ -470,24 +574,19 @@ dialog[id^="modal_"] .cx-modal-dismiss button {
   white-space: nowrap;
 }
 
-#modal_detalhes .cx-modal-panel,
 #modal_contato .cx-modal-panel {
   font-size: 0.875rem;
 }
 
-#modal_detalhes h3,
 #modal_contato h3 {
   font-size: 1rem;
 }
 
-#modal_detalhes h4,
 #modal_contato .cx-label,
 #modal_contato label {
   font-size: 0.8125rem;
 }
 
-#modal_detalhes [id^="info_"],
-#modal_detalhes [id^="lista_"],
 #modal_contato input,
 #modal_contato select,
 #modal_contato textarea {

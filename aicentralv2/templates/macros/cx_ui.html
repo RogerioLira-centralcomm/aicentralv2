@@ -8,8 +8,8 @@
 {% if messages %}
 <div class="grid gap-2" role="status" aria-live="polite">
   {% for category, message in messages %}
-  {% set variant = 'danger' if category in ['error', 'danger'] else ('warning' if category == 'warning' else 'info') %}
-  {% set icon_name = 'circle-exclamation' if variant == 'danger' else ('triangle-exclamation' if variant == 'warning' else 'circle-info') %}
+  {% set variant = 'danger' if category in ['error', 'danger'] else ('success' if category == 'success' else ('warning' if category == 'warning' else 'info')) %}
+  {% set icon_name = 'circle-exclamation' if variant == 'danger' else ('circle-check' if variant == 'success' else ('triangle-exclamation' if variant == 'warning' else 'circle-info')) %}
   <div class="cx-alert cx-alert-{{ variant }}">
     {{ icon(icon_name) }}
     <span>{{ message }}</span>

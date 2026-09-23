@@ -297,7 +297,7 @@ def _clean_blocks(values):
         for index, item in enumerate(source_items):
             if not isinstance(item, dict):
                 continue
-            title = _clean_text(item.get("title") or item.get("label"), 180)
+            title = _clean_text(item.get("title") or item.get("label") or item.get("question"), 180)
             if not title:
                 continue
             item_id = _clean_text(item.get("id"), 100) or f"item-{index + 1}"
@@ -312,7 +312,31 @@ def _clean_blocks(values):
                 "detail": _clean_text(item.get("detail") or item.get("description"), 500),
             }
             if block_type in {"question", "questions"}:
-                clean["prompt"] = _clean_text(item.get("prompt") or item.get("question"), 1000)
+                clean.update({
+                    "question": _clean_text(item.get("question") or item.get("title") or item.get("label"), 500),
+                    "prompt": _clean_text(item.get("prompt"), 1000),
+                    "required": _as_bool(item.get("required")),
+                    "allow_custom": _as_bool(item.get("allow_custom")),
+                    "custom_placeholder": _clean_text(item.get("custom_placeholder"), 180),
+                })
+                options = []
+                for option_index, option in enumerate(item.get("options") if isinstance(item.get("options"), list) else []):
+                    if isinstance(option, str):
+                        label = _clean_text(option, 180)
+                        option_value = label
+                        option_id = f"option-{option_index + 1}"
+                    elif isinstance(option, dict):
+                        label = _clean_text(option.get("label") or option.get("title") or option.get("value"), 180)
+                        option_value = _clean_text(option.get("value") or label, 300)
+                        option_id = _clean_text(option.get("id"), 100) or f"option-{option_index + 1}"
+                    else:
+                        continue
+                    if label and option_value:
+                        options.append({"id": option_id, "label": label, "value": option_value})
+                    if len(options) >= 6:
+                        break
+                if options:
+                    clean["options"] = options
             elif block_type in {"source", "sources", "source_group"}:
                 clean.update({
                     "kind": _clean_text(item.get("kind"), 80),

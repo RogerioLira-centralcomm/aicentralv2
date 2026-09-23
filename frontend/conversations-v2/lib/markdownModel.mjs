@@ -14,7 +14,7 @@ export function restoreEscapedMarkdown(value) {
   return String(value || '').replace(/[\uE000-\uE003]/g, mark => RESTORED[mark]);
 }
 
-const INLINE_MARKDOWN_PATTERN = /(\*\*[^*\n]+\*\*|(?<![\w])__[^_\n]+__(?![\w])|\*[^*\n]+\*|(?<![\w])_[^_\n]+_(?![\w])|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
+const INLINE_MARKDOWN_PATTERN = /(\*\*[^*\n]+\*\*|(?<![\w])__[^_\n]+__(?![\w])|\*[^*\n]+\*|(?<![\w])_[^_\n]+_(?![\w])|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<]+)/g;
 
 export function splitInlineMarkdown(value) {
   return String(value || '').split(INLINE_MARKDOWN_PATTERN);

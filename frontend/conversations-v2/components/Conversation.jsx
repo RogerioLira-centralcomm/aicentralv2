@@ -101,7 +101,13 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     .trim();
   const blocks = meaningfulResponseBlocks(response.blocks);
   const presentedText = formatResponseParagraphs(text);
-  const contentBlocks = blocks.filter(block => !['question', 'questions', 'decision'].includes(block.type));
+  const legacyQuestions = (Array.isArray(response.questions) ? response.questions : []).filter(Boolean).map((question, index) => ({
+    id: `legacy-question-${index + 1}`, question: String(question), required: true, allow_custom: true,
+  }));
+  const contentBlocks = blocks.filter(block => block.type !== 'decision');
+  if (legacyQuestions.length && !contentBlocks.some(block => ['question', 'questions'].includes(block.type))) {
+    contentBlocks.push({type: 'questions', items: legacyQuestions});
+  }
   const presentedBlocks = consolidateSources(contentBlocks, response.citations);
   const canCreateDocument = !message.artifact?.id && text.length > 500 && (
     text.length > 1800 || response.citations?.length || contentBlocks.some(block =>

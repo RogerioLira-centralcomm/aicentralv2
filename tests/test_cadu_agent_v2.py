@@ -350,6 +350,26 @@ def test_brand_creation_and_audit_are_routed_to_internal_mcp_actions():
     assert incomplete["route"]["action"] == "clarify_create_brand"
     assert incomplete["policy"]["action_preflight"]["missing"] == ["segmento"]
 
+
+def test_brand_analysis_without_selected_brand_never_falls_back_to_chat_diagnosis():
+    message = (
+        "Crie uma análise completa para a marca Agência Brasil usando o site oficial "
+        "https://agenciabrasil.ebc.com.br/. Considere a logo JPG enviada como oficial."
+    )
+    route = route_request(message, has_brand=False)
+    assert route.action == "select_brand_for_audit"
+    assert route.response_mode == "clarification"
+
+    execution = prepare_execution(message, context())
+    preflight = execution["policy"]["action_preflight"]
+    assert execution["route"]["action"] == "select_brand_for_audit"
+    assert preflight["ready"] is False
+    assert preflight["missing"] == ["marca cadastrada e selecionada"]
+    assert "não analise/recomende" in CORE
+
+    selected_route = route_request(message, has_brand=True)
+    assert selected_route.action == "start_brand_audit"
+
     creation_message = 'Crie uma marca chamada Acme, segmento tecnologia, com site https://acme.com.br'
     creation = route_request(creation_message, has_project=True)
     creation_action = next(step for step in build_task_plan(creation, budget_for(creation), creation_message)
@@ -1604,15 +1624,16 @@ def test_brief_creation_starts_with_a_bounded_discovery():
     assert route.response_mode == "clarification"
     assert route.artifact_type is None
     assert route.needs_context == ("project", "brand")
-    assert policy_for(route)["max_questions"] == 1
+    assert policy_for(route)["max_questions"] == 3
     assert budget_for(route).max_llm_calls == 1
 
 
 def test_intermediate_mode_keeps_room_for_substantive_answers():
-    route = route_request("Analise a trajetória desta marca")
+    route = route_request("Analise a trajetória desta marca", has_brand=True)
     policy = policy_for(route)
-    assert route.response_mode == "analysis"
-    assert policy["max_answer_chars"] == 6000
+    assert route.response_mode == "decision"
+    assert route.action == "start_brand_audit"
+    assert policy["max_answer_chars"] == 320
 
 
 def test_explicit_word_count_expands_the_answer_allowance():
@@ -2576,6 +2597,25 @@ def test_response_blocks_are_typed_bounded_and_safe():
             {"id": "item-2", "title": "Inválido", "detail": "", "kind": "Arquivo", "url": "",
              "artifact_id": "", "editor_url": "", "editable_copy_url": "", "download_url": ""},
         ]},
+    ]
+
+
+def test_question_blocks_keep_choices_and_a_custom_answer_contract():
+    response = normalize_response({
+        "answer": "Preciso de alguns dados para continuar.",
+        "blocks": [{"type": "questions", "items": [{
+            "id": "sector", "question": "Qual é o segmento da marca?", "required": True,
+            "allow_custom": True, "custom_placeholder": "Descreva o segmento",
+            "options": [{"id": "energy", "label": "Energia", "value": "energia"}, "Comunicação"],
+        }]}],
+    }, {"max_questions": 3, "max_next_steps": 0, "artifact_in_chat": False})
+    item = response.blocks[0]["items"][0]
+    assert item["question"] == "Qual é o segmento da marca?"
+    assert item["required"] is True
+    assert item["allow_custom"] is True
+    assert item["options"] == [
+        {"id": "energy", "label": "Energia", "value": "energia"},
+        {"id": "option-2", "label": "Comunicação", "value": "Comunicação"},
     ]
 
 

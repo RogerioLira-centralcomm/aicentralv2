@@ -213,6 +213,19 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     # Audit is brand-scoped even when the conversation is currently inside a
     # project. It must win over generic verbs such as "faça", which are also
     # accepted by the create-brand grammar below.
+    brand_analysis_requested = _has(
+        text,
+        r"\b(?:an[aá]lis\w*|diagn[oó]stic\w*|leitura)\b.{0,55}\bmarca\b|"
+        r"\bmarca\b.{0,55}\b(?:an[aá]lis\w*|diagn[oó]stic\w*|leitura)\b",
+    )
+    if brand_analysis_requested:
+        # A site, an uploaded logo, or general knowledge are evidence for an
+        # audit only after they belong to a registered brand. Without that
+        # entity, never let the model improvise a brand diagnosis in chat.
+        if not has_brand:
+            return IntentRoute("workspace", "select_brand_for_audit", "low", "clarification")
+        return IntentRoute("workspace", "start_brand_audit", "high", "decision",
+                           ("brand",), (), None, True)
     if _has(text, r"\b(?:inicie|iniciar|fa[çc]a|faz|fazer|rodar|rode|refa[çc]a|reprocess)\w*.{0,35}\bauditoria\b.{0,25}\bmarca\b|\bauditoria\b.{0,25}\bmarca\b|\baudit\w*.{0,30}\bmarca\b"):
         return IntentRoute("workspace", "start_brand_audit", "high", "decision",
                            ("brand",), (), None, True)

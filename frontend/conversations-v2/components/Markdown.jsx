@@ -1,8 +1,25 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {safeUrl} from '../lib/api';
 import {normalizeInlineMarkdown, restoreEscapedMarkdown, splitInlineMarkdown, splitTableRow, isTableDivider} from '../lib/markdownModel.mjs';
 
-function Inline({text, onOpenResource}) {
+function LinkWithFavicon({href, label}) {
+  const [failed, setFailed] = useState(false);
+  let domain = '';
+  let favicon = '';
+  try {
+    const url = new URL(href);
+    domain = url.hostname.replace(/^www\./, '');
+    favicon = `${url.origin}/favicon.ico`;
+  } catch (_) { return label; }
+  return <a className="cv-inline-link" href={href} target="_blank" rel="noreferrer" referrerPolicy="no-referrer">
+    <span className="cv-inline-link__favicon" aria-hidden="true">{favicon && !failed
+      ? <img src={favicon} alt="" loading="lazy" onError={() => setFailed(true)}/>
+      : domain.slice(0, 1).toUpperCase()}</span>
+    <span>{label || domain}</span>
+  </a>;
+}
+
+function Inline({text}) {
   const normalized = normalizeInlineMarkdown(text);
   const tokens = splitInlineMarkdown(normalized);
   return tokens.map((token, index) => {
@@ -22,12 +39,12 @@ function Inline({text, onOpenResource}) {
     const link = token.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
     if (link) {
       const href = safeUrl(link[2]);
-      return href ? <a key={index} href={href} onClick={event => {
-        if (!onOpenResource) return;
-        event.preventDefault();
-        onOpenResource({url: href, title: link[1], kind: 'Link público', access_type: 'public'});
-      }} target={onOpenResource ? undefined : '_blank'} rel={onOpenResource ? undefined : 'noreferrer'}>{link[1]}</a> : token;
+      return href ? <LinkWithFavicon key={index} href={href} label={link[1]}/> : token;
     }
+    const rawHref = token.replace(/[),.;!?]+$/, '');
+    const suffix = token.slice(rawHref.length);
+    const href = safeUrl(rawHref);
+    if (href && /^https?:\/\//i.test(token)) return <React.Fragment key={index}><LinkWithFavicon href={href} label={href.replace(/^https?:\/\/(?:www\.)?/i, '')}/>{suffix}</React.Fragment>;
     return restoreEscapedMarkdown(token);
   });
 }
@@ -40,7 +57,7 @@ export function Markdown({children, onOpenResource}) {
   const flush = () => { if (list) { blocks.push(list); list = null; } };
   const flushParagraph = index => {
     if (!paragraph.length) return;
-    blocks.push(<p key={`p-${index}`}><Inline text={paragraph.join(' ')} onOpenResource={onOpenResource}/></p>);
+    blocks.push(<p key={`p-${index}`}><Inline text={paragraph.join(' ')}/></p>);
     paragraph = [];
   };
   const lines = String(children || '').replace(/\r\n/g, '\n').split('\n');
@@ -59,8 +76,8 @@ export function Markdown({children, onOpenResource}) {
         index += 1;
       }
       blocks.push(<div className="cv-table-scroll" role="region" aria-label="Tabela da resposta" tabIndex={0} key={`table-${index}`}>
-        <table className="cv-markdown-table"><thead><tr>{headers.map((cell, column) => <th scope="col" key={column}><Inline text={cell} onOpenResource={onOpenResource}/></th>)}</tr></thead>
-          <tbody>{rows.map((cells, row) => <tr key={row}>{cells.map((cell, column) => <td key={column}><Inline text={cell} onOpenResource={onOpenResource}/></td>)}</tr>)}</tbody>
+        <table className="cv-markdown-table"><thead><tr>{headers.map((cell, column) => <th scope="col" key={column}><Inline text={cell}/></th>)}</tr></thead>
+          <tbody>{rows.map((cells, row) => <tr key={row}>{cells.map((cell, column) => <td key={column}><Inline text={cell}/></td>)}</tr>)}</tbody>
         </table>
       </div>);
       continue;
@@ -82,10 +99,10 @@ export function Markdown({children, onOpenResource}) {
     if (heading) {
       flush(); flushParagraph(index);
       const level = heading[1].length <= 2 ? 'h2' : 'h3';
-      blocks.push(React.createElement(level, {key: `h-${index}`}, <Inline text={heading[2]} onOpenResource={onOpenResource}/>));
+      blocks.push(React.createElement(level, {key: `h-${index}`}, <Inline text={heading[2]}/>));
     } else if (quote) {
       flush(); flushParagraph(index);
-      blocks.push(<blockquote key={`q-${index}`}><Inline text={quote[1]} onOpenResource={onOpenResource}/></blockquote>);
+      blocks.push(<blockquote key={`q-${index}`}><Inline text={quote[1]}/></blockquote>);
     } else if (rule) {
       flush(); flushParagraph(index);
       blocks.push(<hr key={`hr-${index}`}/>);
@@ -93,7 +110,7 @@ export function Markdown({children, onOpenResource}) {
       flushParagraph(index);
       const type = numbered ? 'ol' : 'ul';
       if (!list || list.listType !== type) { flush(); list = {kind: 'list', listType: type, key: index, items: []}; }
-      list.items.push(<li key={index}><Inline text={(bullet || numbered)[1]} onOpenResource={onOpenResource}/></li>);
+      list.items.push(<li key={index}><Inline text={(bullet || numbered)[1]}/></li>);
     } else {
       flush();
       paragraph.push(line);

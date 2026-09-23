@@ -33,16 +33,11 @@ export function pendingInteraction(messages, running) {
   const response = message.response || {};
   const blocks = meaningfulResponseBlocks(response.blocks);
   const decision = [...blocks].reverse().find(block => block.type === 'decision' && Array.isArray(block.items) && block.items.length);
-  const questionBlock = [...blocks].reverse().find(block => ['question', 'questions'].includes(block.type) && Array.isArray(block.items) && block.items.length);
-  const questions = (Array.isArray(response.questions) ? response.questions : []).filter(Boolean);
-  const question = questions[questions.length - 1] || questionBlock?.title || decision?.summary || decision?.title || '';
+  const question = decision?.summary || decision?.title || '';
   const options = decision?.items?.map(item => ({
     id: item.id || item.title, label: item.title, detail: item.detail || '',
     prompt: item.prompt || `Continue usando a opção “${item.title}”.`, recommended: Boolean(item.recommended),
-  })) || (questionBlock?.items || []).map((item, index) => {
-    const label = typeof item === 'string' ? item : item.title || item.label || item.question;
-    return {id: item.id || index, label, detail: item.detail || '', prompt: item.prompt || item.question || label, asContext: !item.auto_submit, autoSubmit: Boolean(item.auto_submit)};
-  });
+  })) || [];
   if (!question && !options.length) return null;
   const normalizedOptions = options.length ? options : [{id: 'write-answer', label: 'Responder', prompt: question, asContext: true, freeform: true}];
   return {question: question || 'Escolha como continuar', options: normalizedOptions.slice(0, 4)};

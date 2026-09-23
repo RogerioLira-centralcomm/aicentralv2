@@ -132,7 +132,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /role="tooltip"/);
   assert.match(dock, /const resolvedAccountUrl = accountUrl \|\| bootstrap\?\.urls\?\.profile/);
   assert.match(dock, /const usageUrl = bootstrap\?\.urls\?\.usage \|\| bootstrap\?\.urls\?\.credits/);
-  assert.match(dock, /\(conversationMode \|\| !resolvedAccountMenu\) && resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
+  assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
   assert.match(dock, /<DockUsageRing[^>]*href=\{usageUrl\}/);
   assert.match(dock, /<nav className="cadu-ds-dock-primary"/);
   assert.match(dock, /<nav className="cadu-ds-dock-primary"[\s\S]+<DockDropZone/);
@@ -294,7 +294,7 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   assert.match(brandStyles, /grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) minmax\(260px,\.88fr\)/);
   assert.match(brandStyles, /@media\(max-width:1240px\)[\s\S]*cadu-ds-brand-responsive-management/);
   assert.match(brand, /insufficient_information/);
-  assert.match(brand, /data_available_unverified/);
+  assert.match(brand, /data_available/);
   assert.match(brand, /showDossier/);
   assert.match(brand, /Ainda não há informações suficientes sobre esta marca/);
   assert.match(entry, /bootstrap\.brandMode \? <WorkspaceBrand/);
@@ -578,15 +578,15 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-artifact-result/);
   assert.match(conversation, /Abrir e editar/);
   assert.match(artifact, /return textArtifact/);
-  assert.match(promptAssembler, /pergunta exclusivamente em/);
-  assert.match(promptAssembler, /Não repita a mesma/);
+  assert.match(promptAssembler, /cada item tem `question`/);
+  assert.match(promptAssembler, /Não repita a pergunta/);
   assert.match(pendingInteraction, /Adicionar referência/);
   assert.match(pendingInteraction, /Adicionar ao projeto/);
   assert.doesNotMatch(conversation, /cv-action-confirmation/);
   assert.match(app, /restorePendingActions\(active\.run, uid\)/);
   assert.match(artifact, /cv-link-embed__frame/);
   assert.match(artifact, /allow-popups-to-escape-sandbox/);
-  assert.match(markdown, /onOpenResource\(\{url: href/);
+  assert.match(markdown, /cv-inline-link/);
   assert.match(executionQueue, />Orientar</);
   assert.match(executionQueue, />Excluir</);
   assert.match(executionQueue, /aria-label="Executar antes"/);
@@ -641,10 +641,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(contextModel, /execution_mode: executionMode/);
   assert.match(app, /setExecutionMode\(event\.policy\.execution_mode\)/);
   assert.match(contextModel, /selected_context/);
-  assert.match(responseBlocks, /cv-source-group__favicons/);
+  assert.match(responseBlocks, /cv-inline-sources/);
   assert.doesNotMatch(responseBlocks, /Responder com fontes/);
   assert.match(responseBlocks, /onError=\{\(\) => setFailed\(true\)\}/);
-  assert.match(responseBlocks, /Ver todas/);
+  assert.doesNotMatch(responseBlocks, /Ver todas/);
   assert.match(responseBlocks, /block\.type === 'insights'/);
   assert.match(responseBlocks, /block\.type === 'files'/);
   assert.match(responseBlocks, /block\.type === 'summary'/);
@@ -731,29 +731,34 @@ test('conversation continuations preserve structured questions and server contex
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   assert.doesNotMatch(conversation, /Sobre “\$\{question\}”/);
-  assert.match(pendingInteraction, /type: 'question', label: 'Respondendo'/);
-  assert.match(responseBlocks, /type: 'question', label: 'Respondendo'/);
+  assert.doesNotMatch(pendingInteraction, /questionBlock/);
+  assert.match(responseBlocks, /cv-inline-question-set/);
+  assert.match(responseBlocks, /allow_custom/);
+  assert.match(responseBlocks, /const \[customAnswers, setCustomAnswers\]/);
+  assert.match(responseBlocks, /value=\{customAnswer\}/);
   assert.match(composer, /Digite sua resposta…/);
   assert.match(composer, /composerContext\?\.type !== 'question'/);
   assert.match(app, /resolved_context/);
   assert.match(app, /Contexto sincronizado pelo servidor/);
 });
 
-test('source results use a compact summary with resilient favicons', () => {
+test('source results stay as direct links with resilient favicons', () => {
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const markdown = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Markdown.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
   assert.doesNotMatch(responseBlocks, /Responder com fontes/);
-  assert.match(responseBlocks, /cv-source-group__favicons/);
-  assert.match(responseBlocks, /Ver todas/);
+  assert.match(responseBlocks, /cv-inline-sources/);
+  assert.doesNotMatch(responseBlocks, /Ver todas/);
   assert.match(responseBlocks, /onError=\{\(\) => setFailed\(true\)\}/);
   assert.doesNotMatch(responseBlocks, /priorize fontes oficiais|Nenhuma fonte oficial|Selecionar oficiais/);
-  assert.match(styles, /cv-source-group__summary/);
+  assert.match(styles, /cv-inline-source/);
   assert.match(app, /kind === 'source_collection'/);
   assert.match(app, /Fontes consultadas/);
   assert.match(conversation, /consolidateSources\(contentBlocks, response\.citations\)/);
   assert.doesNotMatch(conversation, /WorkspaceSourceList/);
+  assert.match(markdown, /cv-inline-link/);
 });
 
 test('source consolidation and markdown repair produce the expected behavior', async () => {
@@ -776,6 +781,8 @@ test('source consolidation and markdown repair produce the expected behavior', a
   assert.equal(markdownModel.restoreEscapedMarkdown('\uE000literal\uE000'), '*literal*');
   assert.deepEqual(markdownModel.splitInlineMarkdown('campaign_start_date'), ['campaign_start_date']);
   assert.ok(markdownModel.splitInlineMarkdown('Texto com _ênfase_ correta').includes('_ênfase_'));
+  assert.ok(markdownModel.splitInlineMarkdown('Veja https://example.com.').includes('https://example.com.'));
+  assert.match(markdown, /const suffix = token\.slice\(rawHref\.length\)/);
 });
 
 test('conversation failures are converted into an actionable user-facing state', async () => {
@@ -852,8 +859,8 @@ test('action confirmations use the server run id and expose pending state', () =
   assert.match(interaction, /onDecision\(interaction\.message, option\.approved\)/);
   assert.match(interaction, /role=\{interaction\.error \? 'alert'/);
   assert.match(app, /options\.submit && prompt/);
-  assert.match(blocks, /item\.auto_submit/);
-  assert.match(blocks, /onPrompt\(item\.prompt, null, \{submit: true\}\)/);
+  assert.match(blocks, /cv-inline-question-set/);
+  assert.match(blocks, /allow_custom/);
 });
 
 test('conversation response UI never invents follow-up actions for static insights', () => {
@@ -1175,8 +1182,7 @@ test('pasted Google links stay compact and open inside the artifact reader witho
   assert.match(historyModel, /metadata,\s*\n\s*};/);
   assert.match(conversation, /className="cv-sr-only" aria-live="polite"/);
   assert.match(styles, /\.cv-user-message__link \{ display:inline-flex/);
-  assert.match(pending, /autoSubmit: Boolean\(item\.auto_submit\)/);
-  assert.match(pending, /option\.autoSubmit \|\| !option\.asContext \? onPrompt\(option\.prompt\)/);
+  assert.doesNotMatch(pending, /questionBlock/);
 });
 
 test('home and chat preserve an explicit free session and expose a project context selector', () => {

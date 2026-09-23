@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {Icon} from '../lib/icons';
 import {safeUrl} from '../lib/api';
 import {checklistPrompt} from '../lib/responseModel.mjs';
-import {sourceCollection, sourceDomain, sourceSummary} from '../lib/sourceModel.mjs';
+import {sourceDomain} from '../lib/sourceModel.mjs';
 
 function BlockHeader({block}) {
   if (!block.title && !block.summary) return null;
@@ -68,23 +68,19 @@ function SourceFavicon({src, domain}) {
     : <span aria-hidden="true">{initial}</span>}</span>;
 }
 
-function SourcesBlock({block, onOpenResource}) {
+function SourcesBlock({block}) {
   const items = Array.isArray(block.items) ? block.items : block.resource ? [block.resource] : [];
   if (!items.length) return null;
-  const summary = sourceSummary(items);
-  const openSources = () => onOpenResource?.(sourceCollection(block, items));
-  return <section className="cv-source-group cv-mt-5">
-    <button type="button" className="cv-source-group__summary" onClick={openSources} aria-label={`Ver ${items.length} ${items.length === 1 ? 'fonte' : 'fontes'} da resposta`}>
-      <span className="cv-source-group__favicons" aria-hidden="true">
-        {items.slice(0, 4).map((item, index) => <SourceFavicon key={item.id || index} src={item.favicon} domain={sourceDomain(item?.url)}/>)}
-      </span>
-      <span className="cv-source-group__copy">
-        <strong>{summary.label}{summary.remaining ? ` e mais ${summary.remaining}` : ''}</strong>
-        <small>{items.length} {items.length === 1 ? 'fonte' : 'fontes'} · Ver todas</small>
-      </span>
-      <Icon name="external" size={12}/>
-    </button>
-  </section>;
+  return <nav className="cv-inline-sources cv-mt-4" aria-label="Links da resposta">
+    {items.map((item, index) => {
+      const href = safeUrl(item.url);
+      const domain = sourceDomain(item.url);
+      if (!href) return null;
+      return <a key={item.id || index} href={href} target="_blank" rel="noreferrer" referrerPolicy="no-referrer" className="cv-inline-source">
+        <SourceFavicon src={item.favicon || `${new URL(href).origin}/favicon.ico`} domain={domain}/><span>{item.title || domain || 'Abrir link'}</span>
+      </a>;
+    })}
+  </nav>;
 }
 
 function NoteBlock({block, tone = 'neutral'}) {
@@ -97,13 +93,38 @@ function NoteBlock({block, tone = 'neutral'}) {
 
 function QuestionsBlock({block, onPrompt}) {
   const items = Array.isArray(block.items) ? block.items : [];
+  const questions = items.filter(item => item?.question || item?.options?.length || item?.allow_custom);
+  const [answers, setAnswers] = useState({});
+  const [customAnswers, setCustomAnswers] = useState({});
+  if (questions.length) {
+    const answerFor = (item, index) => customAnswers[item.id || index] || answers[item.id || index] || '';
+    const complete = questions.every((item, index) => !item.required || String(answerFor(item, index)).trim());
+    const submit = () => onPrompt(questions.map((item, index) => `${item.question || item.title}: ${answerFor(item, index)}`).join('\n'));
+    return <section className="cv-inline-questions cv-mt-6">
+      {block.title && <span className="cv-inline-questions__label">{block.title}</span>}
+      {questions.map((item, index) => {
+        const id = item.id || `question-${index}`;
+        const answer = answers[id] || '';
+        const customAnswer = customAnswers[id] || '';
+        const options = Array.isArray(item.options) ? item.options : [];
+        return <fieldset key={id} className="cv-inline-question-set">
+          <legend>{item.question || item.title}</legend>
+          {options.map((option, optionIndex) => {
+            const value = typeof option === 'string' ? option : option.value || option.label || option.title;
+            const label = typeof option === 'string' ? option : option.label || option.title || value;
+            return <label key={option.id || optionIndex} className="cv-inline-question-option"><input type="radio" name={id} checked={!customAnswer && answer === value} onChange={() => { setAnswers(current => ({...current, [id]: value})); setCustomAnswers(current => ({...current, [id]: ''})); }}/><span>{label}</span></label>;
+          })}
+          {item.allow_custom && <input className="cv-inline-question-custom" value={customAnswer} onChange={event => { setCustomAnswers(current => ({...current, [id]: event.target.value})); setAnswers(current => ({...current, [id]: ''})); }} placeholder={item.custom_placeholder || 'Outra resposta'} aria-label={`Outra resposta para ${item.question || item.title}`}/>}
+        </fieldset>;
+      })}
+      <button type="button" disabled={!complete} onClick={submit} className="cv-inline-questions__submit">Continuar</button>
+    </section>;
+  }
   return <section className="cv-inline-questions cv-mt-6">
-    <span className="cv-inline-questions__label">{block.title || 'Para continuar'}</span>
-    <div><BoundedItems items={items} label="perguntas">{visible => visible.map((item, index) => {
-      const label = typeof item === 'string' ? item : item.title || item.label || item.question;
-      const contextText = typeof item === 'string' ? item : item.prompt || item.question || label;
-      const execute = typeof item !== 'string' && item.auto_submit && item.prompt;
-      return <button key={item.id || index} type="button" onClick={() => execute ? onPrompt(item.prompt, null, {submit: true}) : onPrompt('', {type: 'question', label: 'Respondendo', text: contextText})} className="cv-inline-question"><span>{label}</span><small>{execute ? 'Executar' : 'Responder'}</small></button>;
+    <div><BoundedItems items={items} label="opções">{visible => visible.map((item, index) => {
+      const label = typeof item === 'string' ? item : item.title || item.label;
+      const prompt = typeof item === 'string' ? item : item.prompt || label;
+      return <button key={item.id || index} type="button" onClick={() => onPrompt(prompt)} className="cv-inline-question"><span>{label}</span></button>;
     })}</BoundedItems></div>
   </section>;
 }

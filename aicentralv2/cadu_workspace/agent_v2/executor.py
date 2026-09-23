@@ -124,6 +124,20 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "create_text_draft", "create_client_delivery", "create_substantial_delivery"
     } else "context"
     resolved = resolve_context(route, request, routed_message, load_builtin_tools(), execution_mode)
+    if route.action == "select_brand_for_audit":
+        # Do not leave a provider enough latitude to turn an unbound request
+        # into an unsupported brand analysis. The next safe action is a
+        # registered, selected brand; evidence sent in chat can be attached
+        # afterwards.
+        policy["action_preflight"] = {
+            "ready": False,
+            "reason": "A análise só pode ser executada para uma marca cadastrada e selecionada.",
+            "missing": ["marca cadastrada e selecionada"],
+            "next_step": "Cadastre ou selecione a marca; para o cadastro, informe nome, segmento e site oficial.",
+        }
+        policy["max_answer_chars"] = min(policy.get("max_answer_chars", 260), 260)
+        policy["max_questions"] = 1
+        policy["max_next_steps"] = 1
     if route.action == "schedule_project_meeting":
         google_status = resolved.values.get("google.get_connector_status") or {}
         shares = resolved.values.get("workspace.list_project_shares") or {}

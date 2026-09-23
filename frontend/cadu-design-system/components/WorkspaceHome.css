@@ -9,6 +9,17 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   mask-image:linear-gradient(180deg,transparent 15%,#000 100%);
 }
 
+@media (min-width: 761px) {
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content {
+    justify-content:center;
+    padding-top:clamp(48px,7vh,72px);
+    padding-bottom:clamp(128px,18vh,190px);
+  }
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro {
+    text-align:center;
+  }
+}
+
 /* The empty home is one clear invitation, not a second navigation menu. */
 @media (max-width: 760px) {
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content {

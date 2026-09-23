@@ -34,22 +34,6 @@ function readCollapsed(mode) {
   } catch (_) { return false; }
 }
 
-function conversationHref(item, baseHref) {
-  const directHref = item?.href || item?.url;
-  const rawId = item?.conversationId || item?.id;
-  const conversationId = String(rawId || '').startsWith('conversation:') ? String(rawId).slice('conversation:'.length) : rawId;
-  if (!baseHref || !conversationId) return directHref || '';
-  try {
-    const target = new URL(baseHref, window.location.origin);
-    target.searchParams.set('conversation_id', conversationId);
-    target.searchParams.set('history', '1');
-    if (item?.projectRef) target.searchParams.set('project_ref', item.projectRef);
-    return `${target.pathname}${target.search}`;
-  } catch (_) {
-    return directHref || '';
-  }
-}
-
 function writeCollectionPayload(event, item, kind, label) {
   if (!event.dataTransfer) return;
   const payload = {
@@ -86,16 +70,19 @@ function SidebarCollection({label, href, items, kind}) {
 function SidebarBrandProjectGroups({brands, projects, links}) {
   const brandRef = item => String(item?.ref || item?.brandRef || `studio:${item?.id || ''}`);
   const alphabetic = (left, right) => String(left?.name || left?.title || '').localeCompare(String(right?.name || right?.title || ''), 'pt-BR', {sensitivity: 'base'});
-  const visibleProjects = projects.filter(project => !['arquivado', 'archived', 'deletado', 'deleted'].includes(String(project?.status || '').toLocaleLowerCase('pt-BR'))).sort(alphabetic);
-  const groups = [...brands].sort(alphabetic).map(brand => {
+  const projectTimestamp = project => Date.parse(project?.updatedAt || project?.updated_at || project?.lastActivityAt || project?.last_activity_at || project?.createdAt || project?.created_at || '') || 0;
+  const operational = (left, right) => projectTimestamp(right) - projectTimestamp(left) || alphabetic(left, right);
+  const visibleProjects = projects.filter(project => !['arquivado', 'archived', 'deletado', 'deleted'].includes(String(project?.status || '').toLocaleLowerCase('pt-BR'))).sort(operational);
+  const allGroups = [...brands].sort(alphabetic).map(brand => {
     const ref = brandRef(brand);
     return {...brand, projects: visibleProjects.filter(project => {
       const refs = project.related_refs || project.relatedRefs || (project.brandRef ? [project.brandRef] : []);
       return refs.map(String).includes(ref) || String(project.brandRef || '') === ref;
-    }).sort(alphabetic)};
+    }).sort(operational)};
   });
-  const groupedProjects = new Set(groups.flatMap(group => group.projects.map(project => String(project.id || project.ref || project.projectRef))));
-  const ungrouped = visibleProjects.filter(project => !groupedProjects.has(String(project.id || project.ref || project.projectRef)));
+  const groupedProjects = new Set(allGroups.flatMap(group => group.projects.map(project => String(project.id || project.ref || project.projectRef))));
+  const groups = allGroups.filter(group => group.projects.length > 0).sort((left, right) => projectTimestamp(right.projects[0]) - projectTimestamp(left.projects[0]) || alphabetic(left, right)).slice(0, 5).map(group => ({...group, projects:group.projects.slice(0, 3)}));
+  const ungrouped = visibleProjects.filter(project => !groupedProjects.has(String(project.id || project.ref || project.projectRef))).slice(0, 3);
   if (!groups.length && !ungrouped.length) return null;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
     <div className="cadu-ds-context-sidebar__section-label"><span>Projetos em andamento</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
@@ -118,8 +105,6 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
   const [collapsed, setCollapsed] = useState(() => mode === 'account' ? false : readCollapsed(mode));
   const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
-  const recentConversations = useMemo(() => conversations.map(item => ({...item, href: conversationHref(item, links.conversations)})).filter(item => item.href), [conversations, links.conversations]);
-  const visibleRecentConversations = recentConversations.length >= 5 ? recentConversations.slice(0, 5) : recentConversations;
 
   useEffect(() => {
     try { window.localStorage.setItem(`cadu:sidebar:${mode}`, mode === 'account' ? 'open' : collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
@@ -141,11 +126,6 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
       <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>
       {recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>)}
     </section>}
-    {mode === 'home' && recentConversations.length > 0 && <section className="cadu-ds-context-sidebar__recent cadu-ds-context-sidebar__recent--conversations" aria-label="Conversas recentes">
-      <div className="cadu-ds-context-sidebar__section-label"><span>Conversas recentes</span>{links.conversations && <a href={links.conversations}>Ver todas</a>}</div>
-      {visibleRecentConversations.map(item => <a key={item.id || item.conversationId || item.href} href={item.href || item.url} title={item.title || item.name}><span><b>{item.title || item.name || 'Conversa'}</b></span></a>)}
-    </section>}
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
-    {mode === 'home' && !recentConversations.length && <p className="cadu-ds-context-sidebar__empty">As conversas recentes aparecerão aqui.</p>}
   </aside>;
 }

@@ -1,5 +1,13 @@
 /* Alinhamento e tratamento de marcas da Dock autenticada. */
 @media (min-width: 761px) {
+  body.portal--workspace .cadu-ds-dock {
+    position:fixed;
+    z-index:var(--cadu-z-sticky,40);
+    inset:0 auto 0 0;
+    height:100dvh;
+    max-height:100dvh;
+  }
+
   body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-solution,
   body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-new,
   body.portal--workspace .cadu-ds-dock > .cadu-ds-dock-home,
@@ -15,9 +23,7 @@
   body.portal--workspace .cadu-ds-dock-brand-tree > .cadu-ds-dock-resource { margin-left: auto; }
 
   body.portal--workspace .cadu-ds-dock-context .cadu-ds-dock-brand,
-  body.portal--workspace .cadu-ds-dock-context .cadu-ds-dock-resource {
-    transform: translateX(6px);
-  }
+  body.portal--workspace .cadu-ds-dock-context .cadu-ds-dock-resource { transform:none; }
 }
 
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand .cadu-ds-visual-identity--brand {
@@ -28,9 +34,9 @@ body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand .cadu-ds-visual-identit
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-brand .cadu-ds-visual-identity--brand img {
   width: 100%;
   height: 100%;
-  padding: 0;
+  padding: 4px;
   border-radius: inherit;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   filter: none;
 }
@@ -57,9 +63,12 @@ body.portal--workspace .cadu-ds-dock-shortcut.is-dragging { opacity:.35; }
 body.portal--workspace .cadu-ds-dock-resource--provider .cadu-ds-visual-identity { background:#fff; box-shadow:inset 0 0 0 1px rgba(20,40,58,.11); }
 body.portal--workspace .cadu-ds-dock-resource--provider .cadu-ds-visual-identity img { box-sizing:border-box; padding:6px; object-fit:contain; }
 body.portal--workspace .cadu-ds-dock-resource--generated .cadu-ds-visual-identity img { padding:0; object-fit:cover; }
-/* Uploaded marks already carry their own art direction. Do not manufacture a
-   second colored tile unless the user explicitly chooses one in Account. */
-body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource) .cadu-ds-visual-identity.has-image-background { background:transparent; box-shadow:none; }
+/* Transparent and white marks need a predictable contrast surface. A custom
+   color still wins when the user configures one in Account. */
+body.portal--workspace .cadu-ds-dock :is(.cadu-ds-dock-brand,.cadu-ds-dock-resource) .cadu-ds-visual-identity.has-image-background {
+  background:color-mix(in srgb,var(--cadu-identity-color) 14%,#e4eceb);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-identity-color) 22%,rgba(20,40,58,.12));
+}
 body.portal--workspace .cadu-ds-dock .cadu-ds-visual-identity.has-custom-background { background:var(--cadu-identity-color); }
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--small { width:30px; height:30px; }
 body.portal--workspace .cadu-ds-dock .cadu-ds-dock-identity--medium { width:36px; height:36px; }
@@ -73,7 +82,7 @@ body.portal--workspace .cadu-ds-dock-insertion {
   border-radius:12px;
   background:#244944;
   box-shadow:inset 0 0 0 3px rgba(101,216,203,.08);
-  transform:translateX(6px);
+  transform:none;
   animation:cadu-dock-space 170ms ease-out both;
 }
 @keyframes cadu-dock-space { from { height:8px; flex-basis:8px; opacity:.3; } to { height:42px; flex-basis:42px; opacity:1; } }

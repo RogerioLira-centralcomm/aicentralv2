@@ -1,8 +1,8 @@
 /* Navegação contextual compartilhada pelos detalhes de projeto e marca. */
 body.portal--workspace .cadu-ds-entity-nav a.is-active {
-  background: transparent;
-  color: var(--cadu-ink);
-  font-weight: 700;
+  background: var(--cadu-surface);
+  color: var(--cadu-accent-strong);
+  font-weight: 600;
   box-shadow: none;
 }
 
@@ -12,7 +12,11 @@ body.portal--workspace .cadu-ds-entity-nav a.is-active svg {
 
 body.portal--workspace .cadu-ds-entity-nav {
   box-sizing: border-box;
-  padding: 28px 16px;
+  width:var(--cadu-sidebar-width,239px);
+  min-width:var(--cadu-sidebar-width,239px);
+  padding:22px 14px 18px;
+  border-right:1px solid var(--cadu-line);
+  background:color-mix(in srgb,var(--cadu-canvas) 70%,var(--cadu-surface));
 }
 
 body.portal--workspace .cadu-ds-entity-nav nav {
@@ -178,8 +182,8 @@ body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav nav a {
 }
 
 body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav nav a.is-active {
-  background:#e5f1ef;
-  color:#123c37;
+  background:var(--cadu-surface);
+  color:var(--cadu-accent-strong);
   font-weight:600;
 }
 
@@ -240,7 +244,7 @@ body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav__action
 /* The dock and both detail rails form one fixed navigation frame. */
 @media (min-width:901px) {
   body.portal--workspace .cadu-ds-brand-workarea,
-  body.portal--workspace .cadu-ds-project-workarea { display:grid; grid-template-columns:72px minmax(0,1fr); align-items:start; }
+  body.portal--workspace .cadu-ds-project-workarea { display:grid; grid-template-columns:var(--cadu-dock-width,64px) minmax(0,1fr); align-items:start; }
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-dock,
   body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-dock { grid-column:1; position:sticky; top:0; height:100dvh; min-height:100dvh; border-right:0; }
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal,
@@ -251,7 +255,17 @@ body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav__action
   body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-rail { display:block; }
 }
 body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-nav,
-body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav { padding:20px 12px 26px; border-right:0; background:var(--cadu-canvas); }
+body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav {
+  position:sticky;
+  top:0;
+  width:var(--cadu-sidebar-width,239px);
+  min-width:var(--cadu-sidebar-width,239px);
+  height:100dvh;
+  padding:22px 14px 18px;
+  overscroll-behavior:contain;
+  border-right:1px solid var(--cadu-line);
+  background:color-mix(in srgb,var(--cadu-canvas) 70%,var(--cadu-surface));
+}
 body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail,
 body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-rail { border-left:0; background:var(--cadu-canvas); }
 body.portal--workspace .cadu-ds-entity-nav__identity { display:flex; align-items:center; gap:10px; min-width:0; margin:0 4px 18px; }
@@ -301,7 +315,7 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-hero__at
     margin:0;
   }
   body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea) > .cadu-ds-entity-portal { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
-  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-nav { width:auto; min-width:0; padding-right:8px; padding-left:8px; }
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-nav { width:var(--cadu-sidebar-width,239px); min-width:var(--cadu-sidebar-width,239px); }
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-brand-content { min-width:0; padding-right:28px; padding-left:28px; }
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail { min-width:0; padding-right:12px; padding-left:12px; }
 }
@@ -310,6 +324,6 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-hero__at
   body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-brand-completion__actions { grid-column:1 / -1; padding-top:0; }
   body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-brand-completion__map { grid-template-columns:repeat(3,minmax(72px,1fr)); }
 }
-body.portal--workspace .cadu-ds-entity-portal--brand :is(.cadu-ds-entity-nav,.cadu-ds-entity-rail) { border:0; background:var(--cadu-canvas); }
+body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail { border:0; background:var(--cadu-canvas); }
 body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group a { min-width:0; }
 body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group a b { white-space:normal; line-height:1.3; }

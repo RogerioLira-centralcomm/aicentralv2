@@ -2528,6 +2528,35 @@ def _brand_campaigns(client_id: int, brand_id: int, fallback=None) -> list[dict]
     return [item for item in (fallback or []) if isinstance(item, dict)][:8]
 
 
+def _institutional_brand_campaign(brand_id: int, brand: dict) -> dict:
+    """Give a usable brand base one conservative, explicit institutional path."""
+    profile = brand.get('brand_profile') or {}
+    name = str(brand.get('name') or 'Marca').strip()
+    summary = str(profile.get('brand_summary') or profile.get('positioning') or '').strip()
+    audience = str(profile.get('target_audience') or '').strip()
+    return {
+        'id': f'institutional-{brand_id}', 'name': f'Campanha institucional {name}',
+        'type': 'institutional', 'status': 'opportunity',
+        'objective': f'Apresentar {name}, sua atuação e seus diferenciais com consistência institucional.',
+        'audience': audience,
+        'channels': ['Site', 'Conteúdo institucional', 'Redes sociais'],
+        'rationale': summary or f'Consolidar uma apresentação institucional coerente para {name}.',
+        'source_url': str(brand.get('website_url') or ''), 'confidence': 0.75,
+    }
+
+
+def _brand_campaigns_with_institutional(client_id: int, brand_id: int, brand: dict) -> list[dict]:
+    campaigns = _brand_campaigns(client_id, brand_id, (brand.get('brand_profile') or {}).get('campaigns') or [])
+    if not any(str(item.get('type') or '').lower() == 'institutional' for item in campaigns):
+        institutional = _institutional_brand_campaign(brand_id, brand)
+        existing_project = next((item for item in _brand_linked_projects(client_id, brand_id)
+                                 if str(item.get('nome') or '').strip().casefold() == institutional['name'].casefold()), None)
+        if existing_project:
+            institutional.update(status='project_created', project_id=str(existing_project.get('id') or ''))
+        campaigns = [institutional, *campaigns]
+    return campaigns[:12]
+
+
 def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
     """Best-effort history for the low-priority audit section on the brand page."""
     try:
@@ -5411,7 +5440,7 @@ def create_campaign_project(brand_id, campaign_id):
     brand = _workspace_brand(client_id, brand_id)
     if not brand:
         abort(404)
-    campaign = next((item for item in (brand.get('brand_profile') or {}).get('campaigns', [])
+    campaign = next((item for item in _brand_campaigns_with_institutional(client_id, brand_id, brand)
                      if isinstance(item, dict) and str(item.get('id') or '') == str(campaign_id)), None)
     if not campaign:
         abort(404)
@@ -5445,6 +5474,9 @@ def create_campaign_project(brand_id, campaign_id):
         connection.commit()
         # This is an explicit user action, never a side effect of the audit.
         family_repository.set_project_brand_link(client_id, user_id, f'ci:{project_id}', f'studio:{brand_id}', True)
+        # The link remains the source of truth. Compact approved projections
+        # make the project searchable without copying brand binaries.
+        _sync_approved_brand_to_projects(client_id, user_id, brand_id, brand, brand.get('brand_profile') or {})
         with connection.cursor() as cursor:
             cursor.execute(
                 '''UPDATE cadu_workspace_brand_campaigns SET status = 'project_created', project_id = %s, updated_at = NOW()
@@ -6949,9 +6981,28 @@ def brand_detail(brand_id):
         linked_projects = _brand_linked_projects(client_id, brand_id)
         active_linked_project = linked_projects[0] if linked_projects else None
         profile = brand.get('brand_profile') or {}
-        campaigns = _brand_campaigns(client_id, brand_id, profile.get('campaigns') or [])
+        campaigns = _brand_campaigns_with_institutional(client_id, brand_id, brand)
         review_pack = brand.get('review_pack') or {}
         audit_history = _brand_audit_history(client_id, brand_id)
+        source_records, seen_source_urls = [], set()
+        raw_sources = []
+        for audit in audit_history:
+            raw_sources.extend(audit.get('sources') or [])
+        raw_sources.extend((brand.get('analysis_metadata') or {}).get('sources') or [])
+        for source in raw_sources:
+            item = source if isinstance(source, dict) else {'url': source}
+            source_url = str(item.get('url') or '').strip()
+            parsed = urlparse(source_url)
+            if parsed.scheme not in {'http', 'https'} or not parsed.netloc or source_url in seen_source_urls:
+                continue
+            seen_source_urls.add(source_url)
+            source_records.append({
+                'url': source_url,
+                'title': str(item.get('title') or parsed.hostname or source_url)[:180],
+                'kind': str(item.get('kind') or 'public'),
+            })
+            if len(source_records) >= 20:
+                break
         project_items = [{
             'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
             'name': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}",
@@ -7046,6 +7097,7 @@ def brand_detail(brand_id):
                 'screenshotColorPalette': list((brand.get('analysis_metadata') or {}).get('screenshot_color_palette') or []),
                 'cssColorEvidence': list((brand.get('analysis_metadata') or {}).get('css_color_evidence') or []),
                 'sources': [str(item) for item in ((brand.get('analysis_metadata') or {}).get('sources') or []) if item],
+                'sourceRecords': source_records,
                 'qualityFlags': list(((brand.get('analysis_metadata') or {}).get('quality_flags') or [])),
                 'readyForApproval': bool((brand.get('analysis_metadata') or {}).get('ready_for_approval')),
                 'socialLinks': list((brand.get('analysis_metadata') or {}).get('social_links') or []),

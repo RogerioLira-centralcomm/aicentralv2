@@ -24,11 +24,13 @@ export function EntityNavigator({label, items = [], context, children, identity}
 }
 
 function RailGroup({title, items = []}) {
+  const [expanded, setExpanded] = useState(false);
   if (!items.length) return null;
-  return <section className="cadu-ds-entity-rail__group"><header><h3>{title}</h3><span>{items.length}</span></header><div>{items.slice(0, 5).map((item, index) => {
-    const content = <><span>{item.title || item.name || `Item ${index + 1}`}</span>{item.detail && <small>{item.detail}</small>}</>;
-    return item.href ? <a key={item.id || item.href || index} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>{content}</a> : <div key={item.id || index}>{content}</div>;
-  })}</div></section>;
+  const visible = expanded ? items : items.slice(0, 5);
+  return <section className="cadu-ds-entity-rail__group"><header><h3>{title}</h3><span>{items.length}</span></header><div>{visible.map((item, index) => {
+    const content = <>{item.previewUrl ? <img src={item.previewUrl} alt="" loading="lazy"/> : item.icon ? <Icon name={item.icon} size={15}/> : null}<span><b>{item.title || item.name || `Item ${index + 1}`}</b>{item.detail && <small>{item.detail}</small>}{item.origin && <em>{item.origin}</em>}</span>{item.href && <i aria-hidden="true">↗</i>}</>;
+    return item.href ? <a key={item.id || item.href || index} className={item.previewUrl ? 'has-preview' : ''} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>{content}</a> : <div key={item.id || index} className={item.previewUrl ? 'has-preview' : ''}>{content}</div>;
+  })}</div>{items.length > 5 && <button type="button" className="cadu-ds-entity-rail__expand" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Mostrar menos' : `Ver todos (${items.length})`}</button>}</section>;
 }
 
 export function EntityContextRail({title = 'Em destaque', action, groups = [], children}) {

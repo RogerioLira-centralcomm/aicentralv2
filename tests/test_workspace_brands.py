@@ -11,7 +11,7 @@ from aicentralv2.product_domains import product_url
 from aicentralv2.creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
 from aicentralv2.cadu_workspace.routes import (
     _auto_apply_brand_analysis, _automatic_brand_decision, _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
-    _brand_audit_checkpoint_reusable, _brand_audit_history, _brand_audit_reliability_summary, _brand_review_pack, _normalized_website_url, _resolve_uploaded_logo_path, _resolve_workspace_context, _user_dock_shortcuts,
+    _brand_audit_checkpoint_reusable, _brand_audit_history, _brand_audit_reliability_summary, _brand_campaigns_with_institutional, _brand_review_pack, _institutional_brand_campaign, _normalized_website_url, _resolve_uploaded_logo_path, _resolve_workspace_context, _user_dock_shortcuts,
     _workspace_context_catalog,
     _save_brand_review_job, bp,
 )
@@ -32,6 +32,21 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    def test_institutional_campaign_uses_brand_context_without_inventing_specific_claims(self):
+        campaign = _institutional_brand_campaign(28, {'name': 'BDMG', 'website_url': 'https://bdmg.mg.gov.br',
+            'brand_profile': {'brand_summary': 'Banco de desenvolvimento de Minas Gerais.', 'target_audience': 'Empresas mineiras'}})
+        self.assertEqual(campaign['id'], 'institutional-28')
+        self.assertEqual(campaign['type'], 'institutional')
+        self.assertIn('BDMG', campaign['name'])
+        self.assertEqual(campaign['audience'], 'Empresas mineiras')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._brand_linked_projects', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._brand_campaigns', return_value=[{'id':'paid-1','name':'Mídia','type':'paid_media'}])
+    def test_campaign_list_adds_institutional_opportunity(self, _campaigns, _projects):
+        campaigns = _brand_campaigns_with_institutional(12, 28, {'name':'BDMG','brand_profile':{}})
+        self.assertEqual(campaigns[0]['type'], 'institutional')
+        self.assertEqual(campaigns[1]['id'], 'paid-1')
+
     def test_automatic_publication_replaces_stale_identity_with_approved_revision(self):
         cursor = mock.MagicMock()
         cursor.fetchone.return_value = {'id': 25}

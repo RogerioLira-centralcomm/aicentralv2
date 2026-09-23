@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from hashlib import sha256
 import json
+import logging
 import secrets
 from uuid import uuid4
 from uuid import UUID
@@ -13,16 +14,31 @@ from psycopg.types.json import Json
 
 from ...db import get_db
 from ..agent_v2.contracts import ActiveObject, RequestContext
-from .registry import ToolInputError
+from .registry import ToolError, ToolInputError
 
 
 HANDLE_PREFIX = "cadu_ctx_"
+logger = logging.getLogger(__name__)
+
+
+def available() -> bool:
+    """Return whether the optional context projection is installed."""
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("""SELECT to_regclass('public.cadu_mcp_contexts') AS contexts,
+                                      to_regclass('public.cadu_mcp_context_events') AS events""")
+            row = cursor.fetchone() or {}
+        return bool(row.get("contexts") and row.get("events"))
+    except Exception:
+        return False
 
 
 def _identity(principal, exposure: str) -> dict:
     credential_type = str(getattr(principal, "credential_type", "internal") or "internal")
-    credential_id = (getattr(principal, "grant_id", None) if credential_type == "oauth"
-                     else getattr(principal, "key_id", None))
+    credential_id = getattr(principal, "credential_id", None)
+    if not credential_id:
+        credential_id = (getattr(principal, "grant_id", None) if credential_type == "oauth"
+                         else getattr(principal, "key_id", None))
     return {
         "client_id": int(principal.context.client_id),
         "user_id": int(principal.context.user_id),
@@ -156,6 +172,24 @@ def update_context(principal, arguments: dict, exposure: str) -> dict:
     if brand_ref and (brand_ref not in entities or entities[brand_ref]["kind"] != "brand"):
         raise ToolInputError("A marca não pertence a esta conta.")
     active = changes.get("active_object", row.get("active_object"))
+    if active is not None:
+        active_type = str(active.get("type") or "") if isinstance(active, dict) else ""
+        active_id = str(active.get("id") or "") if isinstance(active, dict) else ""
+        supported = (active_type.startswith("artifact:") or active_type in {
+            "report", "report_workspace", "media_plan", "resource", "project", "brand",
+        })
+        if not supported or not active_id:
+            raise ToolInputError("Objeto ativo inválido ou não suportado.")
+        if active_type.startswith("artifact:"):
+            from ..artifacts import service as artifact_service
+            try:
+                artifact_service.get_artifact(context, active_id)
+            except Exception as exc:
+                raise ToolInputError("O artefato ativo não pertence a este usuário.") from exc
+        elif active_type == "project" and active_id != project_ref:
+            raise ToolInputError("O objeto ativo não corresponde ao projeto selecionado.")
+        elif active_type == "brand" and active_id != brand_ref:
+            raise ToolInputError("O objeto ativo não corresponde à marca selecionada.")
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -227,15 +261,52 @@ def _record(row: dict, tool_name: str, result, state="completed") -> None:
         raise
 
 
+def _record_safely(row: dict, tool_name: str, result, state="completed") -> None:
+    try:
+        _record(row, tool_name, result, state)
+    except Exception:
+        logger.exception("Falha ao projetar evento do contexto MCP", extra={
+            "context_id": str(row.get("id") or ""), "tool_name": tool_name, "state": state,
+        })
+
+
+def _link_operation(row: dict, principal, context: RequestContext, arguments: dict, state: str) -> None:
+    request_id = arguments.get("request_id") if isinstance(arguments, dict) else None
+    if not request_id:
+        return
+    identity = _identity(principal, str(row.get("exposure") or "internal"))
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_mcp_operations
+                   SET context_id=%s, conversation_id=%s, tool_call_id=%s,
+                       credential_id=%s, terminal_state=%s
+                 WHERE request_id=%s AND client_id=%s AND user_id=%s""",
+                (row["id"], context.conversation_id, request_id,
+                 identity["credential_id"] or None, state, request_id,
+                 context.client_id, context.user_id))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        logger.exception("Falha ao vincular operação ao contexto MCP", extra={
+            "context_id": str(row.get("id") or ""), "request_id": str(request_id),
+        })
+
+
 def execute(principal, name: str, arguments: dict, exposure: str, registry):
-    if name == "context.open":
-        return open_context(principal, arguments, exposure)
-    if name == "context.get":
-        return get_context(principal, arguments, exposure)
-    if name == "context.update":
-        return update_context(principal, arguments, exposure)
-    if name == "context.close":
-        return close_context(principal, arguments, exposure)
+    if name.startswith("context."):
+        if not available():
+            raise ToolError("Contextos persistentes estão temporariamente indisponíveis.")
+        arguments = dict(arguments or {})
+        registry.validate(name, arguments, principal.context, exposure)
+        handlers = {
+            "context.open": open_context, "context.get": get_context,
+            "context.update": update_context, "context.close": close_context,
+        }
+        handler = handlers.get(name)
+        if not handler:
+            raise ToolError("Ferramenta de contexto indisponível.")
+        return handler(principal, arguments, exposure)
     arguments = dict(arguments or {})
     handle = str(arguments.pop("context_handle", "") or "")
     row = _row(handle, principal, exposure) if handle else None
@@ -243,11 +314,13 @@ def execute(principal, name: str, arguments: dict, exposure: str, registry):
     try:
         value = registry.execute(name, arguments, context, exposure)
         if row:
-            _record(row, name, value)
+            _record_safely(row, name, value)
+            _link_operation(row, principal, context, arguments, "completed")
             if isinstance(value, dict):
                 value = {**value, "_context": {"context_handle": handle, "conversation_id": context.conversation_id}}
         return value
     except Exception as exc:
         if row:
-            _record(row, name, {"error": type(exc).__name__}, "failed")
+            _record_safely(row, name, {"error": type(exc).__name__}, "failed")
+            _link_operation(row, principal, context, arguments, "failed")
         raise

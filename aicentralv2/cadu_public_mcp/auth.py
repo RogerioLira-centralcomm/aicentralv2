@@ -72,6 +72,7 @@ def normalize_scopes(scopes=None, *, allow_writes: bool = False) -> tuple[str, .
         values.discard("artifacts:write")
         values.discard("account:write")
         values.discard("google:write")
+        values.discard("contexts:write")
     return tuple(sorted(values))
 
 

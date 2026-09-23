@@ -69,3 +69,28 @@ def test_context_handle_cannot_cross_credentials():
     with patch.object(context_runtime, "get_db", return_value=connection), \
          pytest.raises(ToolInputError, match="outra conexão"):
         context_runtime._row("cadu_ctx_abcdefghijklmnopqrstuvwxyz", _Principal(_context()), "customer_agent")
+
+
+def test_context_tools_use_registry_validation_before_dispatch():
+    principal = _Principal(_context())
+    with patch.object(context_runtime, "available", return_value=True), \
+         pytest.raises(ToolInputError, match="Campo não permitido"):
+        context_runtime.execute(principal, "context.open", {"unexpected": True},
+                                "customer_agent", load_builtin_tools())
+
+
+def test_projection_failure_does_not_turn_successful_tool_into_failure():
+    principal = _Principal(_context())
+    row = {"id": "context-id", "conversation_id": None, "surface": "workspace",
+           "project_ref": None, "brand_ref": None, "active_object": None,
+           "exposure": "customer_agent"}
+    registry = MagicMock()
+    registry.execute.return_value = {"updated": True}
+    with patch.object(context_runtime, "_row", return_value=row), \
+         patch.object(context_runtime, "_record", side_effect=RuntimeError("database unavailable")), \
+         patch.object(context_runtime, "_link_operation"):
+        result = context_runtime.execute(principal, "workspace.list_projects",
+                                         {"context_handle": "cadu_ctx_valid"},
+                                         "customer_agent", registry)
+    assert result["updated"] is True
+    assert result["_context"]["context_handle"] == "cadu_ctx_valid"

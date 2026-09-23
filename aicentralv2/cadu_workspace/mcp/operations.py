@@ -2,6 +2,7 @@
 
 from hashlib import sha256
 import json
+from time import monotonic
 from uuid import UUID
 
 from psycopg.types.json import Json
@@ -18,7 +19,26 @@ def _uuid(value) -> str:
         raise ToolInputError("Identificador da operação inválido.") from exc
 
 
+def _enrich_operation(connection, operation_id: str, context: RequestContext,
+                      tool_name: str, started_clock: float, terminal_state: str) -> None:
+    """Best-effort metadata for installations where the new columns exist."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_mcp_operations
+                   SET duration_ms=%s,terminal_state=%s,conversation_id=%s,tool_call_id=%s
+                 WHERE request_id=%s AND client_id=%s AND user_id=%s AND tool_name=%s""",
+                (max(0, int((monotonic() - started_clock) * 1000)), terminal_state,
+                 context.conversation_id, operation_id, operation_id,
+                 context.client_id, context.user_id, tool_name))
+        connection.commit()
+    except Exception:
+        # These columns belong to the optional MCP context migration. Their
+        # absence must not change the result of the canonical operation.
+        connection.rollback()
+
+
 def execute(request_id, context: RequestContext, tool_name: str, arguments: dict, operation):
+    started_clock = monotonic()
     operation_id = _uuid(request_id)
     normalized = json.dumps(arguments, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     fingerprint = sha256(normalized.encode()).hexdigest()
@@ -58,6 +78,7 @@ def execute(request_id, context: RequestContext, tool_name: str, arguments: dict
                                 WHERE request_id=%s AND client_id=%s AND user_id=%s AND tool_name=%s""",
                            (Json(result or {}), operation_id, context.client_id, context.user_id, tool_name))
         connection.commit()
+        _enrich_operation(connection, operation_id, context, tool_name, started_clock, "completed")
         return result
     except Exception as exc:
         connection.rollback()
@@ -68,6 +89,7 @@ def execute(request_id, context: RequestContext, tool_name: str, arguments: dict
                                     WHERE request_id=%s AND client_id=%s AND user_id=%s AND tool_name=%s""",
                                (type(exc).__name__[:80], operation_id, context.client_id, context.user_id, tool_name))
             connection.commit()
+            _enrich_operation(connection, operation_id, context, tool_name, started_clock, "failed")
         except Exception:
             connection.rollback()
         raise

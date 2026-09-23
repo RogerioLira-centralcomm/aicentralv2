@@ -82,7 +82,10 @@ def rpc():
                 "serverInfo": {"name": "cadu-workspace", "version": "2.0"},
             }
         elif method == "tools/list":
-            result = {"tools": registry.list(current, principal.exposure)}
+            tools = registry.list(current, principal.exposure)
+            if not context_runtime.available():
+                tools = [item for item in tools if not item["name"].startswith("context.")]
+            result = {"tools": tools}
         elif method == "tools/call":
             name = str(params.get("name") or "")
             value = context_runtime.execute(

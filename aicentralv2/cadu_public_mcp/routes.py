@@ -255,6 +255,8 @@ def _headers(response):
 
 def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
     tools = load_builtin_tools().list(principal.context, exposure)
+    if not context_runtime.available():
+        tools = [item for item in tools if not item["name"].startswith("context.")]
     for item in tools:
         if item["name"] in PUBLIC_TOOLS and (item["name"].startswith(("projects.", "artifacts.")) or
                                              item["name"] in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"} or

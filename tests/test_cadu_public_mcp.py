@@ -42,6 +42,10 @@ def test_empty_effective_scope_does_not_restore_default_permissions():
     assert normalize_scopes([], allow_writes=True) == ()
 
 
+def test_read_only_scope_removes_context_mutation():
+    assert normalize_scopes(["contexts:read", "contexts:write"], allow_writes=False) == ("contexts:read",)
+
+
 def test_project_ref_is_selectable_in_public_tool_arguments_without_changing_internal_schema():
     context = RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
                              surface="workspace", project_ref=None, capabilities=("workspace",))

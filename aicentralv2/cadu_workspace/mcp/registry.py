@@ -131,8 +131,8 @@ class ToolRegistry:
                 if self._tools[name].capability in context.capabilities
                 and exposure in self._tools[name].exposures]
 
-    def execute(self, name: str, arguments: dict[str, Any], context: RequestContext,
-                exposure: str = "internal") -> Any:
+    def validate(self, name: str, arguments: dict[str, Any], context: RequestContext,
+                 exposure: str = "internal") -> ToolDefinition:
         tool = self._tools.get(name)
         if not tool:
             raise ToolNotFound("Ferramenta indisponível.")
@@ -168,6 +168,11 @@ class ToolRegistry:
         if not isinstance(arguments, dict):
             raise ToolInputError("Os argumentos da ferramenta precisam ser um objeto.")
         _validate(arguments, tool.input_schema)
+        return tool
+
+    def execute(self, name: str, arguments: dict[str, Any], context: RequestContext,
+                exposure: str = "internal") -> Any:
+        tool = self.validate(name, arguments, context, exposure)
         result = tool.handler(context, arguments)
         if tool.output_schema:
             try:

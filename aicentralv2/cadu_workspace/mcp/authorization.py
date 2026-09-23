@@ -2,6 +2,7 @@
 
 import secrets
 from dataclasses import dataclass
+from hashlib import sha256
 
 from flask import current_app, request, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -22,6 +23,8 @@ class MCPUnauthorized(RuntimeError):
 class MCPPrincipal:
     context: RequestContext
     exposure: str = "internal"
+    credential_type: str = "internal"
+    credential_id: str | None = None
 
 
 def _serializer():
@@ -31,7 +34,10 @@ def _serializer():
 def issue(context: RequestContext, exposure: str = "internal") -> str:
     if exposure not in {"internal", "customer_agent"}:
         raise ValueError("Perfil de exposição inválido.")
-    return _serializer().dumps({"context": context.to_dict(), "exposure": exposure})
+    return _serializer().dumps({
+        "context": context.to_dict(), "exposure": exposure,
+        "delegation_id": secrets.token_urlsafe(24),
+    })
 
 
 def _delegated(token: str) -> MCPPrincipal:
@@ -43,8 +49,9 @@ def _delegated(token: str) -> MCPPrincipal:
         raise MCPUnauthorized("Delegação do agente inválida.") from exc
     if not isinstance(value, dict):
         raise MCPUnauthorized("Delegação do agente inválida.")
-    exposure = str(value.get("exposure") or "internal")
-    value = value.get("context")
+    payload = value
+    exposure = str(payload.get("exposure") or "internal")
+    value = payload.get("context")
     if exposure not in {"internal", "customer_agent"} or not isinstance(value, dict):
         raise MCPUnauthorized("Perfil de delegação inválido.")
     active = value.get("active_object")
@@ -58,7 +65,12 @@ def _delegated(token: str) -> MCPPrincipal:
             brand_ref=value.get("brand_ref"), active_object=active_object,
             capabilities=tuple(value.get("capabilities") or ()),
         )
-        return MCPPrincipal(context=context, exposure=exposure)
+        delegation_id = str(payload.get("delegation_id") or "")
+        if not delegation_id:
+            # Compatibility for delegations issued before delegation_id existed.
+            delegation_id = sha256(token.encode("utf-8")).hexdigest()
+        return MCPPrincipal(context=context, exposure=exposure,
+                            credential_type="delegation", credential_id=delegation_id)
     except (KeyError, TypeError, ValueError) as exc:
         raise MCPUnauthorized("A delegação do agente está incompleta.") from exc
 
@@ -72,10 +84,11 @@ def authorize(params: dict) -> MCPPrincipal:
     expected, supplied = session.get("family_csrf"), request.headers.get("X-CSRF-Token", "")
     if not expected or not secrets.compare_digest(expected, supplied):
         raise MCPUnauthorized("Sessão expirada. Atualize a página.")
+    session_credential = sha256(str(expected).encode("utf-8")).hexdigest()
     return MCPPrincipal(context=resolve(
         conversation_id=params.get("conversation_id"),
         surface=str(params.get("surface") or "conversations"),
         active_object=params.get("active_object"),
         project_ref=params.get("project_ref"),
         brand_ref=params.get("brand_ref"),
-    ))
+    ), credential_type="session", credential_id=session_credential)

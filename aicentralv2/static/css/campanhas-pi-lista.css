@@ -1,0 +1,224 @@
+/* /campanhas-pi/lista — Enterprise overrides (sem indigo legado) */
+
+.camp-list-page .badge-status {
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.camp-list-page .badge-ativo { background: #dcfce7; color: #166534; }
+.camp-list-page .badge-finalizado { background: #e0e7ff; color: #3730a3; }
+.camp-list-page .badge-pausado { background: #fef3c7; color: #92400e; }
+.camp-list-page .badge-default { background: #f1f5f9; color: #475569; }
+
+.camp-list-page .progress-slim {
+  height: 5px;
+  border-radius: 99px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+.camp-list-page .progress-slim-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+.camp-list-page .lista-table-wrap {
+  max-height: calc(100vh - 168px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.camp-list-page .lista-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f9fafb;
+  box-shadow: 0 1px 0 #e5e7eb;
+}
+.camp-list-page .lista-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.camp-list-page .lista-table tbody tr:hover { background: #f8fafc; }
+.camp-list-page .lista-table tbody tr.active {
+  background: var(--camp-active-soft, #e8f5ef);
+}
+.camp-list-page .lista-table tbody td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.camp-list-page .camp-manager-table tbody tr.active {
+  background: var(--camp-active-soft, #e8f5ef);
+}
+
+.camp-list-page .email-template-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.camp-list-page .email-template-card:hover {
+  border-color: var(--camp-active, #176447);
+  background: var(--camp-active-soft, #e8f5ef);
+}
+.camp-list-page .email-template-card.selected {
+  border-color: #1e4d4f;
+  background: #e8f5ef;
+  box-shadow: 0 0 0 1px rgba(30, 77, 79, 0.12);
+}
+
+.camp-list-page .camp-pi-code {
+  color: var(--camp-active, #176447);
+  font-weight: 700;
+}
+
+.camp-list-page .camp-sidebar-invest {
+  background: linear-gradient(to right, #f0f9ff, #e8f5ef);
+  border: 1px solid #bae6fd;
+}
+
+.camp-list-page .email-template-icon--brand {
+  background: #e8f5ef;
+  color: #1e4d4f;
+}
+
+/* Toolbar filtros Enterprise */
+.camp-list-page .camp-list-toolbar .camp-filter-control:not(.cx-drawer-input-wrap) input,
+.camp-list-page .camp-list-toolbar .camp-filter-control:not(.cx-drawer-input-wrap) select {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+  font-size: 12px;
+}
+.camp-list-page .camp-list-toolbar .cx-drawer-input-wrap.camp-filter-control {
+  min-width: 220px;
+}
+.camp-list-page .camp-filter-feedback {
+  font-size: 10px;
+  color: #64748b;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Modal editar campanha */
+#modal_campanha .cx-modal-panel { max-width: 72rem; padding: 0; }
+#modal_campanha .camp-modal-head {
+  padding: 0.75rem 1rem;
+  background: #1e4d4f;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+#modal_campanha .camp-modal-head h3 { font-size: 14px; margin: 0; color: #fff; }
+#modal_campanha .camp-modal-body {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: min(78vh, 760px);
+}
+#modal_campanha .camp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem 0.75rem;
+}
+#modal_campanha .camp-col-2 { grid-column: span 2; }
+#modal_campanha .camp-col-4 { grid-column: span 4; }
+#modal_campanha .camp-field.cx-field > label,
+#modal_campanha .camp-field > label {
+  display: block;
+  font-size: 11px;
+  font-weight: 650;
+  color: #526568;
+  margin-bottom: 3px;
+  line-height: 1.2;
+}
+#modal_campanha .camp-field-check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: 1.35rem;
+}
+#modal_campanha .camp-field-check input { width: 13px; height: 13px; }
+#modal_campanha .camp-field-check span { font-size: 11px; color: #526568; }
+#modal_campanha .camp-form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0.7rem;
+  color: #1e4d4f;
+  font-size: 12px;
+  font-weight: 750;
+}
+#modal_campanha .camp-form-section-title::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #e3e9ea;
+}
+#modal_campanha .camp-margem-section {
+  margin-top: 1rem;
+  border-top: 1px solid #e3e9ea;
+  padding-top: 0.85rem;
+}
+#modal_campanha .camp-margem-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem 0.7rem;
+}
+#modal_campanha .camp-modal-foot {
+  position: sticky;
+  bottom: -1rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid #f3f4f6;
+  background: #fff;
+}
+#modal_campanha .camp-date-wrap { position: relative; }
+#modal_campanha .camp-date-wrap input { padding-right: 1.5rem; }
+#modal_campanha .camp-date-wrap button {
+  position: absolute;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+#modal_campanha .camp-date-wrap button i { font-size: 10px; }
+
+#modal_diarios .camp-modal-head {
+  padding: 0.75rem 1.25rem;
+  background: #1e4d4f;
+  color: #fff;
+}
+#modal_diarios .camp-modal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+#modal_diarios .camp-modal-head-meta {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+}
+#modal_diarios .camp-modal-head-meta strong {
+  color: #fff;
+  font-family: ui-monospace, monospace;
+}
+
+@media (max-width: 640px) {
+  #modal_campanha .camp-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #modal_campanha .camp-col-2,
+  #modal_campanha .camp-col-4 { grid-column: span 2; }
+}
+@media (max-width: 900px) {
+  #modal_campanha .camp-margem-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+  .camp-list-page .sidebar-panel { width: 100vw; right: -100vw; }
+}

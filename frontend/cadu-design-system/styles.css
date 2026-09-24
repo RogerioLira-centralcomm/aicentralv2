@@ -370,6 +370,7 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-project-dialog { max-height:calc(100dvh - 32px); }
 .cadu-ds-project-create-dialog { width:min(520px,calc(100vw - 32px)); }
 .cadu-ds-project-create-dialog .cadu-ds-project-form { gap:12px; margin-top:16px; }
+.cadu-ds-project-create-dialog .cadu-ds-project-form footer { justify-content:center; }
 .cadu-ds-project-create-dialog__header { align-items:flex-start; gap:20px; }
 .cadu-ds-project-create-dialog__header h2 { margin:0; font-size:20px; letter-spacing:-.025em; }
 .cadu-ds-project-create-dialog__header>div>p:last-child { max-width:52ch; }
@@ -1460,6 +1461,11 @@ body.portal--workspace {
   color:var(--cadu-muted);
   cursor:not-allowed;
   opacity:.72;
+}
+.cadu-ds-project-create-folder > button:disabled {
+  background:var(--cadu-surface-soft);
+  color:var(--cadu-muted);
+  opacity:1;
 }
 .cadu-ds-brand-audit-dialog__footer footer button {
   min-height:38px;

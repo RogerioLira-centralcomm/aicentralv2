@@ -2,6 +2,7 @@ import React, {useEffect, useReducer, useRef} from 'react';
 import {Icon} from './Icon';
 import {ProjectSelector} from './WorkspaceSelectors';
 import {composerReducer, composerState} from '../lib/composerState.mjs';
+import {request} from '../../conversations-v2/lib/api';
 
 const MODE_OPTIONS = [
   {id: 'fast', label: 'Rápido', detail: 'Resposta direta'},
@@ -17,6 +18,8 @@ const CAPABILITIES = [
   {label: 'Criar pauta', detail: 'Prepara temas e decisões para a reunião', icon: 'calendar', prompt: 'Crie uma pauta de reunião objetiva usando o contexto do projeto, com temas, resultado esperado e decisões a tomar.'},
   {label: 'Atividades por prazo', detail: 'Lista tarefas vencidas, próximas e sem prazo', icon: 'history', prompt: 'Liste as atividades e tarefas deste projeto agrupadas por prazo: vencidas, para hoje, próximos 7 dias, futuras, sem prazo e concluídas. Para cada item, informe título, estado, responsável e data de prazo. Use os dados atuais do projeto e indique claramente quando uma data ou responsável não estiver definido.'},
 ];
+
+const PLUGIN_ICONS = {insights:'analysis', planner:'table', 'project-search':'search', 'project-activities':'list', 'campaign-search':'search', reports:'analysis', studio:'image'};
 
 const COMPOSER_MAX_HEIGHT = 120;
 
@@ -60,6 +63,11 @@ export function WorkspaceChatComposer({
 }) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
+  const pluginMenu = useRef(null);
+  const slashQuery = String(value).match(/^\/([^\s]*)$/)?.[1] ?? null;
+  const [pluginCatalog, setPluginCatalog] = React.useState([]);
+  const [pluginsLoading, setPluginsLoading] = React.useState(false);
+  const [pluginsError, setPluginsError] = React.useState('');
   const fileInput = useRef(null);
   const imageInput = useRef(null);
   const intensityMenu = useRef(null);
@@ -83,6 +91,34 @@ export function WorkspaceChatComposer({
   const selectCapability = capability => {
     onChange?.(capability.prompt);
     capabilityMenu.current?.removeAttribute('open');
+    textarea.current?.focus();
+  };
+  useEffect(() => {
+    if (slashQuery === null || pluginCatalog.length) return;
+    let current = true;
+    setPluginsLoading(true);
+    request('/workspace/api/v2/capabilities')
+      .then(data => { if (current) setPluginCatalog(Array.isArray(data.plugins) ? data.plugins : []); })
+      .catch(error => { if (current) setPluginsError(error.message || 'Não foi possível carregar os plugins.'); })
+      .finally(() => { if (current) setPluginsLoading(false); });
+    return () => { current = false; };
+  }, [slashQuery, pluginCatalog.length]);
+  const slashPlugins = pluginCatalog.filter(plugin => plugin.selectable && ['active', 'in_development'].includes(plugin.maturity)
+    && `${plugin.name} ${plugin.description}`.toLocaleLowerCase('pt-BR').includes(String(slashQuery || '').toLocaleLowerCase('pt-BR')));
+  const choosePlugin = plugin => {
+    const prompts = {
+      insights: 'Pesquise insights atuais sobre marketing, comunicação e mídia para descreva seu objetivo.',
+      planner: 'Quero planejar uma campanha. Ajude a estruturar o plano de mídia para descreva seu objetivo.',
+      'project-search': 'Faça uma busca no projeto sobre descreva o que precisa.',
+      'project-activities': 'Consulte e organize as atividades e tarefas deste projeto: descreva o que precisa.',
+      'campaign-search': 'Busque campanhas e cases relacionados a descreva seu objetivo.',
+      reports: 'Analise os relatórios revisados deste projeto e destaque descreva seu objetivo.',
+      studio: 'Quero criar ou editar uma imagem para descreva seu objetivo.',
+    };
+    const prompt = prompts[plugin.id];
+    if (!prompt) return;
+    onChange?.(prompt);
+    pluginMenu.current?.removeAttribute('open');
     textarea.current?.focus();
   };
   const pickFiles = inputRef => {
@@ -249,7 +285,16 @@ export function WorkspaceChatComposer({
     <form onSubmit={submitComposer} className={`${shellClass} cv-pointer-events-auto cv-mx-auto cv-w-full ${embedded ? '' : 'cv-max-w-[760px]'}`}>
       {!!composerContext && <div className="cv-flex cv-items-center cv-gap-2 cv-px-3 cv-py-2"><span className="cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[11px] cv-text-[#8fbab4]">↳ {composerContext.label}: “{composerContext.text}”</span><button type="button" onClick={onClearContext} className="cv-grid cv-h-5 cv-w-5 cv-place-items-center cv-rounded cv-border-0 cv-bg-transparent cv-text-[#78918d] hover:cv-bg-white/[.06] hover:cv-text-white" aria-label="Remover contexto">×</button></div>}
       {!!attachments.length && <div className="cv-attachment-list">{attachments.map((item, index) => { const state = item.error ? 'Não foi possível anexar' : item.uploading ? 'Enviando' : 'Pronto para enviar'; return <span key={item.localId || `${item.name}-${index}`} className={`cv-attachment-chip ${item.previewUrl ? 'is-image' : 'is-file'} ${item.error ? 'has-error' : ''}`} aria-label={`${item.name}. ${state}.`} title={item.name}><span className="cv-attachment-preview">{item.previewUrl ? <img src={item.previewUrl} alt="" className="cv-attachment-thumb"/> : <Icon name="file" size={19}/>}</span><button type="button" disabled={item.uploading} onClick={() => onRemoveAttachment?.(index)} className="cv-attachment-remove" aria-label={`Remover ${item.name}`}>×</button></span>; })}</div>}
-      <textarea ref={textarea} value={value} disabled={disabled} onFocus={() => { focused.current = true; dispatchComposer({type: 'focus', hasValue: Boolean(value.trim())}); }} onBlur={() => { focused.current = false; dispatchComposer({type: 'blur'}); }} onChange={event => { onChange?.(event.target.value); dispatchComposer({type: 'change', hasValue: Boolean(event.target.value.trim()), focused: focused.current}); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows="1" maxLength="20000" enterKeyHint="send" autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck placeholder={composerContext?.type === 'question' ? 'Digite sua resposta…' : 'Pergunte ao Cadu…'} aria-label={composerContext?.type === 'question' ? `Resposta para: ${composerContext.text}` : 'Mensagem para o Cadu'} className="cv-composer-input cv-block cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
+      <textarea ref={textarea} value={value} disabled={disabled} onFocus={() => { focused.current = true; dispatchComposer({type: 'focus', hasValue: Boolean(value.trim())}); }} onBlur={() => { focused.current = false; dispatchComposer({type: 'blur'}); }} onChange={event => { onChange?.(event.target.value); dispatchComposer({type: 'change', hasValue: Boolean(event.target.value.trim()), focused: focused.current}); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { if (slashQuery !== null && slashPlugins.length) { event.preventDefault(); choosePlugin(slashPlugins[0]); return; } event.preventDefault(); event.currentTarget.form?.requestSubmit(); } if (event.key === 'Escape' && slashQuery !== null) onChange?.(''); }} rows="1" maxLength="20000" enterKeyHint="send" autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck placeholder={composerContext?.type === 'question' ? 'Digite sua resposta…' : 'Pergunte ao Cadu…'} aria-label={composerContext?.type === 'question' ? `Resposta para: ${composerContext.text}` : 'Mensagem para o Cadu'} className="cv-composer-input cv-block cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
+      {slashQuery !== null && <div className="cv-plugin-slash" role="listbox" aria-label="Plugins disponíveis">
+        <div className="cv-plugin-slash__header"><b>Plugins</b><span>Digite para filtrar · Enter escolhe o primeiro</span></div>
+        {pluginsLoading ? <p>Carregando plugins…</p> : pluginsError ? <p role="alert">{pluginsError}</p> : slashPlugins.length ? slashPlugins.map(plugin => <button key={plugin.id} type="button" role="option" aria-selected="false" onMouseDown={event => event.preventDefault()} onClick={() => choosePlugin(plugin)}>
+          <span className="cv-plugin-slash__icon"><Icon name={PLUGIN_ICONS[plugin.id] || 'brand'} size={16}/></span>
+          <span className="cv-plugin-slash__copy"><b>{plugin.name}</b><small>{plugin.description}</small></span>
+          <span className="cv-plugin-slash__status">{plugin.maturity === 'active' ? 'Disponível' : 'Em integração'}</span>
+        </button>) : <p>Nenhum plugin encontrado.</p>}
+        <div className="cv-plugin-slash__hint">Escolher prepara o pedido; revise e envie na conversa.</div>
+      </div>}
       {!!detectedUrl && detectedProfile && <div className="cv-link-intake cv-px-4 cv-pb-2" role="status" aria-live="polite">
         <div className="cv-link-intake__card">
           <span className="cv-link-intake__icon" aria-hidden="true">{detectedProfile.icon}</span>

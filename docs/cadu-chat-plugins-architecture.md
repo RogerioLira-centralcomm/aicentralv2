@@ -95,6 +95,16 @@ journal. Plugins should return editable draft artifacts when a durable document
 is useful and use the normal artifact revision path when editing an existing
 item.
 
+The customer may invoke a plugin by naming it in the chat, or the router may
+select it from intent. While the workflow runs, show its name with the small
+Cadu MCP mark; only retain the “used” attribution on the final answer when a
+matching internal tool completed successfully. Explicit file requests create
+an editable artifact from the referenced latest assistant response. As a
+fallback for unrequested responses above roughly 520 words or 3,600 characters,
+store the complete Markdown-derived document in a session artifact and leave a
+short summary and open action in the chat. Saving that session artifact into a
+project remains a separate user-directed step.
+
 Skills are intentionally not a customer-facing dependency in this phase.
 
 ## Insights market workflow

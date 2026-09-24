@@ -129,6 +129,10 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 if selected_plugin and selected_plugin.get("id") == "campaign-search"
                 else "Pergunte qual tema de mercado deve orientar a busca."
                 if selected_plugin and selected_plugin.get("id") == "insights"
+                else "Peça para selecionar o projeto cujas informações devem ser pesquisadas."
+                if selected_plugin and selected_plugin.get("id") == "project-search"
+                else "Peça para selecionar o projeto cujas atividades devem ser consultadas ou organizadas."
+                if selected_plugin and selected_plugin.get("id") == "project-activities"
                 else "Peça para selecionar o relatório ou projeto com dados revisados."
             ),
         }

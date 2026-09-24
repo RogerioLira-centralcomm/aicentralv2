@@ -32,9 +32,9 @@ _PERSIST = re.compile(
 )
 _CREATE = re.compile(
     r"\b(?:cri\w*|fa[çc]\w*|mont\w*|ger\w*|transform\w*|convert\w*|vir\w*|"
-    r"organiz\w*|estrutur\w*|fech\w*|consolid\w*)\b.{0,70}"
-    r"\b(?:artefato|documento|doc|rascunho|entrega|apresenta[cç][aã]o|slides?|planilha|nota)\b|"
-    r"\b(?:artefato|documento|doc|rascunho|entrega|apresenta[cç][aã]o|slides?|planilha|nota)\b"
+    r"organiz\w*|estrutur\w*|fech\w*|consolid\w*|coloc\w*)\b.{0,70}"
+    r"\b(?:artefato|arquivo|documento|doc|rascunho|entrega|apresenta[cç][aã]o|slides?|planilha|nota)\b|"
+    r"\b(?:artefato|arquivo|documento|doc|rascunho|entrega|apresenta[cç][aã]o|slides?|planilha|nota)\b"
     r".{0,50}\b(?:disso|disto|daquilo|desse|dessa|edit[aá]vel)\b",
     re.IGNORECASE,
 )

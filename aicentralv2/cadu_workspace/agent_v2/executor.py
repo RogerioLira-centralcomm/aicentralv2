@@ -38,9 +38,9 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
 def prepare_execution(message, request, history="", requested_mode="", conversation_state=None, routing_message=None,
                       defer_market_insights=False):
     routed_message = routing_message or message
-    explicit_plugin = re.match(r"^/([a-z][a-z-]+)(?:\s|$)", str(routed_message).strip())
+    explicit_plugin = re.match(r"^/([a-z][a-z-]+)(?:\s|$)", str(message).strip())
     if explicit_plugin and explicit_plugin.group(1) in plugins.WORKFLOWS:
-        routed_message = str(routed_message).strip()[explicit_plugin.end():].strip() or "Ajude com esta tarefa."
+        routed_message = str(message).strip()[explicit_plugin.end():].strip() or "Ajude com esta tarefa."
     route = route_request(
         routed_message, request.surface, bool(request.project_ref),
         request.active_object.type if request.active_object else "", bool(request.brand_ref),
@@ -96,6 +96,10 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         requested_mode = "fast"
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
+    if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS and not plugin_missing and execution_mode != "fast":
+        budget = replace(budget, max_output_tokens=max(budget.max_output_tokens, 1800),
+                         max_context_chars=max(budget.max_context_chars, 22000),
+                         max_tool_calls=max(budget.max_tool_calls, 6))
     if route.action == "create_newsletter":
         news_count = re.search(r"\b(\d{1,2})\s+(?:not[ií]cias?|novidades?)\b", routed_message, re.I)
         policy["newsletter_news_count"] = min(8, max(1, int(news_count.group(1)))) if news_count else 4
@@ -134,9 +138,15 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             policy["plugin_instruction"] += " " + plugins.WORKFLOWS[selected_plugin["id"]][4]
             policy["max_answer_chars"] = max(policy.get("max_answer_chars", 0), 7000)
     if plugin_missing:
+        daily_next_step = None
+        if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS:
+            daily_next_step = (
+                "Peça em uma única pergunta o menor dado necessário para executar este plugin: "
+                + ", ".join(dict.fromkeys(plugin_missing)) + "."
+            )
         policy["action_preflight"] = {
             "ready": False, "missing": plugin_missing,
-            "next_step": (
+            "next_step": daily_next_step or (
                 "Pergunte onde deve procurar: na marca ou em um projeto."
                 if selected_plugin and selected_plugin.get("id") == "campaign-search"
                 else "Pergunte qual tema de mercado deve orientar a busca."

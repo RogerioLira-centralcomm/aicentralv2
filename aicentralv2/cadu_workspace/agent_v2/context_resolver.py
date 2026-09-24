@@ -22,6 +22,7 @@ _PUBLIC_SIGNAL = re.compile(
     r"\b(?:mercado|benchmarks?|tend[eê]ncias?|concorr[eê]ncias?|concorrentes?|pre[cç]os?|cota[cç][aã]o|"
     r"estat[ií]sticas?|not[ií]cias?|legisla[cç][aã]o|regras?|atuais?|recentes?|hoje|202[5-9]|"
     r"cpc|cpm|cac|ctr|google ads|meta ads|tiktok|instagram|campanha|campanhas|an[uú]ncios?|criativos?|"
+    r"audi[eê]ncia|p[uú]blico|segmentos?|canais?|"
     r"bebida|bebidas|cerveja|alimento|alimentos|"
     r"moda|beleza|automotivo|automotiva|turismo|esporte|entretenimento|streaming|jogos|games|"
     r"agroneg[oó]cio|energia|imobili[aá]rio|supermercado|restaurante|delivery|farm[aá]cia|"
@@ -38,7 +39,7 @@ _PUBLIC_TERMS = frozenset({
     "cotacao", "estatistica", "estatisticas", "noticia", "noticias", "regra", "regras",
     "legislacao", "marketing", "midia", "digital", "publicidade", "campanha", "campanhas",
     "anuncios", "criativos", "funil", "email", "leads", "conversao", "conversoes",
-    "audiencia", "alcance", "engajamento", "varejo", "ecommerce", "comercio",
+    "audiencia", "publico", "segmento", "segmentos", "canais", "alcance", "engajamento", "varejo", "ecommerce", "comercio",
     "construcao", "imoveis", "saude", "educacao", "financas", "tecnologia",
     "bebida", "bebidas", "cerveja", "alimento", "alimentos", "moda", "beleza",
     "automotivo", "automotiva", "turismo", "esporte", "entretenimento", "streaming",
@@ -165,7 +166,7 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
             search_message = f"{search_message} notícias recentes de mercado"
         arguments = {"query": public_web_query(
                          search_message,
-                         project_selected=bool(request.project_ref) or private_reference or route_action == "create_newsletter"),
+                         project_selected=bool(request.project_ref or request.brand_ref) or private_reference or route_action == "create_newsletter"),
                      "depth": depth, "include_content": True}
         if not re.search(r"\b(?:pesquis\w*|busqu\w*|investig\w*|aprofunde|pesquisa)\b", message, re.IGNORECASE):
             arguments["limit"] = 4

@@ -1,0 +1,14 @@
+#cadu-conversations-v2-root .cv-plugins-page .cv-plugin-card__copy {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+#cadu-conversations-v2-root .cv-plugins-page .cv-plugin-card__copy strong {
+  flex: none;
+  max-width: 45%;
+}
+
+#cadu-conversations-v2-root .cv-plugins-page .cv-plugin-card__copy small {
+  min-width: 0;
+}

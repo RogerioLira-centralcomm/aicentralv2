@@ -3,7 +3,6 @@
 import json
 
 from ...cadu_family import repository
-from .daily_workflows import WORKFLOWS, entry as daily_entry
 
 
 def list_entries(kind: str = "plugin") -> list[dict]:
@@ -18,12 +17,7 @@ def list_entries(kind: str = "plugin") -> list[dict]:
             ORDER BY p.sort_order, LOWER(p.name), p.id""",
         (kind,),
     )
-    public = [_public(item) for item in entries]
-    if kind == "plugin":
-        existing = {item["id"] for item in public}
-        public.extend(daily_entry(plugin_id) for plugin_id in WORKFLOWS if plugin_id not in existing)
-        public.sort(key=lambda item: (item.get("sort_order", 100), item["name"]))
-    return public
+    return [_public(item) for item in entries]
 
 
 def get_plugin(plugin_id: str) -> dict | None:
@@ -36,7 +30,7 @@ def get_plugin(plugin_id: str) -> dict | None:
             LIMIT 1""",
         (plugin_id,),
     )
-    return _public(entries[0]) if entries else daily_entry(plugin_id)
+    return _public(entries[0]) if entries else None
 
 
 def _public(entry: dict) -> dict:

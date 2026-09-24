@@ -1,6 +1,7 @@
 import React, {useEffect, useReducer, useRef} from 'react';
 import {Icon} from './Icon';
 import {ProjectSelector} from './WorkspaceSelectors';
+import {pluginPrompt} from '../../conversations-v2/lib/pluginPrompts';
 import {composerReducer, composerState} from '../lib/composerState.mjs';
 import {request} from '../../conversations-v2/lib/api';
 
@@ -106,16 +107,7 @@ export function WorkspaceChatComposer({
   const slashPlugins = pluginCatalog.filter(plugin => plugin.selectable && ['active', 'in_development'].includes(plugin.maturity)
     && `${plugin.id} ${plugin.name} ${plugin.description}`.toLocaleLowerCase('pt-BR').includes(String(slashQuery || '').toLocaleLowerCase('pt-BR')));
   const choosePlugin = plugin => {
-    const prompts = {
-      insights: 'Pesquise insights atuais sobre marketing, comunicação e mídia para descreva seu objetivo.',
-      planner: 'Quero planejar uma campanha. Ajude a estruturar o plano de mídia para descreva seu objetivo.',
-      'project-search': 'Faça uma busca no projeto sobre descreva o que precisa.',
-      'project-activities': 'Consulte e organize as atividades e tarefas deste projeto: descreva o que precisa.',
-      'campaign-search': 'Busque campanhas e cases relacionados a descreva seu objetivo.',
-      reports: 'Analise os relatórios revisados deste projeto e destaque descreva seu objetivo.',
-      studio: 'Quero criar ou editar uma imagem para descreva seu objetivo.',
-    };
-    const prompt = prompts[plugin.id] || (plugin.triggers?.[0]?.startsWith('/') ? `${plugin.triggers[0]} Descreva seu objetivo.` : '');
+    const prompt = pluginPrompt(plugin);
     if (!prompt) return;
     onChange?.(prompt);
     pluginMenu.current?.removeAttribute('open');

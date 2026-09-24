@@ -1343,19 +1343,17 @@ export default function App({bootstrap}) {
       setSurfaceUrl('conversation', '', true);
       return;
     }
-    const prompt = pluginPrompt(plugin);
+    const command = plugin?.triggers?.find?.(trigger => String(trigger).startsWith('/'));
+    const draft = input.trim().replace(/^\/[a-z][a-z-]+\s+/i, '');
+    const prompt = command && draft ? `${command} ${draft}` : pluginPrompt(plugin);
     if (!prompt) return;
-    newConversation().then(created => {
-      if (!created) return;
-      setPluginsPageOpen(false);
-      setLibraryOpen(false);
-      setArtifactOpen(false);
-      if (layout !== 'desktop') setHistoryOpen(false);
-      setSurfaceUrl('conversation', '', true);
-      setInput(prompt);
-      window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
-    });
-  }, [input, layout, newConversation, setSurfaceUrl]);
+    setPluginsPageOpen(false);
+    setLibraryOpen(false);
+    if (layout !== 'desktop') setHistoryOpen(false);
+    setSurfaceUrl('conversation', '', true);
+    setInput(prompt);
+    window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
+  }, [input, layout, setSurfaceUrl]);
 
   const showArtifact = useCallback(async item => {
     setLibraryOpen(false);

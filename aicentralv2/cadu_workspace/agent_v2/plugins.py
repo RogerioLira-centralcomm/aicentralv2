@@ -33,6 +33,7 @@ _GOOGLE_CONNECT = re.compile(r"\b(?:conect\w*|autoriza\w*|vincul\w*|configur\w*|
 _GOOGLE_DRIVE = re.compile(r"\b(?:google\s+drive|drive|google\s+docs|google\s+sheets|pasta\s+(?:do|no)\s+google)\b", re.I)
 _GOOGLE_CALENDAR = re.compile(r"\b(?:google\s+calendar|agenda\s+google|calend[aá]rio\s+google)\b", re.I)
 _GOOGLE_MEET = re.compile(r"\b(?:google\s+meet|reuni[aã]o\s+(?:do|no)\s+meet|transcri[cç][aã]o\s+(?:do|no)\s+meet)\b", re.I)
+_SUPPLIED_DATA = re.compile(r"\b(?:impress[oõ]es|cliques?|ctr|cpc|cpm|convers[oõ]es|roas|investimento|or[cç]amento|resultado|meta)\b", re.I)
 
 
 def catalog() -> list[dict]:
@@ -89,15 +90,33 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
     if explicit and explicit.group(1) in WORKFLOWS:
         plugin_id = explicit.group(1)
         tool_chain = _execution_tools(plugin_id)
-        if plugin_id == "media-plan-audit" and not context.active_object:
-            tool_chain = ("planner.research_plan_inputs",)
+        has_material = len(text.split()) >= 30 or text.count("\n") >= 3
+        if re.search(r"\bdescreva (?:seu objetivo|sua tarefa)\b", text, re.I):
+            missing.append("objetivo do pedido")
+        if (plugin_id in {"market-radar", "audience-map", "creative-concept", "channel-copy"}
+                and not (context.project_ref or context.brand_ref)
+                and re.search(r"\b(?:deste projeto|desta campanha)\b", text, re.I)):
+            missing.append("marca, setor ou campanha a considerar")
+        if plugin_id == "media-plan-audit":
+            tool_chain = (("planner.get_media_plan",) if context.active_object and context.active_object.type in {"plan", "media_plan"}
+                          else ("planner.list_plans",) if context.project_ref and not has_material else ())
         if plugin_id == "campaign-tracker" and context.active_object and context.active_object.type in {"report", "report_workspace"}:
             tool_chain = ("reports.get_report_metrics",)
-        if plugin_id in {"media-plan-audit", "campaign-tracker", "client-delivery"} and not context.project_ref and not context.active_object:
-            missing.append("projeto ou documento a analisar")
+        if plugin_id == "campaign-tracker" and not context.project_ref and not context.active_object:
+            tool_chain = ()
+            if not _SUPPLIED_DATA.search(text):
+                missing.append("relatório revisado, métricas ou projeto da campanha")
+        if plugin_id == "media-plan-audit" and not context.project_ref and not context.active_object and not has_material:
+            missing.append("plano de mídia ou projeto com um plano")
         if plugin_id == "page-review" and not re.search(r"https://\S+", text):
             tool_chain = ()
+            if not has_material:
+                missing.append("URL ou conteúdo da página")
         if plugin_id == "client-delivery" and not context.project_ref:
+            tool_chain = ()
+            if not has_material:
+                missing.append("projeto ou informações de status para o cliente")
+        if plugin_id == "meeting-copilot" and not re.search(r"\b(?:meet|google|transcri[cç][aã]o|grava[cç][aã]o)\b", text, re.I):
             tool_chain = ()
         if plugin_id in {"market-radar", "audience-map", "investment-simulator", "creative-concept", "channel-copy", "page-review", "meeting-copilot", "client-delivery"}:
             context_tools = []

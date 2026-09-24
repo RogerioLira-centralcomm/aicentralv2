@@ -38,10 +38,19 @@ def list_project_reports(context: RequestContext, arguments: dict) -> dict:
 )
 def get_recent_project_metrics(context: RequestContext, arguments: dict) -> dict:
     reports = _reports(context)
+    recent = []
+    for row in reports[:3]:
+        reviewed = get_report_metrics(context, {"report_id": row["id"]})
+        recent.append({
+            "report": {key: reviewed["report"].get(key) for key in
+                       ("id", "project_ref", "campaign_name", "revision", "updated_at")},
+            "reviewed_sources": reviewed["reviewed_sources"][:8],
+            "additional_reviewed_sources": max(0, len(reviewed["reviewed_sources"]) - 8),
+        })
     return {
         "available_reports": len(reports),
-        "recent_reports": [get_report_metrics(context, {"report_id": row["id"]}) for row in reports[:3]],
-        "note": "Somente fontes revisadas dos três relatórios mais recentes; não representa dados em tempo real.",
+        "recent_reports": recent,
+        "note": "Até oito fontes revisadas de cada um dos três relatórios mais recentes; não representa dados em tempo real.",
     }
 
 

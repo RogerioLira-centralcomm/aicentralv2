@@ -22,6 +22,7 @@ from ..artifacts.service import list_artifacts
 from . import provider
 from .context_resolver import resolve_context
 from .executor import prepare_execution
+from .daily_workflows import WORKFLOWS
 from .guardrails import normalize_response
 from .request_context import resolve
 from .contracts import ActiveObject, IntentRoute
@@ -1224,7 +1225,10 @@ def stream(run):
             plugin_tools = set(plugin.get("internal_tools") or ())
             completed_tools = {call.get("name") for call in run["resolved_context"].tool_calls
                                if call.get("status") == "completed"}
-            if plugin and plugin_tools.intersection(completed_tools):
+            editorial_workflow = (plugin and plugin.get("id") in WORKFLOWS
+                                  and run["route"].get("action") == "run_plugin"
+                                  and not run["route"].get("needs_tools"))
+            if plugin and (plugin_tools.intersection(completed_tools) or editorial_workflow):
                 response.plugin = {"id": str(plugin.get("id") or ""),
                                    "name": str(plugin.get("name") or "Plugin Cadu"),
                                    "version": str(plugin.get("version") or "")}

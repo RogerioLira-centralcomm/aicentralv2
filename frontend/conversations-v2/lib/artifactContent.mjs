@@ -58,11 +58,30 @@ function meetingSections(markdown) {
 }
 
 export function normalizeArtifactContent(content = {}, artifactType = '') {
-  const source = {...(content && typeof content === 'object' && !Array.isArray(content) ? content : {})};
-  const candidates = [source.html, source.summary, source.text, source.answer].filter(value => typeof value === 'string' && value.trim());
+  const decodedRoot = decode(content);
+  const originalHasFields = Array.isArray(content?.fields) || Array.isArray(content?.sections);
+  const source = {...(originalHasFields
+    ? content
+    : decodedRoot && typeof decodedRoot === 'object' && !Array.isArray(decodedRoot) ? decodedRoot
+    : content && typeof content === 'object' && !Array.isArray(content) ? content : {})};
+  const rootText = !originalHasFields && typeof decodedRoot === 'string' && decodedRoot.trim()
+    ? decodedRoot
+    : decode(source.text ?? source.answer ?? source.output);
+  if (!originalHasFields && typeof rootText === 'string' && rootText.trim() && (typeof content === 'string' || rootText !== content)) {
+    if (artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') {
+      const fields = meetingSections(rootText.trim()).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
+      if (fields.length) return {...source, summary: '', fields};
+    }
+    source.html = markdownToHtml(rootText.trim());
+    delete source.summary;
+    delete source.text;
+    delete source.answer;
+    return source;
+  }
+  const candidates = [source.html, source.summary, source.text, source.answer].filter(value => value != null && value !== '');
   for (const candidate of candidates) {
     const decoded = decode(candidate);
-    if (typeof decoded === 'string' && decoded.trim() !== candidate.trim()) {
+    if (typeof decoded === 'string' && decoded.trim() && (typeof candidate !== 'string' || decoded.trim() !== candidate.trim())) {
       if (artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') {
         const fields = meetingSections(decoded.trim()).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
         if (fields.length) {
@@ -91,15 +110,21 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
       return {...source, summary: '', html: ''};
     }
   }
-  if (Array.isArray(source.fields)) return {...source, fields: source.fields.map((field, index) => ({
-    key: String(field?.key || field?.title || `Seção ${index + 1}`),
-    value: normalizeFieldValue(field?.value),
-  }))};
+  if (Array.isArray(source.fields)) {
+    const fields = source.fields.map((field, index) => ({
+      key: String(field?.key || field?.title || `Seção ${index + 1}`),
+      value: normalizeFieldValue(field?.value),
+    }));
+    if ((artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') && fields.length === 1) {
+      const parsed = meetingSections(fields[0].value).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
+      if (parsed.length) return {...source, summary: source.summary || '', fields: parsed};
+    }
+    return {...source, fields};
+  }
   return source;
 }
 
 function normalizeFieldValue(value) {
-  if (typeof value !== 'string') return String(value ?? '');
   const decoded = decode(value);
   if (typeof decoded === 'string') return decoded;
   if (Array.isArray(decoded)) return decoded.map(item => typeof item === 'string' ? item : JSON.stringify(item)).join('\n');
@@ -113,5 +138,5 @@ function normalizeFieldValue(value) {
     }).join('\n\n');
     return CONTENT_KEYS.map(key => decoded[key]).find(item => typeof item === 'string') || '';
   }
-  return '';
+  return String(value ?? '');
 }

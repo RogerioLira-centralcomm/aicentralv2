@@ -7,9 +7,8 @@ import {CaduSolutionSwitcher} from '../../cadu-design-system/components/Workspac
 import {VisualIdentity} from '../../cadu-design-system/components/VisualIdentity';
 import {DockUsageRing} from '../../cadu-design-system/components/CaduDock';
 import {Icon} from '../../cadu-design-system/components/Icon';
-import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
 import {useWorkspaceNotifications} from '../../cadu-design-system/components/WorkspaceNotifications';
-import {brandIdentityKeys, projectBrandKeys} from '../../cadu-design-system/workspaceEntities.mjs';
+import {brandIdentityKeys, isArchivedEntity, projectBrandKeys} from '../../cadu-design-system/workspaceEntities.mjs';
 
 function contextLabel(item, projects, brands) {
   const project = projects.find(candidate => (candidate.ref || candidate.projectRef || candidate.id) === item.project_ref);
@@ -54,7 +53,7 @@ function SidebarTitle({children, className = ''}) {
   return <span ref={viewport} className={`cv-sidebar-title${overflow ? ' is-overflowing' : ''}${className ? ` ${className}` : ''}`} style={style}><span ref={content} className="cv-sidebar-title__text">{children}</span></span>;
 }
 
-export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', artifactOpen = false, navUrls = {}, solutions = [], logo, user = {}, usagePercent = 0, activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onOpenBrandArtifact, onNewConversation, onProjectChange, onConversationAction, open, onOpenSidebar, onClose, loading, openingId}) {
+export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', artifactOpen = false, pluginsPageOpen = false, navUrls = {}, solutions = [], logo, user = {}, usagePercent = 0, activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onOpenBrandArtifact, onOpenPlugins, onClosePlugins, onNewConversation, onProjectChange, onConversationAction, open, onOpenSidebar, onClose, loading, openingId}) {
   const sidebarRef = useRef(null);
   const previousFocus = useRef(null);
   const [showAllRecent, setShowAllRecent] = useState(false);
@@ -66,10 +65,6 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const [expandedBrands, setExpandedBrands] = useState(() => new Set(activeBrandRef ? [String(activeBrandRef)] : []));
   const [projectMenuId, setProjectMenuId] = useState('');
   const [actionMenuId, setActionMenuId] = useState('');
-  const [pluginsOpen, setPluginsOpen] = useState(false);
-  const [pluginTools, setPluginTools] = useState([]);
-  const [pluginToolsLoading, setPluginToolsLoading] = useState(false);
-  const [pluginToolsError, setPluginToolsError] = useState('');
   const notifications = useWorkspaceNotifications();
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [spotlightQuery, setSpotlightQuery] = useState('');
@@ -132,18 +127,6 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   }, [projectMenuId]);
 
   useEffect(() => {
-    if (!pluginsOpen) return undefined;
-    let current = true;
-    setPluginToolsLoading(true);
-    setPluginToolsError('');
-    request('/workspace/api/v2/capabilities')
-      .then(data => { if (current) setPluginTools(Array.isArray(data.tools) ? data.tools : []); })
-      .catch(error => { if (current) setPluginToolsError(error.message || 'Não foi possível carregar os plugins disponíveis.'); })
-      .finally(() => { if (current) setPluginToolsLoading(false); });
-    return () => { current = false; };
-  }, [pluginsOpen]);
-
-  useEffect(() => {
     if (!spotlightOpen) return undefined;
     window.requestAnimationFrame(() => spotlightInput.current?.focus());
     const close = event => { if (event.key === 'Escape') setSpotlightOpen(false); };
@@ -189,7 +172,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   }, [activeBrandRef]);
 
   useEffect(() => {
-    const sortedBrands = [...brands].sort((left, right) => String(left.name || left.title || '').localeCompare(String(right.name || right.title || ''), 'pt-BR', {sensitivity: 'base'}));
+    const sortedBrands = brands.filter(item => !isArchivedEntity(item)).sort((left, right) => String(left.name || left.title || '').localeCompare(String(right.name || right.title || ''), 'pt-BR', {sensitivity: 'base'}));
     const activeIndex = sortedBrands.findIndex(item => String(item.ref || item.brandRef || (item.id ? `studio:${item.id}` : item.name)) === String(activeBrandRef));
     if (activeIndex >= 5) setShowAllBrands(true);
   }, [activeBrandRef, brands]);
@@ -202,7 +185,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const mobileDestinations = workspaceMobileDestinationItems(navUrls);
   const mobileSolutions = workspaceMobileSolutionItems(navUrls);
   const projectItems = [...projects].sort((left, right) => String(left.name || left.title || '').localeCompare(String(right.name || right.title || ''), 'pt-BR', {sensitivity: 'base'}));
-  const brandItems = [...brands].sort((left, right) => String(left.name || left.title || '').localeCompare(String(right.name || right.title || ''), 'pt-BR', {sensitivity: 'base'}));
+  const brandItems = brands.filter(item => !isArchivedEntity(item)).sort((left, right) => String(left.name || left.title || '').localeCompare(String(right.name || right.title || ''), 'pt-BR', {sensitivity: 'base'}));
   const projectsForBrand = brand => {
     const keys = brandIdentityKeys(brand);
     return projectItems.filter(project => projectBrandKeys(project).some(key => keys.has(key)));
@@ -265,7 +248,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
           {navUrls.home && <a className="cv-nav-action" href={navUrls.home}><Icon name="home" size={17}/><span>Início</span></a>}
           <button className="cv-nav-action" type="button" onClick={onNewConversation}><Icon name="newChat" size={17}/><span>Novo chat</span></button>
           <div className="cv-sidebar-primary-nav__scheduled"><button className="cv-nav-action" type="button" aria-expanded={automations.length > 0 ? showAllRecent : undefined} onClick={() => automations.length ? setShowAllRecent(value => !value) : null}><NavIcon name="clock"/><span>Agendado</span>{automations.length > 0 && <b>{automations.length}</b>}</button>{automations.length > 0 && showAllRecent && <div className="cv-sidebar-primary-nav__scheduled-items">{conversationList(automations)}</div>}</div>
-          <button className="cv-nav-action" type="button" onClick={() => setPluginsOpen(true)}><NavIcon name="plugin"/><span>Plugins</span></button>
+          <button className={`cv-nav-action${pluginsPageOpen ? ' is-active' : ''}`} type="button" aria-current={pluginsPageOpen ? 'page' : undefined} onClick={pluginsPageOpen ? onClosePlugins : onOpenPlugins}><NavIcon name="plugin"/><span>Plugins</span></button>
           <button className="cv-nav-action" type="button" onClick={() => openIndex(activeProjectRef)}><NavIcon name="library"/><span>Arquivos</span></button>
         </nav>
         {!!brandItems.length && <section className="cv-nav-group cv-project-tree cv-brand-tree" aria-label="Marcas"><header><span>Marcas</span><b>{brandItems.length}</b></header>{brandItems.slice(0, showAllBrands ? undefined : 5).map(brand => {
@@ -273,7 +256,7 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
           const isOpen = expandedBrands.has(ref);
           const relatedProjects = projectsForBrand(brand);
           return <section key={ref} className={`cv-project-tree__item cv-brand-tree__item${isOpen ? ' is-open' : ''}${String(activeBrandRef) === ref ? ' is-active' : ''}`}>
-            <button type="button" className="cv-project-tree__trigger" aria-expanded={isOpen} aria-current={String(activeBrandRef) === ref ? 'location' : undefined} onClick={() => toggleBrand(ref, brand)}><NavIcon name={isOpen ? 'folderOpen' : 'folder'}/><SidebarTitle className="cv-project-tree__name">{brand.name || brand.title || 'Marca'}</SidebarTitle></button>
+            <button type="button" className="cv-project-tree__trigger cv-brand-tree__trigger" aria-expanded={isOpen} aria-current={String(activeBrandRef) === ref ? 'location' : undefined} onClick={() => toggleBrand(ref, brand)}><SidebarTitle className="cv-project-tree__name">{brand.name || brand.title || 'Marca'}</SidebarTitle></button>
             {isOpen && <div className="cv-project-tree__children cv-brand-tree__children">{relatedProjects.slice(0, showMoreBrandProjects[ref] ? 10 : 6).map(project => {
               const projectRef = String(project.ref || project.projectRef || project.id);
               const projectIsOpen = expandedProjects.has(projectRef);
@@ -296,7 +279,6 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
       </div>
       </>}
     </aside>
-    {pluginsOpen && <CaduDialog className="cv-plugins-dialog" label="Plugins" closeOnBackdrop onClose={() => setPluginsOpen(false)}><header><div><h2>Plugins</h2><p>Ferramentas disponíveis para usar nesta conversa.</p></div><button type="button" onClick={() => setPluginsOpen(false)} aria-label="Fechar plugins">×</button></header><div className="cv-plugins-dialog__content" aria-live="polite">{pluginToolsLoading ? <p>Carregando ferramentas…</p> : pluginToolsError ? <p role="alert">{pluginToolsError}</p> : pluginTools.length ? <ul>{pluginTools.map((tool, index) => <li key={tool.name || tool.id || index}><span className="cv-plugins-dialog__icon"><NavIcon name="plugin"/></span><span><strong>{tool.title || tool.name || tool.id || 'Ferramenta'}</strong><small>{tool.description || tool.summary || 'Disponível nesta conversa.'}</small></span></li>)}</ul> : <p>Nenhum plugin está conectado a esta conversa.</p>}</div>{(navUrls.plugins || navUrls.solutions?.connect) && <footer><a href={navUrls.plugins || navUrls.solutions?.connect}>Explorar conexões</a></footer>}</CaduDialog>}
     {spotlightOpen && createPortal(<div className="cv-project-spotlight" onMouseDown={event => { if (event.target === event.currentTarget) setSpotlightOpen(false); }}><section role="dialog" aria-modal="true" aria-labelledby="cv-project-spotlight-title" className="cv-project-spotlight__panel"><header><div><small>{projectId ? 'BUSCA NO PROJETO' : 'BUSCA NAS CONVERSAS'}</small><h2 id="cv-project-spotlight-title">{activeProject?.name || activeProject?.title || 'Conversas'}</h2></div><button type="button" onClick={() => setSpotlightOpen(false)} aria-label="Fechar busca"><NavIcon name="close"/></button></header><label className="cv-project-spotlight__input"><NavIcon name="search"/><input ref={spotlightInput} value={spotlightQuery} onChange={event => setSpotlightQuery(event.target.value)} placeholder={projectId ? 'Buscar arquivos, tarefas, atividades…' : 'Buscar conversas…'} aria-label={projectId ? 'Buscar nos itens do projeto' : 'Buscar conversas'}/><kbd>ESC</kbd></label><div className="cv-project-spotlight__results" aria-live="polite">{spotlightQuery.trim().length < 2 ? <p>Digite pelo menos 2 caracteres para iniciar a busca.</p> : spotlightLoading ? <p>Pesquisando…</p> : spotlightError ? <p role="alert">{spotlightError}</p> : spotlightResults.length ? spotlightResults.map(item => item.kind === 'resource' ? <button type="button" key={`${item.kind}-${item.id}`} onClick={() => { setSpotlightOpen(false); if (onOpenLibraryRef) onOpenLibraryRef(`resource:${item.id}`, activeProjectRef).catch(error => { setSpotlightError(error.message || 'Não foi possível abrir este recurso.'); setSpotlightOpen(true); }); else onOpenResource?.({...item, libraryRef:`resource:${item.id}`, project_ref:activeProjectRef}); }}><NavIcon name="file"/><span><b>{item.title}</b><small>{item.detail || 'Recurso do projeto'}</small></span><NavIcon name="chevron"/></button> : item.kind === 'conversation' ? <button type="button" key={`${item.kind}-${item.id}`} onClick={() => { setSpotlightOpen(false); onOpen(String(item.id), item.title); }}><NavIcon name="compose"/><span><b>{item.title}</b><small>{item.detail || 'Conversa do projeto'}</small></span><NavIcon name="chevron"/></button> : <a key={`${item.kind}-${item.id}`} href={item.kind === 'task' ? projectTasksUrl : projectActivityUrl}><NavIcon name={item.kind === 'task' ? 'check' : 'pulse'}/><span><b>{item.title}</b><small>{item.detail || 'Atividade do projeto'}</small></span><NavIcon name="chevron"/></a>) : <p>Nenhum item encontrado{projectId ? ' neste projeto' : ''}.</p>}</div>{projectId && <footer>Arquivos · documentos · tarefas · atividade</footer>}</section></div>, document.getElementById('cadu-conversations-v2-root') || document.body)}
   </>;
 }

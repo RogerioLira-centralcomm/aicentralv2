@@ -4,6 +4,7 @@ import {Sidebar} from './components/Sidebar';
 import {Conversation} from './components/Conversation';
 import {ArtifactPane} from './components/ArtifactPane';
 import {LibraryView} from './components/LibraryView';
+import {PluginsPage} from './components/PluginsPage';
 import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
@@ -89,6 +90,7 @@ export default function App({bootstrap}) {
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(() => initialQuery.get('surface') === 'library');
   const [library, setLibrary] = useState({loading: false, error: '', groups: []});
+  const [pluginsPageOpen, setPluginsPageOpen] = useState(() => initialQuery.get('surface') === 'plugins');
   const [artifactWidth, setArtifactWidth] = useState(() => {
     try { const saved = Number(window.sessionStorage.getItem('cadu:artifact-width')); return saved >= 30 && saved <= 60 ? saved : 45; }
     catch (_) { return 45; }
@@ -105,7 +107,7 @@ export default function App({bootstrap}) {
   const [diagnostics, setDiagnostics] = useState([]);
   const [historyOpen, setHistoryOpen] = useResponsiveHistory(Boolean(conversationId));
   useEffect(() => { try { window.sessionStorage.setItem('cadu:artifact-width', String(artifactWidth)); } catch (_) { /* Private browsing can disable storage. */ } }, [artifactWidth]);
-  const activeSurface = historyOpen && layout !== 'desktop' ? 'navigation' : libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
+  const activeSurface = pluginsPageOpen ? 'plugins' : historyOpen && layout !== 'desktop' ? 'navigation' : libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
   const [accountOpen, setAccountOpen] = useState(false);
   const [projectCreateOpen, setProjectCreateOpen] = useState(false);
   const [conversationDockItems, setConversationDockItems] = useState(() => bootstrap.dock?.items || []);
@@ -386,7 +388,10 @@ export default function App({bootstrap}) {
     if (data.artifact) {
       setArtifact(data.artifact); artifactRef.current = data.artifact;
       setPublishedUrl(''); setArtifactDirty(false); setArtifactOpen(true);
+      setSurfaceUrl('artifact', data.artifact.id || '');
+      return data.artifact;
     }
+    return null;
   }, []);
 
   const loadProjectProfile = useCallback(async projectRef => {
@@ -1170,17 +1175,31 @@ export default function App({bootstrap}) {
     setArtifactOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
     if (syncUrl) setSurfaceUrl('library');
-    setLibrary({loading: true, error: '', groups: []});
+    const project = projects.find(candidate => [candidate.ref, candidate.projectRef, candidate.id, candidate.id && `ci:${candidate.id}`].some(ref => String(ref || '') === libraryProjectRef));
+    const projectName = project?.name || project?.title || '';
+    setLibrary({loading: true, error: '', groups: [], projectName, overview: null});
     try {
       const endpoint = bootstrap.endpoints?.studioLibrary || '/workspace/api/v2/studio/library';
       const suffix = libraryProjectRef ? `?project_ref=${encodeURIComponent(libraryProjectRef)}` : '';
-      const data = await request(`${endpoint}${suffix}`);
-      const project = projects.find(candidate => String(candidate.ref || candidate.projectRef || '') === String(data.project_ref || libraryProjectRef));
+      const [data, profile] = await Promise.all([
+        request(`${endpoint}${suffix}`),
+        libraryProjectRef ? request(`/workspace/api/v2/projects/${encodeURIComponent(libraryProjectRef)}/profile`).catch(() => null) : Promise.resolve(null),
+      ]);
+      const profileContent = profile?.artifact?.content || {};
       const projectHref = project?.href || project?.url || bootstrap.urls?.projects || '';
       const groups = libraryGroups(data).map(group => group.id === 'references' ? {...group, items: group.items.map(item => ({...item, project_href: projectHref, project_link_label: project?.href || project?.url ? 'Ver no projeto' : 'Abrir projetos'}))} : group);
-      setLibrary({loading: false, error: '', groups});
+      const referenceCount = groups.find(group => group.id === 'references')?.items.length || 0;
+      const brandNames = profileContent.brands?.length ? profileContent.brands : project?.brandName ? [{name: project.brandName}] : [];
+      setLibrary({loading: false, error: '', groups, projectName: profileContent.name || projectName, overview: libraryProjectRef ? {
+        name: profileContent.name || projectName,
+        description: profileContent.description || project?.description || '',
+        status: profileContent.status || project?.status || '',
+        fileCount: Number(profileContent.file_count ?? referenceCount),
+        conversationCount: Number(profileContent.conversation_count ?? project?.conversation_count ?? 0),
+        brands: brandNames,
+      } : null});
     } catch (error) {
-      setLibrary({loading: false, error: error.message || 'Biblioteca indisponível.', groups: []});
+      setLibrary({loading: false, error: error.message || 'Biblioteca indisponível.', groups: [], projectName, overview: null});
     }
   }, [bootstrap.endpoints, bootstrap.urls?.projects, context?.project_ref, layout, projects]);
 
@@ -1190,6 +1209,18 @@ export default function App({bootstrap}) {
     if (layout !== 'desktop') setHistoryOpen(false);
     setSurfaceUrl('conversation', '', true);
   }, [layout]);
+
+  const openPluginsPage = useCallback(() => {
+    setPluginsPageOpen(true);
+    if (layout !== 'desktop') setHistoryOpen(false);
+    setSurfaceUrl('plugins');
+  }, [layout]);
+  const closePluginsPage = useCallback(() => {
+    setPluginsPageOpen(false);
+    if (layout !== 'desktop') setHistoryOpen(false);
+    const surface = libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
+    setSurfaceUrl(surface, artifact?.id || '', true);
+  }, [artifact?.id, artifactOpen, layout, libraryOpen]);
 
   const showArtifact = useCallback(async item => {
     setLibraryOpen(false);
@@ -1209,8 +1240,10 @@ export default function App({bootstrap}) {
 
   const openBrandArtifact = useCallback(async brandRef => {
     if (artifactOpen || !brandRef) return;
-    try { await loadBrandIdentity(brandRef); }
-    catch (error) { trace('Não foi possível abrir o artefato da marca', error.message, 'error'); }
+    try {
+      const loaded = await loadBrandIdentity(brandRef);
+      if (!loaded) setSurfaceUrl('conversation', '', true);
+    } catch (error) { trace('Não foi possível abrir o artefato da marca', error.message, 'error'); setSurfaceUrl('conversation', '', true); }
   }, [artifactOpen, loadBrandIdentity, trace]);
 
   const openDockItem = useCallback(item => {
@@ -1241,6 +1274,7 @@ export default function App({bootstrap}) {
     const restoreSurface = event => {
       const params = new URLSearchParams(window.location.search);
       const surface = params.get('surface');
+      setPluginsPageOpen(surface === 'plugins');
       if (layout !== 'desktop') setHistoryOpen(surface === 'navigation');
       if (surface === 'library') openLibrary(false);
       else setLibraryOpen(false);
@@ -1361,11 +1395,12 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} onShortcutAdded={(_, next) => setConversationDockItems(next)} onShortcutRemoved={(_, next) => setConversationDockItems(next)} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
-          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={openConversation} onOpenLibrary={(_, ref) => openLibrary(true, ref)} onOpenResource={showResource} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={openBrandArtifact} onNewConversation={newConversation} onProjectChange={ref => changeProject(ref, {showHistory: true})} onOpenSidebar={openHistory} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} pluginsPageOpen={pluginsPageOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={(...args) => { setPluginsPageOpen(false); openConversation(...args); }} onOpenLibrary={(_, ref) => { setPluginsPageOpen(false); openLibrary(true, ref); }} onOpenResource={item => { setPluginsPageOpen(false); showResource(item); }} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={ref => { setPluginsPageOpen(false); if (artifactOpen) setSurfaceUrl('artifact', artifact?.id || '', true); else openBrandArtifact(ref); }} onOpenPlugins={openPluginsPage} onClosePlugins={closePluginsPage} onNewConversation={() => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); newConversation(); }} onProjectChange={ref => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); changeProject(ref, {showHistory: true}); }} onOpenSidebar={openHistory} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
+          {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
           <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
-          {libraryOpen && <LibraryView library={library} onClose={closeSurface} onOpenResource={showResource}/>}
+          {libraryOpen && <LibraryView library={library} projectName={library.projectName} overview={library.overview} onClose={closeSurface} onOpenResource={showResource}/>}
           {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura da entrega" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
             event.currentTarget.setPointerCapture(event.pointerId);
             const stage = event.currentTarget.parentElement.getBoundingClientRect();

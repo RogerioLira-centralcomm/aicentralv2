@@ -89,7 +89,12 @@ def _bounded_json(value: dict, limit: int) -> str:
     # continuity must not disappear merely because a project has many assets.
     history = str(value.get("conversation_history") or "")
     project_evidence = value.get("workspace.search_project_content") or value.get("workspace.get_project_context")
-    evidence_reserve = min(9000, limit // 3) if isinstance(project_evidence, dict) else 0
+    market_evidence = value.get("insights.research_market")
+    evidence_reserve = (
+        min(9000, limit // 2) if isinstance(market_evidence, dict)
+        else min(9000, limit // 3) if isinstance(project_evidence, dict)
+        else 0
+    )
     if history:
         low, high = 0, len(history)
         while low < high:
@@ -109,6 +114,77 @@ def _bounded_json(value: dict, limit: int) -> str:
         candidate = {**compact, key: item}
         if fits(candidate):
             compact = candidate
+        elif key == "insights.research_market" and isinstance(item, dict):
+            # Keep the reviewed conclusion and its evidence together. Silently
+            # dropping an oversized market result would invite a generic answer.
+            insight = item.get("insight") if isinstance(item.get("insight"), dict) else {}
+            header = {
+                "type": item.get("type"), "status": item.get("status"),
+                "message": str(item.get("message") or "")[:400],
+                "title": str(item.get("title") or "")[:220],
+                "summary": str(item.get("summary") or "")[:1800],
+                "searched_at": item.get("searched_at"), "period": item.get("period"),
+                "review": item.get("review"), "source_counts": item.get("source_counts"),
+                "insight": {
+                    "headline": str(insight.get("headline") or "")[:220],
+                    "headline_source_ids": insight.get("headline_source_ids") or [],
+                    "insight": str(insight.get("insight") or "")[:1800],
+                    "insight_source_ids": insight.get("insight_source_ids") or [],
+                    "metrics": (insight.get("metrics") or [])[:4],
+                    "news": (insight.get("news") or [])[:3],
+                    "implications": (insight.get("implications") or [])[:3],
+                    "actions": (insight.get("actions") or [])[:3],
+                    "confidence": insight.get("confidence"),
+                },
+                "sources": [], "truncated": True,
+            }
+            referenced = set(header["insight"]["headline_source_ids"] + header["insight"]["insight_source_ids"])
+            for group in (header["insight"]["metrics"] + header["insight"]["news"]):
+                if isinstance(group, dict):
+                    referenced.update(str(source_id) for source_id in group.get("source_ids") or [])
+            sources = [source for source in item.get("sources") or []
+                       if isinstance(source, dict) and (not referenced or str(source.get("id")) in referenced)]
+            for source in sources[:10]:
+                row = {name: source.get(name) for name in (
+                    "id", "title", "url", "published_at", "freshness", "research_stream",
+                ) if source.get(name) is not None}
+                row["excerpt"] = str(source.get("excerpt") or "")[:700]
+                candidate_sources = [*header["sources"], row]
+                if fits({**compact, key: {**header, "sources": candidate_sources}}):
+                    header["sources"] = candidate_sources
+            if not fits({**compact, key: header}):
+                # Keep the main conclusion and references before chat history
+                # when this particular plugin is the selected task.
+                header["summary"] = str(header.get("summary") or "")[:700]
+                header["insight"]["insight"] = str(header["insight"].get("insight") or "")[:700]
+                header["insight"]["metrics"] = header["insight"]["metrics"][:2]
+                header["insight"]["news"] = header["insight"]["news"][:1]
+                header["sources"] = [{**source, "excerpt": str(source.get("excerpt") or "")[:240]}
+                                     for source in header["sources"][:4]]
+            if fits({**compact, key: header}):
+                compact[key] = header
+            else:
+                minimal = {
+                    "type": header.get("type"), "status": header.get("status"),
+                    "message": header.get("message"), "title": header.get("title"),
+                    "summary": str(header.get("summary") or "")[:300],
+                    "insight": {
+                        "headline": header["insight"]["headline"],
+                        "headline_source_ids": header["insight"]["headline_source_ids"],
+                        "insight": str(header["insight"]["insight"] or "")[:300],
+                        "insight_source_ids": header["insight"]["insight_source_ids"],
+                        "metrics": header["insight"]["metrics"][:1],
+                        "news": [], "implications": header["insight"]["implications"][:1],
+                        "actions": [], "confidence": header["insight"]["confidence"],
+                    },
+                    "sources": [{name: source.get(name) for name in ("id", "title", "url", "published_at")}
+                                for source in header["sources"][:2]],
+                    "truncated": True,
+                }
+                if not fits({**compact, key: minimal}):
+                    compact.pop("conversation_history", None)
+                if fits({**compact, key: minimal}):
+                    compact[key] = minimal
         elif key == "workspace.search_project_content" and isinstance(item, dict):
             # The public tool retains its full response. The model receives a
             # bounded, ranked projection instead of losing all project evidence.
@@ -220,6 +296,45 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         )
     elif request.brand_ref:
         brand_instruction = "Há uma marca vinculada ao projeto selecionado. Use esse contexto de marca nas análises relevantes."
+    plugin_instruction = str(policy.get("plugin_instruction") or "")
+    plugin = policy.get("plugin") if isinstance(policy.get("plugin"), dict) else None
+    if plugin and plugin.get("id") == "campaign-search":
+        plugin_instruction += (
+            " Para buscar campanhas, use o contexto da marca quando uma marca estiver selecionada, ou a busca do projeto "
+            "quando houver projeto selecionado. Resuma correspondências encontradas e suas origens; não invente campanhas."
+        )
+    elif plugin and plugin.get("id") == "insights":
+        plugin_instruction += (
+            " Para Insights, use o resultado revisado de insights.research_market. Comece pela conclusão de mercado em uma frase clara; "
+            "em seguida explique os dados recentes e sua implicação para marketing, comunicação ou mídia e proponha ações práticas. "
+            "Priorize evidências dos últimos seis meses e aceite dados datados do ano atual; não invente métricas, períodos ou notícias. "
+            "Mantenha as fontes como referências de apoio discretas, sem abrir a resposta por metodologia ou lista bibliográfica. "
+            "Se insights.research_market retornar status unavailable, explique a razão em uma frase e peça um recorte de mercado mais específico; não simule um insight."
+        )
+    elif plugin and plugin.get("id") == "planner":
+        plugin_instruction += (
+            " Trate o Planner como trabalho vivo: preserve as escolhas do usuário, explicite o que é recomendação e o que foi "
+            "salvo, e permita revisão por partes. A edição canônica do plano pelo chat ainda não está disponível: não diga que "
+            "alterou o plano persistido sem uma operação de gravação concluída. Quando houver evidência de "
+            "planner.research_plan_inputs, use-a para sugerir canais, audiências, formatos e Places adequados; trate estimativas "
+            "como hipóteses e não apresente referência de catálogo como cotação, disponibilidade ou promessa de resultado. "
+            "Se o usuário não informou orçamento, proponha percentuais ou cenários, sem inventar valores absolutos."
+        )
+        if policy.get("execution_mode") == "fast":
+            plugin_instruction += (
+                " O usuário escolheu um plano rápido: entregue um resumo curto, uma divisão inicial por canal e os próximos passos essenciais."
+            )
+        else:
+            plugin_instruction += (
+                " Para um plano aprofundado, detalhe a função dos canais, a lógica de audiência e formatos, a distribuição sugerida "
+                "e as hipóteses que ainda precisam de validação. Inclua recorte demográfico somente quando o catálogo trouxer dados; "
+                "identifique lacunas em vez de estimar a composição do público."
+            )
+    elif plugin and plugin.get("id") == "studio":
+        plugin_instruction += (
+            " Sem marca, projeto ou referência, descreva a proposta como criação genérica. Não acione geração paga sem apresentar "
+            "o custo e receber confirmação explícita; não alegue que a imagem foi gerada sem receipt concluído."
+        )
     if route.action == "create_brand":
         brand_instruction += (
             " O usuário está pedindo a criação de uma nova marca, não uma alteração do projeto atual. "
@@ -411,7 +526,7 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
     elif person_query and execution_mode == "agentic":
         depth_instruction = "Para uma pergunta sobre uma pessoa, marca ou campanha, aprofunde: explique a trajetória ou evolução, os pontos altos da obra/campanha e por que ela foi relevante, separando fatos confirmados de interpretação e sem inventar detalhes."
     inputs = {
-        "core": CORE + "".join(f"\n\n{item}" for item in (briefing_instruction, brand_instruction, draft_instruction, depth_instruction, planning_instruction) if item),
+        "core": CORE + "".join(f"\n\n{item}" for item in (briefing_instruction, brand_instruction, draft_instruction, depth_instruction, planning_instruction, plugin_instruction) if item),
         "prompt_boundary": json.dumps({
             "user_message": "query and user_request",
             "orchestrator_fields": ["core", "task", "current_context", "evidence", "response_policy", "output_contract"],

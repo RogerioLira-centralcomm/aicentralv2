@@ -29,7 +29,7 @@ _MARKETING_TOOLS = frozenset({
     "artifacts.update_draft", "artifacts.finalize_to_project",
     "planner.list_plans", "planner.search_catalog", "planner.list_link_tests",
     "planner.get_link_test", "planner.get_brief", "planner.get_media_plan",
-    "web.search", "web.read", "media.creation_capabilities", "media.plan_video",
+    "web.search", "web.read", "insights.research_market", "media.creation_capabilities", "media.plan_video",
     "resources.search", "resources.inspect_input", "resources.get", "resources.capabilities",
 })
 

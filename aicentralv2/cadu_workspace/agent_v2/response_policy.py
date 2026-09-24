@@ -6,6 +6,11 @@ from .contracts import ExecutionBudget, IntentRoute
 
 
 def budget_for(route: IntentRoute, execution_mode: str = "analysis") -> ExecutionBudget:
+    if route.action == "search_insights":
+        # Search + two reviewed AI stages run inside the composite MCP tool;
+        # reserve enough wall time without selecting the costlier agent runtime.
+        return ExecutionBudget(max_llm_calls=1, max_tool_calls=1, max_context_chars=18000,
+                               max_output_tokens=1200, max_duration_ms=240000)
     if route.artifact_type == "html":
         # Visual artifacts need enough room for a complete body, stylesheet and
         # optional behavior. A smaller generic agent budget encouraged the

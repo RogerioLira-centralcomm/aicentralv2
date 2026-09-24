@@ -20,6 +20,7 @@ import {executionReducer, initialExecutionState, isExecutionActive} from './lib/
 import {Icon} from './lib/icons';
 import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
 import {ProjectCreateDialog} from '../cadu-design-system/components/ProjectCreateDialog';
+import {CaduDialog} from '../cadu-design-system/components/CaduDialog';
 import {markProjectUsed} from '../cadu-design-system/projectOptions.mjs';
 import {useConversationViewport} from './hooks/useConversationViewport';
 import {useArtifactWorkspace} from './hooks/useArtifactWorkspace';
@@ -85,7 +86,7 @@ export default function App({bootstrap}) {
   const [executionMode, setExecutionMode] = useState(() => initialQuery.get('mode') || 'analysis');
   const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
-  const [attachmentDestination, setAttachmentDestination] = useState('conversation');
+  const [attachmentChoice, setAttachmentChoice] = useState(null);
   const [artifact, setArtifact] = useState(null);
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(() => initialQuery.get('surface') === 'library');
@@ -104,6 +105,7 @@ export default function App({bootstrap}) {
   const running = isExecutionActive(execution);
   const [queuedTurns, setQueuedTurns] = useState(() => readQueue(null));
   const [runtime, setRuntime] = useState('');
+  const [activePlugin, setActivePlugin] = useState(null);
   const [diagnostics, setDiagnostics] = useState([]);
   const [historyOpen, setHistoryOpen] = useResponsiveHistory(Boolean(conversationId));
   useEffect(() => { try { window.sessionStorage.setItem('cadu:artifact-width', String(artifactWidth)); } catch (_) { /* Private browsing can disable storage. */ } }, [artifactWidth]);
@@ -522,7 +524,7 @@ export default function App({bootstrap}) {
           continue;
         }
         const previewUrl = file.type?.startsWith('image/') ? URL.createObjectURL(file) : '';
-        const item = createStagedAttachment(file, attachmentDestination, previewUrl);
+        const item = createStagedAttachment(file, 'conversation', previewUrl);
         known.add(key); staged.push(item); next.push(item);
       }
       return next;
@@ -531,14 +533,13 @@ export default function App({bootstrap}) {
       const intake = await classifyAttachment(item.file);
       setAttachments(current => current.map(candidate => candidate.localId === item.localId ? {...candidate, intake} : candidate));
     }));
-  }, [trace, attachmentDestination, classifyAttachment]);
+  }, [trace, classifyAttachment]);
 
   const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
-  const setAttachmentPurpose = useCallback((index, destination) => setAttachments(items => items.map((item, itemIndex) => itemIndex === index ? {...item, destination} : item)), []);
   const {dropActive, handleDragEnter, handleDragOver, handleDragLeave, handleDrop} = useFileDrop(addFiles);
 
-  const uploadFiles = useCallback(resolvedExecutionMode => uploadAttachments({
-      attachments,
+  const uploadFiles = useCallback((resolvedExecutionMode, sourceAttachments = attachments) => uploadAttachments({
+      attachments: sourceAttachments,
       projectRef: context.project_ref,
       uploadsEndpoint: bootstrap.endpoints.uploads,
       requestFn: request,
@@ -547,10 +548,14 @@ export default function App({bootstrap}) {
       uuid: () => crypto.randomUUID(),
       onProgress: setAttachments,
       executionMode: resolvedExecutionMode,
-    }), [attachments, context.project_ref, bootstrap.endpoints.uploads]);
+  }), [attachments, context.project_ref, bootstrap.endpoints.uploads]);
 
-  const submit = useCallback(async (requestedInput = input, {skipAttachments = false, fromQueue = false, queuedContext = null, queuedMode = null, selectedContext = null} = {}) => {
-    const turnAttachments = skipAttachments ? [] : attachments;
+  const submit = useCallback(async (requestedInput = input, {skipAttachments = false, fromQueue = false, queuedContext = null, queuedMode = null, selectedContext = null, attachmentDestination = '', skipAttachmentChoice = false} = {}) => {
+    if (!skipAttachmentChoice && !skipAttachments && !(running && !fromQueue) && context.project_ref && attachments.some(item => !item.destination || item.destination === 'conversation') && !attachmentDestination) {
+      setAttachmentChoice({input:requestedInput, options:{fromQueue, queuedContext, queuedMode, selectedContext}});
+      return;
+    }
+    const turnAttachments = skipAttachments ? [] : attachmentDestination ? attachments.map(item => ({...item, destination:attachmentDestination})) : attachments;
     const clean = requestedInput.trim() || attachmentSubmissionMessage(turnAttachments);
     if (!clean) return;
     if (running && !fromQueue) {
@@ -593,7 +598,7 @@ export default function App({bootstrap}) {
         setArtifact(saved.artifact); artifactRef.current = saved.artifact; setArtifactDirty(false);
       } catch (error) { trace('Não foi possível preservar a edição manual', error.message, 'error'); return; }
     }
-    dispatchExecution({type: 'submitted'}); setDiagnostics([]); setRuntime(turnAttachments.length ? 'Enviando arquivos' : 'Trabalhando');
+    dispatchExecution({type: 'submitted'}); setDiagnostics([]); setActivePlugin(null); setRuntime(turnAttachments.length ? 'Enviando arquivos' : 'Trabalhando');
     if (!conversationRef.current && isConversationMobile()) setHistoryOpen(false);
     let resolvedExecutionMode = queuedMode || executionMode;
     let staged;
@@ -612,7 +617,7 @@ export default function App({bootstrap}) {
         });
         resolvedExecutionMode = preview.execution_mode || resolvedExecutionMode;
       }
-      staged = turnAttachments.length ? await uploadFiles(resolvedExecutionMode) : [];
+      staged = turnAttachments.length ? await uploadFiles(resolvedExecutionMode, turnAttachments) : [];
     }
     catch (error) { dispatchExecution({type: 'upload.failed', error: error.message}); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
     const files = [...staged.map(item => ({id: item.id, name: item.name, source: item.source || null})), ...homeAttachments];
@@ -723,6 +728,9 @@ export default function App({bootstrap}) {
           setRuntime('Entendendo o pedido');
         } else if (kind === 'route.selected') {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
+          const selectedPlugin = event.policy?.plugin;
+          setActivePlugin(selectedPlugin?.name ? {id: selectedPlugin.id, name: selectedPlugin.name} : null);
+          if (selectedPlugin?.name) setRuntime(`Acionando ${selectedPlugin.name}`);
           if (event.target_artifact?.title) {
             setRuntime(`Revisando ${event.target_artifact.title}`);
             trace('Documento selecionado para revisão', event.target_artifact.title);
@@ -740,6 +748,7 @@ export default function App({bootstrap}) {
         else if (kind === 'tool.started') {
           if (event.name === 'web.search') setRuntime('Buscando fontes relevantes');
           else if (event.name === 'web.read') setRuntime('Lendo as fontes encontradas');
+          else if (event.name === 'insights.research_market') setRuntime('Buscando e revisando dados de mercado');
           else setRuntime('Consultando o contexto disponível');
         }
         else if (kind === 'tool.completed') {
@@ -749,13 +758,16 @@ export default function App({bootstrap}) {
           } else if (event.name === 'web.read') {
             setRuntime('Lendo fontes selecionadas');
             trace('Leitura das fontes concluída');
+          } else if (event.name === 'insights.research_market') {
+            setRuntime('Insight de mercado revisado');
+            trace('Evidências e conclusão revisadas');
           } else {
             setRuntime('Consultando contexto');
             trace('Contexto consultado');
           }
         }
         else if (kind === 'tool.unavailable') {
-          setRuntime(event.name === 'web.search' || event.name === 'web.read' ? 'Pesquisa indisponível' : 'Trabalhando');
+          setRuntime(event.name === 'web.search' || event.name === 'web.read' || event.name === 'insights.research_market' ? 'Pesquisa indisponível' : 'Trabalhando');
           trace('Recurso indisponível', '', 'error');
         }
         else if (kind === 'action.proposed') {
@@ -829,6 +841,7 @@ export default function App({bootstrap}) {
           if (!longJobPromise && pendingArtifact && !artifactResolved) failPendingArtifact();
           terminal = true;
           if (!longJobPromise) setRuntime(event.status === 'completed' ? '' : 'Não foi possível concluir');
+          setActivePlugin(null);
           trace(longJobPromise ? 'Trabalho aceito' : 'Execução concluída', event.status || '');
         }
       });
@@ -848,6 +861,7 @@ export default function App({bootstrap}) {
       setInput(clean);
       dispatchExecution({type: 'connection.failed', error: detail});
     } finally {
+      setActivePlugin(null);
       if (runStarted) {
         const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
         const worked = {id: uid(), turnId, role: 'assistant', kind: 'worked', seconds};
@@ -1395,11 +1409,12 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} onShortcutAdded={(_, next) => setConversationDockItems(next)} onShortcutRemoved={(_, next) => setConversationDockItems(next)} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
-          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} pluginsPageOpen={pluginsPageOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={(...args) => { setPluginsPageOpen(false); openConversation(...args); }} onOpenLibrary={(_, ref) => { setPluginsPageOpen(false); openLibrary(true, ref); }} onOpenResource={item => { setPluginsPageOpen(false); showResource(item); }} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={ref => { setPluginsPageOpen(false); if (artifactOpen) setSurfaceUrl('artifact', artifact?.id || '', true); else openBrandArtifact(ref); }} onOpenPlugins={openPluginsPage} onClosePlugins={closePluginsPage} onNewConversation={() => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); newConversation(); }} onProjectChange={ref => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); changeProject(ref, {showHistory: true}); }} onOpenSidebar={openHistory} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
-        {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
+      <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} pluginsPageOpen={pluginsPageOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={(...args) => { setPluginsPageOpen(false); openConversation(...args); }} onOpenLibrary={(_, ref) => { setPluginsPageOpen(false); openLibrary(true, ref); }} onOpenResource={item => { setPluginsPageOpen(false); showResource(item); }} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={ref => { setPluginsPageOpen(false); if (artifactOpen) setSurfaceUrl('artifact', artifact?.id || '', true); else openBrandArtifact(ref); }} onOpenPlugins={openPluginsPage} onClosePlugins={closePluginsPage} onNewConversation={() => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); newConversation(); }} onProjectChange={ref => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); changeProject(ref, {showHistory: true}); }} onOpenSidebar={openHistory} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+      {attachmentChoice && <CaduDialog className="cv-attachment-destination-dialog" label="Destino dos arquivos" onClose={() => setAttachmentChoice(null)}><header><div><h2>Onde usar estes arquivos?</h2><p>O projeto selecionado está ativo.</p></div><button type="button" onClick={() => setAttachmentChoice(null)} aria-label="Fechar">×</button></header><div className="cv-attachment-destination-dialog__actions"><button type="button" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'conversation', skipAttachmentChoice:true}); }}>Só nesta conversa</button><button type="button" className="is-primary" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'knowledge', skipAttachmentChoice:true}); }}>Adicionar como fonte</button></div></CaduDialog>}
+      {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
-          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
+          {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} caduMark={bootstrap.caduMark || bootstrap.logo} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
+          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} caduMark={bootstrap.caduMark || bootstrap.logo} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
           {libraryOpen && <LibraryView library={library} projectName={library.projectName} overview={library.overview} onClose={closeSurface} onOpenResource={showResource}/>}
           {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura da entrega" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
             event.currentTarget.setPointerCapture(event.pointerId);

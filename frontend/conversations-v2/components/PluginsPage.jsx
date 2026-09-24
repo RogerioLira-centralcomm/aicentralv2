@@ -2,26 +2,32 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {request} from '../lib/api';
 import {Icon} from '../lib/icons';
 
-function toolGroups(tools) {
-  const groups = new Map();
-  tools.forEach(tool => {
-    const title = String(tool.category || tool.group || tool.provider || 'Ferramentas disponíveis');
-    if (!groups.has(title)) groups.set(title, []);
-    groups.get(title).push(tool);
-  });
-  return [...groups.entries()].map(([title, items]) => ({title, items}));
+const integrationLogo = name => `/static/images/cadu/technology-logos/${name}`;
+
+function CaduPluginMark({logo, caduMark, name}) {
+  const [failed, setFailed] = useState(false);
+  const src = logo ? integrationLogo(logo) : caduMark;
+  return <span className={`cv-plugin-mark${logo ? ' is-external' : ''}`} aria-hidden="true">
+    {src && !failed ? <img src={src} alt="" onError={() => setFailed(true)}/> : <Icon name="brand" size={19}/>}
+  </span>;
 }
 
-export function PluginsPage({onClose, exploreUrl = ''}) {
-  const [tools, setTools] = useState([]);
+export function PluginsPage({onClose, caduMark = '', exploreUrl = ''}) {
+  const [plugins, setPlugins] = useState([]);
+  const [integrations, setIntegrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const groups = useMemo(() => toolGroups(tools), [tools]);
+  const ready = useMemo(() => plugins.filter(plugin => ['active', 'in_development'].includes(plugin.maturity)), [plugins]);
+  const developing = useMemo(() => plugins.filter(plugin => !['active', 'in_development'].includes(plugin.maturity)), [plugins]);
 
   useEffect(() => {
     let current = true;
     request('/workspace/api/v2/capabilities')
-      .then(data => { if (current) setTools(Array.isArray(data.tools) ? data.tools : []); })
+      .then(data => {
+        if (!current) return;
+        setPlugins(Array.isArray(data.plugins) ? data.plugins : []);
+        setIntegrations(Array.isArray(data.future_integrations) ? data.future_integrations : []);
+      })
       .catch(failure => { if (current) setError(failure.message || 'Não foi possível carregar os plugins disponíveis.'); })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
@@ -30,17 +36,39 @@ export function PluginsPage({onClose, exploreUrl = ''}) {
   return <section className="cv-plugins-page" aria-label="Plugins">
     <header className="cv-plugins-page__header">
       <button type="button" onClick={onClose} aria-label="Voltar à conversa"><Icon name="chevron" size={18}/><span>Voltar</span></button>
-      <div><h1>Plugins</h1><p>Ferramentas disponíveis para usar nas conversas.</p></div>
-      <span className="cv-plugins-page__count">{loading ? 'Carregando' : `${tools.length} ${tools.length === 1 ? 'ferramenta' : 'ferramentas'}`}</span>
+      <div><h1>Plugins</h1><p>Recursos do Cadu que trabalham junto com suas conversas e planos.</p></div>
+      <span className="cv-plugins-page__count">{loading ? 'Carregando' : `${ready.length} recursos nesta fase`}</span>
     </header>
     <div className="cv-plugins-page__content" aria-live="polite">
-      {loading && <p role="status">Carregando ferramentas…</p>}
+      {loading && <p role="status">Carregando plugins…</p>}
       {error && <p role="alert">{error}</p>}
-      {!loading && !error && !tools.length && <div className="cv-plugins-page__empty"><Icon name="brand" size={24}/><h2>Nenhum plugin conectado</h2><p>Conecte ferramentas para ampliar o que o Cadu pode fazer nas conversas.</p>{exploreUrl && <a href={exploreUrl}>Explorar conexões</a>}</div>}
-      {!loading && !error && groups.map(group => <section className="cv-plugins-page__group" key={group.title}>
-        <header><h2>{group.title}</h2><span>{group.items.length}</span></header>
-        <ul>{group.items.map((tool, index) => <li key={tool.name || tool.id || `${group.title}-${index}`}><span className="cv-plugins-page__icon"><Icon name="brand" size={17}/></span><span><strong>{tool.title || tool.name || tool.id || 'Ferramenta'}</strong><small>{tool.description || tool.summary || 'Disponível nas conversas.'}</small></span></li>)}</ul>
-      </section>)}
+      {!loading && !error && <>
+        <section className="cv-plugin-shelf">
+          <header><div><h2>Plugins do Cadu</h2><p>Selecionados automaticamente quando ajudam na tarefa.</p></div><span>NESTA FASE</span></header>
+          <ul>{ready.map(plugin => <li key={plugin.id}>
+            <CaduPluginMark caduMark={caduMark} name={plugin.name}/>
+            <span className="cv-plugin-card__copy"><strong>{plugin.name}</strong><small>{plugin.description}</small></span>
+            <span className={`cv-plugin-status${plugin.maturity === 'active' ? ' is-active' : ''}`}>{plugin.maturity === 'active' ? 'Disponível' : 'Em integração'}</span>
+          </li>)}</ul>
+        </section>
+        {!!developing.length && <section className="cv-plugin-shelf">
+          <header><div><h2>Em desenvolvimento</h2><p>Alguns fluxos e páginas ainda estão sendo integrados ao chat.</p></div><span>PRÓXIMOS</span></header>
+          <ul>{developing.map(plugin => <li key={plugin.id}>
+            <CaduPluginMark caduMark={caduMark} name={plugin.name}/>
+            <span className="cv-plugin-card__copy"><strong>{plugin.name}</strong><small>{plugin.description}</small>
+              {!!plugin.known_gaps?.length && <small className="cv-plugin-card__detail">{plugin.known_gaps[0]}</small>}
+            </span><span className="cv-plugin-status">{plugin.maturity === 'early' ? 'Em evolução' : 'Em breve'}</span>
+          </li>)}</ul>
+        </section>}
+        {!!integrations.length && <section className="cv-plugin-shelf cv-plugin-shelf--integrations">
+          <header><div><h2>Integrações externas</h2><p>Conexões que queremos trazer para dentro dos fluxos do Cadu.</p></div><span>PLANEJADAS</span></header>
+          <ul>{integrations.map(item => <li key={item.id}>
+            <CaduPluginMark logo={item.logo} name={item.name}/>
+            <span className="cv-plugin-card__copy"><strong>{item.name}</strong><small>{item.category}</small></span>
+            <span className="cv-plugin-status">Planejada</span>
+          </li>)}</ul>
+        </section>}
+      </>}
     </div>
   </section>;
 }

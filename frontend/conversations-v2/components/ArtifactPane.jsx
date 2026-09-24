@@ -217,7 +217,7 @@ function cleanDocumentHtml(html) {
 }
 
 function RichDocumentArtifact({artifact, onChange, editing = false}) {
-  const content = useMemo(() => normalizeArtifactContent(artifact.content || {}), [artifact.content]);
+  const content = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
   const canvas = useRef(null);
   const urlInput = useRef(null);
   const [urlRequest, setUrlRequest] = useState(null);

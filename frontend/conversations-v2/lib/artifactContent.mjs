@@ -1,10 +1,20 @@
 const CONTENT_KEYS = ['content', 'answer', 'text', 'output'];
 
 function decode(value, depth = 0) {
-  if (depth > 5 || value == null) return value;
+  if (depth > 12 || value == null) return value;
   if (typeof value === 'string') {
     const clean = value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    if (!/^(?:\{|\[|"\s*[\[{])/.test(clean)) return value;
+    if (/^\{\\"(?:text|answer|content|output)\\"/.test(clean)) {
+      try {
+        const unwrapped = JSON.parse(`"${clean}"`);
+        return decode(JSON.parse(unwrapped), depth + 1);
+      } catch (_) { /* Try the regular JSON paths below. */ }
+    }
+    if (!/^(?:\{|\[|"\s*[\[{])/.test(clean)) {
+      return /\\n|\\r/.test(value) && /(?:^|\\n)\s*(?:#{1,6}\s|[-*+]\s|\d+[.)]\s)/.test(value)
+        ? value.replace(/\\r\\n|\\n|\\r/g, '\n')
+        : value;
+    }
     try { return decode(JSON.parse(clean), depth + 1); } catch (_) { return value; }
   }
   if (Array.isArray(value)) return value;
@@ -102,24 +112,32 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
     if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) {
       const fields = Array.isArray(decoded.fields) ? decoded.fields : Array.isArray(decoded.sections) ? decoded.sections : null;
       if (fields) {
-        source.summary = decoded.summary || source.summary || '';
-        source.fields = fields.map((field, index) => ({key: String(field.key || field.title || field.heading || `Seção ${index + 1}`), value: String(field.value || field.content || field.text || '')}));
+        source.summary = normalizeFieldValue(decoded.summary ?? source.summary) || '';
+        source.fields = fields.map((field, index) => ({
+          key: String(field.key || field.title || field.heading || `Seção ${index + 1}`),
+          value: normalizeFieldValue(field.value ?? field.content ?? field.text),
+        }));
+        if ((artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') && source.fields.length === 1) {
+          const parsed = meetingSections(source.fields[0].value).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
+          if (parsed.length) source.fields = parsed;
+        }
         delete source.html;
         return source;
       }
       return {...source, summary: '', html: ''};
     }
   }
-  if (Array.isArray(source.fields)) {
-    const fields = source.fields.map((field, index) => ({
+  const rawFields = Array.isArray(source.fields) ? source.fields : Array.isArray(source.sections) ? source.sections : null;
+  if (rawFields) {
+    const fields = rawFields.map((field, index) => ({
       key: String(field?.key || field?.title || `Seção ${index + 1}`),
-      value: normalizeFieldValue(field?.value),
+      value: normalizeFieldValue(field?.value ?? field?.content ?? field?.text),
     }));
     if ((artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') && fields.length === 1) {
       const parsed = meetingSections(fields[0].value).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
-      if (parsed.length) return {...source, summary: source.summary || '', fields: parsed};
+      if (parsed.length) return {...source, summary: normalizeFieldValue(source.summary) || '', fields: parsed};
     }
-    return {...source, fields};
+    return {...source, fields, summary: normalizeFieldValue(source.summary) || ''};
   }
   return source;
 }

@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {request} from '../lib/api';
 import {conversationDisplayTitle} from '../lib/conversationPresentation.mjs';
@@ -6,6 +6,8 @@ import {workspaceMobileDestinationItems, workspaceMobileSolutionItems} from '../
 import {CaduSolutionSwitcher} from '../../cadu-design-system/components/WorkspaceSelectors';
 import {VisualIdentity} from '../../cadu-design-system/components/VisualIdentity';
 import {DockUsageRing} from '../../cadu-design-system/components/CaduDock';
+import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
+import {useWorkspaceNotifications} from '../../cadu-design-system/components/WorkspaceNotifications';
 
 function contextLabel(item, projects, brands) {
   const project = projects.find(candidate => (candidate.ref || candidate.projectRef || candidate.id) === item.project_ref);
@@ -18,14 +20,42 @@ function NavIcon({name}) {
   return <span className={`cv-nav-icon is-${name}`} aria-hidden="true"/>;
 }
 
-export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', navUrls = {}, solutions = [], logo, user = {}, usagePercent = 0, activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onNewConversation, onProjectChange, onOrganize, onConversationAction, open, onClose, loading, openingId}) {
+function SidebarTitle({children, className = ''}) {
+  const viewport = useRef(null);
+  const content = useRef(null);
+  const [overflow, setOverflow] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      const node = viewport.current;
+      const styles = node ? window.getComputedStyle(node) : null;
+      const horizontalPadding = styles ? Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight) : 0;
+      const availableWidth = Math.max(0, (node?.clientWidth || 0) - horizontalPadding);
+      const difference = Math.max(0, (content.current?.scrollWidth || 0) - availableWidth);
+      setOverflow(current => current === difference ? current : difference);
+    };
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    if (viewport.current) observer?.observe(viewport.current);
+    if (content.current) observer?.observe(content.current);
+    window.addEventListener('resize', measure);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
+  }, [children]);
+  const style = overflow ? {'--cv-title-scroll': `-${overflow}px`, '--cv-title-duration': `${Math.min(10, Math.max(4, Math.ceil(overflow / 48)))}s`} : undefined;
+  return <span ref={viewport} className={`cv-sidebar-title${overflow ? ' is-overflowing' : ''}${className ? ` ${className}` : ''}`} style={style}><span ref={content} className="cv-sidebar-title__text">{children}</span></span>;
+}
+
+export function Sidebar({conversations, projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', navUrls = {}, solutions = [], logo, user = {}, usagePercent = 0, activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onNewConversation, onProjectChange, onConversationAction, open, onOpenSidebar, onClose, loading, openingId}) {
   const sidebarRef = useRef(null);
   const previousFocus = useRef(null);
   const [showAllRecent, setShowAllRecent] = useState(false);
   const [showAllProjectConversations, setShowAllProjectConversations] = useState({});
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectRef ? [String(activeProjectRef)] : []));
-  const [collapsed, setCollapsed] = useState(false);
   const [actionMenuId, setActionMenuId] = useState('');
+  const [pluginsOpen, setPluginsOpen] = useState(false);
+  const [pluginTools, setPluginTools] = useState([]);
+  const [pluginToolsLoading, setPluginToolsLoading] = useState(false);
+  const [pluginToolsError, setPluginToolsError] = useState('');
+  const notifications = useWorkspaceNotifications();
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [spotlightQuery, setSpotlightQuery] = useState('');
   const [spotlightResults, setSpotlightResults] = useState([]);
@@ -33,15 +63,9 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const [spotlightError, setSpotlightError] = useState('');
   const spotlightInput = useRef(null);
   const searchSequence = useRef(0);
-  const ordered = useMemo(() => {
-    const active = String(activeProjectRef || '');
-    if (!active) return conversations;
-    return [...conversations].sort((left, right) => {
-      const leftActive = String(left.project_ref || '') === active;
-      const rightActive = String(right.project_ref || '') === active;
-      return Number(rightActive) - Number(leftActive);
-    });
-  }, [conversations, activeProjectRef]);
+  const desktopMode = window.matchMedia('(min-width: 768px)').matches;
+  const desktopClosed = desktopMode && !open;
+  const ordered = conversations;
   const filtered = ordered;
   const activeProject = projects.find(item => String(item.ref || item.projectRef || item.id) === String(activeProjectRef));
   const activeBrand = brands.find(item => String(item.ref || item.brandRef || (item.id ? `studio:${item.id}` : '')) === String(activeBrandRef));
@@ -84,6 +108,18 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   }, [actionMenuId]);
 
   useEffect(() => {
+    if (!pluginsOpen) return undefined;
+    let current = true;
+    setPluginToolsLoading(true);
+    setPluginToolsError('');
+    request('/workspace/api/v2/capabilities')
+      .then(data => { if (current) setPluginTools(Array.isArray(data.tools) ? data.tools : []); })
+      .catch(error => { if (current) setPluginToolsError(error.message || 'Não foi possível carregar os plugins disponíveis.'); })
+      .finally(() => { if (current) setPluginToolsLoading(false); });
+    return () => { current = false; };
+  }, [pluginsOpen]);
+
+  useEffect(() => {
     if (!spotlightOpen) return undefined;
     window.requestAnimationFrame(() => spotlightInput.current?.focus());
     const close = event => { if (event.key === 'Escape') setSpotlightOpen(false); };
@@ -122,53 +158,51 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
     setExpandedProjects(current => current.has(ref) ? current : new Set([...current, ref]));
   }, [activeProjectRef]);
 
-  if (!open) return null;
-  const brandConversations = filtered.filter(item => String(item.brand_ref || '') === String(activeBrandRef) && !['pinned', 'automation'].includes(item.section));
-  const pinned = filtered.filter(item => item.section === 'pinned');
+  if (!open && !desktopMode) return null;
+  const brandConversations = filtered.filter(item => String(item.brand_ref || '') === String(activeBrandRef) && item.section !== 'automation');
   const automations = filtered.filter(item => item.section === 'automation' && item.automation_enabled);
-  const standard = filtered.filter(item => !item.project_ref && !item.brand_ref && !['pinned', 'automation'].includes(item.section));
+  const standard = filtered.filter(item => !item.project_ref && !item.brand_ref && item.section !== 'automation');
   const activeConversation = conversations.find(item => String(item.id) === String(activeId));
   const mobileDestinations = workspaceMobileDestinationItems(navUrls);
   const mobileSolutions = workspaceMobileSolutionItems(navUrls);
-  const projectItems = [...projects].sort((left, right) => Number(String(right.ref || right.projectRef || right.id) === String(activeProjectRef)) - Number(String(left.ref || left.projectRef || left.id) === String(activeProjectRef)));
+  const projectItems = [...projects].sort((left, right) => String(left.name || left.title || '').localeCompare(String(right.name || right.title || ''), 'pt-BR', {sensitivity: 'base'}));
   const toggleProject = ref => {
     const key = String(ref);
     setExpandedProjects(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; });
   };
-  const openIndex = ref => { if (ref || activeProjectRef) onOpenLibrary?.(true, ref || activeProjectRef); else setSpotlightError('Selecione um projeto para abrir o Indexador.'); };
+  const openIndex = ref => { if (ref || activeProjectRef) onOpenLibrary?.(true, ref || activeProjectRef); else setSpotlightError('Selecione um projeto para abrir os arquivos.'); };
+  const startProjectConversation = async ref => {
+    if (String(ref) !== String(activeProjectRef)) await onProjectChange?.(ref);
+    onNewConversation?.();
+  };
   const runAction = (event, item, action) => {
     event.stopPropagation();
     setActionMenuId('');
     onConversationAction?.(item, action);
   };
-  const conversationList = (items, hideContext = false) => items.map(item => { const context = contextLabel(item, projects, brands); return <div className="cv-conversation-row" key={item.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-cadu-conversation', String(item.id)); }}>
-    <button className="cv-conversation-card" type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined} title={conversationDisplayTitle(item.title, 'Chat sem título')}><span className="cv-conversation-card__copy"><b>{conversationDisplayTitle(item.title, 'Chat sem título')}</b>{!hideContext && <small><NavIcon name={context ? 'folder' : 'compose'}/>{context || 'Sessão livre'}</small>}</span><span className={`cv-conversation-card__state ${item.running ? 'is-running' : ''}${item.awaiting_response ? ' is-awaiting-response' : ''}`} title={item.running ? 'Processo em andamento' : item.awaiting_response ? 'Aguardando sua resposta' : item.section === 'automation' && item.automation_enabled ? 'Automação agendada' : ''}>{item.running ? <i/> : item.awaiting_response || (item.section === 'automation' && item.automation_enabled) ? <NavIcon name="clock"/> : null}</span></button>
+  const conversationList = (items, hideContext = false) => items.map(item => { const context = contextLabel(item, projects, brands); return <div className="cv-conversation-row" key={item.id}>
+    <button className="cv-conversation-card" type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined} title={conversationDisplayTitle(item.title, 'Chat sem título')}><span className="cv-conversation-card__copy"><b><SidebarTitle>{conversationDisplayTitle(item.title, 'Chat sem título')}</SidebarTitle></b>{!hideContext && <small><NavIcon name={context ? 'folder' : 'compose'}/>{context || 'Sessão livre'}</small>}</span><span className={`cv-conversation-card__state ${item.running ? 'is-running' : ''}${item.awaiting_response ? ' is-awaiting-response' : ''}`} title={item.running ? 'Processo em andamento' : item.awaiting_response ? 'Aguardando sua resposta' : item.section === 'automation' && item.automation_enabled ? 'Automação agendada' : ''}>{item.running ? <i/> : item.awaiting_response || (item.section === 'automation' && item.automation_enabled) ? <NavIcon name="clock"/> : null}</span></button>
     <div className={`cv-conversation-actions ${String(actionMenuId) === String(item.id) ? 'is-open' : ''}`}>
       <button type="button" className="cv-conversation-actions__trigger" aria-label={`Ações de ${item.title || 'conversa'}`} aria-expanded={String(actionMenuId) === String(item.id)} onClick={event => { event.stopPropagation(); setActionMenuId(current => String(current) === String(item.id) ? '' : String(item.id)); }}><span aria-hidden="true">•••</span></button>
       {String(actionMenuId) === String(item.id) && <div className="cv-conversation-actions__menu" role="menu">
-        <button type="button" role="menuitem" onClick={event => runAction(event, item, 'toggle-pin')}>{item.section === 'pinned' ? 'Desafixar' : 'Fixar conversa'}</button>
         {item.section === 'automation' && item.automation_enabled && <button type="button" role="menuitem" onClick={event => runAction(event, item, 'stop-automation')}>Encerrar automação</button>}
         <button type="button" role="menuitem" className="is-danger" onClick={event => runAction(event, item, 'archive')}>Arquivar</button>
       </div>}
     </div>
   </div>; });
-  const handleDrop = (event, section) => {
-    if (!event.dataTransfer.types.includes('application/x-cadu-conversation')) return;
-    event.preventDefault();
-    const id = event.dataTransfer.getData('application/x-cadu-conversation');
-    if (id) onOrganize?.(id, section);
-  };
-  const dropSection = (section, label, items) => <section className={`cv-conversation-section is-${section}${section === 'pinned' ? ' is-drop-target' : ''}`} onDragOver={event => { if (event.dataTransfer.types.includes('application/x-cadu-conversation')) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; event.currentTarget.classList.add('is-drag-over'); } }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.classList.remove('is-drag-over'); }} onDrop={event => { event.currentTarget.classList.remove('is-drag-over'); handleDrop(event, section); }}><header><span>{label}</span><b>{items.length || ''}</b></header>{items.length ? conversationList(items) : section === 'pinned' ? <p className="cv-drop-hint">Arraste uma conversa para fixar</p> : null}</section>;
   return <>
-    <button type="button" onClick={onClose} aria-label="Fechar chats recentes" className="cv-recent-backdrop is-visible"/>
-    <aside ref={sidebarRef} id="cv-recent-sidebar" role={window.matchMedia('(max-width: 767px)').matches ? 'dialog' : undefined} aria-modal={window.matchMedia('(max-width: 767px)').matches ? 'true' : undefined} className={`cv-recent-sidebar is-open${collapsed ? ' is-collapsed' : ''}`} aria-label="Chats recentes">
+    {open && <button type="button" onClick={onClose} aria-label="Fechar chats recentes" className="cv-recent-backdrop is-visible"/>}
+    <aside ref={sidebarRef} id="cv-recent-sidebar" role={!desktopMode ? 'dialog' : undefined} aria-modal={!desktopMode ? 'true' : undefined} className={`cv-recent-sidebar ${desktopClosed ? 'is-closed' : 'is-open'}`} aria-label="Chats recentes">
+      {desktopClosed ? <div className="cv-sidebar-mini-rail">
+        <div className="cv-sidebar-mini-rail__top"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/><button type="button" className="cv-sidebar-icon-button" onClick={onOpenSidebar} aria-label="Abrir navegação do chat" title="Abrir navegação"><NavIcon name="expand"/></button></div>
+        <div className="cv-sidebar-mini-rail__bottom"><DockUsageRing percent={usagePercent} href={navUrls.usage || navUrls.credits}/>{navUrls.profile ? <a href={navUrls.profile} aria-label={`Perfil de ${user.name || 'usuário'}`} title={user.name || 'Perfil'}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/></a> : <button type="button" aria-label={`Abrir perfil de ${user.name || 'usuário'}`} title={user.name || 'Perfil'}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/></button>}</div>
+      </div> : <>
       <div className="cv-mobile-navigation">
         <header><div><strong>Workspace</strong><small>{conversationDisplayTitle(currentTitle || activeConversation?.title, 'Novo chat')}</small></div><button type="button" onClick={onClose} aria-label="Fechar navegação"><NavIcon name="close"/></button></header>
         <div className="cv-mobile-navigation__scroll">
           <button type="button" className="cv-mobile-navigation__primary" onClick={onNewConversation}>Novo chat</button>
           {activeProject && projectDetailsUrl && <a className="cv-mobile-navigation__project-link" href={projectDetailsUrl} onClick={onClose}><NavIcon name="folder"/><span>{activeProject.name || activeProject.title}</span></a>}
           <div className="cv-sidebar-project-tools"><button type="button" title="Buscar no projeto" aria-label="Buscar no projeto" onClick={() => { setSpotlightQuery(''); setSpotlightOpen(true); }}><NavIcon name="search"/></button></div>
-          <section><h2>Conversas fixadas</h2>{conversationList(pinned.slice(0, 5))}</section>
           {!!automations.length && <section><h2>Automações</h2>{conversationList(automations.slice(0, 5))}</section>}
           <section><h2>Chats recentes</h2>{conversationList(standard.slice(0, 5))}{standard.length > 5 && <button type="button" className="cv-mobile-navigation__more" onClick={event => { event.currentTarget.closest('section')?.classList.add('is-expanded'); }}>Ver todos</button>}{standard.length > 5 && <div className="cv-mobile-navigation__extra">{conversationList(standard.slice(5))}</div>}</section>
           {!!mobileDestinations.length && <nav className="cv-mobile-navigation__destinations" aria-label="Áreas do Workspace"><h2>Workspace</h2>{mobileDestinations.map(item => <a key={item.id} href={item.href} onClick={onClose}><NavIcon name={item.icon}/><span>{item.name}</span></a>)}</nav>}
@@ -176,24 +210,25 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
           {navUrls.profile && <nav className="cv-mobile-navigation__account" aria-label="Conta"><a href={navUrls.profile} onClick={onClose}><NavIcon name="brand"/><span>Conta e configurações</span></a></nav>}
         </div>
       </div>
-      <div className={`cv-desktop-history${collapsed ? ' is-collapsed' : ''}`}>
+      <div className="cv-desktop-history">
       <header className="cv-recent-sidebar__header">
         <div className="cv-chat-solution-switcher"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/><span aria-current="page">Chat</span></div>
-        <div className="cv-recent-sidebar__tools"><button type="button" className="cv-sidebar-icon-button" onClick={() => { setSpotlightQuery(''); setSpotlightOpen(true); }} aria-label="Buscar conversas" title="Buscar conversas"><NavIcon name="search"/></button><button type="button" className="cv-sidebar-icon-button" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'} title={collapsed ? 'Expandir' : 'Recolher'}><NavIcon name={collapsed ? 'expand' : 'collapse'}/></button></div>
+        <div className="cv-recent-sidebar__tools"><button type="button" className="cv-sidebar-icon-button" onClick={() => { setSpotlightQuery(''); setSpotlightOpen(true); }} aria-label="Buscar conversas" title="Buscar conversas"><NavIcon name="search"/></button>{notifications.open && <button type="button" className="cv-sidebar-icon-button cv-sidebar-notifications" onClick={notifications.open} aria-label={notifications.pending.length ? `Abrir notificações, ${notifications.pending.length} pendentes` : 'Abrir notificações'} title="Notificações"><NavIcon name="bell"/>{notifications.pending.length > 0 && <i>{notifications.pending.length > 9 ? '9+' : notifications.pending.length}</i>}</button>}<button type="button" className="cv-sidebar-icon-button" onClick={onClose} aria-label="Fechar navegação" title="Fechar navegação"><NavIcon name="collapse"/></button></div>
       </header>
       <div className="cv-recent-list">
         <button className="cv-nav-action" type="button" onClick={onNewConversation}><NavIcon name="compose"/><span>Novo chat</span></button>
-        <section className="cv-nav-group is-scheduled"><header><NavIcon name="clock"/><span>Agendado</span><b>{automations.length || ''}</b></header>{automations.length ? conversationList(automations) : <p>Conversas e execuções programadas aparecem aqui.</p>}</section>
-        <a className="cv-nav-action" href={navUrls.plugins || navUrls.solutions?.connect || '#'}><NavIcon name="plugin"/><span>Plugins</span></a>
-        <button className="cv-nav-action" type="button" onClick={() => openIndex(activeProjectRef)}><NavIcon name="library"/><span>Indexador</span></button>
-        {dropSection('pinned', 'Conversas fixadas', pinned)}
-        <section className="cv-nav-group cv-project-tree" aria-label="Projetos"><header><NavIcon name="folder"/><span>Projetos</span></header>{projectItems.map(project => { const ref = String(project.ref || project.projectRef || project.id); const isOpen = expandedProjects.has(ref); const items = filtered.filter(item => String(item.project_ref || '') === ref && !['pinned','automation'].includes(item.section)); const showAll = Boolean(showAllProjectConversations[ref]); return <section key={ref} className={`cv-project-tree__item${isOpen ? ' is-open' : ''}${ref === String(activeProjectRef) ? ' is-active' : ''}`}><button type="button" className="cv-project-tree__trigger" aria-expanded={isOpen} aria-current={ref === String(activeProjectRef) ? 'location' : undefined} onClick={() => { toggleProject(ref); if (ref !== String(activeProjectRef)) onProjectChange?.(ref); }}><NavIcon name={isOpen ? 'folderOpen' : 'folder'}/><span>{project.name || project.title}</span></button>{isOpen && <div className="cv-project-tree__children"><div className="cv-project-tree__tools"><button type="button" onClick={() => openIndex(ref)}>Indexador</button><a href={`/projetos/${encodeURIComponent(String(project.id || ref).replace(/^ci:/,''))}`} aria-label={`Abrir projeto ${project.name || project.title}`}>Abrir projeto</a></div>{items.slice(0, showAll ? undefined : 5).map(item => conversationList([item], true))}{items.length > 5 && <button type="button" className="cv-project-tree__more" onClick={() => setShowAllProjectConversations(current => ({...current, [ref]: !current[ref]}))}>{showAll ? 'Mostrar menos' : 'Mostrar mais'}</button>}{!items.length && <small>Sem chats</small>}</div>}</section>; })}</section>
+        <section className="cv-nav-group is-scheduled"><header><NavIcon name="clock"/><span>Agendado</span><b>{automations.length || ''}</b></header>{automations.length ? conversationList(automations) : null}</section>
+        <button className="cv-nav-action" type="button" onClick={() => setPluginsOpen(true)}><NavIcon name="plugin"/><span>Plugins</span></button>
+        <button className="cv-nav-action" type="button" onClick={() => openIndex(activeProjectRef)}><NavIcon name="library"/><span>Arquivos</span></button>
+        <section className="cv-nav-group cv-project-tree" aria-label="Projetos"><header><span>Projetos</span></header>{projectItems.map(project => { const ref = String(project.ref || project.projectRef || project.id); const isOpen = expandedProjects.has(ref); const items = filtered.filter(item => String(item.project_ref || '') === ref && item.section !== 'automation'); const showAll = Boolean(showAllProjectConversations[ref]); const projectName = project.name || project.title || 'Projeto'; const projectUrl = `/projetos/${encodeURIComponent(String(project.id || ref).replace(/^ci:/,''))}`; return <section key={ref} className={`cv-project-tree__item${isOpen ? ' is-open' : ''}${ref === String(activeProjectRef) ? ' is-active' : ''}`}><div className="cv-project-tree__heading"><button type="button" className="cv-project-tree__trigger" aria-expanded={isOpen} aria-current={ref === String(activeProjectRef) ? 'location' : undefined} onClick={() => { toggleProject(ref); if (ref !== String(activeProjectRef)) onProjectChange?.(ref); }}><NavIcon name={isOpen ? 'folderOpen' : 'folder'}/><SidebarTitle className="cv-project-tree__name">{projectName}</SidebarTitle></button><div className="cv-project-tree__quick-actions"><a href={projectUrl} title="Abrir projeto" aria-label={`Abrir projeto ${projectName}`}><NavIcon name="folderOpen"/></a><button type="button" title="Nova conversa no projeto" aria-label={`Nova conversa no projeto ${projectName}`} onClick={() => startProjectConversation(ref)}><NavIcon name="compose"/></button><button type="button" title="Arquivos" aria-label={`Abrir arquivos de ${projectName}`} onClick={() => openIndex(ref)}><NavIcon name="library"/></button></div></div>{isOpen && <div className="cv-project-tree__children">{items.slice(0, showAll ? undefined : 5).map(item => conversationList([item], true))}{items.length > 5 && <button type="button" className="cv-project-tree__more" onClick={() => setShowAllProjectConversations(current => ({...current, [ref]: !current[ref]}))}>{showAll ? 'Mostrar menos' : 'Mostrar mais'}</button>}{!items.length && <small>Sem chats</small>}</div>}</section>; })}</section>
         {activeBrand && <section className="cv-nav-group is-brand-context"><header><NavIcon name="folderOpen"/><span>{activeBrand.name}</span></header>{conversationList(brandConversations.slice(0, showAllRecent ? undefined : 5), true)}{brandConversations.length > 5 && <button type="button" className="cv-project-tree__more" onClick={() => setShowAllRecent(value => !value)}>{showAllRecent ? 'Mostrar menos' : 'Mostrar mais'}</button>}</section>}
         <section className="cv-nav-group cv-personal-recent"><header><NavIcon name="chat"/><span>Recentes</span></header>{conversationList(standard.slice(0, showAllRecent ? undefined : 5), true)}{standard.length > 5 && <button type="button" className="cv-project-tree__more" onClick={() => setShowAllRecent(value => !value)}>{showAllRecent ? 'Mostrar menos' : 'Mostrar mais'}</button>}{loading && !conversations.length && <div className="cv-recent-loading"><i/><i/><i/></div>}{!loading && !standard.length && <p>Nenhuma conversa recente.</p>}</section>
       </div>
-      <footer className="cv-chat-sidebar-footer"><DockUsageRing percent={usagePercent} href={navUrls.usage || navUrls.credits}/>{navUrls.profile ? <a href={navUrls.profile} aria-label={`Perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></a> : <button type="button" aria-label={`Abrir perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></button>}</footer>
+      <footer className="cv-chat-sidebar-footer">{navUrls.profile ? <a href={navUrls.profile} aria-label={`Perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></a> : <button type="button" aria-label={`Abrir perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></button>}<DockUsageRing percent={usagePercent} href={navUrls.usage || navUrls.credits}/></footer>
       </div>
+      </>}
     </aside>
+    {pluginsOpen && <CaduDialog className="cv-plugins-dialog" label="Plugins" closeOnBackdrop onClose={() => setPluginsOpen(false)}><header><div><h2>Plugins</h2><p>Ferramentas disponíveis para usar nesta conversa.</p></div><button type="button" onClick={() => setPluginsOpen(false)} aria-label="Fechar plugins">×</button></header><div className="cv-plugins-dialog__content" aria-live="polite">{pluginToolsLoading ? <p>Carregando ferramentas…</p> : pluginToolsError ? <p role="alert">{pluginToolsError}</p> : pluginTools.length ? <ul>{pluginTools.map((tool, index) => <li key={tool.name || tool.id || index}><span className="cv-plugins-dialog__icon"><NavIcon name="plugin"/></span><span><strong>{tool.title || tool.name || tool.id || 'Ferramenta'}</strong><small>{tool.description || tool.summary || 'Disponível nesta conversa.'}</small></span></li>)}</ul> : <p>Nenhum plugin está conectado a esta conversa.</p>}</div>{(navUrls.plugins || navUrls.solutions?.connect) && <footer><a href={navUrls.plugins || navUrls.solutions?.connect}>Explorar conexões</a></footer>}</CaduDialog>}
     {spotlightOpen && createPortal(<div className="cv-project-spotlight" onMouseDown={event => { if (event.target === event.currentTarget) setSpotlightOpen(false); }}><section role="dialog" aria-modal="true" aria-labelledby="cv-project-spotlight-title" className="cv-project-spotlight__panel"><header><div><small>{projectId ? 'BUSCA NO PROJETO' : 'BUSCA NAS CONVERSAS'}</small><h2 id="cv-project-spotlight-title">{activeProject?.name || activeProject?.title || 'Conversas'}</h2></div><button type="button" onClick={() => setSpotlightOpen(false)} aria-label="Fechar busca"><NavIcon name="close"/></button></header><label className="cv-project-spotlight__input"><NavIcon name="search"/><input ref={spotlightInput} value={spotlightQuery} onChange={event => setSpotlightQuery(event.target.value)} placeholder={projectId ? 'Buscar arquivos, tarefas, atividades…' : 'Buscar conversas…'} aria-label={projectId ? 'Buscar nos itens do projeto' : 'Buscar conversas'}/><kbd>ESC</kbd></label><div className="cv-project-spotlight__results" aria-live="polite">{spotlightQuery.trim().length < 2 ? <p>Digite pelo menos 2 caracteres para iniciar a busca.</p> : spotlightLoading ? <p>Pesquisando…</p> : spotlightError ? <p role="alert">{spotlightError}</p> : spotlightResults.length ? spotlightResults.map(item => item.kind === 'resource' ? <button type="button" key={`${item.kind}-${item.id}`} onClick={() => { setSpotlightOpen(false); if (onOpenLibraryRef) onOpenLibraryRef(`resource:${item.id}`, activeProjectRef).catch(error => { setSpotlightError(error.message || 'Não foi possível abrir este recurso.'); setSpotlightOpen(true); }); else onOpenResource?.({...item, libraryRef:`resource:${item.id}`, project_ref:activeProjectRef}); }}><NavIcon name="file"/><span><b>{item.title}</b><small>{item.detail || 'Recurso do projeto'}</small></span><NavIcon name="chevron"/></button> : item.kind === 'conversation' ? <button type="button" key={`${item.kind}-${item.id}`} onClick={() => { setSpotlightOpen(false); onOpen(String(item.id), item.title); }}><NavIcon name="compose"/><span><b>{item.title}</b><small>{item.detail || 'Conversa do projeto'}</small></span><NavIcon name="chevron"/></button> : <a key={`${item.kind}-${item.id}`} href={item.kind === 'task' ? projectTasksUrl : projectActivityUrl}><NavIcon name={item.kind === 'task' ? 'check' : 'pulse'}/><span><b>{item.title}</b><small>{item.detail || 'Atividade do projeto'}</small></span><NavIcon name="chevron"/></a>) : <p>Nenhum item encontrado{projectId ? ' neste projeto' : ''}.</p>}</div>{projectId && <footer>Arquivos · documentos · tarefas · atividade</footer>}</section></div>, document.getElementById('cadu-conversations-v2-root') || document.body)}
   </>;
 }

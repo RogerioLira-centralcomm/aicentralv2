@@ -75,7 +75,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         route = replace(route, action="clarify_plugin_context", response_mode="clarification",
                         needs_tools=(), artifact_type=None, requires_confirmation=False)
     elif plugin_tools:
-        required_tools = (plugin_tools if selected_plugin and selected_plugin.get("id") in {"insights", "reports"}
+        required_tools = (plugin_tools if selected_plugin and selected_plugin.get("id") in {"insights", "reports", "google-connect", "google-drive", "google-calendar", "google-meet"}
                           else tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))))
         route = replace(route, needs_tools=required_tools)
     readiness = None

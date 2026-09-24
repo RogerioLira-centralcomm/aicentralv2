@@ -200,6 +200,19 @@ function FilesBlock({block, onOpenResource}) {
   return <section className="cv-response-block cv-files-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-gap-2"><BoundedItems items={block.items} label="arquivos">{visible => visible.map(item => <button key={item.id} type="button" onClick={() => onOpenResource?.(item)} className="cv-file-row cv-flex cv-w-full cv-items-center cv-gap-3 cv-rounded-xl cv-border-0 cv-bg-transparent cv-p-2 cv-text-left"><span className="cv-grid cv-h-9 cv-w-9 cv-flex-none cv-place-items-center cv-rounded-lg cv-bg-white/[.05] cv-text-[#79b9b1]"><Icon name="file" size={16}/></span><span className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-sm cv-font-medium">{item.title}</strong><small className="cv-mt-0.5 cv-block cv-text-[11px] cv-text-[#78918d]">{item.kind || 'Arquivo'}{item.detail ? ` · ${item.detail}` : ''}</small></span><span className="cv-text-[10px] cv-font-semibold cv-text-teal">Abrir</span></button>)}</BoundedItems></div></section>;
 }
 
+function GoogleResourcesBlock({block}) {
+  return <section className="cv-response-block cv-mt-5 cv-rounded-xl cv-border cv-border-teal/20 cv-bg-teal/[.05] cv-p-4" aria-label={block.title || 'Itens do Google Workspace'}>
+    <BlockHeader block={block}/>
+    <div className="cv-grid cv-gap-2"><BoundedItems items={block.items || []} label="arquivos">{visible => visible.map(item => {
+      const href = safeUrl(item.url);
+      return <div key={item.id} className="cv-flex cv-items-center cv-justify-between cv-gap-3 cv-rounded-lg cv-border cv-border-white/10 cv-p-3">
+        <span className="cv-min-w-0"><strong className="cv-block cv-truncate cv-text-sm">{item.title}</strong><small className="cv-block cv-text-[11px] cv-text-[#8da8a2]">{item.kind || 'Arquivo'}{block.type === 'google_resources' ? ` · ${item.accessible_to_me ? 'Encontrado na sua conta' : 'Compartilhado neste cliente; o Google pode pedir acesso'}` : ''}</small></span>
+        {href && <a href={href} target="_blank" rel="noreferrer" className="cv-flex-none cv-text-xs cv-font-semibold cv-text-teal">Abrir no Google</a>}
+      </div>;
+    })}</BoundedItems></div>
+  </section>;
+}
+
 function ImagesBlock({block}) {
   return <section className="cv-response-block cv-mt-5"><BlockHeader block={block}/><div className="cv-grid cv-grid-cols-1 cv-gap-3 sm:cv-grid-cols-2 lg:cv-grid-cols-3"><BoundedItems items={block.items || []} label="imagens">{visible => visible.map(item => { const image = safeUrl(item.url); const source = safeUrl(item.source_url); return image ? <figure key={item.id} className="cv-m-0 cv-overflow-hidden cv-rounded-xl cv-border cv-border-white/[.08] cv-bg-white/[.03]"><img src={image} alt={item.title || 'Imagem relacionada'} loading="lazy" className="cv-aspect-[4/3] cv-w-full cv-object-cover"/><figcaption className="cv-p-2"><strong className="cv-block cv-truncate cv-text-xs">{item.title}</strong>{source && <a href={source} target="_blank" rel="noreferrer" className="cv-mt-1 cv-block cv-text-[10px] cv-text-teal">Ver fonte</a>}</figcaption></figure> : null; })}</BoundedItems></div></section>;
 }
@@ -224,6 +237,7 @@ export function ResponseBlocks({blocks, onPrompt, onOpenResource, interactive = 
     if (block.type === 'insights') return <InsightsBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'metrics') return <MetricsBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'files') return <FilesBlock key={key} block={block} onOpenResource={onOpenResource}/>;
+    if (block.type === 'google_resources' || block.type === 'google_items') return <GoogleResourcesBlock key={key} block={block}/>;
     if (block.type === 'images') return <ImagesBlock key={key} block={block}/>;
     if (block.type === 'steps') return <StepsBlock key={key} block={block} onPrompt={onPrompt}/>;
     return null;

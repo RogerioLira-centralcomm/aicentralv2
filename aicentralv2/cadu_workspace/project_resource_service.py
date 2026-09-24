@@ -172,6 +172,34 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                 source_created_at=row.get("created_at")))
 
     external_locators = set()
+    if _relation(cursor, "google_workspace_resource_links"):
+        cursor.execute(
+            """SELECT DISTINCT ON (r.provider, r.external_id)
+                      r.id, r.provider, r.external_id, r.name, r.mime_type,
+                      r.external_url, r.metadata, r.source_created_at,
+                      r.source_updated_at, l.purpose, l.linked_by
+                 FROM google_workspace_resource_links l
+                 JOIN google_workspace_resources r ON r.id=l.resource_id
+                 JOIN google_workspace_connections c ON c.id=r.connection_id
+                WHERE l.client_id=%s AND l.project_ref=%s AND c.client_id=%s
+                  AND c.status='connected'
+                  AND r.status='active'
+             ORDER BY r.provider, r.external_id, r.source_updated_at DESC NULLS LAST""",
+            (client_id, project_ref, client_id),
+        )
+        for row in cursor.fetchall():
+            locator = str(row.get("external_url") or "")
+            if locator:
+                external_locators.add(locator)
+            records.append(_record(
+                row["provider"], row["external_id"],
+                "link" if row.get("mime_type") == "application/vnd.google-apps.folder" else "file",
+                row.get("name"), mime_type=row.get("mime_type"), purpose=row.get("purpose"),
+                category=row.get("provider"), locator=locator,
+                metadata={"google_resource_id": str(row["id"]), **(row.get("metadata") or {})},
+                created_by=row.get("linked_by"), source_created_at=row.get("source_created_at"),
+                source_updated_at=row.get("source_updated_at"),
+            ))
     if _relation(cursor, "cadu_workspace_external_references"):
         external_columns = _columns(cursor, "cadu_workspace_external_references")
         archived_sql = "archived_at" if "archived_at" in external_columns else "NULL::timestamptz AS archived_at"
@@ -181,9 +209,13 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                             WHERE client_id=%s AND project_ref=%s""", (client_id, project_ref))
         for row in cursor.fetchall():
             metadata = row.get("metadata") or {}
-            external_locators.add(str(row.get("locator") or ""))
+            locator = str(row.get("locator") or "")
             if row.get("archived_at"):
                 continue
+            if locator and locator in external_locators:
+                continue
+            if locator:
+                external_locators.add(locator)
             records.append(_record(
                 "external_reference", row["id"], "link",
                 metadata.get("title") or metadata.get("platform") or row.get("provider") or "Recurso externo",

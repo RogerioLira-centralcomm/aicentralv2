@@ -1,7 +1,8 @@
-"""MCP tools backed by the global Cadu ↔ Google connector."""
+"""MCP tools backed by individual Cadu ↔ Google authorizations."""
 
 from ...agent_v2.contracts import RequestContext
 from ....services import cadu_google_connector
+from ....services.google_workspace import GoogleWorkspaceError
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -12,7 +13,7 @@ connector = cadu_google_connector.connector
 def _domain(call):
     try:
         return call()
-    except cadu_google_connector.CaduGoogleConnectorError as exc:
+    except (cadu_google_connector.CaduGoogleConnectorError, GoogleWorkspaceError) as exc:
         raise ToolInputError(str(exc)) from exc
 
 
@@ -25,6 +26,27 @@ def _domain(call):
 )
 def get_connector_status(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: connector.status(context))
+
+
+@register_tool(
+    name="google.search_drive_resources",
+    capability="workspace",
+    effect="read",
+    description="Encontra arquivos e pastas originais do Google Drive disponíveis neste cliente, sem copiar conteúdo.",
+    exposures=("internal", "customer_agent"),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "maxLength": 160},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+        },
+        "additionalProperties": False,
+    },
+)
+def search_drive_resources(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: connector.search_drive_resources(
+        context, query=arguments.get("query", ""), limit=arguments.get("limit", 40),
+    ))
 
 
 @register_tool(

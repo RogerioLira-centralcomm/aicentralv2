@@ -1162,12 +1162,54 @@ def stream(run):
             response = _enrich_source_blocks(response, run)
             response = _attach_market_insight_presentation(response, run)
             plugin = run.get("policy", {}).get("plugin") or {}
+            if plugin.get("id") == "google-drive":
+                drive_result = run["resolved_context"].values.get("google.search_drive_resources") or {}
+                drive_items = drive_result.get("resources") or []
+                if drive_items:
+                    response.blocks.append({
+                        "type": "google_resources", "title": "Arquivos originais no Google Drive",
+                        "summary": "Disponíveis neste cliente. A abertura do arquivo segue as permissões do Google.",
+                        "items": [{"id": str(item.get("id") or ""),
+                                   "title": str(item.get("name") or "Arquivo Google"),
+                                   "kind": str((item.get("presentation") or {}).get("kind") or "Arquivo"),
+                                   "url": str(item.get("external_url") or ""),
+                                   "accessible_to_me": bool(item.get("accessible_to_me"))}
+                                  for item in drive_items[:12]],
+                    })
+            if plugin.get("id") == "google-calendar":
+                calendar_result = run["resolved_context"].values.get("google.list_calendar_events") or {}
+                events = calendar_result.get("events") or []
+                if events:
+                    response.blocks.append({
+                        "type": "google_items", "title": "Eventos do Google Calendar",
+                        "summary": "Eventos disponíveis na conta Google autorizada por você.",
+                        "items": [{"id": str(item.get("id") or ""),
+                                   "title": str(item.get("summary") or "Evento sem título"),
+                                   "kind": str((item.get("start") or {}).get("dateTime") or
+                                               (item.get("start") or {}).get("date") or "Evento"),
+                                   "url": str(item.get("htmlLink") or "")}
+                                  for item in events[:12]],
+                    })
+            if plugin.get("id") == "google-meet":
+                meet_result = run["resolved_context"].values.get("google.list_meet_artifacts") or {}
+                artifacts = meet_result.get("artifacts") or []
+                if artifacts:
+                    response.blocks.append({
+                        "type": "google_items", "title": "Artefatos do Google Meet",
+                        "summary": "Registros disponíveis na conta autorizada. Conteúdo de transcrições requer ação explícita.",
+                        "items": [{"id": str(item.get("id") or ""),
+                                   "title": str(item.get("title") or item.get("external_name") or "Registro Meet"),
+                                   "kind": str(item.get("artifact_type") or "Registro"),
+                                   "url": str(item.get("locator") or "")}
+                                  for item in artifacts[:12]],
+                    })
             plugin_tools = set(plugin.get("internal_tools") or ())
             completed_tools = {call.get("name") for call in run["resolved_context"].tool_calls
                                if call.get("status") == "completed"}
             if plugin and plugin_tools.intersection(completed_tools):
                 response.plugin = {"id": str(plugin.get("id") or ""),
-                                   "name": str(plugin.get("name") or "Plugin Cadu")}
+                                   "name": str(plugin.get("name") or "Plugin Cadu"),
+                                   "version": str(plugin.get("version") or "")}
             _materialize_long_answer(response, run)
             if run["route"].get("action") == "plan_project_tasks" and response.task_proposal:
                 proposal = dict(response.task_proposal)

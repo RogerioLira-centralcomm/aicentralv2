@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable
+from flask import has_app_context
 
 from ..cadu_family import repository
 from ..cadu_workspace.agent_v2.contracts import RequestContext
+from ..product_domains import product_url
 from . import google_workspace
 
 
@@ -97,6 +99,8 @@ class CaduGoogleConnector:
                 if not connected
                 else "select_project" if not project_selected else "ready"
             ),
+            "connect_url": (product_url("auth", "/auth/google/workspace")
+                            if has_app_context() else "/auth/google/workspace"),
         }
 
     def list_project_resources(self, context: RequestContext, *, limit: int = 100) -> dict[str, Any]:
@@ -114,6 +118,25 @@ class CaduGoogleConnector:
             "resources": resources,
             "total": len(resources),
         }
+
+    def search_drive_resources(self, context: RequestContext, *, query: str = "", limit: int = 40) -> dict[str, Any]:
+        """Find original Drive files visible to this Cadu client."""
+        self._bind_context(context)
+        connection = google_workspace.get_connection(context.client_id)
+        if not connection or connection.get("status") != "connected":
+            return {"connector": self.name, "connected": False, "resources": [],
+                    "next_step": "authorize_google_workspace"}
+        if "https://www.googleapis.com/auth/drive" not in str(connection.get("granted_scopes") or "").split():
+            return {"connector": self.name, "connected": True, "resources": [],
+                    "next_step": "reauthorize_google_drive"}
+        resources = google_workspace.list_resources(
+            context.client_id, query=query, provider="google_drive",
+            limit=min(max(int(limit), 1), 100),
+        )
+        return {"connector": self.name, "connected": True, "query": query,
+                "resources": resources, "total": len(resources),
+                "next_step": "refresh_drive_metadata" if not resources else "review_results",
+                "source": "Google Drive; arquivos originais, sem cópias"}
 
     def list_calendar_events(self, context: RequestContext, *, limit: int = 50) -> dict[str, Any]:
         self._bind_context(context)

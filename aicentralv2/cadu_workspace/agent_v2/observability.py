@@ -40,6 +40,16 @@ def dashboard(client_id: int, limit=60) -> dict:
              COUNT(*) FILTER (WHERE status='failed') AS failed
           FROM cadu_family_chat_runs WHERE client_id=%s AND runtime_version='v2'
            AND created_at >= NOW()-INTERVAL '30 days' GROUP BY execution_mode ORDER BY turns DESC""", (client_id,))
+        plugin_metrics = repository.rows("""SELECT response_policy->'plugin'->>'id' AS plugin_id,
+             COUNT(*) AS turns,
+             COUNT(*) FILTER (WHERE status='completed') AS completed,
+             COUNT(*) FILTER (WHERE status='failed') AS failed,
+             ROUND(AVG(total_duration_ms))::int AS avg_duration_ms
+          FROM cadu_family_chat_runs
+         WHERE client_id=%s AND runtime_version='v2'
+           AND created_at >= NOW()-INTERVAL '30 days'
+           AND response_policy->'plugin'->>'id' IS NOT NULL
+         GROUP BY response_policy->'plugin'->>'id' ORDER BY turns DESC""", (client_id,))
         runs = repository.rows("""SELECT run.id::text, run.conversation_id, run.status, run.execution_mode,
              run.runtime_id, run.provider_config_version,
              run.route, run.first_token_ms, run.total_duration_ms, run.provider_duration_ms,
@@ -77,14 +87,14 @@ def dashboard(client_id: int, limit=60) -> dict:
         if invalid_html or truncated_html:
             alerts.append({"severity": "medium", "code": "html_generation_invalid",
                            "message": f"{invalid_html + truncated_html} gerações HTML inválidas nos últimos 30 dias ({truncated_html} truncadas)."})
-        return {"available": True, "summary": summary, "modes": modes, "runs": runs,
+        return {"available": True, "summary": summary, "modes": modes, "plugin_metrics": plugin_metrics, "runs": runs,
                 "resource_queue": queue, "alerts": alerts}
     except Exception:
         try:
             repository.get_db().rollback()
         except Exception:
             pass
-        return {"available": False, "summary": {}, "modes": [], "runs": [], "alerts": []}
+        return {"available": False, "summary": {}, "modes": [], "plugin_metrics": [], "runs": [], "alerts": []}
 
 
 def run_detail(client_id: int, run_id: str) -> dict:

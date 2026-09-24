@@ -2032,11 +2032,15 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-plugin-shelf>header h2 { margin:0; color:#e6f3f0; font-size:15px; font-weight:550; letter-spacing:-.02em; }
 #cadu-conversations-v2-root .cv-plugin-shelf>header p { margin:4px 0 0; color:#b2c9c4; font-size:11px; line-height:1.5; }
 #cadu-conversations-v2-root .cv-plugin-shelf>header>span { color:#a7e7dd; font-size:9px; font-weight:700; letter-spacing:.1em; }
-#cadu-conversations-v2-root .cv-plugin-shelf ul { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:13px 0 0; padding:0; list-style:none; }
-#cadu-conversations-v2-root .cv-plugin-shelf li { display:flex; min-width:0; min-height:82px; align-items:center; gap:12px; padding:13px; border:1px solid rgba(176,225,216,.22); border-radius:12px; background:#101f21; }
+#cadu-conversations-v2-root .cv-plugin-shelf ul { display:grid; grid-template-columns:1fr; gap:5px; margin:9px 0 0; padding:0; list-style:none; }
+#cadu-conversations-v2-root .cv-plugin-shelf li { min-width:0; margin:0; padding:0; }
+#cadu-conversations-v2-root .cv-plugin-card { display:flex; width:100%; min-width:0; min-height:54px; align-items:center; gap:11px; padding:7px 10px; border:1px solid rgba(176,225,216,.14); border-radius:9px; background:#101f21; color:inherit; text-align:left; text-decoration:none; cursor:pointer; transition:background .14s ease,border-color .14s ease,transform .14s ease; }
+#cadu-conversations-v2-root button.cv-plugin-card:hover,#cadu-conversations-v2-root button.cv-plugin-card:focus-visible { border-color:rgba(101,216,203,.5); outline:0; background:#142b2c; }
+#cadu-conversations-v2-root button.cv-plugin-card:active { transform:scale(.995); }
+#cadu-conversations-v2-root .cv-plugin-card.is-disabled { cursor:default; opacity:.72; }
 #cadu-conversations-v2-root .cv-plugin-card__copy { display:grid; min-width:0; flex:1; gap:5px; }
 #cadu-conversations-v2-root .cv-plugin-card__copy strong { overflow:hidden; color:#f3faf8; font-size:13px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
-#cadu-conversations-v2-root .cv-plugin-card__copy small { color:#bdd0cc; font-size:10px; line-height:1.5; }
+#cadu-conversations-v2-root .cv-plugin-card__copy small { display:block; overflow:hidden; color:#bdd0cc; font-size:10px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-plugin-card__copy .cv-plugin-card__detail { color:#d0dedb; }
 #cadu-conversations-v2-root .cv-plugin-mark { display:grid; width:38px; height:38px; flex:none; place-items:center; border:2px solid #55cdbb; border-radius:50%; background:#0d7468; color:#fff; box-shadow:0 0 0 2px rgba(85,205,187,.18); }
 #cadu-conversations-v2-root .cv-plugin-mark img { width:22px; height:22px; object-fit:contain; }
@@ -2094,3 +2098,28 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 @media (max-width:767px) {
   #cadu-conversations-v2-root .cadu-ds-dialog.cadu-ds-notification-center { width:100vw; }
 }
+
+#cadu-conversations-v2-root .cv-google-plugin-panel { position:absolute; z-index:65; top:76px; right:18px; width:min(440px,calc(100% - 36px)); max-height:calc(100dvh - 170px); overflow:auto; padding:22px; border:1px solid rgba(126,221,207,.3); border-radius:18px; background:#172320; color:#eef7f3; box-shadow:0 20px 60px rgba(0,0,0,.38); }
+#cadu-conversations-v2-root .cv-google-plugin-panel__top { display:flex; align-items:center; justify-content:space-between; gap:12px; color:#9bc9c0; font-size:10px; font-weight:700; letter-spacing:.08em; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__top button { border:0; background:none; color:#bed3ce; font-size:22px; cursor:pointer; }
+#cadu-conversations-v2-root .cv-google-plugin-panel h2 { margin:12px 0; font-size:23px; line-height:1.2; }
+#cadu-conversations-v2-root .cv-google-plugin-panel p { margin:10px 0; color:#c8d8d3; font-size:13px; line-height:1.55; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__notice { padding:10px 12px; border-radius:9px; background:rgba(226,171,72,.12); }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources { display:grid; gap:6px; margin:15px 0; font-size:12px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__search { display:flex; gap:7px; margin-top:14px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__search input { min-width:0; flex:1; min-height:36px; padding:7px 10px; border:1px solid rgba(255,255,255,.2); border-radius:8px; background:#101b18; color:#fff; font:inherit; font-size:12px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__search button,
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources>button { min-height:36px; padding:7px 10px; border:1px solid rgba(255,255,255,.2); border-radius:8px; background:#243932; color:#e5f0eb; font:inherit; font-size:12px; cursor:pointer; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources a { overflow:hidden; padding:8px 10px; border:1px solid rgba(255,255,255,.09); border-radius:8px; color:#b6eee1; text-overflow:ellipsis; white-space:nowrap; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources>div { display:grid; gap:4px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources small { color:#a7bbb5; font-size:10px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources form { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources select,
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources button { min-height:30px; padding:5px 8px; border:1px solid rgba(255,255,255,.18); border-radius:7px; background:#101b18; color:#e5f0eb; font:inherit; font-size:11px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources button { cursor:pointer; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__draft { display:grid; gap:6px; margin-top:16px; color:#c8d8d3; font-size:12px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__draft textarea { width:100%; padding:10px; border:1px solid rgba(255,255,255,.16); border-radius:9px; background:#101b18; color:#fff; font:inherit; resize:vertical; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:17px; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__actions button { min-height:38px; padding:8px 12px; border:1px solid rgba(255,255,255,.2); border-radius:9px; background:transparent; color:#e5f0eb; font:inherit; font-size:12px; cursor:pointer; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__actions button.is-primary { border-color:#7fe4d0; background:#7fe4d0; color:#09271f; font-weight:700; }
+@media (max-width:767px) { #cadu-conversations-v2-root .cv-google-plugin-panel { top:70px; right:8px; width:calc(100% - 16px); max-height:calc(100dvh - 130px); } }

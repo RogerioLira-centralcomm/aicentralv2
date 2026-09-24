@@ -28,6 +28,10 @@ _EXPLICIT_ACTIVITIES = re.compile(
     r"\b(?:do\s+projeto|no\s+projeto|organiz\w*|planej\w*)\b)", re.I,
 )
 _EXPLICIT_PROJECT_SEARCH = re.compile(r"\b(?:plugin\s+(?:de\s+)?)?(?:busca\s+no\s+projeto|pesquisa\s+no\s+projeto)\b", re.I)
+_GOOGLE_CONNECT = re.compile(r"\b(?:conect\w*|autoriza\w*|vincul\w*|configur\w*|status|estado|conta)\b.{0,65}\bgoogle\b|\bgoogle\b.{0,65}\b(?:conect\w*|autoriza\w*|vincul\w*|configur\w*|status|estado|conta)\b", re.I)
+_GOOGLE_DRIVE = re.compile(r"\b(?:google\s+drive|drive|google\s+docs|google\s+sheets|pasta\s+(?:do|no)\s+google)\b", re.I)
+_GOOGLE_CALENDAR = re.compile(r"\b(?:google\s+calendar|agenda\s+google|calend[aá]rio\s+google)\b", re.I)
+_GOOGLE_MEET = re.compile(r"\b(?:google\s+meet|reuni[aã]o\s+(?:do|no)\s+meet|transcri[cç][aã]o\s+(?:do|no)\s+meet)\b", re.I)
 
 
 def catalog() -> list[dict]:
@@ -57,6 +61,13 @@ def _execution_tools(plugin_id: str) -> tuple[str, ...]:
                     "artifacts.create_draft", "artifacts.update_draft"),
         "reports": ("reports.list_project_reports", "reports.get_report_metrics", "reports.compare_report_to_plan"),
         "studio": ("media.creation_capabilities", "media.generate_image", "media.edit_image"),
+        "google-connect": ("google.get_connector_status",),
+        "google-drive": ("google.get_connector_status", "google.search_drive_resources",
+                         "google.list_project_resources", "google.link_resource_to_project"),
+        "google-calendar": ("google.get_connector_status", "google.list_calendar_events",
+                            "google.create_project_meeting"),
+        "google-meet": ("google.get_connector_status", "google.list_meet_records",
+                        "google.list_meet_artifacts"),
     }.get(plugin_id, ())
 
 
@@ -67,7 +78,24 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
     tool_chain: tuple[str, ...] = ()
     missing: list[str] = []
 
-    if _EXPLICIT_ACTIVITIES.search(text):
+    if route.action == "schedule_project_meeting":
+        plugin_id = "google-calendar"
+    elif route.action == "list_calendar_events":
+        plugin_id = "google-calendar"
+        tool_chain = ("google.get_connector_status", "google.list_calendar_events")
+    elif _GOOGLE_CONNECT.search(text):
+        plugin_id = "google-connect"
+        tool_chain = ("google.get_connector_status",)
+    elif _GOOGLE_DRIVE.search(text):
+        plugin_id = "google-drive"
+        tool_chain = ("google.get_connector_status", "google.search_drive_resources")
+    elif _GOOGLE_CALENDAR.search(text):
+        plugin_id = "google-calendar"
+        tool_chain = ("google.get_connector_status", "google.list_calendar_events")
+    elif _GOOGLE_MEET.search(text):
+        plugin_id = "google-meet"
+        tool_chain = ("google.get_connector_status", "google.list_meet_artifacts")
+    elif _EXPLICIT_ACTIVITIES.search(text):
         plugin_id = "project-activities"
         if context.project_ref:
             tool_chain = ("workspace.get_project_context", "projects.list_tasks", "projects.list_resources")

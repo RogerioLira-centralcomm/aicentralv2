@@ -4,7 +4,8 @@ import {Sidebar} from './components/Sidebar';
 import {Conversation} from './components/Conversation';
 import {ArtifactPane} from './components/ArtifactPane';
 import {LibraryView} from './components/LibraryView';
-import {PluginsPage} from './components/PluginsPage';
+import {PluginsPage, pluginPrompt} from './components/PluginsPage';
+import {GooglePluginPanel} from './components/GooglePluginPanel';
 import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
@@ -93,6 +94,15 @@ export default function App({bootstrap}) {
   const [libraryOpen, setLibraryOpen] = useState(() => initialQuery.get('surface') === 'library');
   const [library, setLibrary] = useState({loading: false, error: '', groups: []});
   const [pluginsPageOpen, setPluginsPageOpen] = useState(() => initialQuery.get('surface') === 'plugins');
+  const [googlePluginId, setGooglePluginId] = useState(() => initialQuery.get('google_plugin') || '');
+  const [googleConnection, setGoogleConnection] = useState(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleError, setGoogleError] = useState('');
+  const [googleDraft, setGoogleDraft] = useState(() => {
+    try { return initialQuery.get('google_return') === '1' ? window.sessionStorage.getItem('cadu:google-plugin-draft') || '' : ''; }
+    catch (_) { return ''; }
+  });
   const [artifactWidth, setArtifactWidth] = useState(() => {
     try { const saved = Number(window.sessionStorage.getItem('cadu:artifact-width')); return saved >= 30 && saved <= 60 ? saved : 45; }
     catch (_) { return 45; }
@@ -107,6 +117,16 @@ export default function App({bootstrap}) {
   const [queuedTurns, setQueuedTurns] = useState(() => readQueue(null));
   const [runtime, setRuntime] = useState('');
   const [activePlugin, setActivePlugin] = useState(null);
+  useEffect(() => {
+    if (!googlePluginId) return undefined;
+    let current = true;
+    setGoogleLoading(true);
+    request('/workspace/api/v2/google/connection')
+      .then(data => { if (current) { setGoogleConnection(data); setGoogleError(''); } })
+      .catch(error => { if (current) setGoogleError(error.message || 'Não foi possível verificar a conexão Google.'); })
+      .finally(() => { if (current) setGoogleLoading(false); });
+    return () => { current = false; };
+  }, [googlePluginId]);
   const [diagnostics, setDiagnostics] = useState([]);
   const [historyOpen, setHistoryOpen] = useResponsiveHistory(Boolean(conversationId));
   useEffect(() => { try { window.sessionStorage.setItem('cadu:artifact-width', String(artifactWidth)); } catch (_) { /* Private browsing can disable storage. */ } }, [artifactWidth]);
@@ -255,11 +275,12 @@ export default function App({bootstrap}) {
   }, []);
 
   const newConversation = useCallback(async ({force = false} = {}) => {
-    if (running || (!force && !(await confirmDiscard()))) return;
+    if (running || (!force && !(await confirmDiscard()))) return false;
     reset({preserveAttachments: force});
     setHistoryOpen(false);
     setConversationUrl('', true);
     focusComposer();
+    return true;
   }, [running, confirmDiscard, reset, focusComposer]);
 
   const openConversation = useCallback(async (id, conversationTitle) => {
@@ -611,6 +632,26 @@ export default function App({bootstrap}) {
     const turnAttachments = skipAttachments ? [] : attachmentDestination ? attachments.map(item => ({...item, destination:attachmentDestination})) : attachments;
     const clean = requestedInput.trim() || attachmentSubmissionMessage(turnAttachments);
     if (!clean) return;
+    if (!fromQueue && !turnAttachments.length && !running) {
+      const googleIntent = /\b(?:conect\w*|autoriz\w*)\b.{0,60}\bgoogle\b|\bgoogle\b.{0,60}\b(?:conect\w*|autoriz\w*)\b/i.test(clean) ? 'google-connect'
+        : /\b(?:google\s+drive|drive|google\s+docs|google\s+sheets)\b/i.test(clean) ? 'google-drive'
+        : /\b(?:google\s+calendar|agenda\s+google|calend[aá]rio\s+google)\b/i.test(clean) ? 'google-calendar'
+        : /\b(?:google\s+meet|reuni[aã]o\s+(?:do|no)\s+meet)\b/i.test(clean) ? 'google-meet' : '';
+      if (googleIntent) {
+        try {
+          const state = await request('/workspace/api/v2/google/connection');
+          setGoogleConnection(state);
+          if (!state.connected || !state.configured) {
+            setGoogleDraft(clean); setGooglePluginId(googleIntent); setGoogleError('');
+            return;
+          }
+        } catch (error) {
+          setGoogleDraft(clean); setGooglePluginId(googleIntent);
+          setGoogleError(error.message || 'Não foi possível verificar a conexão Google.');
+          return;
+        }
+      }
+    }
     if (running && !fromQueue) {
       if (queuedTurns.length >= MAX_QUEUED_TURNS) {
         trace('Fila cheia', 'Aguarde um pedido terminar ou remova um item da fila.', 'error');
@@ -1289,6 +1330,30 @@ export default function App({bootstrap}) {
     setSurfaceUrl(surface, artifact?.id || '', true);
   }, [artifact?.id, artifactOpen, layout, libraryOpen]);
 
+  const usePlugin = useCallback(plugin => {
+    if (plugin?.id?.startsWith('google-')) {
+      setPluginsPageOpen(false);
+      setGooglePluginId(plugin.id);
+      setGoogleDraft(input);
+      setLibraryOpen(false);
+      if (layout !== 'desktop') setHistoryOpen(false);
+      setSurfaceUrl('conversation', '', true);
+      return;
+    }
+    const prompt = pluginPrompt(plugin);
+    if (!prompt) return;
+    newConversation().then(created => {
+      if (!created) return;
+      setPluginsPageOpen(false);
+      setLibraryOpen(false);
+      setArtifactOpen(false);
+      if (layout !== 'desktop') setHistoryOpen(false);
+      setSurfaceUrl('conversation', '', true);
+      setInput(prompt);
+      window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
+    });
+  }, [input, layout, newConversation, setSurfaceUrl]);
+
   const showArtifact = useCallback(async item => {
     setLibraryOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
@@ -1469,8 +1534,37 @@ export default function App({bootstrap}) {
       {attachmentChoice && <CaduDialog className="cv-attachment-destination-dialog" label="Destino dos arquivos" onClose={() => setAttachmentChoice(null)}><header><div><h2>Onde usar estes arquivos?</h2><p>O projeto selecionado está ativo.</p></div><button type="button" onClick={() => setAttachmentChoice(null)} aria-label="Fechar">×</button></header><div className="cv-attachment-destination-dialog__actions"><button type="button" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'conversation', skipAttachmentChoice:true}); }}>Só nesta conversa</button><button type="button" className="is-primary" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'knowledge', skipAttachmentChoice:true}); }}>Adicionar como fonte</button></div></CaduDialog>}
       {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} caduMark={bootstrap.caduMark || bootstrap.logo} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
+          {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} onUsePlugin={usePlugin} caduMark={bootstrap.caduMark || bootstrap.logo} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
           <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} caduMark={bootstrap.caduMark || bootstrap.logo} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
+          {googlePluginId && !pluginsPageOpen && <GooglePluginPanel pluginId={googlePluginId} connection={googleConnection} loading={googleLoading} error={googleError} draft={googleDraft} onDraftChange={setGoogleDraft} projects={projects} onLinkResource={(resourceId, projectRef) => request(`/workspace/api/v2/google/resources/${encodeURIComponent(resourceId)}/link`, {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({project_ref:projectRef})})} syncing={googleSyncing} onSyncDrive={() => {
+            setGoogleSyncing(true);
+            request('/workspace/api/v2/google/drive/sync', {method:'POST', headers:{'X-CSRF-Token':csrf()}})
+              .then(() => request('/workspace/api/v2/google/connection'))
+              .then(data => { setGoogleConnection(data); setGoogleError(''); })
+              .catch(error => setGoogleError(error.message || 'Não foi possível atualizar o Drive.'))
+              .finally(() => setGoogleSyncing(false));
+          }} onClose={() => {
+            setGooglePluginId('');
+            const url = new URL(window.location.href); url.searchParams.delete('google_plugin'); url.searchParams.delete('google_return');
+            window.history.replaceState(window.history.state, '', url);
+          }} onRefresh={() => {
+            setGoogleLoading(true);
+            request('/workspace/api/v2/google/connection').then(data => { setGoogleConnection(data); setGoogleError(''); }).catch(error => setGoogleError(error.message || 'Não foi possível verificar a conexão Google.')).finally(() => setGoogleLoading(false));
+          }} onConnect={() => {
+            if (!googleConnection?.connect_url) return;
+            try { window.sessionStorage.setItem('cadu:google-plugin-draft', googleDraft || input); } catch (_) { /* Storage may be unavailable. */ }
+            const target = new URL(window.location.href); target.searchParams.set('surface', 'conversation'); target.searchParams.set('google_plugin', googlePluginId); target.searchParams.set('google_return', '1');
+            const start = new URL(googleConnection.connect_url, window.location.origin);
+            const returnTarget = start.origin === window.location.origin ? `${target.pathname}${target.search}` : target.toString();
+            start.searchParams.set('next', returnTarget);
+            window.location.assign(start.toString());
+          }} onUse={prompt => {
+            setInput(prompt); setGooglePluginId('');
+            try { window.sessionStorage.removeItem('cadu:google-plugin-draft'); } catch (_) { /* Storage may be unavailable. */ }
+            const url = new URL(window.location.href); url.searchParams.delete('google_plugin'); url.searchParams.delete('google_return');
+            window.history.replaceState(window.history.state, '', url);
+            window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
+          }}/>}
           {libraryOpen && <LibraryView library={library} projectName={library.projectName} overview={library.overview} onClose={closeSurface} onOpenResource={showResource}/>}
           {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura da entrega" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
             event.currentTarget.setPointerCapture(event.pointerId);

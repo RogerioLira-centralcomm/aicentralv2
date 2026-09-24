@@ -10,12 +10,30 @@ from aicentralv2.services.google_workspace import (
     authorization_url,
     exchange_code,
     list_calendar_events,
+    list_resources,
     list_meet_conference_records,
     list_meet_transcripts,
     service_matrix,
     sync_calendar_events,
     sync_drive,
 )
+
+
+def test_drive_search_pages_only_the_current_persons_authorization():
+    cursor = Mock()
+    cursor.__enter__ = Mock(return_value=cursor)
+    cursor.__exit__ = Mock(return_value=False)
+    cursor.fetchall.return_value = []
+    database = Mock()
+    database.cursor.return_value = cursor
+    with patch('aicentralv2.services.google_workspace._available', return_value=True), \
+         patch('aicentralv2.services.google_workspace._request_google_scope', return_value=(44, 5)), \
+         patch('aicentralv2.services.google_workspace.get_db', return_value=database):
+        assert list_resources(44, provider='google_drive', query='briefing', limit=21, offset=20) == []
+    sql, params = cursor.execute.call_args.args
+    assert 'c.created_by=%s' in sql
+    assert params[0:3] == (5, 44, 5)
+    assert params[-2:] == (21, 20)
 
 
 def test_google_workspace_token_key_can_come_from_encrypted_database_configuration():

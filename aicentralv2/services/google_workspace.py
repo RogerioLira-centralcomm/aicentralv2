@@ -491,6 +491,8 @@ def list_client_authorizations(client_id: int) -> list[dict]:
 
 def save_connection(*, client_id: int, user_id: int, identity: dict, existing: dict | None = None) -> dict:
     refresh_token = identity.get("refresh_token")
+    if existing and existing.get("google_sub") != identity["google_sub"] and not refresh_token:
+        raise GoogleWorkspaceError("A nova conta Google não forneceu acesso offline. Autorize novamente.")
     if not refresh_token and existing:
         encrypted = existing["encrypted_refresh_token"]
     else:
@@ -499,6 +501,13 @@ def save_connection(*, client_id: int, user_id: int, identity: dict, existing: d
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            changed_account = bool(existing and existing.get("google_sub") != identity["google_sub"])
+            if changed_account:
+                _transfer_project_links(cursor, int(client_id), existing["id"])
+                cursor.execute("DELETE FROM google_workspace_resources WHERE connection_id=%s", (existing["id"],))
+                cursor.execute("SELECT to_regclass('public.google_workspace_meeting_artifacts') AS table_name")
+                if (cursor.fetchone() or {}).get("table_name"):
+                    cursor.execute("DELETE FROM google_workspace_meeting_artifacts WHERE connection_id=%s", (existing["id"],))
             cursor.execute(
                 """INSERT INTO google_workspace_connections
                     (id, client_id, google_sub, google_email,
@@ -510,7 +519,10 @@ def save_connection(*, client_id: int, user_id: int, identity: dict, existing: d
                     google_email=EXCLUDED.google_email, google_domain=EXCLUDED.google_domain,
                     encrypted_refresh_token=EXCLUDED.encrypted_refresh_token,
                     granted_scopes=EXCLUDED.granted_scopes, status='connected',
-                    last_error=NULL, updated_at=NOW()
+                    last_error=NULL,
+                    last_sync_at=CASE WHEN google_workspace_connections.google_sub IS DISTINCT FROM EXCLUDED.google_sub
+                                      THEN NULL ELSE google_workspace_connections.last_sync_at END,
+                    updated_at=NOW()
                 RETURNING id, client_id, google_sub, google_email,
                           google_domain, granted_scopes, status, last_sync_at,
                           last_error, created_at, updated_at""",
@@ -519,11 +531,71 @@ def save_connection(*, client_id: int, user_id: int, identity: dict, existing: d
                  identity.get("granted_scopes") or "", int(user_id)),
             )
             row = cursor.fetchone()
+            if changed_account and "sync_state" in _connection_columns(cursor):
+                cursor.execute(
+                    "UPDATE google_workspace_connections SET sync_state='{}'::jsonb WHERE id=%s",
+                    (row["id"],),
+                )
         conn.commit()
     except Exception:
         conn.rollback()
         raise
+    if existing and existing.get("google_sub") != identity["google_sub"]:
+        try:
+            old_token = decrypt_refresh_token(existing["encrypted_refresh_token"])
+            requests.post("https://oauth2.googleapis.com/revoke", data={"token": old_token}, timeout=15)
+        except Exception:
+            pass
     return dict(row)
+
+
+def _transfer_project_links(cursor, client_id: int, connection_id) -> None:
+    """Preserve references only where another authorization still has access."""
+    cursor.execute("SELECT to_regclass('public.cadu_project_resources') AS table_name")
+    registry_available = bool((cursor.fetchone() or {}).get("table_name"))
+    cursor.execute(
+        """SELECT l.project_ref, l.client_id, l.linked_by, l.purpose,
+                  r.provider, r.external_id
+             FROM google_workspace_resource_links l
+             JOIN google_workspace_resources r ON r.id=l.resource_id
+            WHERE r.connection_id=%s""",
+        (connection_id,),
+    )
+    for link in cursor.fetchall():
+        cursor.execute(
+            """SELECT r.id FROM google_workspace_resources r
+               JOIN google_workspace_connections c ON c.id=r.connection_id
+              WHERE c.client_id=%s AND c.id<>%s AND c.status='connected' AND r.provider=%s
+                AND r.external_id=%s AND r.status='active'
+           ORDER BY r.last_synced_at DESC LIMIT 1""",
+            (client_id, connection_id, link["provider"], link["external_id"]),
+        )
+        replacement = cursor.fetchone()
+        if replacement:
+            cursor.execute(
+                """INSERT INTO google_workspace_resource_links
+                    (id, resource_id, client_id, project_ref, linked_by, purpose)
+                   VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (resource_id, project_ref) DO NOTHING""",
+                (uuid4(), replacement["id"], link["client_id"], link["project_ref"],
+                 link["linked_by"], link["purpose"]),
+            )
+        if registry_available:
+            if replacement:
+                cursor.execute(
+                    """UPDATE cadu_project_resources
+                          SET metadata=jsonb_set(metadata, '{google_resource_id}', to_jsonb(%s::text)),
+                              status='active', last_seen_at=NOW()
+                        WHERE client_id=%s AND project_ref=%s AND source_system=%s AND source_id=%s""",
+                    (str(replacement["id"]), client_id, link["project_ref"],
+                     link["provider"], link["external_id"]),
+                )
+            else:
+                cursor.execute(
+                    """UPDATE cadu_project_resources SET status='archived', last_seen_at=NOW()
+                        WHERE client_id=%s AND project_ref=%s AND source_system=%s AND source_id=%s""",
+                    (client_id, link["project_ref"], link["provider"], link["external_id"]),
+                )
 
 
 def disconnect(client_id: int) -> bool:
@@ -545,36 +617,7 @@ def disconnect(client_id: int) -> bool:
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            # Keep project associations when another authorized person can see
-            # the same external Drive item. A project link identifies the
-            # Google item, rather than the token used to discover it.
-            cursor.execute(
-                """SELECT l.id, l.project_ref, l.client_id, l.linked_by, l.purpose,
-                          r.provider, r.external_id
-                     FROM google_workspace_resource_links l
-                     JOIN google_workspace_resources r ON r.id=l.resource_id
-                    WHERE r.connection_id=%s""",
-                (connection["id"],),
-            )
-            for link in cursor.fetchall():
-                cursor.execute(
-                    """SELECT r.id FROM google_workspace_resources r
-                       JOIN google_workspace_connections c ON c.id=r.connection_id
-                      WHERE c.client_id=%s AND c.id<>%s AND r.provider=%s
-                        AND r.external_id=%s AND r.status='active'
-                   ORDER BY r.last_synced_at DESC LIMIT 1""",
-                    (int(client_id), connection["id"], link["provider"], link["external_id"]),
-                )
-                replacement = cursor.fetchone()
-                if replacement:
-                    cursor.execute(
-                        """INSERT INTO google_workspace_resource_links
-                            (id, resource_id, client_id, project_ref, linked_by, purpose)
-                           VALUES (%s,%s,%s,%s,%s,%s)
-                        ON CONFLICT (resource_id, project_ref) DO NOTHING""",
-                        (uuid4(), replacement["id"], link["client_id"], link["project_ref"],
-                         link["linked_by"], link["purpose"]),
-                    )
+            _transfer_project_links(cursor, int(client_id), connection["id"])
             cursor.execute(
                 "DELETE FROM google_workspace_connections WHERE client_id=%s AND created_by=%s RETURNING id",
                 scope,
@@ -587,40 +630,54 @@ def disconnect(client_id: int) -> bool:
         raise
 
 
-def list_resources(client_id: int, *, project_ref: str | None = None, limit: int = 100) -> list[dict]:
+def list_resources(client_id: int, *, project_ref: str | None = None, limit: int = 100,
+                   query: str = "", provider: str = "", offset: int = 0) -> list[dict]:
     if not _available():
         return []
     scope = _request_google_scope(client_id)
     if not scope:
         return []
+    search_term = str(query or "").strip()[:160]
+    search_pattern = "%" + search_term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    source = str(provider or "").strip()[:40]
+    page_offset = min(max(int(offset), 0), 10000)
     with get_db().cursor() as cursor:
         if project_ref:
             cursor.execute(
-                """SELECT DISTINCT ON (r.provider, r.external_id)
+                """SELECT * FROM (SELECT DISTINCT ON (r.provider, r.external_id)
                           r.id, r.provider, r.external_id, r.name, r.mime_type,
                           r.external_url, r.parent_external_id, r.metadata,
-                          r.status, r.source_updated_at, l.project_ref, l.purpose
+                          r.status, r.source_updated_at, l.project_ref, l.purpose,
+                          (c.created_by=%s) AS accessible_to_me
                      FROM google_workspace_resources r
                      JOIN google_workspace_connections c ON c.id=r.connection_id
                      JOIN google_workspace_resource_links l ON l.resource_id=r.id
-                    WHERE c.client_id=%s AND l.client_id=%s AND l.project_ref=%s
+                    WHERE c.client_id=%s AND c.status='connected'
+                      AND l.client_id=%s AND l.project_ref=%s
                       AND r.status='active'
-                 ORDER BY r.provider, r.external_id, r.source_updated_at DESC NULLS LAST
-                    LIMIT %s""",
-                (scope[0], scope[0], project_ref, min(int(limit), 500)),
+                 ORDER BY r.provider, r.external_id, (c.created_by=%s) DESC,
+                          r.source_updated_at DESC NULLS LAST
+                    ) items ORDER BY source_updated_at DESC NULLS LAST, name LIMIT %s OFFSET %s""",
+                (scope[1], scope[0], scope[0], project_ref, scope[1], min(int(limit), 500), page_offset),
             )
         else:
             cursor.execute(
-                """SELECT DISTINCT ON (r.provider, r.external_id)
+                """SELECT * FROM (SELECT DISTINCT ON (r.provider, r.external_id)
                           r.id, r.provider, r.external_id, r.name, r.mime_type,
                           r.external_url, r.parent_external_id, r.metadata,
-                          r.status, r.source_updated_at, NULL AS project_ref, NULL AS purpose
+                          r.status, r.source_updated_at, NULL AS project_ref, NULL AS purpose,
+                          (c.created_by=%s) AS accessible_to_me
                      FROM google_workspace_resources r
                      JOIN google_workspace_connections c ON c.id=r.connection_id
-                    WHERE c.client_id=%s AND r.status='active'
-                 ORDER BY r.provider, r.external_id, r.source_updated_at DESC NULLS LAST
-                    LIMIT %s""",
-                (scope[0], min(int(limit), 500)),
+                    WHERE c.client_id=%s AND c.created_by=%s
+                      AND c.status='connected' AND r.status='active'
+                      AND (%s='' OR r.name ILIKE %s ESCAPE E'\\\\')
+                      AND (%s='' OR r.provider=%s)
+                 ORDER BY r.provider, r.external_id, (c.created_by=%s) DESC,
+                          r.source_updated_at DESC NULLS LAST
+                    ) items ORDER BY source_updated_at DESC NULLS LAST, name LIMIT %s OFFSET %s""",
+                (scope[1], scope[0], scope[1], search_term, search_pattern, source, source,
+                 scope[1], min(int(limit), 500), page_offset),
             )
         rows = [dict(row) for row in cursor.fetchall()]
     return [_present_resource(row) for row in rows]
@@ -1538,8 +1595,9 @@ def link_resource(*, client_id: int, resource_id: str, project_ref: str, user_id
                           r.external_url, r.metadata, r.source_created_at, r.source_updated_at
                      FROM google_workspace_resources r
                     JOIN google_workspace_connections c ON c.id=r.connection_id
-                   WHERE r.id=%s AND c.client_id=%s""",
-                (resource_uuid, int(client_id)),
+                   WHERE r.id=%s AND c.client_id=%s AND c.created_by=%s
+                     AND c.status='connected' AND r.status='active'""",
+                (resource_uuid, int(client_id), int(user_id)),
             )
             resource = cursor.fetchone()
             if not resource:
@@ -1588,7 +1646,7 @@ def link_resource(*, client_id: int, resource_id: str, project_ref: str, user_id
                      resource["provider"], resource["external_id"], resource_type,
                      resource["name"], resource["mime_type"], purpose,
                      "google_meet" if resource["provider"] == "google_meet" else "google_drive", resource["external_url"],
-                     Json({"google_resource_id": str(resource["id"]), **(resource["metadata"] or {})}),
+                     Json({"google_resource_id": str(resource_uuid), **(resource["metadata"] or {})}),
                      int(user_id), resource["source_created_at"], resource["source_updated_at"]),
                 )
         conn.commit()

@@ -133,6 +133,14 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
         return {"limit": 20}
     if tool_name == "google.list_calendar_events":
         return {"limit": 50}
+    if tool_name == "google.search_drive_resources":
+        quoted = re.search(r'[“"]([^”"]{2,120})[”"]', message)
+        if quoted:
+            return {"query": quoted.group(1).strip(), "limit": 40}
+        # A broad request lists recent discovered items; a named target uses
+        # only the noun phrase, not the entire conversational instruction.
+        target = re.search(r"\b(?:arquivo|pasta|documento|planilha)\s+(?:chamad[ao]\s+|sobre\s+|de\s+)?([^?.!,]{2,100})", message, re.I)
+        return {"query": target.group(1).strip() if target else "", "limit": 40}
     if tool_name in {"planner.get_brief", "planner.get_media_plan", "reports.get_report_metrics"}:
         if request.active_object:
             key = "plan_id" if tool_name.startswith("planner.") else "report_id"

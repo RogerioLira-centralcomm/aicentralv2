@@ -279,6 +279,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
           <NavIcon name={isOpen ? 'folderOpen' : 'folder'}/><SidebarTitle className="cv-project-tree__name">{projectName}</SidebarTitle>
         </button>
         <div className={`cv-project-menu${projectMenuId === ref ? ' is-open' : ''}`}>
+          <button type="button" className="cv-project-menu__new-chat" aria-label={`Nova conversa em ${projectName}`} title={`Nova conversa em ${projectName}`} onClick={event => { event.stopPropagation(); startProjectConversation(ref); }}><Icon name="newChat" size={15}/></button>
           <button type="button" className="cv-project-menu__trigger" aria-label={`Mais ações para ${projectName}`} aria-expanded={projectMenuId === ref} onClick={event => { event.stopPropagation(); setProjectMenuId(current => current === ref ? '' : ref); }}><span aria-hidden="true">…</span></button>
           {projectMenuId === ref && <div className="cv-project-menu__popover"><a href={projectUrl}><NavIcon name="folderOpen"/><span>Abrir projeto</span></a><button type="button" onClick={() => { setProjectMenuId(''); startProjectConversation(ref); }}><Icon name="newChat" size={16}/><span>Nova conversa</span></button><button type="button" onClick={() => { setProjectMenuId(''); openIndex(ref); }}><NavIcon name="library"/><span>Abrir arquivos</span></button></div>}
         </div>
@@ -338,7 +339,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
     {open && <button type="button" onClick={onClose} aria-label="Fechar chats recentes" className="cv-recent-backdrop is-visible"/>}
     <aside ref={sidebarRef} id="cv-recent-sidebar" role={!desktopMode ? 'dialog' : undefined} aria-modal={!desktopMode ? 'true' : undefined} className={`cv-recent-sidebar ${desktopClosed ? 'is-closed' : 'is-open'}`} aria-label="Chats recentes">
       {desktopClosed ? <div className="cv-sidebar-mini-rail">
-        <div className="cv-sidebar-mini-rail__top"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/><button type="button" className="cv-sidebar-icon-button" onClick={onOpenSidebar} aria-label="Expandir sidebar" title="Expandir sidebar"><NavIcon name="expand"/></button></div>
+        <CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/><button type="button" className="cv-sidebar-mini-rail__expand" onClick={onOpenSidebar} aria-label="Expandir sidebar" title="Expandir sidebar"><NavIcon name="expand"/></button>
       </div> : <>
       <div className="cv-mobile-navigation">
         <header><div><strong>Workspace</strong><small>{conversationDisplayTitle(currentTitle || activeConversation?.title, 'Novo chat')}</small></div><button type="button" onClick={onClose} aria-label="Fechar navegação"><NavIcon name="close"/></button></header>

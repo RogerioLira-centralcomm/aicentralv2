@@ -16,6 +16,23 @@ def _client():
 
 
 class WorkspaceDockTest(TestCase):
+    @mock.patch('aicentralv2.cadu_workspace.routes._user_home_preferences', side_effect=RuntimeError('preferences unavailable'))
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_common_dock_items', side_effect=RuntimeError('dock unavailable'))
+    @mock.patch('aicentralv2.cadu_workspace.routes.credit_position', side_effect=RuntimeError('credits unavailable'))
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_onboarding_table_available', side_effect=RuntimeError('onboarding unavailable'))
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brands', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.project_brand_links', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.project_resource_service.list_recent_resources', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes.render_template', return_value='workspace home')
+    def test_home_render_survives_optional_database_failures(self, _render, _resources, _links,
+                                                             _brands, _projects, _onboarding,
+                                                             _credit, _dock, _preferences):
+        response = _client().get('/app')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_data(as_text=True), 'workspace home')
+
     def test_dock_appearance_rejects_css_and_unknown_sizes(self):
         self.assertEqual(_dock_appearance({'background_color': '#AABBCC', 'icon_size': 'large'}),
                          {'background_color': '#aabbcc', 'icon_size': 'large'})

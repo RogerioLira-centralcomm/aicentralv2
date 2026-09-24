@@ -5174,13 +5174,24 @@ def dashboard():
     # New authenticated organizations start with a focused setup instead of
     # landing on an empty enterprise shell. Existing records remain untouched.
     if (
-        _workspace_onboarding_table_available()
-        and not projects
+        not projects
         and not brands
-        and not _workspace_onboarding_record(user_id, client_id)
     ):
-        return redirect(url_for('cadu_workspace.workspace_onboarding'), code=302)
-    credit = credit_position(client_id)
+        try:
+            if (_workspace_onboarding_table_available()
+                    and not _workspace_onboarding_record(user_id, client_id)):
+                return redirect(url_for('cadu_workspace.workspace_onboarding'), code=302)
+        except Exception:
+            # Onboarding is an optional first-run redirect; never let its
+            # migration or lookup prevent the main app from loading.
+            current_app.logger.warning('Não foi possível verificar onboarding na Home do Workspace', exc_info=True)
+    # Credits only decorate the home. Older or partially migrated databases
+    # must still be able to render the primary workspace entry point.
+    try:
+        credit = credit_position(client_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar créditos da Home do Workspace', exc_info=True)
+        credit = {}
     usage = float(credit.get('monthly_usage_percentage') or 0)
     credit_available = max(0, int(credit.get('available') or 0))
     credit_total = max(0, int(credit.get('monthly') or 0))
@@ -5236,17 +5247,25 @@ def dashboard():
     except Exception:
         current_app.logger.warning('Não foi possível carregar recursos recentes do Workspace do cliente %s', client_id, exc_info=True)
         recent_project_resources = []
-    dock_items = _workspace_common_dock_items(
-        client_id, user_id, projects=projects, brands=brands,
-        brand_project_counts=brand_project_counts, resources=recent_project_resources,
-    )
+    try:
+        dock_items = _workspace_common_dock_items(
+            client_id, user_id, projects=projects, brands=brands,
+            brand_project_counts=brand_project_counts, resources=recent_project_resources,
+        )
+    except Exception:
+        current_app.logger.warning('Não foi possível montar a dock da Home do Workspace', exc_info=True)
+        dock_items = []
     dock_resource_items = _workspace_dock_resource_items(client_id, projects, resources=recent_project_resources)
-    continuity_feed = _workspace_continuity_feed(client_id, projects, {
-        'id': user_id,
-        # Older Workspace sessions do not carry organization_id. In that
-        # case the client is the organization boundary used by Cadu Family.
-        'organization_id': session_id('organization_id') or session_id('organizacao_id') or client_id,
-    }, resources=recent_project_resources)
+    try:
+        continuity_feed = _workspace_continuity_feed(client_id, projects, {
+            'id': user_id,
+            # Older Workspace sessions do not carry organization_id. In that
+            # case the client is the organization boundary used by Cadu Family.
+            'organization_id': session_id('organization_id') or session_id('organizacao_id') or client_id,
+        }, resources=recent_project_resources)
+    except Exception:
+        current_app.logger.warning('Não foi possível montar a continuidade da Home do Workspace', exc_info=True)
+        continuity_feed = []
     decisions = []
     for item in projects[:8]:
         missing = []
@@ -5282,8 +5301,12 @@ def dashboard():
         'activity': continuity_feed,
         'usagePercent': round(usage, 1),
         'creditAlert': credit_alert,
-        'preferences': _user_home_preferences(client_id, user_id),
+        'preferences': {},
     }
+    try:
+        home_data['preferences'] = _user_home_preferences(client_id, user_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar preferências da Home do Workspace', exc_info=True)
     return render_template(
         "cadu_workspace/workspace_home_chat.html", home_data=home_data,
     )

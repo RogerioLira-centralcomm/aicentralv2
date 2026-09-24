@@ -4,19 +4,33 @@ import {readFileSync, readdirSync, unlinkSync} from 'node:fs';
 
 const outputDir = resolve('aicentralv2/static/cadu_workspace/conversations/react');
 
-const pruneWorkspaceChunks = () => ({
+const pruneWorkspaceChunks = () => {
+  let previous = '';
+  return {
   name: 'prune-workspace-chunks',
+  buildStart() {
+    try {
+      const entry = readFileSync(resolve(outputDir, 'app.js'), 'utf8');
+      previous = entry.match(/\.\/assets\/(workspace-ui-[A-Za-z0-9_-]+\.js)/)?.[1] || '';
+    } catch {
+      previous = '';
+    }
+  },
   closeBundle() {
     const entry = readFileSync(resolve(outputDir, 'app.js'), 'utf8');
     const current = entry.match(/\.\/assets\/(workspace-ui-[A-Za-z0-9_-]+\.js)/)?.[1];
     if (!current) return;
     for (const filename of readdirSync(resolve(outputDir, 'assets'))) {
-      if (filename.startsWith('workspace-ui-') && filename.endsWith('.js') && filename !== current) {
+      // Keep both sides of the entry swap. deploy.sh can restore app.js after
+      // a failed rollout, so the previous module must remain loadable too.
+      if (filename.startsWith('workspace-ui-') && filename.endsWith('.js')
+          && filename !== current && filename !== previous) {
         unlinkSync(resolve(outputDir, 'assets', filename));
       }
     }
   },
-});
+  };
+};
 
 export default defineConfig({
   plugins: [pruneWorkspaceChunks()],

@@ -143,6 +143,9 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-conversation-header { min-width:0; overflow:visible; }
 #cadu-conversations-v2-root .cv-conversation-header > span { min-width:0; }
 #cadu-conversations-v2-root .cv-conversation-context { display:flex; min-width:0; margin-left:auto; align-items:center; gap:8px; }
+#cadu-conversations-v2-root .cv-create-project-button { display:grid; width:30px; height:30px; flex:none; place-items:center; border:1px solid rgba(141,205,196,.2); border-radius:8px; background:rgba(255,255,255,.035); color:#a9c5bf; cursor:pointer; }
+#cadu-conversations-v2-root .cv-create-project-button:hover:not(:disabled) { border-color:rgba(101,216,203,.45); background:rgba(101,216,203,.1); color:#e8f8f4; }
+#cadu-conversations-v2-root .cv-create-project-button:disabled { opacity:.45; cursor:wait; }
 #cadu-conversations-v2-root .cv-chat-context-readonly {
   display:flex;
   max-width:190px;

@@ -18,6 +18,7 @@ import {acceptAgentEvent} from './lib/agentEvents.mjs';
 import {executionReducer, initialExecutionState, isExecutionActive} from './lib/executionState.mjs';
 import {Icon} from './lib/icons';
 import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
+import {ProjectCreateDialog} from '../cadu-design-system/components/ProjectCreateDialog';
 import {markProjectUsed} from '../cadu-design-system/projectOptions.mjs';
 import {useConversationViewport} from './hooks/useConversationViewport';
 import {useArtifactWorkspace} from './hooks/useArtifactWorkspace';
@@ -106,6 +107,7 @@ export default function App({bootstrap}) {
   useEffect(() => { try { window.sessionStorage.setItem('cadu:artifact-width', String(artifactWidth)); } catch (_) { /* Private browsing can disable storage. */ } }, [artifactWidth]);
   const activeSurface = historyOpen && layout !== 'desktop' ? 'navigation' : libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
   const [accountOpen, setAccountOpen] = useState(false);
+  const [projectCreateOpen, setProjectCreateOpen] = useState(false);
   const [conversationDockItems, setConversationDockItems] = useState(() => bootstrap.dock?.items || []);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [contextLoading, setContextLoading] = useState(true);
@@ -360,8 +362,9 @@ export default function App({bootstrap}) {
     } finally { setOpeningId(null); setHistoryLoading(false); setContextLoading(false); }
   }, [running, confirmDiscard, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint, loadContext, loadRecent]);
 
-  const changeProject = useCallback(async (projectRef, {showHistory = true} = {}) => {
-    if (running || !(await confirmDiscard())) return;
+  const changeProject = useCallback(async (projectRef, {showHistory = true, preserveDraft = false, skipConfirm = false} = {}) => {
+    if (running || (!skipConfirm && !(await confirmDiscard(!preserveDraft)))) return;
+    const draft = preserveDraft ? {input, composerContext} : null;
     setContextLoading(true);
     setRuntime('Atualizando contexto');
     try {
@@ -371,14 +374,29 @@ export default function App({bootstrap}) {
       });
       if (projectRef) markProjectUsed(projectRef);
       rememberContext(data.context || {});
-      reset();
+      reset({preserveAttachments:preserveDraft});
+      if (draft) { setInput(draft.input); setComposerContext(draft.composerContext); }
       setHistoryOpen(showHistory);
       trace('Contexto alterado', projects.find(item => item.ref === projectRef)?.name || 'Contexto pessoal');
     } catch (error) {
       trace('Falha ao alterar contexto', error.message, 'error');
       await loadContext();
     } finally { setRuntime(''); setContextLoading(false); }
-  }, [running, confirmDiscard, bootstrap.endpoints.context, rememberContext, reset, trace, projects, loadContext]);
+  }, [running, confirmDiscard, input, composerContext, bootstrap.endpoints.context, rememberContext, reset, trace, projects, loadContext]);
+
+  const handleProjectCreated = useCallback(async project => {
+    const ref = String(project.project_ref || project.projectRef || project.ref || project.id || '');
+    if (!ref) throw new Error('O projeto foi criado, mas não recebemos seu identificador. Atualize a página para carregá-lo.');
+    setProjects(current => mergeServerEntities(current, [{...project, id:project.id || ref, ref, projectRef:ref, kind:'project'}]));
+    await changeProject(ref, {showHistory:true, preserveDraft:true, skipConfirm:true});
+    if (project.importedFiles) trace('Pasta adicionada ao projeto', `${project.importedFiles} arquivo${project.importedFiles === 1 ? '' : 's'} aguardando revisão${project.failedImports ? `; ${project.failedImports} não puderam ser enviados` : ''}.`);
+    else if (project.failedImports) trace('Projeto criado', `${project.failedImports} arquivo${project.failedImports === 1 ? '' : 's'} da pasta não puderam ser enviados.`, 'error');
+  }, [changeProject, trace]);
+
+  const openProjectCreation = useCallback(async () => {
+    if (running || !(await confirmDiscard(false))) return;
+    setProjectCreateOpen(true);
+  }, [running, confirmDiscard]);
 
   const loadBrandIdentity = useCallback(async brandRef => {
     const brandId = String(brandRef || '').replace(/^studio:/, '');
@@ -1363,7 +1381,7 @@ export default function App({bootstrap}) {
           <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={openConversation} onOpenLibrary={(_, ref) => openLibrary(true, ref)} onOpenResource={showResource} onOpenLibraryRef={loadResourceReference} onNewConversation={newConversation} onProjectChange={ref => changeProject(ref, {showHistory: true})} onOrganize={organizeConversation} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
-          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
+          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
           {libraryOpen && <LibraryView library={library} onClose={closeSurface} onOpenResource={showResource}/>}
           {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura da entrega" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -1439,6 +1457,7 @@ export default function App({bootstrap}) {
           />}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
+        {projectCreateOpen && <ProjectCreateDialog action={bootstrap.endpoints.createProject} csrfToken={csrf()} onClose={() => setProjectCreateOpen(false)} onCreated={handleProjectCreated}/>}
       </div>
       <nav className="cv-tablet-dock cv-phone-navigation" aria-label="Navegação do chat no tablet">
         <button type="button" onClick={closeSurface} aria-current={activeSurface === 'conversation' ? 'page' : undefined}><Icon name="newChat" size={18}/><span>Conversa</span></button>

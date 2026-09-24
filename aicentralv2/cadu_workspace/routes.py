@@ -5781,15 +5781,19 @@ def clean_projects():
 def create_project():
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
-    name = ' '.join((request.form.get('name') or '').split())[:150]
+    data = request.get_json(silent=True) if request.is_json else request.form
+    data = data or {}
+    name = ' '.join((data.get('name') or '').split())[:150]
     if len(name) < 2:
         abort(400, description='Informe um nome de projeto com ao menos dois caracteres.')
     client_id = int(session.get('cliente_id') or 0)
     project_id = str(uuid4())
-    description = (request.form.get('description') or '').strip()[:4000]
-    instructions = (request.form.get('instructions') or '').strip()[:12000]
+    description = (data.get('description') or '').strip()[:4000]
+    if request.is_json and len(description) < 2:
+        abort(400, description='Conte em poucas palavras o que este projeto reúne ou realiza.')
+    instructions = (data.get('instructions') or '').strip()[:12000]
     try:
-        requested_brand_id = int(request.form.get('brand_id') or 0)
+        requested_brand_id = int(data.get('brand_id') or 0)
     except (TypeError, ValueError):
         requested_brand_id = 0
     brand_id = requested_brand_id if requested_brand_id and _workspace_brand(client_id, requested_brand_id) else 0
@@ -5819,7 +5823,16 @@ def create_project():
         except Exception:
             pass
         abort(503, description='Não foi possível criar o projeto agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=303)
+    detail_url = url_for('cadu_workspace.clean_project_detail', project_id=project_id)
+    if request.is_json:
+        return jsonify(project={
+            'id': f'ci:{project_id}', 'project_ref': f'ci:{project_id}',
+            'projectRef': f'ci:{project_id}', 'ref': f'ci:{project_id}',
+            'kind': 'project', 'name': name, 'title': name,
+            'description': description, 'href': detail_url,
+            'upload_url': url_for('cadu_workspace.upload_project_source', project_id=project_id),
+        }), 201
+    return redirect(detail_url, code=303)
 
 
 @bp.post('/workspace/app/marcas/<int:brand_id>/campanhas/<campaign_id>/projeto')

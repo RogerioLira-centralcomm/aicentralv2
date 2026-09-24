@@ -1264,6 +1264,18 @@ test('meeting summaries use a dedicated semantic React editor', () => {
   assert.match(styles, /\.cv-meeting-summary__section\.is-decisoes/);
 });
 
+test('artifact content unwraps provider envelopes and renders meeting agendas as readable sections', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/artifactContent.mjs')).href);
+  const agenda = model.normalizeArtifactContent({summary: JSON.stringify({text: {content: '# Pauta de reunião\n\n## Status atual\n- Confirmar responsáveis\n\n## Próximos passos\n- Revisar campanha'}, ui: {}, artifact_patch: null})}, 'meeting_agenda');
+  assert.deepEqual(agenda.fields, [
+    {key: 'Status atual', value: '- Confirmar responsáveis'},
+    {key: 'Próximos passos', value: '- Revisar campanha'},
+  ]);
+  assert.doesNotMatch(JSON.stringify(agenda), /artifact_patch|\\\\n/);
+  const sections = model.normalizeArtifactContent({fields: [{key: 'Pauta', value: JSON.stringify({items: ['Alinhar objetivo', 'Definir próximos passos']})}]});
+  assert.equal(sections.fields[0].value, '- Alinhar objetivo\n\n- Definir próximos passos');
+});
+
 test('mobile workspace surfaces share the visual viewport and keep chat styling isolated', () => {
   const viewport = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/hooks/useUnifiedViewport.js'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');

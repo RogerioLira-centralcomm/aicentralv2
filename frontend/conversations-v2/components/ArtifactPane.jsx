@@ -2,6 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Icon} from '../lib/icons';
 import {csrf, request, safeUrl} from '../lib/api';
 import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
+import {normalizeArtifactContent} from '../lib/artifactContent.mjs';
 
 const labels = {
   brief: 'Briefing', document: 'Documento', note: 'Nota', executive_summary: 'Resumo executivo',
@@ -96,9 +97,28 @@ function meetingFieldKind(key = '') {
   return Object.entries(meetingSectionAliases).find(([, aliases]) => aliases.includes(normalized))?.[0] || 'other';
 }
 
+function meetingMetadataEntries(content = {}) {
+  const displayDate = value => {
+    const raw = String(value || '').trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return raw;
+    return new Intl.DateTimeFormat('pt-BR', {dateStyle: 'medium'}).format(new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  };
+  const people = content.participants || content.attendees || content.shared_with || content.collaborators || content.people;
+  const peopleText = Array.isArray(people)
+    ? people.map(person => typeof person === 'string' ? person : person?.name || person?.display_name || person?.email).filter(Boolean).join(', ')
+    : String(people || '').trim();
+  return [
+    {label: 'Data', value: displayDate(content.date || content.meeting_date || content.scheduled_at), icon: 'calendar'},
+    {label: 'Prazo', value: displayDate(content.deadline || content.due_date || content.prazo), icon: 'clock'},
+    {label: 'Pessoas', value: peopleText, icon: 'users'},
+  ].filter(item => item.value);
+}
+
 function MeetingSummaryArtifact({artifact, onChange}) {
-  const content = artifact.content || {};
+  const content = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
   const fields = Array.isArray(content.fields) ? content.fields : [];
+  const metadata = meetingMetadataEntries(content);
   const updateSummary = summary => onChange({...content, summary});
   const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
   return <article className="cv-meeting-summary cv-mx-auto cv-w-full cv-max-w-[820px]">
@@ -106,6 +126,7 @@ function MeetingSummaryArtifact({artifact, onChange}) {
       <span><Icon name="calendar" size={15}/>Registro da reunião</span>
       <EditableTextarea value={content.summary || ''} onChange={updateSummary} placeholder="Escreva uma síntese objetiva da reunião." aria-label="Síntese da reunião"/>
     </header>
+    {!!metadata.length && <dl className="cv-meeting-summary__metadata" aria-label="Data, prazo e pessoas da reunião">{metadata.map(item => <div key={item.label}><dt><Icon name={item.icon} size={15}/>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
     <div className="cv-meeting-summary__sections">
       {fields.map((field, index) => {
         const kind = meetingFieldKind(field.key);
@@ -196,7 +217,7 @@ function cleanDocumentHtml(html) {
 }
 
 function RichDocumentArtifact({artifact, onChange, editing = false}) {
-  const content = artifact.content || {};
+  const content = useMemo(() => normalizeArtifactContent(artifact.content || {}), [artifact.content]);
   const canvas = useRef(null);
   const urlInput = useRef(null);
   const [urlRequest, setUrlRequest] = useState(null);
@@ -360,9 +381,7 @@ function formatFileSize(bytes) {
 }
 
 function compactArtifactTitle(artifact) {
-  const title = artifact?.type === 'image' ? imageFileName(artifact) : String(artifact?.title || 'Entrega').trim();
-  const words = title.split(/\s+/).filter(Boolean);
-  return words.length > 3 ? `${words.slice(0, 3).join(' ')}…` : title;
+  return artifact?.type === 'image' ? imageFileName(artifact) : String(artifact?.title || 'Entrega').trim();
 }
 
 function artifactTabIcon(artifact) {
@@ -371,7 +390,11 @@ function artifactTabIcon(artifact) {
   if (haystack.includes('drive.google.com') || haystack.includes('google drive')) return 'drive';
   if (artifact?.type === 'image') return 'image';
   if (artifact?.type === 'html') return 'browser';
+  if (artifact?.type === 'spreadsheet') return 'table';
   if (artifact?.type === 'link_reader' || /^https?:/i.test(content.url || '')) return 'link';
+  if (artifact?.type === 'project_map' || artifact?.type === 'library' || artifact?.type === 'project_profile') return 'folder';
+  if (artifact?.type === 'brand_identity') return 'brand';
+  if (artifact?.type === 'meeting_summary' || artifact?.type === 'meeting_agenda') return 'calendar';
   return 'file';
 }
 
@@ -575,7 +598,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const [sourceFormat, setSourceFormat] = useState('md');
   const type = artifact?.type || 'document';
   const indexable = artifact?.capabilities?.indexable ?? !['html', 'project_map', 'link_reader'].includes(type);
-  const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
+  const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research';
   useEffect(() => {
     const match = document.cookie.match(/(?:^|; )cadu-artifact-theme=([^;]+)/);
     setLightTheme(match?.[1] === 'light');
@@ -591,6 +614,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (artifact.failed) return <div className="cv-artifact-loading is-failed" role="status"><strong>A entrega não foi concluída</strong><span>{artifact.error}</span></div>;
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
     if (type === 'project_map') return <ProjectMap artifact={artifact} onChange={onChange}/>;
+    if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} onChange={onChange}/>;
     if (type === 'image') return <ImageArtifact artifact={artifact} onMetadata={next => setImageMetadata(current => ({...(current || {}), ...next}))}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
@@ -671,7 +695,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     {tabs.length > 0 && <nav className="cv-artifact-tabs" aria-label="Entregas abertas">{tabs.map(item => {
       const key = String(item.tabKey || item.id || '');
       const itemTitle = item.type === 'image' ? imageFileName(item) : (item.title || 'Entrega');
-      return <div key={key} className={key === activeTabKey ? 'is-active' : ''} onContextMenu={event => { event.preventDefault(); setTabMenu({item, key, x: Math.min(event.clientX, window.innerWidth - 218), y: Math.min(event.clientY, window.innerHeight - 190)}); }}><button type="button" onClick={() => onSelectTab?.(item)} title={itemTitle}>{item.pending ? <i/> : <Icon name={artifactTabIcon(item)} size={13}/>}<span>{compactArtifactTitle(item)}</span></button><button type="button" onClick={() => onCloseTab?.(key)} aria-label={`Fechar ${itemTitle}`}>×</button></div>;
+      return <div key={key} className={key === activeTabKey ? 'is-active' : ''} onContextMenu={event => { event.preventDefault(); setTabMenu({item, key, x: Math.min(event.clientX, window.innerWidth - 218), y: Math.min(event.clientY, window.innerHeight - 190)}); }}><button type="button" onClick={() => onSelectTab?.(item)} title={itemTitle} aria-label={`Abrir ${itemTitle}`}><span className="cv-artifact-tab__icon">{item.pending ? <i/> : <Icon name={artifactTabIcon(item)} size={13}/>}</span><span className="cv-artifact-tab__title">{compactArtifactTitle(item)}</span></button><button type="button" onClick={() => onCloseTab?.(key)} aria-label={`Fechar ${itemTitle}`} title={`Fechar ${itemTitle}`}><Icon name="close" size={13}/></button></div>;
     })}</nav>}
     {tabMenu && <div className="cv-artifact-tab-menu" style={{left: tabMenu.x, top: tabMenu.y}} role="menu" onPointerDown={event => event.stopPropagation()}>
       <button type="button" role="menuitem" onClick={() => { onCloseTab?.(tabMenu.key); setTabMenu(null); }}>Fechar aba</button>
@@ -682,25 +706,25 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     </div>}
     <header className="cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4">
       <div className="cv-min-w-0 cv-flex-1">{type !== 'image' && <span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Entrega'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>}{type === 'image' || textArtifact ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label={type === 'image' ? 'Nome do arquivo' : 'Título do documento'}/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o título">{displayTitle}{dirty && <i className="cv-artifact-title-dirty" title="Alterações não salvas"/>}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
-      {type === 'html' && artifact.id && <button type="button" onClick={publicLink ? onCopyPublishedUrl : onPublish} disabled={publishing || saving} className="cv-artifact-publish">{publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Copiar link' : 'Publicar'}</button>}
-      {textArtifact && !artifact.pending && !artifact.failed && <button type="button" className="cv-artifact-edit-mode" onClick={() => setEditingDocument(value => !value)}>{editingDocument ? 'Visualizar' : 'Editar'}</button>}
+      {type === 'html' && artifact.id && <button type="button" onClick={publicLink ? onCopyPublishedUrl : onPublish} disabled={publishing || saving} className="cv-artifact-publish" aria-label={publishing ? 'Publicando' : saving ? 'Salvando' : publicLink ? 'Copiar link publicado' : 'Publicar página'} title={publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Copiar link' : 'Publicar'}><Icon name={publicLink ? 'link' : 'external'} size={15}/><span>{publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Link' : 'Publicar'}</span></button>}
+      {textArtifact && !artifact.pending && !artifact.failed && <button type="button" className="cv-artifact-edit-mode" onClick={() => setEditingDocument(value => !value)} aria-label={editingDocument ? 'Visualizar documento' : 'Editar documento'} title={editingDocument ? 'Visualizar' : 'Editar'}><Icon name={editingDocument ? 'file' : 'compose'} size={15}/><span>{editingDocument ? 'Visualizar' : 'Editar'}</span></button>}
       {!artifact.pending && !artifact.failed && <details className="cv-artifact-more">
-        <summary aria-label="Mais ações da entrega">Ações <span aria-hidden="true">⌄</span></summary>
+        <summary aria-label="Mais ações da entrega" title="Mais ações"><Icon name="more" size={18}/><span className="cv-sr-only">Mais ações</span></summary>
         <div>
-          {type === 'image' && imageEditUrl && <a href={imageEditUrl} target="_blank" rel="noreferrer" className="is-primary">Editar no Studio</a>}
-          {type === 'image' && src && <button type="button" disabled={organizingImage} onClick={organizeImage}>{organizingImage ? 'Analisando imagem…' : 'Analisar e organizar arquivo'}</button>}
-          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'mask', 'Altere somente a região que eu marcar, preservando todo o restante da imagem.')} target="_blank" rel="noreferrer">Marcar uma área</a>}
-          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'crop', 'Recorte e reenquadre a imagem mantendo o elemento principal em destaque.')} target="_blank" rel="noreferrer">Recortar e reenquadrar</a>}
-          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'select', 'Remova o fundo desta imagem e preserve as bordas do elemento principal com acabamento limpo.')} target="_blank" rel="noreferrer">Remover fundo</a>}
-          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'format', 'Adapte esta imagem para um novo formato sem perder o conteúdo principal.')} target="_blank" rel="noreferrer">Alterar formato</a>}
-          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'select', 'Otimize esta imagem para uso digital, reduzindo o peso sem perda visual perceptível.')} target="_blank" rel="noreferrer">Otimizar para web</a>}
-          {type === 'image' && src && <a href={src} target="_blank" rel="noreferrer">Abrir original</a>}
-          {type === 'image' && src && <a href={src} download>Baixar arquivo</a>}
-          {textArtifact && <button type="button" onClick={toggleTheme}>{lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}</button>}
-          {(textArtifact || type === 'html') && artifact.id && <div role="group" aria-label="Baixar arquivo"><button type="button" onClick={() => downloadTextArtifact(artifact, 'md')}>Baixar .md</button><button type="button" onClick={() => downloadTextArtifact(artifact, 'txt')}>Baixar .txt</button><button type="button" onClick={() => downloadTextArtifact(artifact, 'html')}>Baixar .html</button></div>}
+          {type === 'image' && imageEditUrl && <a href={imageEditUrl} target="_blank" rel="noreferrer" className="is-primary"><Icon name="compose" size={14}/>Editar no Studio</a>}
+          {type === 'image' && src && <button type="button" disabled={organizingImage} onClick={organizeImage}><Icon name="brand" size={14}/>{organizingImage ? 'Analisando imagem…' : 'Analisar e organizar arquivo'}</button>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'mask', 'Altere somente a região que eu marcar, preservando todo o restante da imagem.')} target="_blank" rel="noreferrer"><Icon name="compose" size={14}/>Marcar uma área</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'crop', 'Recorte e reenquadre a imagem mantendo o elemento principal em destaque.')} target="_blank" rel="noreferrer"><Icon name="image" size={14}/>Recortar e reenquadrar</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'select', 'Remova o fundo desta imagem e preserve as bordas do elemento principal com acabamento limpo.')} target="_blank" rel="noreferrer"><Icon name="image" size={14}/>Remover fundo</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'format', 'Adapte esta imagem para um novo formato sem perder o conteúdo principal.')} target="_blank" rel="noreferrer"><Icon name="file" size={14}/>Alterar formato</a>}
+          {type === 'image' && imageEditUrl && <a href={imageStudioLink(artifact, studioEditorUrl, projectRef, 'select', 'Otimize esta imagem para uso digital, reduzindo o peso sem perda visual perceptível.')} target="_blank" rel="noreferrer"><Icon name="check" size={14}/>Otimizar para web</a>}
+          {type === 'image' && src && <a href={src} target="_blank" rel="noreferrer"><Icon name="external" size={14}/>Abrir original</a>}
+          {type === 'image' && src && <a href={src} download><Icon name="download" size={14}/>Baixar arquivo</a>}
+          {textArtifact && <button type="button" onClick={toggleTheme}><Icon name={lightTheme ? 'moon' : 'sun'} size={14}/>{lightTheme ? 'Usar tema escuro' : 'Usar tema claro'}</button>}
+          {(textArtifact || type === 'html') && artifact.id && <div role="group" aria-label="Baixar arquivo"><button type="button" onClick={() => downloadTextArtifact(artifact, 'md')}><Icon name="download" size={14}/>Baixar .md</button><button type="button" onClick={() => downloadTextArtifact(artifact, 'txt')}><Icon name="download" size={14}/>Baixar .txt</button><button type="button" onClick={() => downloadTextArtifact(artifact, 'html')}><Icon name="download" size={14}/>Baixar .html</button></div>}
           {artifact.id && onMoveToProject && <label className="cv-artifact-project-picker">Mover material<select value={artifact.project_ref || ''} disabled={saving} onChange={event => onMoveToProject(event.target.value)}><option value="">Espaço pessoal</option>{projects.map(item => { const ref = item.projectRef || item.ref || item.id; return <option key={ref} value={ref}>{item.name || item.title || ref}</option>; })}</select></label>}
-          {publicLink && <button type="button" onClick={onUnpublish} disabled={publishing || saving}>Despublicar</button>}
-          <button type="button" onClick={() => onSideChange?.(side === 'right' ? 'left' : 'right')}>{side === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}</button>
+          {publicLink && <button type="button" onClick={onUnpublish} disabled={publishing || saving}><Icon name="close" size={14}/>Despublicar</button>}
+          <button type="button" onClick={() => onSideChange?.(side === 'right' ? 'left' : 'right')}><Icon name="browser" size={14}/>{side === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}</button>
           {artifact.id && <button type="button" onClick={openVersions}><Icon name="history" size={14}/>Ver versões <small>v{artifact.current_version || 1}</small></button>}
         </div>
       </details>}

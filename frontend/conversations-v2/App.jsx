@@ -1345,7 +1345,8 @@ export default function App({bootstrap}) {
     }
     const command = plugin?.triggers?.find?.(trigger => String(trigger).startsWith('/'));
     const draft = input.trim().replace(/^\/[a-z][a-z-]+\s+/i, '');
-    const prompt = command && draft ? `${command} ${draft}` : pluginPrompt(plugin);
+    const template = pluginPrompt(plugin);
+    const prompt = command && draft ? `${command} ${draft}` : !command && draft && template ? `${template}\n${draft}` : template;
     if (!prompt) return;
     setPluginsPageOpen(false);
     setLibraryOpen(false);

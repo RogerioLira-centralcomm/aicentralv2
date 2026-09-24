@@ -61,7 +61,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
           </button></li>)}</ul>
         </section>}
         <section className="cv-plugin-shelf">
-          <header><div><h2>Plugins do Cadu</h2><p>Selecionados automaticamente quando ajudam na tarefa.</p></div><span>NESTA FASE</span></header>
+          <header><div><h2>Plugins do Cadu</h2><p>Abra pelo card ou digite / para escolher no chat.</p></div><span>NESTA FASE</span></header>
           <ul>{caduPlugins.map(plugin => <li key={plugin.id}>
             <button type="button" className="cv-plugin-card" onClick={() => onUsePlugin?.(plugin)} aria-label={`Usar ${plugin.name}`}>
               <CaduPluginMark caduMark={caduMark} name={plugin.name} pluginId={plugin.id}/>

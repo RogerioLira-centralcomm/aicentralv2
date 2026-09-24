@@ -12,6 +12,7 @@ from .router import route_request
 from .task_planner import build_task_plan
 from .contracts import execution_mode_for
 from . import plugins
+from .daily_workflows import recent_preferences
 from ..mcp.registry import load_builtin_tools
 from ...db import close_db
 
@@ -74,14 +75,17 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
           and not re.search(r"\b(?:documento|arquivo|artefato|edit[aá]vel)\b", message, re.IGNORECASE)):
         route = replace(route, action="plan_campaign", response_mode="analysis", artifact_type=None)
     selected_plugin, plugin_tools, plugin_missing = plugins.select(route, message, request)
-    if plugin_missing:
+    if selected_plugin and selected_plugin.get("unavailable"):
+        route = replace(route, action="plugin_unavailable", complexity="low", response_mode="direct",
+                        needs_tools=(), artifact_type=None, requires_confirmation=False)
+    elif plugin_missing:
         route = replace(route, action="clarify_plugin_context", response_mode="clarification",
                         needs_tools=(), artifact_type=None, requires_confirmation=False)
     elif plugin_tools:
         required_tools = (plugin_tools if selected_plugin and (selected_plugin.get("id") in plugins.WORKFLOWS or selected_plugin.get("id") in {"insights", "reports", "google-connect", "google-drive", "google-calendar", "google-meet"})
                           else tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))))
         route = replace(route, needs_tools=required_tools)
-    if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS and not plugin_missing:
+    if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS and not plugin_missing and not selected_plugin.get("unavailable"):
         route = replace(route, action="run_plugin", complexity="medium", response_mode="analysis", artifact_type=None,
                         requires_confirmation=False, needs_tools=plugin_tools)
     readiness = None
@@ -96,14 +100,17 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         requested_mode = "fast"
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
-    if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS and not plugin_missing and execution_mode != "fast":
+    if (selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS
+            and not plugin_missing and not selected_plugin.get("unavailable") and execution_mode != "fast"):
         budget = replace(budget, max_output_tokens=max(budget.max_output_tokens, 1800),
                          max_context_chars=max(budget.max_context_chars, 22000),
                          max_tool_calls=max(budget.max_tool_calls, 6))
     if route.action == "create_newsletter":
         news_count = re.search(r"\b(\d{1,2})\s+(?:not[ií]cias?|novidades?)\b", routed_message, re.I)
         policy["newsletter_news_count"] = min(8, max(1, int(news_count.group(1)))) if news_count else 4
-    planning_delivery = planning_request or planning_followup
+    planning_delivery = (planning_request or planning_followup) and not (
+        selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS
+    )
     if planning_delivery:
         budget = replace(budget, max_output_tokens=max(budget.max_output_tokens, 4000),
                          max_context_chars=max(budget.max_context_chars, 28000))
@@ -127,16 +134,32 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     policy["allow_artifact"] = route.artifact_type is not None
     policy["allow_task_proposal"] = route.action == "plan_project_tasks"
     if selected_plugin:
-        policy["plugin"] = {**selected_plugin, "required_context_missing": plugin_missing}
+        if selected_plugin.get("unavailable"):
+            policy["plugin_unavailable"] = selected_plugin["id"]
+        else:
+            policy["plugin"] = {**selected_plugin, "required_context_missing": plugin_missing}
         policy["plugin_instruction"] = (
             "Este plugin está ativo na conversa. Use apenas evidências e retornos MCP "
             "presentes neste turno; não afirme que uma busca, análise, geração ou gravação ocorreu sem retorno correspondente. "
             "Mantenha a resposta na conversa. Crie ou atualize artefato somente quando o usuário pedir, ou quando a rota "
             "já determinar uma entrega editável. Se faltar escopo, pergunte antes de consultar uma base privada."
         )
-        if selected_plugin.get("id") in plugins.WORKFLOWS:
+        if selected_plugin.get("unavailable"):
+            policy["plugin_instruction"] = (
+                f"O plugin {selected_plugin['name']} está temporariamente indisponível. "
+                "Diga isso em uma frase, sem alegar que executou o plugin, e ofereça continuar a tarefa na conversa."
+            )
+            policy["max_questions"] = 0
+        elif selected_plugin.get("id") in plugins.WORKFLOWS and not plugin_missing:
             policy["plugin_instruction"] += " " + plugins.WORKFLOWS[selected_plugin["id"]][4]
             policy["max_answer_chars"] = max(policy.get("max_answer_chars", 0), 7000)
+            preferences = recent_preferences(request, selected_plugin["id"])
+            if preferences:
+                policy["plugin_instruction"] += (
+                    " Preferências recorrentes desta pessoa neste projeto: " + ", ".join(preferences)
+                    + ". Use-as apenas para ordenar sugestões; o pedido atual prevalece. "
+                    "Se ajudar, ofereça uma única próxima ação personalizada ao final."
+                )
     if plugin_missing:
         daily_next_step = None
         if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS:

@@ -91,12 +91,18 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
         plugin_id = explicit.group(1)
         tool_chain = _execution_tools(plugin_id)
         has_material = len(text.split()) >= 30 or text.count("\n") >= 3
+        if not text.strip()[explicit.end():].strip():
+            missing.append("objetivo do pedido")
         if re.search(r"\bdescreva (?:seu objetivo|sua tarefa)\b", text, re.I):
             missing.append("objetivo do pedido")
         if (plugin_id in {"market-radar", "audience-map", "creative-concept", "channel-copy"}
                 and not (context.project_ref or context.brand_ref)
                 and re.search(r"\b(?:deste projeto|desta campanha)\b", text, re.I)):
             missing.append("marca, setor ou campanha a considerar")
+        if (plugin_id in {"investment-simulator", "meeting-copilot"}
+                and not (context.project_ref or context.brand_ref) and not has_material
+                and "deste projeto" in text.casefold()):
+            missing.append("projeto ou objetivo a considerar")
         if plugin_id == "media-plan-audit":
             tool_chain = (("planner.get_media_plan",) if context.active_object and context.active_object.type in {"plan", "media_plan"}
                           else ("planner.list_plans",) if context.project_ref and not has_material else ())
@@ -104,7 +110,7 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
             tool_chain = ("reports.get_report_metrics",)
         if plugin_id == "campaign-tracker" and not context.project_ref and not context.active_object:
             tool_chain = ()
-            if not _SUPPLIED_DATA.search(text):
+            if not (_SUPPLIED_DATA.search(text) and re.search(r"\d", text)):
                 missing.append("relatório revisado, métricas ou projeto da campanha")
         if plugin_id == "media-plan-audit" and not context.project_ref and not context.active_object and not has_material:
             missing.append("plano de mídia ou projeto com um plano")
@@ -211,7 +217,11 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
         return None, (), []
     selected = get_plugin(plugin_id)
     if not selected:
-        # A removed or disabled catalog entry must never dispatch a workflow.
+        # Preserve an explicit slash request as an honest unavailable state;
+        # never dispatch its tools while the catalog disables the workflow.
+        if explicit and explicit.group(1) in WORKFLOWS:
+            return {"id": plugin_id, "name": WORKFLOWS[plugin_id][0],
+                    "unavailable": True, "internal_tools": []}, (), []
         return None, (), []
     # Runtime execution capabilities are code allowlisted. The database manifest
     # documents them but cannot expand what an automatic selection may invoke.

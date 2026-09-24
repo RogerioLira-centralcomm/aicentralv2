@@ -58,3 +58,9 @@ test('workspace project groups preserve distinct brands that share a display nam
   assert.equal(result.groups.length, 2);
   assert.deepEqual(result.groups.map(group => group.projects.map(project => project.id)), [['p1'], ['p2']]);
 });
+
+test('workspace project groups keep brands with no linked projects visible', () => {
+  const result = groupWorkspaceProjects([{id:'1', name:'Marca sem projeto'}], []);
+  assert.deepEqual(result.groups.map(group => group.name), ['Marca sem projeto']);
+  assert.deepEqual(result.groups[0].projects, []);
+});

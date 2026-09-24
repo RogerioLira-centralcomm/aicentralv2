@@ -1,5 +1,6 @@
 """Narrow projections of existing data. Query errors must never grant access."""
 import json
+from uuid import uuid4
 from urllib.parse import urlparse
 
 from ..db import get_db
@@ -16,7 +17,8 @@ def family_table_available(name):
                     'cadu_family_project_access', 'cadu_user_memories',
                     'cadu_working_memories', 'cadu_conversation_memory_state',
                     'cadu_visual_identity_versions',
-                    'cadu_conversation_organization'}:
+                    'cadu_conversation_organization', 'cadu_conversation_sections',
+                    'cadu_conversation_shares'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
     if name not in cache:
@@ -409,6 +411,9 @@ def conversation_history_all(user, client_id, query='', limit=500):
                          x.brand_ref,
                          EXISTS (SELECT 1 FROM cadu_family_chat_runs r WHERE r.conversation_id=c.id AND r.status='running') AS running,
                          COALESCE(o.section, 'recent') AS section,
+                         o.custom_section_id::text AS custom_section_id,
+                         s.name AS custom_section_name,
+                         COALESCE(o.is_unread, FALSE) AS is_unread,
                          COALESCE(o.automation_enabled, FALSE) AS automation_enabled,
                          o.schedule_label,
                          COALESCE(last_message.role = 'assistant' AND (
@@ -419,6 +424,7 @@ def conversation_history_all(user, client_id, query='', limit=500):
                     FROM cadu_conversations c
                LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
                LEFT JOIN cadu_conversation_organization o ON o.conversation_id = c.id
+               LEFT JOIN cadu_conversation_sections s ON s.id = o.custom_section_id
                LEFT JOIN LATERAL (SELECT role, metadata FROM cadu_conversation_messages
                                    WHERE conversation_id = c.id AND role IN ('user', 'assistant')
                                    ORDER BY conversation_sequence DESC NULLS LAST, created_at DESC, id DESC LIMIT 1) last_message ON TRUE
@@ -432,29 +438,283 @@ def conversation_history_all(user, client_id, query='', limit=500):
                  active_statuses, limit))
 
 
-def organize_conversation(user_id, client_id, conversation_id, section, automation_enabled=None):
+def organize_conversation(user_id, client_id, conversation_id, section, automation_enabled=None,
+                          custom_section_id=None):
     conn = get_db()
     try:
         with conn.cursor() as cur:
             cur.execute('''INSERT INTO cadu_conversation_organization
-                (conversation_id, user_id, client_id, section, automation_enabled)
-                SELECT id, %s, %s, %s, %s FROM cadu_conversations
+                (conversation_id, user_id, client_id, section, automation_enabled, custom_section_id)
+                SELECT id, %s, %s, %s, %s, %s FROM cadu_conversations
                  WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s
                 ON CONFLICT (conversation_id) DO UPDATE SET
                     section=EXCLUDED.section,
+                    custom_section_id=EXCLUDED.custom_section_id,
                     automation_enabled=CASE WHEN EXCLUDED.section='automation'
                         THEN COALESCE(%s, cadu_conversation_organization.automation_enabled)
                         ELSE FALSE END,
                     updated_at=NOW()
-                RETURNING conversation_id, section, automation_enabled, schedule_label''',
+                RETURNING conversation_id, section, custom_section_id, automation_enabled, schedule_label''',
                 (user_id, client_id, section, bool(automation_enabled) if automation_enabled is not None else False,
-                 conversation_id, user_id, client_id, automation_enabled))
+                 custom_section_id, conversation_id, user_id, client_id, automation_enabled))
             result = cur.fetchone()
         conn.commit()
         return dict(result) if result else None
     except Exception:
         conn.rollback()
         raise
+
+
+def conversation_sections(user_id, organization_id, client_id):
+    return rows('''SELECT id::text AS id, name, sort_order
+                     FROM cadu_conversation_sections
+                    WHERE user_id=%s AND organization_id=%s AND client_id=%s
+                 ORDER BY sort_order, lower(name), id''', (user_id, organization_id, client_id))
+
+
+def create_conversation_section(user_id, organization_id, client_id, name):
+    section_id = str(uuid4())
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_conversation_sections
+                               (id, organization_id, client_id, user_id, name)
+                           VALUES (%s,%s,%s,%s,%s)
+                           RETURNING id::text AS id, name, sort_order''',
+                        (section_id, organization_id, client_id, user_id, name))
+            result = dict(cur.fetchone())
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def rename_conversation_section(user_id, organization_id, client_id, section_id, name):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''UPDATE cadu_conversation_sections SET name=%s, updated_at=NOW()
+                            WHERE id=%s AND user_id=%s AND organization_id=%s AND client_id=%s
+                        RETURNING id::text AS id, name, sort_order''',
+                        (name, section_id, user_id, organization_id, client_id))
+            result = cur.fetchone()
+        conn.commit()
+        return dict(result) if result else None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def delete_conversation_section(user_id, organization_id, client_id, section_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''UPDATE cadu_conversation_organization o
+                              SET section='recent', custom_section_id=NULL, updated_at=NOW()
+                             FROM cadu_conversations c
+                            WHERE o.conversation_id=c.id AND o.custom_section_id=%s
+                              AND o.user_id=%s AND o.client_id=%s
+                              AND c.id_contato_cliente=%s AND c.id_cliente=%s''',
+                        (section_id, user_id, client_id, user_id, client_id))
+            cur.execute('''DELETE FROM cadu_conversation_sections
+                            WHERE id=%s AND user_id=%s AND organization_id=%s AND client_id=%s
+                        RETURNING id''', (section_id, user_id, organization_id, client_id))
+            result = cur.fetchone()
+        conn.commit()
+        return bool(result)
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def set_conversation_unread(user_id, client_id, conversation_id, unread):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_conversation_organization
+                               (conversation_id, user_id, client_id, section, is_unread)
+                           SELECT id, %s, %s, 'recent', %s FROM cadu_conversations
+                            WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s
+                           ON CONFLICT (conversation_id) DO UPDATE SET
+                               is_unread=EXCLUDED.is_unread, updated_at=NOW()
+                           RETURNING conversation_id, is_unread''',
+                        (user_id, client_id, unread, conversation_id, user_id, client_id))
+            result = cur.fetchone()
+        conn.commit()
+        return dict(result) if result else None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def move_conversation_project(user, client_id, conversation_id, project_ref):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''SELECT id FROM cadu_conversations
+                            WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s FOR UPDATE''',
+                        (conversation_id, user['id'], client_id))
+            if not cur.fetchone():
+                conn.rollback()
+                return None
+            cur.execute('''INSERT INTO cadu_family_conversation_context
+                              (conversation_id,user_id,organization_id,client_id,profile,project_ref,brand_ref)
+                           VALUES (%s,%s,%s,%s,'workspace',%s,NULL)
+                           ON CONFLICT (conversation_id) DO UPDATE SET project_ref=EXCLUDED.project_ref,
+                               updated_at=NOW()
+                           WHERE cadu_family_conversation_context.user_id=%s
+                             AND cadu_family_conversation_context.organization_id=%s
+                             AND cadu_family_conversation_context.client_id=%s
+                       RETURNING profile, project_ref, brand_ref''',
+                        (conversation_id, user['id'], user['organization_id'], client_id, project_ref,
+                         user['id'], user['organization_id'], client_id))
+            result = cur.fetchone()
+            if not result:
+                conn.rollback()
+                return None
+            legacy_project_id = project_ref[3:] if project_ref and project_ref.startswith('ci:') else None
+            cur.execute('''UPDATE cadu_conversations SET projeto_id=%s, updated_at=NOW()
+                            WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s''',
+                        (legacy_project_id, conversation_id, user['id'], client_id))
+        conn.commit()
+        return dict(result)
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def fork_conversation(user, client_id, conversation_id):
+    conn = get_db()
+    fork_id = str(uuid4())
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''SELECT id, titulo, projeto_id FROM cadu_conversations
+                            WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s
+                              AND status IN ('ativa','active') FOR UPDATE''',
+                        (conversation_id, user['id'], client_id))
+            source = cur.fetchone()
+            if not source:
+                conn.rollback()
+                return None
+            cur.execute('''SELECT 1 FROM cadu_family_chat_runs
+                            WHERE conversation_id=%s AND status='running' LIMIT 1''', (conversation_id,))
+            if cur.fetchone():
+                conn.rollback()
+                raise ValueError('running')
+            cur.execute('''SELECT profile, project_ref, brand_ref FROM cadu_family_conversation_context
+                            WHERE conversation_id=%s AND user_id=%s AND organization_id=%s AND client_id=%s''',
+                        (conversation_id, user['id'], user['organization_id'], client_id))
+            saved_context = cur.fetchone() or {'profile': 'workspace', 'project_ref': None, 'brand_ref': None}
+            title = (str(source['titulo'] or 'Conversa')[:132] + ' — ramificação')[:150]
+            cur.execute('''SELECT conversation_sequence FROM cadu_conversation_messages
+                            WHERE conversation_id=%s AND role IN ('user','assistant')
+                         ORDER BY conversation_sequence DESC NULLS LAST, created_at DESC, id DESC LIMIT 1''',
+                        (conversation_id,))
+            fork_sequence = (cur.fetchone() or {}).get('conversation_sequence')
+            cur.execute('''INSERT INTO cadu_conversations
+                              (id,id_cliente,id_contato_cliente,titulo,status,total_mensagens,projeto_id,
+                               parent_conversation_id,forked_from_sequence,created_at,updated_at)
+                           VALUES (%s,%s,%s,%s,'ativa',0,%s,%s,%s,NOW(),NOW())''',
+                        (fork_id, client_id, user['id'], title, source['projeto_id'], conversation_id, fork_sequence))
+            cur.execute('''INSERT INTO cadu_family_conversation_context
+                              (conversation_id,user_id,organization_id,client_id,profile,project_ref,brand_ref)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s)''',
+                        (fork_id, user['id'], user['organization_id'], client_id, saved_context['profile'],
+                         saved_context['project_ref'], saved_context['brand_ref']))
+            cur.execute('''INSERT INTO cadu_conversation_organization
+                              (conversation_id,user_id,client_id,section)
+                           VALUES (%s,%s,%s,'recent')''', (fork_id, user['id'], client_id))
+            cur.execute('''SELECT role,content,created_at
+                            FROM cadu_conversation_messages
+                           WHERE conversation_id=%s AND role IN ('user','assistant')
+                           ORDER BY conversation_sequence ASC NULLS FIRST,created_at ASC,id ASC''',
+                        (conversation_id,))
+            messages = cur.fetchall()
+            for message in messages:
+                cur.execute('''INSERT INTO cadu_conversation_messages
+                                  (id,conversation_id,role,content,files,metadata,created_at)
+                               VALUES (%s,%s,%s,%s,%s,%s,%s)''',
+                            (str(uuid4()), fork_id, message['role'], message['content'],
+                             Json([]), Json({}), message['created_at']))
+            cur.execute('''UPDATE cadu_conversations SET total_mensagens=%s,updated_at=NOW()
+                            WHERE id=%s''', (len(messages), fork_id))
+        conn.commit()
+        return {'id': fork_id, 'title': title, 'parent_conversation_id': conversation_id,
+                'forked_from_sequence': fork_sequence, 'message_count': len(messages)}
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def create_conversation_share(user, selected, conversation_id, token_hash):
+    share_id = str(uuid4())
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''SELECT id FROM cadu_conversations
+                            WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s
+                              AND status IN ('ativa','active') FOR UPDATE''',
+                        (conversation_id, user['id'], selected['client_id']))
+            if not cur.fetchone():
+                conn.rollback()
+                return []
+            cur.execute('''UPDATE cadu_conversation_shares SET revoked_at=NOW()
+                            WHERE conversation_id=%s AND user_id=%s AND client_id=%s
+                              AND revoked_at IS NULL''',
+                        (conversation_id, user['id'], selected['client_id']))
+            cur.execute('''INSERT INTO cadu_conversation_shares
+                               (id,conversation_id,organization_id,client_id,user_id,token_hash)
+                           SELECT %s,c.id,%s,%s,%s,%s FROM cadu_conversations c
+                            WHERE c.id=%s AND c.id_contato_cliente=%s AND c.id_cliente=%s
+                              AND c.status IN ('ativa','active')
+                           RETURNING id::text AS id,expires_at''',
+                        (share_id, user['organization_id'], selected['client_id'], user['id'], token_hash,
+                         conversation_id, user['id'], selected['client_id']))
+            result = cur.fetchone()
+        conn.commit()
+        return [dict(result)] if result else []
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def revoke_conversation_share(user_id, client_id, conversation_id, share_id=None):
+    params = [conversation_id, user_id, client_id]
+    share_filter = ''
+    if share_id:
+        share_filter = ' AND id=%s'
+        params.append(share_id)
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'''UPDATE cadu_conversation_shares SET revoked_at=NOW()
+                             WHERE conversation_id=%s AND user_id=%s AND client_id=%s
+                               AND revoked_at IS NULL{share_filter}
+                         RETURNING id::text AS id''', tuple(params))
+            result = [dict(row) for row in cur.fetchall()]
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def public_conversation_share(token_hash):
+    share = rows('''SELECT s.id::text AS share_id,c.titulo AS title,c.id AS conversation_id
+                      FROM cadu_conversation_shares s
+                      JOIN cadu_conversations c ON c.id=s.conversation_id
+                     WHERE s.token_hash=%s AND s.revoked_at IS NULL AND s.expires_at>NOW()
+                       AND c.status IN ('ativa','active')''', (token_hash,))
+    if not share:
+        return None
+    result = share[0]
+    result['messages'] = rows('''SELECT role,content,created_at
+                                  FROM cadu_conversation_messages
+                                 WHERE conversation_id=%s AND role IN ('user','assistant')
+                              ORDER BY conversation_sequence ASC NULLS FIRST,created_at ASC,id ASC''',
+                             (result['conversation_id'],))
+    return result
 
 
 def set_conversation_automation(user_id, client_id, conversation_id, enabled):
@@ -496,6 +756,10 @@ def update_conversation(user_id, client_id, conversation_id, title=None, archive
                                   SET automation_enabled=FALSE, updated_at=NOW()
                                 WHERE conversation_id=%s AND user_id=%s AND client_id=%s''',
                             (conversation_id, user_id, client_id))
+            if result and archived is True and family_table_available('cadu_conversation_shares'):
+                cur.execute('''UPDATE cadu_conversation_shares SET revoked_at=NOW()
+                                WHERE conversation_id=%s AND user_id=%s AND client_id=%s
+                                  AND revoked_at IS NULL''', (conversation_id, user_id, client_id))
         conn.commit()
         return dict(result) if result else None
     except Exception:

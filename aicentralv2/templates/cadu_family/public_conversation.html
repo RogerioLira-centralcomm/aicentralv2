@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{{ shared.title or 'Conversa compartilhada' }} · Cadu</title>
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#0d1719; color:#e5eeeb; }
+    * { box-sizing:border-box; }
+    body { max-width:820px; margin:0 auto; padding:36px 22px 64px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:20px; padding-bottom:20px; border-bottom:1px solid #26383a; }
+    header strong { color:#79d5c8; font-size:14px; font-weight:650; letter-spacing:.02em; }
+    header span { color:#9aadaa; font-size:11px; }
+    h1 { margin:28px 0 24px; font-size:clamp(23px,4vw,32px); font-weight:560; letter-spacing:-.035em; line-height:1.2; }
+    main { display:grid; gap:12px; }
+    article { padding:16px 18px; border-radius:12px; background:#142224; }
+    article.is-assistant { background:#111d1f; }
+    article header { justify-content:flex-start; gap:9px; padding:0; border:0; color:#8da6a1; font-size:10px; font-weight:600; }
+    article p { margin:0; overflow-wrap:anywhere; color:#e2ece9; font-size:14px; line-height:1.7; white-space:pre-wrap; }
+    article header + p { margin-top:9px; }
+    footer { margin-top:24px; color:#6f8581; font-size:10px; }
+    @media (prefers-color-scheme:light) {
+      :root { background:#f4f8f6; color:#203532; }
+      header { border-color:#d9e5e1; }
+      header span, article header, footer { color:#607772; }
+      article { background:#e8f0ed; }
+      article.is-assistant { background:#fff; }
+      article p { color:#253b37; }
+    }
+  </style>
+</head>
+<body>
+  <header><strong>Cadu</strong><span>Conversa compartilhada · somente leitura</span></header>
+  <h1>{{ shared.title or 'Conversa sem título' }}</h1>
+  <main>
+    {% for message in shared.messages %}
+      <article class="is-{{ 'assistant' if message.role == 'assistant' else 'user' }}">
+        <header>{{ 'Cadu' if message.role == 'assistant' else 'Pessoa' }}</header>
+        <p>{{ message.content or '' }}</p>
+      </article>
+    {% endfor %}
+  </main>
+  <footer>Este link expira automaticamente. A conversa compartilhada não permite edição.</footer>
+</body>
+</html>

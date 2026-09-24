@@ -78,6 +78,7 @@ export default function App({bootstrap}) {
   const [projects, setProjects] = useState([]);
   const [brands, setBrands] = useState(() => bootstrap.brands || []);
   const [conversations, setConversations] = useState([]);
+  const [conversationSections, setConversationSections] = useState([]);
   const [conversationId, setConversationId] = useState(null);
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
@@ -183,8 +184,10 @@ export default function App({bootstrap}) {
       const separator = bootstrap.endpoints.history.includes('?') ? '&' : '?';
       const data = await request(`${bootstrap.endpoints.history}${separator}limit=50`);
       setConversations(recentConversations(data.conversations, 50));
+      setConversationSections(Array.isArray(data.sections) ? data.sections : []);
     } catch (_) {
       setConversations([]);
+      setConversationSections([]);
     } finally { setHistoryLoading(false); }
   }, [bootstrap.endpoints.history]);
 
@@ -423,28 +426,78 @@ export default function App({bootstrap}) {
     } finally { setRuntime(''); setContextLoading(false); }
   }, [running, confirmDiscard, bootstrap.endpoints.context, rememberContext, reset, loadBrandIdentity, trace, loadContext]);
 
-  const conversationAction = useCallback(async (item, action) => {
+  const conversationAction = useCallback(async (item, action, value) => {
     const id = String(item?.id || '');
     if (!id) return;
+    if (action === 'fork') {
+      const data = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/fork`, {
+        method: 'POST', headers: {'X-CSRF-Token': csrf()},
+      });
+      if (data.conversation?.id) await openConversation(data.conversation.id, data.conversation.title);
+      return data.conversation;
+    }
+    if (action === 'share') {
+      const data = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/shares`, {
+        method: 'POST', headers: {'X-CSRF-Token': csrf()},
+      });
+      return data.share;
+    }
+    if (action === 'revoke-share') {
+      await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/shares`, {
+        method: 'DELETE', headers: {'X-CSRF-Token': csrf()},
+      });
+      return {revoked: true};
+    }
+    if (action === 'copy-transcript') {
+      const data = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
+      const text = (data.messages || []).map(message => `## ${message.role === 'assistant' ? 'Cadu' : 'Você'}\n\n${message.content || ''}`).join('\n\n---\n\n');
+      return {text: `# ${item.title || 'Conversa sem título'}\n\n${text}`};
+    }
     const previous = conversations;
     let payload;
     if (action === 'archive') payload = {archived: true};
     else if (action === 'stop-automation') payload = {automation_enabled: false};
+    else if (action === 'rename') payload = {title: String(value || '').trim()};
+    else if (action === 'move-project') payload = {project_ref: value || null};
+    else if (action === 'set-section') payload = {section: value?.section || value, custom_section_id: value?.custom_section_id || null};
+    else if (action === 'mark-unread') payload = {is_unread: value !== false};
+    else if (action === 'mark-read') payload = {is_unread: false};
     else return;
-    setConversations(items => action === 'archive'
-      ? items.filter(candidate => String(candidate.id) !== id)
-      : items.map(candidate => String(candidate.id) === id ? {...candidate, automation_enabled: false} : candidate));
+    const updateConversation = candidate => {
+      if (String(candidate.id) !== id) return candidate;
+      if (action === 'stop-automation') return {...candidate, automation_enabled: false};
+      if (action === 'rename') return {...candidate, title: payload.title};
+      if (action === 'move-project') return {...candidate, project_ref: payload.project_ref};
+      if (action === 'set-section') return {...candidate, section: payload.section, custom_section_id: payload.custom_section_id,
+        custom_section_name: value?.custom_section_name || (payload.section === 'custom' ? candidate.custom_section_name : null)};
+      if (action === 'mark-unread' || action === 'mark-read') return {...candidate, is_unread: payload.is_unread};
+      return candidate;
+    };
+    setConversations(items => action === 'archive' ? items.filter(candidate => String(candidate.id) !== id) : items.map(updateConversation));
     try {
-      await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}`, {
+      const data = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}`, {
         method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
         body: JSON.stringify(payload),
       });
+      if (action === 'rename' && String(conversationRef.current) === id) setTitle(payload.title);
+      if (action === 'move-project' && String(conversationRef.current) === id && data.conversation) {
+        setContext(current => ({...current, ...data.conversation}));
+      }
       if (action === 'archive' && String(conversationRef.current) === id) reset();
+      return data.conversation;
     } catch (error) {
       setConversations(previous);
       trace('Não foi possível atualizar a conversa', error.message, 'error');
+      throw error;
     }
-  }, [bootstrap.endpoints.history, conversations, reset, trace]);
+  }, [bootstrap.endpoints.history, conversations, reset, trace, openConversation]);
+
+  const createConversationSection = useCallback(async name => {
+    const endpoint = bootstrap.endpoints.history.replace(/\/conversations(?:\?.*)?$/, '/conversation-sections');
+    const data = await request(endpoint, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({name})});
+    if (data.section) setConversationSections(current => [...current, data.section].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+    return data.section;
+  }, [bootstrap.endpoints.history]);
 
   const dropContext = useCallback(payload => {
     if (payload?.projectRef || payload?.type === 'project') {
@@ -1344,6 +1397,9 @@ export default function App({bootstrap}) {
   const activeBrandRef = String(context?.brand_ref || '');
   const starterProject = projects.find(item => String(item.ref || item.projectRef || item.id) === activeProjectRef);
   const starterBrand = brands.find(item => String(item.ref || item.brandRef || (item.id ? `studio:${item.id}` : '')) === activeBrandRef);
+  const starterProjectBrandRefs = Array.isArray(starterProject?.brand_refs) ? starterProject.brand_refs : Array.isArray(starterProject?.related_refs) ? starterProject.related_refs : [];
+  const inheritedBrandRef = activeBrandRef || (starterProjectBrandRefs.length === 1 ? String(starterProjectBrandRefs[0]) : '');
+  const inheritedBrandId = brands.find(item => String(item.ref || item.brandRef || (item.id ? `studio:${item.id}` : '')) === inheritedBrandRef)?.id || '';
   const activeConversationState = conversations.find(item => String(item.id) === String(conversationId));
   const dockItems = conversationDockItems;
   const sharedDockItems = dockItems.map(item => ({
@@ -1409,7 +1465,7 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} onShortcutAdded={(_, next) => setConversationDockItems(next)} onShortcutRemoved={(_, next) => setConversationDockItems(next)} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
-      <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} pluginsPageOpen={pluginsPageOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={(...args) => { setPluginsPageOpen(false); openConversation(...args); }} onOpenLibrary={(_, ref) => { setPluginsPageOpen(false); openLibrary(true, ref); }} onOpenResource={item => { setPluginsPageOpen(false); showResource(item); }} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={ref => { setPluginsPageOpen(false); if (artifactOpen) setSurfaceUrl('artifact', artifact?.id || '', true); else openBrandArtifact(ref); }} onOpenPlugins={openPluginsPage} onClosePlugins={closePluginsPage} onNewConversation={() => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); newConversation(); }} onProjectChange={ref => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); changeProject(ref, {showHistory: true}); }} onOpenSidebar={openHistory} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+      <Sidebar conversations={conversations} conversationSections={conversationSections} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} pluginsPageOpen={pluginsPageOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={usagePercent} activeId={conversationId} currentTitle={title} onOpen={(...args) => { setPluginsPageOpen(false); const selected = conversations.find(item => String(item.id) === String(args[0])); openConversation(...args).then(() => { if (selected?.is_unread) conversationAction(selected, 'mark-read'); }); }} onOpenLibrary={(_, ref) => { setPluginsPageOpen(false); openLibrary(true, ref); }} onOpenResource={item => { setPluginsPageOpen(false); showResource(item); }} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={ref => { setPluginsPageOpen(false); if (artifactOpen) setSurfaceUrl('artifact', artifact?.id || '', true); else openBrandArtifact(ref); }} onOpenPlugins={openPluginsPage} onClosePlugins={closePluginsPage} onNewConversation={() => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); newConversation(); }} onProjectChange={ref => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); changeProject(ref, {showHistory: true}); }} onOpenSidebar={openHistory} onConversationAction={conversationAction} onCreateConversationSection={createConversationSection} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
       {attachmentChoice && <CaduDialog className="cv-attachment-destination-dialog" label="Destino dos arquivos" onClose={() => setAttachmentChoice(null)}><header><div><h2>Onde usar estes arquivos?</h2><p>O projeto selecionado está ativo.</p></div><button type="button" onClick={() => setAttachmentChoice(null)} aria-label="Fechar">×</button></header><div className="cv-attachment-destination-dialog__actions"><button type="button" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'conversation', skipAttachmentChoice:true}); }}>Só nesta conversa</button><button type="button" className="is-primary" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'knowledge', skipAttachmentChoice:true}); }}>Adicionar como fonte</button></div></CaduDialog>}
       {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
@@ -1490,7 +1546,7 @@ export default function App({bootstrap}) {
           />}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
-        {projectCreateOpen && <ProjectCreateDialog action={bootstrap.endpoints.createProject} csrfToken={csrf()} onClose={() => setProjectCreateOpen(false)} onCreated={handleProjectCreated}/>}
+        {projectCreateOpen && <ProjectCreateDialog action={bootstrap.endpoints.createProject} csrfToken={csrf()} brands={brands} initialBrandId={inheritedBrandId} onClose={() => setProjectCreateOpen(false)} onCreated={handleProjectCreated}/>}
       </div>
       <nav className="cv-tablet-dock cv-phone-navigation" aria-label="Navegação do chat no tablet">
         <button type="button" onClick={closeSurface} aria-current={activeSurface === 'conversation' ? 'page' : undefined}><Icon name="newChat" size={18}/><span>Conversa</span></button>

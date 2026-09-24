@@ -1,5 +1,7 @@
 """Pilot surface with explicit availability and a fail-closed context boundary."""
+import hashlib
 import secrets
+from uuid import UUID
 from urllib.parse import urlencode
 
 from flask import Blueprint, Response, abort, current_app, jsonify, make_response, redirect, render_template, request, session, stream_with_context
@@ -72,11 +74,13 @@ def protect():
     workspace_chat_surface = request_host == workspace_host and (
         request.path == '/familia/api/context'
         or request.path.startswith('/familia/api/conversations')
+        or request.path.startswith('/familia/api/conversation-sections')
     )
+    public_conversation_surface = request.path.startswith('/familia/public/conversations/')
     # Planner is a released Cadu product. It must not depend on the broader
     # family rollout flag, otherwise planner.centralcomm.media lands on the
     # CentralX 404 shell instead of its own product experience.
-    if not current_app.config.get('CADU_FAMILY_ENABLED') and not (planner_surface or workspace_chat_surface):
+    if not current_app.config.get('CADU_FAMILY_ENABLED') and not (planner_surface or workspace_chat_surface or public_conversation_surface):
         abort(404)
     family_product = request.path.removeprefix('/familia/').split('/', 1)[0]
     if (
@@ -107,8 +111,14 @@ def protect():
                            'cadu_family.conversation_upload', 'cadu_family.conversation_stop',
                            'cadu_family.conversation_work_memory_review',
                            'cadu_family.planner_link_test'}
+        conversation_action_posts = {
+            'cadu_family.conversation_update', 'cadu_family.conversation_fork',
+            'cadu_family.conversation_share_create', 'cadu_family.conversation_shares_revoke',
+            'cadu_family.conversation_section_create', 'cadu_family.conversation_section_update',
+            'cadu_family.conversation_section_delete',
+        }
         if (not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
-                and request.endpoint not in read_only_posts):
+                and request.endpoint not in read_only_posts | conversation_action_posts):
             abort(403, description='Migração em modo de consulta. Gravações não estão habilitadas.')
 
 
@@ -239,9 +249,68 @@ def conversation_history():
     except (TypeError, ValueError):
         abort(400, description='Limite de conversas inválido.')
     records = repository.conversation_history_all(user, selected['client_id'], query=query, limit=limit)
+    sections = repository.conversation_sections(user['id'], user['organization_id'], selected['client_id']) \
+        if repository.family_table_available('cadu_conversation_sections') else []
     return jsonify(conversations=records,
+                   sections=sections,
                    can_manage=bool(current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                                    and selected.get('role') in ('admin', 'member')))
+
+
+@bp.get('/api/conversation-sections')
+def conversation_sections():
+    user, selected = context.identity(), context.resolve()
+    if not repository.family_table_available('cadu_conversation_sections'):
+        abort(409, description='As seções personalizadas ainda não estão disponíveis.')
+    return jsonify(sections=repository.conversation_sections(user['id'], user['organization_id'], selected['client_id']))
+
+
+@bp.post('/api/conversation-sections')
+def conversation_section_create():
+    selected, user = writable_context(), context.identity()
+    if not repository.family_table_available('cadu_conversation_sections'):
+        abort(409, description='As seções personalizadas ainda não estão disponíveis.')
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict) or set(data) != {'name'}:
+        abort(400, description='Informe o nome da seção.')
+    name = data.get('name')
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 64 or '\x00' in name:
+        abort(400, description='Use um nome de seção de 1 a 64 caracteres.')
+    name = name.strip()
+    existing = repository.conversation_sections(user['id'], user['organization_id'], selected['client_id'])
+    if any(item['name'].casefold() == name.casefold() for item in existing):
+        abort(409, description='Já existe uma seção com esse nome.')
+    section = repository.create_conversation_section(user['id'], user['organization_id'], selected['client_id'], name)
+    return jsonify(section=section), 201
+
+
+@bp.patch('/api/conversation-sections/<uuid:section_id>')
+def conversation_section_update(section_id):
+    selected, user = writable_context(), context.identity()
+    if not repository.family_table_available('cadu_conversation_sections'):
+        abort(409, description='As seções personalizadas ainda não estão disponíveis.')
+    data = request.get_json(silent=True) or {}
+    name = data.get('name') if isinstance(data, dict) and set(data) == {'name'} else None
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 64 or '\x00' in name:
+        abort(400, description='Use um nome de seção de 1 a 64 caracteres.')
+    name = name.strip()
+    existing = repository.conversation_sections(user['id'], user['organization_id'], selected['client_id'])
+    if any(item['id'] != str(section_id) and item['name'].casefold() == name.casefold() for item in existing):
+        abort(409, description='Já existe uma seção com esse nome.')
+    section = repository.rename_conversation_section(user['id'], user['organization_id'], selected['client_id'], str(section_id), name)
+    if not section:
+        abort(404)
+    return jsonify(section=section)
+
+
+@bp.delete('/api/conversation-sections/<uuid:section_id>')
+def conversation_section_delete(section_id):
+    selected, user = writable_context(), context.identity()
+    if not repository.family_table_available('cadu_conversation_sections'):
+        abort(409, description='As seções personalizadas ainda não estão disponíveis.')
+    if not repository.delete_conversation_section(user['id'], user['organization_id'], selected['client_id'], str(section_id)):
+        abort(404)
+    return jsonify(success=True)
 
 
 @bp.get('/api/memories')
@@ -264,7 +333,8 @@ def conversation_update(conversation_id):
     selected = writable_context()
     user = context.identity()
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not data or set(data) - {'title', 'archived', 'section', 'automation_enabled'}:
+    if not isinstance(data, dict) or not data or set(data) - {
+            'title', 'archived', 'section', 'automation_enabled', 'custom_section_id', 'is_unread', 'project_ref'}:
         abort(400, description='Informe um título ou estado de arquivamento.')
     title = data.get('title')
     if 'title' in data:
@@ -275,15 +345,43 @@ def conversation_update(conversation_id):
         abort(400, description='Estado de arquivamento inválido.')
     if 'automation_enabled' in data and not isinstance(data['automation_enabled'], bool):
         abort(400, description='Estado da automação inválido.')
+    if 'is_unread' in data:
+        if not isinstance(data['is_unread'], bool):
+            abort(400, description='Estado de leitura inválido.')
+        if not repository.family_table_available('cadu_conversation_organization'):
+            abort(409, description='A organização de conversas ainda não está disponível.')
+        result = repository.set_conversation_unread(user['id'], selected['client_id'], conversation_id, data['is_unread'])
+        if not result:
+            abort(404)
+        return jsonify(conversation=result)
     if 'section' in data:
-        if data['section'] not in {'recent', 'pinned', 'automation'}:
+        if data['section'] not in {'recent', 'pinned', 'custom'}:
+            if data['section'] == 'automation':
+                abort(400, description='Configure automações pelo fluxo de agendamento.')
             abort(400, description='Destino da conversa inválido.')
         if not repository.family_table_available('cadu_conversation_organization'):
             abort(409, description='A organização de conversas ainda não está disponível.')
+        custom_section_id = data.get('custom_section_id')
+        if data['section'] == 'custom':
+            if not custom_section_id or not repository.family_table_available('cadu_conversation_sections'):
+                abort(400, description='Selecione uma seção personalizada válida.')
+            try:
+                custom_section_id = str(UUID(str(custom_section_id)))
+            except (TypeError, ValueError):
+                abort(400, description='Seção personalizada inválida.')
+            allowed_sections = repository.conversation_sections(user['id'], user['organization_id'], selected['client_id'])
+            if not any(section['id'] == custom_section_id for section in allowed_sections):
+                abort(403, description='A seção não pertence a este ambiente.')
+        elif custom_section_id is not None:
+            abort(400, description='Uma seção personalizada exige o destino personalizado.')
         result = repository.organize_conversation(user['id'], selected['client_id'], conversation_id,
-                                                  data['section'], data.get('automation_enabled'))
+                                                  data['section'], data.get('automation_enabled'), custom_section_id)
         if not result:
             abort(404)
+        if custom_section_id:
+            section = next((item for item in repository.conversation_sections(user['id'], user['organization_id'], selected['client_id'])
+                            if item['id'] == custom_section_id), None)
+            result['custom_section_name'] = section['name'] if section else None
         return jsonify(conversation=result)
     if 'automation_enabled' in data:
         if not repository.family_table_available('cadu_conversation_organization'):
@@ -293,10 +391,70 @@ def conversation_update(conversation_id):
         if not result:
             abort(409, description='Mova a conversa para Automações antes de ativá-la.')
         return jsonify(conversation=result)
+    if 'project_ref' in data:
+        project_ref = data['project_ref']
+        if project_ref is not None:
+            if not isinstance(project_ref, str) or not any(
+                    entity.get('ref') == project_ref and entity.get('kind') == 'project'
+                    for entity in context.inventory(selected['client_id'])):
+                abort(403, description='O projeto não pertence a este ambiente.')
+        result = repository.move_conversation_project(user, selected['client_id'], conversation_id, project_ref)
+        if not result:
+            abort(404)
+        return jsonify(conversation={'id': conversation_id, **result})
     result = repository.update_conversation(user['id'], selected['client_id'], conversation_id, title, data.get('archived'))
     if not result:
         abort(404)
     return jsonify(conversation=result)
+
+
+@bp.post('/api/conversations/<conversation_id>/fork')
+def conversation_fork(conversation_id):
+    selected, user = writable_context(), context.identity()
+    try:
+        fork = repository.fork_conversation(user, selected['client_id'], conversation_id)
+    except ValueError as exc:
+        if str(exc) == 'running':
+            abort(409, description='Aguarde a resposta atual terminar antes de criar uma ramificação.')
+        raise
+    if not fork:
+        abort(404)
+    return jsonify(conversation=fork), 201
+
+
+@bp.post('/api/conversations/<conversation_id>/shares')
+def conversation_share_create(conversation_id):
+    selected, user = writable_context(), context.identity()
+    if repository.conversation_messages(user['id'], selected['client_id'], conversation_id) is None:
+        abort(404)
+    token = secrets.token_urlsafe(32)
+    share = repository.create_conversation_share(user, selected, conversation_id, hashlib.sha256(token.encode()).hexdigest())
+    if not share:
+        abort(404)
+    url = url_for('cadu_family.public_conversation', token=token, _external=True)
+    return jsonify(share={**share[0], 'url': url}), 201
+
+
+@bp.delete('/api/conversations/<conversation_id>/shares')
+def conversation_shares_revoke(conversation_id):
+    selected, user = writable_context(), context.identity()
+    if repository.conversation_messages(user['id'], selected['client_id'], conversation_id) is None:
+        abort(404)
+    repository.revoke_conversation_share(user['id'], selected['client_id'], conversation_id)
+    return jsonify(success=True)
+
+
+@bp.get('/public/conversations/<token>')
+def public_conversation(token):
+    if not 32 <= len(token) <= 128:
+        abort(404)
+    shared = repository.public_conversation_share(hashlib.sha256(token.encode()).hexdigest())
+    if not shared:
+        abort(404)
+    response = make_response(render_template('cadu_family/public_conversation.html', shared=shared))
+    response.headers['X-Robots-Tag'] = 'noindex, nofollow, noarchive'
+    response.headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+    return response
 
 
 @bp.get('/api/studio/copy-ads/formats')

@@ -1,7 +1,7 @@
 import React, {useRef, useState} from 'react';
 import {CaduDialog} from './CaduDialog';
 
-export function ProjectCreateDialog({action, csrfToken, onCreated, onClose}) {
+export function ProjectCreateDialog({action, csrfToken, brands = [], initialBrandId = '', onCreated, onClose}) {
   const nameInput = useRef(null);
   const folderInput = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export function ProjectCreateDialog({action, csrfToken, onCreated, onClose}) {
       const response = await fetch(action, {
         method:'POST', credentials:'same-origin',
         headers:{'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-Token':csrfToken},
-        body:JSON.stringify({name:form.get('name'), description:form.get('description')}),
+        body:JSON.stringify({name:form.get('name'), description:form.get('description'), brand_id:form.get('brand_id') || null}),
       });
       const value = await response.json().catch(() => ({}));
       if (!response.ok || !value.project) throw new Error(value.error || 'Não foi possível criar o projeto.');
@@ -59,6 +59,7 @@ export function ProjectCreateDialog({action, csrfToken, onCreated, onClose}) {
       </header>
       <label>Nome do projeto<input ref={nameInput} name="name" required minLength="2" maxLength="150" autoComplete="off" placeholder="Ex.: Campanha de lançamento"/></label>
       <label>O que é este projeto?<textarea name="description" required minLength="2" rows="3" maxLength="4000" placeholder="Conte em poucas palavras o que você vai reunir ou realizar aqui."/></label>
+      <label>Marca associada <small>Você pode alterar depois.</small><select name="brand_id" defaultValue={initialBrandId}><option value="">Sem marca</option>{brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
       <section className="cadu-ds-project-create-folder"><span>Pastas de origem <small>Opcional</small></span><input ref={folderInput} type="file" multiple directory="" webkitdirectory="" hidden onChange={selectFolder}/>{files.length ? <div className="cadu-ds-project-create-folder__selected"><b>{files[0]?.webkitRelativePath?.split('/')[0] || 'Arquivos selecionados'}</b><small>{files.length} arquivo{files.length === 1 ? '' : 's'} · serão enviados para revisão no projeto</small><button type="button" disabled={busy} onClick={() => { setFiles([]); if (folderInput.current) folderInput.current.value = ''; }}>Remover pasta</button></div> : <button type="button" disabled={busy} onClick={() => folderInput.current?.click()}>Adicionar uma pasta neste computador <span aria-hidden="true">⌄</span></button>}</section>
       {uploadProgress && <p className="cadu-ds-project-create-dialog__progress" role="status">{uploadProgress}</p>}
       <p className="cadu-ds-project-create-dialog__scope">O projeto será criado no espaço deste cliente. Você pode associar uma marca depois.</p>

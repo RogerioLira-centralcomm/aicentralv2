@@ -4364,3 +4364,4 @@ body.portal--workspace .cadu-ds-project-triage>article{gap:9px;padding:11px 0;bo
 .cadu-ds-brand-audit-dialog__footer footer button,
 .cadu-ds-brand-dialog footer button,
 .cadu-ds-project-dialog footer button { min-height:38px; padding:0 14px; font:650 13px/1 var(--cadu-font-sans); }
+.cadu-ds-project-form select { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:400 13px/1.45 var(--cadu-font-sans); }

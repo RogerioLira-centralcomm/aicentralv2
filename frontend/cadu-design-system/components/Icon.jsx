@@ -33,6 +33,8 @@ export function Icon({name, size = 18, className = ''}) {
     external: <><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></>,
     download: <><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></>,
     copy: <><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/></>,
+    share: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4m-6.6 7 6.6 4.4"/></>,
+    branch: <><path d="M6 3v12a6 6 0 0 0 6 6h2"/><path d="M6 9a6 6 0 0 0 6-6h2M14 3l4 3-4 3M14 17l4 4-4 3"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
     alert: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v6M12 17h.01"/></>,
     chevron: <path d="m9 6 6 6-6 6"/>,

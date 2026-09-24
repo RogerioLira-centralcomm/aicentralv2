@@ -50,7 +50,7 @@ export function groupWorkspaceProjects(brands = [], projects = []) {
   const candidates = brands.map(brand => {
     const keys = brandIdentityKeys(brand);
     return {...brand, projects:activeProjects.filter(project => projectBrandKeys(project).some(key => keys.has(key)))};
-  }).filter(brand => brand.projects.length);
+  });
   // Some legacy payloads expose one catalog record and one studio record for
   // the same brand. Merge equal labels only when both records actually point
   // to at least one common project; equal display names alone are not enough.

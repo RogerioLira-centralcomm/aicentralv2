@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
-from flask import current_app, g
+from flask import current_app, g, has_app_context, has_request_context, session
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2 import id_token
 from google.oauth2.credentials import Credentials
@@ -33,9 +33,8 @@ MEET_TRANSCRIPTS_SUFFIX = "/transcripts"
 MEET_RECORDINGS_SUFFIX = "/recordings"
 MEET_SMART_NOTES_SUFFIX = "/smartNotes"
 
-# The consent is deliberately broad for the Workspace connector. The UI still
-# exposes each capability separately, while one organization connection keeps
-# the granted scopes and refresh token together.
+# The consent is deliberately broad for the Workspace connector. Each Cadu
+# client and authorizing person owns a separate token and granted-scope set.
 SCOPES = (
     "openid",
     "email",
@@ -241,10 +240,10 @@ def _configuration_state() -> dict:
     }
 
 
-def service_matrix(organization_id: int) -> dict:
+def service_matrix(client_id: int) -> dict:
     """Describe every native Google capability without returning credentials.
 
-    ``enabled`` means the server is configured, the organization has an
+    ``enabled`` means the server is configured, the current Cadu client/person has an
     active Google connection, and the connection granted the scopes needed by
     that capability. Google Cloud API enablement still belongs to the project
     owner, so every card exposes the exact API Library link for that last step.
@@ -254,7 +253,7 @@ def service_matrix(organization_id: int) -> dict:
     table_available = _available()
     if table_available:
         try:
-            connection = get_connection(organization_id)
+            connection = get_connection(client_id)
         except Exception:
             table_available = False
 
@@ -279,7 +278,7 @@ def service_matrix(organization_id: int) -> dict:
             detail = "Complete a configuração do OAuth e da proteção dos tokens no servidor."
         elif not connection:
             status = "needs_authorization"
-            detail = "Autorize a conta Google da organização para liberar este serviço."
+            detail = "Autorize sua conta Google neste cliente para liberar este serviço."
         elif connection_needs_reauth or missing_scopes:
             status = "needs_reauthorization"
             detail = "A conta está conectada, mas precisa renovar as permissões deste serviço."
@@ -422,26 +421,75 @@ def _connection_columns(cursor) -> set[str]:
     return {row["column_name"] for row in cursor.fetchall()}
 
 
-def get_connection(organization_id: int, *, include_secret: bool = False) -> dict | None:
+def _request_google_scope(requested_client_id: int) -> tuple[int, int] | None:
+    """Return the authenticated Cadu client/person scope for this operation."""
+    if not has_app_context():
+        return None
+    scope = getattr(g, "google_workspace_scope", None)
+    if not isinstance(scope, dict) and has_request_context():
+        scope = {
+            "client_id": session.get("cliente_id"),
+            "user_id": session.get("user_id"),
+        }
+    if not isinstance(scope, dict):
+        return None
+    client_id, user_id = int(scope.get("client_id") or 0), int(scope.get("user_id") or 0)
+    return (client_id, user_id) if client_id == int(requested_client_id) and client_id > 0 and user_id > 0 else None
+
+
+def bind_client_user_scope(client_id: int, user_id: int) -> None:
+    """Bind an explicit Cadu identity for trusted agent/service execution."""
+    if has_app_context() and int(client_id or 0) > 0 and int(user_id or 0) > 0:
+        g.google_workspace_scope = {
+            "client_id": int(client_id),
+            "user_id": int(user_id),
+        }
+
+
+def get_connection(client_id: int, *, include_secret: bool = False) -> dict | None:
     if not _available():
+        return None
+    scope = _request_google_scope(client_id)
+    if not scope:
         return None
     with get_db().cursor() as cursor:
         columns = _connection_columns(cursor)
         sync_state = "COALESCE(sync_state, '{}'::jsonb) AS sync_state" if "sync_state" in columns else "'{}'::jsonb AS sync_state"
+        # Cadu's client_id and authorizing user are the only connection keys.
         cursor.execute(
-            f"""SELECT id, organization_id, client_id, google_sub, google_email,
+            f"""SELECT id, client_id, google_sub, google_email,
                       google_domain, granted_scopes, status, last_sync_at,
                       last_error, created_at, updated_at, {sync_state}
                       {', encrypted_refresh_token' if include_secret else ''}
                  FROM google_workspace_connections
-                WHERE organization_id = %s""",
-            (int(organization_id),),
+                WHERE client_id = %s AND created_by = %s""",
+            scope,
         )
         row = cursor.fetchone()
     return dict(row) if row else None
 
 
-def save_connection(*, organization_id: int, client_id: int, user_id: int, identity: dict, existing: dict | None = None) -> dict:
+def list_client_authorizations(client_id: int) -> list[dict]:
+    """List safe Google connection metadata for people in the current Cadu client."""
+    if not _available() or not _request_google_scope(client_id):
+        return []
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT c.id, c.created_by AS user_id,
+                      p.nome_completo AS user_name, p.email AS user_email,
+                      c.google_email, c.google_domain, c.status,
+                      c.last_sync_at, c.created_at
+                 FROM google_workspace_connections c
+                 LEFT JOIN tbl_contato_cliente p
+                   ON p.id_contato_cliente=c.created_by
+                WHERE c.client_id=%s AND c.created_by IS NOT NULL
+             ORDER BY LOWER(COALESCE(p.nome_completo, p.email, c.google_email)), c.created_at""",
+            (int(client_id),),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def save_connection(*, client_id: int, user_id: int, identity: dict, existing: dict | None = None) -> dict:
     refresh_token = identity.get("refresh_token")
     if not refresh_token and existing:
         encrypted = existing["encrypted_refresh_token"]
@@ -453,20 +501,20 @@ def save_connection(*, organization_id: int, client_id: int, user_id: int, ident
         with conn.cursor() as cursor:
             cursor.execute(
                 """INSERT INTO google_workspace_connections
-                    (id, organization_id, client_id, google_sub, google_email,
+                    (id, client_id, google_sub, google_email,
                      google_domain, encrypted_refresh_token, granted_scopes,
                      status, last_error, created_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'connected',NULL,%s)
-                ON CONFLICT (organization_id) DO UPDATE SET
-                    client_id=EXCLUDED.client_id, google_sub=EXCLUDED.google_sub,
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'connected',NULL,%s)
+                ON CONFLICT (client_id, created_by) WHERE created_by IS NOT NULL DO UPDATE SET
+                    google_sub=EXCLUDED.google_sub,
                     google_email=EXCLUDED.google_email, google_domain=EXCLUDED.google_domain,
                     encrypted_refresh_token=EXCLUDED.encrypted_refresh_token,
                     granted_scopes=EXCLUDED.granted_scopes, status='connected',
                     last_error=NULL, updated_at=NOW()
-                RETURNING id, organization_id, client_id, google_sub, google_email,
+                RETURNING id, client_id, google_sub, google_email,
                           google_domain, granted_scopes, status, last_sync_at,
                           last_error, created_at, updated_at""",
-                (connection_id, int(organization_id), int(client_id), identity["google_sub"],
+                (connection_id, int(client_id), identity["google_sub"],
                  identity["google_email"], identity.get("google_domain"), encrypted,
                  identity.get("granted_scopes") or "", int(user_id)),
             )
@@ -478,10 +526,13 @@ def save_connection(*, organization_id: int, client_id: int, user_id: int, ident
     return dict(row)
 
 
-def disconnect(organization_id: int) -> bool:
+def disconnect(client_id: int) -> bool:
     if not _available():
         return False
-    connection = get_connection(organization_id, include_secret=True)
+    scope = _request_google_scope(client_id)
+    if not scope:
+        return False
+    connection = get_connection(client_id, include_secret=True)
     if not connection:
         return False
     try:
@@ -494,9 +545,39 @@ def disconnect(organization_id: int) -> bool:
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            # Keep project associations when another authorized person can see
+            # the same external Drive item. A project link identifies the
+            # Google item, rather than the token used to discover it.
             cursor.execute(
-                "DELETE FROM google_workspace_connections WHERE organization_id=%s RETURNING id",
-                (int(organization_id),),
+                """SELECT l.id, l.project_ref, l.client_id, l.linked_by, l.purpose,
+                          r.provider, r.external_id
+                     FROM google_workspace_resource_links l
+                     JOIN google_workspace_resources r ON r.id=l.resource_id
+                    WHERE r.connection_id=%s""",
+                (connection["id"],),
+            )
+            for link in cursor.fetchall():
+                cursor.execute(
+                    """SELECT r.id FROM google_workspace_resources r
+                       JOIN google_workspace_connections c ON c.id=r.connection_id
+                      WHERE c.client_id=%s AND c.id<>%s AND r.provider=%s
+                        AND r.external_id=%s AND r.status='active'
+                   ORDER BY r.last_synced_at DESC LIMIT 1""",
+                    (int(client_id), connection["id"], link["provider"], link["external_id"]),
+                )
+                replacement = cursor.fetchone()
+                if replacement:
+                    cursor.execute(
+                        """INSERT INTO google_workspace_resource_links
+                            (id, resource_id, client_id, project_ref, linked_by, purpose)
+                           VALUES (%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (resource_id, project_ref) DO NOTHING""",
+                        (uuid4(), replacement["id"], link["client_id"], link["project_ref"],
+                         link["linked_by"], link["purpose"]),
+                    )
+            cursor.execute(
+                "DELETE FROM google_workspace_connections WHERE client_id=%s AND created_by=%s RETURNING id",
+                scope,
             )
             deleted = bool(cursor.fetchone())
         conn.commit()
@@ -506,32 +587,40 @@ def disconnect(organization_id: int) -> bool:
         raise
 
 
-def list_resources(organization_id: int, *, project_ref: str | None = None, limit: int = 100) -> list[dict]:
+def list_resources(client_id: int, *, project_ref: str | None = None, limit: int = 100) -> list[dict]:
     if not _available():
+        return []
+    scope = _request_google_scope(client_id)
+    if not scope:
         return []
     with get_db().cursor() as cursor:
         if project_ref:
             cursor.execute(
-                """SELECT r.id, r.provider, r.external_id, r.name, r.mime_type,
+                """SELECT DISTINCT ON (r.provider, r.external_id)
+                          r.id, r.provider, r.external_id, r.name, r.mime_type,
                           r.external_url, r.parent_external_id, r.metadata,
                           r.status, r.source_updated_at, l.project_ref, l.purpose
                      FROM google_workspace_resources r
                      JOIN google_workspace_connections c ON c.id=r.connection_id
                      JOIN google_workspace_resource_links l ON l.resource_id=r.id
-                    WHERE c.organization_id=%s AND l.project_ref=%s
-                 ORDER BY r.source_updated_at DESC NULLS LAST, r.name LIMIT %s""",
-                (int(organization_id), project_ref, min(int(limit), 500)),
+                    WHERE c.client_id=%s AND l.client_id=%s AND l.project_ref=%s
+                      AND r.status='active'
+                 ORDER BY r.provider, r.external_id, r.source_updated_at DESC NULLS LAST
+                    LIMIT %s""",
+                (scope[0], scope[0], project_ref, min(int(limit), 500)),
             )
         else:
             cursor.execute(
-                """SELECT r.id, r.provider, r.external_id, r.name, r.mime_type,
+                """SELECT DISTINCT ON (r.provider, r.external_id)
+                          r.id, r.provider, r.external_id, r.name, r.mime_type,
                           r.external_url, r.parent_external_id, r.metadata,
                           r.status, r.source_updated_at, NULL AS project_ref, NULL AS purpose
                      FROM google_workspace_resources r
                      JOIN google_workspace_connections c ON c.id=r.connection_id
-                    WHERE c.organization_id=%s
-                 ORDER BY r.source_updated_at DESC NULLS LAST, r.name LIMIT %s""",
-                (int(organization_id), min(int(limit), 500)),
+                    WHERE c.client_id=%s AND r.status='active'
+                 ORDER BY r.provider, r.external_id, r.source_updated_at DESC NULLS LAST
+                    LIMIT %s""",
+                (scope[0], min(int(limit), 500)),
             )
         rows = [dict(row) for row in cursor.fetchall()]
     return [_present_resource(row) for row in rows]
@@ -585,21 +674,21 @@ def _drive_file_id_from_url(raw_url: str) -> str:
     return ""
 
 
-def read_drive_content(organization_id: int, raw_url: str, *, max_characters: int = 12000) -> dict | None:
-    """Read a Drive item using the organization's OAuth grant.
+def read_drive_content(client_id: int, raw_url: str, *, max_characters: int = 12000) -> dict | None:
+    """Read a Drive item using the current person's OAuth grant for this client.
 
     This deliberately never falls back to a browser session or passes an OAuth
     token to another provider. ``None`` means the URL is not a supported Drive
-    resource or the organization has no active Google connection; callers can
+    resource or the current client/person has no active Google connection; callers can
     then choose an explicitly public-only fallback.
     """
     file_id = _drive_file_id_from_url(raw_url)
     if not file_id:
         return None
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection or str(connection.get("status") or "") != "connected":
         return None
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     headers = {"Authorization": f"Bearer {token}"}
     fields = (
         "id,name,mimeType,description,webViewLink,thumbnailLink,iconLink,shared,"
@@ -681,12 +770,12 @@ def _meeting_code(value: str) -> str:
     return str(parsed.path or "").strip("/").lower()
 
 
-def _calendar_events_across_accessible_calendars(organization_id: int, *, limit_per_calendar: int = 250) -> list[dict]:
+def _calendar_events_across_accessible_calendars(client_id: int, *, limit_per_calendar: int = 250) -> list[dict]:
     """Read a bounded matching window across calendars visible to the account."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection or str(connection.get("status") or "") != "connected":
         return []
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.get(
         CALENDAR_LIST_URL, headers=headers,
@@ -719,7 +808,7 @@ def _calendar_events_across_accessible_calendars(organization_id: int, *, limit_
     return events
 
 
-def _calendar_or_meet_content(organization_id: int, raw_url: str, *, max_characters: int) -> dict | None:
+def _calendar_or_meet_content(client_id: int, raw_url: str, *, max_characters: int) -> dict | None:
     """Resolve Calendar events and Meet joins from authorized Calendar data.
 
     A meeting URL is not scraped as a web page: its useful context (title,
@@ -732,12 +821,12 @@ def _calendar_or_meet_content(organization_id: int, raw_url: str, *, max_charact
     host = (parsed.hostname or "").lower()
     if host not in {"calendar.google.com", "meet.google.com"}:
         return None
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection or str(connection.get("status") or "") != "connected":
         return None
     target = _google_url(raw_url)
     code = _meeting_code(raw_url)
-    events = _calendar_events_across_accessible_calendars(organization_id, limit_per_calendar=250)
+    events = _calendar_events_across_accessible_calendars(client_id, limit_per_calendar=250)
     for event in events:
         event_url = _google_url(event.get("htmlLink") or "")
         entry_points = ((event.get("conferenceData") or {}).get("entryPoints") or [])
@@ -768,19 +857,19 @@ def _calendar_or_meet_content(organization_id: int, raw_url: str, *, max_charact
     raise GoogleWorkspaceError("Este evento ou reunião não foi encontrado na conta Google conectada.")
 
 
-def read_google_link_content(organization_id: int, raw_url: str, *, max_characters: int = 12000) -> dict | None:
+def read_google_link_content(client_id: int, raw_url: str, *, max_characters: int = 12000) -> dict | None:
     """Read a supported Google URL through the connected Workspace account."""
-    drive = read_drive_content(organization_id, raw_url, max_characters=max_characters)
+    drive = read_drive_content(client_id, raw_url, max_characters=max_characters)
     if drive:
         return drive
-    return _calendar_or_meet_content(organization_id, raw_url, max_characters=max_characters)
+    return _calendar_or_meet_content(client_id, raw_url, max_characters=max_characters)
 
 
-def _sync_drive_full(organization_id: int, *, limit: int = 200, page_token: str | None = None) -> dict:
-    connection = get_connection(organization_id)
+def _sync_drive_full(client_id: int, *, limit: int = 200, page_token: str | None = None) -> dict:
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Drive.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     params = {
         "pageSize": min(max(int(limit), 1), 1000),
         "q": "trashed = false",
@@ -897,19 +986,19 @@ def _persist_drive_sync_state(connection_id, state: dict) -> None:
         raise
 
 
-def sync_drive(organization_id: int, *, limit: int = 200) -> dict:
+def sync_drive(client_id: int, *, limit: int = 200) -> dict:
     """Synchronize Drive incrementally after the first bounded snapshot."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Drive.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     headers = {"Authorization": f"Bearer {token}"}
     state = dict(connection.get("sync_state") or {})
     change_token = str(state.get("drive_change_token") or "")
     page_size = min(max(int(limit), 1), 1000)
     if not change_token:
         result = _sync_drive_full(
-            organization_id,
+            client_id,
             limit=page_size,
             page_token=state.get("drive_full_page_token"),
         )
@@ -945,7 +1034,7 @@ def sync_drive(organization_id: int, *, limit: int = 200) -> dict:
         if response.status_code in {400, 410}:
             state.pop("drive_change_token", None)
             _persist_drive_sync_state(connection["id"], state)
-            return {**_sync_drive_full(organization_id, limit=page_size), "mode": "full_reset"}
+            return {**_sync_drive_full(client_id, limit=page_size), "mode": "full_reset"}
         raise GoogleWorkspaceError("Não foi possível consultar as alterações do Google Drive.")
     payload = response.json() or {}
     changes = payload.get("changes") or []
@@ -960,12 +1049,12 @@ def sync_drive(organization_id: int, *, limit: int = 200) -> dict:
     }
 
 
-def list_calendar_events(organization_id: int, *, limit: int = 50, time_min: str | None = None) -> list[dict]:
+def list_calendar_events(client_id: int, *, limit: int = 50, time_min: str | None = None) -> list[dict]:
     """Read upcoming primary-calendar events through the shared connection."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Calendar.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     response = requests.get(
         CALENDAR_EVENTS_URL,
         headers={"Authorization": f"Bearer {token}"},
@@ -983,7 +1072,7 @@ def list_calendar_events(organization_id: int, *, limit: int = 50, time_min: str
 
 
 def create_calendar_event(
-    organization_id: int,
+    client_id: int,
     *,
     summary: str,
     starts_at: str,
@@ -994,7 +1083,7 @@ def create_calendar_event(
     request_id: str,
 ) -> dict:
     """Create one Calendar event with Meet and notify its explicit attendees."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection or connection.get("status") != "connected":
         raise GoogleWorkspaceError("Conecte uma conta Google antes de criar a reunião.")
     granted = set(str(connection.get("granted_scopes") or "").split())
@@ -1015,7 +1104,7 @@ def create_calendar_event(
         raise GoogleWorkspaceError("A reunião precisa ter início, fim e fuso horário válidos.")
     if start_value <= datetime.now(start_value.tzinfo):
         raise GoogleWorkspaceError("A reunião precisa ser agendada para uma data futura.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     payload = {
         "summary": str(summary or "Reunião do projeto").strip()[:300],
         "description": str(description or "").strip()[:8000],
@@ -1048,12 +1137,12 @@ def create_calendar_event(
     }
 
 
-def list_meet_conference_records(organization_id: int, *, limit: int = 50) -> list[dict]:
+def list_meet_conference_records(client_id: int, *, limit: int = 50) -> list[dict]:
     """List recent Meet conference records without fetching transcript content."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     response = requests.get(
         MEET_CONFERENCE_RECORDS_URL,
         headers={"Authorization": f"Bearer {token}"},
@@ -1066,7 +1155,7 @@ def list_meet_conference_records(organization_id: int, *, limit: int = 50) -> li
 
 
 def _list_meet_collection(
-    organization_id: int,
+    client_id: int,
     parent: str,
     suffix: str,
     response_key: str,
@@ -1074,13 +1163,13 @@ def _list_meet_collection(
     limit: int = 50,
 ) -> list[dict]:
     """Read one Meet artifact collection using the shared org connection."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
     parent = str(parent or "").strip().strip("/")
     if not parent.startswith("conferenceRecords/"):
         raise GoogleWorkspaceError("Registro do Meet inválido.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     response = requests.get(
         f"https://meet.googleapis.com/v2/{parent}{suffix}",
         headers={"Authorization": f"Bearer {token}"},
@@ -1092,37 +1181,37 @@ def _list_meet_collection(
     return (response.json() or {}).get(response_key) or []
 
 
-def list_meet_transcripts(organization_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
+def list_meet_transcripts(client_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
     return _list_meet_collection(
-        organization_id, conference_record, MEET_TRANSCRIPTS_SUFFIX, "transcripts", limit=limit,
+        client_id, conference_record, MEET_TRANSCRIPTS_SUFFIX, "transcripts", limit=limit,
     )
 
 
-def list_meet_transcript_entries(organization_id: int, transcript: str, *, limit: int = 100) -> list[dict]:
+def list_meet_transcript_entries(client_id: int, transcript: str, *, limit: int = 100) -> list[dict]:
     transcript = str(transcript or "").strip().strip("/")
     if not transcript.startswith("conferenceRecords/") or "/transcripts/" not in transcript:
         raise GoogleWorkspaceError("Transcrição do Meet inválida.")
     return _list_meet_collection(
-        organization_id, transcript, "/entries", "transcriptEntries", limit=limit,
+        client_id, transcript, "/entries", "transcriptEntries", limit=limit,
     )
 
 
-def list_meet_recordings(organization_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
+def list_meet_recordings(client_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
     return _list_meet_collection(
-        organization_id, conference_record, MEET_RECORDINGS_SUFFIX, "recordings", limit=limit,
+        client_id, conference_record, MEET_RECORDINGS_SUFFIX, "recordings", limit=limit,
     )
 
 
-def list_meet_smart_notes(organization_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
+def list_meet_smart_notes(client_id: int, conference_record: str, *, limit: int = 50) -> list[dict]:
     return _list_meet_collection(
-        organization_id, conference_record, MEET_SMART_NOTES_SUFFIX, "smartNotes", limit=limit,
+        client_id, conference_record, MEET_SMART_NOTES_SUFFIX, "smartNotes", limit=limit,
     )
 
 
-def discover_meet_artifacts(organization_id: int, *, limit: int = 25) -> dict:
+def discover_meet_artifacts(client_id: int, *, limit: int = 25) -> dict:
     """Discover Meet transcripts, recordings and smart notes without content fetch."""
-    records = list_meet_conference_records(organization_id, limit=limit)
-    connection = get_connection(organization_id)
+    records = list_meet_conference_records(client_id, limit=limit)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
     artifacts: list[dict] = []
@@ -1131,9 +1220,9 @@ def discover_meet_artifacts(organization_id: int, *, limit: int = 25) -> dict:
         if not conference:
             continue
         collections = (
-            ("transcript", list_meet_transcripts(organization_id, conference, limit=50)),
-            ("recording", list_meet_recordings(organization_id, conference, limit=50)),
-            ("smart_note", list_meet_smart_notes(organization_id, conference, limit=50)),
+            ("transcript", list_meet_transcripts(client_id, conference, limit=50)),
+            ("recording", list_meet_recordings(client_id, conference, limit=50)),
+            ("smart_note", list_meet_smart_notes(client_id, conference, limit=50)),
         )
         for artifact_type, values in collections:
             for item in values:
@@ -1147,9 +1236,12 @@ def discover_meet_artifacts(organization_id: int, *, limit: int = 25) -> dict:
     return {"provider": "google_meet", "records": len(records), "artifacts": artifacts}
 
 
-def list_meet_artifacts(organization_id: int, *, limit: int = 50) -> list[dict]:
+def list_meet_artifacts(client_id: int, *, limit: int = 50) -> list[dict]:
     """Return discovered Meet artifacts and their canonical resource IDs."""
     if not _available():
+        return []
+    connection = get_connection(client_id)
+    if not connection:
         return []
     with get_db().cursor() as cursor:
         cursor.execute("SELECT to_regclass('public.google_workspace_meeting_artifacts') AS table_name")
@@ -1165,10 +1257,10 @@ def list_meet_artifacts(organization_id: int, *, limit: int = 50) -> list[dict]:
             LEFT JOIN google_workspace_resources r
                    ON r.connection_id=a.connection_id AND r.provider='google_meet'
                   AND r.external_id=a.external_name
-                WHERE c.organization_id=%s AND a.status <> 'archived'
+                WHERE c.client_id=%s AND a.connection_id=%s AND a.status <> 'archived'
              ORDER BY a.source_created_at DESC NULLS LAST, a.updated_at DESC
                 LIMIT %s""",
-            (int(organization_id), min(max(int(limit), 1), 200)),
+            (int(client_id), connection["id"], min(max(int(limit), 1), 200)),
         )
         return [dict(row) for row in cursor.fetchall()]
 
@@ -1222,9 +1314,9 @@ def _upsert_meet_artifact(connection_id, conference_record: str, artifact_type: 
     return row
 
 
-def fetch_meet_transcript_content(organization_id: int, artifact_id: str, *, limit: int = 1000) -> dict:
+def fetch_meet_transcript_content(client_id: int, artifact_id: str, *, limit: int = 1000) -> dict:
     """Fetch transcript entries after an explicit indexing decision."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de consultar o Meet.")
     conn = get_db()
@@ -1238,7 +1330,7 @@ def fetch_meet_transcript_content(organization_id: int, artifact_id: str, *, lim
         artifact = cursor.fetchone()
     if not artifact or artifact["artifact_type"] != "transcript":
         raise GoogleWorkspaceError("Artefato de transcrição não encontrado.")
-    entries = list_meet_transcript_entries(organization_id, artifact["external_name"], limit=limit)
+    entries = list_meet_transcript_entries(client_id, artifact["external_name"], limit=limit)
     text_parts = []
     for entry in entries:
         text = entry.get("text") or entry.get("transcriptEntry", {}).get("text") or ""
@@ -1261,12 +1353,12 @@ def fetch_meet_transcript_content(organization_id: int, artifact_id: str, *, lim
     return {"artifact_id": str(artifact["id"]), "entries": len(entries), "characters": len(content), "content_hash": digest}
 
 
-def sync_calendar_events(organization_id: int, *, limit: int = 100) -> dict:
+def sync_calendar_events(client_id: int, *, limit: int = 100) -> dict:
     """Synchronize Calendar with the API sync token, preserving cancellations."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Calendar.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     state = dict(connection.get("sync_state") or {})
     sync_token = str(state.get("calendar_sync_token") or "")
     params = {
@@ -1296,7 +1388,7 @@ def sync_calendar_events(organization_id: int, *, limit: int = 100) -> dict:
             if response.status_code == 410 and sync_token:
                 state.pop("calendar_sync_token", None)
                 _persist_drive_sync_state(connection["id"], state)
-                return {**sync_calendar_events(organization_id, limit=limit), "mode": "full_reset"}
+                return {**sync_calendar_events(client_id, limit=limit), "mode": "full_reset"}
             raise GoogleWorkspaceError("Não foi possível sincronizar os eventos do Google Calendar.")
         payload = response.json() or {}
         pages.extend(payload.get("items") or [])
@@ -1352,12 +1444,12 @@ def _upsert_calendar_events(connection_id, events: list[dict]) -> None:
         raise
 
 
-def sync_ads(organization_id: int, *, limit: int = 100) -> dict:
+def sync_ads(client_id: int, *, limit: int = 100) -> dict:
     """Discover Ads customers available to the authorized Google account."""
-    connection = get_connection(organization_id)
+    connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Ads.")
-    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(organization_id)})
+    token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     version = str(current_app.config.get("GOOGLE_ADS_API_VERSION") or "v25")
     headers = {"Authorization": f"Bearer {token}"}
     developer_token = str(current_app.config.get("GOOGLE_ADS_DEVELOPER_TOKEN") or os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN", "")).strip()
@@ -1410,11 +1502,14 @@ def sync_ads(organization_id: int, *, limit: int = 100) -> dict:
     return {"provider": "google_ads", "synced": len(customers)}
 
 
-def _encrypted_token(organization_id: int) -> str:
+def _encrypted_token(client_id: int) -> str:
+    scope = _request_google_scope(client_id)
+    if not scope:
+        raise GoogleWorkspaceError("Conecte sua conta Google neste cliente para continuar.")
     with get_db().cursor() as cursor:
         cursor.execute(
-            "SELECT encrypted_refresh_token FROM google_workspace_connections WHERE organization_id=%s",
-            (int(organization_id),),
+            "SELECT encrypted_refresh_token FROM google_workspace_connections WHERE client_id=%s AND created_by=%s",
+            scope,
         )
         row = cursor.fetchone()
     if not row:
@@ -1422,7 +1517,10 @@ def _encrypted_token(organization_id: int) -> str:
     return row["encrypted_refresh_token"]
 
 
-def link_resource(*, organization_id: int, client_id: int, resource_id: str, project_ref: str, user_id: int, purpose: str = "project_knowledge") -> dict:
+def link_resource(*, client_id: int, resource_id: str, project_ref: str, user_id: int, purpose: str = "project_knowledge") -> dict:
+    scope = _request_google_scope(client_id)
+    if not scope or scope[1] != int(user_id):
+        raise GoogleWorkspaceError("Sessão do cliente inválida para associar este recurso.")
     if not str(project_ref or "").startswith("ci:"):
         raise GoogleWorkspaceError("Selecione um projeto do Workspace.")
     try:
@@ -1440,12 +1538,25 @@ def link_resource(*, organization_id: int, client_id: int, resource_id: str, pro
                           r.external_url, r.metadata, r.source_created_at, r.source_updated_at
                      FROM google_workspace_resources r
                     JOIN google_workspace_connections c ON c.id=r.connection_id
-                   WHERE r.id=%s AND c.organization_id=%s""",
-                (resource_uuid, int(organization_id)),
+                   WHERE r.id=%s AND c.client_id=%s""",
+                (resource_uuid, int(client_id)),
             )
             resource = cursor.fetchone()
             if not resource:
-                raise GoogleWorkspaceError("Recurso não pertence a esta organização.")
+                raise GoogleWorkspaceError("Recurso não pertence a este cliente.")
+            cursor.execute(
+                """SELECT l.resource_id FROM google_workspace_resource_links l
+                     JOIN google_workspace_resources existing ON existing.id=l.resource_id
+                     JOIN google_workspace_connections owner ON owner.id=existing.connection_id
+                    WHERE l.client_id=%s AND l.project_ref=%s AND owner.client_id=%s
+                      AND existing.provider=%s AND existing.external_id=%s
+                      AND existing.status='active'
+                    LIMIT 1""",
+                (int(client_id), project_ref, int(client_id), resource["provider"], resource["external_id"]),
+            )
+            prior_link = cursor.fetchone()
+            if prior_link:
+                resource_uuid = prior_link["resource_id"]
             cursor.execute(
                 """INSERT INTO google_workspace_resource_links
                     (id, resource_id, client_id, project_ref, linked_by, purpose)
@@ -1473,7 +1584,7 @@ def link_resource(*, organization_id: int, client_id: int, resource_id: str, pro
                         locator=EXCLUDED.locator, metadata=EXCLUDED.metadata,
                         source_updated_at=EXCLUDED.source_updated_at, last_seen_at=NOW(),
                         status='active'""",
-                    (registry_id, int(organization_id), int(client_id), project_ref,
+                    (registry_id, int(client_id), int(client_id), project_ref,
                      resource["provider"], resource["external_id"], resource_type,
                      resource["name"], resource["mime_type"], purpose,
                      "google_meet" if resource["provider"] == "google_meet" else "google_drive", resource["external_url"],

@@ -8,7 +8,7 @@ import secrets
 from urllib.parse import urlencode, urlparse
 from uuid import uuid4
 
-from flask import Blueprint, current_app, flash, has_app_context, redirect, request, session, url_for
+from flask import Blueprint, current_app, flash, g, has_app_context, redirect, request, session, url_for
 
 from .. import db
 from ..auth import login_required, persist_login_session
@@ -209,7 +209,7 @@ def google_callback():
 @bp.get("/google/workspace")
 @login_required
 def google_workspace_start():
-    """Start the organization-level Google Workspace authorization."""
+    """Start an individual Google authorization for this Cadu client."""
     from ..services import google_workspace
 
     target = safe_product_target(
@@ -225,7 +225,10 @@ def google_workspace_start():
         "state": state,
         "verifier": verifier,
         "next": target,
-        "organization_id": int(session.get("organization_id") or session.get("cliente_id") or 0),
+        "client_id": int(session.get("cliente_id") or 0),
+        "user_id": int(session.get("user_id") or 0),
+    }
+    g.google_workspace_scope = {
         "client_id": int(session.get("cliente_id") or 0),
         "user_id": int(session.get("user_id") or 0),
     }
@@ -246,7 +249,7 @@ def google_workspace_start():
 
 @bp.get("/google/workspace/callback")
 def google_workspace_callback():
-    """Finish the organization-level Google Workspace authorization."""
+    """Finish an individual Google authorization, scoped to its original Cadu client."""
     from ..services import google_workspace
 
     pending = session.pop("google_workspace_auth", None) or {}
@@ -263,15 +266,23 @@ def google_workspace_callback():
         flash("A validação de segurança da conexão Google expirou.", "error")
         return redirect(target, code=302)
     try:
+        if (int(session.get("cliente_id") or 0) != int(pending["client_id"])
+                or int(session.get("user_id") or 0) != int(pending["user_id"])):
+            raise google_workspace.GoogleWorkspaceError(
+                "Sua sessão mudou durante a autorização. Inicie a conexão novamente."
+            )
+        g.google_workspace_scope = {
+            "client_id": int(pending["client_id"]),
+            "user_id": int(pending["user_id"]),
+        }
         existing = google_workspace.get_connection(
-            int(pending["organization_id"]), include_secret=True
+            int(pending["client_id"]), include_secret=True
         )
         identity = google_workspace.exchange_code(
             request.args.get("code") or "",
             code_verifier=str(pending.get("verifier") or ""),
         )
         google_workspace.save_connection(
-            organization_id=int(pending["organization_id"]),
             client_id=int(pending["client_id"]),
             user_id=int(pending["user_id"]),
             identity=identity,

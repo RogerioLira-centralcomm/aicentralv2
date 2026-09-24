@@ -298,8 +298,11 @@ def _read_google_workspace_source(context, url: str) -> dict:
     private URL context to Firecrawl.
     """
     try:
-        from ..services.google_workspace import GoogleWorkspaceError, read_google_link_content
-        resource = read_google_link_content(context.organization_id, url, max_characters=MAX_CONTENT_CHARS)
+        from ..services.google_workspace import (
+            GoogleWorkspaceError, bind_client_user_scope, read_google_link_content,
+        )
+        bind_client_user_scope(context.client_id, context.user_id)
+        resource = read_google_link_content(context.client_id, url, max_characters=MAX_CONTENT_CHARS)
     except GoogleWorkspaceError as exc:
         # An active Google integration that is unavailable is not evidence that
         # the link is public. Do not silently change providers and scrape it.

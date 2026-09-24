@@ -20,7 +20,7 @@ def _domain(call):
     name="google.get_connector_status",
     capability="workspace",
     effect="read",
-    description="Mostra o estado seguro da conexão Google global, dos serviços e do contexto atual de usuário e projeto.",
+    description="Mostra o estado seguro da autorização Google deste usuário no cliente atual.",
     exposures=("internal", "customer_agent"),
 )
 def get_connector_status(context: RequestContext, arguments: dict) -> dict:
@@ -50,7 +50,7 @@ def list_project_resources(context: RequestContext, arguments: dict) -> dict:
     name="google.list_calendar_events",
     capability="workspace",
     effect="read",
-    description="Lista eventos do Calendar da organização para contextualizar reuniões e entregas.",
+    description="Lista eventos do Calendar da conta Google autorizada por este usuário no cliente atual.",
     exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object",
@@ -103,7 +103,7 @@ def create_project_meeting(context: RequestContext, arguments: dict) -> dict:
     name="google.list_meet_records",
     capability="workspace",
     effect="read",
-    description="Lista registros recentes do Meet sem baixar transcrições ou gravações automaticamente.",
+    description="Lista registros recentes do Meet desta conta autorizada, sem baixar transcrições ou gravações automaticamente.",
     exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object",
@@ -121,7 +121,7 @@ def list_meet_records(context: RequestContext, arguments: dict) -> dict:
     name="google.list_meet_artifacts",
     capability="workspace",
     effect="read",
-    description="Pesquisa artefatos do Google Meet disponíveis para a organização, sem importar gravações ou transcrições automaticamente.",
+    description="Pesquisa artefatos do Google Meet desta conta, sem importar gravações ou transcrições automaticamente.",
     exposures=("internal", "customer_agent"),
     input_schema={
         "type": "object",
@@ -169,7 +169,7 @@ def link_resource_to_project(context: RequestContext, arguments: dict) -> dict:
     name="google.sync_workspace",
     capability="workspace",
     effect="write",
-    description="Atualiza os recursos da conta Google global após confirmação explícita; pode retornar sucesso parcial quando Ads não estiver pronto.",
+    description="Atualiza os recursos da conta Google autorizada por este usuário neste cliente após confirmação explícita.",
     exposures=("internal",),
     input_schema={
         "type": "object",

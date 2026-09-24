@@ -303,6 +303,8 @@ if [ "$RUN_MIGRATIONS" = "1" ]; then
 "$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_connections.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_sync_state.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_meet_artifacts.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_client_authorizations.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py drop_google_workspace_organization_id.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_slack_connector.sql
 "$VENV_PYTHON" migrations/run_add_openrouter_integration_credential.py
 "$VENV_PYTHON" migrations/run_add_openrouter_gpt_image_2.py

@@ -1,9 +1,9 @@
-"""Global Cadu connector for organization-scoped Google Workspace data.
+"""Cadu connector for client-scoped Google Workspace data.
 
 The connector is deliberately stateless: authorization remains owned by
 ``google_workspace`` and request identity remains owned by ``RequestContext``.
-This layer composes both contracts so the Workspace UI, Cadu agent and MCP
-tools use the same project/user boundaries.
+Each token belongs to the authorizing user within a Cadu ``client_id``. This
+layer composes that identity with project boundaries for Workspace and MCP.
 """
 
 from __future__ import annotations
@@ -22,10 +22,14 @@ class CaduGoogleConnectorError(RuntimeError):
 
 @dataclass(frozen=True)
 class CaduGoogleConnector:
-    """Global Google capability surface shared by Cadu features and MCP."""
+    """Google capability surface scoped to the Cadu client and current authorizer."""
 
     name: str = "cadu_google"
     provider: str = "google_workspace"
+
+    @staticmethod
+    def _bind_context(context: RequestContext) -> None:
+        google_workspace.bind_client_user_scope(context.client_id, context.user_id)
 
     def _project_id(self, context: RequestContext) -> str:
         project_ref = str(context.project_ref or "")
@@ -57,14 +61,15 @@ class CaduGoogleConnector:
 
     def status(self, context: RequestContext) -> dict[str, Any]:
         """Return safe connector state for the current user/project context."""
-        matrix = google_workspace.service_matrix(context.organization_id)
-        connection = google_workspace.get_connection(context.organization_id)
+        self._bind_context(context)
+        matrix = google_workspace.service_matrix(context.client_id)
+        connection = google_workspace.get_connection(context.client_id)
         connected = bool(connection and connection.get("status") == "connected")
         project_selected = bool(context.project_ref)
         return {
             "connector": self.name,
             "provider": self.provider,
-            "scope": "organization",
+            "scope": "client_user",
             "connection": self._connection_summary(connection),
             "services": matrix["services"],
             "service_summary": matrix["summary"],
@@ -95,9 +100,10 @@ class CaduGoogleConnector:
         }
 
     def list_project_resources(self, context: RequestContext, *, limit: int = 100) -> dict[str, Any]:
+        self._bind_context(context)
         self._project_id(context)
         resources = google_workspace.list_resources(
-            context.organization_id,
+            context.client_id,
             project_ref=context.project_ref,
             limit=min(max(int(limit), 1), 200),
         )
@@ -110,13 +116,15 @@ class CaduGoogleConnector:
         }
 
     def list_calendar_events(self, context: RequestContext, *, limit: int = 50) -> dict[str, Any]:
+        self._bind_context(context)
         return {
             "connector": self.name,
             "organization_id": context.organization_id,
-            "events": google_workspace.list_calendar_events(context.organization_id, limit=limit),
+            "events": google_workspace.list_calendar_events(context.client_id, limit=limit),
         }
 
     def create_project_meeting(self, context: RequestContext, **meeting) -> dict[str, Any]:
+        self._bind_context(context)
         project_id = self._project_id(context)
         members = repository.project_access(context.client_id, context.project_ref)
         attendees = [row.get("email") for row in members
@@ -124,24 +132,26 @@ class CaduGoogleConnector:
         if not attendees:
             raise CaduGoogleConnectorError("A equipe do projeto não tem e-mails ativos para receber o convite.")
         result = google_workspace.create_calendar_event(
-            context.organization_id, attendees=attendees, **meeting,
+            context.client_id, attendees=attendees, **meeting,
         )
         return {"connector": self.name, "project_id": project_id, **result}
 
     def list_meet_records(self, context: RequestContext, *, limit: int = 50) -> dict[str, Any]:
+        self._bind_context(context)
         return {
             "connector": self.name,
             "organization_id": context.organization_id,
             "conference_records": google_workspace.list_meet_conference_records(
-                context.organization_id, limit=limit,
+                context.client_id, limit=limit,
             ),
         }
 
     def list_meet_artifacts(self, context: RequestContext, *, limit: int = 25) -> dict[str, Any]:
+        self._bind_context(context)
         return {
             "connector": self.name,
             "organization_id": context.organization_id,
-            **google_workspace.discover_meet_artifacts(context.organization_id, limit=limit),
+            **google_workspace.discover_meet_artifacts(context.client_id, limit=limit),
         }
 
     def link_resource(
@@ -151,11 +161,11 @@ class CaduGoogleConnector:
         resource_id: str,
         purpose: str = "project_knowledge",
     ) -> dict[str, Any]:
+        self._bind_context(context)
         self._project_id(context)
         if purpose not in {"project_knowledge", "project_attachment", "reference"}:
             raise CaduGoogleConnectorError("Finalidade de vínculo Google inválida.")
         return google_workspace.link_resource(
-            organization_id=context.organization_id,
             client_id=context.client_id,
             resource_id=resource_id,
             project_ref=str(context.project_ref),
@@ -172,21 +182,22 @@ class CaduGoogleConnector:
         calendar_limit: int = 100,
         meet_limit: int = 25,
     ) -> dict[str, Any]:
-        """Synchronize the global account, preserving partial successes."""
+        """Synchronize this user's Google account for the current client."""
+        self._bind_context(context)
         results: list[dict[str, Any]] = []
         errors: list[dict[str, str]] = []
         operations: tuple[tuple[str, Callable[[], dict]], ...] = (
             ("drive", lambda: google_workspace.sync_drive(
-                context.organization_id, limit=min(max(int(drive_limit), 1), 1000)
+                context.client_id, limit=min(max(int(drive_limit), 1), 1000)
             )),
             ("ads", lambda: google_workspace.sync_ads(
-                context.organization_id, limit=min(max(int(ads_limit), 1), 200)
+                context.client_id, limit=min(max(int(ads_limit), 1), 200)
             )),
             ("calendar", lambda: google_workspace.sync_calendar_events(
-                context.organization_id, limit=min(max(int(calendar_limit), 1), 2500)
+                context.client_id, limit=min(max(int(calendar_limit), 1), 2500)
             )),
             ("meet", lambda: google_workspace.discover_meet_artifacts(
-                context.organization_id, limit=min(max(int(meet_limit), 1), 50)
+                context.client_id, limit=min(max(int(meet_limit), 1), 50)
             )),
         )
         for service, operation in operations:

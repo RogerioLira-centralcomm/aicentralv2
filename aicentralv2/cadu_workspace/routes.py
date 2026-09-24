@@ -152,6 +152,18 @@ def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id
 
 
 bp = Blueprint("cadu_workspace", __name__)
+
+
+@bp.before_request
+def _set_google_workspace_request_scope():
+    """Make Google credentials follow the signed-in person and Cadu client."""
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    if client_id > 0 and user_id > 0:
+        g.google_workspace_scope = {
+            'client_id': client_id,
+            'user_id': user_id,
+        }
 # The advanced brand editor has a Workspace-owned API prefix.  Its handlers
 # are registered during app setup, alongside this product blueprint.
 brand_api_bp = Blueprint("workspace_brand_api", __name__, url_prefix="/workspace")
@@ -516,6 +528,7 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
         account['provider_label'] = providers.get(key, key.replace('_', ' ').title() or 'Plataforma')
     google = {
         'connection': None,
+        'authorizations': [],
         'resources': [],
         'meet_artifacts': [],
         'projects': [],
@@ -527,14 +540,15 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
     }
     try:
         from ..services import google_workspace
-        connection = google_workspace.get_connection(organization_id)
+        connection = google_workspace.get_connection(client_id)
         google = {
             **google,
             'connection': connection,
-            'resources': google_workspace.list_resources(organization_id, limit=120),
-            'meet_artifacts': google_workspace.list_meet_artifacts(organization_id, limit=80),
+            'authorizations': google_workspace.list_client_authorizations(client_id),
+            'resources': google_workspace.list_resources(client_id, limit=120),
+            'meet_artifacts': google_workspace.list_meet_artifacts(client_id, limit=80),
             'configured': bool(connection and connection.get('status') == 'connected'),
-            **google_workspace.service_matrix(organization_id),
+            **google_workspace.service_matrix(client_id),
         }
         with get_db().cursor() as cursor:
             cursor.execute(
@@ -9062,7 +9076,7 @@ def google_workspace_sync():
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
     from ..services import google_workspace
-    organization_id = int(session.get('organization_id') or session.get('cliente_id') or 0)
+    client_id = int(session.get('cliente_id') or 0)
     try:
         results = []
         errors = []
@@ -9073,7 +9087,7 @@ def google_workspace_sync():
             google_workspace.sync_ads,
         ):
             try:
-                results.append(operation(organization_id))
+                results.append(operation(client_id))
             except google_workspace.GoogleWorkspaceError as exc:
                 errors.append(str(exc))
         if not results and errors:
@@ -9090,9 +9104,9 @@ def google_workspace_disconnect():
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
     from ..services import google_workspace
-    organization_id = int(session.get('organization_id') or session.get('cliente_id') or 0)
+    client_id = int(session.get('cliente_id') or 0)
     try:
-        removed = google_workspace.disconnect(organization_id)
+        removed = google_workspace.disconnect(client_id)
         return jsonify({'success': True, 'removed': removed})
     except google_workspace.GoogleWorkspaceError as exc:
         return jsonify({'success': False, 'error': str(exc)}), 400
@@ -9106,10 +9120,8 @@ def google_workspace_link_resource(resource_id):
     from ..services import google_workspace
     payload = request.get_json(silent=True) or {}
     client_id = int(session.get('cliente_id') or 0)
-    organization_id = int(session.get('organization_id') or client_id)
     try:
         result = google_workspace.link_resource(
-            organization_id=organization_id,
             client_id=client_id,
             resource_id=str(resource_id),
             project_ref=str(payload.get('project_ref') or '').strip(),
@@ -9128,10 +9140,10 @@ def google_workspace_fetch_meet_artifact(artifact_id):
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
     from ..services import google_workspace
-    organization_id = int(session.get('organization_id') or session.get('cliente_id') or 0)
+    client_id = int(session.get('cliente_id') or 0)
     try:
         result = google_workspace.fetch_meet_transcript_content(
-            organization_id, str(artifact_id), limit=2000,
+            client_id, str(artifact_id), limit=2000,
         )
         return jsonify({'success': True, **result})
     except google_workspace.GoogleWorkspaceError as exc:

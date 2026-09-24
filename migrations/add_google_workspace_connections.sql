@@ -1,4 +1,4 @@
--- Shared Google Workspace connection per Cadu organization.
+-- Individual Google Workspace authorizations per Cadu client and person.
 -- OAuth secrets are encrypted by the application and never exposed to the UI.
 
 ALTER TABLE system_integration_credentials
@@ -22,7 +22,6 @@ ON CONFLICT (provider) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS google_workspace_connections (
     id UUID PRIMARY KEY,
-    organization_id BIGINT NOT NULL,
     client_id BIGINT NOT NULL REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
     google_sub VARCHAR(255) NOT NULL,
     google_email VARCHAR(320) NOT NULL,
@@ -36,9 +35,12 @@ CREATE TABLE IF NOT EXISTS google_workspace_connections (
     created_by BIGINT REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (organization_id),
-    UNIQUE (client_id)
+    CHECK (client_id > 0)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_google_workspace_connections_client_authorizer
+    ON google_workspace_connections (client_id, created_by)
+    WHERE created_by IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_google_workspace_connections_email
     ON google_workspace_connections (LOWER(google_email));

@@ -8,18 +8,18 @@ O login usa OIDC com `openid email profile`, além de `state`, `nonce` e PKCE. O
 
 O destino original define a política. CentralX usa o client interno e exige `@centralcomm.media`; a família Cadu usa o client de clientes e preserva a autorização da organização. Retornos aceitam somente hosts oficiais configurados.
 
-## Google Workspace da organização
+## Google Workspace por cliente e pessoa autorizadora
 
 A autorização de dados usa:
 
 - início: `https://auth.centralcomm.media/auth/google/workspace`;
 - callback: `https://auth.centralcomm.media/auth/google/workspace/callback`;
 - client OAuth separado para Drive, Calendar, Meet, Analytics, Search Console e Ads;
-- refresh token criptografado por organização;
+- refresh token criptografado por autorização, identificado pelo `client_id` Cadu e pelo usuário que concedeu acesso;
 - estado OAuth e PKCE separados do login;
 - escopos concedidos registrados para auditoria e reautorização.
 
-Uma conexão da organização pode descobrir arquivos, pastas, calendários, espaços Meet, propriedades Analytics, sites Search Console e contas Ads. Recursos Google podem ser associados a projetos do Workspace e entram no registro universal de recursos.
+O `client_id` Cadu é a fronteira do Workspace tanto para agências quanto para clientes finais. Cada pessoa conectada ao cliente autoriza a própria conta Google; uma autorização não substitui nem permite desconectar a de outra pessoa. Recursos descobertos no Drive ficam disponíveis no contexto daquele `client_id` e podem ser associados aos projetos do Workspace sem copiar o arquivo original. A integração Google não usa `organization_id`.
 
 ## Regras obrigatórias
 
@@ -29,4 +29,4 @@ Uma conexão da organização pode descobrir arquivos, pastas, calendários, esp
 - Usar `Cache-Control: no-store` e `Referrer-Policy: no-referrer` nas trocas de autorização.
 - Revogar o token no Google ao desconectar quando o endpoint estiver disponível.
 - Tratar `invalid_grant`, escopo insuficiente e conta suspensa como estados de reautorização.
-- Não misturar o refresh token da conexão organizacional com tokens de login.
+- Não misturar refresh tokens de pessoas diferentes nem tokens de login.

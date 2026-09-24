@@ -24,7 +24,6 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const [showAllRecent, setShowAllRecent] = useState(false);
   const [showAllProjectConversations, setShowAllProjectConversations] = useState({});
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectRef ? [String(activeProjectRef)] : []));
-  const [manuallyCollapsedProjects, setManuallyCollapsedProjects] = useState(() => new Set());
   const [collapsed, setCollapsed] = useState(false);
   const [actionMenuId, setActionMenuId] = useState('');
   const [spotlightOpen, setSpotlightOpen] = useState(false);
@@ -117,8 +116,13 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
     return () => window.clearTimeout(timer);
   }, [spotlightOpen, spotlightQuery, projectId, conversations, projects, brands, activeProjectRef]);
 
+  useEffect(() => {
+    if (!activeProjectRef) return;
+    const ref = String(activeProjectRef);
+    setExpandedProjects(current => current.has(ref) ? current : new Set([...current, ref]));
+  }, [activeProjectRef]);
+
   if (!open) return null;
-  const projectConversations = filtered.filter(item => String(item.project_ref || '') === String(activeProjectRef));
   const brandConversations = filtered.filter(item => String(item.brand_ref || '') === String(activeBrandRef) && !['pinned', 'automation'].includes(item.section));
   const pinned = filtered.filter(item => item.section === 'pinned');
   const automations = filtered.filter(item => item.section === 'automation' && item.automation_enabled);
@@ -127,11 +131,9 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const mobileDestinations = workspaceMobileDestinationItems(navUrls);
   const mobileSolutions = workspaceMobileSolutionItems(navUrls);
   const projectItems = [...projects].sort((left, right) => Number(String(right.ref || right.projectRef || right.id) === String(activeProjectRef)) - Number(String(left.ref || left.projectRef || left.id) === String(activeProjectRef)));
-  useEffect(() => { if (activeProjectRef) { const ref = String(activeProjectRef); setExpandedProjects(current => new Set([...current, ref])); setManuallyCollapsedProjects(current => { const next = new Set(current); next.delete(ref); return next; }); } }, [activeProjectRef]);
   const toggleProject = ref => {
     const key = String(ref);
     setExpandedProjects(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; });
-    setManuallyCollapsedProjects(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; });
   };
   const openIndex = ref => { if (ref || activeProjectRef) onOpenLibrary?.(true, ref || activeProjectRef); else setSpotlightError('Selecione um projeto para abrir o Indexador.'); };
   const runAction = (event, item, action) => {

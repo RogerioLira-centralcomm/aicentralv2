@@ -15,6 +15,7 @@
   'account:read': 'Consultar dados básicos da conta',
   'account:write': 'Alterar conta e convidar equipe',
   'credits:read': 'Consultar saldo e uso de créditos',
+  'credits:purchase': 'Solicitar compra de créditos (somente administradores)',
   'google:read': 'Consultar conexões Google',
   'google:write': 'Vincular dados do Google aos projetos',
   'contexts:read': 'Consultar o contexto de trabalho',
@@ -34,7 +35,10 @@
       {% for name in ['client_id','redirect_uri','response_type','code_challenge','code_challenge_method','resource','state','scope'] %}<input type="hidden" name="{{ name }}" value="{{ request.values.get(name, '') }}">{% endfor %}
       <div class="workspace-mcp-form-section"><label for="oauth-project">Projeto inicial <span>(opcional)</span></label><select id="oauth-project" name="default_project_ref"><option value="">Escolher durante a conversa</option>{% for project in projects %}<option value="{{ project.ref }}">{{ project.name }}</option>{% endfor %}</select></div>
       <fieldset class="workspace-mcp-permissions"><legend>O aplicativo poderá</legend><p>Desmarque o que não quiser compartilhar.</p><div class="workspace-mcp-permissions__grid">
-        {% for scope in authorization.scopes %}<label><input type="checkbox" name="scope:{{ scope }}" {% if scope in default_scopes %}checked{% endif %}> {{ scope_labels.get(scope, scope) }}</label>{% endfor %}
+        {% for scope in authorization.scopes %}<label><input type="checkbox" name="scope:{{ scope }}" {% if scope in default_scopes %}checked{% endif %} {% if scope == 'credits:purchase' and not can_manage_account %}disabled{% endif %}> {{ scope_labels.get(scope, scope) }}{% if scope == 'credits:purchase' and not can_manage_account %} — disponível apenas para administradores{% endif %}</label>{% endfor %}
+      </div></fieldset>
+      <fieldset class="workspace-mcp-permissions workspace-mcp-permissions--modules"><legend>Ferramentas que o cliente vai carregar</legend><p>Marketing vem ativo. Os demais módulos podem ser ligados depois em Integrações → Agentes. Isso reduz a lista inicial de ferramentas enviada ao cliente.</p><div class="workspace-mcp-permissions__grid">
+        {% for module_id, module_label in tool_modules.items() %}<label><input type="checkbox" name="module" value="{{ module_id }}" {% if module_id in default_modules %}checked{% endif %}> {{ module_label }}</label>{% endfor %}
       </div></fieldset>
       <p class="workspace-oauth-consent__credits">O uso deste aplicativo consome os créditos da sua conta Cadu.</p>
       <div class="workspace-oauth-consent__actions"><button class="workspace-button is-primary" type="submit" name="decision" value="authorize">Autorizar conexão</button><button class="workspace-button" type="submit" name="decision" value="deny">Cancelar</button></div>

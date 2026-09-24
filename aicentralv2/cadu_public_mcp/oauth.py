@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 
 from psycopg.types.json import Json
 
+from ..cadu_mcp_catalog import ALL_MODULES, DEFAULT_MODULES, normalize_modules
 from ..db import get_db
 from .auth import CLIENT_SCOPES, DEFAULT_SCOPES, PublicMcpAuthError, normalize_scopes
 
@@ -61,8 +62,19 @@ def _table_available(name: str) -> bool:
         return False
 
 
+def _modules_column_available() -> bool:
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("""SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_schema='public' AND table_name='cadu_oauth_grants'
+                                 AND column_name='modules') AS available""")
+            return bool((cursor.fetchone() or {}).get("available"))
+    except Exception:
+        return False
+
+
 def available() -> bool:
-    return all(_table_available(name) for name in (
+    return _modules_column_available() and all(_table_available(name) for name in (
         "cadu_oauth_clients",
         "cadu_oauth_grants",
         "cadu_oauth_authorization_codes",
@@ -223,13 +235,19 @@ def validate_authorization_request(values) -> dict:
 
 
 def create_authorization_code(*, authorization: dict, client_id: int, user_id: int,
-                              scopes, default_project_ref: str | None = None) -> str:
+                              scopes, default_project_ref: str | None = None, modules=None) -> str:
     try:
         allowed = normalize_scopes(scopes, allow_writes=True)
     except PublicMcpAuthError as exc:
         raise OAuthError("invalid_scope", str(exc)) from exc
     if not allowed:
         raise OAuthError("invalid_scope", "Selecione ao menos uma permissão.")
+    try:
+        enabled_modules = normalize_modules(modules)
+    except ValueError as exc:
+        raise OAuthError("invalid_scope", str(exc)) from exc
+    if not enabled_modules:
+        raise OAuthError("invalid_scope", "Ative ao menos um módulo.")
     requested = set(authorization["scopes"])
     if not set(allowed) <= requested:
         raise OAuthError("invalid_scope", "As permissões aprovadas excedem a solicitação.")
@@ -240,11 +258,11 @@ def create_authorization_code(*, authorization: dict, client_id: int, user_id: i
         with connection.cursor() as cursor:
             cursor.execute(
                 """INSERT INTO cadu_oauth_grants
-                    (id, oauth_client_id, client_id, user_id, default_project_ref, scopes,
+                    (id, oauth_client_id, client_id, user_id, default_project_ref, scopes, modules,
                      status, consented_at)
-                   VALUES (%s,%s,%s,%s,%s,%s,'active',NOW())""",
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,'active',NOW())""",
                 (grant_id, authorization["client"]["id"], int(client_id), int(user_id),
-                 default_project_ref, Json(list(allowed))),
+                 default_project_ref, Json(list(allowed)), Json(list(enabled_modules))),
             )
             cursor.execute(
                 """INSERT INTO cadu_oauth_authorization_codes
@@ -389,7 +407,7 @@ def load_access_token(raw_token: str) -> dict:
         cursor.execute(
             """SELECT t.id AS credential_id, t.grant_id, t.resource, t.scopes AS token_scopes,
                       t.expires_at, t.revoked_at, g.client_id, g.user_id,
-                      g.default_project_ref, g.scopes AS grant_scopes, g.status,
+                      g.default_project_ref, g.scopes AS grant_scopes, g.modules, g.status,
                       c.client_name, c.oauth_client_id
                  FROM cadu_oauth_access_tokens t
                  JOIN cadu_oauth_grants g ON g.id=t.grant_id
@@ -413,6 +431,7 @@ def load_access_token(raw_token: str) -> dict:
     if not effective_scopes:
         raise PublicMcpAuthError("Token OAuth do MCP sem permissões ativas.")
     return dict(row) | {"scopes": effective_scopes,
+                        "modules": normalize_modules(row.get("modules"), default=ALL_MODULES),
                         "label": row.get("client_name") or "Aplicativo MCP",
                         "client_type": "oauth"}
 
@@ -422,13 +441,37 @@ def list_grants(*, client_id: int, user_id: int) -> list[dict]:
         return []
     with get_db().cursor() as cursor:
         cursor.execute(
-            """SELECT g.id, g.default_project_ref, g.scopes, g.status, g.consented_at,
+            """SELECT g.id, g.default_project_ref, g.scopes, g.modules, g.status, g.consented_at,
                       g.last_used_at, g.revoked_at, c.client_name, c.logo_uri
                  FROM cadu_oauth_grants g JOIN cadu_oauth_clients c ON c.id=g.oauth_client_id
                 WHERE g.client_id=%s AND g.user_id=%s ORDER BY g.created_at DESC""",
             (int(client_id), int(user_id)),
         )
         return [dict(row) | {"id": str(row["id"])} for row in cursor.fetchall()]
+
+
+def update_grant_modules(*, grant_id: str, client_id: int, user_id: int, modules) -> bool:
+    try:
+        parsed = UUID(str(grant_id))
+        enabled_modules = normalize_modules(modules)
+    except (TypeError, ValueError) as exc:
+        raise OAuthError("invalid_request", "Seleção de módulos inválida.") from exc
+    if not enabled_modules:
+        raise OAuthError("invalid_scope", "Ative ao menos um módulo.")
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cadu_oauth_grants SET modules=%s, updated_at=NOW()
+                    WHERE id=%s AND client_id=%s AND user_id=%s AND status='active'""",
+                (Json(list(enabled_modules)), parsed, int(client_id), int(user_id)),
+            )
+            changed = cursor.rowcount == 1
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return changed
 
 
 def revoke_grant(*, grant_id: str, client_id: int, user_id: int) -> bool:

@@ -118,6 +118,24 @@ def list_meet_records(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="google.list_meet_artifacts",
+    capability="workspace",
+    effect="read",
+    description="Pesquisa artefatos do Google Meet disponíveis para a organização, sem importar gravações ou transcrições automaticamente.",
+    exposures=("internal", "customer_agent"),
+    input_schema={
+        "type": "object",
+        "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}},
+        "additionalProperties": False,
+    },
+)
+def list_meet_artifacts(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: connector.list_meet_artifacts(
+        context, limit=arguments.get("limit", 25),
+    ))
+
+
+@register_tool(
     name="google.link_resource_to_project",
     capability="workspace",
     effect="write",

@@ -20,6 +20,7 @@ from ..cadu_workspace.agent_v2.contracts import RequestContext
 from ..cadu_workspace.mcp.registry import ToolError, load_builtin_tools
 from ..product_domains import product_url
 from . import auth, oauth, usage
+from ..cadu_mcp_catalog import ALL_MODULES, DEFAULT_MODULES, TOOL_MODULES, module_for_tool, normalize_modules
 from ..cadu_workspace.mcp import context_runtime
 
 
@@ -341,8 +342,11 @@ def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
             security = [{"type": "oauth2", "scopes": [auth.required_scope(item["name"])]}]
             item["securitySchemes"] = security
             item.setdefault("_meta", {})["securitySchemes"] = security
+            item["_meta"]["cadu/module"] = module_for_tool(item["name"])
+            item["_meta"]["cadu/cost"] = usage.cost_disclosure(item["name"])
     return [item for item in tools
             if item["name"] in PUBLIC_TOOLS
+            and module_for_tool(item["name"]) in principal.modules
             and (item["name"] != "credits.purchase_package" or auth.can_purchase_credits(principal))
             and (
                 auth.has_scope(principal, auth.required_scope(item["name"]))
@@ -429,47 +433,12 @@ def public_rpc():
                                "description": "Projetos, marcas e documentos da sua conta Cadu.",
                                "icons": _mcp_icons()},
                 "instructions": (
-                    "O Cadu entende pedidos naturais em português do Brasil. Use intent.interpret para frases como "
-                    "'joga isso no projeto', 'faz um documento disso' ou 'não salva ainda'. Quando 'isso' se referir "
-                    "a conteúdo criado pelo host, envie source.content ou uma referência Cadu explícita. "
-                    "Use intent.execute com confirmed=true e request_id único para criar ou salvar o documento de forma idempotente. "
-                    "Para preservar projeto, marca, artefatos e operações entre chamadas, use context.open e "
-                    "reenvie o context_handle retornado nas ferramentas seguintes. "
-                    "Use project_ref no nível params ou configure um projeto padrão na chave. "
-                    "O projeto é um inventário multiplataforma, não apenas uma base de conhecimento. "
-                    "Prefira resources.add como entrada única: mode=editable, external_link ou file_upload. "
-                    "Para uma entrega editável — inclusive uma página HTML — use artifacts.create_draft com type=html, document, research ou outro tipo suportado. "
-                    "Para texto que deve virar fonte pesquisável, use projects.create_note. Para um recurso mantido em outra plataforma, "
-                    "use projects.create_link_reference e informe resource_kind, platform, external_id, description e tags quando disponíveis. "
-                    "Inclua user_message com a mensagem final e factual da pessoa para que o Cadu gere contexto e timeline; "
-                    "não envie raciocínio interno, prompts de sistema ou instruções ocultas do agente. "
-                    "Uma referência pertence ao projeto e pode virar activity, task ou decision no campo project_item_kind; "
-                    "atalhos da dock são preferências separadas e nunca substituem a referência do projeto. "
-                    "Para acompanhamento dentro do Cadu use projects.list_tasks, projects.create_task, projects.create_tasks, projects.create_initial_task_list e projects.update_task; "
-                    "tarefas de plataformas externas devem preservar provider, URL e identificador, sem prometer sincronização quando não houver conector. "
-                    "Quando receber um convite colado do Meet, Teams ou Zoom, envie o bloco a projects.classify_intake(text) e preserve "
-                    "o objeto meeting retornado em projects.create_link_reference. "
-                    "Antes de oferecer edição, consulte resources.capabilities: PDF e referências sem conexão são somente leitura; "
-                    "para derivar uma entrega use resources.create_editable_copy, que preserva e relaciona a origem; "
-                    "para imagens use resources.start_image_edit, que prepara uma cópia no Studio sem alterar o original. "
-                    "Para pesquisar o projeto inteiro, incluindo direção, metadados, biblioteca, atividades, tarefas, links e fontes, "
-                    "use workspace.search_project_content; confira evidence_level, unavailable_scopes e resource_index_pending. "
-                    "Metadados de links não comprovam o conteúdo do destino. Para aprofundar trechos de arquivos indexados, "
-                    "use projects.search_knowledge e depois projects.get_source_chunks com o source_id retornado; cite nome da fonte e chunk_id. "
-                    "Para arquivos já existentes, imagens geradas e HTML binário, use projects.prepare_source_upload sem use_as_knowledge "
-                    "e envie o binário ao upload_url com upload_token e project_ref; inclua description factual para imagens sem texto. "
-                    "O Cadu classificará, indexará o conteúdo pesquisável e preservará o restante como ativo. "
-                    "projects.list_resources inclui metadata.icon para links do projeto; status ready indica URL de ícone utilizável. "
-                    "Para gerações do Cadu Media, use media.list_jobs e media.get_job. O download_url dos ativos "
-                    "aceita a mesma chave Bearer do MCP no cabeçalho Authorization, respeitando conta, usuário e escopo resources:read. "
-                    "Para a marca atual, liste a biblioteca com brands.list_assets; troque o site com "
-                    "brands.update_identity(changes.website_url), ou defina um asset aprovado como logo com "
-                    "brands.use_asset_as_logo. Em brands.start_audit escolha analysis_mode complete ou deep e, "
-                    "se desejar, informe existing_asset_ids da mesma biblioteca. A auditoria pertence à marca, não ao projeto: "
-                    "brand_id ou brand_ref identifica o alvo e tem prioridade mesmo quando project_ref aponta para outro projeto; "
-                    "não use context.update nem altere o vínculo do projeto para executar a auditoria. "
-                    "Para créditos, credits.purchase_package apenas cria um pedido pendente; mostre confirmation_url "
-                    "ao administrador e aguarde a confirmação autenticada no Cadu."
+                    "O Cadu conecta projetos, marcas, biblioteca, mídia, documentos e dados Google. "
+                    "Use diretamente a ferramenta mais específica para pedidos claros; interprete intenção apenas "
+                    "quando o pedido estiver ambíguo ou exigir uma ação composta. O projeto escolhido na conexão "
+                    "é o padrão; informe project_ref somente para outro projeto. Contextos persistentes são opcionais. "
+                    "Use apenas os módulos ativados nesta conexão. Confira evidências e escopos indisponíveis ao pesquisar; "
+                    "confirme ações externas ou irreversíveis antes de executá-las."
                 ),
             }
         elif method == "tools/list":
@@ -480,6 +449,7 @@ def public_rpc():
                 raise ToolError("Esta ferramenta não faz parte da superfície pública do Cadu.")
             try:
                 auth.ensure_scope(principal, name)
+                auth.ensure_module(principal, name)
             except auth.PublicMcpAuthError as exc:
                 raise ToolError(str(exc)) from exc
             arguments = params.get("arguments") or {}
@@ -544,7 +514,9 @@ def public_rpc():
                     credit_cost=reported_cost or credit_cost,
                     started_at=started_at, output_bytes=len(encoded.encode("utf-8")),
                 )
-                result = {"content": [{"type": "text", "text": encoded}], "structuredContent": value, "isError": False}
+                result = {"content": [{"type": "text", "text": encoded}], "structuredContent": value,
+                          "isError": False, "_meta": {"cadu/creditCost": reported_cost or credit_cost,
+                                                       "cadu/creditCostMode": usage.cost_disclosure(name)["mode"]}}
             except Exception as exc:
                 usage.record(
                     key_id=principal.key_id, credential_type=principal.credential_type,
@@ -689,28 +661,51 @@ def oauth_authorize():
     if request.method == "POST":
         if not _workspace_api_csrf():
             abort(403, description="Atualize a página e tente novamente.")
+        client_id, user_id = _session_scope()
+        actor = repository.actor(user_id) or {}
+        can_manage_account = (int(actor.get("organization_id") or 0) == client_id
+                              and repository.account_role(actor) == "admin")
         if request.form.get("decision") != "authorize":
             return redirect(_redirect_with_query(authorization["redirect_uri"],
                                                   error="access_denied", state=authorization["state"],
                                                   iss=_oauth_issuer()))
         approved = [scope for scope in authorization["scopes"]
                     if request.form.get(f"scope:{scope}") == "on"]
+        try:
+            approved_modules = normalize_modules(request.form.getlist("module"))
+        except ValueError as exc:
+            approved_modules = ()
         if not approved:
             return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
                                    projects=[], csrf=session["family_csrf"],
+                                   tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
+                                   can_manage_account=can_manage_account,
                                    error="Selecione ao menos uma permissão."), 400
-        client_id, user_id = _session_scope()
-        actor = repository.actor(user_id) or {}
+        if not approved_modules:
+            client_id, _ = _session_scope()
+            projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
+            return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
+                                   projects=projects, csrf=session["family_csrf"],
+                                   tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
+                                   can_manage_account=can_manage_account,
+                                   error="Mantenha ao menos um módulo de ferramentas ativo."), 400
         if "account:write" in approved and (
             int(actor.get("organization_id") or 0) != client_id
             or repository.account_role(actor) != "admin"
         ):
             approved.remove("account:write")
+        if "credits:purchase" in approved and (
+            int(actor.get("organization_id") or 0) != client_id
+            or repository.account_role(actor) != "admin"
+        ):
+            approved.remove("credits:purchase")
         if not approved:
             client_id, _ = _session_scope()
             projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
             return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
                                    projects=projects, csrf=session["family_csrf"],
+                                   tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
+                                   can_manage_account=can_manage_account,
                                    error="Sua função não permite as permissões selecionadas."), 403
         default_project_ref = request.form.get("default_project_ref") or None
         if default_project_ref:
@@ -720,14 +715,21 @@ def oauth_authorize():
         code = oauth.create_authorization_code(
             authorization=authorization, client_id=client_id, user_id=user_id,
             scopes=approved, default_project_ref=default_project_ref,
+            modules=approved_modules,
         )
         return redirect(_redirect_with_query(authorization["redirect_uri"], code=code,
                                               state=authorization["state"], iss=_oauth_issuer()))
 
     client_id, _ = _session_scope()
+    user_id = int(session.get("user_id") or 0)
+    actor = repository.actor(user_id) or {}
+    can_manage_account = (int(actor.get("organization_id") or 0) == client_id
+                          and repository.account_role(actor) == "admin")
     projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
     return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
-                           projects=projects, csrf=session["family_csrf"], error=None)
+                           projects=projects, csrf=session["family_csrf"], error=None,
+                           tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
+                           can_manage_account=can_manage_account)
 
 
 @bp.post("/oauth/token")
@@ -828,6 +830,9 @@ def agents_page():
         client_types=auth.CLIENT_TYPES,
         mcp_ready=auth._available(),
         oauth_ready=oauth.available(),
+        tool_modules=TOOL_MODULES,
+        default_modules=DEFAULT_MODULES,
+        all_modules=ALL_MODULES,
         workspace_dock_items=dock_items,
     )
 
@@ -853,16 +858,55 @@ def create_agent_key():
         requested_scopes = list(requested_scopes) + ["artifacts:write"]
     if str(data.get("scope_account_write") or "").lower() in {"1", "true", "on", "yes"}:
         requested_scopes = list(requested_scopes) + ["account:write"]
+    if str(data.get("scope_credit_purchase") or "").lower() in {"1", "true", "on", "yes"}:
+        requested_scopes = list(requested_scopes) + ["credits:purchase"]
     try:
         key = auth.create_key(
             client_id=client_id, user_id=user_id,
             label=data.get("label"), client_type=data.get("client_type"),
             default_project_ref=data.get("default_project_ref") or None,
             scopes=requested_scopes,
+            modules=data.get("modules"),
         )
     except auth.PublicMcpAuthError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     return jsonify({"success": True, "key": key, "endpoint": product_url("workspace", PUBLIC_MCP_PATH)})
+
+
+@bp.post("/app/agents/keys/<key_id>/modules")
+@bp.post("/workspace/app/integracoes/agents/keys/<key_id>/modules")
+@login_required
+def update_agent_key_modules(key_id):
+    if not _workspace_api_csrf():
+        abort(403, description="Atualize a página e tente novamente.")
+    client_id, user_id = _session_scope()
+    data = request.get_json(silent=True) or {}
+    try:
+        changed = auth.update_key_modules(key_id=key_id, client_id=client_id, user_id=user_id,
+                                          modules=data.get("modules"))
+    except auth.PublicMcpAuthError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    if not changed:
+        return jsonify({"success": False, "error": "Conexão não encontrada ou revogada."}), 404
+    return jsonify({"success": True})
+
+
+@bp.post("/app/agents/grants/<grant_id>/modules")
+@bp.post("/workspace/app/integracoes/agents/grants/<grant_id>/modules")
+@login_required
+def update_agent_grant_modules(grant_id):
+    if not _workspace_api_csrf():
+        abort(403, description="Atualize a página e tente novamente.")
+    client_id, user_id = _session_scope()
+    data = request.get_json(silent=True) or {}
+    try:
+        changed = oauth.update_grant_modules(grant_id=grant_id, client_id=client_id, user_id=user_id,
+                                             modules=data.get("modules"))
+    except oauth.OAuthError as exc:
+        return jsonify({"success": False, "error": exc.description}), exc.status
+    if not changed:
+        return jsonify({"success": False, "error": "Conexão não encontrada ou revogada."}), 404
+    return jsonify({"success": True})
 
 
 @bp.post("/app/agents/keys/<key_id>/revoke")

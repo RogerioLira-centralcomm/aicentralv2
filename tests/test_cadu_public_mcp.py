@@ -5,13 +5,15 @@ from pathlib import Path
 import pytest
 from flask import Flask
 
-from aicentralv2.cadu_public_mcp.auth import DEFAULT_SCOPES, PublicMcpAuthError, PublicMcpPrincipal, _public_context, ensure_scope, normalize_scopes
+from aicentralv2.cadu_public_mcp.auth import DEFAULT_SCOPES, PublicMcpAuthError, PublicMcpPrincipal, _public_context, ensure_module, ensure_scope, normalize_scopes, required_scope
+from aicentralv2.cadu_mcp_catalog import ALL_MODULES, DEFAULT_MODULES, TOOL_MODULES, module_for_tool
 from aicentralv2.cadu_public_mcp import usage
 from aicentralv2.cadu_public_mcp.routes import PUBLIC_MCP_PATH, PUBLIC_TOOLS, RECOVERABLE_OPERATION_TOOLS, _public_catalog, _request_context_for_auth, bp
 from aicentralv2.cadu_public_mcp.usage import tool_cost
 from aicentralv2.cadu_tool_billing import InsufficientToolCredits
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
+from aicentralv2.cadu_workspace.mcp.registry import ToolDefinition
 from aicentralv2.cadu_workspace.mcp.tools.resources import (
     _image_suffix, add_resource, create_editable_copy, inspect_input, list_versions as list_resource_versions,
     relate as relate_resources, search_resources, set_archived, start_image_edit, update_metadata,
@@ -41,8 +43,85 @@ def test_public_context_is_tenant_bound_and_uses_default_project():
     assert context.project_ref == "ci:project-1"
 
 
-def test_legacy_purchase_scope_does_not_break_existing_keys():
-    assert normalize_scopes(["credits:read", "credits:purchase"], allow_writes=True) == ("credits:read",)
+def test_credit_purchase_uses_a_distinct_explicit_scope():
+    assert normalize_scopes(["credits:read", "credits:purchase"], allow_writes=True) == ("credits:purchase", "credits:read")
+    assert required_scope("credits.purchase_package") == "credits:purchase"
+    assert required_scope("credits.get_balance") == "credits:read"
+
+
+def test_public_tool_modules_cover_the_whole_public_surface_and_start_with_marketing():
+    assert len(PUBLIC_TOOLS) == 101
+    assert len({name.split(".", 1)[0] for name in PUBLIC_TOOLS}) == 15
+    assert set(DEFAULT_MODULES) == {"marketing"}
+    assert set(ALL_MODULES) == set(TOOL_MODULES)
+    assert {module_for_tool(name) for name in PUBLIC_TOOLS} <= set(TOOL_MODULES)
+    assert {module_for_tool(name) for name in PUBLIC_TOOLS} == set(TOOL_MODULES)
+    registry = load_builtin_tools()
+    assert PUBLIC_TOOLS <= set(registry._tools)
+    for name in PUBLIC_TOOLS:
+        annotations = registry._tools[name].public_schema()["annotations"]
+        assert {"readOnlyHint", "openWorldHint", "destructiveHint"} <= annotations.keys()
+        assert all(isinstance(annotations[key], bool)
+                   for key in ("readOnlyHint", "openWorldHint", "destructiveHint"))
+
+
+def test_inactive_tool_module_is_denied_with_actionable_message():
+    context = RequestContext(organization_id=12, client_id=12, user_id=7,
+                             conversation_id=None, surface="workspace", project_ref=None,
+                             capabilities=("workspace",))
+    principal = PublicMcpPrincipal("key", 12, 7, "codex", "Teste", ("projects:read",), context,
+                                   modules=("marketing",))
+    with pytest.raises(PublicMcpAuthError, match="ativado nesta conexão"):
+        ensure_module(principal, "projects.create_task")
+
+
+def test_tool_price_disclosure_distinguishes_fixed_variable_and_default_costs():
+    assert usage.cost_disclosure("projects.search_knowledge")["mode"] == "fixed"
+    assert usage.cost_disclosure("media.generate_image")["mode"] == "variable"
+    assert usage.cost_disclosure("intent.interpret") == {
+        "mode": "default", "credits": 1, "unit": "créditos Cadu",
+    }
+
+
+def test_public_tool_schema_has_plugin_review_annotations_and_short_context_hint():
+    definition = ToolDefinition(
+        name="web.search", description="Pesquisar na web.", capability="workspace", effect="read",
+        input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        handler=lambda *_: {},
+    )
+    schema = definition.public_schema()
+    assert schema["annotations"] == {
+        "readOnlyHint": True, "openWorldHint": True,
+        "destructiveHint": False, "idempotentHint": True,
+    }
+    assert schema["_meta"]["cadu/module"] == "marketing"
+    assert len(schema["inputSchema"]["properties"]["context_handle"]["description"]) < 100
+
+
+def test_marketing_profile_filters_catalog_and_keeps_modules_independently_available():
+    principal = PublicMcpPrincipal(
+        key_id="key", client_id=12, user_id=7, client_type="codex", label="Teste",
+        scopes=tuple(DEFAULT_SCOPES | {"projects:write", "google:write", "brands:write", "artifacts:write"}),
+        context=RequestContext(organization_id=12, client_id=12, user_id=7, conversation_id=None,
+                               surface="workspace", project_ref="ci:project-1", capabilities=("workspace",)),
+        modules=("marketing",),
+    )
+    tool_list = [
+        {"name": "projects.search_knowledge", "description": "Busca", "inputSchema": {"type": "object", "properties": {}}},
+        {"name": "projects.create_task", "description": "Tarefa", "inputSchema": {"type": "object", "properties": {}}},
+        {"name": "google.list_calendar_events", "description": "Agenda", "inputSchema": {"type": "object", "properties": {}}},
+        {"name": "artifacts.create_draft", "description": "Documento", "inputSchema": {"type": "object", "properties": {}}},
+    ]
+    registry = Mock()
+    registry.list.return_value = tool_list
+    with patch("aicentralv2.cadu_public_mcp.routes.load_builtin_tools", return_value=registry), \
+         patch("aicentralv2.cadu_public_mcp.routes.auth.has_scope", return_value=True), \
+         patch("aicentralv2.cadu_public_mcp.routes.auth.can_purchase_credits", return_value=False):
+        catalog = _public_catalog(principal)
+    assert {item["name"] for item in catalog} == {
+        "projects.search_knowledge", "artifacts.create_draft",
+    }
+    assert catalog[0]["_meta"]["cadu/cost"]["unit"] == "créditos Cadu"
 
 
 def test_empty_effective_scope_does_not_restore_default_permissions():
@@ -133,6 +212,9 @@ def test_agent_setup_exposes_native_installers_without_overpromising_codex():
     assert "O Codex ainda não oferece um link público de instalação" in template
     assert "data-install-client" in template
     assert "O instalador do Cursor receberá a URL e a chave privada" in template
+    assert "conexão privada MCP não está disponível" in template
+    assert "Esta checagem não autentica o aplicativo nem testa ferramentas" in template
+    assert "O servidor oferece 101 ferramentas em 15 áreas funcionais" in template
 
 
 def test_public_mcp_insufficient_credits_points_to_workspace():

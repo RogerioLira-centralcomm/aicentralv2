@@ -22,7 +22,7 @@ def _context(project_ref="ci:42"):
                           project_ref=project_ref, capabilities=("workspace", "artifacts"))
 
 
-def test_public_credit_purchase_uses_current_admin_role_not_a_special_key_scope():
+def test_public_credit_purchase_requires_admin_role_and_explicit_purchase_scope():
     principal = auth.PublicMcpPrincipal(
         key_id="key", client_id=12, user_id=7, client_type="codex", label="Agente",
         scopes=tuple(auth.DEFAULT_SCOPES), context=_context(),
@@ -33,7 +33,13 @@ def test_public_credit_purchase_uses_current_admin_role_not_a_special_key_scope(
         auth.ensure_scope(principal, "credits.purchase_package")
     with patch.object(auth.repository, "actor", return_value={"organization_id": 12}), \
          patch.object(auth.repository, "account_role", return_value="admin"):
-        auth.ensure_scope(principal, "credits.purchase_package")
+        with pytest.raises(auth.PublicMcpAuthError, match="credits:purchase"):
+            auth.ensure_scope(principal, "credits.purchase_package")
+        authorized_principal = auth.PublicMcpPrincipal(
+            key_id="key", client_id=12, user_id=7, client_type="codex", label="Agente",
+            scopes=(*auth.DEFAULT_SCOPES, "credits:purchase"), context=_context(),
+        )
+        auth.ensure_scope(authorized_principal, "credits.purchase_package")
 
 
 def test_mcp_purchase_tool_only_creates_pending_request():

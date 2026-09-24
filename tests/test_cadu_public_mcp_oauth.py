@@ -34,14 +34,22 @@ def test_oauth_discovery_is_consistent_with_public_mcp_resource():
 
 
 def test_oauth_readiness_requires_every_table_used_by_the_flow():
-    with patch("aicentralv2.cadu_public_mcp.oauth._table_available", return_value=True) as table:
+    with patch("aicentralv2.cadu_public_mcp.oauth._modules_column_available", return_value=True), \
+         patch("aicentralv2.cadu_public_mcp.oauth._table_available", return_value=True) as table:
         assert oauth.available() is True
     assert {call.args[0] for call in table.call_args_list} == {
         "cadu_oauth_clients", "cadu_oauth_grants", "cadu_oauth_authorization_codes",
         "cadu_oauth_access_tokens", "cadu_oauth_refresh_tokens",
     }
-    with patch("aicentralv2.cadu_public_mcp.oauth._table_available",
+    with patch("aicentralv2.cadu_public_mcp.oauth._modules_column_available", return_value=True), \
+         patch("aicentralv2.cadu_public_mcp.oauth._table_available",
                side_effect=lambda name: name != "cadu_oauth_refresh_tokens"):
+        assert oauth.available() is False
+
+
+def test_oauth_readiness_fails_closed_until_module_schema_is_migrated():
+    with patch("aicentralv2.cadu_public_mcp.oauth._modules_column_available", return_value=False), \
+         patch("aicentralv2.cadu_public_mcp.oauth._table_available", return_value=True):
         assert oauth.available() is False
 
 
@@ -178,6 +186,28 @@ def test_authorization_code_rejects_empty_effective_consent():
             authorization={"scopes": ("account:write",)}, client_id=12, user_id=7, scopes=[]
         )
     assert error.value.error == "invalid_scope"
+
+
+def test_authorization_grant_persists_only_the_selected_tool_modules():
+    cursor = MagicMock()
+    connection = MagicMock()
+    connection.cursor.return_value.__enter__.return_value = cursor
+    authorization = {
+        "client": {"id": "db-client"}, "client_id": "client",
+        "redirect_uri": "https://client.example/callback",
+        "resource": "https://workspace.centralcomm.media/mcp/cadu/v1",
+        "code_challenge": "a" * 43, "scopes": ("projects:read",),
+    }
+    with patch("aicentralv2.cadu_public_mcp.oauth.get_db", return_value=connection):
+        oauth.create_authorization_code(
+            authorization=authorization, client_id=12, user_id=7,
+            scopes=("projects:read",), modules=("marketing", "google"),
+        )
+    sql, params = cursor.execute.call_args_list[0].args
+    assert "scopes, modules" in sql
+    assert params[5].obj == ["projects:read"]
+    assert params[6].obj == ["marketing", "google"]
+    connection.commit.assert_called_once()
 
 
 def test_access_token_rejects_empty_token_grant_scope_intersection():

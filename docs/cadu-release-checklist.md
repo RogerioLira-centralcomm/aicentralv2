@@ -25,6 +25,7 @@ tenha sido validada.
 6. `python migrations/run_add_workspace_brand_audit_history.py`
 7. `python migrations/run_add_workspace_brand_audit_evidence.py`
 8. `python migrations/run_add_workspace_brand_audit_versioning.py`
+9. `python migrations/run_add_cadu_public_mcp_modules.py`
 
 Os runners são atômicos, exigem banco explicitamente configurado e validam o
 schema criado. Eles não habilitam flags e não inserem dados de demonstração.
@@ -78,3 +79,30 @@ schema criado. Eles não habilitam flags e não inserem dados de demonstração.
   negado entre organizações.
 - Só remover templates e adaptadores antigos depois do aceite e de uma janela
   de observação sem uso das rotas de compatibilidade.
+
+## 8. MCP público do Cadu
+
+- Antes de executar a migration do MCP, confirmar backup verificável e banco
+  alvo (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`). O runner exige host, nome
+  e usuário explícitos, limita bloqueios/execução e valida as duas colunas.
+- Publicar com módulos antigos preservados; novas autorizações começam pelo
+  módulo Marketing e podem habilitar Projetos, Biblioteca, Mídia, Marcas,
+  Google, Documentos, Conta e Relatórios.
+- Validar em cliente elegível o ciclo completo: descoberta OAuth, registro,
+  consentimento, autorização, `tools/list`, chamada real, refresh e revogação.
+- Validar também conexão manual legada, seleção persistente de módulos,
+  escopos de leitura/escrita/administração e a compra de créditos somente por
+  administrador autorizado.
+- Confirmar que o diagnóstico distingue endpoint disponível, OAuth disponível,
+  conexão autorizada e ferramentas efetivamente testadas; validar erros sem
+  exibir credenciais e que nenhuma ferramenta retorna como desconhecida.
+- Medir ferramentas/schema carregados, chamadas por tarefa, latência, erros e
+  créditos cobrados em tarefas de Marketing representativas antes de ampliar
+  o catálogo padrão.
+- Manter uma tarifa explícita para cada ferramenta pública: preço fixo, tarifa
+  padrão atual de 1 crédito ou cobrança variável já feita pelo serviço de
+  origem. Ferramenta nova sem política de cobrança definida deve falhar de
+  forma visível até ser classificada; não herdar cobrança silenciosamente.
+- A submissão pública do plugin é uma etapa separada: completar identidade,
+  domínio, URLs legais/suporte, conta de revisão e aprovação no portal OpenAI.
+  A preparação técnica e a migration não publicam nem submetem o plugin.

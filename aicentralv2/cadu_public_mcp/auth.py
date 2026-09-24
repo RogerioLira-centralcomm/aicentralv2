@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 from flask import request
 from psycopg.types.json import Json
 
+from ..cadu_mcp_catalog import ALL_MODULES, DEFAULT_MODULES, normalize_modules, module_for_tool
 from ..cadu_family import repository
 from ..cadu_workspace.agent_v2.contracts import ActiveObject, RequestContext, SURFACES
 from ..db import get_db
@@ -20,6 +21,7 @@ KEY_PREFIX = "cadu_mcp_"
 CLIENT_TYPES = ("gpt", "codex", "cursor", "vscode", "generic")
 CLIENT_SCOPES = ("resources:read", "projects:read", "projects:content_write", "projects:write", "brands:write",
                  "artifacts:write", "account:read", "account:write", "credits:read",
+                 "credits:purchase",
                  "google:read", "google:write", "contexts:read", "contexts:write", "operations:read",
                  "offline_access")
 DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "projects:content_write", "account:read", "credits:read", "google:read", "contexts:read", "contexts:write", "operations:read"))
@@ -40,6 +42,7 @@ class PublicMcpPrincipal:
     context: RequestContext
     credential_type: str = "api_key"
     grant_id: str | None = None
+    modules: tuple[str, ...] = ALL_MODULES
 
 
 def _hash_key(value: str) -> str:
@@ -49,8 +52,12 @@ def _hash_key(value: str) -> str:
 def _available() -> bool:
     try:
         with get_db().cursor() as cursor:
-            cursor.execute("SELECT to_regclass('public.cadu_public_mcp_keys') AS table_name")
-            return bool((cursor.fetchone() or {}).get("table_name"))
+            cursor.execute("""SELECT to_regclass('public.cadu_public_mcp_keys') AS table_name,
+                       EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema='public' AND table_name='cadu_public_mcp_keys'
+                                  AND column_name='modules') AS has_modules""")
+            row = cursor.fetchone() or {}
+            return bool(row.get("table_name") and row.get("has_modules"))
     except Exception:
         return False
 
@@ -61,8 +68,6 @@ def normalize_scopes(scopes=None, *, allow_writes: bool = False) -> tuple[str, .
         scopes = scopes.split()
     source = DEFAULT_SCOPES if use_defaults else scopes
     values = {str(item).strip().lower() for item in (source or ()) if str(item).strip()}
-    # Preserve keys issued before purchases became role-based.
-    values.discard("credits:purchase")
     unknown = values - set(CLIENT_SCOPES)
     if unknown:
         raise PublicMcpAuthError("Escopo MCP inválido.")
@@ -72,13 +77,14 @@ def normalize_scopes(scopes=None, *, allow_writes: bool = False) -> tuple[str, .
         values.discard("brands:write")
         values.discard("artifacts:write")
         values.discard("account:write")
+        values.discard("credits:purchase")
         values.discard("google:write")
         values.discard("contexts:write")
     return tuple(sorted(values))
 
 
 def create_key(*, client_id: int, user_id: int, label: str, client_type: str,
-               default_project_ref: str | None = None, scopes=None) -> dict:
+               default_project_ref: str | None = None, scopes=None, modules=None) -> dict:
     if not _available():
         raise PublicMcpAuthError("A camada pública do MCP ainda não foi ativada no banco.")
     client_type = str(client_type or "generic").strip().lower()
@@ -86,6 +92,12 @@ def create_key(*, client_id: int, user_id: int, label: str, client_type: str,
         raise PublicMcpAuthError("Cliente MCP inválido.")
     label = " ".join(str(label or "").split())[:120] or client_type.title()
     scopes = normalize_scopes(scopes, allow_writes=True)
+    try:
+        modules = normalize_modules(modules)
+    except ValueError as exc:
+        raise PublicMcpAuthError(str(exc)) from exc
+    if not modules:
+        raise PublicMcpAuthError("Ative ao menos um módulo.")
     if default_project_ref:
         items = {item["ref"]: item for item in repository.entities(int(client_id))}
         if default_project_ref not in items or items[default_project_ref]["kind"] != "project":
@@ -98,12 +110,12 @@ def create_key(*, client_id: int, user_id: int, label: str, client_type: str,
             cursor.execute(
                 """INSERT INTO cadu_public_mcp_keys
                     (id, client_id, user_id, client_type, label, default_project_ref,
-                     scopes, key_prefix, key_hash, status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'active')
+                     scopes, modules, key_prefix, key_hash, status)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'active')
                 RETURNING id, client_id, user_id, client_type, label, key_prefix,
-                          default_project_ref, scopes, status, created_at, last_used_at, revoked_at""",
+                          default_project_ref, scopes, modules, status, created_at, last_used_at, revoked_at""",
                 (key_id, int(client_id), int(user_id), client_type, label, default_project_ref,
-                 Json(list(scopes)), raw_key[:20], _hash_key(raw_key)),
+                 Json(list(scopes)), Json(list(modules)), raw_key[:20], _hash_key(raw_key)),
             )
             row = dict(cursor.fetchone())
         connection.commit()
@@ -118,8 +130,8 @@ def list_keys(*, client_id: int, user_id: int) -> list[dict]:
         return []
     with get_db().cursor() as cursor:
         cursor.execute(
-                """SELECT id, client_id, user_id, client_type, label, default_project_ref, key_prefix,
-                      scopes, status, created_at, last_used_at, revoked_at
+            """SELECT id, client_id, user_id, client_type, label, default_project_ref, key_prefix,
+                      scopes, modules, status, created_at, last_used_at, revoked_at
                  FROM cadu_public_mcp_keys
                 WHERE client_id=%s AND user_id=%s
              ORDER BY created_at DESC""",
@@ -153,6 +165,30 @@ def revoke_key(*, key_id: str, client_id: int, user_id: int) -> bool:
     return changed
 
 
+def update_key_modules(*, key_id: str, client_id: int, user_id: int, modules) -> bool:
+    try:
+        parsed = UUID(str(key_id))
+        enabled_modules = normalize_modules(modules)
+    except (TypeError, ValueError) as exc:
+        raise PublicMcpAuthError("Seleção de módulos inválida.") from exc
+    if not enabled_modules:
+        raise PublicMcpAuthError("Ative ao menos um módulo.")
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cadu_public_mcp_keys SET modules=%s, updated_at=NOW()
+                    WHERE id=%s AND client_id=%s AND user_id=%s AND status='active'""",
+                (Json(list(enabled_modules)), parsed, int(client_id), int(user_id)),
+            )
+            changed = cursor.rowcount == 1
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return changed
+
+
 def _bearer() -> str:
     header = str(request.headers.get("Authorization") or "").strip()
     if header.lower().startswith("bearer "):
@@ -168,7 +204,7 @@ def _load_key(raw_key: str) -> dict:
     with get_db().cursor() as cursor:
         cursor.execute(
             """SELECT id, client_id, user_id, client_type, label, default_project_ref,
-                         scopes, status, expires_at
+                         scopes, modules, status, expires_at
                  FROM cadu_public_mcp_keys
                 WHERE key_hash=%s""",
             (_hash_key(raw_key),),
@@ -207,6 +243,8 @@ def required_scope(tool_name: str) -> str:
     if name in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
         return "projects:content_write"
     if name.startswith("credits."):
+        if name == "credits.purchase_package":
+            return "credits:purchase"
         return "credits:read"
     if name in {"account.update_profile", "account.update_agency", "account.invite_team_member"}:
         return "account:write"
@@ -255,11 +293,19 @@ def required_scope(tool_name: str) -> str:
 
 
 def ensure_scope(principal: PublicMcpPrincipal, tool_name: str) -> None:
+    if tool_name == "credits.purchase_package" and not can_purchase_credits(principal):
+        raise PublicMcpAuthError("Somente administradores da conta podem comprar créditos.")
     scope = required_scope(tool_name)
     if not has_scope(principal, scope):
         raise PublicMcpAuthError(f"A chave não possui o escopo necessário: {scope}.")
-    if tool_name == "credits.purchase_package" and not can_purchase_credits(principal):
-        raise PublicMcpAuthError("Somente administradores da conta podem comprar créditos.")
+
+
+def ensure_module(principal: PublicMcpPrincipal, tool_name: str) -> None:
+    module = module_for_tool(tool_name)
+    if module not in principal.modules:
+        raise PublicMcpAuthError(
+            f"O módulo {module} não está ativado nesta conexão. Ative-o em Integrações → Agentes no Cadu."
+        )
 
 
 def has_scope(principal: PublicMcpPrincipal, scope: str) -> bool:
@@ -326,4 +372,5 @@ def authenticate(params: dict) -> PublicMcpPrincipal:
         scopes=normalize_scopes(row.get("scopes"), allow_writes=True), context=context,
         credential_type=credential_type,
         grant_id=str(row.get("grant_id")) if row.get("grant_id") else None,
+        modules=normalize_modules(row.get("modules"), default=ALL_MODULES),
     )

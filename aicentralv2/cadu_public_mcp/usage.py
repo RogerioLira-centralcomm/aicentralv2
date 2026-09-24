@@ -29,6 +29,7 @@ PUBLIC_TOOL_COSTS = {
     "google.list_project_resources": 1,
     "google.list_calendar_events": 1,
     "google.list_meet_records": 2,
+    "google.list_meet_artifacts": 2,
     "google.link_resource_to_project": 2,
     "resources.search": 1,
     "resources.get": 1,
@@ -61,11 +62,94 @@ INTERNALLY_METERED_TOOLS = {
     "media.plan_video",
 }
 
+# Explicit, current public tariff for tools that historically used the
+# one-credit fallback. Listing them here makes the policy auditable and keeps
+# a newly added public tool from inheriting a charge without review.
+DEFAULT_ONE_CREDIT_TOOLS = frozenset({
+    "account.invite_team_member",
+    "account.update_agency",
+    "account.update_profile",
+    "artifacts.create_draft",
+    "artifacts.describe_types",
+    "artifacts.finalize_to_project",
+    "artifacts.get",
+    "artifacts.get_version",
+    "artifacts.list",
+    "artifacts.list_versions",
+    "artifacts.move_project",
+    "artifacts.restore_version",
+    "artifacts.update_draft",
+    "brands.audit_status",
+    "brands.create",
+    "brands.delete_asset",
+    "brands.get_context",
+    "brands.inspect_site",
+    "brands.list_assets",
+    "brands.prepare_asset_upload",
+    "brands.prepare_logo_upload",
+    "brands.start_audit",
+    "brands.update_identity",
+    "brands.use_asset_as_logo",
+    "context.close",
+    "context.get",
+    "context.open",
+    "context.update",
+    "intent.execute",
+    "intent.interpret",
+    "planner.get_brief",
+    "planner.get_link_test",
+    "planner.get_media_plan",
+    "planner.list_link_tests",
+    "planner.list_plans",
+    "planner.search_catalog",
+    "projects.create_note",
+    "projects.ingestion_status",
+    "projects.inspect_link",
+    "projects.prepare_source_upload",
+    "projects.reindex_source",
+    "resources.add",
+    "resources.create_editable_copy",
+    "resources.inspect_input",
+    "resources.list_relations",
+    "resources.list_versions",
+    "resources.relate",
+    "resources.set_archived",
+    "resources.update_metadata",
+    "web.read",
+    "web.search",
+    "workspace.create_project",
+    "workspace.get_project_context",
+    "workspace.link_current_brand",
+    "workspace.list_project_shares",
+    "workspace.list_projects",
+    "workspace.search_project_content",
+    "workspace.set_project_status",
+    "workspace.set_project_visibility",
+    "workspace.share_project_with_people",
+    "workspace.share_project_with_team",
+    "workspace.update_project_context",
+})
+
 
 def tool_cost(tool_name: str) -> int:
     if tool_name in INTERNALLY_METERED_TOOLS:
         return 0
-    return max(0, int(PUBLIC_TOOL_COSTS.get(tool_name, 1)))
+    if tool_name in DEFAULT_ONE_CREDIT_TOOLS:
+        return 1
+    if tool_name not in PUBLIC_TOOL_COSTS:
+        raise ValueError(f"Ferramenta MCP sem tarifa definida: {tool_name}")
+    return max(0, int(PUBLIC_TOOL_COSTS[tool_name]))
+
+
+def cost_disclosure(tool_name: str) -> dict:
+    """A compact, truthful cost disclosure for a tool descriptor/result."""
+    if tool_name in INTERNALLY_METERED_TOOLS:
+        return {"mode": "variable", "unit": "créditos Cadu"}
+    if tool_name in PUBLIC_TOOL_COSTS:
+        return {"mode": "fixed", "credits": tool_cost(tool_name), "unit": "créditos Cadu"}
+    if tool_name in DEFAULT_ONE_CREDIT_TOOLS:
+        return {"mode": "default", "credits": 1, "unit": "créditos Cadu"}
+    raise ValueError(f"Ferramenta MCP sem tarifa definida: {tool_name}")
 
 
 def new_request_id(value=None) -> str:

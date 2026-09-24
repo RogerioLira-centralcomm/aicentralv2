@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from copy import deepcopy
 from typing import Any, Callable
 
+from ...cadu_mcp_catalog import module_for_tool
+
 from ..agent_v2.contracts import RequestContext
 from ..workspace_action_policy import is_workspace_only_tool
 
@@ -99,17 +101,25 @@ class ToolDefinition:
         if not self.name.startswith("context.") and input_schema.get("type") == "object":
             input_schema.setdefault("properties", {})["context_handle"] = {
                 "type": "string", "minLength": 20, "maxLength": 180,
-                "description": "Handle retornado por context.open; reutilize para preservar o contexto entre ferramentas.",
+                "description": "Opcional: reutilize o identificador de contexto retornado pelo Cadu.",
             }
+        name = self.name
+        open_world = (name.startswith(("web.", "google.")) or name in {
+            "projects.inspect_link", "brands.inspect_site", "media.generate_image",
+            "media.edit_image", "media.plan_video", "media.start_studio_session",
+        })
+        destructive = name in {"brands.delete_asset"}
         value = {
             "name": self.name,
             "description": self.description,
             "inputSchema": input_schema,
             "annotations": {
-                "readOnlyHint": self.effect == "read", "destructiveHint": self.effect == "write",
+                "readOnlyHint": self.effect == "read", "openWorldHint": open_world,
+                "destructiveHint": destructive,
                 "idempotentHint": self.effect == "read",
             },
-            "_meta": {"cadu/toolVersion": self.version, "cadu/effect": self.effect},
+            "_meta": {"cadu/toolVersion": self.version, "cadu/effect": self.effect,
+                      "cadu/module": module_for_tool(self.name)},
         }
         if self.output_schema:
             value["outputSchema"] = self.output_schema

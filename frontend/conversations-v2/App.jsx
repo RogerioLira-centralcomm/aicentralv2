@@ -98,6 +98,7 @@ export default function App({bootstrap}) {
   const [googleConnection, setGoogleConnection] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleSyncPages, setGoogleSyncPages] = useState(0);
   const [googleError, setGoogleError] = useState('');
   const [googleDraft, setGoogleDraft] = useState(() => {
     try { return initialQuery.get('google_return') === '1' ? window.sessionStorage.getItem('cadu:google-plugin-draft') || '' : ''; }
@@ -1538,13 +1539,23 @@ export default function App({bootstrap}) {
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
           {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} onUsePlugin={usePlugin} caduMark={bootstrap.caduMark || bootstrap.logo} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
           <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} caduMark={bootstrap.caduMark || bootstrap.logo} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
-          {googlePluginId && !pluginsPageOpen && <GooglePluginPanel pluginId={googlePluginId} connection={googleConnection} loading={googleLoading} error={googleError} draft={googleDraft} onDraftChange={setGoogleDraft} projects={projects} onLinkResource={(resourceId, projectRef) => request(`/workspace/api/v2/google/resources/${encodeURIComponent(resourceId)}/link`, {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({project_ref:projectRef})})} syncing={googleSyncing} onSyncDrive={() => {
+          {googlePluginId && !pluginsPageOpen && <GooglePluginPanel pluginId={googlePluginId} connection={googleConnection} loading={googleLoading} error={googleError} draft={googleDraft} onDraftChange={setGoogleDraft} projects={projects} onLinkResource={(resourceId, projectRef) => request(`/workspace/api/v2/google/resources/${encodeURIComponent(resourceId)}/link`, {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({project_ref:projectRef})})} syncing={googleSyncing} syncPages={googleSyncPages} onSyncDrive={async () => {
             setGoogleSyncing(true);
-            request('/workspace/api/v2/google/drive/sync', {method:'POST', headers:{'X-CSRF-Token':csrf()}})
-              .then(() => request('/workspace/api/v2/google/connection'))
-              .then(data => { setGoogleConnection(data); setGoogleError(''); })
-              .catch(error => setGoogleError(error.message || 'Não foi possível atualizar o Drive.'))
-              .finally(() => setGoogleSyncing(false));
+            setGoogleSyncPages(0);
+            try {
+              for (let page = 1; page <= 10; page += 1) {
+                setGoogleSyncPages(page);
+                const result = await request('/workspace/api/v2/google/drive/sync', {method:'POST', headers:{'X-CSRF-Token':csrf()}});
+                if (!result.next_page_token) break;
+              }
+              setGoogleError('');
+            } catch (error) {
+              setGoogleError(error.message || 'Não foi possível atualizar o Drive.');
+            } finally {
+              try { setGoogleConnection(await request('/workspace/api/v2/google/connection')); }
+              catch (_) { /* The current connection state remains visible. */ }
+              setGoogleSyncing(false);
+            }
           }} onClose={() => {
             setGooglePluginId('');
             const url = new URL(window.location.href); url.searchParams.delete('google_plugin'); url.searchParams.delete('google_return');

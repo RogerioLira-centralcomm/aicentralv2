@@ -14,9 +14,10 @@ still enforces access to original files.
 3. The OAuth `next` target returns to the same conversation. The unsent prompt
    is kept in session storage for review; returning never executes a write.
 4. A connected person can refresh Drive metadata independently of Calendar,
-   Meet and Ads. Large Drives are indexed one page per request; the panel
-   offers a continuation until the initial snapshot is complete. Drive results
-   identify original Google files and folders.
+   Meet and Ads. Large Drives are indexed one page per HTTP request, with up
+   to ten pages advanced per click. The panel offers a continuation until the
+   initial snapshot is complete. Drive results identify original Google files
+   and folders.
 5. The user can continue in the composer. Explicit instructions also select a
    matching Google workflow automatically. Tool execution remains authorized
    by the shared MCP registry.

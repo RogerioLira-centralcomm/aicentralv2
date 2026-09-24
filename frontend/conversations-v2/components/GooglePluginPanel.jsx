@@ -15,7 +15,7 @@ const nextPrompts = {
 };
 
 export function GooglePluginPanel({pluginId, connection, loading, error, draft, onDraftChange,
-  onClose, onRefresh, onConnect, onUse, onSyncDrive, syncing, projects = [], onLinkResource}) {
+  onClose, onRefresh, onConnect, onUse, onSyncDrive, syncing, syncPages = 0, projects = [], onLinkResource}) {
   const [linked, setLinked] = useState({});
   const [linkError, setLinkError] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -79,7 +79,7 @@ export function GooglePluginPanel({pluginId, connection, loading, error, draft, 
       <div className="cv-google-plugin-panel__actions">
         {(!connected || !ready) && connection?.configured && <button type="button" className="is-primary" onClick={onConnect}>{connected ? 'Atualizar permissões' : 'Conectar minha conta'}</button>}
         {connected && ready && pluginId !== 'google-connect' && <button type="button" className="is-primary" onClick={() => onUse?.(draft || nextPrompts[pluginId])}>Usar na conversa</button>}
-        {connected && ready && pluginId === 'google-drive' && <button type="button" onClick={onSyncDrive} disabled={syncing}>{syncing ? 'Atualizando Drive…' : connection?.drive_sync_pending ? 'Continuar sincronização' : 'Atualizar arquivos'}</button>}
+        {connected && ready && pluginId === 'google-drive' && <button type="button" onClick={onSyncDrive} disabled={syncing}>{syncing ? `Atualizando Drive · página ${syncPages || 1}…` : connection?.drive_sync_pending ? 'Continuar sincronização' : 'Atualizar arquivos'}</button>}
         {connected && pluginId === 'google-connect' && <button type="button" className="is-primary" onClick={() => onUse?.(draft || 'Mostre o que posso fazer com minha conta Google conectada.')}>Continuar na conversa</button>}
         <button type="button" onClick={onRefresh}>Atualizar estado</button>
       </div>

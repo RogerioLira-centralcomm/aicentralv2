@@ -5960,6 +5960,16 @@ def project_detail(project_id, project_view='overview'):
             'cadu_agent_v2_lab.conversations_v2_lab',
             project_ref=f'ci:{project_id}', history='1',
         )
+        latest_project_conversation_id = next((
+            str(item.get('id') or '').strip()
+            for item in (project.get('conversations') or [])
+            if str(item.get('id') or '').strip()
+        ), '')
+        project_resume_url = url_for(
+            'cadu_agent_v2_lab.conversations_v2_lab',
+            conversation_id=latest_project_conversation_id or None,
+            project_ref=f'ci:{project_id}', history='1',
+        )
         conversation_items = []
         for item in project.get('conversations') or []:
             conversation_id = str(item.get('id') or '').strip()
@@ -6008,7 +6018,7 @@ def project_detail(project_id, project_view='overview'):
                 'href': url_for(
                     'cadu_agent_v2_lab.conversations_v2_lab',
                     conversation_id=conversation_id, project_ref=f'ci:{project_id}', history='1',
-                ) if conversation_id else project_conversation_url,
+                ) if conversation_id else project_resume_url,
             })
         for item in project.get('files') or []:
             source_id = str(item.get('id') or '').strip()

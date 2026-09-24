@@ -186,16 +186,16 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "project_readout", "high", "artifact_first",
                            ("project",), ("workspace.search_project_content",), "executive_summary")
 
-    if has_project and _has(text, r"\b(?:listar|liste|mostrar|mostre|ver|quais)\w*\b.{0,45}\btarefas?\b"):
+    if has_project and _has(text, r"\b(?:listar|liste|mostrar|mostre|ver|quais|acompanhar)\w*\b.{0,45}\b(?:tarefas?|atividades?)\b"):
         return IntentRoute("workspace", "list_project_tasks", "low", "analysis",
                            ("project",), ("projects.list_tasks",))
 
     project_task_list = _has(
         text,
-        r"\b(?:cri\w*|proponh\w*|mont\w*|organiz\w*)\b.{0,55}\b(?:lista\s+de\s+)?tarefas?\b|"
-        r"\b(?:primeira\s+)?lista\s+de\s+tarefas\b|\b(?:tarefas?|pr[oó]ximos?\s+passos?)\b.{0,55}"
+        r"\b(?:cri\w*|proponh\w*|mont\w*|organiz\w*|planej\w*)\b.{0,55}\b(?:lista\s+de\s+)?(?:tarefas?|atividades?)\b|"
+        r"\b(?:primeira\s+)?lista\s+de\s+(?:tarefas?|atividades?)\b|\b(?:tarefas?|atividades?|pr[oó]ximos?\s+passos?)\b.{0,55}"
         r"\b(?:projeto|contexto|fontes?|conversas?)\b|\b(?:projeto|contexto|fontes?|conversas?)\b.{0,55}"
-        r"\b(?:tarefas?|pr[oó]ximos?\s+passos?)\b",
+        r"\b(?:tarefas?|atividades?|pr[oó]ximos?\s+passos?)\b",
     )
     if has_project and project_task_list:
         return IntentRoute(
@@ -326,11 +326,31 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     explicit_web_research = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
         text, r"\b(?:internet|web|online|fontes?\s+(?:externas?|atuais?)|dados?\s+atuais?)\b",
     )
+    campaign_lookup = _has(text, r"\b(?:busc\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*|mostr\w*)\b.{0,55}\b(?:campanhas?|cases?)\b|\b(?:campanhas?|cases?)\b.{0,55}\b(?:busc\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*)\b")
+    planning_language = _has(text, r"\b(?:planej\w*|mont\w*|cri\w*|elabor\w*|estrutur\w*)\b.{0,70}\b(?:plano|planejamento)\b")
+    if campaign_lookup and not planning_language and not _has(text, r"\b(?:insights?|aprendizados?|achados?)\b"):
+        if has_brand:
+            return IntentRoute("workspace", "search_campaigns", "medium", "analysis",
+                               ("brand",), ("brands.get_context",))
+        if has_project:
+            return IntentRoute("workspace", "search_campaigns", "medium", "analysis",
+                               ("project",), ("workspace.search_project_content",))
+        return IntentRoute("workspace", "select_campaign_search_scope", "low", "clarification",
+                           ("brand", "project"))
+    if _has(text, r"\b(?:insights?|aprendizados?|achados?)\b"):
+        insight_topic = _has(text, r"\b(?:mercado|tend[eê]ncias?|benchmark|concorr[eê]ncia|marketing|comunica[cç][aã]o|m[ií]dia|publicidade|varejo|consumidor|audi[eê]ncia|campanhas?|digital|setor|categoria|marca|produto|ind[uú]stria)\b") or _has(
+            text, r"\b(?:insights?|aprendizados?|achados?)\b.{0,80}\b(?:sobre|para|em|de)\s+[\wÀ-ÿ]"
+        )
+        if insight_topic or explicit_web_research and len(text.split()) > 4:
+            return IntentRoute("research", "search_insights", "medium", "analysis", (), ("insights.research_market",))
+        return IntentRoute("workspace", "select_insights_scope", "low", "clarification",
+                           ())
     if media_plan_request and not explicit_web_research:
         if explicit_document:
             return IntentRoute("workspace", "create_text_draft", "high", "artifact_first",
                                ("project", "brand") if has_project else (), (), "document")
-        return IntentRoute("workspace", "plan_campaign", "high", "analysis",
+        quick_plan = _has(text, r"\b(?:r[aá]pid[oa]|diret[oa]|resumid[oa]|enxut[oa]|simples)\b")
+        return IntentRoute("workspace", "plan_campaign", "medium" if quick_plan else "high", "analysis",
                            ("project", "brand") if has_project else ())
     # Cross-domain comparisons require an actual comparison signal; merely
     # naming a campaign and a plan must not turn plan creation into a report read.

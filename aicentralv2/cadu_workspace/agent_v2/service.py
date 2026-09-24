@@ -20,10 +20,12 @@ from ..conversations.guardrails import validate_files
 from ..artifacts import create_draft, get_artifact, patch_artifact
 from ..artifacts.service import list_artifacts
 from . import provider
+from .context_resolver import resolve_context
 from .executor import prepare_execution
 from .guardrails import normalize_response
 from .request_context import resolve
-from .contracts import ActiveObject
+from .contracts import ActiveObject, IntentRoute
+from ..mcp.registry import load_builtin_tools
 from . import journal
 from .context_builder import (
     ConversationContextBuilder,
@@ -35,6 +37,7 @@ from .context_builder import (
 from .conversation_runtime import RuntimeRollout, TurnIdentity
 from .memory_checkpoint import schedule as schedule_memory_checkpoint
 from ..workspace_action_policy import WORKSPACE_ONLY_ACTIONS, action_link
+from ...cadu_planner import docs
 
 
 PROJECT_MAP_MAX_RESOURCES = 120
@@ -259,6 +262,34 @@ def _html_failure_code(response, finish_reason=""):
     if reason in {"length", "max_tokens", "token_limit", "max_output_tokens"}:
         return "html_generation_truncated"
     return "html_generation_invalid"
+
+
+def _materialize_long_answer(response, run):
+    """Move a long unrequested answer into an editable session document."""
+    route = run.get("route") or {}
+    if route.get("artifact_type") or response.artifact_patch or response.questions or response.actions:
+        return None
+    answer = str(response.answer or "").strip()
+    if len(answer) < 3600 and len(answer.split()) < 520:
+        return None
+    message = str(run.get("message") or "").strip()
+    explicit_file = bool(re.search(r"\b(?:arquivo|documento|artefato|rascunho)\b", message, re.I))
+    title = "Material da conversa"
+    heading = re.match(r"^#\s+(.+?)\s*$", answer, re.M)
+    if heading:
+        title = heading.group(1).strip()[:120]
+    elif explicit_file:
+        title = "Documento solicitado"
+    response.artifact_patch = {
+        "type": "document", "title": title,
+        "html": docs.markdown_to_safe_html(answer),
+    }
+    response.answer = f"Organizei a resposta completa em **{title}**, um documento editável. Abra o artefato para revisar ou salvar no projeto."
+    route["artifact_type"] = "document"
+    run["route"] = route
+    run.setdefault("policy", {})["artifact_type"] = "document"
+    run["policy"]["artifact_scope"] = "session"
+    return title
 
 
 def _decode_partial_json_string(value: str) -> str:
@@ -655,6 +686,99 @@ def _enrich_source_blocks(response, run):
     return response
 
 
+def _attach_market_insight_presentation(response, run):
+    """Build the Insights UI from the reviewed tool result, not model-authored JSON."""
+    resolved = run.get("resolved_context")
+    values = getattr(resolved, "values", {}) if resolved else {}
+    result = values.get("insights.research_market") if isinstance(values, dict) else None
+    if not isinstance(result, dict) or result.get("type") != "market_insight":
+        return response
+
+    insight = result.get("insight") if isinstance(result.get("insight"), dict) else {}
+    headline = " ".join(str(result.get("title") or insight.get("headline") or "").split())[:220]
+    lead = " ".join(str(result.get("summary") or insight.get("insight") or "").split())[:1800]
+    if headline and lead:
+        # The separate reviewer owns the factual customer-facing conclusion.
+        response.answer = lead if lead.casefold().startswith(headline.casefold()) else f"**{headline}**\n\n{lead}"
+    elif not str(response.answer or "").strip() and lead:
+        response.answer = lead
+
+    source_rows = result.get("sources") if isinstance(result.get("sources"), list) else []
+    source_by_id = {}
+    response.citations = []
+    for source in source_rows:
+        if not isinstance(source, dict):
+            continue
+        url = str(source.get("url") or "").strip()
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            continue
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+            continue
+        source_id = str(source.get("id") or "")
+        if not source_id:
+            continue
+        source_by_id[source_id] = source
+        if not any(str(item.get("url") or "") == url for item in response.citations if isinstance(item, dict)):
+            response.citations.append({
+                "title": str(source.get("title") or parsed.hostname)[:300],
+                "url": url[:2000],
+                "excerpt": str(source.get("excerpt") or "")[:1000],
+            })
+
+    # Keep this presentation deterministic and aligned to the reviewed evidence.
+    response.blocks = [block for block in response.blocks if block.get("type") not in {"insights", "metrics", "source", "sources", "source_group"}]
+    insight_items = []
+    for item in insight.get("news") if isinstance(insight.get("news"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        title = " ".join(str(item.get("title") or "").split())[:180]
+        detail = " · ".join(filter(None, [
+            " ".join(str(item.get("summary") or "").split())[:360],
+            " ".join(str(item.get("marketing_relevance") or "").split())[:300],
+        ]))
+        if title and detail:
+            insight_items.append({"id": f"news-{len(insight_items) + 1}", "title": title, "detail": detail})
+    for label, field in (("Implicação", "implications"), ("Ação sugerida", "actions")):
+        for value in insight.get(field) if isinstance(insight.get(field), list) else []:
+            detail = " ".join(str(value or "").split())[:500]
+            if detail:
+                insight_items.append({"id": f"{field}-{len(insight_items) + 1}", "title": label, "detail": detail})
+    if insight_items:
+        response.blocks.append({
+            "type": "insights", "title": "Sinais para marketing e mídia",
+            "summary": "Leitura baseada nas evidências recentes revisadas.", "items": insight_items[:5],
+        })
+
+    metric_items = []
+    for item in insight.get("metrics") if isinstance(insight.get("metrics"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        refs = [str(source_id) for source_id in item.get("source_ids") or []]
+        source = next((source_by_id[source_id] for source_id in refs if source_id in source_by_id), None)
+        title = " ".join(str(item.get("name") or "").split())[:180]
+        value = " ".join(str(item.get("value") or "").split())[:100]
+        if not title or not value:
+            continue
+        detail = " · ".join(filter(None, [
+            " ".join(str(item.get("period") or "").split())[:100],
+            " ".join(str(item.get("geography") or "").split())[:100],
+            " ".join(str(item.get("meaning") or "").split())[:260],
+        ]))
+        metric_items.append({
+            "id": f"market-metric-{len(metric_items) + 1}", "title": title,
+            "value": value, "detail": detail, "url": str(source.get("url") or "") if source else "",
+        })
+    if metric_items:
+        response.blocks.append({
+            "type": "metrics", "title": "Indicadores de mercado",
+            "summary": "Valores publicados dentro da janela de atualidade da pesquisa.",
+            "items": metric_items[:4],
+        })
+    return response
+
+
 def prepare(data):
     message = _message(data.get("message"))
     identity = TurnIdentity.from_payload(data)
@@ -708,7 +832,8 @@ def prepare(data):
     close_db()
     execution = prepare_execution(message, current, built_context.history, requested_mode,
                                   conversation_state=built_context.state,
-                                  routing_message=built_context.routing_message)
+                                  routing_message=built_context.routing_message,
+                                  defer_market_insights=True)
     if uploads:
         execution["provider_payload"]["files"] = [
             {"type": row["kind"], "transfer_method": "local_file", "upload_file_id": row["provider_id"]}
@@ -858,6 +983,52 @@ def stream(run):
         _journal(run["run_id"], "tool.completed" if call["status"] == "completed" else "tool.unavailable",
                  call, item_type="activity", duration_ms=call.get("duration_ms"))
         yield _event("tool.completed" if call["status"] == "completed" else "tool.unavailable", **call)
+    deferred_tools = tuple(run.get("deferred_tools") or ())
+    if deferred_tools:
+        for name in deferred_tools:
+            _journal(run["run_id"], "tool.started", {"name": name}, item_type="activity")
+            yield _event("tool.started", name=name)
+        raw_route = dict(run["route"])
+        raw_route["needs_context"] = tuple(raw_route.get("needs_context") or ())
+        raw_route["needs_tools"] = deferred_tools
+        deferred_route = IntentRoute(**raw_route)
+        deferred_result = resolve_context(
+            deferred_route, run["context"], run["message"], load_builtin_tools(), execution_mode,
+        )
+        resolved = run["resolved_context"]
+        resolved.values.update({key: value for key, value in deferred_result.values.items()
+                                if key != "current_context"})
+        resolved.missing.extend(deferred_result.missing)
+        resolved.tool_calls.extend(deferred_result.tool_calls)
+        if resolved.missing:
+            resolved.values["tool_status"] = {
+                "unavailable": list(dict.fromkeys(resolved.missing)),
+                "message": "A evidência externa solicitada não ficou disponível nesta resposta.",
+            }
+        for call in deferred_result.tool_calls:
+            available = call.get("status") == "completed"
+            _journal(run["run_id"], "tool.completed" if available else "tool.unavailable",
+                     call, item_type="activity", duration_ms=call.get("duration_ms"))
+            try:
+                conn = repository.get_db()
+                with conn.cursor() as cur:
+                    cur.execute("""INSERT INTO cadu_agent_tool_calls
+                        (id,run_id,tool_name,status,input_redacted,output_summary,error_code,created_at,finished_at,duration_ms)
+                        VALUES (%s,%s,%s,%s,'{}'::jsonb,%s,%s,NOW(),NOW(),%s)""",
+                        (str(uuid4()), run["run_id"], call["name"], "completed" if available else "failed",
+                         Json({"available": available}), call.get("code"), call.get("duration_ms")))
+                conn.commit()
+                close_db()
+                journal.complete_step(run["run_id"], "tool", {"available": available},
+                                      None if available else call.get("code"))
+            except Exception:
+                try:
+                    conn.rollback()
+                    close_db()
+                except Exception:
+                    pass
+                current_app.logger.exception("Falha ao registrar a execução MCP %s", call["name"])
+            yield _event("tool.completed" if available else "tool.unavailable", **call)
     # These are bounded mutations whose server-authored approval proposal is
     # the complete response. Calling the provider afterwards can fabricate a
     # success message before the user has approved and executed the action.
@@ -918,6 +1089,24 @@ def stream(run):
                 "ui": {"blocks": [workspace_action["block"]]},
             }, ensure_ascii=False))
             provider_events = ()
+        elif route_action == "search_insights":
+            # The composite plugin already performed research, synthesis and
+            # factual review through the shared AI connector. Do not pay for a
+            # fourth model call just to paraphrase the reviewed conclusion.
+            insight_result = run["resolved_context"].values.get("insights.research_market") or {}
+            insight = insight_result.get("insight") if isinstance(insight_result, dict) else {}
+            citations = insight_result.get("sources") if isinstance(insight_result, dict) else []
+            answer = str(insight_result.get("summary") or "") if isinstance(insight_result, dict) else ""
+            if isinstance(insight, dict) and insight.get("confidence") in {"high", "medium", "low"}:
+                confidence = insight["confidence"]
+            else:
+                confidence = "medium"
+            answer_chunks.append(json.dumps({
+                "answer": answer or (insight_result.get("message") if isinstance(insight_result, dict) else "")
+                or "Não foi possível encontrar evidências recentes suficientes para este tema.",
+                "ui": {"confidence": confidence, "blocks": [], "citations": citations or []},
+            }, ensure_ascii=False))
+            provider_events = ()
         else:
             provider_started = perf_counter()
             provider_events = provider.events(run["provider_payload"], execution_mode)
@@ -971,6 +1160,15 @@ def stream(run):
                 response.blocks = [workspace_action["block"]]
                 response.actions = []
             response = _enrich_source_blocks(response, run)
+            response = _attach_market_insight_presentation(response, run)
+            plugin = run.get("policy", {}).get("plugin") or {}
+            plugin_tools = set(plugin.get("internal_tools") or ())
+            completed_tools = {call.get("name") for call in run["resolved_context"].tool_calls
+                               if call.get("status") == "completed"}
+            if plugin and plugin_tools.intersection(completed_tools):
+                response.plugin = {"id": str(plugin.get("id") or ""),
+                                   "name": str(plugin.get("name") or "Plugin Cadu")}
+            _materialize_long_answer(response, run)
             if run["route"].get("action") == "plan_project_tasks" and response.task_proposal:
                 proposal = dict(response.task_proposal)
                 proposal.pop("initial_list", None)
@@ -985,9 +1183,8 @@ def stream(run):
                 _journal(run["run_id"], "action.proposed", public_action, item_type="action")
                 yield _event("action.proposed", action=public_action)
             artifact = None
-            # A response patch is only materialized when the route explicitly
-            # requested an artifact. General answers must never silently turn
-            # into a document just because a provider returned dense text.
+            # Explicit artifact routes always win. Exceptionally long free-form
+            # answers are converted to a session document by _materialize_long_answer.
             artifact_type = run["route"].get("artifact_type")
             if artifact_type == "html":
                 terminal_error_code = _html_failure_code(response, provider_finish_reason)

@@ -386,7 +386,9 @@ def search(context, arguments: dict) -> dict:
         extracted_sources = list(executor.map(lambda item: _read_source(item["url"]), selected))
     for source, extracted in zip(selected, extracted_sources):
         if extracted:
+            search_published_at = source.get("published_at")
             source.update(extracted)
+            source["published_at"] = extracted.get("published_at") or search_published_at or ""
             source["title"] = extracted.get("page_title") or source["title"]
             source["excerpt"] = extracted.get("content_excerpt") or source["excerpt"]
             hydrated += 1

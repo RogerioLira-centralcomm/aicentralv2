@@ -112,3 +112,4 @@ class AgentResponse:
     citations: list[dict[str, str]] = field(default_factory=list)
     blocks: list[dict[str, Any]] = field(default_factory=list)
     task_proposal: dict[str, Any] | None = None
+    plugin: dict[str, str] | None = None

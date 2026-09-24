@@ -8,7 +8,7 @@ function statusFromActivity(runtime, diagnostics) {
   return title && latest?.tone !== 'error' ? title : 'Processando pedido';
 }
 
-export function WorkspaceTaskProgress({running = false, runtime = '', diagnostics = []}) {
+export function WorkspaceTaskProgress({running = false, runtime = '', diagnostics = [], plugin = null, caduMark = ''}) {
   const status = useMemo(() => statusFromActivity(runtime, diagnostics), [runtime, diagnostics]);
   const recent = useMemo(() => (diagnostics || []).filter(item => item?.title && item.tone !== 'error').slice(-3), [diagnostics]);
   const [elapsed, setElapsed] = useState(0);
@@ -21,6 +21,9 @@ export function WorkspaceTaskProgress({running = false, runtime = '', diagnostic
   }, [running]);
   if (!running) return null;
   return <div className="cadu-ds-task-progress">
+    {plugin?.name && <div className="cadu-ds-task-progress__plugin" aria-label={`Plugin selecionado: ${plugin.name}`}>
+      <span>{caduMark ? <img src={caduMark} alt=""/> : 'C'}</span><b>{plugin.name}</b>
+    </div>}
     <div className="cadu-ds-task-progress__current">
       <div className="cadu-ds-task-progress__announcement" role="status" aria-live="polite" aria-atomic="true">
         <span className="cadu-ds-task-progress__spark" aria-hidden="true"/>

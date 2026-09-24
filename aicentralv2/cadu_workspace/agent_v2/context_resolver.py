@@ -21,7 +21,11 @@ class ResolvedContext:
 _PUBLIC_SIGNAL = re.compile(
     r"\b(?:mercado|benchmarks?|tend[eê]ncias?|concorr[eê]ncias?|concorrentes?|pre[cç]os?|cota[cç][aã]o|"
     r"estat[ií]sticas?|not[ií]cias?|legisla[cç][aã]o|regras?|atuais?|recentes?|hoje|202[5-9]|"
-    r"cpc|cpm|cac|ctr|google ads|meta ads|tiktok|instagram)\b", re.IGNORECASE,
+    r"cpc|cpm|cac|ctr|google ads|meta ads|tiktok|instagram|campanha|campanhas|an[uú]ncios?|criativos?|"
+    r"bebida|bebidas|cerveja|alimento|alimentos|"
+    r"moda|beleza|automotivo|automotiva|turismo|esporte|entretenimento|streaming|jogos|games|"
+    r"agroneg[oó]cio|energia|imobili[aá]rio|supermercado|restaurante|delivery|farm[aá]cia|"
+    r"fintech|banc[aá]rio|banco|consumo|consumidor|consumidores|roupa|roupas|vestu[aá]rio|luxo)\b", re.IGNORECASE,
 )
 _PRIVATE_SCOPE = re.compile(
     r"\b(?:para|no|na|do|da|sobre|em)\s+(?:(?:o|a|os|as|um|uma)\s+)?"
@@ -36,13 +40,18 @@ _PUBLIC_TERMS = frozenset({
     "anuncios", "criativos", "funil", "email", "leads", "conversao", "conversoes",
     "audiencia", "alcance", "engajamento", "varejo", "ecommerce", "comercio",
     "construcao", "imoveis", "saude", "educacao", "financas", "tecnologia",
+    "bebida", "bebidas", "cerveja", "alimento", "alimentos", "moda", "beleza",
+    "automotivo", "automotiva", "turismo", "esporte", "entretenimento", "streaming",
+    "jogos", "games", "agronegocio", "energia", "imobiliario", "supermercado",
+    "restaurante", "delivery", "farmacia", "fintech", "bancario", "banco", "consumo",
+    "consumidor", "consumidores", "roupa", "roupas", "vestuario", "luxo",
     "google", "ads", "meta", "facebook", "instagram", "tiktok", "youtube", "linkedin",
     "openai", "chatgpt", "claude", "cursor", "codex", "brasil", "brasileiro",
     "dolar", "euro", "cpc", "cpm", "cac", "ctr", "cpa", "roas", "roi", "kpi",
 })
 
 
-def public_web_query(message: str, *, project_selected: bool = False) -> str:
+def public_web_query(message: str, *, project_selected: bool = False, min_terms: int = 2) -> str:
     """Use only an independently meaningful public topic in external search."""
     text = " ".join(str(message or "").split())[:400]
     if not project_selected:
@@ -62,11 +71,30 @@ def public_web_query(message: str, *, project_selected: bool = False) -> str:
         unicodedata.normalize("NFKD", term).encode("ascii", "ignore").decode("ascii").lower()
         in _PUBLIC_TERMS or re.fullmatch(r"20\d{2}", term)
     )]
-    return " ".join(safe[:16]) if len(safe) >= 2 else ""
+    return " ".join(safe[:16]) if len(safe) >= max(1, int(min_terms)) else ""
 
 
 def _arguments(tool_name: str, request: RequestContext, message: str, execution_mode: str = "analysis",
                route_action: str = "") -> dict[str, Any]:
+    if tool_name == "insights.research_market":
+        public_message = re.sub(
+            r"\b(?:for|about|on|in|from|inside)\s+(?:(?:my|our|the|this)\s+)?"
+            r"(?:project|client|campaign|brand|brief|file|document)\b.*$",
+            " ", message, flags=re.IGNORECASE,
+        )
+        arguments = {"query": public_web_query(public_message, project_selected=True, min_terms=1)}
+        if request.request_id:
+            arguments["request_id"] = request.request_id
+        return arguments
+    if tool_name == "planner.research_plan_inputs":
+        # The composite catalog tool searches only Cadu's read-only catalog;
+        # the private brief stays inside the authorized chat context.
+        query = re.sub(r"\b(?:crie|criar|monte|montar|planeje|planejar|fa[cç]a|elabore)\b", " ", message, flags=re.I)
+        city_match = re.search(r"\b(?:em|para)\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][\wÀ-ÿ -]{1,50}?)(?=\s+(?:com|para|usando|considerando)\b|[,.;!?]|$)", message)
+        arguments = {"query": " ".join(query.split())[:100]}
+        if city_match:
+            arguments["city"] = city_match.group(1).strip()[:80]
+        return arguments
     if tool_name == "web.search":
         depth = {"fast": "fast", "analysis": "analysis", "agentic": "agentic"}.get(execution_mode, "analysis")
         private_reference = bool(re.search(r"\b(?:nosso|nossa|meu|minha)\s+(?:cliente|projeto|campanha|marca|briefing)\b",
@@ -97,6 +125,10 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
         return {"query": message[:400], "mode": "overview" if route_action == "project_readout" or is_overview_query(message) else "search"}
     if tool_name == "workspace.get_project_context":
         return {"query": message[:400]}
+    if tool_name == "brands.get_context" and request.brand_ref:
+        match = re.fullmatch(r"studio:(\d+)", request.brand_ref)
+        if match:
+            return {"brand_id": int(match.group(1))}
     if tool_name == "workspace.list_projects":
         return {"limit": 20}
     if tool_name == "google.list_calendar_events":
@@ -137,6 +169,8 @@ def resolve_context(route: IntentRoute, request: RequestContext, message: str,
             # Missing context is data for the response policy, never a provider
             # diagnostic to expose to the customer.
             result.missing.append(tool_name)
+            if tool_name == "insights.research_market" and isinstance(exc, ToolError):
+                result.values[tool_name] = {"status": "unavailable", "message": str(exc)[:400]}
             result.tool_calls.append({"name": tool_name, "status": "unavailable", "code": getattr(exc, "code", "invalid"),
                                       "duration_ms": round((perf_counter() - started) * 1000)})
     if result.missing:

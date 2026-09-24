@@ -26,6 +26,7 @@ from .provider import ProviderUnavailable
 from . import journal, long_jobs, observability
 from .long_jobs import LongJobSpec
 from . import action_executor
+from . import plugins
 from . import turn_queue
 from .conversation_runtime import RuntimeRollout
 from ..mcp.registry import ToolError
@@ -156,7 +157,8 @@ def api_error(exc):
 @bp.get("/capabilities")
 def capabilities():
     current = resolve(surface=request.args.get("surface") or "conversations")
-    return jsonify(runtime="v2", context=current.to_dict(), tools=load_builtin_tools().list(current))
+    return jsonify(runtime="v2", context=current.to_dict(), tools=load_builtin_tools().list(current),
+                   plugins=plugins.catalog(), future_integrations=plugins.integrations())
 
 
 @bp.post("/mcp-token")

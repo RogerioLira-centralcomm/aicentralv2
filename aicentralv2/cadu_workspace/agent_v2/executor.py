@@ -11,6 +11,7 @@ from .response_policy import budget_for, policy_for, requested_answer_chars, req
 from .router import route_request
 from .task_planner import build_task_plan
 from .contracts import execution_mode_for
+from . import plugins
 from ..mcp.registry import load_builtin_tools
 from ...db import close_db
 
@@ -34,7 +35,8 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
     return {"percent": percent, "complete": percent >= 80, "completed": completed, "missing": missing}
 
 
-def prepare_execution(message, request, history="", requested_mode="", conversation_state=None, routing_message=None):
+def prepare_execution(message, request, history="", requested_mode="", conversation_state=None, routing_message=None,
+                      defer_market_insights=False):
     routed_message = routing_message or message
     route = route_request(
         routed_message, request.surface, bool(request.project_ref),
@@ -68,6 +70,14 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     elif (planning_request and route.action == "create_substantial_delivery"
           and not re.search(r"\b(?:documento|arquivo|artefato|edit[aá]vel)\b", message, re.IGNORECASE)):
         route = replace(route, action="plan_campaign", response_mode="analysis", artifact_type=None)
+    selected_plugin, plugin_tools, plugin_missing = plugins.select(route, routed_message, request)
+    if plugin_missing:
+        route = replace(route, action="clarify_plugin_context", response_mode="clarification",
+                        needs_tools=(), artifact_type=None, requires_confirmation=False)
+    elif plugin_tools:
+        required_tools = (plugin_tools if selected_plugin and selected_plugin.get("id") in {"insights", "reports"}
+                          else tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))))
+        route = replace(route, needs_tools=required_tools)
     readiness = None
     if route.action == "create_brief":
         readiness = briefing_readiness(message, history)
@@ -75,6 +85,9 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             route = replace(route, response_mode="artifact_first", artifact_type="brief")
         else:
             route = replace(route, response_mode="clarification", artifact_type=None)
+    if (route.action == "plan_campaign" and not requested_mode
+            and re.search(r"\b(?:r[aá]pid[oa]|diret[oa]|resumid[oa]|enxut[oa]|simples)\b", message, re.I)):
+        requested_mode = "fast"
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
     planning_delivery = planning_request or planning_followup
@@ -100,6 +113,26 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     policy["artifact_type"] = route.artifact_type
     policy["allow_artifact"] = route.artifact_type is not None
     policy["allow_task_proposal"] = route.action == "plan_project_tasks"
+    if selected_plugin:
+        policy["plugin"] = {**selected_plugin, "required_context_missing": plugin_missing}
+        policy["plugin_instruction"] = (
+            "O fluxo foi escolhido automaticamente como plugin interno do chat. Use apenas evidências e retornos MCP "
+            "presentes neste turno; não afirme que uma busca, análise, geração ou gravação ocorreu sem retorno correspondente. "
+            "Mantenha a resposta na conversa. Crie ou atualize artefato somente quando o usuário pedir, ou quando a rota "
+            "já determinar uma entrega editável. Se faltar escopo, pergunte antes de consultar uma base privada."
+        )
+    if plugin_missing:
+        policy["action_preflight"] = {
+            "ready": False, "missing": plugin_missing,
+            "next_step": (
+                "Pergunte onde deve procurar: na marca ou em um projeto."
+                if selected_plugin and selected_plugin.get("id") == "campaign-search"
+                else "Pergunte qual tema de mercado deve orientar a busca."
+                if selected_plugin and selected_plugin.get("id") == "insights"
+                else "Peça para selecionar o relatório ou projeto com dados revisados."
+            ),
+        }
+        policy["max_questions"] = 1
     if readiness:
         policy["briefing_readiness"] = readiness
     policy["artifact_fallback_title"] = {
@@ -130,6 +163,10 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     } else "context"
     project_web = route.action == "search_web" and bool(request.project_ref)
     resolution_route = replace(route, needs_tools=("workspace.search_project_content",)) if project_web else route
+    deferred_tools = ()
+    if defer_market_insights and route.action == "search_insights" and route.needs_tools == ("insights.research_market",):
+        deferred_tools = route.needs_tools
+        resolution_route = replace(route, needs_tools=())
     registry = load_builtin_tools()
     resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode)
     internal_search = resolved.values.get("workspace.search_project_content") or {}
@@ -282,6 +319,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,
         "plan": plan, "resolved_context": resolved,
+        "deferred_tools": deferred_tools,
         "selected_context": getattr(request, "selected_context", None),
         "provider_payload": payload,
         "payload_diagnostics": payload_diagnostics,

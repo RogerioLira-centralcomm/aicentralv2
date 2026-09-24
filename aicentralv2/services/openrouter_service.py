@@ -485,8 +485,12 @@ def _openrouter_chat_completion(payload: Dict[str, Any], *, timeout: int = 90) -
             last_response = response
             response.raise_for_status()
             result = response.json()
+            message = _with_message_text(result["choices"][0]["message"])
+            citations = result.get("citations") or result.get("search_results")
+            if citations:
+                message["_cadu_citations"] = citations
             return {
-                "message": _with_message_text(result["choices"][0]["message"]),
+                "message": message,
                 "model": result.get("model") or payload["model"],
                 "usage": result.get("usage") or {},
             }

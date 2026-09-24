@@ -7,6 +7,7 @@ export function Icon({name, size = 18, className = ''}) {
     compose: <><path d="m14.5 5.5 4 4"/><path d="M5 19h4l10.5-10.5a2.8 2.8 0 0 0-4-4L5 15v4Z"/><path d="M13.5 6.5 17.5 10.5"/></>,
     newChat: <><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M17.5 3.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></>,
     folder: <><path d="M3 7.5h7l2 2h9v9H3z"/><path d="M3 7.5V5h7l2 2"/></>,
+    archive: <><path d="M4 4h16l1 4H3l1-4Z"/><path d="M4 8v12h16V8M10 12h4"/></>,
     file: <><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></>,
     image: <><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2-2L20 18"/></>,
     link: <><path d="M9.5 14.5 14.5 9"/><path d="M7.5 17H6a4 4 0 0 1 0-8h3M16.5 7H18a4 4 0 1 1 0 8h-3"/></>,

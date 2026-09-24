@@ -199,10 +199,10 @@ export function Sidebar({conversations, projects = [], brands = [], activeProjec
   const conversationList = (items, hideContext = false) => items.map(item => { const context = contextLabel(item, projects, brands); return <div className="cv-conversation-row" key={item.id}>
     <button className="cv-conversation-card" type="button" disabled={Boolean(openingId)} onClick={() => onOpen(String(item.id), item.title)} aria-current={String(item.id) === String(activeId) ? 'page' : undefined} title={conversationDisplayTitle(item.title, 'Chat sem título')}><span className="cv-conversation-card__copy"><b><SidebarTitle>{conversationDisplayTitle(item.title, 'Chat sem título')}</SidebarTitle></b>{!hideContext && <small>{context || 'Sessão livre'}</small>}</span></button>
     <div className={`cv-conversation-actions ${String(actionMenuId) === String(item.id) ? 'is-open' : ''}`}>
-      <button type="button" className="cv-conversation-actions__trigger" aria-label={`Ações de ${item.title || 'conversa'}`} aria-expanded={String(actionMenuId) === String(item.id)} onClick={event => { event.stopPropagation(); setActionMenuId(current => String(current) === String(item.id) ? '' : String(item.id)); }}><span aria-hidden="true">…</span></button>
-      {String(actionMenuId) === String(item.id) && <div className="cv-conversation-actions__menu" role="menu">
-        {item.section === 'automation' && item.automation_enabled && <button type="button" onClick={event => runAction(event, item, 'stop-automation')}>Encerrar automação</button>}
-        <button type="button" className="is-danger" onClick={event => runAction(event, item, 'archive')}>Arquivar</button>
+      <button type="button" className="cv-conversation-actions__archive" aria-label={`Arquivar ${item.title || 'conversa'}`} title="Arquivar conversa" onClick={event => runAction(event, item, 'archive')}><Icon name="archive" size={14}/></button>
+      {item.section === 'automation' && item.automation_enabled && <button type="button" className="cv-conversation-actions__trigger" aria-label={`Ações de ${item.title || 'conversa'}`} aria-expanded={String(actionMenuId) === String(item.id)} onClick={event => { event.stopPropagation(); setActionMenuId(current => String(current) === String(item.id) ? '' : String(item.id)); }}><span aria-hidden="true">…</span></button>}
+      {item.section === 'automation' && item.automation_enabled && String(actionMenuId) === String(item.id) && <div className="cv-conversation-actions__menu" role="menu">
+        <button type="button" onClick={event => runAction(event, item, 'stop-automation')}>Encerrar automação</button>
       </div>}
     </div>
   </div>; });

@@ -60,9 +60,9 @@ body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-wo
 
 /* The open context/history rail uses the same width on chat, catalog and detail views. */
 #cadu-conversations-v2-root .cv-recent-sidebar {
-  flex-basis: 275px;
-  width: 275px;
-  min-width: 275px;
+  flex-basis: min(var(--cadu-sidebar-width, 264px), 274px);
+  width: min(var(--cadu-sidebar-width, 264px), 274px);
+  min-width: min(var(--cadu-sidebar-width, 264px), 274px);
 }
 
 /* Keep the public home controls at the same visual weight. */

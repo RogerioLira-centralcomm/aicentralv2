@@ -27,6 +27,7 @@ import {artifactKey, copyText, isConversationMobile} from './lib/browser.mjs';
 import {findLibraryItem, libraryGroups} from './lib/libraryModel.mjs';
 import {persistConversationContext, takePendingHomeAttachments} from './lib/storage.mjs';
 import {completeDockOrder} from '../cadu-design-system/dockPlacement.mjs';
+import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
 
 const emptyTitle = 'Cadu';
 
@@ -205,6 +206,9 @@ export default function App({bootstrap}) {
 
   const organizeConversation = useCallback(async (id, section) => {
     const previous = conversations;
+    const targetId = String(id);
+    const source = conversations.find(item => String(item.id) === targetId);
+    if (!source || source.section === section) return;
     setConversations(items => items.map(item => String(item.id) === String(id) ? {
       ...item, section, automation_enabled: section === 'automation' ? item.automation_enabled : false,
     } : item));
@@ -416,19 +420,18 @@ export default function App({bootstrap}) {
   const conversationAction = useCallback(async (item, action) => {
     const id = String(item?.id || '');
     if (!id) return;
+    if (action === 'toggle-pin') {
+      await organizeConversation(id, item.section === 'pinned' ? 'recent' : 'pinned');
+      return;
+    }
     const previous = conversations;
     let payload;
     if (action === 'archive') payload = {archived: true};
     else if (action === 'stop-automation') payload = {automation_enabled: false};
-    else if (action === 'toggle-pin') payload = {section: item.section === 'pinned' ? 'recent' : 'pinned'};
     else return;
     setConversations(items => action === 'archive'
       ? items.filter(candidate => String(candidate.id) !== id)
-      : items.map(candidate => String(candidate.id) === id ? {
-        ...candidate,
-        ...(payload.section ? {section: payload.section, automation_enabled: false} : {}),
-        ...(action === 'stop-automation' ? {automation_enabled: false} : {}),
-      } : candidate));
+      : items.map(candidate => String(candidate.id) === id ? {...candidate, automation_enabled: false} : candidate));
     try {
       await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}`, {
         method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
@@ -439,7 +442,7 @@ export default function App({bootstrap}) {
       setConversations(previous);
       trace('Não foi possível atualizar a conversa', error.message, 'error');
     }
-  }, [bootstrap.endpoints.history, conversations, reset, trace]);
+  }, [bootstrap.endpoints.history, conversations, organizeConversation, reset, trace]);
 
   const dropContext = useCallback(payload => {
     if (payload?.projectRef || payload?.type === 'project') {
@@ -1166,8 +1169,8 @@ export default function App({bootstrap}) {
     return openResource({...item, project_href: project?.href || project?.url || bootstrap.urls?.projects || '', project_link_label: project?.href || project?.url ? 'Ver no projeto' : 'Abrir projetos'});
   }, [bootstrap.endpoints?.studioLibrary, bootstrap.urls?.projects, openResource, projects]);
 
-  const openLibrary = useCallback(async (syncUrl = true) => {
-    const libraryProjectRef = String(context?.project_ref || '');
+  const openLibrary = useCallback(async (syncUrl = true, requestedProjectRef = '') => {
+    const libraryProjectRef = String(requestedProjectRef || context?.project_ref || '');
     setLibraryOpen(true);
     setArtifactOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
@@ -1357,7 +1360,7 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} onShortcutAdded={(_, next) => setConversationDockItems(next)} onShortcutRemoved={(_, next) => setConversationDockItems(next)} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
-          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} navUrls={bootstrap.urls} activeId={conversationId} currentTitle={title} onOpen={openConversation} onOpenLibrary={openLibrary} onOpenResource={showResource} onOpenLibraryRef={loadResourceReference} onNewConversation={newConversation} onProjectChange={ref => changeProject(ref, {showHistory: false})} onOrganize={organizeConversation} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+          <Sidebar conversations={conversations} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={openConversation} onOpenLibrary={(_, ref) => openLibrary(true, ref)} onOpenResource={showResource} onOpenLibraryRef={loadResourceReference} onNewConversation={newConversation} onProjectChange={ref => changeProject(ref, {showHistory: true})} onOrganize={organizeConversation} onConversationAction={conversationAction} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
         {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
           <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
@@ -1437,7 +1440,7 @@ export default function App({bootstrap}) {
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
       </div>
-      <nav className="cv-tablet-dock" aria-label="Navegação do chat no tablet">
+      <nav className="cv-tablet-dock cv-phone-navigation" aria-label="Navegação do chat no tablet">
         <button type="button" onClick={closeSurface} aria-current={activeSurface === 'conversation' ? 'page' : undefined}><Icon name="newChat" size={18}/><span>Conversa</span></button>
         <button type="button" onClick={openHistory} aria-current={activeSurface === 'navigation' ? 'page' : undefined}><Icon name="menu" size={18}/><span>Recentes</span></button>
         <button type="button" onClick={newConversation}><Icon name="plus" size={18}/><span>Novo chat</span></button>

@@ -95,13 +95,14 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
             missing.append("objetivo do pedido")
         if re.search(r"\bdescreva (?:seu objetivo|sua tarefa)\b", text, re.I):
             missing.append("objetivo do pedido")
+        refers_to_unselected_context = bool(re.search(
+            r"\b(?:d?este projeto|desta campanha|desta marca)\b", text, re.I
+        )) and not (context.project_ref or context.brand_ref)
         if (plugin_id in {"market-radar", "audience-map", "creative-concept", "channel-copy"}
-                and not (context.project_ref or context.brand_ref)
-                and re.search(r"\b(?:deste projeto|desta campanha)\b", text, re.I)):
+                and refers_to_unselected_context and not has_material):
             missing.append("marca, setor ou campanha a considerar")
         if (plugin_id in {"investment-simulator", "meeting-copilot"}
-                and not (context.project_ref or context.brand_ref) and not has_material
-                and "deste projeto" in text.casefold()):
+                and refers_to_unselected_context and not has_material):
             missing.append("projeto ou objetivo a considerar")
         if plugin_id == "media-plan-audit":
             tool_chain = (("planner.get_media_plan",) if context.active_object and context.active_object.type in {"plan", "media_plan"}

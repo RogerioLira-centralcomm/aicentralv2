@@ -74,6 +74,64 @@ def public_web_query(message: str, *, project_selected: bool = False, min_terms:
     return " ".join(safe[:16]) if len(safe) >= max(1, int(min_terms)) else ""
 
 
+def _insights_personalization(request: RequestContext, message: str,
+                              values: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Bound project/brand context for synthesis, never for external search."""
+    values = values or {}
+    result: dict[str, Any] = {"requested_topic": " ".join(str(message or "").split())[:300]}
+    project = values.get("workspace.get_project_context")
+    if isinstance(project, dict):
+        direction = project.get("direction") if isinstance(project.get("direction"), dict) else {}
+        project_info = project.get("projeto") if isinstance(project.get("projeto"), dict) else {}
+        standard = direction.get("standard_fields") if isinstance(direction.get("standard_fields"), dict) else {}
+        custom = direction.get("custom_fields") if isinstance(direction.get("custom_fields"), dict) else {}
+        result["project"] = {
+            "name": project_info.get("nome") or standard.get("name"),
+            "direction": {key: standard.get(key) for key in (
+                "description", "instructions", "tone_of_voice", "audience", "positioning"
+            ) if standard.get(key)},
+            "custom_context": {str(key)[:80]: (item.get("value") if isinstance(item, dict) else item)
+                               for key, item in list(custom.items())[:8]},
+        }
+    brand = values.get("brands.get_context")
+    if isinstance(brand, dict):
+        result["brand"] = {
+            "name": brand.get("name"), "identity": brand.get("identity") or {},
+            "market": brand.get("market") or {},
+        }
+    if request.conversation_id:
+        # Personalize from only this user's/client's completed Insights turns;
+        # keep these examples transient and omit all assistant output.
+        try:
+            from ...cadu_family import repository
+            rows = repository.rows("""
+                SELECT message.content
+                  FROM cadu_conversation_messages message
+                  JOIN cadu_conversations conversation ON conversation.id=message.conversation_id
+                  JOIN LATERAL (
+                    SELECT 1 FROM cadu_family_chat_runs run
+                     WHERE run.conversation_id=message.conversation_id
+                       AND run.user_id=%s AND run.client_id=%s
+                       AND run.response_policy->'plugin'->>'id'='insights'
+                       AND run.created_at <= message.created_at
+                       AND run.created_at > message.created_at - INTERVAL '30 minutes'
+                     LIMIT 1
+                  ) plugin_turn ON TRUE
+                 WHERE conversation.id_contato_cliente=%s AND conversation.id_cliente=%s
+                   AND message.role='user'
+                   AND message.created_at >= NOW() - INTERVAL '90 days'
+                 ORDER BY message.created_at DESC LIMIT 4
+            """, (request.user_id, request.client_id, request.user_id, request.client_id))
+            examples = [" ".join(str(row.get("content") or "").split())[:180]
+                        for row in rows if row.get("content")]
+            if examples:
+                result["recent_insights_requests"] = examples
+        except Exception:
+            # Personalization is optional; never block current research.
+            pass
+    return result
+
+
 def _arguments(tool_name: str, request: RequestContext, message: str, execution_mode: str = "analysis",
                route_action: str = "") -> dict[str, Any]:
     if tool_name == "insights.research_market":
@@ -97,9 +155,17 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
         return arguments
     if tool_name == "web.search":
         depth = {"fast": "fast", "analysis": "analysis", "agentic": "agentic"}.get(execution_mode, "analysis")
-        private_reference = bool(re.search(r"\b(?:nosso|nossa|meu|minha)\s+(?:cliente|projeto|campanha|marca|briefing)\b",
+        private_reference = bool(re.search(r"\b(?:nosso|nossa|meu|minha)\s+(?:clientes?|projetos?|campanhas?|marcas?|briefings?)\b",
                                            message, re.IGNORECASE))
-        arguments = {"query": public_web_query(message, project_selected=bool(request.project_ref) or private_reference),
+        search_message = message
+        if route_action == "create_newsletter":
+            # Keep the public topic while excluding client-specific context,
+            # and make the requested news format explicit in the search.
+            search_message = _PRIVATE_SCOPE.sub(" ", message)
+            search_message = f"{search_message} notícias recentes de mercado"
+        arguments = {"query": public_web_query(
+                         search_message,
+                         project_selected=bool(request.project_ref) or private_reference or route_action == "create_newsletter"),
                      "depth": depth, "include_content": True}
         if not re.search(r"\b(?:pesquis\w*|busqu\w*|investig\w*|aprofunde|pesquisa)\b", message, re.IGNORECASE):
             arguments["limit"] = 4
@@ -129,6 +195,10 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
         match = re.fullmatch(r"studio:(\d+)", request.brand_ref)
         if match:
             return {"brand_id": int(match.group(1))}
+    if tool_name == "brands.get_context" and request.project_ref:
+        # brand_mcp_service resolves this only when the project has exactly one
+        # linked brand; it refuses to guess when links are ambiguous.
+        return {}
     if tool_name == "workspace.list_projects":
         return {"limit": 20}
     if tool_name == "google.list_calendar_events":
@@ -152,10 +222,13 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
 
 
 def resolve_context(route: IntentRoute, request: RequestContext, message: str,
-                    registry: ToolRegistry, execution_mode: str = "analysis") -> ResolvedContext:
-    result = ResolvedContext(values={"current_context": request.to_dict()})
+                    registry: ToolRegistry, execution_mode: str = "analysis",
+                    resolved_values: dict[str, Any] | None = None) -> ResolvedContext:
+    result = ResolvedContext(values={"current_context": request.to_dict(), **(resolved_values or {})})
     for tool_name in route.needs_tools:
         arguments = _arguments(tool_name, request, message, execution_mode, route.action)
+        if tool_name == "insights.research_market":
+            arguments["personalization"] = _insights_personalization(request, message, result.values)
         started = perf_counter()
         try:
             value = registry.execute(tool_name, arguments, request)

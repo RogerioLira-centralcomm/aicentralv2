@@ -122,10 +122,11 @@ function QuestionsBlock({block, onPrompt, interactive = true}) {
         const answer = answers[id] || '';
         const customAnswer = customAnswers[id] || '';
         const options = Array.isArray(item.options) ? item.options : [];
-        const allowCustom = item.allow_custom !== false;
+        const allowCustom = item.allow_custom !== false || options.length === 0;
+        const showAnswer = allowCustom && (!options.length || customOpen[id]);
         return <fieldset key={id} className="cv-inline-question-set">
           <legend>{item.question || item.title}</legend>
-          <div className="cv-inline-question-options">{options.map((option, optionIndex) => {
+          {!!options.length && <div className="cv-inline-question-options">{options.map((option, optionIndex) => {
             const value = typeof option === 'string' ? option : option.value || option.label || option.title;
             const label = typeof option === 'string' ? option : option.label || option.title || value;
             const selected = !customOpen[id] && !customAnswer && answer === value;
@@ -134,8 +135,8 @@ function QuestionsBlock({block, onPrompt, interactive = true}) {
               setCustomAnswers(current => ({...current, [id]: ''}));
               setCustomOpen(current => ({...current, [id]: false}));
             }}><span>{label}</span></button>;
-          })}{allowCustom && <button type="button" disabled={!interactive} aria-pressed={Boolean(customOpen[id])} className={`cv-inline-question-option cv-inline-question-option--custom${customOpen[id] ? ' is-selected' : ''}`} onClick={() => { setCustomOpen(current => ({...current, [id]: true})); setAnswers(current => ({...current, [id]: ''})); window.requestAnimationFrame(() => document.getElementById(`${id}-custom-answer`)?.focus()); }}><span>Outra resposta</span></button>}</div>
-          {allowCustom && customOpen[id] && <input id={`${id}-custom-answer`} disabled={!interactive} className="cv-inline-question-custom" value={customAnswer} onChange={event => setCustomAnswers(current => ({...current, [id]: event.target.value}))} placeholder={item.custom_placeholder || 'Digite sua resposta…'} aria-label={`Outra resposta para ${item.question || item.title}`}/>}
+          })}{allowCustom && <button type="button" disabled={!interactive} aria-pressed={Boolean(customOpen[id])} className={`cv-inline-question-option cv-inline-question-option--custom${customOpen[id] ? ' is-selected' : ''}`} onClick={() => { setCustomOpen(current => ({...current, [id]: true})); setAnswers(current => ({...current, [id]: ''})); window.requestAnimationFrame(() => document.getElementById(`${id}-custom-answer`)?.focus()); }}><span>Outra resposta</span></button>}</div>}
+          {showAnswer && <input id={`${id}-custom-answer`} disabled={!interactive} className="cv-inline-question-custom" value={customAnswer} onChange={event => setCustomAnswers(current => ({...current, [id]: event.target.value}))} placeholder={item.custom_placeholder || 'Escreva sua resposta…'} aria-label={`Resposta para ${item.question || item.title}`}/>}
         </fieldset>;
       })}
       {interactive && <button type="button" disabled={!complete || !hasAnswer} onClick={submit} className="cv-inline-questions__submit">Responder e continuar</button>}

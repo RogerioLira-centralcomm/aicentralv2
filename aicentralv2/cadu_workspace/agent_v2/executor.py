@@ -38,6 +38,9 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
 def prepare_execution(message, request, history="", requested_mode="", conversation_state=None, routing_message=None,
                       defer_market_insights=False):
     routed_message = routing_message or message
+    explicit_plugin = re.match(r"^/([a-z][a-z-]+)(?:\s|$)", str(routed_message).strip())
+    if explicit_plugin and explicit_plugin.group(1) in plugins.WORKFLOWS:
+        routed_message = str(routed_message).strip()[explicit_plugin.end():].strip() or "Ajude com esta tarefa."
     route = route_request(
         routed_message, request.surface, bool(request.project_ref),
         request.active_object.type if request.active_object else "", bool(request.brand_ref),
@@ -70,14 +73,17 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     elif (planning_request and route.action == "create_substantial_delivery"
           and not re.search(r"\b(?:documento|arquivo|artefato|edit[aá]vel)\b", message, re.IGNORECASE)):
         route = replace(route, action="plan_campaign", response_mode="analysis", artifact_type=None)
-    selected_plugin, plugin_tools, plugin_missing = plugins.select(route, routed_message, request)
+    selected_plugin, plugin_tools, plugin_missing = plugins.select(route, message, request)
     if plugin_missing:
         route = replace(route, action="clarify_plugin_context", response_mode="clarification",
                         needs_tools=(), artifact_type=None, requires_confirmation=False)
     elif plugin_tools:
-        required_tools = (plugin_tools if selected_plugin and selected_plugin.get("id") in {"insights", "reports", "google-connect", "google-drive", "google-calendar", "google-meet"}
+        required_tools = (plugin_tools if selected_plugin and (selected_plugin.get("id") in plugins.WORKFLOWS or selected_plugin.get("id") in {"insights", "reports", "google-connect", "google-drive", "google-calendar", "google-meet"})
                           else tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))))
         route = replace(route, needs_tools=required_tools)
+    if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS and not plugin_missing:
+        route = replace(route, action="run_plugin", complexity="medium", response_mode="analysis", artifact_type=None,
+                        requires_confirmation=False, needs_tools=plugin_tools)
     readiness = None
     if route.action == "create_brief":
         readiness = briefing_readiness(message, history)
@@ -90,6 +96,9 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         requested_mode = "fast"
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
+    if route.action == "create_newsletter":
+        news_count = re.search(r"\b(\d{1,2})\s+(?:not[ií]cias?|novidades?)\b", routed_message, re.I)
+        policy["newsletter_news_count"] = min(8, max(1, int(news_count.group(1)))) if news_count else 4
     planning_delivery = planning_request or planning_followup
     if planning_delivery:
         budget = replace(budget, max_output_tokens=max(budget.max_output_tokens, 4000),
@@ -116,11 +125,14 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     if selected_plugin:
         policy["plugin"] = {**selected_plugin, "required_context_missing": plugin_missing}
         policy["plugin_instruction"] = (
-            "O fluxo foi escolhido automaticamente como plugin interno do chat. Use apenas evidências e retornos MCP "
+            "Este plugin está ativo na conversa. Use apenas evidências e retornos MCP "
             "presentes neste turno; não afirme que uma busca, análise, geração ou gravação ocorreu sem retorno correspondente. "
             "Mantenha a resposta na conversa. Crie ou atualize artefato somente quando o usuário pedir, ou quando a rota "
             "já determinar uma entrega editável. Se faltar escopo, pergunte antes de consultar uma base privada."
         )
+        if selected_plugin.get("id") in plugins.WORKFLOWS:
+            policy["plugin_instruction"] += " " + plugins.WORKFLOWS[selected_plugin["id"]][4]
+            policy["max_answer_chars"] = max(policy.get("max_answer_chars", 0), 7000)
     if plugin_missing:
         policy["action_preflight"] = {
             "ready": False, "missing": plugin_missing,
@@ -168,9 +180,11 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     project_web = route.action == "search_web" and bool(request.project_ref)
     resolution_route = replace(route, needs_tools=("workspace.search_project_content",)) if project_web else route
     deferred_tools = ()
-    if defer_market_insights and route.action == "search_insights" and route.needs_tools == ("insights.research_market",):
-        deferred_tools = route.needs_tools
-        resolution_route = replace(route, needs_tools=())
+    if defer_market_insights and route.action == "search_insights" and "insights.research_market" in route.needs_tools:
+        deferred_tools = ("insights.research_market",)
+        resolution_route = replace(route, needs_tools=tuple(
+            tool for tool in route.needs_tools if tool != "insights.research_market"
+        ))
     registry = load_builtin_tools()
     resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode)
     internal_search = resolved.values.get("workspace.search_project_content") or {}

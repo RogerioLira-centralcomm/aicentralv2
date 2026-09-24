@@ -10,7 +10,7 @@ import {meaningfulResponseBlocks, normalizeAnswerText} from '../lib/responseMode
 import {formatResponseParagraphs} from '../lib/responsePresentation.mjs';
 import {consolidateSources} from '../lib/sourceModel.mjs';
 import {ConversationSupport} from './ConversationSupport';
-import {PendingInteraction, pendingInteraction} from './PendingInteraction';
+import {PendingInteraction, QuestionSteps, pendingInteraction} from './PendingInteraction';
 import {conversationDisplayTitle} from '../lib/conversationPresentation.mjs';
 import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
 
@@ -108,11 +108,12 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
   const legacyQuestions = (Array.isArray(response.questions) ? response.questions : []).filter(Boolean).map((question, index) => ({
     id: `legacy-question-${index + 1}`, question: String(question), required: true, allow_custom: true,
   }));
-  const contentBlocks = blocks.filter(block => block.type !== 'decision');
+  const contentBlocks = blocks.filter(block => block.type !== 'decision'
+    && !(interactive && ['question', 'questions'].includes(block.type)));
   if (legacyQuestions.length && !contentBlocks.some(block => ['question', 'questions'].includes(block.type))) {
     contentBlocks.push({type: 'questions', items: legacyQuestions});
   }
-  const presentedBlocks = consolidateSources(contentBlocks, response.citations);
+  const presentedBlocks = consolidateSources(interactive ? contentBlocks.filter(block => !['question', 'questions'].includes(block.type)) : contentBlocks, response.citations);
   useEffect(() => () => window.clearTimeout(copyTimer.current), []);
   const copyAnswer = async value => {
     try {
@@ -174,7 +175,7 @@ function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource
   return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[940px] cv-px-6 cv-pt-7 md:cv-px-10">
     {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-message cv-message--user cv-mb-7 cv-flex cv-flex-col cv-items-end"><span className="cv-message__label">Você</span><div className="cv-message-copy-wrap"><div className="cv-user-message cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><UserMessageContent content={message.content} metadata={message.metadata}/>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div><CopyMessageButton text={String(message.content || '')} state={copiedMessageId === message.id ? 'copied' : 'idle'} onCopy={text => copyMessage(message.id, text)}/></div></article> : ['worked', 'action'].includes(message.kind) ? null : <React.Fragment key={message.id}>{message.streaming && showActivity && !String(message.response?.answer || message.content || '').trim() && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-5"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics} plugin={activePlugin} caduMark={caduMcpMark}/></article>}<article data-cv-answer="true" className="cv-message cv-message--assistant cv-mb-7"><Answer message={message} interactive={!running && messages[messages.length - 1] === message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} caduMark={caduMcpMark || caduMark}/></article></React.Fragment>)}
     {showActivity && !hasStreamingAnswer && <article className="cv-message cv-message--assistant cv-message--activity cv-mb-7"><WorkspaceTaskProgress running={running} runtime={runtime} diagnostics={diagnostics} plugin={activePlugin} caduMark={caduMcpMark}/></article>}
-    <PendingInteraction interaction={interaction} onPrompt={onPrompt} onDecision={onDecision}/>
+    {interaction?.kind !== 'question' && <PendingInteraction interaction={interaction} onPrompt={onPrompt} onDecision={onDecision}/>}
   </div>;
 }
 
@@ -261,6 +262,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
       scrollToLatest();
     }}><Icon name="chevron" size={14}/>Novas atualizações</button>}
     <ExecutionQueue items={queuedTurns} onUpdate={onUpdateQueuedTurn} onRemove={onRemoveQueuedTurn} onMove={onMoveQueuedTurn}/>
+    <QuestionSteps key={interaction?.messageId || 'no-question'} interaction={interaction?.kind === 'question' ? interaction : null} onPrompt={onPrompt}/>
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop} onOpenLink={onOpenResource} layout={shellV2 ? layout : 'desktop'} disabled={contextLoading} onStateChange={setComposerStatus} audioTranscriptionEndpoint={audioTranscriptionEndpoint} csrfToken={csrfToken}/>
     {newFileOpen && <div className="cv-fixed cv-inset-0 cv-z-[100] cv-grid cv-place-items-center cv-bg-black/60 cv-p-4" onMouseDown={event => { if (event.target === event.currentTarget) setNewFileOpen(false); }}><form className="cv-grid cv-w-full cv-max-w-[440px] cv-gap-4 cv-rounded-2xl cv-bg-panel cv-p-6 cv-text-white" onSubmit={event => {
       event.preventDefault();

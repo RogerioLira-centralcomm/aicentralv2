@@ -104,6 +104,15 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "search_project" if has_project else "answer", "medium", "analysis",
                            ("project",) if has_project else (),
                            ("workspace.search_project_content",) if has_project else ())
+    newsletter_with_recent_news = (
+        _has(text, r"\b(?:newsletter|newsletters|boletim(?:\s+informativo)?|informativo)\b")
+        and _has(text, r"\b(?:not[ií]cias?|novidades?)\b")
+        and _has(text, r"\b(?:recentes?|atuais?|atualizad\w*|hoje|\d{4})\b")
+        and not _has(text, r"\b(?:n[aã]o|sem)\b.{0,50}\b(?:pesquis\w*|busc\w*|consult\w*)\b")
+    )
+    if newsletter_with_recent_news:
+        return IntentRoute("research", "create_newsletter", "high", "analysis",
+                           ("project", "brand") if has_project else (), ("web.search",))
     if _explicit_artifact_creation_refusal(text):
         web_requested = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
             text, r"\b(?:internet|web|online|fontes?\s+externas?|dados?\s+atuais?)\b",

@@ -151,7 +151,8 @@ def _model_call(*, context, run_id: str, stage: str, model: str, messages: list[
     )
 
 
-def research_market(context, query: str, request_id: str | None = None) -> dict:
+def research_market(context, query: str, request_id: str | None = None,
+                    personalization: dict | None = None) -> dict:
     """Search current market evidence, synthesize one insight, and review it."""
     query = " ".join(str(query or "").split())[:400]
     if len(query) < 4:
@@ -202,6 +203,15 @@ def research_market(context, query: str, request_id: str | None = None) -> dict:
         "internet_search": {"query": web_result.get("query"), "sources_read": web_result.get("sources_read")},
         "perplexity_research": pplx_text[:14000],
     }
+    personalization = personalization if isinstance(personalization, dict) else {}
+    # This private workspace context is added only after public search has
+    # finished. It can guide relevance and recommendations, never evidence.
+    personalization = {
+        "project": personalization.get("project"),
+        "brand": personalization.get("brand"),
+        "recent_insights_requests": personalization.get("recent_insights_requests", [])[:4],
+    }
+    research_packet["workspace_personalization"] = personalization
     synthesis = _model_call(
         context=context, run_id=run_id, stage="market-synthesis", model=SYNTHESIS_MODEL,
         estimated_tokens=7500, max_tokens=3000, timeout=45, json_mode=True,
@@ -215,8 +225,13 @@ def research_market(context, query: str, request_id: str | None = None) -> dict:
                 "Se uma métrica não estiver sustentada, omita-a. Separe fato de interpretação. Não complete lacunas com conhecimento paramétrico. "
                 "Retorne JSON com headline, headline_source_ids (array de strings), insight, insight_source_ids (array de strings), "
                 "metrics[{name,value,period,geography,meaning,source_ids}], "
-                "news[{title,date,summary,marketing_relevance,source_ids}], implications[string], actions[string], confidence[high|medium|low]. "
-                "Inclua no máximo quatro métricas, três notícias, três implicações e três ações."
+                "news[{title,date,summary,marketing_relevance,source_ids}], implications[string], actions[string], "
+                "application_to_project[string], personalized_suggestions[string], confidence[high|medium|low]. "
+                "Use workspace_personalization somente para priorizar relevância e adaptar aplicações e sugestões; "
+                "ela não é evidência de mercado e nunca sustenta fatos, métricas ou notícias. Se houver histórico recente de pedidos, "
+                "identifique padrões de formato/tema e ofereça até duas próximas ações úteis, sem afirmar preferências como certeza. "
+                "Só preencha application_to_project quando houver projeto ou marca no contexto; sem esse contexto, retorne lista vazia. "
+                "Inclua até quatro métricas, quatro notícias, quatro implicações e quatro ações."
             )},
             {"role": "user", "content": json.dumps(research_packet, ensure_ascii=False)},
         ],
@@ -232,7 +247,8 @@ def research_market(context, query: str, request_id: str | None = None) -> dict:
                 "Você é o revisor factual e editorial do Cadu Insights. Faça auditoria de cada número, período, geografia, notícia e inferência "
                 "contra as evidências fornecidas. Remova afirmações sem sustentação ou fora da janela de atualidade; nunca tente preencher "
                 "a lacuna com conhecimento próprio. Mantenha o insight como primeira frase e preserve o foco em dados e implicações para "
-                "marketing, comunicação e mídia, não em listar fontes. Verifique se cada source_id citado existe entre as fontes elegíveis. "
+                "marketing, comunicação e mídia, não em listar fontes. Preserve application_to_project e personalized_suggestions como recomendações, "
+                "sem convertê-las em fatos; verifique se cada source_id citado existe entre as fontes elegíveis. "
                 "Retorne o mesmo JSON do rascunho, corrigido; headline e insight precisam de source_ids elegíveis. "
                 "Se não houver fonte elegível para sustentar o insight principal, retorne headline e insight vazios. Sem comentários fora do JSON."
             )},
@@ -256,7 +272,7 @@ def research_market(context, query: str, request_id: str | None = None) -> dict:
             if not refs:
                 continue
             cleaned.append({**item, "source_ids": refs})
-        final[key] = cleaned[:4 if key == "metrics" else 3]
+        final[key] = cleaned[:4]
     if not final["insight_source_ids"]:
         final["insight_source_ids"] = list(dict.fromkeys(
             source_id for group in (final["metrics"] + final["news"])
@@ -270,8 +286,13 @@ def research_market(context, query: str, request_id: str | None = None) -> dict:
         )
     implications = final.get("implications") if isinstance(final.get("implications"), list) else []
     actions = final.get("actions") if isinstance(final.get("actions"), list) else []
-    final["implications"] = [str(item).strip()[:500] for item in implications if str(item).strip()][:3]
-    final["actions"] = [str(item).strip()[:500] for item in actions if str(item).strip()][:3]
+    final["implications"] = [str(item).strip()[:500] for item in implications if str(item).strip()][:4]
+    final["actions"] = [str(item).strip()[:500] for item in actions if str(item).strip()][:4]
+    def _string_items(value, limit, count):
+        values = [value] if isinstance(value, str) else value if isinstance(value, list) else []
+        return [str(item).strip()[:limit] for item in values if str(item).strip()][:count]
+    final["application_to_project"] = _string_items(final.get("application_to_project"), 500, 3)
+    final["personalized_suggestions"] = _string_items(final.get("personalized_suggestions"), 300, 2)
     final["confidence"] = final.get("confidence") if final.get("confidence") in {"high", "medium", "low"} else "medium"
     cited_ids = set(final["headline_source_ids"] + final["insight_source_ids"])
     cited_ids.update(source_id for group in (final["metrics"] + final["news"])
@@ -280,6 +301,9 @@ def research_market(context, query: str, request_id: str | None = None) -> dict:
     return {
         "type": "market_insight", "title": final["headline"], "summary": final["insight"],
         "insight": final, "sources": cited_sources,
+        "personalization": {"project_used": bool(personalization.get("project")),
+                            "brand_used": bool(personalization.get("brand")),
+                            "history_used": bool(personalization.get("recent_insights_requests"))},
         "searched_at": datetime.now(timezone.utc).isoformat(),
         "period": {"from": period_start.isoformat(), "last_six_months_from": period_start_6m.isoformat(),
                    "to": today.isoformat()},

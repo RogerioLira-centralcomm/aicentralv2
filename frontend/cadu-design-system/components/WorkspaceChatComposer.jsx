@@ -19,7 +19,7 @@ const CAPABILITIES = [
   {label: 'Atividades por prazo', detail: 'Lista tarefas vencidas, próximas e sem prazo', icon: 'history', prompt: 'Liste as atividades e tarefas deste projeto agrupadas por prazo: vencidas, para hoje, próximos 7 dias, futuras, sem prazo e concluídas. Para cada item, informe título, estado, responsável e data de prazo. Use os dados atuais do projeto e indique claramente quando uma data ou responsável não estiver definido.'},
 ];
 
-const PLUGIN_ICONS = {insights:'analysis', planner:'table', 'project-search':'search', 'project-activities':'list', 'campaign-search':'search', reports:'analysis', studio:'image'};
+const PLUGIN_ICONS = {insights:'analysis', planner:'table', 'project-search':'search', 'project-activities':'list', 'campaign-search':'search', reports:'analysis', studio:'image', 'market-radar':'analysis', 'audience-map':'search', 'investment-simulator':'table', 'media-plan-audit':'list', 'campaign-tracker':'analysis', 'creative-concept':'image', 'channel-copy':'list', 'page-review':'browser', 'meeting-copilot':'calendar', 'client-delivery':'list'};
 
 const COMPOSER_MAX_HEIGHT = 120;
 
@@ -104,7 +104,7 @@ export function WorkspaceChatComposer({
     return () => { current = false; };
   }, [slashQuery, pluginCatalog.length]);
   const slashPlugins = pluginCatalog.filter(plugin => plugin.selectable && ['active', 'in_development'].includes(plugin.maturity)
-    && `${plugin.name} ${plugin.description}`.toLocaleLowerCase('pt-BR').includes(String(slashQuery || '').toLocaleLowerCase('pt-BR')));
+    && `${plugin.id} ${plugin.name} ${plugin.description}`.toLocaleLowerCase('pt-BR').includes(String(slashQuery || '').toLocaleLowerCase('pt-BR')));
   const choosePlugin = plugin => {
     const prompts = {
       insights: 'Pesquise insights atuais sobre marketing, comunicação e mídia para descreva seu objetivo.',
@@ -115,7 +115,7 @@ export function WorkspaceChatComposer({
       reports: 'Analise os relatórios revisados deste projeto e destaque descreva seu objetivo.',
       studio: 'Quero criar ou editar uma imagem para descreva seu objetivo.',
     };
-    const prompt = prompts[plugin.id];
+    const prompt = prompts[plugin.id] || (plugin.triggers?.[0]?.startsWith('/') ? `${plugin.triggers[0]} Descreva seu objetivo.` : '');
     if (!prompt) return;
     onChange?.(prompt);
     pluginMenu.current?.removeAttribute('open');

@@ -26,9 +26,9 @@ def list_brands(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(name="brands.get_context", capability="workspace", effect="read",
                description="Obtém o contexto aprovado da marca para conversas, projetos e artefatos, com cores, logo e fontes.", exposures=("internal", "customer_agent"),
-               input_schema={"type":"object","required":["brand_id"],"properties":{"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
+               input_schema={"type":"object","properties":{"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
 def get_brand_context(context: RequestContext, arguments: dict) -> dict:
-    return _domain(lambda: service.brand_context(context, arguments["brand_id"]))
+    return _domain(lambda: service.brand_context(context, arguments.get("brand_id")))
 
 
 @register_tool(name="brands.inspect_site", capability="workspace", effect="read",

@@ -32,6 +32,20 @@ def list_project_reports(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="reports.get_recent_project_metrics", capability="reports", requires_project=True,
+    description="Lê métricas revisadas dos relatórios mais recentes do projeto, identificando cada campanha e período.",
+    exposures=("internal", "customer_agent"),
+)
+def get_recent_project_metrics(context: RequestContext, arguments: dict) -> dict:
+    reports = _reports(context)
+    return {
+        "available_reports": len(reports),
+        "recent_reports": [get_report_metrics(context, {"report_id": row["id"]}) for row in reports[:3]],
+        "note": "Somente fontes revisadas dos três relatórios mais recentes; não representa dados em tempo real.",
+    }
+
+
+@register_tool(
     name="reports.get_report_metrics", capability="reports",
     description="Obtém o relatório e somente as métricas revisadas por uma pessoa.",
     exposures=("internal", "customer_agent"),

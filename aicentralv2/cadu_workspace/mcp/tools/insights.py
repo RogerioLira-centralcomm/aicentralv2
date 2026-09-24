@@ -20,6 +20,7 @@ from ..registry import ToolError, register_tool
         "properties": {
             "query": {"type": "string", "minLength": 4, "maxLength": 400},
             "request_id": {"type": "string", "maxLength": 180},
+            "personalization": {"type": "object"},
         },
         "required": ["query"],
         "additionalProperties": False,
@@ -28,7 +29,8 @@ from ..registry import ToolError, register_tool
 )
 def research_market_tool(context: RequestContext, arguments: dict) -> dict:
     try:
-        return research_market(context, arguments["query"], arguments.get("request_id"))
+        return research_market(context, arguments["query"], arguments.get("request_id"),
+                               arguments.get("personalization"))
     except InsightsEvidenceUnavailable as exc:
         raise ToolError(str(exc)) from exc
     except ValueError as exc:

@@ -697,9 +697,24 @@ def _attach_market_insight_presentation(response, run):
     insight = result.get("insight") if isinstance(result.get("insight"), dict) else {}
     headline = " ".join(str(result.get("title") or insight.get("headline") or "").split())[:220]
     lead = " ".join(str(result.get("summary") or insight.get("insight") or "").split())[:1800]
+    project_application = insight.get("application_to_project") if isinstance(insight.get("application_to_project"), list) else []
+    suggestions = insight.get("personalized_suggestions") if isinstance(insight.get("personalized_suggestions"), list) else []
     if headline and lead:
         # The separate reviewer owns the factual customer-facing conclusion.
-        response.answer = lead if lead.casefold().startswith(headline.casefold()) else f"**{headline}**\n\n{lead}"
+        answer_parts = [lead if lead.casefold().startswith(headline.casefold()) else f"**{headline}**\n\n{lead}"]
+        implications = insight.get("implications") if isinstance(insight.get("implications"), list) else []
+        actions = insight.get("actions") if isinstance(insight.get("actions"), list) else []
+        if implications:
+            answer_parts.extend(["**Por que isso importa**", "\n".join(f"- {str(item).strip()}" for item in implications[:4])])
+        if actions:
+            answer_parts.extend(["**O que fazer a seguir**", "\n".join(f"- {str(item).strip()}" for item in actions[:4])])
+        if project_application:
+            answer_parts.extend(["**Aplicação ao projeto ou à marca**",
+                                 "\n".join(f"- {str(item).strip()}" for item in project_application[:3])])
+        if suggestions:
+            answer_parts.extend(["**Sugestões para seu próximo passo**",
+                                 "\n".join(f"- {str(item).strip()}" for item in suggestions[:2])])
+        response.answer = "\n\n".join(part for part in answer_parts if part)
     elif not str(response.answer or "").strip() and lead:
         response.answer = lead
 
@@ -740,15 +755,17 @@ def _attach_market_insight_presentation(response, run):
         ]))
         if title and detail:
             insight_items.append({"id": f"news-{len(insight_items) + 1}", "title": title, "detail": detail})
-    for label, field in (("Implicação", "implications"), ("Ação sugerida", "actions")):
+    for label, field in (("Por que importa", "implications"), ("Próximo passo", "actions"),
+                         ("Aplicação ao projeto", "application_to_project"),
+                         ("Sugestão personalizada", "personalized_suggestions")):
         for value in insight.get(field) if isinstance(insight.get(field), list) else []:
             detail = " ".join(str(value or "").split())[:500]
             if detail:
                 insight_items.append({"id": f"{field}-{len(insight_items) + 1}", "title": label, "detail": detail})
     if insight_items:
         response.blocks.append({
-            "type": "insights", "title": "Sinais para marketing e mídia",
-            "summary": "Leitura baseada nas evidências recentes revisadas.", "items": insight_items[:5],
+            "type": "insights", "title": "O que a pesquisa encontrou e como aplicar",
+            "summary": "Fatos ligados às fontes e recomendações adaptadas ao contexto disponível.", "items": insight_items[:18],
         })
 
     metric_items = []
@@ -994,6 +1011,7 @@ def stream(run):
         deferred_route = IntentRoute(**raw_route)
         deferred_result = resolve_context(
             deferred_route, run["context"], run["message"], load_builtin_tools(), execution_mode,
+            resolved_values=run["resolved_context"].values,
         )
         resolved = run["resolved_context"]
         resolved.values.update({key: value for key, value in deferred_result.values.items()

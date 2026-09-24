@@ -3,7 +3,7 @@ import {request} from '../lib/api';
 import {Icon} from '../lib/icons';
 
 const integrationLogo = name => `/static/images/cadu/technology-logos/${name}`;
-const pluginIcons = {insights:'analysis', planner:'table', 'project-search':'search', 'project-activities':'list', 'campaign-search':'search', reports:'analysis', studio:'image', 'google-connect':'brand', 'google-drive':'drive', 'google-calendar':'calendar', 'google-meet':'browser'};
+const pluginIcons = {insights:'analysis', planner:'table', 'project-search':'search', 'project-activities':'list', 'campaign-search':'search', reports:'analysis', studio:'image', 'google-connect':'brand', 'google-drive':'drive', 'google-calendar':'calendar', 'google-meet':'browser', 'market-radar':'analysis', 'audience-map':'search', 'investment-simulator':'table', 'media-plan-audit':'list', 'campaign-tracker':'analysis', 'creative-concept':'image', 'channel-copy':'list', 'page-review':'browser', 'meeting-copilot':'calendar', 'client-delivery':'list'};
 
 const PLUGIN_PROMPTS = {
   insights: 'Pesquise insights atuais sobre marketing, comunicação e mídia para ',
@@ -13,6 +13,16 @@ const PLUGIN_PROMPTS = {
   'campaign-search': 'Busque campanhas e cases relacionados a ',
   reports: 'Analise os relatórios revisados deste projeto e destaque ',
   studio: 'Quero criar ou editar uma imagem para ',
+  'market-radar': '/market-radar Pesquise movimentos recentes do mercado e concorrentes de ',
+  'audience-map': '/audience-map Mapeie a audiência para ',
+  'investment-simulator': '/investment-simulator Simule a distribuição de investimento para ',
+  'media-plan-audit': '/media-plan-audit Revise o plano de mídia de ',
+  'campaign-tracker': '/campaign-tracker Analise os relatórios revisados da campanha de ',
+  'creative-concept': '/creative-concept Crie um conceito criativo para ',
+  'channel-copy': '/channel-copy Escreva textos por canal para ',
+  'page-review': '/page-review Revise esta página e priorize melhorias: ',
+  'meeting-copilot': '/meeting-copilot Organize a reunião sobre ',
+  'client-delivery': '/client-delivery Prepare o status e os próximos passos para ',
 };
 
 export function pluginPrompt(plugin) {

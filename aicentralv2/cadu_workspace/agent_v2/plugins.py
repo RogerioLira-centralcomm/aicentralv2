@@ -11,6 +11,7 @@ import re
 
 from .contracts import IntentRoute, RequestContext
 from .plugin_catalog import get_plugin, list_entries
+from .daily_workflows import WORKFLOWS
 
 _CAMPAIGN_SEARCH = re.compile(
     r"\b(?:busc\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*|mostr\w*)\b.{0,55}"
@@ -46,6 +47,8 @@ def integrations() -> list[dict]:
 
 def _execution_tools(plugin_id: str) -> tuple[str, ...]:
     """Allowlisted internal tools; database manifests never grant tool access."""
+    if plugin_id in WORKFLOWS:
+        return WORKFLOWS[plugin_id][3]
     return {
         "campaign-search": ("brands.get_context", "workspace.search_project_content"),
         "project-search": ("workspace.search_project_content", "workspace.get_project_context",
@@ -56,7 +59,7 @@ def _execution_tools(plugin_id: str) -> tuple[str, ...]:
                                "projects.create_initial_task_list", "projects.create_task", "projects.create_tasks",
                                "projects.update_task",
                                "artifacts.create_draft", "artifacts.update_draft"),
-        "insights": ("insights.research_market",),
+        "insights": ("workspace.get_project_context", "brands.get_context", "insights.research_market"),
         "planner": ("planner.research_plan_inputs", "planner.search_catalog", "planner.get_media_plan",
                     "artifacts.create_draft", "artifacts.update_draft"),
         "reports": ("reports.list_project_reports", "reports.get_report_metrics", "reports.compare_report_to_plan"),
@@ -73,12 +76,37 @@ def _execution_tools(plugin_id: str) -> tuple[str, ...]:
 
 def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[dict | None, tuple[str, ...], list[str]]:
     """Select one workflow and its minimal MCP chain for this turn."""
+    # A newsletter request needs a wider, explicitly requested set of news
+    # sources than the compact market-insights workflow returns.
+    if route.action == "create_newsletter" and not re.match(r"^/([a-z][a-z-]+)(?:\s|$)", str(message or "").strip()):
+        return None, (), []
     text = str(message or "")
     plugin_id = None
     tool_chain: tuple[str, ...] = ()
     missing: list[str] = []
 
-    if route.action == "schedule_project_meeting":
+    explicit = re.match(r"^/([a-z][a-z-]+)(?:\s|$)", text.strip())
+    if explicit and explicit.group(1) in WORKFLOWS:
+        plugin_id = explicit.group(1)
+        tool_chain = _execution_tools(plugin_id)
+        if plugin_id == "media-plan-audit" and not context.active_object:
+            tool_chain = ("planner.research_plan_inputs",)
+        if plugin_id == "campaign-tracker" and context.active_object and context.active_object.type in {"report", "report_workspace"}:
+            tool_chain = ("reports.get_report_metrics",)
+        if plugin_id in {"media-plan-audit", "campaign-tracker", "client-delivery"} and not context.project_ref and not context.active_object:
+            missing.append("projeto ou documento a analisar")
+        if plugin_id == "page-review" and not re.search(r"https://\S+", text):
+            tool_chain = ()
+        if plugin_id == "client-delivery" and not context.project_ref:
+            tool_chain = ()
+        if plugin_id in {"market-radar", "audience-map", "investment-simulator", "creative-concept", "channel-copy", "page-review", "meeting-copilot", "client-delivery"}:
+            context_tools = []
+            if context.project_ref:
+                context_tools.append("workspace.get_project_context")
+            if context.brand_ref or context.project_ref:
+                context_tools.append("brands.get_context")
+            tool_chain = tuple(dict.fromkeys((*context_tools, *tool_chain)))
+    elif route.action == "schedule_project_meeting":
         plugin_id = "google-calendar"
     elif route.action == "list_calendar_events":
         plugin_id = "google-calendar"
@@ -118,7 +146,10 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
     elif _INSIGHTS.search(text):
         plugin_id = "insights"
         if _MARKET.search(text) or route.action == "search_insights":
-            tool_chain = ("insights.research_market",)
+            context_tools = ["workspace.get_project_context"] if context.project_ref else []
+            if context.brand_ref or context.project_ref:
+                context_tools.append("brands.get_context")
+            tool_chain = tuple([*context_tools, "insights.research_market"])
         else:
             missing.append("tema de mercado dos insights")
     elif route.action == "compare_report_to_plan":
@@ -167,5 +198,5 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
     # documents them but cannot expand what an automatic selection may invoke.
     selected["internal_tools"] = list(_execution_tools(plugin_id))
     selected["required_context_missing"] = missing
-    selected["selected_automatically"] = True
+    selected["selected_automatically"] = not bool(explicit and explicit.group(1) in WORKFLOWS)
     return selected, tool_chain, missing

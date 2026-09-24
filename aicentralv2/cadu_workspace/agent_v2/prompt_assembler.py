@@ -335,6 +335,16 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             " Sem marca, projeto ou referência, descreva a proposta como criação genérica. Não acione geração paga sem apresentar "
             "o custo e receber confirmação explícita; não alegue que a imagem foi gerada sem receipt concluído."
         )
+    if route.action == "create_newsletter":
+        news_count = min(8, max(1, int(policy.get("newsletter_news_count") or 4)))
+        plugin_instruction += (
+            " O usuário já pediu uma newsletter com notícias atuais; a solicitação autoriza a pesquisa pública. "
+            "Use o retorno de web.search e escreva a newsletter completa agora, sem pedir autorização, objetivo ou preferência de estilo. "
+            f"Entregue exatamente {news_count} notícias recentes quando houver essa quantidade de fontes adequadas; para cada uma, informe título, data "
+            "de publicação, resumo curto e relevância para o tema pedido. Cite cada fonte com o link recebido. "
+            "Abra com um título e uma chamada editorial e encerre com uma síntese breve. Use estilo executivo e direto como padrão. "
+            "Se a busca falhar ou trouxer menos de quatro fontes válidas, informe claramente o limite e não invente notícias, datas ou links."
+        )
     if route.action == "create_brand":
         brand_instruction += (
             " O usuário está pedindo a criação de uma nova marca, não uma alteração do projeto atual. "

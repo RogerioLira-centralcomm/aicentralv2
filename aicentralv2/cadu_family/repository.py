@@ -393,6 +393,8 @@ def conversation_history_all(user, client_id, query='', limit=500):
                              COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"questions"}]'::jsonb
                              OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"question"}]'::jsonb
                              OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"decision"}]'::jsonb
+                             OR jsonb_array_length(CASE WHEN jsonb_typeof(last_message.metadata->'response'->'questions')='array'
+                                                        THEN last_message.metadata->'response'->'questions' ELSE '[]'::jsonb END) > 0
                          ), FALSE) AS awaiting_response
                     FROM cadu_conversations c
                LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
@@ -420,6 +422,8 @@ def conversation_history_all(user, client_id, query='', limit=500):
                              COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"questions"}]'::jsonb
                              OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"question"}]'::jsonb
                              OR COALESCE(last_message.metadata->'response'->'blocks', '[]'::jsonb) @> '[{"type":"decision"}]'::jsonb
+                             OR jsonb_array_length(CASE WHEN jsonb_typeof(last_message.metadata->'response'->'questions')='array'
+                                                        THEN last_message.metadata->'response'->'questions' ELSE '[]'::jsonb END) > 0
                          ), FALSE) AS awaiting_response
                     FROM cadu_conversations c
                LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id

@@ -337,6 +337,10 @@ def _clean_blocks(values):
                         break
                 if options:
                     clean["options"] = options
+                elif clean["question"]:
+                    # Open questions always need an answerable control even if
+                    # the provider omitted allow_custom from its payload.
+                    clean["allow_custom"] = True
             elif block_type in {"source", "sources", "source_group"}:
                 clean.update({
                     "kind": _clean_text(item.get("kind"), 80),
@@ -655,7 +659,19 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     citations = _clean_citations(ui.get("citations"))
     actions = _clean_actions(ui.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
     provider_blocks = _clean_blocks(ui.get("blocks"))
-    blocks = provider_blocks
+    question_budget = max(0, int(policy.get("max_questions", 1)))
+    blocks = []
+    for block in provider_blocks:
+        if block.get("type") in {"question", "questions"}:
+            if question_budget <= 0:
+                continue
+            items = block.get("items") or []
+            kept = items[:question_budget]
+            question_budget -= len(kept)
+            if not kept:
+                continue
+            block = {**block, "items": kept}
+        blocks.append(block)
     # Failing closed is important here: only the executor may opt into an
     # artifact after the router selected a concrete artifact type.
     can_materialize_artifact = bool(policy.get("allow_artifact", False))

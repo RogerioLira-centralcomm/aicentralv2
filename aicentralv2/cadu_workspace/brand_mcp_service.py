@@ -139,7 +139,7 @@ def list_brands(context: RequestContext, query: str = "", limit: int = 30) -> li
 
 def brand_context(context: RequestContext, brand_id) -> dict:
     """Return the same source-aware context consumed by Workspace surfaces."""
-    brand = _brand(context, brand_id)
+    brand = _brand(context, _current_brand_id(context, brand_id))
     profile = dict(brand.get("brand_profile") or {})
     metadata = dict(brand.get("analysis_metadata") or {})
     from .routes import _brand_campaigns

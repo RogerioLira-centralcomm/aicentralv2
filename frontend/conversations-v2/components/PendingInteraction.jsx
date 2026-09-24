@@ -2,6 +2,12 @@ import React from 'react';
 import {Icon} from '../lib/icons';
 import {meaningfulResponseBlocks} from '../lib/responseModel.mjs';
 
+function normalizeQuestions(items) {
+  return (Array.isArray(items) ? items : []).map(item => typeof item === 'string' ? {question: item} : item)
+    .filter(item => item && (item.question || item.title || item.options?.length || item.allow_custom))
+    .map((item, index) => ({...item, id: String(item.id || `question-${index + 1}`), question: String(item.question || item.title || 'Como deseja continuar?')}));
+}
+
 export function pendingInteraction(messages, running) {
   if (running || !messages?.length) return null;
   const message = messages[messages.length - 1];
@@ -35,9 +41,11 @@ export function pendingInteraction(messages, running) {
   const blocks = meaningfulResponseBlocks(response.blocks);
   const questionBlock = [...blocks].reverse().find(block => ['question', 'questions'].includes(block.type) && Array.isArray(block.items) && block.items.length);
   if (questionBlock) {
-    const question = questionBlock.items.find(item => item?.question || item?.title)?.question || questionBlock.title || 'Responda à pergunta para continuar';
-    return {kind: 'question', question};
+    const items = normalizeQuestions(questionBlock.items);
+    if (items.length) return {kind: 'question', messageId: message.id, question: questionBlock.title || 'Responda para continuar', items};
   }
+  const legacyQuestions = normalizeQuestions(response.questions);
+  if (legacyQuestions.length) return {kind: 'question', messageId: message.id, question: 'Responda para continuar', items: legacyQuestions};
   const decision = [...blocks].reverse().find(block => block.type === 'decision' && Array.isArray(block.items) && block.items.length);
   const question = decision?.summary || decision?.title || '';
   const options = decision?.items?.map(item => ({
@@ -59,5 +67,62 @@ export function PendingInteraction({interaction, onPrompt, onDecision}) {
     <div className="cv-pending-interaction__heading">{interaction.kind === 'action' && <span className="cv-pending-interaction__app"><Icon name="pulse" size={13}/>Terminal</span>}<span className="cv-pending-interaction__copy"><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span>{freeform && <button type="button" className="cv-pending-interaction__respond" onClick={() => choose(interaction.options[0])}>Responder</button>}</div>
     {interaction.kind === 'action' && interaction.command && <details className="cv-pending-interaction__command"><summary><code>{interaction.command}</code><span>Expandir</span></summary><pre>{interaction.command}</pre></details>}
     {!freeform && !!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.kind === 'action' ? <><button type="button" className="is-decline" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => !option.approved))}>Negar <kbd>Esc</kbd></button><button type="button" className="is-approve" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => option.approved))}>{interaction.pending ? interaction.options.find(option => option.approved)?.label : 'Permitir uma vez'} <kbd>↵</kbd></button></> : interaction.options.map(option => <button key={option.id} className={option.recommended ? 'is-recommended' : ''} type="button" disabled={interaction.pending} onClick={() => choose(option)}><span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/></button>)}</div>}
+  </section>;
+}
+
+export function QuestionSteps({interaction, onPrompt}) {
+  const [step, setStep] = React.useState(0);
+  const [answers, setAnswers] = React.useState({});
+  const [customAnswers, setCustomAnswers] = React.useState({});
+  const questions = interaction?.items || [];
+  if (!questions.length) return null;
+  const current = questions[Math.min(step, questions.length - 1)];
+  const options = Array.isArray(current.options) ? current.options : [];
+  const answer = String(customAnswers[current.id] || answers[current.id] || '').trim();
+  const allowCustom = current.allow_custom !== false || options.length === 0;
+  const canContinue = current.required === false || Boolean(answer);
+  const saveAnswers = () => {
+    const answered = questions.map(item => ({item, answer: String(customAnswers[item.id] || answers[item.id] || '').trim()}))
+      .filter(({answer: value}) => value);
+    if (!answered.length) return;
+    const prompt = answered.map(({item, answer: value}) => /(?:renome|mudar|alterar|trocar).{0,45}nome|novo nome.{0,45}projeto/i.test(item.question)
+      ? `Renomeie o projeto para “${value}”.` : `${item.question}: ${value}`).join('\n');
+    onPrompt(prompt, {
+      type: 'question_answers', label: interaction.question || 'Respostas às perguntas',
+      text: answered.map(({item, answer: value}) => `${item.question}: ${value}`).join('\n'),
+      answers: answered.map(({item, answer: value}) => ({id: item.id, question: item.question, answer: value})),
+    }, {submit: true});
+  };
+  const continueStep = () => {
+    if (!canContinue) return;
+    if (step < questions.length - 1) setStep(value => value + 1);
+    else saveAnswers();
+  };
+  return <section className="cv-question-steps" aria-label="Pergunta aguardando sua resposta" aria-live="polite">
+    <header className="cv-question-steps__header">
+      <span className="cv-question-steps__status"><Icon name="alert" size={14}/>Precisa da sua resposta</span>
+      <span className="cv-question-steps__progress">Etapa {step + 1} de {questions.length}</span>
+    </header>
+    {interaction.question && questions.length > 1 && <p className="cv-question-steps__title">{interaction.question}</p>}
+    <fieldset className="cv-question-steps__field">
+      <legend>{current.question}</legend>
+      {!!options.length && <div className="cv-question-steps__options">{options.map((option, index) => {
+        const value = String(typeof option === 'string' ? option : option.value ?? option.label ?? option.title ?? '');
+        const label = typeof option === 'string' ? option : option.label || option.title || value;
+        const selected = !customAnswers[current.id] && answers[current.id] === value;
+        return <button key={option.id || index} type="button" aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => {
+          setAnswers(state => ({...state, [current.id]: value}));
+          setCustomAnswers(state => ({...state, [current.id]: ''}));
+        }}>{label}</button>;
+      })}</div>}
+      {allowCustom && <input aria-label={`Sua resposta para: ${current.question}`} value={customAnswers[current.id] || ''}
+        onChange={event => setCustomAnswers(state => ({...state, [current.id]: event.target.value}))}
+        placeholder={current.custom_placeholder || (options.length ? 'Ou escreva outra resposta…' : 'Escreva sua resposta…')}/>}
+    </fieldset>
+    <footer className="cv-question-steps__footer">
+      {step > 0 && <button type="button" className="is-back" onClick={() => setStep(value => Math.max(0, value - 1))}>Voltar</button>}
+      {current.required === false && <button type="button" className="is-back" onClick={() => { if (step < questions.length - 1) setStep(value => value + 1); else saveAnswers(); }}>Pular</button>}
+      <button type="button" className="is-primary" disabled={!canContinue} onClick={continueStep}>{step < questions.length - 1 ? 'Próxima' : 'Responder e continuar'}</button>
+    </footer>
   </section>;
 }

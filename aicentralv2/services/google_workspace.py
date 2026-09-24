@@ -490,6 +490,8 @@ def list_client_authorizations(client_id: int) -> list[dict]:
 
 
 def save_connection(*, client_id: int, user_id: int, identity: dict, existing: dict | None = None) -> dict:
+    if _request_google_scope(client_id) != (int(client_id), int(user_id)):
+        raise GoogleWorkspaceError("Sessão do cliente inválida para conectar esta conta Google.")
     refresh_token = identity.get("refresh_token")
     if existing and existing.get("google_sub") != identity["google_sub"] and not refresh_token:
         raise GoogleWorkspaceError("A nova conta Google não forneceu acesso offline. Autorize novamente.")
@@ -607,13 +609,6 @@ def disconnect(client_id: int) -> bool:
     connection = get_connection(client_id, include_secret=True)
     if not connection:
         return False
-    try:
-        token = decrypt_refresh_token(connection["encrypted_refresh_token"])
-        requests.post("https://oauth2.googleapis.com/revoke", data={"token": token}, timeout=15)
-    except Exception:
-        # Deleting the local connection is still the safe local outcome when
-        # Google's revocation endpoint is unavailable.
-        pass
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -624,10 +619,17 @@ def disconnect(client_id: int) -> bool:
             )
             deleted = bool(cursor.fetchone())
         conn.commit()
-        return deleted
     except Exception:
         conn.rollback()
         raise
+    if deleted:
+        try:
+            token = decrypt_refresh_token(connection["encrypted_refresh_token"])
+            requests.post("https://oauth2.googleapis.com/revoke", data={"token": token}, timeout=15)
+        except Exception:
+            # The local disconnection remains effective if Google is unavailable.
+            pass
+    return deleted
 
 
 def list_resources(client_id: int, *, project_ref: str | None = None, limit: int = 100,
@@ -936,26 +938,21 @@ def _sync_drive_full(client_id: int, *, limit: int = 200, page_token: str | None
         "supportsAllDrives": "true",
         "fields": "files(id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,driveId,description,thumbnailLink,iconLink,shared,permissions(type,role,allowFileDiscovery)),nextPageToken",
     }
-    files = []
-    next_page_token = str(page_token or "") or None
-    # A first snapshot can span many pages. Keep the snapshot bounded while
-    # retaining a token so the next run can continue without losing files.
-    for _ in range(100):
-        if next_page_token:
-            params["pageToken"] = next_page_token
-        response = requests.get(
-            DRIVE_FILES_URL,
-            headers={"Authorization": f"Bearer {token}"},
-            params=params,
-            timeout=30,
-        )
-        if not response.ok:
-            raise GoogleWorkspaceError("Não foi possível consultar os arquivos do Google Drive.")
-        payload = response.json() or {}
-        files.extend(payload.get("files") or [])
-        next_page_token = payload.get("nextPageToken")
-        if not next_page_token:
-            break
+    # One Google page per request keeps large Drives within the HTTP timeout.
+    # The saved page token lets the next request resume the initial snapshot.
+    if page_token:
+        params["pageToken"] = str(page_token)
+    response = requests.get(
+        DRIVE_FILES_URL,
+        headers={"Authorization": f"Bearer {token}"},
+        params=params,
+        timeout=30,
+    )
+    if not response.ok:
+        raise GoogleWorkspaceError("Não foi possível consultar os arquivos do Google Drive.")
+    payload = response.json() or {}
+    files = payload.get("files") or []
+    next_page_token = payload.get("nextPageToken")
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -1048,12 +1045,26 @@ def sync_drive(client_id: int, *, limit: int = 200) -> dict:
     connection = get_connection(client_id)
     if not connection:
         raise GoogleWorkspaceError("Conecte uma conta Google antes de sincronizar o Drive.")
+    if "https://www.googleapis.com/auth/drive" not in str(connection.get("granted_scopes") or "").split():
+        raise GoogleWorkspaceError("Reautorize sua conta Google com permissão para usar o Drive.")
     token = _access_token({**connection, "encrypted_refresh_token": _encrypted_token(client_id)})
     headers = {"Authorization": f"Bearer {token}"}
     state = dict(connection.get("sync_state") or {})
     change_token = str(state.get("drive_change_token") or "")
     page_size = min(max(int(limit), 1), 1000)
     if not change_token:
+        if not state.get("drive_initial_change_token"):
+            start = requests.get(
+                DRIVE_START_PAGE_TOKEN_URL,
+                headers=headers,
+                params={"supportsAllDrives": "true"},
+                timeout=30,
+            )
+            initial_token = (start.json() or {}).get("startPageToken") if start.ok else None
+            if not initial_token:
+                raise GoogleWorkspaceError("Não foi possível iniciar a sincronização do Google Drive.")
+            state["drive_initial_change_token"] = str(initial_token)
+            _persist_drive_sync_state(connection["id"], state)
         result = _sync_drive_full(
             client_id,
             limit=page_size,
@@ -1064,16 +1075,8 @@ def sync_drive(client_id: int, *, limit: int = 200) -> dict:
             _persist_drive_sync_state(connection["id"], state)
             return {**result, "mode": "full_page"}
         state.pop("drive_full_page_token", None)
-        if not result.get("next_page_token"):
-            start = requests.get(
-                DRIVE_START_PAGE_TOKEN_URL,
-                headers=headers,
-                params={"supportsAllDrives": "true"},
-                timeout=30,
-            )
-            if start.ok and (start.json() or {}).get("startPageToken"):
-                state["drive_change_token"] = str(start.json()["startPageToken"])
-                _persist_drive_sync_state(connection["id"], state)
+        state["drive_change_token"] = state.pop("drive_initial_change_token")
+        _persist_drive_sync_state(connection["id"], state)
         return {**result, "mode": "full"}
 
     response = requests.get(
@@ -1090,8 +1093,10 @@ def sync_drive(client_id: int, *, limit: int = 200) -> dict:
     if not response.ok:
         if response.status_code in {400, 410}:
             state.pop("drive_change_token", None)
+            state.pop("drive_full_page_token", None)
+            state.pop("drive_initial_change_token", None)
             _persist_drive_sync_state(connection["id"], state)
-            return {**_sync_drive_full(client_id, limit=page_size), "mode": "full_reset"}
+            return {**sync_drive(client_id, limit=page_size), "mode": "full_reset"}
         raise GoogleWorkspaceError("Não foi possível consultar as alterações do Google Drive.")
     payload = response.json() or {}
     changes = payload.get("changes") or []
@@ -1607,6 +1612,7 @@ def link_resource(*, client_id: int, resource_id: str, project_ref: str, user_id
                      JOIN google_workspace_resources existing ON existing.id=l.resource_id
                      JOIN google_workspace_connections owner ON owner.id=existing.connection_id
                     WHERE l.client_id=%s AND l.project_ref=%s AND owner.client_id=%s
+                      AND owner.status='connected'
                       AND existing.provider=%s AND existing.external_id=%s
                       AND existing.status='active'
                     LIMIT 1""",

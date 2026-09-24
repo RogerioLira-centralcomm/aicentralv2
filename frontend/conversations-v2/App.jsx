@@ -641,7 +641,9 @@ export default function App({bootstrap}) {
         try {
           const state = await request('/workspace/api/v2/google/connection');
           setGoogleConnection(state);
-          if (!state.connected || !state.configured) {
+          const service = googleIntent.replace('google-', '');
+          const serviceReady = googleIntent === 'google-connect' || state.services?.find(item => item.key === service)?.enabled;
+          if (!state.connected || !state.configured || !serviceReady) {
             setGoogleDraft(clean); setGooglePluginId(googleIntent); setGoogleError('');
             return;
           }

@@ -171,17 +171,19 @@ def google_connection():
     connection = google_workspace.get_connection(current.client_id)
     matrix = google_workspace.service_matrix(current.client_id)
     connected = bool(connection and connection.get("status") == "connected")
+    drive_ready = next((item.get("enabled") for item in matrix["services"] if item.get("key") == "drive"), False)
     return jsonify(
         client_id=current.client_id,
         connected=connected,
         status=connection.get("status") if connection else "disconnected",
         google_email=connection.get("google_email") if connection else None,
         last_sync_at=connection.get("last_sync_at") if connection else None,
+        drive_sync_pending=bool((connection or {}).get("sync_state", {}).get("drive_full_page_token")),
         services=matrix["services"],
         configured=matrix["configuration"]["configured"],
         missing_configuration=matrix["configuration"]["missing"],
         connect_url=product_url("auth", "/auth/google/workspace"),
-        resources=google_workspace.list_resources(current.client_id, limit=40) if connected else [],
+        resources=google_workspace.list_resources(current.client_id, limit=40) if drive_ready else [],
     )
 
 
@@ -192,6 +194,10 @@ def google_drive_sync():
 
     current = resolve(surface="conversations")
     google_workspace.bind_client_user_scope(current.client_id, current.user_id)
+    connection = google_workspace.get_connection(current.client_id)
+    if (not connection or connection.get("status") != "connected"
+            or "https://www.googleapis.com/auth/drive" not in str(connection.get("granted_scopes") or "").split()):
+        return jsonify(error="Conecte ou reautorize sua conta Google com acesso ao Drive."), 400
     try:
         result = google_workspace.sync_drive(current.client_id, limit=200)
     except google_workspace.GoogleWorkspaceError as exc:
@@ -206,6 +212,10 @@ def google_drive_resources():
 
     current = resolve(surface="conversations")
     google_workspace.bind_client_user_scope(current.client_id, current.user_id)
+    connection = google_workspace.get_connection(current.client_id)
+    if (not connection or connection.get("status") != "connected"
+            or "https://www.googleapis.com/auth/drive" not in str(connection.get("granted_scopes") or "").split()):
+        return jsonify(error="Conecte ou reautorize sua conta Google com acesso ao Drive."), 400
     try:
         offset = min(max(int(request.args.get("offset", "0")), 0), 10000)
         limit = min(max(int(request.args.get("limit", "20")), 1), 50)

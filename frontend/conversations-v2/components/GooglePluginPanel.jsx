@@ -28,6 +28,9 @@ export function GooglePluginPanel({pluginId, connection, loading, error, draft, 
   const [searchRevision, setSearchRevision] = useState(0);
   const previousSync = useRef(connection?.last_sync_at);
   const connected = Boolean(connection?.connected);
+  const service = (pluginId || '').replace('google-', '');
+  const serviceState = (connection?.services || []).find(item => item.key === service);
+  const ready = pluginId === 'google-connect' || serviceState?.enabled;
   useEffect(() => {
     if (previousSync.current !== undefined && previousSync.current !== connection?.last_sync_at) {
       setResources([]);
@@ -38,7 +41,7 @@ export function GooglePluginPanel({pluginId, connection, loading, error, draft, 
     previousSync.current = connection?.last_sync_at;
   }, [connection?.last_sync_at]);
   useEffect(() => {
-    if (!connected || pluginId !== 'google-drive') return undefined;
+    if (!connected || !ready || pluginId !== 'google-drive') return undefined;
     let current = true;
     setSearchLoading(true);
     const params = new URLSearchParams({query, offset:String(offset), limit:'20'});
@@ -47,11 +50,8 @@ export function GooglePluginPanel({pluginId, connection, loading, error, draft, 
       .catch(failure => { if (current) setSearchError(failure.message || 'Não foi possível consultar o Drive.'); })
       .finally(() => { if (current) setSearchLoading(false); });
     return () => { current = false; };
-  }, [connected, pluginId, query, offset, searchRevision]);
+  }, [connected, ready, pluginId, query, offset, searchRevision]);
   if (!pluginId) return null;
-  const service = pluginId.replace('google-', '');
-  const serviceState = (connection?.services || []).find(item => item.key === service);
-  const ready = pluginId === 'google-connect' || serviceState?.enabled;
   return <section className="cv-google-plugin-panel" aria-label={labels[pluginId] || 'Google Workspace'}>
     <div className="cv-google-plugin-panel__top"><span>GOOGLE WORKSPACE · CLIENTE {connection?.client_id || 'ATUAL'}</span><button type="button" onClick={onClose} aria-label="Fechar painel Google">×</button></div>
     <h2>{labels[pluginId] || 'Google Workspace'}</h2>
@@ -61,8 +61,9 @@ export function GooglePluginPanel({pluginId, connection, loading, error, draft, 
       {!connection?.configured && <p className="cv-google-plugin-panel__notice">A configuração do Google Workspace ainda precisa ser concluída no servidor.</p>}
       {connected && !ready && <p className="cv-google-plugin-panel__notice">Esta conta precisa atualizar as permissões para usar {labels[pluginId]}.</p>}
       {connected && pluginId === 'google-drive' && <p>Os arquivos continuam no Drive. Ao associá-los a um projeto, o Cadu guarda a referência ao original.</p>}
-      {connected && pluginId === 'google-drive' && <form className="cv-google-plugin-panel__search" onSubmit={event => { event.preventDefault(); setResources([]); setNextOffset(null); setOffset(0); setQuery(searchText.trim()); setSearchRevision(value => value + 1); }}><input value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Buscar arquivos e pastas" aria-label="Buscar no Google Drive"/><button type="submit">Buscar</button></form>}
-      {connected && pluginId === 'google-drive' && <div className="cv-google-plugin-panel__resources"><strong>{query ? `Resultados para “${query}”` : 'Arquivos encontrados'}</strong>{resources.map(item => <div key={item.id}>{/^https:\/\//i.test(item.external_url || '') ? <a href={item.external_url} target="_blank" rel="noreferrer">{item.name}</a> : <span>{item.name}</span>}{!item.accessible_to_me && <small>Descoberto por outra pessoa deste cliente; o Google pode pedir acesso.</small>}{projects.length > 0 && <form onSubmit={async event => {
+      {connected && pluginId === 'google-drive' && connection?.drive_sync_pending && <p role="status">O Drive ainda tem páginas de arquivos para indexar. Continue a sincronização para encontrar os próximos itens.</p>}
+      {connected && ready && pluginId === 'google-drive' && <form className="cv-google-plugin-panel__search" onSubmit={event => { event.preventDefault(); setResources([]); setNextOffset(null); setOffset(0); setQuery(searchText.trim()); setSearchRevision(value => value + 1); }}><input value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Buscar arquivos e pastas" aria-label="Buscar no Google Drive"/><button type="submit">Buscar</button></form>}
+      {connected && ready && pluginId === 'google-drive' && <div className="cv-google-plugin-panel__resources"><strong>{query ? `Resultados para “${query}”` : 'Arquivos encontrados'}</strong>{resources.map(item => <div key={item.id}>{/^https:\/\//i.test(item.external_url || '') ? <a href={item.external_url} target="_blank" rel="noreferrer">{item.name}</a> : <span>{item.name}</span>}{!item.accessible_to_me && <small>Descoberto por outra pessoa deste cliente; o Google pode pedir acesso.</small>}{projects.length > 0 && <form onSubmit={async event => {
           event.preventDefault();
           const projectRef = new FormData(event.currentTarget).get('project_ref');
           if (!projectRef) return;
@@ -78,7 +79,7 @@ export function GooglePluginPanel({pluginId, connection, loading, error, draft, 
       <div className="cv-google-plugin-panel__actions">
         {(!connected || !ready) && connection?.configured && <button type="button" className="is-primary" onClick={onConnect}>{connected ? 'Atualizar permissões' : 'Conectar minha conta'}</button>}
         {connected && ready && pluginId !== 'google-connect' && <button type="button" className="is-primary" onClick={() => onUse?.(draft || nextPrompts[pluginId])}>Usar na conversa</button>}
-        {connected && pluginId === 'google-drive' && <button type="button" onClick={onSyncDrive} disabled={syncing}>{syncing ? 'Atualizando Drive…' : 'Atualizar arquivos'}</button>}
+        {connected && ready && pluginId === 'google-drive' && <button type="button" onClick={onSyncDrive} disabled={syncing}>{syncing ? 'Atualizando Drive…' : connection?.drive_sync_pending ? 'Continuar sincronização' : 'Atualizar arquivos'}</button>}
         {connected && pluginId === 'google-connect' && <button type="button" className="is-primary" onClick={() => onUse?.(draft || 'Mostre o que posso fazer com minha conta Google conectada.')}>Continuar na conversa</button>}
         <button type="button" onClick={onRefresh}>Atualizar estado</button>
       </div>

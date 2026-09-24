@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
+import pytest
 
 from flask import Flask
 from cryptography.fernet import Fernet
@@ -7,15 +8,19 @@ from cryptography.fernet import Fernet
 from aicentralv2.services.google_workspace import (
     SCOPES,
     _encryption_key,
+    _sync_drive_full,
     authorization_url,
+    disconnect,
     exchange_code,
     list_calendar_events,
     list_resources,
     list_meet_conference_records,
     list_meet_transcripts,
+    save_connection,
     service_matrix,
     sync_calendar_events,
     sync_drive,
+    GoogleWorkspaceError,
 )
 
 
@@ -120,6 +125,15 @@ def test_google_workspace_service_matrix_explains_missing_authorization():
     assert result['configuration']['missing'] == []
 
 
+def test_google_workspace_connection_write_requires_current_client_and_person():
+    with patch('aicentralv2.services.google_workspace._request_google_scope', return_value=(44, 5)), \
+         patch('aicentralv2.services.google_workspace.get_db') as database, \
+         pytest.raises(GoogleWorkspaceError, match='Sessão do cliente inválida'):
+        save_connection(client_id=44, user_id=6,
+                        identity={'google_sub': 'google-user', 'refresh_token': 'token'})
+    database.assert_not_called()
+
+
 def test_google_workspace_service_matrix_marks_all_capabilities_ready():
     app = Flask(__name__)
     app.config.update(
@@ -154,7 +168,8 @@ def test_google_drive_sync_consumes_changes_cursor_and_archives_removed_files():
         ],
         'newStartPageToken': 'cursor-2',
     }
-    connection = {'id': 'connection-1', 'sync_state': {'drive_change_token': 'cursor-1'}}
+    connection = {'id': 'connection-1', 'granted_scopes': 'https://www.googleapis.com/auth/drive',
+                  'sync_state': {'drive_change_token': 'cursor-1'}}
     with patch('aicentralv2.services.google_workspace.get_connection', return_value=connection), \
          patch('aicentralv2.services.google_workspace._access_token', return_value='access'), \
          patch('aicentralv2.services.google_workspace._encrypted_token', return_value='encrypted'), \
@@ -170,6 +185,83 @@ def test_google_drive_sync_consumes_changes_cursor_and_archives_removed_files():
     upsert.assert_called_once_with('connection-1', [response.json.return_value['changes'][0]['file']], ['file-2'])
     persist.assert_called_once_with('connection-1', {'drive_change_token': 'cursor-2'})
     assert get.call_args.kwargs['params']['pageToken'] == 'cursor-1'
+
+
+def test_google_drive_sync_requires_current_drive_scope():
+    with patch('aicentralv2.services.google_workspace.get_connection',
+               return_value={'id': 'connection-1', 'granted_scopes': ''}), \
+         pytest.raises(GoogleWorkspaceError, match='Reautorize'):
+        sync_drive(44)
+
+
+def test_google_drive_full_sync_keeps_pre_snapshot_changes_cursor_across_pages():
+    connection = {'id': 'connection-1', 'granted_scopes': 'https://www.googleapis.com/auth/drive',
+                  'sync_state': {}}
+    start = Mock(ok=True)
+    start.json.return_value = {'startPageToken': 'before-snapshot'}
+    pages = [
+        {'provider': 'google_drive', 'synced': 200, 'next_page_token': 'next-files'},
+        {'provider': 'google_drive', 'synced': 12, 'next_page_token': None},
+    ]
+
+    def persist(_connection_id, state):
+        connection['sync_state'] = dict(state)
+
+    with patch('aicentralv2.services.google_workspace.get_connection', return_value=connection), \
+         patch('aicentralv2.services.google_workspace._access_token', return_value='access'), \
+         patch('aicentralv2.services.google_workspace._encrypted_token', return_value='encrypted'), \
+         patch('aicentralv2.services.google_workspace.requests.get', return_value=start) as get, \
+         patch('aicentralv2.services.google_workspace._sync_drive_full', side_effect=pages) as full, \
+         patch('aicentralv2.services.google_workspace._persist_drive_sync_state', side_effect=persist):
+        first = sync_drive(44)
+        second = sync_drive(44)
+
+    assert first['mode'] == 'full_page'
+    assert second['mode'] == 'full'
+    assert get.call_count == 1
+    assert full.call_args_list[1].kwargs['page_token'] == 'next-files'
+    assert connection['sync_state'] == {'drive_change_token': 'before-snapshot'}
+
+
+def test_google_drive_full_sync_reads_only_one_page_per_request():
+    cursor = Mock()
+    cursor.__enter__ = Mock(return_value=cursor)
+    cursor.__exit__ = Mock(return_value=False)
+    database = Mock()
+    database.cursor.return_value = cursor
+    response = Mock(ok=True)
+    response.json.return_value = {'files': [], 'nextPageToken': 'next-files'}
+    with patch('aicentralv2.services.google_workspace.get_connection', return_value={'id': 'connection-1'}), \
+         patch('aicentralv2.services.google_workspace._access_token', return_value='access'), \
+         patch('aicentralv2.services.google_workspace._encrypted_token', return_value='encrypted'), \
+         patch('aicentralv2.services.google_workspace.requests.get', return_value=response) as get, \
+         patch('aicentralv2.services.google_workspace.get_db', return_value=database):
+        result = _sync_drive_full(44, limit=20, page_token='current-files')
+    assert result['next_page_token'] == 'next-files'
+    assert get.call_count == 1
+    assert get.call_args.kwargs['params']['pageToken'] == 'current-files'
+
+
+def test_google_disconnect_revokes_token_after_local_commit():
+    events = []
+    cursor = Mock()
+    cursor.__enter__ = Mock(return_value=cursor)
+    cursor.__exit__ = Mock(return_value=False)
+    cursor.fetchone.return_value = {'id': 'connection-1'}
+    database = Mock()
+    database.cursor.return_value = cursor
+    database.commit.side_effect = lambda: events.append('commit')
+    with patch('aicentralv2.services.google_workspace._available', return_value=True), \
+         patch('aicentralv2.services.google_workspace._request_google_scope', return_value=(44, 5)), \
+         patch('aicentralv2.services.google_workspace.get_connection',
+               return_value={'id': 'connection-1', 'encrypted_refresh_token': 'encrypted'}), \
+         patch('aicentralv2.services.google_workspace.get_db', return_value=database), \
+         patch('aicentralv2.services.google_workspace._transfer_project_links'), \
+         patch('aicentralv2.services.google_workspace.decrypt_refresh_token', return_value='secret'), \
+         patch('aicentralv2.services.google_workspace.requests.post',
+               side_effect=lambda *args, **kwargs: events.append('revoke')):
+        assert disconnect(44) is True
+    assert events == ['commit', 'revoke']
 
 
 def test_google_calendar_and_meet_use_the_shared_workspace_connection():

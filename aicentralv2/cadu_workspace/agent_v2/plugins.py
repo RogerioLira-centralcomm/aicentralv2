@@ -20,6 +20,14 @@ _CAMPAIGN_SEARCH = re.compile(
 _PLANNING = re.compile(r"\b(?:planej\w*|mont\w*|cri\w*|elabor\w*|estrutur\w*)\b.{0,70}\b(?:plano|planejamento)\b", re.I)
 _INSIGHTS = re.compile(r"\b(?:insights?|aprendizados?|achados?)\b", re.I)
 _MARKET = re.compile(r"\b(?:pesquisa de mercado|mercado|tend[eê]ncias?|benchmark|concorr[eê]ncia|setor)\b", re.I)
+_EXPLICIT_ACTIVITIES = re.compile(
+    r"\b(?:plugin\s+(?:de\s+)?)?(?:atividades?\s+do\s+projeto|"
+    r"(?:consult\w*|list\w*|mostr\w*|ver\w*|organiz\w*|planej\w*)\b"
+    r".{0,45}\b(?:atividades?|tarefas?)\b|"
+    r"\b(?:atividades?|tarefas?)\b.{0,45}"
+    r"\b(?:do\s+projeto|no\s+projeto|organiz\w*|planej\w*)\b)", re.I,
+)
+_EXPLICIT_PROJECT_SEARCH = re.compile(r"\b(?:plugin\s+(?:de\s+)?)?(?:busca\s+no\s+projeto|pesquisa\s+no\s+projeto)\b", re.I)
 
 
 def catalog() -> list[dict]:
@@ -59,7 +67,19 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
     tool_chain: tuple[str, ...] = ()
     missing: list[str] = []
 
-    if _CAMPAIGN_SEARCH.search(text) and not _PLANNING.search(text) and not _INSIGHTS.search(text):
+    if _EXPLICIT_ACTIVITIES.search(text):
+        plugin_id = "project-activities"
+        if context.project_ref:
+            tool_chain = ("workspace.get_project_context", "projects.list_tasks", "projects.list_resources")
+        else:
+            missing.append("projeto para consultar ou planejar as atividades")
+    elif _EXPLICIT_PROJECT_SEARCH.search(text):
+        plugin_id = "project-search"
+        if context.project_ref:
+            tool_chain = ("workspace.search_project_content", "projects.list_resources")
+        else:
+            missing.append("projeto que deseja consultar")
+    elif _CAMPAIGN_SEARCH.search(text) and not _PLANNING.search(text) and not _INSIGHTS.search(text):
         plugin_id = "campaign-search"
         if context.brand_ref:
             tool_chain = ("brands.get_context",)

@@ -1533,6 +1533,28 @@ body.portal--workspace {
   background:var(--cadu-accent-strong);
   color:#fff;
 }
+/* Keep secondary actions and folder selection readable in project dialogs. */
+.cadu-ds-project-dialog .cadu-ds-project-form footer button:not(.is-primary),
+.cadu-ds-project-create-folder > button {
+  border:1px solid var(--cadu-line);
+  background:var(--cadu-surface-soft);
+  color:var(--cadu-ink);
+}
+.cadu-ds-project-dialog .cadu-ds-project-form footer button:not(.is-primary):hover,
+.cadu-ds-project-create-folder > button:hover {
+  background:color-mix(in srgb,var(--cadu-accent-soft) 48%,var(--cadu-surface));
+}
+.cadu-ds-project-create-folder > button:focus-visible,
+.cadu-ds-project-dialog .cadu-ds-project-form footer button:focus-visible {
+  outline:2px solid var(--cadu-accent-strong);
+  outline-offset:2px;
+}
+.cadu-ds-project-create-folder > button:disabled,
+.cadu-ds-project-dialog .cadu-ds-project-form footer button:disabled {
+  color:var(--cadu-muted);
+  cursor:not-allowed;
+  opacity:.72;
+}
 .cadu-ds-brand-audit-dialog__footer footer button {
   min-height:38px;
   padding:0 14px;

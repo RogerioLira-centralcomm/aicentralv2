@@ -19,7 +19,8 @@ MAX_REQUEST_BYTES = 11 * 1024 * 1024
 
 
 def _ready():
-    return _rows("SELECT to_regclass('public.cadu_reports_import_files') IS NOT NULL AS ready")[0]['ready']
+    return _rows("SELECT to_regclass('public.cadu_reports_import_files') IS NOT NULL "
+                 "AND to_regclass('public.cadu_reports_import_decisions') IS NOT NULL AS ready")[0]['ready']
 
 
 def _bounded_body():
@@ -78,17 +79,101 @@ def register(bp):
     @login_required_api
     def reports_import_detail(import_id):
         selected = _selection()
+        if not _ready():
+            abort(503, description='Instale as migrações de importações do Reports.')
         scope = (selected['organization_id'], selected['client_id'])
         batch = _rows('''SELECT id,original_name,file_kind,status,platform_hint,row_count,
             applied_count,created_at FROM cadu_reports_import_files
             WHERE id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
         if not batch:
             abort(404)
-        rows = _rows('''SELECT source_row,sheet_name,parsed,status,reason,account_id,campaign_id,
-            metric_date FROM cadu_reports_import_rows
-            WHERE import_id=%s AND organization_id=%s AND client_id=%s
-            ORDER BY id LIMIT 100''', (str(import_id), *scope))
+        rows = _rows('''SELECT r.id,r.source_row,r.sheet_name,r.parsed,r.status,r.reason,
+            r.account_id,r.campaign_id,r.metric_date,d.note AS decision_note,d.created_at AS decided_at
+            FROM cadu_reports_import_rows r LEFT JOIN cadu_reports_import_decisions d
+                ON d.import_row_id=r.id AND d.organization_id=r.organization_id AND d.client_id=r.client_id
+            WHERE r.import_id=%s AND r.organization_id=%s AND r.client_id=%s
+            ORDER BY (r.status='needs_review') DESC,r.id LIMIT 100''', (str(import_id), *scope))
         return jsonify(import_file=batch[0], rows=rows)
+
+    @bp.post('/api/v1/reports/imports/<uuid:import_id>/rows/<int:row_id>/resolve')
+    @login_required_api
+    def reports_import_resolve(import_id, row_id):
+        selected = _selection()
+        _write_guard(selected)
+        if not _ready():
+            abort(503, description='Instale as migrações de importações do Reports.')
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400, description='Envie os dados corrigidos da linha.')
+        allowed = {'platform', 'external_account_id', 'account_name',
+                   'external_campaign_id', 'campaign_name', 'metric_date', 'currency',
+                   'impressions', 'clicks', 'cost', 'conversions', 'conversion_value', 'note'}
+        if set(payload) - allowed:
+            abort(400, description='Campo não permitido na revisão.')
+        note = str(payload.get('note') or '').strip()
+        if not note or len(note) > 1000:
+            abort(400, description='Registre a justificativa da revisão (até 1.000 caracteres).')
+        values = {}
+        fields = {'platform': 'Platform', 'external_account_id': 'Account ID',
+                  'account_name': 'Account Name', 'external_campaign_id': 'Campaign ID',
+                  'campaign_name': 'Campaign Name', 'metric_date': 'Date', 'currency': 'Currency',
+                  'impressions': 'Impressions', 'clicks': 'Clicks', 'cost': 'Cost',
+                  'conversions': 'Conversions', 'conversion_value': 'Conversion Value'}
+        for key, header in fields.items():
+            value = payload.get(key, '')
+            if not isinstance(value, str) or len(value) > 1000:
+                abort(400, description=f'{key} inválido.')
+            values[header] = value
+        parsed = parse_record({'raw': values}, date_order='auto')
+        if parsed['issues']:
+            abort(400, description='Revise: ' + '; '.join(parsed['issues']))
+        scope = (selected['organization_id'], selected['client_id'])
+        conn = get_db()
+        try:
+            found = _rows('''SELECT r.id,r.parsed,r.status FROM cadu_reports_import_rows r
+                JOIN cadu_reports_import_files f ON f.id=r.import_id
+                    AND f.organization_id=r.organization_id AND f.client_id=r.client_id
+                WHERE r.id=%s AND r.import_id=%s AND r.organization_id=%s AND r.client_id=%s
+                    AND f.file_kind IN ('csv','xlsx') FOR UPDATE OF r''',
+                (row_id, str(import_id), *scope))
+            if not found:
+                abort(404)
+            if found[0]['status'] != 'needs_review':
+                abort(409, description='Esta linha já foi confirmada.')
+            account_id, campaign_id = _upsert_identity(selected, parsed)
+            if parsed['issues'] or not campaign_id:
+                abort(409, description='A conta ou campanha entrou em conflito; revise a identidade.')
+            collisions = _rows('''SELECT id FROM cadu_reports_import_rows
+                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                    AND campaign_id=%s AND metric_date=%s AND status='applied' AND id<>%s LIMIT 1''',
+                (str(import_id), *scope, campaign_id, parsed['metric_date'], row_id))
+            if collisions:
+                abort(409, description='Já existe uma linha confirmada da campanha nesta data e arquivo.')
+            _rows('''INSERT INTO cadu_reports_import_decisions
+                (import_row_id,organization_id,client_id,before_parsed,after_parsed,note,created_by)
+                VALUES (%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s) RETURNING id''',
+                (row_id, *scope, json.dumps(found[0]['parsed']), json.dumps(parsed), note, session['user_id']))
+            _rows('''UPDATE cadu_reports_import_rows SET parsed=%s::jsonb,status='applied',reason=NULL,
+                account_id=%s,campaign_id=%s,metric_date=%s WHERE id=%s RETURNING id''',
+                (json.dumps(parsed), account_id, campaign_id, parsed['metric_date'], row_id))
+            for key, value in parsed['metrics'].items():
+                monetary = key in ('cost', 'conversion_value')
+                _rows('''INSERT INTO cadu_reports_import_observations
+                    (import_row_id,organization_id,client_id,campaign_id,metric_date,
+                     metric_key,value_numeric,unit,currency)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                    (row_id, *scope, campaign_id, parsed['metric_date'], key,
+                     Decimal(value), 'currency' if monetary else 'count',
+                     parsed['currency'] if monetary else None))
+            _rows('''UPDATE cadu_reports_import_files SET applied_count=applied_count+1,
+                status=CASE WHEN applied_count+1=row_count THEN 'parsed' ELSE 'needs_review' END
+                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                (str(import_id), *scope))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return jsonify(resolved=True, row_id=row_id)
 
     @bp.post('/api/v1/reports/imports')
     @login_required_api

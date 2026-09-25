@@ -50,7 +50,7 @@ Executar P0.1 a P0.4 como um pacote de preparação e piloto. Ele transforma a b
 | P1.3 | Concessões para usuários existentes prontas; convite e cadastro autônomo só para Reports pendentes. |
 | P1.4 | Tag expõe `trackPage()` para navegação SPA via GTM, com deduplicação imediata; eventos personalizados e diagnóstico de instalação pendentes. |
 | P1.5 | Conciliação de métricas entre script, importações, tag e CRM ainda pendente. |
-| P2.1–P2.2 | Primeira fatia codificada: caixa de entrada por cliente, CSV/XLSX, prints preservados, identificação por IDs exatos, observações imutáveis e revisão de linhas ambíguas. OCR, confirmação de linhas, projeção incremental consolidada e arquivos reais de plataformas ainda pendentes. Nenhuma API de mídia adicional é usada. |
+| P2.1–P2.2 | Primeira fatia codificada: caixa de entrada por cliente, CSV/XLSX, prints preservados, identificação por IDs exatos, observações imutáveis e confirmação manual auditável de linhas ambíguas. OCR, projeção incremental consolidada e arquivos reais de plataformas ainda pendentes. Nenhuma API de mídia adicional é usada. |
 | P2.3–P3 | Conjuntos de dados isolados, audiências e mapas de clique ainda pendentes. |
 
 ## Verificação do plano com TypeSafe

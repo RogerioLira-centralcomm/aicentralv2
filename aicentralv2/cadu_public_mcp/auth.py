@@ -356,7 +356,7 @@ def _public_context(row: dict, params: dict) -> RequestContext:
     active = ActiveObject(str(active_object["type"]), str(active_object["id"])) if isinstance(active_object, dict) and active_object.get("type") and active_object.get("id") else None
     try:
         return RequestContext(
-            organization_id=int(row["client_id"]), client_id=int(row["client_id"]),
+            client_id=int(row["client_id"]),
             user_id=int(row["user_id"]), conversation_id=params.get("conversation_id"),
             surface=surface, project_ref=project_ref, brand_ref=brand_ref,
             active_object=active, capabilities=("workspace", "planner", "studio", "reports", "artifacts"),

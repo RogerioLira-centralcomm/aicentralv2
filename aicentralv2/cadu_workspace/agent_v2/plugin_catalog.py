@@ -2,6 +2,8 @@
 
 import json
 
+from flask import has_app_context
+
 from ...cadu_family import repository
 
 
@@ -21,6 +23,10 @@ def list_entries(kind: str = "plugin") -> list[dict]:
 
 
 def get_plugin(plugin_id: str) -> dict | None:
+    # Pure planning calls can run without Flask's request/app context. In that
+    # case no database-backed plugin may be selected or execute tools.
+    if not has_app_context():
+        return None
     entries = repository.rows(
         """SELECT p.id, p.kind, p.name, p.category, p.logo, p.sort_order, p.selectable,
                   v.version, v.maturity, v.description, v.manifest, v.changelog

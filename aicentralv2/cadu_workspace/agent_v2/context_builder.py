@@ -239,7 +239,7 @@ class ConversationContextBuilder:
         if memory_enabled:
             memory_packet = conversation_memory.packet(
                 conversation_id=conversation_id if messages is not None else None,
-                organization_id=current.organization_id, client_id=current.client_id,
+                organization_id=current.client_id, client_id=current.client_id,
                 user_id=current.user_id, query=message,
             )
             state = memory_packet

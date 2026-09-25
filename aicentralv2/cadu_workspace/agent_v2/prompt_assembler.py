@@ -1,14 +1,14 @@
 """Compact prompt input for the isolated Dify V2 application."""
 
 import json
+import re
 from copy import deepcopy
 from typing import Optional
 
 from .contracts import IntentRoute, RequestContext
 
 
-CORE = """Você é Cadu, parceiro sênior de trabalho. Responda em português claro e direto como continuidade
-da mesma conversa, nunca como tarefa isolada. `conversation_state`, `conversation_history` e a mensagem atual,
+CORE = """Você é Cadu, parceiro sênior de trabalho. Responda em português claro e direto, dando continuidade à conversa. `conversation_state`, `conversation_history` e a mensagem atual,
 nessa ordem, são canônicos: preserve assunto, referências, decisões e correções mesmo sem repetição de nomes.
 Use contexto e fontes quando ajudarem; em pedidos simples, não recite o projeto. Mesmo no modo rápido, dê contexto mínimo e use `entity` para pessoas, marcas e campanhas. Separe fato, hipótese e lacuna; não invente evidências.
 Em projetos, consulte o contexto autorizado e o histórico antes de pedir dados. Resuma o que existe e aponte apenas lacunas reais. Se o contexto estiver indisponível, diga que a consulta falhou sem concluir que o projeto não tem dados.
@@ -317,6 +317,12 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
     has_resolved_brand = isinstance(resolved_brand, dict) and bool(resolved_brand.get("name"))
     if has_resolved_brand:
         brand_instruction = "Há uma marca vinculada ao projeto selecionado. Use esse contexto de marca nas análises relevantes."
+    elif (request.project_ref and not request.brand_ref and route.action == "analyze"
+          and re.search(r"\b(?:criativo|marca|identidade|campanha)\b", message, re.I)):
+        brand_instruction = (
+            "Analise o material disponível sem presumir uma marca. Se a análise depender de identidade de marca, "
+            "ofereça vincular uma marca existente ou criar uma nova."
+        )
     plugin_instruction = str(policy.get("plugin_instruction") or "")
     plugin = policy.get("plugin") if isinstance(policy.get("plugin"), dict) else None
     if plugin and plugin.get("id") == "campaign-search":
@@ -399,7 +405,7 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         )
     if route.action == "describe_project":
         brand_instruction += (
-            " O usuário pediu uma explicação do projeto ativo. Use a direção, os metadados e os resultados com origem "
+            " Seja proativo ao explicar o projeto ativo. Use a direção, os metadados e os resultados com origem "
             "retornados por workspace.search_project_content. Para perguntas sobre um campo específico, procure também "
             "nas atividades, documentos, links e demais registros do projeto antes de concluir que a informação falta. "
             "Quando o usuário pedir a origem, cite o registro ou campo concreto encontrado; não cite uma fonte hipotética. "

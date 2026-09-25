@@ -219,37 +219,28 @@ def _repair_project_context_denial(response, run) -> bool:
             "ligar dúvidas do público a pautas, trilhas e chamadas para ação. Depois, definir atividades e indicadores "
             "para acompanhar retorno ao conteúdo e avanço na jornada. São sugestões para discussão, não decisões salvas."
         )
-        options = ["Jornada e pautas", "Plano de atividades", "Indicadores"]
     elif any(term in subject for term in ("evento", "encontro", "congresso", "lançamento", "lancamento")):
         proposal = (
             "Como proposta, podemos estruturar o trabalho em público e objetivo, programação e operação, divulgação "
             "e avaliação. Datas, responsáveis e orçamento ficam em aberto até você confirmar."
         )
-        options = ["Programação e operação", "Divulgação", "Plano de avaliação"]
     elif any(term in subject for term in ("pesquisa", "diagnóstico", "diagnostico", "estudo", "levantamento")):
         proposal = (
             "Como proposta, podemos transformar o tema em uma pergunta de pesquisa, escolher fontes e método, "
             "e explicitar qual decisão o estudo deve apoiar. Método, amostra e prazo precisam da sua validação."
         )
-        options = ["Pergunta e método", "Fontes", "Decisão que a pesquisa deve apoiar"]
     elif any(term in subject for term in ("produto", "plataforma", "software", "aplicativo", "app", "serviço", "servico")):
         proposal = (
             "Como proposta, podemos detalhar usuários e necessidades, escopo e critérios de aceite, e marcos de entrega. "
             "Prioridades, responsáveis e prazos ficam em aberto até você confirmar."
         )
-        options = ["Usuários e necessidades", "Escopo e critérios", "Marcos de entrega"]
     else:
         proposal = (
             "Como proposta, podemos transformar o objetivo em resultados esperados, entregas e atividades, "
             "e critérios para acompanhar o progresso. Responsáveis, datas e metas só entram depois da sua confirmação."
         )
-        options = ["Resultados e prioridades", "Entregas e atividades", "Indicadores"]
     parts.append(proposal)
-    response.questions = [{
-        "question": "O que você quer completar primeiro no projeto?",
-        "options": options,
-        "allow_custom": True,
-    }]
+    response.questions = []
     response.answer = "\n\n".join(parts)
     response.confidence = "medium"
     response.actions = []
@@ -881,7 +872,7 @@ def prepare(data):
                 cur.execute("""INSERT INTO cadu_family_conversation_context
                     (conversation_id, user_id, organization_id, client_id, profile, project_ref, brand_ref)
                     VALUES (%s, %s, %s, %s, 'workspace', %s, %s)""",
-                    (conversation_id, current.user_id, current.organization_id, current.client_id,
+                    (conversation_id, current.user_id, current.client_id, current.client_id,
                      current.project_ref, current.brand_ref))
             else:
                 # Persist a context repaired from the explicitly selected,
@@ -890,10 +881,9 @@ def prepare(data):
                 cur.execute("""UPDATE cadu_family_conversation_context
                                   SET project_ref=COALESCE(project_ref,%s),
                                       brand_ref=COALESCE(brand_ref,%s)
-                                WHERE conversation_id=%s AND user_id=%s
-                                  AND organization_id=%s AND client_id=%s""",
+                                WHERE conversation_id=%s AND user_id=%s AND client_id=%s""",
                             (current.project_ref, current.brand_ref, conversation_id,
-                             current.user_id, current.organization_id, current.client_id))
+                             current.user_id, current.client_id))
                 if current.project_ref and current.project_ref.startswith("ci:"):
                     cur.execute("""UPDATE cadu_conversations SET projeto_id=COALESCE(projeto_id,%s)
                                     WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s""",
@@ -996,9 +986,9 @@ def stream(run):
         run["run_id"], run["context"].client_id, run["context"].user_id,
     )
     direct_link_completion = None
-    direct_link = journal.start_direct_link_action(
+    direct_link = (journal.start_direct_link_action(
         run["run_id"], run["context"].client_id, run["context"].user_id,
-    )
+    ) if run["route"].get("action") == "create_project_link" else None)
     if direct_link:
         try:
             receipt = action_executor.execute(direct_link, run["context"])
@@ -1516,7 +1506,7 @@ def stream(run):
     if state == "completed" and assistant_id and (run.get("rollout") or {}).get("memory_v2", True):
         try:
             schedule_memory_checkpoint(
-                conversation_id=run["conversation_id"], organization_id=run["context"].organization_id,
+                conversation_id=run["conversation_id"], organization_id=run["context"].client_id,
                 client_id=run["context"].client_id, user_id=run["context"].user_id,
             )
         except Exception:

@@ -81,7 +81,7 @@ class CaduGoogleConnector:
                 "redirect_uri": matrix["configuration"].get("redirect_uri") or "",
             },
             "context": {
-                "organization_id": context.organization_id,
+                "organization_id": context.client_id,
                 "client_id": context.client_id,
                 "user_id": context.user_id,
                 "surface": context.surface,
@@ -142,7 +142,7 @@ class CaduGoogleConnector:
         self._bind_context(context)
         return {
             "connector": self.name,
-            "organization_id": context.organization_id,
+            "organization_id": context.client_id,
             "events": google_workspace.list_calendar_events(context.client_id, limit=limit),
         }
 
@@ -163,7 +163,7 @@ class CaduGoogleConnector:
         self._bind_context(context)
         return {
             "connector": self.name,
-            "organization_id": context.organization_id,
+            "organization_id": context.client_id,
             "conference_records": google_workspace.list_meet_conference_records(
                 context.client_id, limit=limit,
             ),
@@ -173,7 +173,7 @@ class CaduGoogleConnector:
         self._bind_context(context)
         return {
             "connector": self.name,
-            "organization_id": context.organization_id,
+            "organization_id": context.client_id,
             **google_workspace.discover_meet_artifacts(context.client_id, limit=limit),
         }
 

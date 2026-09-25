@@ -960,7 +960,7 @@ def confirm_agent_purchase(purchase_id):
 
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
     client_id, user_id = _session_scope()
-    context = RequestContext(organization_id=client_id, client_id=client_id, user_id=user_id,
+    context = RequestContext(client_id=client_id, user_id=user_id,
                              conversation_id=None, surface="workspace", project_ref=None,
                              capabilities=("workspace",))
     try:

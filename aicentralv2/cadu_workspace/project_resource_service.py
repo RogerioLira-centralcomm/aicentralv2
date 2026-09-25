@@ -531,7 +531,7 @@ def search_project_items(context: RequestContext, query: str, *, limit: int = 30
                       AND concat_ws(' ', title, description, status, priority) ILIKE %s ESCAPE E'\\\\'
                  ORDER BY due_at NULLS LAST, updated_at DESC
                     LIMIT %s""",
-                (context.organization_id, context.client_id, project_ref, pattern, min(max(int(limit), 1), 40)),
+                (context.client_id, context.client_id, project_ref, pattern, min(max(int(limit), 1), 40)),
             )
             results.extend({
                 "id": row["id"], "kind": "task", "title": row["title"],

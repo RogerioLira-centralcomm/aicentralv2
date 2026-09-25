@@ -80,7 +80,7 @@ def _insert_task(cursor, context: RequestContext, task: dict, *, user_instructio
             created_by,metadata,completed_at,created_at,updated_at)
            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'cadu',NULL,NULL,%s,%s,
                    CASE WHEN %s='done' THEN NOW() ELSE NULL END,NOW(),NOW())""",
-        (task["id"], context.organization_id, context.client_id, context.project_ref, task["title"],
+        (task["id"], context.client_id, context.client_id, context.project_ref, task["title"],
          task["description"], task["status"], task["priority"], task["starts_at"], task["due_at"],
          task["assignee_id"], context.user_id, Json({
              "origin": task["origin"], "resource_refs": task["resource_refs"],
@@ -135,7 +135,7 @@ def list_tasks(context: RequestContext) -> dict:
                   AND task.project_ref=%s AND task.archived_at IS NULL
              ORDER BY CASE task.status WHEN 'in_progress' THEN 0 WHEN 'todo' THEN 1 WHEN 'blocked' THEN 2 ELSE 3 END,
                       task.due_at NULLS LAST,task.created_at DESC""",
-            (context.organization_id, context.client_id, context.project_ref),
+            (context.client_id, context.client_id, context.project_ref),
         )
         return {"available": True, "tasks": [dict(row) for row in cursor.fetchall()]}
 
@@ -172,7 +172,7 @@ def create_tasks(context: RequestContext, payloads: list[dict], *, require_empty
                                (f"cadu-project-tasks:{context.client_id}:{context.project_ref}",))
                 cursor.execute("""SELECT 1 FROM cadu_project_tasks WHERE organization_id=%s AND client_id=%s
                                   AND project_ref=%s AND archived_at IS NULL LIMIT 1 FOR UPDATE""",
-                               (context.organization_id, context.client_id, context.project_ref))
+                               (context.client_id, context.client_id, context.project_ref))
                 if cursor.fetchone():
                     raise Conflict("Este projeto já possui uma lista de tarefas. Use a criação em lote para adicionar novos itens.")
             for assignee_id in sorted({task["assignee_id"] for task in tasks if task["assignee_id"]}):
@@ -232,7 +232,7 @@ def update_task(context: RequestContext, task_id: str, payload: dict) -> dict:
                 """SELECT starts_at,due_at,metadata FROM cadu_project_tasks
                     WHERE id=%s AND organization_id=%s AND client_id=%s
                       AND project_ref=%s AND archived_at IS NULL FOR UPDATE""",
-                (task_id, context.organization_id, context.client_id, context.project_ref),
+                (task_id, context.client_id, context.client_id, context.project_ref),
             )
             current = cursor.fetchone()
             if not current:
@@ -257,7 +257,7 @@ def update_task(context: RequestContext, task_id: str, payload: dict) -> dict:
             cursor.execute(
                 f"UPDATE cadu_project_tasks SET {', '.join(assignments)},updated_at=NOW() "
                 "WHERE id=%s AND organization_id=%s AND client_id=%s AND project_ref=%s AND archived_at IS NULL",
-                tuple(values) + (task_id, context.organization_id, context.client_id, context.project_ref),
+                tuple(values) + (task_id, context.client_id, context.client_id, context.project_ref),
             )
             if not cursor.rowcount:
                 raise NotFound("Tarefa não encontrada.")

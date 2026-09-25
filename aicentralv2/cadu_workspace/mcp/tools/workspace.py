@@ -214,9 +214,7 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
         actor = repository.actor(context.user_id) or {}
         if repository.account_role(actor) != "admin":
             raise ToolInputError("Somente administradores podem criar um projeto compartilhado.")
-        if int(actor.get("organization_id") or 0) != context.organization_id:
-            raise ToolInputError("A conta não pertence a esta organização.")
-        active_team = {int(item["id"]) for item in repository.team(context.organization_id) if item.get("status")}
+        active_team = {int(item["id"]) for item in repository.team(context.client_id) if item.get("status")}
         if any(int(item["user_id"]) not in active_team for item in people):
             raise ToolInputError("Todas as pessoas precisam pertencer à equipe ativa.")
     operation_payload = {**payload, "visibility": visibility, "people": people,
@@ -527,7 +525,7 @@ def share_project_with_people(context: RequestContext, arguments: dict) -> dict:
     actor = repository.actor(context.user_id) or {}
     if repository.account_role(actor) != 'admin':
         raise ToolInputError("Somente administradores podem compartilhar o projeto.")
-    team = {int(item['id']) for item in repository.team(actor['organization_id']) if item.get('status')}
+    team = {int(item['id']) for item in repository.team(context.client_id) if item.get('status')}
     people = arguments['people']
     if any(int(item['user_id']) not in team for item in people):
         raise ToolInputError("Todas as pessoas precisam pertencer à equipe ativa.")

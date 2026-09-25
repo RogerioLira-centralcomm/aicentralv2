@@ -38,7 +38,8 @@ def test_public_context_is_tenant_bound_and_uses_default_project():
         context = _public_context(row, {"surface": "workspace"})
 
     assert isinstance(context, RequestContext)
-    assert context.organization_id == context.client_id == 12
+    assert context.client_id == 12
+    assert "organization_id" not in context.to_dict()
     assert context.user_id == 7
     assert context.project_ref == "ci:project-1"
 

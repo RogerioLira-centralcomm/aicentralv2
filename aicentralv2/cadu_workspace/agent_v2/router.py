@@ -265,7 +265,12 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if active_artifact_type in {
         "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html", "meeting_summary", "meeting_agenda",
     } and not asks_for_advice and _has(text, r"\b(ajust|alter|mud|troqu|revis|atualiz|corrig|edit|refin|melhore\b|melhorar\b|inclu|acrescent|apliqu|aplicar|implement|j[aá]\s+est[aá]\s+decid|n[aã]o\s+precisa\s+mais)"):
-        revision_tools = ("artifacts.get", "workspace.search_project_content") if has_project else ("artifacts.get",)
+        needs_project_evidence = has_project and (
+            active_artifact_type != "html" or
+            _has(text, r"\b(?:projeto|briefing|fontes?|dados|marca)\b")
+        )
+        revision_tools = (("artifacts.get", "workspace.search_project_content")
+                          if needs_project_evidence else ("artifacts.get",))
         if _has(text, r"\b(?:pesquis|busqu|consult)\w*\b.{0,80}\b(?:web|internet|fonte\s+externa|dados\s+atuais)\b"):
             revision_tools += ("web.search",)
         return IntentRoute("workspace", f"update_{active_artifact_type}", "high", "artifact_first",
@@ -340,6 +345,13 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             ("project",), ("workspace.search_project_content",),
             "executive_summary",
         )
+    # Explicit visual output takes precedence over campaign-planning language
+    # in requests such as "landing page HTML para esta campanha".
+    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|site|interface|dashboard interativo|painel interativo)\b")
+            or _has(text, r"\b(html|landing page|p[aá]gina|site|dashboard interativo|painel interativo)\b.{0,35}\b(cri|mont|ger|prototip)")):
+        return IntentRoute("workspace", "create_html", "high", "artifact_first",
+                           ("project", "brand") if has_project else (),
+                           ("workspace.get_project_context",) if has_project else (), "html")
     media_plan_request = _has(
         text,
         r"\b(?:mont\w*|cri\w*|elabor\w*|desenh\w*|planej\w*|estrutur\w*|prepar\w*|ger\w*)\b"
@@ -470,13 +482,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if direct_url:
         return IntentRoute("workspace", "register_link_reference", "low", "clarification",
                            ("project",) if has_project else (), (), None, False)
-    # An HTML file is a visual artifact even when the request also says
-    # "arquivo" or "artefato"; the generic text-draft rule follows below.
-    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|site|interface|dashboard interativo|painel interativo)\b")
-            or _has(text, r"\b(html|landing page|p[aá]gina|site|dashboard interativo|painel interativo)\b.{0,35}\b(cri|mont|ger|prototip)")):
-        return IntentRoute("workspace", "create_html", "high", "artifact_first",
-                           ("project", "brand") if has_project else (),
-                           ("workspace.get_project_context",) if has_project else (), "html")
     if _has(text, r"\b(cri|fa[çc]|ger|transform|monte|montar|organiz)\w*\b.{0,45}\b(rascunho|documento|arquivo|texto)\b") or _has(
         text,
         r"\b(?:resumo|s[ií]ntese)\s+(?:edit[aá]vel|para editar)\b|"

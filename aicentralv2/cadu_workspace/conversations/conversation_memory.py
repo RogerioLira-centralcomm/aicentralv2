@@ -364,7 +364,7 @@ def rebuild_command(conversation_id):
     rows = repository.rows('''SELECT conversation.id::text AS conversation_id,
             conversation.id_cliente AS client_id,
             conversation.id_contato_cliente AS user_id,
-            context.organization_id
+            context.client_id
         FROM cadu_conversations conversation
         JOIN cadu_family_conversation_context context ON context.conversation_id=conversation.id
         WHERE conversation.id::text=%s AND context.client_id=conversation.id_cliente

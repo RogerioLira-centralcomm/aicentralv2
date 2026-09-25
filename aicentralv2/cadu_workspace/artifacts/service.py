@@ -142,7 +142,7 @@ def create_draft(context: RequestContext, artifact_type: str, content: dict, *, 
         with conn.cursor() as cur:
             cur.execute("""SELECT id::text,type,project_ref FROM cadu_workspace_artifacts
                             WHERE id=%s AND organization_id=%s AND client_id=%s""",
-                        (artifact_id, context.organization_id, context.client_id))
+                        (artifact_id, context.client_id, context.client_id))
             existing = cur.fetchone()
             if existing:
                 if existing.get("type") != artifact_type or existing.get("project_ref") != context.project_ref:
@@ -153,7 +153,7 @@ def create_draft(context: RequestContext, artifact_type: str, content: dict, *, 
                 (id, organization_id, client_id, project_ref, conversation_id, type, title, status,
                  current_version, created_by, created_at, updated_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', 1, %s, NOW(), NOW())""",
-                (artifact_id, context.organization_id, context.client_id, context.project_ref,
+                (artifact_id, context.client_id, context.client_id, context.project_ref,
                  conversation_id or context.conversation_id, artifact_type, title, context.user_id))
             cur.execute("""INSERT INTO cadu_workspace_artifact_versions
                 (id, artifact_id, version, content, change_summary, created_by, created_at)
@@ -183,7 +183,7 @@ def get_artifact(context: RequestContext, artifact_id: str) -> dict:
                          JOIN cadu_workspace_artifact_versions v
                            ON v.artifact_id = a.id AND v.version = a.current_version
                         WHERE a.id = %s AND a.organization_id = %s AND a.client_id = %s""",
-                    (str(artifact_id), context.organization_id, context.client_id))
+                    (str(artifact_id), context.client_id, context.client_id))
         row = cur.fetchone()
     if not row:
         raise NotFound("Artefato indisponível.")
@@ -212,7 +212,7 @@ def list_artifacts(context: RequestContext, *, artifact_type=None, status=None, 
         raise BadRequest("Status de artefato inválido.")
     limit = min(50, max(1, int(limit or 20)))
     filters = ["a.organization_id = %s", "a.client_id = %s"]
-    params = [context.organization_id, context.client_id]
+    params = [context.client_id, context.client_id]
     if context.project_ref:
         filters.append("a.project_ref = %s")
         params.append(context.project_ref)
@@ -294,7 +294,7 @@ def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, 
         with conn.cursor() as cur:
             cur.execute("""SELECT current_version,type FROM cadu_workspace_artifacts
                             WHERE id = %s AND organization_id = %s AND client_id = %s FOR UPDATE""",
-                        (str(artifact_id), context.organization_id, context.client_id))
+                        (str(artifact_id), context.client_id, context.client_id))
             row = cur.fetchone()
             if not row:
                 raise NotFound("Artefato indisponível.")
@@ -348,7 +348,7 @@ def attach_to_project(context: RequestContext, artifact_id: str, project_ref: st
                                   status = CASE WHEN %s IS NULL AND status = 'active' THEN 'draft' ELSE status END,
                                   updated_at = NOW()
                             WHERE id = %s AND organization_id = %s AND client_id = %s""",
-                        (project_ref or None, project_ref or None, str(artifact_id), context.organization_id, context.client_id))
+                        (project_ref or None, project_ref or None, str(artifact_id), context.client_id, context.client_id))
             if cur.rowcount != 1:
                 raise NotFound("Artefato indisponível.")
         conn.commit()
@@ -465,7 +465,7 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
                            (f"cadu-artifact-index:{context.client_id}:{artifact_id}",))
             cursor.execute("""SELECT current_version FROM cadu_workspace_artifacts
                               WHERE id=%s AND client_id=%s AND organization_id=%s FOR UPDATE""",
-                           (str(artifact_id), context.client_id, context.organization_id))
+                           (str(artifact_id), context.client_id, context.client_id))
             current = cursor.fetchone()
             if not current or int(current["current_version"]) != int(expected_version):
                 raise Conflict("O documento mudou durante a indexação. Tente finalizar novamente.")
@@ -507,7 +507,7 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
                                (len(previous), project_id, context.client_id))
             cursor.execute("""UPDATE cadu_workspace_artifacts SET project_ref=%s, status='active', updated_at=NOW()
                               WHERE id=%s AND client_id=%s AND organization_id=%s""",
-                           (project_ref, str(artifact_id), context.client_id, context.organization_id))
+                           (project_ref, str(artifact_id), context.client_id, context.client_id))
         connection.commit()
     except Exception:
         connection.rollback()
@@ -535,7 +535,7 @@ def publish_artifact(context: RequestContext, artifact_id: str) -> dict:
             cur.execute("""UPDATE cadu_workspace_artifacts
                               SET status = 'published', updated_at = NOW()
                             WHERE id = %s AND organization_id = %s AND client_id = %s""",
-                        (str(artifact_id), context.organization_id, context.client_id))
+                        (str(artifact_id), context.client_id, context.client_id))
             if cur.rowcount != 1:
                 raise NotFound("Artefato indisponível.")
         conn.commit()
@@ -556,7 +556,7 @@ def unpublish_artifact(context: RequestContext, artifact_id: str) -> dict:
             cur.execute("""UPDATE cadu_workspace_artifacts
                               SET status = 'draft', updated_at = NOW()
                             WHERE id = %s AND organization_id = %s AND client_id = %s""",
-                        (str(artifact_id), context.organization_id, context.client_id))
+                        (str(artifact_id), context.client_id, context.client_id))
             if cur.rowcount != 1:
                 raise NotFound("Artefato indisponível.")
         conn.commit()

@@ -8,7 +8,7 @@ from ..registry import ToolInputError, register_tool
 
 def _reports(context: RequestContext, report_id=None):
     where = "AND w.id = %s" if report_id is not None else ""
-    params = [context.organization_id, context.client_id]
+    params = [context.client_id]
     if report_id is not None:
         params.append(report_id)
     if context.project_ref:
@@ -17,7 +17,7 @@ def _reports(context: RequestContext, report_id=None):
     return repository.rows(f"""SELECT w.id, w.project_ref, w.campaign_name, w.document,
                                       w.revision, w.updated_at
                                  FROM cadu_connect_report_workspaces w
-                                WHERE w.organization_id = %s AND w.client_id = %s {where}
+                                WHERE w.client_id = %s {where}
                              ORDER BY w.updated_at DESC LIMIT 50""", tuple(params))
 
 

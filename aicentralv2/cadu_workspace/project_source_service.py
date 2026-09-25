@@ -245,7 +245,7 @@ def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge
         raise BadRequest("Categoria de arquivo inválida.")
     description = str(description or "").strip()[:4000]
     token = _serializer().dumps({
-        "organization_id": context.organization_id, "client_id": context.client_id,
+        "organization_id": context.client_id, "client_id": context.client_id,
         "user_id": context.user_id, "project_id": project_id,
         "request_id": request_id,
         "use_as_knowledge": use_as_knowledge,
@@ -274,7 +274,7 @@ def _upload_claims(context: RequestContext, token: str) -> dict:
         raise BadRequest("A autorização de upload expirou. Solicite uma nova.") from exc
     except BadSignature as exc:
         raise BadRequest("Autorização de upload inválida.") from exc
-    expected = (context.organization_id, context.client_id, context.user_id)
+    expected = (context.client_id, context.client_id, context.user_id)
     received = (value.get("organization_id"), value.get("client_id"), value.get("user_id")) if isinstance(value, dict) else ()
     if received != expected:
         raise BadRequest("A autorização de upload não pertence a este contexto.")

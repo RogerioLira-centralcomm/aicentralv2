@@ -62,7 +62,7 @@ def _delegated(token: str) -> MCPPrincipal:
         if not actor:
             raise MCPUnauthorized("Usuário da delegação indisponível.")
         context = RequestContext(
-            organization_id=int(actor["organization_id"]), client_id=int(value["client_id"]),
+            client_id=int(value["client_id"]),
             user_id=int(value["user_id"]), conversation_id=value.get("conversation_id"),
             request_id=value.get("request_id"),
             surface=str(value["surface"]), project_ref=value.get("project_ref"),

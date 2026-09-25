@@ -108,7 +108,7 @@ def create(context: RequestContext, conversation_id: str, spec: LongJobSpec, *, 
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (client_id,user_id,idempotency_key)
                 DO UPDATE SET updated_at=NOW() RETURNING id::text,status,created_at""",
-                (job_id, run_id, conversation_id, artifact_id, context.organization_id, context.client_id,
+                (job_id, run_id, conversation_id, artifact_id, context.client_id, context.client_id,
                  context.user_id, context.project_ref, spec.kind, spec.title, spec.objective,
                  spec.source_target, spec.max_agent_calls, spec.max_extractor_calls, spec.token_budget,
                  idempotency_key or None))
@@ -136,8 +136,8 @@ def add_sources(job_id: str, context: RequestContext, sources: list[dict]) -> li
     try:
         with connection.cursor() as cursor:
             cursor.execute("""SELECT id,status,source_target FROM cadu_agent_long_jobs
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
-                (job_id, context.organization_id, context.client_id, context.user_id))
+                WHERE id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
+                (job_id, context.client_id, context.user_id))
             job = cursor.fetchone()
             if not job or job["status"] in {"cancelled", "failed", "completed", "budget_exhausted"}:
                 raise ValueError("O trabalho não aceita novas fontes.")
@@ -185,8 +185,8 @@ def append_fragment(job_id: str, context: RequestContext, content: str, *, unit_
     try:
         with connection.cursor() as cursor:
             cursor.execute("""SELECT id,status FROM cadu_agent_long_jobs
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
-                (job_id, context.organization_id, context.client_id, context.user_id))
+                WHERE id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
+                (job_id, context.client_id, context.user_id))
             job = cursor.fetchone()
             if not job:
                 raise ValueError("Trabalho longo indisponível.")
@@ -227,8 +227,8 @@ def claim_next_unit(job_id: str, context: RequestContext, worker_id: str, *, lea
     try:
         with connection.cursor() as cursor:
             cursor.execute("""SELECT id,status,token_budget,tokens_used FROM cadu_agent_long_jobs
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
-                (job_id, context.organization_id, context.client_id, context.user_id))
+                WHERE id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
+                (job_id, context.client_id, context.user_id))
             job = cursor.fetchone()
             if not job:
                 raise ValueError("Trabalho longo indisponível.")
@@ -273,8 +273,8 @@ def complete_unit(job_id: str, unit_id: str, context: RequestContext, *, output=
     try:
         with connection.cursor() as cursor:
             cursor.execute("""SELECT id,status,token_budget,tokens_used FROM cadu_agent_long_jobs
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
-                (job_id, context.organization_id, context.client_id, context.user_id))
+                WHERE id=%s AND client_id=%s AND user_id=%s FOR UPDATE""",
+                (job_id, context.client_id, context.user_id))
             job = cursor.fetchone()
             if not job:
                 raise ValueError("Trabalho longo indisponível.")
@@ -335,9 +335,9 @@ def cancel(job_id: str, context: RequestContext) -> bool:
     try:
         with connection.cursor() as cursor:
             cursor.execute("""UPDATE cadu_agent_long_jobs SET status='cancelled',finished_at=NOW(),updated_at=NOW(),
-                lease_owner=NULL,lease_expires_at=NULL WHERE id=%s AND organization_id=%s AND client_id=%s
+                lease_owner=NULL,lease_expires_at=NULL WHERE id=%s AND client_id=%s
                 AND user_id=%s AND status IN ('queued','running','waiting','paused')""",
-                (job_id, context.organization_id, context.client_id, context.user_id))
+                (job_id, context.client_id, context.user_id))
             changed = cursor.rowcount == 1
             cursor.execute("""UPDATE cadu_agent_long_job_units SET status='cancelled',finished_at=NOW(),updated_at=NOW(),
                 lease_owner=NULL,lease_expires_at=NULL WHERE job_id=%s AND status IN ('queued','waiting')""", (job_id,))
@@ -352,8 +352,8 @@ def snapshot(job_id: str, context: RequestContext) -> dict:
     jobs = repository.rows("""SELECT id::text,run_id::text,conversation_id,artifact_id::text,kind,status,title,
         objective,source_target,max_agent_calls,max_extractor_calls,token_budget,tokens_used,checkpoint,
         result_summary,created_at,started_at,updated_at,finished_at
-        FROM cadu_agent_long_jobs WHERE id=%s AND organization_id=%s AND client_id=%s AND user_id=%s""",
-        (job_id, context.organization_id, context.client_id, context.user_id))
+        FROM cadu_agent_long_jobs WHERE id=%s AND client_id=%s AND user_id=%s""",
+        (job_id, context.client_id, context.user_id))
     if not jobs:
         raise ValueError("Trabalho longo indisponível.")
     units = repository.rows("""SELECT id::text,parent_id::text,position,kind,status,attempts,max_attempts,

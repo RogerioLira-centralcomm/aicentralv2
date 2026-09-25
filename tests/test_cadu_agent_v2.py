@@ -791,15 +791,15 @@ def test_long_job_routes_support_owner_scoped_cancellation():
     routes = (ROOT / "aicentralv2" / "cadu_workspace" / "agent_v2" / "routes.py").read_text()
     jobs = (ROOT / "aicentralv2" / "cadu_workspace" / "agent_v2" / "long_jobs.py").read_text()
     assert '@bp.post("/long-jobs/<uuid:job_id>/cancel")' in routes
-    assert "organization_id=%s AND client_id=%s" in jobs
+    assert "WHERE id=%s AND client_id=%s AND user_id=%s" in jobs
     assert "job_status\": \"cancelled" in jobs
     assert "status='queued',finished_at=NULL" in jobs
 
 
-def test_context_keeps_agency_and_selected_client_as_distinct_boundaries():
+def test_context_uses_only_the_selected_client_as_agent_scope():
     selected = context(client_id=99)
-    assert selected.organization_id == 12
     assert selected.client_id == 99
+    assert "organization_id" not in selected.to_dict()
 
 
 def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import InitVar, asdict, dataclass, field
 from typing import Any
 
 
@@ -23,11 +23,12 @@ class ActiveObject:
 
 @dataclass(frozen=True)
 class RequestContext:
-    organization_id: int
     client_id: int
     user_id: int
     conversation_id: str | None
     surface: str
+    # Accept older callers, but never store or serialize an organization scope.
+    organization_id: InitVar[int | None] = None
     request_id: str | None = None
     project_ref: str | None = None
     brand_ref: str | None = None
@@ -35,17 +36,14 @@ class RequestContext:
     capabilities: tuple[str, ...] = ()
     selected_context: dict[str, str] | None = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, organization_id: int | None) -> None:
         if self.surface not in SURFACES:
             raise ValueError("Superfície inválida.")
-        if self.organization_id <= 0 or self.client_id <= 0:
-            raise ValueError("O contexto V2 precisa de uma agência e um cliente válidos.")
+        if self.client_id <= 0:
+            raise ValueError("O contexto V2 precisa de um cliente válido.")
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
-        # Legacy database writes still use this field internally. The agent,
-        # model payload and delegated context are scoped by client_id only.
-        value.pop("organization_id", None)
         value["capabilities"] = list(self.capabilities)
         return value
 

@@ -199,8 +199,16 @@ class FamilyTest(TestCase):
         self.login()
         studio = self.post('conversations/send', {'message': 'Olá', 'profile': 'studio'})
         self.assertEqual(studio.status_code, 400)
-        skills = self.post('conversations/send', {'message': 'Olá', 'profile': 'skills'})
-        self.assertEqual(skills.status_code, 503)
+        with mock.patch('aicentralv2.cadu_family.chat.prepare', return_value={
+            'queued': True, 'run_id': 'run-1', 'conversation_id': 'conversation-1',
+        }) as prepare:
+            skills = self.post('conversations/send', {
+                'message': 'Olá', 'profile': 'skills',
+                'request_id': '11111111-1111-4111-8111-111111111111',
+            })
+        self.assertEqual(skills.status_code, 202)
+        self.assertTrue(skills.get_json()['accepted'])
+        prepare.assert_called_once()
 
     def test_backend_failure_is_not_empty_success(self):
         self.login()

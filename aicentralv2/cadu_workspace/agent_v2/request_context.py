@@ -60,7 +60,7 @@ def resolve(*, conversation_id=None, request_id=None, surface="conversations", a
     if isinstance(active_object, dict) and active_object.get("type") and active_object.get("id"):
         current = ActiveObject(str(active_object["type"])[:80], str(active_object["id"])[:200])
     return RequestContext(
-        organization_id=int(actor["organization_id"]), client_id=int(selected["client_id"]),
+        client_id=int(selected["client_id"]),
         user_id=int(actor["id"]), conversation_id=str(conversation_id) if conversation_id else None,
         request_id=str(request_id) if request_id else None,
         surface=surface, project_ref=resolved_project, brand_ref=resolved_brand,

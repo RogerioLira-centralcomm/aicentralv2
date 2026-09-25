@@ -146,7 +146,7 @@ def ingest_link(context: RequestContext, *, url: str, title: str = "", resource_
                                'project_attachment',%s,%s,NOW(),NOW())
                        ON CONFLICT (client_id,user_id,idempotency_key)
                          WHERE idempotency_key IS NOT NULL DO NOTHING""",
-                    (session_id, context.organization_id, context.client_id, context.user_id,
+                    (session_id, context.client_id, context.client_id, context.user_id,
                      context.project_ref, origin, request_id or None,
                      Json({"input_type": "url", "provider": descriptor["provider"],
                            "user_message": context_data.get("user_message"),

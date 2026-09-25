@@ -35,7 +35,7 @@ PHASES = {
 
 
 def _candidate(job_id=None):
-    rows = repository.rows("""SELECT id::text,organization_id,client_id,user_id,conversation_id,project_ref,
+    rows = repository.rows("""SELECT id::text,client_id,user_id,conversation_id,project_ref,
         artifact_id::text,kind,title,objective,source_target,token_budget,tokens_used
         FROM cadu_agent_long_jobs job
         WHERE job.status IN ('queued','running','waiting') AND job.tokens_used < job.token_budget
@@ -49,7 +49,7 @@ def _candidate(job_id=None):
 
 def _context(job: dict) -> RequestContext:
     return RequestContext(
-        organization_id=int(job["organization_id"]), client_id=int(job["client_id"]),
+        client_id=int(job["client_id"]),
         user_id=int(job["user_id"]), conversation_id=str(job["conversation_id"]),
         surface="conversations", project_ref=job.get("project_ref"),
         capabilities=("workspace", "planner", "studio", "reports", "artifacts", "research"),

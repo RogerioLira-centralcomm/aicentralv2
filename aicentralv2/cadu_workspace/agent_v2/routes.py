@@ -887,9 +887,9 @@ def resource_editable_copy(resource_id):
     current = resolve(surface="conversations")
     rows = repository.rows(
         """SELECT project_ref, source_id, title FROM cadu_project_resources
-             WHERE id = %s AND organization_id = %s AND client_id = %s
+             WHERE id = %s AND client_id = %s
                AND source_system = 'workspace' AND source_id LIKE 'file:%%'""",
-        (str(resource_id), current.organization_id, current.client_id),
+        (str(resource_id), current.client_id),
     )
     if not rows:
         abort(404, description="Arquivo indisponível para conversão.")

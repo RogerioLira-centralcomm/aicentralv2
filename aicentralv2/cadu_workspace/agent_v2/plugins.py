@@ -16,9 +16,9 @@ from .plugin_artifacts import delivery_metadata
 from .campaign_metrics import supplied_metrics
 
 _CAMPAIGN_SEARCH = re.compile(
-    r"\b(?:busc\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*|mostr\w*)\b.{0,55}"
+    r"\b(?:busc\w*|busq\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*|mostr\w*)\b.{0,55}"
     r"\b(?:campanhas?|cases?)\b|\b(?:campanhas?|cases?)\b.{0,55}"
-    r"\b(?:busc\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*)\b", re.I,
+    r"\b(?:busc\w*|busq\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*)\b", re.I,
 )
 _PLANNING = re.compile(r"\b(?:planej\w*|mont\w*|cri\w*|elabor\w*|estrutur\w*)\b.{0,70}\b(?:plano|planejamento)\b", re.I)
 _INSIGHTS = re.compile(r"\b(?:insights?|aprendizados?|achados?)\b", re.I)
@@ -35,6 +35,15 @@ _GOOGLE_CONNECT = re.compile(r"\b(?:conect\w*|autoriza\w*|vincul\w*|configur\w*|
 _GOOGLE_DRIVE = re.compile(r"\b(?:google\s+drive|drive|google\s+docs|google\s+sheets|pasta\s+(?:do|no)\s+google)\b", re.I)
 _GOOGLE_CALENDAR = re.compile(r"\b(?:google\s+calendar|agenda\s+google|calend[aá]rio\s+google)\b", re.I)
 _GOOGLE_MEET = re.compile(r"\b(?:google\s+meet|reuni[aã]o\s+(?:do|no)\s+meet|transcri[cç][aã]o\s+(?:do|no)\s+meet)\b", re.I)
+_PLAN_AUDIT = re.compile(r"\b(?:audite?|auditoria|revise?|verifique)\b.{0,70}\bplano(?:\s+de\s+m[ií]dia)?\b|\bplano(?:\s+de\s+m[ií]dia)?\b.{0,70}\b(?:auditoria|coer[eê]ncia|revise?|verifique)\b", re.I)
+_INVESTMENT_SCENARIOS = re.compile(r"\b(?:simul\w*|cen[aá]rios?\s+(?:de\s+)?(?:verba|investimento|or[cç]amento)|distribui[cç][aã]o\s+de\s+(?:verba|investimento))\b", re.I)
+_AUDIENCE_MAP = re.compile(r"\b(?:mapa\s+de\s+(?:audi[eê]ncia|p[uú]blico)|segment\w*\s+(?:o\s+)?p[uú]blico|mape\w*\s+(?:a\s+)?audi[eê]ncia|analise?\s+(?:o\s+)?p[uú]blico)\b", re.I)
+_CREATIVE_CONCEPT = re.compile(r"\b(?:conceito\s+criativo|rotas?\s+criativas?|dire[cç][aã]o\s+criativa|plataforma\s+criativa)\b", re.I)
+_CHANNEL_COPY = re.compile(r"\b(?:copy\s+por\s+canal|varia[cç][oõ]es?\s+de\s+(?:texto|copy)|legendas?\s+para|an[uú]ncios?\s+para|texto\s+para\s+(?:instagram|linkedin|google ads|meta ads|tiktok))\b", re.I)
+_PAGE_REVIEW = re.compile(r"\b(?:revise?|analise?|avalie?|audite?)\b.{0,60}\b(?:p[aá]gina|site|landing\s*page|website)\b|\b(?:convers[aã]o|cta|experi[eê]ncia)\b.{0,60}\b(?:p[aá]gina|site|landing\s*page)\b", re.I)
+_MEETING_COPILOT = re.compile(r"\b(?:pauta\s+(?:da\s+)?reuni[aã]o|resuma?\s+(?:a\s+)?reuni[aã]o|ata\s+(?:da\s+)?reuni[aã]o|decis[oõ]es\s+e\s+encaminhamentos)\b", re.I)
+_CLIENT_DELIVERY = re.compile(r"\b(?:status|andamento|pend[eê]ncias?)\b.{0,60}\b(?:para\s+o\s+cliente|entregas?|projeto)\b|\bentregas?\s+e\s+pend[eê]ncias?\b", re.I)
+_MARKET_RADAR = re.compile(r"\b(?:radar|movimentos?\s+recentes?|novidades?)\b.{0,65}\b(?:marca|concorrentes?|mercado|setor)\b|\b(?:concorrentes?|marca)\b.{0,65}\b(?:movimentos?|novidades?|lan[cç]amentos?)\b", re.I)
 
 # Five product flows with stable legacy plugin IDs as internal modes. Connector
 # plugins stay outside these groups and continue to use their existing grants.
@@ -47,6 +56,20 @@ FLOW_MODES = {
 }
 PLUGIN_FLOW = {plugin_id: flow_id for flow_id, modes in FLOW_MODES.items() for plugin_id in modes}
 
+# Optional read tools enabled when a matching selected project or brand exists.
+# They are listed in the capability contract, but added to the actual call
+# chain only by the context-aware selection below.
+_CONTEXT_TOOLS = {
+    "market-radar": ("brands.get_context",),
+    "audience-map": ("workspace.get_project_context", "brands.get_context"),
+    "investment-simulator": ("workspace.get_project_context", "brands.get_context"),
+    "creative-concept": ("workspace.get_project_context", "brands.get_context"),
+    "channel-copy": ("workspace.get_project_context", "brands.get_context"),
+    "page-review": ("workspace.get_project_context", "brands.get_context"),
+    "meeting-copilot": ("workspace.get_project_context", "brands.get_context"),
+    "client-delivery": ("workspace.get_project_context", "brands.get_context"),
+}
+
 
 def catalog() -> list[dict]:
     """Public metadata for the Plugins storefront and capability discovery."""
@@ -57,6 +80,17 @@ def catalog() -> list[dict]:
         entry["execution_path"] = ("worker" if plugin_id == "market-intelligence"
                                    else "workflow" if plugin_id in WORKFLOWS else "agent")
         entry["runtime_tools"] = list(_execution_tools(plugin_id))
+        entry["provider_dependencies"] = _provider_dependencies(plugin_id)
+        entry["manifest_tools_unavailable"] = sorted(
+            set(entry["declared_internal_tools"]) - set(entry["runtime_tools"])
+        ) if entry["execution_path"] != "worker" else []
+        entry["runtime_tools_not_documented"] = sorted(
+            set(entry["runtime_tools"]) - set(entry["declared_internal_tools"])
+        ) if entry["execution_path"] != "worker" else []
+        entry["tool_contract_matches_manifest"] = not (
+            entry["manifest_tools_unavailable"] or entry["runtime_tools_not_documented"]
+        )
+        entry["runtime_boundary"] = "Ferramentas executadas pela allowlist MCP do Cadu"
         entry["flow_id"] = PLUGIN_FLOW.get(plugin_id)
         entry["flow_mode"] = plugin_id if plugin_id in PLUGIN_FLOW else None
         entry["delivery"] = delivery_metadata(plugin_id)
@@ -68,10 +102,52 @@ def integrations() -> list[dict]:
     return list_entries("integration")
 
 
+def _automatic_workflow(route: IntentRoute, message: str) -> str | None:
+    """Map clear natural-language requests to their specialist workflow."""
+    text = str(message or "")
+    if route.requires_confirmation or route.action in {
+        "schedule_project_meeting", "open_project_delete", "open_brand_delete",
+        "open_project_merge", "create_project", "delete_project", "publish_artifact",
+    }:
+        return None
+    if _PLAN_AUDIT.search(text):
+        return "media-plan-audit"
+    if _INVESTMENT_SCENARIOS.search(text) and re.search(r"\b(?:verba|investimento|or[cç]amento|m[ií]dia|campanha)\b", text, re.I):
+        return "investment-simulator"
+    if _AUDIENCE_MAP.search(text):
+        return "audience-map"
+    if _PAGE_REVIEW.search(text):
+        return "page-review"
+    if _MEETING_COPILOT.search(text):
+        return "meeting-copilot"
+    if _CLIENT_DELIVERY.search(text):
+        return "client-delivery"
+    if _CHANNEL_COPY.search(text):
+        return "channel-copy"
+    if _CREATIVE_CONCEPT.search(text):
+        return "creative-concept"
+    if _MARKET_RADAR.search(text):
+        return "market-radar"
+    return None
+
+
+def _provider_dependencies(plugin_id: str) -> list[str]:
+    """Document provider dependencies without claiming they are connected."""
+    runtime_tools = set(_execution_tools(plugin_id))
+    providers = []
+    if runtime_tools.intersection({"web.search", "web.read"}) or plugin_id == "market-intelligence":
+        providers.append("firecrawl")
+    if "insights.research_market" in runtime_tools or plugin_id == "market-intelligence":
+        providers.append("openrouter")
+    if plugin_id.startswith("google-"):
+        providers.append("google-workspace")
+    return providers
+
+
 def _execution_tools(plugin_id: str) -> tuple[str, ...]:
     """Allowlisted internal tools; database manifests never grant tool access."""
     if plugin_id in WORKFLOWS:
-        return WORKFLOWS[plugin_id][3]
+        return tuple(dict.fromkeys((*WORKFLOWS[plugin_id][3], *_CONTEXT_TOOLS.get(plugin_id, ()))))
     return {
         "campaign-search": ("brands.get_context", "workspace.search_project_content"),
         "project-search": ("workspace.search_project_content", "workspace.get_project_context",
@@ -111,11 +187,14 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
     plugin_id = None
     tool_chain: tuple[str, ...] = ()
     missing: list[str] = []
+    automatic_plugin_id = _automatic_workflow(route, text)
 
     explicit = re.match(r"^/([a-z][a-z-]+)(?:\s|$)", text.strip())
     if explicit and explicit.group(1) in WORKFLOWS:
         plugin_id = explicit.group(1)
-        tool_chain = _execution_tools(plugin_id)
+        # Runtime permissions include optional project/brand reads; only
+        # essential tools are executed before selected context is evaluated.
+        tool_chain = WORKFLOWS[plugin_id][3]
         has_material = len(text.split()) >= 30 or text.count("\n") >= 3
         if not text.strip()[explicit.end():].strip():
             missing.append("objetivo do pedido")
@@ -160,13 +239,31 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
             # Meet listings expose metadata; they are not meeting notes.
             tool_chain = ()
             missing.append("notas ou transcrição da reunião")
-        if plugin_id in {"market-radar", "audience-map", "investment-simulator", "creative-concept", "channel-copy", "page-review", "meeting-copilot", "client-delivery"}:
-            context_tools = []
-            if context.project_ref and plugin_id != "market-radar":
-                context_tools.append("workspace.get_project_context")
-            if context.brand_ref or context.project_ref:
-                context_tools.append("brands.get_context")
-            tool_chain = tuple(dict.fromkeys((*context_tools, *tool_chain)))
+    elif automatic_plugin_id:
+        plugin_id = automatic_plugin_id
+        tool_chain = WORKFLOWS[plugin_id][3]
+        has_material = len(text.split()) >= 30 or text.count("\n") >= 3
+        if plugin_id == "media-plan-audit":
+            tool_chain = ("planner.get_media_plan",) if context.active_object and context.active_object.type in {"plan", "media_plan"} else (
+                ("planner.list_plans",) if context.project_ref else ()
+            )
+            if not context.project_ref and not context.active_object and not has_material:
+                missing.append("plano de mídia ou projeto com um plano")
+        if plugin_id == "page-review" and not re.search(r"https?://\S+", text, re.I):
+            tool_chain = ()
+            if not has_material:
+                missing.append("URL ou conteúdo da página")
+        if plugin_id == "client-delivery" and not context.project_ref:
+            tool_chain = ()
+            if not has_material:
+                missing.append("projeto ou informações de status para o cliente")
+        if plugin_id == "meeting-copilot":
+            if not re.search(r"\b(?:meet|google|transcri[cç][aã]o|grava[cç][aã]o)\b", text, re.I):
+                tool_chain = ()
+            if (re.search(r"\b(?:resum\w*|ata|s[ií]ntes\w*|decis[oõ]es|encaminhamentos)\b", text, re.I)
+                    and not has_report_attachment and not has_material):
+                tool_chain = ()
+                missing.append("notas ou transcrição da reunião")
     elif route.action == "schedule_project_meeting":
         plugin_id = "google-calendar"
     elif route.action == "list_calendar_events":
@@ -265,6 +362,13 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
             missing.append("projeto que deseja consultar")
     elif route.domain == "studio" or re.search(r"\b(?:ger\w*|cri\w*|edit\w*)\b.{0,45}\b(?:imagem|criativo|visual)\b", text, re.I):
         plugin_id = "studio"
+    if plugin_id in _CONTEXT_TOOLS:
+        context_tools = []
+        if context.project_ref and plugin_id != "market-radar":
+            context_tools.append("workspace.get_project_context")
+        if context.brand_ref or context.project_ref:
+            context_tools.append("brands.get_context")
+        tool_chain = tuple(dict.fromkeys((*context_tools, *tool_chain)))
     if plugin_id is None:
         return None, (), []
     selected = get_plugin(plugin_id)

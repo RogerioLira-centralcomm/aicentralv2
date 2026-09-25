@@ -2,6 +2,8 @@
 
 Status em 2026-09-25. Escopo desta rodada: seleção, pré-requisitos, fontes, ferramentas e resposta na conversa. A política de artefatos será integrada depois da revisão paralela dos visualizadores.
 
+O redesenho de produto e a análise detalhada de cada fluxo estão em [cadu-plugins-v2-plano.md](cadu-plugins-v2-plano.md). A medição de custo vem após a validação da utilidade e da fidelidade das respostas.
+
 ## Regras comuns
 
 - O catálogo mostra disponibilidade; somente o código permite executar ferramentas. `declared_internal_tools` registra o manifesto, `runtime_tools` mostra a allowlist e `execution_path` distingue `worker`, `workflow` e `agent`. Nenhum desses campos amplia permissões.

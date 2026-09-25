@@ -147,7 +147,7 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
   </div>;
 }
 
-function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, running, runtime, diagnostics, activePlugin, caduMcpMark, caduMark, starterProject, starterBrand, starterHome}) {
+function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenDiagnostics, opening, running, runtime, diagnostics, activePlugin, caduMcpMark, caduMark, starterProject, starterBrand, starterHome}) {
   const thread = useRef(null);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
   const copyMessage = async (id, text) => {
@@ -172,6 +172,7 @@ function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource
       onPrompt('', {type: 'selection', label: 'Trecho selecionado', text: quote});
     });
   };
+  if (opening && !messages.length && !running) return <div className="cv-thread-opening" role="status" aria-live="polite"><span className="cv-thread-opening__spinner" aria-hidden="true"/><span>Abrindo conversa…</span></div>;
   if (!messages.length && !running) return <div className="cv-empty-state cv-flex cv-min-h-full cv-items-center cv-justify-center cv-px-6 cv-py-16">
     <div className="cv-w-full cv-max-w-[700px] cv-text-center">
       <h2 className="cv-mb-2 cv-mt-0 cv-text-2xl cv-font-semibold cv-tracking-[-.025em]">Em que vamos trabalhar?</h2>
@@ -185,7 +186,7 @@ function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource
   </div>;
 }
 
-export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, projects, brands, caduMark, caduMcpMark = '/static/images/cadu/products/cadu-mcp-48.png', starterProject, starterBrand, starterHome, contextLoading, runtime, diagnostics, activePlugin, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, onProjectChange, onCreateProject, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation, audioTranscriptionEndpoint, csrfToken}) {
+export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, projects, brands, caduMark, caduMcpMark = '/static/images/cadu/products/cadu-mcp-48.png', starterProject, starterBrand, starterHome, contextLoading, opening = false, runtime, diagnostics, activePlugin, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, onProjectChange, onCreateProject, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation, audioTranscriptionEndpoint, csrfToken}) {
   const details = useRef(null);
   const historyTrigger = useRef(null);
   const wasHistoryOpen = useRef(historyOpen);
@@ -246,7 +247,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
     if (wasHistoryOpen.current && !historyOpen) window.requestAnimationFrame(() => historyTrigger.current?.focus());
     wasHistoryOpen.current = historyOpen;
   }, [historyOpen]);
-  return <section inert={inactive ? '' : undefined} aria-hidden={inactive ? 'true' : undefined} className={`cv-conversation-shell cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink ${!messages.length && !running ? 'cv-conversation--empty' : ''}`}>
+  return <section inert={inactive ? '' : undefined} aria-hidden={inactive ? 'true' : undefined} className={`cv-conversation-shell cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink ${!messages.length && !running && !opening ? 'cv-conversation--empty' : ''}`}>
     <header className="cv-conversation-header cv-relative cv-z-50 cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-px-4 md:cv-px-6">
       {!historyOpen && <button ref={historyTrigger} type="button" onClick={onOpenHistory} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Abrir conversas recentes" aria-controls="cv-recent-sidebar" aria-expanded={historyOpen}><Icon name="menu"/></button>}
       {messages.length ? <h1 className={`cv-conversation-title cv-m-0 cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap ${artifactOpen ? 'cv-hidden 2xl:cv-block' : ''}`} title={displayTitle}>{displayTitle}</h1> : <span className="cv-flex-1"/>}
@@ -261,7 +262,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
         </div>
       </details>
     </header>
-    <div ref={threadScroll} onScroll={trackScrollPosition} onWheelCapture={handleScrollIntent} onTouchStart={stopFollowingLatest} onPointerDown={handleScrollPointer} onKeyDownCapture={handleScrollKey} tabIndex={0} className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} interaction={interaction} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} caduMcpMark={caduMcpMark} caduMark={caduMark} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
+    <div ref={threadScroll} onScroll={trackScrollPosition} onWheelCapture={handleScrollIntent} onTouchStart={stopFollowingLatest} onPointerDown={handleScrollPointer} onKeyDownCapture={handleScrollKey} tabIndex={0} className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} interaction={interaction} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} opening={opening} running={running} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} caduMcpMark={caduMcpMark} caduMark={caduMark} starterProject={starterProject} starterBrand={starterBrand} starterHome={starterHome} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
     {hasUnreadBelow && <button type="button" className="cv-scroll-latest" onClick={() => {
       stickToLatest.current = true;
       setHasUnreadBelow(false);

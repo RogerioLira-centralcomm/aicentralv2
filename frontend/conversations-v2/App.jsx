@@ -247,13 +247,15 @@ export default function App({bootstrap}) {
     }
   }, [bootstrap.endpoints.history]);
 
-  const loadContext = useCallback(async () => {
+  const loadContext = useCallback(async ({preserveSelection = false} = {}) => {
     setContextLoading(true);
     try {
       const data = await request(bootstrap.endpoints.context);
-      // The server is authoritative: an empty context means an intentional
-      // free session and must not resurrect a stale project from the browser.
-      rememberContext(data.context || {});
+      // A direct conversation load already gets its authoritative selection
+      // from the conversation bootstrap. Fetch the entity catalog for the
+      // sidebar without replacing that conversation-specific context with the
+      // session's last selected project (or an empty free-session context).
+      if (!preserveSelection) rememberContext(data.context || {});
       setProjects(current => mergeServerEntities(
         current,
         (data.entities || []).filter(item => item.kind === 'project'),
@@ -271,7 +273,7 @@ export default function App({bootstrap}) {
 
   useEffect(() => {
     loadRecent();
-    if (!requestedConversationId.current) loadContext();
+    loadContext({preserveSelection: Boolean(requestedConversationId.current)});
     return () => historyRequestRef.current?.abort();
   }, [loadContext, loadRecent]);
   useEffect(() => {
@@ -1621,7 +1623,7 @@ export default function App({bootstrap}) {
       {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
           {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} onUsePlugin={usePlugin} caduMark={bootstrap.caduMark || bootstrap.logo} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
-          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} caduMark={bootstrap.caduMark || bootstrap.logo} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
+          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} projects={projects} brands={brands} caduMark={bootstrap.caduMark || bootstrap.logo} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} opening={Boolean(openingId)} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} onProjectChange={ref => changeProject(ref, {showHistory: historyOpen})} onCreateProject={openProjectCreation} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()}/>
           {googlePluginId && !pluginsPageOpen && <GooglePluginPanel pluginId={googlePluginId} connection={googleConnection} loading={googleLoading} error={googleError} draft={googleDraft} onDraftChange={setGoogleDraft} projects={projects} onLinkResource={(resourceId, projectRef) => request(`/workspace/api/v2/google/resources/${encodeURIComponent(resourceId)}/link`, {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({project_ref:projectRef})})} syncing={googleSyncing} syncPages={googleSyncPages} onSyncDrive={async () => {
             setGoogleSyncing(true);
             setGoogleSyncPages(0);

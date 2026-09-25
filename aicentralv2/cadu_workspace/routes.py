@@ -5471,6 +5471,7 @@ def brands():
                            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1))
 
 
+@bp.post('/marcas/<int:brand_id>/status')
 @bp.post('/workspace/app/marcas/<int:brand_id>/status')
 @login_required
 def update_brand_status(brand_id):

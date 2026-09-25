@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Icon} from '../lib/icons';
 import {csrf, request, safeUrl} from '../lib/api';
 import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
@@ -461,11 +461,160 @@ function documentHtml(content) {
   return sections.join('') || '<p><br/></p>';
 }
 
+function markdownText(value) {
+  return String(value ?? '').replace(/([\\`*_{}\[\]|])/g, '\\$1');
+}
+
+function markdownInline(node) {
+  if (node.nodeType === Node.TEXT_NODE) return markdownText(node.nodeValue);
+  if (node.nodeType !== Node.ELEMENT_NODE) return '';
+  const children = Array.from(node.childNodes).map(markdownInline).join('');
+  switch (node.tagName) {
+    case 'BR': return '  \n';
+    case 'STRONG': case 'B': return `**${children}**`;
+    case 'EM': case 'I': return `*${children}*`;
+    case 'S': case 'DEL': return `~~${children}~~`;
+    case 'CODE': return `\`${String(node.textContent || '').replace(/`/g, '\\`')}\``;
+    case 'A': {
+      const href = safeUrl(node.getAttribute('href'));
+      return href ? `[${children || markdownText(href)}](<${href}>)` : children;
+    }
+    case 'IMG': {
+      const src = safeUrl(node.getAttribute('src'));
+      return src ? `![${markdownText(node.getAttribute('alt') || '')}](<${src}>)` : '';
+    }
+    default: return children;
+  }
+}
+
+function markdownTable(table) {
+  const rows = Array.from(table.querySelectorAll('tr')).map(row => Array.from(row.querySelectorAll(':scope > th, :scope > td')).map(cell => markdownInline(cell).trim().replace(/\|/g, '\\|').replace(/\s*\n\s*/g, '<br>'))).filter(row => row.length);
+  if (!rows.length) return '';
+  const width = Math.max(...rows.map(row => row.length));
+  const normalize = row => Array.from({length:width}, (_, index) => row[index] || '');
+  const header = normalize(rows[0]);
+  return [
+    `| ${header.join(' | ')} |`,
+    `| ${header.map(() => '---').join(' | ')} |`,
+    ...rows.slice(1).map(row => `| ${normalize(row).join(' | ')} |`),
+  ].join('\n');
+}
+
+function markdownList(list, depth = 0) {
+  const ordered = list.tagName === 'OL';
+  return Array.from(list.children).filter(item => item.tagName === 'LI').map((item, index) => {
+    const nested = Array.from(item.children).filter(child => child.matches('ul,ol'));
+    const inlineNodes = Array.from(item.childNodes).filter(child => !(child.nodeType === Node.ELEMENT_NODE && child.matches('ul,ol')));
+    const text = inlineNodes.map(child => child.nodeType === Node.ELEMENT_NODE && child.matches('p')
+      ? Array.from(child.childNodes).map(markdownInline).join('')
+      : markdownInline(child)).join('').trim();
+    const marker = ordered ? `${index + 1}.` : '-';
+    const line = `${'  '.repeat(depth)}${marker} ${text}`.trimEnd();
+    return [line, ...nested.map(child => markdownList(child, depth + 1))].filter(Boolean).join('\n');
+  }).join('\n');
+}
+
+function htmlToMarkdown(html) {
+  const doc = new DOMParser().parseFromString(cleanDocumentHtml(html), 'text/html');
+  const render = node => {
+    if (node.nodeType === Node.TEXT_NODE) return markdownText(node.nodeValue).trim();
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    if (/^H[1-6]$/.test(node.tagName)) return `${'#'.repeat(Number(node.tagName.slice(1)))} ${Array.from(node.childNodes).map(markdownInline).join('').trim()}`;
+    if (node.tagName === 'P') return Array.from(node.childNodes).map(markdownInline).join('').trim();
+    if (node.tagName === 'UL' || node.tagName === 'OL') return markdownList(node);
+    if (node.tagName === 'BLOCKQUOTE') return Array.from(node.children).map(render).filter(Boolean).join('\n\n').split('\n').map(line => `> ${line}`).join('\n');
+    if (node.tagName === 'PRE') {
+      const code = node.querySelector('code');
+      const value = (code || node).textContent || '';
+      const ticks = '`'.repeat(Math.max(3, ...Array.from(value.matchAll(/`+/g), match => match[0].length + 1)));
+      return `${ticks}\n${value.replace(/\n+$/, '')}\n${ticks}`;
+    }
+    if (node.tagName === 'TABLE') return markdownTable(node);
+    if (node.tagName === 'HR') return '---';
+    if (node.tagName === 'FIGCAPTION') return `*${Array.from(node.childNodes).map(markdownInline).join('').trim()}*`;
+    if (node.tagName === 'IMG' || node.tagName === 'A') return markdownInline(node);
+    if (['DIV','SECTION','ARTICLE','FIGURE'].includes(node.tagName)) return Array.from(node.childNodes).map(render).filter(Boolean).join('\n\n');
+    return Array.from(node.childNodes).map(markdownInline).join('').trim();
+  };
+  return Array.from(doc.body.childNodes).map(render).filter(Boolean).join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function contentToMarkdown(content, type) {
+  const hasStructuredContent = type === 'project_map' || ['fields','tables','rows','channels','allocations','options','citations','highlights'].some(key => Array.isArray(content?.[key]) && content[key].length);
+  if (!hasStructuredContent && typeof content?.html === 'string' && content.html.trim()) return htmlToMarkdown(content.html);
+  const sections = [];
+  const add = value => { if (value != null && String(value).trim()) sections.push(String(value).trim()); };
+  const cell = value => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
+  const addTable = (title, columns, rows) => {
+    if (!Array.isArray(rows) || !rows.length) return;
+    if (title) add(`## ${title}`);
+    const headers = Array.isArray(columns) && columns.length
+      ? columns.map(column => typeof column === 'string' ? column : column.label || column.name || column.key || 'Coluna')
+      : Array.isArray(rows[0]) ? rows[0].map((_, index) => `Item ${index + 1}`) : Object.keys(rows[0] || {});
+    const values = row => headers.map((header, index) => cell(Array.isArray(row) ? row[index] : row?.[header] ?? row?.[columns?.[index]?.key]));
+    add([`| ${headers.map(cell).join(' | ')} |`, `| ${headers.map(() => '---').join(' | ')} |`, ...rows.map(row => `| ${values(row).join(' | ')} |`)].join('\n'));
+  };
+  if (type === 'brief') {
+    const metadata = [['Marca', content.brand || content.client || content.marca], ['Campanha', content.campaign || content.campaign_name || content.campaignName], ['Prazo', content.deadline || content.due_date || content.prazo], ['Investimento', content.budget || content.investment || content.verba]]
+      .filter(([, value]) => value != null && typeof value !== 'object');
+    if (metadata.length) add(metadata.map(([label,value]) => `**${label}:** ${value}`).join('  \n'));
+  }
+  if (type === 'meeting_summary' || type === 'meeting_agenda') {
+    const metadata = meetingMetadataEntries(content);
+    if (metadata.length) add(metadata.map(item => `**${item.label}:** ${item.value}`).join('  \n'));
+  }
+  if (content.summary) add(content.summary);
+  const metrics = content.metrics || content.kpis;
+  if (metrics && typeof metrics === 'object' && !Array.isArray(metrics)) addTable('Indicadores', ['Indicador','Valor'], Object.entries(metrics).filter(([,value]) => value != null && typeof value !== 'object'));
+  if (Array.isArray(content.highlights) && content.highlights.length) {
+    add('## Destaques');
+    add(content.highlights.map(item => `- ${typeof item === 'string' ? item : item?.text || item?.title || item?.value || ''}`).join('\n'));
+  }
+  (Array.isArray(content.tables) ? content.tables : []).forEach(table => addTable(table.title, table.columns, table.rows));
+  if (type === 'media_plan' && !(content.tables || []).length) addTable('Distribuição por canal', content.columns, content.channels || content.allocations || content.rows);
+  (Array.isArray(content.options) ? content.options : []).forEach((option,index) => {
+    const item = typeof option === 'string' ? {title:option} : option || {};
+    add(`## ${item.title || `Cenário ${index + 1}`}`);
+    add(item.summary || item.description || item.content);
+    if (item.metrics && typeof item.metrics === 'object') addTable('Métricas', ['Indicador','Valor'], Object.entries(item.metrics));
+  });
+  (Array.isArray(content.fields) ? content.fields : []).forEach((field,index) => {
+    add(`## ${field.key || `Seção ${index + 1}`}`);
+    add(field.value);
+  });
+  const images = Array.isArray(content.images) ? content.images : Array.isArray(content.assets) ? content.assets.filter(item => /image/i.test(item?.mime_type || item?.type || '')) : [];
+  if (images.length) images.forEach(image => {
+    const item = typeof image === 'string' ? {url:image} : image || {};
+    const url = safeUrl(item.url || item.src || item.preview || item.path);
+    if (url) add(`![${item.alt || item.caption || item.title || 'Imagem'}](<${url}>)`);
+  });
+  if (Array.isArray(content.citations) && content.citations.length) {
+    add('## Fontes');
+    add(content.citations.map((citation,index) => {
+      const item = typeof citation === 'string' ? {url:citation,title:citation} : citation || {};
+      const url = safeUrl(item.url || item.href || item.link);
+      const title = item.title || item.source || item.publisher || url || `Fonte ${index + 1}`;
+      const readingState = item.read_state || item.read_status || item.status;
+      return `- ${url ? `[${title}](<${url}>)` : title}${item.date ? ` — ${item.date}` : ''}${readingState ? ` · ${readingState}` : ''}${item.excerpt ? `\n  ${item.excerpt}` : ''}`;
+    }).join('\n'));
+  }
+  if (type === 'project_map') {
+    (Array.isArray(content.groups) ? content.groups : []).forEach(group => {
+      add(`## ${group.title || 'Grupo'}`);
+      const resources = (content.resources || []).filter(resource => resource.group_id === group.id);
+      add(resources.map(resource => `- ${resource.title || 'Recurso'}${resource.url ? ` — ${resource.url}` : ''}`).join('\n'));
+    });
+  }
+  return sections.join('\n\n');
+}
+
 function downloadTextArtifact(artifact, format) {
   const html = artifact.type === 'html' ? htmlDocument(artifact.content || {}, artifact.title) : documentHtml(artifact.content || {});
   const plain = new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() || '';
   const title = String(artifact.title || 'documento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'documento';
-  const markdown = artifact.type === 'html' ? `# ${artifact.title || 'Documento'}\n\n${plain}` : `# ${artifact.title || 'Documento'}\n\n${plain}`;
+  const sourceMarkdown = artifact.type !== 'html' && typeof artifact.content?.source_markdown === 'string' ? artifact.content.source_markdown : '';
+  const generatedMarkdown = artifact.type === 'html' ? plain : htmlToMarkdown(html);
+  const markdown = sourceMarkdown || `# ${artifact.title || 'Documento'}\n\n${generatedMarkdown}`;
   const data = format === 'html' ? html : format === 'md' ? markdown : plain;
   const blob = new Blob([data], {type: format === 'html' ? 'text/html;charset=utf-8' : 'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -887,6 +1036,13 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const [editingDocument, setEditingDocument] = useState(false);
   const [sourceFormat, setSourceFormat] = useState('md');
   const type = artifact?.type || 'document';
+  const carriesSourceMarkdown = typeof artifact?.content?.source_markdown === 'string';
+  const updateContent = useCallback(nextContent => {
+    const next = carriesSourceMarkdown
+      ? {...nextContent, source_markdown:contentToMarkdown(nextContent, type)}
+      : nextContent;
+    onChange?.(next);
+  }, [carriesSourceMarkdown, onChange, type]);
   const indexable = artifact?.capabilities?.indexable ?? !['html', 'project_map', 'link_reader'].includes(type);
   const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
   const hasEditMode = textArtifact || type === 'project_map';
@@ -904,23 +1060,23 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (artifact.pending) return <div className="cv-artifact-loading" role="status" aria-live="polite"><i/><strong>Preparando a entrega</strong><span>O conteúdo aparecerá aqui quando estiver pronto.</span></div>;
     if (artifact.failed) return <div className="cv-artifact-loading is-failed" role="status"><strong>A entrega não foi concluída</strong><span>{artifact.error}</span></div>;
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
-    if (type === 'project_map') return <ProjectMap artifact={artifact} editing={editingDocument} onChange={onChange}/>;
-    if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
+    if (type === 'project_map') return <ProjectMap artifact={artifact} editing={editingDocument} onChange={updateContent}/>;
+    if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} editing={editingDocument} onChange={updateContent}/>;
     if (type === 'image') return <ImageArtifact key={`${artifact.tabKey || artifact.id || artifact.title}:${imageSource(artifact)}`} artifact={artifact}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     if (type === 'project_profile') return <ProjectProfileArtifact artifact={artifact}/>;
     if (type === 'library') return <LibraryArtifact artifact={artifact} onOpenResource={onOpenResource}/>;
-    if (type === 'brief') return <BriefArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
+    if (type === 'brief') return <BriefArtifact artifact={artifact} editing={editingDocument} onChange={updateContent}/>;
     if (['executive_summary', 'media_plan', 'scenario', 'research'].includes(type)) {
       const structured = normalizeArtifactContent(artifact.content || {}, type);
-      if (Array.isArray(structured.fields) || Array.isArray(structured.tables) || Array.isArray(structured.rows) || Array.isArray(structured.channels) || Array.isArray(structured.allocations) || Array.isArray(structured.options) || Array.isArray(structured.citations) || Array.isArray(structured.highlights) || structured.metrics || structured.kpis || typeof structured.html === 'string' && structured.html.trim()) return <ContentArtifact artifact={{...artifact, content:structured}} editing={editingDocument} onChange={onChange}/>;
+      if (Array.isArray(structured.fields) || Array.isArray(structured.tables) || Array.isArray(structured.rows) || Array.isArray(structured.channels) || Array.isArray(structured.allocations) || Array.isArray(structured.options) || Array.isArray(structured.citations) || Array.isArray(structured.highlights) || structured.metrics || structured.kpis || typeof structured.html === 'string' && structured.html.trim()) return <ContentArtifact artifact={{...artifact, content:structured}} editing={editingDocument} onChange={updateContent}/>;
     }
     return textArtifact
-      ? <RichDocumentArtifact artifact={artifact} onChange={onChange} editing={editingDocument}/>
-      : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, textArtifact, editingDocument, onChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
+      ? <RichDocumentArtifact artifact={artifact} onChange={updateContent} editing={editingDocument}/>
+      : <StructuredArtifact artifact={artifact} onChange={updateContent}/>;
+  }, [artifact, type, textArtifact, editingDocument, updateContent, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
   useEffect(() => {
     setClosing(false);
     setEditingTitle(false);

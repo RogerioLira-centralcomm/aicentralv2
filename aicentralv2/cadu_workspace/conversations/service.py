@@ -327,6 +327,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                                LEFT(c.conteudo, 1000) AS trecho,
                                0::double precision AS score, c.content_hash, c.embedding_model,
                                s.classification_metadata->'extraction_coverage' AS extraction_coverage,
+                               s.classification_metadata->>'rag_pipeline_version' AS pipeline_version,
                                ROW_NUMBER() OVER (PARTITION BY c.arquivo_id ORDER BY c.ordem, c.id) AS position,
                                s.updated_at AS source_updated_at
                           FROM cadu_ci_chunks c
@@ -334,7 +335,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                          WHERE c.projeto_id=%s AND c.id_cliente=%s
                            AND s.projeto_id=%s AND s.id_cliente=%s
                            AND s.purpose='knowledge_source' AND s.indexing_status='completed'
-                    ) SELECT chunk_id, source_id, titulo, trecho, score, content_hash, embedding_model, extraction_coverage
+                    ) SELECT chunk_id, source_id, titulo, trecho, score, content_hash, embedding_model,
+                             extraction_coverage, pipeline_version
                         FROM first_chunks WHERE position=1
                     ORDER BY source_updated_at DESC, source_id DESC LIMIT %s''',
                     (project_id, client_id, project_id, client_id, result_limit))
@@ -365,7 +367,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                 ) SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
                               LEFT(c.conteudo, 1000) AS trecho, r.score,
                               c.content_hash, c.embedding_model,
-                              s.classification_metadata->'extraction_coverage' AS extraction_coverage
+                              s.classification_metadata->'extraction_coverage' AS extraction_coverage,
+                              s.classification_metadata->>'rag_pipeline_version' AS pipeline_version
                       FROM ranked r JOIN cadu_ci_chunks c ON c.id=r.id
                       JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
                      ORDER BY r.score DESC, c.ordem ASC LIMIT %s''',
@@ -379,7 +382,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                                                    LEFT(c.conteudo, 1000) AS trecho,
                                                    0::double precision AS score,
                                                    c.content_hash, c.embedding_model,
-                                                   s.classification_metadata->'extraction_coverage' AS extraction_coverage
+                                                   s.classification_metadata->'extraction_coverage' AS extraction_coverage,
+                                                   s.classification_metadata->>'rag_pipeline_version' AS pipeline_version
                                               FROM cadu_ci_chunks c JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
                                              WHERE c.projeto_id = %s AND c.id_cliente = %s
                                                AND s.projeto_id=c.projeto_id AND s.id_cliente=c.id_cliente
@@ -396,6 +400,10 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                         SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
                           AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
                     )) AS indexed,
+                    COUNT(*) FILTER (WHERE indexing_status='completed'
+                       AND classification_metadata->>'rag_pipeline_version'='workspace-rag-v2'
+                       AND EXISTS (SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
+                         AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente)) AS v2_indexed,
                     COUNT(*) FILTER (WHERE indexing_status IS DISTINCT FROM 'completed' OR NOT EXISTS (
                         SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
                           AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
@@ -445,6 +453,7 @@ def _project_evidence(row, client_id, project_ref, *, retrieval_mode='hybrid'):
         'content_hash': row.get('content_hash'),
         'embedding_model': row.get('embedding_model'),
         'extraction_coverage': row.get('extraction_coverage') or {},
+        'pipeline_version': row.get('pipeline_version') or 'v1',
     })
     return evidence
 

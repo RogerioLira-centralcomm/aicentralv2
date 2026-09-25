@@ -479,7 +479,7 @@ def _mi_generate_stage(job: dict, unit: dict, context: RequestContext, private_c
         item["status"] == "extracted" for item in sources
     ):
         return "Não há conteúdo de fonte legível para sustentar conclusões nesta etapa.", {}, []
-    prior = _prior_text(job["id"], limit=2_000 if quick else 18_000)
+    prior = _prior_text(job["id"], limit=(8_000 if kind == "review" else 2_000) if quick else 18_000)
     config = _mi_profile(job)
     role = {"classify": "fast_classifier", "gap_analysis": "research_reasoner", "analyze": "research_reasoner",
             "critic": "critic", "evidence_check": "structured_extractor", "compose": "editorial_writer",

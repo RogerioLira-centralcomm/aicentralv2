@@ -112,7 +112,7 @@ def default_units(spec: LongJobSpec) -> list[dict]:
     if spec.kind == "market_intelligence":
         config = spec.workflow_config
         if spec.mode == "quick":
-            kinds = ["discover", "extract", "analyze", "render"]
+            kinds = ["discover", "extract", "analyze", "review", "render"]
         else:
             kinds = ["plan"]
             for round_number in range(int(config["search_rounds"])):

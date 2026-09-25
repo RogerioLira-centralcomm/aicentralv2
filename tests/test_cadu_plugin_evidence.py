@@ -4,6 +4,7 @@ from datetime import date
 
 from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_status
 from aicentralv2.cadu_workspace.insights_research import _safe_sources
+from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
 
 
 def test_extracted_claim_requires_a_literal_quote_in_its_source():
@@ -44,3 +45,13 @@ def test_read_source_wins_duplicate_search_hit_without_borrowing_provider_date()
     assert len(sources) == 1
     assert sources[0]["read_status"] == "read"
     assert sources[0]["freshness"] == "date_unverified"
+
+
+def test_quick_market_scan_includes_independent_review_before_render():
+    spec = LongJobSpec(kind="market_intelligence", mode="quick", title="Quick Scan",
+                       objective="Movimentos do café no Brasil", source_target=15,
+                       max_agent_calls=8, max_extractor_calls=5, token_budget=24_000)
+
+    assert [item["kind"] for item in default_units(spec)] == [
+        "discover", "extract", "analyze", "review", "render",
+    ]

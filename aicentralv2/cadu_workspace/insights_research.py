@@ -243,11 +243,30 @@ def research_market(context, query: str, request_id: str | None = None,
                                      *(cited_pages.get("sources") or [])]
         except (web_search.WebSearchUnavailable, ValueError):
             pass
-    sources = _safe_sources(web_result, pplx_message, today)
-    eligible_sources = [item for item in sources if item["read_status"] == "read"
-                        and item["freshness"] in {"last_6_months", "current_year"}]
-    source_contents = _read_source_contents(web_result, eligible_sources)
-    eligible_sources = [item for item in eligible_sources if item["id"] in source_contents]
+    def current_read_sources() -> tuple[list[dict], list[dict], dict[str, str]]:
+        found = _safe_sources(web_result, pplx_message, today)
+        current = [item for item in found if item["read_status"] == "read"
+                   and item["freshness"] in {"last_6_months", "current_year"}]
+        contents = _read_source_contents(web_result, current)
+        return found, [item for item in current if item["id"] in contents], contents
+
+    sources, eligible_sources, source_contents = current_read_sources()
+    if not eligible_sources:
+        # The initial current-events query may be too narrow. Expand once
+        # using only the already sanitized public topic, then recheck reads.
+        expanded_query = f"{query} Brasil {today.year} dados estudo relatório pesquisa"[:400]
+        try:
+            expanded = web_search.search(context, {
+                "query": expanded_query, "depth": "analysis", "limit": 6,
+                "recency": "year", "include_content": True,
+                "request_id": f"{run_id}:source-expansion",
+            })
+            web_result["sources"] = [*(web_result.get("sources") or []),
+                                     *(expanded.get("sources") or [])]
+            web_result["sources_read"] = int(web_result.get("sources_read") or 0) + int(expanded.get("sources_read") or 0)
+            sources, eligible_sources, source_contents = current_read_sources()
+        except web_search.WebSearchUnavailable:
+            pass
     if not eligible_sources:
         raise InsightsEvidenceUnavailable(
             "Não consegui ler fontes recentes suficientes para sustentar o insight. "

@@ -1,6 +1,6 @@
 """Focused checks for the shared evidence boundary in Cadu plugins."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_status, supporting_refs
 from aicentralv2.cadu_workspace.insights_research import (
@@ -79,7 +79,8 @@ def test_insights_block_reviewed_claim_without_literal_support(monkeypatch):
     monkeypatch.setattr("aicentralv2.cadu_workspace.insights_research.web_search.search", lambda *_args, **_kwargs: {
         "query": "café", "sources_read": 1, "sources": [{
             "url": "https://example.com/coffee", "title": "Relatório público", "content": page,
-            "published_at": "2026-09-20", "published_at_source": "page", "read_status": "read",
+            "published_at": datetime.now(timezone.utc).date().isoformat(),
+            "published_at_source": "page", "read_status": "read",
         }],
     })
 
@@ -101,6 +102,44 @@ def test_insights_block_reviewed_claim_without_literal_support(monkeypatch):
     context = SimpleNamespace(client_id=1, user_id=1, conversation_id=None)
     with pytest.raises(InsightsEvidenceUnavailable):
         research_market(context, "mercado de café", "test-quote-gate")
+
+
+def test_insights_expand_search_when_initial_sources_are_unreadable(monkeypatch):
+    from types import SimpleNamespace
+    import json
+
+    searches = []
+
+    def fake_search(_context, arguments):
+        searches.append(arguments["query"])
+        if len(searches) == 1:
+            return {"query": arguments["query"], "sources": [{
+                "url": "https://example.com/search", "title": "Busca", "excerpt": "Só metadados",
+            }], "sources_read": 0}
+        return {"sources": [{
+            "url": "https://example.com/report", "title": "Relatório", "content": "O CTR foi de 2,4% em julho no Brasil.",
+            "published_at": datetime.now(timezone.utc).date().isoformat(), "read_status": "read",
+        }], "sources_read": 1}
+
+    def fake_model(*, stage, **_kwargs):
+        if stage == "perplexity-research":
+            return {"message": {"content": "Pesquisa preliminar."}}
+        payload = {
+            "headline": "CTR de 2,4%", "headline_source_ids": ["mkt-2"],
+            "headline_support_quote": "O CTR foi de 2,4% em julho no Brasil",
+            "insight": "O CTR foi de 2,4% em julho no Brasil.", "insight_source_ids": ["mkt-2"],
+            "insight_support_quote": "O CTR foi de 2,4% em julho no Brasil",
+            "metrics": [], "news": [],
+        }
+        return {"message": {"content": json.dumps(payload)}}
+
+    monkeypatch.setattr("aicentralv2.cadu_workspace.insights_research.web_search.search", fake_search)
+    monkeypatch.setattr("aicentralv2.cadu_workspace.insights_research._model_call", fake_model)
+    context = SimpleNamespace(client_id=1, user_id=1, conversation_id=None)
+    result = research_market(context, "mercado de café", "test-expansion")
+
+    assert len(searches) == 2
+    assert result["sources"][0]["url"] == "https://example.com/report"
 
 
 def test_quick_market_scan_includes_independent_review_before_render():

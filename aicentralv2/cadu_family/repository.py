@@ -375,17 +375,19 @@ def conversation_history(user, client_id, limit=20, offset=0, query='', archived
                 (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id, limit, offset))
 
 
-def conversation_history_all(user, client_id, query='', limit=500):
+def conversation_history_all(user, client_id, query='', limit=500, offset=0):
     statuses = ['ativa', 'active', 'arquivada', 'archived']
     active_statuses = ['ativa', 'active']
+    offset_sql = ' OFFSET %s' if offset else ''
+    offset_params = (offset,) if offset else ()
     if not family_table_available('cadu_family_conversation_context'):
         return rows('''SELECT id, titulo AS title, updated_at, status, NULL AS profile,
                               CASE WHEN projeto_id IS NOT NULL THEN 'ci:' || projeto_id::text END AS project_ref,
                               NULL AS brand_ref
                          FROM cadu_conversations
                         WHERE id_contato_cliente = %s AND id_cliente = %s AND titulo ILIKE %s AND status = ANY(%s)
-                     ORDER BY CASE WHEN status = ANY(%s) THEN 0 ELSE 1 END, updated_at DESC, id DESC LIMIT %s''',
-                    (user['id'], client_id, '%' + query + '%', statuses, active_statuses, limit))
+                     ORDER BY CASE WHEN status = ANY(%s) THEN 0 ELSE 1 END, updated_at DESC, id DESC LIMIT %s''' + offset_sql,
+                    (user['id'], client_id, '%' + query + '%', statuses, active_statuses, limit) + offset_params)
     organization_join = family_table_available('cadu_conversation_organization')
     if not organization_join:
         return rows('''SELECT c.id, c.titulo AS title, c.updated_at, c.status, x.profile,
@@ -409,9 +411,9 @@ def conversation_history_all(user, client_id, query='', limit=500):
                    WHERE c.id_contato_cliente = %s AND c.id_cliente = %s AND c.titulo ILIKE %s AND c.status = ANY(%s)
                      AND (x.conversation_id IS NULL OR
                           (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
-                ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END, c.updated_at DESC, c.id DESC LIMIT %s''',
+                ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END, c.updated_at DESC, c.id DESC LIMIT %s''' + offset_sql,
                 (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id,
-                 active_statuses, limit))
+                 active_statuses, limit) + offset_params)
     return rows('''SELECT c.id, c.titulo AS title, c.updated_at, c.status, x.profile,
                          COALESCE(x.project_ref, CASE WHEN c.projeto_id IS NOT NULL
                                   THEN 'ci:' || c.projeto_id::text END) AS project_ref,
@@ -442,9 +444,9 @@ def conversation_history_all(user, client_id, query='', limit=500):
                           (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
                 ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END,
                          CASE WHEN COALESCE(o.section, 'recent') = 'pinned' THEN 0 ELSE 1 END,
-                         c.updated_at DESC, c.id DESC LIMIT %s''',
+                         c.updated_at DESC, c.id DESC LIMIT %s''' + offset_sql,
                 (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id,
-                 active_statuses, limit))
+                 active_statuses, limit) + offset_params)
 
 
 def organize_conversation(user_id, client_id, conversation_id, section, automation_enabled=None,

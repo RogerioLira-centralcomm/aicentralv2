@@ -708,9 +708,8 @@ def _active_run(conversation_id, current):
 
 @bp.get("/conversations/<conversation_id>/bootstrap")
 def conversation_bootstrap(conversation_id):
-    """Restore one conversation in one bounded request after reload."""
+    """Restore conversation content and execution state without sidebar payloads."""
     current = resolve(conversation_id=conversation_id)
-    actor = family_context.identity()
     messages = repository.conversation_messages(
         current.user_id, current.client_id, conversation_id, limit=100,
     )
@@ -724,11 +723,9 @@ def conversation_bootstrap(conversation_id):
         queued = turn_queue.list_items(conversation_id, current)
     except ValueError:
         queued = []
-    entities = family_context.inventory(current.client_id)
     return jsonify(
         conversation={"id": conversation_id, **conversation},
-        context=current.to_dict(), entities=entities,
-        conversations=repository.conversation_history(actor, current.client_id, limit=30),
+        context=current.to_dict(),
         messages=messages, queue=queued, active_run=_active_run(conversation_id, current),
     )
 

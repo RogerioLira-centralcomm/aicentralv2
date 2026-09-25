@@ -116,7 +116,7 @@ function ConversationActionsMenu({item, projects, sections, panel, setPanel, ren
   </div>;
 }
 
-export function Sidebar({conversations, conversationSections = [], projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', artifactOpen = false, pluginsPageOpen = false, navUrls = {}, solutions = [], logo, user = {}, usagePercent = 0, activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onOpenBrandArtifact, onOpenPlugins, onClosePlugins, onNewConversation, onProjectChange, onConversationAction, onCreateConversationSection, open, onOpenSidebar, onClose, loading, openingId}) {
+export function Sidebar({conversations, conversationSections = [], projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', artifactOpen = false, pluginsPageOpen = false, navUrls = {}, historyEndpoint = '', solutions = [], logo, user = {}, usagePercent = 0, activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onOpenBrandArtifact, onOpenPlugins, onClosePlugins, onNewConversation, onProjectChange, onConversationAction, onCreateConversationSection, open, onOpenSidebar, onClose, loading, historyError = '', onRetryHistory, historyHasMore = false, onLoadMoreHistory, openingId}) {
   const sidebarRef = useRef(null);
   const previousFocus = useRef(null);
   const [showAllRecent, setShowAllRecent] = useState(false);
@@ -143,6 +143,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
   const [spotlightError, setSpotlightError] = useState('');
   const spotlightInput = useRef(null);
   const searchSequence = useRef(0);
+  const searchRequest = useRef(null);
   const desktopMode = window.matchMedia('(min-width: 768px)').matches;
   const desktopClosed = desktopMode && !open;
   const ordered = conversations;
@@ -212,27 +213,56 @@ export function Sidebar({conversations, conversationSections = [], projects = []
   useEffect(() => {
     const query = spotlightQuery.trim();
     const sequence = ++searchSequence.current;
+    searchRequest.current?.abort();
+    searchRequest.current = null;
     if (!spotlightOpen || query.length < 2) {
       setSpotlightResults([]); setSpotlightLoading(false); setSpotlightError('');
-      return undefined;
+      return () => { searchSequence.current += 1; };
     }
+    const controller = new AbortController();
+    searchRequest.current = controller;
     const timer = window.setTimeout(async () => {
       setSpotlightLoading(true); setSpotlightError('');
       try {
         if (!projectId) {
-          const localResults = conversations.filter(item => `${item.title || ''} ${contextLabel(item, projects, brands)}`.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))).slice(0, 20).map(item => ({id: item.id, kind: 'conversation', title: item.title || 'Conversa', detail: contextLabel(item, projects, brands)}));
-          if (sequence === searchSequence.current) setSpotlightResults(localResults);
+          const url = new URL(historyEndpoint || '/familia/api/conversations', window.location.origin);
+          url.searchParams.set('q', query);
+          url.searchParams.set('page_size', '40');
+          const data = await request(url.toString(), {signal: controller.signal});
+          const results = (data.conversations || []).map(item => ({
+            id: item.id, kind: 'conversation', title: item.title || 'Conversa',
+            detail: contextLabel(item, projects, brands),
+          }));
+          if (sequence === searchSequence.current) setSpotlightResults(results);
           return;
         }
-        const data = await request(`/workspace/api/projetos/${encodeURIComponent(projectId)}/buscar?q=${encodeURIComponent(query)}`);
-        const conversationResults = conversations.filter(item => String(item.project_ref || '') === String(activeProjectRef) && `${item.title || ''}`.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))).slice(0, 10).map(item => ({id: item.id, kind: 'conversation', title: item.title || 'Conversa'}));
+        const [data, history] = await Promise.all([
+          request(`/workspace/api/projetos/${encodeURIComponent(projectId)}/buscar?q=${encodeURIComponent(query)}`, {signal: controller.signal}),
+          (async () => {
+            const url = new URL(historyEndpoint || '/familia/api/conversations', window.location.origin);
+            url.searchParams.set('q', query);
+            url.searchParams.set('page_size', '40');
+            return request(url.toString(), {signal: controller.signal});
+          })(),
+        ]);
+        const conversationResults = (history.conversations || []).filter(item => String(item.project_ref || '') === String(activeProjectRef)).slice(0, 10).map(item => ({id: item.id, kind: 'conversation', title: item.title || 'Conversa'}));
         if (sequence === searchSequence.current) setSpotlightResults([...(data.results || []), ...conversationResults].slice(0, 40));
       } catch (error) {
-        if (sequence === searchSequence.current) { setSpotlightResults([]); setSpotlightError(error.message || 'Não foi possível pesquisar o projeto.'); }
-      } finally { if (sequence === searchSequence.current) setSpotlightLoading(false); }
+        if (error.name !== 'AbortError' && sequence === searchSequence.current) { setSpotlightResults([]); setSpotlightError(error.message || 'Não foi possível pesquisar o projeto.'); }
+      } finally {
+        if (sequence === searchSequence.current) {
+          searchRequest.current = null;
+          setSpotlightLoading(false);
+        }
+      }
     }, 160);
-    return () => window.clearTimeout(timer);
-  }, [spotlightOpen, spotlightQuery, projectId, conversations, projects, brands, activeProjectRef]);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+      if (searchRequest.current === controller) searchRequest.current = null;
+      searchSequence.current += 1;
+    };
+  }, [spotlightOpen, spotlightQuery, projectId, conversations, projects, brands, activeProjectRef, historyEndpoint]);
 
   useEffect(() => {
     if (!activeProjectRef) return;
@@ -246,7 +276,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
   const pinnedConversations = filtered.filter(item => item.section === 'pinned');
   const customSectionConversations = section => filtered.filter(item => String(item.custom_section_id || '') === String(section.id));
   const automations = filtered.filter(item => item.section === 'automation' && item.automation_enabled);
-  const standard = filtered.filter(item => !item.project_ref && !item.brand_ref && item.section === 'recent');
+  const standard = filtered.filter(item => !item.project_ref && !item.brand_ref && (!item.section || item.section === 'recent'));
   const activeConversation = conversations.find(item => String(item.id) === String(activeId));
   const mobileDestinations = workspaceMobileDestinationItems(navUrls);
   const mobileSolutions = workspaceMobileSolutionItems(navUrls);
@@ -388,7 +418,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
         {!!pinnedConversations.length && <section className="cv-nav-group cv-section-conversations"><header><span>Fixadas</span></header>{conversationList(pinnedConversations, true)}</section>}
         {conversationSections.map(section => { const items = customSectionConversations(section); return items.length ? <section className="cv-nav-group cv-section-conversations" key={section.id}><header><SidebarTitle>{section.name}</SidebarTitle></header>{conversationList(items, true)}</section> : null; })}
         <section className="cv-nav-group cv-project-tree cv-unbranded-projects" aria-label="Projetos sem marca"><header><span>Projetos sem marca</span></header>{ungroupedProjects.slice(0, showMoreProjects ? undefined : 6).map(project => renderProjectItem(project))}{ungroupedProjects.length > 6 && <button type="button" className="cv-project-tree__more" onClick={() => setShowMoreProjects(value => !value)}>{showMoreProjects ? 'Mostrar menos' : 'Mostrar mais'}</button>}{!ungroupedProjects.length && <small className="cv-unbranded-projects__empty">Todos os projetos estão associados a uma marca.</small>}</section>
-        <section className={`cv-nav-group cv-personal-recent${recentCollapsed ? ' is-collapsed' : ''}`}><header><button type="button" className="cv-personal-recent__toggle" aria-expanded={!recentCollapsed} onClick={() => setRecentCollapsed(value => !value)}><span>Recentes</span><NavIcon name="chevron"/></button></header>{!recentCollapsed && <>{conversationList(standard.slice(0, showAllRecent ? undefined : 5), true)}{standard.length > 5 && <button type="button" className="cv-project-tree__more" onClick={() => setShowAllRecent(value => !value)}>{showAllRecent ? 'Mostrar menos' : 'Mostrar mais'}</button>}{loading && !conversations.length && <div className="cv-recent-loading"><i/><i/><i/></div>}{!loading && !standard.length && <p>Nenhuma conversa recente.</p>}</>}</section>
+        <section className={`cv-nav-group cv-personal-recent${recentCollapsed ? ' is-collapsed' : ''}`}><header><button type="button" className="cv-personal-recent__toggle" aria-expanded={!recentCollapsed} onClick={() => setRecentCollapsed(value => !value)}><span>Recentes</span><NavIcon name="chevron"/></button></header>{!recentCollapsed && <>{conversationList(standard.slice(0, showAllRecent ? undefined : 5), true)}{(standard.length > 5 || historyHasMore) && <button type="button" className="cv-project-tree__more" disabled={loading} onClick={() => { if (!showAllRecent) { setShowAllRecent(true); if (standard.length <= 5 || historyHasMore) onLoadMoreHistory?.(); } else if (historyHasMore) onLoadMoreHistory?.(); else setShowAllRecent(false); }}>{loading && conversations.length ? 'Carregando…' : !showAllRecent && standard.length > 5 ? 'Mostrar mais' : historyHasMore ? 'Carregar mais conversas' : 'Mostrar menos'}</button>}{loading && !conversations.length && <div className="cv-recent-loading" aria-label="Carregando conversas"><i/><i/><i/></div>}{!loading && historyError && <div className="cv-history-error" role="alert"><p>{historyError}</p><button type="button" onClick={onRetryHistory}>Tentar novamente</button></div>}{!loading && !historyError && !standard.length && <p>Nenhuma conversa recente.</p>}</>}</section>
       </div>
       <footer className="cv-chat-sidebar-footer">{navUrls.profile ? <a href={navUrls.profile} aria-label={`Perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></a> : <button type="button" aria-label={`Abrir perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></button>}<UsageMiniChart percent={usagePercent}/></footer>
       </div>

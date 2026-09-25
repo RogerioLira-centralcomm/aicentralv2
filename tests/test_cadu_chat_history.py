@@ -40,6 +40,25 @@ class HistoryTest(TestCase):
             self.assertEqual(self.client.get('/familia/api/conversations?offset=20').status_code, 200)
             history.assert_called_once_with(self.user, 12, query='')
 
+    def test_explicit_page_size_returns_next_offset(self):
+        records = [{'id': str(i)} for i in range(3)]
+        with mock.patch.object(repository, 'conversation_history_all', return_value=records) as history, \
+             mock.patch.object(repository, 'family_table_available', return_value=False):
+            response = self.client.get('/familia/api/conversations?page_size=2&offset=2')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['conversations'], records[:2])
+        self.assertTrue(response.json['has_more'])
+        self.assertEqual(response.json['next_offset'], 4)
+        history.assert_called_once_with(self.user, 12, query='', limit=3, offset=2)
+
+    def test_repository_applies_offset_only_to_explicit_page(self):
+        with mock.patch.object(repository, 'family_table_available', return_value=False), \
+             mock.patch.object(repository, 'rows', return_value=[]) as rows:
+            repository.conversation_history_all(self.user, 12, offset=3)
+        sql, params = rows.call_args.args
+        self.assertIn('LIMIT %s OFFSET %s', sql)
+        self.assertEqual(params[-2:], (500, 3))
+
     def test_missing_conversation_does_not_reveal_context(self):
         with mock.patch.object(repository, 'conversation_messages', return_value=None), mock.patch.object(repository, 'conversation_context') as bound:
             self.assertEqual(self.client.get('/familia/api/conversations/foreign/messages').status_code, 404)

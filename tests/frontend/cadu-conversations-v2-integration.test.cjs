@@ -44,6 +44,15 @@ test('the old conversation entries now hand off to the React V2 screen', () => {
   assert.doesNotMatch(routes, /render_template\(['"]cadu_workspace\/conversations\.html/);
 });
 
+test('conversation search aborts stale requests and includes project conversations from history', () => {
+  const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
+  assert.match(sidebar, /const searchRequest = useRef\(null\)/);
+  assert.match(sidebar, /searchRequest\.current\?\.abort\(\)/);
+  assert.match(sidebar, /request\(url\.toString\(\), \{signal: controller\.signal\}\)/);
+  assert.match(sidebar, /const \[data, history\] = await Promise\.all\(/);
+  assert.match(sidebar, /history\.conversations \|\| \[\]/);
+});
+
 test('Workspace home keeps a functional product switcher and resilient visual dock', () => {
   const home = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceHome.jsx'), 'utf8');
   const feedback = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceFeedback.jsx'), 'utf8');

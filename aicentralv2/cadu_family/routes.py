@@ -157,7 +157,7 @@ def set_context():
 
 def writable_context():
     selected = context.resolve()
-    if selected['role'] not in ('admin', 'member'):
+    if selected.get('role') not in ('admin', 'member'):
         abort(403)
     return selected
 
@@ -244,17 +244,37 @@ def conversation_history():
     query = request.args.get('q', '').strip()
     if len(query) > 150:
         abort(400, description='Use até 150 caracteres na busca.')
-    try:
-        limit = min(100, max(1, int(request.args.get('limit', 50))))
-    except (TypeError, ValueError):
-        abort(400, description='Limite de conversas inválido.')
-    records = repository.conversation_history_all(user, selected['client_id'], query=query, limit=limit)
+    paginated = 'page_size' in request.args
+    if paginated:
+        try:
+            limit = min(100, max(1, int(request.args.get('page_size', 50))))
+            offset = min(1000000, max(0, int(request.args.get('offset', 0))))
+        except (TypeError, ValueError):
+            abort(400, description='Paginação de conversas inválida.')
+        page = repository.conversation_history_all(
+            user, selected['client_id'], query=query, limit=limit + 1, offset=offset,
+        )
+        has_more = len(page) > limit
+        records = page[:limit]
+    else:
+        try:
+            limit = min(100, max(1, int(request.args.get('limit', 50))))
+        except (TypeError, ValueError):
+            abort(400, description='Limite de conversas inválido.')
+        records = repository.conversation_history_all(
+            user, selected['client_id'], query=query, **({'limit': limit} if 'limit' in request.args else {}),
+        )
     sections = repository.conversation_sections(user['id'], user['organization_id'], selected['client_id']) \
         if repository.family_table_available('cadu_conversation_sections') else []
-    return jsonify(conversations=records,
-                   sections=sections,
-                   can_manage=bool(current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
-                                   and selected.get('role') in ('admin', 'member')))
+    payload = {
+        'conversations': records,
+        'sections': sections,
+        'can_manage': bool(current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
+                           and selected.get('role') in ('admin', 'member')),
+    }
+    if paginated:
+        payload.update(has_more=has_more, next_offset=offset + len(records))
+    return jsonify(payload)
 
 
 @bp.get('/api/conversation-sections')

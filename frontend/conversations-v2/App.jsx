@@ -136,12 +136,19 @@ export default function App({bootstrap}) {
   const [projectCreateOpen, setProjectCreateOpen] = useState(false);
   const [conversationDockItems, setConversationDockItems] = useState(() => bootstrap.dock?.items || []);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState('');
+  const [historyHasMore, setHistoryHasMore] = useState(false);
   const [contextLoading, setContextLoading] = useState(true);
   const [contextTransferReady, setContextTransferReady] = useState(!hasTransferredContext);
   const [openingId, setOpeningId] = useState(null);
   const [discardRequest, setDiscardRequest] = useState(null);
   const {artifactTabs, setArtifactTabs, artifactSide, changeArtifactSide} = useArtifactWorkspace(artifact);
   const conversationRef = useRef(null);
+  const historyRequestRef = useRef(null);
+  const historyRequestSequenceRef = useRef(0);
+  const historyOffsetRef = useRef(0);
+  const conversationOpenSequenceRef = useRef(0);
+  const conversationOpenRequestRef = useRef(null);
   const artifactRef = useRef(null);
   const artifactEditRevisionRef = useRef(0);
   useEffect(() => { if (artifactOpen && layout !== 'desktop') setHistoryOpen(false); }, [artifactOpen, layout]);
@@ -189,8 +196,8 @@ export default function App({bootstrap}) {
     }).then(data => data.item))).then(items => setQueuedTurns(items.map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})))).catch(error => trace('Fila salva apenas neste navegador', error.message, 'error'));
   }, [conversationId, queueEndpoint, trace]);
 
-  const fetchArtifact = useCallback(async id => {
-    const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(id)}`);
+  const fetchArtifact = useCallback(async (id, {signal = conversationOpenRequestRef.current?.signal} = {}) => {
+    const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(id)}`, {signal});
     setArtifact(data.artifact);
     artifactRef.current = data.artifact;
     setPublishedUrl('');
@@ -199,17 +206,45 @@ export default function App({bootstrap}) {
     return data.artifact;
   }, [bootstrap.endpoints.artifacts]);
 
-  const loadRecent = useCallback(async () => {
-    setHistoryLoading(true);
+  const loadRecent = useCallback(async ({quiet = false, append = false} = {}) => {
+    historyRequestRef.current?.abort();
+    const controller = new AbortController();
+    historyRequestRef.current = controller;
+    const sequence = ++historyRequestSequenceRef.current;
+    const offset = append ? historyOffsetRef.current : 0;
+    const limit = quiet ? Math.min(100, Math.max(50, historyOffsetRef.current)) : 50;
+    if (!quiet) setHistoryLoading(true);
     try {
       const separator = bootstrap.endpoints.history.includes('?') ? '&' : '?';
-      const data = await request(`${bootstrap.endpoints.history}${separator}limit=50`);
-      setConversations(recentConversations(data.conversations, 50));
+      const data = await request(`${bootstrap.endpoints.history}${separator}page_size=${limit}&offset=${offset}`, {signal: controller.signal});
+      if (sequence !== historyRequestSequenceRef.current) return;
+      const page = recentConversations(data.conversations, limit);
+      setConversations(current => {
+        if (quiet) {
+          const known = new Set(page.map(item => String(item.id)));
+          return [...page, ...current.filter(item => !known.has(String(item.id)))];
+        }
+        if (!append) return page;
+        const known = new Set(current.map(item => String(item.id)));
+        return [...current, ...page.filter(item => !known.has(String(item.id)))];
+      });
+      if (!quiet || append) {
+        const nextOffset = Number(data.next_offset ?? offset + (data.conversations || []).length);
+        historyOffsetRef.current = append ? Math.max(historyOffsetRef.current, nextOffset) : nextOffset;
+        setHistoryHasMore(Boolean(data.has_more));
+      }
       setConversationSections(Array.isArray(data.sections) ? data.sections : []);
-    } catch (_) {
-      setConversations([]);
-      setConversationSections([]);
-    } finally { setHistoryLoading(false); }
+      setHistoryError('');
+    } catch (error) {
+      if (error.name !== 'AbortError' && sequence === historyRequestSequenceRef.current) {
+        setHistoryError(error.message || 'Não foi possível carregar as conversas.');
+      }
+    } finally {
+      if (sequence === historyRequestSequenceRef.current) {
+        historyRequestRef.current = null;
+        setHistoryLoading(false);
+      }
+    }
   }, [bootstrap.endpoints.history]);
 
   const loadContext = useCallback(async () => {
@@ -237,12 +272,17 @@ export default function App({bootstrap}) {
   useEffect(() => {
     loadRecent();
     if (!requestedConversationId.current) loadContext();
+    return () => historyRequestRef.current?.abort();
   }, [loadContext, loadRecent]);
   useEffect(() => {
     if (!historyOpen) return undefined;
-    const interval = window.setInterval(loadRecent, conversations.some(item => item.running) ? 4000 : 12000);
-    return () => window.clearInterval(interval);
-  }, [conversations, historyOpen, loadRecent]);
+    const refresh = () => {
+      if (document.visibilityState === 'visible') loadRecent({quiet: true});
+    };
+    const interval = window.setInterval(refresh, conversations.some(item => item.running) ? 10000 : 30000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(interval); document.removeEventListener('visibilitychange', refresh); };
+  }, [conversations.some(item => item.running), historyOpen, loadRecent]);
 
   const confirmDiscard = useCallback((includeAttachments = true) => {
     const hasAttachments = includeAttachments && attachments.length > 0;
@@ -263,6 +303,10 @@ export default function App({bootstrap}) {
   }, []);
 
   const reset = useCallback(({preserveAttachments = false} = {}) => {
+    conversationOpenSequenceRef.current += 1;
+    conversationOpenRequestRef.current?.abort();
+    conversationOpenRequestRef.current = null;
+    setOpeningId(null); setHistoryLoading(false); setContextLoading(false);
     setConversationId(null); conversationRef.current = null;
     setTitle(emptyTitle); setMessages([]); setInput(''); setComposerContext(null);
     if (!preserveAttachments) setAttachments(items => { releasePreviews(items); return []; });
@@ -286,26 +330,28 @@ export default function App({bootstrap}) {
 
   const openConversation = useCallback(async (id, conversationTitle) => {
     if (running || !(await confirmDiscard())) return;
+    const sequence = ++conversationOpenSequenceRef.current;
+    conversationOpenRequestRef.current?.abort();
+    const controller = new AbortController();
+    conversationOpenRequestRef.current = controller;
     setOpeningId(id);
     setRuntime('Abrindo conversa');
     try {
-      const data = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/bootstrap`);
+      const data = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/bootstrap`, {signal: controller.signal});
+      if (sequence !== conversationOpenSequenceRef.current) return;
       setConversationId(id); conversationRef.current = id;
       setQueuedTurns((data.queue || readQueue(id)).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
       setTitle(conversationDisplayTitle(conversationTitle || data.conversation?.title, 'Conversa'));
       if (data.context) setContext(data.context);
-      if (Array.isArray(data.conversations)) setConversations(recentConversations(data.conversations, 30));
-      if (Array.isArray(data.entities)) {
-        setProjects(data.entities.filter(item => item.kind === 'project'));
-        setBrands(current => mergeServerEntities(current, data.entities.filter(item => item.kind === 'brand').map(item => ({
-          ...item, logoUrl: item.logo_url, visualInitials: item.name, visualColor: item.color || item.visualColor || '#176b5e',
-        }))));
-      }
       setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false); setLibraryOpen(false);
       const {messages: restored, selectedContext: restoredContext, lastArtifact} = restoreConversationMessages(data.messages, uid);
       setMessages(restored);
       setComposerContext(restoredContext);
-      if (lastArtifact) await fetchArtifact(lastArtifact);
+      if (lastArtifact) {
+        await fetchArtifact(lastArtifact, {signal: controller.signal});
+        if (sequence !== conversationOpenSequenceRef.current) return;
+      }
+      if (sequence !== conversationOpenSequenceRef.current) return;
       setConversationUrl(id, true);
       setSurfaceUrl(lastArtifact ? 'artifact' : 'conversation', lastArtifact || '', true);
       const active = {run: data.active_run || null};
@@ -323,21 +369,28 @@ export default function App({bootstrap}) {
         dispatchExecution({type: 'event', event: {event: 'run.started', run_id: active.run.id}});
         setRuntime('Retomando o trabalho em andamento');
         const monitor = async () => {
+          if (sequence !== conversationOpenSequenceRef.current) return;
           try {
             const state = await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(active.run.id)}/state`);
+            if (sequence !== conversationOpenSequenceRef.current) return;
             const status = String(state.run?.status || '');
             if (status === 'running') {
               recoveryTimerRef.current = window.setTimeout(monitor, 1800);
               return;
             }
             const refreshed = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
+            if (sequence !== conversationOpenSequenceRef.current) return;
             const recovered = restoreConversationMessages(refreshed.messages, uid);
             setMessages(recovered.messages);
-            if (recovered.lastArtifact) await fetchArtifact(recovered.lastArtifact);
+            if (recovered.lastArtifact) {
+              await fetchArtifact(recovered.lastArtifact, {signal: controller.signal});
+              if (sequence !== conversationOpenSequenceRef.current) return;
+            }
             dispatchExecution({type: 'event', event: {event: status === 'failed' ? 'run.failed' : status === 'cancelled' ? 'run.cancelled' : 'run.completed', status}});
             runRef.current = null;
             setRuntime(status === 'completed' ? '' : status === 'cancelled' ? 'Interrompido' : 'Não foi possível concluir');
           } catch (error) {
+            if (sequence !== conversationOpenSequenceRef.current) return;
             dispatchExecution({type: 'connection.lost', error: error.message});
             setRuntime('Reconectando ao trabalho');
             recoveryTimerRef.current = window.setTimeout(monitor, 2500);
@@ -347,8 +400,10 @@ export default function App({bootstrap}) {
       } else setRuntime('');
       if (isConversationMobile()) setHistoryOpen(false);
     } catch (error) {
+      if (sequence !== conversationOpenSequenceRef.current) return;
       try {
-        const fallback = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
+        const fallback = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`, {signal: controller.signal});
+        if (sequence !== conversationOpenSequenceRef.current) return;
         const recovered = restoreConversationMessages(fallback.messages, uid);
         const restoredContext = fallback.context && typeof fallback.context === 'object'
           ? fallback.context
@@ -358,9 +413,14 @@ export default function App({bootstrap}) {
         setMessages(recovered.messages);
         setComposerContext(restoredContext);
         if (fallback.context && typeof fallback.context === 'object') setContext(fallback.context);
-        if (recovered.lastArtifact) await fetchArtifact(recovered.lastArtifact);
+        if (recovered.lastArtifact) {
+          await fetchArtifact(recovered.lastArtifact, {signal: controller.signal});
+          if (sequence !== conversationOpenSequenceRef.current) return;
+        }
+        if (sequence !== conversationOpenSequenceRef.current) return;
         try {
-          const active = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/active-run`);
+          const active = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/active-run`, {signal: controller.signal});
+          if (sequence !== conversationOpenSequenceRef.current) return;
           const pendingActions = restorePendingActions(active.run, uid);
           if (pendingActions.length) setMessages(items => [...items, ...pendingActions]);
         } catch (_) { /* The recovered history remains usable without an active action. */ }
@@ -369,11 +429,17 @@ export default function App({bootstrap}) {
         trace('Conversa recuperada', 'O histórico foi aberto pelo modo de compatibilidade.');
         if (!fallback.context) await loadContext();
       } catch (fallbackError) {
+        if (sequence !== conversationOpenSequenceRef.current) return;
         setRuntime('Não foi possível abrir');
         trace('Falha ao abrir conversa', fallbackError.message || error.message, 'error');
-        await Promise.allSettled([loadContext(), loadRecent()]);
+        setConversationId(null); conversationRef.current = null;
       }
-    } finally { setOpeningId(null); setHistoryLoading(false); setContextLoading(false); }
+    } finally {
+      if (sequence === conversationOpenSequenceRef.current) {
+        conversationOpenRequestRef.current = null;
+        setOpeningId(null); setHistoryLoading(false); setContextLoading(false);
+      }
+    }
   }, [running, confirmDiscard, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint, loadContext, loadRecent]);
 
   const changeProject = useCallback(async (projectRef, {showHistory = true, preserveDraft = false, skipConfirm = false} = {}) => {
@@ -1550,7 +1616,7 @@ export default function App({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
         <CaduDock bootstrap={bootstrap} sharedDock={bootstrap.sharedDock} conversationMode logo={bootstrap.caduMark || bootstrap.logo} homeUrl={bootstrap.urls?.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={brands} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={brands} resources={projects} shortcutItems={sharedDockItems} onDropItem={addDroppedDockItem} onReorderShortcuts={reorderDockShortcuts} onShortcutAdded={(_, next) => setConversationDockItems(next)} onShortcutRemoved={(_, next) => setConversationDockItems(next)} usagePercent={bootstrap.usagePercent} onNewConversation={newConversation} onOpenBrand={openDockBrand} onOpenResource={openDockItem} onOpenUsage={() => setAccountOpen(true)}/>
-      <Sidebar conversations={conversations} conversationSections={conversationSections} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} pluginsPageOpen={pluginsPageOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={(...args) => { setPluginsPageOpen(false); const selected = conversations.find(item => String(item.id) === String(args[0])); openConversation(...args).then(() => { if (selected?.is_unread) conversationAction(selected, 'mark-read'); }); }} onOpenLibrary={(_, ref) => { setPluginsPageOpen(false); openLibrary(true, ref); }} onOpenResource={item => { setPluginsPageOpen(false); showResource(item); }} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={ref => { setPluginsPageOpen(false); if (artifactOpen) setSurfaceUrl('artifact', artifact?.id || '', true); else openBrandArtifact(ref); }} onOpenPlugins={openPluginsPage} onClosePlugins={closePluginsPage} onNewConversation={() => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); newConversation(); }} onProjectChange={ref => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); changeProject(ref, {showHistory: true}); }} onOpenSidebar={openHistory} onConversationAction={conversationAction} onCreateConversationSection={createConversationSection} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+      <Sidebar conversations={conversations} conversationSections={conversationSections} historyEndpoint={bootstrap.endpoints.history} projects={projects} brands={brands} activeProjectRef={activeProjectRef} activeBrandRef={activeBrandRef} artifactOpen={artifactOpen} pluginsPageOpen={pluginsPageOpen} navUrls={bootstrap.urls} solutions={workspaceSolutionItems(bootstrap)} logo={bootstrap.caduMark || bootstrap.logo} user={bootstrap.user} usagePercent={bootstrap.usagePercent} activeId={conversationId} currentTitle={title} onOpen={(...args) => { setPluginsPageOpen(false); const selected = conversations.find(item => String(item.id) === String(args[0])); openConversation(...args).then(() => { if (selected?.is_unread) conversationAction(selected, 'mark-read'); }); }} onOpenLibrary={(_, ref) => { setPluginsPageOpen(false); openLibrary(true, ref); }} onOpenResource={item => { setPluginsPageOpen(false); showResource(item); }} onOpenLibraryRef={loadResourceReference} onOpenBrandArtifact={ref => { setPluginsPageOpen(false); if (artifactOpen) setSurfaceUrl('artifact', artifact?.id || '', true); else openBrandArtifact(ref); }} onOpenPlugins={openPluginsPage} onClosePlugins={closePluginsPage} onNewConversation={() => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); newConversation(); }} onProjectChange={ref => { setPluginsPageOpen(false); setSurfaceUrl('conversation', '', true); changeProject(ref, {showHistory: true}); }} onOpenSidebar={openHistory} onConversationAction={conversationAction} onCreateConversationSection={createConversationSection} open={historyOpen} onClose={closeHistory} loading={historyLoading} historyError={historyError} onRetryHistory={() => loadRecent()} historyHasMore={historyHasMore} onLoadMoreHistory={() => loadRecent({append: true})} openingId={openingId}/>
       {attachmentChoice && <CaduDialog className="cv-attachment-destination-dialog" label="Destino dos arquivos" onClose={() => setAttachmentChoice(null)}><header><div><h2>Onde usar estes arquivos?</h2><p>O projeto selecionado está ativo.</p></div><button type="button" onClick={() => setAttachmentChoice(null)} aria-label="Fechar">×</button></header><div className="cv-attachment-destination-dialog__actions"><button type="button" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'conversation', skipAttachmentChoice:true}); }}>Só nesta conversa</button><button type="button" className="is-primary" onClick={() => { const choice = attachmentChoice; setAttachmentChoice(null); submit(choice.input, {...choice.options, attachmentDestination:'knowledge', skipAttachmentChoice:true}); }}>Adicionar como fonte</button></div></CaduDialog>}
       {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">

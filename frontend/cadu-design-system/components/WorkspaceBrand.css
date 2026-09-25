@@ -566,6 +566,58 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
   body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(.cadu-ds-brand-state--processing)) > .cadu-ds-entity-rail { position:relative; grid-column:3; top:auto; align-self:start; height:auto; min-height:100dvh; overflow:visible; }
 }
 
+/* The workspace reserves 239px and 292px for its side rails. At common
+   laptop widths the remaining brand canvas is too narrow for a 700px audit
+   hero, so collapse that hero before its copy and actions start to collide. */
+@media (min-width:901px) and (max-width:1500px) {
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-brand-content {
+    padding-right:clamp(24px,3vw,42px);
+    padding-left:clamp(24px,3vw,42px);
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-completion {
+    grid-template-columns: minmax(74px, .22fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-completion__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    padding-top: 0;
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-completion__map {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state {
+    width: 100%;
+    grid-template-columns: minmax(150px, .72fr) minmax(0, 1.28fr);
+    gap: clamp(22px, 3vw, 44px);
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state__copy > h2 {
+    font-size: clamp(30px, 3vw, 42px);
+    overflow-wrap: anywhere;
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state__copy > span {
+    font-size: 14px;
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state__actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (min-width:901px) and (max-width:1180px) {
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    padding-top: 40px;
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state__visual {
+    width: min(220px, 100%);
+    justify-self: center;
+  }
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state__copy {
+    justify-self: stretch;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body.portal--workspace :is(.cadu-ds-brand-audit-mark,.cadu-ds-brand-orbit,.cadu-ds-brand-celebration,.cadu-ds-brand-celebration__mark,.cadu-ds-brand-celebration__fireworks i) { animation:none; }
   body.portal--workspace .cadu-ds-brand-celebration__fireworks { display:none; }

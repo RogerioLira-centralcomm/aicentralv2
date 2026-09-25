@@ -2233,16 +2233,9 @@ def _auto_apply_brand_analysis(client_id: int, user_id: int, brand_id: int, bran
                               is_primary = CASE
                                 WHEN asset_path = %s OR source_url = %s THEN TRUE
                                 WHEN role = 'logo' THEN FALSE
-                                ELSE is_primary END,
-                              rejection_reason = CASE
-                                WHEN role = 'logo' AND source_kind = 'website'
-                                 AND COALESCE(asset_path, '') <> %s
-                                 AND COALESCE(source_url, '') <> %s
-                                THEN 'Candidato não selecionado pela resolução visual da auditoria.'
-                                ELSE rejection_reason END
+                                ELSE is_primary END
                         WHERE client_id = %s""",
-                    (published_logo, published_logo, published_logo, published_logo,
-                     published_logo, published_logo, brand_id),
+                    (published_logo, published_logo, published_logo, published_logo, brand_id),
                 )
         connection.commit()
     except Exception:

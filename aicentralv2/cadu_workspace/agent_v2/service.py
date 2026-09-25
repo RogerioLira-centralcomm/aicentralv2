@@ -26,7 +26,8 @@ from .daily_workflows import WORKFLOWS
 from .guardrails import normalize_response
 from .request_context import resolve
 from .contracts import ActiveObject, IntentRoute
-from ..mcp.registry import load_builtin_tools
+from ..mcp.registry import ToolError, load_builtin_tools
+from . import action_executor
 from . import journal
 from .context_builder import (
     ConversationContextBuilder,
@@ -994,6 +995,37 @@ def stream(run):
     waiting_actions = journal.waiting_actions(
         run["run_id"], run["context"].client_id, run["context"].user_id,
     )
+    direct_link_completion = None
+    direct_link = journal.start_direct_link_action(
+        run["run_id"], run["context"].client_id, run["context"].user_id,
+    )
+    if direct_link:
+        try:
+            receipt = action_executor.execute(direct_link, run["context"])
+        except Exception as exc:
+            error_code = exc.code if isinstance(exc, ToolError) else "action_failed"
+            journal.finish_action(run["run_id"], direct_link["id"], run["context"].client_id,
+                                  run["context"].user_id, error_code=error_code)
+            direct_link_completion = {
+                "answer": "Não consegui adicionar o link ao projeto. Ele não foi salvo; revise o endereço e tente novamente.",
+                "blocks": [{"type": "activity", "state": "needs_attention",
+                            "label": "Link não adicionado ao projeto"}],
+            }
+            _journal(run["run_id"], "action.failed", {
+                "step_id": direct_link["id"], "name": direct_link["name"], "code": error_code,
+            }, item_type="error")
+            yield _event("action.failed", step_id=direct_link["id"],
+                         name=direct_link["name"], code=error_code)
+        else:
+            journal.finish_action(run["run_id"], direct_link["id"], run["context"].client_id,
+                                  run["context"].user_id, receipt=receipt)
+            direct_link_completion = receipt.get("completion") or {}
+            _journal(run["run_id"], "action.completed", {
+                "step_id": direct_link["id"], "name": direct_link["name"],
+                "completion": direct_link_completion,
+            }, item_type="action")
+            yield _event("action.completed", step_id=direct_link["id"],
+                         name=direct_link["name"], completion=direct_link_completion)
     for action in waiting_actions:
         public_action = {**action, "run_id": run["run_id"]}
         _journal(run["run_id"], "action.proposed", public_action, item_type="action")
@@ -1076,7 +1108,13 @@ def stream(run):
     try:
         route_action = str(run["route"].get("action") or "")
         workspace_action = None
-        if route_action == "choose_artifact":
+        if direct_link_completion:
+            answer_chunks.append(json.dumps({
+                "answer": direct_link_completion.get("answer") or "O link foi salvo no projeto.",
+                "ui": {"blocks": direct_link_completion.get("blocks") or []},
+            }, ensure_ascii=False))
+            provider_events = ()
+        elif route_action == "choose_artifact":
             selection = run["context"].selected_context or {}
             if selection.get("type") == "artifact_ambiguity":
                 titles = [title.strip() for title in str(selection.get("text") or "").partition(":")[2].split(";") if title.strip()][:3]

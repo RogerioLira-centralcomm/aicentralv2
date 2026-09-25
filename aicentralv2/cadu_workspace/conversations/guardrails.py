@@ -27,6 +27,16 @@ _COLLOQUIAL = {
     'adc': 'adicionar', 'add': 'adicionar', 'proj': 'projeto', 'doc': 'documento',
 }
 
+# Narrow, high-confidence corrections used only while matching intents. Keep
+# the original user text for history and display.
+_COMMON_TYPOS = {
+    'adicoinar': 'adicionar', 'adiconar': 'adicionar', 'adcionar': 'adicionar',
+    'adiconou': 'adicionou', 'adicinou': 'adicionou',
+    'arquitvada': 'arquivada', 'arquitvadas': 'arquivadas', 'arquitvado': 'arquivado',
+    'estmoas': 'estamos', 'rpojetos': 'projetos', 'prolemas': 'problemas',
+    'desenhliados': 'desalinhados',
+}
+
 
 def normalize_colloquial(message):
     """Normalize Brazilian chat shorthand for intent matching, never display."""
@@ -43,6 +53,10 @@ def normalize_colloquial(message):
         text = re.sub(
             r'(?<![\w@])(' + '|'.join(sorted(map(re.escape, _COLLOQUIAL), key=len, reverse=True)) + r')(?![\w.])',
             lambda match: _COLLOQUIAL[match.group(1)], text,
+        )
+        text = re.sub(
+            r'(?<![\w@])(' + '|'.join(sorted(map(re.escape, _COMMON_TYPOS), key=len, reverse=True)) + r')(?![\w.])',
+            lambda match: _COMMON_TYPOS[match.group(1)], text,
         )
         normalized.append(text)
         if index < len(urls):

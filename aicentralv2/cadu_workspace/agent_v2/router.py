@@ -398,6 +398,11 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         text,
         re.IGNORECASE,
     )
+    explicit_link_add = bool(
+        inline_project_url
+        and _has(text, r"\b(?:adicion\w*|salv\w*|registre\w*|anex\w*|import\w*)\b.{0,55}\b(?:link|url|refer[eê]ncia)\b|"
+                 r"\b(?:link|url|refer[eê]ncia)\b.{0,55}\b(?:adicion\w*|salv\w*|registre\w*|anex\w*|import\w*)\b")
+    )
     project_link_signal = has_project and (
         _has(text, r"\b(link|url|refer[eê]ncia|pasta)\b.{0,70}\bprojeto\b")
         or _has(text, r"\bprojeto\b.{0,70}\b(link|url|refer[eê]ncia|pasta)\b")
@@ -405,6 +410,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             inline_project_url
             and _has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*)\b.{0,45}\bprojeto\b")
         )
+        or explicit_link_add
     )
     meeting_invite_signal = bool(
         has_project and inline_project_url
@@ -412,6 +418,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         and _has(text, r"\b\d{1,2}:\d{2}\s*(?:am|pm)?\b")
     )
     if (_has(text, r"\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*).{0,45}\b(link|url|refer[eê]ncia|pasta)\b")
+            or _has(text, r"\b(link|url|refer[eê]ncia)\b.{0,45}\b(adicion\w*|salv\w*|registre\w*|anex\w*|import\w*)\b")
             or project_link_signal or meeting_invite_signal):
         url_match = inline_project_url
         has_url = bool(url_match and _usable_public_url(url_match.group(0)))

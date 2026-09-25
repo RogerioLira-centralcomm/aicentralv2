@@ -108,6 +108,28 @@ def waiting_actions(run_id: str, client_id: int, user_id: int) -> list[dict]:
     return actions
 
 
+def start_direct_link_action(run_id: str, client_id: int, user_id: int) -> dict | None:
+    """Claim an explicitly authorized project-link write before producing its receipt."""
+    connection = repository.get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_agent_run_steps step
+                                  SET status='running', started_at=NOW()
+                                 FROM cadu_family_chat_runs run
+                                WHERE step.run_id=%s AND run.id=step.run_id
+                                  AND run.client_id=%s AND run.user_id=%s
+                                  AND step.kind='action' AND step.name='projects.create_link_reference'
+                                  AND step.requires_confirmation=false AND step.status='pending'
+                             RETURNING step.id::text,step.kind,step.name,step.status,step.input_snapshot""",
+                           (run_id, client_id, user_id))
+            step = cursor.fetchone()
+        connection.commit()
+        return dict(step) if step else None
+    except Exception:
+        connection.rollback()
+        raise
+
+
 def propose_action(run_id: str, name: str, arguments: dict, summary: str) -> dict:
     """Seal a validated provider proposal as a user-confirmable server action."""
     step_id, request_id = str(uuid4()), str(uuid4())

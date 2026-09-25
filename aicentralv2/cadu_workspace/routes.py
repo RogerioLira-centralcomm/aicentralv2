@@ -3869,7 +3869,7 @@ def _workspace_project_memory(client_id: int, project_id: str) -> dict:
         organization_id = int(session.get('organization_id') or client_id)
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT id, kind, summary, status, source_conversation_id, updated_at
+                """SELECT id, kind, summary, status, source_conversation_id, source_message_id, updated_at
                      FROM cadu_working_memories
                     WHERE organization_id = %s AND client_id = %s AND project_ref = %s
                       AND status IN ('confirmed', 'proposed')
@@ -3883,6 +3883,17 @@ def _workspace_project_memory(client_id: int, project_id: str) -> dict:
         'confirmed': [record for record in records if record.get('status') == 'confirmed'],
         'proposals': [record for record in records if record.get('status') == 'proposed'],
     }
+
+
+def _can_review_project_memory(client_id: int, project_ref: str, user_id: int) -> bool:
+    actor = family_repository.actor(user_id)
+    if not actor or not family_repository.project_user_can_view(client_id, project_ref, user_id):
+        return False
+    if (int(actor.get('organization_id') or 0) == client_id
+            and family_repository.account_role(actor) == 'admin'):
+        return True
+    return any(int(item.get('user_id') or 0) == user_id and item.get('role') in {'owner', 'admin', 'editor'}
+               for item in family_repository.project_access(client_id, project_ref))
 
 
 def _workspace_project_plans(client_id: int, project_id: str) -> list[dict]:
@@ -6265,6 +6276,12 @@ def project_detail(project_id, project_view='overview'):
             'resourceRegistryAvailable': bool(project.get('resource_registry_available')),
             'memory': [{'id': str(item.get('id')), 'kind': str(item.get('kind') or 'Memória'),
                         'summary': str(item.get('summary') or '')} for item in (project.get('memory') or {}).get('confirmed', [])],
+            'memoryProposals': [{'id': str(item.get('id')), 'kind': str(item.get('kind') or 'Memória'),
+                                 'summary': str(item.get('summary') or ''),
+                                 'sourceConversationId': str(item.get('source_conversation_id') or ''),
+                                 'sourceMessageId': str(item.get('source_message_id') or '')}
+                                for item in (project.get('memory') or {}).get('proposals', [])],
+            'canReviewMemory': _can_review_project_memory(client_id, f'ci:{project_id}', int(session.get('user_id') or 0)),
             'tasksAvailable': bool(project.get('tasks_available')),
             'tasks': [{'id': str(item.get('id')), 'title': str(item.get('title') or 'Tarefa'),
                        'description': str(item.get('description') or ''), 'status': str(item.get('status') or 'todo'),
@@ -6368,6 +6385,37 @@ def project_direction_history_api(project_id):
     if not family_repository.project_user_can_view(client_id, project_ref, int(session.get('user_id') or 0)):
         return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
     return jsonify({'items': project_context_service.history(client_id, project_ref, request.args.get('limit', 20))})
+
+
+@bp.post('/workspace/api/projetos/<project_id>/memorias/<uuid:memory_id>/revisao')
+@login_required
+def review_project_memory_api(project_id, memory_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    project_ref = f'ci:{project_id}'
+    if not family_repository.project_user_can_view(client_id, project_ref, user_id):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
+    _editable_workspace_project(client_id, project_id)
+    if not _can_review_project_memory(client_id, project_ref, user_id):
+        return jsonify({'error': 'Você não pode revisar memórias deste projeto.'}), 403
+    actor = family_repository.actor(user_id)
+    data = request.get_json(silent=True) or {}
+    action = str(data.get('action') or '')
+    if action not in {'confirm', 'dismiss'}:
+        return jsonify({'error': 'Ação inválida.'}), 400
+    summary = data.get('summary')
+    if summary is not None and (not isinstance(summary, str) or len(summary) > 500):
+        return jsonify({'error': 'Use um resumo de até 500 caracteres.'}), 400
+    from .conversations import working_memory
+    try:
+        memory = working_memory.review(str(memory_id), actor, client_id, project_ref, action, summary)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    if not memory:
+        return jsonify({'error': 'Memória indisponível neste projeto.'}), 404
+    return jsonify({'memory': {'id': str(memory['id']), 'kind': memory['kind'],
+                               'summary': memory['summary'], 'status': memory['status']}})
 
 
 @bp.get('/workspace/api/projetos/<project_id>/compartilhamento')

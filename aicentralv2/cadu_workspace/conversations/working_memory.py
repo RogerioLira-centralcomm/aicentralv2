@@ -102,14 +102,15 @@ def board(user, client_id, project_ref):
             'weeks':[{'key': key, 'conversations': value} for key, value in weeks.items()]}
 
 
-def review(memory_id, user, client_id, action, summary=None):
+def review(memory_id, user, client_id, project_ref, action, summary=None):
     if action not in {'confirm','dismiss','promote'}:
         raise ValueError('Ação inválida.')
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute('''SELECT * FROM cadu_working_memories WHERE id=%s AND organization_id=%s AND client_id=%s FOR UPDATE''',
-                        (memory_id, user['organization_id'], client_id))
+            cur.execute('''SELECT * FROM cadu_working_memories WHERE id=%s AND organization_id=%s
+                           AND client_id=%s AND project_ref=%s AND scope='project' FOR UPDATE''',
+                        (memory_id, user['organization_id'], client_id, project_ref))
             row = cur.fetchone()
             if not row:
                 return None
@@ -117,6 +118,8 @@ def review(memory_id, user, client_id, action, summary=None):
                 raise ValueError('Apenas contexto de marca pode ser promovido para o cliente.')
             status, scope, project_ref = ('dismissed', row['scope'], row['project_ref']) if action == 'dismiss' else ('confirmed', 'client' if action == 'promote' else row['scope'], None if action == 'promote' else row['project_ref'])
             value = _clean(summary, 500) if summary is not None else row['summary']
+            if not value:
+                raise ValueError('A memória precisa de um resumo.')
             cur.execute('''UPDATE cadu_working_memories SET status=%s, scope=%s, project_ref=%s, summary=%s,
                            reviewed_by=%s, reviewed_at=NOW(), updated_at=NOW() WHERE id=%s RETURNING *''',
                         (status, scope, project_ref, value, user['id'], memory_id))

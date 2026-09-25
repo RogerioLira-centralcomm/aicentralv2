@@ -397,6 +397,33 @@ function artifactIconName(kind) {
   return ({conversation: 'conversation', artifact: 'artifact', html: 'html', text: 'text', file: 'file', pdf: 'pdf', image: 'image', plan: 'plan', analysis: 'analysis'})[kind] || 'artifact';
 }
 
+function ProjectMemorySection({project, reviewBase, csrfToken, canEdit}) {
+  const [confirmed, setConfirmed] = useState(project.memory || []);
+  const [proposals, setProposals] = useState(project.memoryProposals || []);
+  const [busyId, setBusyId] = useState('');
+  const [error, setError] = useState('');
+  const review = async (item, action) => {
+    if (!reviewBase || !project.canReviewMemory || !canEdit) return;
+    setBusyId(item.id); setError('');
+    try {
+      const data = await request(`${reviewBase}/${encodeURIComponent(item.id)}/revisao`, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},
+        body:JSON.stringify({action}),
+      });
+      setProposals(current => current.filter(candidate => candidate.id !== item.id));
+      if (data.memory?.status === 'confirmed') setConfirmed(current => [data.memory, ...current]);
+    } catch (reviewError) { setError(reviewError.message || 'Não foi possível revisar a memória.'); }
+    finally { setBusyId(''); }
+  };
+  return <section className="cadu-ds-project-memory" aria-label="Memória do projeto">
+    <header><h2>Memória do projeto</h2><p>Decisões confirmadas orientam as próximas conversas. Revise as propostas antes de usá-las como contexto.</p></header>
+    {!!proposals.length && <div className="cadu-ds-project-memory__group"><h3>Para revisar</h3>{proposals.map(item => <article key={item.id}><small>{item.kind.replaceAll('_', ' ')}</small><p>{item.summary}</p>{project.canReviewMemory && canEdit && <div><button type="button" disabled={!!busyId} onClick={() => review(item, 'confirm')}>Confirmar</button><button type="button" disabled={!!busyId} onClick={() => review(item, 'dismiss')}>Descartar</button></div>}</article>)}</div>}
+    {!!confirmed.length && <div className="cadu-ds-project-memory__group"><h3>Confirmadas</h3>{confirmed.map(item => <article key={item.id}><small>{item.kind.replaceAll('_', ' ')}</small><p>{item.summary}</p></article>)}</div>}
+    {!proposals.length && !confirmed.length && <p className="cadu-ds-project-memory__empty">Ainda não há decisões revisadas neste projeto. As conversas anteriores podem ser consultadas na busca do Cadu.</p>}
+    {error && <p role="alert" className="cadu-ds-project-memory__error">{error}</p>}
+  </section>;
+}
+
 function ProjectContinuitySection({project, onStartConversation}) {
   const conversations = Array.isArray(project.conversations) ? project.conversations : [];
   const [showAllConversations, setShowAllConversations] = useState(false);
@@ -815,7 +842,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'activity' && <ProjectActivityPage project={project}/>}
         {projectView === 'library' && <><ProjectPageIntro title="Biblioteca" detail="Arquivos, links e notas."/><ProjectSourceExplorer project={project} conversationUrl={projectLinks.conversation} activityHref={sectionLinks.activity} currentUser={bootstrap.user} canEdit={canEdit} onManage={() => setDialog('source-upload')} onAddNote={() => setDialog('note')} onAddLink={() => setDialog('link')} onEditContext={() => setDialog('identity')}/></>}
         {projectView === 'indexing' && <><ProjectPageIntro title="Indexação" detail="Fontes e estado da indexação."/><ProjectIndexingSection files={project.files || []} onReview={() => setDialog('source-upload')} onAddLink={() => setDialog('link')}/></>}
-        {projectView === 'conversations' && <><ProjectPageIntro title="Conversas" detail="Histórico deste projeto." action={<button type="button" className="is-primary" onClick={startConversation}>Nova conversa</button>}/><ProjectContinuitySection project={project} onStartConversation={startConversation}/></>}
+        {projectView === 'conversations' && <><ProjectPageIntro title="Conversas" detail="Histórico deste projeto." action={<button type="button" className="is-primary" onClick={startConversation}>Nova conversa</button>}/><ProjectMemorySection project={project} reviewBase={projectLinks.reviewMemoryBase} csrfToken={bootstrap.csrf || csrf()} canEdit={canEdit}/><ProjectContinuitySection project={project} onStartConversation={startConversation}/></>}
         {projectView === 'deliveries' && <ProjectDeliveriesPage project={project} onStartConversation={startConversation}/>}
         {projectView === 'views' && <ProjectViewsPage onStartConversation={startConversation}/>}
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta. Para reativar, use Mais ações.</span></aside>}

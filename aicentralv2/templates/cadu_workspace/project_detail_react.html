@@ -47,6 +47,7 @@
     'updateContext': url_for('cadu_workspace.update_project_context', project_id=project_data.id),
     'directionApi': url_for('cadu_workspace.update_project_direction_api', project_id=project_data.id),
     'directionHistory': url_for('cadu_workspace.project_direction_history_api', project_id=project_data.id),
+    'reviewMemoryBase': url_for('cadu_workspace.review_project_memory_api', project_id=project_data.id, memory_id='00000000-0000-0000-0000-000000000000').rsplit('/', 2)[0],
     'updateBrands': url_for('cadu_workspace.update_project_brands', project_id=project_data.id),
     'importBrand': url_for('cadu_workspace.import_project_brand', project_id=project_data.id),
     'createNote': url_for('cadu_workspace.create_project_note', project_id=project_data.id),

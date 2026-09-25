@@ -561,6 +561,54 @@ def _clean_patch(value, artifact_type=None):
         "summary": summary_text,
         "fields": fields,
     }
+    if artifact_type in {"brief", "note", "executive_summary", "media_plan", "scenario", "research"}:
+        metrics = value.get("metrics")
+        if isinstance(metrics, dict):
+            patch["metrics"] = {_clean_text(key, 80): _clean_text(item, 160)
+                                for key, item in list(metrics.items())[:20]
+                                if str(key).strip() and item is not None and not isinstance(item, (dict, list))}
+        tables = []
+        for table in value.get("tables", []) if isinstance(value.get("tables"), list) else []:
+            if not isinstance(table, dict):
+                continue
+            columns = [_clean_text(column, 100) for column in (table.get("columns") if isinstance(table.get("columns"), list) else [])[:12]
+                       if isinstance(column, str)]
+            rows = [[_clean_text(cell, 500) for cell in row[:12]]
+                    for row in (table.get("rows") if isinstance(table.get("rows"), list) else [])[:100] if isinstance(row, list)]
+            if columns and rows:
+                tables.append({"title": _clean_text(table.get("title"), 160),
+                               "columns": columns, "rows": rows})
+            if len(tables) >= 8:
+                break
+        if tables:
+            patch["tables"] = tables
+        citations = _clean_citations(value.get("citations"))
+        if citations:
+            patch["citations"] = citations
+        images = []
+        for item in value.get("images", []) if isinstance(value.get("images"), list) else []:
+            image = item if isinstance(item, dict) else {"url": item}
+            url = _resource_url(image.get("url"))
+            if url:
+                images.append({"url": url, "alt": _clean_text(image.get("alt"), 180),
+                               "caption": _clean_text(image.get("caption"), 300)})
+            if len(images) >= 10:
+                break
+        if images:
+            patch["images"] = images
+        if artifact_type == "executive_summary" and isinstance(value.get("highlights"), list):
+            patch["highlights"] = [_clean_text(item, 400) for item in value["highlights"][:12]
+                                   if isinstance(item, str) and item.strip()]
+        if artifact_type == "scenario" and isinstance(value.get("options"), list):
+            patch["options"] = [
+                {"title": _clean_text(item.get("title"), 160),
+                 "summary": _clean_text(item.get("summary"), 1200),
+                 "metrics": {_clean_text(key, 80): _clean_text(metric, 160)
+                             for key, metric in list((item.get("metrics") or {}).items())[:12]
+                             if not isinstance(metric, (dict, list))}}
+                for item in value["options"][:6]
+                if isinstance(item, dict) and isinstance(item.get("metrics") or {}, dict)
+            ]
     if recovered_html:
         lowered = recovered_html.lstrip().lower()
         if lowered.startswith(("<!doctype", "<html")) and "</html>" in lowered:

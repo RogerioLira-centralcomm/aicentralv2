@@ -477,6 +477,16 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                "O usuário pediu explicitamente para persistir a resposta referenciada no projeto ativo. Crie o artifact_patch completo agora e nunca alegue que não pode alterar o projeto." if route.action == "save_to_project" else
                "O rascunho nasce salvo na sessão e só vai para o projeto após ação explícita.")
         )
+    if route.action == "create_named_artifact":
+        draft_instruction = (
+            f"O usuário pediu especificamente um artefato do tipo {route.artifact_type}. "
+            "Retorne artifact_patch com title, summary curta e fields somente para seções sustentadas. "
+            "Use tables para dados comparáveis, metrics para números com unidade e período, "
+            "citations para fontes efetivamente lidas, e images apenas para URLs recebidas. "
+            "Em cenário, use options para alternativas comparáveis e identifique premissas. "
+            "Não coloque sugestões operacionais do plugin dentro do artefato, salvo pedido expresso; "
+            "deixe-as em text.content. Não invente campos, valores, fontes ou imagens."
+        )
     if route.action == "project_readout":
         draft_instruction = (
             "Crie um dossiê de leitura do projeto em artifact_patch.html. Organize seções específicas para "
@@ -555,6 +565,10 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         )
     elif policy.get("planning_artifact"):
         planning_instruction = (
+            "O plano de mídia é conteúdo estruturado: preserve canais, período, verba, formatos e premissas. "
+            "Use artifact_patch.tables para a alocação e artifact_patch.fields para contexto e observações; "
+            "confira as somas e não invente métricas ou fontes."
+        ) if route.artifact_type == "media_plan" else (
             "O usuário pediu um documento de planejamento de mídia. Entregue o plano completo em "
             "artifact_patch.html, com título, seções específicas e tabelas HTML para premissas, "
             "etapas/canais, verba e KPIs conforme os dados disponíveis. Deixe text.content curto, "
@@ -601,6 +615,13 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                 if route.artifact_type == "html" else
                 {"title": "string", "summary": "síntese factual curta", "fields": [{"key": "Participantes|Contexto|Decisões|Encaminhamentos|Pendências", "value": "texto editável", "state": "confirmed|inferred|missing"}]}
                 if route.artifact_type in {"meeting_summary", "meeting_agenda"} else
+                {"title": "string", "summary": "síntese factual", "fields": [{"key": "seção curta", "value": "conteúdo", "state": "confirmed|inferred|missing"}],
+                 "metrics": {"indicador": "valor com unidade e período"},
+                 "tables": [{"title": "comparação", "columns": ["coluna"], "rows": [["célula"]]}],
+                 "citations": [{"title": "fonte lida", "url": "https://...", "excerpt": "trecho"}],
+                 "images": [{"url": "https://...", "alt": "descrição"}],
+                 "options": [{"title": "cenário", "summary": "premissas", "metrics": {"indicador": "valor"}}]}
+                if route.action == "create_named_artifact" else
                 {"title": "string", "summary": "string", "fields": [{"key": "string", "value": "string", "state": "confirmed|inferred|assumed|missing|conflicting"}]}
                 if route.artifact_type else None
             ),

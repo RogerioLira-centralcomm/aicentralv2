@@ -96,7 +96,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         r"\b(?:topo|meio|fundo)\s+(?:de\s+)?funil\b",
         message, re.IGNORECASE,
     ))
-    planning_request = route.action == "plan_campaign" or (
+    planning_request = route.action == "plan_campaign" or route.artifact_type == "media_plan" or (
         planning_terms and route.action in {
             "search_web", "analyze_plan", "answer", "create_substantial_delivery",
             "create_text_draft", "create_client_delivery",

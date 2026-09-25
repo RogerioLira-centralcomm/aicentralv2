@@ -8,6 +8,7 @@ import re
 from urllib.parse import urlparse
 
 from .contracts import IntentRoute
+from .artifact_intent import named_artifact_type
 from ..conversations.guardrails import normalize_colloquial
 from ..intent_engine import interpret as interpret_canonical_intent
 
@@ -171,6 +172,21 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "create_html", "high", "artifact_first",
                            ("project", "brand") if has_project and has_brand else ("project",) if has_project else ("brand",) if has_brand else (),
                            tuple(tools), "html")
+
+    named_type = named_artifact_type(text)
+    if named_type:
+        if named_type == "media_plan":
+            tools = ("planner.get_media_plan",) if _has(text, r"\b(?:salvo|existente|atual)\b") else ()
+            needs = ("project", "media_plan") if tools else (("project",) if has_project else ())
+        elif named_type == "research":
+            internal = has_project and _has(text, r"\b(?:deste|desse|do|no)\s+projeto\b")
+            tools = ("workspace.search_project_content",) if internal else ("web.search",)
+            needs = ("project",) if internal else ()
+        else:
+            tools = ("workspace.search_project_content",) if has_project and _has(text, r"\bprojeto\b") else ()
+            needs = ("project",) if tools else ()
+        return IntentRoute("workspace", "create_named_artifact", "high", "artifact_first",
+                           needs, tools, named_type)
 
     broad_project_overview = _has(
         text, r"\b(?:vis[aã]o\s+geral|panorama|dossi[eê]|tudo)\b.{0,70}\b(?:projeto|campanha)\b",

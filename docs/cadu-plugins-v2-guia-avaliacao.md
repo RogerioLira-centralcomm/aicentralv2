@@ -1,6 +1,6 @@
 # Guia de avaliação dos cinco fluxos do Cadu
 
-Status: roteiro manual para ambiente de desenvolvimento. Cada caso deve usar um projeto de teste com permissões explícitas e registrar data, ID da conversa, modo do plugin, versão, ferramentas chamadas, fontes lidas, resposta e falhas observadas. Não salvar conteúdo sensível no relatório de teste. Artefatos ficam fora desta rodada.
+Status: roteiro manual para ambiente de desenvolvimento. Cada caso deve usar um projeto de teste com permissões explícitas e registrar data, ID da conversa, modo do plugin, versão, ferramentas chamadas, fontes lidas, resposta e falhas observadas. Não salvar conteúdo sensível no relatório de teste. A rodada de artefatos abaixo complementa os cinco fluxos.
 
 ## Registro por execução
 
@@ -43,6 +43,27 @@ Uma resposta só passa quando atende a operação solicitada, usa o contexto aut
 Depois de qualquer caso, enviar uma correção curta como “o prazo mudou para outubro; atualize a recomendação”. O agente deve retomar apenas a tarefa claramente relacionada, manter fatos confirmados pelo usuário e revisar a conclusão. Em seguida, iniciar pedido sem relação no mesmo chat; ele não deve herdar a tarefa antiga.
 
 Repetir ao menos I02, E03, P01 e O02 com ferramenta indisponível, resultado vazio e resultado parcial. Registrar separadamente indisponibilidade de ferramenta, ausência de evidência e erro de validação. Para escritas, conferir no banco ou na interface o efeito real após o recibo; a resposta textual sozinha não prova execução.
+
+## Rodada de Artefatos 2.0
+
+Usar quatro conversas diferentes no mesmo projeto de teste: uma só com fatos fornecidos, outra com contexto e fontes internas, outra com pesquisa externa, e uma com correção posterior. Em cada uma, pedir um formato explicitamente e conferir **rota, tipo salvo, conteúdo, visualização, edição, exportação, indexação e recuperação**. A criação de rascunho não prova indexação ou publicação.
+
+| ID | Pedido de teste | Critério de aprovação |
+| --- | --- | --- |
+| A01 | “Com estes dados, crie um briefing editável da campanha.” | `brief`; fatos, hipóteses e lacunas separados; sem formulário longo ou dado inventado. |
+| A02 | “Organize a resposta completa anterior em um documento editável.” | `document`; texto, tabelas, links e ressalvas preservados. |
+| A03 | “Registre esta decisão como nota curta.” | `note`; decisão recuperável, sem dossiê desnecessário. |
+| A04 | “Crie um resumo executivo editável dos resultados fornecidos.” | `executive_summary`; síntese e métricas com período/unidade antes dos detalhes. |
+| A05 | “Mostre o plano de mídia salvo como artefato editável.” | `media_plan`; canais, totais, período e premissas coerentes com o plano lido. |
+| A06 | “Compare estes três investimentos em um cenário editável.” | `scenario`; três hipóteses comparáveis, totais corretos, nenhuma previsão apresentada como fato. |
+| A07 | “Pesquise o tema e salve os achados em uma pesquisa editável.” | `research`; apenas fontes lidas sustentam achados, URLs abrem e datas têm origem. |
+| A08 | “Crie um mapa dos recursos deste projeto.” | `project_map`; cada recurso vem do inventário autorizado e abre sua origem; inventário vazio não gera mapa fictício. |
+| A09 | “Crie uma página HTML com os dados deste projeto.” | `html`; prévia completa, responsiva, sem dado ou identidade inventados; publicar é ação separada. |
+| A10 | “Resuma estas notas de reunião em um registro editável.” | `meeting_summary`; discussão, decisões e ações separadas; responsável/prazo somente quando constarem nas notas. |
+| A11 | “Prepare uma pauta editável para a reunião de amanhã.” | `meeting_agenda`; tópicos em ordem e decisões esperadas; não inventar participantes. |
+| A12 | “Abra este link e guarde a referência.” | `link_reader`; URL original preservada; indicar se conteúdo foi lido ou apenas metadados obtidos. |
+
+Para A02, A05 e A07, exportar `.md`, editar um trecho e exportar novamente. Comparar tabelas, links e blocos de código com `source_markdown` quando houver. Para A08 e A12, verificar o fluxo próprio em vez de esperar geração textual genérica. Repetir A07 em Quick Scan sem pedido de arquivo: o resultado deve chegar no chat; com pedido explícito de documento, deve criar artefato. Reabrir a conversa e o projeto após atualizar a página; a versão salva e seu vínculo devem permanecer acessíveis.
 
 ## Critério para liberar medição de custo
 

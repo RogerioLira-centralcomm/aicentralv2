@@ -2481,16 +2481,17 @@ def test_relevant_project_sources_do_not_force_web_research():
 
 
 def test_explicit_campaign_document_keeps_artifact_first_contract():
-    for message in (
-        "Crie um documento editável com planejamento de mídia para Instagram",
-        "Gere um documento com o plano de mídia para Instagram",
+    for message, action, artifact_type in (
+        ("Crie um documento editável com planejamento de mídia para Instagram", "create_text_draft", "document"),
+        ("Gere um documento com o plano de mídia para Instagram", "create_named_artifact", "media_plan"),
     ):
         execution = prepare_execution(message, context())
-        assert execution["route"]["action"] == "create_text_draft"
+        assert execution["route"]["action"] == action
+        assert execution["route"]["artifact_type"] == artifact_type
         assert execution["route"]["response_mode"] == "artifact_first"
         assert execution["policy"].get("planning_artifact") is True
         assert execution["policy"].get("planning_response") is not True
-        assert "artifact_patch.html" in execution["provider_payload"]["inputs"]["core"]
+        assert ("artifact_patch.tables" if artifact_type == "media_plan" else "artifact_patch.html") in execution["provider_payload"]["inputs"]["core"]
 
 
 def test_long_previous_campaign_answer_is_kept_as_explicitly_truncated_context():

@@ -19,25 +19,29 @@
   try { storage = window.sessionStorage; } catch (_) { storage = null; }
   var visitor = id(storage, visitorKey);
   var session = id(storage, sessionKey);
-  var query = new URLSearchParams(location.search);
   var attributionKey = 'cadu_flow_attribution_' + key;
-  var attribution = {
-    utm_source: query.get('utm_source') || '',
-    utm_medium: query.get('utm_medium') || '',
-    utm_campaign: query.get('utm_campaign') || '',
-    utm_id: query.get('utm_id') || '',
-    click_id: query.get('gclid') || query.get('gbraid') || query.get('wbraid') || query.get('fbclid') || ''
-  };
-  try {
-    if (attribution.utm_source || attribution.utm_medium || attribution.utm_campaign || attribution.utm_id || attribution.click_id) {
-      storage.setItem(attributionKey, JSON.stringify(attribution));
-    } else {
-      attribution = JSON.parse(storage.getItem(attributionKey) || '{}');
-    }
-  } catch (_) { /* Tracking still works when storage is unavailable. */ }
-  window.CaduFlow = Object.freeze({getVisitorId: function () { return visitor; }});
-  dispatchEvent(new CustomEvent('cadu:flow-ready', {detail: {visitorId: visitor}}));
+  function currentAttribution() {
+    var query = new URLSearchParams(location.search);
+    var attribution = {
+      utm_source: query.get('utm_source') || '',
+      utm_medium: query.get('utm_medium') || '',
+      utm_campaign: query.get('utm_campaign') || '',
+      utm_id: query.get('utm_id') || '',
+      click_id: query.get('gclid') || query.get('gbraid') || query.get('wbraid') || query.get('fbclid') || ''
+    };
+    try {
+      if (attribution.utm_source || attribution.utm_medium || attribution.utm_campaign || attribution.utm_id || attribution.click_id) {
+        storage.setItem(attributionKey, JSON.stringify(attribution));
+      } else {
+        attribution = JSON.parse(storage.getItem(attributionKey) || '{}');
+      }
+    } catch (_) { /* Tracking still works when storage is unavailable. */ }
+    return attribution && typeof attribution === 'object' ? attribution : {};
+  }
+  var lastPage = '';
+  var lastPageAt = 0;
   function send(kind) {
+    var attribution = currentAttribution();
     var data = JSON.stringify({
       key: key, kind: kind, visitor_id: visitor, session_id: session,
       url: location.origin + location.pathname,
@@ -55,7 +59,22 @@
         headers: {'Content-Type': 'text/plain'}, body: data}).catch(function () {});
     }
   }
-  send('page_view');
+  function trackPage() {
+    var attribution = currentAttribution();
+    var signature = location.origin + location.pathname + '|' + (attribution.utm_id || '') + '|' + (attribution.utm_campaign || '');
+    var now = Date.now();
+    if (signature === lastPage && now - lastPageAt < 1000) return;
+    lastPage = signature;
+    lastPageAt = now;
+    send('page_view');
+  }
+  window.CaduFlow = Object.freeze({
+    getVisitorId: function () { return visitor; },
+    getSessionId: function () { return session; },
+    trackPage: trackPage
+  });
+  dispatchEvent(new CustomEvent('cadu:flow-ready', {detail: {visitorId: visitor}}));
+  trackPage();
   var timer = setInterval(function () {
     if (document.visibilityState === 'visible') send('heartbeat');
   }, 30000);

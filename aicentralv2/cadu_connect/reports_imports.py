@@ -4,6 +4,7 @@ import json
 import re
 import uuid
 from collections import Counter
+from datetime import date, timedelta
 from decimal import Decimal
 
 from flask import abort, jsonify, request, session
@@ -16,12 +17,15 @@ from .reports_import_parser import MAX_FILE_BYTES, normalized_platform, parse_re
 from .reports_v1 import _rows, _selection, _write_guard
 
 MAX_REQUEST_BYTES = 11 * 1024 * 1024
+METRIC_KEYS = frozenset(('impressions', 'clicks', 'cost', 'conversions', 'conversion_value'))
 
 
 def _ready():
     return _rows("SELECT to_regclass('public.cadu_reports_import_files') IS NOT NULL "
                  "AND to_regclass('public.cadu_reports_import_decisions') IS NOT NULL "
-                 "AND to_regclass('public.cadu_reports_import_visual_runs') IS NOT NULL AS ready")[0]['ready']
+                 "AND to_regclass('public.cadu_reports_import_visual_runs') IS NOT NULL "
+                 "AND to_regclass('public.cadu_reports_import_projection_decisions') IS NOT NULL "
+                 "AND to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL AS ready")[0]['ready']
 
 
 def _bounded_body():
@@ -64,6 +68,170 @@ def _upsert_identity(selected, parsed):
 
 
 def register(bp):
+    @bp.get('/api/v1/reports/import-conflicts')
+    @login_required_api
+    def reports_import_conflicts():
+        selected = _selection()
+        if not _ready():
+            return jsonify(ready=False, conflicts=[])
+        scope = (selected['organization_id'], selected['client_id'])
+        conflicts = _rows('''SELECT p.campaign_id,p.metric_date,p.metric_key,p.observation_count,
+            p.version_count,c.name AS campaign_name,a.name AS account_name,a.platform
+            FROM cadu_reports_import_metric_projection p
+            JOIN cadu_reports_campaigns c ON c.id=p.campaign_id
+                AND c.organization_id=p.organization_id AND c.client_id=p.client_id
+            JOIN cadu_reports_accounts a ON a.id=c.account_id
+                AND a.organization_id=c.organization_id AND a.client_id=c.client_id
+            WHERE p.organization_id=%s AND p.client_id=%s
+                AND p.version_count>1 AND p.value_numeric IS NULL
+            ORDER BY p.metric_date DESC,p.campaign_id,p.metric_key LIMIT 50''', scope)
+        for conflict in conflicts:
+            conflict['metric_date'] = conflict['metric_date'].isoformat()
+            conflict['candidates'] = _rows('''SELECT o.id,o.value_numeric,o.currency,f.original_name,
+                f.created_at,f.id AS import_id
+                FROM cadu_reports_import_observations o
+                JOIN cadu_reports_import_rows r ON r.id=o.import_row_id
+                    AND r.organization_id=o.organization_id AND r.client_id=o.client_id
+                JOIN cadu_reports_import_files f ON f.id=r.import_id
+                    AND f.organization_id=r.organization_id AND f.client_id=r.client_id
+                WHERE o.organization_id=%s AND o.client_id=%s AND o.campaign_id=%s
+                    AND o.metric_date=%s AND o.metric_key=%s
+                ORDER BY o.id DESC LIMIT 20''',
+                (*scope, conflict['campaign_id'], conflict['metric_date'], conflict['metric_key']))
+        return jsonify(ready=True, conflicts=conflicts)
+
+    @bp.post('/api/v1/reports/import-conflicts/<int:campaign_id>/<metric_date>/<metric_key>/resolve')
+    @login_required_api
+    def reports_import_conflict_resolve(campaign_id, metric_date, metric_key):
+        selected = _selection()
+        _write_guard(selected)
+        if not _ready():
+            abort(503, description='Instale as migrações de importações do Reports.')
+        if metric_key not in METRIC_KEYS:
+            abort(400, description='Métrica inválida.')
+        try:
+            parsed_date = date.fromisoformat(metric_date)
+        except ValueError:
+            abort(400, description='Data inválida.')
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or set(payload) != {'observation_id', 'note'}:
+            abort(400, description='Escolha uma observação e informe a justificativa.')
+        try:
+            observation_id = int(payload['observation_id'])
+        except (ValueError, TypeError):
+            abort(400, description='Observação inválida.')
+        if observation_id < 1:
+            abort(400, description='Observação inválida.')
+        note = payload['note']
+        if not isinstance(note, str) or not note.strip() or len(note.strip()) > 1000:
+            abort(400, description='Justificativa obrigatória, com até 1.000 caracteres.')
+        scope = (selected['organization_id'], selected['client_id'])
+        key = (*scope, campaign_id, parsed_date, metric_key)
+        conn = get_db()
+        try:
+            projection = _rows('''SELECT version_count,value_numeric
+                FROM cadu_reports_import_metric_projection
+                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                    AND metric_date=%s AND metric_key=%s''', key)
+            if not projection or projection[0]['version_count'] < 2 or projection[0]['value_numeric'] is not None:
+                abort(409, description='O conflito já foi resolvido ou não existe neste cliente.')
+            candidates = _rows('''SELECT id FROM cadu_reports_import_observations
+                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                    AND metric_date=%s AND metric_key=%s ORDER BY id DESC''', key)
+            if observation_id not in {item['id'] for item in candidates}:
+                abort(400, description='A observação não pertence a este conflito.')
+            _rows('''INSERT INTO cadu_reports_import_projection_decisions
+                (organization_id,client_id,campaign_id,metric_date,metric_key,
+                 selected_observation_id,seen_observation_id,note,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                (*key, observation_id, candidates[0]['id'], note.strip(), session['user_id']))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return jsonify(resolved=True)
+
+    @bp.get('/api/v1/reports/import-metrics')
+    @login_required_api
+    def reports_import_metrics():
+        selected = _selection()
+        if not _ready() or not _rows("SELECT to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL AS ready")[0]['ready']:
+            return jsonify(ready=False, days=[], by_platform=[], totals={}, conflicts=0)
+        try:
+            days = int(request.args.get('days', 30))
+        except (TypeError, ValueError):
+            abort(400, description='Período inválido.')
+        if days not in (7, 30, 90):
+            abort(400, description='Período inválido.')
+        filters = ''
+        params = [selected['organization_id'], selected['client_id'], date.today() - timedelta(days=days - 1)]
+        platform = request.args.get('platform', '').strip()
+        if platform:
+            if not re.fullmatch(r'[a-z][a-z0-9_]{0,31}', platform):
+                abort(400, description='Plataforma inválida.')
+            filters += ' AND a.platform=%s'
+            params.append(platform)
+        for field, column in (('account_id', 'a.id'), ('campaign_id', 'c.id')):
+            supplied = request.args.get(field, '').strip()
+            if supplied:
+                try:
+                    number = int(supplied)
+                except ValueError:
+                    abort(400, description=f'{field} inválido.')
+                if number < 1:
+                    abort(400, description=f'{field} inválido.')
+                filters += f' AND {column}=%s'
+                params.append(number)
+        rows = _rows('''SELECT p.metric_date,p.metric_key,p.currency,a.platform,
+            SUM(p.value_numeric) AS value_numeric,
+            COUNT(*) FILTER (WHERE p.version_count>1 AND p.value_numeric IS NULL)::bigint AS conflicts
+            FROM cadu_reports_import_metric_projection p
+            JOIN cadu_reports_campaigns c ON c.id=p.campaign_id
+                AND c.organization_id=p.organization_id AND c.client_id=p.client_id
+            JOIN cadu_reports_accounts a ON a.id=c.account_id
+                AND a.organization_id=c.organization_id AND a.client_id=c.client_id
+            WHERE p.organization_id=%s AND p.client_id=%s AND p.metric_date >= %s'''
+            + filters + ''' GROUP BY p.metric_date,p.metric_key,p.currency,a.platform
+            ORDER BY p.metric_date,a.platform,p.metric_key''', tuple(params))
+        by_day = {}
+        by_platform = {}
+        grand = {'impressions': Decimal(0), 'clicks': Decimal(0), 'conversions': Decimal(0)}
+        grand_cost = {}
+        conflicts = 0
+        for row in rows:
+            day_key = row['metric_date'].isoformat()
+            day = by_day.setdefault(day_key, {'date': day_key, 'impressions': Decimal(0),
+                                              'clicks': Decimal(0), 'conversions': Decimal(0), 'costs': {}})
+            source = by_platform.setdefault(row['platform'], {'platform': row['platform'],
+                'impressions': Decimal(0), 'clicks': Decimal(0), 'conversions': Decimal(0), 'costs': {}})
+            conflicts += int(row['conflicts'] or 0)
+            value = row['value_numeric']
+            if value is None:
+                continue
+            if row['metric_key'] == 'cost':
+                currency = row['currency']
+                for target in (day['costs'], source['costs'], grand_cost):
+                    target[currency] = target.get(currency, Decimal(0)) + value
+            elif row['metric_key'] in grand:
+                key = row['metric_key']
+                day[key] += value
+                source[key] += value
+                grand[key] += value
+        def serialize(item, *, currency=None):
+            currencies = item.pop('costs')
+            effective = currency if currency is not None else (next(iter(currencies)) if len(currencies) == 1 else None)
+            return {**item, 'impressions': str(item['impressions']), 'clicks': str(item['clicks']),
+                    'conversions': str(item['conversions']),
+                    'cost': str(currencies[effective]) if effective and effective in currencies else None,
+                    'currency': effective}
+        shared_currency = next(iter(grand_cost)) if len(grand_cost) == 1 else None
+        return jsonify(ready=True, period_days=days, source='export', conflicts=conflicts,
+            days=[serialize(day, currency=shared_currency) for day in by_day.values()],
+            by_platform=[serialize(item) for item in by_platform.values()],
+            totals={**{key: str(value) for key, value in grand.items()},
+                    'cost': str(grand_cost[shared_currency]) if shared_currency else None},
+            currency=shared_currency)
+
     @bp.get('/api/v1/reports/imports')
     @login_required_api
     def reports_import_list():

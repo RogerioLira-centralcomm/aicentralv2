@@ -38,7 +38,7 @@
 {% block page_subtitle %}Credenciais de integrações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -47,7 +47,7 @@
     <div>
       <span class="cx-integrations-eyebrow">Configuração do sistema</span>
       <h1>Integrações</h1>
-      <p>Configure os provedores usados pelo Agente, pelo CRM, pelo Smart Planner, pelos Places, pela Modelagem de Criativos e pela mesa de assinaturas.</p>
+      <p>Configure os provedores usados pelo Agente, CRM, Smart Planner, Workspace, Modelagem de Criativos e mesa de assinaturas.</p>
     </div>
     <div class="cx-integrations-security">
       <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
@@ -135,6 +135,26 @@
         <span>A chave fica criptografada no PostgreSQL. Modelos da família GPT usam esta conta. Os demais provedores continuam no OpenRouter.</span>
       </aside>
       {{ integration_footer('Salvar OpenAI') }}
+    </form>
+
+    <form class="cx-integration-card" data-integration-form="typesafe">
+      <header>
+        <span class="cx-integration-logo is-typesafe"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i></span>
+        <div>
+          <h2>TypeSafe AI</h2>
+          <p>System One para decisões semânticas tipadas no backend: classificação, relevância e extração com probabilidades.</p>
+        </div>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
+      </header>
+      <div class="cx-integration-fields">
+        {{ cx_secret_field('api_key', 'API key', 'Deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+        {{ cx_text_field('default_model', 'Modelo padrão', optional=true, placeholder='jev-latest') }}
+      </div>
+      <aside>
+        <strong>Julgamentos estruturados</strong>
+        <span>A chave fica criptografada no PostgreSQL e só é usada no servidor. Validar executa uma avaliação mínima na API TypeSafe, que pode consumir créditos.</span>
+      </aside>
+      {{ integration_footer('Salvar TypeSafe') }}
     </form>
 
     <form class="cx-integration-card" data-integration-form="openrouter">
@@ -307,5 +327,5 @@
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=8"></script>
 {% endblock %}

@@ -315,6 +315,9 @@ if [ "$RUN_MIGRATIONS" = "1" ]; then
 "$VENV_PYTHON" migrations/run_add_cx_place_documents.py
 "$VENV_PYTHON" migrations/run_add_d4sign_assinaturas.py
 "$VENV_PYTHON" migrations/run_add_google_login_credentials.py
+# Run after the legacy provider migrations because some of them replace the
+# integration CHECK constraint with an older provider list.
+"$VENV_PYTHON" migrations/run_sql_migration.py add_typesafe_integration_credential.sql
 "$VENV_PYTHON" migrations/run_add_cadu_sso_tickets.py
 "$VENV_PYTHON" migrations/run_add_cadu_knowledge_documents.py
 "$VENV_PYTHON" migrations/run_add_cadu_skills_marketplace.py

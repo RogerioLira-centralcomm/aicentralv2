@@ -59,6 +59,12 @@ PROVIDERS = {
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
+    "typesafe": {
+        "label": "TypeSafe AI",
+        "public_fields": ("default_model",),
+        "secret_fields": ("api_key",),
+        "required": ("api_key",),
+    },
     "firecrawl": {
         "label": "Firecrawl",
         "public_fields": (),
@@ -127,6 +133,10 @@ ENV_FIELDS = {
         "default_model": "OPENAI_DEFAULT_MODEL",
         "image_model": "OPENAI_IMAGE_MODEL",
         "api_key": "OPENAI_API_KEY",
+    },
+    "typesafe": {
+        "default_model": "TYPESAFE_DEFAULT_MODEL",
+        "api_key": "TYPESAFE_API_KEY",
     },
     "firecrawl": {
         "api_key": "FIRECRAWL_API_KEY",
@@ -385,6 +395,8 @@ def validate_configuration(provider):
     if provider == "openai":
         valid, message = _validate_openai(config)
         return valid, message, {}
+    if provider == "typesafe":
+        return _validate_typesafe(config)
     if provider == "firecrawl":
         valid, message = _validate_firecrawl(config)
         return valid, message, {}
@@ -447,6 +459,78 @@ def _validate_openai(config):
     if response.status_code >= 400:
         return False, "A OpenAI recusou a validação da chave."
     return True, "Credencial OpenAI aceita. Modelos GPT passam a sair direto de api.openai.com."
+
+
+def _validate_typesafe(config):
+    """Validate authentication with one minimal, real System One evaluation."""
+    import requests
+
+    model = str(config.get("default_model") or "jev-latest").strip()
+    payload = {
+        "state": "CentralX TypeSafe API credential validation.",
+        "model": model,
+        "questions": {
+            "connection_check": {
+                "type": "noul",
+                "instructions": "Does this text describe an API credential validation?",
+            }
+        },
+    }
+    try:
+        response = requests.post(
+            "https://api.typesafe.ai/v1/systemone",
+            headers={
+                "Authorization": f"Bearer {str(config.get('api_key') or '').strip()}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=20,
+        )
+    except requests.RequestException:
+        return False, "Não foi possível validar a chave na TypeSafe.", {}
+    if response.status_code in (401, 403):
+        return False, "A credencial TypeSafe não foi aceita.", {}
+    if response.status_code == 429:
+        return False, "A TypeSafe limitou a validação. Aguarde e tente de novo.", {}
+    if response.status_code == 529:
+        return False, "A TypeSafe está temporariamente sobrecarregada. Tente novamente.", {}
+    if response.status_code >= 400:
+        return False, "A TypeSafe recusou a avaliação de validação.", {}
+    try:
+        result = response.json()
+    except ValueError:
+        return False, "A TypeSafe retornou uma resposta inválida.", {}
+    if not isinstance(result, dict) or not isinstance(result.get("answers"), dict) or "connection_check" not in result["answers"]:
+        return False, "A TypeSafe aceitou a chave, mas não retornou a avaliação esperada.", {}
+    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+
+    def _usage_count(key):
+        try:
+            return max(0, int(usage.get(key) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    return True, "Chave TypeSafe aceita; avaliação de conexão concluída.", {
+        "model": result.get("model") or model,
+        "usage": {
+            "input_tokens": _usage_count("input_tokens"),
+            "output_tokens": _usage_count("output_tokens"),
+        },
+    }
+
+
+def resolve_typesafe_api_key() -> str:
+    """Return the configured TypeSafe key for server-side API calls."""
+    try:
+        config = get_configuration("typesafe", include_secrets=True)
+        if config.get("status") == "disabled":
+            return ""
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    return str(_setting("TYPESAFE_API_KEY") or "").strip()
 
 
 def resolve_firecrawl_api_key() -> str:

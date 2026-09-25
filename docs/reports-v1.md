@@ -40,6 +40,10 @@ O Link Tester oferece uma sugestão de campanha a partir do destino e de sinais 
 
 Um administrador da organização pode abrir **Acesso** e conceder a uma conta existente papel de visualização, operação ou administração para um `client_id`. A opção de acesso exclusivo impede que essa conta entre nos outros módulos do Cadu; as requisições de Reports usam apenas os clientes com concessão ativa. Alterações e revogações são lidas do banco nas requisições seguintes, inclusive quando uma sessão já estava aberta. Contas exclusivas não recebem acesso automático ao cliente da organização.
 
+## Relatórios na interface React
+
+A biblioteca do Reports agora abre o detalhe no React. O operador pode editar objetivo, metas, notas, datas e cor, com nota obrigatória, controle de versão e histórico. Publicação e revogação do link público também ficam no detalhe. A revisão de prints, o envio de fontes e a edição de identidade ainda abrem as telas anteriores enquanto essas etapas são migradas; os dados e permissões são os mesmos.
+
 ## Implantação e próxima etapa
 
 `deploy.sh` aplica `migrations/add_reports_operations_v1.sql`, `migrations/add_reports_review_fixes_v1.sql` e `migrations/add_reports_link_associations_v1.sql`, inclusive em ambientes que já tenham as primeiras migrações. O bundle React é construído por `npm run build:reports`. As migrações são aditivas e preservam os dados anteriores. A V1 ainda não inclui conectores nativos para outras plataformas, importação completa de métricas antigas, automações de audiência, análise de cliques ou mapa de calor. Esses recursos dependem de contratos de ingestão e controles de privacidade próprios antes de ativação.

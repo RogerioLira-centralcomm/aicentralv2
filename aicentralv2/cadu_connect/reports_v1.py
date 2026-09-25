@@ -3,6 +3,7 @@ import json
 import re
 import secrets
 import uuid
+from datetime import date, datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from urllib.parse import parse_qs, urlparse
 from flask import abort, jsonify, render_template, request, session
@@ -10,6 +11,7 @@ from flask import abort, jsonify, render_template, request, session
 from ..auth import login_required, login_required_api
 from ..db import get_db
 from . import reports_access
+from .report_rules import planned_phase
 
 
 def _rows(sql, params=()):
@@ -226,6 +228,131 @@ def register(bp):
                  'Espaço independente criado no Reports.', session['user_id']))
         get_db().commit()
         return jsonify(report=report), 201
+
+    @bp.get('/api/v1/reports/workspaces/<int:report_id>')
+    @login_required_api
+    def reports_v1_workspace_detail(report_id):
+        selected = _selection()
+        params = (report_id, selected['organization_id'], selected['client_id'])
+        found = _rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
+            document,revision,created_at,updated_at FROM cadu_connect_report_workspaces
+            WHERE id=%s AND organization_id=%s AND client_id=%s''', params)
+        if not found:
+            abort(404)
+        versions = _rows('''SELECT revision,note,created_by,created_at
+            FROM cadu_connect_report_workspace_versions WHERE report_id=%s
+            ORDER BY revision DESC LIMIT 30''', (report_id,))
+        sources = _rows('''SELECT id,original_name,supplier,period_start,period_end,status,created_at
+            FROM cadu_connect_report_sources WHERE report_id=%s
+            ORDER BY created_at DESC LIMIT 100''', (report_id,))
+        published = _rows('''SELECT token,expires_at,created_at
+            FROM cadu_connect_report_public_links
+            WHERE report_id=%s AND revoked_at IS NULL
+                AND (expires_at IS NULL OR expires_at > NOW())''', (report_id,))
+        return jsonify(report=found[0], versions=versions, sources=sources,
+                       public_link=published[0] if published else None)
+
+    @bp.post('/api/v1/reports/workspaces/<int:report_id>/document')
+    @login_required_api
+    def reports_v1_update_workspace_document(report_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or not isinstance(payload.get('document'), dict):
+            abort(400, description='Envie os campos do relatório.')
+        selected = _selection(payload)
+        _write_guard(selected)
+        revision = _optional_positive_id(payload.get('revision'), 'Versão')
+        if revision is None:
+            abort(400, description='Informe a versão atual.')
+        note = _required_text(payload, 'update_note', 2000)
+        found = _rows('''SELECT id,document,revision FROM cadu_connect_report_workspaces
+            WHERE id=%s AND organization_id=%s AND client_id=%s FOR UPDATE''',
+            (report_id, selected['organization_id'], selected['client_id']))
+        if not found:
+            abort(404)
+        current = found[0]
+        if current['revision'] != revision:
+            abort(409, description='Este relatório mudou. Reabra a versão mais recente.')
+        changes = payload['document']
+        allowed = {'objective': 2000, 'goals': 4000, 'management_notes': 8000,
+                   'start_date': 10, 'end_date': 10, 'accent': 7}
+        if not changes or set(changes) - set(allowed):
+            abort(400, description='Envie apenas os campos editáveis do contexto.')
+        document = dict(current['document'] or {})
+        for field, value in changes.items():
+            if not isinstance(value, str) or len(value) > allowed[field]:
+                abort(400, description=f'{field} inválido.')
+            document[field] = value.strip()
+        if 'accent' in changes and not re.fullmatch(r'#[0-9a-fA-F]{6}', document['accent']):
+            abort(400, description='Cor inválida.')
+        dates = {}
+        for field in ('start_date', 'end_date'):
+            try:
+                dates[field] = date.fromisoformat(document.get(field) or '') if document.get(field) else None
+            except ValueError:
+                abort(400, description='Informe datas válidas.')
+        try:
+            planned_phase(dates['start_date'], dates['end_date'], today=date.today())
+        except ValueError as exc:
+            abort(400, description=str(exc))
+        if document == current['document']:
+            get_db().rollback()
+            return jsonify(unchanged=True, revision=revision)
+        next_revision = revision + 1
+        _rows('''UPDATE cadu_connect_report_workspaces SET document=%s::jsonb,
+            revision=%s,updated_by=%s,updated_at=NOW() WHERE id=%s RETURNING id''',
+            (json.dumps(document), next_revision, session['user_id'], report_id))
+        _rows('''INSERT INTO cadu_connect_report_workspace_versions
+            (report_id,revision,document,note,created_by)
+            VALUES (%s,%s,%s::jsonb,%s,%s) RETURNING report_id''',
+            (report_id, next_revision, json.dumps(document), note, session['user_id']))
+        get_db().commit()
+        return jsonify(unchanged=False, revision=next_revision)
+
+    @bp.post('/api/v1/reports/workspaces/<int:report_id>/publish')
+    @login_required_api
+    def reports_v1_publish_workspace(report_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        try:
+            days = int(payload.get('expires_days', 30))
+        except (TypeError, ValueError):
+            abort(400, description='Prazo inválido.')
+        if days not in (0, 7, 30, 90):
+            abort(400, description='Prazo inválido.')
+        if not _rows('''SELECT id FROM cadu_connect_report_workspaces
+            WHERE id=%s AND organization_id=%s AND client_id=%s''',
+            (report_id, selected['organization_id'], selected['client_id'])):
+            abort(404)
+        token = secrets.token_urlsafe(32)
+        expires = None if days == 0 else datetime.now(timezone.utc) + timedelta(days=days)
+        _rows('''INSERT INTO cadu_connect_report_public_links
+            (report_id,token,expires_at,created_by,revoked_at)
+            VALUES (%s,%s,%s,%s,NULL)
+            ON CONFLICT (report_id) DO UPDATE SET token=EXCLUDED.token,
+                expires_at=EXCLUDED.expires_at,created_by=EXCLUDED.created_by,revoked_at=NULL
+            RETURNING report_id''', (report_id, token, expires, session['user_id']))
+        get_db().commit()
+        return jsonify(public_url=f'/connect/r/{token}', expires_at=expires)
+
+    @bp.post('/api/v1/reports/workspaces/<int:report_id>/unpublish')
+    @login_required_api
+    def reports_v1_unpublish_workspace(report_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if not _rows('''SELECT id FROM cadu_connect_report_workspaces
+            WHERE id=%s AND organization_id=%s AND client_id=%s''',
+            (report_id, selected['organization_id'], selected['client_id'])):
+            abort(404)
+        _rows('''UPDATE cadu_connect_report_public_links SET revoked_at=NOW()
+            WHERE report_id=%s AND revoked_at IS NULL RETURNING id''', (report_id,))
+        get_db().commit()
+        return jsonify(revoked=True)
 
     @bp.post('/api/v1/reports/link-tests')
     @login_required_api

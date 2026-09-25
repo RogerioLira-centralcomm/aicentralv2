@@ -104,15 +104,21 @@ function BriefArtifact({artifact, editing, onChange}) {
         : <p className="cv-brief-artifact__summary-text">{content.summary}</p>)}
       {!!metadata.length && <dl>{metadata.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl>}
     </section>}
-    {!!images.length && <section className="cv-brief-artifact__images" aria-label="Imagens do briefing">{images.map((image, index) => {
-      const src = safeUrl(image.url || image.src || image.preview || image.path || imageSource({content:image}));
-      return src ? <figure key={image.id || src}><img src={src} alt={image.alt || image.title || `Imagem de referência ${index + 1}`} loading="lazy"/>{(image.caption || image.title) && <figcaption>{image.caption || image.title}</figcaption>}</figure> : null;
-    })}</section>}
+    <ArtifactImages images={images} label="Imagens do briefing"/>
     {!!fields.length ? <div className="cv-brief-artifact__grid">{fields.map((field, index) => <section key={`${field.key}-${index}`} className={`cv-brief-artifact__section${index === 0 ? ' is-primary' : ''}`}>
       <h3><span>{String(index + 1).padStart(2, '0')}</span>{field.key || `Seção ${index + 1}`}</h3>
       {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/> : <BriefFieldValue value={field.value}/>}
     </section>)}</div> : <div className="cv-brief-artifact__empty">O briefing ainda não tem seções estruturadas.</div>}
   </article>;
+}
+
+function ArtifactImages({images, label = 'Imagens do material'}) {
+  if (!images?.length) return null;
+  return <section className="cv-brief-artifact__images" aria-label={label}>{images.map((image, index) => {
+    const item = typeof image === 'string' ? {url:image} : image || {};
+    const src = safeUrl(item.url || item.src || item.preview || item.path || imageSource({content:item}));
+    return src ? <figure key={item.id || src}><img src={src} alt={item.alt || item.title || `Imagem de referência ${index + 1}`} loading="lazy"/>{(item.caption || item.title) && <figcaption>{item.caption || item.title}</figcaption>}</figure> : null;
+  })}</section>;
 }
 
 const channelLogos = [
@@ -132,24 +138,50 @@ function ChannelMark({name}) {
 function ContentArtifact({artifact, editing, onChange}) {
   const content = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
   const fields = Array.isArray(content.fields) ? content.fields : [];
+  const images = Array.isArray(content.images) ? content.images : Array.isArray(content.assets) ? content.assets.filter(item => /image/i.test(item?.mime_type || item?.type || '')) : [];
   const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
   const type = artifact.type;
   const metricEntries = Object.entries(content.metrics || content.kpis || {}).filter(([, value]) => value !== '' && value != null && typeof value !== 'object');
-  const tables = Array.isArray(content.tables) ? content.tables : [];
+  const tables = Array.isArray(content.tables) ? [...content.tables] : [];
+  const mediaRows = content.channels || content.allocations || content.rows;
+  if (type === 'media_plan' && !tables.length && Array.isArray(mediaRows) && mediaRows.length) {
+    tables.push({title: 'Distribuição por canal', columns: content.columns, rows: mediaRows});
+  }
+  const scenarios = type === 'scenario' && Array.isArray(content.options) ? content.options : [];
+  const citations = type === 'research' && Array.isArray(content.citations) ? content.citations : [];
+  const highlights = type === 'executive_summary' && Array.isArray(content.highlights) ? content.highlights : [];
+  const updateScenario = (index, patch) => onChange({...content, options:scenarios.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item} : {...item, ...patch})});
+  const updateCitation = (index, patch) => onChange({...content, citations:citations.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item, url:item} : {...item, ...patch})});
   return <article className={`cv-content-artifact is-${type}`}>
     {content.summary && <p className="cv-content-artifact__summary">{content.summary}</p>}
+    <ArtifactImages images={images} label={type === 'media_plan' ? 'Imagens do plano de mídia' : 'Imagens do material'}/>
     {!!metricEntries.length && <dl className="cv-content-artifact__metrics">{metricEntries.map(([label, value]) => <div key={label}><dt>{label.replaceAll('_', ' ')}</dt><dd>{String(value)}</dd></div>)}</dl>}
+    {(highlights.length > 0 || editing && type === 'executive_summary') && <section className="cv-content-artifact__highlights" aria-label="Destaques"><ul>{highlights.map((item, index) => <li key={item.id || index}>{editing ? <input aria-label={`Destaque ${index + 1}`} value={typeof item === 'string' ? item : item.text || item.title || item.value || ''} onChange={event => onChange({...content, highlights:highlights.map((value, itemIndex) => itemIndex !== index ? value : typeof value === 'string' ? event.target.value : {...value, text:event.target.value})})}/> : typeof item === 'string' ? item : item.text || item.title || item.value}</li>)}</ul>{editing && <button type="button" onClick={() => onChange({...content, highlights:[...highlights, '']})}>Adicionar destaque</button>}</section>}
     {tables.map((table, index) => <section className="cv-content-artifact__table" key={table.title || index}>{table.title && <h3>{table.title}</h3>}<ArtifactTable table={table} editing={editing} onChange={next => onChange({...content, tables:tables.map((item, itemIndex) => itemIndex === index ? next : item)})}/></section>)}
+    {(scenarios.length > 0 || editing && type === 'scenario') && <section className="cv-content-artifact__scenario-grid" aria-label="Cenários comparados">{scenarios.map((scenario, index) => <section key={scenario.id || scenario.title || index}>
+      {editing ? <input aria-label={`Nome do cenário ${index + 1}`} value={typeof scenario === 'string' ? scenario : scenario.title || ''} onChange={event => updateScenario(index, {title:event.target.value})}/> : <h3>{typeof scenario === 'string' ? scenario : scenario.title || `Cenário ${index + 1}`}</h3>}
+      {(editing || typeof scenario !== 'string' && (scenario.summary || scenario.description || scenario.content)) && (editing ? <EditableTextarea aria-label={`Descrição do cenário ${index + 1}`} value={typeof scenario === 'string' ? '' : scenario.summary || scenario.description || scenario.content || ''} onChange={value => updateScenario(index, {summary:value})}/> : <ContentFieldValue value={scenario.summary || scenario.description || scenario.content}/>)}
+      {typeof scenario !== 'string' && scenario.metrics && <dl>{Object.entries(scenario.metrics).filter(([, value]) => value != null && typeof value !== 'object').map(([key, value]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{String(value)}</dd></div>)}</dl>}
+    </section>)}{editing && <button type="button" onClick={() => onChange({...content, options:[...scenarios, {title:'', summary:''}]})}>Adicionar cenário</button>}</section>}
     {!!fields.length && <div className="cv-content-artifact__sections">{fields.map((field, index) => <section className={`cv-content-artifact__section is-${type}`} key={`${field.key}-${index}`}>
       <h3>{field.key || `Seção ${index + 1}`}</h3>
       {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/> : <><ChannelMark name={field.key}/><ContentFieldValue value={field.value}/></>}
     </section>)}</div>}
-    {!fields.length && !tables.length && !content.summary && <div className="cv-content-artifact__empty">Este material ainda não tem conteúdo.</div>}
+    {(citations.length > 0 || editing && type === 'research') && <section className="cv-content-artifact__citations"><h3>Fontes consultadas</h3><ol>{citations.map((citation, index) => {
+      const item = typeof citation === 'string' ? {url:citation, title:citation} : citation || {};
+      const href = safeUrl(item.url || item.href || item.link);
+      const title = item.title || item.source || item.publisher || href || `Fonte ${index + 1}`;
+      return <li key={item.id || href || `${title}-${index}`}>{editing ? <div className="cv-content-artifact__citation-edit"><input aria-label={`Título da fonte ${index + 1}`} value={item.title || item.source || ''} placeholder="Título da fonte" onChange={event => updateCitation(index, {title:event.target.value})}/><input aria-label={`URL da fonte ${index + 1}`} value={item.url || item.href || item.link || ''} placeholder="https://" onChange={event => updateCitation(index, {url:event.target.value})}/><textarea aria-label={`Trecho da fonte ${index + 1}`} value={item.excerpt || ''} placeholder="Trecho ou observação" onChange={event => updateCitation(index, {excerpt:event.target.value})}/></div> : <>{href ? <a href={href} target="_blank" rel="noreferrer">{title}</a> : <span>{title}</span>}{item.date && <time>{String(item.date)}</time>}{item.excerpt && <p>{item.excerpt}</p>}</>}</li>;
+    })}</ol>{editing && <button type="button" className="cv-content-artifact__add-citation" onClick={() => onChange({...content, citations:[...citations, {title:'', url:'', excerpt:''}]})}>Adicionar fonte</button>}</section>}
+    {!fields.length && !tables.length && !scenarios.length && !citations.length && !highlights.length && !content.summary && !metricEntries.length && !(editing && ['executive_summary', 'scenario', 'research'].includes(type)) && <div className="cv-content-artifact__empty">Este material ainda não tem conteúdo.</div>}
   </article>;
 }
 
 function ContentFieldValue({value}) {
-  if (Array.isArray(value)) return <ArtifactTable table={{rows:value}}/>;
+  if (Array.isArray(value)) {
+    if (value.every(item => ['string', 'number'].includes(typeof item))) return value.length ? <ul>{value.map((item, index) => <li key={`${index}-${item}`}>{String(item)}</li>)}</ul> : <p className="cv-content-artifact__empty-value">A definir</p>;
+    return <ArtifactTable table={{rows:value}}/>;
+  }
   const text = String(value ?? '').trim();
   if (!text) return <p className="cv-content-artifact__empty-value">A definir</p>;
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -688,9 +720,10 @@ function ProjectProfileArtifact({artifact}) {
   </article>;
 }
 
-function ProjectMap({artifact, onChange}) {
+function ProjectMap({artifact, editing, onChange}) {
   const content = artifact.content || {};
   const [zoom, setZoom] = useState(Number(content.layout?.zoom || 1));
+  useEffect(() => { setZoom(Number(content.layout?.zoom || 1)); }, [artifact.id, content.layout?.zoom]);
   const groups = content.groups || [];
   const resources = content.resources || [];
   const move = (resourceId, groupId) => onChange({
@@ -706,7 +739,7 @@ function ProjectMap({artifact, onChange}) {
         <div className="cv-grid cv-gap-1 cv-p-2">{resources.filter(item => item.group_id === group.id).map(resource => <details key={resource.id} className="cv-rounded-xl cv-bg-white/[.035] cv-p-3">
           <summary className="cv-cursor-pointer cv-list-none"><span className="cv-block cv-text-[10px] cv-uppercase cv-tracking-wider cv-text-[#71928d]">{resource.type || 'Arquivo'}</span><strong className="cv-mt-1 cv-block cv-text-xs cv-font-medium">{resource.title}</strong></summary>
           <div className="cv-mt-3 cv-border-t cv-border-white/[.07] cv-pt-3">
-            <label className="cv-block cv-text-[10px] cv-text-[#78918d]">Mover para<select value={resource.group_id} onChange={event => move(resource.id, event.target.value)} className="cv-mt-1 cv-block cv-h-8 cv-w-full cv-rounded-lg cv-border-0 cv-bg-[#1c3033] cv-px-2 cv-text-[11px]">{groups.map(option => <option key={option.id} value={option.id}>{option.title}</option>)}</select></label>
+            {editing ? <label className="cv-block cv-text-[10px] cv-text-[#78918d]">Mover para<select value={resource.group_id} onChange={event => move(resource.id, event.target.value)} className="cv-mt-1 cv-block cv-h-8 cv-w-full cv-rounded-lg cv-border-0 cv-bg-[#1c3033] cv-px-2 cv-text-[11px]">{groups.map(option => <option key={option.id} value={option.id}>{option.title}</option>)}</select></label> : <p className="cv-m-0 cv-text-[10px] cv-text-[#78918d]">Em {groups.find(item => item.id === resource.group_id)?.title || 'sem grupo'}</p>}
             <div className="cv-mt-3 cv-flex cv-gap-2">{safeUrl(resource.editor_url) && <a href={safeUrl(resource.editor_url)} target="_blank" rel="noreferrer" className="cv-flex cv-items-center cv-gap-1 cv-text-[11px] cv-text-[#65d8cb] cv-no-underline"><Icon name="external" size={13}/>Editar</a>}{safeUrl(resource.download_url) && <a href={safeUrl(resource.download_url)} className="cv-flex cv-items-center cv-gap-1 cv-text-[11px] cv-text-[#a6bbb7] cv-no-underline"><Icon name="download" size={13}/>Baixar</a>}</div>
           </div>
         </details>)}</div>
@@ -734,6 +767,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const type = artifact?.type || 'document';
   const indexable = artifact?.capabilities?.indexable ?? !['html', 'project_map', 'link_reader'].includes(type);
   const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
+  const hasEditMode = textArtifact || type === 'project_map';
   useEffect(() => {
     const match = document.cookie.match(/(?:^|; )cadu-artifact-theme=([^;]+)/);
     setLightTheme(match?.[1] === 'light');
@@ -748,7 +782,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (artifact.pending) return <div className="cv-artifact-loading" role="status" aria-live="polite"><i/><strong>Preparando a entrega</strong><span>O conteúdo aparecerá aqui quando estiver pronto.</span></div>;
     if (artifact.failed) return <div className="cv-artifact-loading is-failed" role="status"><strong>A entrega não foi concluída</strong><span>{artifact.error}</span></div>;
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
-    if (type === 'project_map') return <ProjectMap artifact={artifact} onChange={onChange}/>;
+    if (type === 'project_map') return <ProjectMap artifact={artifact} editing={editingDocument} onChange={onChange}/>;
     if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
     if (type === 'image') return <ImageArtifact artifact={artifact} metadata={imageMetadata} onMetadata={next => setImageMetadata(current => ({...(current || {}), ...next}))}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
@@ -759,7 +793,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (type === 'brief') return <BriefArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
     if (['executive_summary', 'media_plan', 'scenario', 'research'].includes(type)) {
       const structured = normalizeArtifactContent(artifact.content || {}, type);
-      if (Array.isArray(structured.fields) || Array.isArray(structured.tables) || structured.metrics || structured.kpis) return <ContentArtifact artifact={{...artifact, content:structured}} editing={editingDocument} onChange={onChange}/>;
+      if (Array.isArray(structured.fields) || Array.isArray(structured.tables) || Array.isArray(structured.rows) || Array.isArray(structured.channels) || Array.isArray(structured.allocations) || Array.isArray(structured.options) || Array.isArray(structured.citations) || Array.isArray(structured.highlights) || structured.metrics || structured.kpis) return <ContentArtifact artifact={{...artifact, content:structured}} editing={editingDocument} onChange={onChange}/>;
     }
     return textArtifact
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} editing={editingDocument}/>
@@ -847,7 +881,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     <header className={`cv-artifact-header cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4${type === 'brief' ? ' is-brief' : ''}`}>
       <div className="cv-min-w-0 cv-flex-1">{type !== 'image' && <span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Entrega'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>}{type === 'image' || textArtifact ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label={type === 'image' ? 'Nome do arquivo' : 'Título do documento'}/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o título">{displayTitle}{dirty && <i className="cv-artifact-title-dirty" title="Alterações não salvas"/>}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
       {type === 'html' && artifact.id && <button type="button" onClick={publicLink ? onCopyPublishedUrl : onPublish} disabled={publishing || saving} className="cv-artifact-publish" aria-label={publishing ? 'Publicando' : saving ? 'Salvando' : publicLink ? 'Copiar link publicado' : 'Publicar página'} title={publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Copiar link' : 'Publicar'}><Icon name={publicLink ? 'link' : 'external'} size={15}/><span>{publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Link' : 'Publicar'}</span></button>}
-      {textArtifact && !artifact.pending && !artifact.failed && <button type="button" className="cv-artifact-edit-mode" onClick={() => setEditingDocument(value => !value)} aria-label={editingDocument ? 'Visualizar material' : type === 'brief' ? 'Editar briefing' : type === 'meeting_agenda' ? 'Editar pauta' : type === 'meeting_summary' ? 'Editar registro' : 'Editar documento'} title={editingDocument ? 'Visualizar' : 'Editar'}><Icon name={editingDocument ? 'file' : 'compose'} size={15}/><span>{editingDocument ? 'Visualizar' : 'Editar'}</span></button>}
+      {hasEditMode && !artifact.pending && !artifact.failed && <button type="button" className="cv-artifact-edit-mode" onClick={() => setEditingDocument(value => !value)} aria-label={editingDocument ? 'Visualizar material' : type === 'brief' ? 'Editar briefing' : type === 'meeting_agenda' ? 'Editar pauta' : type === 'meeting_summary' ? 'Editar registro' : type === 'project_map' ? 'Editar mapa' : 'Editar documento'} title={editingDocument ? 'Visualizar' : 'Editar'}><Icon name={editingDocument ? 'file' : 'compose'} size={15}/><span>{editingDocument ? 'Visualizar' : 'Editar'}</span></button>}
       {artifact.id && type !== 'image' && <div className="cv-brief-header-save" title={saving ? 'Salvando no projeto' : dirty ? 'Alterações pendentes' : artifact.project_ref ? 'Salvo no projeto' : 'Rascunho salvo automaticamente'}><i className={saving || dirty ? 'is-pending' : ''}/><span>{saving ? 'Salvando' : dirty ? 'Pendente' : artifact.project_ref ? 'No projeto' : 'Salvo'}</span></div>}
       {projectRef && type !== 'link_reader' && indexable && <label className="cv-brief-header-format"><span>Fonte</span><select aria-label="Formato da fonte" value={sourceFormat} disabled={saving} onChange={event => setSourceFormat(event.target.value)}><option value={type === 'html' ? 'html' : 'md'}>{type === 'html' ? '.html' : '.md'}</option>{type !== 'html' && <option value="txt">.txt</option>}</select></label>}
       {projectRef && type !== 'link_reader' && indexable && <button type="button" onClick={() => onSaveToProject(sourceFormat)} disabled={saving} className="cv-brief-header-index">{saving ? 'Indexando…' : artifact.status === 'active' && artifact.project_ref ? 'Atualizar índice' : 'Indexar'}</button>}

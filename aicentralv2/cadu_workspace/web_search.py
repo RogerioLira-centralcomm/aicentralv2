@@ -401,6 +401,9 @@ def search(context, arguments: dict) -> dict:
             source["title"] = extracted.get("page_title") or source["title"]
             source["excerpt"] = extracted.get("content_excerpt") or source["excerpt"]
             hydrated += 1
+    for source in sources:
+        source["read_status"] = "read" if source.get("content") else "discovered"
+        source.setdefault("published_at_source", "search_metadata" if source.get("published_at") else "unknown")
     try:
         credits.charge_firecrawl(
             actor=actor, idempotency_key=f"web-search:{request_id}:search",
@@ -427,7 +430,7 @@ def search(context, arguments: dict) -> dict:
         "sites_requested": limit,
         "searched_at": datetime.now(timezone.utc).isoformat(),
         "search_mode": "firecrawl_discovery_with_selected_source_reading",
-        "evidence_policy": "Use as fontes para responder ao pedido atual; diferencie fato, interpretação e lacuna.",
+        "evidence_policy": "Somente fontes com read_status=read sustentam fatos detalhados. Resultados descobertos são pistas; diferencie fato, interpretação e lacuna.",
         "review_stage": "python_cleanup_quality_gate_before_agent_synthesis",
     }
 
@@ -448,7 +451,7 @@ def read(context, arguments: dict) -> dict:
             sources.append({
                 "id": f"google-authorized-{index}", "title": authenticated.get("page_title") or _host(url),
                 "url": url, "domain": _host(url), "excerpt": authenticated.get("content_excerpt") or "",
-                "source_type": "google_workspace_resource", "rank": index, **authenticated,
+                "source_type": "google_workspace_resource", "rank": index, "read_status": "read", **authenticated,
             })
             continue
 
@@ -463,7 +466,9 @@ def read(context, arguments: dict) -> dict:
             source = {
                 "id": f"web-direct-{index}", "title": extracted.get("page_title") or _host(url),
                 "url": url, "domain": _host(url), "excerpt": extracted.get("content_excerpt") or "",
-                "source_type": "direct_url", "access_mode": "firecrawl_public", "rank": index, **extracted,
+                "source_type": "direct_url", "access_mode": "firecrawl_public", "rank": index,
+                "read_status": "read", "published_at_source": "page" if extracted.get("published_at") else "unknown",
+                **extracted,
             }
             sources.append(source)
             request_id = str(arguments.get("request_id") or getattr(context, "request_id", "") or uuid4())[:120]

@@ -46,13 +46,13 @@ def _require_project_editor(context: RequestContext) -> None:
 
 
 def _search_project_conversation_history(context: RequestContext, query: str, overview: bool) -> list[dict]:
-    """Retrieve bounded original user statements from earlier conversations."""
+    """Retrieve earlier user statements and separately labelled assistant outputs."""
     search_terms = [word for word in re.findall(r"[^\W_]{3,}", query, re.UNICODE)
                     if _history_search_terms(word)][:8]
     search_expression = " | ".join(search_terms)
     if not search_expression and not overview:
         return []
-    historical = repository.rows("""SELECT message.id AS message_id,
+    statement = """SELECT message.id AS message_id,
             message.conversation_id, message.content, message.created_at,
             conversation.titulo AS conversation_title,
             CASE WHEN %s = '' THEN 0 ELSE
@@ -65,23 +65,31 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
         WHERE binding.client_id=%s
           AND binding.project_ref=%s AND binding.user_id=%s
           AND conversation.id_cliente=%s AND conversation.id_contato_cliente=%s
-          AND message.role='user' AND message.conversation_id<>COALESCE(%s,'')
+          AND message.role=%s AND message.conversation_id<>COALESCE(%s,'')
           AND length(message.content) BETWEEN 20 AND 12000
           AND (%s = '' OR to_tsvector('portuguese', message.content)
                  @@ to_tsquery('portuguese', %s))
-        ORDER BY text_rank DESC, message.created_at DESC LIMIT 6""",
-        (search_expression, search_expression, context.client_id,
-         context.project_ref, context.user_id, context.client_id, context.user_id,
-         context.conversation_id, search_expression, search_expression))
-    return [{
-        "result_type": "conversation_history", "evidence_level": "user_statement",
-        "message_id": str(item["message_id"]),
-        "conversation_id": str(item["conversation_id"]),
-        "title": str(item.get("conversation_title") or "Conversa anterior")[:160],
-        "description": " ".join(str(item.get("content") or "").split())[:900],
-        "created_at": str(item.get("created_at") or ""),
-        "score": 3 + float(item.get("text_rank") or 0),
-    } for item in historical]
+        ORDER BY text_rank DESC, message.created_at DESC LIMIT 4"""
+    results = []
+    for role, result_type, evidence_level, base_score in (
+        ("user", "conversation_history", "user_statement", 3),
+        ("assistant", "conversation_assistant_output", "prior_assistant_output_unverified", 1),
+    ):
+        historical = repository.rows(statement, (
+            search_expression, search_expression, context.client_id,
+            context.project_ref, context.user_id, context.client_id, context.user_id,
+            role, context.conversation_id, search_expression, search_expression,
+        ))
+        results.extend({
+            "result_type": result_type, "evidence_level": evidence_level,
+            "message_id": str(item["message_id"]),
+            "conversation_id": str(item["conversation_id"]),
+            "title": str(item.get("conversation_title") or "Conversa anterior")[:160],
+            "description": " ".join(str(item.get("content") or "").split())[:900],
+            "created_at": str(item.get("created_at") or ""),
+            "score": base_score + float(item.get("text_rank") or 0),
+        } for item in historical)
+    return results
 
 
 def _history_search_terms(word: str) -> bool:
@@ -744,6 +752,7 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
             "Se source_inventory.needs_index for maior que zero, diga que há arquivos ainda sem leitura indexada. "
             "Se resource_index_pending for verdadeiro, o inventário pode estar desatualizado; "
             "mensagens de conversas anteriores comprovam apenas o que o usuário disse, não uma decisão aprovada; "
+            "respostas anteriores do assistente são histórico gerado e precisam de verificação; "
             "memórias confirmadas foram revisadas, mas podem ser substituídas por dados salvos mais recentes; "
             "se unavailable_scopes não estiver vazio, informe a cobertura parcial."
         ),

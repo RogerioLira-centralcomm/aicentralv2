@@ -199,18 +199,39 @@ def _bounded_json(value: dict, limit: int) -> str:
                                  for name in ("nome", "descricao", "instrucoes", "publico", "posicionamento")
                                  if project.get(name)}
             header["results"] = []
+            def evidence_row(result):
+                row = {name: result[name] for name in (
+                    "result_type", "evidence_level", "score", "title", "label", "display_value",
+                    "description", "trecho", "fonte", "status", "resource_id", "source_id",
+                    "chunk_id", "task_id", "activity_kind", "locator",
+                    "message_id", "conversation_id", "created_at",
+                    "memory_id", "reviewed_at",
+                ) if name in result}
+                for name in ("description", "trecho", "display_value", "locator"):
+                    if name in row:
+                        row[name] = str(row[name])[:350]
+                return row
             if fits({**compact, key: {**header, "truncated": True}}):
+                # Ranking can fill the prompt with resources before earlier
+                # conversation outputs appear. Reserve a little space for each
+                # provenance class when the public search found it.
+                conversations = item.get("conversation_results") or []
+                supplemental = [*(item.get("memory_results") or [])[:2]]
+                supplemental.extend([row for row in conversations
+                                     if row.get("evidence_level") == "user_statement"][:2])
+                supplemental.extend([row for row in conversations
+                                     if row.get("evidence_level") == "prior_assistant_output_unverified"][:2])
+                for result in supplemental:
+                    row = evidence_row(result)
+                    proposal = {**header, "results": [*header["results"], row]}
+                    if fits({**compact, key: {**proposal, "truncated": True}}):
+                        header = proposal
                 for result in (item.get("results") or [])[:24]:
-                    row = {name: result[name] for name in (
-                        "result_type", "evidence_level", "score", "title", "label", "display_value",
-                        "description", "trecho", "fonte", "status", "resource_id", "source_id",
-                        "chunk_id", "task_id", "activity_kind", "locator",
-                        "message_id", "conversation_id", "created_at",
-                        "memory_id", "reviewed_at",
-                    ) if name in result}
-                    for name in ("description", "trecho", "display_value", "locator"):
-                        if name in row:
-                            row[name] = str(row[name])[:350]
+                    row = evidence_row(result)
+                    origin = (row.get("memory_id"), row.get("message_id"))
+                    if any(origin) and any((saved.get("memory_id"), saved.get("message_id")) == origin
+                                           for saved in header["results"]):
+                        continue
                     proposal = {**header, "results": [*header["results"], row]}
                     if not fits({**compact, key: {**proposal, "truncated": True}}):
                         break

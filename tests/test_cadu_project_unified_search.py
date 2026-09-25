@@ -250,22 +250,27 @@ def test_search_does_not_report_unavailable_sources_as_no_matches(monkeypatch):
 
 
 def test_historical_project_search_uses_user_and_project_scope(monkeypatch):
-    captured = {}
+    captured = []
     def rows(sql, params):
-        captured["sql"], captured["params"] = sql, params
-        return [{"message_id": "m1", "conversation_id": "c1", "content": "Decidimos focar em B2B.",
+        captured.append((sql, params))
+        return [{"message_id": "m1" if params[7] == 'user' else "m2", "conversation_id": "c1",
+                 "content": "Decidimos focar em B2B.",
                  "conversation_title": "Planejamento", "created_at": "2026-09-20", "text_rank": 0.4}]
     monkeypatch.setattr(workspace.repository, "rows", rows)
 
     results = workspace._search_project_conversation_history(CONTEXT, "decisões B2B", False)
 
-    assert "binding.client_id=%s" in captured["sql"]
-    assert "binding.organization_id" not in captured["sql"]
-    assert "binding.project_ref=%s AND binding.user_id=%s" in captured["sql"]
-    assert "message.role='user'" in captured["sql"]
-    assert captured["params"][2:7] == (12, "ci:project-1", 7, 12, 7)
+    assert len(captured) == 2
+    assert "binding.client_id=%s" in captured[0][0]
+    assert "binding.organization_id" not in captured[0][0]
+    assert "binding.project_ref=%s AND binding.user_id=%s" in captured[0][0]
+    assert "message.role=%s" in captured[0][0]
+    assert captured[0][1][2:8] == (12, "ci:project-1", 7, 12, 7, 'user')
+    assert captured[1][1][7] == 'assistant'
     assert results[0]["evidence_level"] == "user_statement"
     assert results[0]["message_id"] == "m1"
+    assert results[1]["evidence_level"] == "prior_assistant_output_unverified"
+    assert results[1]["message_id"] == "m2"
 
 
 def test_historical_project_search_skips_generic_question(monkeypatch):
@@ -314,6 +319,29 @@ def test_compact_agent_evidence_keeps_reviewed_memory_and_conversation_origin():
     assert rows[1]['message_id'] == 'message-1'
     assert rows[1]['conversation_id'] == 'conversation-1'
     assert 'organization_id' not in compact['current_context']
+
+
+def test_compact_agent_evidence_reserves_prior_assistant_output():
+    import json
+    resources = [{'result_type': 'project_resource', 'resource_id': str(index),
+                  'description': 'Recurso do projeto ' * 20, 'score': 8}
+                 for index in range(30)]
+    assistant = {'result_type': 'conversation_assistant_output',
+                 'evidence_level': 'prior_assistant_output_unverified',
+                 'conversation_id': 'conversation-1', 'message_id': 'assistant-message-1',
+                 'description': 'Análise anterior sobre o público B2B', 'score': 1}
+    evidence = {'current_context': CONTEXT.to_dict(),
+                'workspace.search_project_content': {
+                    'project_ref': CONTEXT.project_ref, 'results': resources,
+                    'conversation_results': [assistant], 'memory_results': [],
+                    'padding': 'x' * 5000}}
+
+    compact = json.loads(_bounded_json(evidence, 3500))
+
+    rows = compact['workspace.search_project_content']['results']
+    assert any(row.get('message_id') == 'assistant-message-1'
+               and row.get('evidence_level') == 'prior_assistant_output_unverified'
+               for row in rows)
 
 
 def test_search_checks_project_access_before_reading_context(monkeypatch):

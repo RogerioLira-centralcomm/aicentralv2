@@ -2123,3 +2123,15 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-google-plugin-panel__actions button { min-height:38px; padding:8px 12px; border:1px solid rgba(255,255,255,.2); border-radius:9px; background:transparent; color:#e5f0eb; font:inherit; font-size:12px; cursor:pointer; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__actions button.is-primary { border-color:#7fe4d0; background:#7fe4d0; color:#09271f; font-weight:700; }
 @media (max-width:767px) { #cadu-conversations-v2-root .cv-google-plugin-panel { top:70px; right:8px; width:calc(100% - 16px); max-height:calc(100dvh - 130px); } }
+
+
+/* Keep artifact typography comfortable on standard notebook widths. */
+@media (min-width:1200px) and (max-width:1399px) {
+  #cadu-conversations-v2-root .cv-rich-document__title { font-size:24px; }
+  #cadu-conversations-v2-root .cv-rich-document__canvas { font-size:15px; line-height:1.68; }
+  #cadu-conversations-v2-root .cv-rich-document__canvas h2 { font-size:18px; }
+  #cadu-conversations-v2-root .cv-meeting-summary { padding:26px 26px 46px; }
+  #cadu-conversations-v2-root .cv-meeting-summary__intro textarea { font-size:16px; }
+  #cadu-conversations-v2-root .cv-meeting-summary__section textarea { font-size:13px; }
+  #cadu-conversations-v2-root .cv-artifact-reading__toc { font-size:12px; }
+}

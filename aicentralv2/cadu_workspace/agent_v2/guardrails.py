@@ -180,11 +180,14 @@ def _clean_citations(values):
         title = _clean_text(item.get("title"), 300)
         if not title:
             continue
-        citations.append({
+        citation = {
             "title": title,
             "url": _resource_url(item.get("url")),
             "excerpt": _clean_text(item.get("excerpt"), 1000),
-        })
+        }
+        if item.get("id") or item.get("source_id"):
+            citation["id"] = _clean_text(item.get("id") or item.get("source_id"), 100)
+        citations.append(citation)
         if len(citations) >= 20:
             break
     return citations
@@ -551,11 +554,15 @@ def _clean_patch(value, artifact_type=None):
         key = _clean_text(item.get("key"), 160)
         state = _clean_text(item.get("state"), 40).lower()
         if key:
-            fields.append({
+            field = {
                 "key": key,
                 "value": str(_provider_envelope_text(item.get("value")) or item.get("value") or "").strip(),
                 "state": state if state in allowed_states else "inferred",
-            })
+            }
+            if isinstance(item.get("source_ids"), list):
+                field["source_ids"] = [_clean_text(source_id, 100) for source_id in item["source_ids"][:8]
+                                       if isinstance(source_id, str) and source_id.strip()]
+            fields.append(field)
     patch = {
         "title": _clean_text(value.get("title"), 300),
         "summary": summary_text,

@@ -482,7 +482,8 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             f"O usuário pediu especificamente um artefato do tipo {route.artifact_type}. "
             "Retorne artifact_patch com title, summary curta e fields somente para seções sustentadas. "
             "Use tables para dados comparáveis, metrics para números com unidade e período, "
-            "citations para fontes efetivamente lidas, e images apenas para URLs recebidas. "
+            "citations para fontes efetivamente lidas, com id igual ao ID da fonte recuperada; "
+            "em cada field factual, inclua source_ids correspondentes. Use images apenas para URLs recebidas. "
             "Em cenário, use options para alternativas comparáveis e identifique premissas. "
             "Não coloque sugestões operacionais do plugin dentro do artefato, salvo pedido expresso; "
             "deixe-as em text.content. Não invente campos, valores, fontes ou imagens."
@@ -615,10 +616,10 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                 if route.artifact_type == "html" else
                 {"title": "string", "summary": "síntese factual curta", "fields": [{"key": "Participantes|Contexto|Decisões|Encaminhamentos|Pendências", "value": "texto editável", "state": "confirmed|inferred|missing"}]}
                 if route.artifact_type in {"meeting_summary", "meeting_agenda"} else
-                {"title": "string", "summary": "síntese factual", "fields": [{"key": "seção curta", "value": "conteúdo", "state": "confirmed|inferred|missing"}],
+                {"title": "string", "summary": "síntese factual", "fields": [{"key": "seção curta", "value": "conteúdo", "state": "confirmed|inferred|missing", "source_ids": ["ID de fonte lida"]}],
                  "metrics": {"indicador": "valor com unidade e período"},
                  "tables": [{"title": "comparação", "columns": ["coluna"], "rows": [["célula"]]}],
-                 "citations": [{"title": "fonte lida", "url": "https://...", "excerpt": "trecho"}],
+                 "citations": [{"id": "ID de fonte lida", "title": "fonte lida", "url": "https://...", "excerpt": "trecho"}],
                  "images": [{"url": "https://...", "alt": "descrição"}],
                  "options": [{"title": "cenário", "summary": "premissas", "metrics": {"indicador": "valor"}}]}
                 if route.action == "create_named_artifact" else

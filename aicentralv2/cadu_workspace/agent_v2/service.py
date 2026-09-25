@@ -625,8 +625,17 @@ def _enrich_source_blocks(response, run):
         response.citations = [item for item in response.citations
                               if not isinstance(item, dict) or str(item.get("url") or "") in allowed_urls]
         if (run.get("route") or {}).get("artifact_type") == "research" and isinstance(response.artifact_patch, dict):
-            response.artifact_patch["citations"] = [item for item in response.artifact_patch.get("citations") or []
-                                                    if isinstance(item, dict) and str(item.get("url") or "") in read_urls]
+            read_by_url = {source["url"]: source for source in safe_web_sources if source["read_status"] == "read"}
+            response.artifact_patch["citations"] = [
+                {**item, "id": read_by_url[item["url"]]["id"], "read_status": "read"}
+                for item in response.artifact_patch.get("citations") or []
+                if isinstance(item, dict) and str(item.get("url") or "") in read_by_url
+            ]
+            allowed_ids = {source["id"] for source in read_by_url.values()}
+            for field in response.artifact_patch.get("fields") or []:
+                if isinstance(field, dict):
+                    field["source_ids"] = [source_id for source_id in field.get("source_ids") or []
+                                           if source_id in allowed_ids]
         execution_mode = str(run.get("execution_mode") or "analysis")
         query = str(run.get("message") or "").lower()
         person_or_work_query = any(token in query for token in (

@@ -59,21 +59,27 @@ def test_web_discovery_does_not_become_a_read_citation():
 
     response = SimpleNamespace(
         citations=[{"title": "Só busca", "url": "https://example.com/descoberta"}],
-        blocks=[], artifact_patch={"citations": [{"title": "Só busca", "url": "https://example.com/descoberta"}]},
+        blocks=[], artifact_patch={
+            "citations": [{"title": "Só busca", "url": "https://example.com/descoberta"},
+                          {"title": "Lida", "url": "https://example.com/lida"}],
+            "fields": [{"key": "Achado", "value": "Dado", "source_ids": ["web-1", "web-2", "inventado"]}],
+        },
     )
     run = {
         "route": {"artifact_type": "research"}, "execution_mode": "analysis", "message": "pesquise",
         "resolved_context": SimpleNamespace(values={
             "web.search": {"sources": [
-                {"url": "https://example.com/descoberta", "title": "Busca", "excerpt": "Trecho da busca"},
-                {"url": "https://example.com/lida", "title": "Página", "content": "Corpo efetivamente lido."},
+                {"id": "web-1", "url": "https://example.com/descoberta", "title": "Busca", "excerpt": "Trecho da busca"},
+                {"id": "web-2", "url": "https://example.com/lida", "title": "Página", "content": "Corpo efetivamente lido."},
             ]},
         }),
     }
     _enrich_source_blocks(response, run)
 
     assert [item["url"] for item in response.citations] == ["https://example.com/lida"]
-    assert response.artifact_patch["citations"] == []
+    assert response.artifact_patch["citations"] == [{"title": "Lida", "url": "https://example.com/lida",
+                                                     "id": "web-2", "read_status": "read"}]
+    assert response.artifact_patch["fields"][0]["source_ids"] == ["web-2"]
     sources = next(block for block in response.blocks if block["type"] == "source_group")
     assert sources["items"][0]["read_status"] == "discovered"
     assert sources["items"][0]["content"] == ""

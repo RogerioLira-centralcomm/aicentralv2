@@ -1,4 +1,7 @@
-const CONTENT_KEYS = ['content', 'answer', 'text', 'output'];
+// Provider envelopes sometimes survive inside older draft artifacts. Follow
+// only their content-bearing keys; presentation metadata such as `ui` must
+// never be rendered as part of the editable document.
+const CONTENT_KEYS = ['content', 'answer', 'text', 'output', 'structured_output', 'artifact_patch'];
 
 function decode(value, depth = 0) {
   if (depth > 12 || value == null) return value;

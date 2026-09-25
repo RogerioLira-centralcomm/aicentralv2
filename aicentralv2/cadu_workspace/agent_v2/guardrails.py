@@ -480,33 +480,69 @@ def _decode_provider_value(raw):
     return value
 
 
+def _provider_envelope_text(value):
+    """Extract user-facing prose from a serialized response envelope."""
+    decoded = _decode_provider_value(value)
+    for _ in range(4):
+        if not isinstance(decoded, dict):
+            return None
+        text_payload = decoded.get("text") if isinstance(decoded.get("text"), dict) else {}
+        candidate = text_payload.get("content") or decoded.get("answer") or decoded.get("content")
+        if isinstance(candidate, str) and candidate.strip():
+            serialized_candidate = candidate.strip()
+            if serialized_candidate.startswith(("{", "[", "```")):
+                nested = _decode_provider_value(serialized_candidate)
+                if isinstance(nested, dict) and any(key in nested for key in ("text", "answer", "artifact_patch")):
+                    decoded = nested
+                    continue
+            return candidate.strip()
+        patch = decoded.get("artifact_patch")
+        if isinstance(patch, dict):
+            candidate = patch.get("html") or patch.get("summary")
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+        return None
+    return None
+
+
 def _clean_patch(value, artifact_type=None):
     if not isinstance(value, dict):
         return None
     # A provider envelope is protocol, never editable document content. Reject
     # the patch so a legitimate artifact route can rebuild it from the already
     # normalized customer answer instead of persisting JSON in the editor.
-    recovered_html = recovered_css = recovered_js = None
+    recovered_html = recovered_css = recovered_js = recovered_text = None
     for candidate in (value.get("html"), value.get("summary")):
-        if not isinstance(candidate, str):
+        if not isinstance(candidate, (str, dict)):
             continue
-        serialized = candidate.strip().lstrip("\ufeff")
-        if not (serialized.startswith("{") or serialized.startswith("```")):
+        serialized = candidate.strip().lstrip("\ufeff") if isinstance(candidate, str) else ""
+        if isinstance(candidate, str) and not (serialized.startswith("{") or serialized.startswith("```")):
             continue
         decoded = _decode_provider_value(candidate)
         if isinstance(decoded, dict) and (
                 isinstance(decoded.get("text"), dict) or "ui" in decoded
                 or "artifact_patch" in decoded or "answer" in decoded):
-            if artifact_type == "html" and candidate is value.get("summary"):
+            envelope_text = _provider_envelope_text(decoded)
+            if artifact_type == "html":
                 nested_patch = decoded.get("artifact_patch") if isinstance(decoded.get("artifact_patch"), dict) else {}
-                nested_text = decoded.get("text") if isinstance(decoded.get("text"), dict) else {}
-                possible = nested_patch.get("html") or nested_text.get("content")
+                possible = nested_patch.get("html")
+                if not possible and candidate is value.get("summary"):
+                    possible = envelope_text
                 if isinstance(possible, str) and possible.strip():
                     recovered_html = possible
                     recovered_css = str(nested_patch.get("css") or "")
                     recovered_js = str(nested_patch.get("js") or "")
                     break
+            if envelope_text:
+                recovered_text = envelope_text
+                continue
             return None
+    if recovered_text and artifact_type != "html":
+        value = {**value, "html": ""}
+    summary_text = _provider_envelope_text(value.get("summary"))
+    summary_text = summary_text or str(value.get("summary") or "").strip()
+    if recovered_text and recovered_text not in summary_text:
+        summary_text = "\n\n".join(filter(None, (summary_text, recovered_text)))
     fields = []
     allowed_states = {"confirmed", "inferred", "assumed", "missing", "conflicting"}
     for item in value.get("fields", []) if isinstance(value.get("fields"), list) else []:
@@ -517,12 +553,12 @@ def _clean_patch(value, artifact_type=None):
         if key:
             fields.append({
                 "key": key,
-                "value": str(item.get("value") or "").strip(),
+                "value": str(_provider_envelope_text(item.get("value")) or item.get("value") or "").strip(),
                 "state": state if state in allowed_states else "inferred",
             })
     patch = {
         "title": _clean_text(value.get("title"), 300),
-        "summary": str(value.get("summary") or "").strip(),
+        "summary": summary_text,
         "fields": fields,
     }
     if recovered_html:

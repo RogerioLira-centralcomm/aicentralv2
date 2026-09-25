@@ -44,7 +44,7 @@ _BRAND_CREATE_REQUEST = re.compile(
     r".{0,45}\bmarca\b", re.IGNORECASE,
 )
 _BRAND_DRAFT_FIELD = re.compile(
-    r"https?://|\b(?:www\.|nome|marca|site|website|endere[cç]o|setor|segmento|ramo|logo|refer[eê]ncia)",
+    r"https?://|\b(?:www\.|nome|marca|site|website|endere[cç]o|setor|segmento|ramo|logo|refer[eê]ncia)\b",
     re.IGNORECASE,
 )
 

@@ -144,10 +144,45 @@ function escapeHtml(value) {
   return String(value || '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
 }
 
+function providerEnvelopeText(value) {
+  let current = value;
+  let insideEnvelope = false;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (typeof current === 'string') {
+      const clean = current.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+      try {
+        const decoded = JSON.parse(clean);
+        if (decoded !== current) {
+          if (decoded && typeof decoded === 'object') insideEnvelope = true;
+          current = decoded;
+          continue;
+        }
+      } catch (_) { return insideEnvelope ? current : null; }
+    }
+    if (!current || typeof current !== 'object') return null;
+    const patch = current.artifact_patch && typeof current.artifact_patch === 'object' ? current.artifact_patch : {};
+    const candidates = [
+      current.text?.content, current.answer, current.content,
+      current.output, current.structured_output, current.data,
+      patch.html, patch.summary,
+    ];
+    const next = candidates.find(candidate => typeof candidate === 'string' || (candidate && typeof candidate === 'object'));
+    if (next == null) return null;
+    current = next;
+  }
+  return null;
+}
+
 function documentHtml(content) {
   if (content.html) {
-    const raw = String(content.html);
+    const raw = typeof content.html === 'string' ? content.html : JSON.stringify(content.html);
     const clean = raw.trim();
+    const visible = providerEnvelopeText(clean)
+      || providerEnvelopeText(new DOMParser().parseFromString(raw, 'text/html').body.textContent?.trim() || '');
+    if (visible) {
+      const repaired = normalizeArtifactContent(visible, 'document');
+      if (repaired.html) return repaired.html;
+    }
     if (clean.startsWith('{') || clean.startsWith('"{')) {
       try {
         let decoded = JSON.parse(clean);

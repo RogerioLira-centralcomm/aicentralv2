@@ -113,6 +113,17 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if newsletter_with_recent_news:
         return IntentRoute("research", "create_newsletter", "high", "analysis",
                            ("project", "brand") if has_project else (), ("web.search",))
+    # A weekly meeting request that asks to organize the discussion is an
+    # agenda task, not a calendar write. Keep meeting scheduling separate for
+    # explicit requests to send an invite for a dated event.
+    recurring_meeting_request = (
+        _has(text, r"\b(reuni[aã]o|reuni[oõ]es|meet)\b")
+        and _has(text, r"\b(?:semanal\w*|toda\s+semana|por\s+semana|\d+\s*x\s*(?:na|por)?\s*semana|uma\s+vez\s+(?:na|por)\s+semana)\b")
+        and _has(text, r"\b(?:organiz\w*|planej\w*|defin\w*|combin\w*|estrutur\w*|prepar\w*)\b")
+    )
+    if recurring_meeting_request:
+        return IntentRoute("workspace", "create_meeting_agenda", "medium", "artifact_first",
+                           ("project",) if has_project else (), (), "meeting_agenda")
     if _explicit_artifact_creation_refusal(text):
         web_requested = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
             text, r"\b(?:internet|web|online|fontes?\s+externas?|dados?\s+atuais?)\b",

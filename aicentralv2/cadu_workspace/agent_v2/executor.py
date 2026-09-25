@@ -14,6 +14,7 @@ from .task_planner import build_task_plan
 from .contracts import execution_mode_for
 from . import plugins
 from .daily_workflows import recent_preferences
+from .market_radar import requested_recency
 from ..mcp.registry import load_builtin_tools
 from ...db import close_db
 
@@ -280,7 +281,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 external = resolve_context(
                     radar_route, request, radar_query, registry, execution_mode,
                     tool_argument_overrides={"web.search": {
-                        "query": radar_query, "recency": "year", "limit": 8,
+                        "query": radar_query, "recency": requested_recency(routed_message), "limit": 8,
                         "country": _market_radar_country(brand),
                     }},
                 )

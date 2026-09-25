@@ -11,6 +11,7 @@ from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metric
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
 from aicentralv2.cadu_workspace.agent_v2.media_plan_review import review_media_plan
 from aicentralv2.cadu_workspace.agent_v2.performance_review import review_supplied_metrics
+from aicentralv2.cadu_workspace.agent_v2.market_radar import requested_recency
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
 from aicentralv2.cadu_workspace.agent_v2.plugins import select
@@ -199,6 +200,13 @@ def test_campaign_tracker_routes_text_metrics_to_deterministic_review(monkeypatc
     assert any(item["name"] == tools[0] for item in registry.list(request))
     reviewed = registry.execute(tools[0], _arguments(tools[0], request, message), request)
     assert {item["name"] for item in reviewed["derived_metrics"]} == {"CTR calculado"}
+
+
+def test_market_radar_uses_requested_time_window():
+    assert requested_recency("Veja movimentos de hoje") == "day"
+    assert requested_recency("Radar dos últimos 7 dias") == "week"
+    assert requested_recency("Radar do último mês") == "month"
+    assert requested_recency("Radar da marca") == "year"
 
 
 def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown():

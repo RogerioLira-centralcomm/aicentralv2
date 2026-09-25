@@ -14,7 +14,7 @@ from .task_planner import build_task_plan
 from .contracts import execution_mode_for
 from . import plugins
 from .daily_workflows import recent_preferences
-from .market_radar import requested_recency
+from .market_radar import requested_recency, relevant_read_sources
 from ..mcp.registry import load_builtin_tools
 from ...db import close_db
 
@@ -308,6 +308,27 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 "artifact_type": None, "allow_artifact": False,
             })
             policy["action_preflight"] = {
+                radar_result = resolved.values.get("web.search")
+                if isinstance(radar_result, dict):
+                    verified = relevant_read_sources(brand, radar_result)
+                    resolved.values["web.search"] = {
+                        **radar_result, "sources": verified, "source_count": len(verified),
+                        "radar_evidence_filter": "read pages naming the brand or a registered competitor",
+                    }
+                    if not verified:
+                        route = replace(route, action="clarify_plugin_evidence", complexity="low",
+                                        response_mode="clarification", needs_tools=(), artifact_type=None)
+                        policy.update({
+                            "mode": "clarification", "max_questions": 1, "max_next_steps": 1,
+                            "artifact_type": None, "allow_artifact": False,
+                            "action_preflight": {"ready": False,
+                                                 "reason": "Nenhuma página lida e pertinente à marca na janela solicitada."},
+                            "plugin_instruction": (
+                                "O Radar pesquisou, mas não obteve página lida que mencione a marca ou concorrente "
+                                "cadastrado. Não apresente movimentos, números ou links genéricos como achados. "
+                                "Informe a lacuna e ofereça ampliar o período ou ajustar as entidades pesquisadas."
+                            ),
+                        })
                 "ready": False,
                 "reason": "Não foi possível resolver uma única marca vinculada ao projeto selecionado.",
                 "missing": ["marca única vinculada ao projeto"],

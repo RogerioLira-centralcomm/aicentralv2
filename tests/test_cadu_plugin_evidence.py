@@ -11,7 +11,7 @@ from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metric
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
 from aicentralv2.cadu_workspace.agent_v2.media_plan_review import review_media_plan
 from aicentralv2.cadu_workspace.agent_v2.performance_review import review_supplied_metrics
-from aicentralv2.cadu_workspace.agent_v2.market_radar import requested_recency
+from aicentralv2.cadu_workspace.agent_v2.market_radar import requested_recency, relevant_read_sources
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
 from aicentralv2.cadu_workspace.agent_v2.plugins import select
@@ -207,6 +207,17 @@ def test_market_radar_uses_requested_time_window():
     assert requested_recency("Radar dos últimos 7 dias") == "week"
     assert requested_recency("Radar do último mês") == "month"
     assert requested_recency("Radar da marca") == "year"
+
+
+def test_market_radar_filters_unread_and_generic_search_hits():
+    brand = {"name": "Café Aurora", "market": {"competitors": [{"name": "Café Horizonte"}]}}
+    result = {"sources": [
+        {"url": "https://example.com/a", "title": "Café Aurora lança campanha", "excerpt": "Resultado de busca"},
+        {"url": "https://example.com/b", "title": "Como fazer benchmarking", "content": "Guia genérico de marketing."},
+        {"url": "https://example.com/c", "title": "Notícia setorial", "content": "Café Horizonte lançou nova linha."},
+    ]}
+
+    assert [item["url"] for item in relevant_read_sources(brand, result)] == ["https://example.com/c"]
 
 
 def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown():

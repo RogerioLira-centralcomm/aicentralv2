@@ -18,6 +18,7 @@
   font-size: 15px;
   line-height: 1.6;
 }
+.cv-content-artifact__summary-edit { width:min(100%,760px); min-height:72px; margin:0 0 20px; resize:vertical; border:1px solid rgba(181,218,211,.13); border-radius:7px; background:#0b181a; padding:10px 12px; color:#e5f0ed; font:400 14px/1.6 Inter,ui-sans-serif,system-ui,sans-serif; }
 .cv-content-artifact__metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));

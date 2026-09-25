@@ -135,13 +135,135 @@ function ChannelMark({name}) {
   return logo ? <img className="cv-content-artifact__channel-logo" src={logo} alt="" loading="lazy"/> : null;
 }
 
+function structuredHtmlContent(content, type) {
+  const alreadyStructured = ['fields', 'tables', 'options', 'citations', 'rows', 'channels', 'allocations', 'highlights'].some(key => Array.isArray(content[key]) && content[key].length);
+  if (alreadyStructured || !String(content.html || '').trim() || typeof DOMParser === 'undefined') return content;
+  const doc = new DOMParser().parseFromString(String(content.html), 'text/html');
+  const fields = [];
+  const tables = [];
+  const citations = Array.isArray(content.citations) ? [...content.citations] : [];
+  const images = Array.isArray(content.images) ? [...content.images] : [];
+  let summary = String(content.summary || '');
+  let current = null;
+  let sourceSection = false;
+  const finishField = () => {
+    if (current && current.value.trim()) fields.push({...current, value:current.value.trim()});
+    current = null;
+  };
+  const appendField = value => {
+    if (!value.trim()) return;
+    if (!current) current = {key:'Conteúdo', value:''};
+    current.value += `${current.value ? '\n' : ''}${value.trim()}`;
+  };
+  const sourceHeading = value => /fontes|refer[eê]ncias|sources|citations/i.test(value);
+  for (const node of doc.body.querySelectorAll('h1,h2,h3,p,ul,ol,blockquote,table')) {
+    if (/^H[1-3]$/.test(node.tagName)) {
+      finishField();
+      const heading = node.textContent.trim();
+      sourceSection = sourceHeading(heading);
+      if (!sourceSection && !(node.tagName === 'H1' && heading.toLocaleLowerCase('pt-BR') === String(content.title || '').toLocaleLowerCase('pt-BR'))) current = {key:heading || 'Seção', value:''};
+      continue;
+    }
+    if (node.tagName === 'TABLE') {
+      const rows = Array.from(node.querySelectorAll('tr'));
+      const headerIndex = rows.findIndex(row => row.querySelector('th'));
+      const headerRow = headerIndex >= 0 ? rows[headerIndex] : null;
+      const columns = headerRow ? Array.from(headerRow.querySelectorAll('th,td')).map(cell => cell.textContent.trim()) : [];
+      const bodyRows = rows.filter((_, index) => index !== headerIndex);
+      const values = bodyRows.map(row => Array.from(row.querySelectorAll('th,td')).map(cell => cell.textContent.trim())).filter(row => row.length);
+      if (values.length) tables.push({title:current?.key || '', columns, rows:values});
+      continue;
+    }
+    if (sourceSection) {
+      const candidates = node.matches('ul,ol') ? Array.from(node.querySelectorAll('li')) : [node];
+      for (const candidate of candidates) {
+        const anchor = candidate.querySelector('a[href]');
+        const href = safeUrl(anchor?.getAttribute('href'));
+        if (!anchor && !candidate.textContent.trim()) continue;
+        citations.push({title:anchor?.textContent.trim() || candidate.textContent.trim(), url:href || '', excerpt:anchor ? candidate.textContent.replace(anchor.textContent, '').trim() : ''});
+      }
+      continue;
+    }
+    if (node.matches('ul,ol')) {
+      const items = Array.from(node.querySelectorAll('li')).map(item => item.textContent.trim()).filter(Boolean);
+      appendField(items.map(item => `- ${item}`).join('\n'));
+    } else {
+      const text = node.textContent.trim();
+      if (!text) continue;
+      if (!current && summary && node.tagName === 'P' && text === summary.trim()) continue;
+      if (!current && !summary && node.tagName === 'P') summary = text;
+      else appendField(text);
+    }
+  }
+  finishField();
+  if (!images.length) for (const image of doc.body.querySelectorAll('img[src]')) {
+    const url = safeUrl(image.getAttribute('src'));
+    if (url) images.push({url, alt:image.getAttribute('alt') || '', title:image.getAttribute('title') || ''});
+  }
+  return {...content, summary, fields, tables, citations, images};
+}
+
+function serializeStructuredHtml(content, type) {
+  const sections = [];
+  if (content.summary) sections.push(`<p>${escapeHtml(content.summary).replace(/\n/g, '<br/>')}</p>`);
+  const images = Array.isArray(content.images) ? content.images : [];
+  if (images.length) sections.push(images.map(image => {
+    const item = typeof image === 'string' ? {url:image} : image || {};
+    const url = safeUrl(item.url || item.src || item.preview);
+    return url ? `<figure><img src="${escapeHtml(url)}" alt="${escapeHtml(item.alt || '')}">${item.caption || item.title ? `<figcaption>${escapeHtml(item.caption || item.title)}</figcaption>` : ''}</figure>` : '';
+  }).join(''));
+  const metrics = content.metrics || content.kpis;
+  if (metrics && typeof metrics === 'object' && !Array.isArray(metrics)) {
+    const entries = Object.entries(metrics).filter(([, value]) => value != null && typeof value !== 'object');
+    if (entries.length) sections.push(`<table><thead><tr><th>Indicador</th><th>Valor</th></tr></thead><tbody>${entries.map(([key,value]) => `<tr><td>${escapeHtml(key.replaceAll('_',' '))}</td><td>${escapeHtml(value)}</td></tr>`).join('')}</tbody></table>`);
+  }
+  if (Array.isArray(content.highlights) && content.highlights.length) sections.push(`<h2>Destaques</h2><ul>${content.highlights.map(item => `<li>${escapeHtml(typeof item === 'string' ? item : item.text || item.title || item.value || '')}</li>`).join('')}</ul>`);
+  (Array.isArray(content.tables) ? content.tables : []).forEach(table => {
+    const rows = Array.isArray(table.rows) ? table.rows : [];
+    if (!rows.length) return;
+    if (table.title) sections.push(`<h2>${escapeHtml(table.title)}</h2>`);
+    const columns = Array.isArray(table.columns) && table.columns.length ? table.columns : (Array.isArray(rows[0]) ? rows[0].map((_,index) => `Item ${index + 1}`) : Object.keys(rows[0] || {}));
+    const cell = (row, column, index) => Array.isArray(row) ? row[index] : row?.[typeof column === 'string' ? column : column.key || column.name || column.label];
+    sections.push(`<table><thead><tr>${columns.map(column => `<th>${escapeHtml(typeof column === 'string' ? column : column.label || column.name || column.key)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map((column,index) => `<td>${escapeHtml(cell(row,column,index) ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+  });
+  (Array.isArray(content.options) ? content.options : []).forEach((option,index) => {
+    const item = typeof option === 'string' ? {title:option} : option || {};
+    sections.push(`<h2>${escapeHtml(item.title || `Cenário ${index + 1}`)}</h2>`);
+    const body = item.summary || item.description || item.content;
+    if (body) sections.push(`<p>${escapeHtml(body).replace(/\n/g, '<br/>')}</p>`);
+    if (item.metrics && typeof item.metrics === 'object') sections.push(`<ul>${Object.entries(item.metrics).map(([key,value]) => `<li>${escapeHtml(key.replaceAll('_',' '))}: ${escapeHtml(value)}</li>`).join('')}</ul>`);
+  });
+  (Array.isArray(content.fields) ? content.fields : []).forEach(field => {
+    if (field.key) sections.push(`<h2>${escapeHtml(field.key)}</h2>`);
+    if (field.value) sections.push(`<p>${escapeHtml(field.value).replace(/\n/g, '<br/>')}</p>`);
+  });
+  (Array.isArray(content.citations) ? content.citations : []).forEach((citation,index) => {
+    const item = typeof citation === 'string' ? {url:citation,title:citation} : citation || {};
+    const url = safeUrl(item.url || item.href || item.link);
+    sections.push(`<p>${url ? `<a href="${escapeHtml(url)}">${escapeHtml(item.title || item.source || url)}</a>` : escapeHtml(item.title || item.source || `Fonte ${index + 1}`)}${item.excerpt ? ` — ${escapeHtml(item.excerpt)}` : ''}</p>`);
+  });
+  const html = sections.join('\n');
+  return html || `<p>${escapeHtml(type)}</p>`;
+}
+
 function ContentArtifact({artifact, editing, onChange}) {
-  const content = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
+  const normalizedContent = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
+  const content = useMemo(() => structuredHtmlContent(normalizedContent, artifact.type), [normalizedContent, artifact.type]);
+  const htmlBacked = useRef({key:'', value:false});
+  const artifactKey = artifact.id || artifact.tabKey || `${artifact.type}:${artifact.title || ''}`;
+  if (htmlBacked.current.key !== artifactKey) {
+    htmlBacked.current = {key:artifactKey, value:Boolean(normalizedContent.html && !['fields','tables','options','citations','rows','channels','allocations','highlights'].some(key => Array.isArray(normalizedContent[key]) && normalizedContent[key].length))};
+  }
+  const emit = next => {
+    if (!htmlBacked.current.value) return onChange(next);
+    return onChange({...next, html:serializeStructuredHtml(next, artifact.type)});
+  };
   const fields = Array.isArray(content.fields) ? content.fields : [];
   const images = Array.isArray(content.images) ? content.images : Array.isArray(content.assets) ? content.assets.filter(item => /image/i.test(item?.mime_type || item?.type || '')) : [];
-  const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
+  const updateField = (index, value) => emit({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
   const type = artifact.type;
   const metricEntries = Object.entries(content.metrics || content.kpis || {}).filter(([, value]) => value !== '' && value != null && typeof value !== 'object');
+  const metricsKey = content.metrics ? 'metrics' : 'kpis';
   const tables = Array.isArray(content.tables) ? [...content.tables] : [];
   const mediaRows = content.channels || content.allocations || content.rows;
   if (type === 'media_plan' && !tables.length && Array.isArray(mediaRows) && mediaRows.length) {
@@ -150,19 +272,19 @@ function ContentArtifact({artifact, editing, onChange}) {
   const scenarios = type === 'scenario' && Array.isArray(content.options) ? content.options : [];
   const citations = type === 'research' && Array.isArray(content.citations) ? content.citations : [];
   const highlights = type === 'executive_summary' && Array.isArray(content.highlights) ? content.highlights : [];
-  const updateScenario = (index, patch) => onChange({...content, options:scenarios.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item} : {...item, ...patch})});
-  const updateCitation = (index, patch) => onChange({...content, citations:citations.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item, url:item} : {...item, ...patch})});
+  const updateScenario = (index, patch) => emit({...content, options:scenarios.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item} : {...item, ...patch})});
+  const updateCitation = (index, patch) => emit({...content, citations:citations.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item, url:item} : {...item, ...patch})});
   return <article className={`cv-content-artifact is-${type}`}>
-    {content.summary && <p className="cv-content-artifact__summary">{content.summary}</p>}
+    {(content.summary || editing && ['executive_summary', 'media_plan', 'scenario', 'research'].includes(type)) && (editing ? <EditableTextarea className="cv-content-artifact__summary-edit" aria-label="Síntese" placeholder="Síntese" value={content.summary || ''} onChange={value => emit({...content, summary:value})}/> : <p className="cv-content-artifact__summary">{content.summary}</p>)}
     <ArtifactImages images={images} label={type === 'media_plan' ? 'Imagens do plano de mídia' : 'Imagens do material'}/>
-    {!!metricEntries.length && <dl className="cv-content-artifact__metrics">{metricEntries.map(([label, value]) => <div key={label}><dt>{label.replaceAll('_', ' ')}</dt><dd>{String(value)}</dd></div>)}</dl>}
-    {(highlights.length > 0 || editing && type === 'executive_summary') && <section className="cv-content-artifact__highlights" aria-label="Destaques"><ul>{highlights.map((item, index) => <li key={item.id || index}>{editing ? <input aria-label={`Destaque ${index + 1}`} value={typeof item === 'string' ? item : item.text || item.title || item.value || ''} onChange={event => onChange({...content, highlights:highlights.map((value, itemIndex) => itemIndex !== index ? value : typeof value === 'string' ? event.target.value : {...value, text:event.target.value})})}/> : typeof item === 'string' ? item : item.text || item.title || item.value}</li>)}</ul>{editing && <button type="button" onClick={() => onChange({...content, highlights:[...highlights, '']})}>Adicionar destaque</button>}</section>}
-    {tables.map((table, index) => <section className="cv-content-artifact__table" key={table.title || index}>{table.title && <h3>{table.title}</h3>}<ArtifactTable table={table} editing={editing} onChange={next => onChange({...content, tables:tables.map((item, itemIndex) => itemIndex === index ? next : item)})}/></section>)}
+    {!!metricEntries.length && <dl className="cv-content-artifact__metrics">{metricEntries.map(([label, value]) => <div key={label}><dt>{label.replaceAll('_', ' ')}</dt><dd>{editing ? <input aria-label={label.replaceAll('_', ' ')} value={String(value)} onChange={event => emit({...content, [metricsKey]:{...content[metricsKey], [label]:event.target.value}})}/> : String(value)}</dd></div>)}</dl>}
+    {(highlights.length > 0 || editing && type === 'executive_summary') && <section className="cv-content-artifact__highlights" aria-label="Destaques"><ul>{highlights.map((item, index) => <li key={item.id || index}>{editing ? <input aria-label={`Destaque ${index + 1}`} value={typeof item === 'string' ? item : item.text || item.title || item.value || ''} onChange={event => emit({...content, highlights:highlights.map((value, itemIndex) => itemIndex !== index ? value : typeof value === 'string' ? event.target.value : {...value, text:event.target.value})})}/> : typeof item === 'string' ? item : item.text || item.title || item.value}</li>)}</ul>{editing && <button type="button" onClick={() => emit({...content, highlights:[...highlights, '']})}>Adicionar destaque</button>}</section>}
+    {tables.map((table, index) => <section className="cv-content-artifact__table" key={table.title || index}>{table.title && <h3>{table.title}</h3>}<ArtifactTable table={table} editing={editing} onChange={next => emit({...content, tables:tables.map((item, itemIndex) => itemIndex === index ? next : item)})}/></section>)}
     {(scenarios.length > 0 || editing && type === 'scenario') && <section className="cv-content-artifact__scenario-grid" aria-label="Cenários comparados">{scenarios.map((scenario, index) => <section key={scenario.id || scenario.title || index}>
       {editing ? <input aria-label={`Nome do cenário ${index + 1}`} value={typeof scenario === 'string' ? scenario : scenario.title || ''} onChange={event => updateScenario(index, {title:event.target.value})}/> : <h3>{typeof scenario === 'string' ? scenario : scenario.title || `Cenário ${index + 1}`}</h3>}
       {(editing || typeof scenario !== 'string' && (scenario.summary || scenario.description || scenario.content)) && (editing ? <EditableTextarea aria-label={`Descrição do cenário ${index + 1}`} value={typeof scenario === 'string' ? '' : scenario.summary || scenario.description || scenario.content || ''} onChange={value => updateScenario(index, {summary:value})}/> : <ContentFieldValue value={scenario.summary || scenario.description || scenario.content}/>)}
-      {typeof scenario !== 'string' && scenario.metrics && <dl>{Object.entries(scenario.metrics).filter(([, value]) => value != null && typeof value !== 'object').map(([key, value]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{String(value)}</dd></div>)}</dl>}
-    </section>)}{editing && <button type="button" onClick={() => onChange({...content, options:[...scenarios, {title:'', summary:''}]})}>Adicionar cenário</button>}</section>}
+      {typeof scenario !== 'string' && scenario.metrics && <dl>{Object.entries(scenario.metrics).filter(([, value]) => value != null && typeof value !== 'object').map(([key, value]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{editing ? <input aria-label={`${scenario.title || `Cenário ${index + 1}`}: ${key.replaceAll('_', ' ')}`} value={String(value)} onChange={event => updateScenario(index, {metrics:{...scenario.metrics, [key]:event.target.value}})}/> : String(value)}</dd></div>)}</dl>}
+    </section>)}{editing && <button type="button" onClick={() => emit({...content, options:[...scenarios, {title:'', summary:''}]})}>Adicionar cenário</button>}</section>}
     {!!fields.length && <div className="cv-content-artifact__sections">{fields.map((field, index) => <section className={`cv-content-artifact__section is-${type}`} key={`${field.key}-${index}`}>
       <h3>{field.key || `Seção ${index + 1}`}</h3>
       {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/> : <><ChannelMark name={field.key}/><ContentFieldValue value={field.value}/></>}
@@ -172,7 +294,7 @@ function ContentArtifact({artifact, editing, onChange}) {
       const href = safeUrl(item.url || item.href || item.link);
       const title = item.title || item.source || item.publisher || href || `Fonte ${index + 1}`;
       return <li key={item.id || href || `${title}-${index}`}>{editing ? <div className="cv-content-artifact__citation-edit"><input aria-label={`Título da fonte ${index + 1}`} value={item.title || item.source || ''} placeholder="Título da fonte" onChange={event => updateCitation(index, {title:event.target.value})}/><input aria-label={`URL da fonte ${index + 1}`} value={item.url || item.href || item.link || ''} placeholder="https://" onChange={event => updateCitation(index, {url:event.target.value})}/><textarea aria-label={`Trecho da fonte ${index + 1}`} value={item.excerpt || ''} placeholder="Trecho ou observação" onChange={event => updateCitation(index, {excerpt:event.target.value})}/></div> : <>{href ? <a href={href} target="_blank" rel="noreferrer">{title}</a> : <span>{title}</span>}{item.date && <time>{String(item.date)}</time>}{item.excerpt && <p>{item.excerpt}</p>}</>}</li>;
-    })}</ol>{editing && <button type="button" className="cv-content-artifact__add-citation" onClick={() => onChange({...content, citations:[...citations, {title:'', url:'', excerpt:''}]})}>Adicionar fonte</button>}</section>}
+    })}</ol>{editing && <button type="button" className="cv-content-artifact__add-citation" onClick={() => emit({...content, citations:[...citations, {title:'', url:'', excerpt:''}]})}>Adicionar fonte</button>}</section>}
     {!fields.length && !tables.length && !scenarios.length && !citations.length && !highlights.length && !content.summary && !metricEntries.length && !(editing && ['executive_summary', 'scenario', 'research'].includes(type)) && <div className="cv-content-artifact__empty">Este material ainda não tem conteúdo.</div>}
   </article>;
 }
@@ -273,7 +395,7 @@ function MeetingSummaryArtifact({artifact, editing, onChange}) {
 }
 
 function escapeHtml(value) {
-  return String(value || '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
 }
 
 function providerEnvelopeText(value) {
@@ -793,7 +915,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (type === 'brief') return <BriefArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
     if (['executive_summary', 'media_plan', 'scenario', 'research'].includes(type)) {
       const structured = normalizeArtifactContent(artifact.content || {}, type);
-      if (Array.isArray(structured.fields) || Array.isArray(structured.tables) || Array.isArray(structured.rows) || Array.isArray(structured.channels) || Array.isArray(structured.allocations) || Array.isArray(structured.options) || Array.isArray(structured.citations) || Array.isArray(structured.highlights) || structured.metrics || structured.kpis) return <ContentArtifact artifact={{...artifact, content:structured}} editing={editingDocument} onChange={onChange}/>;
+      if (Array.isArray(structured.fields) || Array.isArray(structured.tables) || Array.isArray(structured.rows) || Array.isArray(structured.channels) || Array.isArray(structured.allocations) || Array.isArray(structured.options) || Array.isArray(structured.citations) || Array.isArray(structured.highlights) || structured.metrics || structured.kpis || typeof structured.html === 'string' && structured.html.trim()) return <ContentArtifact artifact={{...artifact, content:structured}} editing={editingDocument} onChange={onChange}/>;
     }
     return textArtifact
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} editing={editingDocument}/>

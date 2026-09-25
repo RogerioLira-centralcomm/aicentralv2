@@ -2998,11 +2998,12 @@ class CreativeModelingService:
                 # ``candidate`` (not ``pending``). Keep discovered logos out
                 # of the active identity until the visual resolver approves
                 # them, while still using a value accepted by the database.
-                "status": "candidate" if role == "logo" else "approved",
-                "is_primary": bool(candidate.get("is_primary") and role == "logo"),
+                "status": "approved" if candidate.get("user_selected") else "candidate" if role == "logo" else "approved",
+                "is_primary": bool((candidate.get("is_primary") or candidate.get("user_selected")) and role == "logo"),
                 "metadata": {
                     "category": candidate.get("category"),
                     "reason": candidate.get("reason"),
+                    "user_selected": bool(candidate.get("user_selected")),
                 },
             }
             duplicate = (
@@ -3014,6 +3015,15 @@ class CreativeModelingService:
             )
             if duplicate:
                 self.storage.delete(asset_data.get("asset_path"))
+                if candidate.get("user_selected") and hasattr(
+                    self.repository, "approve_selected_client_brand_logo",
+                ):
+                    selected = self.repository.approve_selected_client_brand_logo(
+                        client_id, duplicate["id"],
+                    )
+                    saved_assets.append({**duplicate, **(selected or {}), "status": "approved",
+                                         "is_primary": True, "role": "logo", "asset_path": duplicate.get("asset_path")})
+                    continue
                 if (
                     asset_data["is_primary"]
                     and duplicate.get("role") == "logo"
@@ -3049,7 +3059,7 @@ class CreativeModelingService:
         ))
 
     def upload_client_brand_assets(
-        self, client_id, files, primary_logo=False, role="reference"
+        self, client_id, files, primary_logo=False, role="reference", primary_logo_index=0
     ):
         client_id = _integer(client_id, "Cliente")
         self.repository.get_client(client_id)
@@ -3061,7 +3071,7 @@ class CreativeModelingService:
         saved = []
         for position, file_storage in enumerate(files):
             item = self.storage.save_reference(file_storage)
-            asset_role = "logo" if (primary_logo and position == 0) or role == "logo" else role
+            asset_role = "logo" if (primary_logo and position == int(primary_logo_index or 0)) or role == "logo" else role
             data = {
                 **item,
                 "role": asset_role,

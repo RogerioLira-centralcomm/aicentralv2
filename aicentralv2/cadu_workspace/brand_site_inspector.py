@@ -3,6 +3,7 @@
 from html.parser import HTMLParser
 from ipaddress import ip_address
 import socket
+import re
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -14,8 +15,6 @@ MAX_HTML_BYTES = 512_000
 MAX_REDIRECTS = 5
 MAX_LOGO_CANDIDATES = 4
 REQUEST_TIMEOUT = (3, 5)
-
-
 def normalize_public_url(value: str, *, label: str = "site") -> str:
     raw = str(value or "").strip()[:2000]
     if raw and not raw.lower().startswith(("http://", "https://")):
@@ -115,6 +114,12 @@ class _BrandHTMLParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.title = ""
+        self.description = ""
+        self.industry = ""
+        self.site_name = ""
+        self._headings = []
+        self._inside_heading = False
+        self._heading_text = ""
         self._inside_title = False
         self.candidates = []
 
@@ -122,12 +127,22 @@ class _BrandHTMLParser(HTMLParser):
         values = {str(key).lower(): str(value or "") for key, value in attrs}
         if tag.lower() == "title":
             self._inside_title = True
+        if tag.lower() in {"h1", "h2"}:
+            self._inside_heading = True
+            self._heading_text = ""
         if tag.lower() == "link" and values.get("href"):
             rel = values.get("rel", "").lower()
             if "icon" in rel:
                 self.candidates.append((values["href"], "site_icon", 0.72))
         if tag.lower() == "meta":
             prop = (values.get("property") or values.get("name") or "").lower()
+            content = " ".join(values.get("content", "").split())[:500]
+            if prop in {"description", "og:description", "twitter:description"} and content and not self.description:
+                self.description = content
+            elif prop in {"og:site_name", "application-name"} and content and not self.site_name:
+                self.site_name = content[:150]
+            elif prop in {"industry", "business:industry", "category"} and content and not self.industry:
+                self.industry = content[:80]
             if prop in {"og:image", "twitter:image"} and values.get("content"):
                 self.candidates.append((values["content"], prop.replace(":", "_"), 0.45))
         if tag.lower() == "img" and values.get("src"):
@@ -138,10 +153,36 @@ class _BrandHTMLParser(HTMLParser):
     def handle_endtag(self, tag):
         if tag.lower() == "title":
             self._inside_title = False
+        if tag.lower() in {"h1", "h2"} and self._inside_heading:
+            text = " ".join(self._heading_text.split())[:300]
+            if text:
+                self._headings.append(text)
+            self._inside_heading = False
 
     def handle_data(self, data):
         if self._inside_title and len(self.title) < 300:
             self.title += data
+        if self._inside_heading and len(self._heading_text) < 300:
+            self._heading_text += data
+
+
+def _brand_name_from_site(parser: _BrandHTMLParser, host: str) -> str:
+    if parser.site_name:
+        return parser.site_name
+    candidates = [*parser._headings, parser.title]
+    domain_name = re.sub(r"[-_.]+", " ", (host.split(".")[0] if host else "")).strip().casefold()
+    for value in candidates:
+        cleaned = re.sub(r"\s*[|–—:·].*$", "", " ".join(value.split())).strip(" -|–—:·")
+        if not cleaned:
+            continue
+        first = cleaned.casefold()
+        if first in {"home", "inicio", "início", "página inicial", "welcome"}:
+            continue
+        if domain_name and len(first) > len(domain_name) * 2 + 16 and domain_name not in first:
+            continue
+        if len(cleaned) <= 150:
+            return cleaned
+    return ""
 
 
 def _request(url: str, *, accept: str, session=None):
@@ -177,7 +218,10 @@ def _validate_logo(url: str, *, site_host: str = "", session=None) -> dict:
         signature = (sample.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a", b"\x00\x00\x01\x00"))
                      or (len(sample) >= 12 and sample[8:12] == b"WEBP")
                      or b"<svg" in sample[:2048].lower())
-        valid = 200 <= response.status_code < 400 and content_type.startswith("image/") and signature
+        supported_type = content_type in {"image/png", "image/jpeg", "image/webp"}
+        supported_signature = (sample.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff"))
+                               or (len(sample) >= 12 and sample[:4] == b"RIFF" and sample[8:12] == b"WEBP"))
+        valid = 200 <= response.status_code < 400 and supported_type and signature and supported_signature
         response.close()
         host = (urlparse(final_url).hostname or "").lower()
         same_domain = bool(site_host and (host == site_host or host.endswith("." + site_host) or site_host.endswith("." + host)))
@@ -233,6 +277,10 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
         if check.get("valid_image"):
             candidates.append({**check, "source": source, "confidence": confidence})
     explicit_logo = _validate_logo(logo_url, site_host=site_host, session=session) if str(logo_url or "").strip() else None
+    if explicit_logo and explicit_logo.get("valid_image") and not any(
+        item.get("url") == explicit_logo.get("url") for item in candidates
+    ):
+        candidates.insert(0, {**explicit_logo, "source": "explicit_logo", "confidence": 1.0})
     warnings = []
     if not (200 <= status < 400):
         warnings.append(f"O site respondeu com HTTP {status}.")
@@ -246,7 +294,11 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
     html_response = "html" in content_type or (not content_type and bool(body))
     result = {"website_url": normalized, "final_url": final_url, "host": site_host,
             "reachable": reachable, "status_code": status, "content_type": content_type,
-            "title": " ".join(parser.title.split())[:300], "ready_for_analysis": reachable and html_response,
+            "title": " ".join(parser.title.split())[:300],
+            "suggested_name": _brand_name_from_site(parser, site_host),
+            "suggested_sector": parser.industry,
+            "description": parser.description,
+            "ready_for_analysis": reachable and html_response,
             "explicit_logo": explicit_logo, "logo_candidates": candidates, "suggested_logo_url":
             ((explicit_logo or {}).get("url") if (explicit_logo or {}).get("valid_image") else
              (candidates[0]["url"] if candidates else "")), "warnings": warnings}

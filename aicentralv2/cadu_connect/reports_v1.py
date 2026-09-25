@@ -8,8 +8,8 @@ from urllib.parse import parse_qs, urlparse
 from flask import abort, jsonify, render_template, request, session
 
 from ..auth import login_required, login_required_api
-from ..cadu_family import context
 from ..db import get_db
+from . import reports_access
 
 
 def _rows(sql, params=()):
@@ -25,7 +25,7 @@ def _ready():
 
 def _selection(payload=None):
     supplied = (payload or {}).get('client_id') if payload is not None else request.args.get('client_id')
-    return context.resolve(supplied)
+    return reports_access.resolve(supplied)
 
 
 def _write_guard(selected):
@@ -50,7 +50,7 @@ def register(bp):
     @bp.get('/app')
     @login_required
     def reports_v1_app():
-        selected = context.resolve(request.args.get('client_id'))
+        selected = reports_access.resolve(request.args.get('client_id'))
         if request.args.get('client_id'):
             session['cliente_id'] = selected['client_id']
         return render_template('cadu_connect/app_v1.html')
@@ -60,7 +60,7 @@ def register(bp):
     def reports_v1_bootstrap():
         selected = _selection()
         session.setdefault('family_csrf', secrets.token_urlsafe(32))
-        clients = [{'id': int(item['id']), 'name': item['name']} for item in context.authorized_clients()]
+        clients = [{'id': int(item['id']), 'name': item['name']} for item in reports_access.authorized_clients()]
         if not _ready():
             return jsonify(ready=False, client=selected, csrf=session['family_csrf'],
                            clients=clients, accounts=[], campaigns=[], reports=[], link_tests=[])
@@ -79,6 +79,8 @@ def register(bp):
                 FROM cadu_planner_link_test_runs WHERE client_id=%s
                 ORDER BY created_at DESC LIMIT 20''', (selected['client_id'],))
         return jsonify(ready=True, client=selected, clients=clients, csrf=session['family_csrf'],
+                       can_manage_access=selected['role'] == 'admin' and
+                           session.get('user_type') in ('admin', 'superadmin') and not reports_access.reports_only(),
                        accounts=accounts, campaigns=campaigns, reports=reports, link_tests=link_tests)
 
     @bp.post('/api/v1/reports/accounts')
@@ -234,17 +236,26 @@ def register(bp):
         _write_guard(selected)
         if not _ready():
             abort(503)
-        run = _rows('''SELECT final_url,result FROM cadu_planner_link_test_runs
+        run = _rows('''SELECT original_url,final_url,result FROM cadu_planner_link_test_runs
                 WHERE id::text=%s AND client_id=%s''', (run_id, selected['client_id']))
         if not run:
             abort(404)
         parsed = urlparse(run[0]['final_url'])
-        query = parse_qs(parsed.query)
-        campaign_hints = {key: values[0][:160] for key, values in query.items()
-                          if key.lower() in {'utm_campaign', 'utm_id', 'campaign_id'}
-                          and values and '@' not in values[0]}
-        hint_values = [str(value).strip().casefold() for value in campaign_hints.values() if str(value).strip()]
-        for hint in hint_values:
+        original = urlparse(run[0]['original_url'])
+        campaign_hints = {}
+        for source, url in (('original', original), ('final', parsed)):
+            query = parse_qs(url.query)
+            campaign_hints[source] = {key.lower(): values[0][:160] for key, values in query.items()
+                                      if key.lower() in {'utm_campaign', 'utm_id', 'campaign_id'}
+                                      and values and '@' not in values[0]}
+        id_hints = list(dict.fromkeys(str(source_hints[key]).strip().casefold()
+                        for source_hints in campaign_hints.values() for key in ('utm_id', 'campaign_id')
+                        if source_hints.get(key) and str(source_hints[key]).strip()))
+        name_hints = list(dict.fromkeys(str(source_hints['utm_campaign']).strip().casefold()
+                          for source_hints in campaign_hints.values()
+                          if source_hints.get('utm_campaign') and str(source_hints['utm_campaign']).strip()))
+        hint_values = list(dict.fromkeys(id_hints + name_hints))
+        for hint in id_hints:
             exact = _rows('''SELECT c.id,c.name,c.external_id,a.name AS account_name,a.platform
                 FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
                 WHERE c.organization_id=%s AND c.client_id=%s AND lower(c.external_id)=%s LIMIT 2''',
@@ -253,17 +264,33 @@ def register(bp):
                 return jsonify(suggestion=exact[0], confidence=1,
                                probabilities={str(exact[0]['id']): 1},
                                model='exact_id', requires_confirmation=True, page_role=None)
-        campaigns = _rows('''SELECT c.id,c.name,c.external_id,a.name AS account_name,a.platform
+        for hint in name_hints:
+            exact = _rows('''SELECT c.id,c.name,c.external_id,a.name AS account_name,a.platform
                 FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
-                WHERE c.organization_id=%s AND c.client_id=%s ORDER BY c.name LIMIT 500''',
-                (selected['organization_id'], selected['client_id']))
-        if not campaigns:
-            return jsonify(suggestion=None, reason='Nenhuma campanha disponível para comparação.')
-        if hint_values:
+                WHERE c.organization_id=%s AND c.client_id=%s AND lower(c.name)=%s LIMIT 2''',
+                (selected['organization_id'], selected['client_id'], hint))
+            if len(exact) == 1:
+                return jsonify(suggestion=exact[0], confidence=1,
+                               probabilities={str(exact[0]['id']): 1},
+                               model='exact_name', requires_confirmation=True, page_role=None)
+        compact_hints = list(dict.fromkeys(re.sub(r'[^a-z0-9]', '', hint) for hint in hint_values))
+        compact_hints = [hint for hint in compact_hints if len(hint) >= 4]
+        campaigns = []
+        if compact_hints:
+            campaigns = _rows('''SELECT c.id,c.name,c.external_id,a.name AS account_name,a.platform
+                FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
+                WHERE c.organization_id=%s AND c.client_id=%s
+                  AND regexp_replace(lower(c.name),'[^a-z0-9]','','g') LIKE ANY(%s)
+                ORDER BY c.name,c.id LIMIT 26''',
+                (selected['organization_id'], selected['client_id'],
+                 ['%' + hint + '%' for hint in compact_hints]))
+        too_many = len(campaigns) > 25
+        if too_many:
+            campaigns = []
+        elif campaigns:
             campaigns.sort(key=lambda row: max(
                 SequenceMatcher(None, hint, row['name'].casefold()).ratio()
                 for hint in hint_values), reverse=True)
-        campaigns = campaigns[:25]
         evidence = run[0]['result'].get('evidence', {}) if isinstance(run[0]['result'], dict) else {}
         state = {
             'destination': {'host': parsed.hostname, 'path': parsed.path[:300],
@@ -275,36 +302,42 @@ def register(bp):
         criteria = {'none': 'Nenhuma campanha da lista tem ligação clara com o destino.'}
         criteria.update({str(row['id']): f"{row['platform']} · {row['account_name']} · {row['name']} · ID {row['external_id']}"
                          for row in campaigns})
-        from ..services.typesafe_service import TypeSafeError, system_one
-        try:
-            evaluation = system_one(state, {'campaign': {
+        questions = {'page_role': {
+            'type': 'choice',
+            'instructions': 'Qual é o papel mais provável da página de destino no funil? Considere somente o host, caminho, título e descrição disponíveis; use unknown quando os sinais forem insuficientes.',
+            'criteria': {
+                'landing': 'Página de entrada de campanha que apresenta uma oferta ou proposta.',
+                'form': 'Página cujo objetivo aparente é iniciar ou preencher um formulário.',
+                'thank_you': 'Página exibida após o envio ou compra, confirmando uma ação concluída.',
+                'content': 'Conteúdo informativo ou institucional sem etapa de conversão clara.',
+                'unknown': 'Não há sinais suficientes para classificar a função da página.'
+            },
+        }}
+        if campaigns:
+            questions['campaign'] = {
                 'type': 'choice',
                 'instructions': 'Qual campanha listada é mais provavelmente a origem do destino? Use apenas sinais presentes em destination e campaigns. Escolha none quando não houver evidência suficiente.',
                 'criteria': criteria,
-            }, 'page_role': {
-                'type': 'choice',
-                'instructions': 'Qual é o papel mais provável da página de destino no funil? Considere somente o host, caminho, título e descrição disponíveis; use unknown quando os sinais forem insuficientes.',
-                'criteria': {
-                    'landing': 'Página de entrada de campanha que apresenta uma oferta ou proposta.',
-                    'form': 'Página cujo objetivo aparente é iniciar ou preencher um formulário.',
-                    'thank_you': 'Página exibida após o envio ou compra, confirmando uma ação concluída.',
-                    'content': 'Conteúdo informativo ou institucional sem etapa de conversão clara.',
-                    'unknown': 'Não há sinais suficientes para classificar a função da página.'
-                },
-            }})
+            }
+        from ..services.typesafe_service import TypeSafeError, system_one
+        try:
+            evaluation = system_one(state, questions)
             answer = evaluation['answers'].get('campaign')
             role_answer = evaluation['answers'].get('page_role')
-            if not isinstance(answer, dict) or answer.get('type') != 'choice' or \
-                    answer.get('choice') not in criteria or not isinstance(answer.get('probabilities'), dict):
+            if campaigns and (not isinstance(answer, dict) or answer.get('type') != 'choice' or
+                              answer.get('choice') not in criteria or not isinstance(answer.get('probabilities'), dict)):
                 raise TypeSafeError('A resposta TypeSafe de campanha veio incompleta.')
             if not isinstance(role_answer, dict) or role_answer.get('type') != 'choice' or \
                     role_answer.get('choice') not in {'landing', 'form', 'thank_you', 'content', 'unknown'}:
                 raise TypeSafeError('A resposta TypeSafe da página veio incompleta.')
         except TypeSafeError as exc:
             return jsonify(suggestion=None, error=str(exc)), 503
-        choice = str(answer.get('choice') or 'none')
+        choice = str(answer.get('choice') or 'none') if campaigns else 'none'
         candidate = next((row for row in campaigns if str(row['id']) == choice), None)
-        return jsonify(suggestion=candidate, confidence=answer.get('confidence'),
-                       probabilities=answer.get('probabilities'), page_role=role_answer.get('choice'),
+        reason = ('Há muitas campanhas compatíveis; refine o UTM para sugerir uma campanha.' if too_many
+                  else 'Sem uma campanha identificável no link.' if not campaigns else None)
+        return jsonify(suggestion=candidate, reason=reason,
+                       confidence=answer.get('confidence') if campaigns else None,
+                       probabilities=answer.get('probabilities') if campaigns else {}, page_role=role_answer.get('choice'),
                        page_role_confidence=role_answer.get('confidence'),
                        model=evaluation.get('model'), requires_confirmation=True)

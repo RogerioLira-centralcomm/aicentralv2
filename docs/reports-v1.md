@@ -46,6 +46,8 @@ Um administrador da organização pode abrir **Acesso** e conceder a uma conta e
 
 Após aplicar as migrações em homologação, `python scripts/audit_reports_v1.py` verifica em modo somente leitura as tabelas exigidas e referências entre clientes. Ele termina com código 2 se faltar tabela e 1 se encontrar vínculo cruzado; não altera registros.
 
+O procedimento de backup, pilotos, critérios de liberação e retorno está em [reports-v1-rollout.md](reports-v1-rollout.md).
+
 Para retenção, `scripts/prune_reports_events.py` mostra por padrão quantos eventos brutos superaram 180 dias e quantas confirmações do CRM superaram 400 dias. `--apply` executa a exclusão em lotes. O operador pode agendar esse comando no ambiente de produção após revisar os períodos; ele não roda na abertura de páginas nem durante o deploy.
 
 ## Plano de continuação

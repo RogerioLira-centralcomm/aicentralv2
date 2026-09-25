@@ -1522,4 +1522,17 @@ def stream(run):
         except Exception:
             current_app.logger.exception("Não foi possível agendar checkpoint de memória; conversa=%s",
                                          run["conversation_id"])
+    if state == "completed" and assistant_id and run["context"].project_ref:
+        try:
+            from ..conversations import working_memory
+            working_memory.capture_turn(
+                client_id=run["context"].client_id, project_ref=run["context"].project_ref,
+                conversation_id=run["conversation_id"], message_id=assistant_id,
+                author_id=run["context"].user_id, answer=response.answer,
+            )
+            close_db()
+        except Exception:
+            close_db()
+            current_app.logger.exception("Não foi possível propor memória do Turn V2; conversa=%s",
+                                         run["conversation_id"])
     yield _event(terminal_event, **terminal_payload)

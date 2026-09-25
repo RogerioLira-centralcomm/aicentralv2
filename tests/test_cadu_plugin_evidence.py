@@ -10,6 +10,7 @@ from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_u
 from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
 from aicentralv2.cadu_workspace.agent_v2.media_plan_review import review_media_plan
+from aicentralv2.cadu_workspace.agent_v2.performance_review import review_supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
 from aicentralv2.cadu_workspace.agent_v2.plugins import select
@@ -159,6 +160,42 @@ def test_campaign_tracker_requires_an_actual_metric_value():
         {"name": "ctr", "value": "2,4", "unit": "%"},
         {"name": "cliques", "value": "1.250", "unit": ""},
     ]
+
+
+def test_campaign_metric_review_calculates_conditional_ratios_without_period_claims():
+    result = review_supplied_metrics("Impressões: 50.000; cliques: 1.250; investimento: R$ 2.500; receita: R$ 5.000")
+
+    assert {item["name"]: item["value"] for item in result["derived_metrics"]} == {
+        "CTR calculado": "2.50", "CPC calculado": "2.00",
+        "CPM calculado": "50.00", "ROAS calculado": "2.00",
+    }
+    assert result["period_verified"] is False
+    assert all("mesmo período" in item["condition"] for item in result["derived_metrics"])
+
+
+def test_campaign_metric_review_does_not_mix_repeated_values():
+    result = review_supplied_metrics("cliques: 100 em julho; cliques: 200 em agosto; impressões: 1.000")
+    assert result["status"] == "ambiguous"
+    assert result["repeated_metrics"] == ["cliques"]
+    assert result["derived_metrics"] == []
+
+
+def test_campaign_tracker_routes_text_metrics_to_deterministic_review(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
+
+    monkeypatch.setattr("aicentralv2.cadu_workspace.agent_v2.plugins.get_plugin",
+                        lambda plugin_id: {"id": plugin_id, "name": "Acompanhamento", "internal_tools": []})
+    request = RequestContext(client_id=1, user_id=1, conversation_id=None, surface="conversations",
+                             capabilities=("reports",))
+    route = IntentRoute(domain="general", action="answer", complexity="medium", response_mode="analysis")
+    message = "/campaign-tracker Analise impressões: 50.000 e cliques: 1.250"
+
+    plugin, tools, missing = select(route, message, request)
+    assert plugin["id"] == "campaign-tracker"
+    assert tools == ("campaign.review_supplied_metrics",)
+    assert not missing
+    assert _arguments(tools[0], request, message) == {"query": message}
+    assert any(item["name"] == tools[0] for item in load_builtin_tools().list(request))
 
 
 def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown():

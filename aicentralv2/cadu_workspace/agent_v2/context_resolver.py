@@ -156,6 +156,8 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
         return arguments
     if tool_name == "planner.simulate_investment":
         return {"query": message[:1000]}
+    if tool_name == "campaign.review_supplied_metrics":
+        return {"query": message[:2000]}
     if tool_name == "web.search":
         depth = {"fast": "fast", "analysis": "analysis", "agentic": "agentic"}.get(execution_mode, "analysis")
         private_reference = bool(re.search(r"\b(?:nosso|nossa|meu|minha)\s+(?:clientes?|projetos?|campanhas?|marcas?|briefings?)\b",

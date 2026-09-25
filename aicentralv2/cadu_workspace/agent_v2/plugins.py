@@ -130,7 +130,7 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
         if plugin_id == "campaign-tracker":
             # Campaign reporting is still being built. This plugin currently
             # analyzes the supplied file and does not couple to Reports tools.
-            tool_chain = ()
+            tool_chain = ("campaign.review_supplied_metrics",) if supplied_metrics(text) else ()
         if plugin_id == "campaign-tracker" and not has_report_attachment:
             # This workflow deliberately does not read Reports. A selected
             # project is scope, not evidence that campaign metrics exist.

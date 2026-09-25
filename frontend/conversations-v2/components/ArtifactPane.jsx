@@ -3,7 +3,6 @@ import {Icon} from '../lib/icons';
 import {csrf, request, safeUrl} from '../lib/api';
 import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
 import {normalizeArtifactContent} from '../lib/artifactContent.mjs';
-import './ArtifactPane.css';
 
 const labels = {
   brief: 'Briefing', document: 'Documento', note: 'Nota', executive_summary: 'Resumo executivo',
@@ -631,33 +630,35 @@ function imageStudioLink(artifact, studioEditorUrl, projectRef, mode = 'select',
   return url.href;
 }
 
-function ImageArtifact({artifact, onMetadata, metadata}) {
+function ImageArtifact({artifact}) {
   const content = artifact.content || {};
   const src = imageSource(artifact);
+  const [imageMetadata, setImageMetadata] = useState(null);
   useEffect(() => {
     const knownBytes = Number(content.file_size || content.size || artifact.file_size || artifact.size || 0);
-    onMetadata?.({
-      width: Number(content.width || artifact.width || 0),
-      height: Number(content.height || artifact.height || 0),
-      bytes: knownBytes,
-      mime: content.mime_type || content.content_type || artifact.mime_type || '',
-    });
+    setImageMetadata(current => ({
+      width: Number(content.width || artifact.width || current?.width || 0),
+      height: Number(content.height || artifact.height || current?.height || 0),
+      bytes: knownBytes || current?.bytes || 0,
+      mime: content.mime_type || content.content_type || artifact.mime_type || current?.mime || '',
+    }));
     if (!src || knownBytes) return undefined;
     const controller = new AbortController();
     fetch(src, {method: 'HEAD', credentials: 'same-origin', signal: controller.signal}).then(response => {
       if (!response.ok) return;
-      onMetadata?.({bytes: Number(response.headers.get('content-length') || 0), mime: response.headers.get('content-type') || ''});
+      setImageMetadata(current => ({...(current || {}), bytes: Number(response.headers.get('content-length') || 0), mime: response.headers.get('content-type') || ''}));
     }).catch(() => {});
     return () => controller.abort();
-  }, [artifact.file_size, artifact.height, artifact.size, artifact.width, content.content_type, content.file_size, content.height, content.mime_type, content.size, content.width, onMetadata, src]);
-  const reportMetadata = event => onMetadata?.({
+  }, [artifact.file_size, artifact.height, artifact.size, artifact.width, content.content_type, content.file_size, content.height, content.mime_type, content.size, content.width, src]);
+  const reportMetadata = event => setImageMetadata(current => ({
+    ...(current || {}),
     width: event.currentTarget.naturalWidth,
     height: event.currentTarget.naturalHeight,
-    bytes: Number(content.file_size || content.size || artifact.file_size || artifact.size || 0),
-    mime: content.mime_type || content.content_type || artifact.mime_type || '',
-  });
+    bytes: Number(content.file_size || content.size || artifact.file_size || artifact.size || current?.bytes || 0),
+    mime: content.mime_type || content.content_type || artifact.mime_type || current?.mime || '',
+  }));
   return <div className="cv-image-artifact">
-    {src ? <figure><img src={src} alt={content.alt || imageFileName(artifact)} onLoad={reportMetadata}/><figcaption className="cv-image-metadata" aria-label="Informações da imagem"><span>{metadata?.width && metadata?.height ? `${metadata.width} × ${metadata.height} px` : 'Imagem'}</span><span>{metadata?.width && metadata?.height ? `${((metadata.width * metadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : ''}</span><span>{formatFileSize(metadata?.bytes)}</span></figcaption></figure> : <p>A imagem ainda não está disponível.</p>}
+    {src ? <figure><img src={src} alt={content.alt || imageFileName(artifact)} onLoad={reportMetadata}/><figcaption className="cv-image-metadata" aria-label="Informações da imagem"><span>{imageMetadata?.width && imageMetadata?.height ? `${imageMetadata.width} × ${imageMetadata.height} px` : 'Imagem'}</span><span>{imageMetadata?.width && imageMetadata?.height ? `${((imageMetadata.width * imageMetadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : ''}</span><span>{formatFileSize(imageMetadata?.bytes)}</span></figcaption></figure> : <p>A imagem ainda não está disponível.</p>}
   </div>;
 }
 
@@ -871,7 +872,7 @@ function ProjectMap({artifact, editing, onChange}) {
   </div>;
 }
 
-export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, projects = [], studioEditorUrl, onSaveToProject, onAttachToProject, onMoveToProject, onPublish, onCopyPublishedUrl, onUnpublish, onClose, onSave, onLoadVersions, versions, onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOrganizeImage, onOpenResource}) {
+export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey = '', onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, dirty, saving, publishing, publishedUrl, side = 'right', onSideChange, onChange, onTitleChange, projectRef, projects = [], studioEditorUrl, onSaveToProject, onAttachToProject, onMoveToProject, onPublish, onCopyPublishedUrl, onUnpublish, onClose, onSave, onLoadVersions, versions = [], onRestoreVersion, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOrganizeImage, onOpenResource}) {
   const dialog = useRef(null);
   const closeTimer = useRef(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -881,7 +882,6 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const [lightTheme, setLightTheme] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
-  const [imageMetadata, setImageMetadata] = useState(null);
   const [organizingImage, setOrganizingImage] = useState(false);
   const [tabMenu, setTabMenu] = useState(null);
   const [editingDocument, setEditingDocument] = useState(false);
@@ -906,7 +906,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
     if (type === 'project_map') return <ProjectMap artifact={artifact} editing={editingDocument} onChange={onChange}/>;
     if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
-    if (type === 'image') return <ImageArtifact artifact={artifact} metadata={imageMetadata} onMetadata={next => setImageMetadata(current => ({...(current || {}), ...next}))}/>;
+    if (type === 'image') return <ImageArtifact key={`${artifact.tabKey || artifact.id || artifact.title}:${imageSource(artifact)}`} artifact={artifact}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
@@ -920,7 +920,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     return textArtifact
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} editing={editingDocument}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
-  }, [artifact, type, textArtifact, editingDocument, onChange, onTitleChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
+  }, [artifact, type, textArtifact, editingDocument, onChange, onRequestSummary, onSaveReference, onRequestMeetingPlan, onOpenResource]);
   useEffect(() => {
     setClosing(false);
     setEditingTitle(false);
@@ -932,8 +932,11 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     } catch (_) { /* Storage may be unavailable. */ }
     setSourceFormat(artifact?.type === 'html' ? 'html' : preferred === 'txt' ? 'txt' : 'md');
     setTitleDraft(type === 'image' ? imageFileName(artifact) : (artifact?.title || artifact?.content?.title || 'Trabalho em andamento'));
-    setImageMetadata(null);
     setOrganizingImage(false);
+    setTabMenu(null);
+    setComparison(null);
+    setComparingVersion(null);
+    setLoadingVersions(false);
     if (dialog.current?.open) dialog.current.close();
     return () => window.clearTimeout(closeTimer.current);
   }, [artifact?.id, artifact?.tabKey]);

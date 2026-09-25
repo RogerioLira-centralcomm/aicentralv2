@@ -2176,3 +2176,26 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-project-selection .cv-project-tree__trigger { min-height:29px; }
 #cadu-conversations-v2-root .cv-mobile-entity-tree--brands .cv-brand-tree__list { padding-inline:0; }
 #cadu-conversations-v2-root .cv-mobile-entity-tree--brands .cv-brand-tree__choice { min-height:30px; }
+
+/* Keep navigation marks aligned like project links, without chip backgrounds. */
+#cadu-conversations-v2-root .cv-brand-tree__list { display:grid; grid-template-columns:minmax(0,1fr); gap:0; padding:1px 0 4px; }
+#cadu-conversations-v2-root .cv-brand-tree__choice { width:100%; max-width:100%; min-height:29px; flex:none; padding:0 10px; border-radius:0; background:transparent; color:#d4dfdc; font-size:13px; font-weight:400; }
+#cadu-conversations-v2-root .cv-brand-tree__choice:hover { background:transparent; color:#fff; }
+#cadu-conversations-v2-root .cv-brand-tree__choice.is-selected { background:transparent; color:#b9f0e6; font-weight:550; }
+@media (max-width:767px) {
+  #cadu-conversations-v2-root .cv-mobile-entity-tree--brands .cv-brand-tree__choice { min-height:30px; }
+}
+
+/* Primary navigation uses simple React SVG icons, not icon tiles. */
+@media (min-width:768px) {
+  #cadu-conversations-v2-root .cv-nav-action { gap:11px; padding-inline:14px; background:transparent; }
+  #cadu-conversations-v2-root .cv-nav-action>.cv-nav-icon,
+  #cadu-conversations-v2-root .cv-nav-action>svg { display:block; width:18px; height:18px; flex:0 0 18px; padding:0; border-radius:0; background:transparent; color:#9aaca8; box-sizing:content-box; }
+  #cadu-conversations-v2-root .cv-nav-action:hover,
+  #cadu-conversations-v2-root .cv-nav-action.is-active { background:transparent; }
+  #cadu-conversations-v2-root .cv-nav-action:hover>.cv-nav-icon,
+  #cadu-conversations-v2-root .cv-nav-action:hover>svg { background:transparent; color:#e8f4f1; }
+  #cadu-conversations-v2-root .cv-nav-action.is-active { color:#b9f0e6; font-weight:500; }
+  #cadu-conversations-v2-root .cv-nav-action.is-active>.cv-nav-icon,
+  #cadu-conversations-v2-root .cv-nav-action.is-active>svg { background:transparent; color:var(--cv-accent); }
+}

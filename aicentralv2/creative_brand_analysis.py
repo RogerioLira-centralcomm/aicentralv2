@@ -1331,16 +1331,15 @@ def _brand_source_preflight(url, brand_name):
             if not 0 <= probability <= 1:
                 raise ValueError("Probabilidade TypeSafe fora do intervalo.")
             probabilities[key] = probability
-        usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+        parsed_usage, usage_status = _typesafe_usage_report(result)
         report.update({
             "model": _text(result.get("model"), 80),
             "duration_ms": round((perf_counter() - started) * 1000),
-            "usage": {
-                "input_tokens": max(0, int(usage.get("input_tokens") or 0)),
-                "output_tokens": max(0, int(usage.get("output_tokens") or 0)),
-            },
+            "typesafe_usage_status": usage_status,
             "probabilities": probabilities,
         })
+        if parsed_usage is not None:
+            report["usage"] = parsed_usage
         if all(value >= BRAND_PREFLIGHT_PASS_THRESHOLD for value in probabilities.values()):
             report["decision"] = "pass_typesafe"
         elif any(value <= BRAND_PREFLIGHT_REJECT_THRESHOLD for value in probabilities.values()):
@@ -2285,6 +2284,20 @@ def _focused_research_pages(evidence, signals, limit=5):
     return (selected + fallback)[:limit]
 
 
+def _typesafe_usage_report(result):
+    """Return provider-reported token usage without inventing zeroes."""
+    usage = result.get("usage") if isinstance(result, dict) else None
+    if not isinstance(usage, dict):
+        return None, "missing"
+    parsed = {}
+    for key in ("input_tokens", "output_tokens"):
+        value = usage.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None, "invalid"
+        parsed[key] = value
+    return parsed, "reported"
+
+
 def _typesafe_triage_market_sources(evidence, brand_name, website_url):
     """Drop only clearly irrelevant market candidates before costly research.
 
@@ -2373,12 +2386,7 @@ def _typesafe_triage_market_sources(evidence, brand_name, website_url):
         keep_ids = set(range(len(candidates)))
         rejected_ids.clear()
 
-    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
-    def _usage_count(key):
-        try:
-            return max(0, int(usage.get(key) or 0))
-        except (TypeError, ValueError):
-            return 0
+    usage, usage_status = _typesafe_usage_report(result)
 
     summary = {
         "status": "completed",
@@ -2395,11 +2403,10 @@ def _typesafe_triage_market_sources(evidence, brand_name, website_url):
         ],
         "model": _text(result.get("model"), 80),
         "duration_ms": round((perf_counter() - triage_started) * 1000),
-        "usage": {
-            "input_tokens": _usage_count("input_tokens"),
-            "output_tokens": _usage_count("output_tokens"),
-        },
+        "usage_status": usage_status,
     }
+    if usage is not None:
+        summary["usage"] = usage
     if not rejected_ids:
         return summary
 

@@ -3092,33 +3092,41 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     analysis_metadata = analysis.get('analysis_metadata') or {}
                     type_safe_triage = analysis_metadata.get('typesafe_source_triage')
                     if isinstance(type_safe_triage, dict) and type_safe_triage.get('status') == 'completed':
-                        type_safe_usage = type_safe_triage.get('usage') if isinstance(type_safe_triage.get('usage'), dict) else {}
-                        token_usage['typesafe_tokens'] += (
-                            max(0, int(type_safe_usage.get('input_tokens') or 0))
-                            + max(0, int(type_safe_usage.get('output_tokens') or 0))
-                        )
-                        token_usage['stages']['typesafe_source_triage'] = {
+                        type_safe_usage = type_safe_triage.get('usage')
+                        triage_stage = {
                             'provider': 'typesafe',
                             'model': str(type_safe_triage.get('model') or '')[:128],
-                            'input_tokens': max(0, int(type_safe_usage.get('input_tokens') or 0)),
-                            'output_tokens': max(0, int(type_safe_usage.get('output_tokens') or 0)),
+                            'usage_status': str(type_safe_triage.get('usage_status') or 'unavailable'),
                             'duration_ms': max(0, int(type_safe_triage.get('duration_ms') or 0)),
                         }
+                        if isinstance(type_safe_usage, dict):
+                            input_tokens = max(0, int(type_safe_usage.get('input_tokens') or 0))
+                            output_tokens = max(0, int(type_safe_usage.get('output_tokens') or 0))
+                            token_usage['typesafe_tokens'] += input_tokens + output_tokens
+                            triage_stage.update({
+                                'input_tokens': input_tokens,
+                                'output_tokens': output_tokens,
+                            })
+                        token_usage['stages']['typesafe_source_triage'] = triage_stage
                     type_safe_preflight = analysis_metadata.get('brand_preflight')
-                    if isinstance(type_safe_preflight, dict) and type_safe_preflight.get('usage'):
-                        type_safe_usage = type_safe_preflight.get('usage') or {}
-                        token_usage['typesafe_tokens'] += (
-                            max(0, int(type_safe_usage.get('input_tokens') or 0))
-                            + max(0, int(type_safe_usage.get('output_tokens') or 0))
-                        )
-                        token_usage['stages']['typesafe_brand_preflight'] = {
+                    if isinstance(type_safe_preflight, dict):
+                        type_safe_usage = type_safe_preflight.get('usage')
+                        preflight_stage = {
                             'provider': 'typesafe',
                             'model': str(type_safe_preflight.get('model') or '')[:128],
-                            'input_tokens': max(0, int(type_safe_usage.get('input_tokens') or 0)),
-                            'output_tokens': max(0, int(type_safe_usage.get('output_tokens') or 0)),
+                            'usage_status': str(type_safe_preflight.get('typesafe_usage_status') or 'unavailable'),
                             'duration_ms': max(0, int(type_safe_preflight.get('duration_ms') or 0)),
                             'decision': str(type_safe_preflight.get('decision') or ''),
                         }
+                        if isinstance(type_safe_usage, dict):
+                            input_tokens = max(0, int(type_safe_usage.get('input_tokens') or 0))
+                            output_tokens = max(0, int(type_safe_usage.get('output_tokens') or 0))
+                            token_usage['typesafe_tokens'] += input_tokens + output_tokens
+                            preflight_stage.update({
+                                'input_tokens': input_tokens,
+                                'output_tokens': output_tokens,
+                            })
+                        token_usage['stages']['typesafe_brand_preflight'] = preflight_stage
                     pages = max(1, int(analysis_metadata.get('pages_analyzed') or 1))
                     credits.charge_firecrawl(
                         actor=actor, idempotency_key=f'workspace-brand:{job_id}:firecrawl-scrape',
@@ -3289,19 +3297,23 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 if isinstance(preflight_report, dict):
                     failed_costs['estimated_tokens'] = 0
                     type_safe_usage = preflight_report.get('usage') if isinstance(preflight_report.get('usage'), dict) else {}
+                    preflight_stage = {
+                        'provider': 'typesafe',
+                        'model': str(preflight_report.get('model') or '')[:128],
+                        'usage_status': str(preflight_report.get('typesafe_usage_status') or 'unavailable'),
+                        'duration_ms': max(0, int(preflight_report.get('duration_ms') or 0)),
+                        'decision': str(preflight_report.get('decision') or ''),
+                    }
                     if type_safe_usage:
-                        failed_costs['typesafe_tokens'] = (
-                            max(0, int(type_safe_usage.get('input_tokens') or 0))
-                            + max(0, int(type_safe_usage.get('output_tokens') or 0))
-                        )
-                        failed_costs.setdefault('stages', {})['typesafe_brand_preflight'] = {
-                            'provider': 'typesafe',
-                            'model': str(preflight_report.get('model') or '')[:128],
-                            'input_tokens': max(0, int(type_safe_usage.get('input_tokens') or 0)),
-                            'output_tokens': max(0, int(type_safe_usage.get('output_tokens') or 0)),
-                            'duration_ms': max(0, int(preflight_report.get('duration_ms') or 0)),
-                            'decision': str(preflight_report.get('decision') or ''),
-                        }
+                        input_tokens = max(0, int(type_safe_usage.get('input_tokens') or 0))
+                        output_tokens = max(0, int(type_safe_usage.get('output_tokens') or 0))
+                        failed_costs['typesafe_tokens'] = input_tokens + output_tokens
+                        preflight_stage.update({
+                            'input_tokens': input_tokens,
+                            'output_tokens': output_tokens,
+                        })
+                    if preflight_report.get('model') or preflight_report.get('typesafe_usage_status'):
+                        failed_costs.setdefault('stages', {})['typesafe_brand_preflight'] = preflight_stage
                     # The one homepage request happened before the cheap gate.
                     # Record it when Firecrawl supplied the page; don't charge
                     # the large crawl/search stages that were never started.

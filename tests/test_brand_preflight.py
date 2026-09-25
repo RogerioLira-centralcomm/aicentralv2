@@ -65,6 +65,33 @@ def test_unmatched_brand_stops_before_broad_crawl_and_paid_llm(monkeypatch, mode
     assert billed == []
 
 
+def test_rejection_remains_blocked_when_typesafe_usage_is_missing(monkeypatch):
+    result = _type_safe_result(0.03, 0.91)
+    result.pop("usage")
+    monkeypatch.setattr(analysis, "_firecrawl_scrape_com_variantes", lambda *_args, **_kwargs: _homepage())
+    monkeypatch.setattr(
+        "aicentralv2.services.integration_credentials.resolve_typesafe_api_key",
+        lambda: "configured",
+    )
+    monkeypatch.setattr(
+        "aicentralv2.services.typesafe_service.system_one",
+        lambda *_args, **_kwargs: result,
+    )
+    analyzer = analysis.CreativeBrandAnalyzer(
+        llm=lambda *_args, **_kwargs: pytest.fail("nenhum LLM de alto custo deveria ser chamado"),
+    )
+
+    with pytest.raises(analysis.BrandPreflightBlocked) as error:
+        analyzer.analyze(
+            "https://acme.example", brand_name="Marca Diferente", preflight=True,
+        )
+
+    report = error.value.preflight_report
+    assert report["decision"] == "reject_typesafe"
+    assert report["typesafe_usage_status"] == "missing"
+    assert "usage" not in report
+
+
 def test_ambiguous_typesafe_decision_is_reported_as_blocked_for_manual_review(monkeypatch):
     monkeypatch.setattr(analysis, "_firecrawl_scrape_com_variantes", lambda *_args, **_kwargs: _homepage())
     monkeypatch.setattr(
@@ -173,6 +200,56 @@ def test_deterministic_fallback_requires_brand_name_sequence_in_host_or_title():
         + ("Renewable energy for customers. " * 8),
         title="Welcome",
     )
+
+
+@pytest.mark.parametrize(
+    ("usage", "expected_status"),
+    [
+        (None, "missing"),
+        ({"input_tokens": "4", "output_tokens": 2}, "invalid"),
+        ({"input_tokens": 4, "output_tokens": -1}, "invalid"),
+        ({"input_tokens": True, "output_tokens": 2}, "invalid"),
+    ],
+)
+def test_typesafe_usage_parser_does_not_convert_unknown_usage_to_zero(usage, expected_status):
+    parsed, status = analysis._typesafe_usage_report({"usage": usage})
+
+    assert parsed is None
+    assert status == expected_status
+
+
+def test_market_triage_preserves_relevance_decisions_when_usage_is_missing(monkeypatch):
+    evidence = {
+        "external_sources": [
+            {"url": f"https://news.example/{index}", "title": f"Fonte {index}"}
+            for index in range(3)
+        ],
+        "competitor_sources": [],
+    }
+    monkeypatch.setattr(
+        "aicentralv2.services.integration_credentials.resolve_typesafe_api_key",
+        lambda: "configured",
+    )
+    monkeypatch.setattr(
+        "aicentralv2.services.typesafe_service.system_one",
+        lambda *_args, **_kwargs: {
+            "model": "jev-test",
+            "answers": {
+                "candidate_0": {"type": "noul", "noul": 0.92},
+                "candidate_1": {"type": "noul", "noul": 0.02},
+                "candidate_2": {"type": "noul", "noul": 0.58},
+            },
+        },
+    )
+
+    report = analysis._typesafe_triage_market_sources(evidence, "Acme", "https://acme.example")
+
+    assert report["status"] == "completed"
+    assert report["usage_status"] == "missing"
+    assert "usage" not in report
+    assert [item["url"] for item in evidence["external_sources"]] == [
+        "https://news.example/0", "https://news.example/2",
+    ]
 
 
 def test_homepage_provider_failure_blocks_without_entering_expensive_audit(monkeypatch):

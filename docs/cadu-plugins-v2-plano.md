@@ -2,6 +2,8 @@
 
 Status: implementação faseada, 2026-09-25. Esta etapa cobre conversa, pesquisa, análise e operações. Persistência e visualização de artefatos entram depois da revisão paralela. Prioridade agora: utilidade e correção do fluxo; custo por tarefa será medido depois que cada fluxo tiver critérios de qualidade estáveis.
 
+Roteiro de validação: [guia dos cinco fluxos](cadu-plugins-v2-guia-avaliacao.md).
+
 ### Progresso verificado
 
 - O catálogo e a tela agrupam os modos atuais em cinco fluxos. Modos planejados aparecem como futuros, sem simular disponibilidade; comandos antigos seguem funcionando.

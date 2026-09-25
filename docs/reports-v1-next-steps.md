@@ -36,6 +36,19 @@ A V1 ainda abre a biblioteca e a edição de relatórios na interface legada. O 
 
 Executar P0.1 a P0.4 como um pacote de preparação e piloto. Ele transforma a base já codificada em fluxo verificável de **anúncio → conta/campanha → página → etapa → conversão observada → confirmação do CRM → relatório**. Em seguida, P1.1 e P1.2 removem as duas quebras mais visíveis da experiência no Reports.
 
+## Execução iniciada
+
+| Item | Estado em 25/09/2026 |
+| --- | --- |
+| P0.1 | Alterações do Reports isoladas na branch `codex/reports-v1-execution`, com commits próprios e [procedimento de implantação](reports-v1-rollout.md). Rotação da credencial TypeSafe compartilhada ainda depende do administrador da integração. |
+| P0.2 | Auditoria somente de leitura criada. A conexão configurada é remota e não foi identificada como homologação; nela faltam as tabelas `cadu_reports_*`. Migração e verificação após migração aguardam ambiente de homologação identificado. |
+| P0.3–P0.5 | Pilotos Google Ads, MCC, GTM, CRM e publicação restrita aguardam contas e ambiente autorizados. Build e sintaxe locais passaram, sem substituir o piloto. |
+| P1.1 | Associação do Link Tester com campanha e relatório, remoção e histórico implementados no backend e React; falta verificar contra banco migrado. |
+| P1.2 | Detalhe React, edição de contexto, versões e publicação implementados. Envio/revisão de prints e edição de identidade ainda usam telas anteriores. |
+| P1.3 | Concessões para usuários existentes prontas; convite e cadastro autônomo só para Reports pendentes. |
+| P1.4 | Tag expõe `trackPage()` para navegação SPA via GTM, com deduplicação imediata; eventos personalizados e diagnóstico de instalação pendentes. |
+| P1.5–P3 | Conciliação de métricas, conectores adicionais, conjuntos de dados, audiências e mapas de clique ainda não iniciados. |
+
 ## Verificação do plano com TypeSafe
 
 Em 25/09/2026, a API System One respondeu HTTP 200 com `jev-1.13.0` a três perguntas `Choice` independentes sobre o plano: **ordem do piloto coerente** (confiança 0,83), **escopo alinhado** (0,76) e **papel apropriado da TypeSafe** (1,00). A alternativa “outras plataformas tarde” recebeu probabilidade 0,17 na pergunta de escopo; por isso a prioridade P2.1 deve ser revista se um cliente piloto precisar de Meta ou Microsoft Ads para começar. Essa avaliação semântica não comprova o estado do código, a integridade do banco nem a segurança da implantação; os critérios de conclusão da tabela exigem verificação própria.

@@ -46,6 +46,20 @@ def _required_text(payload, field, limit):
     return value
 
 
+def _optional_positive_id(value, field):
+    if value in (None, ''):
+        return None
+    if isinstance(value, bool) or isinstance(value, (list, dict, float)):
+        abort(400, description=f'{field} inválido.')
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        abort(400, description=f'{field} inválido.')
+    if number < 1:
+        abort(400, description=f'{field} inválido.')
+    return number
+
+
 def register(bp):
     @bp.get('/app')
     @login_required
@@ -75,9 +89,16 @@ def register(bp):
         reports = _rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
                 revision,updated_at FROM cadu_connect_report_workspaces
                 WHERE organization_id=%s AND client_id=%s ORDER BY updated_at DESC LIMIT 60''', params)
-        link_tests = _rows('''SELECT id,mode,final_url,score,status_label,created_at
-                FROM cadu_planner_link_test_runs WHERE client_id=%s
-                ORDER BY created_at DESC LIMIT 20''', (selected['client_id'],))
+        link_tests = _rows('''SELECT r.id,r.mode,r.original_url,r.final_url,r.score,r.status_label,
+                r.created_at,r.account_id,r.media_campaign_id,r.report_workspace_id,
+                r.association_updated_at,c.name AS campaign_name,w.campaign_name AS report_name
+                FROM cadu_planner_link_test_runs r
+                LEFT JOIN cadu_reports_campaigns c ON c.id=r.media_campaign_id
+                    AND c.organization_id=%s AND c.client_id=%s
+                LEFT JOIN cadu_connect_report_workspaces w ON w.id=r.report_workspace_id
+                    AND w.organization_id=%s AND w.client_id=%s
+                WHERE r.client_id=%s ORDER BY r.created_at DESC LIMIT 20''',
+                (*params, *params, selected['client_id']))
         return jsonify(ready=True, client=selected, clients=clients, csrf=session['family_csrf'],
                        can_manage_access=selected['role'] == 'admin' and
                            session.get('user_type') in ('admin', 'superadmin') and not reports_access.reports_only(),
@@ -341,3 +362,84 @@ def register(bp):
                        probabilities=answer.get('probabilities') if campaigns else {}, page_role=role_answer.get('choice'),
                        page_role_confidence=role_answer.get('confidence'),
                        model=evaluation.get('model'), requires_confirmation=True)
+
+    @bp.post('/api/v1/reports/link-tests/<run_id>/association')
+    @login_required_api
+    def reports_v1_associate_link(run_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400, description='Envie uma decisão de associação.')
+        selected = _selection(payload)
+        _write_guard(selected)
+        if not _ready():
+            abort(503)
+        if 'campaign_id' not in payload:
+            abort(400, description='Escolha uma campanha ou limpe a associação explicitamente.')
+        try:
+            run_uuid = str(uuid.UUID(run_id))
+        except ValueError:
+            abort(400, description='Teste de link inválido.')
+        campaign_id = _optional_positive_id(payload.get('campaign_id'), 'Campanha')
+        report_id = _optional_positive_id(payload.get('report_id'), 'Relatório')
+        if not campaign_id and report_id:
+            abort(400, description='Escolha uma campanha antes de associar um relatório.')
+        params = (selected['organization_id'], selected['client_id'])
+        run = _rows('''SELECT id,account_id,media_campaign_id,report_workspace_id
+            FROM cadu_planner_link_test_runs WHERE id=%s AND client_id=%s FOR UPDATE''',
+            (run_uuid, selected['client_id']))
+        if not run:
+            abort(404)
+        account_id = None
+        if campaign_id:
+            campaign = _rows('''SELECT id,account_id FROM cadu_reports_campaigns
+                WHERE id=%s AND organization_id=%s AND client_id=%s''', (campaign_id, *params))
+            if not campaign:
+                abort(404, description='Campanha fora deste cliente.')
+            account_id = campaign[0]['account_id']
+        if report_id:
+            report = _rows('''SELECT id,account_id,media_campaign_id
+                FROM cadu_connect_report_workspaces
+                WHERE id=%s AND organization_id=%s AND client_id=%s''', (report_id, *params))
+            if not report:
+                abort(404, description='Relatório fora deste cliente.')
+            if (report[0]['account_id'] and report[0]['account_id'] != account_id) or \
+                    (report[0]['media_campaign_id'] and report[0]['media_campaign_id'] != campaign_id):
+                abort(400, description='O relatório está vinculado a outra conta ou campanha.')
+        previous = run[0]
+        if (previous['account_id'], previous['media_campaign_id'], previous['report_workspace_id']) == \
+                (account_id, campaign_id, report_id):
+            get_db().rollback()
+            return jsonify(unchanged=True, account_id=account_id,
+                           campaign_id=campaign_id, report_id=report_id)
+        _rows('''UPDATE cadu_planner_link_test_runs
+            SET account_id=%s,media_campaign_id=%s,report_workspace_id=%s,
+                association_updated_at=NOW() WHERE id=%s RETURNING id''',
+            (account_id, campaign_id, report_id, run_uuid))
+        _rows('''INSERT INTO cadu_reports_link_association_history
+            (run_id,organization_id,client_id,previous_account_id,previous_campaign_id,
+             previous_report_id,account_id,campaign_id,report_id,action,decided_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+            (run_uuid, *params, previous['account_id'], previous['media_campaign_id'],
+             previous['report_workspace_id'], account_id, campaign_id, report_id,
+             'associate' if campaign_id else 'clear', session['user_id']))
+        get_db().commit()
+        return jsonify(unchanged=False, account_id=account_id,
+                       campaign_id=campaign_id, report_id=report_id)
+
+    @bp.get('/api/v1/reports/link-tests/<run_id>/association-history')
+    @login_required_api
+    def reports_v1_link_association_history(run_id):
+        selected = _selection()
+        try:
+            run_uuid = str(uuid.UUID(run_id))
+        except ValueError:
+            abort(400, description='Teste de link inválido.')
+        if not _rows('SELECT id FROM cadu_planner_link_test_runs WHERE id=%s AND client_id=%s',
+                     (run_uuid, selected['client_id'])):
+            abort(404)
+        history = _rows('''SELECT action,previous_campaign_id,previous_report_id,campaign_id,
+            report_id,decided_by,decided_at FROM cadu_reports_link_association_history
+            WHERE run_id=%s AND organization_id=%s AND client_id=%s
+            ORDER BY decided_at DESC,id DESC LIMIT 50''',
+            (run_uuid, selected['organization_id'], selected['client_id']))
+        return jsonify(history=history)

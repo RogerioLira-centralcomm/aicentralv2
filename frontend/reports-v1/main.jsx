@@ -328,6 +328,38 @@ function VisualConfirm({detail, data, busy, setBusy, setError, onRefresh}) {
   </article>;
 }
 
+function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
+  const [mapping, setMapping] = useState({});
+  const [platformHint, setPlatformHint] = useState(detail.import_file.platform_hint || '');
+  const [currencyHint, setCurrencyHint] = useState('');
+  const [dateOrder, setDateOrder] = useState('auto');
+  const [note, setNote] = useState('');
+  const fields = [['platform','Plataforma'],['account_id','ID da conta'],['account_name','Nome da conta'],
+    ['campaign_id','ID da campanha'],['campaign_name','Nome da campanha'],['date','Data'],
+    ['currency','Moeda'],['impressions','Impressões'],['clicks','Cliques'],['cost','Custo'],
+    ['conversions','Conversões'],['conversion_value','Valor das conversões']];
+  const submit = async event => {
+    event.preventDefault(); setBusy(true); setError('');
+    try {
+      const chosen = Object.fromEntries(Object.entries(mapping).filter(([,header]) => header));
+      await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/map-columns?client_id=${data.client.client_id}`,
+        {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf},
+          body:JSON.stringify({mapping:chosen, platform_hint:platformHint, currency_hint:currencyHint,
+            date_order:dateOrder, note})});
+      await onRefresh();
+    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+  };
+  return <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>Mapear colunas do arquivo</h2><span>{detail.headers.length} cabeçalhos detectados</span></div>
+    <p>Use quando o export tiver nomes de colunas que o Reports não reconheceu. O mapa será aplicado às linhas pendentes deste arquivo; o original fica preservado.</p>
+    {data.client.role !== 'viewer' && detail.import_file.applied_count < detail.import_file.row_count && <form className="reports-form" onSubmit={submit}>
+      <div className="reports-form-pair">{fields.map(([key,label]) => <label key={key}>{label}<select value={mapping[key] || ''} onChange={event => setMapping({...mapping,[key]:event.target.value})}><option value="">Usar leitura automática</option>{detail.headers.map(header => <option key={header} value={header}>{header}</option>)}</select></label>)}</div>
+      <div className="reports-form-pair"><label>Plataforma do arquivo, se ausente<input value={platformHint} onChange={event => setPlatformHint(event.target.value)} placeholder="Ex.: Meta Ads" /></label><label>Moeda, se ausente<input maxLength="3" value={currencyHint} onChange={event => setCurrencyHint(event.target.value)} placeholder="BRL" /></label><label>Formato de data<select value={dateOrder} onChange={event => setDateOrder(event.target.value)}><option value="auto">Detectar</option><option value="dmy">Dia/mês/ano</option><option value="mdy">Mês/dia/ano</option></select></label></div>
+      <label>Justificativa<input required maxLength="1000" value={note} onChange={event => setNote(event.target.value)} placeholder="Ex.: cabeçalhos do export conferidos" /></label><button disabled={busy}>Aplicar às linhas pendentes</button>
+    </form>}
+    {(detail.column_maps || []).map((item,index) => <p key={index}>{shortDate(item.created_at)} · {item.applied_rows} linhas reconhecidas · {item.note}</p>)}
+  </article>;
+}
+
 function Imports({data, reloadBootstrap}) {
   const [items, setItems] = useState([]);
   const [rangeSnapshots, setRangeSnapshots] = useState([]);
@@ -394,6 +426,7 @@ function Imports({data, reloadBootstrap}) {
     <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>Snapshots de intervalo</h2><span>{rangeSnapshots.length} recentes · sem soma diária</span></div>{rangeSnapshots.length ? <div className="reports-table-wrap"><table><thead><tr><th>Conta e campanha</th><th>Período</th><th>Métricas do intervalo</th><th>Origem</th><th></th></tr></thead><tbody>{rangeSnapshots.map(snapshot => <tr key={snapshot.id}><td>{snapshot.platform} · {snapshot.account_name} · {snapshot.campaign_name}</td><td>{shortDate(snapshot.period_start)} a {shortDate(snapshot.period_end)}</td><td>{snapshot.metrics.map(metric => `${metric.metric_key}: ${metric.value_numeric} ${metric.currency || metric.unit}`).join(' · ')}</td><td>{snapshot.original_name}</td><td><button type="button" className="reports-text-button" onClick={() => open(snapshot.import_id)}>Abrir print</button></td></tr>)}</tbody></table></div> : <Empty message="Totais de período confirmados em prints aparecerão aqui, separados das métricas diárias." />}</article>
     {detail && <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>{detail.import_file.original_name}</h2><span>{detail.import_file.row_count} linhas</span></div>{detail.import_file.file_kind === 'image' ? <>{detail.visual ? <><p>Leitura visual sugerida por {detail.visual.model}. Confira o print antes de usar qualquer número.</p>{detail.visual.result.scopes.map((scope,index) => <div className="reports-suggestion" key={index}><strong>Bloco {index + 1}: {scope.platform || 'Plataforma não identificada'} · {scope.account_name || scope.account_id || 'Conta não identificada'} · {scope.campaign_name || scope.campaign_id || 'Campanha não identificada'}</strong><p>{scope.period_start || 'Período não identificado'}{scope.period_end && scope.period_end !== scope.period_start ? ` a ${scope.period_end}` : ''} · {scope.granularity || 'Granularidade indefinida'} · {scope.currency || 'Moeda não identificada'}</p><small>Evidência: {scope.evidence}</small>{scope.metrics.length ? <ul>{scope.metrics.map((metric,metricIndex) => <li key={metricIndex}>{metric.label}: {metric.raw_value} {metric.unit} · {metric.evidence}</li>)}</ul> : <p>Sem métricas legíveis neste bloco.</p>}</div>)}{detail.visual.result.questions.map((question,index) => <p key={index}>{question}</p>)}</> : <><p>Print recebido. A leitura visual consome créditos Cadu e gera sugestões com evidências; nenhuma campanha ou métrica é confirmada automaticamente.</p>{data.client.role !== 'viewer' && <button type="button" className="reports-text-button" disabled={busy} onClick={extract}>Ler print com IA</button>}</>}</> : <><div className="reports-table-wrap"><table><thead><tr><th>Linha</th><th>Plataforma</th><th>Conta</th><th>Campanha</th><th>Data</th><th>Estado</th><th></th></tr></thead><tbody>{detail.rows.map(row => <tr key={row.id}><td>{row.sheet_name} · {row.source_row}</td><td>{row.parsed.platform || '—'}</td><td>{row.parsed.account_name || row.parsed.external_account_id || '—'}</td><td>{row.parsed.campaign_name || row.parsed.external_campaign_id || '—'}</td><td>{row.metric_date || '—'}</td><td>{row.reason || (row.decision_note ? `Confirmada: ${row.decision_note}` : 'Incluída na projeção quando não há conflito')}</td><td>{row.status === 'needs_review' && data.client.role !== 'viewer' && <button type="button" className="reports-text-button" onClick={() => edit(row)}>Revisar</button>}</td></tr>)}</tbody></table></div><small>Mostrando até 100 linhas, com pendências primeiro. Valores divergentes entre arquivos aparecem acima para revisão.</small></>}</article>}
     {detail?.import_file?.file_kind === 'image' && <VisualConfirm key={detail.import_file.id} detail={detail} data={data} busy={busy} setBusy={setBusy} setError={setError} onRefresh={async () => {await open(detail.import_file.id); await refresh(); await reloadBootstrap();}} />}
+    {detail && detail.import_file.file_kind !== 'image' && <ColumnMapping key={detail.import_file.id} detail={detail} data={data} busy={busy} setBusy={setBusy} setError={setError} onRefresh={async () => {await open(detail.import_file.id); await refresh(); await reloadBootstrap();}} />}
     {editing && <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>Revisar linha</h2><button type="button" className="reports-text-button" onClick={() => setEditing(null)}>Fechar</button></div><form className="reports-form" onSubmit={resolve}><div className="reports-form-pair">{[['platform','Plataforma'],['external_account_id','ID da conta'],['account_name','Nome da conta'],['external_campaign_id','ID da campanha'],['campaign_name','Nome da campanha'],['metric_date','Data ISO (AAAA-MM-DD)'],['currency','Moeda'],['impressions','Impressões'],['clicks','Cliques'],['cost','Custo'],['conversions','Conversões'],['conversion_value','Valor das conversões']].map(([key,label]) => <label key={key}>{label}<input value={draft[key] || ''} onChange={event => setDraft({...draft,[key]:event.target.value})} /></label>)}</div><label>Justificativa<input required maxLength="1000" value={draft.note || ''} onChange={event => setDraft({...draft,note:event.target.value})} placeholder="Ex.: data e conta conferidas no export original" /></label><button disabled={busy}>Confirmar linha</button></form></article>}
   </section>;
 }

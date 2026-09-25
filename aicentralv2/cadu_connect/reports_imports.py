@@ -14,11 +14,18 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from ..auth import login_required_api
 from ..db import get_db
 from .report_sources import prepare_image
-from .reports_import_parser import MAX_FILE_BYTES, normalized_platform, parse_record, read_export
+from .reports_import_parser import (ALIASES, FIELD_BY_HEADER, MAX_FILE_BYTES,
+                                    normalized_header, normalized_platform, parse_record, read_export)
 from .reports_v1 import _rows, _selection, _write_guard
 
 MAX_REQUEST_BYTES = 11 * 1024 * 1024
 METRIC_KEYS = frozenset(('impressions', 'clicks', 'cost', 'conversions', 'conversion_value'))
+CANONICAL_HEADERS = {
+    'platform':'Platform', 'account_id':'Account ID', 'account_name':'Account Name',
+    'campaign_id':'Campaign ID', 'campaign_name':'Campaign Name', 'date':'Date',
+    'currency':'Currency', 'impressions':'Impressions', 'clicks':'Clicks', 'cost':'Cost',
+    'conversions':'Conversions', 'conversion_value':'Conversion Value',
+}
 
 
 def _ready():
@@ -28,7 +35,8 @@ def _ready():
                  "AND to_regclass('public.cadu_reports_import_projection_decisions') IS NOT NULL "
                  "AND to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL "
                  "AND to_regclass('public.cadu_reports_import_range_snapshots') IS NOT NULL "
-                 "AND to_regclass('public.cadu_reports_import_range_metrics') IS NOT NULL AS ready")[0]['ready']
+                 "AND to_regclass('public.cadu_reports_import_range_metrics') IS NOT NULL "
+                 "AND to_regclass('public.cadu_reports_import_column_maps') IS NOT NULL AS ready")[0]['ready']
 
 
 def _bounded_body():
@@ -312,8 +320,134 @@ def register(bp):
                 FROM cadu_reports_import_range_metrics
                 WHERE snapshot_id=%s AND organization_id=%s AND client_id=%s
                 ORDER BY metric_key''', (snapshot['id'], *scope))
+        headers = _rows('''SELECT DISTINCT ON (sheet_name) raw FROM cadu_reports_import_rows
+            WHERE import_id=%s AND organization_id=%s AND client_id=%s
+            ORDER BY sheet_name,id LIMIT 80''', (str(import_id), *scope))
+        mapped_headers = list(dict.fromkeys(header for row in headers for header in row['raw']))
+        column_maps = _rows('''SELECT mapping,platform_hint,currency_hint,date_order,
+            applied_rows,note,created_at FROM cadu_reports_import_column_maps
+            WHERE import_id=%s AND organization_id=%s AND client_id=%s
+            ORDER BY id DESC LIMIT 10''', (str(import_id), *scope))
         return jsonify(import_file=batch[0], rows=rows, visual=visual[0] if visual else None,
-                       range_snapshots=snapshots)
+                       range_snapshots=snapshots, headers=mapped_headers,
+                       column_maps=column_maps)
+
+    @bp.post('/api/v1/reports/imports/<uuid:import_id>/map-columns')
+    @login_required_api
+    def reports_import_map_columns(import_id):
+        selected = _selection()
+        _write_guard(selected)
+        if not _ready():
+            abort(503, description='Instale as migrações de importações do Reports.')
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or set(payload) != {'mapping','platform_hint','currency_hint','date_order','note'}:
+            abort(400, description='Envie o mapa de colunas e sua justificativa.')
+        mapping = payload['mapping']
+        if not isinstance(mapping, dict) or set(mapping) - set(ALIASES):
+            abort(400, description='Mapeamento de colunas inválido.')
+        if any(not isinstance(value, str) or not value or len(value) > 160 for value in mapping.values()):
+            abort(400, description='Selecione cabeçalhos válidos.')
+        if len(set(mapping.values())) != len(mapping):
+            abort(400, description='Uma coluna não pode representar dois campos.')
+        platform_hint = payload['platform_hint']
+        currency_hint = payload['currency_hint']
+        date_order = payload['date_order']
+        note = payload['note']
+        if not isinstance(platform_hint, str) or len(platform_hint) > 100:
+            abort(400, description='Plataforma inválida.')
+        platform_hint = normalized_platform(platform_hint)
+        if payload['platform_hint'] and not platform_hint:
+            abort(400, description='Plataforma inválida.')
+        if not isinstance(currency_hint, str) or (currency_hint and not re.fullmatch(r'[A-Za-z]{3}', currency_hint)):
+            abort(400, description='Moeda inválida.')
+        currency_hint = currency_hint.upper()
+        if date_order not in ('auto','dmy','mdy'):
+            abort(400, description='Formato de data inválido.')
+        if not mapping and not platform_hint and not currency_hint and date_order == 'auto':
+            abort(400, description='Selecione ao menos uma coluna ou informe um parâmetro de leitura.')
+        if not isinstance(note, str) or not note.strip() or len(note.strip()) > 1000:
+            abort(400, description='Justifique o mapeamento (até 1.000 caracteres).')
+        scope = (selected['organization_id'], selected['client_id'])
+        conn = get_db()
+        try:
+            files = _rows('''SELECT id,row_count,applied_count FROM cadu_reports_import_files
+                WHERE id=%s AND organization_id=%s AND client_id=%s
+                    AND file_kind IN ('csv','xlsx') FOR UPDATE''', (str(import_id), *scope))
+            if not files:
+                abort(404)
+            header_rows = _rows('''SELECT DISTINCT ON (sheet_name) raw FROM cadu_reports_import_rows
+                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                ORDER BY sheet_name,id LIMIT 80''', (str(import_id), *scope))
+            available = {header for row in header_rows for header in row['raw']}
+            if any(header not in available for header in mapping.values()):
+                abort(400, description='Uma coluna selecionada não existe no arquivo.')
+            pending = _rows('''SELECT id,raw,status FROM cadu_reports_import_rows
+                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                    AND status='needs_review' ORDER BY id FOR UPDATE''', (str(import_id), *scope))
+            prepared = []
+            for row in pending:
+                remapped = {header: value for header, value in row['raw'].items()
+                            if FIELD_BY_HEADER.get(normalized_header(header)) not in mapping}
+                for field, header in mapping.items():
+                    remapped[CANONICAL_HEADERS[field]] = row['raw'].get(header, '')
+                parsed = parse_record({'raw': remapped}, platform_hint=platform_hint,
+                                      currency_hint=currency_hint, date_order=date_order)
+                prepared.append((row, parsed))
+            identities = Counter((item['platform'], item['external_account_id'],
+                item['external_campaign_id'], item['metric_date']) for _, item in prepared
+                if all(item.get(key) for key in
+                       ('platform','external_account_id','external_campaign_id','metric_date')))
+            previous = _rows('''SELECT a.platform,a.external_id AS account_external_id,
+                c.external_id AS campaign_external_id,r.metric_date
+                FROM cadu_reports_import_rows r
+                JOIN cadu_reports_campaigns c ON c.id=r.campaign_id
+                    AND c.organization_id=r.organization_id AND c.client_id=r.client_id
+                JOIN cadu_reports_accounts a ON a.id=c.account_id
+                    AND a.organization_id=c.organization_id AND a.client_id=c.client_id
+                WHERE r.import_id=%s AND r.organization_id=%s AND r.client_id=%s
+                    AND r.status='applied' ''', (str(import_id), *scope))
+            applied_keys = {(row['platform'],row['account_external_id'],
+                             row['campaign_external_id'],row['metric_date'].isoformat()) for row in previous}
+            applied = 0
+            for row, parsed in prepared:
+                identity = (parsed['platform'], parsed['external_account_id'],
+                            parsed['external_campaign_id'], parsed['metric_date'])
+                if identity in applied_keys or identities[identity] > 1:
+                    parsed['issues'].append('campanha e data repetidas no arquivo; confirme os segmentos')
+                account_id, campaign_id = _upsert_identity(selected, parsed)
+                status = 'applied' if not parsed['issues'] and campaign_id else 'needs_review'
+                _rows('''UPDATE cadu_reports_import_rows
+                    SET parsed=%s::jsonb,status=%s,reason=%s,account_id=%s,campaign_id=%s,metric_date=%s
+                    WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                    (json.dumps(parsed), status, '; '.join(parsed['issues']) or None,
+                     account_id, campaign_id, parsed['metric_date'], row['id'], *scope))
+                if status == 'applied':
+                    applied += 1
+                    applied_keys.add(identity)
+                    for key, value in parsed['metrics'].items():
+                        monetary = key in ('cost','conversion_value')
+                        _rows('''INSERT INTO cadu_reports_import_observations
+                            (import_row_id,organization_id,client_id,campaign_id,metric_date,
+                             metric_key,value_numeric,unit,currency)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                            (row['id'], *scope, campaign_id, parsed['metric_date'], key,
+                             Decimal(value), 'currency' if monetary else 'count',
+                             parsed['currency'] if monetary else None))
+            _rows('''INSERT INTO cadu_reports_import_column_maps
+                (import_id,organization_id,client_id,mapping,platform_hint,currency_hint,
+                 date_order,applied_rows,note,created_by)
+                VALUES (%s,%s,%s,%s::jsonb,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                (str(import_id), *scope, json.dumps(mapping), platform_hint or None,
+                 currency_hint or None, date_order, applied, note.strip(), session['user_id']))
+            _rows('''UPDATE cadu_reports_import_files SET applied_count=applied_count+%s,
+                status=CASE WHEN applied_count+%s=row_count THEN 'parsed' ELSE 'needs_review' END
+                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                (applied, applied, str(import_id), *scope))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return jsonify(mapped=True, applied_rows=applied)
 
     @bp.get('/api/v1/reports/imports/<uuid:import_id>/image')
     @login_required_api

@@ -146,6 +146,7 @@ def brand_context(context: RequestContext, brand_id) -> dict:
     return {
         "brand_id": int(brand["id"]), "brand_ref": f"studio:{brand['id']}",
         "name": brand.get("name"), "website_url": brand.get("website_url"),
+        "sector": brand.get("sector"),
         "logo_url": brand.get("display_logo") or brand.get("logo_url"),
         "colors": {"primary": brand.get("primary_color"), "secondary": brand.get("secondary_color"),
                    "palette": profile.get("color_palette") or []},

@@ -129,7 +129,7 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
             tool_chain = ()
         if plugin_id in {"market-radar", "audience-map", "investment-simulator", "creative-concept", "channel-copy", "page-review", "meeting-copilot", "client-delivery"}:
             context_tools = []
-            if context.project_ref:
+            if context.project_ref and plugin_id != "market-radar":
                 context_tools.append("workspace.get_project_context")
             if context.brand_ref or context.project_ref:
                 context_tools.append("brands.get_context")

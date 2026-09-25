@@ -289,12 +289,9 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "A seção citada não foi encontrada nos arquivos autorizados consultados. Não crie nem altere "
             "documento agora. Diga o que foi procurado e peça o nome do arquivo ou que o usuário o abra."
         )
-    if request.project_ref and not request.brand_ref:
-        brand_instruction = (
-            "O projeto selecionado não tem uma marca única vinculada no contexto. Quando a tarefa depender de marca, "
-            "pergunte se o usuário quer vincular uma marca existente ou criar uma nova; nunca invente uma marca."
-        )
-    elif request.brand_ref:
+    resolved_brand = resolved.get("brands.get_context") if isinstance(resolved, dict) else None
+    has_resolved_brand = isinstance(resolved_brand, dict) and bool(resolved_brand.get("name"))
+    if has_resolved_brand:
         brand_instruction = "Há uma marca vinculada ao projeto selecionado. Use esse contexto de marca nas análises relevantes."
     plugin_instruction = str(policy.get("plugin_instruction") or "")
     plugin = policy.get("plugin") if isinstance(policy.get("plugin"), dict) else None
@@ -311,6 +308,15 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "Mantenha as fontes como referências de apoio discretas, sem abrir a resposta por metodologia ou lista bibliográfica. "
             "Se insights.research_market retornar status unavailable, explique a razão em uma frase e peça um recorte de mercado mais específico; não simule um insight."
         )
+    elif plugin and plugin.get("id") == "market-radar":
+        brand_name = str((resolved_brand or {}).get("name") or "").strip()
+        if brand_name:
+            plugin_instruction += (
+                f" A marca resolvida para esta pesquisa é {brand_name}. Use também o setor e os concorrentes presentes em "
+                "brands.get_context para interpretar os resultados. O retorno web.search deve conter fontes pertinentes a essa marca; "
+                "não use links sobre métodos genéricos de análise competitiva como se fossem movimentos de mercado. "
+                "Se as fontes não cobrirem a marca ou seus concorrentes, declare que não encontrou evidência específica."
+            )
     elif plugin and plugin.get("id") == "planner":
         plugin_instruction += (
             " Trate o Planner como trabalho vivo: preserve as escolhas do usuário, explicite o que é recomendação e o que foi "

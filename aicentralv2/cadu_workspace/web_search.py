@@ -159,7 +159,7 @@ def _endpoint() -> str:
 
 
 def _search(query: str, *, limit: int, include_domains: list[str],
-            exclude_domains: list[str], recency: str) -> list[dict]:
+            exclude_domains: list[str], recency: str, country: str = "BR") -> list[dict]:
     key = resolve_firecrawl_api_key()
     if not key:
         raise WebSearchUnavailable("A pesquisa online não está configurada nesta conta.")
@@ -167,12 +167,13 @@ def _search(query: str, *, limit: int, include_domains: list[str],
         "query": query,
         "limit": limit,
         "sources": ["web"],
-        "country": "BR",
         "safe": True,
         "highlights": True,
         "ignoreInvalidURLs": True,
         "timeout": 45_000,
     }
+    if country:
+        payload["country"] = country
     if include_domains:
         payload["includeDomains"] = include_domains
     elif exclude_domains:
@@ -368,6 +369,9 @@ def search(context, arguments: dict) -> dict:
     recency = str(arguments.get("recency") or "").strip().lower()
     if recency not in {"", "day", "week", "month", "year"}:
         raise ValueError("Recência inválida.")
+    country = str(arguments.get("country", "BR") or "").strip().upper()
+    if country and not re.fullmatch(r"[A-Z]{2}", country):
+        raise ValueError("Use um código de país ISO de duas letras ou remova o filtro geográfico.")
     include_content = arguments.get("include_content", True) is not False
     hydrate_limit = min(MAX_HYDRATED_SOURCES, limit, depth_config["hydrate"]) if include_content else 0
     actor = CreditActor.from_values(context.client_id, context.user_id)
@@ -380,7 +384,7 @@ def search(context, arguments: dict) -> dict:
         raise ValueError("Não há saldo suficiente para pesquisar na internet agora.") from exc
     request_id = str(arguments.get("request_id") or getattr(context, "request_id", "") or uuid4())[:120]
     sources = _search(query, limit=limit, include_domains=include_domains,
-                      exclude_domains=exclude_domains, recency=recency)
+                      exclude_domains=exclude_domains, recency=recency, country=country)
     hydrated = 0
     selected = sources[:hydrate_limit]
     # Source reads are independent. Parallelizing them keeps the deep mode useful

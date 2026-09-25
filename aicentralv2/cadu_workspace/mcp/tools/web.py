@@ -23,6 +23,8 @@ from ..registry import ToolError, ToolInputError, register_tool
             "limit": {"type": "integer", "minimum": 3, "maximum": 12},
             "depth": {"type": "string", "enum": ["fast", "analysis", "agentic"]},
             "recency": {"type": "string", "enum": ["", "day", "week", "month", "year"]},
+            "country": {"type": ["string", "null"], "maxLength": 2,
+                        "description": "Código de país para priorizar resultados; null remove o filtro geográfico."},
             "include_domains": {"type": "array", "items": {"type": "string", "maxLength": 180}, "maxItems": 10},
             "exclude_domains": {"type": "array", "items": {"type": "string", "maxLength": 180}, "maxItems": 10},
             "include_content": {"type": "boolean"},

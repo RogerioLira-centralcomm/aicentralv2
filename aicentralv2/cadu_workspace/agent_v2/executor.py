@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import asdict, replace
 from typing import Optional
+from urllib.parse import urlsplit
 
 from .context_resolver import public_web_query, resolve_context
 from .prompt_assembler import build_payload
@@ -34,6 +35,42 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
     total = len(_BRIEFING_FIELDS)
     percent = round((len(completed) / total) * 100) if total else 0
     return {"percent": percent, "complete": percent >= 80, "completed": completed, "missing": missing}
+
+
+def _market_radar_query(brand: dict) -> str:
+    """Build a public query from approved brand fields, never private project notes."""
+    name = " ".join(str(brand.get("name") or "").split())[:100]
+    sector = " ".join(str(brand.get("sector") or "").split())[:60]
+    market = brand.get("market") if isinstance(brand.get("market"), dict) else {}
+    competitors = market.get("competitors") or []
+    if isinstance(competitors, str):
+        competitors = re.split(r"[,;\n]+", competitors)
+    competitor_names = []
+    for competitor in competitors:
+        value = competitor.get("name") if isinstance(competitor, dict) else competitor
+        value = " ".join(str(value or "").split())[:45]
+        if value and value.casefold() != name.casefold() and value not in competitor_names:
+            competitor_names.append(value)
+    if not name:
+        return ""
+    terms = [name]
+    if sector:
+        terms.append(sector)
+    terms.extend(competitor_names[:3])
+    terms.append("notícias recentes lançamentos campanhas movimentos concorrentes")
+    return " ".join(terms)[:400]
+
+
+def _market_radar_country(brand: dict) -> str | None:
+    """Infer a search region only from an explicit country-code domain."""
+    host = urlsplit(str(brand.get("website_url") or "")).hostname or ""
+    suffix = host.lower().rsplit(".", 1)[-1]
+    return {
+        "br": "BR", "uk": "GB", "us": "US", "ca": "CA", "au": "AU", "nz": "NZ",
+        "de": "DE", "fr": "FR", "es": "ES", "it": "IT", "pt": "PT", "jp": "JP",
+        "in": "IN", "mx": "MX", "ar": "AR", "cl": "CL", "co": "CO", "cn": "CN",
+        "kr": "KR", "nl": "NL", "za": "ZA", "ae": "AE",
+    }.get(suffix)
 
 
 def prepare_execution(message, request, history="", requested_mode="", conversation_state=None, routing_message=None,
@@ -224,7 +261,62 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             tool for tool in route.needs_tools if tool != "insights.research_market"
         ))
     registry = load_builtin_tools()
+    market_radar = bool(selected_plugin and selected_plugin.get("id") == "market-radar"
+                        and route.action == "run_plugin")
+    if market_radar:
+        # Resolve project and linked brand first. Do not fire the public search
+        # until we can scope it to the selected brand.
+        resolution_route = replace(resolution_route, needs_tools=tuple(
+            tool for tool in resolution_route.needs_tools if tool != "web.search"
+        ))
     resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode)
+    if market_radar:
+        brand = resolved.values.get("brands.get_context")
+        if isinstance(brand, dict) and brand.get("name"):
+            radar_query = _market_radar_query(brand)
+            if radar_query:
+                radar_route = replace(route, needs_tools=("web.search",))
+                close_db()
+                external = resolve_context(
+                    radar_route, request, radar_query, registry, execution_mode,
+                    tool_argument_overrides={"web.search": {
+                        "query": radar_query, "recency": "year", "limit": 8,
+                        "country": _market_radar_country(brand),
+                    }},
+                )
+                resolved.values.update({key: value for key, value in external.values.items() if key != "current_context"})
+                resolved.missing.extend(external.missing)
+                resolved.tool_calls.extend(external.tool_calls)
+                if external.missing:
+                    resolved.values["tool_status"] = {
+                        "unavailable": list(dict.fromkeys(resolved.missing)),
+                        "message": "A busca pública focada na marca não ficou disponível nesta resposta.",
+                    }
+            else:
+                resolved.values["brand_context_status"] = "missing_brand_name"
+        else:
+            resolved.values["brand_context_status"] = "unavailable_or_not_unique"
+            route = replace(
+                route, action="clarify_plugin_context", complexity="low",
+                response_mode="clarification", needs_tools=(), artifact_type=None,
+                requires_confirmation=False,
+            )
+            policy.update({
+                "mode": "clarification", "max_questions": 1,
+                "max_next_steps": 1, "max_answer_chars": 360,
+                "artifact_type": None, "allow_artifact": False,
+            })
+            policy["action_preflight"] = {
+                "ready": False,
+                "reason": "Não foi possível resolver uma única marca vinculada ao projeto selecionado.",
+                "missing": ["marca única vinculada ao projeto"],
+                "next_step": "Peça para selecionar ou vincular a marca correta ao projeto e só então inicie a pesquisa.",
+            }
+            policy["plugin_instruction"] = (
+                "O Radar de mercado não foi executado porque não foi possível resolver uma marca única para este projeto. "
+                "Explique essa pendência sem dizer que o projeto não tem vínculo; peça para selecionar ou vincular a marca correta. "
+                "Não apresente achados, links ou recomendações de mercado nesta etapa."
+            )
     internal_search = resolved.values.get("workspace.search_project_content") or {}
     public_query = public_web_query(routed_message, project_selected=bool(request.project_ref))
     explicit_external = bool(re.search(

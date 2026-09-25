@@ -224,10 +224,13 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
 
 def resolve_context(route: IntentRoute, request: RequestContext, message: str,
                     registry: ToolRegistry, execution_mode: str = "analysis",
-                    resolved_values: dict[str, Any] | None = None) -> ResolvedContext:
+                    resolved_values: dict[str, Any] | None = None,
+                    tool_argument_overrides: dict[str, dict[str, Any]] | None = None) -> ResolvedContext:
     result = ResolvedContext(values={"current_context": request.to_dict(), **(resolved_values or {})})
     for tool_name in route.needs_tools:
         arguments = _arguments(tool_name, request, message, execution_mode, route.action)
+        if tool_argument_overrides and tool_name in tool_argument_overrides:
+            arguments.update(tool_argument_overrides[tool_name])
         if tool_name == "insights.research_market":
             arguments["personalization"] = _insights_personalization(request, message, result.values)
         started = perf_counter()

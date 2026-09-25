@@ -7,6 +7,9 @@ from aicentralv2.cadu_workspace.insights_research import _safe_sources
 from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
 from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
+from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
+from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
+from aicentralv2.cadu_workspace.agent_v2.plugins import select
 
 
 def test_extracted_claim_requires_a_literal_quote_in_its_source():
@@ -83,3 +86,23 @@ def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown(
     assert restricted["channels"] == ["Google Ads", "LinkedIn"]
     assert all([item["channel"] for item in scenario["allocations"]] == restricted["channels"]
                for scenario in restricted["scenarios"])
+
+
+def test_page_review_reads_http_url_and_accepts_pasted_content(monkeypatch):
+    monkeypatch.setattr("aicentralv2.cadu_workspace.agent_v2.plugins.get_plugin",
+                        lambda plugin_id: {"id": plugin_id, "name": "Revisor de página", "internal_tools": []})
+    request = RequestContext(client_id=1, user_id=1, conversation_id=None, surface="conversations")
+    route = IntentRoute(domain="general", action="answer", complexity="medium", response_mode="analysis")
+
+    url = "/page-review Revise http://example.com/landing"
+    plugin, tools, missing = select(route, url, request)
+    assert plugin["id"] == "page-review"
+    assert "web.read" in tools
+    assert not missing
+    assert _arguments("web.read", request, url)["url"] == "http://example.com/landing"
+
+    pasted = "/page-review Revise esta página:\n" + ("Título: Café para sua rotina. CTA: Conheça nossos produtos.\n" * 4)
+    plugin, tools, missing = select(route, pasted, request)
+    assert plugin["id"] == "page-review"
+    assert "web.read" not in tools
+    assert not missing

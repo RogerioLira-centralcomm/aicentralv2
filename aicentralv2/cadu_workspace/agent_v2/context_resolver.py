@@ -176,7 +176,7 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
             arguments["request_id"] = request.request_id
         return arguments
     if tool_name == "web.read":
-        match = re.search(r"https://[^\s<>{}\[\]\\\"']+", message, re.IGNORECASE)
+        match = re.search(r"https?://[^\s<>{}\[\]\\\"']+", message, re.IGNORECASE)
         arguments = {"url": (match.group(0).rstrip(".,;:)") if match else "")}
         if request.request_id:
             arguments["request_id"] = request.request_id

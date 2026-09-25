@@ -138,7 +138,7 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
                 missing.append("relatório anexado ou métricas da campanha")
         if plugin_id == "media-plan-audit" and not context.project_ref and not context.active_object and not has_material:
             missing.append("plano de mídia ou projeto com um plano")
-        if plugin_id == "page-review" and not re.search(r"https://\S+", text):
+        if plugin_id == "page-review" and not re.search(r"https?://\S+", text, re.I):
             tool_chain = ()
             if not has_material:
                 missing.append("URL ou conteúdo da página")

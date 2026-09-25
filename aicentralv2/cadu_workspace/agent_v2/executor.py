@@ -126,12 +126,18 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         route = replace(route, action="clarify_plugin_context", response_mode="clarification",
                         needs_tools=(), artifact_type=None, requires_confirmation=False)
     elif plugin_tools:
-        required_tools = (plugin_tools if selected_plugin and (selected_plugin.get("id") in plugins.WORKFLOWS or selected_plugin.get("id") in {"insights", "reports", "google-connect", "google-drive", "google-calendar", "google-meet"})
+        required_tools = (tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))) if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS and route.artifact_type
+                          else plugin_tools if selected_plugin and (selected_plugin.get("id") in plugins.WORKFLOWS or selected_plugin.get("id") in {"insights", "reports", "google-connect", "google-drive", "google-calendar", "google-meet"})
                           else tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))))
         route = replace(route, needs_tools=required_tools)
     if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS and not plugin_missing and not selected_plugin.get("unavailable"):
-        route = replace(route, action="run_plugin", complexity="medium", response_mode="analysis", artifact_type=None,
-                        requires_confirmation=False, needs_tools=plugin_tools)
+        # A plugin supplies evidence and analysis; it must not erase the
+        # requested deliverable or tools selected to assemble that deliverable.
+        artifact_requested = bool(route.artifact_type)
+        route = replace(route, action="run_plugin", complexity="medium",
+                        response_mode="artifact_first" if artifact_requested else "analysis",
+                        requires_confirmation=False,
+                        needs_tools=tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))))
     readiness = None
     if route.action == "create_brief":
         readiness = briefing_readiness(message, history)
@@ -204,6 +210,15 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                     + ". Use-as apenas para ordenar sugestões; o pedido atual prevalece. "
                     "Se ajudar, ofereça uma única próxima ação personalizada ao final."
                 )
+        if route.artifact_type:
+            policy["plugin_instruction"] += (
+                " O artefato solicitado apresenta o material para leitura e compartilhamento: "
+                "organize-o com seções curtas, tabelas para comparações, métricas com unidade e período, "
+                "fontes e links junto aos achados e imagens somente quando disponíveis. "
+                "Preserve valores, nomes e referências fornecidos; omita campos vazios ou marque-os como não informados. "
+                "Deixe recomendações, próximos passos e sugestões do plugin na resposta do chat, "
+                "fora do artefato, salvo se o usuário pedir expressamente incluí-los no material."
+            )
     if plugin_missing:
         daily_next_step = None
         if selected_plugin and selected_plugin.get("id") in plugins.WORKFLOWS:

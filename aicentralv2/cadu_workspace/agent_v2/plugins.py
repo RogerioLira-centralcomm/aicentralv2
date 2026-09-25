@@ -12,6 +12,7 @@ import re
 from .contracts import IntentRoute, RequestContext
 from .plugin_catalog import get_plugin, list_entries
 from .daily_workflows import WORKFLOWS
+from .plugin_artifacts import delivery_metadata
 from .campaign_metrics import supplied_metrics
 
 _CAMPAIGN_SEARCH = re.compile(
@@ -58,6 +59,7 @@ def catalog() -> list[dict]:
         entry["runtime_tools"] = list(_execution_tools(plugin_id))
         entry["flow_id"] = PLUGIN_FLOW.get(plugin_id)
         entry["flow_mode"] = plugin_id if plugin_id in PLUGIN_FLOW else None
+        entry["delivery"] = delivery_metadata(plugin_id)
     return entries
 
 
@@ -265,6 +267,7 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
     selected["runtime_tools"] = list(_execution_tools(plugin_id))
     selected["flow_id"] = PLUGIN_FLOW.get(plugin_id)
     selected["flow_mode"] = plugin_id if plugin_id in PLUGIN_FLOW else None
+    selected["delivery"] = delivery_metadata(plugin_id)
     selected["internal_tools"] = list(selected["runtime_tools"])
     selected["required_context_missing"] = missing
     selected["selected_automatically"] = not bool(explicit and explicit.group(1) in WORKFLOWS)

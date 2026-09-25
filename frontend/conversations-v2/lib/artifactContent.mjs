@@ -163,8 +163,9 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
       if (fields) {
         source.summary = normalizeFieldValue(decoded.summary ?? source.summary) || '';
         source.fields = fields.map((field, index) => ({
-          key: String(field.key || field.title || field.heading || `Seção ${index + 1}`),
-          value: normalizeFieldValue(field.value ?? field.content ?? field.text),
+          ...(field && typeof field === 'object' ? field : {}),
+          key: String(field?.key || field?.title || field?.heading || `Seção ${index + 1}`),
+          value: normalizeFieldValue(field?.value ?? field?.content ?? field?.text),
         }));
         if ((artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') && source.fields.length === 1) {
           const parsed = meetingSections(source.fields[0].value).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
@@ -179,6 +180,7 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
   const rawFields = Array.isArray(source.fields) ? source.fields : Array.isArray(source.sections) ? source.sections : null;
   if (rawFields) {
     const fields = rawFields.map((field, index) => ({
+      ...(field && typeof field === 'object' ? field : {}),
       key: String(field?.key || field?.title || `Seção ${index + 1}`),
       value: normalizeFieldValue(field?.value ?? field?.content ?? field?.text),
     }));

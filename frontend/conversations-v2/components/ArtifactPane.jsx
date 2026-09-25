@@ -270,30 +270,37 @@ function ContentArtifact({artifact, editing, onChange}) {
   }
   const scenarios = type === 'scenario' && Array.isArray(content.options) ? content.options : [];
   const citations = type === 'research' && Array.isArray(content.citations) ? content.citations : [];
+  const fieldSourceLinks = fields.map(field => fieldCitations(field, citations));
+  const assignedCitationIds = new Set(fieldSourceLinks.flat().map(citationIdentity));
+  const unassignedCitations = citations.filter(citation => !assignedCitationIds.has(citationIdentity(citation)));
   const highlights = type === 'executive_summary' && Array.isArray(content.highlights) ? content.highlights : [];
   const updateScenario = (index, patch) => emit({...content, options:scenarios.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item} : {...item, ...patch})});
   const updateCitation = (index, patch) => emit({...content, citations:citations.map((item, itemIndex) => itemIndex !== index ? item : typeof item === 'string' ? {...patch, title:patch.title ?? item, url:item} : {...item, ...patch})});
   return <article className={`cv-content-artifact is-${type}`}>
     {(content.summary || editing && ['executive_summary', 'media_plan', 'scenario', 'research'].includes(type)) && (editing ? <EditableTextarea className="cv-content-artifact__summary-edit" aria-label="Síntese" placeholder="Síntese" value={content.summary || ''} onChange={value => emit({...content, summary:value})}/> : <p className="cv-content-artifact__summary">{content.summary}</p>)}
     <ArtifactImages images={images} label={type === 'media_plan' ? 'Imagens do plano de mídia' : 'Imagens do material'}/>
+    {(citations.length > 0 || editing && type === 'research') && <section className="cv-content-artifact__citations" aria-label="Fontes consultadas"><h3>Fontes consultadas</h3><ol>{(editing ? citations : unassignedCitations).map((citation, index) => {
+      const item = typeof citation === 'string' ? {url:citation, title:citation} : citation || {};
+      const href = safeUrl(item.url || item.href || item.link);
+      const title = item.title || item.source || item.publisher || href || `Fonte ${index + 1}`;
+      const state = citationReadState(item);
+      const date = item.date || item.published_at || item.publishedAt;
+      return <li key={citationIdentity(item) || index}>{editing ? <div className="cv-content-artifact__citation-edit"><input aria-label={`Título da fonte ${index + 1}`} value={item.title || item.source || ''} placeholder="Título da fonte" onChange={event => updateCitation(index, {title:event.target.value})}/><input aria-label={`URL da fonte ${index + 1}`} value={item.url || item.href || item.link || ''} placeholder="https://" onChange={event => updateCitation(index, {url:event.target.value})}/><textarea aria-label={`Trecho da fonte ${index + 1}`} value={item.excerpt || ''} placeholder="Trecho ou observação" onChange={event => updateCitation(index, {excerpt:event.target.value})}/></div> : <>{href ? <a href={href} target="_blank" rel="noreferrer">{title}</a> : <span>{title}</span>}<span className={`cv-source-read-state is-${state.kind}`}>{state.label}</span>{date && <time>{String(date)}</time>}{item.excerpt && <p>{item.excerpt}</p>}</>}</li>;
+    })}</ol>{editing && <button type="button" className="cv-content-artifact__add-citation" onClick={() => emit({...content, citations:[...citations, {title:'', url:'', excerpt:''}]})}>Adicionar fonte</button>}</section>}
     {!!metricEntries.length && <dl className="cv-content-artifact__metrics">{metricEntries.map(([label, value]) => <div key={label}><dt>{label.replaceAll('_', ' ')}</dt><dd>{editing ? <input aria-label={label.replaceAll('_', ' ')} value={String(value)} onChange={event => emit({...content, [metricsKey]:{...content[metricsKey], [label]:event.target.value}})}/> : String(value)}</dd></div>)}</dl>}
     {(highlights.length > 0 || editing && type === 'executive_summary') && <section className="cv-content-artifact__highlights" aria-label="Destaques"><ul>{highlights.map((item, index) => <li key={item.id || index}>{editing ? <input aria-label={`Destaque ${index + 1}`} value={typeof item === 'string' ? item : item.text || item.title || item.value || ''} onChange={event => emit({...content, highlights:highlights.map((value, itemIndex) => itemIndex !== index ? value : typeof value === 'string' ? event.target.value : {...value, text:event.target.value})})}/> : typeof item === 'string' ? item : item.text || item.title || item.value}</li>)}</ul>{editing && <button type="button" onClick={() => emit({...content, highlights:[...highlights, '']})}>Adicionar destaque</button>}</section>}
     {tables.map((table, index) => <section className="cv-content-artifact__table" key={table.title || index}>{table.title && <h3>{table.title}</h3>}<ArtifactTable table={table} editing={editing} onChange={next => emit({...content, tables:tables.map((item, itemIndex) => itemIndex === index ? next : item)})}/></section>)}
     {(scenarios.length > 0 || editing && type === 'scenario') && <section className="cv-content-artifact__scenario-grid" aria-label="Cenários comparados">{scenarios.map((scenario, index) => <section key={scenario.id || scenario.title || index}>
       {editing ? <input aria-label={`Nome do cenário ${index + 1}`} value={typeof scenario === 'string' ? scenario : scenario.title || ''} onChange={event => updateScenario(index, {title:event.target.value})}/> : <h3>{typeof scenario === 'string' ? scenario : scenario.title || `Cenário ${index + 1}`}</h3>}
       {(editing || typeof scenario !== 'string' && (scenario.summary || scenario.description || scenario.content)) && (editing ? <EditableTextarea aria-label={`Descrição do cenário ${index + 1}`} value={typeof scenario === 'string' ? '' : scenario.summary || scenario.description || scenario.content || ''} onChange={value => updateScenario(index, {summary:value})}/> : <ContentFieldValue value={scenario.summary || scenario.description || scenario.content}/>)}
+      {typeof scenario !== 'string' && <ArtifactCitationLinks citations={fieldCitations(scenario, citations)}/>}
       {typeof scenario !== 'string' && scenario.metrics && <dl>{Object.entries(scenario.metrics).filter(([, value]) => value != null && typeof value !== 'object').map(([key, value]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{editing ? <input aria-label={`${scenario.title || `Cenário ${index + 1}`}: ${key.replaceAll('_', ' ')}`} value={String(value)} onChange={event => updateScenario(index, {metrics:{...scenario.metrics, [key]:event.target.value}})}/> : String(value)}</dd></div>)}</dl>}
     </section>)}{editing && <button type="button" onClick={() => emit({...content, options:[...scenarios, {title:'', summary:''}]})}>Adicionar cenário</button>}</section>}
     {!!fields.length && <div className="cv-content-artifact__sections">{fields.map((field, index) => <section className={`cv-content-artifact__section is-${type}`} key={`${field.key}-${index}`}>
       <h3>{field.key || `Seção ${index + 1}`}</h3>
       {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/> : <><ChannelMark name={field.key}/><ContentFieldValue value={field.value}/></>}
+      <ArtifactCitationLinks citations={fieldSourceLinks[index]}/>
     </section>)}</div>}
-    {(citations.length > 0 || editing && type === 'research') && <section className="cv-content-artifact__citations"><h3>Fontes consultadas</h3><ol>{citations.map((citation, index) => {
-      const item = typeof citation === 'string' ? {url:citation, title:citation} : citation || {};
-      const href = safeUrl(item.url || item.href || item.link);
-      const title = item.title || item.source || item.publisher || href || `Fonte ${index + 1}`;
-      return <li key={item.id || href || `${title}-${index}`}>{editing ? <div className="cv-content-artifact__citation-edit"><input aria-label={`Título da fonte ${index + 1}`} value={item.title || item.source || ''} placeholder="Título da fonte" onChange={event => updateCitation(index, {title:event.target.value})}/><input aria-label={`URL da fonte ${index + 1}`} value={item.url || item.href || item.link || ''} placeholder="https://" onChange={event => updateCitation(index, {url:event.target.value})}/><textarea aria-label={`Trecho da fonte ${index + 1}`} value={item.excerpt || ''} placeholder="Trecho ou observação" onChange={event => updateCitation(index, {excerpt:event.target.value})}/></div> : <>{href ? <a href={href} target="_blank" rel="noreferrer">{title}</a> : <span>{title}</span>}{item.date && <time>{String(item.date)}</time>}{item.excerpt && <p>{item.excerpt}</p>}</>}</li>;
-    })}</ol>{editing && <button type="button" className="cv-content-artifact__add-citation" onClick={() => emit({...content, citations:[...citations, {title:'', url:'', excerpt:''}]})}>Adicionar fonte</button>}</section>}
     {!fields.length && !tables.length && !scenarios.length && !citations.length && !highlights.length && !content.summary && !metricEntries.length && !(editing && ['executive_summary', 'scenario', 'research'].includes(type)) && <div className="cv-content-artifact__empty">Este material ainda não tem conteúdo.</div>}
   </article>;
 }
@@ -315,7 +322,7 @@ function ArtifactTable({table, editing = false, onChange}) {
   const rows = Array.isArray(table?.rows) ? table.rows : [];
   if (!rows.length) return null;
   const inferredColumns = columns.length ? columns : Array.isArray(rows[0]) ? rows[0].map((_, index) => `Item ${index + 1}`) : Object.keys(rows[0] || {});
-  return <div className="cv-content-artifact__table-scroll"><table><thead><tr>{inferredColumns.map((column, index) => <th key={`${column}-${index}`}>{typeof column === 'string' ? column : column.label || column.name}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{inferredColumns.map((column, columnIndex) => {
+  return <div className="cv-content-artifact__table-scroll" role="region" aria-label={table.title ? `Tabela: ${table.title}` : 'Tabela de dados'} tabIndex={0}><table><thead><tr>{inferredColumns.map((column, index) => <th key={`${column}-${index}`}>{typeof column === 'string' ? column : column.label || column.name}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{inferredColumns.map((column, columnIndex) => {
     const key = typeof column === 'string' ? column : column.key || column.name || column.label;
     const value = Array.isArray(row) ? row[columnIndex] : row?.[key] ?? row?.[column.key];
     const channelCell = /channel|canal|plataforma/i.test(String(key));
@@ -327,6 +334,53 @@ function ArtifactTable({table, editing = false, onChange}) {
     };
     return <td key={`${key}-${columnIndex}`}>{editing ? <input aria-label={`${typeof key === 'string' ? key : 'Campo'}, linha ${rowIndex + 1}`} value={value ?? ''} onChange={event => update(event.target.value)}/> : <span className={channelCell ? 'cv-content-artifact__channel-cell' : ''}>{channelCell && <ChannelMark name={value} />}{value == null || value === '' ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>}</td>;
   })}</tr>)}</tbody></table></div>;
+}
+
+function citationReadState(citation = {}) {
+  const status = String(citation.read_status || citation.read_state || citation.status || '').trim().toLowerCase();
+  if (['read', 'extracted', 'content_read', 'lido', 'lida'].includes(status)) return {label:'Conteúdo lido', kind:'read'};
+  if (['discovered', 'found', 'metadata_only', 'descoberto', 'localizado'].includes(status)) return {label:'Link localizado · conteúdo não lido', kind:'discovered'};
+  if (['unavailable', 'failed', 'blocked', 'unreadable', 'indisponível'].includes(status)) return {label:'Conteúdo indisponível', kind:'unavailable'};
+  return {label:'Leitura não informada', kind:'unknown'};
+}
+
+function citationIdentity(citation = {}) {
+  return String(citation.id || citation.source_id || citation.url || citation.href || citation.link || citation.title || '');
+}
+
+function fieldCitations(field = {}, citations = []) {
+  const refs = new Set();
+  const direct = [];
+  const addRef = value => {
+    if (typeof value === 'string' || typeof value === 'number') refs.add(String(value));
+    else if (value && typeof value === 'object') {
+      const identity = citationIdentity(value);
+      if (identity) refs.add(identity);
+      if (value.url || value.href || value.link) direct.push(value);
+    }
+  };
+  for (const key of ['source_ids','citation_ids','source_refs','sources','citations','references']) {
+    const values = Array.isArray(field[key]) ? field[key] : field[key] == null ? [] : [field[key]];
+    values.forEach(addRef);
+  }
+  const fieldKeys = [field.id, field.key, field.title, field.finding_id, field.claim_id].filter(Boolean).map(String);
+  const matched = citations.filter(citation => {
+    const identity = citationIdentity(citation);
+    const hasExplicitRef = refs.has(identity) || refs.has(String(citation.id || '')) || refs.has(String(citation.source_id || ''));
+    const tiedFinding = [citation.finding_id, citation.claim_id, citation.field_id, citation.field_key].some(value => value && fieldKeys.includes(String(value)));
+    return hasExplicitRef || tiedFinding;
+  });
+  return [...new Map([...direct, ...matched].map(item => [citationIdentity(item), item])).values()];
+}
+
+function ArtifactCitationLinks({citations}) {
+  if (!citations?.length) return null;
+  return <ul className="cv-content-artifact__inline-citations" aria-label="Fontes deste achado">{citations.map((item, index) => {
+    const href = safeUrl(item.url || item.href || item.link);
+    const state = citationReadState(item);
+    const title = item.title || item.source || item.publisher || href || `Fonte ${index + 1}`;
+    return <li key={citationIdentity(item) || index}>{href ? <a href={href} target="_blank" rel="noreferrer">{title}</a> : <span>{title}</span>}<span className={`cv-source-read-state is-${state.kind}`}>{state.label}</span></li>;
+  })}</ul>;
 }
 
 function BriefFieldValue({value}) {
@@ -896,6 +950,7 @@ function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequ
   const isGoogle = /(^|\.)google\.com$|googleusercontent\.com$/i.test(domain);
   const isMeeting = /meet\.google\.com|calendar\.google\.com/i.test(domain) || /meet|calendar|reuni[aã]o/i.test(String(content.kind || content.provider || ''));
   const access = content.access_mode || (isGoogle ? 'referência Google' : 'link público');
+  const readState = citationReadState(content);
   const isPublic = content.access_type === 'public' || /p[uú]blico/i.test(String(content.kind || content.access_mode || '')) || (!isGoogle && Boolean(url));
   let embedded = isPublic ? url : '';
   if (/youtu\.be|youtube\.com/i.test(domain)) {
@@ -916,7 +971,7 @@ function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequ
   }
   if (embedded) return <article className="cv-link-embed cv-flex cv-h-full cv-min-h-0 cv-w-full cv-flex-col">
     <header className="cv-link-embed__bar">
-      <span><Icon name="external" size={15}/><b>{artifact.title || domain}</b><small>{domain}</small></span>
+      <span><Icon name="external" size={15}/><b>{artifact.title || domain}</b><small>{domain}</small><em className={`cv-source-read-state is-${readState.kind}`}>{readState.label}</em></span>
       <div>{!isGoogle && !isMeeting && <button type="button" onClick={() => onRequestSummary?.(url)}>Resumir</button>}<button type="button" onClick={() => onSaveReference?.(url)}>Salvar referência</button><a href={url} target="_blank" rel="noreferrer">Abrir fora</a></div>
     </header>
     <iframe title={artifact.title || domain || 'Link público'} src={embedded} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="strict-origin-when-cross-origin" className="cv-link-embed__frame"/>
@@ -927,6 +982,7 @@ function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequ
     <span className="cv-mt-5 cv-text-xs cv-font-semibold cv-text-[#78cfc3]">{access}</span>
     <h3 className="cv-mb-0 cv-mt-2 cv-text-xl cv-font-semibold cv-tracking-[-.02em]">{artifact.title || 'Link externo'}</h3>
     <p className="cv-mb-0 cv-mt-2 cv-text-sm cv-leading-6 cv-text-[#819b97]">{domain || 'Endereço externo'}{content.detail ? ` · ${content.detail}` : ''}</p>
+    <span className={`cv-source-read-state is-${readState.kind}`}>{readState.label}</span>
     {content.thumbnail && <img src={safeUrl(content.thumbnail)} alt="" className="cv-mt-6 cv-max-h-52 cv-w-full cv-rounded-xl cv-object-cover"/>}
     {isMeeting && <section className="cv-meeting-note cv-mt-6"><strong className="cv-block cv-text-sm">Reunião no projeto</strong><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-leading-5 cv-text-[#99b4af]">Organize pauta, decisões e próximos passos. A participação automática em chamadas não é iniciada por este fluxo.</p></section>}
     <div className="cv-mt-6 cv-grid cv-gap-2">

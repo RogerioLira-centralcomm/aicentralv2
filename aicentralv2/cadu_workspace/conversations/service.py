@@ -380,7 +380,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                 with _read_savepoint():
                     sources = repository.rows('''SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
                                                    LEFT(c.conteudo, 1000) AS trecho,
-                                                   0::double precision AS score,
+                                                   ts_rank_cd(c.search_vector, plainto_tsquery('portuguese', %s)) AS score,
                                                    c.content_hash, c.embedding_model,
                                                    s.classification_metadata->'extraction_coverage' AS extraction_coverage,
                                                    s.classification_metadata->>'rag_pipeline_version' AS pipeline_version
@@ -389,7 +389,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                                                AND s.projeto_id=c.projeto_id AND s.id_cliente=c.id_cliente
                                                AND s.purpose='knowledge_source' AND s.indexing_status='completed'
                                                AND c.search_vector @@ plainto_tsquery('portuguese', %s)
-                                          ORDER BY c.ordem ASC LIMIT %s''', (project_id, client_id, terms, result_limit))
+                                          ORDER BY score DESC, c.ordem ASC LIMIT %s''',
+                                               (terms, project_id, client_id, terms, result_limit))
                 packet['retrieval_status'] = 'lexical_fallback'
             # Coverage must be reported for targeted searches as well as
             # overviews. Otherwise an unindexed source silently disappears.

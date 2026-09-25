@@ -79,6 +79,9 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
   assert.doesNotMatch(home, /matchedProjects|Buscar projetos/);
   assert.match(home, /embedded homeMode\/>/);
+  assert.match(home, /workspace\/api\/home\/resume-suggestion/);
+  assert.match(home, /títulos, contextos e datas de atualização recentes serão enviados à TypeSafe/);
+  assert.match(home, /cadu-ds-home-resume__result/);
   assert.doesNotMatch(home, /cadu-ds-home-project-selector|showProjectSelector=\{false\}/);
   assert.match(selectors, /icon=\{<Icon name="folder" size=\{14\}\/>\}/);
   assert.match(selectors, /item\?\.ref \|\| item\?\.projectRef/);

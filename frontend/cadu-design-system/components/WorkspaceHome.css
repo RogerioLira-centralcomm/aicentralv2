@@ -40,6 +40,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
 
 /* The empty home is one clear invitation, not a second navigation menu. */
 @media (max-width: 760px) {
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume { flex-wrap:wrap; }
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content {
     min-height:calc(var(--workspace-visual-height,100dvh) - 56px);
     justify-content:center;
@@ -66,6 +67,35 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   border-color: #257669;
   box-shadow: 0 0 0 3px rgba(37, 118, 105, .12), 0 7px 24px rgba(20, 40, 58, .07);
 }
+
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume {
+  display:flex;
+  width:min(720px,100%);
+  min-height:34px;
+  align-items:center;
+  justify-content:center;
+  gap:5px 10px;
+  margin-top:9px;
+  color:#637a76;
+  text-align:center;
+}
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume > small { color:#718580; font-size:10px; line-height:1.4; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__action {
+  flex:none; padding:6px 10px; border:0; border-radius:7px; background:transparent; color:#326c63;
+  font-family:inherit; font-size:11px; font-weight:600; line-height:1.3; cursor:pointer;
+}
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__action:hover,
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__action:focus-visible { background:#e8f2ef; outline:0; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__action:disabled { opacity:.65; cursor:wait; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__result {
+  display:flex; width:100%; min-width:0; align-items:center; justify-content:space-between; gap:14px;
+  padding:9px 12px; border:1px solid #d4e2df; border-radius:10px; background:rgba(255,255,255,.78);
+  color:#284d47; text-align:left; text-decoration:none;
+}
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__result > span:first-child { display:grid; min-width:0; gap:2px; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__result b { overflow:hidden; font-size:12px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__result small { color:#718580; font-size:10px; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume__result:hover { border-color:#9dc3bb; background:#fff; }
 
 body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-chat-shell .cv-composer-input {
   min-height: 43px;

@@ -16,6 +16,98 @@ def _client():
 
 
 class WorkspaceDockTest(TestCase):
+    def setUp(self):
+        self.family_context = mock.patch(
+            'aicentralv2.cadu_family.context.resolve',
+            return_value={'client_id': 12, 'organization_id': 3},
+        )
+        self.family_context.start()
+        self.addCleanup(self.family_context.stop)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_home_resume_candidates')
+    @mock.patch('aicentralv2.services.integration_credentials.resolve_typesafe_api_key', return_value='test-key')
+    @mock.patch('aicentralv2.services.typesafe_service.system_one')
+    def test_home_resume_suggestion_returns_only_a_valid_candidate(self, system_one, _key, candidates):
+        candidates.return_value = [
+            {'id': 'conversation:1', 'kind': 'conversation', 'title': 'Briefing', 'context': 'Projeto A', 'status': 'Atualizada', 'updatedAt': '2026-09-24', 'href': '/chat?id=1'},
+            {'id': 'resource:2', 'kind': 'report', 'title': 'Relatório', 'context': 'Projeto B', 'status': 'Pronto', 'updatedAt': '2026-09-23', 'href': '/projetos/b?resource=2'},
+        ]
+        system_one.return_value = {'answers': {'next_action': {'type': 'choice', 'choice': 'candidate_1', 'confidence': .82, 'probabilities': {'candidate_0': .1, 'candidate_1': .82, 'none': .08}}}}
+
+        response = _client().post('/workspace/api/home/resume-suggestion', headers={'X-CSRF-Token': 'known-token'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['suggestion']['id'], 'resource:2')
+        self.assertEqual(response.json['source'], 'typesafe')
+        candidates.assert_called_once_with(12, 7, 3)
+        state, questions = system_one.call_args.args
+        self.assertNotIn('href', str(state))
+        self.assertIn('none', questions['next_action']['criteria'])
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_home_resume_candidates', return_value=[
+        {'id': 'conversation:1', 'kind': 'conversation', 'title': 'Briefing', 'context': 'Projeto A', 'status': 'Atualizada', 'updatedAt': '2026-09-24', 'href': '/chat?id=1'},
+        {'id': 'resource:2', 'kind': 'report', 'title': 'Relatório', 'context': 'Projeto B', 'status': 'Pronto', 'updatedAt': '2026-09-23', 'href': '/projetos/b?resource=2'},
+    ])
+    @mock.patch('aicentralv2.services.integration_credentials.resolve_typesafe_api_key', return_value='test-key')
+    @mock.patch('aicentralv2.services.typesafe_service.system_one', return_value={'answers': {'next_action': {'type': 'choice', 'choice': 'invented-id', 'confidence': .99, 'probabilities': {}}}})
+    def test_home_resume_suggestion_falls_back_for_unknown_choice(self, _system_one, _key, _candidates):
+        response = _client().post('/workspace/api/home/resume-suggestion', headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['suggestion']['id'], 'conversation:1')
+        self.assertEqual(response.json['source'], 'deterministic')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_home_resume_candidates', return_value=[
+        {'id': 'conversation:1', 'kind': 'conversation', 'title': 'Briefing', 'context': 'Projeto A', 'status': 'Atualizada', 'updatedAt': '2026-09-24', 'href': '/chat?id=1'},
+        {'id': 'resource:2', 'kind': 'report', 'title': 'Relatório', 'context': 'Projeto B', 'status': 'Pronto', 'updatedAt': '2026-09-23', 'href': '/projetos/b?resource=2'},
+    ])
+    @mock.patch('aicentralv2.services.integration_credentials.resolve_typesafe_api_key', return_value='test-key')
+    @mock.patch('aicentralv2.services.typesafe_service.system_one', return_value={'answers': {'next_action': {'type': 'choice', 'choice': 'candidate_1'}}})
+    def test_home_resume_suggestion_falls_back_for_missing_confidence(self, _system_one, _key, _candidates):
+        response = _client().post('/workspace/api/home/resume-suggestion', headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['suggestion']['id'], 'conversation:1')
+        self.assertEqual(response.json['source'], 'deterministic')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_home_resume_candidates')
+    def test_home_resume_suggestion_requires_csrf_before_loading_candidates(self, candidates):
+        response = _client().post('/workspace/api/home/resume-suggestion')
+        self.assertEqual(response.status_code, 403)
+        candidates.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_home_resume_candidates', return_value=[])
+    @mock.patch('aicentralv2.services.typesafe_service.system_one')
+    def test_home_resume_suggestion_returns_empty_without_calling_typesafe(self, system_one, _candidates):
+        response = _client().post('/workspace/api/home/resume-suggestion', headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json['suggestion'])
+        self.assertEqual(response.json['source'], 'empty')
+        system_one.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_home_resume_candidates', return_value=[
+        {'id': 'conversation:1', 'kind': 'conversation', 'title': 'Briefing', 'context': 'Projeto A', 'status': 'Atualizada', 'updatedAt': '2026-09-24', 'href': '/chat?id=1'},
+        {'id': 'resource:2', 'kind': 'report', 'title': 'Relatório', 'context': 'Projeto B', 'status': 'Pronto', 'updatedAt': '2026-09-23', 'href': '/projetos/b?resource=2'},
+    ])
+    @mock.patch('aicentralv2.services.integration_credentials.resolve_typesafe_api_key', return_value='test-key')
+    @mock.patch('aicentralv2.services.typesafe_service.system_one', return_value={'answers': {'next_action': {'type': 'choice', 'choice': 'none', 'confidence': .86, 'probabilities': {'candidate_0': .08, 'candidate_1': .04, 'none': .88}}}})
+    def test_home_resume_suggestion_respects_abstention(self, _system_one, _key, _candidates):
+        response = _client().post('/workspace/api/home/resume-suggestion', headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json['suggestion'])
+        self.assertEqual(response.json['source'], 'typesafe')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_home_resume_candidates', return_value=[
+        {'id': 'conversation:1', 'kind': 'conversation', 'title': 'Briefing', 'context': 'Projeto A', 'status': 'Atualizada', 'updatedAt': '2026-09-24', 'href': '/chat?id=1'},
+        {'id': 'resource:2', 'kind': 'report', 'title': 'Relatório', 'context': 'Projeto B', 'status': 'Pronto', 'updatedAt': '2026-09-23', 'href': '/projetos/b?resource=2'},
+    ])
+    @mock.patch('aicentralv2.services.integration_credentials.resolve_typesafe_api_key', return_value='')
+    @mock.patch('aicentralv2.services.typesafe_service.system_one')
+    def test_home_resume_suggestion_uses_recency_when_typesafe_is_unconfigured(self, system_one, _key, _candidates):
+        response = _client().post('/workspace/api/home/resume-suggestion', headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['suggestion']['id'], 'conversation:1')
+        self.assertEqual(response.json['source'], 'deterministic')
+        system_one.assert_not_called()
+
     @mock.patch('aicentralv2.cadu_workspace.routes._user_home_preferences', side_effect=RuntimeError('preferences unavailable'))
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_common_dock_items', side_effect=RuntimeError('dock unavailable'))
     @mock.patch('aicentralv2.cadu_workspace.routes.credit_position', side_effect=RuntimeError('credits unavailable'))

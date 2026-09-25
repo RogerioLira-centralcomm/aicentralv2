@@ -1,9 +1,12 @@
 """Durable worker for contextual project resource reconciliation."""
 
+import time
+
 import click
+from flask import current_app
 from flask.cli import with_appcontext
 
-from ..db import get_db
+from ..db import close_db, get_db
 from .project_resource_service import reconcile
 
 
@@ -61,3 +64,18 @@ def process_one(*, client_id=None, project_ref=None):
 def worker_command():
     """Processa no máximo uma reconciliação do registro contextual."""
     click.echo("Processado." if process_one() else "Fila vazia.")
+
+
+@click.command("resource-registry-worker-loop")
+@with_appcontext
+def worker_loop_command():
+    """Continuously reconcile queued project resources under a supervisor."""
+    while True:
+        try:
+            if not process_one():
+                close_db()
+                time.sleep(2)
+        except Exception:
+            current_app.logger.exception("Reconciliação de recursos do projeto falhou")
+            close_db()
+            time.sleep(5)

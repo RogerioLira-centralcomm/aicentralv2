@@ -166,6 +166,9 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         r"\b(?:o\s+que)\s+(?:voc[eê]|vc)\s+(?:sabe|conhece)\s+(?:sobre|desse|deste)\s+(?:esse|este|o)?\s*projeto\b",
     ) or _has(
         text,
+        r"\b(?:o\s+que)\s+(?:voc[eê]|vc)\s+(?:tem|consegue\s+encontrar)\s+(?:sobre|desse|deste)\s+(?:esse|este|o)?\s*projeto\b",
+    ) or _has(
+        text,
         r"\b(?:qual|expliqu\w*|resum\w*|conte(?:-me)?|fala(?:\s+pra\s+mim)?|me\s+(?:fala|conta|explica))\b.{0,70}"
         r"\b(?:objetivo|contexto|escopo|descri[cç][aã]o)\b",
     ) or _has(

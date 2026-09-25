@@ -170,6 +170,26 @@ def test_resource_read_uses_source_tables_while_registry_job_is_pending(monkeypa
     assert result["source"] == "source_tables"
 
 
+def test_resource_read_uses_source_tables_when_registry_is_partially_populated(monkeypatch):
+    class Db:
+        def transaction(self): return nullcontext()
+        def cursor(self): return _IndexStatusDb(pending=False)
+
+    monkeypatch.setattr(project_resource_service, "get_db", lambda: Db())
+    monkeypatch.setattr(project_resource_service, "list_resources", lambda *_, **__: {
+        "resources": [{"id": "old", "title": "Fonte antiga"}], "relations": [], "summary": {"total": 1},
+    })
+    monkeypatch.setattr(project_resource_service, "_relation", lambda *_: True)
+    monkeypatch.setattr(project_resource_service, "_collect", lambda *_: [
+        project_resource_service._record("workspace", "link:2", "link", "Fonte atual"),
+    ])
+
+    result = project_resource_service.list_for_context(CONTEXT)
+
+    assert [item["title"] for item in result["resources"]] == ["Fonte atual"]
+    assert result["registry_pending"] is False
+
+
 def test_search_reports_partial_inventory_failure_without_losing_saved_context(monkeypatch):
     monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
     monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")

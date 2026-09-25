@@ -30,6 +30,7 @@
         ['Estado', data.run.status], ['Erro terminal', data.run.terminal_error_code],
       ]);
       addFacts('Contexto canônico', [
+        ['Cliente', data.scope?.client_id], ['Projeto', data.scope?.project_ref], ['Marca', data.scope?.brand_ref],
         ['Mensagens persistidas', data.transcript?.message_count],
         ['Sequência', data.transcript?.sequence_start && data.transcript?.sequence_end ? `${data.transcript.sequence_start}–${data.transcript.sequence_end}` : '—'],
         ['Mensagens no contexto', data.diagnostics?.history_message_count],
@@ -41,6 +42,15 @@
       ]);
       addFacts('Rollout', Object.entries(data.rollout || {}).map(([name, enabled]) => [name, enabled ? 'Ativo' : 'Legado']));
       addFacts('Tools', (data.tools || []).length ? data.tools.map(tool => [tool.tool_name, `${tool.status}${tool.duration_ms != null ? ` · ${tool.duration_ms} ms` : ''}${tool.error_code ? ` · ${tool.error_code}` : ''}`]) : [['Chamadas', 0]]);
+      (data.tools || []).filter(tool => tool.project_evidence).forEach(tool => {
+        const evidence = tool.project_evidence;
+        addFacts(`Recuperação do projeto · ${tool.tool_name}`, [
+          ['Contexto', evidence.context_status], ['Busca em fontes', evidence.source_retrieval_status],
+          ['Resultados', evidence.result_count], ['Trechos indexados', evidence.indexed_source_count],
+          ['Fontes pendentes', evidence.source_inventory?.needs_index],
+          ['Cobertura indisponível', (evidence.unavailable_scopes || []).join(', ') || 'Nenhuma'],
+        ]);
+      });
       addFacts('Etapas', (data.steps || []).length ? data.steps.map(step => [`${step.position}. ${step.name}`, `${step.status}${step.error_code ? ` · ${step.error_code}` : ''}`]) : [['Etapas', 0]]);
       const eventsHeading = document.createElement('h3'); eventsHeading.className = 'cadu-observability__timeline-title'; eventsHeading.textContent = 'Eventos'; body.append(eventsHeading);
       (data.events || []).forEach(event => {

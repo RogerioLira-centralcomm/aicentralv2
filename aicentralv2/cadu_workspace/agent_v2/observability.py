@@ -62,12 +62,21 @@ def dashboard(client_id: int, limit=60) -> dict:
         try:
             queue = repository.rows("""SELECT
                  COUNT(*) FILTER (WHERE status='queued') AS queued,
+                 COUNT(*) FILTER (WHERE status='queued' AND created_at < NOW()-INTERVAL '10 minutes') AS queued_old,
                  COUNT(*) FILTER (WHERE status='failed') AS failed,
                  COUNT(*) FILTER (WHERE status='running' AND started_at < NOW()-INTERVAL '10 minutes') AS stalled
               FROM cadu_project_resource_jobs WHERE client_id=%s""", (client_id,))[0]
         except Exception:
             repository.get_db().rollback()
-            queue = {"queued": 0, "failed": 0, "stalled": 0}
+            queue = {"queued": 0, "queued_old": 0, "failed": 0, "stalled": 0}
+        try:
+            memory_queue = repository.rows("""SELECT
+                 COUNT(*) FILTER (WHERE finished_at IS NULL) AS pending,
+                 COUNT(*) FILTER (WHERE finished_at IS NULL AND requested_at < NOW()-INTERVAL '10 minutes') AS pending_old
+              FROM cadu_conversation_memory_jobs WHERE client_id=%s""", (client_id,))[0]
+        except Exception:
+            repository.get_db().rollback()
+            memory_queue = {"pending": 0, "pending_old": 0}
         alerts = []
         turns, failures = int(summary.get("turns") or 0), int(summary.get("failed") or 0)
         if turns >= 5 and failures / turns >= .10:
@@ -76,6 +85,12 @@ def dashboard(client_id: int, limit=60) -> dict:
         if int(queue.get("failed") or 0):
             alerts.append({"severity": "high", "code": "resource_jobs_failed",
                            "message": f"{queue['failed']} reconciliações de projeto exigem nova tentativa."})
+        if int(queue.get("queued_old") or 0):
+            alerts.append({"severity": "high", "code": "resource_jobs_queued",
+                           "message": f"{queue['queued_old']} reconciliações de projeto aguardam há mais de 10 minutos."})
+        if int(memory_queue.get("pending_old") or 0):
+            alerts.append({"severity": "high", "code": "memory_jobs_queued",
+                           "message": f"{memory_queue['pending_old']} atualizações de memória aguardam há mais de 10 minutos."})
         if int(queue.get("stalled") or 0):
             alerts.append({"severity": "medium", "code": "resource_jobs_stalled",
                            "message": f"{queue['stalled']} reconciliações estão em execução há mais de 10 minutos."})
@@ -88,7 +103,7 @@ def dashboard(client_id: int, limit=60) -> dict:
             alerts.append({"severity": "medium", "code": "html_generation_invalid",
                            "message": f"{invalid_html + truncated_html} gerações HTML inválidas nos últimos 30 dias ({truncated_html} truncadas)."})
         return {"available": True, "summary": summary, "modes": modes, "plugin_metrics": plugin_metrics, "runs": runs,
-                "resource_queue": queue, "alerts": alerts}
+                "resource_queue": queue, "memory_queue": memory_queue, "alerts": alerts}
     except Exception:
         try:
             repository.get_db().rollback()
@@ -100,6 +115,7 @@ def dashboard(client_id: int, limit=60) -> dict:
 def run_detail(client_id: int, run_id: str) -> dict:
     rows = repository.rows("""SELECT id::text, conversation_id, user_id, status, execution_mode,
         runtime_id, provider_config_version, route,
+        request_context,
         first_token_ms, total_duration_ms, provider_duration_ms,
         input_tokens, output_tokens, charged_credits, terminal_error_code, created_at, finished_at
         FROM cadu_family_chat_runs WHERE id=%s AND client_id=%s AND runtime_version='v2'""", (run_id, client_id))
@@ -110,7 +126,7 @@ def run_detail(client_id: int, run_id: str) -> dict:
     steps = repository.rows("""SELECT id::text,position,kind,name,status,requires_confirmation,
         error_code,started_at,finished_at FROM cadu_agent_run_steps
         WHERE run_id=%s ORDER BY position""", (run_id,))
-    tools = repository.rows("""SELECT tool_name,status,duration_ms,error_code,created_at,finished_at
+    tools = repository.rows("""SELECT tool_name,status,duration_ms,error_code,output_summary,created_at,finished_at
         FROM cadu_agent_tool_calls WHERE run_id=%s ORDER BY created_at""", (run_id,))
     admitted = next((event.get("payload") for event in events
                      if event.get("event_type") == "run.admitted" and isinstance(event.get("payload"), dict)), {})
@@ -139,7 +155,16 @@ def run_detail(client_id: int, run_id: str) -> dict:
         "run": {key: value for key, value in rows[0].items() if key in safe_run_keys},
         "events": [_safe_event(event) for event in events],
         "steps": [{key: value for key, value in step.items() if key in safe_step_keys} for step in steps],
-        "tools": tools,
+        "scope": {key: (rows[0].get("request_context") or {}).get(key)
+                  for key in ("client_id", "project_ref", "brand_ref")},
+        "tools": [{**{key: tool.get(key) for key in ("tool_name", "status", "duration_ms", "error_code", "created_at", "finished_at")},
+                   "project_evidence": {key: (tool.get("output_summary") or {}).get("project_evidence", {}).get(key)
+                                        for key in ("project_bound", "context_status", "source_retrieval_status",
+                                                    "result_count", "indexed_source_count", "unavailable_scopes")}
+                   | {"source_inventory": {key: ((tool.get("output_summary") or {}).get("project_evidence", {}).get("source_inventory") or {}).get(key)
+                                           for key in ("total", "indexed", "needs_index")}}
+                   if isinstance((tool.get("output_summary") or {}).get("project_evidence"), dict) else None}
+                  for tool in tools],
         "diagnostics": admitted.get("context_diagnostics") or {},
         "rollout": admitted.get("rollout") or {},
         "transcript": transcript,

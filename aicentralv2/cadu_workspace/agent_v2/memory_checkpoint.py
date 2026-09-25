@@ -25,9 +25,12 @@ def schedule(**values):
                     organization_id=EXCLUDED.organization_id,
                     client_id=EXCLUDED.client_id,user_id=EXCLUDED.user_id,
                     requested_at=NOW(),
-                    claimed_at=cadu_conversation_memory_jobs.claimed_at,
+                    claimed_at=CASE
+                        WHEN cadu_conversation_memory_jobs.claimed_at < NOW()-INTERVAL '10 minutes'
+                        THEN NULL ELSE cadu_conversation_memory_jobs.claimed_at END,
                     finished_at=NULL,
                     attempts=CASE WHEN cadu_conversation_memory_jobs.claimed_at IS NULL
+                                      OR cadu_conversation_memory_jobs.claimed_at < NOW()-INTERVAL '10 minutes'
                                   THEN 0 ELSE cadu_conversation_memory_jobs.attempts END,
                     last_error=NULL''', (
                 values['conversation_id'], values['organization_id'],
@@ -46,7 +49,9 @@ def claim():
         with conn.cursor() as cur:
             cur.execute('''WITH next_job AS (
                 SELECT conversation_id FROM cadu_conversation_memory_jobs
-                WHERE finished_at IS NULL AND claimed_at IS NULL AND attempts < %s
+                WHERE finished_at IS NULL
+                  AND (claimed_at IS NULL OR claimed_at < NOW()-INTERVAL '10 minutes')
+                  AND attempts < %s
                 ORDER BY requested_at,conversation_id
                 FOR UPDATE SKIP LOCKED LIMIT 1
             ) UPDATE cadu_conversation_memory_jobs job

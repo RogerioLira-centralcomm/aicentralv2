@@ -6,7 +6,8 @@ def test_run_detail_exposes_technical_context_without_message_content(monkeypatc
         "id": "run-1", "conversation_id": "conversation-1", "user_id": 7,
         "status": "completed", "execution_mode": "analysis", "runtime_id": "model-1",
         "provider_config_version": "v3", "terminal_error_code": None,
-        "request_context": {"selected_context": {"text": "segredo"}},
+        "request_context": {"client_id": 12, "project_ref": "ci:project-1",
+                            "selected_context": {"text": "segredo"}},
     }
     events = [
         {
@@ -34,7 +35,10 @@ def test_run_detail_exposes_technical_context_without_message_content(monkeypatc
             return [{"position": 1, "name": "context", "status": "completed",
                      "output_snapshot": {"answer": "segredo"}}]
         if "FROM cadu_agent_tool_calls" in sql:
-            return [{"tool_name": "projects.read", "status": "completed", "duration_ms": 12}]
+            return [{"tool_name": "workspace.search_project_content", "status": "completed", "duration_ms": 12,
+                     "output_summary": {"project_evidence": {"result_count": 3,
+                                     "indexed_source_count": 1, "source_inventory": {"needs_index": 2},
+                                     "secret": "segredo"}}}]
         if "FROM cadu_conversation_messages" in sql:
             assert params == ("conversation-1", 12)
             return [{"message_count": 9, "sequence_start": 1, "sequence_end": 9}]
@@ -45,7 +49,10 @@ def test_run_detail_exposes_technical_context_without_message_content(monkeypatc
 
     assert detail["diagnostics"]["retrieved_message_count"] == 2
     assert detail["transcript"]["sequence_end"] == 9
-    assert detail["tools"][0]["tool_name"] == "projects.read"
+    assert detail["tools"][0]["tool_name"] == "workspace.search_project_content"
+    assert detail["scope"] == {"client_id": 12, "project_ref": "ci:project-1", "brand_ref": None}
+    assert detail["tools"][0]["project_evidence"]["result_count"] == 3
+    assert "secret" not in detail["tools"][0]["project_evidence"]
     assert detail["events"][0]["payload"] == {
         "context_diagnostics": {"history_message_count": 8, "retrieved_message_count": 2},
         "rollout": {"runtime_v2": True},

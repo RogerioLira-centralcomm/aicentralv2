@@ -1934,6 +1934,13 @@ def test_project_knowledge_question_uses_active_project_context():
     assert route.needs_tools == ("workspace.search_project_content",)
 
 
+def test_project_information_question_from_real_conversation_searches_project():
+    route = route_request("O que você tem sobre esse projeto?", has_project=True)
+
+    assert route.action == "describe_project"
+    assert route.needs_tools == ("workspace.search_project_content",)
+
+
 @pytest.mark.parametrize("message", [
     "Me explica um pouco mais sobre o que que esse projeto faz",
     "Qual é a desse projeto?",

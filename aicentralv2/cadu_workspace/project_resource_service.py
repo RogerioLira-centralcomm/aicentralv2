@@ -420,9 +420,9 @@ def list_recent_resources(client_id: int, project_refs: list[str], *, limit: int
 
 
 def list_for_context(context: RequestContext, *, include_archived=False) -> dict:
-    # The registry worker may lag behind source writes. Read the source tables
-    # directly when the registry is empty or reconciliation is still queued;
-    # this keeps chat/MCP reads correct without turning a read into a write.
+    # Chat needs the current source inventory even when a partially populated
+    # registry exists. A nonempty registry is not proof that every source has
+    # been reconciled, especially after an old queue has been discarded.
     project_ref = context.project_ref or ""
     materialized = list_resources(context.client_id, project_ref, reconcile_first=False,
                                   actor_id=context.user_id, include_archived=include_archived)
@@ -437,8 +437,6 @@ def list_for_context(context: RequestContext, *, include_archived=False) -> dict
                            AND status IN ('queued','running','failed')
                     ) AS pending""", (context.client_id, project_ref))
                     pending = bool((cursor.fetchone() or {}).get("pending"))
-                if materialized.get("resources") and not pending:
-                    return materialized
                 records = _collect(cursor, context.client_id, project_ref)
     except Exception:
         if materialized.get("resources"):
@@ -671,7 +669,7 @@ def resource_capabilities(resource: dict) -> dict:
 
 
 def notify_change(client_id: int, project_ref: str, event_type: str, *, source_system="", source_id="", actor_id=None) -> None:
-    """Persist a movement for the supervised worker; reads may still reconcile on demand."""
+    """Queue one pending reconciliation per project; reads may reconcile on demand."""
     from uuid import uuid4
     connection = get_db()
     job_id = str(uuid4())
@@ -679,11 +677,26 @@ def notify_change(client_id: int, project_ref: str, event_type: str, *, source_s
         with connection.cursor() as cursor:
             if not _relation(cursor, "cadu_project_resource_jobs"):
                 return
-            cursor.execute("""INSERT INTO cadu_project_resource_jobs
-                (id,client_id,project_ref,event_type,source_system,source_id,actor_id,status,created_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,'queued',NOW())""",
-                (job_id, client_id, project_ref, event_type, source_system or None,
-                 str(source_id or "") or None, actor_id))
+            # A full project reconciliation supersedes individual events. The
+            # transaction lock also closes the concurrent empty-queue race.
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s), hashtext(%s))",
+                           (str(client_id), str(project_ref)))
+            cursor.execute("""SELECT id FROM cadu_project_resource_jobs
+                              WHERE client_id=%s AND project_ref=%s AND status='queued'
+                              ORDER BY created_at LIMIT 1 FOR UPDATE""", (client_id, project_ref))
+            pending = cursor.fetchone()
+            if pending:
+                cursor.execute("""UPDATE cadu_project_resource_jobs
+                                  SET event_type=%s,source_system=%s,source_id=%s,actor_id=%s
+                                  WHERE id=%s""",
+                               (event_type, source_system or None, str(source_id or "") or None,
+                                actor_id, pending["id"]))
+            else:
+                cursor.execute("""INSERT INTO cadu_project_resource_jobs
+                    (id,client_id,project_ref,event_type,source_system,source_id,actor_id,status,created_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,'queued',NOW())""",
+                    (job_id, client_id, project_ref, event_type, source_system or None,
+                     str(source_id or "") or None, actor_id))
         connection.commit()
     except Exception as exc:
         connection.rollback()

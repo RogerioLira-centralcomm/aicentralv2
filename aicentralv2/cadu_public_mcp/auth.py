@@ -31,6 +31,15 @@ class PublicMcpAuthError(RuntimeError):
     pass
 
 
+def accessible_client(*, user_id: int, client_id: int, actor: dict | None = None) -> dict | None:
+    """Use the Family access projection for agency and end-client grants."""
+    current_actor = actor if actor is not None else repository.actor(int(user_id))
+    if not current_actor or int(client_id) <= 0:
+        return None
+    return next((client for client in repository.clients(current_actor)
+                 if int(client["id"]) == int(client_id)), None)
+
+
 @dataclass(frozen=True)
 class PublicMcpPrincipal:
     key_id: str

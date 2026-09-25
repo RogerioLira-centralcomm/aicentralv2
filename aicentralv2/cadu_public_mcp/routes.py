@@ -670,9 +670,11 @@ def oauth_authorize():
 
     client_id, user_id = _session_scope()
     actor = repository.actor(user_id) or {}
-    workspace_name = _active_workspace_name(actor, client_id)
+    active_client = auth.accessible_client(user_id=user_id, client_id=client_id, actor=actor)
+    if active_client is None:
+        abort(403, description="Este login não tem acesso a este cliente.")
     consent_identity = {
-        "workspace_name": workspace_name,
+        "workspace_name": active_client.get("name") or "Cliente ativo",
         "authorizing_user": actor.get("name") or session.get("user_name") or "Sua conta",
         "authorizing_email": actor.get("email") or session.get("user_email") or "",
     }
@@ -805,14 +807,6 @@ def _session_scope() -> tuple[int, int]:
     return int(session.get("cliente_id") or 0), int(session.get("user_id") or 0)
 
 
-def _active_workspace_name(actor: dict, client_id: int) -> str:
-    if actor:
-        client = next((item for item in repository.clients(actor) if int(item["id"]) == client_id), None)
-        if client and client.get("name"):
-            return str(client["name"])
-    return "Cliente ativo"
-
-
 @bp.get("/app/agents")
 @bp.get("/workspace/app/integracoes/agents")
 @login_required
@@ -821,7 +815,10 @@ def agents_page():
         return redirect("/app/agents", code=308)
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
     client_id, user_id = _session_scope()
-    workspace_name = _active_workspace_name(repository.actor(user_id) or {}, client_id)
+    active_client = auth.accessible_client(user_id=user_id, client_id=client_id)
+    if active_client is None:
+        abort(403, description="Este login não tem acesso a este cliente.")
+    workspace_name = active_client.get("name") or "Cliente ativo"
     projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
     credit = {}
     try:

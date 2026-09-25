@@ -18,7 +18,7 @@ from psycopg.types.json import Json
 
 from ..cadu_mcp_catalog import ALL_MODULES, DEFAULT_MODULES, normalize_modules
 from ..db import get_db
-from .auth import CLIENT_SCOPES, DEFAULT_SCOPES, PublicMcpAuthError, normalize_scopes
+from .auth import CLIENT_SCOPES, DEFAULT_SCOPES, PublicMcpAuthError, accessible_client, normalize_scopes
 
 
 ISSUER_PATH = ""
@@ -318,15 +318,21 @@ def exchange_code(*, code: str, client_id: str, redirect_uri: str, code_verifier
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                """SELECT * FROM cadu_oauth_authorization_codes
-                    WHERE code_hash=%s FOR UPDATE""", (_hash(code),),
+                """SELECT code.*, grant_row.client_id AS grant_client_id,
+                          grant_row.user_id AS grant_user_id, grant_row.status AS grant_status
+                     FROM cadu_oauth_authorization_codes code
+                     JOIN cadu_oauth_grants grant_row ON grant_row.id=code.grant_id
+                    WHERE code.code_hash=%s FOR UPDATE OF code""", (_hash(code),),
             )
             row = cursor.fetchone()
             if (not row or row.get("used_at") or row["expires_at"] <= _now()
                     or row["oauth_client_id"] != client["id"]
                     or row["redirect_uri"] != redirect_uri or row["resource"] != resource
+                    or row["grant_status"] != "active"
                     or not secrets.compare_digest(row["code_challenge"], _pkce_challenge(code_verifier))):
                 raise OAuthError("invalid_grant", "Código de autorização inválido ou expirado.")
+            if accessible_client(user_id=row["grant_user_id"], client_id=row["grant_client_id"]) is None:
+                raise OAuthError("invalid_grant", "O acesso a este cliente foi revogado.")
             cursor.execute("UPDATE cadu_oauth_authorization_codes SET used_at=NOW() WHERE id=%s", (row["id"],))
             tokens = _issue_tokens(cursor, grant_id=row["grant_id"], oauth_client_id=client["id"],
                                    resource=resource, scopes=tuple(row["scopes"]))
@@ -345,10 +351,15 @@ def refresh_tokens(*, refresh_token: str, client_id: str, resource: str) -> dict
     connection = get_db()
     try:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM cadu_oauth_refresh_tokens WHERE token_hash=%s FOR UPDATE",
+            cursor.execute("""SELECT token.*, grant_row.client_id AS grant_client_id,
+                              grant_row.user_id AS grant_user_id, grant_row.status AS grant_status
+                         FROM cadu_oauth_refresh_tokens token
+                         JOIN cadu_oauth_grants grant_row ON grant_row.id=token.grant_id
+                        WHERE token.token_hash=%s FOR UPDATE OF token""",
                            (_hash(refresh_token),))
             row = cursor.fetchone()
-            if not row or row["oauth_client_id"] != client["id"] or row["resource"] != resource:
+            if (not row or row["oauth_client_id"] != client["id"] or row["resource"] != resource
+                    or row["grant_status"] != "active"):
                 raise OAuthError("invalid_grant", "Refresh token inválido.")
             if row.get("rotated_at") or row.get("revoked_at"):
                 cursor.execute(
@@ -362,6 +373,8 @@ def refresh_tokens(*, refresh_token: str, client_id: str, resource: str) -> dict
                 raise OAuthError("invalid_grant", "A família de refresh tokens foi revogada.")
             if row["expires_at"] <= _now():
                 raise OAuthError("invalid_grant", "Refresh token expirado.")
+            if accessible_client(user_id=row["grant_user_id"], client_id=row["grant_client_id"]) is None:
+                raise OAuthError("invalid_grant", "O acesso a este cliente foi revogado.")
             tokens = _issue_tokens(cursor, grant_id=row["grant_id"], oauth_client_id=client["id"],
                                    resource=resource, scopes=tuple(row["scopes"]), family_id=row["family_id"])
             cursor.execute("UPDATE cadu_oauth_refresh_tokens SET rotated_at=NOW() WHERE id=%s", (row["id"],))
@@ -417,6 +430,13 @@ def load_access_token(raw_token: str) -> dict:
         row = cursor.fetchone()
     if not row or row.get("revoked_at") or row.get("status") != "active" or row["expires_at"] <= _now():
         raise PublicMcpAuthError("Token OAuth do MCP inválido ou expirado.")
+    token_scopes = set(row.get("token_scopes") or [])
+    grant_scopes = set(row.get("grant_scopes") or [])
+    effective_scopes = tuple(sorted(token_scopes & grant_scopes))
+    if not effective_scopes:
+        raise PublicMcpAuthError("Token OAuth do MCP sem permissões ativas.")
+    if accessible_client(user_id=row["user_id"], client_id=row["client_id"]) is None:
+        raise PublicMcpAuthError("O acesso a este cliente foi revogado.")
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -425,11 +445,6 @@ def load_access_token(raw_token: str) -> dict:
         connection.commit()
     except Exception:
         connection.rollback()
-    token_scopes = set(row.get("token_scopes") or [])
-    grant_scopes = set(row.get("grant_scopes") or [])
-    effective_scopes = tuple(sorted(token_scopes & grant_scopes))
-    if not effective_scopes:
-        raise PublicMcpAuthError("Token OAuth do MCP sem permissões ativas.")
     return dict(row) | {"scopes": effective_scopes,
                         "modules": normalize_modules(row.get("modules"), default=ALL_MODULES),
                         "label": row.get("client_name") or "Aplicativo MCP",

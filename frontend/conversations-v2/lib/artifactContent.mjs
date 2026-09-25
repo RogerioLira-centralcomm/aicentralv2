@@ -30,6 +30,29 @@ function decode(value, depth = 0) {
   return value;
 }
 
+function userFacingText(value, depth = 0) {
+  if (depth > 8 || value == null) return '';
+  const decoded = decode(value, depth);
+  if (typeof decoded === 'string') {
+    const text = decoded.trim();
+    if (!text) return '';
+    // Providers occasionally put the complete transport envelope in a field.
+    // Peel only known content keys; never display `ui`, citations, or patch metadata.
+    if (/^[{]/.test(text)) {
+      try { return userFacingText(JSON.parse(text), depth + 1); } catch (_) { /* Plain text that starts with a brace. */ }
+    }
+    return text.replace(/\\r\\n|\\n|\\r/g, '\n');
+  }
+  if (Array.isArray(decoded)) return decoded.map(item => userFacingText(item, depth + 1)).filter(Boolean).join('\n');
+  if (!decoded || typeof decoded !== 'object') return '';
+  const textPayload = decoded.text && typeof decoded.text === 'object' ? decoded.text.content : decoded.text;
+  for (const candidate of [textPayload, decoded.answer, decoded.content, decoded.output, decoded.structured_output]) {
+    const text = userFacingText(candidate, depth + 1);
+    if (text) return text;
+  }
+  return '';
+}
+
 function markdownInline(value) {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -61,9 +84,13 @@ function meetingSections(markdown) {
   let current = null;
   for (const line of String(markdown || '').split(/\r?\n/)) {
     const heading = line.match(/^\s*#{1,3}\s+(.+)$/);
+    const numbered = line.match(/^\s*(\d{1,2})[).;:]\s+(.+)$/);
     if (heading) {
       if (current) sections.push(current);
       current = {key: heading[1].trim(), value: ''};
+    } else if (numbered) {
+      if (current) sections.push(current);
+      current = {key: numbered[2].replace(/[.;:]$/, '').trim(), value: ''};
     } else if (current && line.trim()) current.value += `${current.value ? '\n' : ''}${line.trim()}`;
   }
   if (current) sections.push(current);
@@ -77,8 +104,8 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
     ? content
     : decodedRoot && typeof decodedRoot === 'object' && !Array.isArray(decodedRoot) ? decodedRoot
     : content && typeof content === 'object' && !Array.isArray(content) ? content : {})};
-  const rootText = !originalHasFields && typeof decodedRoot === 'string' && decodedRoot.trim()
-    ? decodedRoot
+  const rootText = !originalHasFields && userFacingText(decodedRoot)
+    ? userFacingText(decodedRoot)
     : decode(source.text ?? source.answer ?? source.output);
   if (!originalHasFields && typeof rootText === 'string' && rootText.trim() && (typeof content === 'string' || rootText !== content)) {
     if (artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') {
@@ -94,6 +121,25 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
   const candidates = [source.html, source.summary, source.text, source.answer].filter(value => value != null && value !== '');
   for (const candidate of candidates) {
     const decoded = decode(candidate);
+    const visibleText = userFacingText(candidate);
+    if (visibleText && (typeof decoded === 'object' || (typeof candidate === 'string' && visibleText !== candidate.trim()))) {
+      if (artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') {
+        const fields = meetingSections(visibleText).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
+        if (fields.length) {
+          source.summary = '';
+          source.fields = fields;
+          delete source.html;
+          delete source.text;
+          delete source.answer;
+          return source;
+        }
+      }
+      source.html = markdownToHtml(visibleText);
+      delete source.summary;
+      delete source.text;
+      delete source.answer;
+      return source;
+    }
     if (typeof decoded === 'string' && decoded.trim() && (typeof candidate !== 'string' || decoded.trim() !== candidate.trim())) {
       if (artifactType === 'meeting_agenda' || artifactType === 'meeting_summary') {
         const fields = meetingSections(decoded.trim()).filter((field, index) => !(index === 0 && /^pauta|^resumo/i.test(field.key)));
@@ -147,7 +193,7 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
 
 function normalizeFieldValue(value) {
   const decoded = decode(value);
-  if (typeof decoded === 'string') return decoded;
+  if (typeof decoded === 'string') return userFacingText(decoded) || decoded;
   if (Array.isArray(decoded)) return decoded.map(item => typeof item === 'string' ? item : JSON.stringify(item)).join('\n');
   if (decoded && typeof decoded === 'object') {
     const sections = Array.isArray(decoded.sections) ? decoded.sections : Array.isArray(decoded.items) ? decoded.items : null;
@@ -157,7 +203,7 @@ function normalizeFieldValue(value) {
       const body = item.content || item.value || item.text || '';
       return `${heading ? `### ${heading}\n` : ''}${body}`.trim();
     }).join('\n\n');
-    return CONTENT_KEYS.map(key => decoded[key]).find(item => typeof item === 'string') || '';
+    return userFacingText(decoded);
   }
   return String(value ?? '');
 }

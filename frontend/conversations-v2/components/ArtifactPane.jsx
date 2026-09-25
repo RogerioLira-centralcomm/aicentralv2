@@ -3,6 +3,7 @@ import {Icon} from '../lib/icons';
 import {csrf, request, safeUrl} from '../lib/api';
 import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
 import {normalizeArtifactContent} from '../lib/artifactContent.mjs';
+import './ArtifactPane.css';
 
 const labels = {
   brief: 'Briefing', document: 'Documento', note: 'Nota', executive_summary: 'Resumo executivo',
@@ -84,6 +85,105 @@ function StructuredArtifact({artifact, onChange}) {
   </article>;
 }
 
+function BriefArtifact({artifact, editing, onChange}) {
+  const content = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
+  const fields = Array.isArray(content.fields) ? content.fields : [];
+  const metadata = [
+    ['Marca', content.brand || content.client || content.marca],
+    ['Campanha', content.campaign || content.campaign_name || content.campaignName],
+    ['Prazo', content.deadline || content.due_date || content.prazo],
+    ['Investimento', content.budget || content.investment || content.verba],
+    ['Status', content.status || content.readiness],
+  ].filter(([, value]) => value && typeof value !== 'object');
+  const images = Array.isArray(content.images) ? content.images : Array.isArray(content.assets) ? content.assets.filter(item => /image/i.test(item?.mime_type || item?.type || '')) : [];
+  const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
+  return <article className={`cv-brief-artifact${editing ? ' is-editing' : ''}`}>
+    {(content.summary || metadata.length > 0) && <section className="cv-brief-artifact__overview">
+      {content.summary && (editing
+        ? <label className="cv-brief-artifact__summary"><span>Síntese</span><EditableTextarea value={content.summary} onChange={summary => onChange({...content, summary})} aria-label="Síntese do briefing"/></label>
+        : <p className="cv-brief-artifact__summary-text">{content.summary}</p>)}
+      {!!metadata.length && <dl>{metadata.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl>}
+    </section>}
+    {!!images.length && <section className="cv-brief-artifact__images" aria-label="Imagens do briefing">{images.map((image, index) => {
+      const src = safeUrl(image.url || image.src || image.preview || image.path || imageSource({content:image}));
+      return src ? <figure key={image.id || src}><img src={src} alt={image.alt || image.title || `Imagem de referência ${index + 1}`} loading="lazy"/>{(image.caption || image.title) && <figcaption>{image.caption || image.title}</figcaption>}</figure> : null;
+    })}</section>}
+    {!!fields.length ? <div className="cv-brief-artifact__grid">{fields.map((field, index) => <section key={`${field.key}-${index}`} className={`cv-brief-artifact__section${index === 0 ? ' is-primary' : ''}`}>
+      <h3><span>{String(index + 1).padStart(2, '0')}</span>{field.key || `Seção ${index + 1}`}</h3>
+      {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/> : <BriefFieldValue value={field.value}/>}
+    </section>)}</div> : <div className="cv-brief-artifact__empty">O briefing ainda não tem seções estruturadas.</div>}
+  </article>;
+}
+
+const channelLogos = [
+  [/instagram/i, 'creative-viewers/instagram.svg'], [/facebook|meta/i, 'creative-viewers/facebook.svg'],
+  [/youtube/i, 'creative-viewers/youtube.svg'], [/linkedin/i, 'creative-viewers/linkedin.svg'],
+  [/tiktok/i, 'canais/tiktok.png'], [/google|dv360|display & video/i, 'canais/google-dv360.svg'],
+  [/spotify/i, 'canais/spotify.svg'], [/kwai/i, 'canais/kwai.svg'], [/globoplay/i, 'canais/globoplay.png'],
+  [/prime video/i, 'canais/prime-video.svg'], [/waze/i, 'canais/waze.png'], [/whatsapp/i, 'canais/whatsapp.svg'],
+  [/twitch/i, 'canais/twitch.svg'], [/uol/i, 'canais/uol.png'], [/eletrom[ií]dia/i, 'canais/eletromidia.svg'],
+].map(([match, path]) => [match, `/static/images/${path}`]);
+
+function ChannelMark({name}) {
+  const logo = channelLogos.find(([match]) => match.test(String(name || '')))?.[1];
+  return logo ? <img className="cv-content-artifact__channel-logo" src={logo} alt="" loading="lazy"/> : null;
+}
+
+function ContentArtifact({artifact, editing, onChange}) {
+  const content = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
+  const fields = Array.isArray(content.fields) ? content.fields : [];
+  const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
+  const type = artifact.type;
+  const metricEntries = Object.entries(content.metrics || content.kpis || {}).filter(([, value]) => value !== '' && value != null && typeof value !== 'object');
+  const tables = Array.isArray(content.tables) ? content.tables : [];
+  return <article className={`cv-content-artifact is-${type}`}>
+    {content.summary && <p className="cv-content-artifact__summary">{content.summary}</p>}
+    {!!metricEntries.length && <dl className="cv-content-artifact__metrics">{metricEntries.map(([label, value]) => <div key={label}><dt>{label.replaceAll('_', ' ')}</dt><dd>{String(value)}</dd></div>)}</dl>}
+    {tables.map((table, index) => <section className="cv-content-artifact__table" key={table.title || index}>{table.title && <h3>{table.title}</h3>}<ArtifactTable table={table} editing={editing} onChange={next => onChange({...content, tables:tables.map((item, itemIndex) => itemIndex === index ? next : item)})}/></section>)}
+    {!!fields.length && <div className="cv-content-artifact__sections">{fields.map((field, index) => <section className={`cv-content-artifact__section is-${type}`} key={`${field.key}-${index}`}>
+      <h3>{field.key || `Seção ${index + 1}`}</h3>
+      {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/> : <><ChannelMark name={field.key}/><ContentFieldValue value={field.value}/></>}
+    </section>)}</div>}
+    {!fields.length && !tables.length && !content.summary && <div className="cv-content-artifact__empty">Este material ainda não tem conteúdo.</div>}
+  </article>;
+}
+
+function ContentFieldValue({value}) {
+  if (Array.isArray(value)) return <ArtifactTable table={{rows:value}}/>;
+  const text = String(value ?? '').trim();
+  if (!text) return <p className="cv-content-artifact__empty-value">A definir</p>;
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length > 1 && lines.every(line => /^[-*•▪]\s+/.test(line))) return <ul>{lines.map((line,index) => <li key={`${index}-${line}`}>{line.replace(/^[-*•▪]\s+/, '')}</li>)}</ul>;
+  return <p>{text}</p>;
+}
+
+function ArtifactTable({table, editing = false, onChange}) {
+  const columns = Array.isArray(table?.columns) ? table.columns : [];
+  const rows = Array.isArray(table?.rows) ? table.rows : [];
+  if (!rows.length) return null;
+  const inferredColumns = columns.length ? columns : Array.isArray(rows[0]) ? rows[0].map((_, index) => `Item ${index + 1}`) : Object.keys(rows[0] || {});
+  return <div className="cv-content-artifact__table-scroll"><table><thead><tr>{inferredColumns.map((column, index) => <th key={`${column}-${index}`}>{typeof column === 'string' ? column : column.label || column.name}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{inferredColumns.map((column, columnIndex) => {
+    const key = typeof column === 'string' ? column : column.key || column.name || column.label;
+    const value = Array.isArray(row) ? row[columnIndex] : row?.[key] ?? row?.[column.key];
+    const channelCell = /channel|canal|plataforma/i.test(String(key));
+    const update = nextValue => {
+      const nextRows = rows.map((item, itemIndex) => itemIndex !== rowIndex ? item : Array.isArray(item)
+        ? item.map((cell, cellIndex) => cellIndex === columnIndex ? nextValue : cell)
+        : {...item, [key]:nextValue});
+      onChange?.({...table, rows:nextRows});
+    };
+    return <td key={`${key}-${columnIndex}`}>{editing ? <input aria-label={`${typeof key === 'string' ? key : 'Campo'}, linha ${rowIndex + 1}`} value={value ?? ''} onChange={event => update(event.target.value)}/> : <span className={channelCell ? 'cv-content-artifact__channel-cell' : ''}>{channelCell && <ChannelMark name={value} />}{value == null || value === '' ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>}</td>;
+  })}</tr>)}</tbody></table></div>;
+}
+
+function BriefFieldValue({value}) {
+  const raw = String(value || '').trim();
+  if (!raw) return <p className="cv-brief-artifact__missing">A definir</p>;
+  const items = raw.split(/\n|\s*[•▪]\s*|\s*;\s*/).map(item => item.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+  if (items.length > 1) return <ul>{items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>;
+  return <p>{raw}</p>;
+}
+
 const meetingSectionAliases = {
   participantes: ['participantes', 'presentes', 'pessoas'],
   contexto: ['contexto', 'objetivo', 'assunto'],
@@ -115,16 +215,16 @@ function meetingMetadataEntries(content = {}) {
   ].filter(item => item.value);
 }
 
-function MeetingSummaryArtifact({artifact, onChange}) {
+function MeetingSummaryArtifact({artifact, editing, onChange}) {
   const content = useMemo(() => normalizeArtifactContent(artifact.content || {}, artifact.type), [artifact.content, artifact.type]);
   const fields = Array.isArray(content.fields) ? content.fields : [];
   const metadata = meetingMetadataEntries(content);
   const updateSummary = summary => onChange({...content, summary});
   const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
-  return <article className="cv-meeting-summary cv-mx-auto cv-w-full cv-max-w-[820px]">
+  return <article className={`cv-meeting-summary is-${artifact.type} cv-mx-auto cv-w-full cv-max-w-[820px]`}>
     <header className="cv-meeting-summary__intro">
-      <span><Icon name="calendar" size={15}/>Registro da reunião</span>
-      <EditableTextarea value={content.summary || ''} onChange={updateSummary} placeholder="Escreva uma síntese objetiva da reunião." aria-label="Síntese da reunião"/>
+      <span><Icon name="calendar" size={15}/>{artifact.type === 'meeting_agenda' ? 'Pauta da reunião' : 'Registro da reunião'}</span>
+      {editing ? <EditableTextarea value={content.summary || ''} onChange={updateSummary} placeholder="Escreva uma síntese objetiva da reunião." aria-label={artifact.type === 'meeting_agenda' ? 'Objetivo da reunião' : 'Síntese da reunião'}/> : <h1>{content.summary || artifact.title}</h1>}
     </header>
     {!!metadata.length && <dl className="cv-meeting-summary__metadata" aria-label="Data, prazo e pessoas da reunião">{metadata.map(item => <div key={item.label}><dt><Icon name={item.icon} size={15}/>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
     <div className="cv-meeting-summary__sections">
@@ -132,7 +232,7 @@ function MeetingSummaryArtifact({artifact, onChange}) {
         const kind = meetingFieldKind(field.key);
         return <section key={`${field.key}-${index}`} className={`cv-meeting-summary__section is-${kind}`}>
           <h3>{field.key || `Seção ${index + 1}`}</h3>
-          <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} placeholder="Adicione as informações confirmadas." aria-label={field.key || `Seção ${index + 1}`}/>
+          {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} placeholder="Adicione as informações confirmadas." aria-label={field.key || `Seção ${index + 1}`}/> : <ContentFieldValue value={field.value}/>}
         </section>;
       })}
       {!fields.length && <p className="cv-meeting-summary__empty">O resumo ainda não possui decisões, responsáveis ou próximos passos registrados.</p>}
@@ -303,11 +403,11 @@ function RichDocumentArtifact({artifact, onChange, editing = false}) {
   const addTable = () => {
     command('insertHTML', '<table><thead><tr><th>Item</th><th>Valor</th><th>Observação</th></tr></thead><tbody><tr><td>Exemplo</td><td>—</td><td>Edite este campo</td></tr><tr><td>Outro item</td><td>—</td><td>Edite este campo</td></tr></tbody></table><p><br></p>');
   };
-  if (!editing) return <div className="cv-artifact-reading">
+  if (!editing) return <div className={`cv-artifact-reading is-${artifact.type || 'document'}`}>
     {reading.sections.length > 1 && <nav className="cv-artifact-reading__toc" aria-label="Seções do documento"><strong>Neste material</strong>{reading.sections.map(section => <a key={section.id} className={section.level === 'H3' ? 'is-nested' : ''} href={`#${section.id}`}>{section.title}</a>)}</nav>}
     <article className="cv-rich-document cv-rich-document--reading cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6"><div className="cv-rich-document__canvas" dangerouslySetInnerHTML={{__html: reading.html}}/></article>
   </div>;
-  return <article className="cv-rich-document cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6">
+  return <article className={`cv-rich-document is-${artifact.type || 'document'} cv-mx-auto cv-w-full cv-max-w-[860px] cv-px-6 cv-py-5 md:cv-px-8 md:cv-py-6`}>
     <div className="cv-rich-document__toolbar" role="toolbar" aria-label="Formatação do documento" onMouseDown={event => event.preventDefault()}>
       <button type="button" onClick={() => command('undo')} aria-label="Desfazer última edição" title="Desfazer"><Icon name="undo" size={16}/></button>
       <button type="button" onClick={() => command('redo')} aria-label="Refazer edição" title="Refazer"><Icon name="redo" size={16}/></button>
@@ -377,7 +477,7 @@ function imageStudioLink(artifact, studioEditorUrl, projectRef, mode = 'select',
   return url.href;
 }
 
-function ImageArtifact({artifact, onMetadata}) {
+function ImageArtifact({artifact, onMetadata, metadata}) {
   const content = artifact.content || {};
   const src = imageSource(artifact);
   useEffect(() => {
@@ -403,7 +503,7 @@ function ImageArtifact({artifact, onMetadata}) {
     mime: content.mime_type || content.content_type || artifact.mime_type || '',
   });
   return <div className="cv-image-artifact">
-    {src ? <figure><img src={src} alt={content.alt || imageFileName(artifact)} onLoad={reportMetadata}/></figure> : <p>A imagem ainda não está disponível.</p>}
+    {src ? <figure><img src={src} alt={content.alt || imageFileName(artifact)} onLoad={reportMetadata}/><figcaption className="cv-image-metadata" aria-label="Informações da imagem"><span>{metadata?.width && metadata?.height ? `${metadata.width} × ${metadata.height} px` : 'Imagem'}</span><span>{metadata?.width && metadata?.height ? `${((metadata.width * metadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : ''}</span><span>{formatFileSize(metadata?.bytes)}</span></figcaption></figure> : <p>A imagem ainda não está disponível.</p>}
   </div>;
 }
 
@@ -584,7 +684,7 @@ function ProjectProfileArtifact({artifact}) {
     {content.instructions && <section className="cv-project-profile__section"><h4>Como trabalhar neste projeto</h4><p>{content.instructions}</p></section>}
     {!!content.brands?.length && <section className="cv-project-profile__section"><h4>Contexto de marca</h4><div className="cv-project-profile__brands">{content.brands.map(brand => <span key={brand.ref}>{brand.name}</span>)}</div></section>}
     {!!missing.length && <section className="cv-project-profile__next"><h4>Para deixar o contexto mais útil</h4>{missing.map(item => <p key={item}>{item}</p>)}</section>}
-    <footer className="cv-project-profile__meta">{date(content.created_at) && <span>Criado em {date(content.created_at)}</span>}{date(content.updated_at) && <span>Atualizado em {date(content.updated_at)}</span>}</footer>
+    <div className="cv-project-profile__meta">{date(content.created_at) && <span>Criado em {date(content.created_at)}</span>}{date(content.updated_at) && <span>Atualizado em {date(content.updated_at)}</span>}</div>
   </article>;
 }
 
@@ -633,7 +733,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const [sourceFormat, setSourceFormat] = useState('md');
   const type = artifact?.type || 'document';
   const indexable = artifact?.capabilities?.indexable ?? !['html', 'project_map', 'link_reader'].includes(type);
-  const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research';
+  const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
   useEffect(() => {
     const match = document.cookie.match(/(?:^|; )cadu-artifact-theme=([^;]+)/);
     setLightTheme(match?.[1] === 'light');
@@ -649,13 +749,18 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     if (artifact.failed) return <div className="cv-artifact-loading is-failed" role="status"><strong>A entrega não foi concluída</strong><span>{artifact.error}</span></div>;
     if (type === 'html') return <HtmlArtifact artifact={artifact}/>;
     if (type === 'project_map') return <ProjectMap artifact={artifact} onChange={onChange}/>;
-    if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} onChange={onChange}/>;
-    if (type === 'image') return <ImageArtifact artifact={artifact} onMetadata={next => setImageMetadata(current => ({...(current || {}), ...next}))}/>;
+    if (type === 'meeting_summary' || type === 'meeting_agenda') return <MeetingSummaryArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
+    if (type === 'image') return <ImageArtifact artifact={artifact} metadata={imageMetadata} onMetadata={next => setImageMetadata(current => ({...(current || {}), ...next}))}/>;
     if (type === 'resource') return <ResourceArtifact artifact={artifact}/>;
     if (type === 'link_reader') return <LinkReaderArtifact artifact={artifact} onRequestSummary={onRequestSummary} onSaveReference={onSaveReference} onRequestMeetingPlan={onRequestMeetingPlan}/>;
     if (type === 'brand_identity') return <BrandIdentityArtifact artifact={artifact}/>;
     if (type === 'project_profile') return <ProjectProfileArtifact artifact={artifact}/>;
     if (type === 'library') return <LibraryArtifact artifact={artifact} onOpenResource={onOpenResource}/>;
+    if (type === 'brief') return <BriefArtifact artifact={artifact} editing={editingDocument} onChange={onChange}/>;
+    if (['executive_summary', 'media_plan', 'scenario', 'research'].includes(type)) {
+      const structured = normalizeArtifactContent(artifact.content || {}, type);
+      if (Array.isArray(structured.fields) || Array.isArray(structured.tables) || structured.metrics || structured.kpis) return <ContentArtifact artifact={{...artifact, content:structured}} editing={editingDocument} onChange={onChange}/>;
+    }
     return textArtifact
       ? <RichDocumentArtifact artifact={artifact} onChange={onChange} editing={editingDocument}/>
       : <StructuredArtifact artifact={artifact} onChange={onChange}/>;
@@ -726,7 +831,7 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
     finally { setComparingVersion(null); }
   };
   if (!artifact) return null;
-  return <aside className={`cv-artifact-panel cv-artifact-overlay cv-artifact-panel--${side} cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label="Entrega">
+  return <aside data-artifact-type={type} className={`cv-artifact-panel cv-artifact-overlay cv-artifact-panel--${side} cv-relative cv-flex cv-h-full cv-flex-none cv-flex-col cv-border-l cv-border-white/[.08] cv-bg-panel ${lightTheme && textArtifact ? 'is-light' : ''} ${closing ? 'cv-is-closing' : ''}`} aria-label={labels[type] || 'Entrega'}>
     {tabs.length > 0 && <nav className="cv-artifact-tabs" aria-label="Entregas abertas">{tabs.map(item => {
       const key = String(item.tabKey || item.id || '');
       const itemTitle = item.type === 'image' ? imageFileName(item) : (item.title || 'Entrega');
@@ -739,10 +844,15 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
       {artifactBrowserUrl(tabMenu.item, tabMenu.key === activeTabKey ? publishedUrl : '') && <a role="menuitem" href={artifactBrowserUrl(tabMenu.item, tabMenu.key === activeTabKey ? publishedUrl : '')} target="_blank" rel="noreferrer"><Icon name="external" size={13}/>Abrir no navegador</a>}
       {tabMenu.item.type === 'html' && tabMenu.item.status !== 'published' && tabMenu.key === activeTabKey && <button type="button" role="menuitem" disabled={publishing || saving} onClick={() => { onPublish?.(); setTabMenu(null); }}><Icon name="external" size={13}/>Publicar</button>}
     </div>}
-    <header className="cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4">
+    <header className={`cv-artifact-header cv-flex cv-h-[52px] cv-flex-none cv-items-center cv-gap-2 cv-border-b cv-border-white/[.07] cv-px-4${type === 'brief' ? ' is-brief' : ''}`}>
       <div className="cv-min-w-0 cv-flex-1">{type !== 'image' && <span className="cv-flex cv-items-center cv-gap-2 cv-text-[11px] cv-font-medium cv-text-[#759a95]">{labels[type] || 'Entrega'}{dirty && <i className="cv-h-1.5 cv-w-1.5 cv-rounded-full cv-bg-[#e3a45f]" title="Alterações não salvas"/>}</span>}{type === 'image' || textArtifact ? editingTitle ? <input autoFocus className="cv-artifact-title-input" value={titleDraft} onChange={event => setTitleDraft(event.target.value)} onBlur={commitTitle} onKeyDown={event => { if (event.key === 'Enter') commitTitle(); if (event.key === 'Escape') setEditingTitle(false); }} aria-label={type === 'image' ? 'Nome do arquivo' : 'Título do documento'}/> : <button type="button" className="cv-artifact-title-button" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }} title="Clique para editar o título">{displayTitle}{dirty && <i className="cv-artifact-title-dirty" title="Alterações não salvas"/>}</button> : <h2 className="cv-m-0 cv-mt-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[15px] cv-font-semibold">{displayTitle}</h2>}</div>
       {type === 'html' && artifact.id && <button type="button" onClick={publicLink ? onCopyPublishedUrl : onPublish} disabled={publishing || saving} className="cv-artifact-publish" aria-label={publishing ? 'Publicando' : saving ? 'Salvando' : publicLink ? 'Copiar link publicado' : 'Publicar página'} title={publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Copiar link' : 'Publicar'}><Icon name={publicLink ? 'link' : 'external'} size={15}/><span>{publishing ? 'Publicando…' : saving ? 'Salvando…' : publicLink ? 'Link' : 'Publicar'}</span></button>}
-      {textArtifact && !artifact.pending && !artifact.failed && <button type="button" className="cv-artifact-edit-mode" onClick={() => setEditingDocument(value => !value)} aria-label={editingDocument ? 'Visualizar documento' : 'Editar documento'} title={editingDocument ? 'Visualizar' : 'Editar'}><Icon name={editingDocument ? 'file' : 'compose'} size={15}/><span>{editingDocument ? 'Visualizar' : 'Editar'}</span></button>}
+      {textArtifact && !artifact.pending && !artifact.failed && <button type="button" className="cv-artifact-edit-mode" onClick={() => setEditingDocument(value => !value)} aria-label={editingDocument ? 'Visualizar material' : type === 'brief' ? 'Editar briefing' : type === 'meeting_agenda' ? 'Editar pauta' : type === 'meeting_summary' ? 'Editar registro' : 'Editar documento'} title={editingDocument ? 'Visualizar' : 'Editar'}><Icon name={editingDocument ? 'file' : 'compose'} size={15}/><span>{editingDocument ? 'Visualizar' : 'Editar'}</span></button>}
+      {artifact.id && type !== 'image' && <div className="cv-brief-header-save" title={saving ? 'Salvando no projeto' : dirty ? 'Alterações pendentes' : artifact.project_ref ? 'Salvo no projeto' : 'Rascunho salvo automaticamente'}><i className={saving || dirty ? 'is-pending' : ''}/><span>{saving ? 'Salvando' : dirty ? 'Pendente' : artifact.project_ref ? 'No projeto' : 'Salvo'}</span></div>}
+      {projectRef && type !== 'link_reader' && indexable && <label className="cv-brief-header-format"><span>Fonte</span><select aria-label="Formato da fonte" value={sourceFormat} disabled={saving} onChange={event => setSourceFormat(event.target.value)}><option value={type === 'html' ? 'html' : 'md'}>{type === 'html' ? '.html' : '.md'}</option>{type !== 'html' && <option value="txt">.txt</option>}</select></label>}
+      {projectRef && type !== 'link_reader' && indexable && <button type="button" onClick={() => onSaveToProject(sourceFormat)} disabled={saving} className="cv-brief-header-index">{saving ? 'Indexando…' : artifact.status === 'active' && artifact.project_ref ? 'Atualizar índice' : 'Indexar'}</button>}
+      {projectRef && type !== 'link_reader' && !indexable && !artifact.project_ref && <button type="button" onClick={onAttachToProject} disabled={saving} className="cv-brief-header-index">Salvar no projeto</button>}
+      {dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-brief-header-save-now" title="Salvar alterações">Salvar</button>}
       {!artifact.pending && !artifact.failed && <details className="cv-artifact-more">
         <summary aria-label="Mais ações da entrega" title="Mais ações"><Icon name="more" size={18}/><span className="cv-sr-only">Mais ações</span></summary>
         <div>
@@ -765,11 +875,8 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
       </details>}
       <button type="button" onClick={requestClose} className={`cv-artifact-return cv-grid cv-h-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05] ${mobile ? 'is-mobile' : 'cv-w-8'}`} aria-label={mobile ? 'Voltar à conversa' : 'Fechar entrega'}><Icon name={mobile ? 'chevron' : 'close'} size={17}/>{mobile && <span>Conversa</span>}</button>
     </header>
-    {artifact.current_version > 1 && artifact.change_summary && !artifact.pending && <div className="cv-flex cv-items-center cv-gap-3 cv-border-b cv-border-white/[.07] cv-bg-[#173a35] cv-px-4 cv-py-2 cv-text-xs" role="status"><strong className="cv-whitespace-nowrap cv-text-[#9ee1cd]">Versão {artifact.current_version}</strong><span className="cv-min-w-0 cv-flex-1 cv-truncate cv-text-[#d4e8e0]" title={artifact.change_summary}>{artifact.change_summary.replace(/^Cadu:\s*/, '')}</span><button type="button" onClick={openVersions} className="cv-whitespace-nowrap cv-border-0 cv-bg-transparent cv-text-[#9ee1cd] cv-underline">Ver versões</button></div>}
+    {artifact.current_version > 1 && artifact.change_summary && !artifact.pending && <div className="cv-flex cv-items-center cv-gap-3 cv-border-b cv-border-white/[.07] cv-bg-[#173a35] cv-px-4 cv-py-2 cv-text-xs" role="status"><strong className="cv-whitespace-nowrap cv-text-[#9ee1cd]">Versão {artifact.current_version}</strong><span className="cv-min-w-0 cv-flex-1 cv-truncate cv-text-[#d4e8e0]" title={artifact.change_summary}>{artifact.change_summary.replace(/^Cadu:\s*/, '')}</span></div>}
     <div className="cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-auto">{contentView}</div>
-    {!artifact.pending && type === 'image' && <footer className="cv-image-metadata" aria-label="Informações da imagem"><dl><div><dt>Dimensões</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${imageMetadata.width} × ${imageMetadata.height} px` : 'Carregando…'}</dd></div><div><dt>Resolução</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${((imageMetadata.width * imageMetadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : '—'}</dd></div><div><dt>Arquivo</dt><dd>{formatFileSize(imageMetadata?.bytes)}</dd></div></dl></footer>}
-    {publicLink && <div className="cv-artifact-public-link"><span>Link publicado</span><input aria-label="Link publicado" readOnly value={publicLink} onFocus={event => event.target.select()}/><a href={publicLink} target="_blank" rel="noreferrer">Abrir</a></div>}
-    {!artifact.pending && artifact.id && type !== 'image' && <footer className="cv-artifact-actions"><span>{saving ? 'Indexando…' : dirty ? 'Alterações pendentes' : artifact.status === 'active' && artifact.project_ref ? 'Versão indexada no projeto' : artifact.project_ref ? 'Salva no projeto' : 'Rascunho salvo automaticamente'}</span><div>{projectRef && type !== 'link_reader' && indexable && <><label className="cv-text-xs">Formato da fonte <select value={sourceFormat} disabled={saving} onChange={event => setSourceFormat(event.target.value)}><option value={type === 'html' ? 'html' : 'md'}>{type === 'html' ? '.html' : '.md'}</option>{type !== 'html' && <option value="txt">.txt</option>}</select></label><button type="button" onClick={() => onSaveToProject(sourceFormat)} disabled={saving} className="cv-artifact-actions__project">{artifact.status === 'active' && artifact.project_ref ? 'Atualizar fonte do projeto' : 'Finalizar e indexar no projeto'}</button></>}{projectRef && type !== 'link_reader' && !indexable && !artifact.project_ref && <button type="button" onClick={onAttachToProject} disabled={saving} className="cv-artifact-actions__project">Salvar no projeto</button>}{dirty && <button type="button" onClick={onSave} disabled={saving} className="cv-artifact-actions__save">Salvar agora</button>}</div></footer>}
     <dialog ref={dialog} className="cv-dialog cv-w-[min(540px,calc(100vw-32px))] cv-p-0">
       <section><header className="cv-flex cv-items-center cv-justify-between cv-border-b cv-border-white/10 cv-p-5"><div><h2 className="cv-m-0 cv-text-base">Versões</h2><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-text-mist">Restaure uma revisão anterior.</p></div><button type="button" onClick={() => dialog.current?.close()} className="cv-grid cv-h-8 cv-w-8 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent"><Icon name="close" size={16}/></button></header>
         <div className="cv-scroll cv-max-h-[55vh] cv-overflow-y-auto cv-p-3">{loadingVersions ? <p className="cv-p-3 cv-text-sm cv-text-mist">Carregando…</p> : versions.length ? versions.map(item => <article key={item.version} className="cv-flex cv-items-center cv-gap-4 cv-rounded-xl cv-p-3 hover:cv-bg-white/[.04]"><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-sm">Versão {item.version}</strong><small className="cv-mt-1 cv-block cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-xs cv-text-mist">{item.change_summary || 'Revisão da entrega'}</small></div><button type="button" disabled={Number(item.version) === Number(artifact.current_version) || comparingVersion !== null} onClick={() => compareVersion(item.version)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{comparingVersion === item.version ? 'Comparando…' : 'Comparar'}</button><button type="button" disabled={Number(item.version) === Number(artifact.current_version)} onClick={async () => { await onRestoreVersion(item.version); dialog.current?.close(); }} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-3 cv-py-2 cv-text-xs disabled:cv-opacity-35">{Number(item.version) === Number(artifact.current_version) ? 'Atual' : 'Restaurar'}</button></article>) : <p className="cv-p-3 cv-text-sm cv-text-mist">Nenhuma versão disponível.</p>}{comparison && <section className="cv-m-3 cv-rounded-xl cv-border cv-border-white/10 cv-p-4" aria-live="polite"><h3 className="cv-m-0 cv-text-sm">Versão {comparison.version} → atual</h3>{comparison.error ? <p className="cv-text-xs cv-text-mist">{comparison.error}</p> : <div className="cv-mt-3 cv-grid cv-gap-4 md:cv-grid-cols-2"><div><strong className="cv-text-xs cv-text-[#e8b4a9]">Trechos removidos ou substituídos</strong>{comparison.removed.length ? comparison.removed.map((line, index) => <p key={index} className="cv-mb-0 cv-mt-2 cv-text-xs cv-text-mist">{line}</p>) : <p className="cv-text-xs cv-text-mist">Nenhum trecho textual removido.</p>}</div><div><strong className="cv-text-xs cv-text-[#9ee1cd]">Trechos adicionados ou revisados</strong>{comparison.added.length ? comparison.added.map((line, index) => <p key={index} className="cv-mb-0 cv-mt-2 cv-text-xs cv-text-mist">{line}</p>) : <p className="cv-text-xs cv-text-mist">Nenhum trecho textual adicionado.</p>}</div></div>}</section>}</div>

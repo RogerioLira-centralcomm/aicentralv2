@@ -44,6 +44,8 @@ Um administrador da organização pode abrir **Acesso** e conceder a uma conta e
 
 `deploy.sh` aplica `migrations/add_reports_operations_v1.sql`, `migrations/add_reports_review_fixes_v1.sql` e `migrations/add_reports_link_associations_v1.sql`, inclusive em ambientes que já tenham as primeiras migrações. O bundle React é construído por `npm run build:reports`. As migrações são aditivas e preservam os dados anteriores. A V1 ainda não inclui conectores nativos para outras plataformas, importação completa de métricas antigas, automações de audiência, análise de cliques ou mapa de calor. Esses recursos dependem de contratos de ingestão e controles de privacidade próprios antes de ativação.
 
+Após aplicar as migrações em homologação, `python scripts/audit_reports_v1.py` verifica em modo somente leitura as tabelas exigidas e referências entre clientes. Ele termina com código 2 se faltar tabela e 1 se encontrar vínculo cruzado; não altera registros.
+
 Para retenção, `scripts/prune_reports_events.py` mostra por padrão quantos eventos brutos superaram 180 dias e quantas confirmações do CRM superaram 400 dias. `--apply` executa a exclusão em lotes. O operador pode agendar esse comando no ambiente de produção após revisar os períodos; ele não roda na abertura de páginas nem durante o deploy.
 
 ## Plano de continuação

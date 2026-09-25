@@ -12,6 +12,7 @@ import re
 from .contracts import IntentRoute, RequestContext
 from .plugin_catalog import get_plugin, list_entries
 from .daily_workflows import WORKFLOWS
+from .campaign_metrics import supplied_metrics
 
 _CAMPAIGN_SEARCH = re.compile(
     r"\b(?:busc\w*|pesquis\w*|procur\w*|encontr\w*|localiz\w*|mostr\w*)\b.{0,55}"
@@ -33,7 +34,6 @@ _GOOGLE_CONNECT = re.compile(r"\b(?:conect\w*|autoriza\w*|vincul\w*|configur\w*|
 _GOOGLE_DRIVE = re.compile(r"\b(?:google\s+drive|drive|google\s+docs|google\s+sheets|pasta\s+(?:do|no)\s+google)\b", re.I)
 _GOOGLE_CALENDAR = re.compile(r"\b(?:google\s+calendar|agenda\s+google|calend[aá]rio\s+google)\b", re.I)
 _GOOGLE_MEET = re.compile(r"\b(?:google\s+meet|reuni[aã]o\s+(?:do|no)\s+meet|transcri[cç][aã]o\s+(?:do|no)\s+meet)\b", re.I)
-_SUPPLIED_DATA = re.compile(r"\b(?:impress[oõ]es|cliques?|ctr|cpc|cpm|convers[oõ]es|roas|investimento|or[cç]amento|resultado|meta)\b", re.I)
 
 # Five product flows with stable legacy plugin IDs as internal modes. Connector
 # plugins stay outside these groups and continue to use their existing grants.
@@ -134,7 +134,7 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
         if plugin_id == "campaign-tracker" and not has_report_attachment:
             # This workflow deliberately does not read Reports. A selected
             # project is scope, not evidence that campaign metrics exist.
-            if not (_SUPPLIED_DATA.search(text) and re.search(r"\d", text)):
+            if not supplied_metrics(text):
                 missing.append("relatório anexado ou métricas da campanha")
         if plugin_id == "media-plan-audit" and not context.project_ref and not context.active_object and not has_material:
             missing.append("plano de mídia ou projeto com um plano")

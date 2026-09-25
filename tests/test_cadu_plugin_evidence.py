@@ -5,6 +5,7 @@ from datetime import date
 from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_status
 from aicentralv2.cadu_workspace.insights_research import _safe_sources
 from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
+from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
 
 
 def test_extracted_claim_requires_a_literal_quote_in_its_source():
@@ -54,4 +55,12 @@ def test_quick_market_scan_includes_independent_review_before_render():
 
     assert [item["kind"] for item in default_units(spec)] == [
         "discover", "extract", "analyze", "review", "render",
+    ]
+
+
+def test_campaign_tracker_requires_an_actual_metric_value():
+    assert supplied_metrics("Analise o CTR da campanha em 2026.") == []
+    assert supplied_metrics("CTR: 2,4% e cliques: 1.250") == [
+        {"name": "ctr", "value": "2,4", "unit": "%"},
+        {"name": "cliques", "value": "1.250", "unit": ""},
     ]

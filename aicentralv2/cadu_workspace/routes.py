@@ -515,6 +515,8 @@ def _workspace_billing_data(client_id: int) -> dict:
 
 def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
     """Expose connection metadata only; Connect remains owner of credentials and actions."""
+    from ..services import google_workspace
+
     accounts = accounts_for_workspace_context(
         organization_id or client_id, workspace_client_id=client_id,
     )
@@ -536,11 +538,10 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
         'services': [],
         'summary': {'enabled_count': 0, 'total_count': 0, 'pending_count': 0},
         'configuration': {'configured': False, 'missing': [], 'redirect_uri': ''},
-        'connect_url': product_url('auth', '/auth/google/workspace') + '?' + urlencode({'next': product_url('workspace', '/integracoes')}),
+        'connect_url': google_workspace.connection_start_url(),
         'configured': False,
     }
     try:
-        from ..services import google_workspace
         connection = google_workspace.get_connection(client_id)
         google = {
             **google,
@@ -576,16 +577,19 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
         # completed in Reports, where credentials stay isolated from Workspace.
         'priority_connectors': (
             {
+                'key': 'canva', 'implemented': False,
                 'name': 'Canva', 'icon': 'fa-solid fa-wand-magic-sparkles',
                 'summary': 'Leve kits de marca, criativos e aprovações para o mesmo fluxo de trabalho.',
                 'scope': 'Criação e identidade',
             },
             {
+                'key': 'google_drive', 'implemented': True,
                 'name': 'Google Drive', 'icon': 'fa-brands fa-google-drive',
                 'summary': 'Vincule pastas e arquivos de briefing à marca, ao projeto e às conversas.',
                 'scope': 'Arquivos e contexto',
             },
             {
+                'key': 'agency_erp', 'implemented': False,
                 'name': 'ERP da agência', 'icon': 'fa-solid fa-building-columns',
                 'summary': 'Conecte jobs, clientes e aprovações da operação sem duplicar cadastros.',
                 'scope': 'Operação e jobs',

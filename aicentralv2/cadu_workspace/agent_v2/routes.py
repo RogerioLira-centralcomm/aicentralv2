@@ -182,7 +182,7 @@ def google_connection():
         services=matrix["services"],
         configured=matrix["configuration"]["configured"],
         missing_configuration=matrix["configuration"]["missing"],
-        connect_url=product_url("auth", "/auth/google/workspace"),
+        connect_url=google_workspace.connection_start_url(),
         resources=google_workspace.list_resources(current.client_id, limit=40) if drive_ready else [],
     )
 

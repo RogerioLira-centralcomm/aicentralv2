@@ -216,6 +216,15 @@ def google_workspace_start():
         request.args.get("next"),
         product_url("workspace", "/integracoes"),
     )
+    # This OAuth flow starts on the Auth product but its state cookie must
+    # survive the trip to Google's callback on that same product. When a
+    # reverse proxy enters this blueprint through the Workspace host, pin the
+    # response to the canonical Auth host before creating the session state.
+    auth_host = (urlparse(product_url("auth", "/")).hostname or "").lower()
+    if auth_host and (request.host.split(":", 1)[0] or "").lower() != auth_host:
+        start_url = product_url("auth", "/auth/google/workspace")
+        query = urlencode({"next": target})
+        return redirect(f"{start_url}?{query}", code=302)
     state = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(64)
     challenge = base64.urlsafe_b64encode(

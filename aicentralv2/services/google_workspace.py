@@ -19,6 +19,7 @@ from google.oauth2.credentials import Credentials
 from psycopg.types.json import Json
 
 from ..db import get_db
+from ..product_domains import product_url
 
 
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -33,19 +34,12 @@ MEET_TRANSCRIPTS_SUFFIX = "/transcripts"
 MEET_RECORDINGS_SUFFIX = "/recordings"
 MEET_SMART_NOTES_SUFFIX = "/smartNotes"
 
-# The consent is deliberately broad for the Workspace connector. Each Cadu
-# client and authorizing person owns a separate token and granted-scope set.
-SCOPES = (
+# Identity is used to associate the customer's Google account with the
+# per-person Workspace authorization record.
+IDENTITY_SCOPES = (
     "openid",
     "email",
     "profile",
-    # Full Drive access is intentional: the connector must be able to read,
-    # organize and later write project files without another consent cycle.
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "https://www.googleapis.com/auth/calendar.events",
-    "https://www.googleapis.com/auth/meetings.space.created",
-    "https://www.googleapis.com/auth/meetings.space.readonly",
 )
 
 # The matrix is intentionally kept beside the OAuth contract. This makes the
@@ -112,6 +106,16 @@ GOOGLE_SERVICE_CATALOG = (
     },
 )
 
+# Ask Google for every scope declared in the connector catalog, including
+# services currently labeled "coming soon", so customers can validate their
+# OAuth consent and API configuration before those product flows ship.
+# Full Drive access is intentional: the connector reads and organizes project
+# files. Each Cadu client and authorizing person owns a separate token.
+SCOPES = tuple(dict.fromkeys((
+    *IDENTITY_SCOPES,
+    *(scope for service in GOOGLE_SERVICE_CATALOG for scope in service["scopes"]),
+)))
+
 _SERVICE_STATUS_LABELS = {
     "enabled": "Habilitado",
     "needs_authorization": "Autorizar conta",
@@ -133,6 +137,14 @@ _SERVICE_CONFIG_LABELS = {
 
 class GoogleWorkspaceError(RuntimeError):
     pass
+
+
+def connection_start_url(next_target: str | None = None) -> str:
+    """Build the canonical customer OAuth link for every product surface."""
+    fallback = product_url("workspace", "/integracoes") if has_app_context() else "/integracoes"
+    target = str(next_target or fallback).strip() or fallback
+    start = product_url("auth", "/auth/google/workspace") if has_app_context() else "/auth/google/workspace"
+    return f"{start}?{urlencode({'next': target})}"
 
 
 _GOOGLE_DRIVE_FILE_PATTERNS = (
@@ -212,6 +224,12 @@ def _configuration_state() -> dict:
         for field in ("client_id", "client_secret", "redirect_uri")
         if not str(config.get(field) or "").strip()
     ]
+    if config.get("redirect_uri"):
+        try:
+            _oauth_redirect_uri(config)
+        except GoogleWorkspaceError:
+            if _SERVICE_CONFIG_LABELS["redirect_uri"] not in missing:
+                missing.append(_SERVICE_CONFIG_LABELS["redirect_uri"])
     encryption_ready = True
     try:
         _encryption_key(config)
@@ -319,6 +337,35 @@ def encrypt_refresh_token(refresh_token: str) -> str:
     return Fernet(_encryption_key().encode()).encrypt(refresh_token.encode()).decode()
 
 
+def _oauth_redirect_uri(config: dict) -> str:
+    """Reject callbacks that cannot reach this exact OAuth callback route."""
+    value = str(config.get("redirect_uri") or "").strip()
+    parsed = urlsplit(value)
+    auth_url = urlsplit(str(current_app.config.get("AUTH_URL") or ""))
+    expected_host = (auth_url.hostname or "").lower()
+    try:
+        valid_port = parsed.port in (None, 443) or parsed.hostname in {"localhost", "127.0.0.1"}
+        parsed_port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        auth_port = auth_url.port or (443 if auth_url.scheme == "https" else 80)
+        host_matches = (
+            (parsed.hostname or "").lower() == expected_host
+            and parsed_port == auth_port
+        ) if expected_host else True
+    except ValueError:
+        valid_port = host_matches = False
+    if (parsed.scheme not in {"https", "http"} or not parsed.hostname
+            or (parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1"})
+            or not valid_port or parsed.username or parsed.password or not host_matches):
+        raise GoogleWorkspaceError(
+            "A URL de retorno Google Workspace deve ser HTTPS no domínio Auth configurado."
+        )
+    if parsed.path != "/auth/google/workspace/callback" or parsed.query or parsed.fragment:
+        raise GoogleWorkspaceError(
+            "Configure a URL de retorno do Google como /auth/google/workspace/callback no host Auth."
+        )
+    return value
+
+
 def decrypt_refresh_token(encrypted_refresh_token: str) -> str:
     try:
         return Fernet(_encryption_key().encode()).decrypt(encrypted_refresh_token.encode()).decode()
@@ -330,7 +377,7 @@ def authorization_url(state: str, *, login_hint: str = "", code_challenge: str =
     config = _configuration()
     params = {
         "client_id": config["client_id"],
-        "redirect_uri": config["redirect_uri"],
+        "redirect_uri": _oauth_redirect_uri(config),
         "response_type": "code",
         "scope": " ".join(SCOPES),
         "access_type": "offline",
@@ -350,6 +397,7 @@ def exchange_code(code: str, *, code_verifier: str = "") -> dict:
     if not code:
         raise GoogleWorkspaceError("Código de autorização ausente.")
     config = _configuration()
+    redirect_uri = _oauth_redirect_uri(config)
     try:
         response = requests.post(
             TOKEN_URL,
@@ -357,7 +405,7 @@ def exchange_code(code: str, *, code_verifier: str = "") -> dict:
                 "code": code,
                 "client_id": config["client_id"],
                 "client_secret": config["client_secret"],
-                "redirect_uri": config["redirect_uri"],
+                "redirect_uri": redirect_uri,
                 "grant_type": "authorization_code",
                 **({"code_verifier": code_verifier} if code_verifier else {}),
             },

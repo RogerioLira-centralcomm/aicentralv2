@@ -10,11 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable
-from flask import has_app_context
-
 from ..cadu_family import repository
 from ..cadu_workspace.agent_v2.contracts import RequestContext
-from ..product_domains import product_url
 from . import google_workspace
 
 
@@ -99,8 +96,7 @@ class CaduGoogleConnector:
                 if not connected
                 else "select_project" if not project_selected else "ready"
             ),
-            "connect_url": (product_url("auth", "/auth/google/workspace")
-                            if has_app_context() else "/auth/google/workspace"),
+            "connect_url": google_workspace.connection_start_url(),
         }
 
     def list_project_resources(self, context: RequestContext, *, limit: int = 100) -> dict[str, Any]:

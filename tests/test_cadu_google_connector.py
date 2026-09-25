@@ -46,6 +46,7 @@ def test_global_connector_exposes_user_project_and_google_status_without_secrets
     assert result["context"]["user_id"] == 7
     assert result["context"]["project_ref"] == "ci:project-1"
     assert result["permissions"]["user_can_link_project_resources"] is True
+    assert result["connect_url"] == "/auth/google/workspace?next=%2Fintegracoes"
     assert result["connection"]["account"]["email"] == "workspace@example.com"
     assert "encrypted_refresh_token" not in str(result)
 

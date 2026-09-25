@@ -752,6 +752,23 @@ def _validate_public(provider, config):
             raise IntegrationCredentialError(
                 "O redirect Google deve usar HTTPS fora do ambiente local."
             )
+        if provider == "google_workspace":
+            auth_url = urlparse(str(current_app.config.get("AUTH_URL") or ""))
+            auth_host = (auth_url.hostname or "").lower()
+            if (parsed.path != "/auth/google/workspace/callback" or parsed.query or parsed.fragment):
+                raise IntegrationCredentialError(
+                    "Use a rota /auth/google/workspace/callback como URL de retorno do Google Workspace."
+                )
+            if auth_host:
+                try:
+                    parsed_port = parsed.port or (443 if parsed.scheme == "https" else 80)
+                    auth_port = auth_url.port or (443 if auth_url.scheme == "https" else 80)
+                except ValueError as exc:
+                    raise IntegrationCredentialError("A porta da URL de retorno Google é inválida.") from exc
+                if (parsed.hostname or "").lower() != auth_host or parsed_port != auth_port:
+                    raise IntegrationCredentialError(
+                        "A URL de retorno Google Workspace precisa usar o domínio Auth configurado."
+                    )
     if provider == "dify" and config.get("base_url"):
         parsed = urlparse(config["base_url"])
         if parsed.scheme != "https" or not parsed.hostname:

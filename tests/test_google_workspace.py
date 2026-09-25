@@ -22,6 +22,7 @@ from aicentralv2.services.google_workspace import (
     sync_drive,
     GoogleWorkspaceError,
 )
+from aicentralv2.services import google_workspace
 
 
 def test_drive_search_pages_only_the_current_persons_authorization():
@@ -72,11 +73,64 @@ def test_google_workspace_authorization_requests_workspace_capabilities():
     assert query['state'] == ['state']
     assert query['redirect_uri'] == ['https://auth.centralcomm.media/auth/google/workspace/callback']
     assert query['code_challenge'] == ['challenge']
+    assert query['code_challenge_method'] == ['S256']
+    assert query['access_type'] == ['offline']
+    assert query['include_granted_scopes'] == ['true']
+    assert query['prompt'] == ['consent']
+    assert set(query['scope'][0].split()) == set(SCOPES)
+    assert {
+        scope for service in google_workspace.GOOGLE_SERVICE_CATALOG
+        for scope in service['scopes']
+    } <= set(query['scope'][0].split())
     assert 'https://www.googleapis.com/auth/drive' in query['scope'][0]
     assert 'https://www.googleapis.com/auth/meetings.space.created' in query['scope'][0]
-    assert 'https://www.googleapis.com/auth/adwords' not in query['scope'][0]
-    assert 'https://www.googleapis.com/auth/analytics.readonly' not in query['scope'][0]
-    assert 'https://www.googleapis.com/auth/webmasters.readonly' not in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/adwords' in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/analytics.readonly' in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/webmasters.readonly' in query['scope'][0]
+
+
+def test_google_workspace_authorization_rejects_a_callback_on_the_wrong_host_or_path():
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY='test', AUTH_URL='https://auth.centralcomm.media')
+    config = {
+        'configured': True,
+        'client_id': 'workspace-client.apps.googleusercontent.com',
+        'client_secret': 'secret',
+        'redirect_uri': 'https://workspace.centralcomm.media/integracoes/callback',
+    }
+    with app.test_request_context('/'), patch(
+        'aicentralv2.services.integration_credentials.get_configuration', return_value=config
+    ), pytest.raises(GoogleWorkspaceError, match='URL de retorno'):
+        authorization_url('state')
+
+
+def test_google_workspace_connection_url_returns_to_integrations_by_default():
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY='test',
+        AUTH_URL='https://auth.centralcomm.media',
+        WORKSPACE_URL='https://workspace.centralcomm.media',
+    )
+    with app.app_context():
+        parsed = urlparse(google_workspace.connection_start_url())
+        query = parse_qs(parsed.query)
+    assert parsed.netloc == 'auth.centralcomm.media'
+    assert parsed.path == '/auth/google/workspace'
+    assert query['next'] == ['https://workspace.centralcomm.media/integracoes']
+
+
+def test_google_workspace_connection_url_can_keep_chat_return_target():
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY='test',
+        AUTH_URL='https://auth.centralcomm.media',
+        WORKSPACE_URL='https://workspace.centralcomm.media',
+    )
+    target = 'https://workspace.centralcomm.media/conversas?surface=conversation&google_plugin=google-drive'
+    with app.app_context():
+        parsed = urlparse(google_workspace.connection_start_url(target))
+        query = parse_qs(parsed.query)
+    assert query['next'] == [target]
 
 
 def test_google_workspace_exchange_keeps_pkce_verifier_and_identity():

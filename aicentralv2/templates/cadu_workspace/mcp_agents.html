@@ -14,7 +14,7 @@
     <a href="{{ url_for('cadu_workspace.integrations') }}">← Integrações</a>
     <div class="workspace-mcp-page__identity">
       <img src="{{ url_for('static', filename='images/cadu/products/cadu-mcp-icon.svg') }}" alt="">
-      <div><h1>Conectar o Cadu aos seus agentes</h1><p>Escolha onde quer usar sua conta Cadu.</p></div>
+      <div><h1>Conectar o Cadu aos seus agentes</h1><p>Cliente ou agência: <strong>{{ workspace_name }}</strong>. Escolha onde quer usar o Cadu.</p></div>
     </div>
   </header>
   {% if not oauth_ready %}<div class="workspace-mcp-alert" role="alert"><strong>Conexões temporariamente indisponíveis</strong><p>O login do Cadu ainda não está pronto neste ambiente.</p></div>{% endif %}
@@ -27,13 +27,14 @@
         ('chatgpt', 'ChatGPT', 'Veja a disponibilidade de MCP para sua conta e conecte com OAuth.', 'images/cadu/technology-logos/openai.svg'),
         ('claude', 'Claude', 'Adicione o Cadu como conector.', 'images/cadu/technology-logos/claude.svg'),
         ('cursor', 'Cursor', 'Instale o servidor MCP no editor.', 'images/cadu/technology-logos/cursor.svg'),
+        ('vscode', 'VS Code', 'Instale o servidor MCP no editor e entre com sua conta.', 'images/cadu/technology-logos/vscode.svg'),
         ('claude-code', 'Claude Code', 'Use o Cadu no terminal.', 'images/cadu/technology-logos/claude.svg')
       ] %}
       {% for id, name, description, logo in platforms %}
       <article class="workspace-mcp-platform-row" data-platform-row="{{ id }}">
         <img src="{{ url_for('static', filename=logo) }}" alt="" loading="lazy">
         <div class="workspace-mcp-platform-row__copy"><h3>{{ name }}</h3><p>{{ description }}</p></div>
-        <button type="button" class="workspace-button is-primary" data-select-client="{{ id }}" {% if not oauth_ready %}disabled{% endif %}>{{ 'Instalar' if id == 'cursor' else ('Ver requisitos' if id == 'chatgpt' else 'Configurar conexão') }}</button>
+        <button type="button" class="workspace-button is-primary" data-select-client="{{ id }}" {% if not oauth_ready %}disabled{% endif %}>{{ 'Instalar' if id in ('cursor', 'vscode') else ('Ver requisitos' if id == 'chatgpt' else 'Configurar conexão') }}</button>
       </article>
       {% endfor %}
     </div>
@@ -65,13 +66,15 @@
   <section class="workspace-mcp-selected" data-oauth-panel hidden aria-live="polite">
     <div class="workspace-mcp-selected__head"><div><h2 data-oauth-title></h2><p data-oauth-instruction></p></div><button type="button" data-close-oauth aria-label="Fechar instruções">×</button></div>
     <div class="workspace-mcp-selected__config" data-oauth-config-wrap><pre class="workspace-mcp-oauth-command" data-oauth-config></pre><button type="button" class="workspace-button" data-copy-oauth>Copiar</button></div>
+    <p class="workspace-mcp-selected__access">Você entrará com sua conta Cadu e escolherá as permissões e ferramentas desta conexão. Cada pessoa autoriza o próprio acesso a {{ workspace_name }}. O uso das ferramentas pode consumir créditos.</p>
     <ol class="workspace-mcp-connection-steps" data-oauth-steps></ol>
+    <p class="workspace-mcp-selected__finish">Depois de autorizar, volte a esta página para conferir o aplicativo em “Suas conexões”. No aplicativo, abra uma nova conversa e confirme que as ferramentas Cadu aparecem. A lista de conexões confirma a autorização; a lista de ferramentas no aplicativo confirma a instalação.</p>
     <p class="workspace-mcp-feedback" data-oauth-feedback role="status"></p>
     <details><summary>Problemas para conectar?</summary><p>Esta checagem confirma disponibilidade do servidor e descoberta OAuth. Ela não autentica o aplicativo nem testa as ferramentas.</p><button type="button" class="workspace-button" data-check-server>Verificar servidor e OAuth</button><p data-server-feedback role="status"></p></details>
   </section>
 
-  <section class="workspace-mcp-connections" aria-labelledby="mcp-connections-title">
-    <h2 id="mcp-connections-title">Suas conexões</h2>
+  <section class="workspace-mcp-connections" id="mcp-connections" aria-labelledby="mcp-connections-title">
+    <div class="workspace-mcp-connections__heading"><h2 id="mcp-connections-title">Suas conexões</h2><a class="workspace-button" href="{{ url_for('cadu_public_mcp.agents_page') }}#mcp-connections">Atualizar conexões</a></div>
     {% if grants %}<div class="workspace-mcp-key-list">{% for grant in grants %}<article class="workspace-mcp-connection"><div><strong>{{ grant.client_name }}</strong><small>{{ 'Autorizada' if grant.status == 'active' else 'Revogada' }} · {{ (grant.modules or all_modules)|length }} módulos ativos</small></div>{% if grant.status == 'active' %}<details class="workspace-mcp-connection__modules"><summary>Gerenciar ferramentas</summary><form data-save-modules="{{ url_for('cadu_public_mcp.update_agent_grant_modules', grant_id=grant.id) }}"><fieldset><legend>Ferramentas desta conexão</legend>{% for module_id, module_label in tool_modules.items() %}<label><input type="checkbox" name="modules" value="{{ module_id }}" {% if module_id in (grant.modules or all_modules) %}checked{% endif %}> {{ module_label }}</label>{% endfor %}</fieldset><button class="workspace-button" type="submit">Salvar módulos</button><p role="status"></p></form></details><button type="button" class="workspace-mcp-revoke" data-revoke-grant="{{ grant.id }}">Revogar</button>{% endif %}</article>{% endfor %}</div>
     {% else %}<p class="workspace-mcp-connections__empty">Nenhuma conexão ainda. Escolha um aplicativo acima para começar.</p>{% endif %}
   </section>
@@ -116,11 +119,12 @@
   const say = (message, error = false) => { feedback.textContent = message; feedback.dataset.error = error ? '1' : '0'; };
   const requestJson = async (url, options = {}) => { const response = await fetch(url, {credentials: 'same-origin', ...options, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf, ...(options.headers || {})}}); const body = await response.json().catch(() => ({})); if (!response.ok || body.success === false || body.error) throw new Error(body.error?.message || body.error || 'Não foi possível concluir a ação.'); return body; };
   const copy = async (value, report = say) => { if (!navigator.clipboard?.writeText) { report('A cópia automática não está disponível neste navegador.', true); return false; } try { await navigator.clipboard.writeText(value); report('Copiado para a área de transferência.'); return true; } catch (_) { report('A cópia automática falhou. Tente novamente.', true); return false; } };
-  const oauthConfigFor = client => { if (client === 'codex') return `codex mcp add cadu --url ${endpoint}`; if (client === 'claude-code') return `claude mcp add --transport http cadu ${endpoint}`; return endpoint; };
+  const oauthConfigFor = client => { if (client === 'codex') return `codex mcp add cadu --url ${endpoint}\ncodex mcp login cadu`; if (client === 'claude-code') return `claude mcp add --transport http cadu ${endpoint}`; return endpoint; };
   const oauthInstallUrlFor = client => { if (client === 'vscode') return `vscode:mcp/install?${encodeURIComponent(JSON.stringify({name: 'cadu', type: 'http', url: endpoint}))}`; if (client === 'cursor') return `https://cursor.com/en-US/install-mcp?name=cadu&config=${encodeURIComponent(btoa(JSON.stringify({url: endpoint})))}`; return ''; };
   const oauthUi = {
-    codex: {title: 'Codex', instruction: 'Execute o comando e entre com sua conta Cadu.', steps: ['Copie o comando acima e execute no terminal.', 'Confirme cadu em codex mcp list.', 'Execute codex mcp login cadu e autorize no navegador.', 'Abra uma nova conversa para usar as ferramentas Cadu.']},
+    codex: {title: 'Codex', instruction: 'Copie os dois comandos e execute no terminal, em ordem.', steps: ['Execute os dois comandos acima. O segundo abrirá o login no navegador.', 'Confira o cliente ou agência ativo e autorize suas permissões no Cadu.', 'Confirme cadu em codex mcp list e abra uma nova conversa para ver as ferramentas.']},
     cursor: {title: 'Cursor', instruction: 'Confirme a instalação no Cursor.', steps: ['O Cursor receberá somente o endereço público do Cadu.', 'Entre no Cadu quando o Cursor solicitar.', 'Confira as ferramentas Cadu no editor.']},
+    vscode: {title: 'VS Code', instruction: 'Confirme a instalação no VS Code.', steps: ['O VS Code receberá somente o endereço público do Cadu.', 'Entre no Cadu quando o VS Code solicitar e autorize o cliente ou agência ativo.', 'Confira as ferramentas Cadu no editor.']},
     claude: {title: 'Claude', instruction: 'Adicione o endereço como conector personalizado.', steps: ['Em Personalizar → Conectores, adicione o endereço copiado.', 'Selecione Conectar e autorize no Cadu.', 'Ative o conector na conversa. Em planos de equipe, um administrador precisa adicioná-lo primeiro.']},
     'claude-code': {title: 'Claude Code', instruction: 'Execute o comando e entre com sua conta Cadu.', steps: ['Copie o comando acima e execute no terminal.', 'Confira cadu em claude mcp list.', 'No Claude Code, abra /mcp e conclua o login.']},
     chatgpt: {title: 'ChatGPT', instruction: 'A conexão privada depende do seu plano ChatGPT. Não cole chaves ou tokens em uma conversa.', steps: ['Business, Enterprise e Edu: um administrador habilita o modo de desenvolvedor em Configurações do workspace → Apps → Criar app e informa o endpoint do Cadu com OAuth.', 'Pro: MCP privado está disponível somente para leitura e busca; ações de escrita exigem Business, Enterprise ou Edu.', 'Free: conexão privada MCP não está disponível. O plugin público Cadu será uma opção depois de aprovado e publicado no diretório.', 'Depois do consentimento, confira o app em uma conversa nova e use Scan Tools para carregar as ferramentas.']},
@@ -139,7 +143,7 @@
     oauthPanel.hidden = false;
     const url = oauthInstallUrlFor(client);
     if (url) {
-      oauthFeedback.textContent = 'O instalador vai abrir no Cursor. Confirme a conexão lá.';
+      oauthFeedback.textContent = `O instalador vai abrir no ${setup.title}. Confirme a conexão lá.`;
       window.location.href = url;
     } else oauthFeedback.textContent = 'Copie o endereço ou comando acima e siga os passos.';
     oauthPanel.scrollIntoView({behavior: 'smooth', block: 'nearest'});

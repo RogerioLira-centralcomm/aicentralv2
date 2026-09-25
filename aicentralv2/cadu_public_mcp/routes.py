@@ -37,8 +37,12 @@ def _oauth_resource() -> str:
     return product_url("workspace", PUBLIC_MCP_PATH)
 
 
-def _oauth_url(path: str) -> str:
+def _workspace_url(path: str) -> str:
     return product_url("workspace", path)
+
+
+def _oauth_url(path: str) -> str:
+    return product_url("auth", path)
 
 
 def _oauth_issuer() -> str:
@@ -279,7 +283,7 @@ def media_asset_content(asset_id):
         response = jsonify({"error": "Acesso não autorizado."})
         response.status_code = 401
         response.headers["WWW-Authenticate"] = (
-            f'Bearer realm="cadu-mcp-public", resource_metadata="{_oauth_url("/.well-known/oauth-protected-resource/mcp/cadu/v1")}"'
+            f'Bearer realm="cadu-mcp-public", resource_metadata="{_workspace_url("/.well-known/oauth-protected-resource/mcp/cadu/v1")}"'
         )
         return _headers(response)
     from ..creative_media.storage import read_path
@@ -392,6 +396,12 @@ def public_mcp_landing():
     return render_template("cadu_workspace/mcp_public_landing.html", endpoint=_oauth_resource())
 
 
+@bp.get(f"{PUBLIC_MCP_PATH}/info")
+def public_mcp_information():
+    """Public, browser-friendly documentation advertised to OAuth clients."""
+    return render_template("cadu_workspace/mcp_public_landing.html", endpoint=_oauth_resource())
+
+
 @bp.post(PUBLIC_MCP_PATH)
 def public_rpc():
     payload = request.get_json(silent=True)
@@ -412,7 +422,7 @@ def public_rpc():
     except auth.PublicMcpAuthError as exc:
         challenge = (
             f'Bearer realm="cadu-mcp-public", error="invalid_token", '
-            f'resource_metadata="{_oauth_url("/.well-known/oauth-protected-resource/mcp/cadu/v1")}"'
+            f'resource_metadata="{_workspace_url("/.well-known/oauth-protected-resource/mcp/cadu/v1")}"'
         )
         response = jsonify(_error(request_id, -32001, str(exc), {
             "_meta": {"mcp/www_authenticate": [challenge]},
@@ -614,7 +624,7 @@ def oauth_protected_resource_metadata():
         "resource": _oauth_resource(),
         "authorization_servers": [_oauth_issuer()],
         "scopes_supported": list(auth.CLIENT_SCOPES),
-        "resource_documentation": _oauth_url("/app/agents"),
+        "resource_documentation": _workspace_url(f"{PUBLIC_MCP_PATH}/info"),
         "bearer_methods_supported": ["header"],
     })
 
@@ -658,13 +668,19 @@ def oauth_authorize():
     except oauth.OAuthError as exc:
         return render_template("cadu_workspace/mcp_oauth_error.html", error=exc), exc.status
 
+    client_id, user_id = _session_scope()
+    actor = repository.actor(user_id) or {}
+    workspace_name = _active_workspace_name(actor, client_id)
+    consent_identity = {
+        "workspace_name": workspace_name,
+        "authorizing_user": actor.get("name") or session.get("user_name") or "Sua conta",
+        "authorizing_email": actor.get("email") or session.get("user_email") or "",
+    }
+    can_manage_account = (int(actor.get("organization_id") or 0) == client_id
+                          and repository.account_role(actor) == "admin")
     if request.method == "POST":
         if not _workspace_api_csrf():
             abort(403, description="Atualize a página e tente novamente.")
-        client_id, user_id = _session_scope()
-        actor = repository.actor(user_id) or {}
-        can_manage_account = (int(actor.get("organization_id") or 0) == client_id
-                              and repository.account_role(actor) == "admin")
         if request.form.get("decision") != "authorize":
             return redirect(_redirect_with_query(authorization["redirect_uri"],
                                                   error="access_denied", state=authorization["state"],
@@ -679,15 +695,14 @@ def oauth_authorize():
             return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
                                    projects=[], csrf=session["family_csrf"],
                                    tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
-                                   can_manage_account=can_manage_account,
+                                   can_manage_account=can_manage_account, **consent_identity,
                                    error="Selecione ao menos uma permissão."), 400
         if not approved_modules:
-            client_id, _ = _session_scope()
             projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
             return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
                                    projects=projects, csrf=session["family_csrf"],
                                    tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
-                                   can_manage_account=can_manage_account,
+                                   can_manage_account=can_manage_account, **consent_identity,
                                    error="Mantenha ao menos um módulo de ferramentas ativo."), 400
         if "account:write" in approved and (
             int(actor.get("organization_id") or 0) != client_id
@@ -700,12 +715,11 @@ def oauth_authorize():
         ):
             approved.remove("credits:purchase")
         if not approved:
-            client_id, _ = _session_scope()
             projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
             return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
                                    projects=projects, csrf=session["family_csrf"],
                                    tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
-                                   can_manage_account=can_manage_account,
+                                   can_manage_account=can_manage_account, **consent_identity,
                                    error="Sua função não permite as permissões selecionadas."), 403
         default_project_ref = request.form.get("default_project_ref") or None
         if default_project_ref:
@@ -720,16 +734,11 @@ def oauth_authorize():
         return redirect(_redirect_with_query(authorization["redirect_uri"], code=code,
                                               state=authorization["state"], iss=_oauth_issuer()))
 
-    client_id, _ = _session_scope()
-    user_id = int(session.get("user_id") or 0)
-    actor = repository.actor(user_id) or {}
-    can_manage_account = (int(actor.get("organization_id") or 0) == client_id
-                          and repository.account_role(actor) == "admin")
     projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
     return render_template("cadu_workspace/mcp_oauth_consent.html", authorization=authorization,
                            projects=projects, csrf=session["family_csrf"], error=None,
                            tool_modules=TOOL_MODULES, default_modules=DEFAULT_MODULES,
-                           can_manage_account=can_manage_account)
+                           can_manage_account=can_manage_account, **consent_identity)
 
 
 @bp.post("/oauth/token")
@@ -783,7 +792,7 @@ def public_metadata():
         "authentication": {"type": "oauth2", "legacy_api_key_supported": auth._available()},
         "oauth": {
             "status": "ready" if oauth.available() else "pending_migration",
-            "protected_resource_metadata": _oauth_url("/.well-known/oauth-protected-resource/mcp/cadu/v1"),
+            "protected_resource_metadata": _workspace_url("/.well-known/oauth-protected-resource/mcp/cadu/v1"),
             "authorization_server_metadata": _oauth_url("/.well-known/oauth-authorization-server"),
             "pkce_methods": ["S256"],
         },
@@ -796,6 +805,14 @@ def _session_scope() -> tuple[int, int]:
     return int(session.get("cliente_id") or 0), int(session.get("user_id") or 0)
 
 
+def _active_workspace_name(actor: dict, client_id: int) -> str:
+    if actor:
+        client = next((item for item in repository.clients(actor) if int(item["id"]) == client_id), None)
+        if client and client.get("name"):
+            return str(client["name"])
+    return "Cliente ativo"
+
+
 @bp.get("/app/agents")
 @bp.get("/workspace/app/integracoes/agents")
 @login_required
@@ -804,6 +821,7 @@ def agents_page():
         return redirect("/app/agents", code=308)
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
     client_id, user_id = _session_scope()
+    workspace_name = _active_workspace_name(repository.actor(user_id) or {}, client_id)
     projects = [item for item in repository.entities(client_id) if item.get("kind") == "project"]
     credit = {}
     try:
@@ -834,6 +852,7 @@ def agents_page():
         default_modules=DEFAULT_MODULES,
         all_modules=ALL_MODULES,
         workspace_dock_items=dock_items,
+        workspace_name=workspace_name,
     )
 
 

@@ -13,7 +13,8 @@ from aicentralv2.cadu_public_mcp.routes import PUBLIC_MCP_PATH, bp
 
 def _app():
     app = Flask(__name__, template_folder="../aicentralv2/templates")
-    app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media")
+    app.config.update(SECRET_KEY="test", WORKSPACE_URL="https://workspace.centralcomm.media",
+                      AUTH_URL="https://auth.centralcomm.media")
     app.register_blueprint(bp)
     return app
 
@@ -26,7 +27,10 @@ def test_oauth_discovery_is_consistent_with_public_mcp_resource():
 
     assert protected.status_code == 200
     assert protected.get_json()["resource"] == "https://workspace.centralcomm.media/mcp/cadu/v1"
-    assert protected.get_json()["authorization_servers"] == ["https://workspace.centralcomm.media"]
+    assert protected.get_json()["authorization_servers"] == ["https://auth.centralcomm.media"]
+    assert protected.get_json()["resource_documentation"] == "https://workspace.centralcomm.media/mcp/cadu/v1/info"
+    assert authorization.get_json()["issuer"] == "https://auth.centralcomm.media"
+    assert authorization.get_json()["registration_endpoint"] == "https://auth.centralcomm.media/oauth/register"
     assert authorization.get_json()["code_challenge_methods_supported"] == ["S256"]
     assert authorization.get_json()["token_endpoint_auth_methods_supported"] == ["none"]
     assert authorization.get_json()["authorization_response_iss_parameter_supported"] is True
@@ -58,11 +62,13 @@ def test_public_mcp_urls_have_branded_icon_and_browser_landing():
     icon = client.get("/mcp/cadu/v1/icon.png")
     favicon = client.get("/mcp/cadu/v1/favicon.ico")
     landing = client.get(PUBLIC_MCP_PATH, headers={"Accept": "text/html"})
+    information = client.get(f"{PUBLIC_MCP_PATH}/info")
     transport_get = client.get(PUBLIC_MCP_PATH, headers={"Accept": "text/event-stream"})
 
     assert icon.status_code == 200 and icon.mimetype == "image/png"
     assert favicon.status_code == 200 and favicon.mimetype == "image/x-icon"
     assert landing.status_code == 200 and b"Cadu MCP" in landing.data
+    assert information.status_code == 200 and b"Cadu MCP" in information.data
     assert transport_get.status_code == 405
 
 

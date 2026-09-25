@@ -356,6 +356,7 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py refine_cadu_daily_workflow_plugins.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py activate_cadu_daily_workflow_plugins.sql
 "$VENV_PYTHON" migrations/run_add_cadu_public_mcp_oauth.py
+"$VENV_PYTHON" migrations/run_add_cadu_public_mcp_modules.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_home_preferences.sql
 # Planner: a tabela de planos é a base das migrações de documentos,
 # alocações, revisões e compartilhamento. Aplique a cadeia completa nesta

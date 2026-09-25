@@ -13,7 +13,7 @@ from uuid import uuid4
 from ..services.cadu_ai_connector import CaduAIConnector
 from ..services.openrouter_service import message_text
 from . import web_search
-from .agent_v2.evidence import read_status
+from .agent_v2.evidence import read_status, supporting_refs
 
 
 RESEARCH_MODEL = os.getenv("CADU_INSIGHTS_RESEARCH_MODEL", "perplexity/sonar")
@@ -148,6 +148,20 @@ def _safe_sources(web_result: dict, perplexity_message: dict, today: date) -> li
             for index, item in enumerate(list(unique.values())[:12], 1)]
 
 
+def _read_source_contents(web_result: dict, sources: list[dict]) -> dict[str, str]:
+    """Keep page bodies private to validation; discovery snippets are excluded."""
+    bodies = {}
+    for item in web_result.get("sources") or []:
+        if not isinstance(item, dict) or read_status(item) != "read":
+            continue
+        key = str(item.get("url") or "").split("#", 1)[0].rstrip("/").casefold()
+        content = str(item.get("content") or "")
+        if content and (key not in bodies or len(content) > len(bodies[key])):
+            bodies[key] = content
+    return {item["id"]: bodies[key] for item in sources
+            if (key := str(item.get("url") or "").split("#", 1)[0].rstrip("/").casefold()) in bodies}
+
+
 def _model_call(*, context, run_id: str, stage: str, model: str, messages: list[dict],
                 estimated_tokens: int, max_tokens: int, timeout: int, json_mode: bool = False,
                 provider: str | None = None) -> dict:
@@ -232,6 +246,8 @@ def research_market(context, query: str, request_id: str | None = None,
     sources = _safe_sources(web_result, pplx_message, today)
     eligible_sources = [item for item in sources if item["read_status"] == "read"
                         and item["freshness"] in {"last_6_months", "current_year"}]
+    source_contents = _read_source_contents(web_result, eligible_sources)
+    eligible_sources = [item for item in eligible_sources if item["id"] in source_contents]
     if not eligible_sources:
         raise InsightsEvidenceUnavailable(
             "Não consegui ler fontes recentes suficientes para sustentar o insight. "
@@ -266,9 +282,10 @@ def research_market(context, query: str, request_id: str | None = None,
                 "Só use métricas sustentadas pelo conteúdo pesquisado e por fontes elegíveis do ano atual ou dos últimos seis meses. "
                 "Se uma métrica não estiver sustentada, omita-a. Separe fato de interpretação. Não complete lacunas com conhecimento paramétrico. "
                 "O campo date_provenance distingue data vista na página de data informada pela busca; não apresente a segunda como data confirmada pelo conteúdo. "
-                "Retorne JSON com headline, headline_source_ids (array de strings), insight, insight_source_ids (array de strings), "
-                "metrics[{name,value,period,geography,meaning,source_ids}], "
-                "news[{title,date,summary,marketing_relevance,source_ids}], implications[string], actions[string], "
+                "Retorne JSON com headline, headline_source_ids (array de strings), headline_support_quote, "
+                "insight, insight_source_ids (array de strings), insight_support_quote, "
+                "metrics[{name,value,period,geography,meaning,source_ids,support_quote}], "
+                "news[{title,date,summary,marketing_relevance,source_ids,support_quote}], implications[string], actions[string], "
                 "application_to_project[string], personalized_suggestions[string], confidence[high|medium|low]. "
                 "Use workspace_personalization somente para priorizar relevância e adaptar aplicações e sugestões; "
                 "ela não é evidência de mercado e nunca sustenta fatos, métricas ou notícias. Se houver histórico recente de pedidos, "
@@ -293,7 +310,9 @@ def research_market(context, query: str, request_id: str | None = None,
                 "marketing, comunicação e mídia, não em listar fontes. Preserve application_to_project e personalized_suggestions como recomendações, "
                 "sem convertê-las em fatos; verifique se cada source_id citado existe entre as fontes elegíveis. "
                 "Cheque read_status e date_provenance; data de metadado de busca não é confirmação do corpo da página. "
-                "Retorne o mesmo JSON do rascunho, corrigido; headline e insight precisam de source_ids elegíveis. "
+                "Retorne o mesmo JSON do rascunho, corrigido; headline e insight precisam de source_ids elegíveis "
+                "e support_quote literal copiado do trecho de uma dessas fontes. Métrica e notícia também precisam "
+                "de support_quote literal da fonte citada. Não invente nem parafraseie as citações de suporte. "
                 "Se não houver fonte elegível para sustentar o insight principal, retorne headline e insight vazios. Sem comentários fora do JSON."
             )},
             {"role": "user", "content": json.dumps({"draft": draft, "evidence": research_packet}, ensure_ascii=False)},
@@ -306,27 +325,24 @@ def research_market(context, query: str, request_id: str | None = None,
     final["insight"] = " ".join(str(final["insight"]).split())[:1800]
     eligible_ids = {item["id"] for item in eligible_sources}
     for key in ("headline_source_ids", "insight_source_ids"):
-        final[key] = _source_refs(final.get(key), eligible_ids)
+        quote_key = key.removesuffix("_source_ids") + "_support_quote"
+        final[key] = supporting_refs(final.get(quote_key),
+                                     _source_refs(final.get(key), eligible_ids), source_contents)
     for key in ("metrics", "news"):
         cleaned = []
         for item in final.get(key) if isinstance(final.get(key), list) else []:
             if not isinstance(item, dict):
                 continue
-            refs = _source_refs(item.get("source_ids"), eligible_ids)
+            refs = supporting_refs(item.get("support_quote"),
+                                   _source_refs(item.get("source_ids"), eligible_ids), source_contents)
             if not refs:
                 continue
             cleaned.append({**item, "source_ids": refs})
         final[key] = cleaned[:4]
-    if not final["insight_source_ids"]:
-        final["insight_source_ids"] = list(dict.fromkeys(
-            source_id for group in (final["metrics"] + final["news"])
-            for source_id in group.get("source_ids", [])
-        ))
-    if not final["headline_source_ids"]:
-        final["headline_source_ids"] = list(final["insight_source_ids"])
-    if not final["insight_source_ids"]:
+    if not final["headline_source_ids"] or not final["insight_source_ids"]:
         raise InsightsEvidenceUnavailable(
-            "As fontes recentes encontradas não sustentaram uma conclusão confiável para este tema. Tente outro recorte."
+            "As fontes recentes lidas não sustentaram a conclusão principal com um trecho verificável. "
+            "Tente outro recorte."
         )
     implications = final.get("implications") if isinstance(final.get("implications"), list) else []
     actions = final.get("actions") if isinstance(final.get("actions"), list) else []

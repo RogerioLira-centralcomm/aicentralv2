@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_status
-from aicentralv2.cadu_workspace.insights_research import _safe_sources
+from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_status, supporting_refs
+from aicentralv2.cadu_workspace.insights_research import _safe_sources, _read_source_contents
 from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
 from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
@@ -53,6 +53,20 @@ def test_read_source_wins_duplicate_search_hit_without_borrowing_provider_date()
     assert len(sources) == 1
     assert sources[0]["read_status"] == "read"
     assert sources[0]["freshness"] == "date_unverified"
+
+
+def test_insight_support_requires_a_quote_in_the_read_body():
+    result = {"sources": [
+        {"url": "https://example.com/story", "title": "Busca", "excerpt": "O CTR subiu 30%"},
+        {"url": "https://example.com/story", "title": "Página", "content": "O CTR foi de 2,4% no mês de julho.",
+         "source_type": "direct_url", "published_at": "2026-09-20"},
+    ]}
+    sources = _safe_sources(result, {}, date(2026, 9, 25))
+    contents = _read_source_contents(result, sources)
+
+    assert supporting_refs("O CTR foi de 2,4% no mês de julho", [sources[0]["id"]], contents) == [sources[0]["id"]]
+    assert supporting_refs("O CTR subiu 30%", [sources[0]["id"]], contents) == []
+    assert supporting_refs("O CTR foi de 2,4% no mês de julho", ["outro-id"], contents) == []
 
 
 def test_quick_market_scan_includes_independent_review_before_render():

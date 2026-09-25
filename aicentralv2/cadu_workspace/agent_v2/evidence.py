@@ -58,3 +58,13 @@ def grounded_claims(claims: Any, source_contents: dict[str, str]) -> tuple[list[
             continue
         rejected.append({"source_id": source_id, "reason": reason})
     return accepted, rejected
+
+
+def supporting_refs(quote: Any, source_ids: Any, source_contents: dict[str, str]) -> list[str]:
+    """Return only cited read sources that contain the quoted span."""
+    values = [source_ids] if isinstance(source_ids, str) else source_ids if isinstance(source_ids, list) else []
+    return list(dict.fromkeys(
+        source_id for value in values
+        if (source_id := str(value)) in source_contents
+        and quote_in_source(quote, source_contents[source_id])
+    ))

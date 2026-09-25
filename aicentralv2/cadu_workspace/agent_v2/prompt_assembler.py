@@ -205,6 +205,7 @@ def _bounded_json(value: dict, limit: int) -> str:
                         "result_type", "evidence_level", "score", "title", "label", "display_value",
                         "description", "trecho", "fonte", "status", "resource_id", "source_id",
                         "chunk_id", "task_id", "activity_kind", "locator",
+                        "message_id", "conversation_id", "created_at",
                     ) if name in result}
                     for name in ("description", "trecho", "display_value", "locator"):
                         if name in row:

@@ -37,6 +37,12 @@ The five paused attachments are intentionally metadata-only until reviewed as kn
 
 These cases test information flow and coverage. They should be expanded with source-specific expected answers before changing the retrieval ranker or migrating plugins.
 
+## Historical project conversations
+
+The project search now retrieves a bounded set of original user messages from earlier conversations with the same organization, client, project, and user. Each result includes the conversation and message IDs. These are statements from prior dialogue, not confirmed project decisions. The assistant should use them to locate context and distinguish them from saved direction, indexed sources, and reviewed working memory. Conversations without a canonical project binding are not included.
+
+The working-memory tables were missing in production because their migration runner was omitted from `deploy.sh`. The runner now executes during deployment; future project decisions can be proposed for review. Existing conversations have not been backfilled into confirmed working memory.
+
 ## Queue reset and prevention
 
 After the snapshot, 47 queued resource jobs and 34 unclaimed memory jobs for client 174 were deleted in one transaction. Canonical conversations, messages, files, indexed chunks, and completed memory states were not changed. A read-only check immediately afterward found zero pending jobs in both queues.

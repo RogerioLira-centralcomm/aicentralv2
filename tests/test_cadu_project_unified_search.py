@@ -2,6 +2,7 @@
 
 from contextlib import nullcontext
 from flask import Flask
+import pytest
 
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.mcp.tools import workspace
@@ -13,6 +14,12 @@ CONTEXT = RequestContext(
     organization_id=12, client_id=12, user_id=7, conversation_id=None,
     surface="workspace", project_ref="ci:project-1", capabilities=("workspace",),
 )
+
+
+@pytest.fixture(autouse=True)
+def no_historical_conversations(monkeypatch, request):
+    if not request.node.name.startswith("test_historical_project_search"):
+        monkeypatch.setattr(workspace, "_search_project_conversation_history", lambda *_: [])
 
 
 class _IndexStatusDb:
@@ -237,6 +244,29 @@ def test_search_does_not_report_unavailable_sources_as_no_matches(monkeypatch):
 
     assert result["source_retrieval_status"] == "unavailable"
     assert "indexed_sources" in result["unavailable_scopes"]
+
+
+def test_historical_project_search_uses_user_and_project_scope(monkeypatch):
+    captured = {}
+    def rows(sql, params):
+        captured["sql"], captured["params"] = sql, params
+        return [{"message_id": "m1", "conversation_id": "c1", "content": "Decidimos focar em B2B.",
+                 "conversation_title": "Planejamento", "created_at": "2026-09-20", "text_rank": 0.4}]
+    monkeypatch.setattr(workspace.repository, "rows", rows)
+
+    results = workspace._search_project_conversation_history(CONTEXT, "decisões B2B", False)
+
+    assert "binding.organization_id=%s AND binding.client_id=%s" in captured["sql"]
+    assert "binding.project_ref=%s AND binding.user_id=%s" in captured["sql"]
+    assert "message.role='user'" in captured["sql"]
+    assert captured["params"][2:8] == (12, 12, "ci:project-1", 7, 12, 7)
+    assert results[0]["evidence_level"] == "user_statement"
+    assert results[0]["message_id"] == "m1"
+
+
+def test_historical_project_search_skips_generic_question(monkeypatch):
+    monkeypatch.setattr(workspace.repository, "rows", lambda *_: pytest.fail("unexpected lookup"))
+    assert workspace._search_project_conversation_history(CONTEXT, "O que você tem sobre esse projeto?", False) == []
 
 
 def test_search_checks_project_access_before_reading_context(monkeypatch):

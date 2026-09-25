@@ -178,6 +178,7 @@ def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown(
     assert all([item["channel"] for item in scenario["allocations"]] == restricted["channels"]
                for scenario in restricted["scenarios"])
     assert simulate("Distribua R$ 1.000,50")["budget_brl"] == "1000.50"
+    assert simulate("Distribua R$ 1,5 milhão")["budget_brl"] == "1500000.0"
 
 
 def test_media_plan_review_checks_budget_weights_and_channel_scope():

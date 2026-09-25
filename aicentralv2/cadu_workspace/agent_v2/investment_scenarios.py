@@ -6,7 +6,7 @@ import re
 from decimal import Decimal, ROUND_HALF_UP
 
 
-_BUDGET = re.compile(r"R\$\s*(\d+(?:[.\s]\d{3})*(?:,\d+)?)(?:\s*(milh[oõ]es?|mil)\b)?", re.I)
+_BUDGET = re.compile(r"R\$\s*(\d+(?:[.\s]\d{3})*(?:,\d+)?)(?:\s*(milh(?:ão|ões|ao|oes)|mil)\b)?", re.I)
 _SCENARIOS = (
     ("equilibrado", (40, 35, 25)),
     ("maior descoberta", (55, 30, 15)),

@@ -83,7 +83,8 @@ def _execution_tools(plugin_id: str) -> tuple[str, ...]:
                                "projects.update_task",
                                "artifacts.create_draft", "artifacts.update_draft"),
         "insights": ("workspace.get_project_context", "brands.get_context", "insights.research_market"),
-        "planner": ("planner.research_plan_inputs", "planner.search_catalog", "planner.get_media_plan",
+        "planner": ("workspace.search_project_content", "brands.get_context",
+                    "planner.research_plan_inputs", "planner.search_catalog", "planner.get_media_plan",
                     "artifacts.create_draft", "artifacts.update_draft"),
         "reports": ("reports.list_project_reports", "reports.get_report_metrics", "reports.compare_report_to_plan"),
         # Paid Studio operations are executed only through a persisted,
@@ -231,7 +232,19 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
     elif route.action == "plan_campaign" or route.domain == "planner":
         plugin_id = "planner"
         if route.action == "plan_campaign":
-            tool_chain = ("planner.research_plan_inputs",)
+            context_tools = []
+            if context.project_ref:
+                # Plans must start from the selected project's own direction,
+                # linked resources and indexed evidence before using the generic
+                # Planner catalogue for optional channel/format suggestions.
+                # The unified search already returns project direction,
+                # indexed sources, confirmed memory and project resources.
+                context_tools.append("workspace.search_project_content")
+            if context.brand_ref:
+                # request_context.resolve binds a sole linked brand. Multiple
+                # linked brands remain unselected and must never be guessed.
+                context_tools.append("brands.get_context")
+            tool_chain = tuple([*context_tools, "planner.research_plan_inputs"])
     elif route.domain == "workspace" and route.action in {"list_project_tasks", "plan_project_tasks"}:
         plugin_id = "project-activities"
         if context.project_ref:

@@ -283,6 +283,71 @@ def _bounded_json(value: dict, limit: int) -> str:
                         break
                     header = proposal
                 compact[key] = {**header, "truncated": True}
+        elif key == "brands.get_context" and isinstance(item, dict):
+            # Retain the identity fields the Planner needs even when the
+            # complete brand record contains many campaigns or source URLs.
+            def bounded_brand_value(value, depth=0):
+                if isinstance(value, str):
+                    return value[:300]
+                if depth >= 2:
+                    return str(value)[:160]
+                if isinstance(value, list):
+                    return [bounded_brand_value(child, depth + 1) for child in value[:6]]
+                if isinstance(value, dict):
+                    return {str(name)[:80]: bounded_brand_value(child, depth + 1)
+                            for name, child in list(value.items())[:6]}
+                return value
+
+            header = {name: item.get(name) for name in ("brand_id", "brand_ref", "name", "website_url", "sector")
+                      if item.get(name) not in (None, "")}
+            for group, fields in (
+                ("identity", ("brand_summary", "positioning", "target_audience", "tone_of_voice",
+                              "mandatory_elements", "forbidden_elements", "visual_motifs")),
+                ("market", ("products_services", "differentiators", "proof_points", "competitors")),
+            ):
+                values = item.get(group) if isinstance(item.get(group), dict) else {}
+                selected = {name: bounded_brand_value(values[name]) for name in fields
+                            if values.get(name) not in (None, "", [], {})}
+                if selected:
+                    header[group] = selected
+            provenance = item.get("field_provenance")
+            if isinstance(provenance, dict):
+                header["field_provenance"] = {
+                    name: bounded_brand_value(provenance[name]) for name in (
+                        "brand_summary", "positioning", "target_audience", "tone_of_voice",
+                        "products_services", "differentiators", "proof_points", "competitors",
+                    ) if name in provenance
+                }
+            sources = item.get("sources") if isinstance(item.get("sources"), list) else []
+            if sources:
+                header["sources"] = [bounded_brand_value(source) for source in sources[:4]]
+            header["truncated"] = len(json.dumps(item, ensure_ascii=False, default=str)) > len(
+                json.dumps(header, ensure_ascii=False, default=str))
+            if fits({**compact, key: header}):
+                compact[key] = header
+            else:
+                # A concise identity summary is more useful than silently
+                # dropping brand grounding from a crowded prompt.
+                for group in ("identity", "market"):
+                    if group in header:
+                        header[group] = {name: str(value)[:180] if isinstance(value, str) else value
+                                         for name, value in list(header[group].items())[:4]}
+                header.pop("sources", None)
+                header.pop("field_provenance", None)
+                if fits({**compact, key: header}):
+                    compact[key] = header
+                else:
+                    minimal = {name: str(item.get(name) or "")[:160]
+                               for name in ("name", "sector", "website_url") if item.get(name)}
+                    identity = item.get("identity") if isinstance(item.get("identity"), dict) else {}
+                    minimal_identity = {name: str(identity[name])[:180] for name in (
+                        "brand_summary", "positioning", "target_audience", "tone_of_voice",
+                    ) if identity.get(name)}
+                    if minimal_identity:
+                        minimal["identity"] = minimal_identity
+                    minimal["truncated"] = True
+                    if fits({**compact, key: minimal}):
+                        compact[key] = minimal
 
     return json.dumps(compact, ensure_ascii=False, default=str, separators=(",", ":"))
 
@@ -354,6 +419,25 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "como hipóteses e não apresente referência de catálogo como cotação, disponibilidade ou promessa de resultado. "
             "Se o usuário não informou orçamento, proponha percentuais ou cenários, sem inventar valores absolutos."
         )
+        if request.project_ref:
+            plugin_instruction += (
+                " Antes de propor a campanha, use as evidências recuperadas do projeto selecionado em "
+                "workspace.search_project_content e associe fatos relevantes às suas fontes. "
+                "Separe fatos confirmados do projeto, recomendações do Planner e hipóteses ainda não validadas. "
+                "Não trate sugestões genéricas do catálogo como dados, histórico, preferência ou estratégia aprovada pelo cliente. "
+                "Se o contexto selecionado não trouxer dados relevantes, diga isso com clareza e faça somente as perguntas "
+                "decisivas para avançar, aproveitando respostas já dadas na conversa."
+            )
+            if not request.brand_ref:
+                plugin_instruction += (
+                    " Nenhuma marca está resolvida neste contexto: não infira identidade de marca pelo nome do projeto. "
+                    "Se a campanha depender de uma marca específica e houver mais de uma vinculada, pergunte qual usar."
+                )
+        if request.brand_ref:
+            plugin_instruction += (
+                " Use também a identidade retornada por brands.get_context quando ela estiver presente. "
+                "Respeite posicionamento, público, tom, produtos, diferenciais e restrições; cite a origem como contexto da marca."
+            )
         if policy.get("execution_mode") == "fast":
             plugin_instruction += (
                 " O usuário escolheu um plano rápido: entregue um resumo curto, uma divisão inicial por canal e os próximos passos essenciais."

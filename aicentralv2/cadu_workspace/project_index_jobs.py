@@ -31,7 +31,8 @@ def enqueue(client_id: int, project_id: str, source_id: int, actor_id: int | Non
             if row:
                 cursor.execute(
                     """UPDATE cadu_ci_projeto_arquivos
-                          SET indexing_status='queued', erro_msg=NULL, updated_at=NOW()
+                          SET indexing_status=CASE WHEN indexing_status='completed' THEN 'completed' ELSE 'queued' END,
+                              erro_msg=NULL, updated_at=NOW()
                         WHERE id=%s AND projeto_id=%s AND id_cliente=%s""",
                     (source_id, project_id, client_id),
                 )

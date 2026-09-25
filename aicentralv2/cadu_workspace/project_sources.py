@@ -119,7 +119,7 @@ def _decode_text(data: bytes) -> str:
     return value
 
 
-def _pdf_text(data: bytes) -> str:
+def _pdf_text(data: bytes, *, with_coverage: bool = False):
     if not data.startswith(b'%PDF-'):
         raise BadRequest('O conteúdo não corresponde a um PDF válido.')
     try:
@@ -128,7 +128,12 @@ def _pdf_text(data: bytes) -> str:
         except ImportError:
             from pypdf import PdfReader
         reader = PdfReader(BytesIO(data))
-        return '\n'.join((page.extract_text() or '') for page in reader.pages[:80])
+        total = len(reader.pages)
+        processed = min(80, total)
+        page_texts = [(page.extract_text() or '') for page in reader.pages[:processed]]
+        text = '\n'.join(page_texts)
+        pages_with_text = sum(bool(value.strip()) for value in page_texts)
+        return (text, total, processed, pages_with_text) if with_coverage else text
     except Exception as exc:
         raise BadRequest('Não foi possível ler o PDF. Verifique se ele está íntegro e sem senha.') from exc
 
@@ -165,7 +170,7 @@ def _ocr_image(data: bytes) -> tuple[str, str]:
         return '', 'metadata_only'
 
 
-def _ocr_pdf(data: bytes) -> str:
+def _ocr_pdf(data: bytes, *, with_coverage: bool = False):
     """Best-effort OCR for scanned PDFs when PyMuPDF and Tesseract exist."""
     try:
         import fitz
@@ -173,14 +178,18 @@ def _ocr_pdf(data: bytes) -> str:
         import pytesseract
         document = fitz.open(stream=data, filetype='pdf')
         parts = []
-        for index in range(min(8, len(document))):
+        total = len(document)
+        processed = min(8, total)
+        for index in range(processed):
             page = document.load_page(index)
             pixmap = page.get_pixmap(matrix=fitz.Matrix(1.35, 1.35), alpha=False)
             image = Image.frombytes('RGB', [pixmap.width, pixmap.height], pixmap.samples)
             parts.append(str(pytesseract.image_to_string(image, lang='por+eng') or ''))
-        return '\n'.join(parts).strip()
+        text = '\n'.join(parts).strip()
+        pages_with_text = sum(bool(value.strip()) for value in parts)
+        return (text, total, processed, pages_with_text) if with_coverage else text
     except Exception:
-        return ''
+        return ('', 0, 0, 0) if with_coverage else ''
 
 
 def _classify_source(name: str, suffix: str, text: str) -> dict:
@@ -234,14 +243,19 @@ def inspect_upload(file_storage, *, require_text: bool = False) -> dict:
     mime = str(file_storage.mimetype or mimetypes.guess_type(name)[0] or 'application/octet-stream')[:160]
     text = ''
     processing = 'metadata_only'
+    coverage = {'complete': True, 'pages_total': None, 'pages_processed': None,
+                'pages_with_text': None, 'text_truncated': False}
     if suffix == '.pdf':
         if data.startswith(b'%PDF-'):
             try:
-                text = _pdf_text(data)
+                text, total, processed, pages_with_text = _pdf_text(data, with_coverage=True)
                 processing = 'text_extraction' if text.strip() else 'metadata_only'
                 if not text.strip():
-                    text = _ocr_pdf(data)
+                    text, total, processed, pages_with_text = _ocr_pdf(data, with_coverage=True)
                     processing = 'ocr' if text.strip() else 'metadata_only'
+                coverage.update(pages_total=total, pages_processed=processed,
+                                pages_with_text=pages_with_text,
+                                complete=bool(total) and processed == total and pages_with_text == processed)
             except BadRequest:
                 if require_text:
                     raise
@@ -273,10 +287,18 @@ def inspect_upload(file_storage, *, require_text: bool = False) -> dict:
             raise BadRequest('Não encontramos texto suficiente para indexar esta imagem.')
     if require_text and len(text.strip()) < 20:
         raise BadRequest('Não encontramos texto suficiente para adicionar esta fonte.')
+    coverage['text_truncated'] = len(text.strip()) > MAX_TEXT
+    coverage['complete'] = coverage['complete'] and not coverage['text_truncated']
+    if not coverage['complete']:
+        coverage['reason'] = ('text_limit' if coverage['text_truncated'] else
+                              'page_limit' if coverage['pages_total'] and
+                              coverage['pages_processed'] < coverage['pages_total'] else
+                              'pages_without_text')
     return {
         'name': name, 'suffix': suffix, 'mime': mime, 'data': data,
         'text': text.strip()[:MAX_TEXT], 'processing': processing,
         'can_index': len(text.strip()) >= 20,
+        'extraction_coverage': coverage,
         'classification': _classify_source(name, suffix, text),
     }
 

@@ -56,6 +56,10 @@ def persist_indexed_source(
         "content_inspected": True,
         **source_metadata,
         "sha256": sha256(str(content).encode("utf-8")).hexdigest(),
+        "rag_pipeline_version": project_knowledge.INDEX_PIPELINE_VERSION,
+        "embedding_model": embedding_model,
+        "requested_embedding_model": project_knowledge.EMBEDDING_MODEL,
+        "embedding_dimensions": project_knowledge.EMBEDDING_DIMENSIONS,
     }
     if source_sha256:
         file_metadata["source_sha256"] = str(source_sha256)
@@ -214,32 +218,35 @@ def project_resource_id(client_id: int, project_ref: str, source_id: str) -> str
     return resource_id_for_source(client_id, project_ref, "workspace", f"file:{source_id}")
 
 
-def _source_content(source: dict) -> str:
+def _source_content(source: dict) -> tuple[str, dict]:
     storage_path = str(source.get("storage_path") or "")
-    if storage_path.startswith(("workspace://project-notes/", "workspace-url:")):
+    metadata = source.get("classification_metadata") or {}
+    coverage = metadata.get("extraction_coverage") if isinstance(metadata, dict) else {}
+    if storage_path.startswith(("workspace://project-notes/", "workspace://artifact/", "workspace-url:")):
         content = str(source.get("extracted_text") or "")
         if content:
-            return content
+            return content, coverage or {"complete": True}
         raise ValueError("A fonte não possui texto preservado para reindexação.")
     if not storage_path.startswith("workspace_project_sources/"):
         raise ValueError("A fonte não pertence ao armazenamento atual do Workspace.")
     root = Path(str(current_app.config.get("WORKSPACE_SOURCE_STORAGE_DIR") or current_app.instance_path))
     path = project_sources.resolve_private_path(str(root), storage_path)
-    if not path.is_file():
-        raise FileNotFoundError("O arquivo original da fonte não está disponível.")
     try:
-        return project_sources.reextract(
+        if not path.is_file():
+            raise FileNotFoundError("O arquivo original da fonte não está disponível.")
+        extracted = project_sources.reextract(
             source.get("nome_arquivo") or path.name,
             path.read_bytes(),
             source.get("mime") or "",
-        )["text"]
+        )
+        return extracted["text"], extracted.get("extraction_coverage") or {}
     except Exception:
         # OCR/adapter output captured during triage is still a valid source of
         # truth for a confirmed creative asset, even if the worker lacks the
         # same optional OCR binary at reindex time.
         preserved = str(source.get("extracted_text") or "").strip()
         if len(preserved) >= 20:
-            return preserved
+            return preserved, {**(coverage or {}), "complete": False, "reason": "reextraction_unavailable"}
         raise
 
 
@@ -249,8 +256,13 @@ def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                """SELECT id, nome_arquivo, mime, tamanho, storage_path, extracted_text,
-                          classification_metadata->>'sha256' AS content_hash, indexing_status
+                """SELECT id, nome_arquivo, mime, tamanho, storage_path, extracted_text, classification_metadata,
+                          classification_metadata->>'sha256' AS content_hash,
+                          classification_metadata->>'rag_pipeline_version' AS rag_pipeline_version,
+                          classification_metadata->>'embedding_model' AS indexed_embedding_model,
+                          classification_metadata->>'requested_embedding_model' AS requested_embedding_model,
+                          classification_metadata->>'embedding_dimensions' AS indexed_embedding_dimensions,
+                          indexing_status
                      FROM cadu_ci_projeto_arquivos
                     WHERE id=%s AND projeto_id=%s AND id_cliente=%s""",
                 (source_id, project_id, client_id),
@@ -258,20 +270,27 @@ def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int
             source = cursor.fetchone()
             if not source:
                 raise ValueError("Fonte indisponível para reindexação.")
-            content = _source_content(source)
+            content, coverage = _source_content(source)
             content_hash = sha256(content.encode("utf-8")).hexdigest()
             cursor.execute("""SELECT COUNT(*) AS chunk_count FROM cadu_ci_chunks
                                WHERE arquivo_id=%s AND projeto_id=%s AND id_cliente=%s""",
                            (source_id, project_id, client_id))
             chunk_count = int((cursor.fetchone() or {}).get("chunk_count") or 0)
-            if source.get("content_hash") == content_hash and source.get("indexing_status") == "completed" and chunk_count:
+            current_pipeline = (
+                source.get("rag_pipeline_version") == project_knowledge.INDEX_PIPELINE_VERSION
+                and source.get("requested_embedding_model") == project_knowledge.EMBEDDING_MODEL
+                and str(source.get("indexed_embedding_dimensions") or "") == str(project_knowledge.EMBEDDING_DIMENSIONS)
+            )
+            if source.get("content_hash") == content_hash and source.get("indexing_status") == "completed" and chunk_count and current_pipeline:
                 connection.commit()
                 return {"source_id": int(source_id), "status": "unchanged", "charged_tokens": 0}
             chunks, embedding_tokens, embedding_model = indexed_content(content)
             charged_tokens = charge_project_rag(
                 cursor, client_id=client_id, user_id=user_id, project_id=project_id,
                 tokens=embedding_tokens, stage="reindexacao",
-                idempotency_key=f"workspace-rag-reindex:{source_id}:{content_hash}",
+                idempotency_key=(f"workspace-rag-reindex:{source_id}:{content_hash}:"
+                                 f"{project_knowledge.INDEX_PIPELINE_VERSION}:{project_knowledge.EMBEDDING_MODEL}:"
+                                 f"{project_knowledge.EMBEDDING_DIMENSIONS}"),
             )
             cursor.execute(
                 "DELETE FROM cadu_ci_chunks WHERE arquivo_id=%s AND projeto_id=%s AND id_cliente=%s",
@@ -294,10 +313,16 @@ def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int
                 """UPDATE cadu_ci_projeto_arquivos
                       SET extracted_text=%s, indexing_status='completed', erro_msg=NULL,
                           word_count=%s, tokens=%s, updated_at=NOW(),
-                          classification_metadata=jsonb_set(COALESCE(classification_metadata,'{}'::jsonb),
-                            '{sha256}', to_jsonb(%s::text), true)
+                          classification_metadata=COALESCE(classification_metadata,'{}'::jsonb) ||
+                            jsonb_build_object('sha256', %s::text, 'rag_pipeline_version', %s::text,
+                                               'embedding_model', %s::text, 'requested_embedding_model', %s::text,
+                                               'embedding_dimensions', %s::integer,
+                                               'extraction_coverage', %s::jsonb)
                     WHERE id=%s AND projeto_id=%s AND id_cliente=%s""",
-                (content, _word_count(content), charged_tokens, content_hash, source_id, project_id, client_id),
+                (content, _word_count(content), charged_tokens, content_hash,
+                 project_knowledge.INDEX_PIPELINE_VERSION, embedding_model, project_knowledge.EMBEDDING_MODEL,
+                 project_knowledge.EMBEDDING_DIMENSIONS, json.dumps(coverage, ensure_ascii=False),
+                 source_id, project_id, client_id),
             )
         connection.commit()
         return {"source_id": int(source_id), "status": "completed", "charged_tokens": charged_tokens,

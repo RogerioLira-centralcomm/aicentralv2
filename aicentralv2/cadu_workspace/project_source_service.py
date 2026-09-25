@@ -410,7 +410,8 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                     charged_tokens=charged_tokens,
                     classification=classification,
                     metadata={"classifier": "deterministic-v1", "upload_request_id": request_id,
-                              "sha256": content_hash, "agent_description": description},
+                              "sha256": content_hash, "agent_description": description,
+                              "extraction_coverage": source.get("extraction_coverage") or {}},
                 )
             else:
                 cur.execute("""INSERT INTO cadu_ci_projeto_arquivos
@@ -427,6 +428,7 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                  purpose, classification["category"], classification["status"], classification["confidence"],
                  classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": bool(source.get("text")),
                                                   "processing": source.get("processing") or "metadata_only",
+                                                  "extraction_coverage": source.get("extraction_coverage") or {},
                                                   "can_index": bool(source.get("can_index")),
                                                   "sha256": content_hash, "upload_request_id": request_id,
                                                   "agent_description": description})))

@@ -20,8 +20,10 @@ from ..services.openrouter_service import resolve_openai_api_key
 EMBEDDING_URL = "https://api.openai.com/v1/embeddings"
 EMBEDDING_MODEL = os.getenv("WORKSPACE_EMBEDDING_MODEL", "text-embedding-3-small")
 EMBEDDING_DIMENSIONS = int(os.getenv("WORKSPACE_EMBEDDING_DIMENSIONS", "1536"))
+STORED_VECTOR_DIMENSIONS = 1536  # cadu_ci_chunks.embedding vector(1536)
 CHUNK_TARGET = int(os.getenv("WORKSPACE_RAG_CHUNK_TARGET", "1800"))
 CHUNK_OVERLAP = int(os.getenv("WORKSPACE_RAG_CHUNK_OVERLAP", "220"))
+INDEX_PIPELINE_VERSION = "workspace-rag-v2"
 
 
 class KnowledgeIndexError(RuntimeError):
@@ -57,8 +59,22 @@ def split(content: str, target: int = CHUNK_TARGET, overlap: int = CHUNK_OVERLAP
     bridge = ""
     for paragraph in paragraphs:
         if re.match(r"^(?:#{1,6}\s+|[A-ZÀ-Ý][^\n]{0,100}:$)", paragraph):
+            if current:
+                chunks.append(("\n\n".join(current).strip(), section))
+                current, size = [], 0
+                bridge = ""
             section = re.sub(r"^#+\s*", "", paragraph).rstrip(":").strip()[:180]
-        parts = [paragraph[i:i + target] for i in range(0, len(paragraph), target)] or [paragraph]
+        parts = []
+        remaining = paragraph
+        while len(remaining) > target:
+            boundary = max(remaining.rfind(". ", 0, target), remaining.rfind("? ", 0, target),
+                           remaining.rfind("! ", 0, target), remaining.rfind("; ", 0, target))
+            cut = boundary + 1 if boundary >= target // 2 else remaining.rfind(" ", target // 2, target)
+            cut = cut if cut >= target // 2 else target
+            parts.append(remaining[:cut].strip())
+            remaining = remaining[cut:].strip()
+        if remaining:
+            parts.append(remaining)
         for part in parts:
             proposed = size + len(part) + (2 if current else 0)
             if current and proposed > target:
@@ -76,6 +92,8 @@ def split(content: str, target: int = CHUNK_TARGET, overlap: int = CHUNK_OVERLAP
 
 
 def _embed(texts: list[str]) -> tuple[list[list[float]], int, str]:
+    if EMBEDDING_DIMENSIONS != STORED_VECTOR_DIMENSIONS:
+        raise KnowledgeIndexError("A dimensão configurada exige uma migração do índice vetorial antes da indexação.")
     key = resolve_openai_api_key()
     if not key:
         raise KnowledgeIndexError("OpenAI não está configurada para indexar fontes do projeto.")

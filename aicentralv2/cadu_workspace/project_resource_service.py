@@ -122,7 +122,9 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                           "indexing_status": row.get("indexing_status"),
                           "original_name": row.get("nome_arquivo"),
                           "description": classification_metadata.get("description"),
-                          "tags": classification_metadata.get("tags") or []}))
+                          "tags": classification_metadata.get("tags") or [],
+                          "extraction_coverage": classification_metadata.get("extraction_coverage") or {},
+                          "rag_pipeline_version": classification_metadata.get("rag_pipeline_version") or "v1"}))
 
     queries = (
         ("cadu_workspace_artifacts", """SELECT id::text AS id, type, title, status, current_version AS version,

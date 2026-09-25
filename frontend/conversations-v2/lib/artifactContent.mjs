@@ -54,27 +54,66 @@ function userFacingText(value, depth = 0) {
 }
 
 function markdownInline(value) {
-  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  const escape = input => String(input || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  let text = String(value || '');
+  const protectedParts = [];
+  const protect = html => `\u0000${protectedParts.push(html) - 1}\u0000`;
+  text = text.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/gi, (_, alt, url) => protect(`<img alt="${escape(alt)}" src="${escape(url)}">`));
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, (_, label, url) => protect(`<a href="${escape(url)}" rel="noreferrer">${escape(label)}</a>`));
+  text = escape(text)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/__(.+?)__/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/_(.+?)_/g, '<em>$1</em>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>');
+  return text.replace(/\u0000(\d+)\u0000/g, (_, index) => protectedParts[Number(index)] || '');
 }
 
 function markdownToHtml(markdown) {
   const lines = String(markdown || '').replace(/\r/g, '').split('\n');
   const output = [];
   let list = '';
+  let code = null;
+  let codeLines = [];
   const closeList = () => { if (list) { output.push(`</${list}>`); list = ''; } };
-  for (const line of lines) {
+  const tableCells = line => line.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(cell => cell.replace(/\\\|/g, '|').trim());
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const fence = line.match(/^\s*(```+|~~~+)(.*)$/);
+    if (fence) {
+      closeList();
+      if (code) { output.push(`<pre><code>${codeLines.join('\n').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`); code = null; codeLines = []; }
+      else code = fence[1][0];
+      continue;
+    }
+    if (code) { codeLines.push(line); continue; }
     const heading = line.match(/^\s*(#{1,6})\s+(.+)$/);
     const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
     const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (line.includes('|') && /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[index + 1] || '')) {
+      closeList();
+      const headers = tableCells(line);
+      output.push(`<table><thead><tr>${headers.map(cell => `<th>${markdownInline(cell)}</th>`).join('')}</tr></thead><tbody>`);
+      index += 2;
+      while (index < lines.length && lines[index].includes('|') && lines[index].trim()) {
+        const cells = tableCells(lines[index]);
+        output.push(`<tr>${headers.map((_, cellIndex) => `<td>${markdownInline(cells[cellIndex] || '')}</td>`).join('')}</tr>`);
+        index += 1;
+      }
+      output.push('</tbody></table>');
+      index -= 1;
+      continue;
+    }
     if (heading) { closeList(); const level = Math.min(heading[1].length, 4); output.push(`<h${level}>${markdownInline(heading[2])}</h${level}>`); }
     else if (bullet || numbered) {
       const kind = bullet ? 'ul' : 'ol';
       if (list !== kind) { closeList(); list = kind; output.push(`<${kind}>`); }
       output.push(`<li>${markdownInline((bullet || numbered)[1])}</li>`);
     } else if (!line.trim()) closeList();
+    else if (/^\s*(?:---+|___+|\*\*\*+)\s*$/.test(line)) { closeList(); output.push('<hr>'); }
+    else if (/^\s*>/.test(line)) { closeList(); output.push(`<blockquote><p>${markdownInline(line.replace(/^\s*>\s?/, ''))}</p></blockquote>`); }
     else { closeList(); output.push(`<p>${markdownInline(line)}</p>`); }
   }
+  if (code) output.push(`<pre><code>${codeLines.join('\n').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`);
   closeList();
   return output.join('');
 }
@@ -104,6 +143,10 @@ export function normalizeArtifactContent(content = {}, artifactType = '') {
     ? content
     : decodedRoot && typeof decodedRoot === 'object' && !Array.isArray(decodedRoot) ? decodedRoot
     : content && typeof content === 'object' && !Array.isArray(content) ? content : {})};
+  if (!source.html && !source.summary && !source.fields && !source.sections && typeof source.source_markdown === 'string' && source.source_markdown.trim()) {
+    source.html = markdownToHtml(source.source_markdown);
+    return source;
+  }
   const rootText = !originalHasFields && userFacingText(decodedRoot)
     ? userFacingText(decodedRoot)
     : decode(source.text ?? source.answer ?? source.output);

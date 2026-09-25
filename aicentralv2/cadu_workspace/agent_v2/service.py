@@ -18,7 +18,7 @@ from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
 from ..conversations.guardrails import validate_files
 from ..artifacts import create_draft, get_artifact, patch_artifact
-from ..artifacts.service import list_artifacts
+from ..artifacts.service import content_markdown, list_artifacts
 from . import provider
 from .context_resolver import resolve_context
 from .executor import prepare_execution
@@ -1406,7 +1406,26 @@ def stream(run):
                         artifact_title = existing_artifact["title"]
                     if "title" in artifact_content or "title" in (existing_artifact.get("content") or {}):
                         artifact_content["title"] = artifact_title
-                    revised_content = {**(existing_artifact.get("content") or {}), **artifact_content}
+                    previous_content = existing_artifact.get("content") or {}
+                    revised_content = {**previous_content, **artifact_content}
+                    structured_revision = any(key in artifact_content for key in (
+                        "summary", "fields", "sections", "tables", "channels", "allocations",
+                        "rows", "metrics", "kpis", "options", "citations", "highlights",
+                    ))
+                    if artifact_type != "html" and structured_revision and "html" not in artifact_content:
+                        # A new structured revision supersedes any HTML snapshot
+                        # from an earlier rich-text edit; retaining it would make
+                        # the viewer show stale content over the new fields.
+                        revised_content.pop("html", None)
+                        revised_content.pop("css", None)
+                        revised_content.pop("js", None)
+                    if (artifact_type != "html" and previous_content.get("source_markdown")
+                            and "source_markdown" not in artifact_content):
+                        revised_content["source_markdown"] = content_markdown({
+                            "title": artifact_title,
+                            "type": artifact_type,
+                            "content": revised_content,
+                        })
                     if (revised_content == (existing_artifact.get("content") or {})
                             and artifact_title == existing_artifact["title"]):
                         response.answer = "Não encontrei uma mudança concreta para salvar neste documento. Diga qual trecho quer ajustar."

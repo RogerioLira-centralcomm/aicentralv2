@@ -568,6 +568,10 @@ def _clean_patch(value, artifact_type=None):
         "summary": summary_text,
         "fields": fields,
     }
+    if isinstance(value.get("source_markdown"), str) and value["source_markdown"].strip():
+        # Keep the authored source verbatim; generated HTML is a view, not the
+        # canonical Markdown representation used by download and project RAG.
+        patch["source_markdown"] = value["source_markdown"].strip()
     if artifact_type in {"brief", "note", "executive_summary", "media_plan", "scenario", "research"}:
         metrics = value.get("metrics")
         if isinstance(metrics, dict):
@@ -578,10 +582,24 @@ def _clean_patch(value, artifact_type=None):
         for table in value.get("tables", []) if isinstance(value.get("tables"), list) else []:
             if not isinstance(table, dict):
                 continue
-            columns = [_clean_text(column, 100) for column in (table.get("columns") if isinstance(table.get("columns"), list) else [])[:12]
-                       if isinstance(column, str)]
-            rows = [[_clean_text(cell, 500) for cell in row[:12]]
-                    for row in (table.get("rows") if isinstance(table.get("rows"), list) else [])[:100] if isinstance(row, list)]
+            columns = []
+            for column in (table.get("columns") if isinstance(table.get("columns"), list) else [])[:12]:
+                if isinstance(column, str):
+                    columns.append(_clean_text(column, 100))
+                elif isinstance(column, dict):
+                    cleaned_column = {
+                        key: _clean_text(column.get(key), 100)
+                        for key in ("key", "name", "label") if column.get(key)
+                    }
+                    if cleaned_column:
+                        columns.append(cleaned_column)
+            rows = []
+            for row in (table.get("rows") if isinstance(table.get("rows"), list) else [])[:100]:
+                if isinstance(row, list):
+                    rows.append([_clean_text(cell, 500) for cell in row[:12]])
+                elif isinstance(row, dict):
+                    rows.append({_clean_text(key, 100): _clean_text(cell, 500)
+                                 for key, cell in list(row.items())[:12]})
             if columns and rows:
                 tables.append({"title": _clean_text(table.get("title"), 160),
                                "columns": columns, "rows": rows})
@@ -603,19 +621,75 @@ def _clean_patch(value, artifact_type=None):
                 break
         if images:
             patch["images"] = images
-        if artifact_type == "executive_summary" and isinstance(value.get("highlights"), list):
-            patch["highlights"] = [_clean_text(item, 400) for item in value["highlights"][:12]
-                                   if isinstance(item, str) and item.strip()]
-        if artifact_type == "scenario" and isinstance(value.get("options"), list):
-            patch["options"] = [
-                {"title": _clean_text(item.get("title"), 160),
-                 "summary": _clean_text(item.get("summary"), 1200),
-                 "metrics": {_clean_text(key, 80): _clean_text(metric, 160)
-                             for key, metric in list((item.get("metrics") or {}).items())[:12]
-                             if not isinstance(metric, (dict, list))}}
-                for item in value["options"][:6]
-                if isinstance(item, dict) and isinstance(item.get("metrics") or {}, dict)
-            ]
+    if artifact_type == "project_map":
+        groups = []
+        for index, item in enumerate(value.get("groups", []) if isinstance(value.get("groups"), list) else []):
+            if not isinstance(item, dict):
+                continue
+            group_id = _clean_text(item.get("id") or f"group-{index + 1}", 100)
+            title = _clean_text(item.get("title") or item.get("name"), 180)
+            if not title:
+                continue
+            group = {"id": group_id, "title": title,
+                     "description": _clean_text(item.get("description"), 500)}
+            for key in ("x", "y", "width", "height"):
+                try:
+                    if item.get(key) is not None:
+                        group[key] = max(0, min(5000, int(float(item[key]))))
+                except (TypeError, ValueError, OverflowError):
+                    pass
+            if isinstance(item.get("resource_ids"), list):
+                group["resource_ids"] = [_clean_text(ref, 100) for ref in item["resource_ids"][:200] if str(ref).strip()]
+            groups.append(group)
+            if len(groups) >= 40:
+                break
+        resources = []
+        for index, item in enumerate(value.get("resources", []) if isinstance(value.get("resources"), list) else []):
+            if not isinstance(item, dict):
+                continue
+            title = _clean_text(item.get("title") or item.get("name"), 300)
+            if not title:
+                continue
+            resource = {"id": _clean_text(item.get("id") or f"resource-{index + 1}", 100),
+                        "title": title,
+                        "group_id": _clean_text(item.get("group_id"), 100),
+                        "type": _clean_text(item.get("type") or "Arquivo", 80)}
+            for key in ("editor_url", "download_url", "url"):
+                if item.get(key):
+                    cleaned_url = _resource_url(item.get(key))
+                    if cleaned_url:
+                        resource[key] = cleaned_url
+            if item.get("status"):
+                resource["status"] = _clean_text(item.get("status"), 80)
+            resources.append(resource)
+            if len(resources) >= 200:
+                break
+        patch["groups"], patch["resources"] = groups, resources
+    if artifact_type == "link_reader":
+        reference_url = _resource_url(value.get("url"))
+        if reference_url:
+            patch["url"] = reference_url
+        for key, limit in (("detail", 1000), ("kind", 100), ("provider", 100),
+                           ("access_mode", 120), ("access_type", 80), ("read_state", 80),
+                           ("read_status", 80)):
+            if value.get(key):
+                patch[key] = _clean_text(value.get(key), limit)
+        thumbnail = _resource_url(value.get("thumbnail"))
+        if thumbnail:
+            patch["thumbnail"] = thumbnail
+    if artifact_type == "executive_summary" and isinstance(value.get("highlights"), list):
+        patch["highlights"] = [_clean_text(item, 400) for item in value["highlights"][:12]
+                               if isinstance(item, str) and item.strip()]
+    if artifact_type == "scenario" and isinstance(value.get("options"), list):
+        patch["options"] = [
+            {"title": _clean_text(item.get("title"), 160),
+             "summary": _clean_text(item.get("summary"), 1200),
+             "metrics": {_clean_text(key, 80): _clean_text(metric, 160)
+                         for key, metric in list((item.get("metrics") or {}).items())[:12]
+                         if not isinstance(metric, (dict, list))}}
+            for item in value["options"][:6]
+            if isinstance(item, dict) and isinstance(item.get("metrics") or {}, dict)
+        ]
     if recovered_html:
         lowered = recovered_html.lstrip().lower()
         if lowered.startswith(("<!doctype", "<html")) and "</html>" in lowered:

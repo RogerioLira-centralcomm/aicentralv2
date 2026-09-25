@@ -600,6 +600,9 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "e oferecer a abertura do dossiê; o material completo fica no artefato."
         )
     if route.action.startswith("update_") and route.artifact_type:
+        current_artifact = (resolved or {}).get("artifacts.get") if isinstance(resolved, dict) else None
+        current_content = current_artifact.get("content") if isinstance(current_artifact, dict) else None
+        preserves_markdown = isinstance(current_content, dict) and bool(current_content.get("source_markdown"))
         draft_instruction = (
             "O usuário está continuando um trabalho editável, como em um editor colaborativo. Leia o artefato "
             "inteiro em artifacts.get, a mensagem atual e as decisões da conversa; use os resultados ponderados "
@@ -616,6 +619,11 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "sem pedido explícito de renomeação. A resposta curta no chat deve descrever o que mudou, "
             "enquanto artifact_patch contém o documento efetivamente atualizado."
         )
+        if preserves_markdown:
+            draft_instruction += (
+                " O documento possui uma fonte Markdown canônica. Atualize artifact_patch.source_markdown junto com o conteúdo estruturado; "
+                "a fonte deve refletir esta revisão completa, sem manter trechos antigos nem reconstruir a partir de uma visualização parcial."
+            )
     if route.action.startswith("review_"):
         draft_instruction = (
             "O usuário pediu uma avaliação do documento, não a edição. Leia artifacts.get, use o contexto "
@@ -650,6 +658,12 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                 "Se um indicador não estiver disponível, omita-o ou mostre a lacuna de forma discreta. Use gráficos somente quando houver séries ou categorias suficientes, "
                 "inclua tabela para os dados detalhados e mantenha no próprio artefato uma nota curta de fonte/período. O resultado deve nascer como rascunho privado, nunca sugerir que já foi publicado."
             )
+    if route.artifact_type and route.artifact_type != "html" and re.search(r"\b(?:markdown|\.md|formato\s+md)\b", message, re.I):
+        draft_instruction += (
+            " O usuário pediu Markdown como formato-fonte, independentemente do tipo semântico do artefato. "
+            "Inclua o documento completo em artifact_patch.source_markdown preservando títulos, listas, tabelas, links e blocos de código. "
+            "O conteúdo estruturado e source_markdown devem representar o mesmo material; não reconstrua a fonte a partir do texto visível."
+        )
     planning_instruction = ""
     if policy.get("planning_response"):
         planning_instruction = (

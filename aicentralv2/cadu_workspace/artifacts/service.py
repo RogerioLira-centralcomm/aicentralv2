@@ -120,6 +120,91 @@ def _content(value, artifact_type: str) -> dict:
         raise BadRequest("O conteúdo do artefato precisa ser estruturado.")
     if artifact_type == "html":
         value = normalize_html_content(value)
+    else:
+        # A recognized type and a JSON object are not enough to make a useful
+        # artifact. Reject title-only/empty drafts before they reach the editor.
+        usable_keys = {
+            "brief": ("summary", "fields", "sections", "html", "source_markdown", "brand", "campaign"),
+            "document": ("summary", "fields", "sections", "html", "content", "source_markdown"),
+            "note": ("summary", "fields", "sections", "html", "content", "source_markdown"),
+            "executive_summary": ("summary", "fields", "sections", "highlights", "metrics", "kpis", "tables", "html", "source_markdown"),
+            "media_plan": ("summary", "fields", "sections", "tables", "channels", "allocations", "rows", "html", "source_markdown"),
+            "scenario": ("summary", "fields", "sections", "options", "tables", "html", "source_markdown"),
+            "research": ("summary", "fields", "sections", "tables", "citations", "html", "source_markdown"),
+            "project_map": ("groups", "resources"),
+            "meeting_summary": ("summary", "fields", "sections", "html", "source_markdown"),
+            "meeting_agenda": ("summary", "fields", "sections", "html", "source_markdown"),
+            "link_reader": ("url",),
+        }.get(artifact_type, ())
+        def has_value(item):
+            if isinstance(item, str):
+                return bool(item.strip())
+            if isinstance(item, dict):
+                return any(has_value(child) for child in item.values())
+            if isinstance(item, (list, tuple)):
+                return any(has_value(child) for child in item)
+            return item is not None
+
+        def has_fields(items):
+            if not isinstance(items, list):
+                return False
+            for field in items:
+                if not isinstance(field, dict) or not str(field.get("key") or field.get("title") or "").strip():
+                    continue
+                field_value = field.get("value")
+                if field_value is None:
+                    field_value = field.get("content")
+                if field_value is None:
+                    field_value = field.get("text")
+                if has_value(field_value):
+                    return True
+                if str(field.get("state") or "").lower() in {"missing", "conflicting"}:
+                    return True
+            return False
+
+        def has_tables(items):
+            if not isinstance(items, list):
+                return False
+            for table in items:
+                if not isinstance(table, dict) or not isinstance(table.get("rows"), list):
+                    continue
+                if any(has_value(row) for row in table["rows"]):
+                    return True
+            return False
+
+        def has_content_key(key):
+            item = value.get(key)
+            if key in {"fields", "sections"}:
+                return has_fields(item)
+            if key == "tables":
+                return has_tables(item)
+            if key in {"rows", "channels", "allocations", "options", "citations", "highlights"}:
+                return has_value(item)
+            return has_value(item)
+
+        if not any(key in value and has_content_key(key) for key in usable_keys):
+            raise BadRequest("O artefato não tem conteúdo suficiente para ser salvo.")
+        if artifact_type in {"brief", "document", "note", "executive_summary", "media_plan",
+                             "scenario", "research", "meeting_summary", "meeting_agenda"}:
+            fields = value.get("fields", value.get("sections", []))
+            if fields is not None and not isinstance(fields, list):
+                raise BadRequest("As seções do artefato precisam estar em uma lista.")
+            for field in fields or []:
+                if not isinstance(field, dict) or not str(field.get("key") or field.get("title") or "").strip():
+                    raise BadRequest("Cada seção precisa ter um título e conteúdo estruturado.")
+            tables = value.get("tables", [])
+            if tables is not None and not isinstance(tables, list):
+                raise BadRequest("As tabelas do artefato precisam estar em uma lista.")
+            for table in tables or []:
+                if not isinstance(table, dict) or not isinstance(table.get("rows", []), list):
+                    raise BadRequest("Cada tabela precisa ter linhas estruturadas.")
+                if table.get("rows") and not (table.get("columns") or isinstance(table["rows"][0], (list, dict))):
+                    raise BadRequest("As linhas da tabela precisam ter cabeçalhos ou chaves identificáveis.")
+        if artifact_type == "scenario" and value.get("options") is not None:
+            if not isinstance(value["options"], list) or any(not isinstance(item, (str, dict)) for item in value["options"]):
+                raise BadRequest("Os cenários precisam estar em uma lista de opções estruturadas.")
+        if artifact_type == "link_reader" and not re.match(r"^https://", str(value.get("url") or ""), re.I):
+            raise BadRequest("A referência precisa ter uma URL HTTPS válida.")
     size = len(json.dumps(value, ensure_ascii=False, default=str).encode("utf-8"))
     maximum = definition(artifact_type).max_content_bytes
     if size > maximum:
@@ -134,6 +219,8 @@ def create_draft(context: RequestContext, artifact_type: str, content: dict, *, 
                  artifact_id=None) -> dict:
     if artifact_type not in ALLOWED_TYPES:
         raise BadRequest("Tipo de artefato inválido.")
+    if context.project_ref:
+        _require_project_access(context, str(context.project_ref), write=True)
     content = _content(content, artifact_type)
     artifact_id, version_id = str(artifact_id or uuid4()), str(uuid4())
     title = " ".join(str(title or "").split())[:180] or "Novo artefato"
@@ -196,6 +283,7 @@ def get_artifact(context: RequestContext, artifact_id: str) -> dict:
             # explain the failure and offer regeneration instead of turning a
             # diagnostic GET into an unrelated transport error.
             pass
+    _require_artifact_access(context, artifact)
     artifact["capabilities"] = definition(artifact["type"]).to_dict()
     return artifact
 
@@ -214,6 +302,7 @@ def list_artifacts(context: RequestContext, *, artifact_type=None, status=None, 
     filters = ["a.organization_id = %s", "a.client_id = %s"]
     params = [context.client_id, context.client_id]
     if context.project_ref:
+        _require_project_access(context, str(context.project_ref))
         filters.append("a.project_ref = %s")
         params.append(context.project_ref)
     if artifact_type:
@@ -229,7 +318,15 @@ def list_artifacts(context: RequestContext, *, artifact_type=None, status=None, 
                           FROM cadu_workspace_artifacts a
                          WHERE {' AND '.join(filters)}
                       ORDER BY a.updated_at DESC, a.id DESC LIMIT %s""", tuple(params))
-        return [dict(row) for row in cur.fetchall()]
+        rows = [dict(row) for row in cur.fetchall()]
+    visible = []
+    for row in rows:
+        try:
+            _require_artifact_access(context, row)
+        except (NotFound, BadRequest):
+            continue
+        visible.append(row)
+    return visible
 
 
 def list_versions(context: RequestContext, artifact_id: str, *, limit=50) -> list[dict]:
@@ -283,8 +380,8 @@ def restore_version(context: RequestContext, artifact_id: str, version: int, *, 
 
 def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, expected_version: int,
                    title=None, status=None, change_summary="") -> dict:
-    if status is not None and status not in ALLOWED_STATUS:
-        raise BadRequest("Status de artefato inválido.")
+    if status not in (None, "archived"):
+        raise BadRequest("O estado do artefato deve ser alterado pela ação própria do ciclo de vida.")
     try:
         expected_version = int(expected_version)
     except (TypeError, ValueError):
@@ -292,12 +389,20 @@ def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, 
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT current_version,type FROM cadu_workspace_artifacts
+            cur.execute("""SELECT current_version,type,status,project_ref,created_by FROM cadu_workspace_artifacts
                             WHERE id = %s AND organization_id = %s AND client_id = %s FOR UPDATE""",
                         (str(artifact_id), context.client_id, context.client_id))
             row = cur.fetchone()
             if not row:
                 raise NotFound("Artefato indisponível.")
+            artifact = {**row, "id": str(artifact_id)}
+            _require_artifact_access(context, artifact, write=True)
+            if not definition(row.get("type") or "document").agent_editable:
+                raise BadRequest("Este tipo de entrega é uma referência somente para leitura.")
+            if row.get("status") in {"published", "archived"}:
+                raise Conflict("Retire a publicação ou reative o artefato antes de editá-lo.")
+            if status == "archived" and row.get("status") not in {"draft", "active"}:
+                raise Conflict("Somente artefatos em rascunho ou ativos podem ser arquivados.")
             content = _content(content, row.get("type") or "document")
             if int(row["current_version"]) != expected_version:
                 raise Conflict("O artefato foi alterado. Atualize antes de salvar novamente.")
@@ -337,6 +442,9 @@ def attach_to_project(context: RequestContext, artifact_id: str, project_ref: st
     # The caller resolves project membership before reaching this service. The
     # artifact lookup still enforces the tenant boundary before any mutation.
     previous = get_artifact(context, artifact_id)
+    _require_artifact_access(context, previous, write=True)
+    if project_ref:
+        _require_project_access(context, project_ref, write=True)
     previous_ref = previous.get("project_ref") or ""
     if previous_ref == project_ref:
         return previous
@@ -373,15 +481,20 @@ class _DocumentText(HTMLParser):
         self.ignored = 0
 
     def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
         if tag in {"script", "style"}:
             self.ignored += 1
-        if tag in {"p", "h1", "h2", "h3", "h4", "li", "tr", "br"}:
+        if tag in {"p", "h1", "h2", "h3", "h4", "li", "tr", "br", "th", "td"}:
             self.parts.append("\n")
+        if tag == "img" and attributes.get("alt"):
+            self.parts.append(f" {attributes['alt']} ")
+        if tag == "a" and str(attributes.get("href") or "").startswith(("https://", "http://")):
+            self.parts.append(f" ({attributes['href']}) ")
 
     def handle_endtag(self, tag):
         if tag in {"script", "style"}:
             self.ignored = max(0, self.ignored - 1)
-        if tag in {"p", "h1", "h2", "h3", "h4", "li", "tr"}:
+        if tag in {"p", "h1", "h2", "h3", "h4", "li", "tr", "th", "td"}:
             self.parts.append("\n")
 
     def handle_data(self, data):
@@ -389,16 +502,293 @@ class _DocumentText(HTMLParser):
             self.parts.append(data)
 
 
+class _DocumentMarkdown(HTMLParser):
+    """Convert the editor's safe rich-text subset to readable Markdown."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.ignored = 0
+        self.links = []
+        self.list_stack = []
+        self.table_head = False
+        self.table_cell_count = 0
+
+    def _space(self, count=1):
+        value = "\n" * count
+        current = self.parts[-1] if self.parts else ""
+        if current and not current.endswith(value):
+            self.parts.append(value)
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag in {"script", "style"}:
+            self.ignored += 1
+            return
+        if self.ignored:
+            return
+        if tag in {"p", "div", "section", "article", "figure", "figcaption"}:
+            self._space(2)
+        elif tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            self._space(2)
+            self.parts.append("#" * int(tag[1]) + " ")
+        elif tag == "br":
+            self.parts.append("  \n")
+        elif tag in {"ul", "ol"}:
+            self._space()
+            self.list_stack.append({"tag": tag, "count": 0})
+        elif tag == "li":
+            self._space()
+            depth = max(0, len(self.list_stack) - 1)
+            if self.list_stack and self.list_stack[-1]["tag"] == "ol":
+                self.list_stack[-1]["count"] += 1
+                marker = f"{self.list_stack[-1]['count']}. "
+            else:
+                marker = "- "
+            self.parts.append("  " * depth + marker)
+        elif tag == "blockquote":
+            self._space(2)
+            self.parts.append("> ")
+        elif tag in {"strong", "b"}:
+            self.parts.append("**")
+        elif tag in {"em", "i"}:
+            self.parts.append("*")
+        elif tag == "code":
+            self.parts.append("`")
+        elif tag == "pre":
+            self._space(2)
+            self.parts.append("```\n")
+        elif tag == "a":
+            href = str(attributes.get("href") or "")
+            self.links.append(href if href.startswith(("https://", "http://")) else "")
+            self.parts.append("[")
+        elif tag == "img":
+            alt, src = str(attributes.get("alt") or ""), str(attributes.get("src") or "")
+            if src.startswith(("https://", "http://")):
+                self.parts.append(f"![{alt}]({src})")
+            elif alt:
+                self.parts.append(alt)
+        elif tag == "table":
+            self._space(2)
+        elif tag == "thead":
+            self.table_head = True
+        elif tag in {"th", "td"}:
+            if self.parts and not self.parts[-1].endswith(("|", " ")):
+                self.parts.append(" ")
+            self.parts.append("| ")
+            self.table_cell_count += 1
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style"}:
+            self.ignored = max(0, self.ignored - 1)
+            return
+        if self.ignored:
+            return
+        if tag in {"p", "div", "section", "article", "figure", "figcaption", "li", "h1", "h2", "h3", "h4", "h5", "h6"}:
+            self._space(2 if tag != "li" else 1)
+        elif tag in {"strong", "b"}:
+            self.parts.append("**")
+        elif tag in {"em", "i"}:
+            self.parts.append("*")
+        elif tag == "code":
+            self.parts.append("`")
+        elif tag == "pre":
+            self._space()
+            self.parts.append("```\n")
+        elif tag == "a":
+            href = self.links.pop() if self.links else ""
+            self.parts.append(f"]({href})" if href else "]")
+        elif tag == "ul" or tag == "ol":
+            if self.list_stack:
+                self.list_stack.pop()
+            self._space(2)
+        elif tag in {"th", "td"}:
+            self.parts.append(" ")
+        elif tag == "tr":
+            self.parts.append("|\n")
+            if self.table_head:
+                # A separator follows the header row before body rows.
+                self.parts.append("|" + " --- |" * max(1, self.table_cell_count) + "\n")
+                self.table_head = False
+            self.table_cell_count = 0
+        elif tag == "table":
+            self._space(2)
+
+    def handle_data(self, data):
+        if not self.ignored:
+            self.parts.append(data)
+
+    def markdown(self):
+        return re.sub(r"\n{3,}", "\n\n", "".join(self.parts)).strip()
+
+
 def _indexable_text(artifact: dict) -> str:
     content = artifact.get("content") or {}
+    source_markdown = str(content.get("source_markdown") or "").strip()
+    if source_markdown:
+        return source_markdown
     if content.get("html"):
         parser = _DocumentText()
         parser.feed(str(content["html"]))
-        body = "".join(parser.parts)
-    else:
-        body = "\n\n".join(str(value) for value in [content.get("summary"),
-            *[f"{field.get('key') or ''}\n{field.get('value') or ''}" for field in content.get("fields") or []]] if value)
-    return "\n".join(line.strip() for line in body.splitlines() if line.strip())
+        return "\n".join(line.strip() for line in "".join(parser.parts).splitlines() if line.strip())
+    parts = []
+    def add(label, value):
+        if value is None or isinstance(value, (dict, list, tuple)):
+            return
+        value = str(value).strip()
+        if value:
+            parts.append(f"{label}: {value}" if label else value)
+    add("Resumo", content.get("summary"))
+    for field in content.get("fields") or content.get("sections") or []:
+        if isinstance(field, dict):
+            state = str(field.get("state") or "").strip()
+            add(str(field.get("key") or field.get("title") or "Seção") + (f" [{state}]" if state else ""),
+                field.get("value") or field.get("content") or field.get("text"))
+            add("Fontes da seção", ", ".join(map(str, field.get("source_ids") or [])))
+    for key in ("highlights",):
+        for item in content.get(key) or []:
+            add("Destaque", item.get("text") or item.get("title") if isinstance(item, dict) else item)
+    metrics = content.get("metrics") or content.get("kpis") or {}
+    if isinstance(metrics, dict):
+        for key, value in metrics.items():
+            add(f"Indicador {key}", value)
+    tables = list(content.get("tables") or [])
+    if not tables and any(content.get(key) for key in ("channels", "allocations", "rows")):
+        tables.append({"title": "Distribuição", "columns": content.get("columns") or [],
+                      "rows": content.get("channels") or content.get("allocations") or content.get("rows")})
+    for table in tables:
+        if not isinstance(table, dict):
+            continue
+        add("Tabela", table.get("title"))
+        columns = table.get("columns") or []
+        for row in table.get("rows") or []:
+            if isinstance(row, dict) and columns:
+                keys = [column if isinstance(column, str) else column.get("key") or column.get("name") or column.get("label")
+                        for column in columns]
+                values = [row.get(key, "") for key in keys]
+                labels = [column if isinstance(column, str) else column.get("label") or column.get("name") or column.get("key")
+                          for column in columns]
+            else:
+                values = list(row.values()) if isinstance(row, dict) else row if isinstance(row, list) else [row]
+                labels = columns or [f"Coluna {index + 1}" for index in range(len(values))]
+            add(" | ".join(str(label) for label in labels), " | ".join(str(value) for value in values))
+    for index, option in enumerate(content.get("options") or [], 1):
+        if not isinstance(option, dict):
+            add(f"Cenário {index}", option)
+            continue
+        add("Cenário", option.get("title"))
+        add("Descrição", option.get("summary") or option.get("description") or option.get("content"))
+        for key, value in (option.get("metrics") or {}).items() if isinstance(option.get("metrics"), dict) else []:
+            add(f"{option.get('title') or 'Cenário'} — {key}", value)
+    for citation in content.get("citations") or []:
+        if isinstance(citation, str):
+            add("Fonte", citation)
+        elif isinstance(citation, dict):
+            add("Fonte", " — ".join(str(value) for value in (citation.get("title") or citation.get("source"), citation.get("url")) if value))
+            add("Trecho da fonte", citation.get("excerpt"))
+    return "\n".join(parts)
+
+
+def content_markdown(artifact: dict) -> str:
+    content = artifact.get("content") if isinstance(artifact.get("content"), dict) else {}
+    if content.get("html"):
+        parser = _DocumentMarkdown()
+        parser.feed(str(content["html"]))
+        body = parser.markdown()
+        return f"# {artifact.get('title') or 'Documento'}\n\n{body}".strip()
+    parts = [f"# {artifact.get('title') or 'Documento'}"]
+    if content.get("summary"):
+        parts.append(str(content["summary"]).strip())
+    for field in content.get("fields") or content.get("sections") or []:
+        if not isinstance(field, dict):
+            continue
+        heading = str(field.get("key") or field.get("title") or "Seção").strip()
+        state = str(field.get("state") or "").strip()
+        parts.append(f"## {heading}" + (f" ({state})" if state else ""))
+        value = field.get("value") or field.get("content") or field.get("text")
+        if value:
+            parts.append(str(value).strip())
+    highlights = content.get("highlights") or []
+    if highlights:
+        parts.extend(["## Destaques", "\n".join(
+            f"- {item.get('text') or item.get('title') or item.get('value') or ''}" if isinstance(item, dict)
+            else f"- {item}" for item in highlights)])
+    metrics = content.get("metrics") or content.get("kpis") or {}
+    if isinstance(metrics, dict) and metrics:
+        parts.extend(["## Indicadores", "| Indicador | Valor |", "| --- | --- |"])
+        parts.extend(f"| {str(key).replace('|', '\\|')} | {str(value).replace('|', '\\|')} |" for key, value in metrics.items())
+    tables = list(content.get("tables") or [])
+    if not tables and any(content.get(key) for key in ("channels", "allocations", "rows")):
+        tables.append({"title": "Distribuição", "columns": content.get("columns") or [],
+                      "rows": content.get("channels") or content.get("allocations") or content.get("rows")})
+    for table in tables:
+        if not isinstance(table, dict) or not table.get("rows"):
+            continue
+        columns = table.get("columns") or []
+        rows = table["rows"]
+        first = rows[0]
+        if not columns:
+            columns = list(first.keys()) if isinstance(first, dict) else [f"Item {index + 1}" for index in range(len(first))]
+        labels = [str(column if isinstance(column, str) else column.get("label") or column.get("name") or column.get("key") or "Coluna")
+                  for column in columns]
+        keys = [column if isinstance(column, str) else column.get("key") or column.get("name") or column.get("label")
+                for column in columns]
+        markdown_rows = ["| " + " | ".join(label.replace("|", "\\|") for label in labels) + " |",
+                         "| " + " | ".join("---" for _ in labels) + " |"]
+        for row in rows:
+            values = [row.get(key, "") for key in keys] if isinstance(row, dict) else list(row) if isinstance(row, list) else [row]
+            markdown_rows.append("| " + " | ".join(str(value).replace("|", "\\|").replace("\n", "<br>") for value in values) + " |")
+        if table.get("title"):
+            parts.append(f"## {table['title']}")
+        parts.append("\n".join(markdown_rows))
+    for index, option in enumerate(content.get("options") or [], 1):
+        if isinstance(option, str):
+            parts.extend([f"## Cenário {index}", option])
+            continue
+        if not isinstance(option, dict):
+            continue
+        parts.append(f"## {option.get('title') or f'Cenário {index}'}")
+        body = option.get("summary") or option.get("description") or option.get("content")
+        if body:
+            parts.append(str(body).strip())
+        if isinstance(option.get("metrics"), dict) and option["metrics"]:
+            parts.extend(["| Indicador | Valor |", "| --- | --- |"])
+            parts.extend(f"| {key} | {value} |" for key, value in option["metrics"].items())
+    citations = content.get("citations") or []
+    if citations:
+        parts.append("## Fontes")
+        for citation in citations:
+            if isinstance(citation, str):
+                parts.append(f"- {citation}")
+            elif isinstance(citation, dict):
+                title = citation.get("title") or citation.get("source") or citation.get("url") or "Fonte"
+                url = citation.get("url") or citation.get("href") or citation.get("link")
+                parts.append(f"- [{title}]({url})" if url else f"- {title}")
+                if citation.get("excerpt"):
+                    parts.append(f"  {citation['excerpt']}")
+    return "\n\n".join(part for part in parts if part and str(part).strip()).strip()
+
+
+def _require_project_access(context: RequestContext, project_ref: str, *, write=False):
+    from ...cadu_family import repository
+    if not project_ref or not repository.project_user_can_view(context.client_id, project_ref, context.user_id):
+        raise NotFound("Projeto indisponível.")
+    if write:
+        actor = repository.actor(context.user_id) or {}
+        admin = int(actor.get("organization_id") or 0) == context.client_id and repository.account_role(actor) == "admin"
+        roles = {item.get("role") for item in repository.project_access(context.client_id, project_ref)
+                 if int(item.get("user_id") or 0) == context.user_id}
+        if not admin and not roles.intersection({"owner", "admin", "editor"}):
+            raise BadRequest("Você não pode alterar materiais neste projeto.")
+
+
+def _require_artifact_access(context: RequestContext, artifact: dict, *, write=False):
+    project_ref = str(artifact.get("project_ref") or "")
+    if project_ref:
+        _require_project_access(context, project_ref, write=write)
+        return
+    if int(artifact.get("created_by") or 0) != int(context.user_id or 0):
+        raise NotFound("Artefato indisponível.")
 
 
 def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_version: int,
@@ -427,6 +817,7 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
     if not admin and not roles.intersection({"owner", "admin", "editor"}):
         raise BadRequest("Você não pode finalizar documentos neste projeto.")
     artifact = get_artifact(context, artifact_id)
+    _require_artifact_access(context, artifact, write=True)
     source_format = str(source_format or ("html" if artifact["type"] == "html" else "md")).lower()
     if source_format not in ({"html"} if artifact["type"] == "html" else {"md", "txt"}):
         raise BadRequest("Formato de arquivo inválido para este documento.")
@@ -437,7 +828,8 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
     if not definition(artifact["type"]).indexable:
         raise BadRequest("Esta entrega pode permanecer vinculada ao projeto, mas não entra na base textual.")
     source_markdown = str((artifact.get("content") or {}).get("source_markdown") or "")
-    text = source_markdown if source_format == "md" and source_markdown.strip() else _indexable_text(artifact)
+    text = (source_markdown if source_markdown.strip() else content_markdown(artifact)) \
+        if source_format == "md" else _indexable_text(artifact)
     if len(text) < 20:
         raise BadRequest("O documento precisa de conteúdo suficiente para entrar na base do projeto.")
     project_id = project_ref[3:]
@@ -506,7 +898,10 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
                                   SET total_arquivos=GREATEST(COALESCE(total_arquivos,0)-%s,0), updated_at=NOW()
                                   WHERE id=%s AND id_cliente=%s""",
                                (len(previous), project_id, context.client_id))
-            cursor.execute("""UPDATE cadu_workspace_artifacts SET project_ref=%s, status='active', updated_at=NOW()
+            cursor.execute("""UPDATE cadu_workspace_artifacts
+                              SET project_ref=%s,
+                                  status=CASE WHEN status IN ('draft', 'archived') THEN 'active' ELSE status END,
+                                  updated_at=NOW()
                               WHERE id=%s AND client_id=%s AND organization_id=%s""",
                            (project_ref, str(artifact_id), context.client_id, context.client_id))
         connection.commit()
@@ -525,6 +920,7 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
 def publish_artifact(context: RequestContext, artifact_id: str) -> dict:
     """Make an HTML artifact available through its opaque public UUID URL."""
     artifact = get_artifact(context, artifact_id)
+    _require_artifact_access(context, artifact, write=True)
     if artifact.get("type") != "html":
         raise BadRequest("Somente artefatos HTML podem ser publicados como página pública.")
     # Legacy rows may predate strict creation/update validation. Never expose a
@@ -549,6 +945,7 @@ def publish_artifact(context: RequestContext, artifact_id: str) -> dict:
 def unpublish_artifact(context: RequestContext, artifact_id: str) -> dict:
     """Revoke the public URL while keeping the HTML artifact and its versions."""
     artifact = get_artifact(context, artifact_id)
+    _require_artifact_access(context, artifact, write=True)
     if artifact.get("type") != "html":
         raise BadRequest("Somente artefatos HTML podem ser retirados da publicação.")
     conn = get_db()

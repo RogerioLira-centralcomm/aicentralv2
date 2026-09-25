@@ -26,6 +26,10 @@ def quick_artifact_requested(objective: str) -> bool:
     ))
 
 
+def artifact_type_for_job(kind: str) -> str:
+    return "research" if kind == "market_intelligence" else "document"
+
+
 def spec_for_message(message: str, *, has_attachments: bool = False) -> LongJobSpec | None:
     """Route only explicit substantial deliverables; ordinary chat remains synchronous."""
     text = " ".join(str(message or "").lower().split())

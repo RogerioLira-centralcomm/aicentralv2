@@ -5,6 +5,7 @@ import pytest
 from aicentralv2.cadu_workspace.agent_v2.artifact_intent import named_artifact_type
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
+from aicentralv2.cadu_workspace.agent_v2.long_jobs import artifact_type_for_job
 
 
 @pytest.mark.parametrize(("message", "artifact_type"), [
@@ -32,6 +33,11 @@ def test_brand_with_website_does_not_become_a_page_artifact():
     route = route_request("Crie a marca Acme, segmento tecnologia, com site https://acme.com.br")
     assert route.artifact_type is None
     assert route.action == "create_brand"
+
+
+def test_long_market_research_uses_research_artifact_type():
+    assert artifact_type_for_job("market_intelligence") == "research"
+    assert artifact_type_for_job("long_document") == "document"
 
 
 def test_research_patch_keeps_structured_evidence_and_rejects_unsafe_image():

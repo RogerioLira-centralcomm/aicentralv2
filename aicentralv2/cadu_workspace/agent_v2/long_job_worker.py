@@ -669,7 +669,8 @@ def _save_artifact(job: dict, context: RequestContext, content: str, phase: str)
         current = get_artifact(context, artifact_id)
         return patch_artifact(context, artifact_id, payload, expected_version=current["current_version"],
                               title=job["title"], change_summary=f"Trabalho longo · {phase}")
-    artifact = create_draft(context, "document", payload, title=job["title"], conversation_id=job["conversation_id"])
+    artifact_type = long_jobs.artifact_type_for_job(str(job.get("kind") or ""))
+    artifact = create_draft(context, artifact_type, payload, title=job["title"], conversation_id=job["conversation_id"])
     connection = repository.get_db()
     with connection.cursor() as cursor:
         cursor.execute("UPDATE cadu_agent_long_jobs SET artifact_id=%s,updated_at=NOW() WHERE id=%s",
@@ -684,7 +685,7 @@ def _persist_completion(job: dict, context: RequestContext, artifact: dict | Non
     answer = (answer_text or "Concluí o trabalho e preparei o documento para revisão e edição.").strip()
     response = {
         "answer": answer, "confidence": "high", "assumptions": [], "questions": [], "actions": [],
-        "artifact_patch": ({"type": "document", "title": artifact.get("title") or job["title"]}
+        "artifact_patch": ({"type": artifact.get("type") or "document", "title": artifact.get("title") or job["title"]}
                            if artifact else None),
         "citations": [], "blocks": [],
     }

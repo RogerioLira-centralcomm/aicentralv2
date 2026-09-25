@@ -26,7 +26,9 @@ def _ready():
                  "AND to_regclass('public.cadu_reports_import_decisions') IS NOT NULL "
                  "AND to_regclass('public.cadu_reports_import_visual_runs') IS NOT NULL "
                  "AND to_regclass('public.cadu_reports_import_projection_decisions') IS NOT NULL "
-                 "AND to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL AS ready")[0]['ready']
+                 "AND to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL "
+                 "AND to_regclass('public.cadu_reports_import_range_snapshots') IS NOT NULL "
+                 "AND to_regclass('public.cadu_reports_import_range_metrics') IS NOT NULL AS ready")[0]['ready']
 
 
 def _bounded_body():
@@ -69,6 +71,37 @@ def _upsert_identity(selected, parsed):
 
 
 def register(bp):
+    @bp.get('/api/v1/reports/import-ranges')
+    @login_required_api
+    def reports_import_ranges():
+        selected = _selection()
+        if not _ready():
+            return jsonify(ready=False, snapshots=[])
+        scope = (selected['organization_id'], selected['client_id'])
+        snapshots = _rows('''SELECT s.id,s.import_id,s.scope_index,s.period_start,s.period_end,
+            s.note,s.created_at,c.name AS campaign_name,a.name AS account_name,a.platform,
+            f.original_name
+            FROM cadu_reports_import_range_snapshots s
+            JOIN cadu_reports_import_files f ON f.id=s.import_id
+                AND f.organization_id=s.organization_id AND f.client_id=s.client_id
+            JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
+                AND c.organization_id=s.organization_id AND c.client_id=s.client_id
+            JOIN cadu_reports_accounts a ON a.id=s.account_id
+                AND a.organization_id=s.organization_id AND a.client_id=s.client_id
+            WHERE s.organization_id=%s AND s.client_id=%s
+            ORDER BY s.created_at DESC,s.id DESC LIMIT 100''', scope)
+        if snapshots:
+            metrics = _rows('''SELECT snapshot_id,metric_key,value_numeric,unit,currency
+                FROM cadu_reports_import_range_metrics
+                WHERE organization_id=%s AND client_id=%s AND snapshot_id=ANY(%s)
+                ORDER BY snapshot_id,metric_key''', (*scope, [row['id'] for row in snapshots]))
+            metric_map = {}
+            for metric in metrics:
+                metric_map.setdefault(metric['snapshot_id'], []).append(metric)
+            for snapshot in snapshots:
+                snapshot['metrics'] = metric_map.get(snapshot['id'], [])
+        return jsonify(ready=True, snapshots=snapshots)
+
     @bp.get('/api/v1/reports/import-conflicts')
     @login_required_api
     def reports_import_conflicts():
@@ -265,7 +298,22 @@ def register(bp):
             ORDER BY (r.status='needs_review') DESC,r.id LIMIT 100''', (str(import_id), *scope))
         visual = _rows('''SELECT result,model,created_at FROM cadu_reports_import_visual_runs
             WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
-        return jsonify(import_file=batch[0], rows=rows, visual=visual[0] if visual else None)
+        snapshots = _rows('''SELECT s.id,s.scope_index,s.period_start,s.period_end,s.note,s.created_at,
+            c.name AS campaign_name,a.name AS account_name,a.platform
+            FROM cadu_reports_import_range_snapshots s
+            JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
+                AND c.organization_id=s.organization_id AND c.client_id=s.client_id
+            JOIN cadu_reports_accounts a ON a.id=s.account_id
+                AND a.organization_id=s.organization_id AND a.client_id=s.client_id
+            WHERE s.import_id=%s AND s.organization_id=%s AND s.client_id=%s
+            ORDER BY s.scope_index''', (str(import_id), *scope))
+        for snapshot in snapshots:
+            snapshot['metrics'] = _rows('''SELECT metric_key,value_numeric,unit,currency
+                FROM cadu_reports_import_range_metrics
+                WHERE snapshot_id=%s AND organization_id=%s AND client_id=%s
+                ORDER BY metric_key''', (snapshot['id'], *scope))
+        return jsonify(import_file=batch[0], rows=rows, visual=visual[0] if visual else None,
+                       range_snapshots=snapshots)
 
     @bp.get('/api/v1/reports/imports/<uuid:import_id>/image')
     @login_required_api
@@ -366,6 +414,94 @@ def register(bp):
             conn.rollback()
             raise
         return jsonify(confirmed=True, row_id=row_id)
+
+    @bp.post('/api/v1/reports/imports/<uuid:import_id>/visual/<int:scope_index>/range')
+    @login_required_api
+    def reports_import_visual_range(import_id, scope_index):
+        selected = _selection()
+        _write_guard(selected)
+        if not _ready():
+            abort(503, description='Instale as migrações de importações do Reports.')
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400, description='Envie os valores do intervalo.')
+        fields = {'platform': 'Platform', 'external_account_id': 'Account ID',
+                  'account_name': 'Account Name', 'external_campaign_id': 'Campaign ID',
+                  'campaign_name': 'Campaign Name', 'currency': 'Currency',
+                  'impressions': 'Impressions', 'clicks': 'Clicks', 'cost': 'Cost',
+                  'conversions': 'Conversions', 'conversion_value': 'Conversion Value'}
+        if set(payload) != set(fields) | {'period_start', 'period_end', 'note'}:
+            abort(400, description='Informe todos os campos do intervalo.')
+        note = payload['note']
+        if not isinstance(note, str) or not note.strip() or len(note.strip()) > 1000:
+            abort(400, description='Justifique os valores do intervalo (até 1.000 caracteres).')
+        try:
+            period_start = date.fromisoformat(payload['period_start'])
+            period_end = date.fromisoformat(payload['period_end'])
+        except (ValueError, TypeError):
+            abort(400, description='Use datas ISO válidas para o início e fim.')
+        if period_start >= period_end:
+            abort(400, description='O intervalo deve conter mais de um dia.')
+        values = {'Date': period_start.isoformat()}
+        for key, header in fields.items():
+            value = payload[key]
+            if not isinstance(value, str) or len(value) > 1000:
+                abort(400, description=f'{key} inválido.')
+            values[header] = value
+        parsed = parse_record({'raw': values}, date_order='auto')
+        if parsed['issues']:
+            abort(400, description='Revise: ' + '; '.join(parsed['issues']))
+        scope = (selected['organization_id'], selected['client_id'])
+        conn = get_db()
+        try:
+            batches = _rows('''SELECT id,row_count,applied_count FROM cadu_reports_import_files
+                WHERE id=%s AND organization_id=%s AND client_id=%s AND file_kind='image'
+                FOR UPDATE''', (str(import_id), *scope))
+            if not batches:
+                abort(404)
+            visual = _rows('''SELECT result FROM cadu_reports_import_visual_runs
+                WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+            scopes = visual[0]['result'].get('scopes', []) if visual else []
+            if scope_index < 0 or scope_index >= len(scopes):
+                abort(404)
+            source = scopes[scope_index]
+            if source.get('granularity') != 'range' and not (
+                    source.get('period_start') and source.get('period_end')
+                    and source['period_start'] != source['period_end']):
+                abort(409, description='O bloco não foi identificado como total de intervalo.')
+            if _rows('''SELECT id FROM cadu_reports_import_rows WHERE import_id=%s
+                AND organization_id=%s AND client_id=%s AND sheet_name='Print' AND source_row=%s''',
+                (str(import_id), *scope, scope_index + 1)):
+                abort(409, description='Este bloco já foi confirmado como dado diário.')
+            if _rows('''SELECT id FROM cadu_reports_import_range_snapshots WHERE import_id=%s
+                AND organization_id=%s AND client_id=%s AND scope_index=%s''',
+                (str(import_id), *scope, scope_index)):
+                abort(409, description='Este intervalo já foi confirmado.')
+            account_id, campaign_id = _upsert_identity(selected, parsed)
+            if parsed['issues'] or not campaign_id:
+                abort(409, description='A conta ou campanha entrou em conflito; revise a identidade.')
+            snapshot_id = _rows('''INSERT INTO cadu_reports_import_range_snapshots
+                (import_id,organization_id,client_id,scope_index,account_id,campaign_id,
+                 period_start,period_end,source_evidence,note,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s) RETURNING id''',
+                (str(import_id), *scope, scope_index, account_id, campaign_id,
+                 period_start, period_end, json.dumps(source), note.strip(), session['user_id']))[0]['id']
+            for key, value in parsed['metrics'].items():
+                monetary = key in ('cost', 'conversion_value')
+                _rows('''INSERT INTO cadu_reports_import_range_metrics
+                    (snapshot_id,organization_id,client_id,metric_key,value_numeric,unit,currency)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                    (snapshot_id, *scope, key, Decimal(value),
+                     'currency' if monetary else 'count', parsed['currency'] if monetary else None))
+            _rows('''UPDATE cadu_reports_import_files SET applied_count=applied_count+1,
+                status=CASE WHEN applied_count+1=row_count THEN 'parsed' ELSE 'needs_review' END
+                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                (str(import_id), *scope))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return jsonify(confirmed=True, snapshot_id=snapshot_id)
 
     @bp.post('/api/v1/reports/imports/<uuid:import_id>/extract')
     @login_required_api

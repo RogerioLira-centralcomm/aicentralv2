@@ -50,7 +50,7 @@ Executar P0.1 a P0.4 como um pacote de preparação e piloto. Ele transforma a b
 | P1.3 | Concessões para usuários existentes prontas; convite e cadastro autônomo só para Reports pendentes. |
 | P1.4 | Tag expõe `trackPage()` para navegação SPA via GTM, com deduplicação imediata; eventos personalizados e diagnóstico de instalação pendentes. |
 | P1.5 | Importações diárias aparecem em painel separado e conservador; conciliação com Google Ads Script, tag e CRM ainda pendente. |
-| P2.1–P2.2 | Primeira fatia codificada: caixa de entrada por cliente, CSV/XLSX, prints preservados, leitura visual sob demanda com evidência, identificação por IDs exatos em tabelas, observações imutáveis e confirmação manual auditável de linhas ambíguas. Projeção por campanha/dia/métrica deduplica valores idênticos; divergências só entram após decisão humana auditável. Blocos visuais diários podem ser confirmados pelo operador; totais de intervalo e arquivos reais de plataformas ainda pendentes. Nenhuma API de mídia adicional é usada. |
+| P2.1–P2.2 | Primeira fatia codificada: caixa de entrada por cliente, CSV/XLSX, prints preservados, leitura visual sob demanda com evidência, identificação por IDs exatos em tabelas, observações imutáveis e confirmação manual auditável de linhas ambíguas. Projeção por campanha/dia/métrica deduplica valores idênticos; divergências só entram após decisão humana auditável. Blocos visuais diários e snapshots de intervalo podem ser confirmados separadamente. Comparação de intervalos e arquivos reais de plataformas ainda pendentes. Nenhuma API de mídia adicional é usada. |
 | P2.3–P3 | Conjuntos de dados isolados, audiências e mapas de clique ainda pendentes. |
 
 ## Verificação do plano com TypeSafe

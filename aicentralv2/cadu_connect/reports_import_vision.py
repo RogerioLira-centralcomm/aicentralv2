@@ -40,6 +40,8 @@ def normalize_visual_result(payload, import_id):
                      'period_start', 'period_end', 'granularity', 'currency', 'evidence')}
         if not identity['evidence']:
             raise ValueError('Um bloco visual não contém evidência.')
+        if identity['granularity'] not in ('day', 'range', 'unknown'):
+            identity['granularity'] = 'unknown'
         identity['metrics'] = clean_metrics
         normalized.append(identity)
     questions = payload.get('questions', [])

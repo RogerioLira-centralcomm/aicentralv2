@@ -89,3 +89,22 @@ def test_web_discovery_does_not_become_a_read_citation():
     sources = next(block for block in response.blocks if block["type"] == "source_group")
     assert sources["items"][0]["read_status"] == "discovered"
     assert sources["items"][0]["content"] == ""
+
+
+def test_read_page_replaces_same_url_discovery_for_citations():
+    from types import SimpleNamespace
+    from aicentralv2.cadu_workspace.agent_v2.service import _enrich_source_blocks
+
+    response = SimpleNamespace(citations=[], blocks=[], artifact_patch={"citations": [
+        {"url": "https://example.com/page", "title": "Página"},
+    ], "fields": []})
+    run = {
+        "route": {"artifact_type": "research"}, "execution_mode": "analysis", "message": "pesquise",
+        "resolved_context": SimpleNamespace(values={"web.search": {"sources": [
+            {"id": "hit", "url": "https://example.com/page", "excerpt": "Busca"},
+            {"id": "page", "url": "https://example.com/page", "content": "Conteúdo lido."},
+        ]}}),
+    }
+    _enrich_source_blocks(response, run)
+    assert response.artifact_patch["citations"][0]["id"] == "page"
+    assert response.artifact_patch["citations"][0]["read_status"] == "read"

@@ -22,6 +22,7 @@ from ..artifacts.service import list_artifacts
 from . import provider
 from .context_resolver import resolve_context
 from .executor import prepare_execution
+from .evidence import read_status
 from .daily_workflows import WORKFLOWS
 from .guardrails import normalize_response
 from .request_context import resolve
@@ -588,7 +589,7 @@ def _enrich_source_blocks(response, run):
     )
     web_sources = web_result.get("sources") if isinstance(web_result, dict) else []
     safe_web_sources = []
-    seen_urls = set()
+    source_positions = {}
     for source in web_sources if isinstance(web_sources, list) else []:
         if not isinstance(source, dict):
             continue
@@ -599,23 +600,25 @@ def _enrich_source_blocks(response, run):
             continue
         if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
             continue
-        if url in seen_urls:
-            continue
-        seen_urls.add(url)
-        safe_web_sources.append({
+        candidate = {
             "id": str(source.get("id") or f"web-{len(safe_web_sources) + 1}")[:100],
             "title": str(source.get("title") or parsed.hostname or "Fonte")[:220],
             "url": url,
             "excerpt": " ".join(str(source.get("content_excerpt") or source.get("excerpt") or "").split())[:500],
             "content": " ".join(str(source.get("content") or "").split())[:6000],
-            "read_status": "read" if str(source.get("content") or "").strip() else "discovered",
+            "read_status": read_status(source),
             "published_at": str(source.get("published_at") or "")[:60],
             "kind": "web",
             "favicon": str(source.get("favicon") or "")[:2000],
             "image_url": str(source.get("image_url") or "")[:2000],
-        })
-        if len(safe_web_sources) >= 8:
-            break
+        }
+        position = source_positions.get(url)
+        if position is None:
+            source_positions[url] = len(safe_web_sources)
+            safe_web_sources.append(candidate)
+        elif candidate["read_status"] == "read" and safe_web_sources[position]["read_status"] != "read":
+            safe_web_sources[position] = candidate
+    safe_web_sources = safe_web_sources[:8]
     if safe_web_sources:
         read_urls = {source["url"] for source in safe_web_sources if source["read_status"] == "read"}
         project_urls = {str(resource.get("locator") or resource.get("url") or "")

@@ -161,6 +161,8 @@ def test_quick_market_scan_includes_independent_review_before_render():
 def test_quick_market_scan_only_creates_artifact_for_explicit_file_request():
     assert not quick_artifact_requested("Movimentos recentes do café no Brasil")
     assert quick_artifact_requested("Movimentos recentes do café; salve em documento editável")
+    assert not quick_artifact_requested("Movimentos recentes do café; não crie artefato")
+    assert not quick_artifact_requested("Movimentos recentes do café; apenas no chat")
 
 
 def test_market_radar_fallback_uses_only_public_brand_fields():

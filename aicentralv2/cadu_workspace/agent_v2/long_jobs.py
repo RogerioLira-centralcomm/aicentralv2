@@ -20,9 +20,17 @@ UNIT_KINDS = {"discover", "extract", "classify", "summarize", "synthesize", "com
 
 def quick_artifact_requested(objective: str) -> bool:
     """A Quick Scan stays in chat unless its requested delivery is a file."""
+    text = str(objective or "")
+    if re.search(
+        r"\b(?:n[aã]o|sem|nunca)\s+(?:(?:crie|criar|gere|gerar|abra|abrir|salve|salvar)\s+)?"
+        r"(?:(?:um|uma)\s+)?(?:artefato|documento|arquivo)\b|"
+        r"\b(?:s[oó]|somente|apenas)\s+(?:no\s+)?chat\b",
+        text, re.I,
+    ):
+        return False
     return bool(re.search(
         r"\b(?:artefato|documento|arquivo|edit[aá]vel|export[aá]vel|salv[ea]r?)\b",
-        str(objective or ""), re.I,
+        text, re.I,
     ))
 
 

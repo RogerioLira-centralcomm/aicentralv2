@@ -6,16 +6,16 @@
 var CADU = {
   endpoint: '__CADU_INGEST_URL__',
   apiKey: '__CADU_API_KEY__',
-  accountIds: [], // Opcional: ['123-456-7890'] para limitar uma MCC.
+  accountIds: __CADU_ACCOUNT_IDS__, // Obrigatório em MCC; emitido para este client_id.
   batchSize: 200
 };
 
 function main() {
   var managerId = null;
   if (typeof AdsManagerApp !== 'undefined') {
+    if (!CADU.accountIds.length) throw new Error('Informe as contas autorizadas antes de instalar este script em uma MCC.');
     managerId = AdsApp.currentAccount().getCustomerId();
-    var selector = AdsManagerApp.accounts();
-    if (CADU.accountIds.length) selector = selector.withIds(CADU.accountIds);
+    var selector = AdsManagerApp.accounts().withIds(CADU.accountIds);
     var accounts = selector.get();
     while (accounts.hasNext()) {
       AdsManagerApp.select(accounts.next());

@@ -50,6 +50,15 @@ def main():
                 if batch < 10000:
                     break
             print(f'{table}: {removed} registros removidos')
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM cadu_reports_flow_rate_limits WHERE bucket_start < NOW() - INTERVAL '2 days'")
+            old_buckets = cursor.fetchone()[0]
+        print(f'cadu_reports_flow_rate_limits: {old_buckets} janelas com mais de 2 dias')
+        if args.apply:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM cadu_reports_flow_rate_limits WHERE bucket_start < NOW() - INTERVAL '2 days'")
+                print(f'cadu_reports_flow_rate_limits: {cursor.rowcount} janelas removidas')
+            conn.commit()
 
 
 if __name__ == '__main__':

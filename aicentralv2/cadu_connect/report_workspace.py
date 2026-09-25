@@ -71,7 +71,8 @@ def register(bp):
     @bp.get('/importacoes')
     @login_required
     def report_imports():
-        selected = context.resolve()
+        from .reports_access import resolve as resolve_reports
+        selected = resolve_reports()
         if not available() or not source_storage_ready(rows):
             return render_template('cadu_connect/imports.html', selected=selected, imports=[], ready=False)
         imports = rows('''SELECT s.id,s.original_name,s.supplier,s.period_start,s.period_end,s.status,s.created_at,
@@ -92,7 +93,8 @@ def register(bp):
     @bp.post('/importacoes')
     @login_required
     def receive_import():
-        selected = context.resolve()
+        from .reports_access import resolve as resolve_reports
+        selected = resolve_reports()
         if selected['role'] == 'viewer' or not secrets.compare_digest(session.get('family_csrf', ''), request.form.get('_csrf', '')):
             abort(403)
         if not rows("SELECT to_regclass('public.cadu_connect_report_imports') IS NOT NULL AS ready")[0]['ready']:
@@ -113,7 +115,8 @@ def register(bp):
     @bp.route('/importacoes/<int:import_id>/resolver', methods=['GET', 'POST'])
     @login_required
     def resolve_import(import_id):
-        selected = context.resolve()
+        from .reports_access import resolve as resolve_reports
+        selected = resolve_reports()
         found = rows('''SELECT * FROM cadu_connect_report_imports WHERE id=%s AND organization_id=%s AND client_id=%s''',
                      (import_id, selected['organization_id'], selected['client_id']))
         if not found: abort(404)
@@ -145,8 +148,31 @@ def register(bp):
     @bp.route('/relatorios', methods=['GET', 'POST'])
     @login_required
     def report_library():
-        selected = context.resolve()
-        entities = context.inventory(selected['client_id'])
+        from .reports_access import inventory as reports_inventory, reports_only, resolve as resolve_reports
+        selected = resolve_reports()
+        entities = reports_inventory(selected['client_id'])
+        if reports_only():
+            existing_id = (request.form.get('report_id') if request.method == 'POST'
+                           else request.args.get('report_id'))
+            if existing_id:
+                try:
+                    existing_id = int(existing_id)
+                except (TypeError, ValueError):
+                    abort(400, description='Relatório inválido.')
+                existing = rows('''SELECT document FROM cadu_connect_report_workspaces
+                    WHERE id=%s AND organization_id=%s AND client_id=%s''',
+                    (existing_id, selected['organization_id'], selected['client_id']))
+                if not existing:
+                    abort(404)
+                stored = existing[0]['document'] or {}
+                project_ref, brand_ref = stored.get('project_ref'), stored.get('brand_ref')
+                if project_ref:
+                    entities.append({'kind': 'project', 'ref': project_ref,
+                                     'name': stored.get('project_name') or 'Projeto do relatório',
+                                     'related_refs': [brand_ref] if brand_ref else []})
+                if brand_ref:
+                    entities.append({'kind': 'brand', 'ref': brand_ref,
+                                     'name': stored.get('brand_name') or 'Marca do relatório'})
         session.setdefault('family_csrf', secrets.token_urlsafe(32))
         ready = available()
         error = None
@@ -215,7 +241,8 @@ def register(bp):
             FROM cadu_connect_report_workspaces WHERE organization_id=%s AND client_id=%s
             ORDER BY updated_at DESC''', (selected['organization_id'], selected['client_id'])) if ready else []
         project_refs = {e['ref'] for e in entities if e['kind'] == 'project'}
-        reports = [r for r in reports if not r['project_ref'] or r['project_ref'] in project_refs]
+        if not reports_only():
+            reports = [r for r in reports if not r['project_ref'] or r['project_ref'] in project_refs]
         report_id = request.args.get('report_id', type=int)
         report = next((r for r in reports if r['id'] == report_id), None)
         if report_id and not report:

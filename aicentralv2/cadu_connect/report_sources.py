@@ -52,14 +52,16 @@ def source_storage_ready(rows):
 
 
 def authorized_report(rows, report_id, *, lock=False):
-    selected = context.resolve()
+    from .reports_access import resolve as resolve_reports, reports_only
+    selected = resolve_reports()
     reports = rows('''SELECT * FROM cadu_connect_report_workspaces
         WHERE id=%s AND organization_id=%s AND client_id=%s''' + (' FOR UPDATE' if lock else ''),
         (report_id, selected['organization_id'], selected['client_id']))
     if not reports:
         abort(404)
-    refs = {e['ref'] for e in context.inventory(selected['client_id']) if e['kind'] == 'project'}
-    if reports[0]['project_ref'] and reports[0]['project_ref'] not in refs:
+    refs = ({e['ref'] for e in context.inventory(selected['client_id']) if e['kind'] == 'project'}
+            if not reports_only() else None)
+    if refs is not None and reports[0]['project_ref'] and reports[0]['project_ref'] not in refs:
         abort(404)
     return reports[0], selected
 

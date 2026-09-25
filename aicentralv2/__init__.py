@@ -177,6 +177,26 @@ def create_app(config_class=Config):
     
     # Inicializar extensões
     mail.init_app(app)
+
+    @app.before_request
+    def restrict_reports_only_accounts():
+        """A Reports-only entitlement must not inherit other Cadu products."""
+        from flask import abort, redirect, request, session
+        if not session.get('user_id') or request.path.startswith('/static/'):
+            return None
+        from .cadu_connect.reports_access import reports_only
+        if not reports_only():
+            return None
+        path = request.path
+        allowed = (path in {'/connect', '/connect/', '/connect/app', '/login', '/logout', '/perfil', '/favicon.ico'}
+                   or path.startswith(('/connect/api/v1/reports/', '/connect/relatorios',
+                                       '/connect/importacoes', '/connect/r/')))
+        if allowed:
+            return None
+        if request.method in {'GET', 'HEAD'} and not path.startswith('/api/'):
+            from .product_domains import product_url
+            return redirect(product_url('connect', '/connect/app'), code=302)
+        abort(403, description='Esta conta tem acesso exclusivo ao Reports.')
     
     # Importar e registrar funções de banco
     from . import db

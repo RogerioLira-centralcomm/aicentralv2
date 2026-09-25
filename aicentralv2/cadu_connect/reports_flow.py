@@ -11,6 +11,8 @@ from ..auth import login_required_api
 from ..db import get_db
 from .reports_v1 import _rows, _selection, _write_guard
 
+MAX_TAG_EVENTS_PER_MINUTE = 1200
+
 
 def _host(value):
     value = str(value or '').strip().lower()
@@ -296,6 +298,14 @@ def register(bp):
         safe_path = re.sub(r'(?<=/)[^/]*@[^/]*(?=/|$)', ':redacted', safe_path)
         event_kind = 'conversion' if kind == 'page_view' and matched and matched['step_kind'] == 'conversion' else kind
         campaign_id, method = _campaign_match(tag, attribution, matched)
+        quota = _rows('''INSERT INTO cadu_reports_flow_rate_limits (tag_id,bucket_start,event_count)
+            VALUES (%s,date_trunc('minute',NOW()),1)
+            ON CONFLICT (tag_id,bucket_start) DO UPDATE
+                SET event_count=cadu_reports_flow_rate_limits.event_count+1
+                WHERE cadu_reports_flow_rate_limits.event_count < %s
+            RETURNING event_count''', (tag['id'], MAX_TAG_EVENTS_PER_MINUTE))
+        if not quota:
+            abort(429, description='Limite temporário de eventos desta tag excedido.')
         _rows('''INSERT INTO cadu_reports_flow_events
             (organization_id,client_id,tag_id,visitor_id,session_id,event_kind,page_path,
              referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method)

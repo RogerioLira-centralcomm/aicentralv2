@@ -658,22 +658,6 @@ def _plain_multiline(value, limit=4000):
     return "\n".join(lines)[:limit].rstrip()
 
 
-def _single_sentence(value):
-    raw = str(value or "")
-    if re.search(r"(?m)^\s*(?:#{1,6}\s|[-*+]\s|\d+[.)]\s)", raw):
-        return raw.strip()
-    text = " ".join(raw.split())
-    if not text:
-        return text
-    # Keep the concise chat contract without silently dropping the rest of a
-    # useful answer: join sentence boundaries into one readable sentence.
-    parts = re.split(r"(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ0-9])", text)
-    if len(parts) == 1:
-        return text.strip()
-    joined = "; ".join(part.strip().rstrip(".!?") for part in parts if part.strip())
-    return (joined + ".").strip()
-
-
 def _fallback_artifact(answer, policy):
     title = _clean_text(policy.get("artifact_fallback_title") or "Resultado do trabalho", 300)
     sections, heading, body, intro = [], "", [], []
@@ -738,11 +722,9 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     answer = re.sub(r"(?<!\n)\s+(#{2,6}\s+)", r"\n\n\1", answer)
     if INTERNAL_PATTERN.search(answer) or ORCHESTRATOR_METADATA_PATTERN.search(answer):
         raise BadRequest("A resposta continha um diagnóstico interno.")
-    # Analysis is intentionally allowed to be multi-paragraph. Collapsing the
-    # intermediate mode to one sentence discarded requested essays, research
-    # summaries and other substantive answers.
-    if policy.get("mode") in {"direct", "decision", "clarification", "artifact_first"}:
-        answer = _single_sentence(answer)
+    # Preserve the provider's natural paragraph and sentence structure in every
+    # mode. Server-owned character/question budgets below still bound the
+    # response without flattening clarifications or artifact summaries.
     ui = {**value, **ui_payload}
     questions = [str(item).strip()[:500] for item in ui.get("questions", []) if str(item).strip()]
     questions = questions[:max(0, int(policy.get("max_questions", 1)))]

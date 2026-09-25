@@ -88,6 +88,17 @@ def _record(value):
     }
 
 
+def _account_allowlist(value):
+    if value in (None, ''):
+        return []
+    if not isinstance(value, list) or len(value) > 200:
+        abort(400, description='Informe até 200 IDs de contas Google Ads.')
+    normalized = [_google_id(item, 'ID da conta', account=True) for item in value]
+    if len(set(normalized)) != len(normalized):
+        abort(400, description='A lista contém contas duplicadas.')
+    return normalized
+
+
 def _webhook_event(value):
     allowed = {'external_event_id', 'visitor_id', 'campaign_id', 'kind', 'occurred_at',
                'value_micros', 'currency'}
@@ -147,7 +158,7 @@ def register(bp):
         selected = _selection()
         if not _ready():
             return jsonify(keys=[])
-        keys = _rows('''SELECT id,label,source_kind,created_at,last_used_at,revoked_at
+        keys = _rows('''SELECT id,label,source_kind,allowed_account_ids,bound_account_id,created_at,last_used_at,revoked_at
                 FROM cadu_reports_ingest_keys WHERE organization_id=%s AND client_id=%s
                 ORDER BY created_at DESC''', (selected['organization_id'], selected['client_id']))
         runs = _rows('''SELECT id,source_kind,status,record_count,period_start,period_end,
@@ -171,15 +182,17 @@ def register(bp):
         source_kind = payload.get('source_kind', 'google_ads_script')
         if source_kind not in ('google_ads_script', 'conversion_webhook'):
             abort(400, description='Tipo de integração inválido.')
+        allowed_accounts = _account_allowlist(payload.get('account_ids')) if source_kind == 'google_ads_script' else []
         token = secrets.token_urlsafe(32)
         key_id = str(uuid.uuid4())
         _rows('''INSERT INTO cadu_reports_ingest_keys
-                (id,organization_id,client_id,label,token_hash,source_kind,created_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                (id,organization_id,client_id,label,token_hash,source_kind,allowed_account_ids,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
                 (key_id, selected['organization_id'], selected['client_id'], label,
-                 hashlib.sha256(token.encode()).hexdigest(), source_kind, session['user_id']))
+                 hashlib.sha256(token.encode()).hexdigest(), source_kind, allowed_accounts, session['user_id']))
         get_db().commit()
-        return jsonify(id=key_id, token=token, label=label, source_kind=source_kind), 201
+        return jsonify(id=key_id, token=token, label=label, source_kind=source_kind,
+                       allowed_account_ids=allowed_accounts), 201
 
     @bp.post('/api/v1/reports/ingest-keys/<key_id>/revoke')
     @login_required_api
@@ -208,8 +221,9 @@ def register(bp):
         token = bearer[7:].strip() if bearer.startswith('Bearer ') else ''
         if not token or len(token) > 128:
             abort(401)
-        key = _rows('''SELECT id,organization_id,client_id FROM cadu_reports_ingest_keys
-                WHERE token_hash=%s AND source_kind='google_ads_script' AND revoked_at IS NULL''',
+        key = _rows('''SELECT id,organization_id,client_id,allowed_account_ids,bound_account_id
+                FROM cadu_reports_ingest_keys
+                WHERE token_hash=%s AND source_kind='google_ads_script' AND revoked_at IS NULL FOR UPDATE''',
                 (hashlib.sha256(token.encode()).hexdigest(),))
         if not key:
             abort(401)
@@ -227,6 +241,21 @@ def register(bp):
         unique = {(item['account_id'], item['campaign_id'], item['date']) for item in records}
         if len(unique) != len(records):
             abort(400, description='O lote contém campanha e data duplicadas.')
+        record_accounts = {item['account_id'] for item in records}
+        allowed_accounts = set(key['allowed_account_ids'] or [])
+        if manager_id and not allowed_accounts:
+            abort(403, description='Uma chave de MCC exige contas autorizadas neste cliente.')
+        if allowed_accounts and not record_accounts <= allowed_accounts:
+            abort(403, description='O lote contém uma conta fora da lista autorizada.')
+        if not manager_id:
+            if len(record_accounts) != 1:
+                abort(400, description='Uma instalação direta envia uma conta por lote.')
+            account_external_id = next(iter(record_accounts))
+            if key['bound_account_id'] and key['bound_account_id'] != account_external_id:
+                abort(403, description='Esta chave já está vinculada a outra conta.')
+            if not allowed_accounts and not key['bound_account_id']:
+                _rows('''UPDATE cadu_reports_ingest_keys SET bound_account_id=%s
+                    WHERE id=%s RETURNING id''', (account_external_id, key['id']))
         org, client = key['organization_id'], key['client_id']
         run_id = str(uuid.uuid4())
         inserted = _rows('''INSERT INTO cadu_reports_source_runs

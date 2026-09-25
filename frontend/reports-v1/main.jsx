@@ -330,6 +330,7 @@ function VisualConfirm({detail, data, busy, setBusy, setError, onRefresh}) {
 
 function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
   const [mapping, setMapping] = useState({});
+  const [suggestions, setSuggestions] = useState(detail.column_suggestions || null);
   const [platformHint, setPlatformHint] = useState(detail.import_file.platform_hint || '');
   const [currencyHint, setCurrencyHint] = useState('');
   const [dateOrder, setDateOrder] = useState('auto');
@@ -338,6 +339,14 @@ function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
     ['campaign_id','ID da campanha'],['campaign_name','Nome da campanha'],['date','Data'],
     ['currency','Moeda'],['impressions','Impressões'],['clicks','Cliques'],['cost','Custo'],
     ['conversions','Conversões'],['conversion_value','Valor das conversões']];
+  const suggest = async () => {
+    setBusy(true); setError('');
+    try {
+      const value = await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/suggest-columns?client_id=${data.client.client_id}`,
+        {method:'POST', headers:{'X-CSRF-Token':data.csrf}});
+      setSuggestions(value.suggestion);
+    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+  };
   const submit = async event => {
     event.preventDefault(); setBusy(true); setError('');
     try {
@@ -351,6 +360,8 @@ function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
   };
   return <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>Mapear colunas do arquivo</h2><span>{detail.headers.length} cabeçalhos detectados</span></div>
     <p>Use quando o export tiver nomes de colunas que o Reports não reconheceu. O mapa será aplicado às linhas pendentes deste arquivo; o original fica preservado.</p>
+    {data.client.role !== 'viewer' && detail.import_file.applied_count < detail.import_file.row_count && !suggestions && <button type="button" className="reports-text-button" disabled={busy} onClick={suggest}>Sugerir colunas com TypeSafe</button>}
+    {suggestions && <div className="reports-suggestion"><strong>Sugestões TypeSafe · confira antes de aplicar</strong>{suggestions.result.suggestions.length ? suggestions.result.suggestions.map((item,index) => <p key={`${item.header}:${index}`}>{item.header} → {fields.find(([key]) => key === item.field)?.[1] || 'Sem correspondência'} · confiança {Math.round(item.confidence * 100)}% {item.field !== 'none' && data.client.role !== 'viewer' && <button type="button" className="reports-text-button" onClick={() => setMapping({...mapping,[item.field]:item.header})}>Usar no formulário</button>}</p>) : <p>Nenhum cabeçalho desconhecido encontrado.</p>}{suggestions.result.omitted_count > 0 && <p>{suggestions.result.omitted_count} cabeçalhos ficaram fora da sugestão; mapeie manualmente.</p>}</div>}
     {data.client.role !== 'viewer' && detail.import_file.applied_count < detail.import_file.row_count && <form className="reports-form" onSubmit={submit}>
       <div className="reports-form-pair">{fields.map(([key,label]) => <label key={key}>{label}<select value={mapping[key] || ''} onChange={event => setMapping({...mapping,[key]:event.target.value})}><option value="">Usar leitura automática</option>{detail.headers.map(header => <option key={header} value={header}>{header}</option>)}</select></label>)}</div>
       <div className="reports-form-pair"><label>Plataforma do arquivo, se ausente<input value={platformHint} onChange={event => setPlatformHint(event.target.value)} placeholder="Ex.: Meta Ads" /></label><label>Moeda, se ausente<input maxLength="3" value={currencyHint} onChange={event => setCurrencyHint(event.target.value)} placeholder="BRL" /></label><label>Formato de data<select value={dateOrder} onChange={event => setDateOrder(event.target.value)}><option value="auto">Detectar</option><option value="dmy">Dia/mês/ano</option><option value="mdy">Mês/dia/ano</option></select></label></div>

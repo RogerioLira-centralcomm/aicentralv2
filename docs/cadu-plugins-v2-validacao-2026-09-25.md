@@ -23,3 +23,10 @@
 ## Validação operacional ainda necessária
 
 Executar A01–A12 do [guia de avaliação](cadu-plugins-v2-guia-avaliacao.md) num projeto de teste com credenciais e conectores autorizados. Registrar IDs de conversa, chamadas concluídas, URLs realmente lidas, versão do artefato, exportação `.md`, recuperação após recarregar e vínculo ao projeto. A suíte por mocks e o build não comprovam o ciclo completo em produção. A revisão React de referências inline, estado de leitura e tabelas responsivas foi concluída no commit `8dbbac95`; os 13 testes de integração frontend ainda falham no conjunto amplo de contratos da tela e precisam ser reconciliados com as mudanças paralelas.
+
+## Revisão posterior
+
+- Corrigido o Quick Scan para respeitar pedidos explícitos sem artefato e para priorizar a página lida quando busca e leitura retornam a mesma URL. Os 303 testes focados passaram.
+- Corrigida a reconciliação da resposta no frontend: quando o evento final traz só uma frase curta, o texto completo já transmitido continua visível. Build de conversas passou.
+- A suíte ampla ficou em 990 aprovados e 25 falhas. Várias falhas de stream pertencem à fachada legada que agora delega ao Workspace, mas ainda são necessárias verificações por fluxo antes de alterar esses contratos.
+- A integração frontend ficou em 36 aprovados e 12 falhas. Parte das asserções exige CSS e nomes internos antigos, inclusive fonte de 15 px, em conflito com o ajuste de tipografia para telas menores. As demais devem ser avaliadas pelo comportamento antes de mudar o produto ou os testes.

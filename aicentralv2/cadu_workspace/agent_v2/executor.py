@@ -272,6 +272,8 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             tool for tool in resolution_route.needs_tools if tool != "web.search"
         ))
     resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode)
+    if selected_plugin and selected_plugin.get("id") == "client-delivery":
+        resolved.values["project_task_status"] = summarize_tasks(resolved.values.get("projects.list_tasks"))
     if market_radar:
         brand = resolved.values.get("brands.get_context")
         if isinstance(brand, dict) and brand.get("name"):
@@ -289,28 +291,6 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 resolved.values.update({key: value for key, value in external.values.items() if key != "current_context"})
                 resolved.missing.extend(external.missing)
                 resolved.tool_calls.extend(external.tool_calls)
-                if external.missing:
-                    resolved.values["tool_status"] = {
-                        "unavailable": list(dict.fromkeys(resolved.missing)),
-    if selected_plugin and selected_plugin.get("id") == "client-delivery":
-        resolved.values["project_task_status"] = summarize_tasks(resolved.values.get("projects.list_tasks"))
-                        "message": "A busca pública focada na marca não ficou disponível nesta resposta.",
-                    }
-            else:
-                resolved.values["brand_context_status"] = "missing_brand_name"
-        else:
-            resolved.values["brand_context_status"] = "unavailable_or_not_unique"
-            route = replace(
-                route, action="clarify_plugin_context", complexity="low",
-                response_mode="clarification", needs_tools=(), artifact_type=None,
-                requires_confirmation=False,
-            )
-            policy.update({
-                "mode": "clarification", "max_questions": 1,
-                "max_next_steps": 1, "max_answer_chars": 360,
-                "artifact_type": None, "allow_artifact": False,
-            })
-            policy["action_preflight"] = {
                 radar_result = resolved.values.get("web.search")
                 if isinstance(radar_result, dict):
                     verified = relevant_read_sources(brand, radar_result)
@@ -332,6 +312,26 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                                 "Informe a lacuna e ofereça ampliar o período ou ajustar as entidades pesquisadas."
                             ),
                         })
+                if external.missing:
+                    resolved.values["tool_status"] = {
+                        "unavailable": list(dict.fromkeys(resolved.missing)),
+                        "message": "A busca pública focada na marca não ficou disponível nesta resposta.",
+                    }
+            else:
+                resolved.values["brand_context_status"] = "missing_brand_name"
+        else:
+            resolved.values["brand_context_status"] = "unavailable_or_not_unique"
+            route = replace(
+                route, action="clarify_plugin_context", complexity="low",
+                response_mode="clarification", needs_tools=(), artifact_type=None,
+                requires_confirmation=False,
+            )
+            policy.update({
+                "mode": "clarification", "max_questions": 1,
+                "max_next_steps": 1, "max_answer_chars": 360,
+                "artifact_type": None, "allow_artifact": False,
+            })
+            policy["action_preflight"] = {
                 "ready": False,
                 "reason": "Não foi possível resolver uma única marca vinculada ao projeto selecionado.",
                 "missing": ["marca única vinculada ao projeto"],

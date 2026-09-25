@@ -10,6 +10,9 @@ from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
 from aicentralv2.cadu_workspace.agent_v2.plugins import select
+from aicentralv2.cadu_workspace.agent_v2.action_executor import _validate_action_result
+from aicentralv2.cadu_workspace.mcp.registry import ToolError
+import pytest
 
 
 def test_extracted_claim_requires_a_literal_quote_in_its_source():
@@ -106,3 +109,12 @@ def test_page_review_reads_http_url_and_accepts_pasted_content(monkeypatch):
     assert plugin["id"] == "page-review"
     assert "web.read" not in tools
     assert not missing
+
+
+def test_project_operations_require_task_ids_in_write_receipt():
+    _validate_action_result("projects.create_tasks", {"created": 1, "tasks": [{"id": "task-1"}]})
+    for invalid in ({"created": 0, "tasks": []},
+                    {"created": 1, "tasks": [{}]},
+                    {"created": 2, "tasks": [{"id": "task-1"}]}):
+        with pytest.raises(ToolError):
+            _validate_action_result("projects.create_tasks", invalid)

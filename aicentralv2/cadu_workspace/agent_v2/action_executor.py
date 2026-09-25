@@ -23,6 +23,17 @@ def _normalized(value) -> str:
                     .decode("ascii").lower().split())
 
 
+def _validate_action_result(step_name: str, result: dict) -> None:
+    """Do not present a task write as completed without task identities."""
+    if step_name in {"projects.create_tasks", "projects.create_initial_task_list"}:
+        tasks = result.get("tasks")
+        created = result.get("created")
+        if (not isinstance(tasks, list) or not tasks or type(created) is not int
+                or created != len(tasks)
+                or any(not isinstance(task, dict) or not task.get("id") for task in tasks)):
+            raise ToolError("A ação não devolveu os IDs das tarefas criadas.")
+
+
 def _resolve_audit_brand(sealed: dict, context, registry) -> None:
     """Resolve an explicitly named brand without changing project/conversation context."""
     query = str(sealed.pop("_brand_query", "") or "").strip()
@@ -214,5 +225,6 @@ def execute(step: dict, context) -> dict:
     result = registry.execute(step["name"], sealed, context, "internal")
     if not isinstance(result, dict):
         raise ToolError("A ação não devolveu um receipt válido.")
+    _validate_action_result(step["name"], result)
     return {"tool": step["name"], "request_id": request_id, "result": result,
             "completion": _completion(step["name"], result)}

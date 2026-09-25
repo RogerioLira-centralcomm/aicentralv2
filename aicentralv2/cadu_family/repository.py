@@ -76,15 +76,20 @@ def entities(client_id):
     # Qualified references retain legacy IDs and avoid collisions between tables.
     items = rows('''SELECT 'ci:' || id::text AS ref, nome AS name,
                          CASE WHEN tipo = 'marca' THEN 'brand' ELSE 'project' END AS kind,
-                         'ci' AS source, NULL::text AS logo_url
-                    FROM cadu_ci_projetos WHERE id_cliente = %s AND status <> 'deletado'
+                         'ci' AS source, NULL::text AS logo_url, status
+                    FROM cadu_ci_projetos
+                   WHERE id_cliente = %s AND status <> 'deletado'
+                     AND (COALESCE(tipo, '') <> 'marca' OR LOWER(COALESCE(status, '')) NOT IN ('arquivado', 'archived'))
                   UNION ALL
-                  SELECT 'projects:' || id::text, nome, 'project', 'projects', NULL::text
+                  SELECT 'projects:' || id::text, nome, 'project', 'projects', NULL::text, NULL::text
                     FROM cadu_projetos WHERE id_cliente = %s AND deleted_at IS NULL
                   UNION ALL
                   SELECT 'studio:' || id::text, name, 'brand', 'studio',
-                         COALESCE(logo_upload_path, logo_url)
-                    FROM cx_clients WHERE crm_client_id = %s
+                         COALESCE(logo_upload_path, logo_url),
+                         CASE WHEN brand_profile->>'workspace_archived_at' IS NOT NULL THEN 'arquivado' ELSE 'ativo' END
+                    FROM cx_clients
+                   WHERE crm_client_id = %s
+                     AND COALESCE(brand_profile->>'workspace_archived_at', '') = ''
                   ORDER BY 2''', (client_id, client_id, client_id))
     for item in items:
         item['logo_url'] = public_logo(item.get('logo_url') or '')

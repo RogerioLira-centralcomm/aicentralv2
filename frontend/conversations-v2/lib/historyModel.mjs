@@ -15,7 +15,11 @@ export function restoreConversationMessages(items, makeId) {
   const messages = (Array.isArray(items) ? items : []).map(item => {
     const metadata = messageMetadata(item);
     if (item.role === 'user') {
-      if (metadata.selected_context) selectedContext = metadata.selected_context;
+      // The answer is already part of the sent message; restoring it as
+      // composer context repeats an old question in the next turn.
+      selectedContext = metadata.selected_context?.type === 'question_answers'
+        ? null
+        : metadata.selected_context || selectedContext;
       return {
         id: makeId(),
         role: 'user',

@@ -91,6 +91,18 @@ function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   </section>;
 }
 
+function omitStructuredQuestionText(text, response, blocks) {
+  const questions = [
+    ...(Array.isArray(response.questions) ? response.questions : []),
+    ...blocks.filter(block => ['question', 'questions'].includes(block.type)).flatMap(block => block.items || []),
+  ].map(item => typeof item === 'string' ? item : item?.question || item?.title || '')
+    .map(value => String(value).trim()).filter(Boolean);
+  return questions.reduce((result, question) => {
+    const escaped = question.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return result.replace(new RegExp(`(?:\\*\\*|__)?${escaped}(?:\\*\\*|__)?`, 'gi'), '');
+  }, String(text || '')).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPrompt, creditsUrl, caduMark, interactive}) {
   const copyTimer = useRef(null);
   const [messageCopyState, setMessageCopyState] = useState('idle');
@@ -104,16 +116,10 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onRevisitPro
     .replace(/\s+Próxima ação:\s*[^.]+\.?/ig, '')
     .trim();
   const blocks = meaningfulResponseBlocks(response.blocks);
-  const presentedText = formatResponseParagraphs(text);
-  const legacyQuestions = (Array.isArray(response.questions) ? response.questions : []).filter(Boolean).map((question, index) => ({
-    id: `legacy-question-${index + 1}`, question: String(question), required: true, allow_custom: true,
-  }));
+  const presentedText = formatResponseParagraphs(omitStructuredQuestionText(text, response, blocks));
   const contentBlocks = blocks.filter(block => block.type !== 'decision'
-    && !(interactive && ['question', 'questions'].includes(block.type)));
-  if (legacyQuestions.length && !contentBlocks.some(block => ['question', 'questions'].includes(block.type))) {
-    contentBlocks.push({type: 'questions', items: legacyQuestions});
-  }
-  const presentedBlocks = consolidateSources(interactive ? contentBlocks.filter(block => !['question', 'questions'].includes(block.type)) : contentBlocks, response.citations);
+    && !['question', 'questions'].includes(block.type));
+  const presentedBlocks = consolidateSources(contentBlocks, response.citations);
   useEffect(() => () => window.clearTimeout(copyTimer.current), []);
   const copyAnswer = async value => {
     try {

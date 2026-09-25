@@ -25,6 +25,7 @@ const ACCOUNT_ITEMS = [
   {id: 'perfil', label: 'Perfil', key: 'perfil', icon: 'brand'},
   {id: 'uso', label: 'Uso', key: 'uso', icon: 'pulse'},
   {id: 'creditos', label: 'Créditos', key: 'creditos', icon: 'history'},
+  {id: 'observabilidade', label: 'Observabilidade do Cadu', key: 'observability', icon: 'pulse'},
 ];
 
 function readCollapsed(mode) {

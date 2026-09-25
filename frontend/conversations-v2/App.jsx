@@ -350,10 +350,14 @@ export default function App({bootstrap}) {
       try {
         const fallback = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`);
         const recovered = restoreConversationMessages(fallback.messages, uid);
+        const restoredContext = fallback.context && typeof fallback.context === 'object'
+          ? fallback.context
+          : recovered.selectedContext;
         setConversationId(id); conversationRef.current = id;
         setTitle(conversationDisplayTitle(conversationTitle, 'Conversa'));
         setMessages(recovered.messages);
-        setComposerContext(recovered.selectedContext);
+        setComposerContext(restoredContext);
+        if (fallback.context && typeof fallback.context === 'object') setContext(fallback.context);
         if (recovered.lastArtifact) await fetchArtifact(recovered.lastArtifact);
         try {
           const active = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/active-run`);
@@ -363,7 +367,7 @@ export default function App({bootstrap}) {
         setConversationUrl(id, true);
         setRuntime('');
         trace('Conversa recuperada', 'O histórico foi aberto pelo modo de compatibilidade.');
-        await loadContext();
+        if (!fallback.context) await loadContext();
       } catch (fallbackError) {
         setRuntime('Não foi possível abrir');
         trace('Falha ao abrir conversa', fallbackError.message || error.message, 'error');

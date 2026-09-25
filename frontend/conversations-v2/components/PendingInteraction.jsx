@@ -5,7 +5,23 @@ import {meaningfulResponseBlocks} from '../lib/responseModel.mjs';
 function normalizeQuestions(items) {
   return (Array.isArray(items) ? items : []).map(item => typeof item === 'string' ? {question: item} : item)
     .filter(item => item && (item.question || item.title || item.options?.length || item.allow_custom))
-    .map((item, index) => ({...item, id: String(item.id || `question-${index + 1}`), question: String(item.question || item.title || 'Como deseja continuar?')}));
+    .map((item, index) => {
+      const question = String(item.question || item.title || 'Como deseja continuar?');
+      if (item.options?.length) return {...item, id: String(item.id || `question-${index + 1}`), question};
+      const preference = question.match(/\b(?:prefere|escolhe|opta por)\b.{0,60}?\b(?:mandar|enviar|usar|escolher)?\s*(.{2,90}?)\s+ou\s+(.{2,90}?)(?:\?|$)/i);
+      if (preference) {
+        const options = [preference[1], preference[2]].map(value => value
+          .replace(/\s+(?:que eu|que voc[eê]|para eu|pra eu|para montar|pra montar).*$/i, '')
+          .replace(/[?.!,;:]+$/, '').trim());
+        if (options.every(Boolean)) return {...item, id: String(item.id || `question-${index + 1}`), question,
+          options, allow_custom: false};
+      }
+      if (/^(?:(?:voc[eê]\s+)?quer que eu|que quer que eu|gostaria que eu|deseja que eu|posso|devo|podemos)\b/i.test(question.trim())) {
+        return {...item, id: String(item.id || `question-${index + 1}`), question,
+          options: ['Sim', 'Não'], allow_custom: false};
+      }
+      return {...item, id: String(item.id || `question-${index + 1}`), question};
+    });
 }
 
 export function pendingInteraction(messages, running) {
@@ -74,22 +90,32 @@ export function QuestionSteps({interaction, onPrompt}) {
   const [step, setStep] = React.useState(0);
   const [answers, setAnswers] = React.useState({});
   const [customAnswers, setCustomAnswers] = React.useState({});
+  const answerInput = React.useRef(null);
+  const firstOption = React.useRef(null);
+  const continueButton = React.useRef(null);
   const questions = interaction?.items || [];
+  const current = questions[Math.min(step, Math.max(0, questions.length - 1))];
+  const options = Array.isArray(current?.options) ? current.options : [];
+  const answer = String(customAnswers[current?.id] || answers[current?.id] || '').trim();
+  const allowCustom = Boolean(current) && (current.allow_custom !== false || options.length === 0);
+  const canContinue = Boolean(current) && (current.required === false || Boolean(answer));
+  React.useLayoutEffect(() => {
+    if (!current) return;
+    const target = allowCustom ? answerInput.current : firstOption.current;
+    target?.focus({preventScroll: true});
+  }, [current?.id, allowCustom]);
   if (!questions.length) return null;
-  const current = questions[Math.min(step, questions.length - 1)];
-  const options = Array.isArray(current.options) ? current.options : [];
-  const answer = String(customAnswers[current.id] || answers[current.id] || '').trim();
-  const allowCustom = current.allow_custom !== false || options.length === 0;
-  const canContinue = current.required === false || Boolean(answer);
   const saveAnswers = () => {
     const answered = questions.map(item => ({item, answer: String(customAnswers[item.id] || answers[item.id] || '').trim()}))
       .filter(({answer: value}) => value);
-    if (!answered.length) return;
+    if (!answered.length && questions.some(item => item.required !== false)) return;
     const prompt = answered.map(({item, answer: value}) => /(?:renome|mudar|alterar|trocar).{0,45}nome|novo nome.{0,45}projeto/i.test(item.question)
       ? `Renomeie o projeto para “${value}”.` : `${item.question}: ${value}`).join('\n');
-    onPrompt(prompt, {
+    onPrompt(prompt || 'Continue o pedido original sem informações adicionais.', {
       type: 'question_answers', label: interaction.question || 'Respostas às perguntas',
-      text: answered.map(({item, answer: value}) => `${item.question}: ${value}`).join('\n'),
+      text: answered.length
+        ? answered.map(({item, answer: value}) => `${item.question}: ${value}`).join('\n')
+        : 'Todas as perguntas opcionais foram ignoradas.',
       answers: answered.map(({item, answer: value}) => ({id: item.id, question: item.question, answer: value})),
     }, {submit: true});
   };
@@ -100,8 +126,8 @@ export function QuestionSteps({interaction, onPrompt}) {
   };
   return <section className="cv-question-steps" aria-label="Pergunta aguardando sua resposta" aria-live="polite">
     <header className="cv-question-steps__header">
-      <span className="cv-question-steps__status"><Icon name="alert" size={14}/>Precisa da sua resposta</span>
-      <span className="cv-question-steps__progress">Etapa {step + 1} de {questions.length}</span>
+      <span className="cv-question-steps__status">Sua resposta</span>
+      {questions.length > 1 && <span className="cv-question-steps__progress">Etapa {step + 1} de {questions.length}</span>}
     </header>
     {interaction.question && questions.length > 1 && <p className="cv-question-steps__title">{interaction.question}</p>}
     <fieldset className="cv-question-steps__field">
@@ -110,19 +136,21 @@ export function QuestionSteps({interaction, onPrompt}) {
         const value = String(typeof option === 'string' ? option : option.value ?? option.label ?? option.title ?? '');
         const label = typeof option === 'string' ? option : option.label || option.title || value;
         const selected = !customAnswers[current.id] && answers[current.id] === value;
-        return <button key={option.id || index} type="button" aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => {
+        return <button key={option.id || index} ref={index === 0 ? firstOption : null} type="button" aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => {
           setAnswers(state => ({...state, [current.id]: value}));
           setCustomAnswers(state => ({...state, [current.id]: ''}));
+          window.requestAnimationFrame(() => continueButton.current?.focus({preventScroll: true}));
         }}>{label}</button>;
       })}</div>}
-      {allowCustom && <input aria-label={`Sua resposta para: ${current.question}`} value={customAnswers[current.id] || ''}
+      {allowCustom && <input ref={answerInput} aria-label={`Sua resposta para: ${current.question}`} value={customAnswers[current.id] || ''}
         onChange={event => setCustomAnswers(state => ({...state, [current.id]: event.target.value}))}
+        onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && canContinue) { event.preventDefault(); continueStep(); } }}
         placeholder={current.custom_placeholder || (options.length ? 'Ou escreva outra resposta…' : 'Escreva sua resposta…')}/>}
     </fieldset>
     <footer className="cv-question-steps__footer">
       {step > 0 && <button type="button" className="is-back" onClick={() => setStep(value => Math.max(0, value - 1))}>Voltar</button>}
       {current.required === false && <button type="button" className="is-back" onClick={() => { if (step < questions.length - 1) setStep(value => value + 1); else saveAnswers(); }}>Pular</button>}
-      <button type="button" className="is-primary" disabled={!canContinue} onClick={continueStep}>{step < questions.length - 1 ? 'Próxima' : 'Responder e continuar'}</button>
+      <button ref={continueButton} type="button" className="is-primary" disabled={!canContinue} onClick={continueStep}>{step < questions.length - 1 ? 'Próxima pergunta' : 'Continuar'}</button>
     </footer>
   </section>;
 }

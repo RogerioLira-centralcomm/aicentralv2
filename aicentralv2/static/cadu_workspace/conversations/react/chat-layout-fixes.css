@@ -63,7 +63,18 @@ body.portal--workspace #cadu-conversations-v2-root.cv-home-root .cadu-ds-home-wo
   flex-basis: min(var(--cadu-sidebar-width, 264px), 274px);
   width: min(var(--cadu-sidebar-width, 264px), 274px);
   min-width: min(var(--cadu-sidebar-width, 264px), 274px);
+  border-right: 0;
 }
+
+/* Keep the workspace tree compact and readable at the sidebar's actual width. */
+#cadu-conversations-v2-root .cv-project-tree__item { margin: 0; }
+#cadu-conversations-v2-root .cv-project-tree__trigger { min-height: 28px; border-radius: 0; line-height: 18px; }
+#cadu-conversations-v2-root .cv-project-tree__children { margin: 0 0 3px 16px; padding: 0 0 0 10px; border: 0; }
+#cadu-conversations-v2-root .cv-brand-tree__item .cv-project-tree__trigger { min-height: 27px; }
+#cadu-conversations-v2-root .cv-brand-tree__project > .cv-project-tree__trigger { min-height: 26px; }
+#cadu-conversations-v2-root .cv-project-tree__children .cv-conversation-row .cv-conversation-card { min-height: 25px !important; height: 25px !important; padding-left: 7px !important; }
+#cadu-conversations-v2-root .cv-project-tree__children small { padding-top: 2px; padding-bottom: 2px; }
+#cadu-conversations-v2-root .cv-personal-recent__toggle { padding-top: 1px; padding-bottom: 2px; border-radius: 0; }
 
 /* Keep the public home controls at the same visual weight. */
 #cadu-conversations-v2-root .cadu-ds-home-chat-shell .cv-composer-submit-group > details > summary {

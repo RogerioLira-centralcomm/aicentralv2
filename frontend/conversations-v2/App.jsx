@@ -10,7 +10,7 @@ import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult, normalizeAnswerText, reconcileCompletedResponse} from './lib/responseModel.mjs';
-import {attachmentIssues, attachmentSubmissionMessage, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
+import {attachmentIssues, attachmentSubmissionMessage, createLongTextAttachment, createStagedAttachment, LONG_TEXT_ATTACHMENT_THRESHOLD, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
 import {recentConversations, restoreConversationMessages, restorePendingActions} from './lib/historyModel.mjs';
 import {conversationDisplayTitle} from './lib/conversationPresentation.mjs';
 import {brandContextPayload, conversationPayload, mergeServerEntities, projectContextPayload} from './lib/contextModel.mjs';
@@ -626,12 +626,24 @@ export default function App({bootstrap}) {
   }), [attachments, context.project_ref, bootstrap.endpoints.uploads]);
 
   const submit = useCallback(async (requestedInput = input, {skipAttachments = false, fromQueue = false, queuedContext = null, queuedMode = null, selectedContext = null, attachmentDestination = '', skipAttachmentChoice = false} = {}) => {
-    if (!skipAttachmentChoice && !skipAttachments && !(running && !fromQueue) && context.project_ref && attachments.some(item => !item.destination || item.destination === 'conversation') && !attachmentDestination) {
-      setAttachmentChoice({input:requestedInput, options:{fromQueue, queuedContext, queuedMode, selectedContext}});
+    let messageInput = String(requestedInput || '');
+    let generatedTextAttachment = null;
+    if (!skipAttachments && !running && !fromQueue && attachments.length < MAX_ATTACHMENTS
+        && messageInput.trim().length >= LONG_TEXT_ATTACHMENT_THRESHOLD) {
+      generatedTextAttachment = createStagedAttachment(createLongTextAttachment(messageInput.trim(), 'digitado'), 'conversation');
+      const pluginCommand = messageInput.trim().match(/^\/[a-z0-9][a-z0-9-]*/i)?.[0];
+      messageInput = `${pluginCommand ? `${pluginCommand} ` : ''}Analise o texto anexado e siga as instruções dele.`;
+      setInput(messageInput);
+      setAttachments(current => current.length < MAX_ATTACHMENTS ? [...current, generatedTextAttachment] : current);
+    }
+    const pendingAttachments = generatedTextAttachment ? [...attachments, generatedTextAttachment] : attachments;
+    const needsDestinationChoice = pendingAttachments.some(item => !item.autoLongText && (!item.destination || item.destination === 'conversation'));
+    if (!skipAttachmentChoice && !skipAttachments && !(running && !fromQueue) && context.project_ref && needsDestinationChoice && !attachmentDestination) {
+      setAttachmentChoice({input:messageInput, options:{fromQueue, queuedContext, queuedMode, selectedContext}});
       return;
     }
-    const turnAttachments = skipAttachments ? [] : attachmentDestination ? attachments.map(item => ({...item, destination:attachmentDestination})) : attachments;
-    const clean = requestedInput.trim() || attachmentSubmissionMessage(turnAttachments);
+    const turnAttachments = skipAttachments ? [] : attachmentDestination ? pendingAttachments.map(item => ({...item, destination:item.autoLongText ? 'conversation' : attachmentDestination})) : pendingAttachments;
+    const clean = messageInput.trim() || attachmentSubmissionMessage(turnAttachments);
     if (!clean) return;
     if (!fromQueue && !turnAttachments.length && !running) {
       const googleIntent = /\b(?:conect\w*|autoriz\w*)\b.{0,60}\bgoogle\b|\bgoogle\b.{0,60}\b(?:conect\w*|autoriz\w*)\b/i.test(clean) ? 'google-connect'
@@ -919,13 +931,15 @@ export default function App({bootstrap}) {
               setArtifact(draft); artifactRef.current = draft; setPublishedUrl(''); setArtifactOpen(true);
             }
           }
-          setMessages(items => {
-            const existing = items.findIndex(item => item.turnId === turnId && item.streaming);
-            const safeResponse = reconcileCompletedResponse(existing >= 0 ? items[existing].response : null, responseData, Boolean(latestArtifact?.id || responseData.artifact_patch));
-            const completed = {id: existing >= 0 ? items[existing].id : uid(), turnId, role: 'assistant', response: safeResponse, artifact: latestArtifact};
-            return existing >= 0 ? items.map((item, index) => index === existing ? completed : item) : [...items, completed];
-          });
-          trace('Resposta concluída', responseData.confidence || '');
+          if (!longJobPromise) {
+            setMessages(items => {
+              const existing = items.findIndex(item => item.turnId === turnId && item.streaming);
+              const safeResponse = reconcileCompletedResponse(existing >= 0 ? items[existing].response : null, responseData, Boolean(latestArtifact?.id || responseData.artifact_patch));
+              const completed = {id: existing >= 0 ? items[existing].id : uid(), turnId, role: 'assistant', response: safeResponse, artifact: latestArtifact};
+              return existing >= 0 ? items.map((item, index) => index === existing ? completed : item) : [...items, completed];
+            });
+            trace('Resposta concluída', responseData.confidence || '');
+          }
         } else if (kind === 'run.failed') {
           failPendingArtifact(event.message);
           terminal = true; setRuntime('Não foi possível concluir'); trace('Execução interrompida', event.message || '', 'error');

@@ -851,7 +851,8 @@ def prepare(data):
     execution = prepare_execution(message, current, built_context.history, requested_mode,
                                   conversation_state=built_context.state,
                                   routing_message=built_context.routing_message,
-                                  defer_market_insights=True)
+                                  defer_market_insights=True,
+                                  has_report_attachment=any(row.get("kind") == "document" for row in uploads))
     if uploads:
         execution["provider_payload"]["files"] = [
             {"type": row["kind"], "transfer_method": "local_file", "upload_file_id": row["provider_id"]}

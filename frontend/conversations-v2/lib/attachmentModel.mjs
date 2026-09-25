@@ -1,5 +1,6 @@
 export const MAX_ATTACHMENTS = 3;
 export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+export const LONG_TEXT_ATTACHMENT_THRESHOLD = 6000;
 
 const acceptedExtension = /\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json|docx|xlsx|pptx)$/i;
 
@@ -21,11 +22,21 @@ export function validateAttachment(file) {
   return null;
 }
 
+export function createLongTextAttachment(text, source = 'colado') {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const file = new File([String(text || '')], `texto-${source}-${stamp}.txt`, {
+    type: 'text/plain', lastModified: Date.now(),
+  });
+  file.autoLongText = true;
+  return file;
+}
+
 export function createStagedAttachment(file, destination, previewUrl = '') {
   return {
     localId: crypto.randomUUID(),
     name: file.name,
     file,
+    autoLongText: Boolean(file?.autoLongText),
     previewUrl,
     id: null,
     source: null,

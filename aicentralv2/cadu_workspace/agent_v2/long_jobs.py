@@ -18,7 +18,7 @@ KINDS = {"deep_research", "long_document", "multi_source_analysis", "artifact_re
 UNIT_KINDS = {"discover", "extract", "classify", "summarize", "synthesize", "compose", "review", "render"}
 
 
-def spec_for_message(message: str) -> LongJobSpec | None:
+def spec_for_message(message: str, *, has_attachments: bool = False) -> LongJobSpec | None:
     """Route only explicit substantial deliverables; ordinary chat remains synchronous."""
     text = " ".join(str(message or "").lower().split())
     if not text or re.search(r"\bn[aã]o\s+(?:crie|abra|gere)\s+(?:um\s+)?artefato\b", text):
@@ -28,6 +28,10 @@ def spec_for_message(message: str) -> LongJobSpec | None:
     source_match = re.search(r"(?:até|de|com|menos)\s+(\d{1,2})\s+fontes", text)
     asks_research = any(term in text for term in ("pesquise", "pesquisa", "fontes", "internet", "web"))
     asks_artifact = "artefato" in text or "documento editável" in text or "documento editavel" in text
+    # An uploaded report is normally an input to a chat analysis, not a request
+    # to create a background document just because it is called "completo".
+    if has_attachments and not asks_artifact and word_count < 1200:
+        return None
     explicit_long = any(term in text for term in (
         "pesquisa profunda", "relatório completo", "relatorio completo", "guia completo",
         "documento completo", "documento extenso", "análise aprofundada", "analise aprofundada", "trabalho longo",
@@ -83,10 +87,18 @@ def default_units(spec: LongJobSpec) -> list[dict]:
 
 
 def create(context: RequestContext, conversation_id: str, spec: LongJobSpec, *, run_id=None,
-           artifact_id=None, idempotency_key="") -> dict:
+           artifact_id=None, idempotency_key="", input_files=None) -> dict:
     spec = spec.validated()
     job_id = str(uuid4())
     units = default_units(spec)
+    files = []
+    for item in (input_files or [])[:3]:
+        if not isinstance(item, dict) or item.get("type") not in {"document", "image"}:
+            continue
+        upload_file_id = str(item.get("upload_file_id") or "").strip()
+        if upload_file_id:
+            files.append({"type": item["type"], "transfer_method": "local_file",
+                          "upload_file_id": upload_file_id[:200]})
     connection = repository.get_db()
     try:
         with connection.cursor() as cursor:
@@ -105,7 +117,8 @@ def create(context: RequestContext, conversation_id: str, spec: LongJobSpec, *, 
                 for unit in units:
                     cursor.execute("""INSERT INTO cadu_agent_long_job_units
                         (id,job_id,position,kind,status,input_snapshot) VALUES (%s,%s,%s,%s,'queued',%s)""",
-                        (str(uuid4()), job_id, unit["position"], unit["kind"], Json({"objective": spec.objective})))
+                        (str(uuid4()), job_id, unit["position"], unit["kind"],
+                         Json({"objective": spec.objective, "files": files})))
         connection.commit()
     except Exception:
         connection.rollback()

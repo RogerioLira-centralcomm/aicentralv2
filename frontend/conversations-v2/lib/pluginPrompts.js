@@ -10,7 +10,7 @@ const prompts = {
   'audience-map': '/audience-map Mapeie segmentos de público e canais para a marca deste projeto.',
   'investment-simulator': '/investment-simulator Proponha cenários de verba para este projeto; use percentuais se não houver valor definido.',
   'media-plan-audit': '/media-plan-audit Revise o plano de mídia deste projeto e priorize os ajustes.',
-  'campaign-tracker': '/campaign-tracker Leia os relatórios revisados deste projeto e indique os próximos passos.',
+  'campaign-tracker': '/campaign-tracker Analise o relatório que anexei, extraia os resultados e indique os próximos passos prioritários.',
   'creative-concept': '/creative-concept Proponha um conceito criativo para a marca deste projeto.',
   'channel-copy': '/channel-copy Escreva variações de texto para os canais desta campanha.',
   'page-review': '/page-review Revise a página que vou indicar e priorize melhorias.',

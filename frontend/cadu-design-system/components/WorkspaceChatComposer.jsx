@@ -4,6 +4,7 @@ import {ProjectSelector} from './WorkspaceSelectors';
 import {pluginPrompt} from '../../conversations-v2/lib/pluginPrompts';
 import {composerReducer, composerState} from '../lib/composerState.mjs';
 import {request} from '../../conversations-v2/lib/api';
+import {createLongTextAttachment, LONG_TEXT_ATTACHMENT_THRESHOLD, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES} from '../../conversations-v2/lib/attachmentModel.mjs';
 
 const MODE_OPTIONS = [
   {id: 'fast', label: 'Rápido', detail: 'Resposta direta'},
@@ -59,6 +60,7 @@ export function WorkspaceChatComposer({
   value = '', onChange, onSubmit, attachments = [], onRemoveAttachment, hasProject = false,
   executionMode = 'analysis', onExecutionModeChange, running = false, onStop,
   composerContext, onClearContext, onContextDrop, onOpenLink, onAttach, allowQueue = false, queuedCount = 0, embedded = false, homeMode = false,
+  longTextAsAttachment = false,
   projects = [], projectRef = '', onProjectChange, showProjectSelector = true,
   layout = 'desktop', disabled = false, onStateChange, audioTranscriptionEndpoint = '', csrfToken = '',
 }) {
@@ -121,6 +123,19 @@ export function WorkspaceChatComposer({
     const files = Array.from(event.target.files || []);
     if (files.length) onAttach?.(files);
     event.target.value = '';
+  };
+  const handlePaste = event => {
+    const text = event.clipboardData?.getData('text/plain') || '';
+    if (!longTextAsAttachment || text.trim().length < LONG_TEXT_ATTACHMENT_THRESHOLD || attachments.length >= MAX_ATTACHMENTS) return;
+    const file = createLongTextAttachment(text, 'colado');
+    if (file.size > MAX_ATTACHMENT_BYTES) return;
+    event.preventDefault();
+    onAttach?.([file]);
+    if (!String(value || '').trim()) {
+      const prompt = 'Analise o texto anexado e siga as instruções dele.';
+      onChange?.(prompt);
+      dispatchComposer({type: 'change', hasValue: true, focused: focused.current});
+    }
   };
   useEffect(() => { latestValueRef.current = value; }, [value]);
   const combineVoiceText = transcript => [voiceBaseRef.current, String(transcript || '').trim()].filter(Boolean).join(voiceBaseRef.current ? ' ' : '');
@@ -276,8 +291,8 @@ export function WorkspaceChatComposer({
   return <div className={`${stageClass}${contextActive ? ' is-context-drop' : ''}`} data-composer-state={machine.status} onDragEnter={event => { event.preventDefault(); setContextActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setContextActive(false); }} onDrop={handleDrop}>
     <form onSubmit={submitComposer} className={`${shellClass} cv-pointer-events-auto cv-mx-auto cv-w-full ${embedded ? '' : 'cv-max-w-[760px]'}`}>
       {!!composerContext && <div className="cv-flex cv-items-center cv-gap-2 cv-px-3 cv-py-2"><span className="cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[11px] cv-text-[#8fbab4]">↳ {composerContext.label}: “{composerContext.text}”</span><button type="button" onClick={onClearContext} className="cv-grid cv-h-5 cv-w-5 cv-place-items-center cv-rounded cv-border-0 cv-bg-transparent cv-text-[#78918d] hover:cv-bg-white/[.06] hover:cv-text-white" aria-label="Remover contexto">×</button></div>}
-      {!!attachments.length && <div className="cv-attachment-list">{attachments.map((item, index) => { const state = item.error ? 'Não foi possível anexar' : item.uploading ? 'Enviando' : 'Pronto para enviar'; return <span key={item.localId || `${item.name}-${index}`} className={`cv-attachment-chip ${item.previewUrl ? 'is-image' : 'is-file'} ${item.error ? 'has-error' : ''}`} aria-label={`${item.name}. ${state}.`} title={item.name}><span className="cv-attachment-preview">{item.previewUrl ? <img src={item.previewUrl} alt="" className="cv-attachment-thumb"/> : <Icon name="file" size={19}/>}</span><button type="button" disabled={item.uploading} onClick={() => onRemoveAttachment?.(index)} className="cv-attachment-remove" aria-label={`Remover ${item.name}`}>×</button></span>; })}</div>}
-      <textarea ref={textarea} value={value} disabled={disabled} onFocus={() => { focused.current = true; dispatchComposer({type: 'focus', hasValue: Boolean(value.trim())}); }} onBlur={() => { focused.current = false; dispatchComposer({type: 'blur'}); }} onChange={event => { onChange?.(event.target.value); dispatchComposer({type: 'change', hasValue: Boolean(event.target.value.trim()), focused: focused.current}); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { if (slashQuery !== null && slashPlugins.length) { event.preventDefault(); choosePlugin(slashPlugins[0]); return; } event.preventDefault(); event.currentTarget.form?.requestSubmit(); } if (event.key === 'Escape' && slashQuery !== null) onChange?.(''); }} rows="1" maxLength="20000" enterKeyHint="send" autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck placeholder={composerContext?.type === 'question' ? 'Digite sua resposta…' : 'Pergunte ao Cadu…'} aria-label={composerContext?.type === 'question' ? `Resposta para: ${composerContext.text}` : 'Mensagem para o Cadu'} className="cv-composer-input cv-block cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
+      {!!attachments.length && <div className="cv-attachment-list">{attachments.map((item, index) => { const state = item.error ? 'Não foi possível anexar' : item.uploading ? 'Enviando' : 'Pronto para enviar'; const detail = item.error ? 'Falha no anexo' : item.uploading ? 'Enviando' : item.autoLongText ? `Texto · ${Math.max(1, Math.round((item.file?.size || 0) / 1024))} KB` : 'Arquivo anexado'; return <span key={item.localId || `${item.name}-${index}`} className={`cv-attachment-chip ${item.previewUrl ? 'is-image' : 'is-file'} ${item.error ? 'has-error' : ''}`} aria-label={`${item.name}. ${state}.`} title={item.name}><span className="cv-attachment-preview">{item.previewUrl ? <img src={item.previewUrl} alt="" className="cv-attachment-thumb"/> : <Icon name="file" size={19}/>}</span>{!item.previewUrl && <span className="cv-attachment-copy"><b>{item.name}</b><small>{detail}</small></span>}<button type="button" disabled={item.uploading} onClick={() => onRemoveAttachment?.(index)} className="cv-attachment-remove" aria-label={`Remover ${item.name}`}>×</button></span>; })}</div>}
+      <textarea ref={textarea} value={value} disabled={disabled} onPaste={handlePaste} onFocus={() => { focused.current = true; dispatchComposer({type: 'focus', hasValue: Boolean(value.trim())}); }} onBlur={() => { focused.current = false; dispatchComposer({type: 'blur'}); }} onChange={event => { onChange?.(event.target.value); dispatchComposer({type: 'change', hasValue: Boolean(event.target.value.trim()), focused: focused.current}); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { if (slashQuery !== null && slashPlugins.length) { event.preventDefault(); choosePlugin(slashPlugins[0]); return; } event.preventDefault(); event.currentTarget.form?.requestSubmit(); } if (event.key === 'Escape' && slashQuery !== null) onChange?.(''); }} rows="1" maxLength="20000" enterKeyHint="send" autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck placeholder={composerContext?.type === 'question' ? 'Digite sua resposta…' : 'Pergunte ao Cadu…'} aria-label={composerContext?.type === 'question' ? `Resposta para: ${composerContext.text}` : 'Mensagem para o Cadu'} className="cv-composer-input cv-block cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
       {slashQuery !== null && <div className="cv-plugin-slash" role="listbox" aria-label="Plugins disponíveis">
         <div className="cv-plugin-slash__header"><b>Plugins</b><span>Digite para filtrar · Enter escolhe o primeiro</span></div>
         {pluginsLoading ? <p>Carregando plugins…</p> : pluginsError ? <p role="alert">{pluginsError}</p> : slashPlugins.length ? slashPlugins.map(plugin => <button key={plugin.id} type="button" role="option" aria-selected="false" onMouseDown={event => event.preventDefault()} onClick={() => choosePlugin(plugin)}>

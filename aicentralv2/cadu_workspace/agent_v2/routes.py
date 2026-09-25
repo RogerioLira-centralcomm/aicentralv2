@@ -619,12 +619,16 @@ def conversation_message():
             headers={"Cache-Control": "no-cache, no-store", "X-Accel-Buffering": "no"},
         )
     run = prepare_message(payload)
-    spec = long_jobs.spec_for_message(run.get("message") or payload.get("message"))
+    spec = long_jobs.spec_for_message(
+        run.get("message") or payload.get("message"),
+        has_attachments=bool((run.get("provider_payload") or {}).get("files")),
+    )
     if spec:
         try:
             job = long_jobs.create(
                 run["context"], run["conversation_id"], spec, run_id=run["run_id"],
                 idempotency_key=f"conversation:{run['run_id']}",
+                input_files=(run.get("provider_payload") or {}).get("files") or [],
             )
         except Exception:
             connection = repository.get_db()

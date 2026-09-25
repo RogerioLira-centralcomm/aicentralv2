@@ -37,7 +37,7 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
 
 
 def prepare_execution(message, request, history="", requested_mode="", conversation_state=None, routing_message=None,
-                      defer_market_insights=False):
+                      defer_market_insights=False, has_report_attachment=False):
     routed_message = routing_message or message
     explicit_plugin = re.match(r"^/([a-z][a-z-]+)(?:\s|$)", str(message).strip())
     if explicit_plugin and explicit_plugin.group(1) in plugins.WORKFLOWS:
@@ -74,7 +74,12 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
     elif (planning_request and route.action == "create_substantial_delivery"
           and not re.search(r"\b(?:documento|arquivo|artefato|edit[aá]vel)\b", message, re.IGNORECASE)):
         route = replace(route, action="plan_campaign", response_mode="analysis", artifact_type=None)
-    selected_plugin, plugin_tools, plugin_missing = plugins.select(route, message, request)
+    plugin_message = message
+    if has_report_attachment and re.search(r"\b(?:campanh\w*|relat[oó]ri\w*|resultad\w*)\b", message, re.I):
+        plugin_message = "/campaign-tracker " + message
+    selected_plugin, plugin_tools, plugin_missing = plugins.select(
+        route, plugin_message, request, has_report_attachment=has_report_attachment,
+    )
     if selected_plugin and selected_plugin.get("unavailable"):
         route = replace(route, action="plugin_unavailable", complexity="low", response_mode="direct",
                         needs_tools=(), artifact_type=None, requires_confirmation=False)

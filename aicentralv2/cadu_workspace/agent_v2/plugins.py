@@ -75,7 +75,7 @@ def _execution_tools(plugin_id: str) -> tuple[str, ...]:
     }.get(plugin_id, ())
 
 
-def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[dict | None, tuple[str, ...], list[str]]:
+def select(route: IntentRoute, message: str, context: RequestContext, *, has_report_attachment: bool = False) -> tuple[dict | None, tuple[str, ...], list[str]]:
     """Select one workflow and its minimal MCP chain for this turn."""
     # A newsletter request needs a wider, explicitly requested set of news
     # sources than the compact market-insights workflow returns.
@@ -107,9 +107,11 @@ def select(route: IntentRoute, message: str, context: RequestContext) -> tuple[d
         if plugin_id == "media-plan-audit":
             tool_chain = (("planner.get_media_plan",) if context.active_object and context.active_object.type in {"plan", "media_plan"}
                           else ("planner.list_plans",) if context.project_ref and not has_material else ())
-        if plugin_id == "campaign-tracker" and context.active_object and context.active_object.type in {"report", "report_workspace"}:
-            tool_chain = ("reports.get_report_metrics",)
-        if plugin_id == "campaign-tracker" and not context.project_ref and not context.active_object:
+        if plugin_id == "campaign-tracker":
+            # Campaign reporting is still being built. This plugin currently
+            # analyzes the supplied file and does not couple to Reports tools.
+            tool_chain = ()
+        if plugin_id == "campaign-tracker" and not context.project_ref and not context.active_object and not has_report_attachment:
             tool_chain = ()
             if not (_SUPPLIED_DATA.search(text) and re.search(r"\d", text)):
                 missing.append("relatório revisado, métricas ou projeto da campanha")

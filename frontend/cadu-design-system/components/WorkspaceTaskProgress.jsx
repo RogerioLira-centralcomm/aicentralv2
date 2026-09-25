@@ -10,7 +10,6 @@ function statusFromActivity(runtime, diagnostics) {
 
 export function WorkspaceTaskProgress({running = false, runtime = '', diagnostics = [], plugin = null, caduMark = ''}) {
   const status = useMemo(() => statusFromActivity(runtime, diagnostics), [runtime, diagnostics]);
-  const recent = useMemo(() => (diagnostics || []).filter(item => item?.title && item.tone !== 'error').slice(-3), [diagnostics]);
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!running) return undefined;
@@ -29,8 +28,7 @@ export function WorkspaceTaskProgress({running = false, runtime = '', diagnostic
         <span className="cadu-ds-task-progress__spark" aria-hidden="true"/>
         <span key={status} className="cadu-ds-task-progress__text">{status}</span>
       </div>
-      {elapsed >= 4 && <small aria-hidden="true">{elapsed}s</small>}
+      {elapsed >= 60 && <small aria-hidden="true">{Math.floor(elapsed / 60)} min</small>}
     </div>
-    {recent.length > 1 && <details className="cadu-ds-task-progress__history"><summary>Atividade recente</summary><ul>{recent.map(item => <li key={item.id || `${item.title}-${item.detail || ''}`}>{item.title}</li>)}</ul></details>}
   </div>;
 }

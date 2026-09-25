@@ -111,7 +111,8 @@ def _payload(job: dict, unit: dict, context: RequestContext) -> dict:
     inputs.update({"skill_context": inputs["core"], "projeto_context": inputs["evidence"],
                    "files_context": "", "user_memory_context": "", "user_profile_context": inputs["current_context"],
                    "is_first_message": "false"})
-    return {"query": request, "user": f"user-{context.user_id}", "inputs": inputs, "response_mode": "streaming"}
+    return {"query": request, "user": f"user-{context.user_id}", "inputs": inputs,
+            "files": unit.get("input_snapshot", {}).get("files") or [], "response_mode": "streaming"}
 
 
 def _generate(job: dict, unit: dict, context: RequestContext) -> tuple[str, dict]:

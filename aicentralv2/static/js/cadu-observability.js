@@ -39,6 +39,9 @@
         ['Memória', data.diagnostics?.memory_present ? `v${data.diagnostics.memory_version || '?'} · até ${data.diagnostics.memory_covers_through || 0}` : 'Não utilizada'],
         ['Mensagens recuperadas', data.diagnostics?.retrieved_message_count],
         ['Referência resolvida', data.diagnostics?.resolved_reference],
+        ['Busca enviada ao modelo', (data.payload_diagnostics?.project_evidence_tools || []).join(', ') || 'Nenhuma'],
+        ['Evidência compactada', data.payload_diagnostics?.evidence_truncated ? 'Sim' : 'Não'],
+        ['Tamanho da evidência', data.payload_diagnostics?.evidence_chars],
       ]);
       addFacts('Rollout', Object.entries(data.rollout || {}).map(([name, enabled]) => [name, enabled ? 'Ativo' : 'Legado']));
       addFacts('Tools', (data.tools || []).length ? data.tools.map(tool => [tool.tool_name, `${tool.status}${tool.duration_ms != null ? ` · ${tool.duration_ms} ms` : ''}${tool.error_code ? ` · ${tool.error_code}` : ''}`]) : [['Chamadas', 0]]);

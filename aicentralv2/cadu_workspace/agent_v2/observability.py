@@ -7,14 +7,25 @@ _SAFE_EVENT_FIELDS = {
     "status", "code", "conversation_id", "message_id", "message_terminal_state",
     "execution_mode", "runtime_id", "provider_config_version", "first_token_ms",
     "total_duration_ms", "name", "tool_name", "step_id", "artifact_id", "type",
-    "context_diagnostics", "rollout", "budget", "finish_reason",
+    "context_diagnostics", "payload_diagnostics", "rollout", "budget", "finish_reason",
 }
+
+_SAFE_PAYLOAD_DIAGNOSTICS = {
+    "project_bound", "project_ref_in_current_context", "project_evidence_tools",
+    "evidence_truncated", "evidence_chars",
+}
+
+
+def _safe_payload_diagnostics(value: dict | None) -> dict:
+    return {key: value[key] for key in _SAFE_PAYLOAD_DIAGNOSTICS if key in value} if isinstance(value, dict) else {}
 
 
 def _safe_event(event: dict) -> dict:
     """Remove prose, prompts and provider output from the technical endpoint."""
     payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
     safe_payload = {key: payload[key] for key in _SAFE_EVENT_FIELDS if key in payload}
+    if "payload_diagnostics" in safe_payload:
+        safe_payload["payload_diagnostics"] = _safe_payload_diagnostics(safe_payload["payload_diagnostics"])
     return {**event, "payload": safe_payload}
 
 
@@ -50,6 +61,19 @@ def dashboard(client_id: int, limit=60) -> dict:
            AND created_at >= NOW()-INTERVAL '30 days'
            AND response_policy->'plugin'->>'id' IS NOT NULL
          GROUP BY response_policy->'plugin'->>'id' ORDER BY turns DESC""", (client_id,))
+        project_retrieval = repository.rows("""SELECT COUNT(*) AS project_questions,
+             COUNT(*) FILTER (WHERE NOT EXISTS (
+                 SELECT 1 FROM cadu_agent_tool_calls tool
+                  WHERE tool.run_id=run.id
+                    AND tool.tool_name IN ('workspace.search_project_content','workspace.get_project_context')
+                    AND tool.status='completed'
+             )) AS without_project_evidence
+          FROM cadu_family_chat_runs run
+         WHERE run.client_id=%s AND run.runtime_version='v2' AND run.status='completed'
+           AND run.created_at >= NOW()-INTERVAL '7 days'
+           AND run.request_context->>'project_ref' IS NOT NULL
+           AND run.route->>'action' IN ('describe_project','project_readout','search_project')""",
+                                            (client_id,))[0]
         runs = repository.rows("""SELECT run.id::text, run.conversation_id, run.status, run.execution_mode,
              run.runtime_id, run.provider_config_version,
              run.route, run.first_token_ms, run.total_duration_ms, run.provider_duration_ms,
@@ -91,6 +115,9 @@ def dashboard(client_id: int, limit=60) -> dict:
         if int(memory_queue.get("pending_old") or 0):
             alerts.append({"severity": "high", "code": "memory_jobs_queued",
                            "message": f"{memory_queue['pending_old']} atualizações de memória aguardam há mais de 10 minutos."})
+        if int(project_retrieval.get("without_project_evidence") or 0):
+            alerts.append({"severity": "high", "code": "project_answers_without_evidence",
+                           "message": f"{project_retrieval['without_project_evidence']} respostas sobre projetos saíram sem consulta concluída nos últimos 7 dias."})
         if int(queue.get("stalled") or 0):
             alerts.append({"severity": "medium", "code": "resource_jobs_stalled",
                            "message": f"{queue['stalled']} reconciliações estão em execução há mais de 10 minutos."})
@@ -103,7 +130,8 @@ def dashboard(client_id: int, limit=60) -> dict:
             alerts.append({"severity": "medium", "code": "html_generation_invalid",
                            "message": f"{invalid_html + truncated_html} gerações HTML inválidas nos últimos 30 dias ({truncated_html} truncadas)."})
         return {"available": True, "summary": summary, "modes": modes, "plugin_metrics": plugin_metrics, "runs": runs,
-                "resource_queue": queue, "memory_queue": memory_queue, "alerts": alerts}
+                "resource_queue": queue, "memory_queue": memory_queue,
+                "project_retrieval": project_retrieval, "alerts": alerts}
     except Exception:
         try:
             repository.get_db().rollback()
@@ -166,6 +194,7 @@ def run_detail(client_id: int, run_id: str) -> dict:
                    if isinstance((tool.get("output_summary") or {}).get("project_evidence"), dict) else None}
                   for tool in tools],
         "diagnostics": admitted.get("context_diagnostics") or {},
+        "payload_diagnostics": _safe_payload_diagnostics(admitted.get("payload_diagnostics")),
         "rollout": admitted.get("rollout") or {},
         "transcript": transcript,
     }

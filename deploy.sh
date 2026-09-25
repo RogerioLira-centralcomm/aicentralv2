@@ -394,6 +394,10 @@ fi
 MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1
 ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh >> "$DEPLOY_LOG" 2>&1
 LINK_ICON_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_link_icon_worker.sh >> "$DEPLOY_LOG" 2>&1
+# These consumers depend on the migrations above. Keep their installation in
+# the normal Git deploy so new queue entries cannot accumulate unnoticed.
+RESOURCE_REGISTRY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_resource_registry_worker.sh >> "$DEPLOY_LOG" 2>&1
+CONVERSATION_MEMORY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_conversation_memory_worker.sh >> "$DEPLOY_LOG" 2>&1
 
 # 9. Iniciar servico
 echo ""

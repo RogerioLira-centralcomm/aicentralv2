@@ -6,8 +6,8 @@ memory_python="${CONVERSATION_MEMORY_PYTHON:-$memory_root/venv/bin/python}"
 [[ -x "$memory_python" ]] || memory_python="$memory_root/venv_new/bin/python"
 [[ -x "$memory_python" ]] || { echo 'Python do ambiente virtual não encontrado.' >&2; exit 1; }
 command -v systemctl >/dev/null || { echo 'Este instalador requer Linux/systemd.' >&2; exit 1; }
-memory_user="$(systemctl show aicentralv2 --property=User --value)"
-[[ -n "$memory_user" ]] || memory_user="$(systemctl show gunicorn --property=User --value)"
+memory_user="$(systemctl show gunicorn --property=User --value)"
+[[ -n "$memory_user" ]] || memory_user="$(systemctl show aicentralv2 --property=User --value)"
 [[ -n "$memory_user" ]] || memory_user="www-data"
 memory_tmp="$(mktemp -d)"
 trap 'rm -rf "$memory_tmp"' EXIT

@@ -6,8 +6,8 @@ resource_python="${RESOURCE_REGISTRY_PYTHON:-$resource_root/venv/bin/python}"
 [[ -x "$resource_python" ]] || resource_python="$resource_root/venv_new/bin/python"
 [[ -x "$resource_python" ]] || { echo 'Python do ambiente virtual não encontrado.' >&2; exit 1; }
 command -v systemctl >/dev/null || { echo 'Este instalador requer Linux/systemd.' >&2; exit 1; }
-resource_user="$(systemctl show aicentralv2 --property=User --value)"
-[[ -n "$resource_user" ]] || resource_user="$(systemctl show gunicorn --property=User --value)"
+resource_user="$(systemctl show gunicorn --property=User --value)"
+[[ -n "$resource_user" ]] || resource_user="$(systemctl show aicentralv2 --property=User --value)"
 [[ -n "$resource_user" ]] || resource_user="www-data"
 resource_tmp="$(mktemp -d)"
 trap 'rm -rf "$resource_tmp"' EXIT

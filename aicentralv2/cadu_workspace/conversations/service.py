@@ -326,6 +326,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                         SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
                                LEFT(c.conteudo, 1000) AS trecho,
                                0::double precision AS score, c.content_hash, c.embedding_model,
+                               s.classification_metadata->'extraction_coverage' AS extraction_coverage,
                                ROW_NUMBER() OVER (PARTITION BY c.arquivo_id ORDER BY c.ordem, c.id) AS position,
                                s.updated_at AS source_updated_at
                           FROM cadu_ci_chunks c
@@ -333,7 +334,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                          WHERE c.projeto_id=%s AND c.id_cliente=%s
                            AND s.projeto_id=%s AND s.id_cliente=%s
                            AND s.purpose='knowledge_source' AND s.indexing_status='completed'
-                    ) SELECT chunk_id, source_id, titulo, trecho, score, content_hash, embedding_model
+                    ) SELECT chunk_id, source_id, titulo, trecho, score, content_hash, embedding_model, extraction_coverage
                         FROM first_chunks WHERE position=1
                     ORDER BY source_updated_at DESC, source_id DESC LIMIT %s''',
                     (project_id, client_id, project_id, client_id, result_limit))
@@ -363,8 +364,10 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                     ) candidates GROUP BY id
                 ) SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
                               LEFT(c.conteudo, 1000) AS trecho, r.score,
-                              c.content_hash, c.embedding_model
+                              c.content_hash, c.embedding_model,
+                              s.classification_metadata->'extraction_coverage' AS extraction_coverage
                       FROM ranked r JOIN cadu_ci_chunks c ON c.id=r.id
+                      JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
                      ORDER BY r.score DESC, c.ordem ASC LIMIT %s''',
                 (terms, project_id, client_id, terms, vector, project_id, client_id, vector, result_limit))
               except project_knowledge.KnowledgeIndexError:
@@ -375,7 +378,8 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                     sources = repository.rows('''SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
                                                    LEFT(c.conteudo, 1000) AS trecho,
                                                    0::double precision AS score,
-                                                   c.content_hash, c.embedding_model
+                                                   c.content_hash, c.embedding_model,
+                                                   s.classification_metadata->'extraction_coverage' AS extraction_coverage
                                               FROM cadu_ci_chunks c JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
                                              WHERE c.projeto_id = %s AND c.id_cliente = %s
                                                AND s.projeto_id=c.projeto_id AND s.id_cliente=c.id_cliente
@@ -403,7 +407,9 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
             except Exception:
                 packet['source_inventory_status'] = 'unavailable'
             packet['fontes_verificadas'] = [
-                _project_evidence(row, client_id, project_ref, retrieval_mode='overview' if overview else 'hybrid')
+                _project_evidence(row, client_id, project_ref, retrieval_mode=(
+                    'overview' if overview else 'lexical' if packet.get('retrieval_status') == 'lexical_fallback' else 'hybrid'
+                ))
                 for row in sources
             ]
             packet.setdefault('retrieval_status', 'complete')
@@ -438,6 +444,7 @@ def _project_evidence(row, client_id, project_ref, *, retrieval_mode='hybrid'):
         'score': float(row.get('score') or 0),
         'content_hash': row.get('content_hash'),
         'embedding_model': row.get('embedding_model'),
+        'extraction_coverage': row.get('extraction_coverage') or {},
     })
     return evidence
 

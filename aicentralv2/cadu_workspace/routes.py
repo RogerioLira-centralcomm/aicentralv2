@@ -4291,7 +4291,7 @@ def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
 
 def _persist_project_source(client_id: int, project_id: str, title: str, content: str,
                             mime: str, size: int, storage_path: str, source: str,
-                            user_id: Optional[int] = None) -> int:
+                            user_id: Optional[int] = None, extraction_coverage: Optional[dict] = None) -> int:
     source_chunks, embedding_tokens, embedding_model = project_index_service.indexed_content(content)
     tokens = embedding_tokens
     connection = get_db()
@@ -4307,6 +4307,7 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
                 name=title, mime=mime, size=size, storage_path=storage_path,
                 source=source, content=content, chunks=source_chunks,
                 embedding_model=embedding_model, charged_tokens=charged_tokens,
+                metadata={'extraction_coverage': extraction_coverage or {}},
             )
         connection.commit()
         return int(file_id)
@@ -4317,7 +4318,8 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
 
 def _persist_project_source_index_error(client_id: int, project_id: str, title: str, content: str,
                                         mime: str, size: int, storage_path: str, source: str,
-                                        error: Exception, user_id: Optional[int] = None) -> int:
+                                        error: Exception, user_id: Optional[int] = None,
+                                        extraction_coverage: Optional[dict] = None) -> int:
     """Keep an accepted source when embeddings are temporarily unavailable."""
     connection = get_db()
     try:
@@ -4326,7 +4328,8 @@ def _persist_project_source_index_error(client_id: int, project_id: str, title: 
                 cursor, project_id=project_id, client_id=client_id,
                 user_id=user_id if user_id is not None else session.get('user_id'),
                 name=title, mime=mime, size=size, storage_path=storage_path,
-                content=content, metadata={'source': source, 'indexing_deferred': True},
+                content=content, metadata={'source': source, 'indexing_deferred': True,
+                                           'extraction_coverage': extraction_coverage or {}},
             )
             cursor.execute(
                 """UPDATE cadu_ci_projeto_arquivos
@@ -4343,7 +4346,8 @@ def _persist_project_source_index_error(client_id: int, project_id: str, title: 
 
 def _try_queue_project_source(client_id: int, project_id: str, title: str, content: str,
                               mime: str, size: int, storage_path: str, source: str,
-                              user_id: Optional[int] = None) -> Optional[dict]:
+                              user_id: Optional[int] = None,
+                              extraction_coverage: Optional[dict] = None) -> Optional[dict]:
     """Register a source and enqueue embedding when the durable queue is available.
 
     The queue migration is additive, so local/test environments may still need the
@@ -4363,7 +4367,7 @@ def _try_queue_project_source(client_id: int, project_id: str, title: str, conte
                 cursor, project_id=project_id, client_id=client_id,
                 user_id=effective_user_id, name=title, mime=mime, size=size,
                 storage_path=storage_path, content=content,
-                metadata={'source': source},
+                metadata={'source': source, 'extraction_coverage': extraction_coverage or {}},
             )
         connection.commit()
 
@@ -7561,7 +7565,8 @@ def upload_project_source(project_id):
                     extracted_text=source.get('text') or '',
                     classification=source.get('classification'),
                     metadata={'sha256': content_hash, 'processing': source.get('processing'),
-                              'can_index': bool(source.get('can_index')), 'triage': True},
+                              'can_index': bool(source.get('can_index')), 'triage': True,
+                              'extraction_coverage': source.get('extraction_coverage') or {}},
                 )
             connection.commit()
         except Exception:
@@ -7578,6 +7583,7 @@ def upload_project_source(project_id):
             'ok': True, 'source_id': source_id, 'status': 'awaiting_confirmation',
             'name': source['name'], 'mime': source['mime'], 'size': len(source['data']),
             'processing': source.get('processing') or 'metadata_only',
+            'extraction_coverage': source.get('extraction_coverage') or {},
             'can_index': bool(source.get('can_index')), 'text_preview': (source.get('text') or '')[:1200],
             'classification': classification,
             'confirm_url': url_for('cadu_workspace.confirm_project_source', project_id=project_id, source_id=source_id),
@@ -7594,6 +7600,7 @@ def upload_project_source(project_id):
         queued = _try_queue_project_source(
             client_id, project_id, source['name'], source['text'], source['mime'],
             len(source['data']), storage_path, 'workspace_upload',
+            extraction_coverage=source.get('extraction_coverage'),
         )
         if queued:
             if request.accept_mimetypes.best == 'application/json':
@@ -7602,12 +7609,14 @@ def upload_project_source(project_id):
         _persist_project_source(
             client_id, project_id, source['name'], source['text'], source['mime'],
             len(source['data']), storage_path, 'workspace_upload',
+            extraction_coverage=source.get('extraction_coverage'),
         )
     except project_knowledge.KnowledgeIndexError as exc:
         try:
             source_id = _persist_project_source_index_error(
                 client_id, project_id, source['name'], source['text'], source['mime'],
                 len(source['data']), storage_path, 'workspace_upload', exc,
+                extraction_coverage=source.get('extraction_coverage'),
             )
         except Exception:
             target.unlink(missing_ok=True)

@@ -6,6 +6,7 @@ from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_s
 from aicentralv2.cadu_workspace.insights_research import _safe_sources
 from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
 from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
+from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
 
 
 def test_extracted_claim_requires_a_literal_quote_in_its_source():
@@ -64,3 +65,16 @@ def test_campaign_tracker_requires_an_actual_metric_value():
         {"name": "ctr", "value": "2,4", "unit": "%"},
         {"name": "cliques", "value": "1.250", "unit": ""},
     ]
+
+
+def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown():
+    with_budget = simulate("Compare cenários para R$ 100 mil")
+    assert with_budget["budget_brl"] == "100000"
+    for scenario in with_budget["scenarios"]:
+        assert scenario["total_percent"] == 100
+        assert sum(float(item["amount_brl"]) for item in scenario["allocations"]) == 100000
+
+    without_budget = simulate("Compare cenários por percentual")
+    assert without_budget["budget_brl"] is None
+    assert all(item["amount_brl"] is None for scenario in without_budget["scenarios"]
+               for item in scenario["allocations"])

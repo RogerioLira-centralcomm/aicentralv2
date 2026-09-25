@@ -6,6 +6,7 @@ from werkzeug.exceptions import HTTPException
 
 from ....cadu_planner import catalog, link_tester, plans
 from ...agent_v2.contracts import RequestContext
+from ...agent_v2.investment_scenarios import simulate as simulate_investment
 from .. import operations
 from ..registry import ToolError, ToolInputError, register_tool
 
@@ -120,6 +121,19 @@ def research_plan_inputs(context: RequestContext, arguments: dict) -> dict:
     result["matched_terms"] = search_queries
     result["source_note"] = "Referências do catálogo Cadu; não são cotação, disponibilidade ou garantia de desempenho."
     return result
+
+
+@register_tool(
+    name="planner.simulate_investment", capability="planner", effect="read",
+    description="Calcula três distribuições ilustrativas de mídia, com totais exatos e sem prever resultados.",
+    exposures=("internal",), version="1.0.0",
+    input_schema={"type": "object", "required": ["query"], "properties": {
+        "query": {"type": "string", "minLength": 3, "maxLength": 1000},
+    }, "additionalProperties": False},
+    output_schema={"type": "object"},
+)
+def simulate_investment_tool(context: RequestContext, arguments: dict) -> dict:
+    return simulate_investment(arguments["query"])
 
 
 def _link_domain(call):

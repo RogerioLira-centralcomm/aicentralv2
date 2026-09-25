@@ -5,6 +5,7 @@ later, but only for messages that fall through these product-level intents.
 """
 
 import re
+from dataclasses import replace
 from urllib.parse import urlparse
 
 from .contracts import IntentRoute
@@ -43,11 +44,24 @@ def _explicit_artifact_creation_refusal(text: str) -> bool:
         text,
         r"\b(?:n[aã]o|ainda\s+n[aã]o|sem)\b.{0,55}"
         r"\b(?:cri\w*|ger\w*|abr\w*|mont\w*|transform\w*)\b.{0,55}"
-        r"\b(?:artefato|documento|rascunho)\b",
+        r"\b(?:artefatos?|documentos?|rascunhos?)\b",
     ) or _has(
         text,
-        r"\b(?:sem|n[aã]o)\s+(?:artefato|documento|rascunho)\b",
+        r"\b(?:sem|n[aã]o)\s+(?:artefatos?|documentos?|rascunhos?)\b",
     )
+
+
+def _without_artifact_creation_refusal(text: str) -> str:
+    """Remove a negative artifact instruction without discarding the task."""
+    refusal = re.compile(
+        r"\b(?:ainda\s+n[aã]o|n[aã]o|sem)\b[^.!?;\n]{0,55}?"
+        r"\b(?:cri\w*|ger\w*|abr\w*|mont\w*|transform\w*)\b[^.!?;\n]{0,55}?"
+        r"\b(?:artefatos?|documentos?|rascunhos?)\b"
+        r"(?:\s+(?:ou|nem)\s+(?:um\s+|uma\s+)?(?:artefatos?|documentos?|rascunhos?)\b)?[.!?]?|"
+        r"\b(?:sem|n[aã]o)\s+(?:um\s+|uma\s+)?(?:artefatos?|documentos?|rascunhos?)\b[.!?]?",
+        re.IGNORECASE,
+    )
+    return " ".join(refusal.sub(" ", text).split())
 
 
 def _project_persistence_refusal(text: str) -> bool:
@@ -82,6 +96,20 @@ def _destructive_request_is_negated(text: str) -> bool:
 def route_request(message: str, surface: str = "conversations", has_project: bool = False,
                   active_object_type: str = "", has_brand: bool = False) -> IntentRoute:
     text = normalize_colloquial(message)[:20000]
+    if _explicit_artifact_creation_refusal(text):
+        task_text = _without_artifact_creation_refusal(text)
+        if task_text:
+            # The delivery constraint must not erase the actual intent. Route
+            # the remaining request normally, retaining its project/RAG tools.
+            routed = route_request(task_text, surface, has_project, active_object_type, has_brand)
+            if routed.action == "project_readout":
+                return replace(routed, action="describe_project", response_mode="analysis", artifact_type=None)
+            if routed.artifact_type:
+                routed = replace(routed, response_mode="analysis", artifact_type=None)
+                if routed.action in {"create_html", "create_named_artifact", "create_meeting_agenda"}:
+                    routed = replace(routed, domain="workspace", action="answer")
+            return routed
+        return IntentRoute("workspace", "answer", "low", "direct")
     forbid_project_persistence = _project_persistence_refusal(text)
 
     if not _destructive_request_is_negated(text):
@@ -125,18 +153,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if recurring_meeting_request:
         return IntentRoute("workspace", "create_meeting_agenda", "medium", "artifact_first",
                            ("project",) if has_project else (), (), "meeting_agenda")
-    if _explicit_artifact_creation_refusal(text):
-        web_requested = _has(text, r"\b(?:pesquis\w*|busqu\w*|consult\w*)\b") and _has(
-            text, r"\b(?:internet|web|online|fontes?\s+externas?|dados?\s+atuais?)\b",
-        )
-        return IntentRoute(
-            "research" if web_requested else (surface if surface != "conversations" else "workspace"),
-            "search_web" if web_requested else "answer",
-            "high", "analysis",
-            ("project", "brand") if has_project else (),
-            ("web.search",) if web_requested else (), None, False,
-        )
-
     meeting_write = _has(text, r"\b(?:agend|marqu)\w*\b.{0,55}\b(?:reuni[aã]o|convite|meet)\b") or _has(
         text, r"\b(?:crie|criar|mande|envi)\w*\b.{0,55}\b(?:convite|meet)\b",
     )

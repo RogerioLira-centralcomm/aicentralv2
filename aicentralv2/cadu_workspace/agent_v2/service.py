@@ -1014,8 +1014,6 @@ def stream(run):
             _journal(run["run_id"], "action.failed", {
                 "step_id": direct_link["id"], "name": direct_link["name"], "code": error_code,
             }, item_type="error")
-            yield _event("action.failed", step_id=direct_link["id"],
-                         name=direct_link["name"], code=error_code)
         else:
             journal.finish_action(run["run_id"], direct_link["id"], run["context"].client_id,
                                   run["context"].user_id, receipt=receipt)
@@ -1024,8 +1022,6 @@ def stream(run):
                 "step_id": direct_link["id"], "name": direct_link["name"],
                 "completion": direct_link_completion,
             }, item_type="action")
-            yield _event("action.completed", step_id=direct_link["id"],
-                         name=direct_link["name"], completion=direct_link_completion)
     for action in waiting_actions:
         public_action = {**action, "run_id": run["run_id"]}
         _journal(run["run_id"], "action.proposed", public_action, item_type="action")

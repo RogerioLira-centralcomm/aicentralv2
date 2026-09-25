@@ -28,5 +28,5 @@ Executar A01–A12 do [guia de avaliação](cadu-plugins-v2-guia-avaliacao.md) n
 
 - Corrigido o Quick Scan para respeitar pedidos explícitos sem artefato e para priorizar a página lida quando busca e leitura retornam a mesma URL. Os 303 testes focados passaram.
 - Corrigida a reconciliação da resposta no frontend: quando o evento final traz só uma frase curta, o texto completo já transmitido continua visível. Build de conversas passou.
-- A suíte ampla ficou em 990 aprovados e 25 falhas. Várias falhas de stream pertencem à fachada legada que agora delega ao Workspace, mas ainda são necessárias verificações por fluxo antes de alterar esses contratos.
+- Após corrigir o último tópico do cartão de briefing, a suíte ampla ficou em 991 aprovados e 24 falhas. Várias falhas de stream pertencem à fachada legada que agora delega ao Workspace, mas ainda são necessárias verificações por fluxo antes de alterar esses contratos.
 - A integração frontend ficou em 36 aprovados e 12 falhas. Parte das asserções exige CSS e nomes internos antigos, inclusive fonte de 15 px, em conflito com o ajuste de tipografia para telas menores. As demais devem ser avaliadas pelo comportamento antes de mudar o produto ou os testes.

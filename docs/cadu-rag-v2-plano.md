@@ -71,6 +71,13 @@ citação aponta para a versão e o trecho efetivamente recuperados.
 - Busca vazia, embedding indisponível, OCR indisponível e índice parcial.
 - Continuação de conversa que não exige nova busca.
 
+## Créditos da reconstrução
+
+O job automático `rebuild_v2` registra tokens de embedding, mas não cobra
+créditos do cliente. Reindexações pedidas posteriormente pelo usuário seguem a
+política normal de cobrança. A reconstrução só deve iniciar com orçamento e
+limite operacional definidos para a plataforma.
+
 ## Estado da primeira etapa no código
 
 A primeira alteração melhora os limites observáveis da extração, a divisão em

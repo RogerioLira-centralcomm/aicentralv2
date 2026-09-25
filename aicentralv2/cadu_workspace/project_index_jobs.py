@@ -69,7 +69,7 @@ def claim(max_attempts: int = 5):
                           finished_at=NULL, next_attempt_at=NULL, error_message=NULL
                      FROM candidate WHERE job.id=candidate.id
                  RETURNING job.id::text, job.client_id, job.project_ref, job.source_id,
-                           job.actor_id, job.attempts""",
+                           job.operation, job.actor_id, job.attempts""",
                 (max_attempts,),
             )
             row = cursor.fetchone()
@@ -88,7 +88,8 @@ def process_one():
     project_id = project_ref[3:] if project_ref.startswith("ci:") else project_ref
     actor_id = int(job.get("actor_id") or 0)
     try:
-        reindex_source(int(job["client_id"]), project_id, int(job["source_id"]), actor_id)
+        reindex_source(int(job["client_id"]), project_id, int(job["source_id"]), actor_id,
+                       billable=job.get("operation") != "rebuild_v2")
         _finish(job["id"], "completed")
     except Exception as exc:
         _fail(job["id"], str(exc)[:500])

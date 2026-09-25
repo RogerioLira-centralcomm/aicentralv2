@@ -250,7 +250,8 @@ def _source_content(source: dict) -> tuple[str, dict]:
         raise
 
 
-def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int) -> dict:
+def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int,
+                   *, billable: bool = True) -> dict:
     """Rebuild one source atomically; unchanged content is rejected before charging."""
     connection = get_db()
     try:
@@ -285,13 +286,15 @@ def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int
                 connection.commit()
                 return {"source_id": int(source_id), "status": "unchanged", "charged_tokens": 0}
             chunks, embedding_tokens, embedding_model = indexed_content(content)
-            charged_tokens = charge_project_rag(
-                cursor, client_id=client_id, user_id=user_id, project_id=project_id,
-                tokens=embedding_tokens, stage="reindexacao",
-                idempotency_key=(f"workspace-rag-reindex:{source_id}:{content_hash}:"
-                                 f"{project_knowledge.INDEX_PIPELINE_VERSION}:{project_knowledge.EMBEDDING_MODEL}:"
-                                 f"{project_knowledge.EMBEDDING_DIMENSIONS}"),
-            )
+            charged_tokens = 0
+            if billable:
+                charged_tokens = charge_project_rag(
+                    cursor, client_id=client_id, user_id=user_id, project_id=project_id,
+                    tokens=embedding_tokens, stage="reindexacao",
+                    idempotency_key=(f"workspace-rag-reindex:{source_id}:{content_hash}:"
+                                     f"{project_knowledge.INDEX_PIPELINE_VERSION}:{project_knowledge.EMBEDDING_MODEL}:"
+                                     f"{project_knowledge.EMBEDDING_DIMENSIONS}"),
+                )
             cursor.execute(
                 "DELETE FROM cadu_ci_chunks WHERE arquivo_id=%s AND projeto_id=%s AND id_cliente=%s",
                 (source_id, project_id, client_id),
@@ -317,16 +320,19 @@ def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int
                             jsonb_build_object('sha256', %s::text, 'rag_pipeline_version', %s::text,
                                                'embedding_model', %s::text, 'requested_embedding_model', %s::text,
                                                'embedding_dimensions', %s::integer,
-                                               'extraction_coverage', %s::jsonb)
+                                               'extraction_coverage', %s::jsonb,
+                                               'rebuild_embedding_tokens', %s::integer)
                     WHERE id=%s AND projeto_id=%s AND id_cliente=%s""",
                 (content, _word_count(content), charged_tokens, content_hash,
                  project_knowledge.INDEX_PIPELINE_VERSION, embedding_model, project_knowledge.EMBEDDING_MODEL,
                  project_knowledge.EMBEDDING_DIMENSIONS, json.dumps(coverage, ensure_ascii=False),
+                 embedding_tokens if not billable else 0,
                  source_id, project_id, client_id),
             )
         connection.commit()
         return {"source_id": int(source_id), "status": "completed", "charged_tokens": charged_tokens,
-                "content_hash": content_hash, "chunks": len(chunks)}
+                "content_hash": content_hash, "chunks": len(chunks),
+                "embedding_tokens": embedding_tokens, "billable": billable}
     except Exception:
         connection.rollback()
         raise

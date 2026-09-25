@@ -39,3 +39,12 @@ Cada observação precisa registrar `client_id`, plataforma declarada ou inferid
 Adicionar **Importações** ao menu do Reports quando a caixa de entrada estiver funcional. A tela terá envio em lote, progresso de leitura, prévia por campanha/período, conflitos, decisões pendentes e histórico de arquivos. Contas e campanhas criadas automaticamente aparecem no inventário com selo de origem e estado; o usuário pode confirmar ou corrigir antes que fatos provisórios entrem nos totais publicados.
 
 O backend deve oferecer upload, status de extração, prévia, confirmação e histórico por `client_id`, além de trabalhadores assíncronos para OCR/leitura visual e arquivos grandes. Reaproveitar a validação de imagens, o armazenamento de fontes, a revisão de métricas e o versionamento existentes onde couber. A extração visual atual exige um relatório antes do print; a nova caixa de entrada precisa aceitar o material **antes** de existir campanha ou relatório.
+
+## Implementação inicial
+
+- `add_reports_universal_imports_v1.sql` cria a caixa de entrada, linhas e observações imutáveis com escopo de organização e cliente. O deploy aplica a migração; não foi aplicada a banco remoto durante o desenvolvimento.
+- `/connect/api/v1/reports/imports` recebe um CSV, XLSX ou print por vez. O mesmo hash no mesmo cliente retorna o lote anterior. A leitura tabular aceita até 5 MiB e 2.000 linhas; imagens seguem os limites e a limpeza de metadados da biblioteca de fontes.
+- Cabeçalhos conhecidos, datas, números, moeda e IDs exatos geram conta e campanha no inventário e observações por métrica. Linhas com IDs ausentes, datas ambíguas, moeda conflitante ou campanha/data repetida ficam para revisão. Nomes já cadastrados não são substituídos pelo export.
+- A interface **Importações** mostra lote e até 100 linhas de prévia. Prints ficam em `awaiting_extraction` e não alimentam métricas ainda. Observações tabulares ficam prontas para reconciliação; os totais do painel continuam independentes delas até existir uma regra de projeção para snapshots sobrepostos.
+
+Próximos blocos: leitor visual com evidência por região, mapeamento assistido de cabeçalhos desconhecidos, revisão/confirmação de identidade e projeção versionada por campanha, dia e métrica. Um arquivo real de cada plataforma é necessário para ampliar os aliases sem adivinhar o formato do export.

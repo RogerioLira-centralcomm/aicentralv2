@@ -382,6 +382,7 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_operations_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_review_fixes_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_link_associations_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_universal_imports_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql

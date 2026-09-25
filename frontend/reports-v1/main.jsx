@@ -6,7 +6,7 @@ const SECTIONS = [
   ['overview', 'Visão geral', '◫'], ['accounts', 'Contas', '▤'],
   ['campaigns', 'Campanhas', '◎'], ['flow', 'Funnel Flow', '◇'],
   ['reports', 'Relatórios', '▥'], ['links', 'Link Tester', '↗'],
-  ['monitor', 'Monitoramentos', '◉'], ['access', 'Acesso', '♙'],
+  ['imports', 'Importações', '⇧'], ['monitor', 'Monitoramentos', '◉'], ['access', 'Acesso', '♙'],
 ];
 const TITLES = Object.fromEntries(SECTIONS.map(([id, title]) => [id, title]));
 const formatter = new Intl.DateTimeFormat('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'});
@@ -265,6 +265,42 @@ function Flow({data, save, busy, filters}) {
   </>;
 }
 
+function Imports({data, reloadBootstrap}) {
+  const [items, setItems] = useState([]);
+  const [ready, setReady] = useState(true);
+  const [detail, setDetail] = useState(null);
+  const [file, setFile] = useState(null);
+  const [platform, setPlatform] = useState('');
+  const [currency, setCurrency] = useState('');
+  const [dateOrder, setDateOrder] = useState('auto');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [note, setNote] = useState('');
+  const base = `/connect/api/v1/reports/imports?client_id=${data.client.client_id}`;
+  const refresh = async () => {const body = await json(base); setReady(body.ready); setItems(body.imports || []);};
+  useEffect(() => {setDetail(null); refresh().catch(failure => setError(failure.message));}, [data.client.client_id]);
+  const open = async id => {try {setDetail(await json(`/connect/api/v1/reports/imports/${id}?client_id=${data.client.client_id}`)); setError('');} catch (failure) {setError(failure.message);}};
+  const submit = async event => {
+    event.preventDefault(); if (!file) return;
+    setBusy(true); setError(''); setNote('');
+    try {
+      const payload = new FormData(); payload.append('file', file);
+      if (platform) payload.append('platform_hint', platform);
+      if (currency) payload.append('currency_hint', currency.toUpperCase());
+      payload.append('date_order', dateOrder);
+      const result = await json(base, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}, body: payload});
+      setNote(result.duplicate ? 'Este arquivo já foi importado para o cliente.' : `${result.applied_count || 0} de ${result.row_count || 0} linhas prontas para reconciliação.`);
+      await refresh(); await open(result.import_id); await reloadBootstrap();
+      event.target.reset(); setFile(null);
+    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+  };
+  return <section className="reports-grid reports-grid--three">
+    <article className="reports-panel"><div className="reports-panel-head"><h2>Enviar dados</h2><span>CSV · XLSX · print</span></div><p>Exporte da plataforma ou envie uma captura. Identificamos contas e campanhas pelos IDs da origem.</p>{!ready && <p className="reports-error">A migração de importações precisa ser aplicada neste ambiente.</p>}{ready && data.client.role !== 'viewer' && <form className="reports-form" onSubmit={submit}><label>Arquivo<input type="file" accept=".csv,.xlsx,.png,.jpg,.jpeg,.webp" required onChange={event => setFile(event.target.files?.[0] || null)} /></label><label>Plataforma, se não estiver no arquivo<input value={platform} onChange={event => setPlatform(event.target.value)} placeholder="Ex.: Google Ads, Meta Ads" /></label><label>Moeda, se houver valores<input maxLength="3" value={currency} onChange={event => setCurrency(event.target.value)} placeholder="BRL" /></label><label>Datas com barras<select value={dateOrder} onChange={event => setDateOrder(event.target.value)}><option value="auto">Detectar; revisar datas ambíguas</option><option value="dmy">Dia/mês/ano</option><option value="mdy">Mês/dia/ano</option></select></label><button disabled={busy || !file}>Enviar arquivo</button></form>}{note && <p>{note}</p>}{error && <p className="reports-error" role="alert">{error}</p>}</article>
+    <article className="reports-panel reports-span-two"><div className="reports-panel-head"><h2>Arquivos recebidos</h2><span>{items.length} recentes</span></div>{items.length ? <div className="reports-table-wrap"><table><thead><tr><th>Arquivo</th><th>Estado</th><th>Linhas</th><th>Recebido</th><th></th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td>{item.original_name}</td><td>{({parsed:'Lido',needs_review:'Revisão necessária',awaiting_extraction:'Aguardando leitura visual'})[item.status] || item.status}</td><td>{item.applied_count}/{item.row_count}</td><td>{shortDate(item.created_at)}</td><td><button className="reports-text-button" onClick={() => open(item.id)}>Abrir</button></td></tr>)}</tbody></table></div> : <Empty message="Nenhum arquivo enviado para este cliente." />}</article>
+    {detail && <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>{detail.import_file.original_name}</h2><span>{detail.import_file.row_count} linhas</span></div>{detail.import_file.file_kind === 'image' ? <p>Print recebido. A extração visual e a confirmação das campanhas serão habilitadas na próxima etapa.</p> : <div className="reports-table-wrap"><table><thead><tr><th>Linha</th><th>Plataforma</th><th>Conta</th><th>Campanha</th><th>Data</th><th>Estado</th></tr></thead><tbody>{detail.rows.map(row => <tr key={`${row.sheet_name}:${row.source_row}`}><td>{row.sheet_name} · {row.source_row}</td><td>{row.parsed.platform || '—'}</td><td>{row.parsed.account_name || row.parsed.external_account_id || '—'}</td><td>{row.parsed.campaign_name || row.parsed.external_campaign_id || '—'}</td><td>{row.metric_date || '—'}</td><td>{row.reason || 'Pronta para reconciliação'}</td></tr>)}</tbody></table></div>}</article>}
+  </section>;
+}
+
 function App() {
   const [section, setSection] = useState(() => location.hash.slice(1) || 'overview');
   const [data, setData] = useState(null);
@@ -308,7 +344,7 @@ function App() {
     <main className="reports-main"><header className="reports-header"><div><p>REPORTS / {TITLES[section] || 'Visão geral'}</p><h1>{TITLES[section] || 'Visão geral'}</h1></div><div className="reports-header-actions"><select className="reports-client-pill" aria-label="Cliente" value={data?.client?.client_id || ''} onChange={event => {location.href = `/connect/app?client_id=${encodeURIComponent(event.target.value)}#${section}`;}}>{(data?.clients || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><a href="/connect/relatorios">Biblioteca atual ↗</a></div></header>
       <div className="reports-filters reports-filters--primary" aria-label="Filtros principais"><label>Período<select value={filters.period} onChange={event => setFilters({...filters, period: event.target.value})}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label><label>Plataforma<select value={filters.platform} onChange={event => setFilters({...filters, platform: event.target.value, account: '', campaign: ''})}><option value="">Todas</option>{[...new Set((data?.accounts || []).map(item => item.platform))].map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Conta<select value={filters.account} onChange={event => setFilters({...filters, account: event.target.value, campaign: ''})}><option value="">Todas</option>{(data?.accounts || []).filter(item => item.account_kind === 'advertiser' && (!filters.platform || item.platform === filters.platform)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Campanha<select value={filters.campaign} onChange={event => setFilters({...filters, campaign: event.target.value})}><option value="">Todas</option>{(data?.campaigns || []).filter(item => !filters.account || String(item.account_id) === filters.account).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
       <div className="reports-filters reports-filters--secondary" aria-label="Filtros e estado"><span>Fonte de mídia: Google Ads Script</span><span>Páginas e CRM: medição própria</span><button type="button" onClick={load}>Atualizar</button></div>
-      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : section === 'accounts' ? <Accounts data={selected} save={save} busy={busy} /> : section === 'campaigns' ? <Campaigns data={selected} save={save} busy={busy} /> : section === 'reports' ? <Reports data={selected} save={save} busy={busy} /> : section === 'links' ? <Links data={data} save={save} busy={busy} /> : section === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : section === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} /> : section === 'access' && data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Overview data={selected} metrics={metrics} />}</div>
+      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : section === 'accounts' ? <Accounts data={selected} save={save} busy={busy} /> : section === 'campaigns' ? <Campaigns data={selected} save={save} busy={busy} /> : section === 'reports' ? <Reports data={selected} save={save} busy={busy} /> : section === 'links' ? <Links data={data} save={save} busy={busy} /> : section === 'imports' ? <Imports data={data} reloadBootstrap={load} /> : section === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : section === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} /> : section === 'access' && data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Overview data={selected} metrics={metrics} />}</div>
     </main>
   </div>;
 }

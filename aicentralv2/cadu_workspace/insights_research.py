@@ -13,6 +13,7 @@ from uuid import uuid4
 from ..services.cadu_ai_connector import CaduAIConnector
 from ..services.openrouter_service import message_text
 from . import web_search
+from .agent_v2.evidence import read_status
 
 
 RESEARCH_MODEL = os.getenv("CADU_INSIGHTS_RESEARCH_MODEL", "perplexity/sonar")
@@ -81,7 +82,10 @@ def _safe_sources(web_result: dict, perplexity_message: dict, today: date) -> li
     for item in web_result.get("sources") or []:
         if isinstance(item, dict):
             rows.append({**item, "published_at": item.get("published_at") or item.get("date") or item.get("publishedDate") or "",
-                         "research_stream": "internet"})
+                         "research_stream": "internet", "read_status": read_status(item),
+                         "date_provenance": item.get("published_at_source") or (
+                             "page" if item.get("source_type") == "direct_url" and item.get("published_at")
+                             else "search_metadata" if item.get("published_at") else "unknown")})
     citations = perplexity_message.get("_cadu_citations") or []
     if isinstance(citations, dict):
         citations = citations.get("search_results") or citations.get("citations") or []
@@ -102,7 +106,8 @@ def _safe_sources(web_result: dict, perplexity_message: dict, today: date) -> li
             "url": url,
             "excerpt": item.get("snippet") or item.get("text") or item.get("description") or "",
             "published_at": item.get("date") or item.get("published_at") or item.get("publishedDate") or "",
-            "research_stream": "perplexity",
+            "research_stream": "perplexity", "read_status": "discovered",
+            "date_provenance": "provider_citation" if item.get("date") or item.get("published_at") else "unknown",
         })
     unique = {}
     for item in rows:
@@ -124,9 +129,19 @@ def _safe_sources(web_result: dict, perplexity_message: dict, today: date) -> li
             "freshness": freshness,
             "excerpt": " ".join(str(item.get("content_excerpt") or item.get("excerpt") or "").split())[:1000],
             "research_stream": item.get("research_stream") or "internet",
+            "read_status": item.get("read_status") or "discovered",
+            "date_provenance": item.get("date_provenance") or "unknown",
         }
-        if current is None or (current["freshness"] == "date_unverified" and freshness != "date_unverified"):
+        if current is None:
             unique[key] = normalized
+            continue
+        if current["read_status"] != "read" and normalized["read_status"] == "read":
+            unique[key] = normalized
+        elif (current["read_status"] == normalized["read_status"]
+              and current["freshness"] == "date_unverified" and freshness != "date_unverified"):
+            current["published_at"] = normalized["published_at"]
+            current["freshness"] = freshness
+            current["date_provenance"] = normalized["date_provenance"]
     # Assign IDs after deduplication so duplicate URLs cannot cause two
     # different sources to share an evidence ID in the model/reviewer packet.
     return [{**item, "id": f"mkt-{index}"}
@@ -188,17 +203,44 @@ def research_market(context, query: str, request_id: str | None = None,
     )
     pplx_message = perplexity_result.get("message") if isinstance(perplexity_result.get("message"), dict) else {}
     pplx_text = message_text(pplx_message)
+    # A provider citation is a discovery lead. Read promising URLs before
+    # allowing them to support a factual insight.
+    citations = pplx_message.get("_cadu_citations") or []
+    if isinstance(citations, dict):
+        citations = citations.get("search_results") or citations.get("citations") or []
+    already_read = {str(item.get("url") or "").split("#", 1)[0].rstrip("/").casefold()
+                    for item in web_result.get("sources") or [] if read_status(item) == "read"}
+    citation_urls = []
+    citation_keys = set()
+    for item in citations if isinstance(citations, list) else []:
+        url = item if isinstance(item, str) else (item.get("url") or item.get("link") if isinstance(item, dict) else "")
+        url = str(url or "").strip()
+        key = url.split("#", 1)[0].rstrip("/").casefold()
+        if key and key not in already_read and key not in citation_keys:
+            citation_urls.append(url)
+            citation_keys.add(key)
+        if len(citation_urls) >= 3:
+            break
+    if citation_urls:
+        try:
+            cited_pages = web_search.read(context, {"urls": citation_urls,
+                                                    "request_id": f"{run_id}:cited-pages"})
+            web_result["sources"] = [*(web_result.get("sources") or []),
+                                     *(cited_pages.get("sources") or [])]
+        except (web_search.WebSearchUnavailable, ValueError):
+            pass
     sources = _safe_sources(web_result, pplx_message, today)
-    eligible_sources = [item for item in sources if item["freshness"] in {"last_6_months", "current_year"}]
+    eligible_sources = [item for item in sources if item["read_status"] == "read"
+                        and item["freshness"] in {"last_6_months", "current_year"}]
     if not eligible_sources:
         raise InsightsEvidenceUnavailable(
-            "Não encontrei fontes com data verificável nos últimos seis meses ou neste ano para sustentar o insight. "
+            "Não consegui ler fontes recentes suficientes para sustentar o insight. "
             "Tente outro recorte de mercado ou um tema mais específico."
         )
     research_packet = {
         "topic": query, "market_period": {"from": period_start.isoformat(), "to": today.isoformat(),
                                            "priority": "prefer last 183 days; current-year evidence is fallback"},
-        "verified_recent_sources": eligible_sources,
+        "recent_read_sources": eligible_sources,
         "other_sources": [item for item in sources if item["freshness"] not in {"last_6_months", "current_year"}],
         "internet_search": {"query": web_result.get("query"), "sources_read": web_result.get("sources_read")},
         "perplexity_research": pplx_text[:14000],
@@ -223,6 +265,7 @@ def research_market(context, query: str, request_id: str | None = None,
                 "Dê destaque a números, período e geografia; não abra com metodologia ou bibliografia. "
                 "Só use métricas sustentadas pelo conteúdo pesquisado e por fontes elegíveis do ano atual ou dos últimos seis meses. "
                 "Se uma métrica não estiver sustentada, omita-a. Separe fato de interpretação. Não complete lacunas com conhecimento paramétrico. "
+                "O campo date_provenance distingue data vista na página de data informada pela busca; não apresente a segunda como data confirmada pelo conteúdo. "
                 "Retorne JSON com headline, headline_source_ids (array de strings), insight, insight_source_ids (array de strings), "
                 "metrics[{name,value,period,geography,meaning,source_ids}], "
                 "news[{title,date,summary,marketing_relevance,source_ids}], implications[string], actions[string], "
@@ -249,6 +292,7 @@ def research_market(context, query: str, request_id: str | None = None,
                 "a lacuna com conhecimento próprio. Mantenha o insight como primeira frase e preserve o foco em dados e implicações para "
                 "marketing, comunicação e mídia, não em listar fontes. Preserve application_to_project e personalized_suggestions como recomendações, "
                 "sem convertê-las em fatos; verifique se cada source_id citado existe entre as fontes elegíveis. "
+                "Cheque read_status e date_provenance; data de metadado de busca não é confirmação do corpo da página. "
                 "Retorne o mesmo JSON do rascunho, corrigido; headline e insight precisam de source_ids elegíveis. "
                 "Se não houver fonte elegível para sustentar o insight principal, retorne headline e insight vazios. Sem comentários fora do JSON."
             )},

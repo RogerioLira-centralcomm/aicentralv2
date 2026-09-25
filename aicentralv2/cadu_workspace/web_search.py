@@ -396,6 +396,8 @@ def search(context, arguments: dict) -> dict:
             search_published_at = source.get("published_at")
             source.update(extracted)
             source["published_at"] = extracted.get("published_at") or search_published_at or ""
+            source["published_at_source"] = ("page" if extracted.get("published_at")
+                                             else "search_metadata" if search_published_at else "unknown")
             source["title"] = extracted.get("page_title") or source["title"]
             source["excerpt"] = extracted.get("content_excerpt") or source["excerpt"]
             hydrated += 1

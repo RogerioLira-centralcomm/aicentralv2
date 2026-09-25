@@ -446,14 +446,21 @@ def _mi_extract(job: dict, unit: dict, context: RequestContext) -> tuple[str, di
                 json.dumps({"objective": job["objective"], "sources": packed}, ensure_ascii=False),
                 json_output=True, max_tokens=2200, call_index=100 + batch_index + source_batch)
             _merge_usage(usage_sum, result["usage"])
-            valid_ids = {item["id"] for item in packed}
+            from .evidence import grounded_claims
+
+            source_contents = {item["id"]: item["content"] for item in packed}
             claims = (result.get("json") or {}).get("claims") or []
-            claims = [claim for claim in claims if isinstance(claim, dict) and claim.get("source_id") in valid_ids]
+            claims, rejected = grounded_claims(claims, source_contents)
             if claims:
                 fragment = json.dumps({"claims": claims}, ensure_ascii=False, indent=2)
                 long_jobs.append_fragment(job["id"], context, fragment, unit_id=unit["id"], kind="evidence",
                                           heading=f"evidence_batch_{batch_index + source_batch}",
-                                          source_ids=list(valid_ids))
+                                          source_ids=list({claim["source_id"] for claim in claims}))
+            if rejected:
+                long_jobs.append_fragment(job["id"], context,
+                                          json.dumps({"rejected_claims": rejected}, ensure_ascii=False),
+                                          unit_id=unit["id"], kind="note",
+                                          heading=f"quote_check_{batch_index + source_batch}")
     return f"Extração concluída para {len(source_ids)} fontes; evidências persistidas com seus IDs de origem.", usage_sum, list(dict.fromkeys(source_ids))
 
 

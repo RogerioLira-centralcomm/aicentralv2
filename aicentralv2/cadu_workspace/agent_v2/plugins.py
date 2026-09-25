@@ -35,6 +35,17 @@ _GOOGLE_CALENDAR = re.compile(r"\b(?:google\s+calendar|agenda\s+google|calend[a�
 _GOOGLE_MEET = re.compile(r"\b(?:google\s+meet|reuni[aã]o\s+(?:do|no)\s+meet|transcri[cç][aã]o\s+(?:do|no)\s+meet)\b", re.I)
 _SUPPLIED_DATA = re.compile(r"\b(?:impress[oõ]es|cliques?|ctr|cpc|cpm|convers[oõ]es|roas|investimento|or[cç]amento|resultado|meta)\b", re.I)
 
+# Five product flows with stable legacy plugin IDs as internal modes. Connector
+# plugins stay outside these groups and continue to use their existing grants.
+FLOW_MODES = {
+    "intelligence": ("market-intelligence", "market-radar", "insights", "campaign-search"),
+    "media-strategy": ("planner", "audience-map", "investment-simulator", "media-plan-audit"),
+    "creative-experience": ("creative-concept", "channel-copy", "page-review", "studio"),
+    "performance": ("campaign-tracker", "reports"),
+    "project-operations": ("project-search", "project-activities", "meeting-copilot", "client-delivery"),
+}
+PLUGIN_FLOW = {plugin_id: flow_id for flow_id, modes in FLOW_MODES.items() for plugin_id in modes}
+
 
 def catalog() -> list[dict]:
     """Public metadata for the Plugins storefront and capability discovery."""
@@ -45,6 +56,8 @@ def catalog() -> list[dict]:
         entry["execution_path"] = ("worker" if plugin_id == "market-intelligence"
                                    else "workflow" if plugin_id in WORKFLOWS else "agent")
         entry["runtime_tools"] = list(_execution_tools(plugin_id))
+        entry["flow_id"] = PLUGIN_FLOW.get(plugin_id)
+        entry["flow_mode"] = plugin_id if plugin_id in PLUGIN_FLOW else None
     return entries
 
 
@@ -250,6 +263,8 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
     selected["execution_path"] = ("worker" if plugin_id == "market-intelligence"
                                   else "workflow" if plugin_id in WORKFLOWS else "agent")
     selected["runtime_tools"] = list(_execution_tools(plugin_id))
+    selected["flow_id"] = PLUGIN_FLOW.get(plugin_id)
+    selected["flow_mode"] = plugin_id if plugin_id in PLUGIN_FLOW else None
     selected["internal_tools"] = list(selected["runtime_tools"])
     selected["required_context_missing"] = missing
     selected["selected_automatically"] = not bool(explicit and explicit.group(1) in WORKFLOWS)

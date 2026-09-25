@@ -1,0 +1,81 @@
+#cadu-conversations-v2-root .cv-plugin-flow-shelf ul {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card {
+  display: flex;
+  min-height: 160px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid rgba(176,225,216,.16);
+  border-radius: 10px;
+  background: #101f21;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card__heading > div { min-width: 0; }
+#cadu-conversations-v2-root .cv-plugin-flow-card h3 {
+  margin: 2px 0 5px;
+  color: #ecf5f2;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card p {
+  margin: 0;
+  color: #adc5bf;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes button {
+  min-height: 29px;
+  padding: 5px 9px;
+  border: 1px solid rgba(159,199,191,.25);
+  border-radius: 6px;
+  background: #173032;
+  color: #c9e5df;
+  font: 500 11px Inter,ui-sans-serif,system-ui,sans-serif;
+  cursor: pointer;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes button:hover,
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes button:focus-visible {
+  border-color: #7bd8c9;
+  outline: 0;
+  background: #1f4141;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes .is-upcoming {
+  display: inline-flex;
+  min-height: 29px;
+  align-items: center;
+  padding: 5px 9px;
+  border: 1px solid rgba(159,199,191,.12);
+  border-radius: 6px;
+  color: #829c96;
+  font-size: 11px;
+}
+
+@media (max-width: 1100px) {
+  #cadu-conversations-v2-root .cv-plugin-flow-shelf ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  #cadu-conversations-v2-root .cv-plugin-flow-shelf ul { grid-template-columns: 1fr; }
+  #cadu-conversations-v2-root .cv-plugin-flow-card { min-height: 0; }
+}

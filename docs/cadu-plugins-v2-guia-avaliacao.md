@@ -62,6 +62,8 @@ Usar quatro conversas diferentes no mesmo projeto de teste: uma só com fatos fo
 | A10 | “Resuma estas notas de reunião em um registro editável.” | `meeting_summary`; discussão, decisões e ações separadas; responsável/prazo somente quando constarem nas notas. |
 | A11 | “Prepare uma pauta editável para a reunião de amanhã.” | `meeting_agenda`; tópicos em ordem e decisões esperadas; não inventar participantes. |
 | A12 | “Abra este link e guarde a referência.” | `link_reader`; URL original preservada; indicar se conteúdo foi lido ou apenas metadados obtidos. |
+| A13 | `/audience-map Mapeie segmentos de público e canais para a marca deste projeto. Foco em audiências Netflix para empresas de serviços e indústrias para campanhas institucionais de final de ano.` | Aprofunda o recorte Netflix; serviços e indústrias são setores do anunciante. Não sugere LinkedIn, YouTube ou outros canais, não mistura audiência B2B com inventário Netflix e marca hipóteses/lacunas sem inventar tamanho ou demografia. |
+| A14 | Repetir A13 com um canal explícito ausente do catálogo. | Declara que não encontrou correspondência e não substitui o canal por alternativas. |
 
 Para A02, A05 e A07, exportar `.md`, editar um trecho e exportar novamente. Comparar tabelas, links e blocos de código com `source_markdown` quando houver. Para A08 e A12, verificar o fluxo próprio em vez de esperar geração textual genérica. Repetir A07 em Quick Scan sem pedido de arquivo: o resultado deve chegar no chat; com pedido explícito de documento, deve criar artefato. Reabrir a conversa e o projeto após atualizar a página; a versão salva e seu vínculo devem permanecer acessíveis.
 

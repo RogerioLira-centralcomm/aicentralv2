@@ -148,9 +148,14 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
     if tool_name == "planner.research_plan_inputs":
         # The composite catalog tool searches only Cadu's read-only catalog;
         # the private brief stays inside the authorized chat context.
+        from .channel_scope import requested_channel_scope
+
         query = re.sub(r"\b(?:crie|criar|monte|montar|planeje|planejar|fa[cç]a|elabore)\b", " ", message, flags=re.I)
         city_match = re.search(r"\b(?:em|para)\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][\wÀ-ÿ -]{1,50}?)(?=\s+(?:com|para|usando|considerando)\b|[,.;!?]|$)", message)
         arguments = {"query": " ".join(query.split())[:100]}
+        scope = requested_channel_scope(message)
+        if scope:
+            arguments["channel_scope"] = scope
         if city_match:
             arguments["city"] = city_match.group(1).strip()[:80]
         return arguments

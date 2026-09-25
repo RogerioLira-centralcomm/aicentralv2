@@ -14,6 +14,9 @@ from aicentralv2.cadu_workspace.agent_v2.performance_review import review_suppli
 from aicentralv2.cadu_workspace.agent_v2.market_radar import fallback_query, requested_recency, relevant_read_sources
 from aicentralv2.cadu_workspace.agent_v2.project_status import summarize_tasks
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
+from aicentralv2.cadu_workspace.agent_v2.channel_scope import (
+    filter_channel_records, filter_scoped_records, requested_channel_scope,
+)
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
 from aicentralv2.cadu_workspace.agent_v2.plugins import select
 from aicentralv2.cadu_workspace.agent_v2.action_executor import _validate_action_result
@@ -256,6 +259,83 @@ def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown(
                for scenario in restricted["scenarios"])
     assert simulate("Distribua R$ 1.000,50")["budget_brl"] == "1000.50"
     assert simulate("Distribua R$ 1,5 milhão")["budget_brl"] == "1500000.0"
+
+
+def test_explicit_channel_scope_is_extracted_without_treating_project_brand_as_channel():
+    prompt = ("/audience-map Mapeie segmentos de público e canais para a marca deste projeto. "
+              "Foco em audiências Netflix para empresas de serviços e indústrias para campanhas institucionais.")
+    assert requested_channel_scope(prompt) == ["Netflix"]
+    assert requested_channel_scope("Mapeie públicos para a marca Netflix neste projeto.") == []
+    assert requested_channel_scope("Mapeie segmentos de público e canais para a marca deste projeto.") == []
+    assert requested_channel_scope("Mapeie audiências da marca Netflix nesta campanha.") == []
+    assert requested_channel_scope("Mapeie audiências Netflix e YouTube para esta campanha.") == ["Netflix", "YouTube"]
+
+
+def test_requested_channel_filter_never_substitutes_unmatched_channel():
+    channels = [{"name": "LinkedIn"}, {"name": "YouTube"}, {"name": "Netflix Ads"}]
+    assert filter_channel_records(channels, ["Netflix"]) == ([{"name": "Netflix Ads"}], "matched")
+    assert filter_channel_records(channels, ["Roku"]) == ([], "requested_channel_not_found")
+    assert filter_channel_records(channels, []) == (channels, "unrestricted")
+
+
+def test_scoped_audiences_keep_generic_candidates_but_remove_other_platforms():
+    rows = [{"name": "Generic B2B", "category": "Business"},
+            {"name": "LinkedIn decision makers", "platform": "LinkedIn"},
+            {"name": "Netflix viewers", "platform": "Netflix Ads"}]
+    assert filter_scoped_records(rows, ["Netflix"], ("platform",)) == [rows[0], rows[2]]
+
+
+def test_audience_catalog_search_matches_platform_name(monkeypatch):
+    from aicentralv2.cadu_family import repository
+
+    captured = {}
+    monkeypatch.setattr(repository, "rows", lambda sql, params: captured.update(sql=sql, params=params) or [])
+    repository.catalog("audiencias", "Netflix")
+
+    assert "COALESCE(p.nome, '') ILIKE %s" in captured["sql"]
+    assert captured["params"][:5] == ("%Netflix%",) * 5
+
+
+def test_research_plan_inputs_filters_catalog_to_requested_channel(monkeypatch):
+    from types import SimpleNamespace
+    from aicentralv2.cadu_planner import places
+    from aicentralv2.cadu_workspace.mcp.tools import planner
+
+    rows_by_kind = {
+        "canais": [{"id": 1, "name": "Netflix Ads"}, {"id": 2, "name": "LinkedIn"}],
+        "audiencias": [
+            {"id": 1, "name": "Streaming viewers", "platform": "Netflix Ads"},
+            {"id": 2, "name": "Decision makers", "platform": "LinkedIn"},
+            {"id": 3, "name": "Business leaders", "category": "B2B"},
+        ],
+        "formatos": [
+            {"id": 1, "name": "Video ad", "platform_slug": "netflix_ads"},
+            {"id": 2, "name": "Sponsored post", "platform_slug": "linkedin"},
+        ],
+    }
+    monkeypatch.setattr(planner.catalog, "query", lambda kind, _term, _limit: rows_by_kind[kind])
+    monkeypatch.setattr(planner.catalog, "detail", lambda _kind, _id: {})
+    monkeypatch.setattr(places, "catalog", lambda **_kwargs: [])
+
+    result = planner.research_plan_inputs(SimpleNamespace(), {"query": "audiências Netflix", "channel_scope": ["Netflix"]})
+
+    assert result["requested_channel_scope"] == ["Netflix"]
+    assert result["channels_status"] == "matched"
+    assert [item["name"] for item in result["canais"]] == ["Netflix Ads"]
+    assert [item["name"] for item in result["audiencias"]] == ["Streaming viewers", "Business leaders"]
+    assert "não validadas no canal solicitado" in result["audience_scope_note"]
+    assert [item["name"] for item in result["formatos"]] == ["Video ad"]
+    assert result["places"] == []
+    assert result["places_status"] == "not_applicable_to_channel_scope"
+
+
+def test_research_plan_inputs_arguments_pass_explicit_channel_scope():
+    context = RequestContext(client_id=1, user_id=2, conversation_id="c1", surface="conversations")
+    args = _arguments(
+        "planner.research_plan_inputs", context,
+        "/audience-map Mapeie audiências Netflix para empresas de serviços e indústrias.",
+    )
+    assert args["channel_scope"] == ["Netflix"]
 
 
 def test_media_plan_review_checks_budget_weights_and_channel_scope():

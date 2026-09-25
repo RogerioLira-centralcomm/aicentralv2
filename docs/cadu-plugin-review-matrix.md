@@ -6,7 +6,7 @@ Use uma conversa nova por linha. Registre versão, projeto e marca selecionados,
 |---|---|---|
 | Market Intelligence | `/market-intelligence Faça um Quick Scan do setor de café no Brasil e cite as fontes.` | Busca vazia, fonte inacessível ou worker indisponível; distinguir dado lido de inferência. |
 | Radar de mercado | `/market-radar Quais mudanças recentes no mercado de café afetam esta marca?` | Marca ausente ou busca vazia; não inventar mudança recente. |
-| Mapa de audiência | `/audience-map Mapeie públicos para esta campanha de café.` | Sem dados de audiência; segmentos propostos são hipóteses. |
+| Mapa de audiência | `/audience-map Aprofunde as audiências de Netflix para esta campanha de final de ano.` | Preserve Netflix como escopo permitido; não proponha outros canais nem misture segmentos do anunciante com inventário de audiência. Sem dados próprios, rotule hipóteses e lacunas. |
 | Simulador de investimento | `/investment-simulator Compare três distribuições de mídia para R$ 100 mil.` | Sem custos de canal; não prometer resultado nem atribuir precisão fictícia. |
 | Auditoria do plano | `/media-plan-audit Avalie o plano de mídia deste projeto.` | Sem plano selecionável; lista de planos não prova conteúdo do plano. |
 | Acompanhamento de campanha | `/campaign-tracker Analise o desempenho desta campanha.` | Projeto selecionado, mas nenhum relatório ou métrica: solicitar fonte. Repetir com métricas numéricas. |

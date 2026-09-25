@@ -53,6 +53,8 @@ def search_catalog(context: RequestContext, arguments: dict) -> dict:
     input_schema={"type": "object", "required": ["query"], "properties": {
         "query": {"type": "string", "maxLength": 100},
         "city": {"type": "string", "maxLength": 80},
+        "channel_scope": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 60},
+                          "maxItems": 5, "uniqueItems": True},
     }, "additionalProperties": False},
     output_schema={"type": "object"},
 )
@@ -62,6 +64,10 @@ def research_plan_inputs(context: RequestContext, arguments: dict) -> dict:
 
     query = " ".join(str(arguments.get("query") or "").split())[:100]
     city = " ".join(str(arguments.get("city") or "").split())[:80]
+    from ...agent_v2.channel_scope import filter_channel_records, filter_scoped_records
+
+    requested_scope = [" ".join(str(value).split())[:60] for value in arguments.get("channel_scope", [])
+                       if str(value).strip()][:5]
     stop_words = {"plano", "planejamento", "midia", "campanha", "campanhas", "para", "com", "sobre",
                   "uma", "um", "dos", "das", "por", "que", "mais", "menos", "foco", "focada", "focado",
                   "brasil", "brasileiro", "brasileira", "online", "offline", "digital", "aprofundado",
@@ -69,7 +75,8 @@ def research_plan_inputs(context: RequestContext, arguments: dict) -> dict:
                   "demografica", "demografico", "publico", "audiencia", "canais", "formatos"}
     terms = [term for term in re.findall(r"[\wÀ-ÿ-]{4,}", query.lower())
              if term not in stop_words and term not in city.lower().split()]
-    search_queries = list(dict.fromkeys(terms[-2:])) or [""]
+    search_queries = (list(dict.fromkeys(requested_scope)) if requested_scope
+                      else list(dict.fromkeys(terms[-2:])) or [""])
     result = {}
     safe_fields = {
         "canais": ("id", "name", "description", "category", "audience"),
@@ -88,6 +95,17 @@ def research_plan_inputs(context: RequestContext, arguments: dict) -> dict:
             ranked = sorted(candidates.values(), key=lambda row: (
                 -sum(term.casefold() in " ".join(str(row.get(key) or "") for key in fields).casefold()
                      for term in search_queries), str(row.get("name") or "").casefold()))[:5]
+            if kind == "canais" and requested_scope:
+                ranked, channels_status = filter_channel_records(ranked, requested_scope)
+                result["channels_status"] = channels_status
+            elif kind == "audiencias" and requested_scope:
+                ranked = filter_scoped_records(ranked, requested_scope, ("platform", "channel"))
+                if any(not (row.get("platform") or row.get("channel")) for row in ranked):
+                    result["audience_scope_note"] = (
+                        "Segmentos sem plataforma associada são referências genéricas, não validadas no canal solicitado."
+                    )
+            elif kind == "formatos" and requested_scope:
+                ranked = filter_scoped_records(ranked, requested_scope, ("platform_slug",))
             projection = [{key: row.get(key) for key in fields if row.get(key) not in (None, "", [], {})}
                           for row in ranked]
             if kind == "audiencias":
@@ -107,19 +125,25 @@ def research_plan_inputs(context: RequestContext, arguments: dict) -> dict:
             raise ToolError("Os catálogos do Planner não ficaram disponíveis.") from exc
         except Exception as exc:
             raise ToolError("Os catálogos do Planner não ficaram disponíveis.") from exc
-    try:
-        result["places"] = [
-            {key: row.get(key) for key in ("id", "name", "category", "city", "audience", "traffic", "traffic_label")
-             if row.get(key) not in (None, "", [], {})}
-            for row in places.catalog(query="", city=city)[:5]
-        ]
-    except Exception:
-        # Places is an optional source; planner proposal can still use the
-        # channel/audience catalogs and clearly omit unavailable inventory.
+    if requested_scope:
         result["places"] = []
-        result["places_status"] = "unavailable"
+        result["places_status"] = "not_applicable_to_channel_scope"
+    else:
+        try:
+            result["places"] = [
+                {key: row.get(key) for key in ("id", "name", "category", "city", "audience", "traffic", "traffic_label")
+                 if row.get(key) not in (None, "", [], {})}
+                for row in places.catalog(query="", city=city)[:5]
+            ]
+        except Exception:
+            # Places is an optional source; planner proposal can still use the
+            # channel/audience catalogs and clearly omit unavailable inventory.
+            result["places"] = []
+            result["places_status"] = "unavailable"
     result["query"] = query
     result["matched_terms"] = search_queries
+    if requested_scope:
+        result["requested_channel_scope"] = requested_scope
     result["source_note"] = "Referências do catálogo Cadu; não são cotação, disponibilidade ou garantia de desempenho."
     return result
 

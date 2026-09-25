@@ -819,11 +819,12 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
                    LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
                        WHERE a.is_active = TRUE
                          AND (a.nome ILIKE %s OR COALESCE(a.descricao_curta, '') ILIKE %s
-                              OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s)
+                              OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s
+                              OR COALESCE(p.nome, '') ILIKE %s)
                          AND (%s = '' OR c.nome = %s)
                          AND (%s = '' OR p.nome = %s)
                     ORDER BY ''' + ordering + ''' LIMIT 100''',
-                    (search, search, search, search, category, category, platform, platform))
+                    (search, search, search, search, search, category, category, platform, platform))
     if module == 'canais':
         category = category.strip()[:100] if isinstance(category, str) else ''
         return rows('''SELECT id, slug, nome AS name, descricao AS description, categoria AS category,

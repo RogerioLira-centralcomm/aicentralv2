@@ -78,3 +78,8 @@ def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown(
     assert without_budget["budget_brl"] is None
     assert all(item["amount_brl"] is None for scenario in without_budget["scenarios"]
                for item in scenario["allocations"])
+
+    restricted = simulate("Distribua R$ 50 mil apenas entre Google Ads e LinkedIn")
+    assert restricted["channels"] == ["Google Ads", "LinkedIn"]
+    assert all([item["channel"] for item in scenario["allocations"]] == restricted["channels"]
+               for scenario in restricted["scenarios"])

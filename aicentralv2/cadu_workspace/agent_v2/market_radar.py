@@ -19,6 +19,20 @@ def requested_recency(message: str) -> str:
     return "year"
 
 
+def fallback_query(brand: dict) -> str:
+    """Broaden one public search without sending private project context."""
+    name = " ".join(str(brand.get("name") or "").split())[:100]
+    market = brand.get("market") if isinstance(brand.get("market"), dict) else {}
+    competitors = market.get("competitors") or []
+    if isinstance(competitors, str):
+        competitors = re.split(r"[,;\n]+", competitors)
+    names = [" ".join(str(item.get("name") if isinstance(item, dict) else item or "").split())[:60]
+             for item in competitors[:3]]
+    entities = [item for item in [name, *names] if item]
+    return (" ".join([*entities, "campanha lançamento notícia estudo de mercado"])[:400]
+            if name else "")
+
+
 def relevant_read_sources(brand: dict, search_result: dict) -> list[dict]:
     """Keep read pages naming the brand or a registered competitor."""
     market = brand.get("market") if isinstance(brand.get("market"), dict) else {}

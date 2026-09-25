@@ -6,12 +6,12 @@ from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_s
 from aicentralv2.cadu_workspace.insights_research import (
     InsightsEvidenceUnavailable, _safe_sources, _read_source_contents, research_market,
 )
-from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
+from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units, quick_artifact_requested
 from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
 from aicentralv2.cadu_workspace.agent_v2.media_plan_review import review_media_plan
 from aicentralv2.cadu_workspace.agent_v2.performance_review import review_supplied_metrics
-from aicentralv2.cadu_workspace.agent_v2.market_radar import requested_recency, relevant_read_sources
+from aicentralv2.cadu_workspace.agent_v2.market_radar import fallback_query, requested_recency, relevant_read_sources
 from aicentralv2.cadu_workspace.agent_v2.project_status import summarize_tasks
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
@@ -154,6 +154,19 @@ def test_quick_market_scan_includes_independent_review_before_render():
     assert [item["kind"] for item in default_units(spec)] == [
         "discover", "extract", "analyze", "review", "render",
     ]
+
+
+def test_quick_market_scan_only_creates_artifact_for_explicit_file_request():
+    assert not quick_artifact_requested("Movimentos recentes do café no Brasil")
+    assert quick_artifact_requested("Movimentos recentes do café; salve em documento editável")
+
+
+def test_market_radar_fallback_uses_only_public_brand_fields():
+    brand = {"name": "Café Aurora", "market": {"competitors": [{"name": "Café Sol"}]},
+             "private_project_notes": "verba confidencial de 400 mil"}
+    query = fallback_query(brand)
+    assert "Café Aurora" in query and "Café Sol" in query
+    assert "confidencial" not in query
 
 
 def test_campaign_tracker_requires_an_actual_metric_value():

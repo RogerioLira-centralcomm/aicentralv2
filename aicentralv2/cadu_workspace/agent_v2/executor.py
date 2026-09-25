@@ -14,7 +14,7 @@ from .task_planner import build_task_plan
 from .contracts import execution_mode_for
 from . import plugins
 from .daily_workflows import recent_preferences
-from .market_radar import requested_recency, relevant_read_sources
+from .market_radar import fallback_query, requested_recency, relevant_read_sources
 from .project_status import summarize_tasks
 from ..mcp.registry import load_builtin_tools
 from ...db import close_db
@@ -309,9 +309,27 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 radar_result = resolved.values.get("web.search")
                 if isinstance(radar_result, dict):
                     verified = relevant_read_sources(brand, radar_result)
+                    if not verified and not external.missing:
+                        broader_query = fallback_query(brand)
+                        if broader_query and broader_query != radar_query:
+                            close_db()
+                            expanded = resolve_context(
+                                radar_route, request, broader_query, registry, execution_mode,
+                                tool_argument_overrides={"web.search": {
+                                    "query": broader_query, "recency": requested_recency(routed_message),
+                                    "limit": 8, "country": _market_radar_country(brand),
+                                }},
+                            )
+                            resolved.missing.extend(expanded.missing)
+                            resolved.tool_calls.extend(expanded.tool_calls)
+                            expanded_result = expanded.values.get("web.search")
+                            if isinstance(expanded_result, dict):
+                                verified = relevant_read_sources(brand, expanded_result)
+                                radar_result = expanded_result
                     resolved.values["web.search"] = {
                         **radar_result, "sources": verified, "source_count": len(verified),
                         "radar_evidence_filter": "read pages naming the brand or a registered competitor",
+                        "search_expanded": bool(radar_result.get("query") == fallback_query(brand)),
                     }
                     if not verified:
                         route = replace(route, action="clarify_plugin_evidence", complexity="low",

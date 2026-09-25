@@ -155,6 +155,23 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "get_brand_context", "low", "analysis",
                            ("brand",), ("brands.get_context",))
 
+    # An explicit visual deliverable takes priority over general project reading.
+    # A brand registration with a website URL is still a brand action.
+    explicit_visual_delivery = (
+        _has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|interface|dashboard interativo|painel interativo)\b")
+        or _has(text, r"\b(html|landing page|p[aá]gina|dashboard interativo|painel interativo)\b.{0,35}\b(cri|mont|ger|prototip)")
+        or _has(text, r"\b(?:crie|criar|monte|montar|gere|gerar)\s+(?:um|uma)?\s*site\b")
+    )
+    if explicit_visual_delivery:
+        tools = []
+        if has_project:
+            tools.extend(("workspace.get_project_context", "workspace.search_project_content"))
+        if has_brand:
+            tools.append("brands.get_context")
+        return IntentRoute("workspace", "create_html", "high", "artifact_first",
+                           ("project", "brand") if has_project and has_brand else ("project",) if has_project else ("brand",) if has_brand else (),
+                           tuple(tools), "html")
+
     broad_project_overview = _has(
         text, r"\b(?:vis[aã]o\s+geral|panorama|dossi[eê]|tudo)\b.{0,70}\b(?:projeto|campanha)\b",
     )
@@ -345,13 +362,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             ("project",), ("workspace.search_project_content",),
             "executive_summary",
         )
-    # Explicit visual output takes precedence over campaign-planning language
-    # in requests such as "landing page HTML para esta campanha".
-    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|site|interface|dashboard interativo|painel interativo)\b")
-            or _has(text, r"\b(html|landing page|p[aá]gina|site|dashboard interativo|painel interativo)\b.{0,35}\b(cri|mont|ger|prototip)")):
-        return IntentRoute("workspace", "create_html", "high", "artifact_first",
-                           ("project", "brand") if has_project else (),
-                           ("workspace.get_project_context",) if has_project else (), "html")
     media_plan_request = _has(
         text,
         r"\b(?:mont\w*|cri\w*|elabor\w*|desenh\w*|planej\w*|estrutur\w*|prepar\w*|ger\w*)\b"

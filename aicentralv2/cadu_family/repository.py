@@ -849,13 +849,14 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
                    LEFT JOIN cadu_plataformas_formatos p ON p.slug = f.plataforma_slug
                        WHERE f.is_active = TRUE
                          AND (f.nome ILIKE %s OR COALESCE(f.descricao, '') ILIKE %s
-                              OR COALESCE(f.dimensoes, '') ILIKE %s OR COALESCE(f.formatos_arquivo, '') ILIKE %s)
+                              OR COALESCE(f.dimensoes, '') ILIKE %s OR COALESCE(f.formatos_arquivo, '') ILIKE %s
+                              OR COALESCE(f.plataforma_slug, '') ILIKE %s OR COALESCE(p.nome, '') ILIKE %s)
                          AND f.is_interativo = %s
                          AND (%s = '' OR f.plataforma_slug = %s)
                          AND (%s = '' OR f.tipo = %s)
                          AND (%s = '' OR LOWER(COALESCE(NULLIF(TRIM(f.categoria_criativa), ''), NULLIF(TRIM(f.dados_extras ->> 'segmento'), ''), NULLIF(f.tipo, ''), 'Geral')) = LOWER(%s))
                     ORDER BY p.ordem NULLS LAST, f.ordem, f.nome LIMIT 100''',
-                    (search, search, search, search, module == 'interativos',
+                    (search, search, search, search, search, search, module == 'interativos',
                      platform, platform, format_type, format_type, segment, segment))
         return [_decorate_format(record) for record in records]
     raise ValueError('Catálogo inválido.')

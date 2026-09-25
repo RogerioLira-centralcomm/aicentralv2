@@ -269,11 +269,13 @@ def test_explicit_channel_scope_is_extracted_without_treating_project_brand_as_c
     assert requested_channel_scope("Mapeie segmentos de público e canais para a marca deste projeto.") == []
     assert requested_channel_scope("Mapeie audiências da marca Netflix nesta campanha.") == []
     assert requested_channel_scope("Mapeie audiências Netflix e YouTube para esta campanha.") == ["Netflix", "YouTube"]
+    assert requested_channel_scope("Mapeie audiências de Netflix para esta campanha.") == ["Netflix"]
 
 
 def test_requested_channel_filter_never_substitutes_unmatched_channel():
     channels = [{"name": "LinkedIn"}, {"name": "YouTube"}, {"name": "Netflix Ads"}]
     assert filter_channel_records(channels, ["Netflix"]) == ([{"name": "Netflix Ads"}], "matched")
+    assert filter_channel_records([{"name": "Netflix"}], ["Netflix Ads"]) == ([], "requested_channel_not_found")
     assert filter_channel_records(channels, ["Roku"]) == ([], "requested_channel_not_found")
     assert filter_channel_records(channels, []) == (channels, "unrestricted")
 
@@ -294,6 +296,18 @@ def test_audience_catalog_search_matches_platform_name(monkeypatch):
 
     assert "COALESCE(p.nome, '') ILIKE %s" in captured["sql"]
     assert captured["params"][:5] == ("%Netflix%",) * 5
+
+
+def test_format_catalog_search_matches_platform_name_and_slug(monkeypatch):
+    from aicentralv2.cadu_family import repository
+
+    captured = {}
+    monkeypatch.setattr(repository, "rows", lambda sql, params: captured.update(sql=sql, params=params) or [])
+    repository.catalog("formatos", "Netflix")
+
+    assert "COALESCE(f.plataforma_slug, '') ILIKE %s" in captured["sql"]
+    assert "COALESCE(p.nome, '') ILIKE %s" in captured["sql"]
+    assert captured["params"][:6] == ("%Netflix%",) * 6
 
 
 def test_research_plan_inputs_filters_catalog_to_requested_channel(monkeypatch):

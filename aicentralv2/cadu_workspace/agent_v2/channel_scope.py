@@ -7,7 +7,7 @@ import unicodedata
 
 
 _SCOPE_PATTERNS = (
-    re.compile(r"\b(?:audi[eê]ncias?|p[uú]blicos?)\s+(?:(?:do|da|no|na)\s+)?(?!para\b)(.+?)"
+    re.compile(r"\b(?:audi[eê]ncias?|p[uú]blicos?)\s+(?:(?:do|da|de|no|na)\s+)?(?!para\b)(.+?)"
                r"(?=\s+(?:para|por|com|em|entre|nas|nos)\b|[,;.!?]|$)", re.I),
     re.compile(r"\b(?:canal|plataforma)\s+(?:do|da|de)?\s*(.+?)"
                r"(?=\s+(?:para|por|com|em|entre|nas|nos)\b|[,;.!?]|$)", re.I),
@@ -44,7 +44,7 @@ def _matches_channel(name: str, requested: str) -> bool:
     actual, wanted = _normalized(name), _normalized(requested)
     if not actual or not wanted:
         return False
-    return actual == wanted or actual.startswith(wanted + " ") or wanted.startswith(actual + " ")
+    return actual == wanted or actual.startswith(wanted + " ")
 
 
 def filter_channel_records(records: list[dict], requested: list[str]) -> tuple[list[dict], str]:

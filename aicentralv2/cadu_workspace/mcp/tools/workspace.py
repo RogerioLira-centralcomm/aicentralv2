@@ -95,6 +95,7 @@ def _history_search_terms(word: str) -> bool:
 def _confirmed_project_memory(context: RequestContext, query: str) -> list[dict]:
     """Return reviewed decisions separately from unreviewed conversation history."""
     records = repository.rows("""SELECT id, scope, kind, summary, reviewed_at, updated_at,
+            source_conversation_id, source_message_id,
             CASE WHEN %s = '' THEN 0 ELSE
                 ts_rank(to_tsvector('portuguese', summary),
                         plainto_tsquery('portuguese', %s)) END AS text_rank
@@ -108,6 +109,8 @@ def _confirmed_project_memory(context: RequestContext, query: str) -> list[dict]
         "result_type": "confirmed_project_memory", "evidence_level": "reviewed_project_memory",
         "memory_id": str(item["id"]), "title": str(item.get("kind") or "Memória").replace("_", " "),
         "description": str(item.get("summary") or "")[:500],
+        "conversation_id": str(item.get("source_conversation_id") or ""),
+        "message_id": str(item.get("source_message_id") or ""),
         "reviewed_at": str(item.get("reviewed_at") or ""),
         "score": 9 + float(item.get("text_rank") or 0),
     } for item in records]

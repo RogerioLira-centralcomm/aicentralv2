@@ -328,6 +328,7 @@ if [ "$RUN_MIGRATIONS" = "1" ]; then
 "$VENV_PYTHON" migrations/run_add_cadu_mcp_contexts.py
 "$VENV_PYTHON" migrations/run_add_cadu_user_memory.py
 "$VENV_PYTHON" migrations/run_add_cadu_working_memory.py
+"$VENV_PYTHON" migrations/run_sql_migration.py fix_cadu_work_memory_assistant_provenance.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_conversation_memory.sql
 "$VENV_PYTHON" migrations/run_add_cadu_tool_token_ledger.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_credit_requests.sql

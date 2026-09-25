@@ -4300,19 +4300,21 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
                          FROM cadu_conversations c
                     LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
                         WHERE c.id_cliente = %s
+                          AND c.id_contato_cliente = %s
                           AND (c.projeto_id = %s OR x.project_ref = %s)
                           AND (x.conversation_id IS NULL OR
-                               (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
+                               (x.user_id = %s AND x.client_id = %s))
                      ORDER BY c.updated_at DESC LIMIT 50""",
-                    (client_id, project_id, f'ci:{project_id}', session.get('user_id'), client_id, client_id),
+                    (client_id, session.get('user_id'), project_id, f'ci:{project_id}', session.get('user_id'), client_id),
                 )
             else:
                 cursor.execute(
                     """SELECT id, titulo, total_mensagens, updated_at,
                               CASE WHEN projeto_id IS NOT NULL THEN 'ci:' || projeto_id::text END AS project_ref
-                         FROM cadu_conversations
-                        WHERE projeto_id = %s AND id_cliente = %s ORDER BY updated_at DESC LIMIT 50""",
-                    (project_id, client_id),
+                        FROM cadu_conversations
+                        WHERE projeto_id = %s AND id_cliente = %s AND id_contato_cliente = %s
+                        ORDER BY updated_at DESC LIMIT 50""",
+                    (project_id, client_id, session.get('user_id')),
                 )
             project['conversations'] = [dict(row) for row in cursor.fetchall()]
     except Exception:

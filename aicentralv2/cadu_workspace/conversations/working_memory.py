@@ -56,12 +56,12 @@ def capture_turn(*, client_id, project_ref, conversation_id, message_id, author_
                 cur.execute('''INSERT INTO cadu_working_memories
                     (id, organization_id, client_id, project_ref, scope, kind, summary, confidence, status,
                      source_conversation_id, source_message_id, source_author_id)
-                    VALUES (%s,%s,%s,%s,'project',%s,%s,.700,'proposed',%s,%s,%s)''',
+                    VALUES (%s,%s,%s,%s,'project',%s,%s,.700,'proposed',%s,%s,NULL)''',
                     (memory_id, client_id, client_id, project_ref, item['kind'], item['summary'],
-                     conversation_id, message_id, author_id))
+                     conversation_id, message_id))
                 cur.execute('''INSERT INTO cadu_working_memory_events (memory_id, actor_id, event, detail)
-                               VALUES (%s,%s,'proposed',%s::jsonb)''',
-                            (memory_id, author_id, json.dumps({'source': 'conversation'})))
+                               VALUES (%s,NULL,'proposed',%s::jsonb)''',
+                            (memory_id, json.dumps({'source': 'assistant_answer', 'initiated_by': author_id})))
                 created.append(memory_id)
         conn.commit()
         return created
@@ -92,8 +92,10 @@ def board(user, client_id, project_ref):
     conversations = repository.rows('''SELECT c.id, c.titulo AS title, c.updated_at, u.nome_completo AS author_name
         FROM cadu_conversations c JOIN cadu_family_conversation_context x ON x.conversation_id=c.id
         LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente=c.id_contato_cliente
-        WHERE x.client_id=%s AND x.project_ref=%s ORDER BY c.updated_at DESC LIMIT 50''',
-        (client_id, project_ref))
+        WHERE x.client_id=%s AND x.project_ref=%s AND x.user_id=%s
+          AND c.id_cliente=%s AND c.id_contato_cliente=%s
+        ORDER BY c.updated_at DESC LIMIT 50''',
+        (client_id, project_ref, user['id'], client_id, user['id']))
     weeks = {}
     for row in conversations:
         key = str(row['updated_at'].date().isocalendar()[:2]) if hasattr(row['updated_at'], 'date') else 'recentes'

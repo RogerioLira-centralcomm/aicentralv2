@@ -1011,7 +1011,17 @@ def _work_memory_project(selected, project_ref):
     if not isinstance(project_ref, str) or not any(item['ref'] == project_ref and item['kind'] == 'project'
                                                    for item in context.inventory(selected['client_id'])):
         abort(403, description='O projeto não pertence a este ambiente.')
+    if not repository.project_user_can_view(selected['client_id'], project_ref, context.identity()['id']):
+        abort(403, description='Você não tem acesso a este projeto.')
     return project_ref
+
+
+def _can_review_work_memory(client_id, project_ref, user):
+    if repository.account_role(user) == 'admin':
+        return True
+    return any(int(item.get('user_id') or 0) == int(user['id'])
+               and item.get('role') in {'owner', 'admin', 'editor'}
+               for item in repository.project_access(client_id, project_ref))
 
 
 @bp.get('/api/conversations/work-memory')
@@ -1038,8 +1048,11 @@ def conversation_work_memory_review(memory_id):
     if not rows:
         abort(404)
     project_ref = _work_memory_project(selected, rows[0]['project_ref'])
+    user = context.identity()
+    if not _can_review_work_memory(selected['client_id'], project_ref, user):
+        abort(403, description='Você não pode revisar memórias deste projeto.')
     try:
-        item = working_memory.review(str(memory_id), context.identity(), selected['client_id'],
+        item = working_memory.review(str(memory_id), user, selected['client_id'],
                                      project_ref, data['action'], data.get('summary'))
     except ValueError as exc:
         abort(400, description=str(exc))

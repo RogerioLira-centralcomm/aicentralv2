@@ -278,6 +278,7 @@ def test_confirmed_project_memory_is_scoped_and_keeps_review_provenance(monkeypa
     def rows(sql, params):
         captured['sql'], captured['params'] = sql, params
         return [{'id': 'memory-1', 'kind': 'decision', 'summary': 'Foco em B2B',
+                 'source_conversation_id': 'conversation-1', 'source_message_id': 'message-1',
                  'reviewed_at': '2026-09-25', 'text_rank': 0.3}]
     monkeypatch.setattr(workspace.repository, 'rows', rows)
 
@@ -289,6 +290,8 @@ def test_confirmed_project_memory_is_scoped_and_keeps_review_provenance(monkeypa
     assert captured['params'][2:] == (12, 'ci:project-1')
     assert result[0]['evidence_level'] == 'reviewed_project_memory'
     assert result[0]['memory_id'] == 'memory-1'
+    assert result[0]['conversation_id'] == 'conversation-1'
+    assert result[0]['message_id'] == 'message-1'
 
 
 def test_compact_agent_evidence_keeps_reviewed_memory_and_conversation_origin():

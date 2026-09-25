@@ -6,6 +6,7 @@ do not judge channel suitability, inventory, quoted prices, or likely results.
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 
 from .investment_scenarios import _amount
@@ -17,6 +18,15 @@ def _decimal(value) -> Decimal | None:
     except (InvalidOperation, TypeError, ValueError):
         return None
     return number if number.is_finite() else None
+
+
+def _fixed_budget(text: str) -> Decimal | None:
+    """A range, ceiling or estimate is not an exact allocation target."""
+    if len(re.findall(r"R\$", text, re.I)) != 1:
+        return None
+    if re.search(r"\b(?:entre|at[eé]|faixa|aproximad\w*|estimad\w*|cerca\s+de)\b", text, re.I):
+        return None
+    return _amount(text)
 
 
 def review_media_plan(plan: dict) -> dict:
@@ -66,7 +76,7 @@ def review_media_plan(plan: dict) -> dict:
 
     briefing = plan.get("briefing") if isinstance(plan.get("briefing"), dict) else {}
     budget_text = str(briefing.get("budget") or "")
-    budget = _amount(budget_text)
+    budget = _fixed_budget(budget_text)
     if budget is not None and allocations and len(investments) == len(allocations) and total_investment != budget:
         issue("budget_total", "blocking", f"Investimento alocado: R$ {total_investment}; verba no briefing: R$ {budget}.",
               "Ajuste a distribuição ou atualize a verba do briefing.")

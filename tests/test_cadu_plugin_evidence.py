@@ -273,6 +273,17 @@ def test_media_plan_review_keeps_unknown_budget_unknown():
     assert review["findings"] == []
 
 
+def test_media_plan_review_does_not_treat_budget_range_as_exact():
+    review = review_media_plan({
+        "briefing": {"budget": "entre R$ 1.000 e R$ 2.000"},
+        "items": [{"kind": "canais", "resource_id": "social"}],
+        "allocations": [{"resource_id": "social", "weight": "100", "investment": "1500"}],
+    })
+
+    assert review["budget_brl"] is None
+    assert not any(item["code"] == "budget_total" for item in review["findings"])
+
+
 def test_media_plan_review_flags_missing_selection_and_duplicate_channel():
     review = review_media_plan({
         "items": [],

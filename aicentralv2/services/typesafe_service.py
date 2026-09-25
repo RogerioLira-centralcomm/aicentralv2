@@ -1,6 +1,7 @@
 """Small server-side client for TypeSafe System One evaluations."""
 
 import requests
+import time
 
 from .integration_credentials import get_configuration, resolve_typesafe_api_key
 
@@ -32,18 +33,27 @@ def system_one(state, questions, *, model=None, timeout=30):
     request_model = str(
         model or config.get("default_model") or "jev-latest"
     ).strip()
-    try:
-        response = requests.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={"state": state, "model": request_model, "questions": questions},
-            timeout=timeout,
-        )
-    except requests.RequestException as exc:
-        raise TypeSafeError("Não foi possível conectar à API TypeSafe.") from exc
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={"state": state, "model": request_model, "questions": questions},
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            raise TypeSafeError("Não foi possível conectar à API TypeSafe.") from exc
+        if response.status_code not in (429, 529) or attempt == 2:
+            break
+        retry_after = response.headers.get('Retry-After', '')
+        try:
+            delay = min(4.0, max(0.0, float(retry_after)))
+        except ValueError:
+            delay = min(4.0, 2 ** attempt)
+        time.sleep(delay)
 
     if response.status_code in (401, 403):
         raise TypeSafeError("A API TypeSafe não aceitou a credencial configurada.")

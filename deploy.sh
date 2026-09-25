@@ -373,6 +373,13 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_review_history.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_docs_compat.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_link_test_runs.sql
+"$VENV_PYTHON" migrations/run_add_connect_report_workspace.py
+"$VENV_PYTHON" migrations/run_add_connect_report_sources.py
+"$VENV_PYTHON" migrations/run_add_connect_report_imports.py
+"$VENV_PYTHON" migrations/run_add_connect_report_reviews.py
+"$VENV_PYTHON" migrations/run_add_connect_report_ai_runs.py
+"$VENV_PYTHON" migrations/run_add_connect_report_public_links.py
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_operations_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql

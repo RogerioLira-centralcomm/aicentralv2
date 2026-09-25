@@ -1109,6 +1109,8 @@ def page(product, module=None):
     # public shares have dedicated routes above and do not pass through here.
     if not session.get('user_id'):
         return redirect(workspace_public_url(), code=302)
+    if product == 'planner' and module == 'links':
+        return redirect(product_url('connect', '/connect/app#links'), code=302)
     spec = PRODUCTS[product]
     module = module or next(iter(spec['modules']))
     if module not in spec['modules']:

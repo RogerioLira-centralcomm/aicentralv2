@@ -59,7 +59,7 @@ def authorized_report(rows, report_id, *, lock=False):
     if not reports:
         abort(404)
     refs = {e['ref'] for e in context.inventory(selected['client_id']) if e['kind'] == 'project'}
-    if reports[0]['project_ref'] not in refs:
+    if reports[0]['project_ref'] and reports[0]['project_ref'] not in refs:
         abort(404)
     return reports[0], selected
 

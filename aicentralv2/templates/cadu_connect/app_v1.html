@@ -1,0 +1,7 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Reports · Operação de mídia{% endblock %}
+{% block product_id %}connect{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_connect/react/app.css') }}">{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content %}<div id="cadu-reports-v1-root" data-workspace-url="{{ product_url('workspace', '/workspace/app') }}" data-planner-url="{{ product_url('planner', '/') }}"></div>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/vendor/apexcharts.min.js') }}"></script><script type="module" src="{{ url_for('static', filename='cadu_connect/react/app.js') }}"></script>{% endblock %}

@@ -23,15 +23,16 @@ def available():
 
 
 def validate_document(form, entities):
-    project = next((e for e in entities if e['ref'] == form.get('project_ref') and e['kind'] == 'project'), None)
-    if not project:
+    project_ref = form.get('project_ref') or None
+    project = next((e for e in entities if e['ref'] == project_ref and e['kind'] == 'project'), None)
+    if project_ref and not project:
         raise ValueError('Selecione um projeto autorizado.')
     name = (form.get('campaign_name') or '').strip()
     if not name or len(name) > 200:
         raise ValueError('Informe o nome da campanha com até 200 caracteres.')
     brand_ref = form.get('brand_ref') or ''
     brand = next((e for e in entities if e['ref'] == brand_ref and e['kind'] == 'brand'), None)
-    if brand_ref and (not brand or brand_ref not in project.get('related_refs', [])):
+    if brand_ref and (not brand or (project and brand_ref not in project.get('related_refs', []))):
         raise ValueError('A marca precisa estar vinculada ao projeto no Workspace.')
     dates = {}
     for field in ('start_date', 'end_date'):
@@ -47,7 +48,7 @@ def validate_document(form, entities):
     mode = form.get('brand_mode', 'cobrand')
     if mode not in ('cobrand', 'project'):
         raise ValueError('Identidade inválida.')
-    document = dict(project_ref=project['ref'], project_name=project['name'],
+    document = dict(project_ref=project['ref'] if project else None, project_name=project['name'] if project else '',
                     campaign_name=name, brand_ref=brand_ref,
                     brand_name=brand['name'] if brand else '', accent=accent, brand_mode=mode)
     for field, limit in (('objective', 2000), ('goals', 4000), ('management_notes', 8000),
@@ -214,7 +215,7 @@ def register(bp):
             FROM cadu_connect_report_workspaces WHERE organization_id=%s AND client_id=%s
             ORDER BY updated_at DESC''', (selected['organization_id'], selected['client_id'])) if ready else []
         project_refs = {e['ref'] for e in entities if e['kind'] == 'project'}
-        reports = [r for r in reports if r['project_ref'] in project_refs]
+        reports = [r for r in reports if not r['project_ref'] or r['project_ref'] in project_refs]
         report_id = request.args.get('report_id', type=int)
         report = next((r for r in reports if r['id'] == report_id), None)
         if report_id and not report:

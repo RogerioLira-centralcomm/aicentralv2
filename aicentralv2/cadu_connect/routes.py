@@ -1,7 +1,8 @@
 """Área autenticada do produto Cadu Agentes."""
 from typing import Optional
 
-from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import HTTPException
 
 from ..auth import login_required, login_required_api
 from ..cadu_skills.repository import customization_targets
@@ -13,8 +14,21 @@ from .repository import accounts_for_workspace_context, campaigns_for_client, fi
 
 bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 
+
+@bp.errorhandler(HTTPException)
+def reports_api_error(error):
+    if request.path.startswith('/connect/api/v1/reports/'):
+        return jsonify(error=error.description), error.code
+    return error
+
 from .report_workspace import register as register_report_workspace
 register_report_workspace(bp)
+from .reports_v1 import register as register_reports_v1
+register_reports_v1(bp)
+from .reports_ingest import register as register_reports_ingest
+register_reports_ingest(bp)
+from .reports_flow import register as register_reports_flow
+register_reports_flow(bp)
 
 
 @bp.before_request
@@ -97,6 +111,9 @@ def index():
     # single unauthenticated entry point: the public Workspace page.
     if not session.get("user_id"):
         return redirect(workspace_public_url(), code=302)
+    from .reports_v1 import _ready as reports_v1_ready
+    if reports_v1_ready():
+        return redirect(url_for('cadu_connect.reports_v1_app'), code=302)
     targets = customization_targets()
     is_portfolio_operator = bool(session.get("is_centralcomm") or session.get("user_type") == "superadmin")
     session_client_id = int(session.get("cliente_id") or 0)

@@ -470,6 +470,13 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if direct_url:
         return IntentRoute("workspace", "register_link_reference", "low", "clarification",
                            ("project",) if has_project else (), (), None, False)
+    # An HTML file is a visual artifact even when the request also says
+    # "arquivo" or "artefato"; the generic text-draft rule follows below.
+    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|site|interface|dashboard interativo|painel interativo)\b")
+            or _has(text, r"\b(html|landing page|p[aá]gina|site|dashboard interativo|painel interativo)\b.{0,35}\b(cri|mont|ger|prototip)")):
+        return IntentRoute("workspace", "create_html", "high", "artifact_first",
+                           ("project", "brand") if has_project else (),
+                           ("workspace.get_project_context",) if has_project else (), "html")
     if _has(text, r"\b(cri|fa[çc]|ger|transform|monte|montar|organiz)\w*\b.{0,45}\b(rascunho|documento|arquivo|texto)\b") or _has(
         text,
         r"\b(?:resumo|s[ií]ntese)\s+(?:edit[aá]vel|para editar)\b|"
@@ -507,11 +514,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz|refa[cç]|remont).{0,45}\b(html|landing page|p[aá]gina|site|interface|dashboard|painel)\b"):
         return IntentRoute("workspace", "update_html", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), "html")
-    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,55}\b(html|landing page|p[aá]gina|site|interface|dashboard interativo|painel interativo)\b")
-            or _has(text, r"\b(html|landing page|p[aá]gina|site|dashboard interativo|painel interativo)\b.{0,35}\b(cri|mont|ger|prototip)")):
-        return IntentRoute("workspace", "create_html", "high", "artifact_first",
-                           ("project", "brand") if has_project else (),
-                           ("workspace.get_project_context",) if has_project else (), "html")
     if _has(text, r"\b(pesquis|busqu|procur|encontr|localiz).{0,30}\b(projeto|arquivo|documento|nota|conte[uú]do)|\bo que (temos|existe|foi definido)\b"):
         return IntentRoute("workspace", "search_project", "medium", "analysis",
                            ("project",), ("workspace.search_project_content",))

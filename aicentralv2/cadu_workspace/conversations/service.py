@@ -337,33 +337,25 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                         FROM first_chunks WHERE position=1
                     ORDER BY source_updated_at DESC, source_id DESC LIMIT %s''',
                     (project_id, client_id, project_id, client_id, result_limit))
-                with _read_savepoint():
-                    inventory = repository.rows('''SELECT COUNT(*) AS total,
-                        COUNT(*) FILTER (WHERE indexing_status='completed' AND EXISTS (
-                            SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
-                              AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
-                        )) AS indexed,
-                        COUNT(*) FILTER (WHERE indexing_status IS DISTINCT FROM 'completed' OR NOT EXISTS (
-                            SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
-                              AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
-                        )) AS needs_index
-                        FROM cadu_ci_projeto_arquivos s
-                       WHERE projeto_id=%s AND id_cliente=%s AND purpose='knowledge_source'
-                         AND indexing_status <> 'superseded' ''', (project_id, client_id))
-                packet['source_inventory'] = inventory[0] if inventory else {}
                 packet['retrieval_status'] = 'overview'
             else:
               try:
                 vector = project_knowledge.vector_literal(project_knowledge.query_embedding(terms))
                 with _read_savepoint():
                     sources = repository.rows('''WITH lexical AS (
-                    SELECT id, ts_rank_cd(search_vector, plainto_tsquery('portuguese', %s)) AS score
-                      FROM cadu_ci_chunks WHERE projeto_id=%s AND id_cliente=%s
-                        AND search_vector @@ plainto_tsquery('portuguese', %s) ORDER BY score DESC LIMIT 12
+                    SELECT c.id, ts_rank_cd(c.search_vector, plainto_tsquery('portuguese', %s)) AS score
+                      FROM cadu_ci_chunks c JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
+                     WHERE c.projeto_id=%s AND c.id_cliente=%s
+                       AND s.projeto_id=c.projeto_id AND s.id_cliente=c.id_cliente
+                       AND s.purpose='knowledge_source' AND s.indexing_status='completed'
+                       AND c.search_vector @@ plainto_tsquery('portuguese', %s) ORDER BY score DESC LIMIT 12
                 ), semantic AS (
-                    SELECT id, 1 - (embedding <=> %s::vector) AS score
-                      FROM cadu_ci_chunks WHERE projeto_id=%s AND id_cliente=%s
-                    ORDER BY embedding <=> %s::vector LIMIT 12
+                    SELECT c.id, 1 - (c.embedding <=> %s::vector) AS score
+                      FROM cadu_ci_chunks c JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
+                     WHERE c.projeto_id=%s AND c.id_cliente=%s
+                       AND s.projeto_id=c.projeto_id AND s.id_cliente=c.id_cliente
+                       AND s.purpose='knowledge_source' AND s.indexing_status='completed'
+                    ORDER BY c.embedding <=> %s::vector LIMIT 12
                 ), ranked AS (
                     SELECT id, SUM(1.0 / (60 + rank)) AS score FROM (
                         SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM lexical
@@ -380,15 +372,36 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                 # brief during rollout; lexical retrieval is a temporary read
                 # fallback, never an indexing mode.
                 with _read_savepoint():
-                    sources = repository.rows('''SELECT id AS chunk_id, arquivo_id AS source_id, titulo,
-                                                   LEFT(conteudo, 1000) AS trecho,
+                    sources = repository.rows('''SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
+                                                   LEFT(c.conteudo, 1000) AS trecho,
                                                    0::double precision AS score,
-                                                   content_hash, embedding_model
-                                              FROM cadu_ci_chunks
-                                             WHERE projeto_id = %s AND id_cliente = %s
-                                               AND search_vector @@ plainto_tsquery('portuguese', %s)
-                                          ORDER BY ordem ASC LIMIT %s''', (project_id, client_id, terms, result_limit))
+                                                   c.content_hash, c.embedding_model
+                                              FROM cadu_ci_chunks c JOIN cadu_ci_projeto_arquivos s ON s.id=c.arquivo_id
+                                             WHERE c.projeto_id = %s AND c.id_cliente = %s
+                                               AND s.projeto_id=c.projeto_id AND s.id_cliente=c.id_cliente
+                                               AND s.purpose='knowledge_source' AND s.indexing_status='completed'
+                                               AND c.search_vector @@ plainto_tsquery('portuguese', %s)
+                                          ORDER BY c.ordem ASC LIMIT %s''', (project_id, client_id, terms, result_limit))
                 packet['retrieval_status'] = 'lexical_fallback'
+            # Coverage must be reported for targeted searches as well as
+            # overviews. Otherwise an unindexed source silently disappears.
+            try:
+                with _read_savepoint():
+                    inventory = repository.rows('''SELECT COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE indexing_status='completed' AND EXISTS (
+                        SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
+                          AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
+                    )) AS indexed,
+                    COUNT(*) FILTER (WHERE indexing_status IS DISTINCT FROM 'completed' OR NOT EXISTS (
+                        SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
+                          AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
+                    )) AS needs_index
+                    FROM cadu_ci_projeto_arquivos s
+                   WHERE projeto_id=%s AND id_cliente=%s AND purpose='knowledge_source'
+                     AND indexing_status <> 'superseded' ''', (project_id, client_id))
+                packet['source_inventory'] = inventory[0] if inventory else {}
+            except Exception:
+                packet['source_inventory_status'] = 'unavailable'
             packet['fontes_verificadas'] = [
                 _project_evidence(row, client_id, project_ref, retrieval_mode='overview' if overview else 'hybrid')
                 for row in sources

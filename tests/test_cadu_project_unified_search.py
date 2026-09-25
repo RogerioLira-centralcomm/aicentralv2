@@ -144,6 +144,8 @@ def test_generic_project_question_returns_saved_context_without_keyword_overlap(
 
 def test_project_overview_intent_keeps_specific_field_queries_as_searches():
     assert is_overview_query("O que você sabe sobre esse projeto?")
+    assert is_overview_query("O que você tem sobre esse projeto?")
+    assert is_overview_query("O que vc tem sobre esse projeto?")
     assert is_overview_query("Visão geral de tudo sobre esse projeto")
     assert not is_overview_query("Quem é o público desse projeto?")
     assert not is_overview_query("Qual é o orçamento desse projeto?")

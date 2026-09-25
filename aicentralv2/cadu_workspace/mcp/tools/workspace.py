@@ -556,6 +556,8 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
         unavailable.append("project_context")
     if packet.get("retrieval_status") == "unavailable":
         unavailable.append("indexed_sources")
+    if packet.get("source_inventory_status") == "unavailable":
+        unavailable.append("source_inventory")
     if int((packet.get("source_inventory") or {}).get("needs_index") or 0) > 0:
         unavailable.append("unindexed_sources")
     registry_pending = False

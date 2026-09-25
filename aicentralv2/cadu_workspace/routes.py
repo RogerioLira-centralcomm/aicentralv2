@@ -3866,15 +3866,14 @@ def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
 def _workspace_project_memory(client_id: int, project_id: str) -> dict:
     """Project detail is resilient while the shared-memory migration rolls out."""
     try:
-        organization_id = int(session.get('organization_id') or client_id)
         with get_db().cursor() as cursor:
             cursor.execute(
                 """SELECT id, kind, summary, status, source_conversation_id, source_message_id, updated_at
                      FROM cadu_working_memories
-                    WHERE organization_id = %s AND client_id = %s AND project_ref = %s
+                    WHERE client_id = %s AND project_ref = %s
                       AND status IN ('confirmed', 'proposed')
                  ORDER BY updated_at DESC LIMIT 24""",
-                (organization_id, client_id, f'ci:{project_id}'),
+                (client_id, f'ci:{project_id}'),
             )
             records = [dict(row) for row in cursor.fetchall()]
     except Exception:
@@ -3889,8 +3888,7 @@ def _can_review_project_memory(client_id: int, project_ref: str, user_id: int) -
     actor = family_repository.actor(user_id)
     if not actor or not family_repository.project_user_can_view(client_id, project_ref, user_id):
         return False
-    if (int(actor.get('organization_id') or 0) == client_id
-            and family_repository.account_role(actor) == 'admin'):
+    if family_repository.account_role(actor) == 'admin':
         return True
     return any(int(item.get('user_id') or 0) == user_id and item.get('role') in {'owner', 'admin', 'editor'}
                for item in family_repository.project_access(client_id, project_ref))

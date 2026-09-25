@@ -1032,8 +1032,15 @@ def conversation_work_memory_review(memory_id):
         abort(400, description='Informe a ação da memória.')
     if 'summary' in data and not isinstance(data['summary'], str):
         abort(400, description='O resumo da memória é inválido.')
+    rows = repository.rows('''SELECT project_ref FROM cadu_working_memories
+        WHERE id=%s AND client_id=%s AND scope='project' LIMIT 1''',
+        (str(memory_id), selected['client_id']))
+    if not rows:
+        abort(404)
+    project_ref = _work_memory_project(selected, rows[0]['project_ref'])
     try:
-        item = working_memory.review(str(memory_id), context.identity(), selected['client_id'], data['action'], data.get('summary'))
+        item = working_memory.review(str(memory_id), context.identity(), selected['client_id'],
+                                     project_ref, data['action'], data.get('summary'))
     except ValueError as exc:
         abort(400, description=str(exc))
     if not item:

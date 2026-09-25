@@ -43,6 +43,9 @@ class RequestContext:
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
+        # Legacy database writes still use this field internally. The agent,
+        # model payload and delegated context are scoped by client_id only.
+        value.pop("organization_id", None)
         value["capabilities"] = list(self.capabilities)
         return value
 

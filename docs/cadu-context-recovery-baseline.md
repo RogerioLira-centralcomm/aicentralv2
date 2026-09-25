@@ -43,6 +43,8 @@ The project search now retrieves a bounded set of original user messages from ea
 
 The working-memory tables were missing in production because their migration runner was omitted from `deploy.sh`. The runner now executes during deployment; future project decisions can be proposed for review. Existing conversations have not been backfilled into confirmed working memory.
 
+The agent-facing context and project retrieval use `client_id` as their account boundary. `organization_id` remains in older database columns and internal adapters until those schemas are migrated; it is not required in the model payload or used to filter the historical project search and reviewed working memory. Reviewed memory reaches both the Dify path and the V2 project search. Observability reports counts of reviewed memory and prior conversation messages found by the project tool.
+
 ## Queue reset and prevention
 
 After the snapshot, 47 queued resource jobs and 34 unclaimed memory jobs for client 174 were deleted in one transaction. Canonical conversations, messages, files, indexed chunks, and completed memory states were not changed. A read-only check immediately afterward found zero pending jobs in both queues.

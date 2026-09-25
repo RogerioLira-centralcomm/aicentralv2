@@ -9,6 +9,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from ..agent_v2.contracts import ActiveObject, RequestContext
 from ..agent_v2.request_context import resolve
+from ...cadu_family import repository
 
 
 SALT = "cadu-workspace-mcp-v2"
@@ -57,8 +58,11 @@ def _delegated(token: str) -> MCPPrincipal:
     active = value.get("active_object")
     active_object = ActiveObject(str(active["type"]), str(active["id"])) if isinstance(active, dict) else None
     try:
+        actor = repository.actor(int(value["user_id"]))
+        if not actor:
+            raise MCPUnauthorized("Usuário da delegação indisponível.")
         context = RequestContext(
-            organization_id=int(value["organization_id"]), client_id=int(value["client_id"]),
+            organization_id=int(actor["organization_id"]), client_id=int(value["client_id"]),
             user_id=int(value["user_id"]), conversation_id=value.get("conversation_id"),
             request_id=value.get("request_id"),
             surface=str(value["surface"]), project_ref=value.get("project_ref"),

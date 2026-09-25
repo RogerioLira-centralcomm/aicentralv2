@@ -246,6 +246,8 @@ def resolve_context(route: IntentRoute, request: RequestContext, message: str,
                     "source_retrieval_status": value.get("source_retrieval_status") or value.get("retrieval_status") or "unknown",
                     "result_count": len(value.get("results") or []),
                     "indexed_source_count": len(value.get("source_results") or value.get("fontes_verificadas") or []),
+                    "confirmed_memory_count": len(value.get("memory_results") or []),
+                    "conversation_history_count": len(value.get("conversation_results") or []),
                     "source_inventory": value.get("source_inventory") or {},
                     "unavailable_scopes": list(value.get("unavailable_scopes") or []),
                 }

@@ -41,7 +41,7 @@ def proposals(text):
     return candidates[:8]
 
 
-def capture_turn(*, organization_id, client_id, project_ref, conversation_id, message_id, author_id, answer):
+def capture_turn(*, client_id, project_ref, conversation_id, message_id, author_id, answer):
     if not project_ref or not available():
         return []
     items = proposals(answer)
@@ -57,7 +57,7 @@ def capture_turn(*, organization_id, client_id, project_ref, conversation_id, me
                     (id, organization_id, client_id, project_ref, scope, kind, summary, confidence, status,
                      source_conversation_id, source_message_id, source_author_id)
                     VALUES (%s,%s,%s,%s,'project',%s,%s,.700,'proposed',%s,%s,%s)''',
-                    (memory_id, organization_id, client_id, project_ref, item['kind'], item['summary'],
+                    (memory_id, client_id, client_id, project_ref, item['kind'], item['summary'],
                      conversation_id, message_id, author_id))
                 cur.execute('''INSERT INTO cadu_working_memory_events (memory_id, actor_id, event, detail)
                                VALUES (%s,%s,'proposed',%s::jsonb)''',
@@ -75,7 +75,8 @@ def packet(client_id, project_ref, query, limit=8):
         return ''
     terms = _clean(query, 400)
     records = repository.rows('''SELECT scope, kind, summary FROM cadu_working_memories
-        WHERE client_id=%s AND status='confirmed' AND ((scope='project' AND project_ref=%s) OR scope='client')
+        WHERE client_id=%s AND status='confirmed'
+          AND ((scope='project' AND project_ref=%s) OR (scope='client' AND project_ref IS NULL))
         ORDER BY CASE WHEN %s <> '' AND to_tsvector('portuguese', summary) @@ plainto_tsquery('portuguese', %s) THEN 1 ELSE 0 END DESC,
                  updated_at DESC LIMIT %s''', (client_id, project_ref, terms, terms, limit))
     return json.dumps({'versao':'1.0','memoria_de_trabalho_confirmada':records}, ensure_ascii=False) if records else ''
@@ -86,13 +87,13 @@ def board(user, client_id, project_ref):
         return {'project_ref': project_ref, 'confirmed': [], 'proposals': [], 'weeks': []}
     rows = repository.rows('''SELECT m.*, a.nome_completo AS author_name
         FROM cadu_working_memories m LEFT JOIN tbl_contato_cliente a ON a.id_contato_cliente=m.source_author_id
-        WHERE m.organization_id=%s AND m.client_id=%s AND m.project_ref=%s ORDER BY m.updated_at DESC LIMIT 100''',
-        (user['organization_id'], client_id, project_ref))
+        WHERE m.client_id=%s AND m.project_ref=%s ORDER BY m.updated_at DESC LIMIT 100''',
+        (client_id, project_ref))
     conversations = repository.rows('''SELECT c.id, c.titulo AS title, c.updated_at, u.nome_completo AS author_name
         FROM cadu_conversations c JOIN cadu_family_conversation_context x ON x.conversation_id=c.id
         LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente=c.id_contato_cliente
-        WHERE x.organization_id=%s AND x.client_id=%s AND x.project_ref=%s ORDER BY c.updated_at DESC LIMIT 50''',
-        (user['organization_id'], client_id, project_ref))
+        WHERE x.client_id=%s AND x.project_ref=%s ORDER BY c.updated_at DESC LIMIT 50''',
+        (client_id, project_ref))
     weeks = {}
     for row in conversations:
         key = str(row['updated_at'].date().isocalendar()[:2]) if hasattr(row['updated_at'], 'date') else 'recentes'
@@ -108,9 +109,9 @@ def review(memory_id, user, client_id, project_ref, action, summary=None):
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute('''SELECT * FROM cadu_working_memories WHERE id=%s AND organization_id=%s
+            cur.execute('''SELECT * FROM cadu_working_memories WHERE id=%s
                            AND client_id=%s AND project_ref=%s AND scope='project' FOR UPDATE''',
-                        (memory_id, user['organization_id'], client_id, project_ref))
+                        (memory_id, client_id, project_ref))
             row = cur.fetchone()
             if not row:
                 return None

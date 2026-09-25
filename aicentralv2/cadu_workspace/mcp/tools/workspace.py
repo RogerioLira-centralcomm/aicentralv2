@@ -62,7 +62,7 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
         JOIN cadu_family_conversation_context binding
           ON binding.conversation_id=message.conversation_id
         JOIN cadu_conversations conversation ON conversation.id=message.conversation_id
-        WHERE binding.organization_id=%s AND binding.client_id=%s
+        WHERE binding.client_id=%s
           AND binding.project_ref=%s AND binding.user_id=%s
           AND conversation.id_cliente=%s AND conversation.id_contato_cliente=%s
           AND message.role='user' AND message.conversation_id<>COALESCE(%s,'')
@@ -70,7 +70,7 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
           AND (%s = '' OR to_tsvector('portuguese', message.content)
                  @@ to_tsquery('portuguese', %s))
         ORDER BY text_rank DESC, message.created_at DESC LIMIT 6""",
-        (search_expression, search_expression, context.organization_id, context.client_id,
+        (search_expression, search_expression, context.client_id,
          context.project_ref, context.user_id, context.client_id, context.user_id,
          context.conversation_id, search_expression, search_expression))
     return [{
@@ -90,6 +90,27 @@ def _history_search_terms(word: str) -> bool:
                           "dados", "conteudo", "quais", "qual", "com", "dos", "das", "uma",
                           "por", "pesquisa", "pesquise", "busque", "buscar", "mostre", "tudo",
                           "todos", "que", "voce", "sabe", "conhece", "nosso", "nossa", "tem"}
+
+
+def _confirmed_project_memory(context: RequestContext, query: str) -> list[dict]:
+    """Return reviewed decisions separately from unreviewed conversation history."""
+    records = repository.rows("""SELECT id, scope, kind, summary, reviewed_at, updated_at,
+            CASE WHEN %s = '' THEN 0 ELSE
+                ts_rank(to_tsvector('portuguese', summary),
+                        plainto_tsquery('portuguese', %s)) END AS text_rank
+        FROM cadu_working_memories
+        WHERE client_id=%s AND status='confirmed'
+          AND ((scope='project' AND project_ref=%s)
+               OR (scope='client' AND project_ref IS NULL))
+        ORDER BY text_rank DESC, updated_at DESC LIMIT 8""",
+        (query[:400], query[:400], context.client_id, context.project_ref))
+    return [{
+        "result_type": "confirmed_project_memory", "evidence_level": "reviewed_project_memory",
+        "memory_id": str(item["id"]), "title": str(item.get("kind") or "Memória").replace("_", " "),
+        "description": str(item.get("summary") or "")[:500],
+        "reviewed_at": str(item.get("reviewed_at") or ""),
+        "score": 9 + float(item.get("text_rank") or 0),
+    } for item in records]
 
 
 @register_tool(
@@ -675,6 +696,12 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     except Exception:
         current_app.logger.exception("Histórico de conversas do projeto indisponível")
         unavailable.append("project_conversation_history")
+    memory_results = []
+    try:
+        memory_results = _confirmed_project_memory(context, query)
+    except Exception:
+        current_app.logger.exception("Memória confirmada do projeto indisponível")
+        unavailable.append("project_memory")
     resource_results.sort(key=lambda item: item["score"], reverse=True)
     task_results.extend(reference_activity_results)
     task_results.sort(key=lambda item: item["score"], reverse=True)
@@ -687,10 +714,10 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     if overview:
         # A dossier needs breadth across the project, even when its generic
         # request contains no terms from an individual resource title.
-        groups = [context_ranked[:8], source_ranked[:12], resource_results[:15], task_results[:12], conversation_results[:6]]
+        groups = [context_ranked[:8], memory_results[:8], source_ranked[:12], resource_results[:15], task_results[:12], conversation_results[:6]]
         ranked = [group[index] for index in range(15) for group in groups if index < len(group)][:30]
     else:
-        ranked = context_ranked + source_ranked + resource_results + task_results + conversation_results
+        ranked = context_ranked + memory_results + source_ranked + resource_results + task_results + conversation_results
         ranked.sort(key=lambda item: item.get("score") or 0, reverse=True)
     return {
         "project_ref": context.project_ref,
@@ -702,6 +729,7 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
         "context_results": context_ranked,
         "source_results": source_results,
         "conversation_results": conversation_results,
+        "memory_results": memory_results,
         "resource_results": resource_results[:20], "activity_results": task_results[:15],
         "results": ranked[:30],
         "unavailable_scopes": unavailable,
@@ -713,6 +741,7 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
             "Se source_inventory.needs_index for maior que zero, diga que há arquivos ainda sem leitura indexada. "
             "Se resource_index_pending for verdadeiro, o inventário pode estar desatualizado; "
             "mensagens de conversas anteriores comprovam apenas o que o usuário disse, não uma decisão aprovada; "
+            "memórias confirmadas foram revisadas, mas podem ser substituídas por dados salvos mais recentes; "
             "se unavailable_scopes não estiver vazio, informe a cobertura parcial."
         ),
     }

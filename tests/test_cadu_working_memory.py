@@ -37,9 +37,25 @@ def test_review_restricts_memory_to_the_selected_project(monkeypatch):
         def rollback(self): pass
     monkeypatch.setattr(working_memory.repository, 'get_db', lambda: Connection())
 
-    result = working_memory.review('memory-1', {'id': 7, 'organization_id': 12}, 174,
+    result = working_memory.review('memory-1', {'id': 7}, 174,
                                    'ci:project-1', 'confirm')
 
     assert 'project_ref=%s' in statements[0][0]
-    assert statements[0][1] == ('memory-1', 12, 174, 'ci:project-1')
+    assert statements[0][1] == ('memory-1', 174, 'ci:project-1')
     assert result['status'] == 'confirmed'
+
+
+def test_dify_memory_packet_requires_client_and_confirmed_status(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(working_memory, 'available', lambda: True)
+    def rows(sql, params):
+        captured['sql'], captured['params'] = sql, params
+        return [{'scope': 'project', 'kind': 'decision', 'summary': 'Foco em B2B'}]
+    monkeypatch.setattr(working_memory.repository, 'rows', rows)
+
+    packet = working_memory.packet(174, 'ci:project-1', 'B2B')
+
+    assert "client_id=%s AND status='confirmed'" in captured['sql']
+    assert "organization_id" not in captured['sql']
+    assert captured['params'][:2] == (174, 'ci:project-1')
+    assert 'Foco em B2B' in packet

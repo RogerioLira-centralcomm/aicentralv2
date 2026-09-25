@@ -991,7 +991,7 @@ def stream(run):
         # only creates proposals, so it can never delay or alter the answer.
         try:
             working_memory.capture_turn(
-                organization_id=run['organization_id'], client_id=run['client_id'], project_ref=run.get('project_ref'),
+                client_id=run['client_id'], project_ref=run.get('project_ref'),
                 conversation_id=run['conversation_id'], message_id=message_id, author_id=run['user_id'], answer=answer)
         except Exception:
             current_app.logger.info('Memória de trabalho indisponível para a conversa %s', run['conversation_id'])

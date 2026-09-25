@@ -189,6 +189,8 @@ def run_detail(client_id: int, run_id: str) -> dict:
                    "project_evidence": {key: (tool.get("output_summary") or {}).get("project_evidence", {}).get(key)
                                         for key in ("project_bound", "context_status", "source_retrieval_status",
                                                     "result_count", "indexed_source_count", "unavailable_scopes")}
+                   | {key: (tool.get("output_summary") or {}).get("project_evidence", {}).get(key)
+                      for key in ("confirmed_memory_count", "conversation_history_count")}
                    | {"source_inventory": {key: ((tool.get("output_summary") or {}).get("project_evidence", {}).get("source_inventory") or {}).get(key)
                                            for key in ("total", "indexed", "needs_index")}}
                    if isinstance((tool.get("output_summary") or {}).get("project_evidence"), dict) else None}

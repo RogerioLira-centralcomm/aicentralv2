@@ -20,6 +20,8 @@ CONTEXT = RequestContext(
 def no_historical_conversations(monkeypatch, request):
     if not request.node.name.startswith("test_historical_project_search"):
         monkeypatch.setattr(workspace, "_search_project_conversation_history", lambda *_: [])
+    if not request.node.name.startswith("test_confirmed_project_memory"):
+        monkeypatch.setattr(workspace, "_confirmed_project_memory", lambda *_: [])
 
 
 class _IndexStatusDb:
@@ -256,10 +258,11 @@ def test_historical_project_search_uses_user_and_project_scope(monkeypatch):
 
     results = workspace._search_project_conversation_history(CONTEXT, "decisões B2B", False)
 
-    assert "binding.organization_id=%s AND binding.client_id=%s" in captured["sql"]
+    assert "binding.client_id=%s" in captured["sql"]
+    assert "binding.organization_id" not in captured["sql"]
     assert "binding.project_ref=%s AND binding.user_id=%s" in captured["sql"]
     assert "message.role='user'" in captured["sql"]
-    assert captured["params"][2:8] == (12, 12, "ci:project-1", 7, 12, 7)
+    assert captured["params"][2:7] == (12, "ci:project-1", 7, 12, 7)
     assert results[0]["evidence_level"] == "user_statement"
     assert results[0]["message_id"] == "m1"
 
@@ -267,6 +270,24 @@ def test_historical_project_search_uses_user_and_project_scope(monkeypatch):
 def test_historical_project_search_skips_generic_question(monkeypatch):
     monkeypatch.setattr(workspace.repository, "rows", lambda *_: pytest.fail("unexpected lookup"))
     assert workspace._search_project_conversation_history(CONTEXT, "O que você tem sobre esse projeto?", False) == []
+
+
+def test_confirmed_project_memory_is_scoped_and_keeps_review_provenance(monkeypatch):
+    captured = {}
+    def rows(sql, params):
+        captured['sql'], captured['params'] = sql, params
+        return [{'id': 'memory-1', 'kind': 'decision', 'summary': 'Foco em B2B',
+                 'reviewed_at': '2026-09-25', 'text_rank': 0.3}]
+    monkeypatch.setattr(workspace.repository, 'rows', rows)
+
+    result = workspace._confirmed_project_memory(CONTEXT, 'B2B')
+
+    assert "client_id=%s AND status='confirmed'" in captured['sql']
+    assert "organization_id" not in captured['sql']
+    assert "scope='project' AND project_ref=%s" in captured['sql']
+    assert captured['params'][2:] == (12, 'ci:project-1')
+    assert result[0]['evidence_level'] == 'reviewed_project_memory'
+    assert result[0]['memory_id'] == 'memory-1'
 
 
 def test_search_checks_project_access_before_reading_context(monkeypatch):

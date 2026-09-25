@@ -50,6 +50,8 @@
         addFacts(`Recuperação do projeto · ${tool.tool_name}`, [
           ['Contexto', evidence.context_status], ['Busca em fontes', evidence.source_retrieval_status],
           ['Resultados', evidence.result_count], ['Trechos indexados', evidence.indexed_source_count],
+          ['Memórias confirmadas', evidence.confirmed_memory_count],
+          ['Mensagens de conversas anteriores', evidence.conversation_history_count],
           ['Fontes pendentes', evidence.source_inventory?.needs_index],
           ['Cobertura indisponível', (evidence.unavailable_scopes || []).join(', ') || 'Nenhuma'],
         ]);

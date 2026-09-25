@@ -3056,10 +3056,12 @@ def test_artifact_first_recovers_dense_markdown_into_editable_sections():
     assert "• mensagem central" in response.artifact_patch["fields"][1]["value"]
 
 
-def test_mcp_delegation_preserves_scoped_context_and_rejects_tampering():
+def test_mcp_delegation_preserves_scoped_context_and_rejects_tampering(monkeypatch):
     app = Flask(__name__)
     app.secret_key = "test-secret"
     scoped = context(project_ref="ci:42", capabilities=("workspace", "planner"))
+    monkeypatch.setattr(repository, "actor", lambda user_id: {"id": user_id, "organization_id": 12})
+    assert "organization_id" not in scoped.to_dict()
     with app.test_request_context("/"):
         token = issue(scoped)
     with app.test_request_context("/", headers={"Authorization": "Bearer " + token}):

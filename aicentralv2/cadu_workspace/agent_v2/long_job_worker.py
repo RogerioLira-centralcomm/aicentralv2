@@ -663,7 +663,8 @@ def _mi_report(job: dict, context: RequestContext) -> tuple[str, dict, list[str]
 
 def _save_artifact(job: dict, context: RequestContext, content: str, phase: str) -> dict:
     artifact_id = str(job.get("artifact_id") or "")
-    payload = {"title": job["title"], "html": docs.markdown_to_safe_html(content)}
+    payload = {"title": job["title"], "html": docs.markdown_to_safe_html(content),
+               "source_markdown": content}
     if artifact_id:
         current = get_artifact(context, artifact_id)
         return patch_artifact(context, artifact_id, payload, expected_version=current["current_version"],
@@ -678,11 +679,13 @@ def _save_artifact(job: dict, context: RequestContext, content: str, phase: str)
     return artifact
 
 
-def _persist_completion(job: dict, context: RequestContext, artifact: dict) -> None:
-    answer = "Concluí o trabalho e preparei o documento para revisão e edição."
+def _persist_completion(job: dict, context: RequestContext, artifact: dict | None = None,
+                        *, answer_text: str = "") -> None:
+    answer = (answer_text or "Concluí o trabalho e preparei o documento para revisão e edição.").strip()
     response = {
         "answer": answer, "confidence": "high", "assumptions": [], "questions": [], "actions": [],
-        "artifact_patch": {"type": "document", "title": artifact.get("title") or job["title"]},
+        "artifact_patch": ({"type": "document", "title": artifact.get("title") or job["title"]}
+                           if artifact else None),
         "citations": [], "blocks": [],
     }
     connection = repository.get_db()
@@ -699,7 +702,7 @@ def _persist_completion(job: dict, context: RequestContext, artifact: dict) -> N
                 VALUES (%s,%s,'assistant',%s,0,%s,%s,NOW())""",
                 (str(uuid4()), job["conversation_id"], answer, int(job.get("tokens_used") or 0),
                  Json({"runtime": "v2-long-job", "long_job_id": job["id"], "response": response,
-                       "artifact_id": str(artifact["id"])})))
+                       **({"artifact_id": str(artifact["id"])} if artifact else {})})))
             cursor.execute("""UPDATE cadu_conversations SET
                 total_mensagens=(SELECT COUNT(*) FROM cadu_conversation_messages WHERE conversation_id=%s),
                 total_tokens_saida=COALESCE(total_tokens_saida,0)+%s,updated_at=NOW() WHERE id=%s""",
@@ -727,7 +730,8 @@ def process_one(worker_id="", job_id=None) -> bool:
                                                  kind=kind, heading=f"{unit['kind']}_render_input",
                                                  source_ids=source_ids)
             output = {"fragment_id": fragment["id"], "ordinal": fragment["ordinal"]}
-            if unit["kind"] in {"compose", "review", "render"}:
+            quick_chat = job.get("mode") == "quick" and not long_jobs.quick_artifact_requested(job.get("objective"))
+            if unit["kind"] in {"compose", "review", "render"} and not quick_chat:
                 artifact = _save_artifact(job, context, content, unit["kind"])
                 output.update({"artifact_id": str(artifact["id"]), "version": artifact["current_version"]})
         elif unit["kind"] == "render":
@@ -782,9 +786,13 @@ def process_one(worker_id="", job_id=None) -> bool:
                 gap = {}
             if gap.get("sufficient") or not gap.get("gaps"):
                 long_jobs.skip_later_research(job["id"], unit["id"], context)
-        if completion["job_status"] == "completed" and output.get("artifact_id"):
+        if completion["job_status"] == "completed" and (output.get("artifact_id") or
+                job.get("kind") == "market_intelligence" and job.get("mode") == "quick"):
             job["tokens_used"] = completion["tokens_used"]
-            _persist_completion(job, context, get_artifact(context, output["artifact_id"]))
+            if output.get("artifact_id"):
+                _persist_completion(job, context, get_artifact(context, output["artifact_id"]))
+            else:
+                _persist_completion(job, context, answer_text=content)
     except Exception as exc:
         long_jobs.complete_unit(job["id"], unit["id"], context, error_code=type(exc).__name__,
                                 checkpoint={"position": unit["position"], "kind": unit["kind"], "error": str(exc)[:500]})

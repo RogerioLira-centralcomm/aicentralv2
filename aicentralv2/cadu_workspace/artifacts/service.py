@@ -436,7 +436,8 @@ def finalize_to_project(context: RequestContext, artifact_id: str, *, expected_v
         raise Conflict("O documento mudou. Reabra a versão recente antes de finalizar.")
     if not definition(artifact["type"]).indexable:
         raise BadRequest("Esta entrega pode permanecer vinculada ao projeto, mas não entra na base textual.")
-    text = _indexable_text(artifact)
+    source_markdown = str((artifact.get("content") or {}).get("source_markdown") or "")
+    text = source_markdown if source_format == "md" and source_markdown.strip() else _indexable_text(artifact)
     if len(text) < 20:
         raise BadRequest("O documento precisa de conteúdo suficiente para entrar na base do projeto.")
     project_id = project_ref[3:]

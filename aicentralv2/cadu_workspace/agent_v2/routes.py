@@ -658,7 +658,11 @@ def conversation_message():
             yield event("long_job.created", job={"id": job["id"], "title": spec.title, "kind": spec.kind,
                                                    "source_target": spec.source_target,
                                                    "token_budget": spec.token_budget})
-            response = {"answer": "Iniciei o trabalho em segundo plano. O conteúdo será construído por etapas e a primeira versão editável aparecerá assim que estiver pronta.",
+            creates_artifact = not (spec.kind == "market_intelligence" and spec.mode == "quick"
+                                    and not long_jobs.quick_artifact_requested(spec.objective))
+            response = {"answer": ("Iniciei a pesquisa. O resultado aparecerá nesta conversa quando a revisão terminar."
+                                   if not creates_artifact else
+                                   "Iniciei o trabalho em segundo plano. O conteúdo será construído por etapas e a primeira versão editável aparecerá assim que estiver pronta."),
                         "confidence": "high", "assumptions": [], "questions": [], "actions": [],
                         "artifact_patch": None, "citations": [], "blocks": []}
             yield event("answer.completed", response=response)

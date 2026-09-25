@@ -18,6 +18,14 @@ KINDS = {"deep_research", "long_document", "multi_source_analysis", "artifact_re
 UNIT_KINDS = {"discover", "extract", "classify", "summarize", "synthesize", "compose", "review", "render"}
 
 
+def quick_artifact_requested(objective: str) -> bool:
+    """A Quick Scan stays in chat unless its requested delivery is a file."""
+    return bool(re.search(
+        r"\b(?:artefato|documento|arquivo|edit[aá]vel|export[aá]vel|salv[ea]r?)\b",
+        str(objective or ""), re.I,
+    ))
+
+
 def spec_for_message(message: str, *, has_attachments: bool = False) -> LongJobSpec | None:
     """Route only explicit substantial deliverables; ordinary chat remains synchronous."""
     text = " ".join(str(message or "").lower().split())

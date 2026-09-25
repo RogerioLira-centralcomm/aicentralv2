@@ -372,10 +372,12 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-project-tree__more { display:block; min-height:27px; padding:3px 8px; border:0; background:transparent; color:#9a9a9a; font:500 11px Inter,ui-sans-serif,system-ui,sans-serif; text-align:left; cursor:pointer; }
 #cadu-conversations-v2-root .cv-project-tree__more:hover { color:#9a9a9a; }
 #cadu-conversations-v2-root .cv-brand-tree__more { min-height:23px; padding-left:10px; color:#82938f; font-size:10px; font-weight:400; }
-#cadu-conversations-v2-root .cv-personal-recent>header { padding-left:10px; }
+#cadu-conversations-v2-root .cv-personal-recent>header { padding-left:5px; }
 #cadu-conversations-v2-root .cv-personal-recent__toggle { display:flex; width:100%; min-height:24px; align-items:center; justify-content:space-between; gap:8px; padding:2px 0 4px; border:0; border-radius:6px; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
-#cadu-conversations-v2-root .cv-personal-recent__toggle:hover { background:rgba(255,255,255,.035); }
-#cadu-conversations-v2-root .cv-personal-recent__toggle .cv-nav-icon { width:12px; height:12px; transform:rotate(90deg); transition:transform .16s ease; }
+#cadu-conversations-v2-root .cv-personal-recent__toggle:hover { color:#d9e6e3; }
+#cadu-conversations-v2-root .cv-personal-recent__toggle .cv-nav-icon { width:12px; height:12px; transform:rotate(90deg); opacity:0; transition:transform .16s ease,opacity .12s ease; }
+#cadu-conversations-v2-root .cv-personal-recent__toggle:hover .cv-nav-icon,
+#cadu-conversations-v2-root .cv-personal-recent__toggle:focus-visible .cv-nav-icon { opacity:1; }
 #cadu-conversations-v2-root .cv-personal-recent.is-collapsed .cv-personal-recent__toggle .cv-nav-icon { transform:rotate(0); }
 #cadu-conversations-v2-root .cv-chat-sidebar-footer>a,#cadu-conversations-v2-root .cv-chat-sidebar-footer>button { font-weight:400; }
 #cadu-conversations-v2-root .cv-nav-group.is-scheduled>p,#cadu-conversations-v2-root .cv-nav-group.is-brand-context>p,#cadu-conversations-v2-root .cv-personal-recent>p { margin:3px 10px; color:#777; font-size:11px; }
@@ -1874,7 +1876,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-nav-group { margin-top:8px; }
   #cadu-conversations-v2-root .cv-nav-group>header { min-height:25px; gap:8px; padding:2px 8px 3px; }
   #cadu-conversations-v2-root .cv-nav-group.is-scheduled>header { min-height:32px; gap:9px; padding:0 8px; font-size:13px; }
-  #cadu-conversations-v2-root .cv-personal-recent>header { padding-left:8px; }
+  #cadu-conversations-v2-root .cv-personal-recent>header { padding-left:5px; }
   #cadu-conversations-v2-root .cv-project-tree__item { margin:0; }
   #cadu-conversations-v2-root .cv-project-tree__trigger { min-height:30px; gap:0; padding-inline:8px; }
   #cadu-conversations-v2-root .cv-project-tree__children { margin-left:12px; padding:0 0 3px; }
@@ -1980,10 +1982,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-conversation-row .cv-conversation-card { width:100%!important; padding-right:5px!important; }
   #cadu-conversations-v2-root .cv-conversation-actions { position:absolute; top:50%; right:0; width:46px; min-width:46px; flex:0 0 46px; transform:translateY(-50%); background:linear-gradient(90deg,transparent 0%,var(--cv-panel) 28%); opacity:0; pointer-events:none; transition:opacity .12s ease; }
   #cadu-conversations-v2-root .cv-conversation-row:hover .cv-conversation-actions,
-  #cadu-conversations-v2-root .cv-conversation-row:focus-within .cv-conversation-actions,
-  #cadu-conversations-v2-root .cv-conversation-actions.is-open { opacity:1; pointer-events:auto; }
-  #cadu-conversations-v2-root .cv-conversation-row:hover .cv-conversation-actions,
   #cadu-conversations-v2-root .cv-conversation-row:focus-within .cv-conversation-actions { opacity:1; }
+  #cadu-conversations-v2-root .cv-conversation-actions.is-open { opacity:1; pointer-events:auto; }
 }
 
 @media (max-width:767px) {

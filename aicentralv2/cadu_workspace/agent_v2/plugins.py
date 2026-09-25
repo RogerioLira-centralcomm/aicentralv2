@@ -38,7 +38,14 @@ _SUPPLIED_DATA = re.compile(r"\b(?:impress[oõ]es|cliques?|ctr|cpc|cpm|convers[o
 
 def catalog() -> list[dict]:
     """Public metadata for the Plugins storefront and capability discovery."""
-    return list_entries("plugin")
+    entries = list_entries("plugin")
+    for entry in entries:
+        plugin_id = str(entry.get("id") or "")
+        entry["declared_internal_tools"] = list(entry.get("internal_tools") or [])
+        entry["execution_path"] = ("worker" if plugin_id == "market-intelligence"
+                                   else "workflow" if plugin_id in WORKFLOWS else "agent")
+        entry["runtime_tools"] = list(_execution_tools(plugin_id))
+    return entries
 
 
 def integrations() -> list[dict]:
@@ -111,10 +118,11 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
             # Campaign reporting is still being built. This plugin currently
             # analyzes the supplied file and does not couple to Reports tools.
             tool_chain = ()
-        if plugin_id == "campaign-tracker" and not context.project_ref and not context.active_object and not has_report_attachment:
-            tool_chain = ()
+        if plugin_id == "campaign-tracker" and not has_report_attachment:
+            # This workflow deliberately does not read Reports. A selected
+            # project is scope, not evidence that campaign metrics exist.
             if not (_SUPPLIED_DATA.search(text) and re.search(r"\d", text)):
-                missing.append("relatório revisado, métricas ou projeto da campanha")
+                missing.append("relatório anexado ou métricas da campanha")
         if plugin_id == "media-plan-audit" and not context.project_ref and not context.active_object and not has_material:
             missing.append("plano de mídia ou projeto com um plano")
         if plugin_id == "page-review" and not re.search(r"https://\S+", text):
@@ -127,6 +135,12 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
                 missing.append("projeto ou informações de status para o cliente")
         if plugin_id == "meeting-copilot" and not re.search(r"\b(?:meet|google|transcri[cç][aã]o|grava[cç][aã]o)\b", text, re.I):
             tool_chain = ()
+        if (plugin_id == "meeting-copilot"
+                and re.search(r"\b(?:resum\w*|ata|s[ií]ntes\w*|decis[oõ]es|encaminhamentos)\b", text, re.I)
+                and not has_report_attachment and not has_material):
+            # Meet listings expose metadata; they are not meeting notes.
+            tool_chain = ()
+            missing.append("notas ou transcrição da reunião")
         if plugin_id in {"market-radar", "audience-map", "investment-simulator", "creative-concept", "channel-copy", "page-review", "meeting-copilot", "client-delivery"}:
             context_tools = []
             if context.project_ref and plugin_id != "market-radar":
@@ -163,6 +177,10 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
             tool_chain = ("workspace.search_project_content", "projects.list_resources")
         else:
             missing.append("projeto que deseja consultar")
+    elif route.action == "search_brand_assets":
+        # Brand-library lookups are direct authorized reads, not a campaign
+        # research workflow or public web search.
+        pass
     elif _CAMPAIGN_SEARCH.search(text) and not _PLANNING.search(text) and not _INSIGHTS.search(text):
         plugin_id = "campaign-search"
         if context.brand_ref:
@@ -228,7 +246,11 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
         return None, (), []
     # Runtime execution capabilities are code allowlisted. The database manifest
     # documents them but cannot expand what an automatic selection may invoke.
-    selected["internal_tools"] = list(_execution_tools(plugin_id))
+    selected["declared_internal_tools"] = list(selected.get("internal_tools") or [])
+    selected["execution_path"] = ("worker" if plugin_id == "market-intelligence"
+                                  else "workflow" if plugin_id in WORKFLOWS else "agent")
+    selected["runtime_tools"] = list(_execution_tools(plugin_id))
+    selected["internal_tools"] = list(selected["runtime_tools"])
     selected["required_context_missing"] = missing
     selected["selected_automatically"] = not bool(explicit and explicit.group(1) in WORKFLOWS)
     return selected, tool_chain, missing

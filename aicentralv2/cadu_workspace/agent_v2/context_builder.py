@@ -39,6 +39,13 @@ _GENERIC_REFERENCE = re.compile(
     r"\b(?:continue|continue\s+da[ií]|prossiga|retome|revise|ajuste|altere|melhore|resuma|"
     r"transforme|reescreva|complete|finalize|anteriormente)\b", re.IGNORECASE,
 )
+_UNSATISFIED_REFERENCE = re.compile(
+    r"\b(?:continuo|ainda)\s+(?:sem|n[aã]o\s+(?:tenho|recebi|vejo|consigo))\b|"
+    r"\b(?:n[aã]o\s+(?:era|foi|ficou|resolveu|atendeu|entregou)|"
+    r"est[aá]\s+(?:faltando|incompleto)|faltou\s+(?:o|a|um|uma)?)\b|"
+    r"\b(?:o\s+que\s+eu\s+(?:pedi|queria|precisava)|com\s+o\s+que\s+eu\s+(?:pedi|falei|disse))\b",
+    re.IGNORECASE,
+)
 _BRAND_CREATE_REQUEST = re.compile(
     r"\b(?:cri(?:a|e|ar)|cadastr(?:a|e|ar)|fa(?:ç|c)a|faz(?:er)?|mont(?:a|e|ar)|abr(?:a|e|ir)|nova)\b"
     r".{0,45}\bmarca\b", re.IGNORECASE,
@@ -193,7 +200,38 @@ def turn_context(message, messages):
             routing_message = "\n".join(part for part in user_parts if part)
             brand_draft = {"source_message_id": str(recent[start].get("id") or ""),
                            "turn_count": len(user_parts)}
-    resolved = "brand_draft" if brand_draft else "format_refinement" if routing_message else "latest_url" if _LINK_REFERENCE.search(normalized) and latest_url else "pending_action" if _SHORT_CONFIRMATION.match(normalized) and pending else "recent_turn" if _GENERIC_REFERENCE.search(normalized) else "none"
+    # A correction such as "continuo sem o resumo" refers to the task that
+    # produced the unsatisfactory answer. Route that original request again,
+    # while retaining the correction as a constraint for this generation.
+    recovery_request = ""
+    recovery_source_message_id = ""
+    if not routing_message and _UNSATISFIED_REFERENCE.search(normalized):
+        for position in range(len(recent) - 1, -1, -1):
+            item = recent[position]
+            if item.get("role") != "user":
+                continue
+            candidate = " ".join(str(item.get("content") or "").split())
+            if not candidate or _UNSATISFIED_REFERENCE.search(candidate):
+                continue
+            candidate_route = route_request(candidate, has_project=True)
+            if candidate_route.action != "answer":
+                recovery_request = candidate[:1200]
+                recovery_source_message_id = str(item.get("id") or "")
+                break
+            # A short answer can belong to a clarification of the same task.
+            # A substantive unrelated request stops the search: do not revive
+            # an older task simply because it also had a recognizable route.
+            previous_assistant = next((entry for entry in reversed(recent[:position])
+                                       if entry.get("role") == "assistant"), None)
+            was_answer_to_question = bool(previous_assistant and "?" in str(previous_assistant.get("content") or ""))
+            if len(candidate) > 160 or not was_answer_to_question:
+                break
+        if recovery_request:
+            routing_message = (
+                f"{recovery_request}\n\n"
+                f"Correção solicitada agora (preserve o pedido original e resolva o que faltou): {message}"
+            )
+    resolved = "brand_draft" if brand_draft else "unsatisfied_task" if recovery_request else "format_refinement" if routing_message else "latest_url" if _LINK_REFERENCE.search(normalized) and latest_url else "pending_action" if _SHORT_CONFIRMATION.match(normalized) and pending else "recent_turn" if _GENERIC_REFERENCE.search(normalized) else "none"
     entities = {}
     if latest_url:
         entities["url"] = latest_url
@@ -204,7 +242,7 @@ def turn_context(message, messages):
     transcript = [{"role": item.get("role"), "content": " ".join(str(item.get("content") or "").split())[:1000]} for item in recent[-6:] if str(item.get("content") or "").strip()]
     return {"type": "conversation_turn", "active_entities": entities, "resolved_reference": resolved,
             "requires_selected_context": resolved != "none", "pending_action": pending,
-            "routing_message": routing_message, "source_message_id": str((latest_url_message or {}).get("id") or ""),
+            "routing_message": routing_message, "source_message_id": recovery_source_message_id or str((latest_url_message or {}).get("id") or ""),
             "brand_draft": brand_draft,
             "latest_user_request": latest_user_request, "latest_assistant_answer": latest_assistant_answer,
             "recent_turns": transcript}

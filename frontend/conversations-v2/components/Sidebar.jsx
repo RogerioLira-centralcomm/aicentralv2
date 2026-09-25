@@ -253,7 +253,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
   const projectItems = [...projects].sort((left, right) => String(left.name || left.title || '').localeCompare(String(right.name || right.title || ''), 'pt-BR', {sensitivity: 'base'}));
   const actionItem = conversations.find(item => String(item.id) === String(actionMenuId));
   const workspaceGroups = groupWorkspaceProjects(brands.filter(brand => !isArchivedEntity(brand) && !brand.archived && !brand.isArchived), projectItems);
-  const brandItems = workspaceGroups.groups;
+  const brandItems = workspaceGroups.groups.filter(brand => brand.projects.length > 0);
   const ungroupedProjects = workspaceGroups.ungrouped;
   const toggleProject = ref => {
     const key = String(ref);
@@ -351,7 +351,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
           {!!pinnedConversations.length && <section><h2>Fixadas</h2>{conversationList(pinnedConversations)}</section>}
           {conversationSections.map(section => { const items = customSectionConversations(section); return items.length ? <section key={section.id}><h2>{section.name}</h2>{conversationList(items)}</section> : null; })}
           <section><h2>Chats recentes</h2>{conversationList(standard.slice(0, 5))}{standard.length > 5 && <button type="button" className="cv-mobile-navigation__more" onClick={event => { event.currentTarget.closest('section')?.classList.add('is-expanded'); }}>Ver todos</button>}{standard.length > 5 && <div className="cv-mobile-navigation__extra">{conversationList(standard.slice(5))}</div>}</section>
-          {!!brandItems.length && <section className="cv-mobile-entity-tree"><h2>Marcas</h2>{brandItems.map(brand => { const ref = String(brand.ref || brand.brandRef || (brand.id ? `studio:${brand.id}` : brand.name)); const expanded = selectedBrandRef === ref; const selected = String(brand.ref || brand.brandRef || (brand.id ? `studio:${brand.id}` : '')) === String(activeBrandRef); return <div className={`cv-brand-tree__item${selected ? ' is-active' : ''}`} key={`mobile-${ref}`}><button type="button" className="cv-project-tree__trigger cv-brand-tree__trigger" aria-expanded={expanded} onClick={() => toggleBrand(ref)}><span className="cv-brand-active-name">{brand.name || brand.title || 'Marca'}</span></button>{expanded && <div className="cv-brand-tree__children">{brand.projects.length ? brand.projects.map(project => renderProjectItem(project, 'cv-brand-tree__project')) : <small>Sem projetos vinculados</small>}</div>}</div>; })}</section>}
+          {!!brandItems.length && <section className="cv-mobile-entity-tree"><h2>Marcas</h2>{brandItems.map(brand => { const ref = String(brand.ref || brand.brandRef || (brand.id ? `studio:${brand.id}` : brand.name)); const expanded = selectedBrandRef === ref; const selected = String(brand.ref || brand.brandRef || (brand.id ? `studio:${brand.id}` : '')) === String(activeBrandRef); return <div className={`cv-brand-tree__item${selected ? ' is-active' : ''}`} key={`mobile-${ref}`}><button type="button" className="cv-project-tree__trigger cv-brand-tree__trigger" aria-expanded={expanded} onClick={() => toggleBrand(ref)}><span className="cv-brand-active-name">{brand.name || brand.title || 'Marca'}</span></button>{expanded && <div className="cv-brand-tree__children">{brand.projects.map(project => renderProjectItem(project, 'cv-brand-tree__project'))}</div>}</div>; })}</section>}
           <section className="cv-mobile-entity-tree"><h2>Projetos sem marca</h2>{ungroupedProjects.map(project => renderProjectItem(project))}{!ungroupedProjects.length && <p>Todos os projetos estão associados a uma marca.</p>}</section>
           {!!mobileDestinations.length && <nav className="cv-mobile-navigation__destinations" aria-label="Áreas do Workspace"><h2>Workspace</h2>{mobileDestinations.map(item => <a key={item.id} href={item.href} onClick={onClose}><NavIcon name={item.icon}/><span>{item.name}</span></a>)}</nav>}
           {!!mobileSolutions.length && <nav className="cv-mobile-navigation__solutions" aria-label="Outras soluções"><h2>Outras soluções</h2>{mobileSolutions.map(item => <a key={item.id} href={item.href} onClick={onClose}><span><b>{item.name}</b><small>{item.description}</small></span></a>)}</nav>}
@@ -381,7 +381,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
               <span className="cv-brand-active-name">{brandName}</span>
             </button>
             {expanded && <div className="cv-brand-tree__children">
-              {brand.projects.length ? brand.projects.map(project => renderProjectItem(project, 'cv-brand-tree__project')) : <small className="cv-brand-tree__empty">Sem projetos vinculados</small>}
+              {brand.projects.map(project => renderProjectItem(project, 'cv-brand-tree__project'))}
             </div>}
           </section>;
         })}</section>}

@@ -607,7 +607,8 @@ def _enrich_source_blocks(response, run):
             "title": str(source.get("title") or parsed.hostname or "Fonte")[:220],
             "url": url,
             "excerpt": " ".join(str(source.get("content_excerpt") or source.get("excerpt") or "").split())[:500],
-            "content": " ".join(str(source.get("content") or source.get("content_excerpt") or source.get("excerpt") or "").split())[:6000],
+            "content": " ".join(str(source.get("content") or "").split())[:6000],
+            "read_status": "read" if str(source.get("content") or "").strip() else "discovered",
             "published_at": str(source.get("published_at") or "")[:60],
             "kind": "web",
             "favicon": str(source.get("favicon") or "")[:2000],
@@ -616,6 +617,16 @@ def _enrich_source_blocks(response, run):
         if len(safe_web_sources) >= 8:
             break
     if safe_web_sources:
+        read_urls = {source["url"] for source in safe_web_sources if source["read_status"] == "read"}
+        project_urls = {str(resource.get("locator") or resource.get("url") or "")
+                        for resource in (resources if isinstance(resources, list) else [])
+                        if isinstance(resource, dict)}
+        allowed_urls = read_urls | project_urls
+        response.citations = [item for item in response.citations
+                              if not isinstance(item, dict) or str(item.get("url") or "") in allowed_urls]
+        if (run.get("route") or {}).get("artifact_type") == "research" and isinstance(response.artifact_patch, dict):
+            response.artifact_patch["citations"] = [item for item in response.artifact_patch.get("citations") or []
+                                                    if isinstance(item, dict) and str(item.get("url") or "") in read_urls]
         execution_mode = str(run.get("execution_mode") or "analysis")
         query = str(run.get("message") or "").lower()
         person_or_work_query = any(token in query for token in (
@@ -636,6 +647,8 @@ def _enrich_source_blocks(response, run):
             if isinstance(citation, dict)
         }
         for source in safe_web_sources:
+            if source["read_status"] != "read":
+                continue
             if source["url"] in existing_urls:
                 continue
             response.citations.append({
@@ -655,7 +668,7 @@ def _enrich_source_blocks(response, run):
                         "id": source["id"], "title": source["title"], "url": source["url"],
                         "kind": "web", "favicon": source["favicon"],
                         "detail": str(item.get("detail") or source["excerpt"] or "")[:700],
-                        "content": source["content"],
+                        "content": source["content"], "read_status": source["read_status"],
                     })
         has_web_block = any(
             block.get("type") == "source_group" and any(
@@ -665,15 +678,15 @@ def _enrich_source_blocks(response, run):
         if not has_web_block:
             response.blocks = [*response.blocks[:2], {
                 "type": "source_group",
-                "title": "Fontes consultadas",
+                "title": "Fontes localizadas",
                 "summary": (
-                    f"Consultei {len(safe_web_sources)} fonte"
-                    f"{'s' if len(safe_web_sources) != 1 else ''} pública"
-                    f"{'s' if len(safe_web_sources) != 1 else ''} e li seletivamente os resultados mais relevantes."
+                    f"Localizei {len(safe_web_sources)} fontes públicas; "
+                    f"{sum(item['read_status'] == 'read' for item in safe_web_sources)} tiveram conteúdo lido."
                 ),
                 "items": [{
                     "id": source["id"], "title": source["title"],
                     "detail": source["excerpt"], "content": source["content"], "kind": source["kind"], "url": source["url"], "favicon": source["favicon"],
+                    "read_status": source["read_status"],
                 } for source in safe_web_sources[:8]],
             }]
     return response

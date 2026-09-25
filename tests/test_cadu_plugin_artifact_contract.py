@@ -51,3 +51,29 @@ def test_research_patch_keeps_structured_evidence_and_rejects_unsafe_image():
     assert patch["tables"][0]["rows"] == [["Busca", "R$ 100"]]
     assert patch["citations"][0]["url"] == "https://example.com/dados"
     assert patch["images"] == [{"url": "https://example.com/capa.png", "alt": "Capa", "caption": ""}]
+
+
+def test_web_discovery_does_not_become_a_read_citation():
+    from types import SimpleNamespace
+    from aicentralv2.cadu_workspace.agent_v2.service import _enrich_source_blocks
+
+    response = SimpleNamespace(
+        citations=[{"title": "Só busca", "url": "https://example.com/descoberta"}],
+        blocks=[], artifact_patch={"citations": [{"title": "Só busca", "url": "https://example.com/descoberta"}]},
+    )
+    run = {
+        "route": {"artifact_type": "research"}, "execution_mode": "analysis", "message": "pesquise",
+        "resolved_context": SimpleNamespace(values={
+            "web.search": {"sources": [
+                {"url": "https://example.com/descoberta", "title": "Busca", "excerpt": "Trecho da busca"},
+                {"url": "https://example.com/lida", "title": "Página", "content": "Corpo efetivamente lido."},
+            ]},
+        }),
+    }
+    _enrich_source_blocks(response, run)
+
+    assert [item["url"] for item in response.citations] == ["https://example.com/lida"]
+    assert response.artifact_patch["citations"] == []
+    sources = next(block for block in response.blocks if block["type"] == "source_group")
+    assert sources["items"][0]["read_status"] == "discovered"
+    assert sources["items"][0]["content"] == ""

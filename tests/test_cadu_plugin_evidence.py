@@ -9,6 +9,7 @@ from aicentralv2.cadu_workspace.insights_research import (
 from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
 from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
+from aicentralv2.cadu_workspace.agent_v2.media_plan_review import review_media_plan
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
 from aicentralv2.cadu_workspace.agent_v2.plugins import select
@@ -176,6 +177,66 @@ def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown(
     assert restricted["channels"] == ["Google Ads", "LinkedIn"]
     assert all([item["channel"] for item in scenario["allocations"]] == restricted["channels"]
                for scenario in restricted["scenarios"])
+    assert simulate("Distribua R$ 1.000,50")["budget_brl"] == "1000.50"
+
+
+def test_media_plan_review_checks_budget_weights_and_channel_scope():
+    plan = {
+        "briefing": {"budget": "R$ 100.000"},
+        "items": [{"kind": "canais", "resource_id": "social"}],
+        "allocations": [
+            {"resource_id": "social", "weight": "60", "investment": "50000"},
+            {"resource_id": "search", "weight": "30", "investment": "40000"},
+        ],
+    }
+
+    review = review_media_plan(plan)
+
+    assert review["status"] == "issues"
+    assert review["total_weight_percent"] == "90"
+    assert review["total_investment_brl"] == "90000"
+    assert {item["code"] for item in review["findings"]} == {
+        "weight_total", "budget_total", "unselected_channel",
+    }
+
+
+def test_media_plan_review_keeps_unknown_budget_unknown():
+    review = review_media_plan({
+        "briefing": {"budget": "A definir"},
+        "items": [{"kind": "canais", "resource_id": "social"}],
+        "allocations": [{"resource_id": "social", "weight": "100", "investment": "500"}],
+    })
+
+    assert review["status"] == "clear_within_checked_fields"
+    assert review["budget_brl"] is None
+    assert review["findings"] == []
+
+
+def test_media_plan_review_flags_missing_selection_and_duplicate_channel():
+    review = review_media_plan({
+        "items": [],
+        "allocations": [
+            {"resource_id": "social", "weight": "50", "investment": "500"},
+            {"resource_id": "social", "weight": "50", "investment": "500"},
+        ],
+    })
+    assert {item["code"] for item in review["findings"]} == {"no_selected_channels", "duplicate_channel"}
+
+
+def test_planner_read_includes_calculation_review(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import planner
+
+    monkeypatch.setattr(planner.plans, "get_plan", lambda *_args: {
+        "id": "plan-1", "title": "Plano", "briefing": {"budget": "R$ 1.000"},
+        "items": [{"kind": "canais", "resource_id": "social"}],
+        "allocations": [{"resource_id": "social", "weight": "100", "investment": "800"}],
+    })
+    request = RequestContext(client_id=1, user_id=1, conversation_id=None, surface="planner")
+
+    result = planner.get_media_plan(request, {"plan_id": "plan-1"})
+
+    assert result["calculation_review"]["budget_brl"] == "1000"
+    assert [item["code"] for item in result["calculation_review"]["findings"]] == ["budget_total"]
 
 
 def test_page_review_reads_http_url_and_accepts_pasted_content(monkeypatch):

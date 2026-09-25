@@ -7,6 +7,7 @@ from werkzeug.exceptions import HTTPException
 from ....cadu_planner import catalog, link_tester, plans
 from ...agent_v2.contracts import RequestContext
 from ...agent_v2.investment_scenarios import simulate as simulate_investment
+from ...agent_v2.media_plan_review import review_media_plan
 from .. import operations
 from ..registry import ToolError, ToolInputError, register_tool
 
@@ -240,4 +241,6 @@ def get_media_plan(context: RequestContext, arguments: dict) -> dict:
         raise ToolInputError("Informe o plano que deve ser consultado.")
     plan = plans.get_plan(context.client_id, context.user_id, plan_id)
     # Commercial quote data is intentionally outside the first MCP domain.
-    return {key: plan.get(key) for key in ("id", "title", "objective", "status", "briefing", "items", "allocations", "readiness", "updated_at")}
+    result = {key: plan.get(key) for key in ("id", "title", "objective", "status", "briefing", "items", "allocations", "readiness", "updated_at")}
+    result["calculation_review"] = review_media_plan(result)
+    return result

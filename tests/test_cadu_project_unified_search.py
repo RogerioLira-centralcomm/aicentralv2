@@ -5,6 +5,7 @@ from flask import Flask
 import pytest
 
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
+from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import _bounded_json
 from aicentralv2.cadu_workspace.mcp.tools import workspace
 from aicentralv2.cadu_workspace.project_query import is_overview_query
 from aicentralv2.cadu_workspace import project_resource_service
@@ -288,6 +289,28 @@ def test_confirmed_project_memory_is_scoped_and_keeps_review_provenance(monkeypa
     assert captured['params'][2:] == (12, 'ci:project-1')
     assert result[0]['evidence_level'] == 'reviewed_project_memory'
     assert result[0]['memory_id'] == 'memory-1'
+
+
+def test_compact_agent_evidence_keeps_reviewed_memory_and_conversation_origin():
+    import json
+    memory = {'result_type': 'confirmed_project_memory', 'evidence_level': 'reviewed_project_memory',
+              'memory_id': 'memory-1', 'description': 'Foco em B2B', 'score': 9}
+    history = {'result_type': 'conversation_history', 'evidence_level': 'user_statement',
+               'conversation_id': 'conversation-1', 'message_id': 'message-1',
+               'description': 'Vamos focar em B2B', 'score': 3}
+    evidence = {'current_context': CONTEXT.to_dict(),
+                'workspace.search_project_content': {
+                    'project_ref': CONTEXT.project_ref, 'results': [memory, history],
+                    'source_results': [], 'memory_results': [memory], 'conversation_results': [history],
+                    'padding': 'x' * 2500}}
+
+    compact = json.loads(_bounded_json(evidence, 1800))
+
+    rows = compact['workspace.search_project_content']['results']
+    assert rows[0]['memory_id'] == 'memory-1'
+    assert rows[1]['message_id'] == 'message-1'
+    assert rows[1]['conversation_id'] == 'conversation-1'
+    assert 'organization_id' not in compact['current_context']
 
 
 def test_search_checks_project_access_before_reading_context(monkeypatch):

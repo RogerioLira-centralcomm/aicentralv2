@@ -4,8 +4,8 @@
 
 | Escopo | Resultado | Leitura |
 | --- | --- | --- |
-| Roteamento, evidência e contratos de artefato (`test_cadu_agent_v2.py`, `test_cadu_plugin_evidence.py`, `test_cadu_plugin_artifact_contract.py`) | 289 passaram | Cobre tipos semânticos nomeados, fonte lida versus descoberta, Quick Scan, cálculos e os contratos principais do agente. |
-| Fluxo de crédito/finalização de artefato (`test_cadu_mcp_credit_artifact_flow.py`) | 12 passaram na rodada focada anterior | Cobre finalização e idempotência por mocks; não substitui uma sessão real autenticada. |
+| Roteamento, evidência e contratos de artefato (`test_cadu_agent_v2.py`, `test_cadu_plugin_evidence.py`, `test_cadu_plugin_artifact_contract.py`) | 290 passaram | Cobre tipos semânticos nomeados, fonte lida versus descoberta, Quick Scan, cálculos e os contratos principais do agente. |
+| Fluxo de crédito/finalização de artefato (`test_cadu_mcp_credit_artifact_flow.py`) | 12 passaram na mesma rodada focada | Cobre finalização e idempotência por mocks; não substitui uma sessão real autenticada. |
 | Suíte ampla `tests/test_cadu_*.py` | 988 passaram, 25 falharam | Falhas incluem templates, identidade, stream legado, skills e rotas de catálogo. Investigar em seus respectivos fluxos; esta rodada não alterou esses componentes. |
 | Integração frontend `cadu-conversations-v2-integration.test.cjs` | 35 passaram, 13 falharam | Falhas em contratos de shell/CSS e componentes alterados em paralelo. Exigem reconciliação com a versão final dessas telas. |
 | Build do frontend de conversas | Passou após o commit `8dbbac95` | Confirma compilação dos renderizadores atualizados; não comprova navegação autenticada. |

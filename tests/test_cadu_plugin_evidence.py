@@ -3,7 +3,9 @@
 from datetime import date
 
 from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_status, supporting_refs
-from aicentralv2.cadu_workspace.insights_research import _safe_sources, _read_source_contents
+from aicentralv2.cadu_workspace.insights_research import (
+    InsightsEvidenceUnavailable, _safe_sources, _read_source_contents, research_market,
+)
 from aicentralv2.cadu_workspace.agent_v2.long_jobs import LongJobSpec, default_units
 from aicentralv2.cadu_workspace.agent_v2.campaign_metrics import supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
@@ -67,6 +69,38 @@ def test_insight_support_requires_a_quote_in_the_read_body():
     assert supporting_refs("O CTR foi de 2,4% no mês de julho", [sources[0]["id"]], contents) == [sources[0]["id"]]
     assert supporting_refs("O CTR subiu 30%", [sources[0]["id"]], contents) == []
     assert supporting_refs("O CTR foi de 2,4% no mês de julho", ["outro-id"], contents) == []
+
+
+def test_insights_block_reviewed_claim_without_literal_support(monkeypatch):
+    from types import SimpleNamespace
+    import json
+
+    page = "O CTR foi de 2,4% no mês de julho em campanhas de café no Brasil."
+    monkeypatch.setattr("aicentralv2.cadu_workspace.insights_research.web_search.search", lambda *_args, **_kwargs: {
+        "query": "café", "sources_read": 1, "sources": [{
+            "url": "https://example.com/coffee", "title": "Relatório público", "content": page,
+            "published_at": "2026-09-20", "published_at_source": "page", "read_status": "read",
+        }],
+    })
+
+    def fake_model(*, stage, **_kwargs):
+        if stage == "perplexity-research":
+            return {"message": {"content": "Pesquisa preliminar."}}
+        payload = {
+            "headline": "CTR de 2,4% em julho", "headline_source_ids": ["mkt-1"],
+            "headline_support_quote": "O CTR foi de 2,4% no mês de julho",
+            "insight": "O CTR foi de 2,4% no mês de julho.", "insight_source_ids": ["mkt-1"],
+            "insight_support_quote": "O CTR foi de 2,4% no mês de julho",
+            "metrics": [], "news": [],
+        }
+        if stage == "insight-review":
+            payload["insight_support_quote"] = "O CTR cresceu 30% no mês de julho"
+        return {"message": {"content": json.dumps(payload)}}
+
+    monkeypatch.setattr("aicentralv2.cadu_workspace.insights_research._model_call", fake_model)
+    context = SimpleNamespace(client_id=1, user_id=1, conversation_id=None)
+    with pytest.raises(InsightsEvidenceUnavailable):
+        research_market(context, "mercado de café", "test-quote-gate")
 
 
 def test_quick_market_scan_includes_independent_review_before_render():

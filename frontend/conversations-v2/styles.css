@@ -324,6 +324,9 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-nav-icon.is-folder::after { position:absolute; top:3px; left:2px; width:6px; height:3px; border:1.4px solid currentColor; border-bottom:0; border-radius:2px 2px 0 0; background:inherit; content:""; }
 #cadu-conversations-v2-root .cv-nav-icon.is-folderOpen::before { position:absolute; top:6px; left:1px; width:14px; height:8px; border:1.5px solid currentColor; border-radius:1px 2px 2px 2px; background:transparent; clip-path:polygon(0 22%,100% 0,87% 100%,12% 100%); content:""; }
 #cadu-conversations-v2-root .cv-nav-icon.is-folderOpen::after { position:absolute; top:3px; left:2px; width:7px; height:3px; border:1.5px solid currentColor; border-bottom:0; border-radius:2px 2px 0 0; transform:skewY(-13deg); content:""; }
+#cadu-conversations-v2-root .cv-brand-tree__trigger>.cv-nav-icon { width:15px; height:15px; }
+#cadu-conversations-v2-root .cv-nav-icon.is-brand::before { top:3px; left:3px; width:9px; height:9px; }
+#cadu-conversations-v2-root .cv-nav-icon.is-brand::after { top:6px; left:6px; width:3px; height:3px; box-shadow:0 0 0 1.5px var(--cv-panel),0 0 0 2.5px currentColor; }
 #cadu-conversations-v2-root .cv-nav-icon.is-chat::before { position:absolute; top:2px; left:2px; width:12px; height:10px; border:1.4px solid currentColor; border-radius:5px; content:""; }
 #cadu-conversations-v2-root .cv-nav-icon.is-chat::after { position:absolute; bottom:1px; left:4px; width:4px; height:4px; border-left:1.4px solid currentColor; transform:skew(-28deg); content:""; }
 #cadu-conversations-v2-root .cv-nav-icon.is-clock::before { position:absolute; inset:2px; border:1.4px solid currentColor; border-radius:50%; content:""; }

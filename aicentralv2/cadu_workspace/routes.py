@@ -3616,6 +3616,7 @@ def _workspace_context_catalog(client_id: int) -> dict:
     return {
         'brands': [{
             'ref': ref, 'id': str(item['id']), 'name': str(item.get('name') or 'Marca'),
+            'status': 'arquivado' if (item.get('brand_profile') or {}).get('workspace_archived_at') else 'ativo',
             'logo_url': str(item.get('display_logo') or ''),
             'color': str(item.get('display_color') or item.get('primary_color') or ''),
             'initials': str(item.get('display_initials') or 'M'),
@@ -5237,6 +5238,7 @@ def dashboard():
                     'visualInitials': str(item.get('display_initials') or 'M'),
                     'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
                     'visualVariant': _dock_visual_variant('brand', item.get('id')),
+                    'archived': bool((item.get('brand_profile') or {}).get('workspace_archived_at')),
                     'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
                     'projectCount': brand_project_counts.get(f"studio:{item.get('id')}", 0)}
                    for item in brands]
@@ -5427,8 +5429,8 @@ def brands():
         return redirect(url_for('cadu_workspace.clean_brands'), code=308)
     client_id = int(session.get('cliente_id') or 0)
     query = request.args.get('q', '')
-    filter_name = request.args.get('filtro', 'todas')
-    filter_name = filter_name if filter_name in {'todas', 'auditadas', 'com-ativos'} else 'todas'
+    filter_name = request.args.get('filtro', 'ativas')
+    filter_name = filter_name if filter_name in {'ativas', 'arquivadas', 'todas', 'auditadas', 'com-ativos'} else 'ativas'
     if request.args.get('legacy') == '1':
         return redirect(url_for('cadu_workspace.clean_brands', q=query, filtro=filter_name), code=308)
     projects = _workspace_projects(client_id)
@@ -5440,6 +5442,10 @@ def brands():
         current_app.logger.exception('Não foi possível carregar o catálogo de marcas do cliente %s', client_id)
         catalog_records = []
         catalog_error = 'As marcas estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
+    if filter_name == 'ativas':
+        catalog_records = [brand for brand in catalog_records if not (brand.get('brand_profile') or {}).get('workspace_archived_at')]
+    elif filter_name == 'arquivadas':
+        catalog_records = [brand for brand in catalog_records if (brand.get('brand_profile') or {}).get('workspace_archived_at')]
     if filter_name == 'auditadas':
         catalog_records = [brand for brand in catalog_records if brand.get('analysis_metadata')]
     elif filter_name == 'com-ativos':
@@ -5451,6 +5457,7 @@ def brands():
                     'visualVariant': _dock_visual_variant('brand', item.get('id')),
                     'sector': str(item.get('sector') or ''), 'summary': str(item.get('display_summary') or ''),
                     'assetCount': int(item.get('asset_count') or 0), 'audited': bool(item.get('analysis_metadata')),
+                    'archived': bool((item.get('brand_profile') or {}).get('workspace_archived_at')),
                     **metrics.get(str(item.get('id')), {}),
                     'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in catalog_records]
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
@@ -5462,6 +5469,42 @@ def brands():
     return render_template('cadu_workspace/brands_react.html', brand_items=brand_items, project_items=project_items, dock_items=dock_items,
                            query=query, filter_name=filter_name, catalog_error=catalog_error,
                            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1))
+
+
+@bp.post('/workspace/app/marcas/<int:brand_id>/status')
+@login_required
+def update_brand_status(brand_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    profile = dict(brand.get('brand_profile') or {})
+    archived = bool(profile.get('workspace_archived_at'))
+    if archived:
+        profile.pop('workspace_archived_at', None)
+    else:
+        profile['workspace_archived_at'] = datetime.now(timezone.utc).isoformat()
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE cx_clients SET brand_profile = %s::jsonb, updated_at = NOW() WHERE id = %s AND crm_client_id = %s RETURNING id",
+                (json.dumps(profile), brand_id, client_id),
+            )
+            if not cursor.fetchone():
+                abort(404)
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível alterar o status da marca %s', brand_id)
+        abort(500, description='Não foi possível atualizar a marca.')
+    return jsonify({'ok': True, 'status': 'ativo' if archived else 'arquivado'})
 
 
 @bp.get('/marcas')

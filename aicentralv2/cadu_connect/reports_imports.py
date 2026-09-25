@@ -20,7 +20,8 @@ MAX_REQUEST_BYTES = 11 * 1024 * 1024
 
 def _ready():
     return _rows("SELECT to_regclass('public.cadu_reports_import_files') IS NOT NULL "
-                 "AND to_regclass('public.cadu_reports_import_decisions') IS NOT NULL AS ready")[0]['ready']
+                 "AND to_regclass('public.cadu_reports_import_decisions') IS NOT NULL "
+                 "AND to_regclass('public.cadu_reports_import_visual_runs') IS NOT NULL AS ready")[0]['ready']
 
 
 def _bounded_body():
@@ -93,7 +94,70 @@ def register(bp):
                 ON d.import_row_id=r.id AND d.organization_id=r.organization_id AND d.client_id=r.client_id
             WHERE r.import_id=%s AND r.organization_id=%s AND r.client_id=%s
             ORDER BY (r.status='needs_review') DESC,r.id LIMIT 100''', (str(import_id), *scope))
-        return jsonify(import_file=batch[0], rows=rows)
+        visual = _rows('''SELECT result,model,created_at FROM cadu_reports_import_visual_runs
+            WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+        return jsonify(import_file=batch[0], rows=rows, visual=visual[0] if visual else None)
+
+    @bp.post('/api/v1/reports/imports/<uuid:import_id>/extract')
+    @login_required_api
+    def reports_import_extract(import_id):
+        selected = _selection()
+        _write_guard(selected)
+        if not _ready():
+            abort(503, description='Instale as migrações de importações do Reports.')
+        scope = (selected['organization_id'], selected['client_id'])
+        conn = get_db()
+        try:
+            batch = _rows('''SELECT id,raw_bytes FROM cadu_reports_import_files
+                WHERE id=%s AND organization_id=%s AND client_id=%s AND file_kind='image'
+                FOR UPDATE''', (str(import_id), *scope))
+            if not batch:
+                abort(404)
+            existing = _rows('''SELECT result,model,created_at FROM cadu_reports_import_visual_runs
+                WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+            if existing:
+                conn.rollback()
+                return jsonify(visual=existing[0], duplicate=True)
+            from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+            from ..cadu_tool_billing import InsufficientToolCredits
+            from ..services.openrouter_service import chat_completion
+            from .reports_import_vision import MAX_TOKENS, extract_visual_result
+            actor = CreditActor.from_values(selected['client_id'], session['user_id'])
+            credits = CaduCreditConnector()
+            try:
+                credits.authorize(actor, MAX_TOKENS * 12)
+                result, usage, model = extract_visual_result(
+                    batch[0]['raw_bytes'], str(import_id), complete=chat_completion)
+                run_id = str(uuid.uuid4())
+                credits.charge_provider(
+                    actor=actor, idempotency_key=f'reports:import-visual:{run_id}',
+                    app='Cadu Reports', stage='extract_import_visual',
+                    provider_result={'usage': usage, 'model': model},
+                    metadata={'import_id': str(import_id), 'operation': 'visual_import_extraction'},
+                    margin_multiplier=1)
+            except InsufficientToolCredits as exc:
+                conn.rollback()
+                return jsonify(error=str(exc)), 409
+            except (ValueError, json.JSONDecodeError) as exc:
+                conn.rollback()
+                return jsonify(error=str(exc)), 422
+            except Exception:
+                conn.rollback()
+                return jsonify(error='Não foi possível ler o print agora. Tente novamente.'), 502
+            visual = _rows('''INSERT INTO cadu_reports_import_visual_runs
+                (id,import_id,organization_id,client_id,result,model,usage,created_by)
+                VALUES (%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s)
+                RETURNING result,model,created_at''',
+                (run_id, str(import_id), *scope, json.dumps(result), model,
+                 json.dumps(usage), session['user_id']))[0]
+            _rows('''UPDATE cadu_reports_import_files SET status='needs_review'
+                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                (str(import_id), *scope))
+            conn.commit()
+            return jsonify(visual=visual, duplicate=False)
+        except Exception:
+            conn.rollback()
+            raise
 
     @bp.post('/api/v1/reports/imports/<uuid:import_id>/rows/<int:row_id>/resolve')
     @login_required_api

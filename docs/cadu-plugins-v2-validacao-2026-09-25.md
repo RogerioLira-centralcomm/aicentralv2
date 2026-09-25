@@ -8,6 +8,7 @@
 | Fluxo de crédito/finalização de artefato (`test_cadu_mcp_credit_artifact_flow.py`) | 12 passaram na rodada focada anterior | Cobre finalização e idempotência por mocks; não substitui uma sessão real autenticada. |
 | Suíte ampla `tests/test_cadu_*.py` | 988 passaram, 25 falharam | Falhas incluem templates, identidade, stream legado, skills e rotas de catálogo. Investigar em seus respectivos fluxos; esta rodada não alterou esses componentes. |
 | Integração frontend `cadu-conversations-v2-integration.test.cjs` | 35 passaram, 13 falharam | Falhas em contratos de shell/CSS e componentes alterados em paralelo. Exigem reconciliação com a versão final dessas telas. |
+| Build do frontend de conversas | Passou após o commit `8dbbac95` | Confirma compilação dos renderizadores atualizados; não comprova navegação autenticada. |
 
 ## Mudanças cobertas por esta rodada
 
@@ -21,4 +22,4 @@
 
 ## Validação operacional ainda necessária
 
-Executar A01–A12 do [guia de avaliação](cadu-plugins-v2-guia-avaliacao.md) num projeto de teste com credenciais e conectores autorizados. Registrar IDs de conversa, chamadas concluídas, URLs realmente lidas, versão do artefato, exportação `.md`, recuperação após recarregar e vínculo ao projeto. A suíte por mocks e o build não comprovam o ciclo completo em produção. Também comparar os renderizadores após o commit da revisão React de referências inline e tabelas.
+Executar A01–A12 do [guia de avaliação](cadu-plugins-v2-guia-avaliacao.md) num projeto de teste com credenciais e conectores autorizados. Registrar IDs de conversa, chamadas concluídas, URLs realmente lidas, versão do artefato, exportação `.md`, recuperação após recarregar e vínculo ao projeto. A suíte por mocks e o build não comprovam o ciclo completo em produção. A revisão React de referências inline, estado de leitura e tabelas responsivas foi concluída no commit `8dbbac95`; os 13 testes de integração frontend ainda falham no conjunto amplo de contratos da tela e precisam ser reconciliados com as mudanças paralelas.

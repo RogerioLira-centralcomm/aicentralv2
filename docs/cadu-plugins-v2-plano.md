@@ -74,49 +74,49 @@ Fontes externas candidatas: sites oficiais de marcas e concorrentes, órgãos es
 
 GLM5 pode ser candidato a analista ou revisor se estiver aprovado na configuração e demonstrar qualidade nesse papel. O usuário/configuração do cliente controla modelos permitidos; não trocar provedor silenciosamente. Cada papel registra modelo, versão, tokens, latência e resultado para avaliação posterior.
 
-## Revisão com TypeSafe: decisões pequenas dentro dos cinco fluxos
+## Revisão do plano com a skill TypeSafe
 
-A [documentação de System One](https://docs.typesafe.ai/llms.txt) descreve `Choice` para uma opção entre alternativas, `Noul` para uma proposição sim/não e `Score` para graus ordenados. O modelo recebe `state` e perguntas independentes; o código compõe as respostas. `confidence` de Choice/Score resume a distribuição entre opções, não prova factual nem autorização. Noul retorna a probabilidade de “sim”, sem campo de confidence. O plano usa essas propriedades para **julgar** decisões delimitadas, nunca para inventar dados, conceder acesso ou escrever em sistemas.
+A [documentação de System One](https://docs.typesafe.ai/llms.txt) descreve `Choice` para uma opção entre alternativas, `Noul` para uma proposição sim/não e `Score` para graus ordenados. Uso essas ideias **nesta atividade de planejamento**, como uma disciplina para formular perguntas objetivas, comparar alternativas e deixar a incerteza explícita. Elas não são requisito arquitetural para o produto.
 
-O CentralX já tem um cliente servidor em `services/typesafe_service.py`, usa TypeSafe na triagem de fontes do cadastro de marca e na sugestão da Home. Portanto, a primeira etapa é reaproveitar esse cliente e medir seu comportamento em avaliações isoladas. Nenhum dos cinco plugins passa a chamar TypeSafe automaticamente por esta revisão do plano; a integração depende dos critérios abaixo e do estado real de créditos/conexão.
+O escopo solicitado é o TypeSafe disponível **aqui para o agente que revisa o plano**. Não estou propondo usar o cliente servidor do CentralX, consumir a API interna, configurar credenciais do cliente ou adicionar chamadas TypeSafe aos plugins. O funcionamento existente do produto permanece uma questão separada.
 
-| Ponto de decisão | Entrada preparada pelo código | Pergunta tipada proposta | Uso e limite |
+| Decisão de planejamento | Material que eu comparo | Pergunta de revisão inspirada na skill | Resultado esperado no plano |
 |---|---|---|---|
-| Rota e continuidade | Mensagem atual, pedido anterior, correção, respostas do usuário, capacidades disponíveis | `Choice`: fluxo entre cinco opções + `none`; `Noul`: “esta mensagem corrige a tarefa anterior?” | Preservar operação explícita por regra. Se a correção for ambígua, perguntar qual tarefa; não reviver pedido antigo por baixa confiança. |
-| Fonte a consultar | Pergunta, escopo autorizado, opções de fonte disponíveis e status de conexão | `Noul` por fonte: “esta fonte é necessária para responder?” | Código aplica permissão e disponibilidade; a resposta não cria acesso nem garante que a consulta ocorreu. |
-| Candidatos de busca | Pergunta, título, trecho, data, origem e ID de cada candidato | `Score` de relevância por candidato; `Noul` de correspondência com a entidade pedida | Reordenar shortlist recuperada, manter opção de nenhum resultado. Abrir/ler a fonte antes de sustentar afirmação. |
-| Cobertura e expansão | Subperguntas, claims existentes, fontes lidas e lacunas | `Noul` por subpergunta: “há evidência suficiente?”; `Choice` para próximo tipo de busca | Expandir apenas onde falta cobertura, procurando contrapontos e fonte primária. Limites de consulta são do código. |
-| Extração de evidência | Trecho lido e candidatos exatos de data, valor, entidade e unidade | `Choice` seleciona o span/candidato ou `none`; `Noul` sinaliza valor ausente/incompatível | Copiar valor original e normalizar em código. Não pedir ao modelo que gere número novo. |
-| Citação/claim | Claim, trecho de origem e ID da fonte lida | `Choice`: `supports`, `contradicts`, `says_nothing` | Conferir primeiro por código se citação/trecho existe. Claim rejeitado ou incerto volta para revisão; não publicar como fato. |
-| Escalação de modelo | Resultado do extrator leve, campo e texto de origem | `Noul` por erro concreto: “valor ausente?”, “trecho de outra entidade?”, “unidade trocada?” | Chamar analista mais forte só nos campos problemáticos, após validar a eficácia do verificador. |
+| Rota e continuidade | Mensagem atual, pedido anterior, correção, respostas do usuário, capacidades disponíveis | Qual dos cinco fluxos atende o objetivo? Há uma tarefa anterior claramente retomada? | Especificar precedência e exemplos de ambiguidade sem criar roteamento novo agora. |
+| Fonte a consultar | Pergunta, escopo autorizado, opções de fonte disponíveis e status de conexão | Qual fonte é necessária, disponível e realmente legível? | Documentar pré-requisitos e fallback por fluxo. |
+| Candidatos de busca | Pergunta, título, trecho, data, origem e ID de cada candidato | O candidato é pertinente à entidade e à pergunta, ou não há correspondência? | Exigir leitura e identificação da fonte antes de sustentar claim. |
+| Cobertura e expansão | Subperguntas, claims existentes, fontes lidas e lacunas | Que subpergunta segue sem evidência? Qual busca adicional pode resolvê-la? | Planejar expansão apenas onde há lacuna relevante. |
+| Extração de evidência | Trecho lido e candidatos exatos de data, valor, entidade e unidade | O valor consta da fonte? A unidade e o período correspondem? | Definir verificação de valores e normalização em código. |
+| Citação/claim | Claim, trecho de origem e ID da fonte lida | O trecho sustenta, contradiz ou não aborda a afirmação? | Exigir verificação de claims decisivos no produto, sem pressupor TypeSafe como verificador. |
+| Escalação de modelo | Resultado do extrator, campo e texto de origem | Qual erro concreto justifica uma revisão mais forte? | Definir critérios de escalonamento independentes de fornecedor. |
 
-As perguntas independentes sobre o **mesmo estado** podem ser enviadas juntas; perguntas que dependem de novas fontes exigem uma segunda etapa. O estado deve ter campos nomeados e mínimos, como `current_user_message`, `previous_user_request`, `candidate_sources`, `read_passages`, `source_status` e `allowed_actions`, com origem e papel preservados. Não enviar histórico bruto, segredos nem tokens de conectores. Material privado só pode sair para um provedor externo quando o escopo da integração e a política de dados do cliente permitirem; enviar apenas os trechos necessários. A escolha de candidatos só funciona se o conjunto incluir a resposta possível; `none` cobre ausência de correspondência. Como a documentação informa desempenho inferior fora do inglês, os pilotos precisam de amostras reais em português brasileiro e com erros de digitação, não apenas exemplos em inglês.
+Na revisão, cada pergunta deve ter um conjunto claro de alternativas e a possibilidade de “nenhuma se aplica”. Eu registro a evidência usada, a incerteza e o motivo da decisão. Isso ajuda a detectar lacunas do plano sem transformar a técnica em dependência do produto.
 
 ### Aplicação por fluxo
 
-| Fluxo | Julgamentos TypeSafe com maior potencial | Revisor e decisão final |
+| Fluxo | Perguntas que a revisão deve responder | Garantia proposta para o produto |
 |---|---|---|
-| Inteligência | Relevância de resultados, identidade de marcas/concorrentes, cobertura de subperguntas e suporte de claim | Revisor factual compara claim e trecho; código verifica leitura, IDs, data e domínio. |
-| Estratégia de mídia | Prioridade de objetivos, adequação qualitativa de canal ao público e gravidade de lacunas | Código calcula verba e totais; revisor estratégico avalia coerência com brief e evidência. |
-| Criação e experiência | Aderência à voz da marca, presença de claim não sustentado e prioridade de fricções observadas | Revisor editorial avalia clareza e originalidade; alegação sem prova é removida ou marcada como hipótese. |
-| Performance | Seleção de entidade/período correspondente no relatório e gravidade qualitativa de anomalia | Código valida unidades, períodos, deltas e metas; revisor analisa causas alternativas. |
-| Operações do projeto | Correspondência entre pedido e decisão/tarefa encontrada, retomada da conversa e identificação de pendência | Código exige permissão, confirmação aplicável e recibo de escrita; julgamento não executa ação. |
+| Inteligência | A pesquisa cobre a pergunta, a entidade e os contrapontos? | Revisor factual compara claim e trecho; código verifica leitura, IDs, data e domínio. |
+| Estratégia de mídia | A recomendação decorre do objetivo, público, verba e restrições? | Código calcula verba e totais; revisor estratégico avalia coerência com brief e evidência. |
+| Criação e experiência | A proposta tem voz de marca, prova e diferença entre fato e hipótese? | Revisor editorial avalia clareza e originalidade; alegação sem prova é removida ou marcada como hipótese. |
+| Performance | As comparações usam períodos, métricas e unidades compatíveis? | Código valida unidades, períodos, deltas e metas; revisor analisa causas alternativas. |
+| Operações do projeto | A decisão/tarefa localizada corresponde ao pedido? A ação foi executada? | Código exige permissão, confirmação aplicável e recibo de escrita. |
 
-TypeSafe não precisa aparecer em toda resposta. Pergunta direta com fonte exata e regra clara segue o caminho determinístico. Um julgamento só entra onde a ambiguidade semântica prejudica a resposta. Os exemplos oficiais de [reordenação de candidatos](https://docs.typesafe.ai/cookbooks/rerank_typesafe), [checagem de citação](https://docs.typesafe.ai/cookbooks/citation_check) e [cascata de extração](https://docs.typesafe.ai/cookbooks/sde_cascade) inspiram esses três pilotos; resultados e limiares publicados nesses exemplos não são metas transferíveis para marketing do CentralX.
+Os exemplos oficiais de [reordenação de candidatos](https://docs.typesafe.ai/cookbooks/rerank_typesafe), [checagem de citação](https://docs.typesafe.ai/cookbooks/citation_check) e [cascata de extração](https://docs.typesafe.ai/cookbooks/sde_cascade) inspiram a decomposição da revisão. Eles não definem o modelo, o serviço nem os limiares que o CentralX usará.
 
-### Pilotos e critérios de promoção
+### Revisões prioritárias do plano
 
-1. **Piloto A — relevância das fontes da Inteligência:** comparar ranking atual com `Score` por candidato em perguntas sobre marca, concorrentes e setor. Medir fonte correta no top 3, fontes genéricas admitidas e nenhum resultado relevante descartado.
-2. **Piloto B — citação factual:** parear claims do Market Intelligence/Insights com o trecho efetivamente lido. Código detecta trecho inexistente; `Choice` avalia suporte, contradição ou silêncio. Medir falso aceite de claim sem suporte, falso bloqueio e proporção enviada a revisão.
-3. **Piloto C — continuidade:** avaliar retomadas reais e novas tarefas sem relação com `Choice`/`Noul` sobre estado resumido. Medir tarefa certa retomada, tarefa errada reativada e perguntas de esclarecimento necessárias.
-4. **Só após os pilotos:** avaliar cascata de extração, seleção qualitativa de canal e revisão de marca. Cada pergunta tem amostra rotulada, critério de erro e fallback definido antes de entrar na produção.
+1. **Relevância das fontes da Inteligência:** avaliar se a proposta recupera fonte primária, concorrentes corretos e contrapontos; registrar quando a cobertura é insuficiente.
+2. **Citação factual:** confrontar claims do Market Intelligence/Insights com trechos efetivamente lidos e definir bloqueio para suporte ausente ou contraditório.
+3. **Continuidade:** revisar exemplos de retomada real e de nova tarefa sem relação; documentar quando perguntar ao usuário.
+4. **Demais fluxos:** revisar extração numérica, adequação de canal, alegações criativas e recibos de operações com casos representativos.
 
-Para cada piloto, registrar pergunta e versão, candidatos disponíveis, julgamento, distribuição/probabilidade, resultado do código e resultado observado. Limiares vêm de avaliação local e variam com risco: erro numa sugestão de leitura é recuperável; erro numa alteração de tarefa ou alegação factual exige revisão. Indisponibilidade, falta de crédito, resposta inválida ou baixa certeza mantêm o fluxo funcional pelo caminho determinístico ou por revisão humana/modelo, sem afirmar que a checagem ocorreu. A comparação de tokens/latência entra **depois** da taxa de erro e do valor de cada fluxo.
+Para cada revisão, registrar pedido, alternativas consideradas, evidência, decisão, incerteza e efeito esperado no fluxo. Os casos em português brasileiro e com erros de digitação são essenciais. A comparação de tokens/latência entra **depois** da qualidade e do valor entregues.
 
 ## Sequência de implementação
 
 1. **Definir contratos de fluxo e fonte:** `question_type`, `source_plan`, `evidence_status`, `claim`, `review_issue`, `decision_output`. Incluir estados `found`, `read`, `unavailable`, `conflicting` e `not_searched`. Preservar autorização por ferramenta.
-2. **Extrair o motor compartilhado de pesquisa:** aproveitar Firecrawl atual, busca do projeto e conectores; implementar expansão orientada a lacunas e verificação de claims. Migrar Inteligência primeiro, sem quebrar comandos antigos. Rodar os pilotos TypeSafe em avaliação isolada, sem chamada obrigatória no fluxo.
+2. **Extrair o motor compartilhado de pesquisa:** aproveitar Firecrawl atual, busca do projeto e conectores; implementar expansão orientada a lacunas e verificação de claims. Migrar Inteligência primeiro, sem quebrar comandos antigos. Usar a revisão estruturada acima para examinar as escolhas de desenho.
 3. **Consolidar os cinco fluxos:** Estratégia usa evidências da Inteligência e cálculos determinísticos; Criação usa estratégia e revisão editorial; Performance usa métricas normalizadas; Operações usa fontes internas e recibos de ação.
 4. **Habilitar revisores por risco:** factual para Inteligência, aritmético para Estratégia/Performance, claims e voz para Criação, autorização/estado para Operações. Um revisor que falha devolve problema concreto, não reescrita genérica.
 5. **Migrar catálogo e interface:** mostrar cinco entradas e modos internos; aliases antigos preservados; integrações em área própria. Explicar fonte necessária, progresso e estado sem expor detalhes de implementação ao usuário final.

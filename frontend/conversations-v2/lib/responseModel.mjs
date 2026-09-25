@@ -77,9 +77,11 @@ export function normalizeAnswerText(value) {
 export function reconcileCompletedResponse(streamingResponse, completedResponse, hasArtifact = false) {
   const completed = completedResponse && typeof completedResponse === 'object' ? completedResponse : {};
   const final = normalizeAnswerText(completed.answer || '');
-  // The completion event is authoritative. Streaming deltas may be partial,
-  // duplicated, or from a previous provider attempt and must never replace it.
-  return {...completed, answer: final};
+  const streamed = normalizeAnswerText(streamingResponse?.answer || '');
+  // The final event may carry only a short acknowledgement after a substantive
+  // answer was already streamed. Keep that visible answer unless an artifact
+  // is the authoritative completed delivery.
+  return {...completed, answer: !hasArtifact && streamed.length > final.length ? streamed : final};
 }
 
 export function meaningfulResponseBlocks(blocks) {

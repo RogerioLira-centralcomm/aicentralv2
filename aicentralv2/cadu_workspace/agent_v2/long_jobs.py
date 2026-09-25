@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from uuid import uuid4
 import re
@@ -21,6 +21,22 @@ UNIT_KINDS = {"discover", "extract", "classify", "summarize", "synthesize", "com
 def spec_for_message(message: str, *, has_attachments: bool = False) -> LongJobSpec | None:
     """Route only explicit substantial deliverables; ordinary chat remains synchronous."""
     text = " ".join(str(message or "").lower().split())
+    raw_message = str(message or "").strip()
+    plugin_command = re.match(r"^/market-intelligence(?:\s|$)", raw_message, re.I)
+    if plugin_command:
+        from .market_intelligence import mode_from_text, profile_for
+        mode = mode_from_text(raw_message[plugin_command.end():])
+        profile = profile_for(mode)
+        objective = raw_message[plugin_command.end():].strip()
+        objective = re.sub(r"^(?:quick(?:\s+scan)?|deep(?:\s+analysis)?|custom(?:\s+client\s+analysis)?)\b\s*[:,-]?\s*", "", objective, flags=re.I).strip()
+        if len(objective) < 4:
+            objective = "Pesquise movimentos recentes, concorrentes, tendências, sinais e oportunidades relevantes para o contexto selecionado."
+        return LongJobSpec(
+            kind="market_intelligence", mode=mode, title=f"{profile['label']} · Pesquisa de mercado",
+            objective=objective[:20_000], source_target=profile["source_target"],
+            max_agent_calls=profile["max_agent_calls"], max_extractor_calls=profile["max_extractor_calls"],
+            token_budget=profile["token_budget"], workflow_config=profile,
+        ).validated()
     if not text or re.search(r"\bn[aã]o\s+(?:crie|abra|gere)\s+(?:um\s+)?artefato\b", text):
         return None
     word_match = re.search(r"(?:cerca de|aproximadamente|mínimo de|ao menos)?\s*([1-9][\d.]{2,5})\s+palavras", text)
@@ -59,28 +75,53 @@ class LongJobSpec:
     max_agent_calls: int = 8
     max_extractor_calls: int = 40
     token_budget: int = 40_000
+    mode: str = ""
+    workflow_config: dict = field(default_factory=dict)
 
     def validated(self) -> "LongJobSpec":
-        if self.kind not in KINDS:
+        if self.kind not in KINDS | {"market_intelligence"}:
             raise ValueError("Tipo de trabalho longo inválido.")
         title = " ".join(str(self.title or "").split())[:180]
         objective = " ".join(str(self.objective or "").split())[:20_000]
         if not title or not objective:
             raise ValueError("Título e objetivo são obrigatórios.")
-        if not 0 <= int(self.source_target) <= 40:
-            raise ValueError("A pesquisa aceita entre 0 e 40 fontes.")
+        max_sources = 150 if self.kind == "market_intelligence" else 40
+        if not 0 <= int(self.source_target) <= max_sources:
+            raise ValueError(f"A pesquisa aceita entre 0 e {max_sources} fontes.")
         if not 1 <= int(self.max_agent_calls) <= 40:
             raise ValueError("Limite de chamadas de agente inválido.")
         if not 0 <= int(self.max_extractor_calls) <= 80:
             raise ValueError("Limite de extratores inválido.")
         if not 1_000 <= int(self.token_budget) <= 1_000_000:
             raise ValueError("Orçamento de tokens inválido.")
+        config = dict(self.workflow_config or {})
+        if self.kind == "market_intelligence":
+            from .market_intelligence import profile_for
+            profile = profile_for(self.mode or config.get("mode") or "deep", config)
+            config = profile
+            if int(self.source_target) != int(profile["source_target"]):
+                config["source_target"] = min(max_sources, max(10, int(self.source_target)))
+                config["max_sources"] = config["source_target"]
         return LongJobSpec(self.kind, title, objective, int(self.source_target), int(self.max_agent_calls),
-                           int(self.max_extractor_calls), int(self.token_budget))
+                           int(self.max_extractor_calls), int(self.token_budget),
+                           str(self.mode or config.get("mode") or ""), config)
 
 
 def default_units(spec: LongJobSpec) -> list[dict]:
     spec = spec.validated()
+    if spec.kind == "market_intelligence":
+        config = spec.workflow_config
+        if spec.mode == "quick":
+            kinds = ["discover", "extract", "analyze", "render"]
+        else:
+            kinds = ["plan"]
+            for round_number in range(int(config["search_rounds"])):
+                kinds.extend(["discover" if round_number == 0 else "followup_search", "extract", "classify"])
+                if round_number < int(config["search_rounds"]) - 1:
+                    kinds.append("gap_analysis")
+            kinds.extend(["analyze", "critic", "evidence_check", "compose", "review", "render"])
+        return [{"position": index, "kind": kind, "status": "queued"}
+                for index, kind in enumerate(kinds, 1)]
     kinds = (["discover", "extract", "classify", "summarize", "synthesize", "compose", "review", "render"]
              if spec.source_target else ["compose", "review", "render"])
     return [{"position": index, "kind": kind, "status": "queued"} for index, kind in enumerate(kinds, 1)]
@@ -89,6 +130,17 @@ def default_units(spec: LongJobSpec) -> list[dict]:
 def create(context: RequestContext, conversation_id: str, spec: LongJobSpec, *, run_id=None,
            artifact_id=None, idempotency_key="", input_files=None) -> dict:
     spec = spec.validated()
+    if spec.kind == "market_intelligence" and spec.mode == "custom":
+        from .market_intelligence import client_profile, profile_for
+        tenant_profile = client_profile(context.client_id)
+        if tenant_profile:
+            config = profile_for("custom", tenant_profile)
+            spec = LongJobSpec(
+                kind=spec.kind, mode=spec.mode, title=spec.title, objective=spec.objective,
+                source_target=config["source_target"], max_agent_calls=config["max_agent_calls"],
+                max_extractor_calls=config["max_extractor_calls"], token_budget=config["token_budget"],
+                workflow_config=config,
+            ).validated()
     job_id = str(uuid4())
     units = default_units(spec)
     files = []
@@ -103,15 +155,15 @@ def create(context: RequestContext, conversation_id: str, spec: LongJobSpec, *, 
     try:
         with connection.cursor() as cursor:
             cursor.execute("""INSERT INTO cadu_agent_long_jobs
-                (id,run_id,conversation_id,artifact_id,organization_id,client_id,user_id,project_ref,
-                 kind,title,objective,source_target,max_agent_calls,max_extractor_calls,token_budget,idempotency_key)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                (id,run_id,conversation_id,artifact_id,organization_id,client_id,user_id,project_ref,brand_ref,
+                 kind,title,objective,source_target,max_agent_calls,max_extractor_calls,token_budget,mode,workflow_config,idempotency_key)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (client_id,user_id,idempotency_key)
                 DO UPDATE SET updated_at=NOW() RETURNING id::text,status,created_at""",
                 (job_id, run_id, conversation_id, artifact_id, context.client_id, context.client_id,
-                 context.user_id, context.project_ref, spec.kind, spec.title, spec.objective,
+                 context.user_id, context.project_ref, context.brand_ref, spec.kind, spec.title, spec.objective,
                  spec.source_target, spec.max_agent_calls, spec.max_extractor_calls, spec.token_budget,
-                 idempotency_key or None))
+                 spec.mode or None, Json(spec.workflow_config), idempotency_key or None))
             job = dict(cursor.fetchone())
             if job["id"] == job_id:
                 for unit in units:
@@ -141,7 +193,11 @@ def add_sources(job_id: str, context: RequestContext, sources: list[dict]) -> li
             job = cursor.fetchone()
             if not job or job["status"] in {"cancelled", "failed", "completed", "budget_exhausted"}:
                 raise ValueError("O trabalho não aceita novas fontes.")
-            for item in (sources or [])[:int(job["source_target"] or 0)]:
+            cursor.execute("SELECT COUNT(*) AS count FROM cadu_agent_long_job_sources WHERE job_id=%s", (job_id,))
+            current_count = int(cursor.fetchone()["count"] or 0)
+            remaining = max(0, int(job["source_target"] or 0) - current_count)
+            inserted = 0
+            for item in (sources or []):
                 url = str(item.get("url") or "").strip()
                 try:
                     parsed = urlsplit(url)
@@ -150,6 +206,11 @@ def add_sources(job_id: str, context: RequestContext, sources: list[dict]) -> li
                 if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
                     continue
                 canonical = urlunsplit(("https", parsed.hostname.lower(), parsed.path.rstrip("/") or "/", parsed.query, ""))
+                cursor.execute("SELECT id FROM cadu_agent_long_job_sources WHERE job_id=%s AND canonical_url=%s",
+                               (job_id, canonical[:4000]))
+                exists = cursor.fetchone()
+                if not exists and inserted >= remaining:
+                    continue
                 source_id = str(uuid4())
                 content = str(item.get("content") or "")[:60_000]
                 cursor.execute("""INSERT INTO cadu_agent_long_job_sources
@@ -165,6 +226,8 @@ def add_sources(job_id: str, context: RequestContext, sources: list[dict]) -> li
                      Json({"content": content, "published_at": item.get("published_at"), "favicon": item.get("favicon")}),
                      bool(content)))
                 saved.append(dict(cursor.fetchone()))
+                if not exists:
+                    inserted += 1
         connection.commit()
         return saved
     except Exception:
@@ -319,7 +382,7 @@ def complete_unit(job_id: str, unit_id: str, context: RequestContext, *, output=
                 status = "running"
             finished = status in {"completed", "failed", "budget_exhausted"}
             cursor.execute("""UPDATE cadu_agent_long_jobs SET status=%s,tokens_used=%s,
-                checkpoint=COALESCE(%s,checkpoint),lease_owner=NULL,lease_expires_at=NULL,updated_at=NOW(),
+                checkpoint=COALESCE(%s::jsonb,checkpoint),lease_owner=NULL,lease_expires_at=NULL,updated_at=NOW(),
                 finished_at=CASE WHEN %s THEN NOW() ELSE finished_at END WHERE id=%s""",
                 (status, tokens_used, Json(checkpoint) if checkpoint is not None else None, finished, job_id))
         connection.commit()
@@ -350,7 +413,7 @@ def cancel(job_id: str, context: RequestContext) -> bool:
 
 def snapshot(job_id: str, context: RequestContext) -> dict:
     jobs = repository.rows("""SELECT id::text,run_id::text,conversation_id,artifact_id::text,kind,status,title,
-        objective,source_target,max_agent_calls,max_extractor_calls,token_budget,tokens_used,checkpoint,
+        objective,source_target,max_agent_calls,max_extractor_calls,token_budget,tokens_used,checkpoint,mode,workflow_config,
         result_summary,created_at,started_at,updated_at,finished_at
         FROM cadu_agent_long_jobs WHERE id=%s AND client_id=%s AND user_id=%s""",
         (job_id, context.client_id, context.user_id))
@@ -364,3 +427,60 @@ def snapshot(job_id: str, context: RequestContext) -> dict:
     fragments = repository.rows("""SELECT id::text,unit_id::text,ordinal,kind,heading,content,source_ids,
         supersedes_id::text,created_at FROM cadu_agent_long_job_fragments WHERE job_id=%s ORDER BY ordinal""", (job_id,))
     return {"job": jobs[0], "units": units, "sources": sources, "fragments": fragments}
+
+
+def record_model_call(job_id: str, unit_id: str, *, role: str, provider: str, model: str,
+                      usage: dict, idempotency_key: str) -> None:
+    """Persist provider provenance and token usage for one model call."""
+    usage = usage if isinstance(usage, dict) else {}
+    try:
+        input_tokens = max(0, int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0))
+        output_tokens = max(0, int(usage.get("completion_tokens") or usage.get("output_tokens") or 0))
+    except (TypeError, ValueError):
+        input_tokens = output_tokens = 0
+    connection = repository.get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""INSERT INTO cadu_agent_long_job_calls
+                (id,job_id,unit_id,call_type,provider,model,status,idempotency_key,input_tokens,output_tokens,cost_metadata,finished_at)
+                VALUES (%s,%s,%s,%s,%s,%s,'completed',%s,%s,%s,%s,NOW())
+                ON CONFLICT (job_id,idempotency_key) DO NOTHING""",
+                (str(uuid4()), job_id, unit_id,
+                 "extractor" if role == "structured_extractor" else "agent",
+                 str(provider or "openrouter")[:80], str(model or "")[:180], str(idempotency_key)[:200],
+                 input_tokens, output_tokens, Json({"role": role, "usage": usage})))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+
+
+def model_call_usage(job_id: str) -> dict:
+    rows = repository.rows("""SELECT COALESCE(SUM(input_tokens+output_tokens),0) AS tokens,
+        COUNT(*) FILTER (WHERE call_type='agent') AS agent_calls,
+        COUNT(*) FILTER (WHERE call_type='extractor') AS extractor_calls
+        FROM cadu_agent_long_job_calls WHERE job_id=%s AND status='completed'""", (job_id,))
+    return dict(rows[0]) if rows else {"tokens": 0, "agent_calls": 0, "extractor_calls": 0}
+
+
+def skip_later_research(job_id: str, unit_id: str, context: RequestContext) -> int:
+    """Stop planned research rounds after evidence gaps have been closed."""
+    connection = repository.get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT unit.position FROM cadu_agent_long_job_units unit
+                JOIN cadu_agent_long_jobs job ON job.id=unit.job_id
+                WHERE unit.id=%s AND unit.job_id=%s AND job.client_id=%s AND job.user_id=%s""",
+                           (unit_id, job_id, context.client_id, context.user_id))
+            current = cursor.fetchone()
+            if not current:
+                return 0
+            cursor.execute("""UPDATE cadu_agent_long_job_units SET status='skipped',finished_at=NOW(),updated_at=NOW()
+                WHERE job_id=%s AND position>%s AND kind IN ('discover','followup_search','extract','classify','gap_analysis')
+                  AND status IN ('queued','waiting')""", (job_id, current["position"]))
+            skipped = cursor.rowcount
+        connection.commit()
+        return skipped
+    except Exception:
+        connection.rollback()
+        raise

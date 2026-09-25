@@ -623,6 +623,10 @@ def conversation_message():
         run.get("message") or payload.get("message"),
         has_attachments=bool((run.get("provider_payload") or {}).get("files")),
     )
+    if spec and spec.kind == "market_intelligence":
+        selected_plugin = (run.get("policy") or {}).get("plugin") or {}
+        if selected_plugin.get("id") != "market-intelligence" or selected_plugin.get("unavailable"):
+            spec = None
     if spec:
         try:
             job = long_jobs.create(
@@ -773,20 +777,56 @@ def create_long_job(conversation_id):
         abort(404, description="Conversa não encontrada.")
     data = request.get_json(silent=True) or {}
     try:
+        kind = str(data.get("kind") or "long_document")
+        mode = str(data.get("mode") or ("deep" if kind == "market_intelligence" else ""))
+        workflow_config = data.get("workflow_config") if isinstance(data.get("workflow_config"), dict) else {}
+        if kind == "market_intelligence":
+            from .market_intelligence import profile_for
+            workflow_config = profile_for(mode, workflow_config)
+        source_target = data.get("source_target", workflow_config.get("source_target", 5))
         spec = LongJobSpec(
-            kind=str(data.get("kind") or "long_document"),
+            kind=kind,
             title=str(data.get("title") or ""),
             objective=str(data.get("objective") or ""),
-            source_target=data.get("source_target", 5),
-            max_agent_calls=data.get("max_agent_calls", 8),
-            max_extractor_calls=data.get("max_extractor_calls", 40),
-            token_budget=data.get("token_budget", 40_000),
+            source_target=source_target,
+            max_agent_calls=data.get("max_agent_calls", workflow_config.get("max_agent_calls", 8)),
+            max_extractor_calls=data.get("max_extractor_calls", workflow_config.get("max_extractor_calls", 40)),
+            token_budget=data.get("token_budget", workflow_config.get("token_budget", 40_000)),
+            mode=mode,
+            workflow_config=workflow_config,
         )
         job = long_jobs.create(current, conversation_id, spec, run_id=data.get("run_id"),
                                artifact_id=data.get("artifact_id"),
                                idempotency_key=str(data.get("idempotency_key") or ""))
         return jsonify(job=job), 201
     except ValueError as exc:
+        abort(400, description=str(exc))
+
+
+def _require_market_intelligence_admin(context):
+    actor = repository.actor(context.user_id) or {}
+    if int(actor.get("organization_id") or 0) != context.client_id or repository.account_role(actor) != "admin":
+        abort(403, description="Somente administradores da conta podem alterar a metodologia customizada.")
+
+
+@bp.get("/market-intelligence/profile")
+def market_intelligence_profile():
+    current = resolve()
+    _require_market_intelligence_admin(current)
+    from .market_intelligence import client_profile
+    return jsonify(profile=client_profile(current.client_id))
+
+
+@bp.put("/market-intelligence/profile")
+def update_market_intelligence_profile():
+    current = resolve()
+    _require_market_intelligence_admin(current)
+    data = request.get_json(silent=True) or {}
+    from .market_intelligence import save_client_profile
+    try:
+        profile = save_client_profile(current.client_id, current.user_id, data.get("profile") or {})
+        return jsonify(profile=profile)
+    except (TypeError, ValueError) as exc:
         abort(400, description=str(exc))
 
 

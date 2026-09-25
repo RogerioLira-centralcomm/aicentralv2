@@ -1,4 +1,5 @@
 const prompts = {
+  'market-intelligence': '/market-intelligence quick Faça um scan do mercado relacionado ao contexto selecionado. Diferencie fatos, interpretações e hipóteses e cite as fontes.',
   insights: 'Pesquise insights atuais de marketing e mídia para o mercado da marca deste projeto.',
   planner: 'Estruture um plano de mídia para a campanha deste projeto.',
   'project-search': 'Busque no projeto as informações relevantes para minha próxima pergunta.',

@@ -5,7 +5,7 @@ import './plugins.css';
 export {pluginPrompt} from '../lib/pluginPrompts';
 
 const integrationLogo = name => `/static/images/cadu/technology-logos/${name}`;
-const pluginIcons = {insights:'analysis', planner:'table', 'project-search':'search', 'project-activities':'list', 'campaign-search':'search', reports:'analysis', studio:'image', 'google-connect':'brand', 'google-drive':'drive', 'google-calendar':'calendar', 'google-meet':'browser', 'market-radar':'analysis', 'audience-map':'search', 'investment-simulator':'table', 'media-plan-audit':'list', 'campaign-tracker':'analysis', 'creative-concept':'image', 'channel-copy':'list', 'page-review':'browser', 'meeting-copilot':'calendar', 'client-delivery':'list'};
+const pluginIcons = {insights:'analysis', 'market-intelligence':'analysis', planner:'table', 'project-search':'search', 'project-activities':'list', 'campaign-search':'search', reports:'analysis', studio:'image', 'google-connect':'brand', 'google-drive':'drive', 'google-calendar':'calendar', 'google-meet':'browser', 'market-radar':'analysis', 'audience-map':'search', 'investment-simulator':'table', 'media-plan-audit':'list', 'campaign-tracker':'analysis', 'creative-concept':'image', 'channel-copy':'list', 'page-review':'browser', 'meeting-copilot':'calendar', 'client-delivery':'list'};
 
 function CaduPluginMark({logo, caduMark, name, pluginId}) {
   const [failed, setFailed] = useState(false);

@@ -62,7 +62,9 @@ schema criado. Eles não habilitam flags e não inserem dados de demonstração.
 ## 6. Auditoria profunda de marca
 
 - Executar a migração da fila antes de ativar `CADU_BRAND_AUDIT_WORKER_ENABLED=1`.
-- Configurar supervisor para `flask cadu_workspace brand-audit-worker-once`.
+- Configurar supervisor para `flask cadu_workspace brand-audit-worker-loop` com reinício automático e `KillSignal=SIGTERM`.
+- Limitar o serviço a uma instância; a fila impõe até dois jobs ativos globalmente e revalida leases expiradas.
+- Confirmar que parar o serviço encerra o worker e que jobs interrompidos ficam `failed`, sem repetição automática nem payload de imagens retido.
 - Ativar `deploy/install_resource_registry_worker.sh` e confirmar `cadu-resource-registry-worker.service` ativo; o worker contínuo usa claim concorrente com `SKIP LOCKED`.
 - Ativar `deploy/install_conversation_memory_worker.sh` e confirmar `cadu-conversation-memory-worker.service` ativo.
 - Confirmar na Observabilidade que as filas de recursos e memória não permanecem pendentes por mais de 10 minutos.

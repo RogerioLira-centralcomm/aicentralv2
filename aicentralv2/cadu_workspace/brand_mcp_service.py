@@ -429,7 +429,7 @@ def delete_asset(context: RequestContext, *, brand_id, asset_id) -> dict:
             "asset_id": int(asset_id), "deleted": True}
 
 
-def start_audit(context: RequestContext, *, request_id, brand_id=None, website_url: str = "", analysis_mode: str = "complete", social_links=None, additional_sources=None, excluded_sources=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
+def start_audit(context: RequestContext, *, request_id, brand_id=None, website_url: str = "", analysis_mode: str = "complete", include_project_sources: bool = False, social_links=None, additional_sources=None, excluded_sources=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
     _require_admin(context)
     operation_id = _request_id(request_id)
     if not confirmed_cost:
@@ -481,7 +481,7 @@ def start_audit(context: RequestContext, *, request_id, brand_id=None, website_u
                 "status": current.get("status"), "queued": False}
     if current.get("status") in {"queued", "running"}:
         raise Conflict("Esta marca já possui uma auditoria em andamento.")
-    _ensure_brand_audit_credit(context.client_id)
+    _ensure_brand_audit_credit(context.client_id, estimate['estimated_credits'])
     job_id = uuid4().hex
     connection = get_db()
     try:
@@ -505,7 +505,7 @@ def start_audit(context: RequestContext, *, request_id, brand_id=None, website_u
                 "job_id": job_id, "request_id": operation_id, "status": "queued", "stage": "queued",
                 "index": 0, "total": 4, "message": "A auditoria entrou na fila.", "error": "",
                 "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "input": {"website_url": website_url, "has_images": bool(selected_asset_ids), "include_project_sources": False, "analysis_mode": analysis_mode, "social_links": social_links, "additional_sources": additional_sources, "excluded_sources": excluded_sources, "existing_asset_ids": selected_asset_ids, "cost_confirmed": True, **estimate},
+                "input": {"website_url": website_url, "has_images": bool(selected_asset_ids), "include_project_sources": bool(include_project_sources), "analysis_mode": analysis_mode, "social_links": social_links, "additional_sources": additional_sources, "excluded_sources": excluded_sources, "existing_asset_ids": selected_asset_ids, "cost_confirmed": True, **estimate},
                 "analysis": {}, "reviews": [],
             }
             cursor.execute("""UPDATE cx_clients SET website_url = %s, analysis_metadata = %s::jsonb

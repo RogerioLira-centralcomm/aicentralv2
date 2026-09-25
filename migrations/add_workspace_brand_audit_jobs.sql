@@ -10,7 +10,16 @@ CREATE TABLE IF NOT EXISTS cadu_workspace_brand_audit_jobs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     claimed_at TIMESTAMPTZ,
     heartbeat_at TIMESTAMPTZ,
-    finished_at TIMESTAMPTZ
+    finished_at TIMESTAMPTZ,
+    job_type VARCHAR(24) NOT NULL DEFAULT 'audit',
+    worker_id VARCHAR(64),
+    error_message TEXT
 );
+ALTER TABLE cadu_workspace_brand_audit_jobs
+    ADD COLUMN IF NOT EXISTS job_type VARCHAR(24) NOT NULL DEFAULT 'audit',
+    ADD COLUMN IF NOT EXISTS worker_id VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS error_message TEXT;
 CREATE INDEX IF NOT EXISTS cadu_workspace_brand_audit_jobs_pending
     ON cadu_workspace_brand_audit_jobs(created_at, job_id) WHERE status = 'queued';
+CREATE INDEX IF NOT EXISTS cadu_workspace_brand_audit_jobs_running_lease
+    ON cadu_workspace_brand_audit_jobs(heartbeat_at) WHERE status = 'running';

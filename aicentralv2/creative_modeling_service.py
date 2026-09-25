@@ -3043,11 +3043,15 @@ class CreativeModelingService:
             saved_assets.append(asset_data)
         return saved_assets
 
-    def analyze_brand(self, website_url=None, image=None, billing_callback=None, *, analysis_mode='complete', social_links=None, additional_sources=None, excluded_sources=None):
+    def analyze_brand(self, website_url=None, image=None, billing_callback=None, *, analysis_mode='complete',
+                      social_links=None, additional_sources=None, excluded_sources=None,
+                      brand_name=None, preflight=False, has_trusted_brand_assets=False):
         return _serialize(self.brand_analyzer.analyze(
             website_url, image, billing_callback=billing_callback,
             analysis_mode=analysis_mode, social_links=social_links,
             additional_sources=additional_sources, excluded_sources=excluded_sources,
+            brand_name=brand_name, preflight=preflight,
+            has_trusted_brand_assets=has_trusted_brand_assets,
         ))
 
     def review_brand_analysis(self, analysis, progress=None, billing_callback=None):

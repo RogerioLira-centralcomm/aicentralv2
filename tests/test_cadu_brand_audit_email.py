@@ -100,5 +100,5 @@ def test_brand_audit_job_persists_requester_columns():
     sql, params = cursor.execute.call_args.args
     assert "requested_by" in sql
     assert "analysis_mode" in sql
-    assert params[-3:] == ("deep", "chat", 7)
+    assert params[-4:] == ("deep", "chat", 7, "audit")
     connection.commit.assert_called_once_with()

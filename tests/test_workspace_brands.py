@@ -19,7 +19,10 @@ from aicentralv2.cadu_workspace.routes import (
 
 def _app():
     app = Flask(__name__)
-    app.config.update(SECRET_KEY='test', TESTING=True)
+    app.config.update(
+        SECRET_KEY='test', TESTING=True,
+        CADU_BRAND_AUDIT_WORKER_ENABLED=True,
+    )
     app.register_blueprint(bp)
     return app
 
@@ -71,14 +74,22 @@ class WorkspaceBrandsTest(TestCase):
                 'approved': True, 'blocked_fields': [], 'score': 95,
             })
 
-        update_params = cursor.execute.call_args_list[0].args[1]
+        client_update = next(
+            call for call in cursor.execute.call_args_list
+            if 'UPDATE cx_clients' in call.args[0]
+        )
+        update_params = client_update.args[1]
         self.assertEqual(update_params[3], '/static/uploads/official.png')
         self.assertEqual(update_params[4], '/static/uploads/official.png')
         self.assertEqual(update_params[5:7], ('#4FFF82', '#FBBA07'))
         persisted_profile = json.loads(update_params[8])
         self.assertEqual(persisted_profile['color_palette'][0]['hex'], '#4FFF82')
         self.assertEqual(persisted_profile['fonts'][0]['family'], 'Montserrat')
-        self.assertIn("source_kind = 'website'", cursor.execute.call_args_list[1].args[0])
+        asset_update = next(
+            call for call in cursor.execute.call_args_list
+            if 'UPDATE cx_client_brand_assets' in call.args[0]
+        )
+        self.assertIn("source_kind = 'website'", asset_update.args[0])
 
     def test_automatic_publication_rejects_decision_below_current_gate(self):
         with self.assertRaisesRegex(ValueError, 'gate mínimo'):
@@ -829,7 +840,7 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 303)
         self.assertIn('audit=queued', response.headers['Location'])
         workspace_brand.assert_called_once_with(12, 81)
-        ensure_credit.assert_called_once_with(12)
+        ensure_credit.assert_called_once_with(12, 75000)
         service.assert_not_called()
         enqueue.assert_called_once()
         queued_job = enqueue.call_args.args[0]
@@ -878,7 +889,7 @@ class WorkspaceBrandsTest(TestCase):
     @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
-    def test_explicit_audit_logo_updates_primary_asset_before_job(
+    def test_explicit_audit_logo_remains_reference_until_approval(
             self, service, workspace_brand, _ensure_credit, get_db, start_job):
         workspace_brand.return_value = {
             'id': 81, 'website_url': 'https://example.com', 'analysis_metadata': {},
@@ -894,7 +905,7 @@ class WorkspaceBrandsTest(TestCase):
 
         self.assertEqual(response.status_code, 303)
         args = service.return_value.upload_client_brand_assets.call_args.args
-        self.assertEqual((args[0], args[2], args[3]), (81, True, 'logo'))
+        self.assertEqual((args[0], args[2], args[3]), (81, False, 'reference'))
         self.assertEqual(len(args[1]), 1)
         self.assertEqual(start_job.call_args.args[5][0]['filename'], 'logo-oficial.png')
 

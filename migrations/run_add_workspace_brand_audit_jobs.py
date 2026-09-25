@@ -12,6 +12,7 @@ SQL_PATH = Path(__file__).with_name('add_workspace_brand_audit_jobs.sql')
 EXPECTED = {
     'job_id', 'client_id', 'brand_id', 'payload', 'status', 'attempts',
     'created_at', 'claimed_at', 'heartbeat_at', 'finished_at',
+    'job_type', 'worker_id', 'error_message',
 }
 
 
@@ -39,6 +40,9 @@ def main():
             cur.execute("SELECT to_regclass('public.cadu_workspace_brand_audit_jobs_pending')")
             if cur.fetchone()[0] is None:
                 raise RuntimeError('Índice da fila de auditoria ausente.')
+            cur.execute("SELECT to_regclass('public.cadu_workspace_brand_audit_jobs_running_lease')")
+            if cur.fetchone()[0] is None:
+                raise RuntimeError('Índice de leases da fila de auditoria ausente.')
     print('Migração aplicada e validada: fila durável de auditoria de marca.')
 
 

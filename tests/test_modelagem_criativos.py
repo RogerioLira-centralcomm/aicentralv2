@@ -2613,7 +2613,8 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn("Pack headline (literal): Coleção Outono", pack_prompt)
         self.assertIn("não variação", prompt)
 
-    def test_geracao_usa_cena_anterior_e_salva_revisao_multimodal(self):
+    @patch("aicentralv2.cadu_credit_connector.CaduCreditConnector._commercial_token_price_usd", return_value=0.00001)
+    def test_geracao_usa_cena_anterior_e_salva_revisao_multimodal(self, _mock_token_price):
         repository = Mock()
         repository.get_scene_context.return_value = {
             "id": 51,
@@ -2675,7 +2676,8 @@ class CreativeServiceTest(unittest.TestCase):
             repository.create_generation_job.call_args.kwargs["request_payload"],
         )
 
-    def test_cena_1_usa_pack_antes_da_linha_criativa(self):
+    @patch("aicentralv2.cadu_credit_connector.CaduCreditConnector._commercial_token_price_usd", return_value=0.00001)
+    def test_cena_1_usa_pack_antes_da_linha_criativa(self, _mock_token_price):
         repository = Mock()
         repository.get_scene_context.return_value = {
             "id": 51,
@@ -5285,7 +5287,8 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertIn("LOCK BLOCK FOR GPT IMAGE 2", prompt)
         self.assertIn("Coleção Outono", prompt)
 
-    def test_imagem_de_unfold_usa_kv_como_primeira_referencia(self):
+    @patch("aicentralv2.cadu_credit_connector.CaduCreditConnector._commercial_token_price_usd", return_value=0.00001)
+    def test_imagem_de_unfold_usa_kv_como_primeira_referencia(self, _mock_token_price):
         captured = {}
         repository = Mock()
         repository.get_scene_context.return_value = {
@@ -5442,7 +5445,8 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertIn("logo mark", lock)
 
     @patch.dict("os.environ", {"USD_BRL_RATE": "5.5"})
-    def test_rascunho_e_lote_publicavel_nao_mudam_montagem(self):
+    @patch("aicentralv2.cadu_credit_connector.CaduCreditConnector._commercial_token_price_usd", return_value=0.00001)
+    def test_rascunho_e_lote_publicavel_nao_mudam_montagem(self, _mock_token_price):
         reset_rate_cache()
         draft = resolve_image_tier("draft")
         publish = resolve_image_tier("publicavel")
@@ -5598,7 +5602,8 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertFalse(video["ready"])
         self.assertIn("não está pronto", video["message"])
 
-    def test_caminho_c_recusa_publicavel_sem_logo_colado(self):
+    @patch("aicentralv2.cadu_credit_connector.CaduCreditConnector._commercial_token_price_usd", return_value=0.00001)
+    def test_caminho_c_recusa_publicavel_sem_logo_colado(self, _mock_token_price):
         repository = Mock()
         repository.get_scene_context.return_value = {
             "id": 81,
@@ -5725,7 +5730,8 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             service.generate_unfolding(40)
         service.generate_scene.assert_not_called()
 
-    def test_gate_sujo_tenta_uma_vez_e_nao_compoe(self):
+    @patch("aicentralv2.cadu_credit_connector.CaduCreditConnector._commercial_token_price_usd", return_value=0.00001)
+    def test_gate_sujo_tenta_uma_vez_e_nao_compoe(self, _mock_token_price):
         repository = Mock()
         repository.get_scene_context.return_value = {
             "id": 81,

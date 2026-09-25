@@ -72,13 +72,20 @@ class _PinnedResponse:
         self._pool = pool
         self.status_code = int(response.status)
         self.headers = response.headers
+        self.max_bytes = MAX_HTML_BYTES
 
     def iter_content(self, chunk_size):
+        total = 0
         while True:
             chunk = self._response.read(chunk_size, decode_content=True)
             if not chunk:
                 break
+            if total + len(chunk) > self.max_bytes:
+                chunk = chunk[:max(0, self.max_bytes - total)]
+            total += len(chunk)
             yield chunk
+            if total >= self.max_bytes:
+                break
 
     def close(self):
         self._response.release_conn()
@@ -104,6 +111,13 @@ def _pinned_get(url: str, addresses: set[str], *, accept: str):
     try:
         response = pool.request("GET", target, headers=headers, preload_content=False,
                                 redirect=False, retries=False)
+        connection = getattr(response, "_connection", None) or getattr(response, "connection", None)
+        sock = getattr(connection, "sock", None)
+        peer = str(sock.getpeername()[0]) if sock else ""
+        if peer not in addresses or not ip_address(peer).is_global:
+            response.release_conn()
+            pool.close()
+            raise BadRequest("O endereço conectado não corresponde ao destino público validado.")
     except Exception:
         pool.close()
         raise
@@ -185,7 +199,7 @@ def _brand_name_from_site(parser: _BrandHTMLParser, host: str) -> str:
     return ""
 
 
-def _request(url: str, *, accept: str, session=None):
+def _request(url: str, *, accept: str, session=None, max_bytes=MAX_HTML_BYTES):
     client = session
     current = normalize_public_url(url)
     for _ in range(MAX_REDIRECTS + 1):
@@ -206,6 +220,8 @@ def _request(url: str, *, accept: str, session=None):
             response.close()
             current = normalize_public_url(urljoin(current, response.headers["Location"]))
             continue
+        if hasattr(response, "max_bytes"):
+            response.max_bytes = max_bytes
         return response, current
     raise BadRequest("O endereço excedeu o limite seguro de redirecionamentos.")
 
@@ -218,9 +234,16 @@ def _validate_logo(url: str, *, site_host: str = "", session=None) -> dict:
         signature = (sample.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a", b"\x00\x00\x01\x00"))
                      or (len(sample) >= 12 and sample[8:12] == b"WEBP")
                      or b"<svg" in sample[:2048].lower())
-        supported_type = content_type in {"image/png", "image/jpeg", "image/webp"}
+        supported_type = content_type in {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
+        svg_signature = b"<svg" in sample[:2048].lower()
+        unsafe_svg = bool(re.search(
+            rb"<\s*(script|foreignobject)\b|\bon[a-z]+\s*=|<!\s*(doctype|entity)\b|"
+            rb"(?:href|xlink:href)\s*=\s*['\"]\s*(?:javascript:|https?:|//|data:text/html)",
+            sample, re.IGNORECASE,
+        ))
         supported_signature = (sample.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff"))
-                               or (len(sample) >= 12 and sample[:4] == b"RIFF" and sample[8:12] == b"WEBP"))
+                               or (len(sample) >= 12 and sample[:4] == b"RIFF" and sample[8:12] == b"WEBP")
+                               or (svg_signature and not unsafe_svg))
         valid = 200 <= response.status_code < 400 and supported_type and signature and supported_signature
         response.close()
         host = (urlparse(final_url).hostname or "").lower()

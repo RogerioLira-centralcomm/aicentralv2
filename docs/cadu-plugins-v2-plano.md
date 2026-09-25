@@ -1,6 +1,13 @@
 # Plugins do Cadu: menos entradas, fluxos mais completos
 
-Status: plano de produto e implementação, 2026-09-25. Esta etapa cobre conversa, pesquisa, análise e operações. Persistência e visualização de artefatos entram depois da revisão paralela. Prioridade agora: utilidade e correção do fluxo; custo por tarefa será medido depois que cada fluxo tiver critérios de qualidade estáveis.
+Status: implementação faseada, 2026-09-25. Esta etapa cobre conversa, pesquisa, análise e operações. Persistência e visualização de artefatos entram depois da revisão paralela. Prioridade agora: utilidade e correção do fluxo; custo por tarefa será medido depois que cada fluxo tiver critérios de qualidade estáveis.
+
+### Progresso verificado
+
+- O catálogo e a tela agrupam os modos atuais em cinco fluxos. Modos planejados aparecem como futuros, sem simular disponibilidade; comandos antigos seguem funcionando.
+- A busca web informa `read_status` e a origem da data. Market Intelligence aceita claims extraídos somente quando a citação aparece no corpo lido; Insights tenta ler URLs citadas antes de usá-las como fonte elegível.
+- Três casos automatizados cobrem citação literal, fonte apenas descoberta e duplicata lida sem tomar a data do metadado como confirmação. A verificação estática de Python e o empacotamento isolado do componente React concluíram sem erro.
+- Permanecem para execução: motor compartilhado completo de pesquisa, expansão por lacunas entre modos, revisores específicos de Estratégia/Criação/Performance/Operações, contratos de escrita e migração completa das rotas. Esta lista descreve trabalho aberto, não promessa de que os cinco fluxos já estão prontos.
 
 ## Diagnóstico do funcionamento atual
 

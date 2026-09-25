@@ -195,7 +195,10 @@ def test_campaign_tracker_routes_text_metrics_to_deterministic_review(monkeypatc
     assert tools == ("campaign.review_supplied_metrics",)
     assert not missing
     assert _arguments(tools[0], request, message) == {"query": message}
-    assert any(item["name"] == tools[0] for item in load_builtin_tools().list(request))
+    registry = load_builtin_tools()
+    assert any(item["name"] == tools[0] for item in registry.list(request))
+    reviewed = registry.execute(tools[0], _arguments(tools[0], request, message), request)
+    assert {item["name"] for item in reviewed["derived_metrics"]} == {"CTR calculado"}
 
 
 def test_investment_scenarios_have_exact_totals_and_keep_missing_budget_unknown():

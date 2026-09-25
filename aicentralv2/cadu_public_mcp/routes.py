@@ -92,9 +92,6 @@ PUBLIC_TOOLS = frozenset({
     "media.list_jobs",
     "media.get_job",
     "media.start_studio_session",
-    "media.generate_image",
-    "media.edit_image",
-    "media.plan_video",
     "media.creation_capabilities",
     "planner.list_plans",
     "planner.search_catalog",
@@ -189,9 +186,6 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "context.update",
     "context.close",
     "media.start_studio_session",
-    "media.generate_image",
-    "media.edit_image",
-    "media.plan_video",
     "account.update_profile",
     "account.update_agency",
     "account.invite_team_member",
@@ -236,9 +230,6 @@ PUBLIC_WRITE_TOOLS = frozenset({
 # still receive an execution receipt, but must not promise generic recovery.
 RECOVERABLE_OPERATION_TOOLS = frozenset({
     "intent.execute",
-    "media.generate_image",
-    "media.edit_image",
-    "media.plan_video",
     "account.update_profile",
     "account.update_agency",
     "account.invite_team_member",
@@ -327,13 +318,13 @@ def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
         tools = [item for item in tools if not item["name"].startswith("context.")]
     for item in tools:
         if item["name"] in PUBLIC_TOOLS and (item["name"].startswith(("projects.", "artifacts.", "resources.")) or
-                                             item["name"] in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"} or
+                                             item["name"] == "media.start_studio_session" or
                                              item["name"] in {"workspace.get_project_context", "workspace.search_project_content"}):
             item["inputSchema"] = deepcopy(item["inputSchema"])
             item["inputSchema"].setdefault("properties", {})["project_ref"] = {
                 "type": "string", "description": "Projeto de destino no formato ci:ID; informe quando não houver projeto padrão."
             }
-            if item["name"] in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
+            if item["name"] == "media.start_studio_session":
                 item["inputSchema"]["properties"]["brand_ref"] = {
                     "type": "string", "description": "Marca ativa no formato studio:ID, quando não vier do projeto."
                 }
@@ -466,9 +457,9 @@ def public_rpc():
             if not isinstance(arguments, dict):
                 raise ValueError("Os argumentos da ferramenta precisam ser um objeto.")
             arguments = dict(arguments)
-            if name.startswith(("projects.", "artifacts.", "resources.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
+            if name.startswith(("projects.", "artifacts.", "resources.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session"}:
                 arguments.pop("project_ref", None)
-            if name in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
+            if name == "media.start_studio_session":
                 arguments.pop("brand_ref", None)
             if name.startswith("brands."):
                 arguments.pop("brand_ref", None)

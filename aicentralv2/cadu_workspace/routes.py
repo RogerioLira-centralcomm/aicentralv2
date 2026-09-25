@@ -6428,8 +6428,10 @@ def project_detail(project_id, project_view='overview'):
                 'updatedAt': item.get('updated_at'),
                 'href': url_for(
                     'cadu_agent_v2_lab.conversations_v2_lab',
-                    conversation_id=conversation_id, project_ref=f'ci:{project_id}', history='1',
-                ) if conversation_id else project_resume_url,
+                    conversation_id=conversation_id or latest_project_conversation_id or None,
+                    project_ref=f'ci:{project_id}', history='1',
+                    surface='artifact', artifact_id=artifact_id,
+                ),
             })
         for item in project.get('files') or []:
             source_id = str(item.get('id') or '').strip()

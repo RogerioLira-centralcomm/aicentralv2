@@ -1,6 +1,7 @@
 """Execute server-authored, user-approved action steps through the MCP registry."""
 
 import unicodedata
+from dataclasses import replace
 
 from ..mcp.registry import ToolError, ToolInputError, load_builtin_tools
 
@@ -15,6 +16,7 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "brands.create", "brands.prepare_logo_upload", "brands.prepare_asset_upload",
     "brands.update_identity", "brands.start_audit",
     "google.create_project_meeting",
+    "media.generate_image", "media.edit_image", "media.plan_video",
 })
 
 
@@ -51,6 +53,32 @@ def _resolve_audit_brand(sealed: dict, context, registry) -> None:
 
 def _completion(step_name: str, result: dict) -> dict:
     """Give the UI a small, semantic receipt instead of a generic success string."""
+    if step_name in {"media.generate_image", "media.edit_image"}:
+        image_url = result.get("image_url")
+        studio_url = result.get("studio_url")
+        indexed = bool(result.get("indexed"))
+        links = [item for item in (
+            {"title": "Ver imagem", "url": image_url},
+            {"title": "Abrir no Cadu Studio", "url": studio_url},
+        ) if item.get("url")]
+        label = "Imagem editada" if step_name == "media.edit_image" else "Imagem criada"
+        detail = f"{int(result.get('charged_credits') or 0):,}".replace(",", ".") + " créditos utilizados"
+        if indexed:
+            detail += " · salva no projeto"
+        elif result.get("project_link_status") == "pending_reconciliation":
+            detail += " · imagem criada; indexação pendente"
+        return {"answer": f"{label} no Cadu Studio.", "blocks": [
+            {"type": "activity", "state": "completed", "label": label, "detail": detail},
+            {"type": "links", "title": "Resultado", "items": links},
+        ], "refresh_context": indexed}
+    if step_name == "media.plan_video":
+        session_url = result.get("studio_url") or result.get("session_url")
+        links = [{"title": "Revisar no Cadu Studio", "url": session_url}] if session_url else []
+        return {"answer": "O plano de vídeo foi preparado no Cadu Studio para revisão. A geração do vídeo ainda não foi iniciada.",
+                "blocks": [{"type": "activity", "state": "completed",
+                            "label": "Plano de vídeo preparado", "detail": "Aguardando revisão no Studio."},
+                           {"type": "links", "title": "Studio", "items": links}],
+                "refresh_context": False}
     if step_name == "workspace.create_project":
         name = result.get("name") or "Projeto"
         resources = result.get("resources") or {}
@@ -212,7 +240,26 @@ def execute(step: dict, context) -> dict:
     if not isinstance(arguments, dict) or not request_id:
         raise ToolInputError("A proposta aprovada está incompleta.")
     sealed = {**arguments, "request_id": request_id}
-    if step["name"] not in {"brands.prepare_logo_upload", "brands.prepare_asset_upload"}:
+    if step["name"] in {"media.generate_image", "media.edit_image", "media.plan_video"}:
+        estimate = snapshot.get("cost_estimate") or {}
+        estimate_key = "video_plan_cost_estimate" if step["name"] == "media.plan_video" else "image_cost_estimate"
+        if (snapshot.get("requires_confirmation") is not True
+                or estimate.get("unit") != "credits"
+                or not isinstance(estimate.get("estimated_total"), int)
+                or estimate["estimated_total"] <= 0
+                or estimate.get("kind") != estimate_key):
+            raise ToolInputError("A geração do Studio não tem uma estimativa aprovada válida.")
+        # These flags are stamped only after the journal has transitioned the
+        # step from waiting_confirmation to running through the decision API.
+        sealed["confirmed_cost"] = True
+        if step["name"] != "media.plan_video":
+            sealed["confirmed"] = True
+        target = snapshot.get("execution_context") or {}
+        if not isinstance(target, dict):
+            raise ToolInputError("O contexto de destino da ação do Studio é inválido.")
+        context = replace(context, project_ref=target.get("project_ref"), brand_ref=None)
+    if step["name"] not in {"brands.prepare_logo_upload", "brands.prepare_asset_upload",
+                             "media.generate_image", "media.edit_image", "media.plan_video"}:
         sealed["confirmed"] = True
     registry = load_builtin_tools()
     if step["name"] == "brands.start_audit":

@@ -195,6 +195,15 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             "Mantenha a resposta na conversa. Crie ou atualize artefato somente quando o usuário pedir, ou quando a rota "
             "já determinar uma entrega editável. Se faltar escopo, pergunte antes de consultar uma base privada."
         )
+        if selected_plugin.get("id") == "studio":
+            policy["plugin_instruction"] += (
+                "Use o plugin existente Cadu Studio e o payload de media.creation_capabilities como fonte da verdade. "
+                "Pedido de texto para prompt ou de ideias visuais não autoriza gerar uma imagem. Para criar imagem, "
+                "o sistema gera uma proposta persistida com o brief original e a estimativa do Studio. Nunca chame "
+                "ferramentas pagas diretamente; a proposta aguarda a aprovação explícita no journal. Nunca infira brand_id "
+                "pelo projeto ou marca selecionados. Defina index_in_project=true apenas quando a pessoa pedir "
+                "explicitamente para anexar o resultado ao projeto selecionado. Só confirme a conclusão com recibo do Studio."
+            )
         if selected_plugin.get("unavailable"):
             policy["plugin_instruction"] = (
                 f"O plugin {selected_plugin['name']} está temporariamente indisponível. "
@@ -287,7 +296,14 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         resolution_route = replace(resolution_route, needs_tools=tuple(
             tool for tool in resolution_route.needs_tools if tool != "web.search"
         ))
-    resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode)
+    tool_overrides = {}
+    if route.action in {"studio_create_image", "studio_edit_image"}:
+        from .task_planner import studio_capability_arguments
+        tool_overrides["media.creation_capabilities"] = studio_capability_arguments(
+            routed_message, is_edit=route.action == "studio_edit_image",
+        )
+    resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode,
+                               tool_argument_overrides=tool_overrides)
     if selected_plugin and selected_plugin.get("id") == "client-delivery":
         resolved.values["project_task_status"] = summarize_tasks(resolved.values.get("projects.list_tasks"))
     if market_radar:
@@ -486,7 +502,9 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         # The planner can therefore understand "criar projeto com esses dados"
         # without relying on a provider session or silently dropping the turn.
         planning_message = f"{selected_text}\n{routed_message}".strip()
-    plan = build_task_plan(route, budget, planning_message)
+    sealed_execution_context = {"project_ref": request.project_ref}
+    plan = build_task_plan(route, budget, planning_message, resolved_values=resolved.values,
+                           execution_context=sealed_execution_context)
     has_action = any(step.get("kind") == "action" for step in plan)
     if route.action == "schedule_project_meeting" and not has_action:
         policy["action_preflight"] = {
@@ -522,7 +540,28 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 "Vou separar isso em uma conversa pessoal; para iniciar, informe nome, segmento e site oficial. "
                 "Os anexos e referências desta conversa serão preservados como base."
             )
-        plan = build_task_plan(route, budget, routed_message)
+        if original_action in {"studio_create_image", "studio_edit_image"}:
+            cap = resolved.values.get("media.creation_capabilities") or {}
+            quote = cap.get("image_cost_estimate") if isinstance(cap, dict) else None
+            if not isinstance(quote, dict) or quote.get("unit") != "credits":
+                policy["action_preflight"]["reason"] = "A estimativa de créditos do Studio está indisponível."
+                policy["action_preflight"]["next_step"] = (
+                    "Informe que a geração não foi iniciada porque não foi possível estimar o custo. "
+                    "Peça para tentar novamente quando a estimativa estiver disponível."
+                )
+            elif original_action == "studio_edit_image":
+                policy["action_preflight"]["missing"] = ["imagem base do Studio ou URL HTTPS" ]
+                policy["action_preflight"]["next_step"] = "Peça a imagem base que deve ser editada."
+            elif re.search(r"\b(?:salv(?:e|ar)|adicione|indexe|guarde)\b.{0,50}\bprojeto\b", planning_message, re.I) and not request.project_ref:
+                policy["action_preflight"]["missing"] = ["projeto de destino"]
+                policy["action_preflight"]["next_step"] = "Peça para selecionar o projeto onde deseja salvar a imagem."
+        if original_action == "studio_plan_video_edit":
+            policy["action_preflight"]["missing"] = ["clipe ou cena selecionada no Cadu Studio"]
+            policy["action_preflight"]["next_step"] = (
+                "Peça para selecionar o vídeo ou a cena na biblioteca do Studio antes de planejar a edição."
+            )
+        plan = build_task_plan(route, budget, routed_message, resolved_values=resolved.values,
+                               execution_context=sealed_execution_context)
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,

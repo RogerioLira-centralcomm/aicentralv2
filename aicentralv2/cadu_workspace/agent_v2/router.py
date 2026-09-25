@@ -406,6 +406,41 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             return IntentRoute("research", "search_insights", "medium", "analysis", (), ("insights.research_market",))
         return IntentRoute("workspace", "select_insights_scope", "low", "clarification",
                            ())
+    # Visual deliverables for a campaign are Studio tasks; the campaign mention
+    # supplies context and must not reroute them to planner. Prompt-writing stays
+    # conversational and does not become a paid Studio action.
+    video_prompt_only = _has(text, r"\b(?:prompt|comando)\b.{0,70}\b(?:v[ií]deo|filme|anima[cç][aã]o)\b")
+    video_subject = r"(?:v[ií]deo|filme|anima[cç][aã]o)"
+    if not video_prompt_only and _has(
+        text,
+        rf"\b(?:edit\w*|alter\w*|transform\w*)\b.{{0,55}}\b{video_subject}\b|"
+        rf"\b{video_subject}\b.{{0,55}}\b(?:edit\w*|alter\w*|transform\w*)\b",
+    ):
+        return IntentRoute("studio", "studio_plan_video_edit", "medium", "analysis",
+                           (), ("media.creation_capabilities",), None, True)
+    if not video_prompt_only and _has(
+        text,
+        rf"\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*|planej\w*)\b.{{0,65}}\b{video_subject}\b|"
+        rf"\b{video_subject}\b.{{0,65}}\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*|planej\w*)\b",
+    ):
+        return IntentRoute("studio", "studio_plan_video", "medium", "analysis",
+                           (), ("media.creation_capabilities",), None, True)
+    prompt_only = _has(text, r"\b(?:prompt|comando)\b.{0,70}\b(?:imagem|foto|visual|ilustra[cç][aã]o|arte|criativo)\b")
+    visual_subject = r"(?:imagem|foto|visual|ilustra[cç][aã]o|arte|criativo)"
+    if not prompt_only and _has(
+        text,
+        rf"\b(?:edit\w*|alter\w*|transform\w*)\b.{{0,55}}\b{visual_subject}\b|"
+        rf"\b{visual_subject}\b.{{0,55}}\b(?:edit\w*|alter\w*|transform\w*)\b",
+    ):
+        return IntentRoute("studio", "studio_edit_image", "medium", "analysis",
+                           (), ("media.creation_capabilities",), None, True)
+    if not prompt_only and _has(
+        text,
+        rf"\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*)\b.{{0,65}}\b{visual_subject}\b|"
+        rf"\b{visual_subject}\b.{{0,65}}\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*)\b",
+    ):
+        return IntentRoute("studio", "studio_create_image", "medium", "analysis",
+                           (), ("media.creation_capabilities",), None, True)
     if media_plan_request and not explicit_web_research:
         if explicit_document:
             return IntentRoute("workspace", "create_text_draft", "high", "artifact_first",

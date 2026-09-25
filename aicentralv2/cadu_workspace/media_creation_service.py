@@ -71,7 +71,9 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
     fingerprint = sha256(dumps({"prompt": original, "brand_id": brand_id,
                                 "source_url": source_url,
                                 "aspect_ratio": arguments.get("aspect_ratio", "1:1"),
-                                "quality": arguments.get("quality", "padrão")},
+                                "quality": arguments.get("quality", "padrão"),
+                                "index_in_project": bool(arguments.get("index_in_project")),
+                                "project_ref": context.project_ref},
                                sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     # The account's personal shelf uses the canonical creative client even
     # when a linked brand supplies the identity for this particular image.
@@ -162,7 +164,7 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
                                       + int(director_charge or 0)
                                       + int(prompt_charge.get("tokens_cobrados") or 0)),
                   "remaining_credits": rendered.get("remaining_credits"),
-                  "destination": "personal" if not context.project_ref else "project",
+                  "destination": "project" if context.project_ref and arguments.get("index_in_project") else "personal",
                   "indexed": False}
         # Record the paid image before secondary library/index writes. A retry
         # must return this image instead of calling the provider a second time.
@@ -177,7 +179,7 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
             })
         except Exception:
             result["session_sync_pending"] = True
-        if context.project_ref:
+        if context.project_ref and arguments.get("index_in_project") is True:
             try:
                 source = _index_generated_image(context, request_id, original, direction, image_url, modeling.storage)
                 result["project_source"] = source

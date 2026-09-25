@@ -11,8 +11,9 @@ from aicentralv2.cadu_workspace.agent_v2.response_policy import (
 )
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness, prepare_execution
+from aicentralv2.cadu_workspace.agent_v2 import action_executor
 from aicentralv2.cadu_workspace.agent_v2.action_executor import _completion
-from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
+from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan, studio_capability_arguments
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
 from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import CORE, build_payload
 from aicentralv2.cadu_workspace.mcp.registry import (
@@ -49,6 +50,153 @@ def test_streamable_answer_exposes_prose_without_leaking_provider_envelope():
     assert v2_service._streamable_answer('```json\n{"text":{"content":"Guia adaptado') == "Guia adaptado"
     assert v2_service._streamable_answer('prefixo {"text":{"content":"Continuação segura') == "Continuação segura"
     assert v2_service._streamable_answer('{"confidence":"high","blocks":[]') == ""
+
+
+def test_studio_image_request_with_common_typos_routes_to_studio_but_prompt_request_does_not():
+    typo = route_request("vamos ciar uma image dele?")
+    assert typo.domain == "studio"
+    assert typo.action == "studio_create_image"
+    assert "media.creation_capabilities" in typo.needs_tools
+    assert typo.requires_confirmation is True
+
+    prompt = route_request("Me dê um prompt para criar uma imagem do Bob Marley")
+    assert prompt.action != "studio_create_image"
+    assert prompt.domain != "studio"
+
+    video = route_request("Crie um vídeo para a campanha de fim de ano")
+    assert video.action == "studio_plan_video"
+    assert video.requires_confirmation is True
+    video_prompt = route_request("Escreva um prompt para criar um vídeo de marca")
+    assert video_prompt.action != "studio_plan_video"
+
+    factual = route_request("Quem foi Bob Marley?")
+    assert factual.domain != "studio"
+
+
+def test_studio_generation_becomes_a_cost_quoted_journal_action():
+    route = route_request("Crie uma imagem 4:5 em alta qualidade para a campanha")
+    estimate = {"unit": "credits", "estimated_total": 12850,
+                "note": "Estimativa de créditos do Studio; o consumo real pode variar."}
+    plan = build_task_plan(
+        route, budget_for(route), "Crie uma imagem 4:5 em alta qualidade para a campanha",
+        resolved_values={"media.creation_capabilities": {"image_cost_estimate": estimate}},
+    )
+    action = next(item for item in plan if item.get("kind") == "action")
+    assert action["name"] == "media.generate_image"
+    assert action["requires_confirmation"] is True
+    assert action["cost_estimate"] == {**estimate, "kind": "image_cost_estimate"}
+    assert action["arguments"]["quality"] == "alta"
+    assert action["arguments"]["aspect_ratio"] == "4:5"
+    assert action["arguments"]["index_in_project"] is False
+    assert "12.850 créditos" in action["summary"]
+    assert studio_capability_arguments("Crie em qualidade econômica") == {
+        "quality": "econômica", "reference_count": 0,
+    }
+
+
+def test_studio_video_plan_uses_its_own_cost_confirmation():
+    message = "Crie um vídeo de 8 segundos para a campanha de fim de ano"
+    route = route_request(message)
+    assert route.action == "studio_plan_video"
+    assert route.requires_confirmation is True
+    plan = build_task_plan(route, budget_for(route), message, resolved_values={
+        "media.creation_capabilities": {"video_plan_cost_estimate": {
+            "unit": "credits", "estimated_total": 2400,
+            "note": "O consumo real pode variar.",
+        }},
+    })
+    action = next(item for item in plan if item.get("kind") == "action")
+    assert action["name"] == "media.plan_video"
+    assert action["arguments"] == {"prompt": message, "kind": "video", "duration": 8}
+    assert action["cost_estimate"]["kind"] == "video_plan_cost_estimate"
+    assert "2.400 créditos" in action["summary"]
+
+    edit_route = route_request("Edite o vídeo https://example.com/clip.mp4")
+    edit_plan = build_task_plan(edit_route, budget_for(edit_route),
+                                "Edite o vídeo https://example.com/clip.mp4",
+                                resolved_values={"media.creation_capabilities": {
+                                    "video_plan_cost_estimate": {"unit": "credits", "estimated_total": 2400},
+                                }})
+    assert not any(item.get("kind") == "action" for item in edit_plan)
+
+
+def test_studio_action_executor_stamps_cost_consent_only_from_approved_action(monkeypatch):
+    calls = []
+
+    class Registry:
+        def execute(self, name, arguments, context, exposure):
+            calls.append((name, arguments, exposure))
+            return {"status": "completed", "image_url": "https://studio.test/image.png",
+                    "studio_url": "https://studio.test/criar", "charged_credits": 1200,
+                    "indexed": False}
+
+    monkeypatch.setattr(action_executor, "load_builtin_tools", lambda: Registry())
+    context = RequestContext(client_id=1, user_id=2, conversation_id="conversation",
+                             surface="studio", capabilities=("workspace",))
+    step = {"kind": "action", "name": "media.generate_image", "status": "running",
+            "input_snapshot": {"name": "media.generate_image", "requires_confirmation": True,
+                               "request_id": "12345678-1234-1234-1234-123456789abc",
+                               "arguments": {"prompt": "A campanha"},
+                               "cost_estimate": {"kind": "image_cost_estimate", "unit": "credits",
+                                                 "estimated_total": 5000},
+                               "execution_context": {"project_ref": None}}}
+    result = action_executor.execute(step, context)
+    assert calls[0][0] == "media.generate_image"
+    assert calls[0][1]["confirmed"] is True
+    assert calls[0][1]["confirmed_cost"] is True
+    assert calls[0][1]["request_id"] == "12345678-1234-1234-1234-123456789abc"
+    assert calls[0][2] == "internal"
+    assert result["completion"]["blocks"][0]["label"] == "Imagem criada"
+
+    step["input_snapshot"].pop("cost_estimate")
+    with pytest.raises(ToolInputError, match="estimativa aprovada"):
+        action_executor.execute(step, context)
+    assert len(calls) == 1
+
+
+def test_approved_video_plan_receives_cost_flag_but_not_image_confirmation(monkeypatch):
+    calls = []
+
+    class Registry:
+        def execute(self, name, arguments, context, exposure):
+            calls.append((name, arguments))
+            return {"studio_url": "https://studio.test/video", "generation_status": "not_started"}
+
+    monkeypatch.setattr(action_executor, "load_builtin_tools", lambda: Registry())
+    context = RequestContext(client_id=1, user_id=2, conversation_id="conversation",
+                             surface="studio", capabilities=("workspace",))
+    step = {"kind": "action", "name": "media.plan_video", "status": "running",
+            "input_snapshot": {"name": "media.plan_video", "requires_confirmation": True,
+                               "request_id": "12345678-1234-1234-1234-123456789abc",
+                               "arguments": {"kind": "video", "prompt": "Filme de marca"},
+                               "cost_estimate": {"kind": "video_plan_cost_estimate", "unit": "credits",
+                                                 "estimated_total": 2400},
+                               "execution_context": {"project_ref": None}}}
+    result = action_executor.execute(step, context)
+    assert calls[0][0] == "media.plan_video"
+    assert calls[0][1]["confirmed_cost"] is True
+    assert "confirmed" not in calls[0][1]
+    assert result["completion"]["blocks"][0]["label"] == "Plano de vídeo preparado"
+
+
+def test_journal_confirmation_payload_keeps_studio_cost_estimate(monkeypatch):
+    snapshot = {"summary": "Gerar imagem por aproximadamente 5.000 créditos.",
+                "effect": "write", "arguments": {"prompt": "Campanha"},
+                "cost_estimate": {"kind": "image_cost_estimate", "unit": "credits",
+                                  "estimated_total": 5000}}
+    monkeypatch.setattr(journal.repository, "rows", lambda *_: [{
+        "id": "step-1", "name": "media.generate_image", "input_snapshot": snapshot,
+    }])
+    actions = journal.waiting_actions("run-1", 1, 2)
+    assert actions[0]["cost_estimate"] == snapshot["cost_estimate"]
+    assert actions[0]["arguments"]["prompt"] == "Campanha"
+
+
+def test_studio_plugin_model_tools_cannot_invoke_paid_generation():
+    from aicentralv2.cadu_workspace.agent_v2.plugins import _execution_tools
+    tools = _execution_tools("studio")
+    assert tools == ("media.creation_capabilities",)
+    assert not {"media.generate_image", "media.edit_image", "media.plan_video"}.intersection(tools)
 
 
 def test_final_normalization_cannot_erase_long_streamed_analysis():

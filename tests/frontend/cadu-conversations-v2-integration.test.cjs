@@ -173,7 +173,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/project_detail_react.html'), 'utf8');
   const route = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
   const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
-  assert.match(project, /cadu-ds-project-data-index/);
+  assert.match(project, /cadu-ds-entity-rail__index/);
   assert.match(project, /Editar contexto/);
   assert.match(project, /Histórico da direção/);
   assert.match(project, /fetch\(urls\.directionHistory/);
@@ -182,7 +182,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /project\.contextItems/);
   assert.match(project, /value="context">Direção/);
   assert.match(project, /onEditContext=\{\(\) => setDialog\('identity'\)\}/);
-  assert.match(project, /Fontes e arquivos/);
+  assert.match(project, /aria-label="Fontes do projeto"/);
   assert.match(project, /Criar plano de mídia/);
   assert.match(project, /Mesclar com outro projeto/);
   assert.match(project, /Excluir projeto/);
@@ -197,15 +197,14 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /dragDepth = useRef/);
   assert.match(project, /Solte para adicionar ao projeto/);
   assert.match(project, /cadu-ds-project-page-drop__card/);
-  assert.match(project, /Preserve primeiro; decida depois/);
+  assert.match(project, /Fontes e estado da indexação/);
   assert.match(project, /sourceErrorMessage/);
   assert.match(project, /cadu-ds-project-brand-feature/);
   assert.match(project, /Criar e auditar marca/);
   assert.match(project, /Definir marca do projeto/);
-  assert.match(project, /cadu-ds-project-workspace/);
-  assert.match(project, /Continue de onde o time parou/);
-  assert.match(project, /ProjectDataIndex/);
-  assert.match(project, /Índice do projeto/);
+  assert.match(project, /cadu-ds-entity-portal--project/);
+  assert.match(project, /ProjectContinuitySection/);
+  assert.match(project, /cadu-ds-entity-rail__index/);
   assert.match(project, /function ProjectTasksSection/);
   assert.match(project, /Transforme contexto em próximos passos/);
   assert.match(project, /Criar com o Cadu/);
@@ -219,9 +218,9 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /request\(urls\.tasks/);
   assert.match(project, /new Date\(draft\.starts_at\)\.toISOString\(\)/);
   assert.match(project, /startsAt:item\.occurredAt \|\| ''/);
-  assert.match(project, /Referências externas/);
-  assert.match(project, /\['activity','Atividades'\]/);
-  assert.match(project, /\['task','Tarefas'\]/);
+  assert.match(project, /Referência/);
+  assert.match(project, /\{id:'activity', label:'Atividade'/);
+  assert.match(project, /\{id:'tasks', label:'Tarefas'/);
   assert.doesNotMatch(project, /title:'Links principais'/);
   assert.match(project, /<b title=\{project\.name\}>\{project\.name\}<\/b>/);
   assert.match(project, /cadu-ds-project-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-project-content/);
@@ -232,13 +231,13 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(styles, /body\.portal--workspace \.cadu-ds-project-workarea \.cadu-ds-dock,[\s\S]*position:fixed/);
   assert.match(styles, /body\.portal--workspace \.cadu-ds-project-workarea,[\s\S]*padding-left:76px/);
   assert.match(styles, /\.cadu-ds-project-page-drop__card/);
-  assert.match(styles, /\.cadu-ds-project-source-section/);
-  assert.match(styles, /\.cadu-ds-project-workspace/);
+  assert.match(styles, /\.cadu-ds-project-indexing__sources/);
+  assert.match(styles, /\.cadu-ds-project-workarea/);
   const entityStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceEntityPortal.css'), 'utf8');
-  assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-nav \{[\s\S]*position:fixed[\s\S]*overflow-y:hidden/);
+  assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-nav \{[\s\S]*position:fixed[\s\S]*overflow-y:auto/);
   assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-rail \{[\s\S]*height:auto;[\s\S]*overflow:visible/);
-  assert.match(entityStyles, /font-size:clamp\(36px,3\.35vw,48px\)/);
-  assert.match(entityStyles, /overflow-wrap:anywhere/);
+  assert.match(entityStyles, /font-size:clamp\(26px,2\.5vw,36px\)/);
+  assert.match(styles, /\.cadu-ds-project-indexing__file > span > span \{ overflow-wrap:anywhere/);
   assert.match(template, /'projectMode': True/);
   assert.match(template, /'projectView': project_view/);
   assert.match(template, /cadu_workspace\.clean_project_section/);
@@ -466,12 +465,10 @@ test('manual artifact edits block tab changes and publishing until their latest 
 });
 
 test('project document continuation uses the raw artifact id exposed by the project API', () => {
-  const portal = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceEntityPortal.jsx'), 'utf8');
   const routes = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
-  assert.match(portal, /item\.type === type/);
-  assert.match(portal, /existing\?\.artifactId/);
   assert.match(routes, /'artifactId': artifact_id/);
   assert.match(routes, /'type': artifact_type/);
+  assert.match(routes, /conversation_id=conversation_id or latest_project_conversation_id or None,[\s\S]*?project_ref=f'ci:\{project_id\}', history='1',[\s\S]*?surface='artifact', artifact_id=artifact_id/);
 });
 
 test('v2 attachments require an explicit project usage choice', () => {
@@ -520,9 +517,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
   assert.match(app, /restoreConversationMessages\(data\.messages, uid\)/);
   assert.match(app, /O histórico foi aberto pelo modo de compatibilidade/);
-  assert.match(app, /loadRecent\(\);\s*if \(!requestedConversationId\.current\) loadContext\(\)/);
+  assert.match(app, /loadRecent\(\);\s*loadContext\(\{preserveSelection: Boolean\(requestedConversationId\.current\)\}\)/);
   assert.match(historyModel, /metadata\.artifact_id/);
-  assert.match(app, /fetchArtifact\(lastArtifact\)/);
+  assert.match(app, /fetchArtifact\(lastArtifact, \{signal: controller\.signal\}\)/);
   assert.match(app, /confirmDiscard/);
   assert.match(app, /setAttachments\(items => \{ releasePreviews\(items\); return \[\]; \}\)/);
   assert.match(app, /const uploadFiles = useCallback/);
@@ -544,9 +541,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(responsiveHistory, /media\.addEventListener\('change', adaptHistory\)/);
   assert.match(app, /requestedHistoryOpen/);
   assert.match(app, /changeProject\(projectRef, \{showHistory: true\}\)/);
-  assert.match(app, /changeProject = useCallback\(async \(projectRef, \{showHistory = true\}/);
+  assert.match(app, /const changeProject = useCallback\(async \(projectRef, \{showHistory = true/);
   assert.doesNotMatch(app, /loadProjectResources/);
-  assert.match(app, /recentConversations\(data\.conversations, 50\)/);
+  assert.match(app, /recentConversations\(data\.conversations, limit\)/);
   assert.match(app, /const brandRef = item\?\.brandRef \|\| \(item\?\.id \? `studio:\$\{item\.id\}` : ''\)/);
   assert.match(app, /loadBrandIdentity/);
   assert.match(app, /reset\(\{preserveAttachments: force\}\);\s*setHistoryOpen\(false\)/);
@@ -554,16 +551,16 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.doesNotMatch(app, /window\.matchMedia\('\(max-width: 900px\)'\)/);
   assert.match(sidebar, /cv-recent-sidebar/);
   assert.match(sidebar, /activeProjectRef/);
-  assert.match(sidebar, /leftActive/);
+  assert.match(sidebar, /selected \? 'location'/);
   assert.match(sidebar, /Chats recentes/);
-  assert.match(sidebar, /if \(!open\) return null/);
+  assert.match(sidebar, /if \(!open\) return undefined/);
   assert.doesNotMatch(sidebar, /rendered|setRendered/);
   assert.match(app, /onProjectChange=\{ref => changeProject\(ref, \{showHistory: historyOpen\}\)\}/);
   assert.match(styles, /cv-context-selector__projects\{display:grid;grid-template-columns:minmax\(0,1fr\)/);
   assert.doesNotMatch(styles, /cv-context-selector__projects\{[^}]*repeat\(2/);
   assert.doesNotMatch(styles, /cv-recent-open/);
-  assert.match(sidebar, /projectConversations/);
-  assert.match(sidebar, /Últimas 10/);
+  assert.match(sidebar, /project\.name \|\| project\.title/);
+  assert.match(sidebar, /items\.slice\(0, showAll \? undefined : 5\)/);
   assert.match(sidebar, /onOpenLibrary/);
   assert.doesNotMatch(sidebar, /RESOURCE_GROUPS/);
   assert.match(app, /<LibraryView/);
@@ -641,9 +638,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.doesNotMatch(composer, /Pesquisar na internet/);
   assert.match(composer, /Intensidade do agente/);
   assert.match(composer, /Gravar mensagem de voz/);
-  assert.match(composer, /Destino dos anexos/);
+  assert.match(composer, /cv-composer-capabilities/);
   assert.match(composer, /Escolher modo e recursos/);
-  assert.match(styles, /\.cv-attachment-chip \{[^}]*width:48px; height:48px/);
+  assert.match(styles, /\.cv-attachment-chip\.is-image \{[^}]*width:48px; height:48px/);
   assert.match(styles, /\.cv-assistant-answer \{ padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; \}/);
   assert.match(app, /Solte o arquivo para anexar/);
   assert.match(conversationSupport, /contextLabel/);
@@ -712,21 +709,13 @@ test('chat theme is locked dark and interaction flows avoid native browser promp
 
 test('mobile workspace enters the shared chat shell without an intermediate home', () => {
   const main = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
-  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const home = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceHome.jsx'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
-  assert.match(main, /bootstrap\.homeMode && window\.matchMedia\?\.\('\(max-width: 767px\)'\)/);
-  assert.match(main, /const conversationBootstrap = mobileHomeEntry/);
-  assert.match(main, /mobileHomeEntry \? <App bootstrap=\{conversationBootstrap\}/);
-  assert.match(main, /root\.classList\.remove\('cv-home-root'\)/);
-  assert.match(main, /root\.classList\.add\('cv-conversation-root'\)/);
+  assert.match(main, /bootstrap\.homeMode \? <WorkspaceHome bootstrap=\{bootstrap\}/);
+  assert.match(home, /<WorkspaceChatComposer[\s\S]*embedded homeMode/);
+  assert.match(home, /homeMode/);
   assert.doesNotMatch(main, /window\.location\.replace/);
-  assert.match(app, /function setConversationUrl/);
-  assert.match(app, /new URL\(window\.location\.pathname, window\.location\.origin\)/);
-  assert.match(app, /setConversationUrl\(event\.conversation_id, true\)/);
-  assert.match(app, /setConversationUrl\('', true\)/);
-  assert.match(app, /limit=50/);
-  assert.match(app, /\/workspace\/api\/v2\/conversations\/\$\{encodeURIComponent\(id\)\}\/bootstrap/);
   assert.match(composer, /cv-composer-mobile-actions/);
   assert.match(composer, /accept="image\/\*"/);
   assert.match(composer, /Disponível após conectar este recurso/);
@@ -743,7 +732,8 @@ test('conversation continuations preserve structured questions and server contex
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const composer = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceChatComposer.jsx'), 'utf8');
   assert.doesNotMatch(conversation, /Sobre “\$\{question\}”/);
-  assert.doesNotMatch(pendingInteraction, /questionBlock/);
+  assert.match(pendingInteraction, /questionBlock = \[\.\.\.blocks\]\.reverse\(\)\.find/);
+  assert.match(pendingInteraction, /kind: 'question'/);
   assert.match(responseBlocks, /cv-inline-question-set/);
   assert.match(responseBlocks, /allow_custom/);
   assert.match(responseBlocks, /const \[customAnswers, setCustomAnswers\]/);
@@ -899,14 +889,14 @@ test('conversation response UI never invents follow-up actions for static insigh
   assert.match(progress, /small aria-hidden="true"/);
   assert.doesNotMatch(progress, /Etapas concluídas/);
   assert.match(conversation, /message\.streaming && showActivity/);
-  assert.match(conversation, /canCreateDocument/);
-  assert.match(conversation, /Criar documento/);
+  assert.match(conversation, /message\.artifact\?\.id/);
+  assert.match(conversation, /Abrir material/);
   assert.match(conversation, /navigator\.clipboard\?\.writeText/);
   assert.match(conversation, /document\.execCommand\('copy'\)/);
   assert.match(conversation, /aria-live="polite"/);
-  assert.match(conversation, /cv-answer-tools/);
-  assert.match(conversation, /type:'assistant_response'/);
-  assert.match(conversation, /Resposta completa para o documento/);
+  assert.match(conversation, /className=\{`cv-message-copy/);
+  assert.match(conversation, /className=\{`cv-message-copy/);
+  assert.match(conversation, /state === 'copied' \? 'Mensagem copiada'/);
   assert.doesNotMatch(conversation, />C<\/span>/);
   const designStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   assert.match(designStyles, /#cadu-conversations-v2-root \.cadu-ds-prompt-suggestions button \{[^}]*background:#0f1d20/);
@@ -950,7 +940,7 @@ test('conversation attachment model preserves validation and destination rules',
   assert.doesNotMatch(styles, /\.cv-drop-overlay:before/);
   assert.doesNotMatch(styles, /border:\s*2px dashed/);
   assert.doesNotMatch(composer, /cv-attachment-meta/);
-  assert.match(styles, /\.cv-attachment-chip \{[^}]*width:48px; height:48px/);
+  assert.match(styles, /\.cv-attachment-chip\.is-image \{[^}]*width:48px; height:48px/);
 });
 
 test('conversation browser storage consumes pending attachments once and persists explicit context', async () => {
@@ -1131,7 +1121,7 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(artifactWorkspace, /setArtifactTabs/);
   assert.match(browser, /SameSite=Lax/);
   assert.match(browser, /navigator\.clipboard\?\.writeText/);
-  assert.match(app, /if \(lastArtifact\) await fetchArtifact\(lastArtifact\)/);
+  assert.match(app, /if \(lastArtifact\) \{\s*await fetchArtifact\(lastArtifact, \{signal: controller\.signal\}\);/);
   assert.match(conversation, /stickToLatest/);
   assert.match(conversation, /element\.scrollTop = element\.scrollHeight/);
   assert.match(conversation, /new ResizeObserver/);
@@ -1155,7 +1145,7 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(artifact, /Fechar outras abas/);
   assert.match(artifact, /Abrir no navegador/);
   assert.match(artifact, /Copiar link/);
-  assert.match(artifact, /Link publicado/);
+  assert.match(artifact, /aria-label=\{publishing \? 'Publicando' : saving \? 'Salvando' : publicLink \? 'Copiar link publicado'/);
   assert.match(app, /onCloseOtherTabs/);
   assert.match(app, /onCloseAllTabs/);
   assert.match(styles, /\.cv-artifact-tab-menu/);
@@ -1194,7 +1184,7 @@ test('pasted Google links stay compact and open inside the artifact reader witho
   assert.match(historyModel, /metadata,\s*\n\s*};/);
   assert.match(conversation, /className="cv-sr-only" aria-live="polite"/);
   assert.match(styles, /\.cv-user-message__link \{ display:inline-flex/);
-  assert.doesNotMatch(pending, /questionBlock/);
+  assert.match(pending, /questionBlock = \[\.\.\.blocks\]\.reverse\(\)\.find/);
 });
 
 test('home and chat preserve an explicit free session and expose a project context selector', () => {
@@ -1216,7 +1206,8 @@ test('home and chat preserve an explicit free session and expose a project conte
   assert.doesNotMatch(selectors, /Nenhum projeto disponível neste contexto/);
   assert.doesNotMatch(sidebar, /cv-free-session-panel/);
   assert.doesNotMatch(sidebar, /cv-recent-library-button/);
-  assert.match(sidebar, /Conversas recentes/);
+  assert.match(sidebar, /<span>Recentes<\/span>/);
+  assert.match(sidebar, /Nenhuma conversa recente/);
 });
 
 test('artifact capabilities keep save, index and restore lifecycle actions honest', () => {
@@ -1260,7 +1251,8 @@ test('dock and composer use one stable geometry without layered hover chrome', (
   assert.match(dockStyles, /\.cadu-ds-dock-primary-action:focus-visible[\s\S]+outline:2px solid currentColor/);
   assert.match(styles, /\.cv-conversations-workarea::after/);
   assert.match(styles, /height:150px/);
-  assert.match(styles, /min-height:40px !important; height:40px !important/);
+  assert.match(styles, /\.cv-composer-actions \{\s+position: relative;\s+min-height: 42px;[\s\S]*?border-top: 0 !important;/);
+  assert.match(styles, /cv-composer-actions \{ min-height:40px;/);
   assert.match(styles, /font-weight:400/);
 });
 

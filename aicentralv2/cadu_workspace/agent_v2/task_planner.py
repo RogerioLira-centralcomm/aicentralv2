@@ -423,11 +423,94 @@ def _brand_identity_step(message: str):
     return None
 
 
-def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
+def _studio_quality(message: str) -> str:
+    text = str(message or "").lower()
+    if re.search(r"\b(?:alta|premium|publica[cç][aã]o|final)\b", text):
+        return "alta"
+    if re.search(r"\b(?:econ[oô]mica|rascunho|r[aá]pida)\b", text):
+        return "econômica"
+    return "padrão"
+
+
+def studio_capability_arguments(message: str, *, is_edit: bool = False) -> dict:
+    """Match the Studio price quote to the quality sealed in the action."""
+    return {"quality": _studio_quality(message), "reference_count": 1 if is_edit else 0}
+
+
+def _studio_creation_step(route: IntentRoute, message: str, resolved_values: dict | None,
+                          execution_context: dict | None):
+    action_by_route = {
+        "studio_create_image": "media.generate_image",
+        "studio_edit_image": "media.edit_image",
+        "studio_plan_video": "media.plan_video",
+        "studio_plan_video_edit": "media.plan_video",
+    }
+    tool_name = action_by_route.get(route.action)
+    if not tool_name:
+        return None
+    text = str(message or "").strip()
+    if len(text) < 3 or len(text) > 4000:
+        return None
+    arguments = {"prompt": text}
+    if tool_name == "media.plan_video":
+        arguments["kind"] = "video_edit" if route.action == "studio_plan_video_edit" else "video"
+        # Video edits need an asset selected in Studio. The existing plan tool
+        # does not resolve an arbitrary URL into an owned clip or scene.
+        if arguments["kind"] == "video_edit":
+            return None
+        duration = re.search(r"\b(4|5|8|10|15|20|30)\s*(?:s|seg(?:undos?)?)\b", text, re.I)
+        if duration:
+            arguments["duration"] = int(duration.group(1))
+        capabilities = (resolved_values or {}).get("media.creation_capabilities") or {}
+        quote = capabilities.get("video_plan_cost_estimate") if isinstance(capabilities, dict) else None
+    else:
+        arguments.update({"quality": _studio_quality(text), "index_in_project": False})
+        ratio = re.search(r"\b(1:1|4:5|9:16|16:9)\b", text)
+        if ratio:
+            arguments["aspect_ratio"] = ratio.group(1)
+        if re.search(r"\b(?:salv(?:e|ar)|adicione|indexe|guarde)\b.{0,50}\bprojeto\b", text, re.I):
+            if not (execution_context or {}).get("project_ref"):
+                return None
+            arguments["index_in_project"] = True
+    if tool_name == "media.edit_image":
+        source = re.search(r"https://[^\s<>\]\[\"']+|/static/uploads/creative_[^\s<>\]\[\"']+", text, re.I)
+        if not source:
+            return None
+        source_url = source.group(0).rstrip(".,;:)")
+        arguments["source_url"] = source_url
+        arguments["prompt"] = text.replace(source.group(0), "").strip(" \n,;:-")
+
+    if tool_name != "media.plan_video":
+        capabilities = (resolved_values or {}).get("media.creation_capabilities") or {}
+        quote = capabilities.get("image_cost_estimate") if isinstance(capabilities, dict) else None
+    if not isinstance(quote, dict) or quote.get("unit") != "credits":
+        return None
+    estimated_total = quote.get("estimated_total")
+    if not isinstance(estimated_total, int) or estimated_total <= 0:
+        return None
+    return {
+        "kind": "action", "name": tool_name, "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": arguments, "effect": "write",
+        "execution_context": {"project_ref": (execution_context or {}).get("project_ref")},
+        "cost_estimate": {"kind": "video_plan_cost_estimate" if tool_name == "media.plan_video" else "image_cost_estimate",
+                          "unit": "credits", "estimated_total": estimated_total,
+                          "note": str(quote.get("note") or "Estimativa do Cadu Studio; o consumo final pode variar.")[:300]},
+        "summary": (f"Planejar o vídeo no Cadu Studio por aproximadamente {estimated_total:,} créditos. O valor final pode variar."
+                    if tool_name == "media.plan_video" else
+                    f"Gerar no Cadu Studio por aproximadamente {estimated_total:,} créditos. O valor final pode variar.").replace(",", "."),
+    }
+
+
+def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "", *,
+                    resolved_values: dict | None = None,
+                    execution_context: dict | None = None) -> list[dict]:
     # The plan is user-facing. It must remain understandable in the chat.
     # Reserve the fourth slot for the response itself. The user should never
     # see preparation without the outcome that preparation produces.
     steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:2]]
+    studio_action = _studio_creation_step(route, message, resolved_values, execution_context)
+    if studio_action:
+        steps.append(studio_action)
     if route.action == "link_test":
         action = _link_test_step(message)
         if action:

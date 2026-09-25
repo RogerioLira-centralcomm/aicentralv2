@@ -86,7 +86,10 @@ def _execution_tools(plugin_id: str) -> tuple[str, ...]:
         "planner": ("planner.research_plan_inputs", "planner.search_catalog", "planner.get_media_plan",
                     "artifacts.create_draft", "artifacts.update_draft"),
         "reports": ("reports.list_project_reports", "reports.get_report_metrics", "reports.compare_report_to_plan"),
-        "studio": ("media.creation_capabilities", "media.generate_image", "media.edit_image"),
+        # Paid Studio operations are executed only through a persisted,
+        # user-approved journal action. The model can inspect capabilities,
+        # but cannot invoke paid generation or planning itself.
+        "studio": ("media.creation_capabilities",),
         "google-connect": ("google.get_connector_status",),
         "google-drive": ("google.get_connector_status", "google.search_drive_resources",
                          "google.list_project_resources", "google.link_resource_to_project"),

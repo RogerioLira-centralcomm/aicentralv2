@@ -104,6 +104,7 @@ def waiting_actions(run_id: str, client_id: int, user_id: int) -> list[dict]:
             "summary": snapshot.get("summary") or "Confirmar ação",
             "effect": snapshot.get("effect") or "write",
             "arguments": snapshot.get("arguments") or {},
+            "cost_estimate": snapshot.get("cost_estimate"),
         })
     return actions
 

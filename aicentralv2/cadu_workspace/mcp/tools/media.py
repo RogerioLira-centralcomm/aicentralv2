@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from decimal import Decimal
 from flask import current_app
 
 from ...agent_v2.contracts import RequestContext
@@ -14,7 +15,7 @@ from urllib.parse import urlencode
 
 _CREATION_CONTRACTS = {
     "image": {"required": ["request_id", "confirmed", "confirmed_cost", "prompt"],
-              "optional": ["brand_id", "aspect_ratio", "quality"],
+              "optional": ["brand_id", "aspect_ratio", "quality", "index_in_project"],
               "review": "O diretor prepara uma direção; o MCP gera após confirmação explícita e a sessão permite revisão posterior.",
               "prompt_pipeline": ["studio_prompt.optimize_prompt", "studio_create.create", "studio_create.create_image"]},
     "ad": {"required": ["request_id", "confirmed", "confirmed_cost", "prompt", "brand_id"],
@@ -41,31 +42,70 @@ _CREATION_CONTRACTS = {
     name="media.creation_capabilities", capability="workspace", effect="read",
     description="Descreve payload mínimo e pipeline criativo suportado para criar ou editar imagem, anúncio e vídeo no Cadu Studio.",
     exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {
+        "quality": {"type": "string", "enum": ["econômica", "padrão", "alta"]},
+        "reference_count": {"type": "integer", "minimum": 0, "maximum": 3},
+    }, "additionalProperties": False},
 )
 def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
+    from ...creative_media import studio_create
+    from ...creative_modeling_service import CreativeModelingService
+    from ....cadu_tool_billing import cost_token_equivalent
+
+    quality = str(arguments.get("quality") or "padrão").lower()
+    reference_count = int(arguments.get("reference_count") or 0)
+    fidelity = {"econômica": "draft", "padrão": "draft", "alta": "publish"}.get(quality, "draft")
+    estimate = None
+    try:
+        modeling = CreativeModelingService()
+        image_usd = Decimal(str(modeling._estimate("image", fidelity, studio_create.IMAGE_MODEL)))
+        image_usd *= Decimal("1") + studio_create.REFERENCE_IMAGE_COST_FACTOR * reference_count
+        image_credits = cost_token_equivalent(image_usd, margin_multiplier=1)
+        estimate = {
+            "unit": "credits", "estimated_total": 1100 + studio_create.estimated_tokens(1, reference_count) + image_credits,
+            "components": {
+                "prompt_optimization_allowance": 1100,
+                "creative_direction_estimate": studio_create.estimated_tokens(1, reference_count),
+                "image_render_estimate": image_credits,
+            },
+            "quality": quality, "reference_count": reference_count,
+            "note": "Estimativa conservadora do Studio; a cobrança final usa o consumo real dos provedores e pode variar.",
+        }
+    except Exception:
+        estimate = {"status": "unavailable", "note": "Não foi possível calcular a estimativa de créditos do Studio."}
     return {"operations": _CREATION_CONTRACTS, "session_tool": "media.start_studio_session",
             "generation_available_via_mcp": ["image", "image_edit"],
             "generation_tools": {"image": "media.generate_image", "image_edit": "media.edit_image"},
+            "image_cost_estimate": estimate,
+            "video_plan_cost_estimate": {
+                "unit": "credits", "estimated_total": 2400,
+                "note": "Estimativa de até 2.400 créditos para planejar o vídeo no Studio; o consumo real pode variar.",
+            },
             "video_plan_tool": "media.plan_video",
-            "note": "Imagem pode ser criada ou editada pelo MCP. O vídeo tem plano otimizado no MCP, mas a geração exige selecionar uma imagem ou stills no Studio; não informe que a mídia foi criada antes do job concluir."}
+            "note": "Imagem pode ser criada ou editada pelo MCP. Consulte a estimativa de créditos antes de pedir confirmação. O vídeo tem plano otimizado no MCP, mas a geração exige selecionar uma imagem ou stills no Studio; não informe que a mídia foi criada antes do job concluir."}
 
 
 @register_tool(
     name="media.generate_image", capability="workspace", effect="write",
-    description="Gera uma imagem no Cadu Studio com cobrança real de créditos, resultado persistido e repetição idempotente. Exige confirmação explícita do custo.",
-    exposures=("internal", "customer_agent"),
+    description=("Gera uma imagem no Cadu Studio com cobrança real de créditos, resultado persistido e repetição idempotente. "
+                 "Operação paga: só pode ser chamada pelo agente interno após confirmação humana do custo apresentado."),
+    # A boolean sent by an external MCP client is not proof that the user saw
+    # the estimate and approved this generation. Paid Studio calls stay behind
+    # the internal application flow, which owns the confirmation interaction.
+    exposures=("internal",),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "confirmed_cost", "prompt"],
                   "properties": {"request_id": {"type": "string", "minLength": 36, "maxLength": 36},
                                  "confirmed": {"type": "boolean", "enum": [True]},
                                  "confirmed_cost": {"type": "boolean", "enum": [True]},
                                  "prompt": {"type": "string", "minLength": 3, "maxLength": 4000},
                                  "brand_id": {"type": "integer", "minimum": 1},
+                                 "index_in_project": {"type": "boolean"},
                                  "aspect_ratio": {"type": "string", "enum": ["1:1", "4:5", "9:16", "16:9"]},
                                  "quality": {"type": "string", "enum": ["econômica", "padrão", "alta"]}},
                   "additionalProperties": False},
 )
 def generate_image(context: RequestContext, arguments: dict) -> dict:
-    from ...brand_mcp_service import _brand, _current_brand_id
+    from ...brand_mcp_service import _brand
     from ...media_creation_service import generate_studio_image
 
     if context.project_ref:
@@ -81,16 +121,13 @@ def generate_image(context: RequestContext, arguments: dict) -> dict:
             raise ToolForbidden("Você não pode criar materiais neste projeto.")
 
     brand_id = arguments.get("brand_id")
-    if brand_id is None:
-        try:
-            brand_id = _current_brand_id(context)
-        except Exception:
-            if context.brand_ref:
-                raise
     if brand_id is not None:
         _brand(context, brand_id)
         arguments = {**arguments, "brand_id": brand_id}
-    fingerprint = {key: arguments.get(key) for key in ("prompt", "brand_id", "aspect_ratio", "quality")}
+    fingerprint = {key: arguments.get(key) for key in (
+        "prompt", "brand_id", "aspect_ratio", "quality", "index_in_project",
+    )}
+    fingerprint["project_ref"] = context.project_ref
     return operations.execute(arguments["request_id"], context, "media.generate_image", fingerprint,
                               lambda: generate_studio_image(context, arguments))
 
@@ -98,8 +135,9 @@ def generate_image(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="media.edit_image", capability="workspace", effect="write",
     description=("Edita uma imagem no Studio preservando a imagem base fora do pedido. "
-                 "Usa otimização de prompt, diretor criativo e geração cobrada; retorna a imagem e o link da sessão."),
-    exposures=("internal", "customer_agent"),
+                 "Usa otimização de prompt, diretor criativo e geração cobrada; retorna a imagem e o link da sessão. "
+                 "Operação paga: só pode ser chamada pelo agente interno após confirmação humana do custo apresentado."),
+    exposures=("internal",),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "confirmed_cost", "prompt", "source_url"],
                   "properties": {"request_id": {"type": "string", "minLength": 36, "maxLength": 36},
                                  "confirmed": {"type": "boolean", "enum": [True]},
@@ -107,12 +145,13 @@ def generate_image(context: RequestContext, arguments: dict) -> dict:
                                  "prompt": {"type": "string", "minLength": 3, "maxLength": 4000},
                                  "source_url": {"type": "string", "minLength": 8, "maxLength": 2000},
                                  "brand_id": {"type": "integer", "minimum": 1},
+                                 "index_in_project": {"type": "boolean"},
                                  "aspect_ratio": {"type": "string", "enum": ["1:1", "4:5", "9:16", "16:9"]},
                                  "quality": {"type": "string", "enum": ["econômica", "padrão", "alta"]}},
                   "additionalProperties": False},
 )
 def edit_image(context: RequestContext, arguments: dict) -> dict:
-    from ...brand_mcp_service import _brand, _current_brand_id
+    from ...brand_mcp_service import _brand
     from ...media_creation_service import generate_studio_image
     from ....cadu_family import repository as family_repository
     source = str(arguments["source_url"])
@@ -129,16 +168,13 @@ def edit_image(context: RequestContext, arguments: dict) -> dict:
         if not admin and not roles.intersection({"owner", "admin", "editor"}):
             raise ToolForbidden("Você não pode editar materiais neste projeto.")
     brand_id = arguments.get("brand_id")
-    if brand_id is None:
-        try:
-            brand_id = _current_brand_id(context)
-        except Exception:
-            if context.brand_ref:
-                raise
     if brand_id is not None:
         _brand(context, brand_id)
         arguments = {**arguments, "brand_id": brand_id}
-    fingerprint = {key: arguments.get(key) for key in ("prompt", "source_url", "brand_id", "aspect_ratio", "quality")}
+    fingerprint = {key: arguments.get(key) for key in (
+        "prompt", "source_url", "brand_id", "aspect_ratio", "quality", "index_in_project",
+    )}
+    fingerprint["project_ref"] = context.project_ref
     return operations.execute(arguments["request_id"], context, "media.edit_image", fingerprint,
                               lambda: generate_studio_image(context, arguments))
 
@@ -147,8 +183,9 @@ def edit_image(context: RequestContext, arguments: dict) -> dict:
     name="media.plan_video", capability="workspace", effect="write",
     description=("Interpreta um pedido de criação ou edição de vídeo com o prompt e a skill oficiais "
                  "do Video Studio, salva o plano numa sessão e retorna link para revisão. "
+                 "A preparação usa créditos; só pode ser chamada pelo agente interno após confirmação humana do custo. "
                  "Não submete job nem informa vídeo pronto."),
-    exposures=("internal", "customer_agent"),
+    exposures=("internal",),
     input_schema={"type": "object", "required": ["request_id", "confirmed_cost", "kind", "prompt"],
                   "properties": {"request_id": {"type": "string", "minLength": 36, "maxLength": 36},
                                  "confirmed_cost": {"type": "boolean", "enum": [True]},

@@ -861,7 +861,7 @@ function ImageArtifact({artifact}) {
     mime: content.mime_type || content.content_type || artifact.mime_type || current?.mime || '',
   }));
   return <div className="cv-image-artifact">
-    {src ? <figure><img src={src} alt={content.alt || imageFileName(artifact)} onLoad={reportMetadata}/><figcaption className="cv-image-metadata" aria-label="Informações da imagem"><span>{imageMetadata?.width && imageMetadata?.height ? `${imageMetadata.width} × ${imageMetadata.height} px` : 'Imagem'}</span><span>{imageMetadata?.width && imageMetadata?.height ? `${((imageMetadata.width * imageMetadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : ''}</span><span>{formatFileSize(imageMetadata?.bytes)}</span></figcaption></figure> : <p>A imagem ainda não está disponível.</p>}
+    {src ? <figure><img src={src} alt={content.alt || imageFileName(artifact)} onLoad={reportMetadata}/><figcaption className="cv-image-metadata" aria-label="Informações da imagem"><dl><div><dt>Dimensões</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${imageMetadata.width} × ${imageMetadata.height} px` : 'Não informado'}</dd></div><div><dt>Resolução</dt><dd>{imageMetadata?.width && imageMetadata?.height ? `${((imageMetadata.width * imageMetadata.height) / 1000000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MP` : 'Não informado'}</dd></div><div><dt>Tamanho</dt><dd>{formatFileSize(imageMetadata?.bytes)}</dd></div></dl></figcaption></figure> : <p>A imagem ainda não está disponível.</p>}
   </div>;
 }
 

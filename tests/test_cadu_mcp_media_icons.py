@@ -85,12 +85,13 @@ def test_media_tools_are_public_and_use_resource_read_scope():
     assert required_scope("media.get_job") == "resources:read"
 
 
-def test_media_generation_public_catalog_has_project_and_brand_selectors():
-    principal = PublicMcpPrincipal("key", 12, 7, "codex", "Teste", ("projects:content_write",), CONTEXT)
+def test_paid_media_generation_is_absent_from_public_catalog():
+    principal = PublicMcpPrincipal("key", 12, 7, "codex", "Teste",
+                                   ("projects:content_write", "resources:read"), CONTEXT)
     with patch("aicentralv2.cadu_public_mcp.routes.auth.can_purchase_credits", return_value=False):
         tools = {item["name"]: item for item in _public_catalog(principal)}
-    schema = tools["media.generate_image"]["inputSchema"]
-    assert {"project_ref", "brand_ref", "confirmed_cost"} <= set(schema["properties"])
+    assert {"media.generate_image", "media.edit_image", "media.plan_video"}.isdisjoint(tools)
+    assert "media.creation_capabilities" in tools
 
 
 def test_list_media_jobs_is_user_scoped_and_omits_storage_details():

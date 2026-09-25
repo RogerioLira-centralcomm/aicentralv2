@@ -35,6 +35,9 @@ _COMMON_TYPOS = {
     'arquitvada': 'arquivada', 'arquitvadas': 'arquivadas', 'arquitvado': 'arquivado',
     'estmoas': 'estamos', 'rpojetos': 'projetos', 'prolemas': 'problemas',
     'desenhliados': 'desalinhados',
+    # Common visual-creation typos observed in chat. Corrections are used only
+    # for intent matching; the original message remains untouched.
+    'ciar': 'criar', 'image': 'imagem', 'imagenss': 'imagens',
 }
 
 

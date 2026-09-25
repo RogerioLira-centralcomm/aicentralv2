@@ -14,6 +14,7 @@ from .task_planner import build_task_plan
 from .contracts import execution_mode_for
 from . import plugins
 from .daily_workflows import recent_preferences
+from .evidence import has_read_source
 from .market_radar import fallback_query, requested_recency, relevant_read_sources
 from .project_status import summarize_tasks
 from ..mcp.registry import load_builtin_tools
@@ -408,6 +409,22 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 "unavailable": list(dict.fromkeys(resolved.missing)),
                 "message": "A pesquisa pública complementar não ficou disponível nesta resposta.",
             }
+    if route.artifact_type == "research" and "web.search" in route.needs_tools:
+        web_result = resolved.values.get("web.search")
+        if not has_read_source(web_result):
+            route = replace(route, action="clarify_research_evidence", complexity="low",
+                            response_mode="clarification", needs_tools=(), artifact_type=None)
+            policy.update({
+                "mode": "clarification", "artifact_type": None, "allow_artifact": False,
+                "max_questions": 1, "max_next_steps": 1,
+                "action_preflight": {"ready": False,
+                                     "reason": "A busca não trouxe página lida que sustente uma pesquisa editável."},
+                "plugin_instruction": (
+                    "Explique que a pesquisa não pôde ser sustentada por páginas lidas. "
+                    "Peça um recorte mais específico ou uma fonte para analisar. "
+                    "Não crie artefato nem apresente resultados de busca como fatos."
+                ),
+            })
     if route.action == "select_brand_for_audit":
         # Do not leave a provider enough latitude to turn an unbound request
         # into an unsupported brand analysis. The next safe action is a

@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, timezone
 
-from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, read_status, supporting_refs
+from aicentralv2.cadu_workspace.agent_v2.evidence import grounded_claims, has_read_source, read_status, supporting_refs
 from aicentralv2.cadu_workspace.insights_research import (
     InsightsEvidenceUnavailable, _safe_sources, _read_source_contents, research_market,
 )
@@ -45,6 +45,8 @@ def test_discovered_citation_does_not_become_a_read_source():
     assert len(sources) == 1
     assert sources[0]["read_status"] == "discovered"
     assert read_status(result["sources"][0]) == "discovered"
+    assert not has_read_source(result)
+    assert has_read_source({"sources": [{"content": "Corpo lido suficiente para análise."}]})
 
 
 def test_read_source_wins_duplicate_search_hit_without_borrowing_provider_date():

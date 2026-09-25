@@ -37,6 +37,13 @@ def read_status(source: dict) -> str:
     return "discovered"
 
 
+def has_read_source(result: Any) -> bool:
+    """Whether a tool result contains content that can support a claim."""
+    return isinstance(result, dict) and any(
+        read_status(item) == "read" for item in result.get("sources") or []
+    )
+
+
 def grounded_claims(claims: Any, source_contents: dict[str, str]) -> tuple[list[dict], list[dict]]:
     """Keep extracted claims only when their literal quote exists in that source."""
     accepted: list[dict] = []

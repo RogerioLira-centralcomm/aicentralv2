@@ -87,6 +87,11 @@ def _revision_target(message, context, previous_messages):
     section = re.search(r"\b(?:parte|se[cç][aã]o|trecho|bloco|t[oó]pico)\s+[“\"]?([^\n,.;:!?\"”]{5,100})", message, re.I)
     section_name = _plain(re.split(r"\s+(?:isso|que\s+j[aá]|porque|pois)\b", section.group(1), maxsplit=1, flags=re.I)[0]) if section else ""
     request_text = _plain(message)
+    moving_to_project = bool(re.search(
+        r"\b(?:mude|mudar|mova|mover|vincule|vincular|associe|associar|salve|salvar|coloque|colocar|"
+        r"passe|passar|deixe|deixar)\b.{0,90}\b(?:projeto|contexto)\b",
+        message, re.I,
+    ))
     active_id = context.active_object.id if context.active_object and context.active_object.type.startswith("artifact:") else ""
     candidates = []
     for item in reversed(previous_messages[-40:]):
@@ -141,7 +146,9 @@ def _revision_target(message, context, previous_messages):
         if fallback and named_kind and named_kind not in _plain(fallback.get("title")):
             fallback = None
         if fallback:
-            return replace(context, project_ref=fallback.get("project_ref"),
+            target_project = (context.project_ref if moving_to_project and context.project_ref
+                              else fallback.get("project_ref") or context.project_ref)
+            return replace(context, project_ref=target_project,
                            active_object=ActiveObject(f"artifact:{fallback['type']}", str(fallback["id"])))
         return context
     matches.sort(key=lambda pair: pair[0], reverse=True)
@@ -156,7 +163,9 @@ def _revision_target(message, context, previous_messages):
             "type": "artifact_ambiguity", "text": "Mais de um arquivo corresponde ao pedido: " + "; ".join(names),
         })
     artifact = matches[0][1]
-    return replace(context, project_ref=artifact.get("project_ref"),
+    target_project = (context.project_ref if moving_to_project and context.project_ref
+                      else artifact.get("project_ref") or context.project_ref)
+    return replace(context, project_ref=target_project,
                    active_object=ActiveObject(f"artifact:{artifact['type']}", str(artifact["id"])))
 
 
@@ -1037,6 +1046,40 @@ def stream(run):
                 "step_id": direct_link["id"], "name": direct_link["name"],
                 "completion": direct_link_completion,
             }, item_type="action")
+    direct_artifact_move = None
+    if run["route"].get("action") == "move_artifact_to_project":
+        active = run["context"].active_object
+        tool_arguments = {
+            "request_id": run["run_id"],
+            "confirmed": True,
+            "artifact_id": active.id if active and active.type.startswith("artifact:") else "",
+            "destination_project_ref": run["context"].project_ref or "",
+        }
+        _journal(run["run_id"], "tool.started", {"name": "artifacts.move_project"}, item_type="activity")
+        yield _event("tool.started", name="artifacts.move_project")
+        try:
+            moved = load_builtin_tools().execute(
+                "artifacts.move_project", tool_arguments, run["context"], exposure="internal",
+            )
+        except Exception as exc:
+            code = exc.code if isinstance(exc, ToolError) else "artifact_move_failed"
+            if isinstance(exc, ToolError):
+                current_app.logger.warning("Movimentação de artefato não autorizada ou inválida; run=%s code=%s",
+                                           run["run_id"], code)
+            else:
+                current_app.logger.exception("Falha ao mover artefato pela conversa; run=%s", run["run_id"])
+            direct_artifact_move = {"error": code}
+            _journal(run["run_id"], "tool.unavailable", {
+                "name": "artifacts.move_project", "code": code,
+            }, item_type="error")
+            yield _event("tool.unavailable", name="artifacts.move_project", code=code)
+        else:
+            direct_artifact_move = {"artifact": moved}
+            _journal(run["run_id"], "tool.completed", {
+                "name": "artifacts.move_project", "artifact_id": str(moved.get("id") or ""),
+            }, item_type="activity")
+            yield _event("tool.completed", name="artifacts.move_project", status="completed")
+            yield _event("artifact.updated", artifact=moved, moved=True)
     for action in waiting_actions:
         public_action = {**action, "run_id": run["run_id"]}
         _journal(run["run_id"], "action.proposed", public_action, item_type="action")
@@ -1124,6 +1167,22 @@ def stream(run):
             answer_chunks.append(json.dumps({
                 "answer": direct_link_completion.get("answer") or "O link foi salvo no projeto.",
                 "ui": {"blocks": direct_link_completion.get("blocks") or []},
+            }, ensure_ascii=False))
+            provider_events = ()
+        elif direct_artifact_move is not None:
+            if direct_artifact_move.get("artifact"):
+                moved_artifact = direct_artifact_move["artifact"]
+                answer = f"Vinculei {moved_artifact.get('title') or 'o material'} ao projeto selecionado."
+                blocks = [{"type": "activity", "state": "completed", "label": "Material vinculado ao projeto"}]
+            else:
+                answer = "Não consegui mover o material para o projeto selecionado. Ele continua no local anterior."
+                blocks = [{"type": "activity", "state": "needs_attention", "label": "Material não movido"}]
+            answer_chunks.append(json.dumps({"answer": answer, "ui": {"blocks": blocks}}, ensure_ascii=False))
+            provider_events = ()
+        elif route_action == "select_project_for_artifact":
+            answer_chunks.append(json.dumps({
+                "answer": "Selecione o projeto de destino no contexto da conversa e repita o pedido para vincular este material.",
+                "ui": {"blocks": []},
             }, ensure_ascii=False))
             provider_events = ()
         elif route_action == "choose_artifact":
@@ -1297,7 +1356,7 @@ def stream(run):
                 public_action = {**proposed_action, "run_id": run["run_id"]}
                 _journal(run["run_id"], "action.proposed", public_action, item_type="action")
                 yield _event("action.proposed", action=public_action)
-            artifact = None
+            artifact = (direct_artifact_move or {}).get("artifact")
             # Explicit artifact routes always win. Exceptionally long free-form
             # answers are converted to a session document by _materialize_long_answer.
             artifact_type = run["route"].get("artifact_type")

@@ -191,18 +191,23 @@ def move_project(context: RequestContext, arguments: dict) -> dict:
     if destination and not destination.startswith("ci:"):
         raise ToolInputError("Informe um projeto de destino válido.")
     current = _domain(lambda: service.get_artifact(context, arguments["artifact_id"]))
-    if current.get("project_ref") != context.project_ref:
-        raise ToolInputError("Selecione o projeto atual do documento antes de movê-lo.")
+    own_session_draft = (
+        not current.get("project_ref")
+        and int(current.get("created_by") or 0) == context.user_id
+    )
+    source_project = str(current.get("project_ref") or "")
+    if not source_project and not own_session_draft:
+        raise ToolInputError("Este rascunho pessoal não pertence ao usuário atual.")
     actor = repository.actor(context.user_id) or {}
     account_admin = (int(actor.get("organization_id") or 0) == context.client_id
                      and repository.account_role(actor) == "admin")
-    for project_ref in {context.project_ref, destination} - {None, ""}:
+    for project_ref in {source_project, destination} - {""}:
         if not repository.project_user_can_view(context.client_id, project_ref, context.user_id):
-            raise ToolInputError("Você não tem acesso ao projeto de destino.")
+            raise ToolInputError("Você não tem acesso a um dos projetos envolvidos.")
         roles = {item.get("role") for item in repository.project_access(context.client_id, project_ref)
                  if int(item.get("user_id") or 0) == context.user_id}
         if not account_admin and not roles.intersection({"owner", "admin", "editor"}):
-            raise ToolInputError("Você não pode mover materiais deste projeto.")
+            raise ToolInputError("Você não pode mover materiais de um dos projetos envolvidos.")
     payload = {"artifact_id": arguments["artifact_id"], "destination_project_ref": destination}
     return _domain(lambda: operations.execute(arguments["request_id"], context,
         "artifacts.move_project", payload,

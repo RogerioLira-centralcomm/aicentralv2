@@ -981,6 +981,20 @@ export default function App({bootstrap}) {
             }
           }
           trace(event.revised ? 'Documento revisado' : 'Entrega criada', event.artifact?.title || '');
+        } else if (kind === 'artifact.updated') {
+          latestArtifact = event.artifact || null;
+          if (latestArtifact?.id) {
+            artifactResolved = true;
+            setArtifactTabs(items => {
+              const key = artifactKey(latestArtifact);
+              const index = items.findIndex(item => artifactKey(item) === key);
+              if (index < 0) return [...items, latestArtifact];
+              return items.map((item, itemIndex) => itemIndex === index ? latestArtifact : item);
+            });
+            setArtifact(latestArtifact); artifactRef.current = latestArtifact;
+            setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(true);
+            if (event.moved) trace('Material vinculado ao projeto', latestArtifact.title || 'Documento');
+          }
         } else if (kind === 'provider.first_token') {
           setRuntime('Escrevendo a resposta');
         } else if (kind === 'answer.delta') {

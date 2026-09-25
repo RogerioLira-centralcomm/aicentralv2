@@ -277,6 +277,20 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if has_project and project_rename and (not _has(rename_subject, r"\bmarca\b") or _has(rename_subject, r"\bprojeto\b")):
         return IntentRoute("workspace", "rename_project", "medium", "decision",
                            ("project",), (), None, True)
+    active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
+    moving_active_artifact = active_artifact_type and _has(
+        text,
+        r"\b(?:mude|mudar|mova|mover|vincule|vincular|associe|associar|salve|salvar|coloque|colocar|"
+        r"passe|passar|deixe|deixar)\b.{0,70}\b(?:para|no|na|ao|a|nesse|neste)\b.{0,25}"
+        r"\b(?:projeto|contexto)\b|"
+        r"\b(?:para|no|na)\s+(?:esse|este|o)\s+(?:projeto|contexto)\b",
+    )
+    if moving_active_artifact:
+        if has_project:
+            return IntentRoute("workspace", "move_artifact_to_project", "low", "direct",
+                               ("current_object", "project"))
+        return IntentRoute("workspace", "select_project_for_artifact", "low", "clarification",
+                           ("current_object",))
     project_context_update = _has(
         text,
         r"\b(?:atualiz|atuzl|alter|mud|redefin|substitu|reescrev)\w*\b.{0,100}\b(?:projeto|contexto|escopo|objetivo)\b|"
@@ -287,7 +301,6 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if has_project and project_context_update:
         return IntentRoute("workspace", "update_project_context", "medium", "decision",
                            ("project",), (), None, True)
-    active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
     asks_for_advice = _has(text, r"\b(?:o\s+que|como|quais?)\b.{0,55}\b(?:mudaria|alteraria|melhoraria|recomendaria|sugere|sugeriria)\b")
     if active_artifact_type in {
         "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html", "meeting_summary", "meeting_agenda",

@@ -15,6 +15,7 @@ from .contracts import execution_mode_for
 from . import plugins
 from .daily_workflows import recent_preferences
 from .market_radar import requested_recency, relevant_read_sources
+from .project_status import summarize_tasks
 from ..mcp.registry import load_builtin_tools
 from ...db import close_db
 
@@ -291,6 +292,8 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 if external.missing:
                     resolved.values["tool_status"] = {
                         "unavailable": list(dict.fromkeys(resolved.missing)),
+    if selected_plugin and selected_plugin.get("id") == "client-delivery":
+        resolved.values["project_task_status"] = summarize_tasks(resolved.values.get("projects.list_tasks"))
                         "message": "A busca pública focada na marca não ficou disponível nesta resposta.",
                     }
             else:

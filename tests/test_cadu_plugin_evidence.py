@@ -12,6 +12,7 @@ from aicentralv2.cadu_workspace.agent_v2.investment_scenarios import simulate
 from aicentralv2.cadu_workspace.agent_v2.media_plan_review import review_media_plan
 from aicentralv2.cadu_workspace.agent_v2.performance_review import review_supplied_metrics
 from aicentralv2.cadu_workspace.agent_v2.market_radar import requested_recency, relevant_read_sources
+from aicentralv2.cadu_workspace.agent_v2.project_status import summarize_tasks
 from aicentralv2.cadu_workspace.agent_v2.context_resolver import _arguments
 from aicentralv2.cadu_workspace.agent_v2.contracts import IntentRoute, RequestContext
 from aicentralv2.cadu_workspace.agent_v2.plugins import select
@@ -326,3 +327,16 @@ def test_project_operations_require_task_ids_in_write_receipt():
                     {"created": 2, "tasks": [{"id": "task-1"}]}):
         with pytest.raises(ToolError):
             _validate_action_result("projects.create_tasks", invalid)
+
+
+def test_client_status_counts_only_canonical_task_states():
+    summary = summarize_tasks({"available": True, "tasks": [
+        {"id": "1", "title": "Enviar peças", "status": "done"},
+        {"id": "2", "title": "Revisar relatório", "status": "blocked"},
+        {"id": "3", "title": "Referência externa", "status": "unknown"},
+    ]})
+
+    assert summary["counts"] == {"done": 1, "in_progress": 0, "blocked": 1, "todo": 0}
+    assert summary["unknown_status_count"] == 1
+    assert "Não comprova entrega" in summary["scope_note"]
+    assert summarize_tasks({"available": False, "tasks": []})["status"] == "unavailable"

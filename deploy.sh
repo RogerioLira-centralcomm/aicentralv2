@@ -360,6 +360,8 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_daily_workflow_plugins.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py refine_cadu_daily_workflow_plugins.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py activate_cadu_daily_workflow_plugins.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py refine_cadu_chat_plugin_contracts_v1_3.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py refine_cadu_chat_plugin_contracts_v1_4.sql
 "$VENV_PYTHON" migrations/run_add_cadu_public_mcp_oauth.py
 "$VENV_PYTHON" migrations/run_add_cadu_public_mcp_modules.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_home_preferences.sql

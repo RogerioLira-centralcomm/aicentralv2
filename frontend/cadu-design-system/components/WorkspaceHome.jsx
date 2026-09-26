@@ -84,7 +84,6 @@ export function WorkspaceHome({bootstrap}) {
   const [attachments, setAttachments] = useState([]);
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
   const [resumeSuggestion, setResumeSuggestion] = useState(null);
-  const [resumeSuggestionSource, setResumeSuggestionSource] = useState('');
   const [resumeSuggestionState, setResumeSuggestionState] = useState('idle');
   const requestResumeSuggestion = async () => {
     if (resumeSuggestionState === 'loading') return;
@@ -94,7 +93,6 @@ export function WorkspaceHome({bootstrap}) {
         method: 'POST', headers: {'X-CSRF-Token': csrf()},
       });
       setResumeSuggestion(result.suggestion || null);
-      setResumeSuggestionSource(result.source || '');
       setResumeSuggestionState(result.suggestion ? 'ready' : 'empty');
     } catch (_) { setResumeSuggestionState('error'); }
   };
@@ -253,12 +251,12 @@ export function WorkspaceHome({bootstrap}) {
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
         <section className="cadu-ds-home-resume" aria-label="Retomar trabalho">
           {resumeSuggestionState === 'ready' && resumeSuggestion ? <a className="cadu-ds-home-resume__result" href={resumeSuggestion.href}>
-            <span><small>{resumeSuggestionSource === 'typesafe' ? 'Sugestão para retomar' : 'Mais recente para retomar'}</small><b>{resumeSuggestion.title}</b><small>{resumeSuggestion.context}{resumeSuggestion.context && resumeSuggestion.status ? ' · ' : ''}{resumeSuggestion.status}</small></span><span aria-hidden="true">›</span>
+            <span><small>Trabalho atualizado recentemente</small><b>{resumeSuggestion.title}</b><small>{resumeSuggestion.context}{resumeSuggestion.context && resumeSuggestion.status ? ' · ' : ''}{resumeSuggestion.status}</small></span><span aria-hidden="true">›</span>
           </a> : <>
             {resumeSuggestionState !== 'empty' && <button type="button" className="cadu-ds-home-resume__action" onClick={requestResumeSuggestion} disabled={resumeSuggestionState === 'loading'}>
-              {resumeSuggestionState === 'loading' ? 'Analisando…' : resumeSuggestionState === 'error' ? 'Tentar novamente' : 'Escolher algo para retomar'}
+              {resumeSuggestionState === 'loading' ? 'Carregando…' : resumeSuggestionState === 'error' ? 'Tentar novamente' : 'Ver trabalho recente'}
             </button>}
-            {resumeSuggestionState === 'idle' && <small>Ao pedir uma sugestão, títulos, contextos e datas de atualização recentes serão enviados à TypeSafe para escolher um item existente.</small>}
+            {resumeSuggestionState === 'idle' && <small>Mostra seu trabalho atualizado mais recentemente. A escolha é feita no CentralX.</small>}
             {resumeSuggestionState === 'empty' && <small role="status">Não encontrei uma sugestão útil para retomar agora.</small>}
             {resumeSuggestionState === 'error' && <small role="status">Não consegui preparar a sugestão agora. Você pode continuar usando a Home normalmente.</small>}
           </>}

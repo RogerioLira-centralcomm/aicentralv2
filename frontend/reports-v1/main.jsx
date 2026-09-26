@@ -4,7 +4,8 @@ import './styles.css';
 
 const SECTIONS = [
   ['overview', 'Visão geral', '◫'], ['accounts', 'Contas', '▤'],
-  ['campaigns', 'Campanhas', '◎'], ['flow', 'Funnel Flow', '◇'], ['events', 'Eventos', '◉'],
+  ['campaigns', 'Campanhas', '◎'], ['supertag', 'Super Tag', '</>'],
+  ['flow', 'Funnel Flow', '◇'], ['events', 'Eventos', '◉'],
   ['reports', 'Relatórios', '▥'], ['links', 'Link Tester', '↗'],
   ['imports', 'Importações', '⇧'], ['monitor', 'Monitoramentos', '◉'], ['access', 'Acesso', '♙'],
 ];
@@ -395,6 +396,98 @@ function Flow({data, save, busy, filters}) {
   </>;
 }
 
+function SuperTag({data}) {
+  const [sites, setSites] = useState([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [detail, setDetail] = useState(null);
+  const [label, setLabel] = useState('Site principal');
+  const [host, setHost] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const load = async () => {
+    const value = await json(`/connect/api/v1/reports/supertag/sites?client_id=${data.client.client_id}`);
+    setSites(value.sites || []);
+    if (selectedId && value.sites.some(item => item.id === selectedId)) return;
+    const first = value.sites?.find(item => !item.revoked_at);
+    setSelectedId(first?.id || '');
+  };
+  useEffect(() => {load().catch(failure => setError(failure.message));}, [data.client.client_id]);
+  useEffect(() => {
+    if (!selectedId) {setDetail(null); return;}
+    json(`/connect/api/v1/reports/supertag/sites/${selectedId}/events?client_id=${data.client.client_id}`)
+      .then(setDetail).catch(failure => setError(failure.message));
+  }, [selectedId, data.client.client_id]);
+  const create = async event => {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await json(`/connect/api/v1/reports/supertag/sites?client_id=${data.client.client_id}`, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf},
+        body:JSON.stringify({label,allowed_host:host})});
+      await load(); setSelectedId(result.site.id); setHost(''); setNotice('Instalação Super Tag criada no domínio Reports.');
+    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+  };
+  const update = async changes => {
+    if (!selectedId) return;
+    setBusy(true); setError('');
+    try {
+      await json(`/connect/api/v1/reports/supertag/sites/${selectedId}?client_id=${data.client.client_id}`, {
+        method:'PATCH', headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf}, body:JSON.stringify(changes)});
+      await load();
+      const latest = await json(`/connect/api/v1/reports/supertag/sites/${selectedId}/events?client_id=${data.client.client_id}`);
+      setDetail(latest);
+    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+  };
+  const revoke = async () => {
+    if (!selectedId || !window.confirm('Revogar a Super Tag deste domínio? A coleta será interrompida.')) return;
+    setBusy(true); setError('');
+    try {
+      await json(`/connect/api/v1/reports/supertag/sites/${selectedId}/revoke?client_id=${data.client.client_id}`, {
+        method:'POST', headers:{'X-CSRF-Token':data.csrf}, body:JSON.stringify({})});
+      setSelectedId(''); setDetail(null); await load();
+    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+  };
+  const selected = sites.find(item => item.id === selectedId);
+  const copy = async value => {
+    try {await navigator.clipboard.writeText(value); setNotice('Copiado.');}
+    catch (_) {setNotice('Não foi possível copiar automaticamente. Selecione o código e copie.');}
+  };
+  const kindTotal = kind => Number((detail?.summary || []).find(item => item.event_kind === kind)?.total || 0);
+  return <section className="reports-grid reports-grid--three">
+    <article className="reports-panel"><div className="reports-panel-head"><h2>Instalar Super Tag</h2><span>Serviço independente do Funnel Flow</span></div>
+      <p>Crie a instalação para o domínio do site. O snippet usa o domínio configurado de Reports: reports.centralcomm.media.</p>
+      {data.client.role !== 'viewer' && <form className="reports-form" onSubmit={create}>
+        <label>Nome do site<input required maxLength="120" value={label} onChange={event=>setLabel(event.target.value)} placeholder="Site principal" /></label>
+        <label>Domínio permitido<input required value={host} onChange={event=>setHost(event.target.value)} placeholder="www.exemplo.com.br" /></label>
+        <button disabled={busy}>Criar instalação</button>
+      </form>}
+      <p className="reports-info">A coleta só começa após consentimento explícito. Integre a CMP com <code>window.CaduSuperTag.setConsent(true)</code> ao conceder analytics; para recusar, use <code>false</code>. O site precisa permitir <code>reports.centralcomm.media</code> em <code>script-src</code> e <code>connect-src</code> da CSP.</p>
+      {error && <p className="reports-error" role="alert">{error}</p>}{notice && <p className="reports-success" role="status">{notice}</p>}
+    </article>
+    <article className="reports-panel reports-span-two"><div className="reports-panel-head"><h2>Instalações</h2><span>{sites.length} sites</span></div>
+      {sites.length ? <><label>Site<select value={selectedId} onChange={event=>setSelectedId(event.target.value)}>{sites.map(site=><option key={site.id} value={site.id}>{site.label} · {site.allowed_host}{site.revoked_at?' · revogada':''}</option>)}</select></label>
+        {selected && <><div className="reports-tag-card"><strong>URL pública</strong><code>{selected.script_url}</code><strong>Snippet de instalação</strong><pre>{selected.snippet}</pre><button type="button" onClick={()=>copy(selected.snippet)}>Copiar snippet</button></div>
+          <div className="reports-form-pair"><label>Duração do cookie anônimo<select disabled={busy || data.client.role==='viewer'} value={selected.config?.audience_days || 90} onChange={event=>update({audience_days:Number(event.target.value)})}>{[30,60,90,180,365].map(days=><option key={days} value={days}>{days} dias</option>)}</select></label>
+            <label className="reports-checkbox"><input type="checkbox" disabled={busy || data.client.role==='viewer'} checked={selected.config?.visibility_enabled !== false} onChange={event=>update({visibility_enabled:event.target.checked})} />Medir visibilidade em elementos marcados</label></div>
+          {!selected.revoked_at && data.client.role!=='viewer' && <button type="button" className="reports-danger-button" disabled={busy} onClick={revoke}>Revogar instalação</button>}
+        </>}
+      </> : <Empty message="Nenhuma instalação de Super Tag foi criada para este cliente." />}
+    </article>
+    {detail && <>
+      <Kpi label="Eventos · 30 dias" value={integer(detail.site.events_30d)} detail="Eventos aceitos pelo coletor" />
+      <Kpi label="Páginas vistas" value={integer(kindTotal('page_view'))} detail="Após consentimento" />
+      <Kpi label="Formulários" value={integer(kindTotal('form_submit'))} detail="Sem capturar os valores enviados" />
+      <Kpi label="Conversões" value={integer(kindTotal('conversion'))} detail="Marcadas via trackConversion" />
+      <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>Atividade por página</h2><span>Últimos 30 dias · caminhos sem query string</span></div>
+        {detail.pages?.length ? <div className="reports-table-wrap"><table><thead><tr><th>Página</th><th>Visitas</th><th>Formulários</th><th>Cliques</th><th>Conversões</th><th>Visibilidade</th><th>Rolagem</th></tr></thead><tbody>{detail.pages.map(item=><tr key={item.page_path}><td>{item.page_path}</td><td>{integer(item.views)}</td><td>{integer(item.form_submissions)}</td><td>{integer(item.clicks)}</td><td>{integer(item.conversions)}</td><td>{integer(item.visibility_events)}</td><td>{integer(item.scroll_events)}</td></tr>)}</tbody></table></div> : <Empty message="Os eventos aparecem depois de consentimento e da primeira visita." />}
+      </article>
+      <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>Dados para mapas de interação</h2><span>{detail.heatmap?.length || 0} células agregadas</span></div><p>Cliques usam coordenadas normalizadas por viewport. Para mapas de visibilidade, marque os elementos com <code>data-cadu-track data-cadu-element="hero_cta"</code>. O código não lê texto nem valores de formulário.</p>
+        {detail.heatmap?.length ? <div className="reports-table-wrap"><table><thead><tr><th>Tipo</th><th>Elemento</th><th>Coordenada / faixa</th><th>Ocorrências</th></tr></thead><tbody>{detail.heatmap.slice(0,30).map((item,index)=><tr key={`${item.event_kind}:${item.element_id}:${index}`}><td>{item.event_kind}</td><td>{item.element_id || '—'}</td><td>{item.x != null ? `${item.x} × ${item.y}` : item.ratio != null ? `${item.ratio}% visível` : item.depth != null ? `${item.depth}% rolagem` : '—'}</td><td>{integer(item.total)}</td></tr>)}</tbody></table></div> : <Empty message="Os agregados de cliques e visibilidade aparecerão com o tráfego consentido." />}
+      </article>
+    </>}
+  </section>;
+}
+
 function Events({data, filters}) {
   const [result, setResult] = useState({events: [], event_summary: {}});
   const [query, setQuery] = useState('');
@@ -687,11 +780,11 @@ function App() {
     return {...data, accounts, campaigns: data.campaigns.filter(item => ids.has(item.account_id) && (!filters.campaign || String(item.id) === filters.campaign))};
   }, [data, filters]);
   return <div className="reports-shell">
-    <aside className="reports-sidebar"><div className="reports-brand"><span className="reports-brand-mark"><img src="/static/images/cadu/brand-icons/connect-192.png" alt="" /></span><div><strong>Reports</strong><small>Operação de mídia</small></div></div><p className="reports-sidebar-label">NAVEGAÇÃO</p><nav aria-label="Áreas do Reports"><a className="reports-tree-root" href="#overview" aria-current={section === 'overview' ? 'page' : undefined}><span>⌂</span>Visão geral</a><div className="reports-nav-group"><small>OPERAÇÃO</small>{SECTIONS.filter(([id]) => ['accounts','campaigns','reports'].includes(id)).map(([id,title,glyph]) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}><span>{glyph}</span>{title}</a>)}</div><div className="reports-nav-group"><small>ANÁLISE</small>{SECTIONS.filter(([id]) => ['flow','events','links'].includes(id)).map(([id,title,glyph]) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}><span>{glyph}</span>{title}</a>)}</div><div className="reports-nav-group"><small>DADOS E ACESSO</small>{SECTIONS.filter(([id]) => ['imports','monitor','access'].includes(id) && (id !== 'access' || data?.can_manage_access)).map(([id,title,glyph]) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}><span>{glyph}</span>{title}</a>)}</div></nav><div className="reports-sidebar-foot"><strong>{data?.client?.client_name || 'Cliente'}</strong><small>Espaço #{data?.client?.client_id || '—'}</small></div></aside>
+    <aside className="reports-sidebar"><div className="reports-brand"><span className="reports-brand-mark"><img src="/static/images/cadu/brand-icons/connect-192.png" alt="" /></span><div><strong>Reports</strong><small>Operação de mídia</small></div></div><p className="reports-sidebar-label">NAVEGAÇÃO</p><nav aria-label="Áreas do Reports"><a className="reports-tree-root" href="#overview" aria-current={section === 'overview' ? 'page' : undefined}><span>⌂</span>Visão geral</a><div className="reports-nav-group"><small>OPERAÇÃO</small>{SECTIONS.filter(([id]) => ['accounts','campaigns','reports','supertag'].includes(id)).map(([id,title,glyph]) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}><span>{glyph}</span>{title}</a>)}</div><div className="reports-nav-group"><small>ANÁLISE</small>{SECTIONS.filter(([id]) => ['flow','events','links'].includes(id)).map(([id,title,glyph]) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}><span>{glyph}</span>{title}</a>)}</div><div className="reports-nav-group"><small>DADOS E ACESSO</small>{SECTIONS.filter(([id]) => ['imports','monitor','access'].includes(id) && (id !== 'access' || data?.can_manage_access)).map(([id,title,glyph]) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}><span>{glyph}</span>{title}</a>)}</div></nav><div className="reports-sidebar-foot"><strong>{data?.client?.client_name || 'Cliente'}</strong><small>Espaço #{data?.client?.client_id || '—'}</small></div></aside>
     <main className="reports-main"><header className="reports-header"><div><p>REPORTS / {TITLES[section] || 'Visão geral'}</p><h1>{TITLES[section] || 'Visão geral'}</h1></div><div className="reports-header-actions"><select className="reports-client-pill" aria-label="Cliente" value={data?.client?.client_id || ''} onChange={event => {location.href = `/connect/app?client_id=${encodeURIComponent(event.target.value)}#${section}`;}}>{(data?.clients || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><a href="#reports">Biblioteca ↗</a></div></header>
       <div className="reports-filters reports-filters--primary" aria-label="Filtros de coluna"><label><span>◈</span>Plataforma<select value={filters.platform} onChange={event => setFilters({...filters, platform: event.target.value, account: '', campaign: ''})}><option value="">Todas</option>{[...new Set((data?.accounts || []).map(item => item.platform))].map(value => <option key={value} value={value}>{value}</option>)}</select></label><label><span>▤</span>Conta<select value={filters.account} onChange={event => setFilters({...filters, account: event.target.value, campaign: ''})}><option value="">Todas</option>{(data?.accounts || []).filter(item => item.account_kind === 'advertiser' && (!filters.platform || item.platform === filters.platform)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label><span>◎</span>Campanha<select value={filters.campaign} onChange={event => setFilters({...filters, campaign: event.target.value})}><option value="">Todas</option>{(data?.campaigns || []).filter(item => !filters.account || String(item.account_id) === filters.account).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
       <div className="reports-filters reports-filters--secondary" aria-label="Período e atualização"><label><span>▦</span>De<input type="date" value={filters.startDate} max={filters.endDate || undefined} onChange={event => setFilters({...filters,startDate:event.target.value})} /></label><label><span>▦</span>Até<input type="date" value={filters.endDate} min={filters.startDate || undefined} onChange={event => setFilters({...filters,endDate:event.target.value})} /></label><label>Atalho<select value={filters.period} onChange={event => {const period=event.target.value;const end=new Date();const start=new Date(end);start.setDate(start.getDate()-Number(period)+1);setFilters({...filters,period,startDate:isoDate(start),endDate:isoDate(end)});}}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label><span className="reports-filter-source">◉ Google Ads · páginas · CRM</span><button type="button" onClick={load}>↻ Atualizar</button></div>
-      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : section === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : section === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} /> : section === 'reports' ? <Reports data={data} save={save} busy={busy} /> : section === 'links' ? <Links data={data} save={save} busy={busy} /> : section === 'imports' ? <Imports data={data} reloadBootstrap={load} /> : section === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : section === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} /> : section === 'events' ? <Events data={data} filters={filters} /> : section === 'access' && data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Overview data={selected} metrics={metrics} imported={importedMetrics} />}</div>
+      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : section === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : section === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} /> : section === 'reports' ? <Reports data={data} save={save} busy={busy} /> : section === 'supertag' ? <SuperTag data={data} /> : section === 'links' ? <Links data={data} save={save} busy={busy} /> : section === 'imports' ? <Imports data={data} reloadBootstrap={load} /> : section === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : section === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} /> : section === 'events' ? <Events data={data} filters={filters} /> : section === 'access' && data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Overview data={selected} metrics={metrics} imported={importedMetrics} />}</div>
     </main>
   </div>;
 }

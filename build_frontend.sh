@@ -83,6 +83,7 @@ else
   npm run build:vanilla
   npm run build:legacy
   npm run build:conversations
+  npm run build:reports
 fi
 
 if [ -f "aicentralv2/static/css/tailwind/output.css" ] && [ -f "aicentralv2/static/css/tailwind/output-legacy.css" ]; then

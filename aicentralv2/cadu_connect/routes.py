@@ -30,6 +30,8 @@ from .reports_ingest import register as register_reports_ingest
 register_reports_ingest(bp)
 from .reports_flow import register as register_reports_flow
 register_reports_flow(bp)
+from .reports_supertag import register as register_reports_supertag
+register_reports_supertag(bp)
 from .reports_imports import register as register_reports_imports
 register_reports_imports(bp)
 from .reports_access import register as register_reports_access
@@ -44,6 +46,7 @@ def route_guest_connect_pages():
         and not session.get("user_id")
         and not request.path.startswith("/connect/r/")
         and not request.path.startswith("/connect/api/")
+        and not request.path.startswith("/connect/public/supertag/v1/")
     ):
         return redirect(workspace_public_url(), code=302)
 

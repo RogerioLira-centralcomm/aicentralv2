@@ -28,7 +28,7 @@ function main() {
 
 function collectAndSend(managerId) {
   var account = AdsApp.currentAccount();
-  var query = 'SELECT campaign.id, campaign.name, segments.date, ' +
+  var query = 'SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, segments.date, ' +
     'metrics.impressions, metrics.clicks, metrics.cost_micros, ' +
     'metrics.conversions, metrics.conversions_value ' +
     'FROM campaign WHERE segments.date DURING YESTERDAY';
@@ -42,6 +42,8 @@ function collectAndSend(managerId) {
       currency: account.getCurrencyCode(),
       campaign_id: String(row.campaign.id),
       campaign_name: row.campaign.name,
+      campaign_status: row.campaign.status,
+      channel_type: row.campaign.advertisingChannelType,
       date: row.segments.date,
       impressions: Number(row.metrics.impressions || 0),
       clicks: Number(row.metrics.clicks || 0),

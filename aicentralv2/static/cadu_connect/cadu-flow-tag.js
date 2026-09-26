@@ -1,10 +1,13 @@
-/* Cadu Reports Funnel Flow V1. Load with: <script async src=".../cadu-flow-tag.js" data-cadu-key="..."></script> */
+/* Cadu Reports Funnel Flow V2. Each client has one loader URL; the published flow code selects its flow. */
 (function () {
   'use strict';
   var script = document.currentScript;
   var key = script && script.getAttribute('data-cadu-key');
-  if (!key || !window.crypto || !window.crypto.randomUUID) return;
-  var endpoint = new URL('/connect/api/v1/reports/flow/collect', script.src).href;
+  var clientId = script && script.getAttribute('data-cadu-client');
+  var flowCode = script && script.getAttribute('data-cadu-flow');
+  if (!key || !clientId || !flowCode || !window.crypto || !window.crypto.randomUUID) return;
+  var endpointBase = new URL('/connect/api/v1/reports/flow/collect/' + encodeURIComponent(flowCode || ''), script.src);
+  var endpoint = endpointBase.href + '?key=' + encodeURIComponent(key) + '&client_id=' + encodeURIComponent(clientId);
   var visitorKey = 'cadu_flow_visitor_' + key;
   var sessionKey = 'cadu_flow_session_' + key;
   function id(storage, name) {
@@ -40,24 +43,17 @@
   }
   var lastPage = '';
   var lastPageAt = 0;
-  function send(kind) {
+  var eventWindow = Date.now();
+  var eventCount = 0;
+  function send(kind, eventName) {
+    if (Date.now() - eventWindow > 60000) { eventWindow = Date.now(); eventCount = 0; }
+    if (eventCount >= 100) return;
+    eventCount += 1;
     var attribution = currentAttribution();
-    var data = JSON.stringify({
-      key: key, kind: kind, visitor_id: visitor, session_id: session,
-      url: location.origin + location.pathname,
-      referrer: document.referrer,
-      utm_source: attribution.utm_source || '',
-      utm_medium: attribution.utm_medium || '',
-      utm_campaign: attribution.utm_campaign || '',
-      utm_id: attribution.utm_id || '',
-      click_id: attribution.click_id || ''
-    });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(endpoint, new Blob([data], {type: 'text/plain'}));
-    } else {
-      fetch(endpoint, {method: 'POST', mode: 'no-cors', keepalive: true,
-        headers: {'Content-Type': 'text/plain'}, body: data}).catch(function () {});
-    }
+    var data = JSON.stringify({flow_code: flowCode, kind: kind, event_name: eventName || '', visitor_id: visitor, session_id: session,
+      path: location.pathname, referrer: document.referrer, attribution: attribution});
+    fetch(endpoint, {method: 'POST', mode: 'cors', keepalive: true,
+      headers: {'Content-Type': 'application/json'}, body: data}).catch(function () {});
   }
   function trackPage() {
     var attribution = currentAttribution();
@@ -68,13 +64,40 @@
     lastPageAt = now;
     send('page_view');
   }
+  var lastActionAt = 0;
+  function trackAction(kind) {
+    var now = Date.now();
+    if (now - lastActionAt < 700) return;
+    lastActionAt = now;
+    send(kind);
+  }
   window.CaduFlow = Object.freeze({
     getVisitorId: function () { return visitor; },
     getSessionId: function () { return session; },
+    trackEvent: function (eventName) {
+      if (typeof eventName !== 'string' || !eventName.trim()) return false;
+      send('custom_event', eventName.trim().slice(0, 120));
+      return true;
+    },
     trackPage: trackPage
   });
   dispatchEvent(new CustomEvent('cadu:flow-ready', {detail: {visitorId: visitor}}));
   trackPage();
+  document.addEventListener('submit', function (event) {
+    if (event.target && event.target.tagName === 'FORM') trackAction('form_submit');
+  }, true);
+  document.addEventListener('click', function (event) {
+    var target = event.target && event.target.closest ? event.target.closest('a,button,[role="button"]') : null;
+    if (target) {
+      var href = target.getAttribute('href') || '';
+      var label = (target.getAttribute('aria-label') || target.textContent || '').trim().toLowerCase();
+      if (/wa\.me|api\.whatsapp\.com/i.test(href) || /whats?app/.test(label)) trackAction('whatsapp_click');
+      else trackAction('click');
+    }
+  }, true);
+  var pushState = history.pushState;
+  history.pushState = function () { var result = pushState.apply(this, arguments); setTimeout(trackPage, 0); return result; };
+  addEventListener('popstate', trackPage);
   var timer = setInterval(function () {
     if (document.visibilityState === 'visible') send('heartbeat');
   }, 30000);

@@ -84,7 +84,7 @@ def register(bp):
         accounts = _rows('''SELECT id,platform,external_id,name,parent_account_id,account_kind,
                 currency,time_zone,status,updated_at FROM cadu_reports_accounts
                 WHERE organization_id=%s AND client_id=%s ORDER BY platform,account_kind DESC,name''', params)
-        campaigns = _rows('''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,
+        campaigns = _rows('''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,c.channel_type,
                 a.name AS account_name,a.platform FROM cadu_reports_campaigns c
                 JOIN cadu_reports_accounts a ON a.id=c.account_id
                 WHERE c.organization_id=%s AND c.client_id=%s ORDER BY a.name,c.name''', params)
@@ -126,6 +126,8 @@ def register(bp):
             abort(400, description='Tipo de conta inválido.')
         parent_id = payload.get('parent_account_id') or None
         if parent_id is not None:
+            if kind != 'advertiser':
+                abort(400, description='Uma MCC não pode ser filha de outra MCC neste cadastro.')
             try:
                 parent_id = int(parent_id)
             except (TypeError, ValueError):
@@ -144,6 +146,45 @@ def register(bp):
                 (selected['organization_id'], selected['client_id'], platform, external_id, name, parent_id, kind))
         get_db().commit()
         return jsonify(account=created[0]), 201
+
+    @bp.patch('/api/v1/reports/accounts/<int:account_id>')
+    @login_required_api
+    def reports_v1_update_account(account_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        current = _rows('''SELECT id,platform,external_id,name,parent_account_id,account_kind,status
+            FROM cadu_reports_accounts WHERE id=%s AND organization_id=%s AND client_id=%s FOR UPDATE''',
+            (account_id, selected['organization_id'], selected['client_id']))
+        if not current:
+            abort(404)
+        account = current[0]
+        name = _required_text(payload, 'name', 240)
+        status = payload.get('status', account['status'])
+        if status not in ('active', 'paused', 'disabled'):
+            abort(400, description='Estado de conta inválido.')
+        parent_id = payload.get('parent_account_id') or None
+        if account['account_kind'] == 'manager' and parent_id:
+            abort(400, description='Uma MCC não pode ter outra MCC como gerente neste cadastro.')
+        if parent_id is not None:
+            try:
+                parent_id = int(parent_id)
+            except (TypeError, ValueError):
+                abort(400, description='Conta gerente inválida.')
+            parent = _rows('''SELECT id FROM cadu_reports_accounts
+                WHERE id=%s AND organization_id=%s AND client_id=%s AND platform=%s
+                    AND account_kind='manager' AND status <> 'disabled' ''',
+                (parent_id, selected['organization_id'], selected['client_id'], account['platform']))
+            if not parent or account['account_kind'] != 'advertiser':
+                abort(400, description='Selecione uma MCC ativa da mesma plataforma para o anunciante.')
+        changed = _rows('''UPDATE cadu_reports_accounts SET name=%s,parent_account_id=%s,status=%s,updated_at=NOW()
+            WHERE id=%s AND organization_id=%s AND client_id=%s
+            RETURNING id,platform,external_id,name,parent_account_id,account_kind,status,updated_at''',
+            (name, parent_id, status, account_id, selected['organization_id'], selected['client_id']))
+        get_db().commit()
+        return jsonify(account=changed[0])
 
     @bp.post('/api/v1/reports/campaigns')
     @login_required_api
@@ -175,6 +216,66 @@ def register(bp):
                 (selected['organization_id'], selected['client_id'], account_id, external_id, name))
         get_db().commit()
         return jsonify(campaign=created[0]), 201
+
+    @bp.get('/api/v1/reports/campaigns/<int:campaign_id>')
+    @login_required_api
+    def reports_v1_campaign_detail(campaign_id):
+        selected = _selection()
+        scope = (selected['organization_id'], selected['client_id'])
+        campaigns = _rows('''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,c.channel_type,
+                c.metadata,c.created_at,c.updated_at,a.name AS account_name,a.platform,
+                a.external_id AS account_external_id,a.parent_account_id
+            FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a
+              ON a.id=c.account_id AND a.organization_id=c.organization_id AND a.client_id=c.client_id
+            WHERE c.id=%s AND c.organization_id=%s AND c.client_id=%s''', (campaign_id, *scope))
+        if not campaigns:
+            abort(404, description='Campanha não encontrada neste cliente.')
+        projection_ready = _rows("SELECT to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL AS ready")[0]['ready']
+        if projection_ready:
+            metrics = _rows('''SELECT metric_date,metric_key,currency,value_numeric,observation_count,version_count
+                FROM cadu_reports_import_metric_projection
+                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                ORDER BY metric_date DESC,metric_key LIMIT 1000''', (*scope,campaign_id))
+            totals = _rows('''SELECT metric_key,currency,
+                SUM(value_numeric) FILTER (WHERE value_numeric IS NOT NULL) AS total_value,
+                COUNT(*)::bigint AS observation_count,
+                COUNT(*) FILTER (WHERE value_numeric IS NULL)::bigint AS conflict_count,
+                MAX(metric_date) AS latest_date
+                FROM cadu_reports_import_metric_projection
+                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                GROUP BY metric_key,currency ORDER BY metric_key,currency''', (*scope,campaign_id))
+        else:
+            metrics, totals = [], []
+        ranges_ready = _rows("SELECT to_regclass('public.cadu_reports_import_range_snapshots') IS NOT NULL "
+                             "AND to_regclass('public.cadu_reports_import_files') IS NOT NULL AS ready")[0]['ready']
+        snapshots = _rows('''SELECT s.id,s.import_id,s.period_start,s.period_end,s.note,s.created_at,f.original_name
+            FROM cadu_reports_import_range_snapshots s JOIN cadu_reports_import_files f
+              ON f.id=s.import_id AND f.organization_id=s.organization_id AND f.client_id=s.client_id
+            WHERE s.organization_id=%s AND s.client_id=%s AND s.campaign_id=%s
+            ORDER BY s.created_at DESC LIMIT 100''', (*scope,campaign_id)) if ranges_ready else []
+        for snapshot in snapshots:
+            snapshot['metrics'] = _rows('''SELECT metric_key,COALESCE(metric_label,metric_key) AS metric_label,
+                    value_numeric,unit,currency,channel FROM cadu_reports_import_range_metrics
+                WHERE snapshot_id=%s AND organization_id=%s AND client_id=%s ORDER BY metric_key''',
+                (snapshot['id'], *scope))
+        custom_values = []
+        if _rows("SELECT to_regclass('public.cadu_reports_import_custom_values') IS NOT NULL AS ready")[0]['ready']:
+            custom_values = _rows('''SELECT metric_date,channel,metric_key,metric_label,value_numeric,unit,currency
+                FROM cadu_reports_import_custom_values WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                ORDER BY metric_date DESC,channel,metric_key LIMIT 500''', (*scope,campaign_id))
+        reports = _rows('''SELECT id,campaign_name,revision,updated_at FROM cadu_connect_report_workspaces
+            WHERE organization_id=%s AND client_id=%s AND media_campaign_id=%s
+            ORDER BY updated_at DESC LIMIT 100''', (*scope,campaign_id))
+        imports = _rows('''SELECT DISTINCT f.id,f.original_name,f.file_kind,f.created_at,f.status,
+                COUNT(DISTINCT o.id)::bigint AS observations
+            FROM cadu_reports_import_files f JOIN cadu_reports_import_rows r
+              ON r.import_id=f.id AND r.organization_id=f.organization_id AND r.client_id=f.client_id
+            LEFT JOIN cadu_reports_import_observations o
+              ON o.import_row_id=r.id AND o.organization_id=r.organization_id AND o.client_id=r.client_id
+            WHERE f.organization_id=%s AND f.client_id=%s AND r.campaign_id=%s
+            GROUP BY f.id ORDER BY f.created_at DESC LIMIT 100''', (*scope,campaign_id))
+        return jsonify(campaign=campaigns[0],metrics=metrics,metric_totals=totals,range_snapshots=snapshots,
+                       custom_values=custom_values,reports=reports,imports=imports)
 
     @bp.post('/api/v1/reports/workspaces')
     @login_required_api

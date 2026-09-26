@@ -4,7 +4,7 @@ import re
 import secrets
 import uuid
 
-from flask import abort, jsonify, redirect, render_template, request, session, url_for
+from flask import abort, jsonify, request, session
 from ..auth import login_required
 from ..cadu_credit_connector import CaduCreditConnector, CreditActor
 from ..cadu_tool_billing import InsufficientToolCredits
@@ -130,6 +130,9 @@ def register(bp, rows):
     @bp.route('/relatorios/<int:report_id>/fontes/<int:source_id>/revisar', methods=['GET', 'POST'])
     @login_required
     def report_review_source(report_id, source_id):
+        payload = request.get_json(silent=True) if request.method == 'POST' else {}
+        if request.method == 'POST' and not isinstance(payload, dict):
+            abort(400, description='Envie os indicadores revisados.')
         report, selected = authorized_report(rows, report_id, lock=request.method == 'POST')
         source = rows('''SELECT id,original_name,supplier,period_start,period_end
             FROM cadu_connect_report_sources WHERE id=%s AND report_id=%s''', (source_id, report_id))
@@ -143,20 +146,31 @@ def register(bp, rows):
         history = rows('''SELECT metrics,note,report_revision,created_at FROM cadu_connect_report_source_reviews
             WHERE source_id=%s ORDER BY report_revision DESC''', (source_id,))
         metrics = history[0]['metrics'] if history else []
-        error = None
         if request.method == 'POST':
-            if selected['role'] == 'viewer' or not secrets.compare_digest(session['family_csrf'], request.form.get('_csrf', '')):
+            if selected['role'] == 'viewer' or not secrets.compare_digest(session['family_csrf'], request.headers.get('X-CSRF-Token', '')):
                 abort(403)
             try:
-                if int(request.form.get('revision', '0')) != report['revision']:
+                if int(payload.get('revision', 0)) != report['revision']:
                     raise ValueError('O relatório mudou. Reabra a revisão antes de confirmar os dados.')
-                candidate = parse_metrics(request.form)
-                note = request.form.get('note', '').strip()
+                metric_rows = payload.get('metrics')
+                if not isinstance(metric_rows, list) or not 1 <= len(metric_rows) <= 60:
+                    raise ValueError('Informe de 1 a 60 indicadores.')
+                from werkzeug.datastructures import MultiDict
+                names, values = [], {field: [] for field in ('metric_value', 'metric_unit', 'metric_definition', 'metric_scope', 'metric_evidence')}
+                for item in metric_rows:
+                    if not isinstance(item, dict):
+                        raise ValueError('Indicador inválido.')
+                    names.append(str(item.get('name') or ''))
+                    for field, key in (('metric_value','value'),('metric_unit','unit'),('metric_definition','definition'),('metric_scope','scope'),('metric_evidence','evidence')):
+                        values[field].append(str(item.get(key) or ''))
+                form = MultiDict([('metric_name', name) for name in names] + [(field, value) for field, items in values.items() for value in items])
+                candidate = parse_metrics(form)
+                note = str(payload.get('note') or '').strip()
                 if not note or len(note) > 2000:
                     raise ValueError('Registre uma nota da revisão com até 2000 caracteres.')
                 if history and candidate == metrics:
                     get_db().rollback()
-                    return redirect(url_for('cadu_connect.report_review_source', report_id=report_id, source_id=source_id))
+                    return jsonify(saved=False, unchanged=True)
                 revision = report['revision'] + 1
                 with get_db().cursor() as cur:
                     cur.execute('''INSERT INTO cadu_connect_report_source_reviews
@@ -169,18 +183,16 @@ def register(bp, rows):
                         (report_id,revision,document,note,created_by) VALUES (%s,%s,%s::jsonb,%s,%s)''',
                         (report_id,revision,json.dumps(report['document']),f'Print #{source_id} revisado: {note}',session['user_id']))
                 get_db().commit()
-                return redirect(url_for('cadu_connect.report_review_source', report_id=report_id, source_id=source_id, saved=1))
+                return jsonify(saved=True, revision=revision)
             except ValueError as exc:
                 get_db().rollback()
-                error = str(exc)
-                # Preserve submitted values even when parsing fails.
-                metrics = [dict(name=name, raw=request.form.getlist('metric_value')[i] if i < len(request.form.getlist('metric_value')) else '',
-                    **{field: (request.form.getlist('metric_'+field)[i] if i < len(request.form.getlist('metric_'+field)) else '')
-                       for field in ('unit','definition','scope','evidence')}) for i,name in enumerate(request.form.getlist('metric_name')[:60])]
+                return jsonify(error=str(exc)), 422
             except Exception:
                 get_db().rollback()
                 raise
-        changes = compare_metrics(history[1]['metrics'] if len(history) > 1 else [], history[0]['metrics']) if history else []
-        response = render_template('cadu_connect/report_review.html', report=report, source=source,
-            selected=selected, metrics=metrics, history=history, changes=changes, error=error, units=UNITS)
-        return response, 200, {'Cache-Control': 'private, no-store'}
+        response = jsonify(source=source, metrics=metrics, history=history,
+                           changes=compare_metrics(history[1]['metrics'] if len(history) > 1 else [], history[0]['metrics']) if history else [],
+                           revision=report['revision'], units=UNITS,
+                           csrf=session['family_csrf'], role=selected['role'])
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response

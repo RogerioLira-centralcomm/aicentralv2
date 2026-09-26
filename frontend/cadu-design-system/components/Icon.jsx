@@ -29,6 +29,7 @@ export function Icon({name, size = 18, className = ''}) {
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     plan: <><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h5M8 16h7"/><path d="M8 2v4M16 2v4"/></>,
+    planner: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="m14 10 5-5M15 5h4v4M12 2v2M22 12h-2"/></>,
     conversation: <><path d="M5 5h14v10H9l-4 4z"/><path d="M8 9h8M8 12h5"/></>,
     analysis: <><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4M8 10.5h5M10.5 8v5"/></>,
     users: <><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></>,

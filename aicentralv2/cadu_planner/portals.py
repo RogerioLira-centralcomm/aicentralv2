@@ -38,7 +38,9 @@ def catalog(query='', category='', sort='featured', limit=50, offset=0):
     total = repository.rows(f'SELECT COUNT(*) AS total FROM cadu_planner_portals WHERE {clause}', tuple(params))[0]['total']
     rows = repository.rows(f'''SELECT id, name, domain, category, description, audience_estimate,
                                       audience_period, audience_source_url, audience_checked_at,
-                                      public_attributes, featured_rank, last_crawled_at
+                                      public_attributes, featured_rank, last_crawled_at,
+                                      COALESCE((to_jsonb(cadu_planner_portals)->>'discovered_pages_count')::INTEGER, 0) AS discovered_pages_count,
+                                      COALESCE((to_jsonb(cadu_planner_portals)->>'crawl_updates_count')::INTEGER, 0) AS crawl_updates_count
                                  FROM cadu_planner_portals WHERE {clause}
                                 ORDER BY {order} LIMIT %s OFFSET %s''', tuple(params + [limit, offset]))
     for row in rows:
@@ -61,7 +63,9 @@ def detail(portal_id):
         raise BadRequest('Identificador de portal inválido.')
     rows = repository.rows('''SELECT id, name, domain, category, description, audience_estimate,
                                      audience_period, audience_source_url, audience_checked_at,
-                                     public_attributes, featured_rank, last_crawled_at
+                                     public_attributes, featured_rank, last_crawled_at,
+                                     COALESCE((to_jsonb(cadu_planner_portals)->>'discovered_pages_count')::INTEGER, 0) AS discovered_pages_count,
+                                     COALESCE((to_jsonb(cadu_planner_portals)->>'crawl_updates_count')::INTEGER, 0) AS crawl_updates_count
                                 FROM cadu_planner_portals WHERE id = %s AND active = TRUE''', (portal_id,))
     if not rows:
         from werkzeug.exceptions import NotFound
@@ -361,12 +365,33 @@ def save_crawl_result(result):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute('''UPDATE cadu_planner_portals
-                              SET description = COALESCE(NULLIF(%s, ''), description),
-                                  source_url = %s, source_hash = %s,
-                                  last_crawled_at = %s, updated_at = NOW()
-                            WHERE domain = %s''', (result.get('description', ''), result['source_url'],
-                                                   result['source_hash'], result['collected_at'], result['domain']))
+            cur.execute('''SELECT COUNT(*) = 2 AS available
+                             FROM information_schema.columns
+                            WHERE table_schema = current_schema()
+                              AND table_name = 'cadu_planner_portals'
+                              AND column_name IN ('discovered_pages_count', 'crawl_updates_count')''')
+            stats_available = cur.fetchone()['available']
+            if stats_available:
+                cur.execute('''UPDATE cadu_planner_portals
+                                  SET description = COALESCE(NULLIF(%s, ''), description),
+                                      source_url = %s, source_hash = %s,
+                                      last_crawled_at = %s,
+                                      discovered_pages_count = %s,
+                                      crawl_updates_count = crawl_updates_count + 1,
+                                      updated_at = NOW()
+                                WHERE domain = %s''', (result.get('description', ''), result['source_url'],
+                                                       result['source_hash'], result['collected_at'],
+                                                       min(200, len(set(result.get('public_links') or [])) + 1),
+                                                       result['domain']))
+            else:
+                # Keep pages and crawls working during a rolling deployment;
+                # counters begin once the additive migration reaches this DB.
+                cur.execute('''UPDATE cadu_planner_portals
+                                  SET description = COALESCE(NULLIF(%s, ''), description),
+                                      source_url = %s, source_hash = %s,
+                                      last_crawled_at = %s, updated_at = NOW()
+                                WHERE domain = %s''', (result.get('description', ''), result['source_url'],
+                                                       result['source_hash'], result['collected_at'], result['domain']))
             saved = cur.rowcount > 0
         conn.commit()
         return saved

@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS cadu_planner_portals (
     featured_rank SMALLINT,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     last_crawled_at TIMESTAMPTZ,
+    discovered_pages_count INTEGER NOT NULL DEFAULT 0 CHECK (discovered_pages_count >= 0),
+    crawl_updates_count INTEGER NOT NULL DEFAULT 0 CHECK (crawl_updates_count >= 0),
     source_url TEXT,
     source_hash CHAR(64),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

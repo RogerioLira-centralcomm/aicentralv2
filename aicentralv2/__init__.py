@@ -22,6 +22,10 @@ def _workspace_asset_version(static_folder, configured_version=""):
     bundle_paths = (
         "cadu_workspace/conversations/react/app.css",
         "cadu_workspace/conversations/react/app.js",
+        "cadu_planner/react/app.css",
+        "cadu_planner/react/app.js",
+        "cadu_connect/react/app.css",
+        "cadu_connect/react/app.js",
         "cadu_workspace/conversations/react/chat-layout-fixes.css",
         "cadu_auth/app.css",
         "cadu_auth/app.js",

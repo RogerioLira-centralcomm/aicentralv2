@@ -95,7 +95,7 @@ function BriefArtifact({artifact, editing, onChange}) {
     ['Status', content.status || content.readiness],
   ].filter(([, value]) => value && typeof value !== 'object');
   const images = Array.isArray(content.images) ? content.images : Array.isArray(content.assets) ? content.assets.filter(item => /image/i.test(item?.mime_type || item?.type || '')) : [];
-  const updateField = (index, value) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, value} : field)});
+  const updateField = (index, patch) => onChange({...content, fields: fields.map((field, fieldIndex) => fieldIndex === index ? {...field, ...(typeof patch === 'string' ? {value:patch} : patch)} : field)});
   return <article className={`cv-brief-artifact${editing ? ' is-editing' : ''}`}>
     {(content.summary || metadata.length > 0) && <section className="cv-brief-artifact__overview">
       {content.summary && (editing
@@ -106,7 +106,7 @@ function BriefArtifact({artifact, editing, onChange}) {
     <ArtifactImages images={images} label="Imagens do briefing"/>
     {!!fields.length ? <div className="cv-brief-artifact__grid">{fields.map((field, index) => <section key={`${field.key}-${index}`} className={`cv-brief-artifact__section${index === 0 ? ' is-primary' : ''}`}>
       <h3><span>{String(index + 1).padStart(2, '0')}</span>{field.key || `Seção ${index + 1}`}</h3>
-      {editing ? <EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/> : <BriefFieldValue value={field.value}/>}
+      {editing ? <><label className="cv-brief-artifact__state-edit">Classificação<select aria-label={`Classificação de ${field.key || `Seção ${index + 1}`}`} value={field.state || 'inferred'} onChange={event => updateField(index, {state:event.target.value})}><option value="confirmed">Confirmado</option><option value="inferred">Hipótese</option><option value="assumed">Suposição</option><option value="missing">Pendente</option><option value="conflicting">Conflito</option></select></label><EditableTextarea value={field.value || ''} onChange={value => updateField(index, value)} aria-label={field.key || `Seção ${index + 1}`}/></> : <><span className={`cv-brief-artifact__state is-${field.state || 'unclassified'}`}>{briefStateLabel(field.state)}</span><BriefFieldValue value={field.value}/></>}
     </section>)}</div> : <div className="cv-brief-artifact__empty">O briefing ainda não tem seções estruturadas.</div>}
   </article>;
 }
@@ -391,6 +391,10 @@ function BriefFieldValue({value}) {
   return <p>{raw}</p>;
 }
 
+function briefStateLabel(state) {
+  return ({confirmed:'Confirmado', inferred:'Hipótese', assumed:'Suposição', missing:'Pendente', conflicting:'Conflito'})[state] || 'Sem classificação';
+}
+
 const meetingSectionAliases = {
   participantes: ['participantes', 'presentes', 'pessoas'],
   contexto: ['contexto', 'objetivo', 'assunto'],
@@ -504,7 +508,7 @@ function documentHtml(content) {
         if (/^\s*["']?\s*\{\s*"(?:text|ui|answer|artifact_patch)"/i.test(clean)) return '<p><br/></p>';
       }
     }
-    return raw;
+    return cleanDocumentHtml(raw);
   }
   const sections = [];
   if (content.summary) sections.push(`<p>${escapeHtml(content.summary)}</p>`);
@@ -663,7 +667,8 @@ function contentToMarkdown(content, type) {
 }
 
 function downloadTextArtifact(artifact, format) {
-  const html = artifact.type === 'html' ? htmlDocument(artifact.content || {}, artifact.title) : documentHtml(artifact.content || {});
+  const normalized = normalizeArtifactContent(artifact.content || {}, artifact.type);
+  const html = artifact.type === 'html' ? htmlDocument(artifact.content || {}, artifact.title) : documentHtml(normalized);
   const plain = new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() || '';
   const title = String(artifact.title || 'documento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'documento';
   const sourceMarkdown = artifact.type !== 'html' && typeof artifact.content?.source_markdown === 'string' ? artifact.content.source_markdown : '';
@@ -1092,15 +1097,14 @@ export function ArtifactPane({artifact, mobile = false, tabs = [], activeTabKey 
   const [editingDocument, setEditingDocument] = useState(false);
   const [sourceFormat, setSourceFormat] = useState('md');
   const type = artifact?.type || 'document';
-  const carriesSourceMarkdown = typeof artifact?.content?.source_markdown === 'string';
+  const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
   const updateContent = useCallback(nextContent => {
-    const next = carriesSourceMarkdown
+    const next = textArtifact
       ? {...nextContent, source_markdown:contentToMarkdown(nextContent, type)}
       : nextContent;
     onChange?.(next);
-  }, [carriesSourceMarkdown, onChange, type]);
+  }, [textArtifact, onChange, type]);
   const indexable = artifact?.capabilities?.indexable ?? !['html', 'project_map', 'link_reader'].includes(type);
-  const textArtifact = type === 'document' || type === 'brief' || type === 'note' || type === 'executive_summary' || type === 'media_plan' || type === 'scenario' || type === 'research' || type === 'meeting_summary' || type === 'meeting_agenda';
   const hasEditMode = textArtifact || type === 'project_map';
   useEffect(() => {
     const match = document.cookie.match(/(?:^|; )cadu-artifact-theme=([^;]+)/);

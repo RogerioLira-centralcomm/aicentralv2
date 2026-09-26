@@ -152,6 +152,13 @@
 .cv-brief-artifact__section p,.cv-brief-artifact__section li { margin:0; color:#e0eae7; font-size:13px; line-height:1.65; }
 .cv-brief-artifact__section ul { display:grid; gap:7px; margin:0; padding-left:17px; }
 .cv-brief-artifact__section li::marker { color:#63cfc1; }
+.cv-brief-artifact__state { display:inline-flex; width:max-content; margin:0 0 9px; padding:3px 7px; border:1px solid rgba(181,218,211,.15); border-radius:999px; color:#9bb3ad; font-size:9px; font-weight:650; }
+.cv-brief-artifact__state.is-confirmed { border-color:rgba(93,202,164,.25); background:rgba(93,202,164,.08); color:#8bd9b8; }
+.cv-brief-artifact__state.is-inferred,.cv-brief-artifact__state.is-assumed { border-color:rgba(224,184,111,.24); background:rgba(224,184,111,.07); color:#dfc080; }
+.cv-brief-artifact__state.is-missing { border-color:rgba(226,155,116,.24); background:rgba(226,155,116,.07); color:#dfa687; }
+.cv-brief-artifact__state.is-conflicting { border-color:rgba(223,127,133,.25); background:rgba(223,127,133,.08); color:#e39a9f; }
+.cv-brief-artifact__state-edit { display:grid; gap:5px; margin:0 0 9px; color:#91aaa5; font-size:10px; }
+.cv-brief-artifact__state-edit select { width:max-content; min-height:29px; padding:0 8px; border:1px solid rgba(181,218,211,.18); border-radius:7px; background:#142326; color:#dbe8e5; color-scheme:dark; font:500 11px Inter,ui-sans-serif,system-ui,sans-serif; }
 .cv-brief-artifact__missing { color:#78918c!important; font-style:italic; }
 .cv-brief-artifact__empty { padding:30px; border:1px dashed rgba(181,218,211,.18); border-radius:12px; color:#91aaa5; font-size:12px; text-align:center; }
 .cv-brief-artifact.is-editing .cv-brief-artifact__overview { display:block; }

@@ -14,7 +14,7 @@ PRODUCTS = {
         'faturamento': ('Faturamento', '/checkout-plano'),
     }},
     'planner': {'name': 'SmartPlanner', 'navigation': (
-        ('Planejar', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais')),
+        ('Planejar', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'monitoramento')),
         ('Entregas', ('docs',)),
     ), 'modules': {
         'inicio': ('Visão geral', None),
@@ -23,6 +23,7 @@ PRODUCTS = {
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
         'places': ('Places', '/places'),
         'portais': ('Portais', None),
+        'monitoramento': ('Sites e funis', None),
     }},
     'studio': {'name': 'Studio', 'navigation': (
         ('Produção', ('inicio', 'criacao')),

@@ -1,5 +1,6 @@
 """Pilot surface with explicit availability and a fail-closed context boundary."""
 import hashlib
+import json
 import secrets
 from uuid import UUID
 from urllib.parse import quote, urlencode
@@ -59,6 +60,18 @@ def import_planner_portals_command(csv_path, dry_run):
         raise click.ClickException(f'Não foi possível ler o CSV: {exc}') from exc
     action = 'validados' if dry_run else 'importados'
     click.echo(f"{summary['rows']} portais {action}.")
+
+
+@bp.cli.command('monitor-planner-sites')
+@click.option('--limit', default=50, type=click.IntRange(1, 200), help='Máximo de sites por execução.')
+def monitor_planner_sites_command(limit):
+    """Check due Planner sites and purge expired anonymous events."""
+    from ..cadu_planner import site_monitoring
+    results = site_monitoring.check_due_sites(limit)
+    expired = site_monitoring.purge_old_events()
+    for item in results:
+        click.echo(f"{item['site_id']}: {item['status']} ({item['response_ms']} ms)")
+    click.echo(f'{len(results)} sites verificados; {expired} eventos antigos removidos.')
 
 
 def planner_url(path='', **query):
@@ -598,6 +611,88 @@ def planner_portal_detail(portal_id):
     context.identity()
     context.resolve()
     return jsonify(record=portals.detail(portal_id))
+
+
+@bp.post('/api/planner/monitor/analyze')
+def planner_monitor_analyze():
+    from ..cadu_planner import site_monitoring
+    context.identity()
+    context.resolve()
+    data = request.get_json(silent=True) or {}
+    if set(data) - {'entry_url'}:
+        abort(400, description='Informe somente a URL inicial do site.')
+    return jsonify(analysis=site_monitoring.analyze_url(data.get('entry_url')))
+
+
+@bp.get('/api/planner/monitor/sites')
+def planner_monitor_sites():
+    from ..cadu_planner import site_monitoring
+    selected = context.resolve()
+    return jsonify(sites=site_monitoring.list_sites(selected['client_id']))
+
+
+@bp.post('/api/planner/monitor/sites')
+def planner_monitor_site_create():
+    from ..cadu_planner import site_monitoring
+    selected, user = writable_context(), context.identity()
+    data = request.get_json(silent=True) or {}
+    site = site_monitoring.create_site(selected['client_id'], user['id'], data)
+    return jsonify(site=_planner_monitor_installation(site)), 201
+
+
+@bp.get('/api/planner/monitor/sites/<uuid:site_id>')
+def planner_monitor_site_detail(site_id):
+    from ..cadu_planner import site_monitoring
+    selected = context.resolve()
+    site = site_monitoring.detail(selected['client_id'], str(site_id))
+    return jsonify(site=_planner_monitor_installation(site))
+
+
+@bp.post('/api/planner/monitor/sites/<uuid:site_id>/funnels')
+def planner_monitor_funnel_create(site_id):
+    from ..cadu_planner import site_monitoring
+    selected = writable_context()
+    site = site_monitoring.save_funnel(selected['client_id'], str(site_id), request.get_json(silent=True) or {})
+    return jsonify(site=_planner_monitor_installation(site)), 201
+
+
+@bp.put('/api/planner/monitor/sites/<uuid:site_id>/funnels/<uuid:funnel_id>')
+def planner_monitor_funnel_update(site_id, funnel_id):
+    from ..cadu_planner import site_monitoring
+    selected = writable_context()
+    site = site_monitoring.save_funnel(selected['client_id'], str(site_id),
+                                       request.get_json(silent=True) or {}, str(funnel_id))
+    return jsonify(site=_planner_monitor_installation(site))
+
+
+def _planner_monitor_installation(site):
+    token = str(site.get('collector_token') or '')
+    if token:
+        script_url = url_for('static', filename='cadu_planner/react/monitor.js', _external=True)
+        endpoint = url_for('cadu_family.planner_monitor_collect', token=token, _external=True)
+        site['install_snippet'] = (
+            f'<script async src="{script_url}" data-site-token="{token}" data-endpoint="{endpoint}" '
+            '></script>'
+        )
+        site['test_url'] = site['entry_url'].split('?', 1)[0] + ('&' if '?' in site['entry_url'] else '?') + 'cadu_test=1'
+    return site
+
+
+@bp.post('/api/planner/monitor/collect/<uuid:token>')
+def planner_monitor_collect(token):
+    from ..cadu_planner import site_monitoring
+    try:
+        data = request.get_json(silent=True)
+        if data is None:
+            data = json.loads(request.get_data(cache=False, as_text=True) or '{}')
+    except (ValueError, UnicodeError):
+        abort(400, description='Evento inválido.')
+    result = site_monitoring.collect(str(token), request.headers.get('Origin', ''), data,
+                                     request.cookies.get('cadu_monitor_test') == '1')
+    response = jsonify(result)
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Vary'] = 'Origin'
+    return response
 
 
 @bp.get('/api/planner/selections')

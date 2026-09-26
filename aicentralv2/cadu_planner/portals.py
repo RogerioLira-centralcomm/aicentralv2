@@ -290,8 +290,8 @@ class _SameHostHttpsRedirect(HTTPRedirectHandler):
         return super().redirect_request(request, fp, code, message, headers, new_url)
 
 
-def crawl_public_metadata(domain, timeout=12):
-    """Fetch public homepage metadata when robots.txt allows it; one host per call."""
+def crawl_public_metadata(domain, timeout=12, page_url=None):
+    """Fetch one public HTTPS page when robots.txt allows it; one host per call."""
     host = str(domain or '').strip().lower().rstrip('.')
     if not host or '/' in host or ':' in host or '@' in host:
         raise BadRequest('Domínio inválido.')
@@ -302,6 +302,11 @@ def crawl_public_metadata(domain, timeout=12):
     except (socket.gaierror, ValueError):
         return {'domain': host, 'status': 'dns_failed'}
     base = f'https://{host}/'
+    target = str(page_url or base).strip()
+    parsed_target = urlparse(target)
+    if (parsed_target.scheme != 'https' or parsed_target.hostname != host
+            or parsed_target.username or parsed_target.password or parsed_target.port not in (None, 443)):
+        raise BadRequest('A página precisa pertencer ao domínio HTTPS informado.')
     agent = 'CaduPlannerCatalogBot/1.0 (+https://cadu.ai/crawler)'
     opener = build_opener(_SameHostHttpsRedirect(host))
     robots_url = urljoin(base, '/robots.txt')
@@ -311,7 +316,7 @@ def crawl_public_metadata(domain, timeout=12):
             robots_body = response.read(256_000).decode('utf-8', 'replace')
         parser = RobotFileParser(robots_url)
         parser.parse(robots_body.splitlines())
-        if not parser.can_fetch(agent, base):
+        if not parser.can_fetch(agent, target):
             return {'domain': host, 'status': 'robots_disallowed'}
     except HTTPError as error:
         if error.code not in (404, 410):
@@ -319,7 +324,7 @@ def crawl_public_metadata(domain, timeout=12):
     except (URLError, TimeoutError, OSError):
         return {'domain': host, 'status': 'robots_unavailable'}
     try:
-        request = Request(base, headers={'User-Agent': agent, 'Accept': 'text/html'})
+        request = Request(target, headers={'User-Agent': agent, 'Accept': 'text/html'})
         with opener.open(request, timeout=timeout) as response:
             final_url = response.geturl()
             parsed = urlparse(final_url)

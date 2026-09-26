@@ -478,7 +478,8 @@ def register(bp):
             prepared = []
             for row in pending:
                 remapped = {header: value for header, value in row['raw'].items()
-                            if FIELD_BY_HEADER.get(normalized_header(header)) not in mapping}
+                            if header not in mapping.values()
+                            and FIELD_BY_HEADER.get(normalized_header(header)) not in mapping}
                 for field, header in mapping.items():
                     remapped[CANONICAL_HEADERS[field]] = row['raw'].get(header, '')
                 parsed = parse_record({'raw': remapped}, platform_hint=platform_hint,

@@ -37,6 +37,8 @@ def _workspace_asset_version(static_folder, configured_version=""):
         "js/cadu-public-motion.js",
         "js/cadu-workspace-public.js",
         "js/cadu-workspace-onboarding.js",
+        "css/cadu-observability.css",
+        "js/cadu-observability.js",
     )
     found_bundle = False
     for relative_path in bundle_paths:

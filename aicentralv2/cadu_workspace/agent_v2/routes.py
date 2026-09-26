@@ -23,7 +23,7 @@ from ..artifacts import attach_to_project, create_draft, get_artifact, get_publi
 from ..artifacts.service import finalize_to_project
 from .service import prepare as prepare_message, stream as stream_message
 from .provider import ProviderUnavailable
-from . import journal, long_jobs, observability
+from . import journal, long_jobs, observability, improvements
 from .long_jobs import LongJobSpec
 from . import action_executor
 from . import plugins
@@ -115,8 +115,13 @@ def observability_page():
         abort(401)
     if session.get("user_type") not in {"admin", "superadmin"}:
         abort(403)
-    client_id = resolve().client_id
-    return render_template("cadu_workspace/observability.html", telemetry=observability.dashboard(client_id))
+    current = resolve()
+    from ...services.integration_credentials import resolve_typesafe_api_key
+    return render_template("cadu_workspace/observability.html", telemetry=observability.dashboard(current.client_id),
+                           improvements=improvements.list_items(current.client_id) if session.get("is_centralcomm") else [],
+                           typesafe_configured=bool(resolve_typesafe_api_key()),
+                           family_csrf=session.setdefault("family_csrf", secrets.token_urlsafe(32)),
+                           can_analyze_improvements=bool(session.get("is_centralcomm")))
 
 
 @bp.before_request
@@ -1012,6 +1017,49 @@ def observability_run(run_id):
         return jsonify(observability.run_detail(current.client_id, str(run_id)))
     except ValueError as exc:
         abort(404, description=str(exc))
+
+
+@bp.post("/observability/improvements/analyze")
+def observability_improvements_analyze():
+    if session.get("user_type") not in {"admin", "superadmin"}:
+        abort(403)
+    if not session.get("is_centralcomm"):
+        abort(403)
+    try:
+        current = resolve()
+        return jsonify(improvements.analyze(current.client_id, current.user_id))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    except Exception:
+        current_app.logger.exception("Falha na análise de melhorias da observabilidade")
+        return jsonify(error="Não foi possível analisar a observabilidade agora."), 503
+
+
+@bp.get("/observability/improvements")
+def observability_improvements_list():
+    if session.get("user_type") not in {"admin", "superadmin"} or not session.get("is_centralcomm"):
+        abort(403)
+    current = resolve()
+    try:
+        return jsonify(items=improvements.list_items(current.client_id))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 403
+
+
+@bp.patch("/observability/improvements/<uuid:item_id>")
+def observability_improvement_update(item_id):
+    if session.get("user_type") not in {"admin", "superadmin"}:
+        abort(403)
+    if not session.get("is_centralcomm"):
+        abort(403)
+    data = request.get_json(silent=True) or {}
+    current = resolve()
+    try:
+        item = improvements.update_item(current.client_id, current.user_id, str(item_id),
+                                        str(data.get("status") or ""), data.get("applied_ref"))
+        return jsonify(item=item)
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
 
 
 @bp.post("/runs/<uuid:run_id>/stop")

@@ -1,6 +1,68 @@
 (() => {
   const root = document.querySelector('[data-observability-root]');
   if (!root) return;
+  const improvementList = root.querySelector('[data-improvement-list]');
+  const improvementMessage = root.querySelector('[data-improvement-message]');
+  const improvementEndpoint = root.dataset.improvementEndpoint;
+  const csrf = root.dataset.csrf;
+  const requestImprovement = async (url, method, payload = {}) => {
+    const options = {method, headers:{Accept:'application/json'}};
+    if (method !== 'GET') { options.headers = {...options.headers, 'Content-Type':'application/json', 'X-CSRF-Token':csrf}; options.body=JSON.stringify(payload); }
+    const response = await fetch(url, options);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Não foi possível atualizar a melhoria.');
+    return data;
+  };
+  const renderImprovements = items => {
+    if (!items.length) { const empty=document.createElement('p'); empty.className='cadu-observability__empty'; empty.textContent='Nenhuma recomendação acionável foi identificada nesta análise.'; improvementList.replaceChildren(empty); return; }
+    improvementList.querySelector('.cadu-observability__empty')?.remove();
+    items.forEach(item => {
+      const card = document.createElement('article'); card.className = 'cadu-observability__improvement'; card.dataset.improvementId = item.id;
+      const copy = document.createElement('div'); const state = document.createElement('span'); state.className = 'is-identified'; state.textContent = 'Identificada';
+      const heading = document.createElement('b'); heading.textContent = item.title;
+      const rationale = document.createElement('small'); rationale.textContent = item.rationale;
+      const recommendation = document.createElement('p'); recommendation.textContent = item.recommendation;
+      const confidence = document.createElement('small'); confidence.textContent = `Prioridade ${item.priority} · confiança ${Math.round((item.confidence || 0)*100)}%`;
+      copy.append(state, heading, rationale, recommendation, confidence);
+      const nav = document.createElement('nav');
+      if (root.dataset.canManageImprovements !== 'true') { card.append(copy); improvementList.prepend(card); return; }
+      const review = document.createElement('button'); review.type='button'; review.dataset.reviewImprovement=''; review.textContent='Marcar em revisão'; nav.append(review);
+      const form = document.createElement('form'); form.dataset.applyImprovement=''; const label=document.createElement('label'); label.textContent='Commit ou PR'; const input=document.createElement('input'); input.name='applied_ref'; input.required=true; input.maxLength=240; input.placeholder='abc123 ou https://…'; const apply=document.createElement('button'); apply.type='submit'; apply.textContent='Marcar aplicada'; label.append(input); form.append(label,apply); nav.append(form);
+      const dismiss=document.createElement('button'); dismiss.type='button'; dismiss.dataset.dismissImprovement=''; dismiss.textContent='Descartar'; nav.append(dismiss);
+      card.append(copy,nav); improvementList.prepend(card);
+    });
+  };
+  if (root.dataset.canManageImprovements === 'true') root.querySelector('[data-analyze-improvements]')?.addEventListener('click', async event => {
+    const button=event.currentTarget; button.disabled=true; improvementMessage.textContent='Analisando métricas agregadas…';
+    try { const data=await requestImprovement(`${improvementEndpoint}/analyze`,'POST'); renderImprovements(data.recommendations || []); improvementMessage.textContent=(data.recommendations || []).length ? 'Análise concluída. Revise as recomendações abaixo.' : 'Análise concluída sem recomendação acionável.'; }
+    catch(error) { improvementMessage.textContent=error.message; }
+    finally { button.disabled=root.dataset.typesafeConfigured!=='true'; }
+  });
+  if (improvementList && root.dataset.canManageImprovements === 'true') {
+    requestImprovement(improvementEndpoint, 'GET').then(data => {
+      (data.items || []).forEach(item => {
+        const card=improvementList.querySelector(`[data-improvement-id="${item.id}"]`);
+        if (!card) return;
+        const badge=card.querySelector('span');
+        if (badge) { badge.textContent={identified:'Identificada',in_review:'Em revisão',applied:'Aplicada',dismissed:'Descartada'}[item.status] || item.status; badge.className=`is-${item.status}`; }
+        if (item.status === 'applied') { const note=document.createElement('small'); note.textContent=`Aplicada em ${item.applied_ref || ''}`; card.querySelector('div')?.append(note); card.querySelector('nav')?.remove(); }
+        if (item.status === 'dismissed') card.querySelector('nav')?.remove();
+      });
+    }).catch(() => {});
+  }
+  if (root.dataset.canManageImprovements !== 'true') return;
+  improvementList?.addEventListener('click', async event => {
+    const button=event.target.closest('[data-review-improvement],[data-dismiss-improvement]'); if (!button) return;
+    const card=button.closest('[data-improvement-id]'); const status=button.hasAttribute('data-review-improvement')?'in_review':'dismissed';
+    try { const data=await requestImprovement(`${improvementEndpoint}/${card.dataset.improvementId}`,'PATCH',{status}); const badge=card.querySelector('span'); badge.textContent=status==='in_review'?'Em revisão':'Descartada'; badge.className=`is-${status}`; if (status==='dismissed') card.querySelector('nav').remove(); }
+    catch(error) { improvementMessage.textContent=error.message; }
+  });
+  improvementList?.addEventListener('submit', async event => {
+    const form=event.target.closest('[data-apply-improvement]'); if (!form) return; event.preventDefault();
+    const card=form.closest('[data-improvement-id]'); const applied_ref=new FormData(form).get('applied_ref');
+    try { const data=await requestImprovement(`${improvementEndpoint}/${card.dataset.improvementId}`,'PATCH',{status:'applied',applied_ref}); const badge=card.querySelector('span'); badge.textContent='Aplicada'; badge.className='is-applied'; const note=document.createElement('small'); note.textContent=`Aplicada em ${data.item.applied_ref}`; card.querySelector('div').append(note); card.querySelector('nav').remove(); }
+    catch(error) { improvementMessage.textContent=error.message; }
+  });
   const detail = root.querySelector('[data-observability-detail]');
   const body = root.querySelector('[data-detail-body]');
   const title = root.querySelector('[data-detail-title]');

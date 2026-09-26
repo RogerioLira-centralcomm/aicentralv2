@@ -508,11 +508,20 @@ def register(bp):
             FROM cadu_reports_flow_steps WHERE tag_id=%s AND organization_id=%s AND client_id=%s
                 AND is_active=TRUE AND step_kind IN ('page','form','conversion')''',
             (flow['tag_id'],selected['organization_id'],selected['client_id']))
-        steps_by_page = {(step['page_host'],step['path_prefix']):step for step in mapped_steps}
+        steps_by_page, wildcard_steps = {}, {}
+        for step in mapped_steps:
+            if step['page_host']:
+                steps_by_page[(step['page_host'],step['path_prefix'])] = step
+            else:
+                wildcard_steps.setdefault(step['path_prefix'], []).append(step)
         stored = []
         for page in pages:
             evidence = {'signals': page['evidence'], 'h1': page.get('h1','')}
             prior_step = steps_by_page.get((page['host'],page['path']))
+            if prior_step is None:
+                wildcard_matches = wildcard_steps.get(page['path'], [])
+                if len(wildcard_matches) == 1:
+                    prior_step = wildcard_matches[0]
             selected_kind = prior_step['step_kind'] if prior_step else None
             selected_as_entry = bool(prior_step and prior_step['is_entry'])
             row = _rows('''INSERT INTO cadu_reports_flow_discovered_pages

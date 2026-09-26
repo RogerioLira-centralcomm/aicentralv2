@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects, normalizedEntityKey, projectsForBrandSelection} from '../../frontend/cadu-design-system/workspaceEntities.mjs';
+import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects, nextBrandSelection, normalizedEntityKey, projectsForBrandSelection} from '../../frontend/cadu-design-system/workspaceEntities.mjs';
 
 test('workspace entities preserve every supported identity and label shape', () => {
   assert.equal(normalizedEntityKey('studio:42'), '42');
@@ -79,4 +79,11 @@ test('selecting a brand shows only its linked projects and supports equivalent b
   assert.deepEqual(projectsForBrandSelection(result.groups, result.ungrouped, 'brand:2').map(project => project.id), ['p2']);
   assert.deepEqual(projectsForBrandSelection(result.groups, result.ungrouped, '').map(project => project.id), ['p3']);
   assert.deepEqual(projectsForBrandSelection(result.groups, result.ungrouped, 'unknown-brand'), []);
+});
+
+test('selecting the active brand again clears the brand filter', () => {
+  assert.equal(nextBrandSelection('studio:1', 'studio:1'), '');
+  assert.equal(nextBrandSelection('brand:1', 'studio:1'), '');
+  assert.equal(nextBrandSelection('studio:1', 'studio:2'), 'studio:2');
+  assert.equal(nextBrandSelection('', 'studio:1'), 'studio:1');
 });

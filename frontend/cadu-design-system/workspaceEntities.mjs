@@ -78,3 +78,8 @@ export function projectsForBrandSelection(groups = [], ungrouped = [], ref = '')
   if (!ref) return ungrouped;
   return workspaceBrandByRef(groups, ref)?.projects || [];
 }
+
+export function nextBrandSelection(currentRef = '', clickedRef = '') {
+  const nextRef = String(clickedRef || '');
+  return nextRef && normalizedEntityKey(nextRef) === normalizedEntityKey(currentRef) ? '' : nextRef;
+}

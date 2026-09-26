@@ -8,7 +8,7 @@ import {VisualIdentity} from '../../cadu-design-system/components/VisualIdentity
 import {DockUsageRing} from '../../cadu-design-system/components/CaduDock';
 import {Icon} from '../../cadu-design-system/components/Icon';
 import {useWorkspaceNotifications} from '../../cadu-design-system/components/WorkspaceNotifications';
-import {groupWorkspaceProjects, isArchivedEntity, projectsForBrandSelection, workspaceBrandByRef} from '../../cadu-design-system/workspaceEntities.mjs';
+import {groupWorkspaceProjects, isArchivedEntity, nextBrandSelection, projectsForBrandSelection, workspaceBrandByRef} from '../../cadu-design-system/workspaceEntities.mjs';
 
 function contextLabel(item, projects, brands) {
   const project = projects.find(candidate => (candidate.ref || candidate.projectRef || candidate.id) === item.project_ref);
@@ -299,12 +299,12 @@ export function Sidebar({conversations, conversationSections = [], projects = []
   }, [activeBrandRef, activeProjectRef, projects, brands]);
   if (!open && !desktopMode) return null;
   const toggleBrand = ref => {
-    const nextRef = String(ref);
+    const nextRef = nextBrandSelection(selectedBrandRef, ref);
     const selectedBrand = workspaceBrandByRef(brandItems, nextRef);
     const currentProject = selectedBrand?.projects.find(project => String(project.ref || project.projectRef || project.id) === String(activeProjectRef));
     const nextProject = currentProject || selectedBrand?.projects[0];
     setSelectedBrandRef(nextRef);
-    setRecentCollapsed(true);
+    setRecentCollapsed(Boolean(nextRef));
     setShowMoreProjects(false);
     if (nextProject) {
       const projectRef = String(nextProject.ref || nextProject.projectRef || nextProject.id);

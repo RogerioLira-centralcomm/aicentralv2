@@ -51,7 +51,7 @@
     eventCount += 1;
     var attribution = currentAttribution();
     var data = JSON.stringify({flow_code: flowCode, kind: kind, event_name: eventName || '', visitor_id: visitor, session_id: session,
-      path: location.pathname, referrer: document.referrer, attribution: attribution});
+      host: location.hostname.toLowerCase(), path: location.pathname, referrer: document.referrer, attribution: attribution});
     fetch(endpoint, {method: 'POST', mode: 'cors', keepalive: true,
       headers: {'Content-Type': 'application/json'}, body: data}).catch(function () {});
   }

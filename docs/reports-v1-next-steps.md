@@ -1,6 +1,6 @@
 # Reports · próximos passos após a V1
 
-## Estado observado em 25/09/2026
+## Estado observado em 26/09/2026
 
 O núcleo já tem isolamento por `client_id`, inventário de contas e campanhas, ingestão diária por Google Ads Script, chaves por cliente, tag de páginas, etapas do Funnel Flow, webhook de conversões, visão geral React com ApexCharts, Link Tester e concessões de acesso próprias do Reports. As correções recentes de permissão, contas MCC, seleção do Link Tester e limite da tag estão no workspace, mas ainda não foram implantadas. O bundle compila; isso não substitui uma validação com banco, navegador, Google Ads e CRM reais.
 
@@ -19,6 +19,7 @@ A V1 ainda abre a biblioteca e a edição de relatórios na interface legada. O 
 | P1.2 | Migrar biblioteca, criação, edição, fontes, revisão e publicação dos relatórios para telas React na skin do Reports; reutilizar regras do backend existentes e manter URLs legadas como transição. | P0.2 | Usuário consegue concluir o ciclo do relatório dentro do Reports, inclusive sem projeto; versões e links públicos antigos continuam acessíveis. |
 | P1.3 | Completar o onboarding de uma agência e de um usuário exclusivo do Reports: convite/cadastro, seleção inicial só de `client_id`, concessões por cliente e administração de MCC. Projetos e marcas ficam como associação opcional posterior. | P0.2 | Novo usuário autorizado acessa apenas os clientes concedidos; um usuário exclusivo não depende de entrar no Workspace. |
 | P1.4 | Evoluir a tag com API explícita de evento, integração GTM e navegação SPA, deduplicação e diagnóstico de instalação. Manter eventos de página e de CRM separados, e atribuição incerta identificada como tal. | P0.4 | Mudanças de rota e eventos configurados aparecem uma vez no funil; a instalação explica páginas sem sinal e divergências de atribuição. |
+| P1.4a | Criar espaço nativo CentralComm no Reports, com tag e Funnel Flow próprios para `www.centralcomm.media`; mapear sitemap/links internos e sugerir entrada, etapas, formulários e conversões sem selecioná-los automaticamente. Aceitar subdomínios do mesmo domínio raiz no mesmo fluxo e rejeitar domínios sem relação. | P0.2 | Espaço não depende de `tbl_cliente`; páginas mapeadas preservam host e caminho; usuário decide quais entram no fluxo; campos coletados não incluem valores enviados. |
 | P1.5 | Consolidar métricas e relatórios: definições de fonte, janela, fuso, moeda, conversões da plataforma, visitas e vendas confirmadas; filtros de conta e campanha em todas as telas e links compartilháveis. | P0.3–P1.4 | O mesmo recorte produz os mesmos números em visão geral, campanha, Funnel Flow e relatório; moedas diferentes não são somadas indevidamente. |
 | P2.1 | Criar **Importações** como caixa de entrada por `client_id` para exportações CSV/XLSX e prints. Preservar original e hash; ler tabelas por parser e imagens por OCR/visão; extrair plataforma, conta, campanha, IDs, período, métrica, unidade, moeda e evidência. | P1.5 | Um arquivo ou print de qualquer plataforma entra sem credencial da plataforma e produz uma prévia estruturada auditável. |
 | P2.2 | Resolver identidade e incrementalidade: ID externo exato no escopo plataforma/conta permite criar ou atualizar automaticamente; ausência de ID cria registro provisório com chave da fonte e revisão de possível duplicata. Persistir fatos por período, métrica, unidade e fonte com chave de repetição; nunca somar capturas cumulativas como se fossem períodos novos. | P2.1 | Reimportar o mesmo material não duplica campanhas nem valores; conflito de nome, conta, período ou unidade aparece para decisão humana. |
@@ -43,15 +44,16 @@ Executar P0.1 a P0.4 como um pacote de preparação e piloto. Ele transforma a b
 | Item | Estado em 25/09/2026 |
 | --- | --- |
 | P0.1 | Alterações do Reports isoladas na branch `codex/reports-v1-execution`, com commits próprios e [procedimento de implantação](reports-v1-rollout.md). Rotação da credencial TypeSafe compartilhada ainda depende do administrador da integração. |
-| P0.2 | Auditoria somente de leitura criada. A conexão configurada é remota e não foi identificada como homologação; nela faltam as tabelas `cadu_reports_*`. Migração e verificação após migração aguardam ambiente de homologação identificado. |
-| P0.3–P0.5 | Pilotos Google Ads, MCC, GTM, CRM e publicação restrita aguardam contas e ambiente autorizados. Build e sintaxe locais passaram, sem substituir o piloto. |
+| P0.2 | Cadeia de Reports aplicada ao `centralp` indicado pelo usuário em 26/09/2026: seis runners de relatórios legados e 17 migrations SQL. Auditoria concluiu com zero referências entre clientes; contagens legadas permaneceram iguais. O dump local foi validado por restauração isolada do escopo afetado, não por restore integral da base. |
+| P0.3–P0.5 | Pilotos Google Ads, MCC, GTM, CRM e publicação restrita aguardam contas e validação funcional. O build local do React Reports passou, mas ainda não substitui os fluxos reais nem confirma publicação. |
 | P1.1 | Associação do Link Tester com campanha e relatório, remoção e histórico implementados no backend e React; falta verificar contra banco migrado. |
 | P1.2 | Detalhe React, edição de contexto, versões e publicação implementados. Envio/revisão de prints e edição de identidade ainda usam telas anteriores. |
 | P1.3 | Concessões para usuários existentes prontas; convite e cadastro autônomo só para Reports pendentes. |
 | P1.4 | Tag expõe `trackPage()` para navegação SPA via GTM, com deduplicação imediata; eventos personalizados e diagnóstico de instalação pendentes. |
 | P1.5 | Importações diárias aparecem em painel separado e conservador; conciliação com Google Ads Script, tag e CRM ainda pendente. |
 | P2.1–P2.2 | Primeira fatia codificada: caixa de entrada por cliente, CSV/XLSX, prints preservados, leitura visual sob demanda com evidência, identificação por IDs exatos em tabelas, observações imutáveis, mapeamento auditável de colunas com sugestão opcional TypeSafe e confirmação manual de linhas ambíguas. Projeção por campanha/dia/métrica deduplica valores idênticos; divergências só entram após decisão humana auditável. Blocos visuais diários e snapshots de intervalo podem ser confirmados separadamente. Comparação de intervalos e arquivos reais de plataformas ainda pendentes. Nenhuma API de mídia adicional é usada. |
-| P2.3–P3 | Conjuntos de dados isolados, audiências e mapas de clique ainda pendentes. |
+| P2.3 | Espaços nativos do Reports criados em `centralp` para CEMIG (`1000000000`), GASMIG (`1000000001`) e PBH · Arraiá de Belô 2026 (`1000000002`), sem registros correspondentes em `tbl_cliente` e sem associação a CEMIG D/GT/SIM, GASMIG ou PBH do CRM. Contas e campanhas são gerenciadas dentro do Reports; cada espaço tem `client_id`, slug e concessão admin próprios. A campanha pode ser associada depois a um projeto do Workspace da organização, sem tornar o projeto obrigatório para criar ou importar campanhas. Migration e seletor estão no workspace; a publicação do código torna o fluxo disponível na aplicação. |
+| P3 | Audiências e mapas de clique ainda pendentes. |
 
 ## Verificação do plano com TypeSafe
 

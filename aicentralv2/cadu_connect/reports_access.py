@@ -1,5 +1,7 @@
 """Reports entitlements independent of Workspace projects and brands."""
 
+import re
+import unicodedata
 from flask import abort, g, jsonify, request, session
 
 from ..auth import login_required_api
@@ -26,21 +28,30 @@ def reports_only():
 
 
 def authorized_clients():
-    if not reports_only():
-        return context.authorized_clients()
     actor = context.identity()
+    legacy = [] if reports_only() else context.authorized_clients()
     with get_db().cursor() as cursor:
-        cursor.execute('''SELECT c.id_cliente AS id,c.nome_fantasia AS name,a.role
-            FROM cadu_reports_user_access a JOIN tbl_cliente c ON c.id_cliente=a.client_id
+        if reports_only():
+            cursor.execute('''SELECT c.id_cliente AS id,c.nome_fantasia AS name,a.role,
+                    'centralcomm' AS kind
+                FROM cadu_reports_user_access a JOIN tbl_cliente c ON c.id_cliente=a.client_id
+                WHERE a.organization_id=%s AND a.user_id=%s AND a.revoked_at IS NULL
+                    AND c.status=TRUE ORDER BY c.nome_fantasia,c.id_cliente''',
+                (actor['organization_id'], actor['id']))
+            legacy = [dict(row) for row in cursor.fetchall()]
+        cursor.execute('''SELECT c.id,c.name,a.role,'reports' AS kind
+            FROM cadu_reports_user_access a JOIN cadu_reports_clients c
+                ON c.id=a.client_id AND c.organization_id=a.organization_id
             WHERE a.organization_id=%s AND a.user_id=%s AND a.revoked_at IS NULL
-                AND c.status=TRUE ORDER BY c.nome_fantasia,c.id_cliente''',
+                AND c.status='active' ORDER BY c.name,c.id''',
             (actor['organization_id'], actor['id']))
-        return [dict(row) for row in cursor.fetchall()]
+        native = [dict(row) for row in cursor.fetchall()]
+    normalized = [dict(item, kind=item.get('kind', 'centralcomm')) for item in legacy]
+    known = {int(item['id']) for item in normalized}
+    return normalized + [item for item in native if int(item['id']) not in known]
 
 
 def resolve(client_id=None):
-    if not reports_only():
-        return context.resolve(client_id)
     actor = context.identity()
     clients = authorized_clients()
     if client_id is None:
@@ -58,12 +69,23 @@ def resolve(client_id=None):
     client = next((item for item in clients if int(item['id']) == client_id), None)
     if not client:
         abort(403, description='Este login não tem acesso ao cliente no Reports.')
-    return {'organization_id': actor['organization_id'], 'client_id': client_id,
-            'client_name': client['name'], 'role': client['role']}
+    if client.get('kind') == 'reports' or reports_only():
+        return {'organization_id': actor['organization_id'], 'client_id': client_id,
+                'client_name': client['name'], 'role': client['role'],
+                'client_kind': client.get('kind', 'centralcomm')}
+    selected = context.resolve(client_id)
+    selected['client_kind'] = 'centralcomm'
+    return selected
 
 
 def inventory(client_id):
-    return [] if reports_only() else context.inventory(client_id)
+    if reports_only():
+        return []
+    with get_db().cursor() as cursor:
+        cursor.execute('SELECT 1 FROM cadu_reports_clients WHERE id=%s', (client_id,))
+        if cursor.fetchone():
+            return []
+    return context.inventory(client_id)
 
 
 def register(bp):
@@ -76,6 +98,42 @@ def register(bp):
         if request.method != 'GET':
             _write_guard(selected)
         return selected
+
+    @bp.post('/api/v1/reports/clients')
+    @login_required_api
+    def reports_client_create():
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = admin_scope(payload)
+        name = payload.get('name')
+        if not isinstance(name, str):
+            abort(400, description='Informe o nome do espaço.')
+        name = ' '.join(name.strip().split())
+        if not name or len(name) > 200:
+            abort(400, description='O nome deve ter entre 1 e 200 caracteres.')
+        slug = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii').lower()
+        slug = re.sub(r'[^a-z0-9]+', '-', slug).strip('-')[:160]
+        if not slug:
+            abort(400, description='O nome precisa conter letras ou números.')
+        conn = get_db()
+        with conn.cursor() as cursor:
+            cursor.execute('''INSERT INTO cadu_reports_clients
+                (organization_id,name,slug,created_by)
+                VALUES (%s,%s,%s,%s)
+                ON CONFLICT (organization_id,slug) DO NOTHING
+                RETURNING id,name,slug,status''',
+                (selected['organization_id'], name, slug, session['user_id']))
+            row = cursor.fetchone()
+            if not row:
+                abort(409, description='Já existe um espaço Reports com esse nome.')
+            client = dict(row)
+            cursor.execute('''INSERT INTO cadu_reports_user_access
+                (organization_id,user_id,client_id,role,granted_by)
+                VALUES (%s,%s,%s,'admin',%s)''',
+                (selected['organization_id'], session['user_id'], client['id'], session['user_id']))
+        conn.commit()
+        return jsonify(client=client), 201
 
     @bp.get('/api/v1/reports/access')
     @login_required_api

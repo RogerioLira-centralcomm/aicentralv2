@@ -384,7 +384,10 @@ fi
 "$VENV_PYTHON" migrations/run_add_connect_report_public_links.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_operations_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_review_fixes_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_native_clients_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_workspace_project_links_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_funnel_management_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_site_mapping_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_link_associations_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py move_link_tester_to_reports_v1.sql
@@ -395,6 +398,8 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_projection_decisions_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_range_snapshots_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_custom_values_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_custom_dimensions_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_observation_dimensions_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_column_maps_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_column_suggestions_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql

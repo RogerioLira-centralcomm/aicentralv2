@@ -4,15 +4,32 @@ import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {workspaceSolutionItems} from '../workspaceSolutions';
 import './SolutionSidebar.css';
 
-export function SolutionSidebar({solution, context = 'Cliente', icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId}) {
+function CreditsLink({percent, href}) {
+  const value = Math.max(0, Math.min(100, Number(percent) || 0));
+  const formatted = new Intl.NumberFormat('pt-BR', {maximumFractionDigits:1}).format(value);
+  return <a className="cadu-ds-usage-ring" style={{'--cadu-usage':`${value * 3.6}deg`}} href={href} aria-label={`Créditos e consumo: utilização de ${formatted}%`} title="Créditos e consumo"><span>{formatted}%</span></a>;
+}
+
+export function SolutionSidebar({solution, context = 'Cliente', icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', userAvatar = '', creditsUrl, profileUrl}) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(storageKey) === 'collapsed'; } catch (_) { return false; }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [usagePercent, setUsagePercent] = useState(0);
   const solutions = workspaceSolutionItems({urls:{solutions:solutionUrls}, solutionIcons});
   useEffect(() => {
     try { localStorage.setItem(storageKey, collapsed ? 'collapsed' : 'open'); } catch (_) { /* preference is optional */ }
   }, [collapsed, storageKey]);
+  useEffect(() => {
+    let current = true;
+    const refresh = () => fetch('/workspace/api/creditos/resumo', {credentials:'same-origin', headers:{Accept:'application/json'}})
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('Resumo indisponível')))
+      .then(value => { if (current && Number.isFinite(Number(value.monthly_usage_percentage))) setUsagePercent(Number(value.monthly_usage_percentage)); })
+      .catch(() => {});
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    return () => { current = false; window.clearInterval(timer); };
+  }, []);
 
   return <aside className={`cadu-solution-sidebar${collapsed ? ' is-collapsed' : ''}${mobileOpen ? ' is-mobile-open' : ''}`} style={{'--solution-accent': accent}} aria-label={`Navegação do ${solution}`}>
     <header className="cadu-solution-sidebar__header">
@@ -28,6 +45,13 @@ export function SolutionSidebar({solution, context = 'Cliente', icon, accent, gr
         {group.items.map(item => <a key={item.id} href={item.href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined} onClick={() => setMobileOpen(false)}><Icon name={item.icon || 'file'} size={17}/><span>{item.label}</span></a>)}
       </section>)}
     </nav>
-    {footer && <footer className="cadu-solution-sidebar__footer">{footer}</footer>}
+    <footer className="cadu-solution-sidebar__footer">
+      {creditsUrl && <CreditsLink percent={usagePercent} href={creditsUrl}/>}
+      {footer}
+      {profileUrl && <a className="cadu-solution-sidebar__account" href={profileUrl} aria-label={`Abrir perfil de ${userName}`} title={userName}>
+        <span className="cadu-solution-sidebar__avatar">{userAvatar && <img src={userAvatar} alt="" onError={event => {event.currentTarget.remove();}}/>}<b>{String(userName || 'U').trim().split(/\s+/).slice(0,2).map(name => name[0]).join('').toLocaleUpperCase('pt-BR')}</b></span>
+        <span className="cadu-solution-sidebar__account-name">{userName || 'Minha conta'}</span>
+      </a>}
+    </footer>
   </aside>;
 }

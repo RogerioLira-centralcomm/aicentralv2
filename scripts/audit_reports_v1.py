@@ -17,13 +17,27 @@ load_dotenv(ROOT / '.env')
 
 TABLES = (
     'cadu_reports_accounts', 'cadu_reports_campaigns',
-    'cadu_reports_campaign_daily_metrics', 'cadu_reports_ingest_keys',
+    'cadu_reports_source_runs', 'cadu_reports_campaign_daily_metrics', 'cadu_reports_ingest_keys',
     'cadu_reports_user_access', 'cadu_reports_site_tags',
+    'cadu_reports_supertag_sites', 'cadu_reports_supertag_events',
+    'cadu_reports_supertag_rate_limits', 'cadu_reports_supertag_ip_rate_limits',
+    'cadu_reports_flow_registry', 'cadu_reports_flow_events_test',
     'cadu_reports_flow_steps', 'cadu_reports_flow_events',
     'cadu_reports_flow_rate_limits', 'cadu_reports_external_conversions',
     'cadu_connect_report_workspaces', 'cadu_reports_link_test_runs',
-    'cadu_reports_link_association_history',
+    'cadu_reports_link_association_history', 'cadu_reports_import_files',
+    'cadu_reports_import_rows', 'cadu_reports_import_decisions',
+    'cadu_reports_import_observations', 'cadu_reports_import_projection_decisions',
+    'cadu_reports_import_visual_runs', 'cadu_reports_import_range_snapshots',
+    'cadu_reports_import_range_metrics', 'cadu_reports_import_custom_values',
+    'cadu_reports_import_column_maps', 'cadu_reports_import_column_suggestions',
 )
+VIEWS = ('cadu_reports_import_metric_projection',)
+DIMENSION_COLUMNS = {
+    'cadu_reports_import_observations': 'dimensions',
+    'cadu_reports_import_custom_values': 'dimensions',
+    'cadu_reports_import_projection_decisions': 'dimensions',
+}
 
 CHECKS = {
     'MCC em outro cliente': '''SELECT COUNT(*) FROM cadu_reports_accounts a
@@ -71,6 +85,15 @@ CHECKS = {
     'Histórico em link de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_link_association_history h
         JOIN cadu_reports_link_test_runs r ON r.id=h.run_id
         WHERE h.client_id IS DISTINCT FROM r.client_id''',
+    'Linha de importação em arquivo de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_import_rows r
+        JOIN cadu_reports_import_files f ON f.id=r.import_id
+        WHERE (r.organization_id,r.client_id) IS DISTINCT FROM (f.organization_id,f.client_id)''',
+    'Métrica importada em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_import_observations o
+        JOIN cadu_reports_campaigns c ON c.id=o.campaign_id
+        WHERE (o.organization_id,o.client_id) IS DISTINCT FROM (c.organization_id,c.client_id)''',
+    'Métrica personalizada em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_import_custom_values v
+        JOIN cadu_reports_campaigns c ON c.id=v.campaign_id
+        WHERE (v.organization_id,v.client_id) IS DISTINCT FROM (c.organization_id,c.client_id)''',
 }
 
 
@@ -88,8 +111,21 @@ def main():
         cursor.execute('SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname=%s', ('public',))
         present = {row[0] for row in cursor.fetchall()}
         missing = sorted(set(TABLES) - present)
+        cursor.execute('SELECT viewname FROM pg_catalog.pg_views WHERE schemaname=%s', ('public',))
+        present_views = {row[0] for row in cursor.fetchall()}
+        missing.extend(sorted(set(VIEWS) - present_views))
         if missing:
             print('Migrações pendentes: ' + ', '.join(missing))
+            return 2
+        absent_dimensions = []
+        for table, column in DIMENSION_COLUMNS.items():
+            cursor.execute('''SELECT 1 FROM information_schema.columns
+                WHERE table_schema=%s AND table_name=%s AND column_name=%s''',
+                ('public', table, column))
+            if cursor.fetchone() is None:
+                absent_dimensions.append(f'{table}.{column}')
+        if absent_dimensions:
+            print('Colunas de dimensão pendentes: ' + ', '.join(absent_dimensions))
             return 2
         problems = 0
         for label, query in CHECKS.items():

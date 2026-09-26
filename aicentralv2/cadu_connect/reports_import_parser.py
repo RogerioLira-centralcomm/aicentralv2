@@ -25,8 +25,8 @@ ALIASES = {
     'date': {'date', 'day', 'data', 'dia', 'reporting date'},
     'currency': {'currency', 'currency code', 'moeda', 'codigo da moeda'},
     'impressions': {'impressions', 'impressoes', 'impression'},
-    'clicks': {'clicks', 'cliques', 'click'},
-    'cost': {'cost', 'spend', 'amount spent', 'custo', 'gasto', 'valor gasto'},
+    'clicks': {'clicks', 'cliques', 'click', 'cliques todos'},
+    'cost': {'cost', 'spend', 'amount spent', 'custo', 'gasto', 'valor gasto', 'valor gasto brl'},
     'conversions': {'conversions', 'conversoes', 'conversion'},
     'conversion_value': {'conversion value', 'conversions value', 'valor de conversao', 'valor das conversoes'},
 }
@@ -38,6 +38,16 @@ PLATFORMS = {
     'microsoft ads': 'microsoft_ads', 'bing ads': 'microsoft_ads',
     'tiktok ads': 'tiktok_ads', 'linkedin ads': 'linkedin_ads',
     'pinterest ads': 'pinterest_ads',
+}
+META_EXPORT_HEADERS = {'nome da campanha', 'impressoes', 'alcance', 'frequencia',
+                       'cliques todos', 'valor gasto brl', 'tipo de resultado'}
+GRAIN_DIMENSION_HEADERS = {
+    'ad', 'ads', 'ad name', 'ad names', 'anuncio', 'anuncios', 'nome do anuncio',
+    'creative', 'creative name', 'criativo', 'nome do criativo',
+    'ad set', 'ad set name', 'conjunto de anuncios', 'ad group', 'grupo de anuncios',
+    'placement', 'publisher platform', 'posicionamento', 'plataforma do editor',
+    'device', 'dispositivo', 'age', 'idade', 'gender', 'genero', 'region', 'regiao',
+    'country', 'pais', 'audience', 'audiencia',
 }
 
 
@@ -71,12 +81,57 @@ def _headers(values):
     return names
 
 
+def _header_score(values):
+    """Score a physical row as a table header, ignoring report title rows."""
+    names = [normalized_header(value) for value in values if str(value or '').strip()]
+    if len(names) < 2:
+        return -1
+    known = {FIELD_BY_HEADER.get(name) for name in names}
+    known.discard(None)
+    score = len(known) * 3
+    if 'date' in known:
+        score += 2
+    if 'campaign_name' in known:
+        score += 3
+    if len(names) > 5:
+        score += 1
+    return score
+
+
+def _find_header(rows):
+    candidates = []
+    for index, values in enumerate(rows[:30]):
+        try:
+            names = _headers(values)
+        except ValueError:
+            continue
+        score = _header_score(names)
+        if score >= 8:
+            candidates.append((score, -index, index, names))
+    if not candidates:
+        raise ValueError('Não foi possível localizar cabeçalhos de métricas nas primeiras 30 linhas.')
+    _, _, index, headers = max(candidates)
+    return index, headers
+
+
+def _platform_from_headers(headers):
+    normalized = {normalized_header(value) for value in headers}
+    return 'meta_ads' if len(normalized.intersection(META_EXPORT_HEADERS)) >= 3 else ''
+
+
 def _record(headers, values, sheet, row_number):
     if len(values) > len(headers) and any(value not in ('', None) for value in values[len(headers):]):
         raise ValueError(f'{sheet}, linha {row_number}: há mais valores do que colunas.')
     return {'sheet': sheet, 'row': row_number,
             'raw': {header: _cell(values[index]) if index < len(values) else ''
                     for index, header in enumerate(headers) if header}}
+
+
+def _is_campaign_rollup(headers, values):
+    campaign_index = next((index for index, header in enumerate(headers)
+                           if FIELD_BY_HEADER.get(normalized_header(header)) == 'campaign_name'), None)
+    return campaign_index is not None and campaign_index < len(values) \
+        and normalized_header(values[campaign_index]) in {'all', 'total', 'grand total'}
 
 
 def _cell(value):
@@ -103,14 +158,15 @@ def read_export(raw, filename):
             dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')
         except csv.Error:
             dialect = csv.excel
-        reader = csv.reader(io.StringIO(content), dialect)
-        try:
-            headers = _headers(next(reader))
-        except StopIteration as exc:
-            raise ValueError('CSV vazio.') from exc
+        rows = list(csv.reader(io.StringIO(content), dialect))
+        if not rows:
+            raise ValueError('CSV vazio.')
+        header_index, headers = _find_header(rows)
         records = []
-        for number, values in enumerate(reader, start=2):
+        for number, values in enumerate(rows[header_index + 1:], start=header_index + 2):
             if not any(str(value or '').strip() for value in values):
+                continue
+            if _is_campaign_rollup(headers, values):
                 continue
             if len(records) >= MAX_ROWS:
                 raise ValueError('O arquivo excede 2.000 linhas de dados.')
@@ -127,13 +183,24 @@ def read_export(raw, filename):
         workbook = load_workbook(io.BytesIO(raw), read_only=True, data_only=True, keep_links=False)
         records = []
         try:
+            candidates = []
             for sheet in workbook.worksheets:
-                headers = None
-                for number, values in enumerate(sheet.iter_rows(values_only=True), start=1):
+                sheet_rows = list(sheet.iter_rows(values_only=True))
+                try:
+                    header_index, headers = _find_header(sheet_rows)
+                except ValueError:
+                    continue
+                candidates.append((sheet, sheet_rows, header_index, headers))
+            raw_candidates = [candidate for candidate in candidates
+                              if 'raw' in candidate[0].title.casefold()]
+            chosen = raw_candidates or candidates
+            if not chosen:
+                raise ValueError('O XLSX não contém uma planilha tabular reconhecida.')
+            for sheet, sheet_rows, header_index, headers in chosen[:1]:
+                for number, values in enumerate(sheet_rows[header_index + 1:], start=header_index + 2):
                     if not any(value not in ('', None) for value in values):
                         continue
-                    if headers is None:
-                        headers = _headers(values)
+                    if _is_campaign_rollup(headers, values):
                         continue
                     if len(records) >= MAX_ROWS:
                         raise ValueError('O arquivo excede 2.000 linhas de dados.')
@@ -206,16 +273,19 @@ def parse_record(record, *, platform_hint='', currency_hint='', date_order='auto
         if field:
             values[field] = value
     issues = []
+    platform_hint = platform_hint or _platform_from_headers(record.get('raw', {}).keys())
     platform = normalized_platform(values.get('platform') or platform_hint)
-    account_id = str(values.get('account_id') or '').strip()
-    account_name = str(values.get('account_name') or '').strip()
-    campaign_id = str(values.get('campaign_id') or '').strip()
-    campaign_name = str(values.get('campaign_name') or '').strip()
+    account_id = _identity_text(values.get('account_id'))
+    account_name = _identity_text(values.get('account_name'))
+    campaign_id = _identity_text(values.get('campaign_id'))
+    campaign_name = _identity_text(values.get('campaign_name'))
     if platform == 'google_ads' and re.fullmatch(r'[\d-]+', account_id):
         account_id = account_id.replace('-', '')
     for field, value, limit in (('ID da conta', account_id, 160), ('nome da conta', account_name, 240),
                                 ('ID da campanha', campaign_id, 160), ('nome da campanha', campaign_name, 240)):
-        if not value or len(value) > limit:
+        # Meta exports omit account and campaign IDs; Reports supplies the
+        # selected advertiser identity and creates an internal campaign key.
+        if value and len(value) > limit:
             issues.append(f'{field} ausente ou longo demais')
     if not platform:
         issues.append('plataforma não identificada')
@@ -227,6 +297,11 @@ def parse_record(record, *, platform_hint='', currency_hint='', date_order='auto
     if not metric_date:
         issues.append('data ausente')
     currency = str(values.get('currency') or currency_hint or '').strip().upper()
+    if not currency:
+        currency_header = next((header for header in record.get('raw', {})
+                                if normalized_header(header).endswith((' brl', ' reais'))), '')
+        if currency_header:
+            currency = 'BRL'
     if currency and not re.fullmatch(r'[A-Z]{3}', currency):
         issues.append('moeda inválida')
         currency = ''
@@ -249,5 +324,35 @@ def parse_record(record, *, platform_hint='', currency_hint='', date_order='auto
         'platform': platform, 'external_account_id': account_id, 'account_name': account_name,
         'external_campaign_id': campaign_id, 'campaign_name': campaign_name,
         'metric_date': metric_date, 'currency': currency, 'metrics': metrics,
+        'source_dimensions': _source_dimensions(record.get('raw', {})),
+        'grain_dimensions': _source_dimensions(record.get('raw', {}), grain_only=True),
         'issues': list(dict.fromkeys(issues)),
     }
+
+
+def _source_dimensions(raw, *, grain_only=False):
+    excluded = set(FIELD_BY_HEADER)
+    dimensions = {}
+    for label, value in (raw or {}).items():
+        key = normalized_header(label)
+        text = str(value or '').strip()
+        if not key or key in excluded or not text:
+            continue
+        if key.startswith(('inicio dos relatorios', 'encerramento dos relatorios',
+                           'report start', 'report end', 'report period')):
+            continue
+        if grain_only and key not in GRAIN_DIMENSION_HEADERS:
+            continue
+        try:
+            _decimal(text)
+            continue
+        except ValueError:
+            pass
+        dimensions[key[:100]] = {'label': str(label)[:160], 'value': text[:1000]}
+    return dimensions
+
+
+def _identity_text(value):
+    text = str(value or '').strip()
+    # Some Meta CSV exports retain a trailing presentation quote in campaign names.
+    return text.strip('"').strip()

@@ -31,6 +31,19 @@ def _selection(payload=None):
     return reports_access.resolve(supplied)
 
 
+def _visible_workspace_projects(selected):
+    ready = _rows("SELECT to_regclass('public.cadu_ci_projetos') IS NOT NULL AS ready")[0]['ready']
+    if not ready:
+        return []
+    projects = _rows('''SELECT id::text AS id,nome AS name,status
+        FROM cadu_ci_projetos WHERE id_cliente=%s AND status <> 'deletado'
+        ORDER BY lower(nome),id''', (selected['organization_id'],))
+    from ..cadu_family import repository as family_repository
+    actor_id = int(session['user_id'])
+    return [project for project in projects if family_repository.project_user_can_view(
+        int(selected['organization_id']), f"ci:{project['id']}", actor_id)]
+
+
 def _write_guard(selected):
     if selected['role'] == 'viewer':
         abort(403)
@@ -98,7 +111,8 @@ def register(bp):
     def reports_v1_bootstrap():
         selected = _selection()
         session.setdefault('family_csrf', secrets.token_urlsafe(32))
-        clients = [{'id': int(item['id']), 'name': item['name']} for item in reports_access.authorized_clients()]
+        clients = [{'id': int(item['id']), 'name': item['name'],
+                    'kind': item.get('kind', 'centralcomm')} for item in reports_access.authorized_clients()]
         if not _ready():
             return jsonify(ready=False, client=selected, csrf=session['family_csrf'],
                            clients=clients, accounts=[], campaigns=[], reports=[], link_tests=[])
@@ -106,9 +120,13 @@ def register(bp):
         accounts = _rows('''SELECT id,platform,external_id,name,parent_account_id,account_kind,
                 currency,time_zone,status,updated_at FROM cadu_reports_accounts
                 WHERE organization_id=%s AND client_id=%s ORDER BY platform,account_kind DESC,name''', params)
+        workspace_projects = _visible_workspace_projects(selected)
         campaigns = _rows('''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,c.channel_type,
-                a.name AS account_name,a.platform FROM cadu_reports_campaigns c
-                JOIN cadu_reports_accounts a ON a.id=c.account_id
+                c.workspace_project_id::text AS workspace_project_id,
+                p.nome AS workspace_project_name,a.name AS account_name,a.platform
+            FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
+            LEFT JOIN cadu_ci_projetos p ON p.id=c.workspace_project_id
+                AND p.id_cliente=c.organization_id AND p.status <> 'deletado'
                 WHERE c.organization_id=%s AND c.client_id=%s ORDER BY a.name,c.name''', params)
         reports = _rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
                 revision,updated_at FROM cadu_connect_report_workspaces
@@ -126,7 +144,8 @@ def register(bp):
         return jsonify(ready=True, client=selected, clients=clients, csrf=session['family_csrf'],
                        can_manage_access=selected['role'] == 'admin' and
                            session.get('user_type') in ('admin', 'superadmin') and not reports_access.reports_only(),
-                       accounts=accounts, campaigns=campaigns, reports=reports, link_tests=link_tests)
+                       accounts=accounts, campaigns=campaigns, reports=reports, link_tests=link_tests,
+                       workspace_projects=workspace_projects)
 
     @bp.post('/api/v1/reports/accounts')
     @login_required_api
@@ -245,14 +264,20 @@ def register(bp):
         selected = _selection()
         scope = (selected['organization_id'], selected['client_id'])
         campaigns = _rows('''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,c.channel_type,
+                c.workspace_project_id::text AS workspace_project_id,p.nome AS workspace_project_name,
                 c.metadata,c.created_at,c.updated_at,a.name AS account_name,a.platform,
                 a.external_id AS account_external_id,a.parent_account_id
             FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a
               ON a.id=c.account_id AND a.organization_id=c.organization_id AND a.client_id=c.client_id
+            LEFT JOIN cadu_ci_projetos p ON p.id=c.workspace_project_id
+                AND p.id_cliente=c.organization_id AND p.status <> 'deletado'
             WHERE c.id=%s AND c.organization_id=%s AND c.client_id=%s''', (campaign_id, *scope))
         if not campaigns:
             abort(404, description='Campanha não encontrada neste cliente.')
         projection_ready = _rows("SELECT to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL AS ready")[0]['ready']
+        dimensions_ready = _rows("SELECT EXISTS (SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema='public' AND table_name='cadu_reports_import_observations' "
+            "AND column_name='dimensions') AS ready")[0]['ready']
         if projection_ready:
             metrics = _rows('''SELECT metric_date,metric_key,currency,value_numeric,observation_count,version_count
                 FROM cadu_reports_import_metric_projection
@@ -268,6 +293,12 @@ def register(bp):
                 GROUP BY metric_key,currency ORDER BY metric_key,currency''', (*scope,campaign_id))
         else:
             metrics, totals = [], []
+        metric_observations = _rows('''SELECT DISTINCT ON (metric_date,metric_key,dimensions)
+                metric_date,metric_key,value_numeric,currency,dimensions
+            FROM cadu_reports_import_observations
+            WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+            ORDER BY metric_date,metric_key,dimensions,id DESC LIMIT 3000''',
+            (*scope,campaign_id)) if dimensions_ready else []
         ranges_ready = _rows("SELECT to_regclass('public.cadu_reports_import_range_snapshots') IS NOT NULL "
                              "AND to_regclass('public.cadu_reports_import_files') IS NOT NULL AS ready")[0]['ready']
         snapshots = _rows('''SELECT s.id,s.import_id,s.period_start,s.period_end,s.note,s.created_at,f.original_name
@@ -281,10 +312,14 @@ def register(bp):
                 WHERE snapshot_id=%s AND organization_id=%s AND client_id=%s ORDER BY metric_key''',
                 (snapshot['id'], *scope))
         custom_values = []
-        if _rows("SELECT to_regclass('public.cadu_reports_import_custom_values') IS NOT NULL AS ready")[0]['ready']:
-            custom_values = _rows('''SELECT metric_date,channel,metric_key,metric_label,value_numeric,unit,currency
+        custom_ready = _rows("SELECT to_regclass('public.cadu_reports_import_custom_values') IS NOT NULL "
+            "AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' "
+            "AND table_name='cadu_reports_import_custom_values' AND column_name='dimensions') AS ready")[0]['ready']
+        if custom_ready:
+            custom_values = _rows('''SELECT DISTINCT ON (metric_date,channel,metric_key,dimensions)
+                metric_date,channel,metric_key,metric_label,value_numeric,unit,currency,dimensions
                 FROM cadu_reports_import_custom_values WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
-                ORDER BY metric_date DESC,channel,metric_key LIMIT 500''', (*scope,campaign_id))
+                ORDER BY metric_date DESC,channel,metric_key,dimensions,id DESC LIMIT 500''', (*scope,campaign_id))
         reports = _rows('''SELECT id,campaign_name,revision,updated_at FROM cadu_connect_report_workspaces
             WHERE organization_id=%s AND client_id=%s AND media_campaign_id=%s
             ORDER BY updated_at DESC LIMIT 100''', (*scope,campaign_id))
@@ -297,7 +332,43 @@ def register(bp):
             WHERE f.organization_id=%s AND f.client_id=%s AND r.campaign_id=%s
             GROUP BY f.id ORDER BY f.created_at DESC LIMIT 100''', (*scope,campaign_id))
         return jsonify(campaign=campaigns[0],metrics=metrics,metric_totals=totals,range_snapshots=snapshots,
-                       custom_values=custom_values,reports=reports,imports=imports)
+                       custom_values=custom_values,metric_observations=metric_observations,
+                       reports=reports,imports=imports)
+
+    @bp.patch('/api/v1/reports/campaigns/<int:campaign_id>/workspace-project')
+    @login_required_api
+    def reports_v1_campaign_workspace_project(campaign_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if selected['role'] != 'admin':
+            abort(403, description='A associação com projetos do Workspace requer perfil admin neste espaço Reports.')
+        project_id = payload.get('workspace_project_id')
+        project = None
+        if project_id not in (None, ''):
+            if not isinstance(project_id, str) or not project_id.strip() or len(project_id) > 160:
+                abort(400, description='Projeto do Workspace inválido.')
+            project_id = project_id.strip()
+            project = _rows('''SELECT id::text AS id,nome AS name FROM cadu_ci_projetos
+                WHERE id=%s AND id_cliente=%s AND status <> 'deletado' ''',
+                (project_id, selected['organization_id']))
+            if not project:
+                abort(404, description='O projeto não pertence à organização ou não está disponível.')
+            from ..cadu_family import repository as family_repository
+            if not family_repository.project_user_can_view(
+                    int(selected['organization_id']), f'ci:{project_id}', int(session['user_id'])):
+                abort(403, description='Você não tem acesso a esse projeto do Workspace.')
+        changed = _rows('''UPDATE cadu_reports_campaigns
+            SET workspace_project_id=%s,updated_at=NOW()
+            WHERE id=%s AND organization_id=%s AND client_id=%s
+            RETURNING id,workspace_project_id::text AS workspace_project_id''',
+            (project_id or None, campaign_id, selected['organization_id'], selected['client_id']))
+        if not changed:
+            abort(404, description='Campanha não encontrada neste espaço Reports.')
+        get_db().commit()
+        return jsonify(campaign=changed[0], project=project[0] if project else None)
 
     @bp.post('/api/v1/reports/workspaces')
     @login_required_api

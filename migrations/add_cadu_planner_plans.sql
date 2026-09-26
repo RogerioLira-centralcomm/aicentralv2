@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS cadu_planner_plan_items (
     snapshot JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (plan_id, kind, resource_id),
-    CHECK (kind IN ('audiencias', 'canais', 'formatos', 'interativos', 'places'))
+    CHECK (kind IN ('audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais'))
 );
 
 CREATE INDEX IF NOT EXISTS cadu_planner_plan_items_plan_idx

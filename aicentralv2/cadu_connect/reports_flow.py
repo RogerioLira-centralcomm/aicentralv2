@@ -253,13 +253,18 @@ def register(bp):
             progress = progress_by_step.get(step['id'], {})
             step['reached'] = progress.get('reached', 0)
             step['progressed'] = progress.get('progressed', 0)
+        confirmed_time_filter = 'x.occurred_at > NOW() - (%s * INTERVAL \'1 day\')'
+        confirmed_params = list(scope_params)
+        if start_date or end_date:
+            confirmed_time_filter = "x.occurred_at >= %s::date AND x.occurred_at < (%s::date + INTERVAL '1 day')"
+            confirmed_params = [*params, parsed_start.isoformat(), parsed_end.isoformat(), *scope_params[3:]]
         confirmed = _rows('''SELECT x.conversion_kind,COUNT(*)::bigint AS total
             FROM cadu_reports_external_conversions x
             LEFT JOIN cadu_reports_campaigns c ON c.id=x.campaign_id
             LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
             WHERE x.organization_id=%s AND x.client_id=%s
-                AND x.occurred_at > NOW() - (%s * INTERVAL '1 day')''' + conversion_filter +
-            ' GROUP BY x.conversion_kind ORDER BY x.conversion_kind', tuple(scope_params))
+                AND ''' + confirmed_time_filter + conversion_filter +
+            ' GROUP BY x.conversion_kind ORDER BY x.conversion_kind', tuple(confirmed_params))
         flows = _rows('''SELECT f.id,f.flow_code,f.name,f.status,f.config,f.tag_id,t.label AS tag_label,
                 t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at
             FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id

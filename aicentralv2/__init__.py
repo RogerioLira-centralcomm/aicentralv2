@@ -6,6 +6,7 @@ AICENTRAL V2 - Inicialização da Aplicação
 
 from flask import Blueprint, Flask, request, url_for
 from flask_mail import Mail
+from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
 import hashlib
 import logging
@@ -91,6 +92,9 @@ def create_app(config_class=Config):
                 static_url_path='/static',
                 static_folder='static')
     app.config.from_object(config_class)
+    # Gunicorn binds to loopback behind one Nginx proxy. Trust exactly that
+    # proxy for the client address used by the Super Tag's abuse limiter.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=0, x_host=0, x_port=0, x_prefix=0)
 
     @app.template_global()
     def studio_url(endpoint, **values):
@@ -422,9 +426,6 @@ def create_app(config_class=Config):
 
         from .cadu_family import register as register_cadu_family
         register_cadu_family(app)
-
-        from .cadu_planner.marketplace import bp as planner_marketplace_bp
-        app.register_blueprint(planner_marketplace_bp)
 
         from .cadu_connect import bp as cadu_connect_bp
         app.register_blueprint(cadu_connect_bp)

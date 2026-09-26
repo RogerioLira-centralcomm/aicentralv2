@@ -2,6 +2,7 @@
 import hashlib
 import io
 import json
+import math
 import re
 import uuid
 from collections import Counter
@@ -611,12 +612,14 @@ def register(bp):
                             not isinstance(answer.get('probabilities'), dict):
                         raise TypeSafeError('A resposta TypeSafe de cabeçalhos veio incompleta.')
                     confidence = answer.get('confidence')
-                    if isinstance(confidence, bool) or not isinstance(confidence, (int,float)) or not 0 <= confidence <= 1:
+                    if (isinstance(confidence, bool) or not isinstance(confidence, (int,float))
+                            or not math.isfinite(confidence) or not 0 <= confidence <= 1):
                         raise TypeSafeError('A confiança TypeSafe veio inválida.')
                     probabilities = answer['probabilities']
                     if set(probabilities) != set(COLUMN_CRITERIA) or any(
                             isinstance(value, bool) or not isinstance(value, (int,float))
-                            or not 0 <= value <= 1 for value in probabilities.values()):
+                            or not math.isfinite(value) or not 0 <= value <= 1
+                            for value in probabilities.values()):
                         raise TypeSafeError('As probabilidades TypeSafe vieram inválidas.')
                     if abs(sum(probabilities.values()) - 1) > 0.02 or \
                             probabilities[answer['choice']] + 0.001 < max(probabilities.values()):

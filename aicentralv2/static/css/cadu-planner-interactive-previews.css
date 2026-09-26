@@ -1,5 +1,0 @@
-.planner-format-card__preview{display:block;height:118px;margin:-4px -4px 14px;overflow:hidden;border-radius:8px;background:var(--planner-soft)}
-.planner-format-card__preview img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s ease}
-.planner-format-card__preview:hover img{transform:scale(1.025)}
-.planner-format-card__preview:focus-visible{outline:3px solid var(--planner-accent);outline-offset:3px}
-@media (max-width:600px){.planner-format-card__preview{height:156px}}

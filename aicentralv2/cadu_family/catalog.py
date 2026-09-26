@@ -14,22 +14,22 @@ PRODUCTS = {
         'faturamento': ('Faturamento', '/checkout-plano'),
     }},
     'planner': {'name': 'SmartPlanner', 'navigation': (
-        ('Planejar', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places')),
-        ('Entregas', ('docs', 'links')),
+        ('Planejar', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais')),
+        ('Entregas', ('docs',)),
     ), 'modules': {
         'inicio': ('Visão geral', None),
         'planos': ('Planos de mídia', None), 'audiencias': ('Audiências', '/audiencias'),
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
-        'links': ('Link Tester', None),
         'places': ('Places', '/places'),
+        'portais': ('Portais', None),
     }},
     'studio': {'name': 'Studio', 'navigation': (
         ('Produção', ('inicio', 'criacao')),
-        ('Ferramentas', ('link-tester', 'creative-analyzer', 'copy-ads')),
+        ('Ferramentas', ('creative-analyzer', 'copy-ads')),
     ), 'modules': {
         'inicio': ('Visão geral', None),
-        'criacao': ('Criar', None), 'link-tester': ('Link Tester', '/ferramentas-link-tester'),
+        'criacao': ('Criar', None),
         'creative-analyzer': ('Creative Analyzer', '/analyzer'),
         'copy-ads': ('Copy Ads', '/ferramentas-copy'),
     }},
@@ -64,7 +64,6 @@ LANDINGS = {
         'body': 'Selecione cliente, marca e projeto. O cadastro de marcas fica no Workspace; as ferramentas criativas ficam aqui.',
         'image': 'studio.png',
         'links': [('copy-ads', 'Preparar Copy Ads', 'Revise textos e limites por formato. A geração automática ainda não está integrada.'),
-                  ('link-tester', 'Link Tester', 'Acompanhe a integração da ferramenta de teste de links.'),
                   ('creative-analyzer', 'Creative Analyzer', 'Acompanhe a integração da análise de criativos.')],
     },
     'connect': {

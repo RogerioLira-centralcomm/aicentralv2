@@ -4,7 +4,7 @@
 
 1. Confirmar por configuração e responsável que a conexão de banco é **homologação**. A conexão disponível na sessão de desenvolvimento é remota e não está identificada como homologação; a inspeção somente de leitura mostrou que as tabelas `cadu_reports_*` ainda não existem nela.
 2. Registrar commit e versão da aplicação em execução; manter a versão anterior disponível para retorno. Confirmar espaço e política de retenção do backup.
-3. Fazer backup do banco com a rotina do ambiente, incluindo esquema e dados das tabelas `cadu_connect_report_*`, `cadu_planner_link_test_runs`, `tbl_cliente` e `tbl_contato_cliente`. Validar que o arquivo é restaurável em ambiente isolado. Não colocar senha ou dump no repositório.
+3. Fazer backup do banco com a rotina do ambiente, incluindo esquema e dados das tabelas `cadu_connect_report_*`, `cadu_reports_link_test_runs`, `tbl_cliente` e `tbl_contato_cliente`. Validar que o arquivo é restaurável em ambiente isolado. Não colocar senha ou dump no repositório.
 4. Rotacionar nas Integrações do CentralX a credencial TypeSafe que foi compartilhada na conversa e conferir que a integração continua ativa.
 
 ## Homologação

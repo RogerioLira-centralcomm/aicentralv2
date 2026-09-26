@@ -77,7 +77,7 @@ def dashboard(client_id: int, limit=60) -> dict:
          WHERE run.client_id=%s AND run.runtime_version='v2' AND run.status='completed'
            AND run.created_at >= NOW()-INTERVAL '7 days'
            AND run.request_context->>'project_ref' IS NOT NULL
-           AND run.route->>'action' IN ('describe_project','project_readout','search_project')""",
+           AND run.route->>'action' IN ('describe_project','project_inventory','project_readout','search_project')""",
                                             (client_id,))[0]
         runs = repository.rows("""SELECT run.id::text, run.conversation_id, run.status, run.execution_mode,
              run.runtime_id, run.provider_config_version,

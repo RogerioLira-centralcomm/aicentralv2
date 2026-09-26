@@ -387,6 +387,7 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_funnel_management_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_link_associations_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py move_link_tester_to_reports_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_universal_imports_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_decisions_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_visual_runs_v1.sql

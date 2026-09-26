@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS cadu_reports_supertag_sites (
     label VARCHAR(120) NOT NULL,
     allowed_host VARCHAR(253) NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    config JSONB NOT NULL DEFAULT '{"consent_required":true,"audience_days":90,"visibility_enabled":true}'::jsonb,
+    config JSONB NOT NULL DEFAULT '{"consent_required":true,"audience_days":90,"retention_days":90,"visibility_enabled":true}'::jsonb,
     config_version INTEGER NOT NULL DEFAULT 1,
     created_by BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS cadu_reports_supertag_events (
     consent_state VARCHAR(16) NOT NULL DEFAULT 'granted',
     occurred_at TIMESTAMPTZ NOT NULL,
     received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '90 days',
     CONSTRAINT cadu_reports_supertag_events_site_scope_fk
       FOREIGN KEY (site_id,organization_id,client_id)
       REFERENCES cadu_reports_supertag_sites (id,organization_id,client_id) ON DELETE CASCADE,
@@ -48,6 +49,8 @@ CREATE TABLE IF NOT EXISTS cadu_reports_supertag_events (
 );
 CREATE INDEX IF NOT EXISTS cadu_reports_supertag_events_site_time_idx
     ON cadu_reports_supertag_events (site_id,occurred_at DESC);
+CREATE INDEX IF NOT EXISTS cadu_reports_supertag_events_expiry_idx
+    ON cadu_reports_supertag_events (expires_at,id);
 CREATE INDEX IF NOT EXISTS cadu_reports_supertag_events_site_path_time_idx
     ON cadu_reports_supertag_events (site_id,page_path,occurred_at DESC);
 CREATE INDEX IF NOT EXISTS cadu_reports_supertag_events_site_session_time_idx
@@ -64,3 +67,20 @@ CREATE TABLE IF NOT EXISTS cadu_reports_supertag_rate_limits (
 );
 CREATE INDEX IF NOT EXISTS cadu_reports_supertag_rate_limits_time_idx
     ON cadu_reports_supertag_rate_limits (bucket_start);
+
+-- Address digests are HMACed with the application secret; raw IPs are never stored.
+CREATE TABLE IF NOT EXISTS cadu_reports_supertag_ip_rate_limits (
+    site_id UUID NOT NULL REFERENCES cadu_reports_supertag_sites(id) ON DELETE CASCADE,
+    ip_digest CHAR(64) NOT NULL,
+    bucket_start TIMESTAMPTZ NOT NULL,
+    event_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (site_id,ip_digest,bucket_start)
+);
+CREATE INDEX IF NOT EXISTS cadu_reports_supertag_ip_rate_limits_time_idx
+    ON cadu_reports_supertag_ip_rate_limits (bucket_start);
+
+-- Upgrade already-created installations safely.
+ALTER TABLE cadu_reports_supertag_events
+    ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '90 days';
+CREATE INDEX IF NOT EXISTS cadu_reports_supertag_events_expiry_idx
+    ON cadu_reports_supertag_events (expires_at,id);

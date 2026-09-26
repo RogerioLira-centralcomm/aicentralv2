@@ -211,7 +211,8 @@ def _execution_tools(plugin_id: str) -> tuple[str, ...]:
         "planner": ("workspace.search_project_content", "brands.get_context",
                     "planner.research_plan_inputs", "planner.search_catalog", "planner.get_media_plan",
                     "artifacts.create_draft", "artifacts.update_draft"),
-        "reports": ("reports.list_project_reports", "reports.get_report_metrics", "reports.compare_report_to_plan"),
+        "reports": ("reports.list_project_reports", "reports.get_report_metrics", "reports.compare_report_to_plan",
+                    "reports.list_link_tests", "reports.get_link_test"),
         # Paid Studio operations are executed only through a persisted,
         # user-approved journal action. The model can inspect capabilities,
         # but cannot invoke paid generation or planning itself.
@@ -363,6 +364,8 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
             tool_chain = tuple([*context_tools, "insights.research_market"])
         else:
             missing.append("tema de mercado dos insights")
+    elif route.action == "link_test":
+        plugin_id = "reports"
     elif route.action == "compare_report_to_plan":
         plugin_id = "reports"
         if not context.project_ref:
@@ -401,7 +404,7 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
         else:
             missing.append("projeto para consultar ou planejar as atividades")
     elif route.domain == "workspace" and route.action in {
-        "search_project", "project_readout", "describe_project", "search_campaigns",
+        "search_project", "project_readout", "project_inventory", "describe_project", "search_campaigns",
         "organize_project_resources", "describe_project_for_rename",
     }:
         plugin_id = "project-search"

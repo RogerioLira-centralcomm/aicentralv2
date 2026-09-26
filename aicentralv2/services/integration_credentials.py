@@ -5,6 +5,8 @@ import hashlib
 import json
 import os
 import secrets
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -463,9 +465,18 @@ def _validate_openai(config):
 
 def _validate_typesafe(config):
     """Validate authentication with one minimal, real System One evaluation."""
+    import math
     import requests
+    import time
 
+    if not isinstance(config, dict):
+        return False, "A configuração TypeSafe é inválida.", {}
+    api_key = str(config.get("api_key") or "").strip()
+    if not api_key:
+        return False, "Informe a chave da integração TypeSafe.", {}
     model = str(config.get("default_model") or "jev-latest").strip()
+    if not model or len(model) > 120:
+        return False, "O modelo TypeSafe configurado é inválido.", {}
     payload = {
         "state": "CentralX TypeSafe API credential validation.",
         "model": model,
@@ -476,18 +487,23 @@ def _validate_typesafe(config):
             }
         },
     }
-    try:
-        response = requests.post(
-            "https://api.typesafe.ai/v1/systemone",
-            headers={
-                "Authorization": f"Bearer {str(config.get('api_key') or '').strip()}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=20,
-        )
-    except requests.RequestException:
-        return False, "Não foi possível validar a chave na TypeSafe.", {}
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                "https://api.typesafe.ai/v1/systemone",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=20,
+            )
+        except requests.RequestException:
+            return False, "Não foi possível validar a chave na TypeSafe.", {}
+        if response.status_code not in (429, 529) or attempt == 2:
+            break
+        time.sleep(_typesafe_retry_delay(response.headers.get("Retry-After"), attempt))
     if response.status_code in (401, 403):
         return False, "A credencial TypeSafe não foi aceita.", {}
     if response.status_code == 429:
@@ -500,23 +516,50 @@ def _validate_typesafe(config):
         result = response.json()
     except ValueError:
         return False, "A TypeSafe retornou uma resposta inválida.", {}
-    if not isinstance(result, dict) or not isinstance(result.get("answers"), dict) or "connection_check" not in result["answers"]:
+    answer = (result.get("answers", {}).get("connection_check")
+              if isinstance(result, dict) and isinstance(result.get("answers"), dict) else None)
+    if (not isinstance(result, dict) or not isinstance(result.get("model"), str)
+            or not isinstance(answer, dict) or answer.get("type") != "noul"
+            or isinstance(answer.get("noul"), bool)
+            or not isinstance(answer.get("noul"), (int, float))
+            or not math.isfinite(answer["noul"]) or not 0 <= answer["noul"] <= 1
+            or not isinstance(result.get("usage"), dict)):
         return False, "A TypeSafe aceitou a chave, mas não retornou a avaliação esperada.", {}
-    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+    usage = result["usage"]
 
     def _usage_count(key):
-        try:
-            return max(0, int(usage.get(key) or 0))
-        except (TypeError, ValueError):
-            return 0
+        value = usage.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
+
+    input_tokens = _usage_count("input_tokens")
+    output_tokens = _usage_count("output_tokens")
+    if input_tokens is None or output_tokens is None:
+        return False, "A TypeSafe retornou dados de uso inválidos.", {}
 
     return True, "Chave TypeSafe aceita; avaliação de conexão concluída.", {
         "model": result.get("model") or model,
         "usage": {
-            "input_tokens": _usage_count("input_tokens"),
-            "output_tokens": _usage_count("output_tokens"),
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
         },
     }
+
+
+def _typesafe_retry_delay(retry_after, attempt):
+    """Bound server-directed or exponential TypeSafe retries to four seconds."""
+    try:
+        delay = max(0.0, float(retry_after))
+    except (TypeError, ValueError):
+        try:
+            retry_date = parsedate_to_datetime(retry_after)
+            if retry_date.tzinfo is None:
+                retry_date = retry_date.replace(tzinfo=timezone.utc)
+            delay = (retry_date - datetime.now(timezone.utc)).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            delay = 2 ** attempt
+    return min(4.0, max(0.0, delay))
 
 
 def resolve_typesafe_api_key() -> str:

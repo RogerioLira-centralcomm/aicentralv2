@@ -526,6 +526,17 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "Sugira responsáveis, datas, orçamento ou metas somente como campos a confirmar, nunca como fatos. Termine com uma pergunta prática "
             "e opções específicas para o usuário escolher o que completar primeiro; aceite também uma resposta livre."
         )
+    if route.action == "project_inventory":
+        brand_instruction += (
+            "Esta é uma consulta de inventário somente leitura do projeto ativo. Use workspace.search_project_content, "
+            "e organize a resposta no chat em: dados salvos no projeto; conteúdo de arquivos indexados; referências "
+            "(separe metadados de conteúdo efetivamente lido); histórico relevante da conversa; e informações não encontradas. "
+            "Diferencie declarações do usuário de respostas anteriores do assistente. Só diga que algo não foi encontrado "
+            "quando a busca correspondente terminou com sucesso; se algum escopo estiver indisponível ou parcial, declare "
+            "essa limitação. Não trate título, URL ou resumo de metadados como leitura do conteúdo externo. "
+            "Não crie, altere ou salve artefatos, não atualize o projeto e não acrescente recomendações genéricas nem "
+            "perguntas de continuidade. Se a ferramenta não retornar, diga que não conseguiu consultar o inventário nesta resposta."
+        )
     if route.action == "describe_project_for_rename":
         brand_instruction += (
             "O usuário pediu para renomear o projeto e também perguntou quais dados já existem. Consulte workspace.get_project_context, "

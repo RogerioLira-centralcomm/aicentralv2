@@ -188,7 +188,15 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         if selected_plugin.get("unavailable"):
             policy["plugin_unavailable"] = selected_plugin["id"]
         else:
-            policy["plugin"] = {**selected_plugin, "required_context_missing": plugin_missing}
+            completion_tools = [
+                tool for tool in plugin_tools
+                if tool not in set(plugins._CONTEXT_TOOLS.get(selected_plugin["id"], ()))
+            ]
+            policy["plugin"] = {
+                **selected_plugin,
+                "required_context_missing": plugin_missing,
+                "completion_tools": completion_tools,
+            }
         policy["plugin_instruction"] = (
             "Este plugin está ativo na conversa. Use apenas evidências e retornos MCP "
             "presentes neste turno; não afirme que uma busca, análise, geração ou gravação ocorreu sem retorno correspondente. "

@@ -14,7 +14,7 @@ from ..db import get_db
 from . import catalog, places
 
 VALID_OBJECTIVES = {'awareness', 'consideracao', 'leads', 'vendas', 'trafego', 'outro'}
-VALID_KINDS = {'audiencias', 'canais', 'formatos', 'interativos', 'places'}
+VALID_KINDS = {'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais'}
 BRIEFING_LIMITS = {'budget': 80, 'period': 120, 'geography': 120, 'kpis': 180, 'notes': 2000}
 QUOTE_SCOPES = {'full_operation', 'media_inventory', 'specific_channels'}
 
@@ -266,7 +266,13 @@ def toggle_item(client_id, actor_id, plan_id, payload):
     kind, resource_id = str(payload.get('kind') or ''), str(payload.get('resource_id') or '')
     if kind not in VALID_KINDS or not resource_id:
         raise BadRequest('Escolha um item válido do catálogo.')
-    record = places.detail(resource_id) if kind == 'places' else catalog.detail(kind, resource_id)
+    if kind == 'places':
+        record = places.detail(resource_id)
+    elif kind == 'portais':
+        from .portals import detail
+        record = detail(resource_id)
+    else:
+        record = catalog.detail(kind, resource_id)
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''DELETE FROM cadu_planner_plan_items
                          WHERE plan_id = %s AND kind = %s AND resource_id = %s RETURNING id''',

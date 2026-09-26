@@ -110,3 +110,80 @@ def test_specialist_selection_does_not_override_confirmation_routes(monkeypatch)
     assert selected["id"] == "google-calendar"
     assert called_tools == ()
     assert missing == []
+
+
+def test_every_plugin_tool_contract_resolves_to_a_registered_internal_tool():
+    from aicentralv2.cadu_workspace.agent_v2.plugins import PLUGIN_FLOW, _execution_tools, WORKFLOWS
+    from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
+
+    plugin_ids = set(PLUGIN_FLOW) | set(WORKFLOWS) | {
+        "google-connect", "google-drive", "google-calendar", "google-meet",
+    }
+    registry = load_builtin_tools()
+    registered = set(registry._tools)
+
+    assert plugin_ids
+    for plugin_id in plugin_ids:
+        assert set(_execution_tools(plugin_id)) <= registered, plugin_id
+
+
+def test_explicit_specialist_workflows_dispatch_only_registered_tools(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
+
+    monkeypatch.setattr(plugins, "get_plugin", lambda plugin_id: {
+        "id": plugin_id, "name": plugin_id, "internal_tools": [],
+    })
+    request = RequestContext(client_id=1, user_id=1, conversation_id=None, surface="conversations",
+                             project_ref="ci:42", brand_ref="brand:7")
+    route = IntentRoute(domain="general", action="answer", complexity="medium", response_mode="analysis")
+    cases = [
+        ("/market-intelligence Pesquise tendências recentes do setor de café.", "market-intelligence", False),
+        ("/market-radar Pesquise movimentos recentes da marca selecionada.", "market-radar", False),
+        ("/audience-map Mapeie a audiência do Instagram para esta campanha.", "audience-map", False),
+        ("/investment-simulator Simule cenários de investimento para esta campanha.", "investment-simulator", False),
+        ("/media-plan-audit Revise o plano de mídia deste projeto.", "media-plan-audit", False),
+        ("/campaign-tracker Analise o relatório da campanha anexado.", "campaign-tracker", True),
+        ("/creative-concept Crie um conceito criativo para esta campanha.", "creative-concept", False),
+        ("/channel-copy Escreva copy para Instagram para esta campanha.", "channel-copy", False),
+        ("/page-review https://example.com Revise a página informada.", "page-review", False),
+        ("/meeting-copilot Prepare a pauta para a reunião do Google Meet.", "meeting-copilot", False),
+        ("/client-delivery Organize as entregas e pendências deste projeto.", "client-delivery", False),
+    ]
+    registered = set(load_builtin_tools()._tools)
+
+    for message, expected_plugin, has_attachment in cases:
+        selected, called_tools, missing = plugins.select(
+            route, message, request, has_report_attachment=has_attachment,
+        )
+        assert selected["id"] == expected_plugin, message
+        assert not missing, message
+        assert set(called_tools) <= registered, message
+        assert set(called_tools) <= set(selected["runtime_tools"]), message
+
+
+def test_plugin_success_badge_requires_the_selected_tool_chain_to_complete():
+    from aicentralv2.cadu_workspace.agent_v2.service import _plugin_execution_succeeded
+
+    plugin = {"id": "market-radar", "completion_tools": ["web.search"]}
+    route = {"action": "run_plugin"}
+
+    assert not _plugin_execution_succeeded(plugin, route, [
+        {"name": "brands.get_context", "status": "completed"},
+        {"name": "web.search", "status": "failed"},
+    ])
+    assert not _plugin_execution_succeeded(plugin, route, [
+        {"name": "brands.get_context", "status": "completed"},
+    ])
+    assert _plugin_execution_succeeded(plugin, route, [
+        {"name": "brands.get_context", "status": "completed"},
+        {"name": "web.search", "status": "completed"},
+    ])
+    assert not _plugin_execution_succeeded(
+        {"id": "market-radar", "completion_tools": []}, route, [],
+    )
+    assert _plugin_execution_succeeded(
+        {"id": "creative-concept", "completion_tools": []}, route, [],
+    )
+    assert _plugin_execution_succeeded(
+        {"id": "meeting-copilot", "completion_tools": []}, route, [],
+    )

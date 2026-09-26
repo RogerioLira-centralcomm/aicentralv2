@@ -6,7 +6,7 @@ from ..cadu_family import repository
 from ..db import get_db
 from . import catalog, places
 
-KINDS = {"audiencias", "canais", "formatos", "interativos", "places"}
+KINDS = {"audiencias", "canais", "formatos", "interativos", "places", "portais"}
 
 
 def _record(kind, resource_id):
@@ -14,6 +14,9 @@ def _record(kind, resource_id):
         raise BadRequest("Tipo de seleção inválido.")
     if kind == "places":
         return places.detail(resource_id)
+    if kind == "portais":
+        from .portals import detail
+        return detail(resource_id)
     return catalog.detail(kind, resource_id)
 
 

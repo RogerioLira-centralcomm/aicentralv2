@@ -6,7 +6,7 @@ from dataclasses import replace
 from ..mcp.registry import ToolError, ToolInputError, load_builtin_tools
 
 ALLOWED_ACTION_TOOLS = frozenset({
-    "planner.link_test", "workspace.create_project", "workspace.update_project_context",
+    "reports.link_test", "workspace.create_project", "workspace.update_project_context",
     "workspace.set_project_status",
     "workspace.link_current_brand",
     "projects.reindex_source",

@@ -66,9 +66,9 @@ def _link_test_step(message: str):
         else "destination"
     )
     return {
-        "kind": "action", "name": "planner.link_test", "requires_confirmation": True,
+        "kind": "action", "name": "reports.link_test", "requires_confirmation": True,
         "request_id": str(uuid4()), "arguments": {"url": match.group(0).rstrip(".,;:)"), "mode": mode},
-        "effect": "write", "summary": "Testar o link informado e salvar o diagnóstico no Planner.",
+        "effect": "write", "summary": "Testar o link informado e salvar o diagnóstico no Reports.",
     }
 
 

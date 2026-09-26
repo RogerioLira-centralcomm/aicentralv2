@@ -46,6 +46,7 @@ def route_guest_connect_pages():
         and not session.get("user_id")
         and not request.path.startswith("/connect/r/")
         and not request.path.startswith("/connect/api/")
+        and not request.path.startswith("/connect/public/link-tests/")
         and not request.path.startswith("/connect/public/supertag/v1/")
     ):
         return redirect(workspace_public_url(), code=302)

@@ -17,6 +17,7 @@ import {brandContextPayload, conversationPayload, mergeServerEntities, projectCo
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {enqueue, MAX_QUEUED_TURNS, moveQueued, readQueue, updateQueued, writeQueue} from './lib/executionQueue.mjs';
 import {acceptAgentEvent} from './lib/agentEvents.mjs';
+import {routeSelectedStatus, unavailableToolStatus} from './lib/pluginStatus.mjs';
 import {executionReducer, initialExecutionState, isExecutionActive} from './lib/executionState.mjs';
 import {Icon} from './lib/icons';
 import {CaduDock, WorkspaceAccountMenu} from '../cadu-design-system';
@@ -911,9 +912,8 @@ export default function App({bootstrap}) {
           if (event.policy?.execution_mode) setExecutionMode(event.policy.execution_mode);
           const selectedPlugin = event.policy?.plugin;
           setActivePlugin(selectedPlugin?.name ? {id: selectedPlugin.id, name: selectedPlugin.name} : null);
-          if (selectedPlugin?.name) setRuntime(`Acionando ${selectedPlugin.name}`);
+          setRuntime(routeSelectedStatus({plugin: selectedPlugin, targetArtifact: event.target_artifact}));
           if (event.target_artifact?.title) {
-            setRuntime(`Revisando ${event.target_artifact.title}`);
             trace('Documento selecionado para revisão', event.target_artifact.title);
           }
           if (event.policy?.artifact_type && !String(event.route?.action || '').startsWith('update_')) {
@@ -923,7 +923,6 @@ export default function App({bootstrap}) {
               setArtifact(pendingArtifact); artifactRef.current = pendingArtifact; setArtifactOpen(true);
             }
           }
-          if (!event.target_artifact?.title) setRuntime('Preparando o contexto');
           trace(event.target_artifact?.title ? 'Lendo o documento atual' : 'Preparando contexto');
         }
         else if (kind === 'tool.started') {
@@ -948,8 +947,8 @@ export default function App({bootstrap}) {
           }
         }
         else if (kind === 'tool.unavailable') {
-          setRuntime(event.name === 'web.search' || event.name === 'web.read' || event.name === 'insights.research_market' ? 'Pesquisa indisponível' : 'Trabalhando');
-          trace('Recurso indisponível', '', 'error');
+          setRuntime(unavailableToolStatus(event.name));
+          trace('Etapa indisponível', '', 'error');
         }
         else if (kind === 'action.proposed') {
           const actionMessage = {id: uid(), turnId, role: 'assistant', kind: 'action', action: event.action, runId: event.action?.run_id || event.action?.runId || runRef.current};

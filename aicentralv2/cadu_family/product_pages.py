@@ -10,6 +10,8 @@ PRODUCT_PACKAGES = {
 
 
 def page_template(product):
+    if product == 'planner':
+        return 'cadu_planner/react.html'
     return f'{PRODUCT_PACKAGES[product]}/family/page.html'
 
 

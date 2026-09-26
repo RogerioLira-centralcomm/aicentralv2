@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS cadu_planner_selections (
     id BIGSERIAL PRIMARY KEY, client_id INTEGER NOT NULL, actor_id INTEGER NOT NULL,
     kind VARCHAR(20) NOT NULL, resource_id VARCHAR(128) NOT NULL, snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_cadu_planner_selection_kind CHECK (kind IN ('audiencias','canais','formatos','interativos','places')),
+    CONSTRAINT chk_cadu_planner_selection_kind CHECK (kind IN ('audiencias','canais','formatos','interativos','places','portais')),
     CONSTRAINT ux_cadu_planner_selection UNIQUE (client_id, actor_id, kind, resource_id)
 );
 CREATE INDEX IF NOT EXISTS idx_cadu_planner_selections_actor ON cadu_planner_selections (client_id, actor_id, created_at DESC);

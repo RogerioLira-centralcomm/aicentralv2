@@ -27,8 +27,7 @@ _MARKETING_TOOLS = frozenset({
     "brands.list", "brands.get_context", "brands.inspect_site", "brands.list_assets",
     "artifacts.list", "artifacts.describe_types", "artifacts.get", "artifacts.create_draft",
     "artifacts.update_draft", "artifacts.finalize_to_project",
-    "planner.list_plans", "planner.search_catalog", "planner.list_link_tests",
-    "planner.get_link_test", "planner.get_brief", "planner.get_media_plan",
+    "planner.list_plans", "planner.search_catalog", "planner.get_brief", "planner.get_media_plan",
     "web.search", "web.read", "insights.research_market", "media.creation_capabilities", "media.plan_video",
     "resources.search", "resources.inspect_input", "resources.get", "resources.capabilities",
 })

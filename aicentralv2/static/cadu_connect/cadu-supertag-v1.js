@@ -22,6 +22,7 @@
   var flushInFlight = false;
   var observers = [];
   var listenersInstalled = false;
+  var visibilityDomReadyScheduled = false;
   var cookieName = 'cadu_stg_' + siteId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
 
   function readCookie(name) {
@@ -110,6 +111,16 @@
     if (!config || !config.visibility_enabled || !('IntersectionObserver' in window)) return;
     observers.forEach(function (observer) { observer.disconnect(); });
     observers = [];
+    if (document.readyState === 'loading') {
+      if (!visibilityDomReadyScheduled) {
+        visibilityDomReadyScheduled = true;
+        document.addEventListener('DOMContentLoaded', function () {
+          visibilityDomReadyScheduled = false;
+          if (started && consented) observeMarkedElements();
+        }, {once: true});
+      }
+      return;
+    }
     var nodes = document.querySelectorAll('[data-cadu-track]');
     if (!nodes.length) return;
     var observer = new IntersectionObserver(function (entries) {
@@ -174,7 +185,7 @@
       if (window.navigation && window.navigation.addEventListener) {
         window.navigation.addEventListener('navigatesuccess', trackPage);
       }
-      window.addEventListener('pagehide', function () { flush(true); }, {once: true});
+      window.addEventListener('pagehide', function () { flush(true); });
     }
     flushTimer = window.setInterval(function () { flush(false); }, 5000);
     observeMarkedElements();
@@ -189,6 +200,7 @@
       lastPath = '';
       visitorId = null;
       sessionId = null;
+      try { sessionStorage.removeItem(cookieName + '_session'); } catch (_) { /* Storage may be blocked. */ }
       if (flushTimer) window.clearInterval(flushTimer);
       flushTimer = 0;
       observers.forEach(function (observer) { observer.disconnect(); });

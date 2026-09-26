@@ -190,11 +190,9 @@ def register_product_host_routing(app) -> None:
 
     def planner_page(module=None):
         planner_host_only()
-        if module == 'audiencias' and 'planner_marketplace.audiences' in app.view_functions:
-            return app.view_functions['planner_marketplace.audiences']()
         return app.view_functions['cadu_family.page']('planner', module)
 
-    for planner_module in ('planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'docs', 'links'):
+    for planner_module in ('planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'docs'):
         app.add_url_rule(f'/{planner_module}', endpoint=f'planner_host_{planner_module}',
                          view_func=lambda module=planner_module: planner_page(module), methods=['GET'])
 
@@ -211,15 +209,16 @@ def register_product_host_routing(app) -> None:
     @app.get('/audiencias/<int:audience_id>')
     def planner_host_audience_detail(audience_id):
         planner_host_only()
-        if 'planner_marketplace.audience_detail' in app.view_functions:
-            return app.view_functions['planner_marketplace.audience_detail'](audience_id)
-        return app.view_functions['cadu_family.planner_audience_detail'](audience_id)
+        return app.view_functions['cadu_family.planner_catalog_detail_page']('audiencias', audience_id)
+
+    @app.get('/places/<slug>')
+    def planner_host_place_detail(slug):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_place_detail_page'](slug)
 
     @app.get('/<kind>/<int:item_id>')
     def planner_host_catalog_detail(kind, item_id):
         planner_host_only()
-        if kind == 'canais' and 'planner_marketplace.channel_detail' in app.view_functions:
-            return app.view_functions['planner_marketplace.channel_detail'](item_id)
         return app.view_functions['cadu_family.planner_catalog_detail_page'](kind, item_id)
 
     @app.get('/docs/public/<token>')

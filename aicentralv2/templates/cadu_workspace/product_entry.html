@@ -2,18 +2,7 @@
 {% block title %}{{ entry.name }} — Cadu{% endblock %}
 {% block product_id %}{{ product }}{% endblock %}
 {% block meta %}<link rel="canonical" href="{{ canonical }}"><link rel="icon" type="image/png" href="{{ url_for('cadu_maintenance_product_icon', family=entry.icon_family, size=32) }}">{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v={{ cadu_workspace_asset_version }}">{% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-hero.css') }}?v={{ cadu_workspace_asset_version }}">{% endif %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
 {% block content %}
-{% if product == 'planner' %}
-<section class="planner-public-hero" aria-labelledby="planner-public-title">
-  <div class="planner-public-copy">
-    <p>{{ entry.eyebrow }}</p><h1 id="planner-public-title">{{ entry.title }}</h1><p>{{ entry.description }}</p>
-    <a class="portal-primary" href="{{ product_url(product) if session.get('user_id') else product_url('auth', '/login') ~ '?next=' ~ product_url(product)|urlencode }}">{{ 'Abrir ' ~ entry.name if session.get('user_id') else 'Entrar em ' ~ entry.name }}</a>
-    <small>{{ 'Retome seus planos e continue o trabalho.' if session.get('user_id') else 'Entre com sua conta para criar e organizar seus planos.' }}</small>
-  </div>
-  <img src="{{ url_for('static', filename='images/planner/planner-entry-hero-v2.png') }}" alt="" fetchpriority="high">
-</section>
-{% else %}
 <section class="product-entry"><div><p>{{ entry.eyebrow }}</p><h1>{{ entry.title }}</h1><p>{{ entry.description }}</p></div><div class="product-entry-side"><img class="product-entry-team" src="{{ url_for('static', filename='images/cadu/workspace-team.svg') }}" alt="Pessoas colaborando no trabalho"><aside class="product-entry-account"><img src="{{ url_for('cadu_maintenance_product_icon', family=entry.icon_family, size=48) }}" alt=""><span>Sua conta</span><h2>{{ 'Abrir ' ~ entry.name if session.get('user_id') else 'Entrar para continuar' }}</h2><p>{% if session.get('user_id') %}Você já está com a conta ativa. Abra o ambiente e retome seu trabalho.{% else %}O acesso segue para a tela de login com {{ entry.name }} como destino.{% endif %}</p><a class="portal-primary" href="{{ product_url(product) if session.get('user_id') else product_url('auth', '/login') ~ '?next=' ~ product_url(product)|urlencode }}">{{ 'Abrir ' ~ entry.name if session.get('user_id') else 'Entrar em ' ~ entry.name }}</a><small>Uma conta compartilhada pelo seu time.</small></aside></div></section>
-{% endif %}
 {% endblock %}

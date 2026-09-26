@@ -27,7 +27,7 @@ from psycopg.types.json import Json
 
 from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect, render_template, request, send_file, session, url_for
 
-from ..auth import login_required
+from ..auth import login_required, login_url
 from ..cadu_family import repository as family_repository
 from ..cadu_connect.repository import accounts_for_workspace_context
 from ..cadu_credit_connector import CaduCreditConnector
@@ -4929,6 +4929,8 @@ def product_entry(product):
         abort(404)
     entry = dict(zip(("name", "eyebrow", "title", "description"), item))
     entry["icon_family"] = "workspace" if product == "cadu" else product
+    if product == 'planner':
+        return redirect(product_url('planner', '/'), code=302)
     # A página pública do Cadu também mora no Workspace: o domínio cadu.* é a
     # aplicação PHP autenticada e não deve receber links para uma rota Flask.
     entry_host = "workspace" if product == "cadu" else product
@@ -8067,7 +8069,7 @@ def merge_project(project_id):
                           'cadu_workspace_ingestion_sessions', 'cadu_project_resource_clusters',
                           'cadu_project_index_jobs', 'cadu_workspace_external_references',
                           'google_workspace_resource_links', 'cadu_user_memories',
-                          'cadu_working_memories', 'cadu_planner_link_test_runs',
+                          'cadu_working_memories', 'cadu_reports_link_test_runs',
                           'cadu_connect_report_workspaces'):
                 if not table_exists(table):
                     continue

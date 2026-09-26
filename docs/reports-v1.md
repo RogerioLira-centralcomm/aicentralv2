@@ -11,9 +11,9 @@
 | Campanhas | `cadu_reports_campaigns` | Conferir e cadastrar campanhas |
 | Funnel Flow | Tag em páginas do domínio autorizado e webhook do CRM | Mapear etapas, passagem entre páginas e conversões confirmadas |
 | Relatórios | Biblioteca existente, agora com `project_ref` opcional | Criar relatório independente ou associado a campanha |
-| Link Tester | Histórico existente do Planner | Analisar URL e sugerir campanha via TypeSafe |
-| Monitoramentos | Chaves e lotes do Google Ads Script | Gerar um script por cliente e instalá-lo na conta ou MCC |
-| Importações (P2) | Exportações e prints de qualquer plataforma | Interpretar, identificar contas/campanhas e acumular dados revisáveis sem conexão direta |
+| Link Tester | Serviço e histórico do Reports, migrados sem cópia dos registros antigos | Analisar URL, revisar mensuração e sugerir associação de campanha via TypeSafe |
+| Integrações | Chaves e lotes do Google Ads Script e webhook do CRM | Gerar credenciais por cliente e instalar na conta ou MCC |
+| Importações | Exportações e prints de qualquer plataforma | Identificar contas/campanhas e acumular dados revisáveis sem conexão direta |
 
 ## Instalação do Google Ads Script
 

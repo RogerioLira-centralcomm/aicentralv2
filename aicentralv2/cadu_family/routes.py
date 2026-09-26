@@ -4,9 +4,10 @@ import secrets
 from uuid import UUID
 from urllib.parse import urlencode
 
-from flask import Blueprint, Response, abort, current_app, jsonify, make_response, redirect, render_template, request, session, stream_with_context
+from flask import Blueprint, Response, abort, current_app, jsonify, make_response, redirect, render_template, request, session, stream_with_context, url_for
 from werkzeug.exceptions import HTTPException
 from urllib.parse import urlparse
+import click
 
 from ..auth import login_url
 from ..cadu_tool_billing import InsufficientToolCredits
@@ -28,6 +29,23 @@ bp.cli.add_command(memory_worker_command)
 bp.cli.add_command(memory_worker_loop_command)
 
 
+@bp.cli.command('crawl-planner-portals')
+@click.option('--limit', default=10, type=click.IntRange(1, 50), help='Máximo de domínios por execução.')
+def crawl_planner_portals_command(limit):
+    """Crawl public metadata for already curated portal domains, subject to robots.txt."""
+    from time import sleep
+    from ..cadu_planner import portals
+    from . import repository
+    domains = repository.rows('''SELECT domain FROM cadu_planner_portals
+                                  WHERE active = TRUE ORDER BY last_crawled_at NULLS FIRST LIMIT %s''', (limit,))
+    for index, item in enumerate(domains):
+        result = portals.crawl_public_metadata(item['domain'])
+        saved = portals.save_crawl_result(result) if result.get('status') == 'ok' else False
+        click.echo(f"{item['domain']}: {result.get('status')}" + (' (updated)' if saved else ''))
+        if index < len(domains) - 1:
+            sleep(1.5)
+
+
 def planner_url(path='', **query):
     """Build clean, product-owned Planner URLs for templates and shares."""
     target = product_url('planner', '/' + str(path or '').lstrip('/'))
@@ -37,7 +55,7 @@ def planner_url(path='', **query):
 
 def marketplace_facets(product, module):
     """Optional catalog filters must not make an otherwise valid page fail."""
-    if product != 'planner' or module not in {'audiencias', 'canais', 'formatos', 'interativos', 'places'}:
+    if product != 'planner' or module not in {'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais'}:
         return {'categories': [], 'platforms': [], 'types': [], 'segments': [], 'cities': []}
     try:
         if module == 'audiencias':
@@ -47,6 +65,9 @@ def marketplace_facets(product, module):
         if module == 'places':
             from ..cadu_planner.places import catalog_facets
             return {**catalog_facets(), 'platforms': [], 'types': [], 'segments': []}
+        if module == 'portais':
+            from ..cadu_planner.portals import catalog_facets
+            return {**catalog_facets(), 'platforms': [], 'types': [], 'segments': [], 'cities': []}
         return repository.format_catalog_facets(module == 'interativos')
     except Exception:
         current_app.logger.warning('Filtros do catálogo indisponíveis; exibindo catálogo sem filtros.')
@@ -490,7 +511,17 @@ def planner_catalog(kind):
     from ..cadu_planner import catalog
     context.identity()
     context.resolve()
-    return jsonify(kind=kind, records=catalog.query(kind, request.args.get('q', ''), request.args.get('limit', 20)))
+    if kind in {'audiencias', 'canais', 'formatos', 'interativos'}:
+        return jsonify(kind=kind, records=repository.catalog(
+            kind, request.args.get('q', ''), category=request.args.get('category', ''),
+            platform=request.args.get('platform', ''), sort=request.args.get('sort', 'relevant'),
+            format_type=request.args.get('type', ''), segment=request.args.get('segment', '')))
+    if kind == 'portais':
+        from ..cadu_planner import portals
+        return jsonify(portals.catalog(request.args.get('q', ''), request.args.get('category', ''),
+                                       request.args.get('sort', 'featured'), request.args.get('limit', 100),
+                                       request.args.get('offset', 0)))
+    return jsonify(kind=kind, records=catalog.query(kind, request.args.get('q', ''), request.args.get('limit', 100)))
 
 
 @bp.get('/api/planner/catalog/<kind>/<item_id>')
@@ -522,7 +553,8 @@ def planner_places():
     from ..cadu_planner import places
     context.identity()
     context.resolve()
-    return jsonify(records=places.catalog(request.args.get('q', '')))
+    return jsonify(records=places.catalog(request.args.get('q', ''), category=request.args.get('category', ''),
+                                          city=request.args.get('city', '')))
 
 
 @bp.get('/api/planner/places/<slug>')
@@ -531,6 +563,25 @@ def planner_place_detail(slug):
     context.identity()
     context.resolve()
     return jsonify(record=places.detail(slug))
+
+
+@bp.get('/api/planner/portals')
+def planner_portals():
+    from ..cadu_planner import portals
+    context.identity()
+    context.resolve()
+    result = portals.catalog(request.args.get('q', ''), request.args.get('category', ''),
+                             request.args.get('sort', 'featured'), request.args.get('limit', 50),
+                             request.args.get('offset', 0))
+    return jsonify(result)
+
+
+@bp.get('/api/planner/portals/<int:portal_id>')
+def planner_portal_detail(portal_id):
+    from ..cadu_planner import portals
+    context.identity()
+    context.resolve()
+    return jsonify(record=portals.detail(portal_id))
 
 
 @bp.get('/api/planner/selections')
@@ -643,21 +694,21 @@ def planner_selection_toggle():
 
 @bp.post('/api/planner/link-tester')
 def planner_link_test():
-    from ..cadu_planner import link_tester
+    from ..cadu_connect import reports_link_tester as link_tester
     user, selected = context.identity(), context.resolve()
     return jsonify(result=link_tester.test(request.get_json(silent=True) or {}, selected['client_id'], user['id']))
 
 
 @bp.get('/api/planner/link-tester/history')
 def planner_link_test_history():
-    from ..cadu_planner import link_tester
+    from ..cadu_connect import reports_link_tester as link_tester
     selected = context.resolve()
     return jsonify(runs=link_tester.history(selected['client_id']))
 
 
 @bp.get('/api/planner/link-tester/<run_id>')
 def planner_link_test_detail(run_id):
-    from ..cadu_planner import link_tester
+    from ..cadu_connect import reports_link_tester as link_tester
     selected = context.resolve()
     report = link_tester.detail(selected['client_id'], run_id)
     if not report:
@@ -667,11 +718,7 @@ def planner_link_test_detail(run_id):
 
 @bp.get('/public/link-tester/<token>')
 def public_link_test(token):
-    from ..cadu_planner import link_tester
-    report = link_tester.public_result(token)
-    if not report:
-        abort(404)
-    return render_template('cadu_planner/public_link_test.html', report=report)
+    return redirect(url_for('cadu_connect.reports_v1_public_link_test', token=token), code=302)
 
 
 @bp.get('/api/planner/docs')
@@ -742,10 +789,14 @@ def planner_doc_share(doc_id):
 @bp.get('/planner/docs/public/<token>')
 def planner_doc_public(token):
     from ..cadu_planner import docs
-    # Documents originate in a legacy HTML editor. The sanitizer removes active
-    # content and this sandbox is a second boundary for every public share.
-    response = make_response(render_template('cadu_planner/public_doc.html', document=docs.public_document(token)))
-    response.headers['Content-Security-Policy'] = "sandbox; default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; font-src https: data:"
+    document = docs.public_document(token)
+    response = make_response(render_template('cadu_planner/react.html', document=document,
+        product='planner', spec=PRODUCTS['planner'], module='docs', title=document.get('title') or 'Documento',
+        products=PRODUCTS, landing=LANDINGS['planner'], user=None, selected=None,
+        clients=[], entities=[], records=[], csrf='', planner_view='public-doc',
+        marketplace_facets={'categories': []}, cadu_family_writes_enabled=False,
+        login_url=login_url(), product_url=product_url, planner_url=planner_url))
+    response.headers['Content-Security-Policy'] = "sandbox; default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; font-src https: data:"
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
 
@@ -761,7 +812,7 @@ def planner_audience_detail(audience_id):
     audience = catalog.detail('audiencias', audience_id)
     similar_audiences = catalog.related_audiences(audience)
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/family/audience_detail_page.html',
+    return render_template('cadu_planner/react.html',
         product='planner', spec=PRODUCTS['planner'], module='audiencias', title=audience['name'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
         clients=context.authorized_clients(), entities=[], records=[],
@@ -778,7 +829,7 @@ def planner_plan_media_desk(plan_id):
     selected = context.resolve()
     plan = plans.get_plan(selected['client_id'], user['id'], plan_id)
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/family/plan_detail_page.html',
+    return render_template('cadu_planner/react.html',
         product='planner', spec=PRODUCTS['planner'], module='planos', title=plan['title'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
         clients=context.authorized_clients(), entities=[], records=[],
@@ -791,7 +842,7 @@ def planner_plan_media_desk(plan_id):
 def planner_public_plan(token):
     from ..cadu_planner import plans
     plan = plans.public_plan(token)
-    return render_template('cadu_planner/family/public_plan.html',
+    return render_template('cadu_planner/react.html',
         product='planner', spec=PRODUCTS['planner'], module='planos', title=plan['title'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=None, selected=None,
         clients=[], entities=[], records=[], plan=plan, profile=PROFILES['planner'], csrf='',
@@ -801,18 +852,21 @@ def planner_public_plan(token):
 
 @bp.get('/planner/<kind>/<int:item_id>')
 def planner_catalog_detail_page(kind, item_id):
-    if kind not in {'canais', 'formatos', 'interativos'}:
+    if kind not in {'audiencias', 'canais', 'formatos', 'interativos', 'portais'}:
         abort(404)
     if not session.get('user_id'):
         return redirect(workspace_public_url(), code=302)
-    from ..cadu_planner import catalog
     user = context.identity()
     selected = context.resolve()
-    record = catalog.detail(kind, item_id)
-    labels = {'canais': 'Canal', 'formatos': 'Formato', 'interativos': 'Formato interativo'}
+    if kind == 'portais':
+        from ..cadu_planner import portals
+        record = portals.detail(item_id)
+    else:
+        from ..cadu_planner import catalog
+        record = catalog.detail(kind, item_id)
+    labels = {'canais': 'Canal', 'formatos': 'Formato', 'interativos': 'Formato interativo', 'portais': 'Portal'}
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    template = 'cadu_planner/family/format_detail_page.html' if kind in {'formatos', 'interativos'} else 'cadu_planner/family/catalog_detail_page.html'
-    return render_template(template,
+    return render_template('cadu_planner/react.html',
         product='planner', spec=PRODUCTS['planner'], module=kind, title=record['name'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
         clients=context.authorized_clients(), entities=[], records=[],
@@ -830,7 +884,7 @@ def planner_place_detail_page(slug):
     selected = context.resolve()
     record = places.detail(slug)
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/family/place_detail_page.html',
+    return render_template('cadu_planner/react.html',
         product='planner', spec=PRODUCTS['planner'], module='places', title=record['name'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
         clients=context.authorized_clients(), entities=[], records=[], record=record,
@@ -1104,13 +1158,21 @@ def page(product, module=None):
         if request.query_string:
             target = f"{target}?{request.query_string.decode('utf-8')}"
         return redirect(target, code=302)
+    if product == 'planner':
+        if not session.get('user_id'):
+            return redirect(workspace_public_url(), code=302)
+        return _planner_react_page(module)
     # The product family no longer maintains separate guest landing pages.
     # Unauthenticated visitors start with the shared Workspace context page;
     # public shares have dedicated routes above and do not pass through here.
     if not session.get('user_id'):
         return redirect(workspace_public_url(), code=302)
-    if product == 'planner' and module == 'links':
-        return redirect(product_url('connect', '/connect/app#links'), code=302)
+    if (product, module) == ('studio', 'link-tester'):
+        target = url_for('cadu_connect.reports_v1_app')
+        if request.query_string:
+            target = f"{target}?{request.query_string.decode('utf-8')}"
+        target += '#links'
+        return redirect(target, code=302)
     spec = PRODUCTS[product]
     module = module or next(iter(spec['modules']))
     if module not in spec['modules']:
@@ -1140,3 +1202,24 @@ def page(product, module=None):
         entities=entities, records=records, profile=PROFILES.get(product), csrf=token,
         legacy_url=legacy_url, login_url=login_url(), product_url=product_url, planner_url=planner_url,
         planner_view='page', marketplace_facets=marketplace_facets(product, module))
+
+
+def _planner_react_page(module=None):
+    """Render every Planner route through the single React application."""
+    spec = PRODUCTS['planner']
+    module = module or next(iter(spec['modules']))
+    if module not in spec['modules']:
+        abort(404)
+    title, _legacy = spec['modules'][module]
+    user = context.identity()
+    selected = context.resolve()
+    records = product_pages.load_records('planner', module, user, selected,
+                                         request.args.get('q', ''), request.args)
+    planner_view = 'page'
+    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
+    return render_template('cadu_planner/react.html', product='planner', spec=spec,
+        module=module, title=title, products=PRODUCTS, landing=LANDINGS['planner'],
+        user=user, selected=selected, clients=context.authorized_clients(), entities=[],
+        records=records, profile=PROFILES['planner'], csrf=token, legacy_url=None,
+        login_url=login_url(), product_url=product_url, planner_url=planner_url,
+        planner_view=planner_view, marketplace_facets=marketplace_facets('planner', module))

@@ -22,6 +22,7 @@ from ..artifacts.service import content_markdown, list_artifacts
 from . import provider
 from .context_resolver import resolve_context
 from .executor import prepare_execution
+from .router import _explicit_artifact_creation_refusal
 from .evidence import read_status
 from .daily_workflows import WORKFLOWS
 from .guardrails import normalize_response
@@ -78,6 +79,28 @@ def _revision_summary(before, after):
     keys = [key for key in dict.fromkeys([*(before or {}), *(after or {})])
             if key not in {"title", "_provenance"} and (before or {}).get(key) != (after or {}).get(key)]
     return "Campos revisados: " + ", ".join(keys[:5]) if keys else "Título atualizado"
+
+
+def _plugin_execution_succeeded(plugin, route, tool_calls) -> bool:
+    """Show the success badge only after the selected plugin chain completes."""
+    plugin = plugin if isinstance(plugin, dict) else {}
+    route = route if isinstance(route, dict) else {}
+    completion_tools = set(plugin.get("completion_tools") or ())
+    completed_tools = {
+        call.get("name") for call in tool_calls or ()
+        if isinstance(call, dict) and call.get("status") == "completed"
+    }
+    plugin_id = plugin.get("id")
+    # These workflows can validly produce useful work from pasted page content,
+    # an agenda request, or supplied delivery status without a data connector.
+    can_run_without_tools = plugin_id in WORKFLOWS and (
+        not WORKFLOWS[plugin_id][3]
+        or plugin_id in {"page-review", "meeting-copilot", "client-delivery"}
+    )
+    editorial_workflow = (
+        can_run_without_tools and route.get("action") == "run_plugin" and not completion_tools
+    )
+    return editorial_workflow or bool(completion_tools and completion_tools <= completed_tools)
 
 
 def _revision_target(message, context, previous_messages):
@@ -206,7 +229,7 @@ def _repair_project_context_denial(response, run) -> bool:
     plugin = plugin if isinstance(plugin, dict) else {}
     action = route.get("action")
     project_read_route = (
-        action in {"describe_project", "project_readout", "search_project"}
+        action in {"describe_project", "project_inventory", "project_readout", "search_project"}
         or (action == "run_plugin" and plugin.get("id") == "project-search")
     ) and not route.get("artifact_type")
     if not project_read_route or not _PROJECT_CONTEXT_DENIAL.search(response.answer or ""):
@@ -353,7 +376,9 @@ def _html_failure_code(response, finish_reason=""):
 def _materialize_long_answer(response, run):
     """Move a long unrequested answer into an editable session document."""
     route = run.get("route") or {}
-    if route.get("artifact_type") or response.artifact_patch or response.questions or response.actions:
+    if (route.get("action") == "project_inventory"
+            or _explicit_artifact_creation_refusal(str(run.get("message") or ""))
+            or route.get("artifact_type") or response.artifact_patch or response.questions or response.actions):
         return None
     answer = str(response.answer or "").strip()
     if len(answer) < 3600 and len(answer.split()) < 520:
@@ -1342,7 +1367,7 @@ def stream(run):
                 answer_chunks.append(str(item["answer"]))
                 visible_answer = _streamable_answer("".join(answer_chunks))
                 if (run["route"].get("action") not in WORKSPACE_ONLY_ACTIONS
-                        and run["route"].get("action") != "describe_project"
+                        and run["route"].get("action") not in {"describe_project", "project_inventory"}
                         and not run["route"].get("artifact_type")
                         and visible_answer and visible_answer != streamed_answer):
                     streamed_answer = visible_answer
@@ -1416,13 +1441,7 @@ def stream(run):
                                    "url": str(item.get("locator") or "")}
                                   for item in artifacts[:12]],
                     })
-            plugin_tools = set(plugin.get("internal_tools") or ())
-            completed_tools = {call.get("name") for call in run["resolved_context"].tool_calls
-                               if call.get("status") == "completed"}
-            editorial_workflow = (plugin and plugin.get("id") in WORKFLOWS
-                                  and run["route"].get("action") == "run_plugin"
-                                  and not run["route"].get("needs_tools"))
-            if plugin and (plugin_tools.intersection(completed_tools) or editorial_workflow):
+            if _plugin_execution_succeeded(plugin, run["route"], run["resolved_context"].tool_calls):
                 response.plugin = {"id": str(plugin.get("id") or ""),
                                    "name": str(plugin.get("name") or "Plugin Cadu"),
                                    "version": str(plugin.get("version") or "")}

@@ -11,6 +11,8 @@ from aicentralv2.cadu_workspace.agent_v2.response_policy import (
 )
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.executor import briefing_readiness, prepare_execution
+from aicentralv2.cadu_workspace.agent_v2 import executor as agent_executor
+from aicentralv2.cadu_workspace.agent_v2.context_resolver import ResolvedContext
 from aicentralv2.cadu_workspace.agent_v2 import action_executor
 from aicentralv2.cadu_workspace.agent_v2.action_executor import _completion
 from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan, studio_capability_arguments
@@ -1125,13 +1127,20 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     )}
     assert {
         "planner.list_plans", "planner.search_catalog", "planner.get_brief", "planner.get_media_plan",
-        "planner.list_link_tests", "planner.get_link_test",
     } <= planner_names
+    reports_names = {item["name"] for item in catalog.list(
+        context(capabilities=("reports",)), "customer_agent",
+    )}
+    assert {"reports.list_link_tests", "reports.get_link_test"} <= reports_names
     internal_planner_names = {item["name"] for item in catalog.list(
         context(capabilities=("planner",)), "internal",
     )}
-    assert "planner.link_test" in internal_planner_names
-    assert "planner.link_test" not in planner_names
+    assert "planner.link_test" not in internal_planner_names
+    internal_reports_names = {item["name"] for item in catalog.list(
+        context(capabilities=("reports",)), "internal",
+    )}
+    assert "reports.link_test" in internal_reports_names
+    assert "reports.link_test" not in reports_names
     internal_names = {item["name"] for item in catalog.list(
         context(capabilities=("workspace", "artifacts")), "internal",
     )}
@@ -1156,10 +1165,10 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "brand_id": 81,
         }, context(), "internal")
     with pytest.raises(ToolInputError):
-        catalog.execute("planner.link_test", {
+        catalog.execute("reports.link_test", {
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
             "confirmed": False, "url": "https://example.com", "mode": "destination",
-        }, context(capabilities=("planner",)), "internal")
+        }, context(capabilities=("reports",)), "internal")
 
 
 def test_link_reference_mcp_contract_forwards_structured_meeting_metadata(monkeypatch):
@@ -1194,8 +1203,8 @@ def test_link_reference_mcp_contract_forwards_structured_meeting_metadata(monkey
     assert captured["origin"] == "mcp"
 
 
-def test_planner_link_test_is_idempotent_and_hides_share_token(monkeypatch):
-    from aicentralv2.cadu_workspace.mcp.tools import planner
+def test_reports_link_test_is_idempotent_and_hides_share_token(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import reports
 
     captured = {}
 
@@ -1203,17 +1212,17 @@ def test_planner_link_test_is_idempotent_and_hides_share_token(monkeypatch):
         captured.update(request_id=request_id, current=current, tool_name=tool_name, payload=payload)
         return operation()
 
-    monkeypatch.setattr(planner.operations, "execute", execute)
-    monkeypatch.setattr(planner.link_tester, "test", lambda *_, **__: {
+    monkeypatch.setattr(reports.operations, "execute", execute)
+    monkeypatch.setattr(reports.link_tester, "test", lambda *_, **__: {
         "run_id": "run-1", "public_token": "must-not-reach-agent", "score": 91,
     })
-    result = load_builtin_tools().execute("planner.link_test", {
+    result = load_builtin_tools().execute("reports.link_test", {
         "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
         "confirmed": True, "url": "https://example.com", "mode": "destination",
-    }, context(capabilities=("planner",)), "internal")
+    }, context(capabilities=("reports",)), "internal")
 
     assert result == {"run_id": "run-1", "score": 91}
-    assert captured["tool_name"] == "planner.link_test"
+    assert captured["tool_name"] == "reports.link_test"
     assert captured["payload"] == {"url": "https://example.com", "mode": "destination"}
 
 
@@ -1236,7 +1245,7 @@ def test_mcp_operation_reuses_completed_result_without_running_again(monkeypatch
     monkeypatch.setattr(operations, "get_db", lambda: Connection())
     called = []
     result = operations.execute(
-        "be777b36-a973-419c-802a-886bf1d125b0", context(), "planner.link_test", {"value": 1},
+        "be777b36-a973-419c-802a-886bf1d125b0", context(), "reports.link_test", {"value": 1},
         lambda: called.append(True),
     )
 
@@ -2089,6 +2098,71 @@ def test_project_information_question_from_real_conversation_searches_project():
     assert route.needs_tools == ("workspace.search_project_content",)
 
 
+def test_project_inventory_with_no_write_instruction_stays_read_only_and_searches(monkeypatch):
+    message = (
+        "O que está salvo no projeto Media Hacks? Consulte o contexto, os recursos e a busca do projeto. "
+        "Separe: descrição salva; arquivos e fontes indexadas; referências do projeto; histórico relevante. "
+        "Indique o que foi lido e o que é apenas metadado. Não crie documento nem altere o projeto."
+    )
+
+    route = route_request(message, has_project=True)
+
+    assert route.action == "project_inventory"
+    assert route.response_mode == "analysis"
+    assert route.artifact_type is None
+    assert route.requires_confirmation is False
+    assert route.needs_tools == ("workspace.search_project_content",)
+    assert policy_for(route)["max_questions"] == 0
+
+    observed = {}
+
+    def resolve_project_evidence(route, request, query, registry, execution_mode, **kwargs):
+        observed["route"] = route
+        observed["query"] = query
+        return ResolvedContext(values={
+            "current_context": request.to_dict(),
+            "workspace.search_project_content": {
+                "context_status": "available",
+                "project": {"nome": "Media Hacks", "descricao": "Treinamento de imersão de mídia."},
+                "results": [],
+                "source_inventory": {"total": 1, "indexed": 0},
+            },
+        }, tool_calls=[{"name": "workspace.search_project_content", "status": "completed"}])
+
+    monkeypatch.setattr(agent_executor, "resolve_context", resolve_project_evidence)
+    execution = prepare_execution(message, context(project_ref="ci:media-hacks"))
+
+    assert "workspace.search_project_content" in observed["route"].needs_tools
+    assert execution["route"]["action"] == "project_inventory"
+    assert "workspace.search_project_content" in execution["route"]["needs_tools"]
+    assert execution["resolved_context"].tool_calls[0]["status"] == "completed"
+    assert execution["provider_payload"]["inputs"]["evidence"]
+    assert "consulta de inventário somente leitura" in execution["provider_payload"]["inputs"]["core"]
+    assert "Não crie, altere ou salve artefatos" in execution["provider_payload"]["inputs"]["core"]
+
+    long_answer = AgentResponse(answer="Inventário do projeto. " * 300)
+    assert v2_service._materialize_long_answer(long_answer, {
+        "message": message, "route": execution["route"],
+    }) is None
+    assert long_answer.artifact_patch is None
+
+
+@pytest.mark.parametrize(("message", "expected_action", "expected_tool"), [
+    ("O que está salvo no projeto Media Hacks? Não crie documento.",
+     "project_inventory", "workspace.search_project_content"),
+    ("O que você sabe sobre esse projeto? Não altere o projeto.",
+     "describe_project", "workspace.search_project_content"),
+    ("Quais fontes e referências existem no projeto? Não modifique nada.",
+     "list_project_resources", "projects.list_sources"),
+])
+def test_read_only_project_questions_do_not_become_project_mutations(message, expected_action, expected_tool):
+    route = route_request(message, has_project=True)
+
+    assert route.action == expected_action
+    assert route.artifact_type is None
+    assert route.needs_tools == (expected_tool,)
+
+
 @pytest.mark.parametrize("message", [
     "Me explica um pouco mais sobre o que que esse projeto faz",
     "Qual é a desse projeto?",
@@ -2118,9 +2192,10 @@ def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
     assert "Seja proativo" in payload["inputs"]["core"]
 
 
-def test_saved_project_context_repairs_false_provider_denial():
+@pytest.mark.parametrize("action", ["describe_project", "project_inventory"])
+def test_saved_project_context_repairs_false_provider_denial(action):
     response = AgentResponse(answer="Não tenho contexto suficiente sobre o projeto nesta conversa.")
-    run = {"route": {"action": "describe_project"}, "resolved_context": SimpleNamespace(values={
+    run = {"route": {"action": action}, "resolved_context": SimpleNamespace(values={
         "workspace.search_project_content": {
             "context_status": "available",
             "project": {"nome": "Orienta 2026", "descricao": "Portal para microempresas mineiras"},
@@ -2236,7 +2311,7 @@ def test_link_test_route_creates_a_sealed_confirmation_step():
 
     assert route.action == "link_test"
     assert route.requires_confirmation is True
-    assert action["name"] == "planner.link_test"
+    assert action["name"] == "reports.link_test"
     assert action["arguments"] == {
         "url": "https://example.com/landing?utm_source=cadu", "mode": "media",
     }
@@ -2257,16 +2332,16 @@ def test_approved_action_executes_only_the_sealed_tool_and_arguments(monkeypatch
     monkeypatch.setattr(action_executor, "load_builtin_tools", lambda: Registry())
     current = context(capabilities=("planner",))
     receipt = action_executor.execute({
-        "kind": "action", "status": "running", "name": "planner.link_test",
+        "kind": "action", "status": "running", "name": "reports.link_test",
         "input_snapshot": {
-            "kind": "action", "name": "planner.link_test",
+            "kind": "action", "name": "reports.link_test",
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
             "arguments": {"url": "https://example.com", "mode": "destination"},
         },
     }, current)
 
     assert captured == {
-        "name": "planner.link_test",
+        "name": "reports.link_test",
         "arguments": {
             "url": "https://example.com", "mode": "destination",
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "confirmed": True,

@@ -48,7 +48,7 @@ def policy_for(route: IntentRoute) -> dict:
     if route.action == "create_newsletter":
         policy.update({"max_questions": 0, "max_next_steps": 0, "max_answer_chars": 12000,
                        "newsletter_research": True})
-    if route.action == "describe_project":
+    if route.action in {"describe_project", "project_inventory"}:
         policy.update({"max_questions": 0, "max_next_steps": 0})
     return policy
 

@@ -255,12 +255,12 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                     "icon": public_link_icon(row.get("icon_metadata"))}, created_by=row.get("criado_por"),
                 source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at")))
 
-    if _relation(cursor, "cadu_planner_link_test_runs"):
-        columns = _columns(cursor, "cadu_planner_link_test_runs")
+    if _relation(cursor, "cadu_reports_link_test_runs"):
+        columns = _columns(cursor, "cadu_reports_link_test_runs")
         if "project_ref" in columns:
             cursor.execute("""SELECT id::text AS id, mode, original_url, final_url, score,
                                       status_label, created_by, created_at
-                                 FROM cadu_planner_link_test_runs
+                                 FROM cadu_reports_link_test_runs
                                 WHERE client_id=%s AND project_ref=%s""", (client_id, project_ref))
             for row in cursor.fetchall():
                 records.append(_record(

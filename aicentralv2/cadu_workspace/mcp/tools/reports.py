@@ -1,9 +1,76 @@
 """Read-only tools for manually imported and human-reviewed Reports data."""
 
 from ....cadu_family import repository
+from ....cadu_connect import reports_link_tester as link_tester
 from ....cadu_planner import plans
 from ...agent_v2.contracts import RequestContext
-from ..registry import ToolInputError, register_tool
+from .. import operations
+from ..registry import ToolError, ToolInputError, register_tool
+from werkzeug.exceptions import HTTPException
+
+
+def _link_domain(call):
+    try:
+        return call()
+    except HTTPException as exc:
+        error = ToolError(str(exc.description))
+        error.code = "link_test_failed"
+        raise error from exc
+
+
+def _private_link_result(result):
+    """Keep share credentials outside agent-visible evidence."""
+    if isinstance(result, list):
+        return [_private_link_result(item) for item in result]
+    if not isinstance(result, dict):
+        return result
+    return {key: value for key, value in result.items() if key != "public_token"}
+
+
+@register_tool(
+    name="reports.link_test", capability="reports", effect="write",
+    description="Executa um diagnóstico de destino, mensuração ou presença para agentes de IA após confirmação.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "url", "mode"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "url": {"type": "string", "minLength": 3, "maxLength": 2048},
+        "mode": {"type": "string", "enum": sorted(link_tester.MODES)},
+    }, "additionalProperties": False},
+)
+def run_link_test(context: RequestContext, arguments: dict) -> dict:
+    payload = {"url": arguments["url"], "mode": arguments["mode"]}
+    return _link_domain(lambda: operations.execute(
+        arguments["request_id"], context, "reports.link_test", payload,
+        lambda: _private_link_result(link_tester.test(payload, context.client_id, context.user_id)),
+    ))
+
+
+@register_tool(
+    name="reports.list_link_tests", capability="reports", effect="read",
+    description="Lista diagnósticos recentes do Link Tester no cliente selecionado.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {
+        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+    }, "additionalProperties": False},
+)
+def list_link_tests(context: RequestContext, arguments: dict) -> dict:
+    return {"runs": _private_link_result(link_tester.history(context.client_id, arguments.get("limit", 18)))}
+
+
+@register_tool(
+    name="reports.get_link_test", capability="reports", effect="read",
+    description="Obtém um diagnóstico persistido do Link Tester pelo identificador.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["run_id"], "properties": {
+        "run_id": {"type": "string", "minLength": 36, "maxLength": 36},
+    }, "additionalProperties": False},
+)
+def get_link_test(context: RequestContext, arguments: dict) -> dict:
+    run = link_tester.detail(context.client_id, arguments["run_id"])
+    if not run:
+        raise ToolInputError("Diagnóstico indisponível neste contexto.")
+    return {"run": _private_link_result(run)}
 
 
 def _reports(context: RequestContext, report_id=None):

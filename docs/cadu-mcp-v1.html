@@ -153,9 +153,9 @@ Content-Type: application/json
         <tr><td>Marcas</td><td><code>brands.list</code>, <code>brands.audit_status</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Marcas</td><td><code>brands.prepare_logo_upload</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
         <tr><td>Marcas</td><td><code>brands.create</code>, <code>brands.start_audit</code></td><td><span class="tag">write</span></td><td>Somente Harness interno até existir aprovação assinada</td></tr>
-        <tr><td>Planner</td><td><code>planner.list_plans</code>, <code>planner.search_catalog</code>, <code>planner.get_brief</code>, <code>planner.get_media_plan</code>, <code>planner.list_link_tests</code>, <code>planner.get_link_test</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
-        <tr><td>Planner</td><td><code>planner.link_test</code></td><td><span class="tag">write</span></td><td>Somente Harness interno, com confirmação e idempotência</td></tr>
-        <tr><td>Relatórios</td><td><code>reports.list_project_reports</code>, <code>reports.get_report_metrics</code>, <code>reports.compare_report_to_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Planner</td><td><code>planner.list_plans</code>, <code>planner.search_catalog</code>, <code>planner.get_brief</code>, <code>planner.get_media_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Relatórios</td><td><code>reports.list_project_reports</code>, <code>reports.get_report_metrics</code>, <code>reports.compare_report_to_plan</code>, <code>reports.list_link_tests</code>, <code>reports.get_link_test</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Relatórios</td><td><code>reports.link_test</code></td><td><span class="tag">write</span></td><td>Somente Harness interno, com confirmação e idempotência</td></tr>
       </tbody></table>
     </section>
 
@@ -271,10 +271,10 @@ file=@logo.png</pre>
       <pre>planner.list_plans            planner.get_media_plan
 planner.list_catalog         planner.toggle_selection
 planner.update_brief         planner.update_allocations
-planner.link_test            planner.get_link_test
+reports.link_test            reports.get_link_test
 planner.documents.list       planner.documents.create_draft
 planner.documents.update     planner.documents.review</pre>
-      <div class="note ok">O Link Tester está disponível no produto em <code>/planner/links</code> e no MCP interno. <code>planner.link_test</code> exige confirmação e <code>request_id</code>, reaproveita o serviço canônico, vincula o resultado ao projeto e devolve evidência estruturada. Repetições devolvem o resultado persistido; operações interrompidas podem ser retomadas após a janela de segurança. A escrita permanece fora de <code>customer_agent</code> até a confirmação usar uma aprovação assinada pelo Harness.</div>
+      <div class="note ok">O Link Tester pertence ao Reports. <code>reports.link_test</code> exige confirmação e <code>request_id</code>, reutiliza a análise canônica e devolve evidências estruturadas sem expor o token de compartilhamento. A leitura do histórico usa <code>reports.list_link_tests</code> e <code>reports.get_link_test</code>; novos testes não dependem de projeto do Planner.</div>
     </section>
 
     <section id="studio">

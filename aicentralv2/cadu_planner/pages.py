@@ -22,6 +22,10 @@ def load_records(module, user, selected, query='', filters=None):
     if module == 'places':
         from .places import catalog
         return catalog(query, category=filters.get('category', ''), city=filters.get('city', ''))
+    if module == 'portais':
+        from .portals import catalog
+        return catalog(query, category=filters.get('category', ''),
+                       sort=filters.get('sort', 'featured'))['records']
     if module == 'docs':
         from .docs import list_documents
         return list_documents(selected['client_id'], user['id'])

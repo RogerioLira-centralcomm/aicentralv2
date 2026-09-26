@@ -21,7 +21,7 @@ TABLES = (
     'cadu_reports_user_access', 'cadu_reports_site_tags',
     'cadu_reports_flow_steps', 'cadu_reports_flow_events',
     'cadu_reports_flow_rate_limits', 'cadu_reports_external_conversions',
-    'cadu_connect_report_workspaces', 'cadu_planner_link_test_runs',
+    'cadu_connect_report_workspaces', 'cadu_reports_link_test_runs',
     'cadu_reports_link_association_history',
 )
 
@@ -62,14 +62,14 @@ CHECKS = {
         JOIN cadu_reports_campaigns c ON c.id=x.campaign_id
         WHERE (x.organization_id,x.client_id) IS DISTINCT FROM
               (c.organization_id,c.client_id)''',
-    'Link em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_planner_link_test_runs r
+    'Link em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_link_test_runs r
         JOIN cadu_reports_campaigns c ON c.id=r.media_campaign_id
         WHERE r.client_id IS DISTINCT FROM c.client_id''',
-    'Link em relatório de outro cliente': '''SELECT COUNT(*) FROM cadu_planner_link_test_runs r
+    'Link em relatório de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_link_test_runs r
         JOIN cadu_connect_report_workspaces w ON w.id=r.report_workspace_id
         WHERE r.client_id IS DISTINCT FROM w.client_id''',
     'Histórico em link de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_link_association_history h
-        JOIN cadu_planner_link_test_runs r ON r.id=h.run_id
+        JOIN cadu_reports_link_test_runs r ON r.id=h.run_id
         WHERE h.client_id IS DISTINCT FROM r.client_id''',
 }
 

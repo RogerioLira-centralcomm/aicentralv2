@@ -73,6 +73,21 @@ def _project_persistence_refusal(text: str) -> bool:
     )
 
 
+def _project_mutation_is_negated(text: str) -> bool:
+    """Do not route a negative project-edit constraint as a write command."""
+    return _has(
+        text,
+        r"\b(?:n[aã]o|nem|nunca|jamais|sem)\s+"
+        r"(?:precisa\s+)?(?:alter\w*|atualiz\w*|mud\w*|modific\w*|reescrev\w*|"
+        r"adicion\w*|inclu\w*|remov\w*|exclu\w*|apag\w*|salv\w*|cri\w*)\b"
+        r".{0,70}\b(?:projeto|contexto|dire[cç][aã]o)\b"
+        r"|\b(?:projeto|contexto|dire[cç][aã]o)\b.{0,70}"
+        r"\b(?:n[aã]o|nem|nunca|jamais|sem)\s+"
+        r"(?:alter\w*|atualiz\w*|mud\w*|modific\w*|reescrev\w*|"
+        r"adicion\w*|inclu\w*|remov\w*|exclu\w*|apag\w*|salv\w*|cri\w*)\b",
+    )
+
+
 def _web_requires_confirmation(text: str) -> bool:
     return _has(
         text,
@@ -104,6 +119,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             routed = route_request(task_text, surface, has_project, active_object_type, has_brand)
             if routed.action == "project_readout":
                 return replace(routed, action="describe_project", response_mode="analysis", artifact_type=None)
+            if routed.action == "project_inventory":
+                return routed
             if routed.artifact_type:
                 routed = replace(routed, response_mode="analysis", artifact_type=None)
                 if routed.action in {"create_html", "create_named_artifact", "create_meeting_agenda"}:
@@ -250,6 +267,21 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         r"\b(?:dados?|informa[cç][õo]es?)\s+(?:do|desse|deste)\s+projeto\b|"
         r"\b(?:o\s+que|quais?)\b.{0,45}\b(?:j[aá]\s+)?(?:sabemos?|temos?)\b.{0,45}\bprojeto\b",
     )
+    # Inventory questions are read-only. Match these before project mutation
+    # and persistence rules: words like "salvo" and "não altere o projeto" in
+    # a request must never turn a question about existing data into a write.
+    project_inventory_question = _has(
+        text,
+        r"\b(?:o\s+que|quais?|liste|mostre|consulte|verifique|resuma)\b.{0,90}"
+        r"\b(?:est[aá]\s+)?(?:salv\w*|registrad\w*|dispon[ií]vel|existe|encontrad\w*)\b.{0,70}"
+        r"\bprojeto\b|"
+        r"\b(?:arquivos?|fontes?|refer[eê]ncias?|recursos?|hist[oó]rico)\b.{0,80}"
+        r"\b(?:d[oa]s?|n[oa]|deste|desse)\s+projeto\b.{0,80}"
+        r"\b(?:o\s+que|quais?|liste|mostre|consulte|verifique|resuma)\b",
+    )
+    if has_project and project_inventory_question:
+        return IntentRoute("workspace", "project_inventory", "low", "analysis",
+                           ("project",), ("workspace.search_project_content",))
     if has_project and project_context_question:
         rename_requested = _has(text, r"\b(?:mud|alter|troc|renome)\w*\b.{0,55}\b(?:nome|projeto)\b")
         if rename_requested:
@@ -281,7 +313,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
 
     if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
             or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):
-        return IntentRoute("planner", "link_test", "medium", "decision", (), (), None, True)
+        return IntentRoute("reports", "link_test", "medium", "decision", (), (), None, True)
     # A linked brand is usually present in project context. An implicit name
     # change still targets the active project unless the user names the brand
     # as the object of the change.
@@ -314,7 +346,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         r"\b(?:adicion|inclu|cri|atualiz|alter|mud|remov|exclu)\w*\b.{0,80}\b(?:campo|item|dado)\b.{0,80}\b(?:projeto|dire[cç][aã]o|contexto)\b|"
         r"\b(?:campo|item|dado)\b.{0,80}\b(?:projeto|dire[cç][aã]o|contexto)\b.{0,80}\b(?:adicion|inclu|cri|atualiz|alter|mud|remov|exclu)\w*\b",
     )
-    if has_project and project_context_update:
+    if has_project and project_context_update and not _project_mutation_is_negated(text):
         return IntentRoute("workspace", "update_project_context", "medium", "decision",
                            ("project",), (), None, True)
     asks_for_advice = _has(text, r"\b(?:o\s+que|como|quais?)\b.{0,55}\b(?:mudaria|alteraria|melhoraria|recomendaria|sugere|sugeriria)\b")

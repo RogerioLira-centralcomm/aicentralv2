@@ -191,70 +191,153 @@ def _preserve_streamed_answer(response, streamed_answer: str, policy: dict):
 _PROJECT_CONTEXT_DENIAL = re.compile(
     r"\b(?:n[aã]o tenho (?:contexto|acesso|informa[cç][oõ]es)|"
     r"n[aã]o h[aá] (?:contexto|informa[cç][oõ]es)|"
-    r"n[aã]o sei (?:nada|o suficiente))\b.{0,120}\bprojeto\b",
+    r"n[aã]o sei (?:nada|o suficiente))\b.{0,400}\bprojeto\b",
     re.IGNORECASE | re.DOTALL,
 )
 
 
 def _repair_project_context_denial(response, run) -> bool:
-    """Use saved fields if the provider denies context that Python already read."""
-    if run["route"].get("action") != "describe_project" or not _PROJECT_CONTEXT_DENIAL.search(response.answer or ""):
+    """Replace a false project-context denial with retrieved, labelled evidence."""
+    route = run.get("route") or {}
+    if not isinstance(route, dict):
         return False
-    evidence = run["resolved_context"].values.get("workspace.search_project_content") or {}
+    policy = run.get("policy") or {}
+    plugin = policy.get("plugin") if isinstance(policy, dict) else {}
+    plugin = plugin if isinstance(plugin, dict) else {}
+    action = route.get("action")
+    project_read_route = (
+        action in {"describe_project", "project_readout", "search_project"}
+        or (action == "run_plugin" and plugin.get("id") == "project-search")
+    ) and not route.get("artifact_type")
+    if not project_read_route or not _PROJECT_CONTEXT_DENIAL.search(response.answer or ""):
+        return False
+
+    resolved_context = run.get("resolved_context")
+    values = getattr(resolved_context, "values", {}) or {}
+    evidence = values.get("workspace.search_project_content") or {}
     if not isinstance(evidence, dict) or evidence.get("context_status") != "available":
         return False
     project = evidence.get("project") or {}
     if not isinstance(project, dict):
+        project = {}
+
+    def clean(value, limit):
+        if isinstance(value, dict):
+            value = value.get("display_value") or value.get("text") or value.get("value")
+        return " ".join(str(value or "").split())[:limit]
+
+    def render_rows(items, value_fields, label_fields=(), *, limit=5, width=420):
+        lines = []
+        for item in items if isinstance(items, list) else []:
+            if not isinstance(item, dict):
+                continue
+            value = next((item.get(key) for key in value_fields if item.get(key) not in (None, "", [])), None)
+            label = next((item.get(key) for key in label_fields if item.get(key) not in (None, "", [])), None)
+            value_text, label_text = clean(value, width), clean(label, 180)
+            if value_text:
+                lines.append(f"- {label_text}: {value_text}" if label_text else f"- {value_text}")
+            if len(lines) >= limit:
+                break
+        return lines
+
+    name = clean(project.get("nome") or project.get("name"), 180)
+    description = clean(project.get("descricao") or project.get("description"), 1000)
+    instructions = clean(project.get("instrucoes") or project.get("instructions"), 600)
+    context_results = evidence.get("context_results") or []
+    source_results = evidence.get("source_results") or []
+    conversation_results = evidence.get("conversation_results") or []
+    memory_results = evidence.get("memory_results") or []
+    resource_results = evidence.get("resource_results") or []
+    activity_results = evidence.get("activity_results") or []
+    ranked_results = evidence.get("results") or []
+    has_search_results = any((context_results, source_results, conversation_results,
+                              memory_results, resource_results, activity_results, ranked_results))
+    if not any((name, description, instructions)) and not has_search_results:
         return False
-    name = " ".join(str(project.get("nome") or "").split())[:180]
-    description = " ".join(str(project.get("descricao") or "").split())[:1000]
-    instructions = " ".join(str(project.get("instrucoes") or "").split())[:600]
-    if not any((name, description, instructions)):
-        return False
-    parts = [f"O projeto **{name}** está cadastrado no Workspace." if name else "Encontrei o projeto selecionado no Workspace."]
+
+    parts = [f"A busca do projeto **{name}** foi concluída." if name
+             else "A busca do projeto selecionado foi concluída."]
     if description:
-        parts.append(f"Descrição salva: {description}")
+        parts.append(f"Descrição registrada no projeto: {description}")
     if instructions:
-        parts.append(f"Instruções salvas: {instructions}")
+        parts.append(f"Instruções registradas no projeto: {instructions}")
+
+    structured = render_rows(context_results, ("display_value", "value"), ("label", "key"),
+                             limit=8, width=360)
+    if structured:
+        parts.append("Dados estruturados encontrados:\n" + "\n".join(structured))
+
+    source_lines = render_rows(source_results, ("trecho", "excerpt", "snippet", "content", "text"),
+                               ("fonte", "source", "title", "name"), limit=5, width=500)
+    if source_lines:
+        parts.append("Trechos de arquivos indexados:\n" + "\n".join(source_lines))
+
+    user_history = [item for item in conversation_results if isinstance(item, dict)
+                    and item.get("evidence_level") == "user_statement"]
+    assistant_history = [item for item in conversation_results if isinstance(item, dict)
+                         and item.get("evidence_level") == "prior_assistant_output_unverified"]
+    user_lines = render_rows(user_history, ("description", "content", "excerpt"),
+                             ("title", "created_at"), limit=4, width=420)
+    if user_lines:
+        parts.append("Mensagens anteriores do usuário (histórico, não necessariamente decisão vigente):\n"
+                     + "\n".join(user_lines))
+    assistant_lines = render_rows(assistant_history, ("description", "content", "excerpt"),
+                                  ("title", "created_at"), limit=3, width=360)
+    if assistant_lines:
+        parts.append("Respostas anteriores do assistente (conteúdo não verificado):\n"
+                     + "\n".join(assistant_lines))
+
+    memory_lines = render_rows(memory_results, ("description", "summary", "text", "content"),
+                               ("title", "evidence_level"), limit=5, width=420)
+    if memory_lines:
+        parts.append("Memórias confirmadas e revisadas:\n" + "\n".join(memory_lines))
+
+    resource_lines = render_rows(resource_results, ("description",), ("title", "resource_type"),
+                                 limit=5, width=360)
+    if resource_lines:
+        parts.append("Recursos encontrados (metadados; não comprovam leitura do destino):\n"
+                     + "\n".join(resource_lines))
+    activity_lines = render_rows(activity_results, ("description",), ("title", "activity_kind", "status"),
+                                 limit=5, width=360)
+    if activity_lines:
+        parts.append("Atividades registradas:\n" + "\n".join(activity_lines))
+
+    if not any((structured, source_lines, user_lines, assistant_lines, memory_lines,
+                resource_lines, activity_lines)) and ranked_results:
+        result_lines = render_rows(ranked_results, ("description", "display_value", "trecho", "title"),
+                                   ("result_type", "evidence_level"), limit=8, width=420)
+        if result_lines:
+            parts.append("Resultados encontrados:\n" + "\n".join(result_lines))
+        else:
+            parts.append(f"A busca recuperou {len(ranked_results)} resultado(s), sem detalhes textuais disponíveis.")
+
     inventory = evidence.get("source_inventory") or {}
-    source_count = int(inventory.get("total") or 0)
-    if int(inventory.get("needs_index") or 0) > 0:
-        parts.append("Há arquivos do projeto que ainda precisam de indexação para uma leitura completa.")
-    elif source_count == 0:
-        parts.append("Ainda não há documentos indexados na base do projeto; a descrição e as instruções acima já permitem começar.")
-    subject = f"{name} {description} {instructions}".casefold()
-    if any(term in subject for term in ("portal", "conteúdo", "conteudo", "campanha", "mídia", "midia", "crédito", "credito")):
-        proposal = (
-            "Como proposta, podemos avançar do objetivo e dos canais já registrados para uma jornada de conteúdo: "
-            "ligar dúvidas do público a pautas, trilhas e chamadas para ação. Depois, definir atividades e indicadores "
-            "para acompanhar retorno ao conteúdo e avanço na jornada. São sugestões para discussão, não decisões salvas."
-        )
-    elif any(term in subject for term in ("evento", "encontro", "congresso", "lançamento", "lancamento")):
-        proposal = (
-            "Como proposta, podemos estruturar o trabalho em público e objetivo, programação e operação, divulgação "
-            "e avaliação. Datas, responsáveis e orçamento ficam em aberto até você confirmar."
-        )
-    elif any(term in subject for term in ("pesquisa", "diagnóstico", "diagnostico", "estudo", "levantamento")):
-        proposal = (
-            "Como proposta, podemos transformar o tema em uma pergunta de pesquisa, escolher fontes e método, "
-            "e explicitar qual decisão o estudo deve apoiar. Método, amostra e prazo precisam da sua validação."
-        )
-    elif any(term in subject for term in ("produto", "plataforma", "software", "aplicativo", "app", "serviço", "servico")):
-        proposal = (
-            "Como proposta, podemos detalhar usuários e necessidades, escopo e critérios de aceite, e marcos de entrega. "
-            "Prioridades, responsáveis e prazos ficam em aberto até você confirmar."
-        )
-    else:
-        proposal = (
-            "Como proposta, podemos transformar o objetivo em resultados esperados, entregas e atividades, "
-            "e critérios para acompanhar o progresso. Responsáveis, datas e metas só entram depois da sua confirmação."
-        )
-    parts.append(proposal)
+    if not source_results and isinstance(inventory, dict):
+        total = inventory.get("total")
+        try:
+            no_registered_sources = total is not None and int(total) == 0
+        except (TypeError, ValueError):
+            no_registered_sources = False
+        if no_registered_sources and evidence.get("source_inventory_status") != "unavailable":
+            parts.append("O inventário não encontrou arquivos registrados como fontes deste projeto.")
+    unavailable = evidence.get("unavailable_scopes") or []
+    if isinstance(unavailable, list) and unavailable:
+        unavailable_text = [clean(scope, 120) for scope in unavailable if clean(scope, 120)]
+        if unavailable_text:
+            parts.append("Fontes que não puderam ser verificadas: " + ", ".join(unavailable_text) + ".")
+    try:
+        needs_index = max(0, int(inventory.get("needs_index") or 0)) if isinstance(inventory, dict) else 0
+    except (TypeError, ValueError):
+        needs_index = 0
+    if needs_index:
+        parts.append(f"Há {needs_index} arquivo(s) pendente(s) de indexação.")
+
     response.questions = []
     response.answer = "\n\n".join(parts)
     response.confidence = "medium"
     response.actions = []
     response.blocks = []
+    response.artifact_patch = None
     return True
 
 
@@ -1279,7 +1362,8 @@ def stream(run):
         else:
             response = normalize_response("".join(answer_chunks), run["policy"])
             response = _preserve_streamed_answer(response, streamed_answer, run["policy"])
-            if _repair_project_context_denial(response, run):
+            project_context_denial_repaired = _repair_project_context_denial(response, run)
+            if project_context_denial_repaired:
                 _journal(run["run_id"], "answer.repaired_project_context_denial", {
                     "project_bound": True,
                     "context_status": "available",
@@ -1342,7 +1426,8 @@ def stream(run):
                 response.plugin = {"id": str(plugin.get("id") or ""),
                                    "name": str(plugin.get("name") or "Plugin Cadu"),
                                    "version": str(plugin.get("version") or "")}
-            _materialize_long_answer(response, run)
+            if not project_context_denial_repaired:
+                _materialize_long_answer(response, run)
             if run["route"].get("action") == "plan_project_tasks" and response.task_proposal:
                 proposal = dict(response.task_proposal)
                 proposal.pop("initial_list", None)

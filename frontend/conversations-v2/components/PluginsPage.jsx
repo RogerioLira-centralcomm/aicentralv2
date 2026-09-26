@@ -63,6 +63,9 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
               <span className="cv-plugin-mark" aria-hidden="true"><Icon name={flow.icon} size={19}/></span>
               <div><h3>{flow.name}</h3><p>{flow.description}</p></div>
             </div>
+            <ol className="cv-plugin-flow-card__steps" aria-label={`Etapas do fluxo ${flow.name}`}>
+              {flow.steps.map((step, index) => <li key={`${flow.id}-step-${index}`}><span>{index + 1}</span><p>{step}</p></li>)}
+            </ol>
             <div className="cv-plugin-flow-card__modes" aria-label={`Modos de ${flow.name}`}>
               {flow.availableModes.map(mode => <button key={mode.id} type="button" onClick={() => onUsePlugin?.(mode.plugin)}
                 aria-label={`${flow.name}: ${mode.label}`}>{mode.label}</button>)}

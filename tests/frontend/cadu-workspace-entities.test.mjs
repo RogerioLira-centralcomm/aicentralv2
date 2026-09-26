@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects, normalizedEntityKey} from '../../frontend/cadu-design-system/workspaceEntities.mjs';
+import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects, normalizedEntityKey, projectsForBrandSelection} from '../../frontend/cadu-design-system/workspaceEntities.mjs';
 
 test('workspace entities preserve every supported identity and label shape', () => {
   assert.equal(normalizedEntityKey('studio:42'), '42');
@@ -63,4 +63,20 @@ test('workspace project groups keep brands with no linked projects visible', () 
   const result = groupWorkspaceProjects([{id:'1', name:'Marca sem projeto'}], []);
   assert.deepEqual(result.groups.map(group => group.name), ['Marca sem projeto']);
   assert.deepEqual(result.groups[0].projects, []);
+});
+
+test('selecting a brand shows only its linked projects and supports equivalent brand refs', () => {
+  const result = groupWorkspaceProjects([
+    {id:'1', name:'Netflix'},
+    {id:'2', name:'Centralcomm'},
+  ], [
+    {id:'p1', name:'Campanha Netflix', brand_id:'1'},
+    {id:'p2', name:'Plano Centralcomm', brand_ref:'brand:2'},
+    {id:'p3', name:'Projeto sem marca'},
+  ]);
+
+  assert.deepEqual(projectsForBrandSelection(result.groups, result.ungrouped, 'studio:1').map(project => project.id), ['p1']);
+  assert.deepEqual(projectsForBrandSelection(result.groups, result.ungrouped, 'brand:2').map(project => project.id), ['p2']);
+  assert.deepEqual(projectsForBrandSelection(result.groups, result.ungrouped, '').map(project => project.id), ['p3']);
+  assert.deepEqual(projectsForBrandSelection(result.groups, result.ungrouped, 'unknown-brand'), []);
 });

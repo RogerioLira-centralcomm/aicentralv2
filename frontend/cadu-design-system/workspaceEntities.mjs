@@ -68,3 +68,13 @@ export function groupWorkspaceProjects(brands = [], projects = []) {
   const grouped = new Set(groups.flatMap(group => group.projects.map(entityIdentity)));
   return {groups, ungrouped:activeProjects.filter(project => !grouped.has(entityIdentity(project)))};
 }
+
+export function workspaceBrandByRef(groups = [], ref = '') {
+  const key = normalizedEntityKey(ref);
+  return key ? groups.find(brand => brandIdentityKeys(brand).has(key)) || null : null;
+}
+
+export function projectsForBrandSelection(groups = [], ungrouped = [], ref = '') {
+  if (!ref) return ungrouped;
+  return workspaceBrandByRef(groups, ref)?.projects || [];
+}

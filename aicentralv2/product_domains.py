@@ -226,6 +226,11 @@ def register_product_host_routing(app) -> None:
         planner_host_only()
         return app.view_functions['cadu_family.planner_doc_public'](token)
 
+    @app.get('/links/public/<token>')
+    def planner_host_public_link_report(token):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_public_link_report'](token)
+
     @app.get("/cadu-assets/<family>/icon-<int:size>.png")
     def cadu_maintenance_product_icon(family: str, size: int):
         """Approved Cadu 3.0 symbols, exposed only for the public pause page."""

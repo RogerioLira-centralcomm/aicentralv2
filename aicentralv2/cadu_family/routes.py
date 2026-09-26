@@ -2,7 +2,7 @@
 import hashlib
 import secrets
 from uuid import UUID
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from flask import Blueprint, Response, abort, current_app, jsonify, make_response, redirect, render_template, request, session, stream_with_context, url_for
 from werkzeug.exceptions import HTTPException
@@ -799,6 +799,13 @@ def planner_doc_public(token):
     response.headers['Content-Security-Policy'] = "sandbox; default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; font-src https: data:"
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
+
+
+@bp.get('/planner/links/public/<token>')
+def planner_public_link_report(token):
+    """Move old public Link Tester URLs to the Reports-owned page."""
+    target = product_url('connect', f'/connect/public/link-tests/{quote(token, safe="")}')
+    return redirect(target, code=302)
 
 
 @bp.get('/planner/audiencias/<int:audience_id>')

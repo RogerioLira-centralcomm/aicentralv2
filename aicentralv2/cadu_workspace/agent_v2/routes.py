@@ -158,7 +158,8 @@ def api_error(exc):
 def capabilities():
     current = resolve(surface=request.args.get("surface") or "conversations")
     return jsonify(runtime="v2", context=current.to_dict(), tools=load_builtin_tools().list(current),
-                   plugins=plugins.catalog(), future_integrations=plugins.integrations())
+                   plugins=plugins.catalog(), plugin_flows=plugins.flow_catalog(),
+                   future_integrations=plugins.integrations())
 
 
 @bp.get("/google/connection")

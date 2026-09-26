@@ -45,16 +45,65 @@ _MEETING_COPILOT = re.compile(r"\b(?:pauta\s+(?:da\s+)?reuni[aã]o|resuma?\s+(?:
 _CLIENT_DELIVERY = re.compile(r"\b(?:status|andamento|pend[eê]ncias?)\b.{0,60}\b(?:para\s+o\s+cliente|entregas?|projeto)\b|\bentregas?\s+e\s+pend[eê]ncias?\b", re.I)
 _MARKET_RADAR = re.compile(r"\b(?:radar|movimentos?\s+recentes?|novidades?)\b.{0,65}\b(?:marca|concorrentes?|mercado|setor)\b|\b(?:concorrentes?|marca)\b.{0,65}\b(?:movimentos?|novidades?|lan[cç]amentos?)\b", re.I)
 
-# Five product flows with stable legacy plugin IDs as internal modes. Connector
-# plugins stay outside these groups and continue to use their existing grants.
-FLOW_MODES = {
-    "intelligence": ("market-intelligence", "market-radar", "insights", "campaign-search"),
-    "media-strategy": ("planner", "audience-map", "investment-simulator", "media-plan-audit"),
-    "creative-experience": ("creative-concept", "channel-copy", "page-review", "studio"),
-    "performance": ("campaign-tracker", "reports"),
-    "project-operations": ("project-search", "project-activities", "meeting-copilot", "client-delivery"),
-}
+# The UI flow guide and runtime mode mapping share this catalog. Connector
+# plugins stay outside these groups and keep their existing grants.
+FLOW_CATALOG = (
+    {"id": "intelligence", "name": "Inteligência", "icon": "analysis",
+     "description": "Pesquise mercado, concorrentes e sinais com fontes verificáveis.",
+     "steps": (
+         "Escolha Pesquisa, Radar, Insights ou Cases e defina o recorte.",
+         "Pesquisa e Radar consultam fontes externas; Insights usa contexto da marca; Cases busca referências no conteúdo do projeto.",
+         "Veja achados com fontes consultadas, contexto e limites da busca.",
+     ),
+     "modes": (("market-intelligence", "Pesquisa"), ("market-radar", "Radar"),
+               ("insights", "Insights"), ("campaign-search", "Cases"))},
+    {"id": "media-strategy", "name": "Estratégia de mídia", "icon": "table",
+     "description": "Planeje públicos, canais, cenários e revise a coerência do plano.",
+     "steps": (
+         "Escolha plano, públicos, cenários ou auditoria.",
+         "Plano estrutura a campanha; Públicos respeita os canais pedidos; Cenários simula; Auditoria revisa um plano existente.",
+         "Compare premissas e lacunas; a auditoria não altera o plano.",
+     ),
+     "modes": (("planner", "Plano"), ("audience-map", "Públicos"),
+               ("investment-simulator", "Cenários"), ("media-plan-audit", "Auditoria"))},
+    {"id": "creative-experience", "name": "Criação e experiência", "icon": "image",
+     "description": "Desenvolva conceitos e textos e encontre melhorias na página.",
+     "steps": (
+         "Escolha conceito, copy, revisão de página ou criação visual.",
+         "Conceito e Copy partem do briefing; Página requer URL ou conteúdo; Studio prepara o pedido visual no chat.",
+         "Revise a proposta no chat e peça material editável quando precisar.",
+     ),
+     "modes": (("creative-concept", "Conceito"), ("channel-copy", "Copy"),
+               ("page-review", "Página"), ("studio", "Studio"))},
+    {"id": "performance", "name": "Performance", "icon": "analysis",
+     "description": "Leia resultados reais e priorize mudanças na campanha.",
+     "steps": (
+         "Campanha analisa um relatório anexado; Relatórios consulta relatórios revisados do projeto.",
+         "O Cadu identifica métricas e períodos presentes e só compara dados compatíveis.",
+         "Veja achados e próximos passos ligados às fontes consultadas.",
+     ),
+     "modes": (("campaign-tracker", "Campanha"), ("reports", "Relatórios"))},
+    {"id": "project-operations", "name": "Operações do projeto", "icon": "list",
+     "description": "Recupere decisões, organize tarefas, reuniões e status.",
+     "steps": (
+         "Escolha busca, tarefas, reunião ou status.",
+         "Busca recupera conteúdo do projeto; Tarefas lista atividades; Reunião usa notas ou prepara pauta; Status consulta tarefas e recursos.",
+         "Veja a origem e os responsáveis quando esses dados estiverem registrados.",
+     ),
+     "modes": (("project-search", "Buscar"), ("project-activities", "Tarefas"),
+               ("meeting-copilot", "Reunião"), ("client-delivery", "Status"))},
+)
+FLOW_MODES = {flow["id"]: tuple(plugin_id for plugin_id, _ in flow["modes"])
+              for flow in FLOW_CATALOG}
 PLUGIN_FLOW = {plugin_id: flow_id for flow_id, modes in FLOW_MODES.items() for plugin_id in modes}
+
+
+def flow_catalog() -> list[dict]:
+    """Public, presentation-safe flow descriptions tied to runtime plugin IDs."""
+    return [{**flow,
+             "steps": list(flow["steps"]),
+             "modes": [{"id": plugin_id, "label": label} for plugin_id, label in flow["modes"]]}
+            for flow in FLOW_CATALOG]
 
 # Optional read tools enabled when a matching selected project or brand exists.
 # They are listed in the capability contract, but added to the actual call

@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {request} from '../lib/api';
 import {Icon} from '../lib/icons';
-import {availableFlows, PLUGIN_FLOWS} from '../lib/pluginFlows';
+import {availableFlows, flowPluginIds} from '../lib/pluginFlows';
 import './plugins.css';
 import './pluginFlows.css';
 export {pluginPrompt} from '../lib/pluginPrompts';
@@ -19,14 +19,15 @@ function CaduPluginMark({logo, caduMark, name, pluginId}) {
 
 export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = ''}) {
   const [plugins, setPlugins] = useState([]);
+  const [flowCatalog, setFlowCatalog] = useState([]);
   const [integrations, setIntegrations] = useState([]);
   const [googleState, setGoogleState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const ready = useMemo(() => plugins.filter(plugin => plugin.selectable && ['active', 'in_development'].includes(plugin.maturity)), [plugins]);
-  const flows = useMemo(() => availableFlows(plugins), [plugins]);
+  const flows = useMemo(() => availableFlows(plugins, flowCatalog), [plugins, flowCatalog]);
   const googlePlugins = useMemo(() => ready.filter(plugin => plugin.id.startsWith('google-')).sort((a, b) => a.sort_order - b.sort_order), [ready]);
-  const knownModes = useMemo(() => new Set(PLUGIN_FLOWS.flatMap(flow => flow.modes.map(([id]) => id))), []);
+  const knownModes = useMemo(() => flowPluginIds(flowCatalog), [flowCatalog]);
   const developing = useMemo(() => plugins.filter(plugin => !knownModes.has(plugin.id) && !plugin.id.startsWith('google-') &&
     (!plugin.selectable || !['active', 'in_development'].includes(plugin.maturity))), [plugins, knownModes]);
 
@@ -36,6 +37,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
       .then(data => {
         if (!current) return;
         setPlugins(Array.isArray(data.plugins) ? data.plugins : []);
+        setFlowCatalog(Array.isArray(data.plugin_flows) ? data.plugin_flows : []);
         setIntegrations(Array.isArray(data.future_integrations) ? data.future_integrations : []);
       })
       .catch(failure => { if (current) setError(failure.message || 'Não foi possível carregar os plugins disponíveis.'); })
@@ -57,7 +59,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
       {error && <p role="alert">{error}</p>}
       {!loading && !error && <>
         <section className="cv-plugin-shelf cv-plugin-flow-shelf">
-          <header><div><h2>Fluxos do Cadu</h2><p>Escolha o trabalho. Cada modo aproveita as fontes e ferramentas disponíveis.</p></div><span>NESTA FASE</span></header>
+          <header><div><h2>Fluxos do Cadu</h2><p>Escolha um modo para preencher um prompt no chat; revise e envie quando estiver pronto.</p></div><span>Disponíveis</span></header>
           <ul>{flows.map(flow => <li key={flow.id} className="cv-plugin-flow-card">
             <div className="cv-plugin-flow-card__heading">
               <span className="cv-plugin-mark" aria-hidden="true"><Icon name={flow.icon} size={19}/></span>

@@ -46,6 +46,21 @@ def crawl_planner_portals_command(limit):
             sleep(1.5)
 
 
+@bp.cli.command('import-planner-portals')
+@click.argument('csv_path', type=click.Path(exists=True, dir_okay=False, readable=True, path_type=str))
+@click.option('--dry-run', is_flag=True, help='Valida o CSV sem gravar no banco.')
+def import_planner_portals_command(csv_path, dry_run):
+    """Import curated portal records from a UTF-8 CSV file."""
+    from ..cadu_planner import portals
+    try:
+        with open(csv_path, 'r', encoding='utf-8-sig', newline='') as csv_file:
+            summary = portals.import_curated_csv(csv_file, dry_run=dry_run)
+    except (OSError, UnicodeError) as exc:
+        raise click.ClickException(f'Não foi possível ler o CSV: {exc}') from exc
+    action = 'validados' if dry_run else 'importados'
+    click.echo(f"{summary['rows']} portais {action}.")
+
+
 def planner_url(path='', **query):
     """Build clean, product-owned Planner URLs for templates and shares."""
     target = product_url('planner', '/' + str(path or '').lstrip('/'))
@@ -512,10 +527,11 @@ def planner_catalog(kind):
     context.identity()
     context.resolve()
     if kind in {'audiencias', 'canais', 'formatos', 'interativos'}:
-        return jsonify(kind=kind, records=repository.catalog(
+        records = repository.catalog(
             kind, request.args.get('q', ''), category=request.args.get('category', ''),
             platform=request.args.get('platform', ''), sort=request.args.get('sort', 'relevant'),
-            format_type=request.args.get('type', ''), segment=request.args.get('segment', '')))
+            format_type=request.args.get('type', ''), segment=request.args.get('segment', ''))
+        return jsonify(kind=kind, records=records)
     if kind == 'portais':
         from ..cadu_planner import portals
         return jsonify(portals.catalog(request.args.get('q', ''), request.args.get('category', ''),

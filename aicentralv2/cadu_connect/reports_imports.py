@@ -307,7 +307,7 @@ def register(bp):
                 ORDER BY metric_date DESC,channel,metric_key LIMIT 300''', scope)
         else:
             custom_metrics = []
-    return jsonify(ready=True, snapshots=snapshots, custom_metrics=custom_metrics)
+        return jsonify(ready=True, snapshots=snapshots, custom_metrics=custom_metrics)
 
     @bp.get('/api/v1/reports/import-conflicts')
     @login_required_api

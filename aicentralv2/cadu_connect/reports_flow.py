@@ -4,7 +4,6 @@ import re
 import secrets
 import string
 import uuid
-import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from html.parser import HTMLParser
@@ -85,12 +84,17 @@ def _canonical_page_url(url, base_url, allowed_host):
     parsed = urlparse(urljoin(base_url, url))
     if parsed.scheme not in ('http','https') or not parsed.hostname or not _host_allowed(parsed.hostname, allowed_host):
         return None
+    try:
+        if parsed.username or parsed.password or parsed.port not in (None, 80, 443):
+            return None
+    except ValueError:
+        return None
     path = re.sub(r'/+', '/', unquote(parsed.path or '/'))
     if len(path) > 500 or any(part in ('.','..') for part in path.split('/')):
         return None
     # URLs with tracking/query state can include personal data; discovery uses
     # stable paths only and never persists query strings or fragments.
-    return urlunparse(('https', parsed.netloc.lower(), path, '', '', ''))
+    return urlunparse(('https', parsed.hostname.lower().rstrip('.'), path, '', '', ''))
 
 
 def _fetch_site_page(url, allowed_host):
@@ -500,13 +504,21 @@ def register(bp):
             WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND id<>%s
                 AND status='completed' RETURNING id''',
             (flow['tag_id'],selected['organization_id'],selected['client_id'],run_id))
+        mapped_steps = _rows('''SELECT id,page_host,path_prefix,step_kind,is_entry
+            FROM cadu_reports_flow_steps WHERE tag_id=%s AND organization_id=%s AND client_id=%s
+                AND is_active=TRUE AND step_kind IN ('page','form','conversion')''',
+            (flow['tag_id'],selected['organization_id'],selected['client_id']))
+        steps_by_page = {(step['page_host'],step['path_prefix']):step for step in mapped_steps}
         stored = []
         for page in pages:
             evidence = {'signals': page['evidence'], 'h1': page.get('h1','')}
+            prior_step = steps_by_page.get((page['host'],page['path']))
+            selected_kind = prior_step['step_kind'] if prior_step else None
+            selected_as_entry = bool(prior_step and prior_step['is_entry'])
             row = _rows('''INSERT INTO cadu_reports_flow_discovered_pages
                 (id,run_id,organization_id,client_id,tag_id,url,page_host,path_prefix,title,
-                 suggested_role,confidence,evidence,form_count,form_fields)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb)
+                 suggested_role,confidence,evidence,form_count,form_fields,selected_kind,selected_as_entry,step_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s,%s,%s)
                 ON CONFLICT (run_id,page_host,path_prefix) DO UPDATE SET
                     url=EXCLUDED.url,title=EXCLUDED.title,suggested_role=EXCLUDED.suggested_role,
                     confidence=EXCLUDED.confidence,evidence=EXCLUDED.evidence,
@@ -515,7 +527,8 @@ def register(bp):
                     form_count,form_fields,selected_kind,selected_as_entry,step_id''',
                 (str(uuid.uuid4()),run_id,selected['organization_id'],selected['client_id'],
                  flow['tag_id'],page['url'],page['host'],page['path'],page['title'],page['role'],
-                 page['confidence'],json.dumps(evidence),page['forms'],json.dumps(page['form_fields'])))[0]
+                 page['confidence'],json.dumps(evidence),page['forms'],json.dumps(page['form_fields']),
+                 selected_kind,selected_as_entry,prior_step['id'] if prior_step else None))[0]
             stored.append(row)
         get_db().commit()
         return jsonify(run={'id':run_id,'root_url':root_url,'status':status,'page_count':len(stored)},pages=stored)
@@ -580,7 +593,9 @@ def register(bp):
                 selected_as_entry=FALSE,step_id=NULL,selected_at=NOW()
                 WHERE id=%s RETURNING id''',(page['id'],))
             config=flow['config'] if isinstance(flow['config'],dict) else {}
-            config['nodes']=[node for node in config.get('nodes',[]) if node.get('discoveryPageId')!=str(page['id'])]
+            config['nodes']=[node for node in config.get('nodes',[])
+                if node.get('discoveryPageId')!=str(page['id'])
+                and not (step_id and str(node.get('stepId'))==str(step_id))]
             config['edges']=[edge for edge in config.get('edges',[]) if edge.get('from') in {n.get('id') for n in config['nodes']} and edge.get('to') in {n.get('id') for n in config['nodes']}]
             _rows('UPDATE cadu_reports_flow_registry SET config=%s::jsonb,updated_at=NOW() WHERE id=%s RETURNING id',(json.dumps(config),flow['id']))
             get_db().commit()
@@ -626,12 +641,13 @@ def register(bp):
         config=flow['config'] if isinstance(flow['config'],dict) else {}
         nodes=config.get('nodes') if isinstance(config.get('nodes'),list) else []
         edges=config.get('edges') if isinstance(config.get('edges'),list) else []
-        node=next((item for item in nodes if item.get('discoveryPageId')==str(page['id'])),None)
+        node=next((item for item in nodes if item.get('discoveryPageId')==str(page['id'])
+                   or (step_id and str(item.get('stepId'))==str(step_id))),None)
         if not node:
             node={'id':str(uuid.uuid4()),'discoveryPageId':str(page['id']),
                   'x':100+(len(nodes)%4)*230,'y':80+(len(nodes)//4)*150}
             nodes.append(node)
-        node.update({'type':step_kind if step_kind!='page' else 'page','title':name,
+        node.update({'discoveryPageId':str(page['id']),'type':step_kind if step_kind!='page' else 'page','title':name,
                      'path':page['path_prefix'],'host':page['page_host'],
                      'stepId':int(step_id),'isEntry':is_entry})
         config.update({'nodes':nodes,'edges':edges})

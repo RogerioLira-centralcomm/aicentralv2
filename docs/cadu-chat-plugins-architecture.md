@@ -36,18 +36,28 @@ public research only; it does not imply a third-party connection.
 
 | ID | State | Context | Current composition / known boundary |
 |---|---|---|---|
-| `campaign-search` | Planned | Selected brand or project required | Brand context or project knowledge search; no cross-project search. |
-| `insights` | Active (v0.3.0) | Conversation; project or brand context is optional | Firecrawl public search + Perplexity Sonar research + GPT synthesis + separate GPT factual/editorial review. Returns the insight first, with current market metrics/news, implications for marketing/communication/media, actions, and supporting source references. |
-| `planner` | Catalog connected (v0.2.0) | Conversation; project for saved plan | A plan request can gather read-only channel, audience, format and Places references for a proposal. Chat does not yet persist edits to the canonical live plan. |
-| `project-search` | In development (v0.1.0) | Selected project required for private project search; new work can start without project context | One experience over semantic knowledge search, resource search and artifact listings. Search is restricted to the selected project; no cross-project search. |
+| `market-intelligence` | Active (v1.1.0) | Conversation; selected brand/project may enrich synthesis | Quick, deep or configured research in a resumable worker. Firecrawl and OpenRouter are provider dependencies behind Cadu; neither is dynamically loaded as a customer MCP. |
+| `market-radar` | Active (v1.2.0) | Selected brand required to research brand/competitor movements | Searches current public sources and requires read evidence tied to claims; it does not promise continuous monitoring. |
+| `campaign-search` | Planned | Selected brand or project required | Searches brand context or unified project content using the smallest relevant chain; remains limited to the selected scope and does not search across projects. |
+| `insights` | Active (v1.2.0) | Conversation; project or brand context is optional | Firecrawl public search + Perplexity Sonar research + GPT synthesis + separate GPT factual/editorial review. Returns the insight first, with current market metrics/news, implications for marketing/communication/media, actions, and supporting source references. |
+| `planner` | Catalog connected (v0.3.0) | Conversation; project for saved plan | A plan request can gather project direction plus read-only channel, audience, format and Places references for a proposal. Chat does not yet persist edits to the canonical live plan. |
+| `project-search` | In development (v0.2.0) | Selected project required for private project search; new work can start without project context | One experience over unified project-content retrieval, hybrid indexed knowledge search, source-chunk reading, resource search and artifact listings. Automatic selection may use a smaller subset; the agent should read additional source chunks only when needed and ground claims in returned evidence. Search is restricted to the selected project; no cross-project search. |
 | `project-activities` | In development (v0.1.0) | Selected project required to read or plan its tasks | Lists activities and prepares task proposals from project context and resources. Persistent writes continue through existing confirmed actions. |
-| `studio` | Planned | Conversation; brand/project/reference optional | Image creation/editing exists in Studio MCP; chat still needs cost-confirmation wiring before automatic generation. Context-free creation is generic. |
-| `reports` | Early | Project plus selected/reviewed report | Imported, reviewed metrics only; live platform ingestion is not implied. |
+| `audience-map` | Active (v1.2.0) | Channel scope from the request; project/brand may enrich | Combines approved channel/audience catalogs and read public evidence. Segments without verified data remain labeled as hypotheses. |
+| `investment-simulator` | Active (v1.3.0) | Investment assumptions supplied by the user or scenario request | Uses deterministic allocation calculations; outputs are illustrative and are not forecasts or quotes. |
+| `media-plan-audit` | Active (v1.1.0) | Selected plan or supplied plan content | Reviews calculations, objective, channels and measurement; does not write changes to the canonical plan. |
+| `campaign-tracker` | Active (v1.3.0) | Report attachment or metrics supplied in the conversation | Analyzes provided metrics; does not query Reports or live media platforms. |
+| `creative-concept` / `channel-copy` | Active (v1.2.0) | Conversation; project/brand context when selected | Produces creative routes or channel-scoped copy; factual claims must remain supported by supplied brand evidence. |
+| `page-review` | Active (v1.2.0) | URL or page content | Reviews readable content; extracted text alone cannot establish visual layout, interactions, speed or accessibility. |
+| `meeting-copilot` | Active (v1.2.0) | Notes/transcript for summaries; request context for agendas | Meet metadata is not meeting content. Without notes/transcript it can prepare a pauta, but must not invent decisions. |
+| `client-delivery` | Active (v1.2.0) | Selected project or supplied status details | Summarizes tasks and resources; completed tasks do not prove delivery or client acceptance. |
+| `studio` | Planned (v0.2.0) | Conversation; brand/project/reference optional | Chat can inspect creation capabilities; paid generation/editing remains in the persisted approval flow and is not directly callable by the model. Context-free creation is generic. |
+| `reports` | Early | Project plus selected/reviewed report | Imported, reviewed metrics only; live platform ingestion is not implied. The separate `campaign-tracker` workflow analyzes an attached report or metrics supplied in the conversation and does not call Reports. |
 
 Catalog state is product maturity, not a permission level. `active`, `early`,
 and `in_development` should be rendered distinctly in the storefront.
 
-Trello, Asana, Slack and Google are shown as planned external integrations only; no external connector is active in this phase. The chat displays a plugin attribution only after a matching MCP tool completes successfully.
+Google Workspace is implemented as a Cadu-managed connector invoked through the internal MCP registry; it is not a dynamically loaded third-party MCP server. Trello, Asana, and Slack remain planned. No arbitrary external MCP server is dynamically loaded by chat plugins in this phase. The chat displays a plugin attribution only after a matching MCP tool completes successfully.
 
 ## Planner behavior
 
@@ -76,7 +86,14 @@ and capability endpoint read the current version from these tables.
 The JSONB manifest documents triggers, internal tools, context, external
 connectors, known gaps, inputs, and outputs. It is descriptive metadata: the
 runtime still uses its backend allowlist for executable tools, and a database
-edit cannot grant a new tool permission. Write flows should extend manifests
+edit cannot grant a new tool permission. Keep the manifest's tool list aligned
+with the effective runtime allowlist. `tool_contract_matches_manifest` in the
+capability metadata exposes this comparison for review; it is a diagnostic,
+not an authorization check. `provider_dependencies` documents providers used
+behind a Cadu workflow; it does not assert that a provider is currently
+connected or available. Firecrawl and OpenRouter are implementation
+dependencies of Market Intelligence, while Google Workspace is accessed
+through Cadu's internal Google connector. Write flows should extend manifests
 with input/output schemas, confirmation and cost requirements, permission
 references, artifact outputs, source policy and evaluation criteria. Use
 semantic versioning: PATCH for fixes, MINOR for compatible workflow additions,
@@ -84,6 +101,15 @@ MAJOR for breaking input/output or behavior changes. Publish a new version
 record instead of overwriting existing versions when changing a plugin
 contract. The seed uses `ON CONFLICT DO NOTHING` on version rows to preserve
 published definitions.
+
+The runtime catalog exposes the manifest/runtime comparison as two lists:
+tools declared but unavailable, and allowed tools not documented in the
+manifest. A mismatch is an operational documentation defect; it never expands
+the allowlist. `runtime_tools` is the full capability boundary, while the tool
+chain selected for a turn is narrower and depends on the user's selected
+project, brand, attachment, and request. Optional project/brand reads appear in
+the capability boundary but must not run when that context is absent or
+irrelevant.
 
 Project search and activity management are separate workflows. Project search
 is selected only for requests to find or summarize existing project knowledge;
@@ -106,6 +132,32 @@ short summary and open action in the chat. Saving that session artifact into a
 project remains a separate user-directed step.
 
 Skills are intentionally not a customer-facing dependency in this phase.
+
+## Model, reviewer, and retrieval boundaries
+
+Model/provider policy is currently explicit for the composite Insights and
+Market Intelligence workflows; the smaller daily workflows use the shared
+chat model with deterministic MCP helpers where available. Insights performs
+separate research, synthesis, and review stages. Market Intelligence runs a
+resumable multi-stage worker. Other plugins do not currently have a general
+independent reviewer contract. Keep deterministic calculations in tools and
+reserve an additional model pass for claims or decisions whose evidence/risk
+justifies its latency and cost.
+
+Project-source retrieval currently combines lexical and dense top-12 candidate
+lists with reciprocal-rank fusion, then returns a bounded number of excerpts.
+It does not yet run a learned cross-encoder/model reranker. Before adding one,
+measure candidate recall and top-k relevance on an approved, project-scoped
+evaluation set: reranking can reorder retrieved passages but cannot recover a
+relevant passage missing from both initial lists. Record retrieval mode,
+pipeline version, source and chunk IDs, and whether indexing was complete. A
+lexical fallback or unavailable index must remain visible as a degraded result,
+not be presented as proof that no project evidence exists.
+
+The TypeSafe review principles used for this design are intent/complexity
+routing, typed evidence relevance checks, and independent citation support
+checks. They guide evaluation and workflow structure only; TypeSafe is not a
+runtime dependency of the customer environment.
 
 ## Insights market workflow
 

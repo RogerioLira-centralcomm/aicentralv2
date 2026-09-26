@@ -55,7 +55,12 @@ def dashboard(client_id: int, limit=60) -> dict:
              COUNT(*) AS turns,
              COUNT(*) FILTER (WHERE status='completed') AS completed,
              COUNT(*) FILTER (WHERE status='failed') AS failed,
-             ROUND(AVG(total_duration_ms))::int AS avg_duration_ms
+             ROUND(AVG(total_duration_ms))::int AS avg_duration_ms,
+             COALESCE(SUM(input_tokens),0) AS input_tokens,
+             COALESCE(SUM(output_tokens),0) AS output_tokens,
+             COALESCE(SUM(charged_credits),0) AS charged_credits,
+             ROUND(AVG(charged_credits)::numeric, 2) AS avg_charged_credits,
+             ARRAY_REMOVE(ARRAY_AGG(DISTINCT runtime_id ORDER BY runtime_id), NULL) AS runtimes
           FROM cadu_family_chat_runs
          WHERE client_id=%s AND runtime_version='v2'
            AND created_at >= NOW()-INTERVAL '30 days'

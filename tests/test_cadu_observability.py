@@ -73,7 +73,9 @@ def test_run_detail_exposes_technical_context_without_message_content(monkeypatc
 def test_dashboard_flags_project_route_without_completed_retrieval(monkeypatch):
     responses = iter([
         [{"turns": 1, "failed": 0, "avg_first_token_ms": 1000}],
-        [], [],
+        [], [{"plugin_id": "insights", "turns": 1, "completed": 1, "failed": 0,
+              "input_tokens": 120, "output_tokens": 80, "charged_credits": 3,
+              "avg_charged_credits": 3, "runtimes": ["gpt-luna"]}],
         [{"project_questions": 1, "without_project_evidence": 1}],
         [],
         [{"queued": 0, "queued_old": 0, "failed": 0, "stalled": 0}],
@@ -85,4 +87,6 @@ def test_dashboard_flags_project_route_without_completed_retrieval(monkeypatch):
 
     assert result["available"] is True
     assert result["project_retrieval"]["without_project_evidence"] == 1
+    assert result["plugin_metrics"][0]["charged_credits"] == 3
+    assert result["plugin_metrics"][0]["runtimes"] == ["gpt-luna"]
     assert any(alert["code"] == "project_answers_without_evidence" for alert in result["alerts"])

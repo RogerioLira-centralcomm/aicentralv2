@@ -185,7 +185,7 @@ function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource
   </div>;
 }
 
-export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, caduMark, caduMcpMark = '/static/images/cadu/products/cadu-mcp-48.png', starterProject, starterBrand, starterHome, contextLoading, opening = false, runtime, diagnostics, activePlugin, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation, audioTranscriptionEndpoint, csrfToken}) {
+export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, caduMark, caduMcpMark = '/static/images/cadu/products/cadu-mcp-48.png', starterProject, starterBrand, starterHome, contextLoading, opening = false, runtime, diagnostics, activePlugin, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, automation, audioTranscriptionEndpoint, csrfToken, projects = [], brands = []}) {
   const details = useRef(null);
   const historyTrigger = useRef(null);
   const wasHistoryOpen = useRef(historyOpen);

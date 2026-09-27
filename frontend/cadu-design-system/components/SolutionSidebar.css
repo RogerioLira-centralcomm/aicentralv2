@@ -32,7 +32,7 @@
 .cadu-solution-sidebar__footer{display:grid;gap:4px;margin-top:auto;padding-top:12px;border-top:1px solid #e1e6e2}
 .cadu-solution-sidebar__footer a{padding:7px 9px;border-radius:8px;color:#697570;font-size:11px;text-decoration:none}
 .cadu-solution-sidebar__footer a:hover{background:#fff;color:var(--solution-accent)}
-.cadu-solution-sidebar__footer .cadu-ds-usage-ring{display:grid;width:42px;height:42px;place-items:center;justify-self:center;margin:0 auto 4px;border:0;border-radius:50%;background:conic-gradient(var(--solution-accent) var(--cadu-usage),#e4eae6 0);color:#394743;text-decoration:none}
+.cadu-solution-sidebar__footer .cadu-ds-usage-ring{display:grid;width:42px;height:42px;place-items:center;justify-self:start;margin:0 0 4px 7px;border:0;border-radius:50%;background:conic-gradient(var(--solution-accent) var(--cadu-usage),#e4eae6 0);color:#394743;text-decoration:none}
 .cadu-solution-sidebar__footer .cadu-ds-usage-ring span{display:grid;width:34px;height:34px;place-items:center;border-radius:50%;background:#f7f8f6;font-size:9px;font-weight:750}
 .cadu-solution-sidebar__account{display:flex;min-height:42px;align-items:center;gap:9px;padding:5px 7px!important;color:#4c5a55!important}
 .cadu-solution-sidebar__avatar{position:relative;display:grid;width:32px;height:32px;flex:0 0 32px;place-items:center;overflow:hidden;border:1px solid #dce5e0;border-radius:50%;background:#e8f0ed;color:#24584e;font-size:10px;font-weight:750}

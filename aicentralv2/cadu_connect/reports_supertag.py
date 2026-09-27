@@ -206,10 +206,11 @@ def register(bp):
             GROUP BY s.id ORDER BY s.created_at DESC''', params)
         base = _base_url()
         for site in sites:
-            site['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.js'
+            site['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.min.js'
             site['snippet'] = (f'<script async src="{site["script_url"]}" '
                 f'data-cadu-site="{site["public_id"]}" '
-                f'data-cadu-config="{base}/connect/public/supertag/v1/{site["public_id"]}/config.json"></script>')
+                f'data-cadu-config="{base}/connect/public/supertag/v1/{site["public_id"]}/config.json" '
+                f'data-cadu-consent="{(site.get("config") or {}).get("consent_mode", "auto")}"></script>')
         return jsonify(sites=sites)
 
     @bp.post('/api/v1/reports/supertag/sites')
@@ -231,21 +232,22 @@ def register(bp):
             VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
             RETURNING id,public_id,label,allowed_host,enabled,config,config_version,created_at,updated_at,revoked_at''',
             (site_id, selected['organization_id'], selected['client_id'], public_id, label, host,
-             json.dumps({'consent_required': True, 'audience_days': 90, 'retention_days': 90,
+             json.dumps({'consent_required': True, 'consent_mode': 'auto', 'audience_days': 90, 'retention_days': 90,
                          'visibility_enabled': True}),
              session['user_id']))[0]
         get_db().commit()
         base = _base_url()
-        site['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.js'
+        site['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.min.js'
         site['snippet'] = (f'<script async src="{site["script_url"]}" data-cadu-site="{public_id}" '
-            f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json"></script>')
+            f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json" '
+            'data-cadu-consent="auto"></script>')
         return jsonify(site=site), 201
 
     @bp.patch('/api/v1/reports/supertag/sites/<uuid:site_id>')
     @login_required_api
     def supertag_site_update(site_id):
         payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days'}:
+        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days', 'consent_mode'}:
             abort(400, description='Configuração da Super Tag inválida.')
         selected = _selection(payload)
         _write_guard(selected)
@@ -258,6 +260,10 @@ def register(bp):
         label = ' '.join(str(payload.get('label', current['label']) or '').split())[:120]
         host = _host(payload.get('allowed_host', current['allowed_host']))
         config = dict(current['config'] or {})
+        if 'consent_mode' in payload:
+            if payload['consent_mode'] not in ('auto', 'manual'):
+                abort(400, description='Escolha o modo de consentimento disponível.')
+            config['consent_mode'] = payload['consent_mode']
         if 'visibility_enabled' in payload:
             if not isinstance(payload['visibility_enabled'], bool):
                 abort(400, description='Informe se a coleta de visibilidade está ativa.')
@@ -276,9 +282,10 @@ def register(bp):
             (label, host, json.dumps(config), str(site_id)))[0]
         get_db().commit()
         base = _base_url()
-        updated['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.js'
+        updated['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.min.js'
         updated['snippet'] = (f'<script async src="{updated["script_url"]}" data-cadu-site="{updated["public_id"]}" '
-            f'data-cadu-config="{base}/connect/public/supertag/v1/{updated["public_id"]}/config.json"></script>')
+            f'data-cadu-config="{base}/connect/public/supertag/v1/{updated["public_id"]}/config.json" '
+            f'data-cadu-consent="{config.get("consent_mode", "auto")}"></script>')
         return jsonify(site=updated)
 
     @bp.post('/api/v1/reports/supertag/sites/<uuid:site_id>/revoke')
@@ -304,11 +311,30 @@ def register(bp):
         if parsed.scheme not in ('https', 'http') or (parsed.hostname or '').lower().rstrip('.') != site['allowed_host']:
             abort(403)
         response = make_response(jsonify(site_id=site['public_id'], config_version=site['config_version'],
-            consent_required=True, visibility_enabled=(site.get('config') or {}).get('visibility_enabled', True),
+            consent_required=True, consent_mode=(site.get('config') or {}).get('consent_mode', 'auto'),
+            visibility_enabled=(site.get('config') or {}).get('visibility_enabled', True),
             audience_days=(site.get('config') or {}).get('audience_days', 90)))
         response.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=3600'
         response.set_etag(f'{site["public_id"]}:{site["config_version"]}')
         return response.make_conditional(request)
+
+    @bp.post('/public/supertag/v1/<public_id>/consent')
+    def supertag_public_consent(public_id):
+        site = _site_by_public_id(public_id)
+        request._supertag_allowed_host = site['allowed_host']
+        origin = request.headers.get('Origin') or ''
+        parsed = urlparse(origin)
+        if parsed.scheme not in ('https', 'http') or (parsed.hostname or '').lower().rstrip('.') != site['allowed_host']:
+            abort(403)
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict) or set(payload) != {'analytics'} or not isinstance(payload['analytics'], bool):
+            abort(400, description='Informe uma escolha válida para analytics.')
+        response = make_response(jsonify(analytics=payload['analytics']))
+        response.set_cookie('cadu_consent', 'granted' if payload['analytics'] else 'denied',
+            max_age=365 * 86400, path='/', domain=site['allowed_host'],
+            secure=parsed.scheme == 'https', httponly=False, samesite='Lax')
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
     @bp.route('/public/supertag/v1/<public_id>/collect', methods=['POST', 'OPTIONS'])
     def supertag_public_collect(public_id):

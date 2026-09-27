@@ -576,7 +576,7 @@ def register(bp):
         event_date_filter = ''
         start_date = request.args.get('start_date', '').strip()
         end_date = request.args.get('end_date', '').strip()
-        if start_date or end_date:
+        if start_date and end_date:
             try:
                 parsed_start = date.fromisoformat(start_date)
                 parsed_end = date.fromisoformat(end_date)
@@ -587,6 +587,8 @@ def register(bp):
             event_period_filter = ''
             event_date_filter = ' AND e.occurred_at >= %s::date AND e.occurred_at < (%s::date + INTERVAL \'1 day\')'
             event_scope_params = [*params, *scope_params[3:], parsed_start.isoformat(), parsed_end.isoformat()]
+        elif start_date or end_date:
+            abort(400, description='Informe as duas datas do intervalo.')
         event_scoped_events = '''WITH selected_events AS (
             SELECT e.* FROM cadu_reports_flow_events e
             LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id
@@ -669,14 +671,31 @@ def register(bp):
                 AND occurred_at > NOW() - INTERVAL '90 seconds') AS online,
             COUNT(DISTINCT visitor_id) FILTER (WHERE event_kind='conversion') AS conversions
             FROM selected_events''', tuple(scope_params))[0]
-        event_inventory = _rows(event_scoped_events + '''SELECT event_kind,COALESCE(NULLIF(event_name,''),event_kind) AS event_name,page_path,
+        event_inventory_query = event_scoped_events + '''SELECT event_kind,COALESCE(NULLIF(event_name,''),event_kind) AS event_name,page_path,
             COALESCE(utm_source,referrer_host,'Website') AS source_label,
             MAX(occurred_at) AS last_occurred_at,COUNT(*)::bigint AS total,
             COUNT(*) FILTER (WHERE step_id IS NOT NULL)::bigint AS mapped,
             COUNT(*) OVER() AS group_count
             FROM selected_events
             GROUP BY event_kind,COALESCE(NULLIF(event_name,''),event_kind),page_path,COALESCE(utm_source,referrer_host,'Website')
-            ORDER BY last_occurred_at DESC LIMIT 300''', tuple(event_scope_params))
+            ORDER BY last_occurred_at DESC LIMIT 300'''
+        try:
+            event_inventory = _rows(event_inventory_query, tuple(event_scope_params))
+        except Exception as exc:
+            # Older Reports databases may not have the custom-event migration yet.
+            # Recover only from that specific missing-column case; other SQL errors
+            # should continue through the normal error path.
+            message = str(exc).lower()
+            if 'event_name' not in message or 'column' not in message or 'does not exist' not in message:
+                raise
+            event_inventory = _rows(event_scoped_events + '''SELECT event_kind,event_kind AS event_name,page_path,
+                COALESCE(utm_source,referrer_host,'Website') AS source_label,
+                MAX(occurred_at) AS last_occurred_at,COUNT(*)::bigint AS total,
+                COUNT(*) FILTER (WHERE step_id IS NOT NULL)::bigint AS mapped,
+                COUNT(*) OVER() AS group_count
+                FROM selected_events
+                GROUP BY event_kind,page_path,COALESCE(utm_source,referrer_host,'Website')
+                ORDER BY last_occurred_at DESC LIMIT 300''', tuple(event_scope_params))
         event_summary = _rows(event_scoped_events + '''SELECT COUNT(*)::bigint AS total,
             COUNT(*) FILTER (WHERE event_kind='form_submit')::bigint AS form_submissions,
             COUNT(*) FILTER (WHERE event_kind='conversion')::bigint AS conversions,
@@ -763,7 +782,7 @@ def register(bp):
                 canvas_nodes = configured_nodes
         confirmed_time_filter = 'x.occurred_at > NOW() - (%s * INTERVAL \'1 day\')'
         confirmed_params = list(conversion_params)
-        if start_date or end_date:
+        if start_date and end_date:
             confirmed_time_filter = "x.occurred_at >= %s::date AND x.occurred_at < (%s::date + INTERVAL '1 day')"
             confirmed_params = [*params, parsed_start.isoformat(), parsed_end.isoformat(), *conversion_params[3:]]
         confirmed = _rows('''SELECT x.conversion_kind,COUNT(*)::bigint AS total

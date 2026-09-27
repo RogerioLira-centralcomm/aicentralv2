@@ -26,6 +26,13 @@ def _ready():
                       "AND to_regclass('public.cadu_reports_campaigns') IS NOT NULL AS ready")[0]['ready'])
 
 
+def _column_exists(table, column):
+    return bool(_rows('''SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name=%s AND column_name=%s) AS ready''',
+        (table, column))[0]['ready'])
+
+
 def _selection(payload=None):
     supplied = (payload or {}).get('client_id') if payload is not None else request.args.get('client_id')
     return reports_access.resolve(supplied)
@@ -121,17 +128,28 @@ def register(bp):
                 currency,time_zone,status,updated_at FROM cadu_reports_accounts
                 WHERE organization_id=%s AND client_id=%s ORDER BY platform,account_kind DESC,name''', params)
         workspace_projects = _visible_workspace_projects(selected)
-        campaigns = _rows('''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,c.channel_type,
-                c.workspace_project_id::text AS workspace_project_id,
-                p.nome AS workspace_project_name,a.name AS account_name,a.platform
+        has_channel_type = _column_exists('cadu_reports_campaigns', 'channel_type')
+        has_workspace_project = _column_exists('cadu_reports_campaigns', 'workspace_project_id')
+        optional_campaign_fields = (
+            f"c.{ 'channel_type' if has_channel_type else 'objective' } AS channel_type, "
+            + ("c.workspace_project_id::text AS workspace_project_id, " if has_workspace_project
+               else "NULL::text AS workspace_project_id, "))
+        campaign_project_join = ("LEFT JOIN cadu_ci_projetos p ON p.id=c.workspace_project_id "
+            "AND p.id_cliente=c.organization_id AND p.status <> 'deletado'" if has_workspace_project else "")
+        campaign_project_select = "p.nome AS workspace_project_name" if has_workspace_project else "NULL::text AS workspace_project_name"
+        campaigns = _rows(f'''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,
+                {optional_campaign_fields}
+                {campaign_project_select},a.name AS account_name,a.platform
             FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
-            LEFT JOIN cadu_ci_projetos p ON p.id=c.workspace_project_id
-                AND p.id_cliente=c.organization_id AND p.status <> 'deletado'
+            {campaign_project_join}
                 WHERE c.organization_id=%s AND c.client_id=%s ORDER BY a.name,c.name''', params)
-        reports = _rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
+        reports_ready = _rows("SELECT to_regclass('public.cadu_connect_report_workspaces') IS NOT NULL AS ready")[0]['ready']
+        reports = (_rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
                 revision,updated_at FROM cadu_connect_report_workspaces
                 WHERE organization_id=%s AND client_id=%s ORDER BY updated_at DESC LIMIT 60''', params)
-        link_tests = _rows('''SELECT r.id,r.mode,r.original_url,r.final_url,r.score,r.status_label,r.public_token,
+            if reports_ready else [])
+        link_tests_ready = _rows("SELECT to_regclass('public.cadu_reports_link_test_runs') IS NOT NULL AS ready")[0]['ready']
+        link_tests = (_rows('''SELECT r.id,r.mode,r.original_url,r.final_url,r.score,r.status_label,r.public_token,
                 r.created_at,r.account_id,r.media_campaign_id,r.report_workspace_id,
                 r.association_updated_at,c.name AS campaign_name,w.campaign_name AS report_name
                 FROM cadu_reports_link_test_runs r
@@ -140,7 +158,7 @@ def register(bp):
                 LEFT JOIN cadu_connect_report_workspaces w ON w.id=r.report_workspace_id
                     AND w.organization_id=%s AND w.client_id=%s
                 WHERE r.client_id=%s ORDER BY r.created_at DESC LIMIT 20''',
-                (*params, *params, selected['client_id']))
+                (*params, *params, selected['client_id'])) if link_tests_ready else [])
         return jsonify(ready=True, client=selected, clients=clients, csrf=session['family_csrf'],
                        can_manage_access=selected['role'] == 'admin' and
                            session.get('user_type') in ('admin', 'superadmin') and not reports_access.reports_only(),

@@ -6,7 +6,16 @@
   var configUrl = script && script.getAttribute('data-cadu-config');
   if (!siteId || !configUrl || !window.crypto || !window.crypto.randomUUID) return;
 
-  var endpoint = configUrl.replace(/\/config\.json(?:\?.*)?$/, '/collect');
+  var parsedConfigUrl;
+  try { parsedConfigUrl = new URL(configUrl, location.href); } catch (_) { return; }
+  if (!/^https?:$/.test(parsedConfigUrl.protocol) || !/\/connect\/public\/supertag\/v1\/[A-Za-z0-9_-]+\/config\.json$/.test(parsedConfigUrl.pathname)) return;
+  var endpointUrl = new URL(parsedConfigUrl.href);
+  endpointUrl.pathname = endpointUrl.pathname.replace(/\/config\.json$/, '/collect');
+  endpointUrl.search = '';
+  endpointUrl.hash = '';
+  var endpoint = endpointUrl.href;
+  var consentUrl = endpoint.replace(/\/collect$/, '/consent');
+  var consentMode = script.getAttribute('data-cadu-consent') || 'auto';
   var config = null;
   var consented = false;
   var started = false;
@@ -23,6 +32,11 @@
   var observers = [];
   var listenersInstalled = false;
   var visibilityDomReadyScheduled = false;
+  var consentUi = null;
+  var consentState = 'unknown';
+  var activeController = null;
+  var hasConsentManager = false;
+  var consentResolved = false;
   var cookieName = 'cadu_stg_' + siteId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
 
   function readCookie(name) {
@@ -53,6 +67,67 @@
     catch (_) { return ''; }
   }
 
+  function existingConsent() {
+    try {
+      if (window.__tcfapi) {
+        hasConsentManager = true;
+        window.__tcfapi('addEventListener', 2, function (tcData, success) {
+          if (success && tcData && (tcData.eventStatus === 'tcloaded' || tcData.eventStatus === 'useractioncomplete')) {
+            setConsent(!!(tcData.purpose && tcData.purpose.consents && tcData.purpose.consents[1]));
+            consentResolved = true;
+          }
+        });
+        return true;
+      }
+      if (window.OnetrustActiveGroups != null) {
+        hasConsentManager = true;
+        consentResolved = true;
+        setConsent(String(window.OnetrustActiveGroups).split(',').indexOf('C0002') !== -1);
+        return true;
+      }
+      if (window.Cookiebot && window.Cookiebot.consent) {
+        hasConsentManager = true;
+        consentResolved = true;
+        setConsent(!!window.Cookiebot.consent.statistics);
+        return true;
+      }
+      var consent = document.cookie.split('; ').find(function (part) { return part.indexOf('cadu_consent=') === 0; });
+      if (consent) { setConsent(consent.slice('cadu_consent='.length) === 'granted'); return true; }
+      var stored = localStorage.getItem('cadu_analytics_consent');
+      if (stored === 'granted' || stored === 'denied') { setConsent(stored === 'granted'); return true; }
+    } catch (_) { /* CMP APIs and storage may be unavailable. */ }
+    return false;
+  }
+
+  function showConsentPromptDeferred(fromCmp) {
+    window.setTimeout(function () {
+      if (!hasConsentManager && !consentResolved && consentMode !== 'manual' && consentState === 'unknown') showConsentPrompt();
+    }, 3000);
+  }
+
+  function showConsentPrompt() {
+    if (consentUi || consentState !== 'unknown' || !document.body) return;
+    consentUi = document.createElement('aside');
+    consentUi.setAttribute('role', 'dialog');
+    consentUi.setAttribute('aria-label', 'Preferências de privacidade');
+    consentUi.style.cssText = 'position:fixed;z-index:2147483647;bottom:16px;left:16px;max-width:380px;padding:16px;background:#fff;color:#18212f;border:1px solid #d7dce2;border-radius:12px;box-shadow:0 8px 32px #0003;font:14px/1.45 system-ui,sans-serif';
+    var message = document.createElement('p');
+    message.textContent = 'Podemos usar dados de navegação anônimos para melhorar este site?';
+    message.style.margin = '0 0 12px'; consentUi.appendChild(message);
+    [['Aceitar analytics', true], ['Recusar', false]].forEach(function (choice) {
+      var button = document.createElement('button');
+      button.type = 'button'; button.textContent = choice[0];
+      button.style.cssText = 'margin-right:8px;padding:8px 12px;border:1px solid #667085;border-radius:7px;background:#fff;color:#18212f;cursor:pointer';
+      button.addEventListener('click', function () {
+        fetch(consentUrl, {method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({analytics:choice[1]})}).catch(function () {});
+        try { localStorage.setItem('cadu_analytics_consent', choice[1] ? 'granted' : 'denied'); } catch (_) { /* Optional persistence. */ }
+        consentUi.remove(); consentUi = null; setConsent(choice[1]);
+      });
+      consentUi.appendChild(button);
+    });
+    document.body.appendChild(consentUi);
+  }
+
   function viewport() {
     return {width: Math.min(window.innerWidth || 0, 10000), height: Math.min(window.innerHeight || 0, 10000)};
   }
@@ -81,11 +156,14 @@
       } catch (_) { /* Use fetch fallback below. */ }
     }
     flushInFlight = true;
+    activeController = typeof AbortController !== 'undefined' ? new AbortController() : null;
     fetch(endpoint, {method: 'POST', mode: 'cors', keepalive: true,
+      signal: activeController ? activeController.signal : undefined,
       headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: body})
       .then(function (response) { if (response.ok) buffer.splice(0, batch.length); })
       .catch(function () {})
       .finally(function () {
+        activeController = null;
         flushInFlight = false;
         if (consented && buffer.length >= 10) flush(false);
       });
@@ -94,6 +172,7 @@
   function trackPage() {
     if (!started || !consented) return;
     var path = location.pathname || '/';
+    if (location.hash && path === lastPath) path += location.hash.slice(0, 120);
     if (path === lastPath) return;
     lastPath = path;
     seenVisibility = Object.create(null);
@@ -193,6 +272,9 @@
 
   function setConsent(value) {
     consented = value === true || value === 'granted';
+    consentResolved = true;
+    consentState = consented ? 'granted' : 'denied';
+    if (consentUi) { consentUi.remove(); consentUi = null; }
     if (consented) start();
     else {
       started = false;
@@ -202,6 +284,7 @@
       sessionId = null;
       try { sessionStorage.removeItem(cookieName + '_session'); } catch (_) { /* Storage may be blocked. */ }
       if (flushTimer) window.clearInterval(flushTimer);
+      if (activeController) activeController.abort();
       flushTimer = 0;
       observers.forEach(function (observer) { observer.disconnect(); });
       observers = [];
@@ -226,6 +309,13 @@
     var detail = eventObject && eventObject.detail;
     if (detail && Object.prototype.hasOwnProperty.call(detail, 'analytics')) setConsent(detail.analytics);
   });
+  if (consentMode !== 'manual') {
+    if (!existingConsent()) showConsentPromptDeferred(false);
+    window.addEventListener('cadu:consent', function () { hasConsentManager = true; });
+    window.addEventListener('CookiebotOnAccept', function () { hasConsentManager = true; consentResolved = true; setConsent(!!(window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.statistics)); });
+    window.addEventListener('CookiebotOnDecline', function () { hasConsentManager = true; consentResolved = true; setConsent(false); });
+    window.addEventListener('OneTrustGroupsUpdated', function () { hasConsentManager = true; consentResolved = true; setConsent(String(window.OnetrustActiveGroups || '').split(',').indexOf('C0002') !== -1); });
+  }
   fetch(configUrl, {mode: 'cors', credentials: 'omit', cache: 'force-cache'})
     .then(function (response) { if (!response.ok) throw new Error('config'); return response.json(); })
     .then(function (value) {

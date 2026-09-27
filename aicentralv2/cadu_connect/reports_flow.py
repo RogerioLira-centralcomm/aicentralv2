@@ -17,6 +17,7 @@ from .reports_v1 import _rows, _selection, _write_guard
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
+MAX_DISCOVERY_SITEMAP_URLS = 50000
 
 
 def _host(value):
@@ -138,8 +139,12 @@ def _site_sitemap_urls(root_url, allowed_host):
             sitemap_urls.extend(re.findall(r'(?im)^\s*Sitemap:\s*(\S+)', body))
         else:
             sitemap_urls.append(source)
-    page_urls, pending = [], list(dict.fromkeys(sitemap_urls))[:8]
-    for sitemap in pending:
+    unique_sitemaps = list(dict.fromkeys(sitemap_urls))
+    page_urls, pending = [], unique_sitemaps[:8]
+    pending_index, truncated = 0, len(unique_sitemaps) > 8
+    while pending_index < len(pending) and pending_index < 12:
+        sitemap = pending[pending_index]
+        pending_index += 1
         canonical = _canonical_page_url(sitemap, root_url, allowed_host)
         if not canonical: continue
         try:
@@ -149,13 +154,21 @@ def _site_sitemap_urls(root_url, allowed_host):
             for location in locations:
                 location = unquote(re.sub(r'&amp;', '&', location.strip()))
                 item = _canonical_page_url(location, root_url, allowed_host)
-                if item and item.lower().endswith('.xml') and item not in pending and len(pending) < 12:
-                    pending.append(item)
+                if item and item.lower().endswith('.xml') and item not in pending:
+                    if len(pending) < 12:
+                        pending.append(item)
+                    else:
+                        truncated = True
                 elif item:
-                    page_urls.append(item)
+                    if len(page_urls) < MAX_DISCOVERY_SITEMAP_URLS:
+                        page_urls.append(item)
+                    else:
+                        truncated = True
         except Exception:
             continue
-    return list(dict.fromkeys(page_urls))[:MAX_DISCOVERY_PAGES]
+    if pending_index < len(pending):
+        truncated = True
+    return list(dict.fromkeys(page_urls)), truncated
 
 
 def _classify_discovered_page(page, root_host):
@@ -186,18 +199,31 @@ def _classify_discovered_page(page, root_host):
     return {'role': role, 'confidence': confidence, 'evidence': evidence}
 
 
-def _discover_site(root_url, allowed_host):
+def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
     canonical_root = _canonical_page_url(root_url, root_url, allowed_host)
     if not canonical_root:
         abort(400, description='Use uma URL pública do domínio autorizado ou de um subdomínio dele.')
-    seed_urls = [canonical_root, *_site_sitemap_urls(canonical_root, allowed_host)]
-    found, queued = {}, list(dict.fromkeys(seed_urls))
-    while queued and len(found) < MAX_DISCOVERY_PAGES:
+    sitemap_truncated = False
+    if seed_urls is None:
+        sitemap_urls, sitemap_truncated = _site_sitemap_urls(canonical_root, allowed_host)
+        seed_urls = [canonical_root, *sitemap_urls]
+    excluded_pages = set(excluded_pages or ())
+    found, queued = {}, []
+    for candidate in dict.fromkeys(seed_urls):
+        parsed_candidate = urlparse(candidate)
+        key = ((parsed_candidate.hostname or '').lower().rstrip('.'), parsed_candidate.path or '/')
+        if key not in excluded_pages:
+            queued.append(candidate)
+    attempted = 0
+    while queued and len(found) < MAX_DISCOVERY_PAGES and attempted < MAX_DISCOVERY_PAGES:
         batch = []
-        while queued and len(batch) < 10 and len(found) + len(batch) < MAX_DISCOVERY_PAGES:
+        while (queued and len(batch) < 10
+               and attempted + len(batch) < MAX_DISCOVERY_PAGES
+               and len(found) + len(batch) < MAX_DISCOVERY_PAGES):
             candidate = queued.pop(0)
             if candidate not in found and candidate not in batch: batch.append(candidate)
         if not batch: continue
+        attempted += len(batch)
         with ThreadPoolExecutor(max_workers=5) as pool:
             futures = {pool.submit(_fetch_site_page, item, allowed_host): item for item in batch}
             pages = []
@@ -207,10 +233,15 @@ def _discover_site(root_url, allowed_host):
         for page in pages:
             if not page: continue
             key = (page['host'], page['path'])
+            if key in excluded_pages:
+                continue
             found[key] = page
             for link in page['links']:
                 candidate = _canonical_page_url(link, page['url'], allowed_host)
-                if candidate and candidate not in found and candidate not in queued and len(queued) < 300:
+                candidate_parsed = urlparse(candidate) if candidate else None
+                candidate_key = ((candidate_parsed.hostname or '').lower().rstrip('.'), candidate_parsed.path or '/') if candidate_parsed else None
+                if (candidate and candidate_key not in excluded_pages and candidate not in found
+                        and candidate not in queued and len(queued) < MAX_DISCOVERY_SITEMAP_URLS + 300):
                     # Keep discovery useful: ignore common asset and auth routes.
                     if not re.search(r'\.(?:pdf|png|jpe?g|webp|svg|css|js|zip|mp4|woff2?)$', urlparse(candidate).path, re.I):
                         queued.append(candidate)
@@ -223,7 +254,15 @@ def _discover_site(root_url, allowed_host):
                               'evidence':['formulário detectado; sem campos públicos legíveis']}
         results.append({**page, **classification})
     role_order = {'entry':0,'form':1,'conversion':2,'intermediate':3}
-    return sorted(results, key=lambda page: (role_order[page['role']],page['host'],page['path']))
+    remaining = []
+    queued_seen = set()
+    for candidate in queued:
+        parsed_candidate = urlparse(candidate)
+        key = ((parsed_candidate.hostname or '').lower().rstrip('.'), parsed_candidate.path or '/')
+        if key not in excluded_pages and key not in found and candidate not in queued_seen:
+            queued_seen.add(candidate)
+            remaining.append(candidate)
+    return sorted(results, key=lambda page: (role_order[page['role']],page['host'],page['path'])), remaining, sitemap_truncated
 
 
 def _uuid(value, field):
@@ -484,26 +523,45 @@ def register(bp):
         selected = _selection(payload)
         _write_guard(selected)
         flow = _flow_row(flow_id, selected)
-        root_url = str(payload.get('root_url') or f"https://{flow['allowed_host']}").strip()
-        parsed = urlparse(root_url if '://' in root_url else 'https://' + root_url)
-        if parsed.scheme not in ('https','http') or not parsed.hostname or parsed.username or parsed.password:
-            abort(400, description='Informe a URL pública inicial do site.')
-        root_url = _canonical_page_url(root_url if '://' in root_url else 'https://' + root_url,
-                                       f"https://{flow['allowed_host']}", flow['allowed_host'])
-        if not root_url:
-            abort(400, description='O mapeamento só pode visitar o domínio autorizado e seus subdomínios.')
-        pages = _discover_site(root_url, flow['allowed_host'])
-        run_id = str(uuid.uuid4())
-        status = 'partial' if len(pages) >= MAX_DISCOVERY_PAGES else 'completed' if pages else 'failed'
-        _rows('''INSERT INTO cadu_reports_flow_discovery_runs
-            (id,organization_id,client_id,tag_id,root_url,status,page_count,created_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
-            (run_id, selected['organization_id'], selected['client_id'], flow['tag_id'],
-             root_url, status, len(pages), session['user_id']))
-        _rows('''UPDATE cadu_reports_flow_discovery_runs SET status='partial'
-            WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND id<>%s
-                AND status='completed' RETURNING id''',
-            (flow['tag_id'],selected['organization_id'],selected['client_id'],run_id))
+        requested_run_id = payload.get('run_id')
+        active_run, excluded_pages, seed_urls = None, set(), None
+        if requested_run_id:
+            run_id = _uuid(requested_run_id, 'Varredura')
+            runs = _rows('''SELECT id,root_url,status,page_count,pending_urls,pending_truncated
+                FROM cadu_reports_flow_discovery_runs
+                WHERE id=%s AND organization_id=%s AND client_id=%s AND tag_id=%s FOR UPDATE''',
+                (run_id,selected['organization_id'],selected['client_id'],flow['tag_id']))
+            if not runs:
+                abort(404,description='Varredura não encontrada neste fluxo.')
+            active_run = runs[0]
+            if active_run['status']!='partial':
+                abort(409,description='Esta varredura já terminou. Inicie um novo mapeamento do site.')
+            seed_urls = active_run['pending_urls'] if isinstance(active_run['pending_urls'],list) else []
+            if not seed_urls:
+                abort(409,description='O sitemap excedeu o limite seguro de URLs; divida o sitemap para continuar.')
+            root_url = active_run['root_url']
+            seen_pages = _rows('''SELECT page_host,path_prefix FROM cadu_reports_flow_discovered_pages
+                WHERE run_id=%s AND organization_id=%s AND client_id=%s''',
+                (run_id,selected['organization_id'],selected['client_id']))
+            excluded_pages = {(page['page_host'],page['path_prefix']) for page in seen_pages}
+        else:
+            root_url = str(payload.get('root_url') or f"https://{flow['allowed_host']}").strip()
+            parsed = urlparse(root_url if '://' in root_url else 'https://' + root_url)
+            if parsed.scheme not in ('https','http') or not parsed.hostname or parsed.username or parsed.password:
+                abort(400, description='Informe a URL pública inicial do site.')
+            root_url = _canonical_page_url(root_url if '://' in root_url else 'https://' + root_url,
+                                           f"https://{flow['allowed_host']}", flow['allowed_host'])
+            if not root_url:
+                abort(400, description='O mapeamento só pode visitar o domínio autorizado e seus subdomínios.')
+            run_id = str(uuid.uuid4())
+            _rows('''INSERT INTO cadu_reports_flow_discovery_runs
+                (id,organization_id,client_id,tag_id,root_url,status,page_count,created_by)
+                VALUES (%s,%s,%s,%s,%s,'partial',0,%s) RETURNING id''',
+                (run_id,selected['organization_id'],selected['client_id'],flow['tag_id'],
+                 root_url,session['user_id']))
+        pages, pending_urls, sitemap_truncated = _discover_site(
+            root_url,flow['allowed_host'],seed_urls=seed_urls,excluded_pages=excluded_pages)
+        pending_truncated = bool(sitemap_truncated or (active_run and active_run['pending_truncated']))
         mapped_steps = _rows('''SELECT id,page_host,path_prefix,step_kind,is_entry
             FROM cadu_reports_flow_steps WHERE tag_id=%s AND organization_id=%s AND client_id=%s
                 AND is_active=TRUE AND step_kind IN ('page','form','conversion')''',
@@ -539,15 +597,27 @@ def register(bp):
                  page['confidence'],json.dumps(evidence),page['forms'],json.dumps(page['form_fields']),
                  selected_kind,selected_as_entry,prior_step['id'] if prior_step else None))[0]
             stored.append(row)
+        run_counts = _rows('''SELECT COUNT(*)::integer AS page_count FROM cadu_reports_flow_discovered_pages
+            WHERE run_id=%s AND organization_id=%s AND client_id=%s''',
+            (run_id,selected['organization_id'],selected['client_id']))[0]
+        status='partial' if pending_urls or pending_truncated else 'completed' if run_counts['page_count'] else 'failed'
+        _rows('''UPDATE cadu_reports_flow_discovery_runs SET status=%s,page_count=%s,
+                pending_urls=%s::jsonb,pending_truncated=%s
+            WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+            (status,run_counts['page_count'],json.dumps(pending_urls),pending_truncated,
+             run_id,selected['organization_id'],selected['client_id']))
         get_db().commit()
-        return jsonify(run={'id':run_id,'root_url':root_url,'status':status,'page_count':len(stored)},pages=stored)
+        return jsonify(run={'id':run_id,'root_url':root_url,'status':status,
+                            'page_count':run_counts['page_count'],'pending_count':len(pending_urls),
+                            'pending_truncated':pending_truncated},pages=stored)
 
     @bp.get('/api/v1/reports/flow/flows/<flow_id>/discoveries')
     @login_required_api
     def reports_flow_discoveries(flow_id):
         selected = _selection()
         flow = _flow_row(flow_id, selected)
-        runs = _rows('''SELECT id,root_url,status,page_count,created_at
+        runs = _rows('''SELECT id,root_url,status,page_count,created_at,
+                jsonb_array_length(pending_urls) AS pending_count,pending_truncated
             FROM cadu_reports_flow_discovery_runs WHERE organization_id=%s AND client_id=%s AND tag_id=%s
             ORDER BY created_at DESC LIMIT 1''',
             (selected['organization_id'],selected['client_id'],flow['tag_id']))

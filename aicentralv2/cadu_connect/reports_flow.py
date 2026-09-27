@@ -1,5 +1,6 @@
 """First-party Funnel Flow collection and URL-step mapping for Reports V1."""
 import json
+import math
 import re
 import secrets
 import string
@@ -46,14 +47,21 @@ def _host_allowed(candidate, allowed_host):
 class _SitePageParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.links, self.forms, self.form_fields = [], 0, []
+        self.links, self.script_sources, self.resource_sources, self.forms, self.form_fields = [], [], [], 0, []
         self.title_parts, self.h1_parts = [], []
-        self.in_title = self.in_h1 = self.in_form = False
+        self.inline_scripts, self.inline_script_size = [], 0
+        self.in_title = self.in_h1 = self.in_form = self.in_inline_script = False
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if tag == 'a' and attrs.get('href'):
             self.links.append(attrs['href'])
+        if tag == 'script' and attrs.get('src') and len(self.script_sources) < 300:
+            self.script_sources.append(attrs['src'])
+        if tag == 'script':
+            self.in_inline_script = not bool(attrs.get('src'))
+        if tag in ('img', 'iframe') and attrs.get('src') and len(self.resource_sources) < 300:
+            self.resource_sources.append(attrs['src'])
         if tag == 'form':
             self.forms += 1
             self.in_form = True
@@ -74,11 +82,16 @@ class _SitePageParser(HTMLParser):
         if tag == 'title': self.in_title = False
         if tag == 'h1': self.in_h1 = False
         if tag == 'form': self.in_form = False
+        if tag == 'script': self.in_inline_script = False
 
     def handle_data(self, data):
         value = ' '.join(data.split())
         if value and self.in_title: self.title_parts.append(value)
         if value and self.in_h1: self.h1_parts.append(value)
+        if value and self.in_inline_script and self.inline_script_size < 150_000:
+            chunk = value[:150_000-self.inline_script_size]
+            self.inline_scripts.append(chunk)
+            self.inline_script_size += len(chunk)
 
 
 def _canonical_page_url(url, base_url, allowed_host):
@@ -118,8 +131,55 @@ def _fetch_site_page(url, allowed_host):
         return {'url': current, 'host': parsed.hostname.lower().rstrip('.'),
                 'path': parsed.path or '/', 'title': ' '.join(parser.title_parts)[:500],
                 'h1': ' '.join(parser.h1_parts)[:300], 'links': parser.links[:500],
+                'script_sources': parser.script_sources, 'resource_sources': parser.resource_sources,
+                'inline_scripts': '\n'.join(parser.inline_scripts),
                 'forms': parser.forms, 'form_fields': parser.form_fields}
     return None
+
+
+_SITE_TRACKER_SIGNATURES = {
+    'google_ads': (r'googleadservices\.com|google\.com/pagead|gtag(?:/js)?[^"\']*AW-[0-9]+|AW-[0-9]{6,}',
+                   r'gtag\s*\(\s*["\']config["\']\s*,\s*["\']AW-[0-9]+'),
+    'meta_ads': (r'connect\.facebook\.net/[^"\']*fbevents\.js|facebook\.com/tr',
+                 r'fbq\s*\(\s*["\']init["\']'),
+    'linkedin_ads': (r'snap\.licdn\.com/li\.lms-analytics|linkedin\.com/insight|px\.ads\.linkedin\.com/collect',
+                     r'_linkedin_partner_id\s*='),
+    'tiktok': (r'analytics\.tiktok\.com/i18n/pixel/events\.js|business-api\.tiktok\.com',
+               r'_ttp\s*\('),
+    'amazon_ads': (r'amazon-adsystem\.com|aax\.amazon-adsystem', r'amazon_ads'),
+    'spotify_ads': (r'(?:pixel|ads)\.spotify\.com', r'spotify_ads'),
+    'disney_ads': (r'(?:ads\.)?disneyadvertising\.com', r'disney_ads'),
+    'email': (r'(?:chimpstatic|list-manage)\.com|(?:js\.)?hs-scripts\.com|rdstation\.com\.br|activecampaign\.com|klaviyo\.com',
+              r'(?!)'),
+}
+
+
+def _detect_page_integrations(page):
+    """Return exact third-party tracker/link evidence; never infer a campaign source from a logo."""
+    resources = [urljoin(page['url'], value) for value in
+                 [*page.get('script_sources', []), *page.get('resource_sources', [])]]
+    resource_hosts = [(urlparse(source).hostname or '').lower() for source in resources]
+    inline_scripts = str(page.get('inline_scripts') or '')
+    matches = []
+    for platform, (script_pattern, inline_pattern) in _SITE_TRACKER_SIGNATURES.items():
+        evidence = None
+        for source, host in zip(resources, resource_hosts):
+            if re.search(script_pattern, source, re.I) or re.search(script_pattern, host, re.I):
+                evidence = f'recurso de {host}'
+                break
+        if evidence is None and re.search(inline_pattern, inline_scripts, re.I):
+            evidence = 'código de rastreamento na página'
+        if evidence:
+            matches.append({'platform': platform, 'signal': 'tracker', 'evidence': evidence,
+                            'page': page['path']})
+    for link in page.get('links', []):
+        parsed = urlparse(urljoin(page['url'], link))
+        host = (parsed.hostname or '').lower()
+        if host == 'wa.me' or host.endswith(('.whatsapp.com', '.whatsapp.net')):
+            matches.append({'platform': 'whatsapp', 'signal': 'site_link',
+                            'evidence': f'link de WhatsApp em {page["path"]}', 'page': page['path']})
+            break
+    return matches
 
 
 def _site_sitemap_urls(root_url, allowed_host):
@@ -173,9 +233,13 @@ def _site_sitemap_urls(root_url, allowed_host):
 
 def _classify_discovered_page(page, root_host):
     source = f"{page['path']} {page['title']} {page.get('h1','')}".casefold()
+    error_page = re.search(r'(^|[/\s_-])(?:404|500|erro|error|falha|indispon[ií]vel|n[aã]o.?encontrad)', source)
     conversion = re.search(r'obrigad|thank.?you|/success(?:/|$)|confirmation|confirmad|pedido.?conclu|compra.?realizada|form.?sent|envio.?conclu', source)
     form_words = re.search(r'contato|contact|fale.?conosco|solicit(e|acao|ação)|orcamento|orçamento|inscri(c|ç)(a|ã)o|cadastro|formul(a|á)rio|consultor|proposal|request', source)
-    if conversion:
+    if error_page:
+        role, confidence = 'error', .88
+        evidence = ['URL ou título indica página de erro']
+    elif conversion:
         role, confidence = 'conversion', .91
         evidence = ['URL ou título indica confirmação/obrigado']
     elif form_words and page['forms']:
@@ -232,6 +296,8 @@ def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
                 except Exception: pages.append(None)
         for page in pages:
             if not page: continue
+            page['integrations'] = _detect_page_integrations(page)
+            page.pop('inline_scripts', None)
             key = (page['host'], page['path'])
             if key in excluded_pages:
                 continue
@@ -253,7 +319,7 @@ def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
             classification = {'role':'intermediate','confidence':.58,
                               'evidence':['formulário detectado; sem campos públicos legíveis']}
         results.append({**page, **classification})
-    role_order = {'entry':0,'form':1,'conversion':2,'intermediate':3}
+    role_order = {'entry':0,'form':1,'conversion':2,'error':3,'intermediate':4}
     remaining = []
     queued_seen = set()
     for candidate in queued:
@@ -306,6 +372,84 @@ def _new_flow_code():
         if not _rows('SELECT 1 FROM cadu_reports_flow_registry WHERE flow_code=%s', (code,)):
             return code
     abort(503, description='Não foi possível reservar o código do fluxo. Tente novamente.')
+
+
+def _normalize_flow_config(config, allowed_host):
+    if not isinstance(config, dict):
+        abort(400, description='A configuração do fluxo precisa ser um objeto.')
+    nodes, edges = config.get('nodes', []), config.get('edges', [])
+    known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error'}
+    measured_types = {'page','form','event','conversion','whatsapp','error'}
+    if not isinstance(nodes, list) or len(nodes) > 100 or not isinstance(edges, list) or len(edges) > 300:
+        abort(400, description='O fluxo aceita até 100 blocos e 300 conexões.')
+    normalized, ids = [], set()
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict) or node.get('type') not in known_types:
+            abort(400, description='O fluxo contém um bloco inválido.')
+        node_id = node.get('id')
+        if not isinstance(node_id, str) or not node_id or len(node_id) > 80 or node_id in ids:
+            abort(400, description='Cada bloco precisa ter um identificador único.')
+        ids.add(node_id)
+        node_type = node['type']
+        title = ' '.join(str(node.get('title') or node_type).split())[:120]
+        path = node.get('path', '')
+        if node_type in measured_types and (not isinstance(path, str) or not path.startswith('/')
+                or '?' in path or '#' in path or len(path) > 500):
+            abort(400, description='Cada etapa medida precisa de um caminho interno válido.')
+        host = node.get('host') or None
+        if host:
+            host = _host(host)
+            if not _host_allowed(host, allowed_host):
+                abort(400, description='O bloco precisa usar o domínio autorizado ou um subdomínio dele.')
+        event_name = str(node.get('event_name') or node.get('event') or
+                         ('evento_personalizado' if node_type == 'event' else ''))[:80]
+        if node_type == 'event' and not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,79}', event_name):
+            abort(400, description='Configure um nome válido para cada evento personalizado.')
+        position = {}
+        for axis, default in (('x', 80 + (index % 3) * 220), ('y', 60 + (index // 3) * 130)):
+            value = node.get(axis, default)
+            if isinstance(value, bool):
+                abort(400, description='A posição de um bloco é inválida.')
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                abort(400, description='A posição de um bloco é inválida.')
+            if not math.isfinite(numeric) or not 0 <= numeric <= 10000:
+                abort(400, description='Mantenha os blocos dentro da área do editor.')
+            position[axis] = round(numeric)
+        item = {'id': node_id, 'type': node_type, 'title': title,
+                'x': position['x'], 'y': position['y']}
+        if isinstance(path, str) and path:
+            item['path'] = path
+        if host:
+            item['host'] = host
+        if event_name:
+            item['event_name'] = event_name
+        for field in ('source','event','discoveryPageId','stepId'):
+            if isinstance(node.get(field), str):
+                item[field] = node[field][:120]
+        if isinstance(node.get('fields'), list):
+            item['fields'] = [{'name':str(field.get('name') or '')[:80],
+                'label':str(field.get('label') or '')[:100],
+                'required':bool(field.get('required'))}
+                for field in node['fields'][:30] if isinstance(field, dict)]
+        if isinstance(node.get('isEntry'), bool):
+            item['isEntry'] = node['isEntry']
+        normalized.append(item)
+    normalized_edges = []
+    for edge in edges:
+        if not isinstance(edge, dict):
+            abort(400, description='O fluxo contém uma conexão inválida.')
+        source, target = edge.get('from'), edge.get('to')
+        if not isinstance(source, str) or not isinstance(target, str) or source not in ids or target not in ids or source == target:
+            abort(400, description='Conecte blocos existentes e diferentes.')
+        normalized_edges.append({'id':str(edge.get('id') or uuid.uuid4())[:80],
+                                 'from':source,'to':target,
+                                 'label':' '.join(str(edge.get('label') or 'Próximo').split())[:80]})
+    result = {**config, 'nodes':normalized, 'edges':normalized_edges}
+    if len(json.dumps(result, ensure_ascii=False)) > 256_000:
+        abort(413, description='A configuração do fluxo excede o limite de armazenamento.')
+    return result, any(node['type'] in measured_types for node in normalized)
 
 
 def _client_tag_urls(client_id):
@@ -380,6 +524,8 @@ def register(bp):
     def reports_flow():
         selected = _selection()
         params = (selected['organization_id'], selected['client_id'])
+        requested_flow_id = request.args.get('flow_id', '').strip()
+        selected_flow = _flow_row(requested_flow_id, selected) if requested_flow_id else None
         try:
             days = int(request.args.get('days', 30))
         except (ValueError, TypeError):
@@ -387,6 +533,7 @@ def register(bp):
         if days not in (7, 30, 90):
             abort(400, description='Período inválido.')
         scope_params = [*params, days]
+        conversion_params = [*params, days]
         event_filter = ''
         conversion_filter = ''
         for field, column in (('account_id', 'a.id'), ('campaign_id', 'e.campaign_id')):
@@ -401,6 +548,7 @@ def register(bp):
                 event_filter += f' AND {column}=%s'
                 conversion_filter += f" AND {'a.id' if field == 'account_id' else 'x.campaign_id'}=%s"
                 scope_params.append(number)
+                conversion_params.append(number)
         platform = request.args.get('platform', '').strip()
         if platform:
             if not re.fullmatch(r'[a-z][a-z0-9_]{0,31}', platform):
@@ -408,6 +556,15 @@ def register(bp):
             event_filter += ' AND a.platform=%s'
             conversion_filter += ' AND a.platform=%s'
             scope_params.append(platform)
+            conversion_params.append(platform)
+        if selected_flow:
+            event_filter += ' AND e.tag_id=%s'
+            conversion_filter += ''' AND x.campaign_id IN (
+                SELECT campaign_id FROM cadu_reports_flow_steps
+                WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND campaign_id IS NOT NULL)'''
+            scope_params.append(selected_flow['tag_id'])
+            conversion_params.extend((selected_flow['tag_id'],selected['organization_id'],
+                                      selected['client_id']))
         scoped_events = '''WITH selected_events AS (
             SELECT e.* FROM cadu_reports_flow_events e
             LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id
@@ -437,25 +594,78 @@ def register(bp):
             WHERE e.organization_id=%s AND e.client_id=%s
             ''' + event_period_filter + event_filter + event_date_filter + ') '
         tags = _rows('''SELECT id,label,allowed_host,public_key,created_at,revoked_at,tag_kind
-            FROM cadu_reports_site_tags WHERE organization_id=%s AND client_id=%s ORDER BY created_at DESC''', params)
+            FROM cadu_reports_site_tags WHERE organization_id=%s AND client_id=%s
+                AND (%s::uuid IS NULL OR id=%s::uuid) ORDER BY created_at DESC''',
+            (*params,selected_flow['tag_id'] if selected_flow else None,
+             selected_flow['tag_id'] if selected_flow else None))
         steps = _rows('''SELECT s.id,s.tag_id,s.name,s.path_prefix,s.page_host,s.step_kind,s.is_entry,s.campaign_id,s.position,
             s.is_active,s.archived_at,
             c.name AS campaign_name FROM cadu_reports_flow_steps s
             LEFT JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
             WHERE s.organization_id=%s AND s.client_id=%s AND s.is_active=TRUE
-            ORDER BY s.is_entry DESC,s.position,s.id''', params)
+                AND (%s::uuid IS NULL OR s.tag_id=%s::uuid)
+            ORDER BY s.is_entry DESC,s.position,s.id''',
+            (*params,selected_flow['tag_id'] if selected_flow else None,
+             selected_flow['tag_id'] if selected_flow else None))
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,
-            COUNT(*) FILTER (WHERE e.event_kind IN ('page_view','conversion')) AS views,
+            COUNT(*) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS views,
             COUNT(*) FILTER (WHERE e.event_kind='form_submit') AS form_submissions,
             COUNT(*) FILTER (WHERE e.event_kind IN ('click','whatsapp_click')) AS clicks,
-            COUNT(DISTINCT e.visitor_id) FILTER (WHERE e.event_kind IN ('page_view','conversion')) AS visitors,
-            COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind IN ('page_view','conversion','heartbeat','form_submit','click','whatsapp_click')
+            COUNT(DISTINCT e.visitor_id) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS visitors,
+            COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view','heartbeat','form_submit','click','whatsapp_click','page_leave')
                 AND e.occurred_at > NOW() - INTERVAL '90 seconds') AS online,
             COUNT(DISTINCT e.visitor_id) FILTER (WHERE e.event_kind='conversion') AS conversions
             FROM selected_events e
             GROUP BY e.tag_id,e.page_path ORDER BY views DESC LIMIT 100''', tuple(scope_params))
+        site_pages = _rows(event_scoped_events + ''', page_events AS (
+            SELECT e.*,COALESCE(s.step_kind,'') AS mapped_kind,
+                ROW_NUMBER() OVER (PARTITION BY e.session_id ORDER BY e.occurred_at,e.id) AS page_order
+            FROM selected_events e LEFT JOIN cadu_reports_flow_steps s ON s.id=e.step_id
+            WHERE e.event_kind IN ('page_view','conversion','error_view')
+        ), outcomes AS (
+            SELECT session_id,
+                MIN(occurred_at) FILTER (WHERE event_kind='form_submit') AS first_form_at,
+                MIN(occurred_at) FILTER (WHERE event_kind='conversion') AS first_conversion_at
+            FROM selected_events GROUP BY session_id
+        ), dwell AS (
+            SELECT page_host,page_path,ROUND(AVG(duration_ms)::numeric/1000,1) AS avg_seconds,
+                COUNT(*)::bigint AS measured_visits
+            FROM selected_events WHERE event_kind='page_leave' AND duration_ms IS NOT NULL
+            GROUP BY page_host,page_path
+        ), form_actions AS (
+            SELECT page_host,page_path,COUNT(*)::bigint AS submissions,
+                COUNT(DISTINCT session_id)::bigint AS submit_sessions
+            FROM selected_events WHERE event_kind='form_submit' GROUP BY page_host,page_path
+        )
+        SELECT p.page_host,p.page_path,COUNT(*)::bigint AS views,
+            COUNT(DISTINCT p.visitor_id)::bigint AS visitors,
+            COUNT(DISTINCT p.session_id)::bigint AS sessions,
+            COUNT(DISTINCT p.session_id) FILTER (WHERE p.page_order=1)::bigint AS entry_sessions,
+            COALESCE(d.avg_seconds,0) AS avg_seconds,COALESCE(d.measured_visits,0) AS measured_visits,
+            COALESCE(f.submissions,0) AS form_submissions,
+            COUNT(DISTINCT p.session_id) FILTER (WHERE o.first_form_at>=p.occurred_at)::bigint AS sessions_to_form,
+            COUNT(DISTINCT p.session_id) FILTER (WHERE o.first_conversion_at>=p.occurred_at)::bigint AS sessions_to_conversion,
+            COUNT(*) FILTER (WHERE p.event_kind='error_view')::bigint AS error_views,
+            BOOL_OR(p.mapped_kind='form') AS is_form_page,
+            BOOL_OR(p.event_kind='conversion' OR p.mapped_kind='conversion') AS is_conversion_page,
+            BOOL_OR(p.event_kind='error_view' OR p.mapped_kind='error') AS is_error_page,
+            ARRAY_AGG(DISTINCT COALESCE(NULLIF(p.utm_source,''),p.referrer_host,'Direto')) AS sources
+        FROM page_events p LEFT JOIN outcomes o ON o.session_id=p.session_id
+        LEFT JOIN dwell d ON d.page_host=p.page_host AND d.page_path=p.page_path
+        LEFT JOIN form_actions f ON f.page_host=p.page_host AND f.page_path=p.page_path
+        GROUP BY p.page_host,p.page_path,d.avg_seconds,d.measured_visits,f.submissions
+        ORDER BY views DESC LIMIT 200''', tuple(event_scope_params))
+        page_transitions = _rows(event_scoped_events + ''', ordered_pages AS (
+            SELECT e.session_id,e.page_host,e.page_path,e.occurred_at,
+                LEAD(e.page_host) OVER (PARTITION BY e.session_id ORDER BY e.occurred_at,e.id) AS next_host,
+                LEAD(e.page_path) OVER (PARTITION BY e.session_id ORDER BY e.occurred_at,e.id) AS next_path
+            FROM selected_events e WHERE e.event_kind IN ('page_view','conversion','error_view')
+        ) SELECT page_host,page_path,next_host,next_path,COUNT(DISTINCT session_id)::bigint AS sessions
+          FROM ordered_pages WHERE next_path IS NOT NULL
+          GROUP BY page_host,page_path,next_host,next_path ORDER BY sessions DESC LIMIT 300''',
+          tuple(event_scope_params))
         totals = _rows(scoped_events + '''SELECT
-            COUNT(DISTINCT session_id) FILTER (WHERE event_kind IN ('page_view','conversion','heartbeat','form_submit','click','whatsapp_click')
+            COUNT(DISTINCT session_id) FILTER (WHERE event_kind IN ('page_view','conversion','error_view','heartbeat','form_submit','click','whatsapp_click','page_leave')
                 AND occurred_at > NOW() - INTERVAL '90 seconds') AS online,
             COUNT(DISTINCT visitor_id) FILTER (WHERE event_kind='conversion') AS conversions
             FROM selected_events''', tuple(scope_params))[0]
@@ -470,12 +680,15 @@ def register(bp):
         event_summary = _rows(event_scoped_events + '''SELECT COUNT(*)::bigint AS total,
             COUNT(*) FILTER (WHERE event_kind='form_submit')::bigint AS form_submissions,
             COUNT(*) FILTER (WHERE event_kind='conversion')::bigint AS conversions,
+            COUNT(*) FILTER (WHERE event_kind='error_view')::bigint AS error_views,
+            COUNT(*) FILTER (WHERE event_kind='page_leave')::bigint AS page_leave_count,
+            ROUND((AVG(duration_ms) FILTER (WHERE event_kind='page_leave'))/1000,1) AS avg_active_seconds,
             COUNT(*) FILTER (WHERE utm_source IS NOT NULL OR referrer_host IS NOT NULL)::bigint AS attributed
             FROM selected_events''', tuple(event_scope_params))[0]
         progression = _rows(scoped_events + ''' , first_step AS (
             SELECT session_id,step_id,MIN(occurred_at) AS first_at
             FROM selected_events WHERE step_id IS NOT NULL
-                AND event_kind IN ('page_view','conversion')
+                AND event_kind IN ('page_view','conversion','error_view')
             GROUP BY session_id,step_id
         ), ordered AS (
             SELECT id,tag_id,LAG(id) OVER (PARTITION BY tag_id ORDER BY is_entry DESC,position,id) AS previous_id
@@ -492,11 +705,67 @@ def register(bp):
             progress = progress_by_step.get(step['id'], {})
             step['reached'] = progress.get('reached', 0)
             step['progressed'] = progress.get('progressed', 0)
+        canvas_nodes = []
+        if selected_flow and isinstance(selected_flow.get('config'), dict):
+            configured_nodes = [node for node in selected_flow['config'].get('nodes', [])
+                if isinstance(node, dict) and node.get('type') in ('page','form','event','conversion','whatsapp','error')
+                and isinstance(node.get('path'), str) and node['path'].startswith('/')]
+            configured_nodes = configured_nodes[:100]
+            configured_edges = [edge for edge in selected_flow['config'].get('edges', [])
+                if isinstance(edge, dict) and isinstance(edge.get('from'), str)
+                and isinstance(edge.get('to'), str)]
+            if configured_nodes:
+                node_json = json.dumps([{'node_id': str(node.get('id') or ''),
+                    'node_type': node['type'], 'path': _safe_path(node['path']),
+                    'host': _host(node.get('host')) if node.get('host') else None,
+                    'event_name': str(node.get('event_name') or '')[:120]} for node in configured_nodes])
+                edge_json = json.dumps([{'source_id': edge['from'], 'target_id': edge['to']}
+                    for edge in configured_edges if edge['from'] != edge['to']])
+                canvas_nodes = _rows(event_scoped_events + ''', configured_nodes AS (
+                    SELECT * FROM jsonb_to_recordset(%s::jsonb) AS n(
+                        node_id TEXT,node_type TEXT,path TEXT,host TEXT,event_name TEXT)
+                ), matched AS (
+                    SELECT e.session_id,n.node_id,e.occurred_at FROM selected_events e
+                    JOIN configured_nodes n ON (n.host IS NULL OR n.host=e.page_host)
+                        AND (n.path='/' OR e.page_path=n.path OR
+                             e.page_path LIKE rtrim(n.path,'/') || '/%%')
+                    WHERE (n.node_type='page' AND e.event_kind IN ('page_view','conversion','error_view'))
+                       OR (n.node_type='conversion' AND e.event_kind='conversion')
+                       OR (n.node_type='error' AND e.event_kind='error_view')
+                       OR (n.node_type='form' AND e.event_kind='form_submit')
+                       OR (n.node_type='whatsapp' AND e.event_kind='whatsapp_click')
+                       OR (n.node_type='event' AND e.event_kind='custom_event'
+                           AND (n.event_name='' OR n.event_name=e.event_name))
+                ), configured_edges AS (
+                    SELECT * FROM jsonb_to_recordset(%s::jsonb) AS x(source_id TEXT,target_id TEXT)
+                ), reached AS (
+                    SELECT node_id,COUNT(DISTINCT session_id)::bigint AS reached
+                    FROM matched GROUP BY node_id
+                ), progressed AS (
+                    SELECT edge.target_id AS node_id,
+                        COUNT(DISTINCT target.session_id)::bigint AS progressed
+                    FROM configured_edges edge
+                    JOIN matched source ON source.node_id=edge.source_id
+                    JOIN matched target ON target.node_id=edge.target_id
+                        AND target.session_id=source.session_id AND target.occurred_at>=source.occurred_at
+                    GROUP BY edge.target_id
+                )
+                SELECT n.node_id AS id,COALESCE(r.reached,0) AS reached,
+                    COALESCE(p.progressed,0) AS progressed
+                FROM configured_nodes n LEFT JOIN reached r USING(node_id)
+                LEFT JOIN progressed p USING(node_id)''',
+                    tuple(event_scope_params) + (node_json, edge_json))
+                metrics_by_node = {item['id']: item for item in canvas_nodes}
+                for node in configured_nodes:
+                    metric = metrics_by_node.get(str(node.get('id') or ''), {})
+                    node['reached'] = metric.get('reached', 0)
+                    node['progressed'] = metric.get('progressed', 0)
+                canvas_nodes = configured_nodes
         confirmed_time_filter = 'x.occurred_at > NOW() - (%s * INTERVAL \'1 day\')'
-        confirmed_params = list(scope_params)
+        confirmed_params = list(conversion_params)
         if start_date or end_date:
             confirmed_time_filter = "x.occurred_at >= %s::date AND x.occurred_at < (%s::date + INTERVAL '1 day')"
-            confirmed_params = [*params, parsed_start.isoformat(), parsed_end.isoformat(), *scope_params[3:]]
+            confirmed_params = [*params, parsed_start.isoformat(), parsed_end.isoformat(), *conversion_params[3:]]
         confirmed = _rows('''SELECT x.conversion_kind,COUNT(*)::bigint AS total
             FROM cadu_reports_external_conversions x
             LEFT JOIN cadu_reports_campaigns c ON c.id=x.campaign_id
@@ -505,15 +774,65 @@ def register(bp):
                 AND ''' + confirmed_time_filter + conversion_filter +
             ' GROUP BY x.conversion_kind ORDER BY x.conversion_kind', tuple(confirmed_params))
         flows = _rows('''SELECT f.id,f.flow_code,f.name,f.status,f.config,f.tag_id,t.label AS tag_label,
-                t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at
+                t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
+                f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at
             FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.organization_id=%s AND f.client_id=%s ORDER BY f.created_at DESC''', params)
+        monitor_checks = []
+        if selected_flow:
+            monitor_checks = _rows('''SELECT id,status,checked_at,duration_ms,pages
+                FROM cadu_reports_flow_monitor_checks WHERE flow_id=%s
+                AND organization_id=%s AND client_id=%s ORDER BY checked_at DESC LIMIT 20''',
+                (selected_flow['id'], *params))
         return jsonify(tags=tags, steps=steps, flows=flows, events=event_inventory,
                        event_group_count=event_inventory[0]['group_count'] if event_inventory else 0,
                        event_summary=event_summary,
                        tag_urls=_client_tag_urls(selected['client_id']), activity=activity,
                        online=totals['online'], conversions=totals['conversions'],
-                       confirmed=confirmed, period_days=days)
+                       site_pages=site_pages,page_transitions=page_transitions,
+                       confirmed=confirmed, period_days=days,
+                       canvas_nodes=canvas_nodes if selected_flow else [],
+                       canvas_edges=(selected_flow.get('config') or {}).get('edges', []) if selected_flow else [],
+                       monitor_checks=monitor_checks)
+
+    @bp.patch('/api/v1/reports/flow/flows/<flow_id>/monitor')
+    @login_required_api
+    def reports_flow_configure_monitor(flow_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        flow = _flow_row(flow_id, selected)
+        enabled = payload.get('enabled')
+        interval = payload.get('interval_minutes', 15)
+        if not isinstance(enabled, bool) or isinstance(interval, bool) or not isinstance(interval, int) or interval not in (5, 15, 30, 60):
+            abort(400, description='Informe a ativação e um intervalo de 5, 15, 30 ou 60 minutos.')
+        if enabled and flow['status'] != 'published':
+            abort(409, description='Publique o fluxo antes de ativar o monitoramento.')
+        changed = _rows('''UPDATE cadu_reports_flow_registry SET monitor_enabled=%s,
+                monitor_interval_minutes=%s,monitor_status=CASE WHEN %s THEN monitor_status ELSE 'unknown' END,
+                monitor_next_check_at=CASE WHEN %s THEN NOW() ELSE NULL END,updated_at=NOW()
+            WHERE id=%s AND organization_id=%s AND client_id=%s
+            RETURNING id,monitor_enabled,monitor_interval_minutes,monitor_status,monitor_checked_at''',
+            (enabled, interval, enabled, enabled, flow['id'], selected['organization_id'], selected['client_id']))
+        get_db().commit()
+        return jsonify(flow=changed[0])
+
+    @bp.post('/api/v1/reports/flow/flows/<flow_id>/monitor/check')
+    @login_required_api
+    def reports_flow_check_monitor(flow_id):
+        payload = request.get_json(silent=True) or {}
+        selected = _selection(payload)
+        _write_guard(selected)
+        flow = _flow_row(flow_id, selected)
+        if flow['status'] != 'published':
+            abort(409, description='Publique o fluxo antes de verificar suas páginas.')
+        from .reports_flow_monitor import check_flow
+        result = check_flow(flow['id'], selected['organization_id'], selected['client_id'])
+        if result is None:
+            abort(409, description='A tag do fluxo foi revogada ou não está disponível.')
+        return jsonify(check=result)
 
     @bp.post('/api/v1/reports/flow/flows/<flow_id>/discover')
     @login_required_api
@@ -564,7 +883,7 @@ def register(bp):
         pending_truncated = bool(sitemap_truncated or (active_run and active_run['pending_truncated']))
         mapped_steps = _rows('''SELECT id,page_host,path_prefix,step_kind,is_entry
             FROM cadu_reports_flow_steps WHERE tag_id=%s AND organization_id=%s AND client_id=%s
-                AND is_active=TRUE AND step_kind IN ('page','form','conversion')''',
+                AND is_active=TRUE AND step_kind IN ('page','form','conversion','error')''',
             (flow['tag_id'],selected['organization_id'],selected['client_id']))
         steps_by_page, wildcard_steps = {}, {}
         for step in mapped_steps:
@@ -574,7 +893,8 @@ def register(bp):
                 wildcard_steps.setdefault(step['path_prefix'], []).append(step)
         stored = []
         for page in pages:
-            evidence = {'signals': page['evidence'], 'h1': page.get('h1','')}
+            evidence = {'signals': page['evidence'], 'h1': page.get('h1',''),
+                        'integrations': page.get('integrations', [])}
             prior_step = steps_by_page.get((page['host'],page['path']))
             if prior_step is None:
                 wildcard_matches = wildcard_steps.get(page['path'], [])
@@ -623,12 +943,30 @@ def register(bp):
             (selected['organization_id'],selected['client_id'],flow['tag_id']))
         pages = []
         if runs:
-            pages = _rows('''SELECT id,url,page_host,path_prefix,title,suggested_role,confidence,evidence,
-                form_count,form_fields,selected_kind,selected_as_entry,step_id
-                FROM cadu_reports_flow_discovered_pages WHERE run_id=%s AND organization_id=%s AND client_id=%s
+            pages = _rows('''SELECT p.id,p.url,p.page_host,p.path_prefix,p.title,p.suggested_role,p.confidence,p.evidence,
+                p.form_count,p.form_fields,p.selected_kind,p.selected_as_entry,p.step_id,s.campaign_id
+                FROM cadu_reports_flow_discovered_pages p
+                LEFT JOIN cadu_reports_flow_steps s ON s.id=p.step_id AND s.organization_id=p.organization_id
+                    AND s.client_id=p.client_id
+                WHERE p.run_id=%s AND p.organization_id=%s AND p.client_id=%s
                 ORDER BY CASE suggested_role WHEN 'entry' THEN 0 WHEN 'form' THEN 1 WHEN 'conversion' THEN 2 ELSE 3 END,
-                    page_host,path_prefix''', (runs[0]['id'],selected['organization_id'],selected['client_id']))
-        return jsonify(run=runs[0] if runs else None,pages=pages)
+                    p.page_host,p.path_prefix''', (runs[0]['id'],selected['organization_id'],selected['client_id']))
+        integration_summary = {}
+        scanned_pages = 0
+        for page in pages:
+            evidence = page.get('evidence') or {}
+            if isinstance(evidence, dict) and 'integrations' in evidence:
+                scanned_pages += 1
+                for signal in evidence['integrations'] or []:
+                    key = (signal.get('platform'), signal.get('signal'))
+                    summary = integration_summary.setdefault(key, {'platform':key[0], 'signal':key[1],
+                        'pages':0, 'evidence':[]})
+                    summary['pages'] += 1
+                    if len(summary['evidence']) < 3:
+                        summary['evidence'].append(signal.get('evidence'))
+        return jsonify(run=runs[0] if runs else None,pages=pages,
+                       platform_integrations=list(integration_summary.values()),
+                       integration_scan_pages=scanned_pages)
 
     @bp.post('/api/v1/reports/flow/flows/<flow_id>/discoveries/<page_id>/select')
     @login_required_api
@@ -646,8 +984,18 @@ def register(bp):
         if not pages: abort(404,description='Página não encontrada nesta análise do site.')
         page=pages[0]
         choice=payload.get('selection')
-        if choice not in ('ignore','entry','intermediate','form','conversion'):
+        if choice not in ('ignore','entry','intermediate','form','conversion','error'):
             abort(400,description='Escolha entrada, etapa intermediária, formulário, conversão ou ignorar.')
+        campaign_id=payload.get('campaign_id') or None
+        if campaign_id is not None:
+            if isinstance(campaign_id,bool): abort(400,description='Campanha inválida.')
+            try: campaign_id=int(campaign_id)
+            except (TypeError,ValueError): abort(400,description='Campanha inválida.')
+            if choice=='ignore': abort(400,description='Inclua a página no fluxo antes de associar uma campanha.')
+            if not _rows('''SELECT id FROM cadu_reports_campaigns WHERE id=%s
+                    AND organization_id=%s AND client_id=%s''',
+                    (campaign_id,selected['organization_id'],selected['client_id'])):
+                abort(404,description='Campanha não encontrada neste cliente.')
         step_id=page['step_id']
         if not step_id and choice != 'ignore':
             existing=_rows('''SELECT id FROM cadu_reports_flow_steps
@@ -679,7 +1027,7 @@ def register(bp):
             _rows('UPDATE cadu_reports_flow_registry SET config=%s::jsonb,updated_at=NOW() WHERE id=%s RETURNING id',(json.dumps(config),flow['id']))
             get_db().commit()
             return jsonify(page_id=str(page['id']),selection='ignore',step=None)
-        step_kind={'entry':'page','intermediate':'page','form':'form','conversion':'conversion'}[choice]
+        step_kind={'entry':'page','intermediate':'page','form':'form','conversion':'conversion','error':'error'}[choice]
         name=' '.join(str(payload.get('name') or page['title'] or page['path_prefix']).split())[:120]
         is_entry=choice=='entry'
         if is_entry:
@@ -695,11 +1043,11 @@ def register(bp):
                 (flow['tag_id'],selected['organization_id'],selected['client_id']))
         if step_id:
             changed=_rows('''UPDATE cadu_reports_flow_steps SET name=%s,path_prefix=%s,page_host=%s,
-                step_kind=%s,is_entry=%s,position=%s,is_active=TRUE,archived_at=NULL
+                step_kind=%s,is_entry=%s,position=%s,campaign_id=%s,is_active=TRUE,archived_at=NULL
                 WHERE id=%s AND organization_id=%s AND client_id=%s
-                RETURNING id,name,path_prefix,page_host,step_kind,is_entry,position''',
+                RETURNING id,name,path_prefix,page_host,step_kind,is_entry,position,campaign_id''',
                 (name,page['path_prefix'],page['page_host'],step_kind,is_entry,
-                 0 if is_entry else _rows('SELECT position FROM cadu_reports_flow_steps WHERE id=%s',(step_id,))[0]['position'],step_id,
+                 0 if is_entry else _rows('SELECT position FROM cadu_reports_flow_steps WHERE id=%s',(step_id,))[0]['position'],campaign_id,step_id,
                  selected['organization_id'],selected['client_id']))
             step=changed[0]
         else:
@@ -707,11 +1055,11 @@ def register(bp):
                 WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND is_active=TRUE''',
                 (flow['tag_id'],selected['organization_id'],selected['client_id']))[0]['position']
             created=_rows('''INSERT INTO cadu_reports_flow_steps
-                (organization_id,client_id,tag_id,name,path_prefix,page_host,step_kind,is_entry,position)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                RETURNING id,name,path_prefix,page_host,step_kind,is_entry,position''',
+                (organization_id,client_id,tag_id,name,path_prefix,page_host,step_kind,is_entry,position,campaign_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id,name,path_prefix,page_host,step_kind,is_entry,position,campaign_id''',
                 (selected['organization_id'],selected['client_id'],flow['tag_id'],name,
-                 page['path_prefix'],page['page_host'],step_kind,is_entry,0 if is_entry else position))
+                 page['path_prefix'],page['page_host'],step_kind,is_entry,0 if is_entry else position,campaign_id))
             step=created[0]
             step_id=step['id']
         _rows('''UPDATE cadu_reports_flow_discovered_pages SET selected_kind=%s,
@@ -733,7 +1081,7 @@ def register(bp):
         _rows('UPDATE cadu_reports_flow_registry SET config=%s::jsonb,updated_at=NOW() WHERE id=%s RETURNING id',
               (json.dumps(config),flow['id']))
         get_db().commit()
-        return jsonify(page_id=str(page['id']),selection=choice,step=step,node=node)
+        return jsonify(page_id=str(page['id']),selection=choice,step=step,node=node,campaign_id=campaign_id)
 
     @bp.post('/api/v1/reports/flow/tags')
     @login_required_api
@@ -778,7 +1126,8 @@ def register(bp):
                 RETURNING id,label,allowed_host,public_key,created_at,revoked_at,tag_kind''',
                 (str(uuid.uuid4()), selected['organization_id'], selected['client_id'],
                  label, host, secrets.token_urlsafe(24), session['user_id']))[0]
-        config = payload.get('config') if isinstance(payload.get('config'), dict) else {}
+        config, _ = _normalize_flow_config(
+            payload.get('config') if isinstance(payload.get('config'), dict) else {}, tag['allowed_host'])
         flow_id = str(uuid.uuid4())
         flow_code = _new_flow_code()
         created = _rows('''INSERT INTO cadu_reports_flow_registry
@@ -803,6 +1152,7 @@ def register(bp):
         config = payload.get('config', current['config'])
         if not name or not isinstance(config, dict):
             abort(400, description='Nome e configuração do fluxo são obrigatórios.')
+        config, _ = _normalize_flow_config(config, current['allowed_host'])
         updated = _rows('''UPDATE cadu_reports_flow_registry SET name=%s,config=%s::jsonb,updated_at=NOW()
             WHERE id=%s AND organization_id=%s AND client_id=%s AND status <> 'published'
             RETURNING id,flow_code,name,status,config,tag_id,created_at,updated_at,published_at''',
@@ -819,6 +1169,9 @@ def register(bp):
         selected = _selection(payload)
         _write_guard(selected)
         flow = _flow_row(flow_id, selected)
+        config, has_measured_steps = _normalize_flow_config(flow.get('config') or {}, flow['allowed_host'])
+        if not has_measured_steps:
+            abort(409, description='Adicione ao menos uma página, formulário, evento, conversão ou clique de WhatsApp antes de publicar.')
         changed = _rows('''UPDATE cadu_reports_flow_registry SET status='published',published_at=NOW(),updated_at=NOW()
             WHERE id=%s AND organization_id=%s AND client_id=%s
             RETURNING id,flow_code,name,status,published_at''',
@@ -929,7 +1282,7 @@ def register(bp):
         kind = payload.get('step_kind')
         if not name or not path.startswith('/') or len(path) > 500 or '?' in path or '#' in path:
             abort(400, description='Informe nome e caminho iniciado em /, sem parâmetros.')
-        if kind not in ('page', 'conversion', 'form', 'event', 'whatsapp'):
+        if kind not in ('page', 'conversion', 'form', 'event', 'whatsapp', 'error'):
             abort(400, description='Tipo de etapa inválido.')
         if kind == 'conversion' and path == '/':
             abort(400, description='A conversão precisa de uma página específica.')
@@ -1000,7 +1353,7 @@ def register(bp):
         if not isinstance(is_entry,bool): abort(400,description='Informe se esta é a entrada do fluxo.')
         if not name or not path.startswith('/') or len(path) > 500 or '?' in path or '#' in path:
             abort(400, description='Informe nome e caminho iniciado em /, sem parâmetros.')
-        if kind not in ('page', 'conversion', 'form', 'event', 'whatsapp') or (kind == 'conversion' and path == '/'):
+        if kind not in ('page', 'conversion', 'form', 'event', 'whatsapp', 'error') or (kind == 'conversion' and path == '/'):
             abort(400, description='Tipo de etapa ou caminho de conversão inválido.')
         campaign_id = payload.get('campaign_id', current['campaign_id'])
         try:
@@ -1161,11 +1514,18 @@ def register(bp):
         if not _host_allowed(page_host,flow['allowed_host']):
             abort(400,description='Página fora do domínio autorizado.')
         kind = payload.get('kind')
-        if kind not in ('page_view','form_submit','click','whatsapp_click','conversion','heartbeat','custom_event'):
+        if kind not in ('page_view','page_leave','form_submit','click','whatsapp_click','conversion','heartbeat','custom_event'):
             abort(400)
         event_name = ' '.join(str(payload.get('event_name') or '').split()) or None
         if kind == 'custom_event' and (not event_name or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,79}', event_name)):
             abort(400, description='Use um nome de evento iniciado por letra, com letras, números ou _.')
+        duration_ms = payload.get('duration_ms')
+        if kind == 'page_leave':
+            if isinstance(duration_ms, bool) or not isinstance(duration_ms, (int, float)) or not math.isfinite(duration_ms):
+                abort(400, description='A duração informada para a página é inválida.')
+            duration_ms = max(0, min(600000, round(duration_ms)))
+        else:
+            duration_ms = None
         path = str(payload.get('path') or '/')
         if not path.startswith('/') or '?' in path or '#' in path or len(path) > 500:
             abort(400)
@@ -1174,9 +1534,13 @@ def register(bp):
         configured_nodes = (flow.get('config') or {}).get('nodes', []) if isinstance(flow.get('config'), dict) else []
         matched_node = next((node for node in configured_nodes if isinstance(node, dict)
             and node.get('path') == path and (not node.get('host') or node.get('host')==page_host)
-            and node.get('type') in ('page','form','event','conversion','whatsapp')), None)
+            and node.get('type') in ('page','form','event','conversion','whatsapp','error')
+            and (node.get('type') != 'event' or
+                 (kind == 'custom_event' and node.get('event_name') == event_name))), None)
         if kind == 'page_view' and matched_node and matched_node.get('type') == 'conversion':
             kind = 'conversion'
+        if kind == 'page_view' and matched_node and matched_node.get('type') == 'error':
+            kind = 'error_view'
         tag = _rows('''SELECT t.id FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.id=%s AND f.organization_id=%s AND f.client_id=%s''',
             (flow['id'], flow['organization_id'], flow['client_id']))[0]
@@ -1196,7 +1560,7 @@ def register(bp):
                 AND (path_prefix='/' OR %s=path_prefix OR %s LIKE rtrim(path_prefix,'/') || '/%%')
             ORDER BY length(path_prefix) DESC,position,id LIMIT 1''',
             (tag['id'],flow['organization_id'],flow['client_id'],page_host,safe_path,safe_path))
-        node_step_kind = {'form': 'form', 'event': 'event', 'whatsapp': 'whatsapp', 'conversion': 'conversion'}
+        node_step_kind = {'form': 'form', 'event': 'event', 'whatsapp': 'whatsapp', 'conversion': 'conversion', 'error': 'error'}
         step_kind = node_step_kind.get(matched_node.get('type')) if matched_node else None
         event_step_kind = {'form_submit': 'form', 'event': 'event', 'whatsapp_click': 'whatsapp', 'custom_event': 'event'}.get(kind)
         desired_step_kind = step_kind or event_step_kind
@@ -1221,6 +1585,8 @@ def register(bp):
             attribution_values, matched_step[0] if matched_step else None)
         if kind == 'page_view' and matched_step and matched_step[0]['step_kind'] == 'conversion':
             kind = 'conversion'
+        if kind == 'page_view' and matched_step and matched_step[0]['step_kind'] == 'error':
+            kind = 'error_view'
         quota = _rows('''INSERT INTO cadu_reports_flow_rate_limits (tag_id,bucket_start,event_count)
             VALUES (%s,date_trunc('minute',NOW()),1)
             ON CONFLICT (tag_id,bucket_start) DO UPDATE
@@ -1234,11 +1600,11 @@ def register(bp):
             step_id = matched_step[0]['id']
         _rows('''INSERT INTO cadu_reports_flow_events
             (organization_id,client_id,tag_id,visitor_id,session_id,event_kind,event_name,page_host,page_path,
-             referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+             referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method,duration_ms)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
             (flow['organization_id'], flow['client_id'], tag['id'], visitor_id, visit_session,
              kind,event_name,page_host,safe_path,referrer,attribution_values['utm_source'],attribution_values['utm_medium'],
              attribution_values['utm_campaign'], attribution_values['utm_id'], attribution_values['click_id'],
-             step_id, campaign_id, method))
+             step_id, campaign_id, method, duration_ms))
         get_db().commit()
         return ('',204)

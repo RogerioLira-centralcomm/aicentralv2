@@ -248,15 +248,53 @@ def register(bp):
             abort(404, description='Conta de mídia não encontrada neste cliente.')
         external_id = _required_text(payload, 'external_id', 160)
         name = _required_text(payload, 'name', 240)
+        objective = payload.get('objective')
+        channel_type = payload.get('channel_type')
+        if objective is not None and not isinstance(objective, str):
+            abort(400, description='Objetivo inválido.')
+        if channel_type is not None and not isinstance(channel_type, str):
+            abort(400, description='Tipo de canal inválido.')
+        objective = ' '.join((objective or '').split())[:160] or None
+        channel_type = ' '.join((channel_type or '').split())[:64] or None
         created = _rows('''INSERT INTO cadu_reports_campaigns
-                (organization_id,client_id,account_id,external_id,name)
-                VALUES (%s,%s,%s,%s,%s)
+                (organization_id,client_id,account_id,external_id,name,objective,channel_type)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (account_id,external_id)
-                DO UPDATE SET name=EXCLUDED.name,updated_at=NOW()
-                RETURNING id,account_id,external_id,name,status''',
-                (selected['organization_id'], selected['client_id'], account_id, external_id, name))
+                DO UPDATE SET name=EXCLUDED.name,objective=COALESCE(EXCLUDED.objective,cadu_reports_campaigns.objective),
+                    channel_type=COALESCE(EXCLUDED.channel_type,cadu_reports_campaigns.channel_type),updated_at=NOW()
+                RETURNING id,account_id,external_id,name,status,objective,channel_type''',
+                (selected['organization_id'], selected['client_id'], account_id, external_id, name,
+                 objective, channel_type))
         get_db().commit()
         return jsonify(campaign=created[0]), 201
+
+    @bp.patch('/api/v1/reports/campaigns/<int:campaign_id>')
+    @login_required_api
+    def reports_v1_update_campaign(campaign_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        name = _required_text(payload, 'name', 240)
+        objective = payload.get('objective')
+        channel_type = payload.get('channel_type')
+        if objective is not None and not isinstance(objective, str):
+            abort(400, description='Objetivo inválido.')
+        if channel_type is not None and not isinstance(channel_type, str):
+            abort(400, description='Tipo de canal inválido.')
+        objective = ' '.join((objective or '').split())[:160] or None
+        channel_type = ' '.join((channel_type or '').split())[:64] or None
+        updated = _rows('''UPDATE cadu_reports_campaigns
+            SET name=%s,objective=%s,channel_type=%s,updated_at=NOW()
+            WHERE id=%s AND organization_id=%s AND client_id=%s
+            RETURNING id,name,objective,channel_type,status,updated_at''',
+            (name, objective, channel_type, campaign_id,
+             selected['organization_id'], selected['client_id']))
+        if not updated:
+            abort(404, description='Campanha não encontrada neste espaço Reports.')
+        get_db().commit()
+        return jsonify(campaign=updated[0])
 
     @bp.get('/api/v1/reports/campaigns/<int:campaign_id>')
     @login_required_api

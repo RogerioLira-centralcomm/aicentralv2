@@ -43,15 +43,18 @@
   }
   var lastPage = '';
   var lastPageAt = 0;
+  var pageActiveSince = document.visibilityState === 'visible' ? Date.now() : 0;
+  var pageActiveDuration = 0;
   var eventWindow = Date.now();
   var eventCount = 0;
-  function send(kind, eventName) {
+  function send(kind, eventName, extra) {
     if (Date.now() - eventWindow > 60000) { eventWindow = Date.now(); eventCount = 0; }
     if (eventCount >= 100) return;
     eventCount += 1;
     var attribution = currentAttribution();
     var data = JSON.stringify({flow_code: flowCode, kind: kind, event_name: eventName || '', visitor_id: visitor, session_id: session,
-      host: location.hostname.toLowerCase(), path: location.pathname, referrer: document.referrer, attribution: attribution});
+      host: location.hostname.toLowerCase(), path: location.pathname, referrer: document.referrer, attribution: attribution,
+      duration_ms: extra && Number.isFinite(extra.duration_ms) ? Math.max(0, Math.min(600000, Math.round(extra.duration_ms))) : undefined});
     fetch(endpoint, {method: 'POST', mode: 'cors', keepalive: true,
       headers: {'Content-Type': 'application/json'}, body: data}).catch(function () {});
   }
@@ -60,9 +63,20 @@
     var signature = location.origin + location.pathname + '|' + (attribution.utm_id || '') + '|' + (attribution.utm_campaign || '');
     var now = Date.now();
     if (signature === lastPage && now - lastPageAt < 1000) return;
+    if (lastPage) leavePage();
     lastPage = signature;
     lastPageAt = now;
+    pageActiveDuration = 0;
+    pageActiveSince = document.visibilityState === 'visible' ? now : 0;
     send('page_view');
+  }
+  function leavePage() {
+    var now = Date.now();
+    if (pageActiveSince) pageActiveDuration += Math.max(0, now - pageActiveSince);
+    if (lastPage) send('page_leave', '', {duration_ms: pageActiveDuration});
+    pageActiveSince = 0;
+    pageActiveDuration = 0;
+    lastPage = '';
   }
   var lastActionAt = 0;
   function trackAction(kind) {
@@ -98,8 +112,16 @@
   var pushState = history.pushState;
   history.pushState = function () { var result = pushState.apply(this, arguments); setTimeout(trackPage, 0); return result; };
   addEventListener('popstate', trackPage);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && pageActiveSince) {
+      pageActiveDuration += Math.max(0, Date.now() - pageActiveSince);
+      pageActiveSince = 0;
+    } else if (document.visibilityState === 'visible' && !pageActiveSince) {
+      pageActiveSince = Date.now();
+    }
+  });
   var timer = setInterval(function () {
     if (document.visibilityState === 'visible') send('heartbeat');
   }, 30000);
-  addEventListener('pagehide', function () { clearInterval(timer); }, {once: true});
+  addEventListener('pagehide', function () { clearInterval(timer); leavePage(); }, {once: true});
 })();

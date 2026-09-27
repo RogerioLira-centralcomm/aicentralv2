@@ -36,6 +36,10 @@ from .reports_imports import register as register_reports_imports
 register_reports_imports(bp)
 from .reports_access import register as register_reports_access
 register_reports_access(bp)
+from .reports_flow_monitor import worker_once_command as reports_flow_monitor_once_command
+from .reports_flow_monitor import worker_loop_command as reports_flow_monitor_loop_command
+bp.cli.add_command(reports_flow_monitor_once_command)
+bp.cli.add_command(reports_flow_monitor_loop_command)
 
 
 @bp.before_request

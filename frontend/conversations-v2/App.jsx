@@ -342,6 +342,9 @@ export default function App({bootstrap}) {
     try {
       const data = await request(`/workspace/api/v2/conversations/${encodeURIComponent(id)}/bootstrap`, {signal: controller.signal});
       if (sequence !== conversationOpenSequenceRef.current) return;
+      if (data.queue_available === false) {
+        trace('Fila temporariamente indisponível', 'O histórico e o contexto foram carregados, mas a fila de pedidos precisa da migração do servidor.', 'error');
+      }
       setConversationId(id); conversationRef.current = id;
       setQueuedTurns((data.queue || readQueue(id)).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
       setTitle(conversationDisplayTitle(conversationTitle || data.conversation?.title, 'Conversa'));
@@ -404,18 +407,37 @@ export default function App({bootstrap}) {
       if (isConversationMobile()) setHistoryOpen(false);
     } catch (error) {
       if (sequence !== conversationOpenSequenceRef.current) return;
+      if (error?.name === 'AbortError' || controller.signal.aborted) return;
+      // Compatibility history is only for genuinely legacy conversations.
+      // A server, authorization, or network failure must not be presented as
+      // a successfully opened chat with potentially stale project context.
+      if (error.status !== 404) {
+        setConversationId(null); conversationRef.current = null;
+        setMessages([]); setContext({}); setComposerContext(null);
+        setArtifact(null); setArtifactTabs([]); artifactRef.current = null;
+        setArtifactOpen(false); setLibraryOpen(false); setQueuedTurns([]);
+        setTitle('Conversa indisponível');
+        setRuntime('Não foi possível abrir a conversa');
+        trace('Falha ao abrir conversa', error.message || 'O serviço não retornou o contexto da conversa.', 'error');
+        return;
+      }
       try {
         const fallback = await request(`${bootstrap.endpoints.history}/${encodeURIComponent(id)}/messages`, {signal: controller.signal});
         if (sequence !== conversationOpenSequenceRef.current) return;
         const recovered = restoreConversationMessages(fallback.messages, uid);
-        const restoredContext = fallback.context && typeof fallback.context === 'object'
-          ? fallback.context
-          : recovered.selectedContext;
+        const storedContext = fallback.context && typeof fallback.context === 'object' ? fallback.context : {};
+        const hasBoundEntity = Boolean(storedContext.project_ref || storedContext.brand_ref);
+        // Empty strings are intentional: on the next turn they tell the server
+        // this legacy thread has no verified project/brand binding, preventing
+        // it from inheriting whichever project happens to be active in session.
+        const restoredContext = hasBoundEntity
+          ? storedContext
+          : {...storedContext, project_ref: '', brand_ref: ''};
         setConversationId(id); conversationRef.current = id;
         setTitle(conversationDisplayTitle(conversationTitle, 'Conversa'));
         setMessages(recovered.messages);
-        setComposerContext(restoredContext);
-        if (fallback.context && typeof fallback.context === 'object') setContext(fallback.context);
+        setComposerContext(recovered.selectedContext);
+        setContext(restoredContext);
         if (recovered.lastArtifact) {
           await fetchArtifact(recovered.lastArtifact, {signal: controller.signal});
           if (sequence !== conversationOpenSequenceRef.current) return;
@@ -429,13 +451,16 @@ export default function App({bootstrap}) {
         } catch (_) { /* The recovered history remains usable without an active action. */ }
         setConversationUrl(id, true);
         setRuntime('');
-        trace('Conversa recuperada', 'O histórico foi aberto pelo modo de compatibilidade.');
-        if (!fallback.context) await loadContext();
+        trace('Conversa recuperada', `O histórico foi aberto pelo modo de compatibilidade. ${hasBoundEntity ? 'Vínculo de contexto recuperado do servidor.' : 'Nenhum vínculo de projeto ou marca foi encontrado; novos envios não herdarão o contexto da sessão.'} Falha original do bootstrap: ${error.message || 'sem detalhe'}${error.status ? ` (${error.status})` : ''}.`, 'warning');
       } catch (fallbackError) {
         if (sequence !== conversationOpenSequenceRef.current) return;
+        setConversationId(null); conversationRef.current = null;
+        setMessages([]); setContext({}); setComposerContext(null);
+        setArtifact(null); setArtifactTabs([]); artifactRef.current = null;
+        setArtifactOpen(false); setLibraryOpen(false); setQueuedTurns([]);
+        setTitle('Conversa indisponível');
         setRuntime('Não foi possível abrir');
         trace('Falha ao abrir conversa', fallbackError.message || error.message, 'error');
-        setConversationId(null); conversationRef.current = null;
       }
     } finally {
       if (sequence === conversationOpenSequenceRef.current) {
@@ -443,7 +468,7 @@ export default function App({bootstrap}) {
         setOpeningId(null); setHistoryLoading(false); setContextLoading(false);
       }
     }
-  }, [running, confirmDiscard, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint, loadContext, loadRecent]);
+  }, [running, confirmDiscard, bootstrap.endpoints.history, bootstrap.endpoints.runs, fetchArtifact, trace, releasePreviews, queueEndpoint, loadRecent]);
 
   const changeProject = useCallback(async (projectRef, {showHistory = true, preserveDraft = false, skipConfirm = false} = {}) => {
     if (running || (!skipConfirm && !(await confirmDiscard(!preserveDraft)))) return;

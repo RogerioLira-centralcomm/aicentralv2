@@ -36,8 +36,8 @@ export function conversationPayload({
     surface: 'conversations',
     files: providerFileIds,
     execution_mode: executionMode,
-    project_ref: context?.project_ref || null,
-    brand_ref: context?.brand_ref || null,
+    project_ref: context?.project_ref ?? null,
+    brand_ref: context?.brand_ref ?? null,
     selected_context: selectedContext ? {type: selectedContext.type, text: selectedContext.text} : null,
     active_object: activeArtifact?.id
       ? {type: `artifact:${activeArtifact.type}`, id: activeArtifact.id}

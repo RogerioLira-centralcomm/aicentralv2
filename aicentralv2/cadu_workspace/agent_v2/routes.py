@@ -733,14 +733,16 @@ def conversation_bootstrap(conversation_id):
         FROM cadu_conversations WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s""",
         (conversation_id, current.user_id, current.client_id))
     conversation = rows[0] if rows else {"title": "Conversa"}
+    queue_available = turn_queue.available()
     try:
-        queued = turn_queue.list_items(conversation_id, current)
+        queued = turn_queue.list_items(conversation_id, current) if queue_available else []
     except ValueError:
         queued = []
     return jsonify(
         conversation={"id": conversation_id, **conversation},
         context=current.to_dict(),
-        messages=messages, queue=queued, active_run=_active_run(conversation_id, current),
+        messages=messages, queue=queued, queue_available=queue_available,
+        active_run=_active_run(conversation_id, current),
     )
 
 

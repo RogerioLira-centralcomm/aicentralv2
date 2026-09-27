@@ -10,6 +10,11 @@ MAX_ITEMS = 5
 MODES = {"fast", "analysis", "agentic"}
 
 
+def available():
+    rows = repository.rows("SELECT to_regclass('public.cadu_agent_turn_queue') IS NOT NULL AS available")
+    return bool(rows and rows[0].get("available"))
+
+
 def _owned(conversation_id, current):
     return repository.rows("""SELECT id FROM cadu_conversations
         WHERE id=%s AND id_contato_cliente=%s AND id_cliente=%s

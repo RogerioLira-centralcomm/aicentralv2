@@ -5,7 +5,8 @@ const ThemeContext = createContext(null);
 export function ThemeProvider({children, skin = 'workspace', theme = 'light', persistKey = 'cadu-theme', locked = false}) {
   const [currentTheme, setCurrentTheme] = useState(() => {
     if (locked || typeof window === 'undefined') return theme;
-    return window.localStorage.getItem(persistKey) || theme;
+    try { return window.localStorage.getItem(persistKey) || theme; }
+    catch (_) { return theme; }
   });
   const resolvedTheme = locked ? theme : currentTheme;
   const value = useMemo(() => ({skin, theme: resolvedTheme, setTheme: locked ? () => {} : setCurrentTheme, toggleTheme: locked ? () => {} : () => setCurrentTheme(item => item === 'dark' ? 'light' : 'dark')}), [skin, resolvedTheme, locked]);
@@ -14,7 +15,10 @@ export function ThemeProvider({children, skin = 'workspace', theme = 'light', pe
   useLayoutEffect(() => {
     document.documentElement.dataset.caduTheme = resolvedTheme;
     document.documentElement.dataset.caduSkin = skin;
-    if (!locked) window.localStorage.setItem(persistKey, resolvedTheme);
+    if (!locked) {
+      try { window.localStorage.setItem(persistKey, resolvedTheme); }
+      catch (_) { /* Theme persistence is optional when browser storage is blocked. */ }
+    }
   }, [locked, persistKey, resolvedTheme, skin]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

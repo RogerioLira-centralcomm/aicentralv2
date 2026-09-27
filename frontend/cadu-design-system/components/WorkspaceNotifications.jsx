@@ -12,7 +12,7 @@ export function WorkspaceNotificationsProvider({bootstrap, children}) {
     let active = true;
     const refresh = () => fetch(endpoint, {credentials:'same-origin', headers:{Accept:'application/json'}})
       .then(response => response.ok ? response.json() : Promise.reject(new Error('notifications unavailable')))
-      .then(value => { if (active) setItems(value.items || []); })
+      .then(value => { if (active) setItems(Array.isArray(value.items) ? value.items : []); })
       .catch(() => {});
     refresh();
     const timer = window.setInterval(refresh, 60000);

@@ -51,23 +51,19 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
   return <section className="cv-plugins-page" aria-label="Plugins">
     <header className="cv-plugins-page__header">
       <button type="button" onClick={onClose} aria-label="Voltar à conversa"><Icon name="chevron" size={18}/><span>Voltar</span></button>
-      <div><h1>Plugins</h1><p>Recursos do Cadu que trabalham junto com suas conversas e planos.</p></div>
+      <div><h1>Plugins</h1></div>
       <span className="cv-plugins-page__count">{loading ? 'Carregando' : `${flows.length} fluxos de trabalho`}</span>
     </header>
     <div className="cv-plugins-page__content" aria-live="polite">
       {loading && <p role="status">Carregando plugins…</p>}
       {error && <p role="alert">{error}</p>}
       {!loading && !error && <>
-        <section className="cv-plugin-shelf cv-plugin-flow-shelf">
-          <header><div><h2>Fluxos do Cadu</h2><p>Escolha um modo para preencher um prompt no chat; revise e envie quando estiver pronto.</p></div><span>Disponíveis</span></header>
+        <section className="cv-plugin-shelf cv-plugin-flow-shelf" aria-label="Fluxos do Cadu">
           <ul>{flows.map(flow => <li key={flow.id} className="cv-plugin-flow-card">
             <div className="cv-plugin-flow-card__heading">
               <span className="cv-plugin-mark" aria-hidden="true"><Icon name={flow.icon} size={19}/></span>
               <div><h3>{flow.name}</h3><p>{flow.description}</p></div>
             </div>
-            <ol className="cv-plugin-flow-card__steps" aria-label={`Etapas do fluxo ${flow.name}`}>
-              {flow.steps.map((step, index) => <li key={`${flow.id}-step-${index}`}><span>{index + 1}</span><p>{step}</p></li>)}
-            </ol>
             <div className="cv-plugin-flow-card__modes" aria-label={`Modos de ${flow.name}`}>
               {flow.availableModes.map(mode => <button key={mode.id} type="button" onClick={() => onUsePlugin?.(mode.plugin)}
                 aria-label={`${flow.name}: ${mode.label}`}>{mode.label}</button>)}

@@ -8,6 +8,8 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
+from integration_provider_check_lib import ensure_provider_in_check, provider_in_check_constraint
+
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -24,28 +26,11 @@ def main():
         row_factory=dict_row,
     ) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT pg_get_constraintdef(oid) AS definition
-                  FROM pg_constraint
-                 WHERE conname = 'system_integration_credentials_provider_check'
-                """
-            )
-            current = ((cursor.fetchone() or {}).get("definition") or "")
-            if "openrouter" not in current:
-                cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
-            cursor.execute(
-                """
-                SELECT pg_get_constraintdef(oid) AS definition
-                  FROM pg_constraint
-                 WHERE conname = 'system_integration_credentials_provider_check'
-                """
-            )
-            row = cursor.fetchone()
+            ensure_provider_in_check(cursor, "openrouter")
+            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
+            if not provider_in_check_constraint(cursor, "openrouter"):
+                raise RuntimeError("A constraint de integrações não aceitou o OpenRouter.")
         conn.commit()
-    definition = (row or {}).get("definition") or ""
-    if "openrouter" not in definition:
-        raise RuntimeError("A constraint de integrações não aceitou o OpenRouter.")
     print("OpenRouter liberado na central de credenciais.")
 
 

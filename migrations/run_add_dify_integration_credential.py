@@ -8,6 +8,8 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
+from integration_provider_check_lib import ensure_provider_in_check
+
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -24,16 +26,8 @@ def main():
         row_factory=dict_row,
     ) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT pg_get_constraintdef(oid) AS definition
-                  FROM pg_constraint
-                 WHERE conname = 'system_integration_credentials_provider_check'
-                """
-            )
-            current = ((cursor.fetchone() or {}).get("definition") or "")
-            if "dify" not in current:
-                cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
+            ensure_provider_in_check(cursor, "dify")
+            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
             cursor.execute(
                 """
                 SELECT encrypted_secret IS NOT NULL AND encrypted_secret <> '' AS has_secret

@@ -266,7 +266,8 @@ if [ "${FORCE_MIGRATIONS:-0}" != "1" ] && [ -s "$MIGRATION_STATE_FILE" ]; then
 fi
 
 if [ "$RUN_MIGRATIONS" = "1" ]; then
-{
+echo "  > Migrações em andamento (detalhes em $DEPLOY_LOG)..."
+if ! {
 "$VENV_PYTHON" migrations/run_add_tipo_comercial_to_cotacoes.py
 "$VENV_PYTHON" migrations/run_add_cotacao_grupo_plano.py
 "$VENV_PYTHON" migrations/run_add_cotacao_itens_especificos.py
@@ -299,6 +300,7 @@ if [ "$RUN_MIGRATIONS" = "1" ]; then
 "$VENV_PYTHON" migrations/run_convert_interactive_formats_to_image_carousels.py
 "$VENV_PYTHON" migrations/run_add_google_calendar_meet.py
 "$VENV_PYTHON" migrations/run_add_system_integration_credentials.py
+"$VENV_PYTHON" migrations/run_sync_integration_provider_check.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_connections.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_sync_state.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_meet_artifacts.sql
@@ -314,8 +316,7 @@ if [ "$RUN_MIGRATIONS" = "1" ]; then
 "$VENV_PYTHON" migrations/run_add_cx_place_documents.py
 "$VENV_PYTHON" migrations/run_add_d4sign_assinaturas.py
 "$VENV_PYTHON" migrations/run_add_google_login_credentials.py
-# Run after the legacy provider migrations because some of them replace the
-# integration CHECK constraint with an older provider list.
+"$VENV_PYTHON" migrations/run_sync_integration_provider_check.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_typesafe_integration_credential.sql
 "$VENV_PYTHON" migrations/run_add_cadu_sso_tickets.py
 "$VENV_PYTHON" migrations/run_add_cadu_knowledge_documents.py
@@ -408,7 +409,17 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql
-} >> "$DEPLOY_LOG" 2>&1
+} >> "$DEPLOY_LOG" 2>&1; then
+    echo ""
+    echo "  > ERRO no bloco de migrações — últimas linhas do log:"
+    tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
+    if [ "$SERVICE_STOPPED" = "1" ]; then
+        echo "  > Tentando subir $APP_SERVICE após falha..."
+        sudo systemctl start "$APP_SERVICE" 2>/dev/null || true
+        SERVICE_STOPPED=0
+    fi
+    exit 1
+fi
     mkdir -p "$(dirname "$MIGRATION_STATE_FILE")"
     printf '%s\n' "$MIGRATION_REVISION" > "${MIGRATION_STATE_FILE}.tmp"
     mv "${MIGRATION_STATE_FILE}.tmp" "$MIGRATION_STATE_FILE"

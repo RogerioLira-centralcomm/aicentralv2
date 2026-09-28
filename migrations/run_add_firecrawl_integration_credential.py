@@ -9,6 +9,8 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
+from integration_provider_check_lib import ensure_provider_in_check, provider_in_check_constraint
+
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -37,21 +39,8 @@ def main():
         row_factory=dict_row,
     ) as conn:
         with conn.cursor() as cursor:
-            # Esta migration é executada em todo deploy. Em bancos que já
-            # receberam providers adicionados depois do Firecrawl, reaplicar o
-            # SQL antigo reduziria a lista aceita pelo CHECK e falharia ao
-            # validar registros existentes. Só altere a constraint se o
-            # provider ainda não estiver liberado.
-            cursor.execute(
-                """
-                SELECT pg_get_constraintdef(oid) AS definition
-                  FROM pg_constraint
-                 WHERE conname = 'system_integration_credentials_provider_check'
-                """
-            )
-            current = ((cursor.fetchone() or {}).get("definition") or "")
-            if "firecrawl" not in current:
-                cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
+            ensure_provider_in_check(cursor, "firecrawl")
+            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
             if encrypted:
                 cursor.execute(
                     """
@@ -65,14 +54,8 @@ def main():
                     """,
                     (encrypted,),
                 )
-            cursor.execute(
-                """
-                SELECT pg_get_constraintdef(oid) AS definition
-                  FROM pg_constraint
-                 WHERE conname = 'system_integration_credentials_provider_check'
-                """
-            )
-            constraint = cursor.fetchone() or {}
+            if not provider_in_check_constraint(cursor, "firecrawl"):
+                raise RuntimeError("A constraint de integrações não aceitou o Firecrawl.")
             cursor.execute(
                 """
                 SELECT (encrypted_secret IS NOT NULL AND encrypted_secret <> '') AS has_secret
@@ -82,9 +65,6 @@ def main():
             )
             row = cursor.fetchone() or {}
         conn.commit()
-    definition = (constraint.get("definition") or "")
-    if "firecrawl" not in definition:
-        raise RuntimeError("A constraint de integrações não aceitou o Firecrawl.")
     secret_state = (
         "com chave no banco"
         if row.get("has_secret")

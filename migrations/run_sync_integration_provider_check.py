@@ -1,22 +1,22 @@
 #!/usr/bin/env python
-"""Libera o provider OpenAI na central de credenciais."""
+"""Aplica o CHECK canônico de integrações (idempotente, nunca enxuga providers)."""
 
 import os
+import sys
 from pathlib import Path
 
 import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
-from integration_provider_check_lib import ensure_provider_in_check, provider_in_check_constraint
+from integration_provider_check_lib import apply_provider_check, assert_known_providers
 
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
-SQL_PATH = Path(__file__).with_name("add_openai_integration_credential.sql")
 
 
-def main():
+def main() -> int:
     with psycopg.connect(
         host=os.getenv("DB_HOST", "localhost"),
         port=int(os.getenv("DB_PORT", "5432")),
@@ -26,13 +26,16 @@ def main():
         row_factory=dict_row,
     ) as conn:
         with conn.cursor() as cursor:
-            ensure_provider_in_check(cursor, "openai")
-            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
-            if not provider_in_check_constraint(cursor, "openai"):
-                raise RuntimeError("A constraint de integrações não aceitou a OpenAI.")
+            assert_known_providers(cursor)
+            apply_provider_check(cursor)
         conn.commit()
-    print("OpenAI liberada na central de credenciais.")
+    print("CHECK canônico de integrações aplicado.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(main())
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1) from exc

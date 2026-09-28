@@ -8,6 +8,8 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
+from integration_provider_check_lib import ensure_provider_in_check
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SQL_PATH = Path(__file__).with_name("add_google_login_credentials.sql")
@@ -21,29 +23,13 @@ def main():
         password=os.getenv("DB_PASSWORD", ""), row_factory=dict_row,
     ) as conn:
         with conn.cursor() as cursor:
-            # Deploys may run this after providers added by later migrations.
-            # Never replace a broader CHECK with this migration's older list.
+            ensure_provider_in_check(cursor, "google_login_cadu")
+            ensure_provider_in_check(cursor, "google_login_centralx")
+            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
             cursor.execute(
-                """SELECT pg_get_constraintdef(oid) AS definition
-                     FROM pg_constraint
-                    WHERE conname = 'system_integration_credentials_provider_check'"""
+                "SELECT provider FROM system_integration_credentials "
+                "WHERE provider IN ('google_login_cadu','google_login_centralx')"
             )
-            definition = ((cursor.fetchone() or {}).get("definition") or "")
-            if "google_login_cadu" not in definition or "google_login_centralx" not in definition:
-                cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
-            else:
-                cursor.execute(
-                    """INSERT INTO system_integration_credentials (provider, public_config, status)
-                        VALUES
-                          ('google_login_cadu', %s::jsonb, 'active'),
-                          ('google_login_centralx', %s::jsonb, 'active')
-                        ON CONFLICT (provider) DO NOTHING""",
-                    (
-                        '{"redirect_uri":"https://auth.centralcomm.media/auth/google/callback"}',
-                        '{"redirect_uri":"https://auth.centralcomm.media/auth/google/callback","allowed_domain":"centralcomm.media"}',
-                    ),
-                )
-            cursor.execute("SELECT provider FROM system_integration_credentials WHERE provider IN ('google_login_cadu','google_login_centralx')")
             found = {row["provider"] for row in cursor.fetchall()}
         conn.commit()
     if found != {"google_login_cadu", "google_login_centralx"}:

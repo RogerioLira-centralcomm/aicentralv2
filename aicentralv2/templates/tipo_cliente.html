@@ -1,188 +1,208 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
 {% block title %}Tipos de Cliente - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-2">
-  <!-- Header Compacto (max 66px) estilo CRM -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40 erp-content-sticky" style="max-height: 66px;">
-    <div class="flex items-center justify-between gap-4">
-      <!-- Título -->
-      <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold text-gray-800">Tipos de Cliente</h1>
-        {% if tipos %}<span class="text-xs text-gray-500">({{ tipos|length }})</span>{% endif %}
+<div class="w-full px-2 sm:px-4 pb-6">
+  <div class="bg-white border-b border-slate-200 px-4 py-2 mb-3 sticky top-0 z-40 erp-content-sticky">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-3 min-w-0">
+        <h1 class="text-lg font-semibold text-slate-800">Tipos de Cliente</h1>
+        {% if tipos %}<span class="text-xs text-slate-500">({{ tipos|length }})</span>{% endif %}
       </div>
-      
-      <!-- Busca Inline -->
-      <div class="flex items-center gap-3">
-        <input type="text" id="searchInput" placeholder="Buscar tipo..." 
-               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+
+      <div class="cx-field mb-0" style="min-width: 200px;">
+        <div class="cx-drawer-input-wrap">
+          <i class="fa-solid fa-search cx-drawer-input-icon" aria-hidden="true"></i>
+          <input type="text" id="searchInput" placeholder="Buscar tipo..." class="cx-input cx-input-sm w-full">
+        </div>
       </div>
-      
-      <!-- Botões -->
-      <div class="flex gap-2">
-        <button onclick="modal_tipo.showModal()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Novo Tipo
-        </button>
-      </div>
+
+      <button type="button" onclick="abrirModalNovo()" class="cx-btn cx-btn-sm cx-btn-primary shrink-0">
+        <i class="fas fa-plus mr-1" aria-hidden="true"></i>Novo tipo
+      </button>
     </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-4 space-y-2">
-        {% for category, message in messages %}
-          <div class="p-3 rounded-lg text-sm
-            {%- if category == 'success' %} bg-green-100 text-green-800
-            {%- elif category == 'error' %} bg-red-100 text-red-800
-            {%- else %} bg-gray-100 text-gray-800
-            {%- endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      </div>
+      <div class="mb-4">{{ flash_messages(messages) }}</div>
     {% endif %}
   {% endwith %}
 
-  <!-- Tabela de Tipos -->
-  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+  <div class="cx-table-wrap border border-slate-200 rounded-lg bg-white overflow-hidden">
     {% if tipos and tipos|length > 0 %}
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" id="tabela_tipos">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID</th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Nome</th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Data Criação</th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Última Modificação</th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100" id="tiposTableBody">
-            {% for tipo in tipos %}
-            <tr class="hover:bg-gray-50 transition-colors">
-              <td class="py-2 px-3 text-gray-600">#{{ tipo.id_tipo_cliente }}</td>
-              <td class="py-2 px-3">
-                <span class="font-medium text-gray-800">{{ tipo.display }}</span>
-              </td>
-              <td class="py-2 px-3 text-gray-500">
-                {{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}
-              </td>
-              <td class="py-2 px-3 text-gray-500">
-                {{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}
-              </td>
-              <td class="py-2 px-3">
-                <div class="flex items-center justify-center gap-2">
-                  <button onclick="abrirModalEditar({{ tipo.id_tipo_cliente }}, '{{ tipo.display|e }}')"
-                          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                          title="Editar">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <form method="POST" 
-                        action="{{ url_for('tipo_cliente_excluir', id_tipo=tipo.id_tipo_cliente) }}"
-                        onsubmit="return confirm('Tem certeza que deseja excluir este tipo de cliente?');"
-                        class="inline">
-                    <button type="submit" 
-                            class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                            title="Excluir">
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      <table class="cx-table cx-table-dense w-full" id="tabela_tipos">
+        <thead>
+          <tr>
+            <th class="text-left">ID</th>
+            <th class="text-left">Nome</th>
+            <th class="text-left">Data criação</th>
+            <th class="text-left">Última modificação</th>
+            <th class="text-center w-24">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tiposTableBody">
+          {% for tipo in tipos %}
+          <tr>
+            <td class="text-slate-600">#{{ tipo.id_tipo_cliente }}</td>
+            <td><span class="font-medium text-slate-800">{{ tipo.display }}</span></td>
+            <td class="text-slate-500">{{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}</td>
+            <td class="text-slate-500">{{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}</td>
+            <td>
+              <div class="flex items-center justify-center gap-1">
+                <button type="button"
+                        data-id="{{ tipo.id_tipo_cliente }}"
+                        data-display="{{ tipo.display|e }}"
+                        onclick="abrirModalEditarFromButton(this)"
+                        class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost"
+                        title="Editar" aria-label="Editar tipo {{ tipo.display }}">
+                  <i class="fas fa-edit" aria-hidden="true"></i>
+                </button>
+                <button type="button"
+                        data-id="{{ tipo.id_tipo_cliente }}"
+                        data-display="{{ tipo.display|e }}"
+                        onclick="confirmarExclusaoTipo(this)"
+                        class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost text-[var(--cx-danger)]"
+                        title="Excluir" aria-label="Excluir tipo {{ tipo.display }}">
+                  <i class="fas fa-trash" aria-hidden="true"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     {% else %}
-      <div class="text-center py-12">
-        <i class="fas fa-tags text-6xl text-gray-300 mb-4"></i>
-        <p class="text-gray-500 text-lg mb-4">Nenhum tipo de cliente cadastrado.</p>
-        <button onclick="modal_tipo.showModal()" 
-                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Cadastrar Primeiro Tipo
+      <div class="text-center py-12 px-4">
+        <i class="fas fa-tags text-5xl text-slate-200 mb-4" aria-hidden="true"></i>
+        <p class="text-slate-500 mb-4">Nenhum tipo de cliente cadastrado.</p>
+        <button type="button" onclick="abrirModalNovo()" class="cx-btn cx-btn-sm cx-btn-primary">
+          <i class="fas fa-plus mr-1" aria-hidden="true"></i>Cadastrar primeiro tipo
         </button>
       </div>
     {% endif %}
   </div>
 </div>
 
-<!-- Modal de Criação/Edição -->
-<dialog id="modal_tipo" class="modal">
-  <div class="modal-box w-11/12 max-w-lg bg-white p-0 rounded-lg">
-    <!-- Header fixo -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Tipo de Cliente</h3>
-      <button onclick="modal_tipo.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+<dialog id="modal_tipo" class="cx-modal-shell" aria-labelledby="modal_title">
+  <div class="cx-modal-panel cx-modal-panel-sm">
+    <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4">
+      <h3 id="modal_title" class="cx-modal-title">Novo Tipo de Cliente</h3>
+      <button type="button" onclick="fecharModalTipo()" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Fechar">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
-    
-    <!-- Conteúdo -->
-    <div class="p-6">
+    <div class="cx-modal-content">
       <form id="tipoForm" method="POST" action="{{ url_for('tipo_cliente_novo') }}">
         <input type="hidden" id="tipoId" name="id_tipo_cliente" value="">
-        
-        <div class="mb-4">
-          <label for="display" class="block text-sm font-medium text-gray-700 mb-1">
-            Nome do Tipo <span class="text-red-500">*</span>
+        <div class="cx-field w-full mb-3">
+          <label class="cx-label-row py-0" for="display">
+            <span class="cx-label text-xs">Nome do tipo <span class="text-[var(--cx-danger)]">*</span></span>
           </label>
-          <input type="text" 
-                 id="display" 
-                 name="display" 
-                 required
-                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          <input type="text" id="display" name="display" required maxlength="30" class="cx-input cx-input-sm w-full">
         </div>
-        
-        <div class="mt-6 flex justify-end gap-3">
-          <button type="button" 
-                  onclick="modal_tipo.close()"
-                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
-            Cancelar
-          </button>
-          <button type="submit" 
-                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-            Salvar
-          </button>
+        <div class="cx-modal-actions mt-0">
+          <button type="button" onclick="fecharModalTipo()" class="cx-btn cx-btn-sm cx-btn-secondary">Cancelar</button>
+          <button type="submit" class="cx-btn cx-btn-sm cx-btn-primary">Salvar</button>
         </div>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button aria-label="Fechar">close</button>
+  </form>
+</dialog>
+
+<dialog id="modal-delete-tipo" class="cx-modal-shell" aria-labelledby="delete-tipo-title">
+  <div class="cx-modal-panel cx-modal-panel-sm">
+    <div class="cx-modal-content">
+      <h3 id="delete-tipo-title" class="cx-modal-title mb-2">Excluir tipo de cliente</h3>
+      <p class="text-sm text-slate-600 mb-4">
+        Tem certeza que deseja excluir <strong id="delete-tipo-nome"></strong>? Esta ação não pode ser desfeita.
+      </p>
+      <form id="delete-tipo-form" method="POST" action="">
+        <div class="cx-modal-actions mt-0">
+          <button type="button" id="cancel-delete-tipo" class="cx-btn cx-btn-sm cx-btn-secondary">Cancelar</button>
+          <button type="submit" class="cx-btn cx-btn-sm cx-btn-danger">Excluir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button aria-label="Fechar">close</button>
+  </form>
 </dialog>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Busca na tabela
-  document.getElementById('searchInput').addEventListener('input', function() {
-    const searchTerm = this.value.toLowerCase();
-    const rows = document.querySelectorAll('#tiposTableBody tr');
-    
-    rows.forEach(row => {
-      const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(searchTerm) ? '' : 'none';
-    });
-  });
+  var modalTipo = document.getElementById('modal_tipo');
+  var modalDeleteTipo = document.getElementById('modal-delete-tipo');
+  var urlEditarTemplate = {{ url_for('tipo_cliente_editar', id_tipo=0)|tojson }};
+  var urlExcluirTemplate = {{ url_for('tipo_cliente_excluir', id_tipo=0)|tojson }};
+  var urlNovo = {{ url_for('tipo_cliente_novo')|tojson }};
 
-  // Abrir modal para edição
-  function abrirModalEditar(id, display) {
-    document.getElementById('modal_title').textContent = 'Editar Tipo de Cliente';
-    document.getElementById('tipoId').value = id;
-    document.getElementById('display').value = display;
-    document.getElementById('tipoForm').action = "{{ url_for('tipo_cliente_editar', id_tipo=0) }}".replace('0', id);
-    modal_tipo.showModal();
+  function fecharModalTipo() {
+    if (modalTipo) modalTipo.close();
   }
 
-  // Reset modal ao fechar
-  document.getElementById('modal_tipo').addEventListener('close', function() {
+  function abrirModalNovo() {
     document.getElementById('modal_title').textContent = 'Novo Tipo de Cliente';
     document.getElementById('tipoId').value = '';
     document.getElementById('display').value = '';
-    document.getElementById('tipoForm').action = "{{ url_for('tipo_cliente_novo') }}";
+    document.getElementById('tipoForm').action = urlNovo;
+    if (modalTipo && typeof modalTipo.showModal === 'function') {
+      modalTipo.showModal();
+      document.getElementById('display').focus();
+    }
+  }
+
+  function abrirModalEditarFromButton(btn) {
+    var id = btn.getAttribute('data-id');
+    var display = btn.getAttribute('data-display') || '';
+    document.getElementById('modal_title').textContent = 'Editar Tipo de Cliente';
+    document.getElementById('tipoId').value = id;
+    document.getElementById('display').value = display;
+    document.getElementById('tipoForm').action = urlEditarTemplate.replace('/0/', '/' + id + '/');
+    if (modalTipo && typeof modalTipo.showModal === 'function') {
+      modalTipo.showModal();
+      document.getElementById('display').focus();
+    }
+  }
+
+  function confirmarExclusaoTipo(btn) {
+    var id = btn.getAttribute('data-id');
+    var nome = btn.getAttribute('data-display') || '';
+    document.getElementById('delete-tipo-nome').textContent = nome;
+    document.getElementById('delete-tipo-form').action = urlExcluirTemplate.replace('/0/', '/' + id + '/');
+    if (modalDeleteTipo && typeof modalDeleteTipo.showModal === 'function') {
+      modalDeleteTipo.showModal();
+      document.getElementById('cancel-delete-tipo').focus();
+    }
+  }
+
+  if (modalTipo) {
+    modalTipo.addEventListener('close', function () {
+      document.getElementById('modal_title').textContent = 'Novo Tipo de Cliente';
+      document.getElementById('tipoId').value = '';
+      document.getElementById('display').value = '';
+      document.getElementById('tipoForm').action = urlNovo;
+    });
+  }
+
+  document.getElementById('cancel-delete-tipo')?.addEventListener('click', function () {
+    modalDeleteTipo?.close();
+  });
+
+  document.getElementById('searchInput')?.addEventListener('input', function () {
+    var searchTerm = this.value.toLowerCase();
+    document.querySelectorAll('#tiposTableBody tr').forEach(function (row) {
+      row.style.display = row.textContent.toLowerCase().includes(searchTerm) ? '' : 'none';
+    });
   });
 </script>
 {% endblock %}

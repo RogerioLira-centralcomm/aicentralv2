@@ -1,79 +1,79 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
 {% block title %}{{ 'Editar' if tipo else 'Novo' }} Tipo de Cliente - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="p-6">
-    <!-- Header -->
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-text-primary flex items-center">
-                <i class="fas fa-{% if tipo %}edit{% else %}plus{% endif %} text-primary mr-3"></i>
-                {{ 'Editar' if tipo else 'Novo' }} Tipo de Cliente
-            </h1>
-            <a href="{{ url_for('tipos_cliente') }}" 
-               class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Voltar
-            </a>
+<div class="max-w-2xl mx-auto p-6 space-y-6">
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">
+        {{ 'Editar' if tipo else 'Novo' }} tipo de cliente
+      </h1>
+      <p class="text-sm text-slate-600 mt-1">Classificação usada no cadastro de clientes.</p>
+    </div>
+    <a href="{{ url_for('tipos_cliente') }}" class="cx-btn cx-btn-ghost cx-btn-sm">
+      <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>Voltar
+    </a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div>{{ flash_messages(messages) }}</div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST" class="space-y-6">
+    <div class="cx-card bg-white border border-slate-200 shadow-sm">
+      <div class="cx-card-body space-y-4">
+        <h2 class="cx-card-title text-base">
+          <i class="fas fa-tag text-slate-500 mr-2" aria-hidden="true"></i>Dados do tipo
+        </h2>
+        <div class="border-b border-[var(--cx-border)]"></div>
+
+        <div class="cx-field">
+          <label class="cx-label-row" for="display">
+            <span class="cx-label font-semibold">Nome do tipo <span class="text-[var(--cx-danger)]">*</span></span>
+          </label>
+          <input type="text"
+                 id="display"
+                 name="display"
+                 value="{{ tipo.display if tipo else '' }}"
+                 required
+                 maxlength="30"
+                 class="cx-input cx-input-sm w-full"
+                 placeholder="Ex: Premium, VIP, Corporativo">
+          <p class="cx-help">Máximo 30 caracteres.</p>
         </div>
-    </div>
 
-    <!-- Formulário -->
-    <div class="bg-white rounded-lg shadow-card p-6">
-        <form method="POST" class="space-y-6">
-            <!-- Nome do Tipo -->
+        {% if tipo %}
+        <div class="cx-section">
+          <div class="cx-section-header">
+            <h3 class="cx-section-title text-sm">Informações do registro</h3>
+          </div>
+          <div class="cx-section-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
-                <label for="display" class="block text-sm font-medium text-gray-700 mb-2">
-                    Nome do Tipo <span class="text-red-500">*</span>
-                </label>
-                <input type="text" 
-                       id="display" 
-                       name="display" 
-                       value="{{ tipo.display if tipo else '' }}"
-                       required
-                       maxlength="30"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
-                       placeholder="Ex: Premium, VIP, Corporativo">
-                <p class="mt-1 text-sm text-gray-500">Máximo 30 caracteres</p>
+              <span class="text-slate-500">Data de criação:</span>
+              <span class="text-slate-800 ml-1">{{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}</span>
             </div>
-
-            <!-- Informações de Data (somente na edição) -->
-            {% if tipo %}
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h3 class="text-sm font-medium text-gray-700 mb-2">Informações do Registro</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span class="text-gray-500">Data de Criação:</span>
-                        <span class="text-gray-900 ml-2">
-                            {{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}
-                        </span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Última Modificação:</span>
-                        <span class="text-gray-900 ml-2">
-                            {{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}
-                        </span>
-                    </div>
-                </div>
+            <div>
+              <span class="text-slate-500">Última modificação:</span>
+              <span class="text-slate-800 ml-1">{{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}</span>
             </div>
-            {% endif %}
-
-            <!-- Botões -->
-            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                <a href="{{ url_for('tipos_cliente') }}" 
-                   class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200">
-                    Cancelar
-                </a>
-                <button type="submit" 
-                        class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
-                    <i class="fas fa-save mr-2"></i>
-                    {{ 'Atualizar' if tipo else 'Cadastrar' }}
-                </button>
-            </div>
-        </form>
+          </div>
+        </div>
+        {% endif %}
+      </div>
     </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{{ url_for('tipos_cliente') }}" class="cx-btn cx-btn-secondary">Cancelar</a>
+      <button type="submit" class="cx-btn cx-btn-primary">
+        <i class="fas fa-save mr-2" aria-hidden="true"></i>{{ 'Atualizar' if tipo else 'Cadastrar' }}
+      </button>
+    </div>
+  </form>
 </div>
 {% endblock %}

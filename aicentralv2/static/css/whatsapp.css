@@ -31,8 +31,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
+    background: var(--cx-surface-muted, #f8fafc);
+    border: 1px solid var(--cx-border, #e5e7eb);
     border-radius: 0.75rem;
     padding: 0.65rem;
     overflow: hidden;
@@ -586,80 +586,3 @@
 }
 
 .hidden { display: none !important; }
-
-/* Modal nova conversa */
-.wa-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-}
-
-.wa-modal-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-}
-
-.wa-modal-box {
-    position: relative;
-    width: 100%;
-    max-width: 24rem;
-    background: #fff;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-}
-
-.wa-modal-title {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-}
-
-.wa-modal-label {
-    display: block;
-    font-size: 0.72rem;
-    color: #6b7280;
-    margin-bottom: 0.25rem;
-}
-
-.wa-modal-input {
-    width: 100%;
-    height: 2.25rem;
-    padding: 0 0.65rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.4rem;
-    font-size: 0.82rem;
-    margin-bottom: 0.75rem;
-    outline: none;
-}
-
-.wa-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.wa-modal-btn {
-    padding: 0.45rem 0.85rem;
-    border-radius: 0.4rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    border: none;
-    cursor: pointer;
-}
-
-.wa-modal-btn-ghost {
-    background: #f3f4f6;
-    color: #374151;
-}
-
-.wa-modal-btn-primary {
-    background: #087a36;
-    color: #fff;
-}

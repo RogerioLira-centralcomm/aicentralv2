@@ -729,34 +729,95 @@ def init_routes(app):
                                packages=[],
                                dialog_to_open=dialog_to_open, form_error=form_error)
 
-    @app.route('/contratos/novo')
+    @app.route('/contratos/novo', methods=['GET', 'POST'])
     @login_required
     def contrato_novo():
         """Formulário para criar novo contrato/plano"""
         try:
-            # Verificar permissões
             user_type = session.get('user_type', 'client')
             is_admin = user_type in ['admin', 'superadmin']
             is_cc = is_centralcomm_user()
-            
+
             if not is_admin and not is_cc:
                 flash('Você não tem permissão para acessar esta página.', 'error')
                 return redirect(url_for('index'))
-            
-            # Obter lista de clientes para o select
-            clientes = db.obter_clientes_sistema({'status': True})
-            if not clientes:
-                clientes = []
-            
-            # Cliente pré-selecionado via query string
-            cliente_id = request.args.get('cliente_id', '')
+
+            clientes = db.obter_clientes_sistema({'status': True}) or []
             plan_definitions = db.obter_plan_definitions()
-            
-            return render_template('plano_form.html',
-                                 clientes=clientes,
-                                 cliente_id=cliente_id,
-                                 plan_definitions=plan_definitions,
-                                 modo='novo')
+            cliente_id = request.args.get('cliente_id', '') or request.form.get('cliente_id', '')
+
+            if request.method == 'POST':
+                try:
+                    cliente_id_int = int(request.form.get('cliente_id') or 0)
+                except (TypeError, ValueError):
+                    cliente_id_int = 0
+                id_plan_definition = request.form.get('id_plan_definition', type=int)
+                tokens_monthly = request.form.get('tokens_monthly_limit', type=int)
+                image_credits = request.form.get('image_credits_monthly', type=int)
+                max_users = request.form.get('max_users', type=int)
+                plan_status = (request.form.get('plan_status') or 'active').strip()
+
+                if not all([cliente_id_int, id_plan_definition, tokens_monthly, image_credits, max_users]):
+                    flash('Preencha todos os campos obrigatórios.', 'error')
+                    return render_template(
+                        'plano_form.html',
+                        clientes=clientes,
+                        cliente_id=str(cliente_id_int or ''),
+                        plan_definitions=plan_definitions,
+                        modo='novo',
+                    )
+
+                valid_from = datetime.now()
+                valid_until_raw = (request.form.get('valid_until') or '').strip()
+                valid_until = None
+                if valid_until_raw:
+                    valid_until = datetime.strptime(valid_until_raw, '%Y-%m-%d')
+
+                plan_data = {
+                    'id_cliente': cliente_id_int,
+                    'id_plan_definition': id_plan_definition,
+                    'tokens_monthly_limit': tokens_monthly,
+                    'image_credits_monthly': image_credits,
+                    'max_users': max_users,
+                    'features': '{"all_modes": true, "unlimited_docs": true, "unlimited_conversations": true}',
+                    'plan_status': plan_status,
+                    'valid_from': valid_from,
+                    'valid_until': valid_until,
+                    'plan_start_date': valid_from,
+                    'plan_end_date': valid_until,
+                }
+                plano_id = db.criar_client_plan(plan_data)
+                if plano_id:
+                    registrar_auditoria(
+                        acao='CREATE',
+                        modulo='PLANOS',
+                        descricao=f'Contrato/plano criado para cliente {cliente_id_int}',
+                        registro_id=plano_id,
+                        registro_tipo='client_plan',
+                        dados_novos={
+                            'cliente_id': cliente_id_int,
+                            'id_plan_definition': id_plan_definition,
+                            'plan_status': plan_status,
+                        },
+                    )
+                    flash('Contrato criado com sucesso.', 'success')
+                    return redirect(url_for('planos_lista'))
+                flash('Erro ao criar contrato.', 'error')
+                return render_template(
+                    'plano_form.html',
+                    clientes=clientes,
+                    cliente_id=str(cliente_id_int),
+                    plan_definitions=plan_definitions,
+                    modo='novo',
+                )
+
+            return render_template(
+                'plano_form.html',
+                clientes=clientes,
+                cliente_id=cliente_id,
+                plan_definitions=plan_definitions,
+                modo='novo',
+            )
         except Exception as e:
             import logging
             import traceback

@@ -777,16 +777,18 @@
 
     function abrirModalNova() {
         const modal = $('#wa-modal-nova');
-        if (!modal) return;
-        modal.classList.remove('hidden');
+        if (!modal || typeof modal.showModal !== 'function') return;
         const tel = $('#wa-nova-telefone');
         const nome = $('#wa-nova-nome');
-        if (tel) { tel.value = ''; tel.focus(); }
+        if (tel) tel.value = '';
         if (nome) nome.value = '';
+        modal.showModal();
+        tel?.focus();
     }
 
     function fecharModalNova() {
-        $('#wa-modal-nova')?.classList.add('hidden');
+        const modal = $('#wa-modal-nova');
+        if (modal?.open) modal.close();
     }
 
     async function confirmarNovaConversa() {
@@ -842,7 +844,7 @@
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
                 if (recordingActive) cancelarGravacao();
-                else fecharModalNova();
+                else if ($('#wa-modal-nova')?.open) fecharModalNova();
             }
         });
     }

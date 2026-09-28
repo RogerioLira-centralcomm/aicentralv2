@@ -1,0 +1,21 @@
+/* Lista de planos — uso mensual (substitui radial-progress Daisy) */
+.plano-usage-cell {
+  min-width: 7rem;
+}
+
+.plano-usage-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.plano-usage-pct {
+  font-size: 0.65rem;
+  color: var(--cx-text-muted, #64748b);
+  margin-top: 0.15rem;
+}
+
+.plano-usage-cell .cx-progress {
+  width: 100%;
+  height: 0.35rem;
+}

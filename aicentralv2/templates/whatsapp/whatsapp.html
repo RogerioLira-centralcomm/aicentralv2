@@ -5,7 +5,7 @@
 {% block title %}WhatsApp — CentralX{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=7">
 {% endblock %}
 
 {% block content %}
@@ -76,22 +76,39 @@
     </div>
 </div>
 
-<div id="wa-modal-nova" class="wa-modal hidden">
-    <div class="wa-modal-backdrop" data-close-modal></div>
-    <div class="wa-modal-box">
-        <h3 class="wa-modal-title">Nova conversa</h3>
-        <label class="wa-modal-label" for="wa-nova-telefone">Telefone (com DDD)</label>
-        <input type="tel" id="wa-nova-telefone" class="wa-modal-input" placeholder="Ex: 11999998888">
-        <label class="wa-modal-label" for="wa-nova-nome">Nome do contato (opcional)</label>
-        <input type="text" id="wa-nova-nome" class="wa-modal-input" placeholder="Nome">
-        <div class="wa-modal-actions">
-            <button type="button" class="wa-modal-btn wa-modal-btn-ghost" data-close-modal>Cancelar</button>
-            <button type="button" class="wa-modal-btn wa-modal-btn-primary" id="wa-nova-confirmar">Iniciar conversa</button>
+<dialog id="wa-modal-nova" class="cx-modal-shell" aria-labelledby="wa-modal-nova-title">
+    <div class="cx-modal-panel cx-modal-panel-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-[var(--cx-border)] bg-[var(--cx-surface-muted)] px-5 py-4">
+            <h3 id="wa-modal-nova-title" class="cx-modal-title">Nova conversa</h3>
+            <button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" data-close-modal aria-label="Fechar">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="cx-modal-content space-y-3">
+            <div class="cx-field w-full">
+                <label class="cx-label-row py-0" for="wa-nova-telefone">
+                    <span class="cx-label text-xs">Telefone (com DDD)</span>
+                </label>
+                <input type="tel" id="wa-nova-telefone" class="cx-input cx-input-sm w-full" placeholder="Ex: 11999998888" autocomplete="tel">
+            </div>
+            <div class="cx-field w-full">
+                <label class="cx-label-row py-0" for="wa-nova-nome">
+                    <span class="cx-label text-xs">Nome do contato (opcional)</span>
+                </label>
+                <input type="text" id="wa-nova-nome" class="cx-input cx-input-sm w-full" placeholder="Nome" autocomplete="name">
+            </div>
+            <div class="cx-modal-actions mt-0">
+                <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-close-modal>Cancelar</button>
+                <button type="button" class="cx-btn cx-btn-sm cx-btn-primary" id="wa-nova-confirmar">Iniciar conversa</button>
+            </div>
         </div>
     </div>
-</div>
+    <form method="dialog" class="cx-modal-dismiss">
+        <button aria-label="Fechar">close</button>
+    </form>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/whatsapp.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/whatsapp.js') }}?v=17"></script>
 {% endblock %}

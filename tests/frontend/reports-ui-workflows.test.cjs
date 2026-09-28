@@ -333,8 +333,9 @@ async function main() {
     await page.mouse.down();
     await page.mouse.move(dragStart.x + 130, dragStart.y + 75, {steps: 5});
     await page.mouse.up();
-    await page.waitForFunction(left => Number.parseFloat(document.querySelector('.reports-flow-block')?.style.left) !== left, originalLeft);
-    assert.notEqual(await draggedBlock.evaluate(element => Number.parseFloat(element.style.left)), originalLeft, 'arrastar um bloco no canvas atualiza sua posição');
+    const expectedLeft = Math.round((originalLeft + 90) / 20) * 20;
+    await page.waitForFunction(left => Number.parseFloat(document.querySelector('.reports-flow-block')?.style.left) === left, expectedLeft);
+    assert.equal(await draggedBlock.evaluate(element => Number.parseFloat(element.style.left)), expectedLeft, 'o bloco preserva o ponto agarrado durante o arraste');
     const moveRight = page.getByRole('button', {name: 'Mover para direita'}).first();
     for (let index = 0; index < 15; index++) await moveRight.evaluate(button => button.click());
     assert.ok(await flowCanvas.evaluate(element => element.scrollWidth > element.clientWidth), 'canvas expande a área rolável ao mover blocos para a direita');
@@ -347,7 +348,8 @@ async function main() {
     await page.getByRole('button', {name: 'Verificar agora'}).click();
     await page.getByRole('button', {name: 'Verificando…'}).waitFor();
     assert.equal(await page.locator('.reports-page-monitor.is-monitor-checking').count(), 1, 'o painel sinaliza visualmente a checagem em andamento');
-    assert.equal(await page.locator('.reports-flow-monitor-node.is-checking').count(), 2, 'os blocos do monitoramento recebem estado animado durante a checagem');
+    assert.equal(await page.locator('.reports-monitor-status.is-checking i').evaluate(element => getComputedStyle(element).animationName), 'reports-pulse', 'o status de disponibilidade anima durante a checagem');
+    assert.equal(await page.locator('.reports-flow-monitor-node.is-checking').count(), 0, 'a checagem HTTP não anima o gráfico independente de sessões');
     await monitorCheckResponse;
     await page.getByRole('button', {name: 'Verificar agora'}).waitFor();
 

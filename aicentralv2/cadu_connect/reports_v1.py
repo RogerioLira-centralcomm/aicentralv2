@@ -119,7 +119,8 @@ def register(bp):
         selected = _selection()
         session.setdefault('family_csrf', secrets.token_urlsafe(32))
         clients = [{'id': int(item['id']), 'name': item['name'],
-                    'kind': item.get('kind', 'centralcomm')} for item in reports_access.authorized_clients()]
+                    'kind': item.get('kind', 'centralcomm')}
+                   for item in reports_access.authorized_clients()]
         if not _ready():
             return jsonify(ready=False, client=selected, csrf=session['family_csrf'],
                            clients=clients, accounts=[], campaigns=[], reports=[], link_tests=[])
@@ -162,6 +163,7 @@ def register(bp):
         return jsonify(ready=True, client=selected, clients=clients, csrf=session['family_csrf'],
                        can_manage_access=selected['role'] == 'admin' and
                            session.get('user_type') in ('admin', 'superadmin') and not reports_access.reports_only(),
+                       can_manage_clients=selected['role'] == 'admin',
                        accounts=accounts, campaigns=campaigns, reports=reports, link_tests=link_tests,
                        workspace_projects=workspace_projects)
 
@@ -310,7 +312,7 @@ def register(bp):
             (name, objective, channel_type, campaign_id,
              selected['organization_id'], selected['client_id']))
         if not updated:
-            abort(404, description='Campanha não encontrada neste espaço Reports.')
+            abort(404, description='Campanha não encontrada neste cliente.')
         get_db().commit()
         return jsonify(campaign=updated[0])
 
@@ -400,7 +402,7 @@ def register(bp):
         selected = _selection(payload)
         _write_guard(selected)
         if selected['role'] != 'admin':
-            abort(403, description='A associação com projetos do Workspace requer perfil admin neste espaço Reports.')
+            abort(403, description='A associação com projetos do Workspace requer perfil admin neste cliente.')
         project_id = payload.get('workspace_project_id')
         project = None
         if project_id not in (None, ''):
@@ -422,7 +424,7 @@ def register(bp):
             RETURNING id,workspace_project_id::text AS workspace_project_id''',
             (project_id or None, campaign_id, selected['organization_id'], selected['client_id']))
         if not changed:
-            abort(404, description='Campanha não encontrada neste espaço Reports.')
+            abort(404, description='Campanha não encontrada neste cliente.')
         get_db().commit()
         return jsonify(campaign=changed[0], project=project[0] if project else None)
 
@@ -475,7 +477,7 @@ def register(bp):
                 (report_id,revision,document,note,created_by)
                 VALUES (%s,%s,%s::jsonb,%s,%s) RETURNING report_id''',
                 (report['id'], report['revision'], json.dumps(document),
-                 'Espaço independente criado no Reports.', session['user_id']))
+                 'Relatório criado para o cliente selecionado.', session['user_id']))
         get_db().commit()
         return jsonify(report=report), 201
 

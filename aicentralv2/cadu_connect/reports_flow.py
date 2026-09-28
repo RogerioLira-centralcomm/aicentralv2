@@ -595,6 +595,16 @@ def register(bp):
             LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
             WHERE e.organization_id=%s AND e.client_id=%s
             ''' + event_period_filter + event_filter + event_date_filter + ') '
+        # Older Reports databases may not have the custom-event column yet.
+        # Check before issuing the query: a caught PostgreSQL error still marks
+        # the transaction as failed, so retrying in the same transaction returns
+        # another 500.
+        has_event_name = _rows('''SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema='public' AND table_name='cadu_reports_flow_events'
+              AND column_name='event_name') AS ready''')[0]['ready']
+        event_name_expr = "COALESCE(NULLIF(event_name,''),event_kind)" if has_event_name else 'event_kind'
+        canvas_event_name_expr = 'e.event_name' if has_event_name else "''::text"
         tags = _rows('''SELECT id,label,allowed_host,public_key,created_at,revoked_at,tag_kind
             FROM cadu_reports_site_tags WHERE organization_id=%s AND client_id=%s
                 AND (%s::uuid IS NULL OR id=%s::uuid) ORDER BY created_at DESC''',
@@ -671,31 +681,15 @@ def register(bp):
                 AND occurred_at > NOW() - INTERVAL '90 seconds') AS online,
             COUNT(DISTINCT visitor_id) FILTER (WHERE event_kind='conversion') AS conversions
             FROM selected_events''', tuple(scope_params))[0]
-        event_inventory_query = event_scoped_events + '''SELECT event_kind,COALESCE(NULLIF(event_name,''),event_kind) AS event_name,page_path,
+        event_inventory_query = event_scoped_events + f'''SELECT event_kind,{event_name_expr} AS event_name,page_path,
             COALESCE(utm_source,referrer_host,'Website') AS source_label,
             MAX(occurred_at) AS last_occurred_at,COUNT(*)::bigint AS total,
             COUNT(*) FILTER (WHERE step_id IS NOT NULL)::bigint AS mapped,
             COUNT(*) OVER() AS group_count
             FROM selected_events
-            GROUP BY event_kind,COALESCE(NULLIF(event_name,''),event_kind),page_path,COALESCE(utm_source,referrer_host,'Website')
+            GROUP BY event_kind,{event_name_expr},page_path,COALESCE(utm_source,referrer_host,'Website')
             ORDER BY last_occurred_at DESC LIMIT 300'''
-        try:
-            event_inventory = _rows(event_inventory_query, tuple(event_scope_params))
-        except Exception as exc:
-            # Older Reports databases may not have the custom-event migration yet.
-            # Recover only from that specific missing-column case; other SQL errors
-            # should continue through the normal error path.
-            message = str(exc).lower()
-            if 'event_name' not in message or 'column' not in message or 'does not exist' not in message:
-                raise
-            event_inventory = _rows(event_scoped_events + '''SELECT event_kind,event_kind AS event_name,page_path,
-                COALESCE(utm_source,referrer_host,'Website') AS source_label,
-                MAX(occurred_at) AS last_occurred_at,COUNT(*)::bigint AS total,
-                COUNT(*) FILTER (WHERE step_id IS NOT NULL)::bigint AS mapped,
-                COUNT(*) OVER() AS group_count
-                FROM selected_events
-                GROUP BY event_kind,page_path,COALESCE(utm_source,referrer_host,'Website')
-                ORDER BY last_occurred_at DESC LIMIT 300''', tuple(event_scope_params))
+        event_inventory = _rows(event_inventory_query, tuple(event_scope_params))
         event_summary = _rows(event_scoped_events + '''SELECT COUNT(*)::bigint AS total,
             COUNT(*) FILTER (WHERE event_kind='form_submit')::bigint AS form_submissions,
             COUNT(*) FILTER (WHERE event_kind='conversion')::bigint AS conversions,
@@ -740,7 +734,7 @@ def register(bp):
                     'event_name': str(node.get('event_name') or '')[:120]} for node in configured_nodes])
                 edge_json = json.dumps([{'source_id': edge['from'], 'target_id': edge['to']}
                     for edge in configured_edges if edge['from'] != edge['to']])
-                canvas_nodes = _rows(event_scoped_events + ''', configured_nodes AS (
+                canvas_nodes = _rows(event_scoped_events + f''', configured_nodes AS (
                     SELECT * FROM jsonb_to_recordset(%s::jsonb) AS n(
                         node_id TEXT,node_type TEXT,path TEXT,host TEXT,event_name TEXT)
                 ), matched AS (
@@ -754,7 +748,7 @@ def register(bp):
                        OR (n.node_type='form' AND e.event_kind='form_submit')
                        OR (n.node_type='whatsapp' AND e.event_kind='whatsapp_click')
                        OR (n.node_type='event' AND e.event_kind='custom_event'
-                           AND (n.event_name='' OR n.event_name=e.event_name))
+                           AND (n.event_name='' OR n.event_name={canvas_event_name_expr}))
                 ), configured_edges AS (
                     SELECT * FROM jsonb_to_recordset(%s::jsonb) AS x(source_id TEXT,target_id TEXT)
                 ), reached AS (
@@ -794,7 +788,13 @@ def register(bp):
             ' GROUP BY x.conversion_kind ORDER BY x.conversion_kind', tuple(confirmed_params))
         flows = _rows('''SELECT f.id,f.flow_code,f.name,f.status,f.config,f.tag_id,t.label AS tag_label,
                 t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
-                f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at
+                f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at,
+                (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
+                    FROM cadu_reports_flow_steps s
+                    JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
+                        AND c.organization_id=s.organization_id AND c.client_id=s.client_id
+                    WHERE s.tag_id=f.tag_id AND s.organization_id=f.organization_id
+                        AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
             FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.organization_id=%s AND f.client_id=%s ORDER BY f.created_at DESC''', params)
         monitor_checks = []

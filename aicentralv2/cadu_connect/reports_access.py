@@ -105,10 +105,14 @@ def register(bp):
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             abort(400)
-        selected = admin_scope(payload)
+        from .reports_v1 import _selection, _write_guard
+        selected = _selection(payload)
+        if selected['role'] != 'admin':
+            abort(403, description='A criação de clientes exige perfil administrador no Reports.')
+        _write_guard(selected)
         name = payload.get('name')
         if not isinstance(name, str):
-            abort(400, description='Informe o nome do espaço.')
+            abort(400, description='Informe o nome do cliente Reports.')
         name = ' '.join(name.strip().split())
         if not name or len(name) > 200:
             abort(400, description='O nome deve ter entre 1 e 200 caracteres.')
@@ -126,7 +130,7 @@ def register(bp):
                 (selected['organization_id'], name, slug, session['user_id']))
             row = cursor.fetchone()
             if not row:
-                abort(409, description='Já existe um espaço Reports com esse nome.')
+                abort(409, description='Já existe um cliente Reports com esse nome.')
             client = dict(row)
             cursor.execute('''INSERT INTO cadu_reports_user_access
                 (organization_id,user_id,client_id,role,granted_by)

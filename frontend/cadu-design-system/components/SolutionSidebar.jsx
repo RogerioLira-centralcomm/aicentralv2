@@ -1,13 +1,14 @@
 import React, {useEffect, useState} from 'react';
 import {Icon} from './Icon';
 import {CaduSolutionSwitcher} from './WorkspaceSelectors';
+import {VisualIdentity} from './VisualIdentity';
 import {workspaceSolutionItems} from '../workspaceSolutions';
 import './SolutionSidebar.css';
 
 function CreditsLink({percent, href}) {
   const value = Math.max(0, Math.min(100, Number(percent) || 0));
   const formatted = new Intl.NumberFormat('pt-BR', {maximumFractionDigits:1}).format(value);
-  return <a className="cadu-ds-usage-ring" style={{'--cadu-usage':`${value * 3.6}deg`}} href={href} aria-label={`Créditos e consumo: utilização de ${formatted}%`} title="Créditos e consumo"><span>{formatted}%</span></a>;
+  return <a className="cadu-solution-sidebar__usage" href={href} aria-label={`Créditos e consumo: utilização de ${formatted}%`} title="Créditos e consumo"><span>{formatted}%</span><i aria-hidden="true"><b style={{width:`${value}%`}}/></i></a>;
 }
 
 export function SolutionSidebar({solution, context = 'Cliente', icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', userAvatar = '', creditsUrl, profileUrl}) {
@@ -46,12 +47,12 @@ export function SolutionSidebar({solution, context = 'Cliente', icon, accent, gr
       </section>)}
     </nav>
     <footer className="cadu-solution-sidebar__footer">
-      {creditsUrl && <CreditsLink percent={usagePercent} href={creditsUrl}/>}
-      {footer}
       {profileUrl && <a className="cadu-solution-sidebar__account" href={profileUrl} aria-label={`Abrir perfil de ${userName}`} title={userName}>
-        <span className="cadu-solution-sidebar__avatar">{userAvatar && <img src={userAvatar} alt="" onError={event => {event.currentTarget.remove();}}/>}<b>{String(userName || 'U').trim().split(/\s+/).slice(0,2).map(name => name[0]).join('').toLocaleUpperCase('pt-BR')}</b></span>
+        <VisualIdentity src={userAvatar} initials={userName} label={userName} className="cadu-solution-sidebar__avatar" imageAlt={`Foto de ${userName || 'usuário'}`}/>
         <span className="cadu-solution-sidebar__account-name">{userName || 'Minha conta'}</span>
       </a>}
+      {creditsUrl && <CreditsLink percent={usagePercent} href={creditsUrl}/>}
+      {footer && <div className="cadu-solution-sidebar__footer-extra">{footer}</div>}
     </footer>
   </aside>;
 }

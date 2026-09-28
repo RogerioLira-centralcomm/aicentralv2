@@ -504,6 +504,63 @@ def register(bp):
         return jsonify(report=found[0], versions=versions, sources=sources,
                        public_link=published[0] if published else None)
 
+    @bp.post('/api/v1/reports/workspaces/<int:report_id>/plan')
+    @login_required_api
+    def reports_v1_plan_workspace(report_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400, description='Envie o contexto do relatório selecionado.')
+        selected = _selection(payload)
+        _write_guard(selected)
+        if selected['role'] == 'viewer':
+            abort(403, description='O planejamento exige acesso de operação ou administração.')
+        report = _rows('''SELECT id,campaign_name,document,revision
+            FROM cadu_connect_report_workspaces
+            WHERE id=%s AND organization_id=%s AND client_id=%s''',
+            (report_id, selected['organization_id'], selected['client_id']))
+        if not report:
+            abort(404)
+        reviewed_metrics = []
+        reviewed_source_count = 0
+        review_ready = _rows("SELECT to_regclass('public.cadu_connect_report_source_reviews') "
+                             'IS NOT NULL AS ready')[0]['ready']
+        if review_ready:
+            sources = _rows('''SELECT s.id,s.period_start,s.period_end,r.metrics
+                FROM cadu_connect_report_sources s
+                JOIN LATERAL (SELECT metrics FROM cadu_connect_report_source_reviews
+                    WHERE source_id=s.id ORDER BY report_revision DESC LIMIT 1) r ON TRUE
+                WHERE s.report_id=%s ORDER BY s.created_at DESC LIMIT 20''', (report_id,))
+            reviewed_source_count = len(sources)
+            for source in sources:
+                period = ''
+                if source.get('period_start') or source.get('period_end'):
+                    period = f"{source.get('period_start') or '?'}–{source.get('period_end') or '?'}"
+                for metric in source.get('metrics') or []:
+                    if not isinstance(metric, dict):
+                        continue
+                    reviewed_metrics.append({
+                        'name': _redact_ai_text(metric.get('name'), 120),
+                        'value': str(metric.get('value') if metric.get('value') is not None
+                                      else metric.get('raw') or '')[:80],
+                        'unit': str(metric.get('unit') or '')[:32],
+                        'definition': _redact_ai_text(metric.get('definition'), 300),
+                        'scope': _redact_ai_text(metric.get('scope'), 300),
+                        'evidence': _redact_ai_text(metric.get('evidence'), 500),
+                        'period': period,
+                    })
+        from .reports_typesafe import record_run, suggest_report_plan
+        from ..services.typesafe_service import TypeSafeError
+        try:
+            source_document = report[0].get('document') or {}
+            safe_document = {key: _redact_ai_text(source_document.get(key), limit)
+                             for key, limit in (('objective', 2000), ('goals', 4000))}
+            plan = suggest_report_plan(safe_document, reviewed_metrics,
+                                      reviewed_source_count=reviewed_source_count)
+        except TypeSafeError as exc:
+            return jsonify(error=str(exc)), 503
+        record_run(report_id, None, 'plan_next_action', plan, session['user_id'])
+        return jsonify(plan=plan, report_id=report_id, revision=report[0]['revision'])
+
     @bp.post('/api/v1/reports/workspaces/<int:report_id>/document')
     @login_required_api
     def reports_v1_update_workspace_document(report_id):

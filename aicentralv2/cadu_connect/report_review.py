@@ -127,6 +127,42 @@ def register(bp, rows):
             get_db().rollback()
         return jsonify(suggestion=suggestion, model=model, usage=usage, review_required=True)
 
+    @bp.post('/relatorios/<int:report_id>/fontes/<int:source_id>/revisar-typesafe')
+    @login_required
+    def report_review_metrics_with_typesafe(report_id, source_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400, description='Envie os indicadores extraídos para revisão.')
+        report, selected = authorized_report(rows, report_id)
+        if (selected['role'] == 'viewer' or
+                not secrets.compare_digest(session.get('family_csrf', ''),
+                                           request.headers.get('X-CSRF-Token', ''))):
+            abort(403)
+        source = rows('''SELECT id,supplier,period_start,period_end
+            FROM cadu_connect_report_sources WHERE id=%s AND report_id=%s''',
+            (source_id, report_id))
+        if not source:
+            abort(404)
+        from .reports_typesafe import record_run, review_source_metrics
+        from ..services.typesafe_service import TypeSafeError
+        from .reports_v1 import _redact_ai_text
+        try:
+            result = review_source_metrics(payload.get('metrics'), source_context={
+                'supplier': _redact_ai_text(source[0].get('supplier'), 120),
+                'period_start': str(source[0].get('period_start') or ''),
+                'period_end': str(source[0].get('period_end') or ''),
+                'report_objective': _redact_ai_text(
+                    (report.get('document') or {}).get('objective'), 500),
+            })
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 422
+        except TypeSafeError as exc:
+            return jsonify(error=str(exc)), 503
+        record_run(report_id, source_id, 'review_source_evidence', result,
+                   session['user_id'])
+        return jsonify(review=result, source_id=source_id,
+                       report_revision=report['revision'], review_required=True)
+
     @bp.route('/relatorios/<int:report_id>/fontes/<int:source_id>/revisar', methods=['GET', 'POST'])
     @login_required
     def report_review_source(report_id, source_id):

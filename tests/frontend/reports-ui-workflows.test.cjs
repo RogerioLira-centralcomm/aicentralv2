@@ -15,6 +15,8 @@ const state = {
   accounts: [],
   campaigns: [],
   flows: [],
+  reports: [{id: 5, campaign_name: 'Relatório de teste', project_ref: '', revision: 2,
+    updated_at: '2026-09-28T12:00:00Z'}],
   discoveryPage: {id: 'page-ui-1', path_prefix: '/landing', page_host: 'example.test', title: 'Landing',
     selected_kind: 'page', selected_as_entry: true, suggested_role: 'entry', campaign_id: null, form_count: 0, evidence: {signals: []}},
   suggestion: {result: {prompt_version: 'reports-import-column-choice-v2', suggestions: [
@@ -29,7 +31,7 @@ function response(res, body, status = 200, type = 'application/json; charset=utf
   res.end(type.startsWith('application/json') ? JSON.stringify(body) : body);
 }
 
-const html = `<!doctype html><html data-cadu-theme="light" data-cadu-skin="workspace"><head><meta charset="utf-8"><link rel="stylesheet" href="/static/cadu_connect/react/app.css"></head><body class="portal--workspace"><div id="cadu-reports-v1-root" data-workspace-url="#" data-planner-url="#" data-studio-url="#" data-skills-url="#" data-user-name="Teste Reports"></div><script type="module" src="/static/cadu_connect/react/app.js"></script></body></html>`;
+const html = `<!doctype html><html data-cadu-theme="light" data-cadu-skin="workspace"><head><meta charset="utf-8"><link rel="stylesheet" href="/static/cadu_connect/react/app.css"></head><body class="portal--workspace"><div id="cadu-reports-v1-root" data-workspace-url="#" data-planner-url="#" data-studio-url="#" data-skills-url="#" data-credits-url="/workspace/app/creditos" data-profile-url="/workspace/app/conta?section=perfil" data-user-name="Teste Reports"></div><script type="module" src="/static/cadu_connect/react/app.js"></script></body></html>`;
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1');
   if (url.pathname.startsWith('/static/cadu_connect/react/')) {
@@ -57,6 +59,7 @@ async function main() {
   page.setDefaultTimeout(10000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/workspace/api/creditos/resumo', route => route.fulfill({json: {monthly_usage_percentage: 88.3}}));
   await page.route('**/connect/api/v1/reports/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -74,9 +77,19 @@ async function main() {
       return route.fulfill({json: {
         ready: true, client, csrf: 'csrf-ui', clients: state.clients,
         can_manage_access: canManageAccess, can_manage_clients: true,
-        accounts: state.accounts, campaigns: state.campaigns, reports: [], link_tests: [], workspace_projects: [],
+        accounts: state.accounts, campaigns: state.campaigns, reports: state.reports, link_tests: [], workspace_projects: [],
       }});
     }
+    if (pathName === '/workspaces/5' && method === 'GET') return route.fulfill({json: {
+      report: {id: 5, campaign_name: 'Relatório de teste', revision: 2,
+        updated_at: '2026-09-28T12:00:00Z', document: {objective: 'Gerar leads', goals: '100 leads', management_notes: ''}},
+      versions: [], sources: [{id: 9, original_name: 'meta-setembro.png', supplier: 'Meta Ads', status: 'pending'}],
+      public_link: null,
+    }});
+    if (pathName === '/workspaces/5/plan' && method === 'POST') return route.fulfill({json: {plan: {
+      action: 'collect_evidence', title: 'Reunir evidência suficiente',
+      steps: ['Adicionar fonte e período aos dados pendentes.'],
+    }, report_id: 5, revision: 2}});
     if (pathName === '/metrics' || pathName === '/import-metrics') return route.fulfill({json: {totals: {}, days: [], by_platform: [], conflicts: 0}});
     if (pathName === '/ai/status') return route.fulfill({json: {configured: false}});
     if (pathName === '/access') return route.fulfill({json: {users: []}});
@@ -164,6 +177,25 @@ async function main() {
     return route.fulfill({status: 404, json: {error: `Rota de teste sem resposta: ${method} ${pathName}`}});
   });
 
+  await page.route('**/connect/relatorios/**', async route => {
+    const url = new URL(route.request().url());
+    const pathName = url.pathname.replace('/connect/relatorios', '');
+    if (pathName === '/5/fontes/9/revisar' && route.request().method() === 'GET') {
+      return route.fulfill({json: {metrics: [{name: 'Leads', raw: '12', unit: 'count',
+        definition: 'Cadastros recebidos', scope: 'Meta Ads · setembro', evidence: 'Leads: 12'}], history: []}});
+    }
+    if (pathName === '/5/fontes/9/revisar-typesafe' && route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      assert.equal(body.metrics[0].name, 'Leads');
+      return route.fulfill({json: {review: {judgments: [{index: 0, name: 'Leads', raw: '12', unit: 'count',
+        judgment: 'supported', confidence: 0.9}], omitted_count: 0}}});
+    }
+    if (pathName === '/5/fontes/9/revisar' && route.request().method() === 'POST') {
+      throw new Error('A revisão TypeSafe não deve salvar os indicadores automaticamente');
+    }
+    return route.fulfill({status: 404, json: {error: `Rota de teste sem resposta: ${route.request().method()} ${pathName}`}});
+  });
+
   try {
     await page.goto(`http://127.0.0.1:${address.port}/connect/app?client_id=${clientId}#accounts`);
     await page.getByRole('heading', {name: 'Novo cliente Reports'}).waitFor();
@@ -208,7 +240,7 @@ async function main() {
     assert.equal(await page.getByRole('link', {name: 'Biblioteca de dados'}).count(), 0, 'Biblioteca de dados fica dentro de Importações');
     await page.getByRole('button', {name: 'Abrir'}).click();
     await page.getByRole('heading', {name: 'Mapear colunas do arquivo'}).waitFor();
-    await page.getByRole('button', {name: 'Sugerir colunas com TypeSafe'}).click();
+    await page.getByRole('button', {name: 'Corrigir mapeamento com TypeSafe'}).click();
     await page.getByText('Concentração das alternativas, não uma garantia de acerto.').waitFor();
     assert.equal(state.calls.some(item => item.path === `/imports/${importId}/map-columns`), false,
       'a sugestão TypeSafe não é aplicada automaticamente');
@@ -218,6 +250,28 @@ async function main() {
     await page.getByRole('button', {name: 'Aplicar às linhas pendentes'}).click();
     assert.ok(state.calls.some(item => item.path === `/imports/${importId}/map-columns`),
       'a aplicação só é enviada após a confirmação no formulário');
+
+    await page.goto(`http://127.0.0.1:${address.port}/connect/app?client_id=${newClientId}#reports`);
+    await page.getByRole('heading', {name: 'Relatórios', level: 1}).waitFor();
+    const profile = page.locator('.cadu-solution-sidebar__account');
+    const usage = page.locator('.cadu-solution-sidebar__usage');
+    assert.match(await profile.getAttribute('href'), /conta\?section=perfil/);
+    assert.match(await usage.getAttribute('href'), /creditos/);
+    await page.getByText('88,3%', {exact: true}).waitFor();
+    const [profileBox, usageBox] = await Promise.all([profile.boundingBox(), usage.boundingBox()]);
+    assert.ok(Math.abs(profileBox.y + profileBox.height / 2 - usageBox.y - usageBox.height / 2) < 3,
+      'perfil e uso ficam alinhados na mesma faixa como na sidebar do Workspace');
+    await page.getByRole('link', {name: /Relatório de teste/}).click();
+    await page.getByRole('button', {name: 'Planejar próximo passo com TypeSafe'}).click();
+    await page.locator('.reports-suggestion strong').filter({hasText: 'Plano sugerido · Reunir evidência suficiente'}).waitFor();
+    await page.getByRole('button', {name: 'Incorporar às notas do relatório'}).click();
+    assert.match(await page.getByLabel('Notas de gestão').inputValue(), /Reunir evidência suficiente/,
+      'o operador incorpora o plano ao rascunho antes de salvar');
+    await page.getByRole('button', {name: 'Revisar ↗'}).click();
+    await page.getByRole('button', {name: 'Revisar evidências com TypeSafe'}).click();
+    await page.getByText('evidência direta · concentração 90%').waitFor();
+    assert.equal(state.calls.some(item => item.path === '/workspaces/5/document'), false,
+      'planejar e revisar não gravam o relatório sem confirmação');
 
     for (const [section, title] of [
       ['overview', 'Visão geral'], ['accounts', 'Contas'], ['campaigns', 'Campanhas'], ['reports', 'Relatórios'],
@@ -237,7 +291,7 @@ async function main() {
     assert.ok(testedClientIds.length >= 6, 'cadastros, associações e monitoramento foram executados pela interface');
     assert.ok(testedClientIds.every(id => id === newClientId), 'conta, campanha e fluxo mantêm o mesmo client_id');
     assert.deepEqual(errors, [], `erros JavaScript de interface: ${errors.join('; ')}`);
-    process.stdout.write('Reports UI: clientes, contas, campanhas, sugestão de colunas com revisão humana, fluxos, publicação e monitoramento passaram.\n');
+    process.stdout.write('Reports UI: planejamento e revisão TypeSafe, cadastros, correções com confirmação humana, fluxos e monitoramento passaram.\n');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

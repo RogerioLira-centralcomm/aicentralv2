@@ -309,19 +309,19 @@
     var detail = eventObject && eventObject.detail;
     if (detail && Object.prototype.hasOwnProperty.call(detail, 'analytics')) setConsent(detail.analytics);
   });
-  if (consentMode !== 'manual') {
-    if (!existingConsent()) showConsentPromptDeferred(false);
-    window.addEventListener('cadu:consent', function () { hasConsentManager = true; });
-    window.addEventListener('CookiebotOnAccept', function () { hasConsentManager = true; consentResolved = true; setConsent(!!(window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.statistics)); });
-    window.addEventListener('CookiebotOnDecline', function () { hasConsentManager = true; consentResolved = true; setConsent(false); });
-    window.addEventListener('OneTrustGroupsUpdated', function () { hasConsentManager = true; consentResolved = true; setConsent(String(window.OnetrustActiveGroups || '').split(',').indexOf('C0002') !== -1); });
-  }
+  existingConsent();
+  window.addEventListener('cadu:consent', function () { hasConsentManager = true; });
+  window.addEventListener('CookiebotOnAccept', function () { hasConsentManager = true; consentResolved = true; setConsent(!!(window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.statistics)); });
+  window.addEventListener('CookiebotOnDecline', function () { hasConsentManager = true; consentResolved = true; setConsent(false); });
+  window.addEventListener('OneTrustGroupsUpdated', function () { hasConsentManager = true; consentResolved = true; setConsent(String(window.OnetrustActiveGroups || '').split(',').indexOf('C0002') !== -1); });
   fetch(configUrl, {mode: 'cors', credentials: 'omit', cache: 'force-cache'})
     .then(function (response) { if (!response.ok) throw new Error('config'); return response.json(); })
     .then(function (value) {
       if (value.site_id !== siteId) return;
       config = value;
+      consentMode = value.consent_mode || consentMode;
       if (consented) start();
+      else if (consentMode !== 'manual' && !hasConsentManager && !consentResolved) showConsentPromptDeferred(false);
     })
     .catch(function () {});
 })();

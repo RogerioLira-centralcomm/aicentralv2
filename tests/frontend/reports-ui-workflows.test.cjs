@@ -15,6 +15,7 @@ const state = {
   accounts: [],
   campaigns: [],
   flows: [],
+  supertagSites: [],
   reports: [{id: 5, campaign_name: 'Relatório de teste', project_ref: '', revision: 2,
     updated_at: '2026-09-28T12:00:00Z'}],
   discoveryPage: {id: 'page-ui-1', path_prefix: '/landing', page_host: 'example.test', title: 'Landing',
@@ -58,6 +59,7 @@ async function main() {
   const page = await browser.newPage();
   page.setDefaultTimeout(10000);
   const errors = [];
+  const publicTagCalls = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/workspace/api/creditos/resumo', route => route.fulfill({json: {monthly_usage_percentage: 88.3}}));
   await page.route('**/static/cadu_connect/google-ads-monitor.js', route => route.fulfill({body: 'var CADU={endpoint:"__CADU_INGEST_URL__",apiKey:"__CADU_API_KEY__",accountIds:__CADU_ACCOUNT_IDS__};', contentType: 'text/javascript'}));
@@ -118,7 +120,31 @@ async function main() {
     }
     if (pathName === '/import-conflicts') return route.fulfill({json: {conflicts: []}});
     if (pathName === '/import-ranges') return route.fulfill({json: {snapshots: [], custom_metrics: []}});
-    if (pathName === '/supertag/sites' && method === 'GET') return route.fulfill({json: {sites: []}});
+    if (pathName === '/supertag/sites' && method === 'GET') return route.fulfill({json: {sites: state.supertagSites}});
+    if (pathName === '/supertag/sites' && method === 'POST') {
+      assert.deepEqual(body, {label: 'Site de teste', allowed_host: 'example.test'},
+        'o cadastro da Super Tag envia somente o contrato aceito pela API');
+      const site = {id: 'site-ui-1', public_id: 'public-ui-1', label: body.label,
+        allowed_host: body.allowed_host, enabled: true, config: {consent_mode: 'auto', audience_days: 90, retention_days: 90},
+        snippet: '<script data-cadu-site="public-ui-1"></script>'};
+      state.supertagSites.push(site);
+      return route.fulfill({status: 201, json: {site}});
+    }
+    if (pathName === '/supertag/sites/site-ui-1/events' && method === 'GET') return route.fulfill({json: {
+      site: {id: 'site-ui-1', events_30d: 0}, summary: [], pages: [], heatmap: [],
+    }});
+    if (pathName === '/supertag/sites/site-ui-1' && method === 'PATCH') {
+      state.supertagSites[0].config = {...state.supertagSites[0].config, ...body};
+      return route.fulfill({json: {site: state.supertagSites[0]}});
+    }
+    if (pathName === '/link-tests' && method === 'POST') {
+      assert.equal(body.client_id, newClientId, 'a análise de link mantém o client_id Reports selecionado');
+      assert.equal(body.url, 'https://example.test/landing?utm_source=google');
+      assert.equal(body.mode, 'destination');
+      return route.fulfill({json: {result: {kind: 'destination', score: 95,
+        status_label: 'Pronto', summary: 'O clique chega ao destino.',
+        final_url: 'https://example.test/landing?utm_source=google', alerts: []}}});
+    }
     if (pathName === '/clients' && method === 'POST') {
       assert.equal(body.client_id, clientId, 'cliente Reports atual acompanha a criação');
       assert.equal(body.name, 'Cliente criado na interface');
@@ -146,7 +172,10 @@ async function main() {
       if (!state.flows.length) state.flows.push(makeFlow());
       return route.fulfill({json: {tags: [], steps: [], flows: state.flows, tests: [], tag_urls: {},
         activity: [], online: 0, conversions: 0, confirmed: [], events: [], event_summary: {},
-        event_group_count: 0, site_pages: [], page_transitions: [], canvas_nodes: [], canvas_edges: [], monitor_checks: []}});
+        event_group_count: 0, site_pages: [], page_transitions: [],
+        canvas_nodes: [{id: 'node-page', type: 'page', title: 'Landing', path: '/landing', x: 20, y: 30, reached: 3, progressed: 1},
+          {id: 'node-conversion', type: 'conversion', title: 'Obrigado', path: '/obrigado', x: 250, y: 30, reached: 1, progressed: 0}],
+        canvas_edges: [{from: 'node-page', to: 'node-conversion'}], monitor_checks: []}});
     }
     if (pathName === `/flow/flows/${state.flows[0]?.id}/discoveries` && method === 'GET') {
       return route.fulfill({json: {run: null, pages: [state.discoveryPage]}});
@@ -177,6 +206,7 @@ async function main() {
     }
     if (pathName === `/flow/flows/${state.flows[0]?.id}/monitor/check` && method === 'POST') {
       assert.equal(body.client_id, newClientId);
+      await new Promise(resolve => setTimeout(resolve, 350));
       return route.fulfill({json: {check: {status: 'online', pages: []}}});
     }
     if (pathName.startsWith('/flow/flows/') && pathName.endsWith('/discoveries') && method === 'GET') return route.fulfill({json: {run: null, pages: []}});
@@ -202,6 +232,37 @@ async function main() {
       throw new Error('A revisão TypeSafe não deve salvar os indicadores automaticamente');
     }
     return route.fulfill({status: 404, json: {error: `Rota de teste sem resposta: ${route.request().method()} ${pathName}`}});
+  });
+
+  const publicTagBase = 'https://reports.example.test/connect/public/supertag/v1/public-ui';
+  const corsHeaders = {'Access-Control-Allow-Origin': 'https://example.test',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400', 'Vary': 'Origin'};
+  await page.route('https://example.test/**', async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/static/cadu_connect/cadu-supertag-v1.js') {
+      return route.fulfill({status: 200, contentType: 'text/javascript',
+        body: fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_connect/cadu-supertag-v1.js'), 'utf8')});
+    }
+    return route.fulfill({status: 200, contentType: 'text/html', body: `<!doctype html><html><head><meta charset="utf-8"></head><body>
+      <script async src="https://example.test/static/cadu_connect/cadu-supertag-v1.js"
+        data-cadu-site="public-ui" data-cadu-config="${publicTagBase}/config.json" data-cadu-consent="manual"></script>
+      </body></html>`});
+  });
+  await page.route(`${publicTagBase}/config.json`, route => {
+    publicTagCalls.push({url: route.request().url(), method: route.request().method(), headers: route.request().headers()});
+    return route.fulfill({status: 200, headers: corsHeaders,
+      json: {site_id: 'public-ui', config_version: 2, consent_required: true, consent_mode: 'auto',
+        visibility_enabled: true, audience_days: 90}});
+  });
+  await page.route(`${publicTagBase}/consent`, async route => {
+    publicTagCalls.push({url: route.request().url(), method: route.request().method(), headers: route.request().headers(), body: route.request().postData()});
+    return route.fulfill({status: route.request().method() === 'OPTIONS' ? 204 : 200,
+      headers: corsHeaders, ...(route.request().method() === 'POST' ? {json: {analytics: true}} : {})});
+  });
+  await page.route(`${publicTagBase}/collect`, async route => {
+    publicTagCalls.push({url: route.request().url(), method: route.request().method(), headers: route.request().headers(), body: route.request().postData()});
+    return route.fulfill({status: 204, headers: corsHeaders});
   });
 
   try {
@@ -232,6 +293,26 @@ async function main() {
     await page.getByRole('button', {name: 'Salvar campanha'}).click();
     await page.getByRole('button', {name: /Campanha de teste/}).waitFor();
 
+    await page.getByRole('link', {name: 'Tags e tracking'}).click();
+    await page.getByRole('button', {name: 'Nova instalação'}).click();
+    await page.getByLabel('Nome do site').fill('Site de teste');
+    await page.getByLabel('Domínio permitido').fill('example.test');
+    await page.getByRole('button', {name: 'Criar instalação'}).click();
+    await page.getByText('public-ui-1', {exact: false}).waitFor();
+    const supertagCreateCall = state.calls.find(item => item.path === '/supertag/sites' && item.method === 'POST');
+    assert.equal(Number(supertagCreateCall?.client_id), newClientId,
+      'a instalação Super Tag é criada no client_id selecionado');
+    const supertagUpdate = page.waitForResponse(response => response.url().includes('/supertag/sites/site-ui-1') && response.request().method() === 'PATCH');
+    await page.getByLabel('Duração do identificador').selectOption('60');
+    await supertagUpdate;
+    assert.equal(state.supertagSites[0].config.audience_days, 60,
+      'as configurações da instalação são persistidas para o cliente Reports selecionado');
+
+    await page.getByRole('link', {name: 'Link Tester'}).click();
+    await page.getByLabel('URL').fill('https://example.test/landing?utm_source=google');
+    await page.getByRole('button', {name: 'Analisar link'}).click();
+    await page.getByText('O clique chega ao destino.').waitFor();
+
     await page.getByRole('link', {name: 'Fluxos'}).click();
     await page.getByLabel('Nome do fluxo').fill('Fluxo de teste');
     await page.getByLabel('Domínio do site').fill('example.test');
@@ -239,12 +320,36 @@ async function main() {
     await page.getByLabel('Campanha para /landing').selectOption('77');
     await page.getByRole('button', {name: 'Salvar'}).click();
     await page.getByRole('button', {name: 'Página / URL'}).click();
+    assert.equal(await page.locator('.reports-flow-block').count(), 1, 'clique na paleta adiciona um único bloco');
+    const flowCanvas = page.locator('.reports-flow-canvas');
+    const pagePaletteItem = page.getByRole('button', {name: 'Página / URL'});
+    await pagePaletteItem.dragTo(flowCanvas, {targetPosition: {x: 330, y: 190}});
+    await page.waitForFunction(() => document.querySelectorAll('.reports-flow-block').length === 2);
+    assert.equal(await page.locator('.reports-flow-block').count(), 2, 'arrastar um bloco não aciona também o clique da paleta');
+    const draggedBlock = page.locator('.reports-flow-block').first();
+    const dragStart = await draggedBlock.boundingBox();
+    const originalLeft = await draggedBlock.evaluate(element => Number.parseFloat(element.style.left));
+    await page.mouse.move(dragStart.x + 40, dragStart.y + 45);
+    await page.mouse.down();
+    await page.mouse.move(dragStart.x + 130, dragStart.y + 75, {steps: 5});
+    await page.mouse.up();
+    await page.waitForFunction(left => Number.parseFloat(document.querySelector('.reports-flow-block')?.style.left) !== left, originalLeft);
+    assert.notEqual(await draggedBlock.evaluate(element => Number.parseFloat(element.style.left)), originalLeft, 'arrastar um bloco no canvas atualiza sua posição');
+    const moveRight = page.getByRole('button', {name: 'Mover para direita'}).first();
+    for (let index = 0; index < 15; index++) await moveRight.evaluate(button => button.click());
+    assert.ok(await flowCanvas.evaluate(element => element.scrollWidth > element.clientWidth), 'canvas expande a área rolável ao mover blocos para a direita');
     await page.getByRole('button', {name: 'Publicar'}).click();
     await page.getByRole('tab', {name: /^Criar/}).click();
     await page.getByText('Campanhas: Campanha de teste').waitFor();
     await page.getByRole('button', {name: 'Monitorar'}).click();
     await page.getByRole('button', {name: 'Ativar monitoramento'}).click();
+    const monitorCheckResponse = page.waitForResponse(response => response.url().includes('/monitor/check'));
     await page.getByRole('button', {name: 'Verificar agora'}).click();
+    await page.getByRole('button', {name: 'Verificando…'}).waitFor();
+    assert.equal(await page.locator('.reports-page-monitor.is-monitor-checking').count(), 1, 'o painel sinaliza visualmente a checagem em andamento');
+    assert.equal(await page.locator('.reports-flow-monitor-node.is-checking').count(), 2, 'os blocos do monitoramento recebem estado animado durante a checagem');
+    await monitorCheckResponse;
+    await page.getByRole('button', {name: 'Verificar agora'}).waitFor();
 
     await page.goto(`http://127.0.0.1:${address.port}/connect/app?client_id=${newClientId}#conversions`);
     await page.getByRole('heading', {name: 'Eventos', level: 1}).waitFor();
@@ -306,8 +411,21 @@ async function main() {
     const testedClientIds = state.calls.filter(item => item.path === '/accounts' || item.path === '/campaigns' || item.path.startsWith('/flow/flows')).map(item => Number(item.client_id));
     assert.ok(testedClientIds.length >= 6, 'cadastros, associações e monitoramento foram executados pela interface');
     assert.ok(testedClientIds.every(id => id === newClientId), 'conta, campanha e fluxo mantêm o mesmo client_id');
+
+    await page.goto('https://example.test/');
+    const collectResponse = page.waitForResponse(response => response.url() === `${publicTagBase}/collect`);
+    await page.getByRole('button', {name: 'Aceitar analytics'}).click();
+    await page.evaluate(() => window.CaduSuperTag.trackConversion('test_conversion'));
+    await collectResponse;
+    const consentCall = publicTagCalls.find(item => item.method === 'POST' && item.body?.includes('analytics'));
+    assert.ok(consentCall, 'a escolha de consentimento é confirmada no endpoint público');
+    const collectedEvents = JSON.parse(publicTagCalls.find(item => item.body?.includes('events'))?.body || '{"events":[]}').events;
+    assert.ok(collectedEvents.some(item => item.kind === 'page_view'), `a tag envia visualização após consentimento: ${JSON.stringify(publicTagCalls)}`);
+    assert.ok(collectedEvents.some(item => item.kind === 'conversion' && item.event_name === 'test_conversion'),
+      'a tag envia conversões próprias');
+
     assert.deepEqual(errors, [], `erros JavaScript de interface: ${errors.join('; ')}`);
-    process.stdout.write('Reports UI: planejamento e revisão TypeSafe, cadastros, correções com confirmação humana, fluxos e monitoramento passaram.\n');
+    process.stdout.write('Reports UI e Super Tag: cadastros, links, fluxos, monitoramento, consentimento CORS e coleta de conversão passaram.\n');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

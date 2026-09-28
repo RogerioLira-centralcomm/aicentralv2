@@ -216,6 +216,7 @@
 
 /* Flow editor: a measured grid with clear entry, route, and exit states. */
 .reports-flow-canvas{min-width:0;background-size:20px 20px;scrollbar-gutter:stable;overscroll-behavior:contain}
+.reports-flow-canvas{position:relative;overflow:auto;isolation:isolate}.reports-flow-canvas-content{position:relative;min-width:100%;background-color:#f8fbff;background-image:radial-gradient(#d9e4f2 .8px,transparent .8px);background-size:20px 20px}.reports-flow-canvas.is-node-dragging{cursor:grabbing}.reports-flow-block.is-dragging{z-index:5;box-shadow:0 8px 24px #193b6430;transition:none;cursor:grabbing}
 .reports-canvas-toolbar{align-items:flex-start;flex-wrap:wrap;gap:8px 12px;padding:10px 12px;min-height:72px}
 .reports-canvas-toolbar>span:first-child{flex:0 0 auto;padding-top:8px;color:#243b5b;font-weight:600}
 .reports-canvas-toolbar>span:nth-child(2){flex:1 1 190px;padding-top:8px;line-height:1.4}
@@ -229,6 +230,7 @@
 .reports-flow-block.is-entry .reports-flow-block-head small{color:#12824d}
 .reports-flow-block.is-exit .reports-flow-block-head small{color:#1a67b8}
 .reports-edge path{fill:none;stroke:#3285e7;stroke-width:2;marker-end:url(#reports-flow-arrow)}
+.reports-page-monitor.is-monitor-checking .reports-monitor-status i,.reports-page-monitor.is-monitor-checking .reports-monitor-dot.is-checking{animation:reports-pulse 1s ease-in-out infinite alternate}.reports-monitor-page.is-checking{background:linear-gradient(90deg,transparent,#edf5ff 48%,transparent);background-size:220% 100%;animation:reports-monitor-sweep 1.4s ease-in-out infinite}.reports-flow-monitor-node.is-checking{border-color:#8bb8ee;box-shadow:0 0 0 2px #3285e718,0 2px 7px #203c5a0a}.reports-flow-monitor-canvas:has(.reports-flow-monitor-node.is-checking)>svg line{stroke-dasharray:6 7;animation:reports-edge-flow 1.1s linear infinite}.reports-flow-monitor-node.is-checking{animation:reports-node-check 1.2s ease-in-out infinite alternate}@keyframes reports-edge-flow{to{stroke-dashoffset:-26}}@keyframes reports-monitor-sweep{to{background-position:-220% 0}}@keyframes reports-node-check{to{box-shadow:0 0 0 5px #3285e70a,0 2px 7px #203c5a0a}}
 .reports-node-settings .reports-entry-toggle{display:flex;grid-template-columns:none;align-items:center;gap:8px;padding:9px;border:1px solid #dce8f5;border-radius:7px;background:#f6faff;color:#294766}
 .reports-node-settings .reports-entry-toggle input{width:16px;min-height:16px;margin:0;accent-color:#1976d2}
 @media(max-width:760px){.reports-canvas-toolbar{position:sticky}.reports-canvas-tools{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.reports-canvas-toolbar .reports-canvas-tools button{flex:none}}

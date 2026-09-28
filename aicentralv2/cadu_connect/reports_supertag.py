@@ -318,7 +318,7 @@ def register(bp):
         response.set_etag(f'{site["public_id"]}:{site["config_version"]}')
         return response.make_conditional(request)
 
-    @bp.post('/public/supertag/v1/<public_id>/consent')
+    @bp.route('/public/supertag/v1/<public_id>/consent', methods=['POST', 'OPTIONS'])
     def supertag_public_consent(public_id):
         site = _site_by_public_id(public_id)
         request._supertag_allowed_host = site['allowed_host']
@@ -326,13 +326,12 @@ def register(bp):
         parsed = urlparse(origin)
         if parsed.scheme not in ('https', 'http') or (parsed.hostname or '').lower().rstrip('.') != site['allowed_host']:
             abort(403)
+        if request.method == 'OPTIONS':
+            return ('', 204)
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict) or set(payload) != {'analytics'} or not isinstance(payload['analytics'], bool):
             abort(400, description='Informe uma escolha válida para analytics.')
         response = make_response(jsonify(analytics=payload['analytics']))
-        response.set_cookie('cadu_consent', 'granted' if payload['analytics'] else 'denied',
-            max_age=365 * 86400, path='/', domain=site['allowed_host'],
-            secure=parsed.scheme == 'https', httponly=False, samesite='Lax')
         response.headers['Cache-Control'] = 'no-store'
         return response
 

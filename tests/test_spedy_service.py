@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import MagicMock, patch
 
 from aicentralv2.services.spedy_service import (
+    SpedyService,
     _normalize_customer_phones,
     build_spedy_customer_from_pi,
     build_spedy_transaction_id,
@@ -58,6 +60,36 @@ class SpedyServiceHelpersTest(unittest.TestCase):
         )
         self.assertNotIn('phone', customer)
         self.assertNotIn('mobilePhone', customer)
+
+
+class SpedyServiceProductTest(unittest.TestCase):
+    @patch('aicentralv2.services.spedy_service.requests.request')
+    def test_update_product_sends_service_invoice_settings(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '{"success": true}'
+        mock_response.json.return_value = {'success': True}
+        mock_request.return_value = mock_response
+
+        svc = SpedyService(api_key='test-key', base_url='https://sandbox-api.spedy.com.br/v1')
+        body = {
+            'name': 'MIDIA',
+            'invoiceModel': 'serviceInvoice',
+            'serviceInvoiceSettings': {
+                'fiscalDescription': 'Inserção de textos',
+                'cityServiceCode': '17.25.01',
+                'federalServiceCode': '17.25',
+            },
+        }
+        svc.update_product(body, product_id='1dcacc78-34d8-43f9-806f-a2500b483275')
+
+        mock_request.assert_called_once()
+        call_args = mock_request.call_args
+        self.assertEqual(call_args[0][0], 'PUT')
+        self.assertIn('/products/1dcacc78-34d8-43f9-806f-a2500b483275', call_args[0][1])
+        payload = call_args.kwargs['json']
+        self.assertEqual(payload['serviceInvoiceSettings']['cityServiceCode'], '17.25.01')
+        self.assertEqual(payload['serviceInvoiceSettings']['fiscalDescription'], 'Inserção de textos')
 
 
 if __name__ == '__main__':

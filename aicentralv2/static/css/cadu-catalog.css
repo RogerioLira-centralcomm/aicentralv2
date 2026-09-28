@@ -1,0 +1,10 @@
+/* Cadu — categorias e subcategorias (filtros compartilhados) */
+.cat-filter-active {
+  background: var(--cx-surface-muted, #f1f5f9);
+  color: var(--cx-text, #0f172a);
+}
+
+.cadu-catalog-icon {
+  background: var(--cx-brand, #1e4d4f);
+  color: #fff;
+}

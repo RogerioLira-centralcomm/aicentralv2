@@ -149,7 +149,66 @@ class SpedyService:
         response = self._request('GET', '/companies', timeout=20)
         return response.json()
 
+    def list_products(self, *, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
+        response = self._request(
+            'GET',
+            '/products',
+            params={'page': page, 'pageSize': page_size},
+            timeout=30,
+        )
+        return response.json()
+
+    def get_product(self, product_id: str | None = None) -> Dict[str, Any]:
+        pid = product_id or self._product_id
+        response = self._request('GET', f'/products/{pid}', timeout=30)
+        return response.json()
+
+    def update_product(
+        self,
+        body: Dict[str, Any],
+        *,
+        product_id: str | None = None,
+    ) -> Dict[str, Any]:
+        pid = product_id or self._product_id
+        response = self._request('PUT', f'/products/{pid}', json=body, timeout=30)
+        if response.text:
+            try:
+                return response.json()
+            except ValueError:
+                pass
+        return {}
+
+    def get_service_invoice_city_payload_example(self, city_code: str) -> Dict[str, Any]:
+        """Exemplo de payload NFS-e para o município (código IBGE)."""
+        response = self._request(
+            'GET',
+            f'/service-invoices/cities/{city_code}/payload-example',
+            timeout=30,
+        )
+        return response.json()
+
+    def list_service_invoices(self, *, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+        response = self._request(
+            'GET',
+            '/service-invoices',
+            params={'page': page, 'pageSize': page_size},
+            timeout=30,
+        )
+        return response.json()
+
+    def get_service_invoice_by_id(self, invoice_id: str) -> Dict[str, Any]:
+        response = self._request(
+            'GET',
+            f'/service-invoices/{invoice_id}',
+            timeout=30,
+        )
+        return response.json()
+
     def get_service_invoice(self, invoice_id: str) -> Dict[str, Any]:
+        try:
+            return self.get_service_invoice_by_id(invoice_id)
+        except SpedyAPIError:
+            pass
         response = self._request(
             'GET',
             '/service-invoices',

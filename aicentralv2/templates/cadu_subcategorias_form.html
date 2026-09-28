@@ -1,4 +1,5 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Cadu{% endblock %}
 {% block page_subtitle %}Audiências e cadastros{% endblock %}
 
@@ -21,14 +22,20 @@
     </div>
   </div>
 
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4">{{ flash_messages(messages) }}</div>
+    {% endif %}
+  {% endwith %}
+
   <!-- Formulário -->
   <form method="POST" class="space-y-6">
     <!-- Card 1: Informações Básicas -->
-    <div class="cx-card bg-white shadow-sm border border-slate-300">
+    <div class="cx-card bg-white shadow-sm border border-slate-200">
       <div class="cx-card-body">
-        <h2 class="cx-card-title text-lg mb-4">
-          <i class="fas fa-info-circle mr-2 text-primary"></i>
-          Informações Básicas
+        <h2 class="cx-card-title text-base mb-4">
+          <i class="fas fa-info-circle mr-2 text-slate-500" aria-hidden="true"></i>
+          Informações básicas
         </h2>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -37,7 +44,7 @@
             <label class="cx-label-row">
               <span class="cx-label font-medium">Categoria <span class="text-error">*</span></span>
             </label>
-            <select name="categoria_id" class="cx-select w-full" required>
+            <select name="categoria_id" class="cx-select cx-select-sm w-full" required>
               <option value="">Selecione uma categoria</option>
               {% for cat in categorias %}
               <option value="{{ cat.id }}" {% if subcategoria and subcategoria.categoria_id == cat.id %}selected{% endif %}>
@@ -58,7 +65,7 @@
             <input type="text"
                    name="nome"
                    id="nome"
-                   class="cx-input w-full"
+                   class="cx-input cx-input-sm w-full"
                    placeholder="Ex: Empreendedores Digitais"
                    value="{{ subcategoria.nome if subcategoria else '' }}"
                    required
@@ -76,7 +83,7 @@
             <input type="text"
                    name="slug"
                    id="slug"
-                   class="cx-input w-full font-mono text-sm"
+                   class="cx-input cx-input-sm w-full font-mono"
                    placeholder="empreendedores-digitais"
                    value="{{ subcategoria.slug if subcategoria else '' }}"
                    required
@@ -92,7 +99,8 @@
               <span class="cx-label font-medium">Descrição</span>
             </label>
             <textarea name="descricao"
-                      class="cx-textarea h-24"
+                      class="cx-textarea cx-textarea-sm w-full"
+                      rows="4"
                       placeholder="Descreva esta subcategoria...">{{ subcategoria.descricao if subcategoria else '' }}</textarea>
             <label class="cx-label-row">
               <span class="cx-help text-slate-500">Breve descrição da subcategoria</span>
@@ -103,10 +111,10 @@
     </div>
 
     <!-- Card 2: Aparência -->
-    <div class="cx-card bg-white shadow-sm border border-slate-300">
+    <div class="cx-card bg-white shadow-sm border border-slate-200">
       <div class="cx-card-body">
-        <h2 class="cx-card-title text-lg mb-4">
-          <i class="fas fa-palette mr-2 text-secondary"></i>
+        <h2 class="cx-card-title text-base mb-4">
+          <i class="fas fa-palette mr-2 text-slate-500" aria-hidden="true"></i>
           Aparência
         </h2>
 
@@ -119,14 +127,14 @@
             <input type="text"
                    name="icone"
                    id="icone"
-                   class="cx-input w-full"
+                   class="cx-input cx-input-sm w-full"
                    placeholder="fas fa-users"
                    value="{{ subcategoria.icone if subcategoria else '' }}"
                    oninput="previewIcon()">
             <label class="cx-label-row">
               <span class="cx-help text-slate-500">
-                <a href="https://fontawesome.com/icons" target="_blank" class="link link-primary">
-                  <i class="fas fa-external-link-alt mr-1"></i>Buscar ícones
+                <a href="https://fontawesome.com/icons" target="_blank" rel="noopener noreferrer" class="text-[var(--cx-brand,#1e4d4f)] underline">
+                  <i class="fas fa-external-link-alt mr-1" aria-hidden="true"></i>Buscar ícones
                 </a>
               </span>
             </label>
@@ -146,10 +154,10 @@
     </div>
 
     <!-- Card 3: Configurações -->
-    <div class="cx-card bg-white shadow-sm border border-slate-300">
+    <div class="cx-card bg-white shadow-sm border border-slate-200">
       <div class="cx-card-body">
-        <h2 class="cx-card-title text-lg mb-4">
-          <i class="fas fa-cog mr-2 text-accent"></i>
+        <h2 class="cx-card-title text-base mb-4">
+          <i class="fas fa-cog mr-2 text-slate-500" aria-hidden="true"></i>
           Configurações
         </h2>
 
@@ -161,7 +169,7 @@
             </label>
             <input type="number"
                    name="ordem_exibicao"
-                   class="cx-input w-full"
+                   class="cx-input cx-input-sm w-full"
                    value="{{ subcategoria.ordem_exibicao if subcategoria else 0 }}"
                    min="0">
             <label class="cx-label-row">
@@ -187,11 +195,11 @@
     </div>
 
     <!-- Card 4: SEO -->
-    <div class="cx-card bg-white shadow-sm border border-slate-300">
+    <div class="cx-card bg-white shadow-sm border border-slate-200">
       <div class="cx-card-body">
-        <h2 class="cx-card-title text-lg mb-4">
-          <i class="fas fa-search mr-2 text-info"></i>
-          SEO (Otimização para Buscadores)
+        <h2 class="cx-card-title text-base mb-4">
+          <i class="fas fa-search mr-2 text-slate-500" aria-hidden="true"></i>
+          SEO
         </h2>
 
         <div class="grid grid-cols-1 gap-4">
@@ -204,7 +212,7 @@
             <input type="text"
                    name="meta_titulo"
                    id="meta_titulo"
-                   class="cx-input w-full"
+                   class="cx-input cx-input-sm w-full"
                    placeholder="Título otimizado para SEO"
                    value="{{ subcategoria.meta_titulo if subcategoria else '' }}"
                    maxlength="200">
@@ -221,7 +229,8 @@
             </label>
             <textarea name="meta_descricao"
                       id="meta_descricao"
-                      class="cx-textarea h-24"
+                      class="cx-textarea cx-textarea-sm w-full"
+                      rows="4"
                       placeholder="Descrição otimizada para SEO..."
                       maxlength="500">{{ subcategoria.meta_descricao if subcategoria else '' }}</textarea>
             <label class="cx-label-row">
@@ -237,9 +246,9 @@
       <a href="{{ url_for('cadu_subcategorias') }}" class="cx-btn cx-btn-ghost">
         <i class="fas fa-times mr-2"></i>Cancelar
       </a>
-      <button type="submit" class="cx-btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-save mr-2"></i>
-        {% if subcategoria %}Atualizar{% else %}Criar{% endif %} Subcategoria
+      <button type="submit" class="cx-btn cx-btn-primary">
+        <i class="fas fa-save mr-2" aria-hidden="true"></i>
+        {% if subcategoria %}Atualizar{% else %}Criar{% endif %} subcategoria
       </button>
     </div>
   </form>

@@ -130,6 +130,8 @@ async function main() {
       const account = {id: 41, platform: body.platform, external_id: body.platform === 'google_ads' ? body.external_id.replaceAll('-', '') : body.external_id, name: body.name,
         parent_account_id: null, account_kind: body.account_kind, status: 'active'};
       state.accounts.push(account);
+      state.accounts.push({id: 42, platform: 'google_ads', external_id: '1', name: 'Conta antiga desativada',
+        parent_account_id: null, account_kind: 'advertiser', status: 'disabled'});
       return route.fulfill({status: 201, json: {account}});
     }
     if (pathName === '/campaigns' && method === 'POST') {
@@ -219,6 +221,8 @@ async function main() {
     await page.locator('select').filter({has: page.locator('option[value="1234567890"]')}).selectOption('1234567890');
     await page.getByRole('button', {name: 'Gerar integração'}).click();
     await page.getByRole('heading', {name: 'Script gerado'}).waitFor();
+    assert.equal(await page.locator('.reports-integration-hint').count(), 0,
+      'contas inválidas desativadas não bloqueiam nem confundem uma integração válida');
 
     await page.getByRole('link', {name: 'Campanhas'}).click();
     await page.getByRole('heading', {name: 'Campanhas', level: 1}).waitFor();

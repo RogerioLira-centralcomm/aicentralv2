@@ -77,6 +77,14 @@ def _google_ads_account_id(value):
     return normalized.replace('-', '')
 
 
+def _google_ads_account_id_for_update(value, current_value):
+    """Canonicalize valid IDs while allowing metadata edits on legacy rows."""
+    raw = str(value or '').strip()
+    if raw == str(current_value or '') and not re.fullmatch(r'(?:\d{10}|\d{3}-\d{3}-\d{4})', raw):
+        return raw
+    return _google_ads_account_id(raw)
+
+
 def _optional_positive_id(value, field):
     if value in (None, ''):
         return None
@@ -235,7 +243,7 @@ def register(bp):
         name = _required_text(payload, 'name', 240)
         external_id = _required_text(payload, 'external_id', 160) if 'external_id' in payload else account['external_id']
         if account['platform'] == 'google_ads':
-            external_id = _google_ads_account_id(external_id)
+            external_id = _google_ads_account_id_for_update(external_id, account['external_id'])
         status = payload.get('status', account['status'])
         if status not in ('active', 'paused', 'disabled'):
             abort(400, description='Estado de conta inválido.')
@@ -253,23 +261,24 @@ def register(bp):
                 (parent_id, selected['organization_id'], selected['client_id'], account['platform']))
             if not parent or account['account_kind'] != 'advertiser':
                 abort(400, description='Selecione uma MCC ativa da mesma plataforma para o anunciante.')
-        duplicate_sql = ('''SELECT id FROM cadu_reports_accounts
-            WHERE organization_id=%s AND client_id=%s AND platform=%s
-              AND regexp_replace(external_id,'[^0-9]','','g')=%s AND id<>%s''' if account['platform'] == 'google_ads'
-            else '''SELECT id FROM cadu_reports_accounts
-            WHERE organization_id=%s AND client_id=%s AND platform=%s AND external_id=%s AND id<>%s''')
-        duplicate = _rows(duplicate_sql,
-            (selected['organization_id'], selected['client_id'], account['platform'], external_id, account_id))
-        if duplicate:
-            abort(409, description='Este ID externo já está cadastrado para outra conta desta plataforma.')
-        if external_id != account['external_id'] and account['platform'] == 'google_ads':
-            _rows('''UPDATE cadu_reports_ingest_keys SET
-                    allowed_account_ids=array_replace(allowed_account_ids,%s,%s),
-                    bound_account_id=CASE WHEN bound_account_id=%s THEN %s ELSE bound_account_id END,
-                    manager_external_id=CASE WHEN manager_external_id=%s THEN %s ELSE manager_external_id END
-                WHERE organization_id=%s AND client_id=%s''',
-                (account['external_id'], external_id, account['external_id'], external_id,
-                 account['external_id'], external_id, selected['organization_id'], selected['client_id']))
+        if external_id != account['external_id']:
+            duplicate_sql = ('''SELECT id FROM cadu_reports_accounts
+                WHERE organization_id=%s AND client_id=%s AND platform=%s
+                  AND regexp_replace(external_id,'[^0-9]','','g')=%s AND id<>%s''' if account['platform'] == 'google_ads'
+                else '''SELECT id FROM cadu_reports_accounts
+                WHERE organization_id=%s AND client_id=%s AND platform=%s AND external_id=%s AND id<>%s''')
+            duplicate = _rows(duplicate_sql,
+                (selected['organization_id'], selected['client_id'], account['platform'], external_id, account_id))
+            if duplicate:
+                abort(409, description='Este ID externo já está cadastrado para outra conta desta plataforma.')
+            if account['platform'] == 'google_ads':
+                _rows('''UPDATE cadu_reports_ingest_keys SET
+                        allowed_account_ids=array_replace(allowed_account_ids,%s,%s),
+                        bound_account_id=CASE WHEN bound_account_id=%s THEN %s ELSE bound_account_id END,
+                        manager_external_id=CASE WHEN manager_external_id=%s THEN %s ELSE manager_external_id END
+                    WHERE organization_id=%s AND client_id=%s''',
+                    (account['external_id'], external_id, account['external_id'], external_id,
+                     account['external_id'], external_id, selected['organization_id'], selected['client_id']))
         changed = _rows('''UPDATE cadu_reports_accounts SET name=%s,external_id=%s,parent_account_id=%s,status=%s,updated_at=NOW()
             WHERE id=%s AND organization_id=%s AND client_id=%s
             RETURNING id,platform,external_id,name,parent_account_id,account_kind,status,updated_at''',

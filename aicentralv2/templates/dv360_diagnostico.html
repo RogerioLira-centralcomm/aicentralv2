@@ -14,8 +14,8 @@
     .dv-diagnostic .ok { color: #16a34a; font-weight: 600; }
     .dv-diagnostic .bad { color: #dc2626; font-weight: 600; }
     .dv-diagnostic .warn { background: #fffbeb; border: 1px solid #fcd34d; padding: 0.75rem 1rem; border-radius: 8px; margin: 0 auto 1rem; max-width: 56rem; font-size: 0.9rem; }
-    .dv-diagnostic a.btn { display: inline-block; margin: 0.35rem 0.5rem 0.35rem 0; padding: 0.5rem 1rem; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 6px; font-size: 0.9rem; }
-    .dv-diagnostic a.btn:hover { background: #1d4ed8; }
+    .dv-diagnostic a.dv-btn { display: inline-block; margin: 0.35rem 0.5rem 0.35rem 0; padding: 0.5rem 1rem; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 6px; font-size: 0.9rem; }
+    .dv-diagnostic a.dv-btn:hover { background: #1d4ed8; }
     .dv-diagnostic a.link { color: #2563eb; }
     .dv-diagnostic ul.flags { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, monospace; font-size: 0.85rem; }
     .dv-diagnostic ul.flags li { display: flex; justify-content: space-between; border-bottom: 1px solid #f4f4f5; padding: 0.35rem 0; }
@@ -36,8 +36,8 @@
       · Raiz: <code>{{ url_root }}</code>
     </p>
     <p style="margin-top:0.75rem;">
-      <a class="btn" href="{{ url_root }}dv360/diagnostico">Só variáveis (.env)</a>
-      <a class="btn" href="{{ url_root }}dv360/diagnostico?run=1" style="background:#059669;">Executar OAuth + API</a>
+      <a class="dv-btn" href="{{ url_root }}dv360/diagnostico">Só variáveis (.env)</a>
+      <a class="dv-btn" href="{{ url_root }}dv360/diagnostico?run=1" style="background:#059669;">Executar OAuth + API</a>
       <a class="link" href="{{ url_root }}">Voltar ao início</a>
     </p>
     <p style="font-size:0.85rem; color:#71717a; margin-top:0.75rem;">
@@ -58,7 +58,7 @@
   <div class="box">
     <h2>Testes à rede</h2>
     <p style="margin:0;">Ainda <strong>não</strong> foi feito pedido ao Google nesta visita.</p>
-    <p style="margin:0.5rem 0 0;"><a class="btn" href="{{ url_root }}dv360/diagnostico?run=1">Executar OAuth + list_advertisers</a></p>
+    <p style="margin:0.5rem 0 0;"><a class="dv-btn" href="{{ url_root }}dv360/diagnostico?run=1">Executar OAuth + list_advertisers</a></p>
   </div>
   {% else %}
   <div class="box">

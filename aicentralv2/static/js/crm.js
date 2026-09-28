@@ -3142,7 +3142,7 @@
                     tr.dataset.idx = idx;
 
                     const statusLabels = { novo: 'Novo', existe: 'Já existe', incompleto: 'Incompleto' };
-                    const statusClasses = { novo: 'badge-success', existe: 'badge-warning', incompleto: 'badge-error' };
+                    const statusClasses = { novo: 'cx-badge-success', existe: 'cx-badge-warning', incompleto: 'cx-badge-danger' };
 
                     // Determine default action
                     let defaultAcao = c.status === 'novo' ? 'criar'
@@ -3307,7 +3307,7 @@
                     const resumo = partes.join(', ') || 'Nenhuma alteração';
 
                     const resultEl = $('#ci-result');
-                    resultEl.className = `mt-2 alert text-xs p-2 ${r.erros && r.erros.length ? 'alert-warning' : 'alert-success'}`;
+                    resultEl.className = `mt-2 alert text-xs p-2 ${r.erros && r.erros.length ? 'cx-alert-warning' : 'cx-alert-success'}`;
                     let texto = resumo;
                     if (r.erros && r.erros.length) {
                         texto += '\nErros:\n' + r.erros.map(e => `• Linha ${e.linha}: ${e.msg}`).join('\n');

@@ -452,7 +452,7 @@
     const open = addOptions.hidden; addOptions.hidden = !open; addTrigger.setAttribute('aria-expanded', String(open));
     if (open && skillOptions && !skillOptions.dataset.loaded) { try { const data = await api('conversations/modes'); renderSkillOptions(data.modes); skillOptions.dataset.loaded = 'true'; } catch (_) { skillOptions.textContent = 'Capacidades indisponíveis agora.'; } }
   });
-  addOptions?.querySelector('[data-add-action="files"]')?.addEventListener('click', () => { document.getElementById('conversation-file-input')?.click(); addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
+  addOptions?.querySelector('[data-add-action="files"]')?.addEventListener('click', () => { document.getElementById('conversation-cx-input')?.click(); addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
   addOptions?.querySelector('[data-add-action="planning"]')?.addEventListener('click', () => { if (mode) { mode.value = 'planejamento'; mode.dispatchEvent(new Event('change', {bubbles:true})); } addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
   document.addEventListener('click', event => { if (addMenu && !addMenu.contains(event.target)) { addOptions?.setAttribute('hidden', ''); addTrigger?.setAttribute('aria-expanded', 'false'); } });
   setComposerValue(readDraft(null));

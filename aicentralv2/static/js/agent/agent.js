@@ -53,7 +53,7 @@
     composer: document.getElementById('cx-agent-composer'),
     send: document.getElementById('cx-agent-send'),
     attach: document.getElementById('cx-agent-attach'),
-    fileInput: document.getElementById('cx-agent-file-input'),
+    fileInput: document.getElementById('cx-agent-cx-input'),
     attachments: document.getElementById('cx-agent-attachments'),
     feedback: document.getElementById('cx-agent-composer-feedback'),
     characterCount: document.getElementById('cx-agent-character-count'),

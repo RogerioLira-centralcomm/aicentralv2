@@ -119,7 +119,7 @@
         var html = (
             '<div class="cx-drawer-section">' +
             '<div class="cx-drawer-section-title">Atalhos</div>' +
-            '<table class="table table-sm">' +
+            '<table class="w-full text-sm border-collapse">' +
             '<tbody>' +
             '<tr><td><kbd>j</kbd> / <kbd>↓</kbd></td><td>Próximo cliente</td></tr>' +
             '<tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Cliente anterior</td></tr>' +

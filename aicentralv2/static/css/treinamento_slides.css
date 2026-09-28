@@ -158,7 +158,7 @@ h1, h2 {
 .slide-family { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .slide-agenda { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-.card,
+.slide-card,
 .metric,
 .family-card,
 .agenda-item {
@@ -177,8 +177,8 @@ h1, h2 {
   line-height: .9;
 }
 
-.metric .label,
-.card h3,
+.metric .metric-label,
+.slide-card h3,
 .family-card h3,
 .agenda-item strong,
 .brief h3,
@@ -190,7 +190,7 @@ h1, h2 {
 }
 
 .metric .note,
-.card .meta,
+.slide-card .meta,
 .family-card p,
 .agenda-item small {
   display: block;
@@ -199,7 +199,7 @@ h1, h2 {
   font-size: clamp(13px, 1.3vw, 16px);
 }
 
-.card p { margin-top: 8px; }
+.slide-card p { margin-top: 8px; }
 
 .slide-split {
   display: grid;
@@ -237,13 +237,13 @@ h1, h2 {
   width: 100%;
 }
 
-.step {
+.timeline-step {
   border-left: 2px solid var(--sp-mint);
   padding: 4px 0 4px 12px;
 }
 
-.step h3 { font-family: var(--sp-heading); font-size: clamp(18px, 2vw, 24px); }
-.step p { margin-top: 6px; font-size: clamp(13px, 1.3vw, 16px); }
+.timeline-step h3 { font-family: var(--sp-heading); font-size: clamp(18px, 2vw, 24px); }
+.timeline-step p { margin-top: 6px; font-size: clamp(13px, 1.3vw, 16px); }
 
 .chart-wrap {
   width: min(100%, 920px);

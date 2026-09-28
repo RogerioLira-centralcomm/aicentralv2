@@ -129,7 +129,10 @@ FORBIDDEN = re.compile(
     r")$"
 )
 
-SEMANTIC_PREFIXES = ("bg-base-", "border-base-", "text-base-content", "rounded-box")
+SEMANTIC_PREFIXES = ("bg-base-", "border-base-", "text-base-content", "rounded-box", "file-input")
+RAW_DAISY = re.compile(
+    r"(?<!cx-)(?:alert-(?:error|success|warning|info)|badge-(?:error|success|warning|ghost|primary)|file-input)\b"
+)
 
 
 def _token_forbidden(token: str) -> bool:
@@ -150,7 +153,8 @@ def violations(path: Path) -> list[tuple[int, str]]:
                 found.append((line, token))
     for match in CLASS_LIST_CALL.finditer(source):
         line = source.count("\n", 0, match.start()) + 1
-        for quoted in QUOTED_TOKEN.finditer(match.group(1)):
+        first_arg = match.group(1).split(",", 1)[0]
+        for quoted in QUOTED_TOKEN.finditer(first_arg):
             token = quoted.group(2)
             if _token_forbidden(token):
                 found.append((line, token))
@@ -159,6 +163,9 @@ def violations(path: Path) -> list[tuple[int, str]]:
         for token in re.split(r"\s+", match.group(2).strip()):
             if token and _token_forbidden(token):
                 found.append((line, token))
+    for match in RAW_DAISY.finditer(source):
+        line = source.count("\n", 0, match.start()) + 1
+        found.append((line, match.group(0)))
     return found
 
 

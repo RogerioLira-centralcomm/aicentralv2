@@ -5,7 +5,7 @@
     constructor(panel, status) {
       this.items = []; this.enabled = false; this.busy = false; this.status = status;
       this.list = panel.querySelector('#conversation-attachments');
-      this.input = panel.querySelector('#conversation-file-input');
+      this.input = panel.querySelector('#conversation-cx-input');
       this.button = panel.querySelector('#conversation-attach');
       this.composer = panel.querySelector('#conversation-editor') || panel.querySelector('#conversation-message');
       this.shell = panel.querySelector('.conversation-composer-shell');

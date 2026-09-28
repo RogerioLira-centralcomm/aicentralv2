@@ -161,7 +161,7 @@ select.cx-select:focus {
     {% if messages %}
       <div class="mb-6 space-y-2">
         {% for category, message in messages %}
-          <div class="cx-alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+          <div class="cx-alert {% if category == 'error' %}cx-alert-danger{% elif category == 'success' %}cx-alert-success{% elif category == 'warning' %}cx-alert-warning{% else %}cx-alert-info{% endif %}">
             <span>{{ message }}</span>
           </div>
         {% endfor %}
@@ -1610,7 +1610,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   function mostrarToast(mensagem, tipo = 'info') {
-    const tipoClasse = tipo === 'error' ? 'alert-error' : tipo === 'success' ? 'alert-success' : tipo === 'warning' ? 'alert-warning' : 'alert-info';
+    const tipoClasse = tipo === 'error' ? 'cx-alert-danger' : tipo === 'success' ? 'cx-alert-success' : tipo === 'warning' ? 'cx-alert-warning' : 'cx-alert-info';
     const alert = document.createElement('div');
     alert.className = `alert ${tipoClasse} shadow-lg fixed bottom-4 right-4 w-auto z-50`;
     alert.innerHTML = `<span>${mensagem}</span>`;

@@ -10,7 +10,7 @@
   <div class="flex items-center justify-between mb-3">
     <div class="flex items-center gap-3">
       <h1 class="text-lg font-bold">{{ audiencia.taxonomy_canonical_name or audiencia.nome }}</h1>
-      <span class="cx-badge {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %}">
+      <span class="cx-badge {% if audiencia.is_active %}cx-badge-success{% else %}cx-badge-danger{% endif %}">
         {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
       </span>
     </div>
@@ -98,7 +98,7 @@
           </div>
           <div class="bg-slate-100 rounded p-2 text-center">
             <span class="text-slate-500 text-xs block">Propensão</span>
-            <span class="cx-badge {% if audiencia.propensao_compra == 'Alta' %}badge-success{% elif audiencia.propensao_compra == 'Média' %}badge-warning{% elif audiencia.propensao_compra == 'Baixa' %}badge-error{% else %}badge-ghost{% endif %}">
+            <span class="cx-badge {% if audiencia.propensao_compra == 'Alta' %}cx-badge-success{% elif audiencia.propensao_compra == 'Média' %}cx-badge-warning{% elif audiencia.propensao_compra == 'Baixa' %}cx-badge-danger{% else %}cx-badge-muted{% endif %}">
               {{ audiencia.propensao_compra or '-' }}
             </span>
           </div>

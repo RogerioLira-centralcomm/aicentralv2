@@ -24,28 +24,28 @@
     }
 
     const STATUS_MAP = {
-        draft: ['Rascunho', 'badge-ghost'],
+        draft: ['Rascunho', 'cx-badge-muted'],
         submitted: ['Enviado', 'badge-info'],
-        approved: ['Aprovado', 'badge-success'],
-        rejected: ['Rejeitado', 'badge-error'],
+        approved: ['Aprovado', 'cx-badge-success'],
+        rejected: ['Rejeitado', 'cx-badge-danger'],
         closed: ['Fechado', 'badge-neutral'],
-        processing: ['Processando', 'badge-warning'],
-        extracted: ['Conferir', 'badge-warning'],
-        extraction_failed: ['Falha IA', 'badge-error'],
+        processing: ['Processando', 'cx-badge-warning'],
+        extracted: ['Conferir', 'cx-badge-warning'],
+        extraction_failed: ['Falha IA', 'cx-badge-danger'],
     };
 
     const SUMMARY_STATUS = {
-        open: ['Em andamento', 'badge-warning'],
-        paid: ['Pago', 'badge-success'],
+        open: ['Em andamento', 'cx-badge-warning'],
+        paid: ['Pago', 'cx-badge-success'],
     };
 
     function statusBadge(st) {
-        const [label, cls] = STATUS_MAP[st] || [st, 'badge-ghost'];
+        const [label, cls] = STATUS_MAP[st] || [st, 'cx-badge-muted'];
         return `<span class="cx-badge ${cls}">${label}</span>`;
     }
 
     function summaryStatusBadge(st) {
-        const [label, cls] = SUMMARY_STATUS[st] || [st, 'badge-ghost'];
+        const [label, cls] = SUMMARY_STATUS[st] || [st, 'cx-badge-muted'];
         return `<span class="cx-badge ${cls}">${label}</span>`;
     }
 

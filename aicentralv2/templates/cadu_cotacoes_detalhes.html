@@ -239,8 +239,8 @@
     min-height: 1.375rem !important;
   }
 
-  /* file-input nos modais */
-  .cx-modal-compact .file-input {
+  /* cx-input nos modais */
+  .cx-modal-compact .cx-input {
     font-size: 0.75rem !important;
     height: 1.75rem !important;
     min-height: 1.75rem !important;
@@ -4692,7 +4692,7 @@ function calcularVolumeEdit() {
     {% if modo == 'editar' and cotacao %}
     <!-- Status com Toggle e Link atual em linha -->
     <div class="flex gap-3 mb-3">
-      <div id="alert_status_link" class="cx-alert {% if cotacao.link_publico_ativo %}alert-success{% else %}alert-warning{% endif %} py-2 cursor-pointer" onclick="toggleLinkPublico()">
+      <div id="alert_status_link" class="cx-alert {% if cotacao.link_publico_ativo %}cx-alert-success{% else %}cx-alert-warning{% endif %} py-2 cursor-pointer" onclick="toggleLinkPublico()">
         <input type="checkbox" id="link_publico_ativo" class="cx-toggle" {% if cotacao.link_publico_ativo %}checked{% endif %} onclick="event.stopPropagation();" onchange="atualizarStatusLinkPublico(this)">
         <div class="text-xs">
           <p id="link_publico_status_text" class="font-semibold">{% if cotacao.link_publico_ativo %}ATIVO{% else %}INATIVO{% endif %}</p>
@@ -8467,7 +8467,7 @@ function getBadgeClassForAction(acao) {
     'REJEITAR': 'cx-badge-danger',
     'ENVIAR': 'cx-badge-warning'
   };
-  return classes[acao] || 'badge-ghost';
+  return classes[acao] || 'cx-badge-muted';
 }
 
 function formatarData(dataStr) {

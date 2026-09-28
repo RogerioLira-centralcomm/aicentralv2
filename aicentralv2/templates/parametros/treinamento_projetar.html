@@ -45,7 +45,7 @@
             {% for item in slide.metrics %}
             <article class="metric">
               <p class="value">{{ item.value }}</p>
-              <p class="label">{{ item.label }}</p>
+              <p class="metric-label">{{ item.label }}</p>
               {% if item.note %}<span class="note">{{ item.note }}</span>{% endif %}
             </article>
             {% endfor %}
@@ -56,7 +56,7 @@
           <h2 class="slide-title">{{ slide.title }}</h2>
           <div class="slide-cards">
             {% for card in slide.cards %}
-            <article class="card">
+            <article class="slide-card">
               <h3>{{ card.title }}</h3>
               {% if card.text %}<p>{{ card.text }}</p>{% endif %}
               {% if card.meta %}<span class="meta">{{ card.meta }}</span>{% endif %}
@@ -102,7 +102,7 @@
           <h2 class="slide-title">{{ slide.title }}</h2>
           <div class="slide-timeline">
             {% for step in slide.steps %}
-            <article class="step">
+            <article class="timeline-step">
               <h3>{{ step.title }}</h3>
               <p>{{ step.text }}</p>
             </article>

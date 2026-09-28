@@ -540,7 +540,7 @@
     function setLoading(button, loading) {
         if (!button) return;
         button.disabled = loading;
-        button.classList.toggle('loading', loading);
+        button.classList.toggle('is-busy', loading);
         button.querySelector('i')?.classList.toggle('fa-spin', loading);
     }
 

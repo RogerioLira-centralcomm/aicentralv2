@@ -1236,14 +1236,14 @@ def init_routes(app):
     @app.route('/components')
     @login_required
     def components():
-        """Página de componentes Tailwind"""
-        return render_template('components/tailwind_components.html')
-        
+        """Redireciona showcase legado para o design system Enterprise."""
+        return redirect(url_for('design_system_enterprise'), code=302)
+
     @app.route('/design-system')
     @login_required
     def design_system():
-        """Página do Design System"""
-        return render_template('design_system.html')
+        """Redireciona showcase DaisyUI legado para Enterprise."""
+        return redirect(url_for('design_system_enterprise'), code=302)
 
     @app.route('/design-system-enterprise')
     @login_required

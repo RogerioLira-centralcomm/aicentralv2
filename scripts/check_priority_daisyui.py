@@ -85,6 +85,25 @@ FILES = [
     ROOT / "aicentralv2/static/js/financeiro_gestao.js",
     ROOT / "aicentralv2/static/js/auth-public.js",
     ROOT / "aicentralv2/static/js/subscription_checkout.js",
+    ROOT / "aicentralv2/templates/errors/403.html",
+    ROOT / "aicentralv2/templates/errors/404.html",
+    ROOT / "aicentralv2/templates/errors/500.html",
+    ROOT / "aicentralv2/templates/crm/crm.html",
+    ROOT / "aicentralv2/templates/crm/_coluna_clientes.html",
+    ROOT / "aicentralv2/templates/crm/_modal_cliente.html",
+    ROOT / "aicentralv2/templates/crm/_modal_contato.html",
+    ROOT / "aicentralv2/templates/crm/_modal_contatos_crm.html",
+    ROOT / "aicentralv2/templates/crm/_modal_cotacao.html",
+    ROOT / "aicentralv2/templates/crm/_modal_status_completo.html",
+    ROOT / "aicentralv2/templates/crm/_modal_objetivos_comunicacao.html",
+    ROOT / "aicentralv2/templates/crm/atividades_consolidadas.html",
+    ROOT / "aicentralv2/templates/crm/objetivos_consolidadas.html",
+    ROOT / "aicentralv2/templates/contato_form.html",
+    ROOT / "aicentralv2/templates/cadu_cotacoes_legado.html",
+    ROOT / "aicentralv2/templates/cadu_cotacoes_form_legado.html",
+    ROOT / "aicentralv2/static/js/crm.js",
+    ROOT / "aicentralv2/templates/erro_publico.html",
+    ROOT / "aicentralv2/templates/cadu_planner/commercial_requests.html",
 ]
 
 CLASS_ATTRIBUTE = re.compile(r"""class\s*=\s*(['"])(.*?)\1""", re.DOTALL)
@@ -106,8 +125,19 @@ FORBIDDEN = re.compile(
     r"progress(?:-(?:primary|success|warning|error|info))?|join(?:-(?:item|vertical|horizontal))?|"
     r"dropdown(?:-(?:content|end|top|bottom|left|right|hover|open))?|toast(?:-(?:top|bottom|start|center|end|middle))?"
     r"|avatar|placeholder|menu(?:-(?:title|horizontal|vertical|compact))?"
+    r"|divider"
     r")$"
 )
+
+SEMANTIC_PREFIXES = ("bg-base-", "border-base-", "text-base-content", "rounded-box")
+
+
+def _token_forbidden(token: str) -> bool:
+    if token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")):
+        return False
+    if FORBIDDEN.fullmatch(token):
+        return True
+    return token.startswith(SEMANTIC_PREFIXES)
 
 
 def violations(path: Path) -> list[tuple[int, str]]:
@@ -116,18 +146,18 @@ def violations(path: Path) -> list[tuple[int, str]]:
     for match in CLASS_ATTRIBUTE.finditer(source):
         line = source.count("\n", 0, match.start()) + 1
         for token in re.split(r"\s+", match.group(2).strip()):
-            if token and not token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")) and FORBIDDEN.fullmatch(token):
+            if token and _token_forbidden(token):
                 found.append((line, token))
     for match in CLASS_LIST_CALL.finditer(source):
         line = source.count("\n", 0, match.start()) + 1
         for quoted in QUOTED_TOKEN.finditer(match.group(1)):
             token = quoted.group(2)
-            if not token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")) and FORBIDDEN.fullmatch(token):
+            if _token_forbidden(token):
                 found.append((line, token))
     for match in CLASS_NAME_ASSIGNMENT.finditer(source):
         line = source.count("\n", 0, match.start()) + 1
         for token in re.split(r"\s+", match.group(2).strip()):
-            if token and not token.startswith(("cx-", "crm-v3-", "pi-op-", "cot-op-")) and FORBIDDEN.fullmatch(token):
+            if token and _token_forbidden(token):
                 found.append((line, token))
     return found
 

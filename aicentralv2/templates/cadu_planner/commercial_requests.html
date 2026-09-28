@@ -1,0 +1,83 @@
+{% extends 'base_erp.html' %}
+{% block title %}Solicitações Planner — Comercial{% endblock %}
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Solicitações de cotação do Cadu Planner{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+  <div class="cx-card bg-white border border-slate-200 shadow-sm overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-100 text-left text-slate-700">
+        <tr>
+          <th class="p-3 font-medium">Cliente / plano</th>
+          <th class="p-3 font-medium">Escopo</th>
+          <th class="p-3 font-medium">Status</th>
+          <th class="p-3 font-medium">Executivo</th>
+          <th class="p-3 font-medium">Cotação CRM</th>
+          <th class="p-3 font-medium">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in requests %}
+        {% set plan = item.snapshot if item.snapshot is mapping else {} %}
+        <tr class="border-t border-gray-200" data-request="{{ item.id }}">
+          <td class="p-3">
+            <strong>{{ item.client_name or 'Cliente' }}</strong><br>
+            <span class="text-xs text-slate-500">{{ plan.campaign_name or plan.title or 'Plano sem título' }} · {{ item.requester_name or 'Usuário' }}</span>
+          </td>
+          <td class="p-3">{{ scopes.get(item.scope, item.scope) }}</td>
+          <td class="p-3">
+            <select class="cx-input cx-input-sm planner-status w-full max-w-[11rem]">
+              {% for value, label in statuses.items() %}
+              <option value="{{ value }}" {% if item.status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="p-3">{{ item.assigned_executive_name or 'Não assumida' }}</td>
+          <td class="p-3">
+            <input class="cx-input cx-input-sm w-28 planner-crm-id" type="number" min="1" value="{{ item.crm_quote_id or '' }}" placeholder="#">
+          </td>
+          <td class="p-3 whitespace-nowrap space-x-2">
+            <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary planner-accept">Assumir</button>
+            <button type="button" class="cx-btn cx-btn-sm cx-btn-primary planner-save">Salvar</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="p-6 text-center text-slate-500">Nenhuma solicitação pendente.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+(function () {
+  const endpoint = {{ api_prefix|tojson }};
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  async function send(row, path, body) {
+    const id = row.dataset.request;
+    const res = await fetch(`${endpoint}/${id}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'same-origin',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Falha na operação');
+    return data;
+  }
+  document.querySelectorAll('[data-request]').forEach((item) => {
+    item.querySelector('.planner-accept').onclick = async () => {
+      try { await send(item, '/assumir'); location.reload(); } catch (err) { alert(err.message); }
+    };
+    item.querySelector('.planner-save').onclick = async () => {
+      try {
+        const crm = item.querySelector('.planner-crm-id').value;
+        if (crm) await send(item, '/vincular-cotacao', { crm_quote_id: crm });
+        await send(item, '/status', { status: item.querySelector('.planner-status').value });
+        location.reload();
+      } catch (err) { alert(err.message); }
+    };
+  });
+})();
+</script>
+{% endblock %}

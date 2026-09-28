@@ -1,21 +1,20 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="light">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Erro - Central Comm</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=34">
 </head>
-<body class="bg-base-200">
+<body class="bg-gray-100">
     <div class="min-h-screen flex items-center justify-center p-4">
-        <div class="card w-full max-w-md bg-base-100 shadow-xl">
-            <div class="card-body text-center">
-                <div class="text-6xl mb-4">⚠️</div>
-                <h2 class="card-title justify-center text-2xl mb-2">Acesso Negado</h2>
-                <p class="text-base-content/70">{{ mensagem }}</p>
-                <div class="card-actions justify-center mt-6">
-                    <a href="/" class="btn btn-primary">Voltar ao Início</a>
-                </div>
+        <div class="w-full max-w-md bg-white shadow-lg rounded-lg border border-gray-200 p-8 text-center">
+            <div class="text-6xl mb-4" aria-hidden="true">⚠️</div>
+            <h2 class="text-2xl font-semibold text-slate-900 mb-2">Acesso negado</h2>
+            <p class="text-slate-600">{{ mensagem }}</p>
+            <div class="mt-6 flex justify-center">
+                <a href="/" class="cx-btn cx-btn-primary">Voltar ao início</a>
             </div>
         </div>
     </div>

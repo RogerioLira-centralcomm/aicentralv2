@@ -4,7 +4,7 @@
 {% block title %}CRM - CentralX{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=5">
 
 <div style="background:#fef3c7;border:1px solid #f59e0b;color:#78350f;padding:.5rem .75rem;border-radius:6px;font-size:.75rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;justify-content:space-between;">
     <div>
@@ -12,49 +12,46 @@
         <strong>CRM legado.</strong> A versão atual do CRM agora é
         <a href="{{ url_for('crm_v3.crm_v3') }}" style="text-decoration:underline;color:#78350f;font-weight:700;">CRM v3</a>. Esta tela permanece disponível somente para consulta enquanto o time migra os fluxos.
     </div>
-    <a href="{{ url_for('crm_v3.crm_v3') }}" class="btn btn-xs btn-warning" style="white-space:nowrap;">Ir para CRM v3</a>
+    <a href="{{ url_for('crm_v3.crm_v3') }}" class="cx-btn cx-btn-xs cx-btn-outline shrink-0">Ir para CRM v3</a>
 </div>
 
 <div class="crm-header flex items-center gap-3 mb-2 flex-nowrap overflow-visible">
     <h1 class="text-sm font-bold whitespace-nowrap mr-1">CRM</h1>
 
-    <select id="filtro-executivo"
-            class="crm-exec-select text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none h-6">
+    <select id="filtro-executivo" class="crm-exec-select cx-select cx-select-sm text-[10px] h-6 min-h-0 py-0">
         <option value="">Selecione o executivo</option>
         {% for ex in executivos %}
         <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
         {% endfor %}
     </select>
 
-    <select id="filtro-tipo"
-            class="crm-filter-select text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none h-6">
+    <select id="filtro-tipo" class="crm-filter-select cx-select cx-select-sm text-[10px] h-6 min-h-0 py-0">
         <option value="">Tipo: todos</option>
         <option value="governo">Governo</option>
         <option value="privado">Privado</option>
     </select>
 
-    <select id="filtro-perfil"
-            class="crm-filter-select text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none h-6">
+    <select id="filtro-perfil" class="crm-filter-select cx-select cx-select-sm text-[10px] h-6 min-h-0 py-0">
         <option value="">Perfil: todos</option>
         <option value="direto">Cliente final</option>
         <option value="agencia">Agência</option>
     </select>
 
     <div class="flex gap-2 items-center ml-auto flex-nowrap">
-        <button type="button" id="crm-btn-novo-cliente" class="btn btn-xs btn-action gap-1" title="Novo cliente">
+        <button type="button" id="crm-btn-novo-cliente" class="cx-btn cx-btn-xs cx-btn-primary crm-btn-novo gap-1" title="Novo cliente">
             <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Novo cliente
         </button>
-        <details class="dropdown dropdown-end" id="crm-export">
-            <summary class="btn btn-xs btn-outline gap-1" title="Exportar">
+        <details class="crm-export-menu" id="crm-export">
+            <summary class="cx-btn cx-btn-xs cx-btn-outline gap-1" title="Exportar">
                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 Exportar
             </summary>
-            <ul class="dropdown-content z-[20] menu p-2 shadow bg-base-100 rounded-box w-60 text-xs border border-base-300">
-                <li><button type="button" id="crm-export-objetivos" class="justify-start">Exportar objetivos (CSV)</button></li>
-                <li class="menu-title pt-2"><span>Consolidado</span></li>
-                <li><a id="crm-link-objetivos-consolidadas" href="{{ url_for('crm.objetivos_consolidadas') }}">Objetivos consolidadas</a></li>
-            </ul>
+            <div class="crm-export-menu-panel">
+                <button type="button" id="crm-export-objetivos" class="crm-export-menu-item">Exportar objetivos (CSV)</button>
+                <p class="crm-export-menu-title">Consolidado</p>
+                <a id="crm-link-objetivos-consolidadas" href="{{ url_for('crm.objetivos_consolidadas') }}" class="crm-export-menu-item">Objetivos consolidadas</a>
+            </div>
         </details>
     </div>
 </div>
@@ -82,5 +79,5 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>
-<script src="{{ url_for('static', filename='js/crm.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/crm.js') }}?v=7"></script>
 {% endblock %}

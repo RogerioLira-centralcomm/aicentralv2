@@ -28,7 +28,7 @@
     function $$(sel, ctx) { return [...(ctx || document).querySelectorAll(sel)]; }
 
     function showSpinner(container) {
-        container.innerHTML = '<div class="flex justify-center py-8"><span class="loading loading-spinner loading-md"></span></div>';
+        container.innerHTML = '<div class="flex justify-center py-8"><span class="cx-spinner cx-spinner-sm"></span></div>';
     }
 
     function showEmpty(container, msg) {
@@ -290,7 +290,7 @@
                         <div class="crm-cliente-subtitulo">${subtituloCliente(c)}</div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                        <button type="button" class="crm-cliente-edit btn btn-ghost btn-xs btn-square h-5 w-5 min-h-0 p-0" data-id="${c.id_cliente}" title="Editar cliente" aria-label="Editar cliente">
+                        <button type="button" class="crm-cliente-edit cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost h-5 w-5 min-h-0 p-0" data-id="${c.id_cliente}" title="Editar cliente" aria-label="Editar cliente">
                             ${ICON_EDIT}
                         </button>
                     </div>
@@ -735,7 +735,7 @@
             const ta = $('#crm-nota-cliente');
             if (!ta) return;
             const btn = $('#btn-salvar-nota-cliente');
-            btn?.classList.add('loading');
+            btn?.classList.add('is-loading');
             try {
                 await api(`/api/cliente/${clienteId}/nota`, {
                     method: 'PUT',
@@ -746,7 +746,7 @@
                 console.error(e);
                 showToast(e.message || 'Erro ao salvar nota.', 'error');
             } finally {
-                btn?.classList.remove('loading');
+                btn?.classList.remove('is-loading');
             }
         });
 
@@ -1264,7 +1264,7 @@
                 if (!descricao || !dataAtiv) { showToast('Preencha descrição e data.', 'warning'); return; }
 
                 const btn = usarIA ? $('#btn-add-atividade-ia') : $('#btn-add-atividade');
-                btn.classList.add('loading');
+                btn.classList.add('is-loading');
                 try {
                     let tituloFinal = null;
                     let descFinal = descricao;
@@ -1294,7 +1294,7 @@
                     console.error(e);
                     showToast('Erro ao criar atividade.', 'error');
                 } finally {
-                    btn.classList.remove('loading');
+                    btn.classList.remove('is-loading');
                 }
             }
 
@@ -1303,7 +1303,7 @@
 
             $('#btn-sugerir-atividade')?.addEventListener('click', async () => {
                 const btn = $('#btn-sugerir-atividade');
-                btn.classList.add('loading');
+                btn.classList.add('is-loading');
                 try {
                     const data = await api('/api/ia/sugerir-atividade', {
                         method: 'POST',
@@ -1318,7 +1318,7 @@
                     console.error(e);
                     showToast('Erro ao obter sugestão.', 'error');
                 } finally {
-                    btn.classList.remove('loading');
+                    btn.classList.remove('is-loading');
                 }
             });
         }
@@ -1328,9 +1328,9 @@
 
     function badgeStatusObjetivo(ativo) {
         if (ativo) {
-            return '<span class="badge badge-xs badge-success gap-1"><span class="w-1.5 h-1.5 rounded-full bg-white"></span>Ativo</span>';
+            return '<span class="cx-badge cx-badge-xs cx-badge-success gap-1"><span class="w-1.5 h-1.5 rounded-full bg-white"></span>Ativo</span>';
         }
-        return '<span class="badge badge-xs badge-ghost gap-1"><span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span>Conquistado</span>';
+        return '<span class="cx-badge cx-badge-xs cx-badge-muted gap-1"><span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span>Conquistado</span>';
     }
 
     async function carregarObjetivos(clienteId) {
@@ -1483,7 +1483,7 @@
         const kpisEl = $('#modal-status-kpis');
         const tabelaEl = $('#modal-status-tabela');
 
-        kpisEl.innerHTML = '<span class="loading loading-spinner loading-sm col-span-full"></span>';
+        kpisEl.innerHTML = '<span class="cx-spinner cx-spinner-sm col-span-full"></span>';
         try {
             const data = await api(`/api/cliente/${clienteId}/status-completo?ano=${ano}`);
             const rc = data.resumo_cotacoes || { total_cotacoes: 0, cotacoes_aprovadas: 0, valor_total: 0, valor_aprovado: 0, pct_conversao: 0 };
@@ -1492,27 +1492,27 @@
             const valApr = Number(rc.valor_aprovado) || 0;
 
             kpisEl.innerHTML = `
-                <div class="stat bg-base-200 rounded p-2">
+                <div class="stat bg-gray-100 rounded p-2">
                     <div class="stat-title text-xs">Cotações (ano)</div>
                     <div class="stat-value text-lg">${rc.total_cotacoes || 0}</div>
                     <div class="stat-desc text-xs">Pipeline ${fmtBRL(rc.valor_total || 0)}</div>
                 </div>
-                <div class="stat bg-base-200 rounded p-2">
+                <div class="stat bg-gray-100 rounded p-2">
                     <div class="stat-title text-xs">Aprovadas</div>
                     <div class="stat-value text-lg">${rc.cotacoes_aprovadas || 0}</div>
                     <div class="stat-desc text-xs">${fmtBRL(valApr)} · ${rc.pct_conversao || 0}% conv.</div>
                 </div>
-                <div class="stat bg-base-200 rounded p-2">
+                <div class="stat bg-gray-100 rounded p-2">
                     <div class="stat-title text-xs">PIs</div>
                     <div class="stat-value text-lg">${rp.total_pis || 0}</div>
                     <div class="stat-desc text-xs">${rp.pis_concluidos || 0} concl. · ${fmtBRL(rp.valor_pis || 0)}</div>
                 </div>
-                <div class="stat bg-base-200 rounded p-2">
+                <div class="stat bg-gray-100 rounded p-2">
                     <div class="stat-title text-xs">Ticket médio</div>
                     <div class="stat-value text-sm">${fmtBRL(data.ticket_medio)}</div>
                     <div class="stat-desc text-xs">Só aprovadas</div>
                 </div>
-                <div class="stat bg-base-200 rounded p-2">
+                <div class="stat bg-gray-100 rounded p-2">
                     <div class="stat-title text-xs">Briefings</div>
                     <div class="stat-value text-lg">${rb.total_briefings || 0}</div>
                     <div class="stat-desc text-xs">Criados no ano</div>
@@ -1593,7 +1593,7 @@
                         <td>${c.numero_cotacao || '-'}</td>
                         <td>${c.nome_campanha || '-'}</td>
                         <td>${fmtBRL(c.valor_total_proposta)}</td>
-                        <td><span class="badge badge-xs">${c.status_descricao || '-'}</span></td>
+                        <td><span class="cx-badge cx-badge-xs cx-badge-muted">${c.status_descricao || '-'}</span></td>
                         <td>${fmtDate(c.created_at)}</td>
                     </tr>
                 `).join('')
@@ -1609,7 +1609,7 @@
                             <td>${p.numero_pi || '-'}</td>
                             <td>${p.campanha || '-'}</td>
                             <td>${fmtBRL(p.valor_bruto)}</td>
-                            <td><span class="badge badge-xs">${p.status_descricao || '-'}</span></td>
+                            <td><span class="cx-badge cx-badge-xs cx-badge-muted">${p.status_descricao || '-'}</span></td>
                             <td>${fmtDate(p.created_at)}</td>
                         </tr>
                     `).join('')
@@ -1626,7 +1626,7 @@
                     ? brList.map(b => `
                         <tr>
                             <td>${(b.titulo || '-').replace(/</g, '&lt;')}</td>
-                            <td><span class="badge badge-xs">${b.status || '-'}</span></td>
+                            <td><span class="cx-badge cx-badge-xs cx-badge-muted">${b.status || '-'}</span></td>
                             <td>${fmtDate(b.created_at)}</td>
                         </tr>
                     `).join('')
@@ -1710,8 +1710,8 @@
                 $('#contato-atividades-lista').innerHTML = '<div class="text-xs opacity-50 text-center py-2">Sem atividades.</div>';
             } else {
                 $('#contato-atividades-lista').innerHTML = data.atividades.map(a => `
-                    <div class="bg-base-200 rounded p-1.5 text-xs mb-1">
-                        <span class="badge badge-xs mr-1">${a.status}</span>
+                    <div class="bg-gray-100 rounded p-1.5 text-xs mb-1">
+                        <span class="cx-badge cx-badge-xs cx-badge-muted mr-1">${a.status}</span>
                         ${a.descricao} <span class="opacity-50">(${fmtDate(a.data_atividade)})</span>
                     </div>
                 `).join('');
@@ -1752,7 +1752,7 @@
         if (!contatoId) { showToast('Selecione um contato.', 'warning'); return; }
         if (!objetivo) { showToast('Preencha o objetivo da mensagem.', 'warning'); return; }
 
-        btn?.classList.add('loading');
+        btn?.classList.add('is-loading');
         try {
             const data = await api('/api/ia/gerar-comunicacao', {
                 method: 'POST',
@@ -1768,7 +1768,7 @@
             console.error(e);
             showToast('Erro ao gerar comunicação.', 'error');
         } finally {
-            btn?.classList.remove('loading');
+            btn?.classList.remove('is-loading');
         }
     }
 
@@ -2355,7 +2355,7 @@
         const formData = new FormData(form);
         formData.set('_return_json', '1');
 
-        btn?.classList.add('loading');
+        btn?.classList.add('is-loading');
         if (btn) btn.disabled = true;
         try {
             const url = clienteId ? `/clientes/${clienteId}/editar` : '/clientes/novo';
@@ -2389,7 +2389,7 @@
             console.error(e);
             showToast(e.message || 'Erro ao salvar cliente.', 'error');
         } finally {
-            btn?.classList.remove('loading');
+            btn?.classList.remove('is-loading');
             if (btn) btn.disabled = false;
         }
     }
@@ -2601,7 +2601,7 @@
         }
 
         const formData = new FormData(form);
-        btn?.classList.add('loading');
+        btn?.classList.add('is-loading');
         if (btn) btn.disabled = true;
         try {
             const response = await fetch(`${BASE}/api/cliente/${clienteId}/cotacoes`, {
@@ -2623,7 +2623,7 @@
             console.error(e);
             showToast(e.message || 'Erro ao criar cotação.', 'error');
         } finally {
-            btn?.classList.remove('loading');
+            btn?.classList.remove('is-loading');
             if (btn) btn.disabled = false;
         }
     }
@@ -2719,7 +2719,7 @@
             const clienteId = crmObjCtx.clienteId;
             if (!clienteId) { showToast('Selecione um cliente.', 'warning'); return; }
             const btn = $('#btn-sugerir-ia-header');
-            btn?.classList.add('loading');
+            btn?.classList.add('is-loading');
             try {
                 const data = await api('/api/ia/sugerir-objetivos', {
                     method: 'POST',
@@ -2732,11 +2732,11 @@
                     <div class="text-xs font-semibold mb-1">Sugestões da IA:</div>
                     ${data.objetivos.map((o) => `
                         <label class="flex items-start gap-2 py-0.5 cursor-pointer">
-                            <input type="checkbox" class="checkbox checkbox-xs crm-sug-check" data-texto="${o.replace(/"/g, '&quot;')}" checked />
+                            <input type="checkbox" class="crm-checkbox-xs crm-sug-check" data-texto="${o.replace(/"/g, '&quot;')}" checked />
                             <span class="text-xs">${o}</span>
                         </label>
                     `).join('')}
-                    <button class="btn btn-xs btn-success w-full mt-1" id="btn-aceitar-sugestoes">Adicionar selecionados</button>
+                    <button class="cx-btn cx-btn-xs cx-btn-primary w-full mt-1" id="btn-aceitar-sugestoes">Adicionar selecionados</button>
                 `;
                 $('#btn-aceitar-sugestoes')?.addEventListener('click', async () => {
                     const selecionados = $$('.crm-sug-check:checked', sugestoesDiv).map(cb => cb.dataset.texto);
@@ -2754,7 +2754,7 @@
                 console.error(e);
                 showToast('Erro ao obter sugestões da IA.', 'error');
             } finally {
-                btn?.classList.remove('loading');
+                btn?.classList.remove('is-loading');
             }
         });
         $('#crm-btn-nova-atividade')?.addEventListener('click', () => {
@@ -2882,7 +2882,7 @@
             const email = ($('#ce-email')?.value || '').trim();
             if (!nome || !email) { showToast('Nome e e-mail são obrigatórios.', 'warning'); return; }
             const btn = $('#ce-btn-salvar');
-            btn.classList.add('loading');
+            btn.classList.add('is-loading');
             try {
                 const r = await api(`/api/contato/${modalContatoId}/editar`, {
                     method: 'PUT',
@@ -2899,7 +2899,7 @@
             } catch (e) {
                 showToast(e.data?.message || e.message || 'Erro ao salvar.', 'error');
             } finally {
-                btn.classList.remove('loading');
+                btn.classList.remove('is-loading');
             }
         });
 
@@ -2907,7 +2907,7 @@
             const nome = $('#ce-nome')?.value || 'este contato';
             if (!confirm(`Apagar "${nome}"? Esta ação não pode ser desfeita.`)) return;
             const btn = $('#ce-btn-deletar');
-            btn.classList.add('loading');
+            btn.classList.add('is-loading');
             try {
                 const r = await api(`/api/contato/${modalContatoId}/deletar`, { method: 'DELETE' });
                 showToast(r.message || 'Contato apagado.', 'success');
@@ -2918,7 +2918,7 @@
                 const msg = e.data?.message || e.message || 'Erro ao apagar.';
                 showToast(msg, e.data?.has_vinculos ? 'warning' : 'error');
             } finally {
-                btn.classList.remove('loading');
+                btn.classList.remove('is-loading');
             }
         });
 
@@ -2966,7 +2966,7 @@
             const desc = $('#ea-desc').value.trim();
             if (!desc) { showToast('Descrição obrigatória.', 'warning'); return; }
             const btn = $('#ea-save');
-            btn?.classList.add('loading');
+            btn?.classList.add('is-loading');
             try {
                 await api(`/api/atividades/${id}`, {
                     method: 'PATCH',
@@ -2985,7 +2985,7 @@
                 console.error(e);
                 showToast(e.message || 'Erro ao salvar.', 'error');
             } finally {
-                btn?.classList.remove('loading');
+                btn?.classList.remove('is-loading');
             }
         });
 
@@ -2995,7 +2995,7 @@
             const tx = $('#eo-texto').value.trim();
             if (!tx) { showToast('Texto obrigatório.', 'warning'); return; }
             const btn = $('#eo-save');
-            btn?.classList.add('loading');
+            btn?.classList.add('is-loading');
             try {
                 await api(`/api/objetivos/${id}`, {
                     method: 'PATCH',
@@ -3010,7 +3010,7 @@
                 console.error(e);
                 showToast(e.message || 'Erro ao salvar objetivo.', 'error');
             } finally {
-                btn?.classList.remove('loading');
+                btn?.classList.remove('is-loading');
             }
         });
 
@@ -3027,7 +3027,7 @@
             ev.preventDefault();
             if (!clienteSelecionadoId) return;
             const sub = $('#cr-submit');
-            sub?.classList.add('loading');
+            sub?.classList.add('is-loading');
             try {
                 await api(`/api/cliente/${clienteSelecionadoId}/contato-rapido`, {
                     method: 'POST',
@@ -3044,7 +3044,7 @@
             } catch (e) {
                 showToast(e.message || 'Erro ao criar contato.', 'error');
             } finally {
-                sub?.classList.remove('loading');
+                sub?.classList.remove('is-loading');
             }
         });
 
@@ -3165,18 +3165,18 @@
                     }
 
                     tr.innerHTML = `
-                        <td><input class="input input-bordered input-xs w-full ${diffClass('nome')} ci-nome" value="${escHtml(c.nome)}" data-orig="${escHtml(c.nome)}" /></td>
-                        <td><input class="input input-bordered input-xs w-full ${diffClass('email')} ci-email" value="${escHtml(c.email)}" data-orig="${escHtml(c.email)}" /></td>
-                        <td><input class="input input-bordered input-xs w-full ${diffClass('telefone')} ci-tel" value="${escHtml(c.telefone || '')}" /></td>
-                        <td><input class="input input-bordered input-xs w-full ${diffClass('telefone2')} ci-tel2" value="${escHtml(c.telefone2 || '')}" /></td>
+                        <td><input class="cx-input cx-input-sm w-full ${diffClass('nome')} ci-nome" value="${escHtml(c.nome)}" data-orig="${escHtml(c.nome)}" /></td>
+                        <td><input class="cx-input cx-input-sm w-full ${diffClass('email')} ci-email" value="${escHtml(c.email)}" data-orig="${escHtml(c.email)}" /></td>
+                        <td><input class="cx-input cx-input-sm w-full ${diffClass('telefone')} ci-tel" value="${escHtml(c.telefone || '')}" /></td>
+                        <td><input class="cx-input cx-input-sm w-full ${diffClass('telefone2')} ci-tel2" value="${escHtml(c.telefone2 || '')}" /></td>
                         <td>
-                            <span class="badge badge-xs ${statusClasses[c.status] || ''}"
+                            <span class="cx-badge cx-badge-xs ${statusClasses[c.status] || 'cx-badge-muted'}"
                                 title="${escHtml(tooltipTitle)}"
                                 style="cursor:${tooltipTitle ? 'help' : 'default'}"
                             >${statusLabels[c.status] || c.status}</span>
                         </td>
                         <td>
-                            <select class="select select-bordered select-xs w-full ci-acao"
+                            <select class="cx-select cx-select-sm w-full ci-acao"
                                 data-status="${c.status}"
                                 data-id="${c.id_contato_existente || ''}">
                                 ${c.status !== 'incompleto' ? `<option value="criar" ${defaultAcao === 'criar' ? 'selected' : ''}>Criar</option>` : ''}
@@ -3276,7 +3276,7 @@
             // "Confirmar importação"
             $('#ci-btn-confirmar')?.addEventListener('click', async () => {
                 const btn = $('#ci-btn-confirmar');
-                btn.classList.add('loading');
+                btn.classList.add('is-loading');
                 btn.disabled = true;
 
                 const rows = document.querySelectorAll('#ci-preview-tbody tr');
@@ -3321,7 +3321,7 @@
                 } catch (e) {
                     showToast(e.message || 'Erro ao importar.', 'error');
                 } finally {
-                    btn.classList.remove('loading');
+                    btn.classList.remove('is-loading');
                     ciValidarTabela();
                 }
             });

@@ -11,14 +11,14 @@
 {% block content %}
 <div class="max-w-6xl mx-auto space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-2">
-    <h1 class="text-xl font-semibold text-base-content">DV360 — Campanhas</h1>
+    <h1 class="text-xl font-semibold text-slate-800">DV360 — Campanhas</h1>
     <a href="{{ url_for('dv360_pages.diagnostico') }}" class="text-[var(--cx-primary)] hover:underline text-sm">Diagnóstico DV360</a>
   </div>
 
   <div id="dv360-global-msg" class="hidden cx-alert cx-alert-error text-sm"></div>
 
   <div class="border border-slate-200 rounded-xl bg-white shadow-lg overflow-hidden" data-cx-tab-scope>
-    <div class="border-b border-base-200 bg-gradient-to-r from-base-200/50 via-base-100 to-base-100 px-3 sm:px-5 pt-4 pb-3">
+    <div class="border-b border-gray-200 bg-gradient-to-r from-base-200/50 via-base-100 to-base-100 px-3 sm:px-5 pt-4 pb-3">
       <div role="tablist" aria-label="Secções Testes DV360" id="dv360-tablist" class="cx-tabs flex-wrap gap-y-2 shadow-sm">
         <button type="button" role="tab" data-cx-tab id="tab-dv360-0" aria-selected="true" aria-controls="panel-dv360-0" tabindex="0" class="cx-tab cx-tab-active gap-2 px-3 sm:px-4">
           <i class="fa-solid fa-database text-primary text-xs opacity-90" aria-hidden="true"></i>
@@ -53,30 +53,30 @@
               <label class="cx-label-row py-0 pb-1.5" for="adv-select-dv">
                 <span class="cx-label text-xs font-medium">Cliente / anunciante (dv360_advertisers)</span>
               </label>
-              <div id="dv360-adv-dv-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
+              <div id="dv360-adv-dv-loading" class="hidden flex items-center gap-2 text-xs text-slate-600/60" aria-live="polite">
                 <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
                 <span>A aguardar mapeamentos…</span>
               </div>
               <select id="adv-select-dv" class="cx-select cx-select-sm w-full min-w-0">
                 <option value="">Carregando…</option>
               </select>
-              <p id="adv-hint-dv" class="text-xs text-base-content/60"></p>
+              <p id="adv-hint-dv" class="text-xs text-slate-600/60"></p>
             </div>
             <div class="cx-field flex-1 min-w-0 w-full gap-2">
               <label class="cx-label-row py-0 pb-1.5" for="adv-select-api">
                 <span class="cx-label text-xs font-medium">Anunciante (API partner DV360)</span>
               </label>
-              <div id="dv360-adv-api-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
+              <div id="dv360-adv-api-loading" class="hidden flex items-center gap-2 text-xs text-slate-600/60" aria-live="polite">
                 <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
                 <span>A aguardar a API…</span>
               </div>
               <select id="adv-select-api" class="cx-select cx-select-sm w-full min-w-0">
                 <option value="">Carregando…</option>
               </select>
-              <p id="adv-hint-api" class="text-xs text-base-content/60"></p>
+              <p id="adv-hint-api" class="text-xs text-slate-600/60"></p>
             </div>
             <div class="flex flex-col sm:flex-row sm:flex-nowrap sm:items-end gap-3 w-full min-w-0">
-              <p id="adv-hint-source" class="text-xs text-base-content/55 sm:flex-1 order-2 sm:order-1 min-w-0 leading-snug">
+              <p id="adv-hint-source" class="text-xs text-slate-600/55 sm:flex-1 order-2 sm:order-1 min-w-0 leading-snug">
                 As campanhas usam o anunciante do select que alterar por último (com valor). Se não mexer nos dois, prioriza dv360_advertisers.
               </p>
               <div class="flex flex-wrap items-center gap-2 order-1 sm:order-2 shrink-0 w-full sm:w-auto justify-end">
@@ -97,7 +97,7 @@
         <summary class="text-sm font-medium py-3 px-4 cursor-pointer list-none">
           DV360 · Hierarquia, autenticação e relatórios
         </summary>
-        <div class="px-4 pb-4 text-xs text-base-content/80 space-y-2 !pb-4 pt-0">
+        <div class="px-4 pb-4 text-xs text-slate-600/80 space-y-2 !pb-4 pt-0">
           <p>
             <strong>Hierarquia:</strong> Campanha → Pedido de inserção (IO) → Line item. Orçamentos, pacing e grande parte do targeting aplicam-se ao IO/LI; a campanha agrupa objectivos.
           </p>
@@ -124,7 +124,7 @@
         <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
           <div class="cx-field w-full sm:w-auto sm:min-w-[220px]">
             <label class="cx-label-row py-0 pb-1" for="campaign-status-filter">
-              <span class="cx-label text-xs font-medium text-base-content/80">Estado na API (<code class="text-[11px]">entityStatus</code>)</span>
+              <span class="cx-label text-xs font-medium text-slate-600/80">Estado na API (<code class="text-[11px]">entityStatus</code>)</span>
             </label>
             <select id="campaign-status-filter" class="cx-select cx-select-sm w-full">
               <option value="">Todos os estados</option>
@@ -137,10 +137,10 @@
               <option value="ENTITY_STATUS_UNSPECIFIED">Não especificado</option>
             </select>
           </div>
-          <p id="campaign-filter-summary" class="text-xs text-base-content/65 leading-snug sm:flex-1 sm:pt-6 sm:pb-1 min-h-[2.25rem]" aria-live="polite"></p>
+          <p id="campaign-filter-summary" class="text-xs text-slate-600/65 leading-snug sm:flex-1 sm:pt-6 sm:pb-1 min-h-[2.25rem]" aria-live="polite"></p>
         </div>
       </div>
-      <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
+      <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table class="cx-table cx-table-dense">
           <thead>
             <tr>
@@ -152,21 +152,21 @@
           </thead>
           <tbody id="campaign-rows">
             <tr>
-              <td colspan="4" class="text-base-content/50 text-sm">Escolha um mapeamento (dv360_advertisers) ou um anunciante da API e carregue as campanhas.</td>
+              <td colspan="4" class="text-slate-600/50 text-sm">Escolha um mapeamento (dv360_advertisers) ou um anunciante da API e carregue as campanhas.</td>
             </tr>
           </tbody>
         </table>
-        <p class="text-xs text-base-content/50 px-3 py-2 border-t border-base-200 leading-snug">
+        <p class="text-xs text-slate-600/50 px-3 py-2 border-t border-gray-200 leading-snug">
           O filtro aplicado usa <code class="text-[11px]">entityStatus</code> na API DV360 (o resumo «Situação» pode combinar também datas de voo). Clique numa linha para abrir o detalhe na aba <strong>Detalhe</strong>.
         </p>
       </div>
     </div>
 
     <div id="panel-dv360-2" role="tabpanel" aria-labelledby="tab-dv360-2" class="dv360-tab-panel hidden p-4 sm:p-5 space-y-4" tabindex="-1" aria-hidden="true">
-      <div id="dv360-detail-empty" class="rounded-xl border border-dashed border-base-300 bg-base-200/25 min-h-[12rem] flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-        <i class="fa-regular fa-folder-open text-4xl text-base-content/30" aria-hidden="true"></i>
-        <p class="text-sm font-medium text-base-content/85 max-w-md">Nenhuma campanha em foco</p>
-        <p class="text-xs text-base-content/55 max-w-sm leading-relaxed">
+      <div id="dv360-detail-empty" class="rounded-xl border border-dashed border-gray-300 bg-gray-100/25 min-h-[12rem] flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+        <i class="fa-regular fa-folder-open text-4xl text-slate-600/30" aria-hidden="true"></i>
+        <p class="text-sm font-medium text-slate-600/85 max-w-md">Nenhuma campanha em foco</p>
+        <p class="text-xs text-slate-600/55 max-w-sm leading-relaxed">
           Na aba <strong>Cliente / anunciante</strong> carregue as campanhas; depois escolha uma linha na aba <strong>Campanhas</strong> para ver objectivos, geo, IO e line items aqui.
         </p>
         <button type="button" id="dv360-detail-empty-goto-list" class="cx-btn cx-btn-outline cx-btn-sm gap-2 mt-1">
@@ -178,10 +178,10 @@
       <div id="campaign-detail-wrap" class="hidden border border-slate-200 rounded-xl bg-white shadow-sm">
         <div class="p-5 space-y-3 py-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-base font-semibold text-base-content">Detalhe da campanha (DV360)</h2>
+            <h2 class="text-base font-semibold text-slate-800">Detalhe da campanha (DV360)</h2>
             <button type="button" id="campaign-detail-close" class="cx-btn cx-btn-ghost cx-btn-xs shrink-0">Fechar</button>
           </div>
-      <p id="campaign-detail-loading" class="hidden flex items-center gap-2 text-sm text-base-content/60" role="status">
+      <p id="campaign-detail-loading" class="hidden flex items-center gap-2 text-sm text-slate-600/60" role="status">
         <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
         <span>A aguardar a API…</span>
       </p>
@@ -189,21 +189,21 @@
       <div id="campaign-detail-body" class="hidden text-sm"></div>
       <details id="campaign-detail-json" class="hidden">
         <summary class="cursor-pointer text-xs text-primary font-medium">JSON completo (API)</summary>
-        <pre id="campaign-detail-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-80 whitespace-pre-wrap break-all"></pre>
+        <pre id="campaign-detail-pre" class="mt-2 text-xs bg-gray-100 p-3 rounded-lg overflow-auto max-h-80 whitespace-pre-wrap break-all"></pre>
       </details>
 
-      <div id="dv360-api-reports-wrap" class="mt-4 pt-4 border-t border-base-200">
-        <h3 class="text-sm font-semibold text-base-content">Relatórios e métricas (Google DV360 API)</h3>
-        <p class="text-xs text-base-content/60 mt-1 leading-snug">
+      <div id="dv360-api-reports-wrap" class="mt-4 pt-4 border-t border-gray-200">
+        <h3 class="text-sm font-semibold text-slate-800">Relatórios e métricas (Google DV360 API)</h3>
+        <p class="text-xs text-slate-600/60 mt-1 leading-snug">
           Dados abaixo vêm do mesmo pedido à API oficial <strong>Display&nbsp;&amp;&nbsp;Video&nbsp;360</strong> (<code class="text-xs">displayvideo.googleapis.com</code>) que o detalhe da campanha: objectivos comerciais, orçamentos, datas de voo e notas de entrega. Métricas de desempenho (impressões, cliques, CPA) no UI do DV360 / Query Tool ou em APIs de reporting com outro âmbito OAuth.
         </p>
-        <div id="dv360-api-reports-body" class="mt-3 text-sm rounded-lg border border-base-200 bg-base-200/30 p-3 space-y-2 hidden"></div>
-        <p id="dv360-api-reports-placeholder" class="mt-2 text-xs text-base-content/50">
+        <div id="dv360-api-reports-body" class="mt-3 text-sm rounded-lg border border-gray-200 bg-gray-100/30 p-3 space-y-2 hidden"></div>
+        <p id="dv360-api-reports-placeholder" class="mt-2 text-xs text-slate-600/50">
           Abra o detalhe de uma campanha para carregar os dados da API DV360 aqui.
         </p>
       </div>
 
-      <div id="dv360-campaign-metrics-wrap" class="mt-4 pt-4 border-t border-base-200">
+      <div id="dv360-campaign-metrics-wrap" class="mt-4 pt-4 border-t border-gray-200">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-sm font-semibold">Métricas registadas (dv360_campaigns)</h3>
           <button
@@ -220,7 +220,7 @@
           Esta campanha ainda não está mapeada em <code class="text-[11px]">dv360_campaigns</code>. Associe o
           <code class="text-[11px]">campaigns_id</code> na aba <strong>Acomp. PI (DV360)</strong>.
         </p>
-        <p id="dv360-metrics-source" class="text-xs text-base-content/55 mt-1"></p>
+        <p id="dv360-metrics-source" class="text-xs text-slate-600/55 mt-1"></p>
         <div class="mt-3 flex flex-wrap items-end gap-3">
           <div class="cx-field">
             <label class="cx-label-row py-0" for="dv360-report-start"><span class="cx-label text-xs text-xs">Início relatório</span></label>
@@ -240,7 +240,7 @@
             Guardar período
           </button>
         </div>
-        <p class="text-xs text-base-content/50 mt-1 max-w-prose">
+        <p class="text-xs text-slate-600/50 mt-1 max-w-prose">
           Período do relatório (DV360). Vazio ao guardar limpa o campo; no sync, se ambas as datas estiverem
           preenchidas aqui, enviam-se como override — caso contrário usa o período guardado, depois o voo da campanha, depois 30 dias.
         </p>
@@ -250,21 +250,21 @@
         </p>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-sm">
           <div>
-            <dt class="text-xs uppercase text-base-content/50">budget</dt>
+            <dt class="text-xs uppercase text-slate-600/50">budget</dt>
             <dd id="dv360-metrics-budget" class="mt-0.5">—</dd>
           </div>
           <div>
-            <dt class="text-xs uppercase text-base-content/50">spent</dt>
+            <dt class="text-xs uppercase text-slate-600/50">spent</dt>
             <dd id="dv360-metrics-spent" class="mt-0.5">—</dd>
           </div>
           <div>
-            <dt class="text-xs uppercase text-base-content/50">
-              kpi_goal <span id="dv360-metrics-kpi-type" class="text-base-content/40 font-normal normal-case"></span>
+            <dt class="text-xs uppercase text-slate-600/50">
+              kpi_goal <span id="dv360-metrics-kpi-type" class="text-slate-600/40 font-normal normal-case"></span>
             </dt>
             <dd id="dv360-metrics-kpi-goal" class="mt-0.5">—</dd>
           </div>
           <div>
-            <dt class="text-xs uppercase text-base-content/50">kpi_atual</dt>
+            <dt class="text-xs uppercase text-slate-600/50">kpi_atual</dt>
             <dd id="dv360-metrics-kpi-atual" class="mt-0.5">—</dd>
           </div>
         </div>
@@ -281,9 +281,9 @@
         <p id="dv360-metrics-msg" class="text-xs hidden mt-1" role="status"></p>
       </div>
 
-      <div id="dv360-hierarchy-wrap" class="mt-4 pt-4 border-t border-base-200">
-        <h3 class="text-sm font-semibold text-base-content">Pedidos de inserção e line items (esta campanha)</h3>
-        <p class="text-xs text-base-content/60 mt-1 leading-snug">
+      <div id="dv360-hierarchy-wrap" class="mt-4 pt-4 border-t border-gray-200">
+        <h3 class="text-sm font-semibold text-slate-800">Pedidos de inserção e line items (esta campanha)</h3>
+        <p class="text-xs text-slate-600/60 mt-1 leading-snug">
           Listagens via API com <code class="text-xs">filter=campaignId</code> (
           <code class="text-xs">advertisers.insertionOrders.list</code> /
           <code class="text-xs">advertisers.lineItems.list</code>
@@ -291,8 +291,8 @@
         </p>
         <div class="mt-3 space-y-5">
           <div>
-            <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/70">Pedidos de inserção</h4>
-            <p id="dv360-io-loading" class="hidden mt-2 flex items-center gap-2 text-xs text-base-content/60" role="status">
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-600/70">Pedidos de inserção</h4>
+            <p id="dv360-io-loading" class="hidden mt-2 flex items-center gap-2 text-xs text-slate-600/60" role="status">
               <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
               <span>A aguardar IO…</span>
             </p>
@@ -300,12 +300,12 @@
             <div id="dv360-io-table-wrap" class="mt-2 overflow-x-auto hidden"></div>
             <details id="dv360-io-json-details" class="mt-2 hidden">
               <summary class="cursor-pointer text-xs text-primary font-medium">JSON bruto (insertion orders)</summary>
-              <pre id="dv360-io-json-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
+              <pre id="dv360-io-json-pre" class="mt-2 text-xs bg-gray-100 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
             </details>
           </div>
           <div>
-            <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/70">Line items</h4>
-            <p id="dv360-li-loading" class="hidden mt-2 flex items-center gap-2 text-xs text-base-content/60" role="status">
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-600/70">Line items</h4>
+            <p id="dv360-li-loading" class="hidden mt-2 flex items-center gap-2 text-xs text-slate-600/60" role="status">
               <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
               <span>A aguardar line items…</span>
             </p>
@@ -313,15 +313,15 @@
             <div id="dv360-li-table-wrap" class="mt-2 overflow-x-auto hidden"></div>
             <details id="dv360-li-json-details" class="mt-2 hidden">
               <summary class="cursor-pointer text-xs text-primary font-medium">JSON bruto (line items)</summary>
-              <pre id="dv360-li-json-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
+              <pre id="dv360-li-json-pre" class="mt-2 text-xs bg-gray-100 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
             </details>
           </div>
         </div>
       </div>
 
-      <div id="dv360-daily-metrics-wrap" class="mt-4 pt-4 border-t border-base-200">
-        <h3 class="text-sm font-semibold text-base-content">Histórico diário (Bid Manager → dv360_campaign_metrics_daily)</h3>
-        <p class="text-xs text-base-content/60 mt-1 max-w-prose leading-snug">
+      <div id="dv360-daily-metrics-wrap" class="mt-4 pt-4 border-t border-gray-200">
+        <h3 class="text-sm font-semibold text-slate-800">Histórico diário (Bid Manager → dv360_campaign_metrics_daily)</h3>
+        <p class="text-xs text-slate-600/60 mt-1 max-w-prose leading-snug">
           Sincroniza gasto, impressões, CPM, cliques e CPC por dia. Requer scope OAuth Bid Manager. Os insertion orders devem estar na BD antes de gravar line items (aba <strong>Insertion orders</strong>).
         </p>
         <div class="mt-3 flex flex-wrap items-end gap-3">
@@ -343,7 +343,7 @@
           </button>
         </div>
         <p id="dv360-hist-msg" class="text-xs mt-2 hidden min-h-[1.25rem]" role="status"></p>
-        <div class="mt-4 rounded-lg border border-base-200 bg-base-200/20 p-3 max-h-[340px] relative">
+        <div class="mt-4 rounded-lg border border-gray-200 bg-gray-100/20 p-3 max-h-[340px] relative">
           <canvas id="dv360-hist-chart" aria-label="Gráfico métricas diárias DV360"></canvas>
         </div>
       </div>
@@ -353,7 +353,7 @@
 
     <div id="panel-dv360-3" role="tabpanel" aria-labelledby="tab-dv360-3" class="dv360-tab-panel hidden p-4 sm:p-5 space-y-4" tabindex="-1" aria-hidden="true">
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <p class="text-xs text-base-content/70 leading-snug flex-1 min-w-[12rem]">
+        <p class="text-xs text-slate-600/70 leading-snug flex-1 min-w-[12rem]">
           Campanhas PI com plataforma <strong>DV360</strong> (mesma lógica que Operação → Acompanhamento), com mapeamento <code class="text-[11px]">dv360_campaigns</code> (campaigns_id).
           <a href="{{ url_campanhas_pi_lista }}" class="text-[var(--cx-primary)] hover:underline">Abrir Acompanhamento completo</a>
         </p>
@@ -415,12 +415,12 @@
           <input type="search" id="acomp-dv360-search" class="cx-input cx-input-sm w-full" placeholder="Nome da campanha ou código PI…" autocomplete="off" />
         </div>
       </div>
-      <p id="acomp-dv360-loading" class="hidden text-sm text-base-content/60 flex items-center gap-2" role="status">
+      <p id="acomp-dv360-loading" class="hidden text-sm text-slate-600/60 flex items-center gap-2" role="status">
         <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
         <span>A carregar campanhas PI…</span>
       </p>
       <p id="acomp-dv360-error" class="hidden text-sm text-error"></p>
-      <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
+      <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table class="cx-table cx-table-dense text-xs">
           <thead>
             <tr>
@@ -437,23 +437,23 @@
             </tr>
           </thead>
           <tbody id="acomp-dv360-tbody">
-            <tr><td colspan="10" class="text-base-content/50">Carregue com o botão acima ou ao abrir esta aba.</td></tr>
+            <tr><td colspan="10" class="text-slate-600/50">Carregue com o botão acima ou ao abrir esta aba.</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-base-content/55"><span id="acomp-dv360-count">0</span> campanha(s) · plataforma DV360 apenas</p>
+      <p class="text-xs text-slate-600/55"><span id="acomp-dv360-count">0</span> campanha(s) · plataforma DV360 apenas</p>
     </div>
 
     <div id="panel-dv360-4" role="tabpanel" aria-labelledby="tab-dv360-4" class="dv360-tab-panel hidden p-4 sm:p-5 space-y-4" tabindex="-1" aria-hidden="true">
-      <div id="dv360-io-tab-empty" class="rounded-xl border border-dashed border-base-300 bg-base-200/25 min-h-[10rem] flex flex-col items-center justify-center gap-2 px-6 py-8 text-center">
-        <p class="text-sm font-medium text-base-content/85">Seleccione uma campanha na aba <strong>Campanhas</strong></p>
-        <p class="text-xs text-base-content/55 max-w-md">Abra o detalhe de uma campanha (linha na tabela) para activar esta aba, listar pedidos de inserção da API e sincronizar com <code class="text-[11px]">dv360_insertion_orders</code>.</p>
+      <div id="dv360-io-tab-empty" class="rounded-xl border border-dashed border-gray-300 bg-gray-100/25 min-h-[10rem] flex flex-col items-center justify-center gap-2 px-6 py-8 text-center">
+        <p class="text-sm font-medium text-slate-600/85">Seleccione uma campanha na aba <strong>Campanhas</strong></p>
+        <p class="text-xs text-slate-600/55 max-w-md">Abra o detalhe de uma campanha (linha na tabela) para activar esta aba, listar pedidos de inserção da API e sincronizar com <code class="text-[11px]">dv360_insertion_orders</code>.</p>
       </div>
       <div id="dv360-io-tab-content" class="hidden space-y-4">
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div class="min-w-0 flex-1 space-y-1">
-            <h2 class="text-base font-semibold text-base-content">Insertion orders (campanha em foco)</h2>
-            <p id="dv360-io-tab-campaign-title" class="text-sm text-base-content/80 truncate" title=""></p>
+            <h2 class="text-base font-semibold text-slate-800">Insertion orders (campanha em foco)</h2>
+            <p id="dv360-io-tab-campaign-title" class="text-sm text-slate-600/80 truncate" title=""></p>
             <div class="flex flex-wrap gap-2 text-xs">
               <span class="cx-badge cx-badge-muted font-mono">campaign_id: <span id="dv360-io-tab-campaign-id-chip"></span></span>
               <span class="cx-badge cx-badge-muted font-mono">advertiser_id: <span id="dv360-io-tab-advertiser-chip"></span></span>
@@ -474,18 +474,18 @@
             </button>
           </div>
         </div>
-        <p id="dv360-io-tab-loading" class="hidden flex items-center gap-2 text-sm text-base-content/60" role="status">
+        <p id="dv360-io-tab-loading" class="hidden flex items-center gap-2 text-sm text-slate-600/60" role="status">
           <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
           <span>A aguardar insertion orders…</span>
         </p>
         <p id="dv360-io-tab-error" class="hidden text-sm text-error"></p>
-        <p id="dv360-io-tab-source" class="text-xs text-base-content/55 min-h-[1.25rem] hidden" role="status"></p>
+        <p id="dv360-io-tab-source" class="text-xs text-slate-600/55 min-h-[1.25rem] hidden" role="status"></p>
         <p id="dv360-io-sync-msg" class="hidden text-sm min-h-[1.25rem]" role="status"></p>
         <div id="dv360-io-sync-warn" class="hidden cx-alert cx-alert-warning text-sm py-2">
           <span id="dv360-io-sync-warn-text"></span>
           <button type="button" id="btn-dv360-io-goto-acomp" class="cx-btn cx-btn-ghost cx-btn-xs ml-2">Ir para Acomp. PI (DV360)</button>
         </div>
-        <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
+        <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table class="cx-table cx-table-dense w-full text-xs">
             <thead>
               <tr>
@@ -499,13 +499,13 @@
               </tr>
             </thead>
             <tbody id="dv360-io-tab-body">
-              <tr><td colspan="7" class="text-base-content/50">Carregue após seleccionar uma campanha.</td></tr>
+              <tr><td colspan="7" class="text-slate-600/50">Carregue após seleccionar uma campanha.</td></tr>
             </tbody>
           </table>
         </div>
-        <div id="dv360-io-sync-summary" class="hidden rounded-lg border border-base-200 bg-base-200/30 p-3 text-sm space-y-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Última sincronização</p>
-          <p class="text-base-content">
+        <div id="dv360-io-sync-summary" class="hidden rounded-lg border border-gray-200 bg-gray-100/30 p-3 text-sm space-y-1">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-600/60">Última sincronização</p>
+          <p class="text-slate-800">
             Criados: <strong id="dv360-io-sync-created">0</strong>
             · Actualizados: <strong id="dv360-io-sync-updated">0</strong>
             · Total API: <strong id="dv360-io-sync-total-api">0</strong>
@@ -514,7 +514,7 @@
         </div>
         <details id="dv360-io-tab-json-details" class="hidden">
           <summary class="cursor-pointer text-xs text-primary font-medium">JSON bruto (insertion orders)</summary>
-          <pre id="dv360-io-tab-json-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
+          <pre id="dv360-io-tab-json-pre" class="mt-2 text-xs bg-gray-100 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
         </details>
       </div>
     </div>
@@ -522,8 +522,8 @@
 
   <dialog id="modal-dv-cliente-mapping" class="cx-modal-shell">
     <div class="cx-modal-panel cx-modal-panel-md">
-      <h3 class="font-semibold text-base text-base-content">Novo mapeamento dv360_advertisers</h3>
-      <p class="text-xs text-base-content/60 mt-1">Associa um cliente a um ID de anunciante no DV360.</p>
+      <h3 class="font-semibold text-base text-slate-800">Novo mapeamento dv360_advertisers</h3>
+      <p class="text-xs text-slate-600/60 mt-1">Associa um cliente a um ID de anunciante no DV360.</p>
       <form id="form-dv-cliente-mapping" class="flex flex-col gap-3 mt-4">
         <div class="cx-field w-full">
           <label class="cx-label-row py-0 pb-1" for="modal-dv-cliente-id"><span class="cx-label text-xs font-medium">Cliente</span></label>
@@ -547,8 +547,8 @@
 
   <dialog id="modal-pi-id-api" class="cx-modal-shell">
     <div class="cx-modal-panel cx-modal-panel-md">
-      <h3 class="font-semibold text-base text-base-content">Associar campaigns_id DV360 à campanha PI</h3>
-      <p class="text-xs text-base-content/60 mt-1">
+      <h3 class="font-semibold text-base text-slate-800">Associar campaigns_id DV360 à campanha PI</h3>
+      <p class="text-xs text-slate-600/60 mt-1">
         A lista é a <strong>mesma</strong> da aba <strong>Acompanhamento PI (DV360)</strong>: campanhas com plataforma DV360 e os filtros actuais (mês, status, executivo{% if is_dv_acompanhamento_admin %}, cliente{% endif %}). O valor gravado em <strong>dv360_campaigns</strong> (<strong>campaigns_id</strong>) é único globalmente.
       </p>
       <form id="form-pi-id-api" class="flex flex-col gap-3 mt-4">

@@ -436,7 +436,7 @@ select.cx-select:focus {
               <div class="flex-1">
                 <h3 class="font-semibold text-sm mb-1 text-[#1e4d4f] hover:underline">{{ audiencia.nome }}</h3>
                 <code class="text-xs bg-slate-100 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
-                <div class="text-xs text-base-content/50 mt-1">Toque para ver/editar</div>
+                <div class="text-xs text-slate-600/50 mt-1">Toque para ver/editar</div>
               </div>
               <span class="cx-badge ml-2">{{ audiencia.fonte }}</span>
             </div>
@@ -456,7 +456,7 @@ select.cx-select:focus {
               {% if audiencia.cpm_custo %}
                 <span class="font-mono font-medium">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
               {% else %}
-                <span class="text-base-content/40 italic">-</span>
+                <span class="text-slate-600/40 italic">-</span>
               {% endif %}
             </div>
             <div class="flex justify-between">
@@ -464,7 +464,7 @@ select.cx-select:focus {
               {% if audiencia.cpm_venda %}
                 <span class="font-mono font-medium">R$ {{ "%.2f"|format(audiencia.cpm_venda) }}</span>
               {% else %}
-                <span class="text-base-content/40 italic">-</span>
+                <span class="text-slate-600/40 italic">-</span>
               {% endif %}
             </div>
             <div class="flex justify-between">
@@ -1698,11 +1698,11 @@ document.addEventListener('DOMContentLoaded', function() {
           </label>
           
           <!-- Container com aspect ratio 16:9 - REDUZIDO -->
-          <div class="w-full bg-slate-100 rounded-lg border-2 border-base-300 flex items-center justify-center overflow-hidden relative" id="preview-container" style="aspect-ratio: 16/9; min-height: 180px; max-height: 220px;">
+          <div class="w-full bg-slate-100 rounded-lg border-2 border-gray-300 flex items-center justify-center overflow-hidden relative" id="preview-container" style="aspect-ratio: 16/9; min-height: 180px; max-height: 220px;">
             
             <!-- Estado Inicial -->
             <div id="preview-vazio" class="text-center p-4 absolute inset-0 flex flex-col items-center justify-center">
-              <i class="fas fa-image text-2xl text-base-content/40 mb-1 block"></i>
+              <i class="fas fa-image text-2xl text-slate-600/40 mb-1 block"></i>
               <p class="text-xs text-slate-500">A imagem aparecerá aqui após a geração</p>
             </div>
             

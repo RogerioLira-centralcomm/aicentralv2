@@ -3396,3 +3396,94 @@ html body select.crm-consolidadas-select option {
     text-align: center;
     padding: 0.375rem 0;
 }
+
+/* Enterprise: export menu (substitui dropdown Daisy) */
+.crm-export-menu {
+    position: relative;
+}
+.crm-export-menu > summary {
+    list-style: none;
+    cursor: pointer;
+}
+.crm-export-menu > summary::-webkit-details-marker {
+    display: none;
+}
+.crm-export-menu-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    z-index: 30;
+    min-width: 15rem;
+    background: #fff;
+    border: 1px solid var(--cx-border, #e2e8f0);
+    border-radius: 0.5rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    padding: 0.35rem 0;
+}
+.crm-export-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.6875rem;
+    color: #334155;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+.crm-export-menu-item:hover {
+    background: var(--cx-surface-muted, #f8fafc);
+}
+.crm-export-menu-title {
+    margin: 0.35rem 0.75rem 0.15rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.crm-header .crm-btn-novo svg {
+    width: 0.625rem;
+    height: 0.625rem;
+    color: currentColor;
+}
+.crm-modal-panel-dense {
+    max-width: 42rem;
+}
+.crm-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--cx-border, #e2e8f0);
+    padding: 0 1rem;
+}
+.crm-tab {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.8125rem;
+    color: #64748b;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+.crm-tab-active {
+    color: var(--cx-brand, #1e4d4f);
+    border-bottom-color: var(--cx-brand, #1e4d4f);
+    font-weight: 600;
+}
+.crm-radio-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+}
+.crm-radio {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+.crm-checkbox-xs {
+    width: 0.875rem;
+    height: 0.875rem;
+}

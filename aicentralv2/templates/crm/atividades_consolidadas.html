@@ -3,19 +3,19 @@
 {% block page_subtitle %}Clientes, propostas e relacionamento{% endblock %}
 {% block title %}Atividades consolidadas — CRM{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=5">
 <div class="crm-consolidadas-toolbar flex flex-wrap items-center gap-3 mb-4">
     <a href="{{ url_for('crm.index') }}" class="crm-back-comercial" id="crm-ac-back">← CRM</a>
     <h1 class="text-xl font-bold">Atividades</h1>
-    <select id="crm-ac-exec" name="executivo" class="crm-consolidadas-select" aria-label="Filtrar por executivo">
+    <select id="crm-ac-exec" name="executivo" class="cx-select cx-select-sm crm-consolidadas-select" aria-label="Filtrar por executivo">
         <option value="">Todos os executivos</option>
         {% for ex in executivos %}
         <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
         {% endfor %}
     </select>
 </div>
-<div class="overflow-x-auto border border-base-300 rounded-lg">
-    <table class="table table-sm table-zebra w-full">
+<div class="cx-table-wrap border border-slate-200 rounded-lg overflow-hidden">
+    <table class="cx-table cx-table-dense w-full">
         <thead>
             <tr>
                 <th>Cliente</th>
@@ -30,7 +30,7 @@
         <tbody id="crm-ac-tbody"></tbody>
     </table>
 </div>
-<p class="text-xs opacity-60 mt-2" id="crm-ac-msg"></p>
+<p class="text-xs text-slate-500 mt-2" id="crm-ac-msg"></p>
 <script>
 (function () {
     const BASE = '/crm';
@@ -49,35 +49,36 @@
     if (pre && [...sel.options].some(o => o.value === pre)) sel.value = pre;
 
     async function load() {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="loading loading-spinner"></span></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><span class="cx-spinner cx-spinner-sm"></span></td></tr>';
         const p = new URLSearchParams();
         if (sel.value) p.set('executivo_id', sel.value);
         const r = await fetch(BASE + '/api/atividades-consolidadas?' + p, { credentials: 'same-origin' });
         const d = await r.json();
         if (!d.success) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-error text-sm">' + (d.error || 'Erro') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-[var(--cx-danger)] text-sm">' + (d.error || 'Erro') + '</td></tr>';
             return;
         }
         msg.textContent = d.atividades.length >= 500 ? 'Mostrando até 500 registros.' : '';
         if (!d.atividades.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center opacity-50">Nenhuma atividade.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-400">Nenhuma atividade.</td></tr>';
             return;
         }
         tbody.innerHTML = d.atividades.map(a => {
             const tit = (a.titulo || a.descricao || '').replace(/</g, '&lt;');
-            const desc = a.titulo && a.descricao ? `<div class="text-xs opacity-60">${String(a.descricao).replace(/</g, '&lt;')}</div>` : '';
+            const desc = a.titulo && a.descricao ? `<div class="text-xs text-slate-500">${String(a.descricao).replace(/</g, '&lt;')}</div>` : '';
             const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
             return `<tr>
-                <td class="whitespace-nowrap max-w-[10rem] truncate">${(a.cliente_nome || '—').replace(/</g, '&lt;')}</td>
-                <td class="max-w-xs"><span class="font-medium text-sm">${tit}</span>${desc}</td>
-                <td>${fmt(a.data_atividade)}</td>
-                <td>${fmt(a.data_prazo)}</td>
-                <td><span class="badge badge-xs">${a.status}</span></td>
-                <td class="text-xs max-w-[6rem] truncate">${(a.executivo_nome || '—').replace(/</g, '&lt;')}</td>
-                <td><a class="btn btn-xs btn-ghost" href="${BASE}/">Abrir</a></td>
+                <td>${(a.cliente_nome || '—').replace(/</g, '&lt;')}</td>
+                <td><div class="font-medium">${tit}</div>${desc}</td>
+                <td>${fmt(a.data_criacao)}</td>
+                <td>${fmt(a.prazo)}</td>
+                <td><span class="cx-badge cx-badge-xs cx-badge-muted">${(a.status || '—').replace(/</g, '&lt;')}</span></td>
+                <td>${(a.responsavel_nome || '—').replace(/</g, '&lt;')}</td>
+                <td></td>
             </tr>`;
         }).join('');
     }
+
     sel.addEventListener('change', () => { syncBackHref(); load(); });
     syncBackHref();
     load();

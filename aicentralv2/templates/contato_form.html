@@ -1,63 +1,60 @@
-{% extends 'base_tailwind.html' %}
+{% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
+{% block page_label %}CRM{% endblock %}
+{% block page_subtitle %}Contatos{% endblock %}
 
 {% block title %}{% if contato %}Editar{% else %}Novo{% endif %} Contato - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto bg-base-100 rounded-xl shadow-lg p-4">
+<div class="max-w-2xl mx-auto cx-card bg-white border border-slate-200 shadow-sm p-4">
   <div class="mb-3">
     <h2 class="text-lg font-semibold">{% if contato %}Editar Contato{% else %}Novo Contato{% endif %}</h2>
-    <p class="text-base-content/70 text-sm">Preencha os dados abaixo para {% if contato %}editar{% else %}cadastrar{% endif %} um contato.</p>
+    <p class="text-slate-600 text-sm">Preencha os dados abaixo para {% if contato %}editar{% else %}cadastrar{% endif %} um contato.</p>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-4 space-y-2">
-        {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %} text-sm">
-            <span>{{ message }}</span>
-          </div>
-        {% endfor %}
-      </div>
+      <div class="mb-4">{{ flash_messages(messages) }}</div>
     {% endif %}
   {% endwith %}
 
   <form method="POST" autocomplete="off" class="space-y-2" onsubmit="console.log('SUBMIT - Cliente:', document.getElementById('cliente_select').value, 'Setor:', document.getElementById('setor_select').value, 'Cargo:', document.getElementById('cargo_select').value);">
     <!-- Informações Pessoais -->
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Nome Completo <span class="text-error">*</span></span>
       </label>
       <input 
         type="text" 
         name="nome_completo" 
         value="{{ contato.nome_completo if contato else '' }}"
-        class="input input-bordered w-full" 
+        class="cx-input cx-input-sm w-full" 
         required
         placeholder="Digite o nome completo"
         autocomplete="off"
       >
     </div>
 
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Email <span class="text-error">*</span></span>
       </label>
       <input 
         type="email" 
         name="email" 
         value="{{ contato.email if contato else '' }}"
-        class="input input-bordered w-full" 
+        class="cx-input cx-input-sm w-full" 
         required
         placeholder="exemplo@email.com"
         autocomplete="off"
       >
-      <label class="label">
-        <span class="label-text-alt text-base-content/60">Será usado para login</span>
+      <label class="cx-label-row">
+        <span class="cx-help text-slate-500">Será usado para login</span>
       </label>
     </div>
 
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Telefone</span>
       </label>
       <input 
@@ -65,24 +62,24 @@
         name="telefone" 
         id="telefone"
         value="{{ contato.telefone if contato else '' }}"
-        class="input input-bordered w-full" 
+        class="cx-input cx-input-sm w-full" 
         placeholder="(00) 00000-0000"
         maxlength="15"
         autocomplete="off"
       >
     </div>
 
-    <div class="divider text-sm">Organização</div>
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mt-4 mb-2">Organização</div>
 
     <!-- Setor -->
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Setor <span class="text-error">*</span></span>
       </label>
       <select 
         name="pk_id_aux_setor" 
         id="setor_select"
-        class="select select-bordered w-full"
+        class="cx-select cx-select-sm w-full"
         required
       >
         <option value="">Selecione um setor</option>
@@ -93,20 +90,20 @@
           </option>
         {% endfor %}
       </select>
-      <label class="label">
-        <span class="label-text-alt text-base-content/60">Selecione o setor primeiro</span>
+      <label class="cx-label-row">
+        <span class="cx-help text-slate-500">Selecione o setor primeiro</span>
       </label>
     </div>
 
     <!-- Cargo -->
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Cargo <span class="text-error">*</span></span>
       </label>
       <select 
         name="pk_id_tbl_cargo" 
         id="cargo_select"
-        class="select select-bordered w-full"
+        class="cx-select cx-select-sm w-full"
         required
       >
         <option value="">Selecione um cargo</option>
@@ -118,22 +115,22 @@
           </option>
         {% endfor %}
       </select>
-      <label class="label">
-        <span class="label-text-alt text-base-content/60">Depende do setor selecionado</span>
+      <label class="cx-label-row">
+        <span class="cx-help text-slate-500">Depende do setor selecionado</span>
       </label>
     </div>
 
-    <div class="divider text-sm">Cliente</div>
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mt-4 mb-2">Cliente</div>
 
     <!-- Cliente -->
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Cliente <span class="text-error">*</span></span>
       </label>
       <select 
         name="pk_id_tbl_cliente" 
         id="cliente_select"
-        class="select select-bordered w-full"
+        class="cx-select cx-select-sm w-full"
         required
       >
         <option value="">Selecione um cliente</option>
@@ -146,56 +143,56 @@
       </select>
     </div>
 
-    <div class="divider text-sm">Acesso</div>
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mt-4 mb-2">Acesso</div>
 
     <!-- Senha (apenas para novo contato) -->
     {% if not contato %}
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Senha <span class="text-error">*</span></span>
       </label>
       <input 
         type="password" 
         name="senha" 
-        class="input input-bordered w-full" 
+        class="cx-input cx-input-sm w-full" 
         required
         placeholder="Digite a senha"
         minlength="6"
         autocomplete="new-password"
       >
-      <label class="label">
-        <span class="label-text-alt text-base-content/60">Mínimo de 6 caracteres</span>
+      <label class="cx-label-row">
+        <span class="cx-help text-slate-500">Mínimo de 6 caracteres</span>
       </label>
     </div>
     {% else %}
     <!-- Nova Senha (opcional para edição) -->
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Nova Senha (opcional)</span>
       </label>
       <input 
         type="password" 
         name="nova_senha" 
-        class="input input-bordered w-full" 
+        class="cx-input cx-input-sm w-full" 
         placeholder="Digite a nova senha"
         minlength="6"
         autocomplete="new-password"
       >
-      <label class="label">
-        <span class="label-text-alt text-base-content/60">Deixe em branco para manter a senha atual</span>
+      <label class="cx-label-row">
+        <span class="cx-help text-slate-500">Deixe em branco para manter a senha atual</span>
       </label>
     </div>
     {% endif %}
 
     <!-- Tipo de Usuário -->
     {% if session.user_type in ['admin', 'superadmin'] %}
-    <div class="form-control">
-      <label class="label font-semibold text-sm">
+    <div class="cx-field">
+      <label class="cx-label font-semibold text-sm">
         <span>Tipo de Usuário</span>
       </label>
       <select 
         name="chk_user_type" 
-        class="select select-bordered w-full"
+        class="cx-select cx-select-sm w-full"
       >
         <option value="client" {% if contato and contato.user_type == 'client' %}selected{% elif not contato %}selected{% endif %}>client</option>
         <option value="readonly" {% if contato and contato.user_type == 'readonly' %}selected{% endif %}>readonly</option>
@@ -204,19 +201,19 @@
         <option value="superadmin" {% if contato and contato.user_type == 'superadmin' %}selected{% endif %}>superadmin</option>
         {% endif %}
       </select>
-      <label class="label">
-        <span class="label-text-alt text-base-content/60">Define o nível de acesso do usuário</span>
+      <label class="cx-label-row">
+        <span class="cx-help text-slate-500">Define o nível de acesso do usuário</span>
       </label>
     </div>
     {% endif %}
 
     <!-- Ações -->
     <div class="flex gap-2 pt-4">
-      <button type="submit" class="btn btn-primary flex-1">
+      <button type="submit" class="cx-btn cx-btn-primary flex-1">
         <i class="fas fa-save mr-2"></i>
         {% if contato %}Atualizar{% else %}Cadastrar{% endif %}
       </button>
-      <a href="{{ url_for('contatos') }}" class="btn btn-ghost">
+      <a href="{{ url_for('contatos') }}" class="cx-btn cx-btn-secondary">
         <i class="fas fa-times mr-2"></i>
         Cancelar
       </a>

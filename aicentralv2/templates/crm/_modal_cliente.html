@@ -1,5 +1,5 @@
-<dialog id="crm-modal-cliente" class="modal modal-cliente-dialog">
-  <div class="modal-box modal-cliente-box w-full max-w-2xl bg-white p-0 rounded-lg">
+<dialog id="crm-modal-cliente" class="cx-modal-shell modal-cliente-dialog">
+  <div class="cx-modal-panel crm-modal-panel-dense modal-cliente-box w-full max-w-2xl bg-white p-0 rounded-lg">
     <div class="flex items-center justify-between px-2 py-1.5 border-b border-gray-200 bg-gray-50">
       <h3 class="font-semibold text-[11px] text-gray-800" id="crm-cliente-modal-title">Novo Cliente</h3>
       <button type="button" id="crm-cliente-close" class="p-0.5 hover:bg-gray-200 rounded transition-colors text-gray-500 text-sm" aria-label="Fechar">×</button>
@@ -11,7 +11,7 @@
         
         <!-- Linha 1: Pessoa + CNPJ + Nome -->
         <div class="grid grid-cols-6 gap-1.5 mb-1.5">
-          <div id="crm-status-fields" class="form-control col-span-1 hidden">
+          <div id="crm-status-fields" class="cx-field col-span-1 hidden">
             <label class="text-[9px] font-medium text-gray-500">Status</label>
             <div class="flex">
               <label class="crm-status-toggle cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-l text-[9px] font-medium border-green-500 bg-green-50 text-green-700" data-status="1">
@@ -22,7 +22,7 @@
               </label>
             </div>
           </div>
-          <div class="form-control col-span-1">
+          <div class="cx-field col-span-1">
             <label class="text-[9px] font-medium text-gray-500">Pessoa*</label>
             <div class="flex">
               <label class="crm-pessoa-toggle cursor-pointer flex items-center justify-center px-1.5 py-0.5 border rounded-l text-[9px] font-medium border-green-500 bg-green-50 text-green-700" data-pessoa="J">
@@ -33,11 +33,11 @@
               </label>
             </div>
           </div>
-          <div class="form-control col-span-2">
+          <div class="cx-field col-span-2">
             <label id="crm-label-cnpj" class="text-[9px] font-medium text-gray-500">CNPJ</label>
             <input id="crm-input-cnpj" name="cnpj" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00.000.000/0000-00" maxlength="18">
           </div>
-          <div class="form-control col-span-3">
+          <div class="cx-field col-span-3">
             <label id="crm-label-nome" class="text-[9px] font-medium text-gray-500">Nome Fantasia*</label>
             <input id="crm-input-nome" name="nome_fantasia" required class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
           </div>
@@ -51,14 +51,14 @@
 
         <!-- Linha 3: Tipo + Classificação + Executivo -->
         <div class="grid grid-cols-3 gap-1.5 mb-1.5">
-          <div id="crm-tipo-cliente-fields" class="form-control">
+          <div id="crm-tipo-cliente-fields" class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Tipo*</label>
             <select id="crm-select-tipo-cliente" name="id_tipo_cliente" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for tipo in tipos_cliente %}<option value="{{ tipo.id_tipo_cliente }}" data-parceiro="{% if 'parceiro' in (tipo.display or '')|lower %}1{% else %}0{% endif %}">{{ tipo.display }}</option>{% endfor %}
             </select>
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Classificação</label>
             <select id="crm-classificacao-cliente" name="classificacao_cliente" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="Prospecção" selected>Prospecção</option>
@@ -66,7 +66,7 @@
               <option value="Geladeira">Geladeira</option>
             </select>
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Executivo*</label>
             <select id="crm-cliente-vendedor" name="vendas_central_comm" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -77,26 +77,26 @@
 
         <!-- Linha 4: Agência + BV + Margem + IE + IM -->
         <div class="grid grid-cols-5 gap-1.5 mb-1.5">
-          <div id="crm-agencia-fields" class="form-control">
+          <div id="crm-agencia-fields" class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Perfil agência*</label>
             <select id="crm-cliente-agencia" name="pk_id_tbl_agencia" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for agencia in agencias %}<option value="{{ agencia.id_agencia }}" data-agencia-sim="{% if agencia.key %}1{% else %}0{% endif %}">{{ agencia.display }}</option>{% endfor %}
             </select>
           </div>
-          <div id="crm-percentual-fields" class="form-control">
+          <div id="crm-percentual-fields" class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Fee (%)</label>
             <input id="crm-cliente-percentual" name="fee" type="text" maxlength="5" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0,00">
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Margem (%)</label>
             <input name="margem_cc" type="text" inputmode="numeric" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0">
           </div>
-          <div id="crm-inscricoes-fields" class="form-control">
+          <div id="crm-inscricoes-fields" class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">IE</label>
             <input name="inscricao_estadual" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Insc. Estadual">
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">IM</label>
             <input name="inscricao_municipal" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Insc. Municipal">
           </div>
@@ -104,28 +104,28 @@
 
         <!-- Linha 5: Campos comerciais -->
         <div class="grid grid-cols-4 gap-1.5 mb-1.5">
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Opera mídia?</label>
             <select name="opera_midia" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="0" selected>Não</option>
               <option value="1">Sim</option>
             </select>
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Demanda dados?</label>
             <select name="demanda_dados" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="0" selected>Não</option>
               <option value="1">Sim</option>
             </select>
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Programática?</label>
             <select name="demanda_programatica_canais" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="0" selected>Não</option>
               <option value="1">Sim</option>
             </select>
           </div>
-          <div class="form-control">
+          <div class="cx-field">
             <label class="text-[9px] font-medium text-gray-500">Observações</label>
             <input name="observacoes_comerciais_adicionais" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Obs. comerciais">
           </div>
@@ -147,36 +147,36 @@
         <!-- Linha 6: Endereço -->
         <div class="border-t border-gray-100 pt-1.5">
           <div class="grid grid-cols-6 gap-1.5 mb-1.5">
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[9px] font-medium text-gray-500">CEP</label>
               <input id="crm-cliente-cep" name="cep" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00000-000">
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[9px] font-medium text-gray-500">UF</label>
               <select id="crm-cliente-estado" name="pk_id_aux_estado" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
                 <option value="">-</option>
                 {% for estado in estados %}<option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>{% endfor %}
               </select>
             </div>
-            <div class="form-control col-span-2">
+            <div class="cx-field col-span-2">
               <label class="text-[9px] font-medium text-gray-500">Cidade</label>
               <input id="crm-cliente-cidade" name="cidade" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
             </div>
-            <div class="form-control col-span-2">
+            <div class="cx-field col-span-2">
               <label class="text-[9px] font-medium text-gray-500">Bairro</label>
               <input id="crm-cliente-bairro" name="bairro" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
             </div>
           </div>
           <div class="grid grid-cols-6 gap-1.5">
-            <div class="form-control col-span-3">
+            <div class="cx-field col-span-3">
               <label class="text-[9px] font-medium text-gray-500">Logradouro</label>
               <input id="crm-cliente-logradouro" name="logradouro" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
             </div>
-            <div class="form-control">
+            <div class="cx-field">
               <label class="text-[9px] font-medium text-gray-500">Nº</label>
               <input name="numero" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
             </div>
-            <div class="form-control col-span-2">
+            <div class="cx-field col-span-2">
               <label class="text-[9px] font-medium text-gray-500">Complemento</label>
               <input name="complemento" class="w-full px-1.5 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
             </div>

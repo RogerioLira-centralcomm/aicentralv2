@@ -3,19 +3,19 @@
 {% block page_subtitle %}Clientes, propostas e relacionamento{% endblock %}
 {% block title %}Objetivos consolidados — CRM{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm.css') }}?v=5">
 <div class="crm-consolidadas-toolbar flex flex-wrap items-center gap-3 mb-4">
     <a href="{{ url_for('crm.index') }}" class="crm-back-comercial" id="crm-oc-back">← CRM</a>
     <h1 class="text-xl font-bold">Objetivos</h1>
-    <select id="crm-oc-exec" name="executivo" class="crm-consolidadas-select" aria-label="Filtrar por executivo">
+    <select id="crm-oc-exec" name="executivo" class="cx-select cx-select-sm crm-consolidadas-select" aria-label="Filtrar por executivo">
         <option value="">Todos os executivos</option>
         {% for ex in executivos %}
         <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
         {% endfor %}
     </select>
 </div>
-<div class="overflow-x-auto border border-base-300 rounded-lg">
-    <table class="table table-sm table-zebra w-full">
+<div class="cx-table-wrap border border-slate-200 rounded-lg overflow-hidden">
+    <table class="cx-table cx-table-dense w-full">
         <thead>
             <tr>
                 <th>Cliente</th>
@@ -29,7 +29,7 @@
         <tbody id="crm-oc-tbody"></tbody>
     </table>
 </div>
-<p class="text-xs opacity-60 mt-2" id="crm-oc-msg"></p>
+<p class="text-xs text-slate-500 mt-2" id="crm-oc-msg"></p>
 <script>
 (function () {
     const BASE = '/crm';
@@ -48,30 +48,30 @@
     if (pre && [...sel.options].some(o => o.value === pre)) sel.value = pre;
 
     async function load() {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center"><span class="loading loading-spinner"></span></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><span class="cx-spinner cx-spinner-sm"></span></td></tr>';
         const p = new URLSearchParams();
         if (sel.value) p.set('executivo_id', sel.value);
         const r = await fetch(BASE + '/api/objetivos-consolidadas?' + p, { credentials: 'same-origin' });
         const d = await r.json();
         if (!d.success) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-error text-sm">' + (d.error || 'Erro') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-[var(--cx-danger)] text-sm">' + (d.error || 'Erro') + '</td></tr>';
             return;
         }
         msg.textContent = d.objetivos.length >= 500 ? 'Mostrando até 500 registros.' : '';
         if (!d.objetivos.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center opacity-50">Nenhum objetivo.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400">Nenhum objetivo.</td></tr>';
             return;
         }
         tbody.innerHTML = d.objetivos.map(o => {
             const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
-            const st = o.conquistado ? '<span class="badge badge-xs badge-success">Conquistado</span>' : '<span class="badge badge-xs badge-warning">Ativo</span>';
+            const st = o.conquistado ? '<span class="cx-badge cx-badge-xs cx-badge-success">Conquistado</span>' : '<span class="cx-badge cx-badge-xs cx-badge-warning">Ativo</span>';
             return `<tr>
                 <td class="whitespace-nowrap max-w-[10rem] truncate">${(o.cliente_nome || '—').replace(/</g, '&lt;')}</td>
                 <td class="max-w-md">${String(o.texto || '').replace(/</g, '&lt;')}</td>
                 <td>${fmt(o.data_prazo)}</td>
                 <td>${st}</td>
                 <td class="text-xs max-w-[6rem] truncate">${(o.executivo_nome || '—').replace(/</g, '&lt;')}</td>
-                <td><a class="btn btn-xs btn-ghost" href="${BASE}/">Abrir</a></td>
+                <td><a class="cx-btn cx-btn-xs cx-btn-ghost" href="${BASE}/">Abrir</a></td>
             </tr>`;
         }).join('');
     }

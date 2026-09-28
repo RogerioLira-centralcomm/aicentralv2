@@ -81,14 +81,13 @@ else
   # Tailwind artifact build while still rebuilding the shared shell and chat.
   echo "[INFO] Gerando bundles necessários do Workspace..."
   npm run build:vanilla
-  npm run build:legacy
   npm run build:conversations
   npm run build:reports
 fi
 
-if [ -f "aicentralv2/static/css/tailwind/output.css" ] && [ -f "aicentralv2/static/css/tailwind/output-legacy.css" ]; then
-  echo "[OK] Bundles vanilla e legado gerados com sucesso."
+if [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
+    echo "[OK] Bundle vanilla gerado com sucesso."
 else
-  echo "[ERRO] Falha ao gerar um dos bundles CSS."
+  echo "[ERRO] Falha ao gerar output.css."
   exit 1
 fi

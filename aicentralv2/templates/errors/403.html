@@ -1,18 +1,20 @@
-{% extends 'base_tailwind.html' %}
-
+{% extends 'base_erp.html' %}
+{% block page_label %}Acesso{% endblock %}
+{% block page_subtitle %}Permissões{% endblock %}
 {% block title %}403 - Acesso negado{% endblock %}
 
 {% block content %}
-<div class="min-h-[60vh] flex items-center justify-center p-6">
+<div class="min-h-[50vh] flex items-center justify-center p-6">
   <div class="text-center max-w-lg">
-    <div class="text-7xl mb-2">🚫</div>
-    <div class="text-6xl font-extrabold text-warning">403</div>
-    <h1 class="text-2xl font-semibold mt-4">Acesso negado</h1>
-    <p class="mt-2 opacity-70">Você não tem permissão para acessar esta página.</p>
+    <div class="text-5xl mb-2" aria-hidden="true">🚫</div>
+    <div class="text-5xl font-extrabold text-[var(--cx-warning,#d97706)]">403</div>
+    <h1 class="text-2xl font-semibold mt-4 text-slate-900">Acesso negado</h1>
+    <p class="mt-2 text-slate-600">Você não tem permissão para acessar esta página.</p>
     <div class="mt-6">
-      <a class="btn btn-primary" href="{{ url_for('index') }}">
-        <i class="fas fa-home mr-2"></i> Voltar para Início
+      <a class="cx-btn cx-btn-primary" href="{{ url_for('index') }}">
+        <i class="fas fa-home mr-2" aria-hidden="true"></i>Voltar para início
       </a>
     </div>
   </div>
+</div>
 {% endblock %}

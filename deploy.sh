@@ -133,8 +133,7 @@ if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; the
            package-lock.json build_frontend.sh postcss.config.js \
            tailwind.config.js vite.auth.config.mjs vite.conversations.config.mjs \
            vite.studio-editor.config.mjs && \
-       [ -f "aicentralv2/static/css/tailwind/output.css" ] && \
-       [ -f "aicentralv2/static/css/tailwind/output-legacy.css" ]; then
+       [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
         RUN_FRONTEND_BUILD=0
     fi
 fi

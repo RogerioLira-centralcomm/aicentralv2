@@ -1,4 +1,5 @@
 {% extends 'base_erp.html' %}
+{% from 'macros/cx_ui.html' import flash_messages %}
 {% block page_label %}Parâmetros{% endblock %}
 {% block page_subtitle %}Configurações e diagnósticos{% endblock %}
 
@@ -245,8 +246,8 @@
 </div>
 
 <!-- Modal Detalhes Cotação -->
-<dialog id="modal_cotacao_lista" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+<dialog id="modal_cotacao_lista" class="cx-modal-shell">
+  <div class="cx-modal-panel w-11/12 max-w-2xl bg-white p-0 rounded-lg">
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
       <div>
@@ -321,7 +322,7 @@
       </button>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
 <script>

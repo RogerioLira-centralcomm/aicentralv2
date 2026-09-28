@@ -62,6 +62,9 @@ ENDPOINT_CONTEXT = {
     "cotacoes_list": ("parametros", "cotacoes_legado"),
     "cotacao_nova": ("parametros", "cotacao_legado"),
     "cotacao_editar": ("parametros", "cotacao_legado"),
+    "crm.index": ("comercial", "crm_legado"),
+    "crm.atividades_consolidadas": ("comercial", "crm_legado"),
+    "crm.objetivos_consolidadas": ("comercial", "crm_legado"),
     "cotacao_detalhes": ("parametros", "cotacao_legado"),
     "logs_auditoria": ("parametros", "auditoria"),
     "admin_migrations.page": ("parametros", "migrations"),
@@ -132,6 +135,10 @@ LEGACY_DAISY_EXCLUDED_ENDPOINTS = frozenset({
     "tipos_cliente",
     "tipo_cliente_novo",
     "tipo_cliente_editar",
+    "cotacoes_list",
+    "cotacao_nova",
+    "cotacao_editar",
+    "cotacao_detalhes",
     "faixas_calculo_pi_lista",
     "incentivos_lista",
     "plataformas_campanha",
@@ -146,12 +153,11 @@ LEGACY_DAISY_EXCLUDED_ENDPOINTS = frozenset({
     "brevo_test.teste_cadu_growth_emails",
     "parametros.testes_dv",
     "parametros.testes_dv_legado",
+    "admin_migrations.page",
+    "dv360_pages.diagnostico",
 })
 
 
 def uses_legacy_daisy():
-    """Restringe DaisyUI às áreas antigas explicitamente fora da migração."""
-    ctx = resolve_page_context()
-    if ctx["module"] != "parametros":
-        return False
-    return ctx["endpoint"] not in LEGACY_DAISY_EXCLUDED_ENDPOINTS
+    """DaisyUI removido do runtime ERP; mantido para compatibilidade de imports."""
+    return False

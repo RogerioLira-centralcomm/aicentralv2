@@ -4278,7 +4278,7 @@
                 if (typeof item === 'string') item = { texto: item, prazo_dias: 30 };
                 var prazo = new Date(hoje.getTime());
                 prazo.setDate(prazo.getDate() + Number(item.prazo_dias || 30));
-                return '<label class="flex gap-2 items-start border border-base-200 rounded-lg p-3" data-objetivo-ia-row>' +
+                return '<label class="flex gap-2 items-start border border-gray-200 rounded-lg p-3" data-objetivo-ia-row>' +
                     '<input type="checkbox" class="cx-checkbox cx-checkbox-sm mt-1" checked>' +
                     '<div class="flex-1">' +
                     '<input class="cx-input cx-input-sm w-full" data-objetivo-ia-texto value="' + escapeHtml(item.texto || '') + '">' +

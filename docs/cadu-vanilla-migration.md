@@ -82,12 +82,9 @@ seletores DaisyUI.
 
 ## Bundles
 
-- `output.css`: Tailwind e componentes `cx-*`, sem o plugin DaisyUI. É o bundle
-  padrão de `base_erp.html`.
-- `output-legacy.css`: bundle temporário compilado com DaisyUI. É carregado por
-  `base_tailwind.html`, `base_auth.html` e por endpoints classificados como
-  `parametros` em `erp_page_context.py`.
-- `npm run build` gera e valida a existência dos dois arquivos.
+- `output.css`: Tailwind utilitário + páginas escaneadas no build vanilla.
+- `enterprise-system.css`: componentes `cx-*` (carregado por `base_erp.html`).
+- DaisyUI foi removido do runtime e do `npm run build` (sem `output-legacy.css`).
 
 O CRM legado não aparece no menu. Suas páginas de entrada e consolidados
 redirecionam para o CRM v3; as APIs antigas permanecem disponíveis para não
@@ -96,5 +93,4 @@ quebrar integrações durante a transição.
 ## Regressão
 
 Se uma página migrada apresentar problema, manter os templates antigos no
-histórico Git e reverter apenas o template da página afetada. Não ampliar o
-carregamento do bundle legado para módulos ativos.
+histórico Git e reverter apenas o template da página afetada.

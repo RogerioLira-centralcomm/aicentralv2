@@ -349,9 +349,9 @@ const advSelectDv = document.getElementById('adv-select-dv');
     function line(label, val) {
       if (val == null || val === '') return;
       parts.push(
-        '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">' +
+        '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-slate-600/50">' +
           escapeHtml(label) +
-          '</span><p class="text-sm text-base-content mt-0.5 leading-snug">' +
+          '</span><p class="text-sm text-slate-800 mt-0.5 leading-snug">' +
           escapeHtml(String(val)) +
           '</p></div>'
       );
@@ -365,7 +365,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
     line('Impacto / alcance', m.frequency_cap_text);
     if (Array.isArray(m.budgets_text) && m.budgets_text.length) {
       var b =
-        '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm space-y-0.5">';
+        '<div><span class="text-xs font-semibold uppercase tracking-wide text-slate-600/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm space-y-0.5">';
       m.budgets_text.forEach(function (t) {
         b += '<li>' + escapeHtml(String(t)) + '</li>';
       });
@@ -374,13 +374,13 @@ const advSelectDv = document.getElementById('adv-select-dv');
     }
     if (m.delivery_note_pt) {
       parts.push(
-        '<p class="text-xs text-base-content/70 leading-snug border-t border-base-300/60 pt-2">' +
+        '<p class="text-xs text-slate-600/70 leading-snug border-t border-gray-300/60 pt-2">' +
           escapeHtml(String(m.delivery_note_pt)) +
           '</p>'
       );
     }
     if (!parts.length) {
-      parts.push('<p class="text-xs text-base-content/60">Sem bloco comercial resumido na resposta da API para esta campanha.</p>');
+      parts.push('<p class="text-xs text-slate-600/60">Sem bloco comercial resumido na resposta da API para esta campanha.</p>');
     }
     dv360ApiReportsBody.innerHTML = '<div class="space-y-2">' + parts.join('') + '</div>';
     dv360ApiReportsBody.classList.remove('hidden');
@@ -439,7 +439,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       if (dv360HistMsg) {
         dv360HistMsg.textContent = 'Sem pontos no intervalo.';
         dv360HistMsg.classList.remove('hidden', 'text-success');
-        dv360HistMsg.classList.add('text-base-content/60');
+        dv360HistMsg.classList.add('text-slate-600/60');
       }
       return;
     }
@@ -707,7 +707,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
 
   function renderIoLiTable(rows, idField) {
     if (!rows.length) {
-      return '<p class="text-xs text-base-content/60 py-2">Nenhum registo devolvido pela API para este filtro.</p>';
+      return '<p class="text-xs text-slate-600/60 py-2">Nenhum registo devolvido pela API para este filtro.</p>';
     }
     var h =
       '<table class="cx-table cx-table-dense text-xs w-full"><thead><tr><th>Nome</th><th>ID</th><th>Estado</th></tr></thead><tbody>';
@@ -831,7 +831,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
 
   function renderIoTabRows(rows) {
     if (!rows.length) {
-      return '<tr><td colspan="7" class="text-base-content/60">Nenhum pedido de inserção para esta campanha.</td></tr>';
+      return '<tr><td colspan="7" class="text-slate-600/60">Nenhum pedido de inserção para esta campanha.</td></tr>';
     }
     var h = '';
     rows.forEach(function (r) {
@@ -908,7 +908,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
     if (dv360IoSyncSummary) dv360IoSyncSummary.classList.add('hidden');
     if (dv360IoTabBody) {
       dv360IoTabBody.innerHTML =
-        '<tr><td colspan="7" class="text-base-content/50">Carregue após seleccionar uma campanha.</td></tr>';
+        '<tr><td colspan="7" class="text-slate-600/50">Carregue após seleccionar uma campanha.</td></tr>';
     }
     if (dv360IoTabJsonPre) dv360IoTabJsonPre.textContent = '';
     if (dv360IoTabJsonDetails) dv360IoTabJsonDetails.classList.add('hidden');
@@ -1034,10 +1034,10 @@ const advSelectDv = document.getElementById('adv-select-dv');
     var advId = selectedAdvertiserId();
     if (!advId) {
       tbody.innerHTML =
-        '<tr><td colspan="4" class="text-base-content/50 text-sm">Escolha um mapeamento (dv360_advertisers) ou um anunciante da API e carregue as campanhas.</td></tr>';
+        '<tr><td colspan="4" class="text-slate-600/50 text-sm">Escolha um mapeamento (dv360_advertisers) ou um anunciante da API e carregue as campanhas.</td></tr>';
     } else {
       tbody.innerHTML =
-        '<tr><td colspan="4" class="text-base-content/50 text-sm">Seleção alterada. Clique em <strong>Carregar campanhas</strong>.</td></tr>';
+        '<tr><td colspan="4" class="text-slate-600/50 text-sm">Seleção alterada. Clique em <strong>Carregar campanhas</strong>.</td></tr>';
     }
   }
 
@@ -1097,10 +1097,10 @@ const advSelectDv = document.getElementById('adv-select-dv');
       function metricLine(label, value) {
         if (!value) return '';
         return (
-          '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">' +
+          '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-slate-600/50">' +
           escapeHtml(label) +
           '</span>' +
-          '<p class="text-sm text-base-content mt-0.5 leading-snug">' +
+          '<p class="text-sm text-slate-800 mt-0.5 leading-snug">' +
           escapeHtml(String(value)) +
           '</p></div>'
         );
@@ -1108,7 +1108,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       var budgetsBlock = '';
       if (Array.isArray(m.budgets_text) && m.budgets_text.length) {
         budgetsBlock =
-          '<div class="mt-2"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm text-base-content space-y-0.5">';
+          '<div class="mt-2"><span class="text-xs font-semibold uppercase tracking-wide text-slate-600/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm text-slate-800 space-y-0.5">';
         m.budgets_text.forEach(function (line) {
           budgetsBlock += '<li>' + escapeHtml(String(line)) + '</li>';
         });
@@ -1121,9 +1121,9 @@ const advSelectDv = document.getElementById('adv-select-dv');
           metricLine('Meta / teto (valor na API)', m.performance_target_text || '—');
       }
       var head =
-        '<div class="rounded-lg border border-base-200 bg-base-200/40 p-3 mb-3 space-y-3">' +
-        '<div class="space-y-2 border-b border-base-300/80 pb-3">' +
-        '<p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Objetivo e custo-alvo (CPM / CPA / CPC…)</p>' +
+        '<div class="rounded-lg border border-gray-200 bg-gray-100/40 p-3 mb-3 space-y-3">' +
+        '<div class="space-y-2 border-b border-gray-300/80 pb-3">' +
+        '<p class="text-xs font-semibold uppercase tracking-wide text-slate-600/50">Objetivo e custo-alvo (CPM / CPA / CPC…)</p>' +
         metricLine('Objetivo da campanha', m.campaign_goal_label_pt || '—') +
         perfBlock +
         metricLine('Gasto planejado (voo)', m.planned_spend_text || '—') +
@@ -1131,13 +1131,13 @@ const advSelectDv = document.getElementById('adv-select-dv');
         metricLine('Impacto / alcance (frequência)', m.frequency_cap_text || '—') +
         budgetsBlock +
         '</div>' +
-        '<div class="rounded-md bg-base-100/80 border border-base-300/60 p-2 text-xs text-base-content/70 leading-snug">' +
+        '<div class="rounded-md bg-white/80 border border-gray-300/60 p-2 text-xs text-slate-600/70 leading-snug">' +
         escapeHtml(m.delivery_note_pt || '') +
         '</div>' +
         formatGeoRegionsHtml(geoSummary, geoRegions, geoErr) +
-        '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Situação</span>' +
-        '<p class="text-sm text-base-content mt-0.5"><strong>' + escapeHtml(String(lcMain)) + '</strong></p>' +
-        '<div class="text-xs text-base-content/60 mt-2 space-y-1 leading-snug">' +
+        '<div><span class="text-xs font-semibold uppercase tracking-wide text-slate-600/50">Situação</span>' +
+        '<p class="text-sm text-slate-800 mt-0.5"><strong>' + escapeHtml(String(lcMain)) + '</strong></p>' +
+        '<div class="text-xs text-slate-600/60 mt-2 space-y-1 leading-snug">' +
         formatCampaignStatusMetaHtml({ lifecycle: lc, entityStatus: stRaw }) +
         '</div></div>' +
         '<div id="campaign-detail-actions" class="flex flex-wrap gap-2"></div></div>';
@@ -1161,7 +1161,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
         var raw = d[key];
         var val = formatFieldValue(raw);
         parts.push(
-          '<div class="min-w-0"><dt class="text-xs font-medium text-base-content/60">' + escapeHtml(label) + '</dt><dd class="mt-0.5 text-base-content break-words whitespace-pre-wrap">' + escapeHtml(val) + '</dd></div>'
+          '<div class="min-w-0"><dt class="text-xs font-medium text-slate-600/60">' + escapeHtml(label) + '</dt><dd class="mt-0.5 text-slate-800 break-words whitespace-pre-wrap">' + escapeHtml(val) + '</dd></div>'
         );
       });
       Object.keys(d).sort().forEach(function (key) {
@@ -1169,7 +1169,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
         var raw = d[key];
         if (raw !== null && typeof raw === 'object') return;
         parts.push(
-          '<div class="min-w-0"><dt class="text-xs font-medium text-base-content/60">' + escapeHtml(key) + '</dt><dd class="mt-0.5 text-base-content break-words">' + escapeHtml(formatFieldValue(raw)) + '</dd></div>'
+          '<div class="min-w-0"><dt class="text-xs font-medium text-slate-600/60">' + escapeHtml(key) + '</dt><dd class="mt-0.5 text-slate-800 break-words">' + escapeHtml(formatFieldValue(raw)) + '</dd></div>'
         );
       });
       parts.push('</dl>');
@@ -1189,7 +1189,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
         var flightDone = res.body.lifecycle && res.body.lifecycle.code === 'FINISHED_FLIGHT';
         if (flightDone) {
           actEl.innerHTML =
-            '<p class="text-xs text-base-content/50 max-w-prose">O período planejado do voo já terminou; pausar ou reativar não está disponível aqui.</p>';
+            '<p class="text-xs text-slate-600/50 max-w-prose">O período planejado do voo já terminou; pausar ou reativar não está disponível aqui.</p>';
         } else if (stRaw === 'ENTITY_STATUS_ACTIVE') {
           var pb = document.createElement('button');
           pb.type = 'button';
@@ -1232,14 +1232,14 @@ const advSelectDv = document.getElementById('adv-select-dv');
     tdBtn.innerHTML = '';
     var id = campaignObj && campaignObj.campaignId != null ? String(campaignObj.campaignId) : '';
     if (!id) {
-      tdBtn.innerHTML = '<span class="text-xs text-base-content/40">—</span>';
+      tdBtn.innerHTML = '<span class="text-xs text-slate-600/40">—</span>';
       return;
     }
     var st = campaignEntityStatusCode(campaignObj);
     var nm = campaignName(campaignObj);
     if (campaignLifecycleFlightFinished(campaignObj)) {
       tdBtn.innerHTML =
-        '<span class="text-xs text-base-content/40" title="Voo planejado já terminou">—</span>';
+        '<span class="text-xs text-slate-600/40" title="Voo planejado já terminou">—</span>';
       return;
     }
     if (st === 'ENTITY_STATUS_ACTIVE') {
@@ -1265,7 +1265,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       });
       tdBtn.appendChild(b2);
     } else {
-      tdBtn.innerHTML = '<span class="text-xs text-base-content/40">—</span>';
+      tdBtn.innerHTML = '<span class="text-xs text-slate-600/40">—</span>';
     }
   }
 
@@ -1273,7 +1273,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
     tbody.innerHTML = '';
     if (!campaigns || !campaigns.length) {
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="4" class="text-sm text-base-content/50">Nenhuma campanha devolvida pela API.</td>';
+      tr.innerHTML = '<td colspan="4" class="text-sm text-slate-600/50">Nenhuma campanha devolvida pela API.</td>';
       tbody.appendChild(tr);
       updateCampaignTabCount(0);
       updateFilterSummary(0);
@@ -1288,7 +1288,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       var id = c.campaignId != null ? String(c.campaignId) : '';
       var st = campaignEntityStatusCode(c);
       var tr = document.createElement('tr');
-      tr.className = 'cursor-pointer hover:bg-base-200/60';
+      tr.className = 'cursor-pointer hover:bg-gray-100/60';
       tr.setAttribute('data-campaign-id', id);
       tr.setAttribute('tabindex', '0');
       tr.setAttribute('role', 'button');
@@ -1319,14 +1319,14 @@ const advSelectDv = document.getElementById('adv-select-dv');
   function formatGeoRegionsHtml(summary, regions, geoErr) {
     var bits = [];
     bits.push(
-      '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Praça (geo DV360)</span>'
+      '<div><span class="text-xs font-semibold uppercase tracking-wide text-slate-600/50">Praça (geo DV360)</span>'
     );
     if (geoErr) {
       bits.push('<p class="text-xs text-warning mt-1">Geo: ' + escapeHtml(String(geoErr)) + '</p>');
     }
     var sum = summary != null && String(summary).trim() !== '' ? String(summary) : '—';
     if (Array.isArray(regions) && regions.length) {
-      bits.push('<ul class="mt-1.5 list-none text-sm text-base-content space-y-1.5 pl-0">');
+      bits.push('<ul class="mt-1.5 list-none text-sm text-slate-800 space-y-1.5 pl-0">');
       regions.forEach(function (r) {
         if (!r || typeof r !== 'object') return;
         var name = r.displayName != null ? String(r.displayName) : '—';
@@ -1335,35 +1335,35 @@ const advSelectDv = document.getElementById('adv-select-dv');
         var meta = [];
         if (tt) {
           meta.push(
-            '<span class="text-base-content/50">tipo</span> <code class="text-[11px] bg-base-200 px-0.5 rounded">' +
+            '<span class="text-slate-600/50">tipo</span> <code class="text-[11px] bg-gray-100 px-0.5 rounded">' +
               escapeHtml(tt) +
               '</code>'
           );
         }
         if (oid) {
           meta.push(
-            '<span class="text-base-content/50">ID</span> <code class="text-[11px] bg-base-200 px-0.5 rounded">' +
+            '<span class="text-slate-600/50">ID</span> <code class="text-[11px] bg-gray-100 px-0.5 rounded">' +
               escapeHtml(oid) +
               '</code>'
           );
         }
         bits.push(
-          '<li class="border-l-2 border-base-300 pl-2">' +
+          '<li class="border-l-2 border-gray-300 pl-2">' +
             '<span class="font-medium">' +
             escapeHtml(name) +
             '</span>' +
             (meta.length
-              ? '<div class="text-xs text-base-content/60 mt-0.5">' + meta.join(' · ') + '</div>'
+              ? '<div class="text-xs text-slate-600/60 mt-0.5">' + meta.join(' · ') + '</div>'
               : '') +
             '</li>'
         );
       });
       bits.push('</ul>');
       if (sum && sum !== '—') {
-        bits.push('<p class="text-xs text-base-content/50 mt-2">Resumo: ' + escapeHtml(sum) + '</p>');
+        bits.push('<p class="text-xs text-slate-600/50 mt-2">Resumo: ' + escapeHtml(sum) + '</p>');
       }
     } else {
-      bits.push('<p class="text-sm text-base-content mt-0.5 leading-snug">' + escapeHtml(sum) + '</p>');
+      bits.push('<p class="text-sm text-slate-800 mt-0.5 leading-snug">' + escapeHtml(sum) + '</p>');
     }
     bits.push('</div>');
     return bits.join('');
@@ -1423,7 +1423,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       var one = fs ? formatDdMmYy(fs) || fs : formatDdMmYy(fe) || fe;
       inner = escapeHtml(one);
     }
-    return '<div class="text-[11px] text-base-content/65 mt-1 leading-snug">' + inner + '</div>';
+    return '<div class="text-[11px] text-slate-600/65 mt-1 leading-snug">' + inner + '</div>';
   }
 
   /** Lista: rótulo principal + linha opcional com datas de voo / duração. */
@@ -1444,10 +1444,10 @@ const advSelectDv = document.getElementById('adv-select-dv');
     var api = campaignEntityStatusCode(c) || '—';
     var bits = [];
     bits.push(
-      '<p><code class="text-[11px] bg-base-200 px-1 rounded">entityStatus</code> = ' + escapeHtml(String(api)) + '</p>'
+      '<p><code class="text-[11px] bg-gray-100 px-1 rounded">entityStatus</code> = ' + escapeHtml(String(api)) + '</p>'
     );
     bits.push(
-      '<p class="text-base-content/50">“Ativa” na API não implica voo a decorrer se as datas planejadas já passaram.</p>'
+      '<p class="text-slate-600/50">“Ativa” na API não implica voo a decorrer se as datas planejadas já passaram.</p>'
     );
     if (lc.flight_start && lc.flight_end) {
       var fs = String(lc.flight_start).trim();
@@ -1462,18 +1462,18 @@ const advSelectDv = document.getElementById('adv-select-dv');
         (n != null
           ? ' · ' + escapeHtml(String(n)) + (n === 1 ? ' dia' : ' dias')
           : '');
-      bits.push('<p class="text-base-content/55">Voo planejado: ' + vp + '</p>');
+      bits.push('<p class="text-slate-600/55">Voo planejado: ' + vp + '</p>');
     } else if (lc.flight_end) {
       var feOnly = String(lc.flight_end).trim();
       var endFmt = formatDdMmYy(feOnly) || feOnly;
-      bits.push('<p class="text-base-content/55">Fim do voo: ' + escapeHtml(endFmt) + '</p>');
+      bits.push('<p class="text-slate-600/55">Fim do voo: ' + escapeHtml(endFmt) + '</p>');
     } else if (lc.flight_start) {
       var fsOnly = String(lc.flight_start).trim();
       var startFmt = formatDdMmYy(fsOnly) || fsOnly;
-      bits.push('<p class="text-base-content/55">Início do voo: ' + escapeHtml(startFmt) + '</p>');
+      bits.push('<p class="text-slate-600/55">Início do voo: ' + escapeHtml(startFmt) + '</p>');
     }
     if (lc.hint_pt) {
-      bits.push('<p class="text-base-content/50">' + escapeHtml(String(lc.hint_pt)) + '</p>');
+      bits.push('<p class="text-slate-600/50">' + escapeHtml(String(lc.hint_pt)) + '</p>');
     }
     return bits.join('');
   }
@@ -1525,7 +1525,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       '</strong> (ID <strong>' +
       safeId +
       '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).' +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
+      '<p class="mt-2 text-sm text-slate-600/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
 
     if (typeof window.showConfirm === 'function') {
       window.showConfirm({
@@ -1592,7 +1592,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       safeId +
       '</strong>): ' +
       lead +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
+      '<p class="mt-2 text-sm text-slate-600/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
     var titleRow = draft ? 'Ativar campanha (rascunho)' : 'Reativar campanha';
     var btnTextRow = draft ? 'Ativar' : 'Reativar';
 
@@ -1654,7 +1654,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       '</strong> (ID <strong>' +
       safeId +
       '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).' +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
+      '<p class="mt-2 text-sm text-slate-600/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
     if (typeof window.showConfirm === 'function') {
       window.showConfirm({
         theme: 'warning',
@@ -1716,7 +1716,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       safeId +
       '</strong>): ' +
       lead +
-      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
+      '<p class="mt-2 text-sm text-slate-600/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
     var title = isDraft ? 'Ativar campanha (rascunho)' : 'Reativar campanha';
     var btnText = isDraft ? 'Ativar' : 'Reativar';
     if (typeof window.showConfirm === 'function') {
@@ -2066,7 +2066,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
     }
     hideGlobal();
     tbody.innerHTML =
-      '<tr><td colspan="4" class="py-8 text-center text-sm text-base-content/70">' +
+      '<tr><td colspan="4" class="py-8 text-center text-sm text-slate-600/70">' +
       '<span class="inline-flex items-center justify-center gap-2">' +
       '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>' +
       '<span>A aguardar a API…</span></span></td></tr>';
@@ -2168,14 +2168,14 @@ const advSelectDv = document.getElementById('adv-select-dv');
     if (countEl) countEl.textContent = String(filtered.length);
     if (!filtered.length) {
       tbody.innerHTML =
-        '<tr><td colspan="10" class="text-base-content/50">Nenhuma campanha PI DV360 para estes filtros.</td></tr>';
+        '<tr><td colspan="10" class="text-slate-600/50">Nenhuma campanha PI DV360 para estes filtros.</td></tr>';
       return;
     }
     var html = '';
     filtered.forEach(function (r) {
           var pi = r.codigo_pi || '—';
           var pin = r.periodo_inicio && r.periodo_fim ? r.periodo_inicio.slice(8, 10) + '/' + r.periodo_inicio.slice(5, 7) + ' – ' + r.periodo_fim.slice(8, 10) + '/' + r.periodo_fim.slice(5, 7) : '—';
-          var dias = r.dias_restantes != null ? '<span class="text-[10px] text-base-content/45"> / ' + r.dias_restantes + ' d</span>' : '';
+          var dias = r.dias_restantes != null ? '<span class="text-[10px] text-slate-600/45"> / ' + r.dias_restantes + ' d</span>' : '';
           var metaPct = r.pct_obj != null ? r.pct_obj : 0;
           var metaCls =
             metaPct >= 100 ? 'text-success' : metaPct >= 70 ? 'text-warning' : 'text-error';
@@ -2192,15 +2192,15 @@ const advSelectDv = document.getElementById('adv-select-dv');
           var dvList = r.dv360_campaigns || [];
           var dvCell =
             dvList.length === 0
-              ? '<span class="text-base-content/40">—</span>'
+              ? '<span class="text-slate-600/40">—</span>'
               : dvList.length === 1
                 ? escapeHtml(dvList[0].campaigns_id || '')
                 : dvList
                     .map(function (x) {
                       return escapeHtml(x.campaigns_id || '');
                     })
-                    .join('<span class="text-base-content/35"> · </span>');
-          var plat = r.plataforma_nome ? '<div class="text-[10px] text-base-content/45 truncate max-w-[5rem]">' + escapeHtml(r.plataforma_nome) + '</div>' : '';
+                    .join('<span class="text-slate-600/35"> · </span>');
+          var plat = r.plataforma_nome ? '<div class="text-[10px] text-slate-600/45 truncate max-w-[5rem]">' + escapeHtml(r.plataforma_nome) + '</div>' : '';
           var preco =
             r.preco_metrica_brl != null
               ? '<span class="font-semibold text-[10px] text-emerald-800">' +
@@ -2208,7 +2208,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
                 '</span><div class="font-semibold">' +
                 fmtBrl(r.preco_metrica_brl) +
                 '</div>'
-              : '<span class="text-base-content/40">—</span>';
+              : '<span class="text-slate-600/40">—</span>';
           var metaCell =
             r.obj_val > 0
               ? '<span class="font-semibold ' +
@@ -2217,7 +2217,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
                 fmtIntPt(r.ating_val) +
                 '/' +
                 fmtIntPt(r.obj_val) +
-                '</span> <span class="text-[10px] text-base-content/45">(' +
+                '</span> <span class="text-[10px] text-slate-600/45">(' +
                 metaPct +
                 '%)</span>'
               : '—';
@@ -2234,21 +2234,21 @@ const advSelectDv = document.getElementById('adv-select-dv');
               ? '<span class="whitespace-nowrap">' + rs + ' – ' + rePart + '</span>'
               : rs || rePart
                 ? '<span class="whitespace-nowrap">' + (rs || rePart) + '</span>'
-                : '<span class="text-base-content/40">—</span>';
+                : '<span class="text-slate-600/40">—</span>';
           html +=
             '<tr>' +
             '<td class="align-top whitespace-nowrap"><div class="font-bold text-primary">' +
             escapeHtml(pi) +
-            '</div><div class="text-[11px] text-base-content/55">' +
+            '</div><div class="text-[11px] text-slate-600/55">' +
             pin +
-            '</div><div class="text-[11px] text-base-content/45 truncate max-w-[120px]">' +
+            '</div><div class="text-[11px] text-slate-600/45 truncate max-w-[120px]">' +
             escapeHtml(r.executivo_nome || '—') +
             '</div>' +
             dias +
             '</td>' +
             '<td class="align-top max-w-[200px]"><div class="font-semibold truncate">' +
             escapeHtml(r.nome_campanha || '—') +
-            '</div><div class="text-[11px] text-base-content/45 truncate">' +
+            '</div><div class="text-[11px] text-slate-600/45 truncate">' +
             escapeHtml(r.cliente_nome || '—') +
             '</div></td>' +
             '<td class="text-right align-top whitespace-nowrap">' +
@@ -2283,7 +2283,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
             (diff >= 0 ? '+' : '') +
             fmtBrl(diff) +
             '</div></td>' +
-            '<td class="text-right align-top text-base-content/80">' +
+            '<td class="text-right align-top text-slate-600/80">' +
             fmtBrl(r.prev_val) +
             '</td>' +
             '<td class="text-left align-top text-[11px]">' +
@@ -2461,7 +2461,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
     if (dv360HistMsg) {
       dv360HistMsg.textContent = 'A carregar série…';
       dv360HistMsg.classList.remove('hidden', 'text-error', 'text-success');
-      dv360HistMsg.classList.add('text-base-content/60');
+      dv360HistMsg.classList.add('text-slate-600/60');
     }
     jsonFetch(url)
       .then(function (res) {
@@ -2517,7 +2517,7 @@ const advSelectDv = document.getElementById('adv-select-dv');
       if (dv360HistMsg) {
         dv360HistMsg.textContent = 'A sincronizar com Bid Manager…';
         dv360HistMsg.classList.remove('hidden', 'text-error', 'text-success');
-        dv360HistMsg.classList.add('text-base-content/60');
+        dv360HistMsg.classList.add('text-slate-600/60');
       }
       btnDv360HistSync.disabled = true;
       var syncUrl = URL_METRICS_HISTORY_SYNC_TMPL.replace('__CID__', encodeURIComponent(String(cid)));

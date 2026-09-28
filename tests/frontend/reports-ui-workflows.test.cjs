@@ -60,6 +60,7 @@ async function main() {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/workspace/api/creditos/resumo', route => route.fulfill({json: {monthly_usage_percentage: 88.3}}));
+  await page.route('**/static/cadu_connect/google-ads-monitor.js', route => route.fulfill({body: 'var CADU={endpoint:"__CADU_INGEST_URL__",apiKey:"__CADU_API_KEY__",accountIds:__CADU_ACCOUNT_IDS__};', contentType: 'text/javascript'}));
   await page.route('**/connect/api/v1/reports/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -93,7 +94,12 @@ async function main() {
     if (pathName === '/metrics' || pathName === '/import-metrics') return route.fulfill({json: {totals: {}, days: [], by_platform: [], conflicts: 0}});
     if (pathName === '/ai/status') return route.fulfill({json: {configured: false}});
     if (pathName === '/access') return route.fulfill({json: {users: []}});
-    if (pathName === '/ingest-keys') return route.fulfill({json: {keys: [], runs: []}});
+    if (pathName === '/ingest-keys' && method === 'GET') return route.fulfill({json: {keys: [], runs: []}});
+    if (pathName === '/ingest-keys' && method === 'POST') {
+      assert.deepEqual(body.account_ids, ['1234567890'], 'a conta Google Ads segue normalizada no cadastro da integração');
+      return route.fulfill({status: 201, json: {id: 'key-ui-1', token: 'token-ui-1', label: body.label,
+        source_kind: body.source_kind, allowed_account_ids: body.account_ids, manager_account_id: null}});
+    }
     if (pathName === '/imports' && method === 'GET') return route.fulfill({json: {ready: true, imports: [
       {id: importId, original_name: 'export.csv', status: 'needs_review', applied_count: 0,
         row_count: 1, created_at: '2026-09-28T12:00:00Z', file_kind: 'csv'},
@@ -121,7 +127,7 @@ async function main() {
     }
     if (pathName === '/accounts' && method === 'POST') {
       assert.equal(body.client_id, newClientId, 'a conta usa o cliente Reports recém-criado');
-      const account = {id: 41, platform: body.platform, external_id: body.external_id, name: body.name,
+      const account = {id: 41, platform: body.platform, external_id: body.platform === 'google_ads' ? body.external_id.replaceAll('-', '') : body.external_id, name: body.name,
         parent_account_id: null, account_kind: body.account_kind, status: 'active'};
       state.accounts.push(account);
       return route.fulfill({status: 201, json: {account}});
@@ -198,7 +204,7 @@ async function main() {
 
   try {
     await page.goto(`http://127.0.0.1:${address.port}/connect/app?client_id=${clientId}#accounts`);
-    await page.getByRole('heading', {name: 'Novo cliente Reports'}).waitFor();
+    await page.getByRole('heading', {name: 'Novo cliente'}).waitFor();
     assert.equal(await page.getByRole('button', {name: 'Criar cliente'}).isEnabled(), false, 'cadastro exige nome');
     await page.getByLabel('Nome do cliente').fill('Cliente criado na interface');
     await page.getByRole('button', {name: 'Criar cliente'}).click();
@@ -206,7 +212,13 @@ async function main() {
     await page.getByLabel('ID da conta').fill('123-456-7890');
     await page.getByPlaceholder('Nome exibido na plataforma').fill('Conta de teste');
     await page.getByRole('button', {name: 'Salvar conta'}).click();
-    await page.waitForFunction(() => document.querySelector('form.reports-inline-edit input')?.value === 'Conta de teste');
+    await page.waitForFunction(() => document.querySelector('input[aria-label^="Nome da conta"]')?.value === 'Conta de teste');
+
+    await page.getByRole('link', {name: 'Dados de mídia'}).click();
+    await page.getByRole('heading', {name: 'Dados de mídia', level: 1}).waitFor();
+    await page.locator('select').filter({has: page.locator('option[value="1234567890"]')}).selectOption('1234567890');
+    await page.getByRole('button', {name: 'Gerar integração'}).click();
+    await page.getByRole('heading', {name: 'Script gerado'}).waitFor();
 
     await page.getByRole('link', {name: 'Campanhas'}).click();
     await page.getByRole('heading', {name: 'Campanhas', level: 1}).waitFor();

@@ -69,6 +69,14 @@ def _required_text(payload, field, limit):
     return value
 
 
+def _google_ads_account_id(value):
+    """Store Google Ads customer IDs canonically, without display separators."""
+    normalized = str(value or '').strip()
+    if not re.fullmatch(r'(?:\d{10}|\d{3}-\d{3}-\d{4})', normalized):
+        abort(400, description='O ID de cliente do Google Ads deve ter 10 dígitos (com ou sem hífens).')
+    return normalized.replace('-', '')
+
+
 def _optional_positive_id(value, field):
     if value in (None, ''):
         return None
@@ -181,6 +189,8 @@ def register(bp):
         if not re.fullmatch(r'[a-z][a-z0-9_]*', platform):
             abort(400, description='Plataforma inválida.')
         external_id = _required_text(payload, 'external_id', 160)
+        if platform == 'google_ads':
+            external_id = _google_ads_account_id(external_id)
         name = _required_text(payload, 'name', 240)
         kind = payload.get('account_kind', 'advertiser')
         if kind not in ('manager', 'advertiser'):
@@ -223,6 +233,9 @@ def register(bp):
             abort(404)
         account = current[0]
         name = _required_text(payload, 'name', 240)
+        external_id = _required_text(payload, 'external_id', 160) if 'external_id' in payload else account['external_id']
+        if account['platform'] == 'google_ads':
+            external_id = _google_ads_account_id(external_id)
         status = payload.get('status', account['status'])
         if status not in ('active', 'paused', 'disabled'):
             abort(400, description='Estado de conta inválido.')
@@ -240,10 +253,27 @@ def register(bp):
                 (parent_id, selected['organization_id'], selected['client_id'], account['platform']))
             if not parent or account['account_kind'] != 'advertiser':
                 abort(400, description='Selecione uma MCC ativa da mesma plataforma para o anunciante.')
-        changed = _rows('''UPDATE cadu_reports_accounts SET name=%s,parent_account_id=%s,status=%s,updated_at=NOW()
+        duplicate_sql = ('''SELECT id FROM cadu_reports_accounts
+            WHERE organization_id=%s AND client_id=%s AND platform=%s
+              AND regexp_replace(external_id,'[^0-9]','','g')=%s AND id<>%s''' if account['platform'] == 'google_ads'
+            else '''SELECT id FROM cadu_reports_accounts
+            WHERE organization_id=%s AND client_id=%s AND platform=%s AND external_id=%s AND id<>%s''')
+        duplicate = _rows(duplicate_sql,
+            (selected['organization_id'], selected['client_id'], account['platform'], external_id, account_id))
+        if duplicate:
+            abort(409, description='Este ID externo já está cadastrado para outra conta desta plataforma.')
+        if external_id != account['external_id'] and account['platform'] == 'google_ads':
+            _rows('''UPDATE cadu_reports_ingest_keys SET
+                    allowed_account_ids=array_replace(allowed_account_ids,%s,%s),
+                    bound_account_id=CASE WHEN bound_account_id=%s THEN %s ELSE bound_account_id END,
+                    manager_external_id=CASE WHEN manager_external_id=%s THEN %s ELSE manager_external_id END
+                WHERE organization_id=%s AND client_id=%s''',
+                (account['external_id'], external_id, account['external_id'], external_id,
+                 account['external_id'], external_id, selected['organization_id'], selected['client_id']))
+        changed = _rows('''UPDATE cadu_reports_accounts SET name=%s,external_id=%s,parent_account_id=%s,status=%s,updated_at=NOW()
             WHERE id=%s AND organization_id=%s AND client_id=%s
             RETURNING id,platform,external_id,name,parent_account_id,account_kind,status,updated_at''',
-            (name, parent_id, status, account_id, selected['organization_id'], selected['client_id']))
+            (name, external_id, parent_id, status, account_id, selected['organization_id'], selected['client_id']))
         get_db().commit()
         return jsonify(account=changed[0])
 

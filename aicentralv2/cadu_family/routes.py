@@ -982,7 +982,7 @@ def planner_catalog_detail_page(kind, item_id):
     else:
         from ..cadu_planner import catalog
         record = catalog.detail(kind, item_id)
-    labels = {'canais': 'Canal', 'formatos': 'Formato', 'interativos': 'Formato interativo', 'portais': 'Portal'}
+    labels = {'audiencias': 'Audiência', 'canais': 'Canal', 'formatos': 'Formato', 'interativos': 'Formato interativo', 'portais': 'Portal'}
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
     return render_template('cadu_planner/react.html',
         product='planner', spec=PRODUCTS['planner'], module=kind, title=record['name'],

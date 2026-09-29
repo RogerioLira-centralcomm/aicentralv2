@@ -209,7 +209,7 @@ def register_product_host_routing(app) -> None:
     @app.get('/audiencias/<int:audience_id>')
     def planner_host_audience_detail(audience_id):
         planner_host_only()
-        return app.view_functions['cadu_family.planner_catalog_detail_page']('audiencias', audience_id)
+        return app.view_functions['cadu_family.planner_audience_detail'](audience_id)
 
     @app.get('/places/<slug>')
     def planner_host_place_detail(slug):

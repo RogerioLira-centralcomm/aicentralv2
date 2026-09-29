@@ -1297,7 +1297,7 @@ function Events({data, filters, initialKind = 'all', refreshRevision}) {
     if (filters.platform) params.set('platform', filters.platform);
     if (filters.account) params.set('account_id', filters.account);
     if (filters.campaign) params.set('campaign_id', filters.campaign);
-    json(`/connect/api/v1/reports/flow?${params}`).then(value => {
+    json(`/connect/api/v1/reports/flow/events?${params}`).then(value => {
       if (currentRequest === requestVersion.current) {setResult(value); setError('');}
     }).catch(failure => {if (currentRequest === requestVersion.current) setError(failure.message);});
   };

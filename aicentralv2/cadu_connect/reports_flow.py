@@ -666,6 +666,77 @@ def register(bp):
                 response.headers['Vary'] = 'Origin'
         return response
 
+    @bp.get('/api/v1/reports/flow/events')
+    @login_required_api
+    def reports_flow_events():
+        selected = _selection()
+        if not _rows("SELECT to_regclass('public.cadu_reports_flow_events') IS NOT NULL AS ready")[0]['ready']:
+            return jsonify(error='Eventos indisponíveis: aplique add_reports_operations_v1.sql.'), 503
+        try:
+            days = int(request.args.get('days', 30))
+        except (TypeError, ValueError):
+            abort(400, description='Período inválido.')
+        if days not in (7, 30, 90):
+            abort(400, description='Período inválido.')
+        where = ['e.organization_id=%s', 'e.client_id=%s']
+        params = [selected['organization_id'], selected['client_id']]
+        start_date = request.args.get('start_date', '').strip()
+        end_date = request.args.get('end_date', '').strip()
+        if start_date or end_date:
+            if not start_date or not end_date:
+                abort(400, description='Informe as duas datas do intervalo.')
+            try:
+                parsed_start, parsed_end = date.fromisoformat(start_date), date.fromisoformat(end_date)
+            except ValueError:
+                abort(400, description='Intervalo de datas inválido.')
+            if parsed_start > parsed_end or (parsed_end - parsed_start).days > 366:
+                abort(400, description='Escolha um intervalo de até 367 dias.')
+            where.extend(['e.occurred_at >= %s::date', "e.occurred_at < (%s::date + INTERVAL '1 day')"])
+            params.extend([start_date, end_date])
+        else:
+            where.append("e.occurred_at > NOW() - (%s * INTERVAL '1 day')")
+            params.append(days)
+        for key, column in (('account_id', 'a.id'), ('campaign_id', 'e.campaign_id')):
+            value = request.args.get(key, '').strip()
+            if value:
+                try:
+                    number = int(value)
+                except ValueError:
+                    abort(400, description=f'{key} inválido.')
+                if number < 1:
+                    abort(400, description=f'{key} inválido.')
+                where.append(f'{column}=%s')
+                params.append(number)
+        platform = request.args.get('platform', '').strip()
+        if platform:
+            if not re.fullmatch(r'[a-z][a-z0-9_]{0,31}', platform):
+                abort(400, description='Plataforma inválida.')
+            where.append('a.platform=%s')
+            params.append(platform)
+        has_event_name = _rows('''SELECT EXISTS (SELECT 1 FROM information_schema.columns
+            WHERE table_schema='public' AND table_name='cadu_reports_flow_events'
+              AND column_name='event_name') AS ready''')[0]['ready']
+        event_name = "COALESCE(NULLIF(event_name,''),event_kind)" if has_event_name else 'event_kind'
+        scoped = '''WITH selected_events AS (SELECT e.*,
+            COALESCE(NULLIF(e.utm_source,''),NULLIF(e.referrer_host,''),'Website') AS source_label
+            FROM cadu_reports_flow_events e
+            LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id
+            LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+            WHERE ''' + ' AND '.join(where) + ') '
+        events = _rows(scoped + f'''SELECT event_kind,{event_name} AS event_name,page_path,
+            source_label,MAX(occurred_at) AS last_occurred_at,COUNT(*)::bigint AS total,
+            COUNT(*) FILTER (WHERE step_id IS NOT NULL)::bigint AS mapped,
+            COUNT(*) OVER() AS group_count
+            FROM selected_events GROUP BY event_kind,{event_name},page_path,source_label
+            ORDER BY last_occurred_at DESC LIMIT 300''', tuple(params))
+        summary = _rows(scoped + '''SELECT COUNT(*)::bigint AS total,
+            COUNT(*) FILTER (WHERE event_kind='form_submit')::bigint AS form_submissions,
+            COUNT(*) FILTER (WHERE event_kind='conversion')::bigint AS conversions,
+            COUNT(*) FILTER (WHERE utm_source IS NOT NULL OR referrer_host IS NOT NULL)::bigint AS attributed
+            FROM selected_events''', tuple(params))[0]
+        return jsonify(events=events, event_summary=summary,
+                       event_group_count=events[0]['group_count'] if events else 0)
+
     @bp.get('/api/v1/reports/flow')
     @login_required_api
     def reports_flow():

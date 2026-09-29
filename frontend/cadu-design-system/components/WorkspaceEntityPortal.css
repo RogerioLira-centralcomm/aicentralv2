@@ -674,3 +674,23 @@ body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal-
 @media(prefers-reduced-motion:reduce) { body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) .cadu-ds-entity-nav nav a { transition:none; } }
 
 body.portal--workspace .cadu-ds-entity-nav__actions > button[data-cadu-untitled-button] { width:100%; justify-content:center; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__actions > .cadu-ds-entity-nav__conversation {
+  display:flex;
+  width:100%;
+  min-height:var(--cadu-sidebar-row-height,30px);
+  align-items:center;
+  justify-content:flex-start;
+  gap:8px;
+  padding:3px 7px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:var(--cadu-accent-strong);
+  font:600 11px var(--cadu-font-sans);
+  text-align:left;
+}
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__actions > .cadu-ds-entity-nav__conversation:hover,
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__actions > .cadu-ds-entity-nav__conversation:focus-visible {
+  background:var(--cadu-accent-soft);
+  color:var(--cadu-accent-strong);
+}

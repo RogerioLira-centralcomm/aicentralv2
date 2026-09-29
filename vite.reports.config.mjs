@@ -3,6 +3,9 @@ import {resolve} from 'node:path';
 
 export default defineConfig({
   publicDir: false,
+  // The Untitled UI components are authored for React's classic JSX runtime;
+  // several files use JSX without importing a `React` binding.
+  esbuild: {jsx: 'transform'},
   resolve: {
     alias: {'@': resolve('frontend/reports-v1/untitled-kit')},
     dedupe: ['react', 'react-dom'],

@@ -10,6 +10,7 @@ import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {EntityContextRail, EntityNavigator} from './WorkspaceEntityPortal';
 import {WorkspaceNotificationCenter} from './WorkspaceNotificationCenter';
 import {dockProviderLogo} from '../dockExternal.mjs';
+import {WorkspaceFilesView} from './WorkspaceFilesView';
 
 function ProjectIcon({name}) {
   const paths = {
@@ -829,6 +830,7 @@ export function WorkspaceProject({bootstrap}) {
     {id:'direction', label:'Direção', icon:'compose', href:sectionLinks.direction},
     {id:'tasks', label:'Tarefas', icon:'plan', href:sectionLinks.tasks, count:(project.tasks || []).filter(item => item.status !== 'done').length},
     {id:'activity', label:'Atividade', icon:'pulse', href:sectionLinks.activity},
+    {id:'files', label:'Arquivos', icon:'file', href:sectionLinks.files},
     {id:'library', label:'Biblioteca', icon:'file', href:sectionLinks.library},
     {id:'indexing', label:'Indexação', icon:'history', href:sectionLinks.indexing, count:(project.files || []).filter(item => ['error','failed'].includes(item.status)).length},
     {id:'conversations', label:'Conversas', icon:'conversation', href:sectionLinks.conversations},
@@ -844,12 +846,24 @@ export function WorkspaceProject({bootstrap}) {
   const openNotification = async item => {
     setNotificationsOpen(false);
     if (item.id && projectLinks.notifications && /^[0-9a-f-]{36}$/i.test(String(item.id))) {
-      fetch(`${projectLinks.notifications}/${item.id}/read`, {method:'POST', credentials:'same-origin', headers:{Accept:'application/json','X-CSRF-Token':bootstrap.csrf || csrf()}}).catch(() => {});
-      setRemoteNotifications(current => current.map(entry => entry.id === item.id ? {...entry, status:entry.status === 'unread' ? 'read' : entry.status} : entry));
+      fetch(`${projectLinks.notifications}/${item.id}/read`, {method:'POST', credentials:'same-origin', headers:{Accept:'application/json','X-CSRF-Token':bootstrap.csrf || csrf()}})
+        .then(response => { if (response.ok) setRemoteNotifications(current => current.map(entry => entry.id === item.id ? {...entry, status:entry.status === 'unread' ? 'read' : entry.status, readAt:entry.readAt || new Date().toISOString()} : entry)); })
+        .catch(() => {});
     }
     if (item.action === 'sources' || item.sourceId) setDialog('source-upload');
     else if (item.conversationId) window.location.assign(`${projectLinks.conversation}${projectLinks.conversation.includes('?') ? '&' : '?'}conversation_id=${encodeURIComponent(item.conversationId)}`);
     else document.querySelector('#atividade')?.scrollIntoView({behavior:'smooth'});
+  };
+  const markProjectNotificationsRead = async () => {
+    const unreadItems = remoteNotifications.filter(item => !item.readAt && ['unread','waiting_user','failed'].includes(item.status) && /^[0-9a-f-]{36}$/i.test(String(item.id)));
+    const results = await Promise.all(unreadItems.map(async item => {
+      try {
+        const response = await fetch(`${projectLinks.notifications}/${item.id}/read`, {method:'POST', credentials:'same-origin', headers:{Accept:'application/json','X-CSRF-Token':bootstrap.csrf || csrf()}});
+        return response.ok ? item.id : null;
+      } catch { return null; }
+    }));
+    const readIds = new Set(results.filter(Boolean));
+    if (readIds.size) setRemoteNotifications(current => current.map(item => readIds.has(item.id) ? {...item, readAt:item.readAt || new Date().toISOString()} : item));
   };
   return <div className={`cadu-ds-home-shell cadu-ds-project-shell is-editorial${isNewProject ? ' is-new-project' : ''}`}>
     <main className="cadu-ds-home-main">
@@ -868,6 +882,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'direction' && <><ProjectPageIntro title="Direção" detail="Contexto para conversas e entregas."/><ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/></>}
         {projectView === 'tasks' && <><ProjectPageIntro title="Tarefas" detail="Ações do Cadu e da equipe."/><ProjectTasksSection project={project} urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit}/></>}
         {projectView === 'activity' && <ProjectActivityPage project={project}/>}
+        {projectView === 'files' && <WorkspaceFilesView files={project.files || []} scope="project" onAdd={canEdit ? () => setDialog('source-upload') : undefined}/>}
         {projectView === 'library' && <><ProjectPageIntro title="Biblioteca" detail="Arquivos, links e notas."/><ProjectSourceExplorer project={project} conversationUrl={projectLinks.conversation} activityHref={sectionLinks.activity} currentUser={bootstrap.user} canEdit={canEdit} onManage={() => setDialog('source-upload')} onAddNote={() => setDialog('note')} onAddLink={() => setDialog('link')} onEditContext={() => setDialog('identity')}/></>}
         {projectView === 'indexing' && <><ProjectPageIntro title="Indexação" detail="Fontes e estado da indexação."/><ProjectIndexingSection files={project.files || []} onReview={() => setDialog('source-upload')} onAddLink={() => setDialog('link')}/></>}
         {projectView === 'conversations' && <><ProjectPageIntro title="Conversas" detail="Histórico deste projeto." action={<button type="button" className="is-primary" onClick={startConversation}>Nova conversa</button>}/><ProjectMemorySection project={project} reviewBase={projectLinks.reviewMemoryBase} csrfToken={bootstrap.csrf || csrf()} canEdit={canEdit}/><ProjectContinuitySection project={project} onStartConversation={startConversation}/></>}
@@ -885,5 +900,5 @@ export function WorkspaceProject({bootstrap}) {
       csrfToken={bootstrap.csrf} mode={dialog === 'merge' ? 'merge' : 'delete'}
       initialTargetId={initialMergeTarget} onClose={() => setDialog('')}
     />}
-    {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification}/>} {canEdit && dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {canEdit && dialog === 'note' && <NoteDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'source-upload' && <SourceUploadDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} pendingFiles={(project.files || []).filter(file => file.requiresReview)} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
+    {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification} onMarkAllRead={markProjectNotificationsRead}/>} {canEdit && dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {canEdit && dialog === 'note' && <NoteDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'source-upload' && <SourceUploadDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} pendingFiles={(project.files || []).filter(file => file.requiresReview)} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
 }

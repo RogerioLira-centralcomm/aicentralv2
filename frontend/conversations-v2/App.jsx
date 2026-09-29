@@ -4,6 +4,7 @@ import {Sidebar} from './components/Sidebar';
 import {Conversation} from './components/Conversation';
 import {ArtifactPane} from './components/ArtifactPane';
 import {LibraryView} from './components/LibraryView';
+import {WorkspaceFilesView} from '../cadu-design-system/components/WorkspaceFilesView';
 import {PluginsPage, pluginPrompt} from './components/PluginsPage';
 import {GooglePluginPanel} from './components/GooglePluginPanel';
 import {ConfirmDialog} from './components/ConfirmDialog';
@@ -93,6 +94,7 @@ export default function App({bootstrap}) {
   const [artifact, setArtifact] = useState(null);
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(() => initialQuery.get('surface') === 'library');
+  const [filesOpen, setFilesOpen] = useState(() => initialQuery.get('surface') === 'files');
   const [library, setLibrary] = useState({loading: false, error: '', groups: []});
   const [pluginsPageOpen, setPluginsPageOpen] = useState(() => initialQuery.get('surface') === 'plugins');
   const [googlePluginId, setGooglePluginId] = useState(() => initialQuery.get('google_plugin') || '');
@@ -132,7 +134,7 @@ export default function App({bootstrap}) {
   const [diagnostics, setDiagnostics] = useState([]);
   const [historyOpen, setHistoryOpen] = useResponsiveHistory(Boolean(conversationId));
   useEffect(() => { try { window.sessionStorage.setItem('cadu:artifact-width', String(artifactWidth)); } catch (_) { /* Private browsing can disable storage. */ } }, [artifactWidth]);
-  const activeSurface = pluginsPageOpen ? 'plugins' : historyOpen && layout !== 'desktop' ? 'navigation' : libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
+  const activeSurface = pluginsPageOpen ? 'plugins' : historyOpen && layout !== 'desktop' ? 'navigation' : filesOpen ? 'files' : libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
   const [accountOpen, setAccountOpen] = useState(false);
   const [projectCreateOpen, setProjectCreateOpen] = useState(false);
   const [conversationDockItems, setConversationDockItems] = useState(() => bootstrap.dock?.items || []);
@@ -313,7 +315,7 @@ export default function App({bootstrap}) {
     setConversationId(null); conversationRef.current = null;
     setTitle(emptyTitle); setMessages([]); setInput(''); setComposerContext(null);
     if (!preserveAttachments) setAttachments(items => { releasePreviews(items); return []; });
-    setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactOpen(false); setLibraryOpen(false); setArtifactDirty(false); setPublishedUrl('');
+    setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactOpen(false); setLibraryOpen(false); setFilesOpen(false); setArtifactDirty(false); setPublishedUrl('');
     setDiagnostics([]); setRuntime(''); runRef.current = null;
     setQueuedTurns([]);
   }, [releasePreviews]);
@@ -349,7 +351,7 @@ export default function App({bootstrap}) {
       setQueuedTurns((data.queue || readQueue(id)).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
       setTitle(conversationDisplayTitle(conversationTitle || data.conversation?.title, 'Conversa'));
       if (data.context) setContext(data.context);
-      setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false); setLibraryOpen(false);
+      setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false); setLibraryOpen(false); setFilesOpen(false);
       const {messages: restored, selectedContext: restoredContext, lastArtifact} = restoreConversationMessages(data.messages, uid);
       setMessages(restored);
       setComposerContext(restoredContext);
@@ -415,7 +417,7 @@ export default function App({bootstrap}) {
         setConversationId(null); conversationRef.current = null;
         setMessages([]); setContext({}); setComposerContext(null);
         setArtifact(null); setArtifactTabs([]); artifactRef.current = null;
-        setArtifactOpen(false); setLibraryOpen(false); setQueuedTurns([]);
+        setArtifactOpen(false); setLibraryOpen(false); setFilesOpen(false); setQueuedTurns([]);
         setTitle('Conversa indisponível');
         setRuntime('Não foi possível abrir a conversa');
         trace('Falha ao abrir conversa', error.message || 'O serviço não retornou o contexto da conversa.', 'error');
@@ -457,7 +459,7 @@ export default function App({bootstrap}) {
         setConversationId(null); conversationRef.current = null;
         setMessages([]); setContext({}); setComposerContext(null);
         setArtifact(null); setArtifactTabs([]); artifactRef.current = null;
-        setArtifactOpen(false); setLibraryOpen(false); setQueuedTurns([]);
+        setArtifactOpen(false); setLibraryOpen(false); setFilesOpen(false); setQueuedTurns([]);
         setTitle('Conversa indisponível');
         setRuntime('Não foi possível abrir');
         trace('Falha ao abrir conversa', fallbackError.message || error.message, 'error');
@@ -1413,6 +1415,7 @@ export default function App({bootstrap}) {
     const routedItem = resourceRef && !item.libraryRef ? {...item, libraryRef: resourceRef.startsWith('resource:') ? resourceRef : `resource:${resourceRef}`, project_ref: item.project_ref || item.projectRef || context?.project_ref || ''} : item;
     if (!(await openResource(routedItem))) return;
     setLibraryOpen(false);
+    setFilesOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
     setSurfaceUrl('artifact', routedItem.artifact_id || '', false, routedItem.artifact_id ? null : routedItem);
   }, [context?.project_ref, layout, openResource]);
@@ -1430,6 +1433,7 @@ export default function App({bootstrap}) {
   const openLibrary = useCallback(async (syncUrl = true, requestedProjectRef = '') => {
     const libraryProjectRef = String(requestedProjectRef || context?.project_ref || '');
     setLibraryOpen(true);
+    setFilesOpen(false);
     setArtifactOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
     if (syncUrl) setSurfaceUrl('library');
@@ -1461,24 +1465,45 @@ export default function App({bootstrap}) {
     }
   }, [bootstrap.endpoints, bootstrap.urls?.projects, context?.project_ref, layout, projects]);
 
+  const openFiles = useCallback(() => {
+    setFilesOpen(true);
+    setLibraryOpen(false);
+    setArtifactOpen(false);
+    if (layout !== 'desktop') setHistoryOpen(false);
+    setSurfaceUrl('files');
+  }, [layout]);
+  const conversationFiles = useMemo(() => {
+    const seen = new Set();
+    return messages.flatMap(message => (message.files || []).map(file => ({
+      ...file,
+      messageId: message.id,
+      actionLabel: 'Ver mensagem',
+      href: file.id && conversationId
+        ? `/workspace/api/v2/conversations/${encodeURIComponent(conversationId)}/files/${encodeURIComponent(file.id)}`
+        : '',
+    })))
+      .filter(file => { const key = String(file.id || `${file.messageId}:${file.name}`); if (seen.has(key)) return false; seen.add(key); return true; });
+  }, [conversationId, messages]);
+
   const closeSurface = useCallback(() => {
     setLibraryOpen(false);
+    setFilesOpen(false);
     setArtifactOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
     setSurfaceUrl('conversation', '', true);
   }, [layout]);
-
   const openPluginsPage = useCallback(() => {
     setPluginsPageOpen(true);
+    setFilesOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
     setSurfaceUrl('plugins');
   }, [layout]);
   const closePluginsPage = useCallback(() => {
     setPluginsPageOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
-    const surface = libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
+    const surface = filesOpen ? 'files' : libraryOpen ? 'library' : artifactOpen ? 'artifact' : 'conversation';
     setSurfaceUrl(surface, artifact?.id || '', true);
-  }, [artifact?.id, artifactOpen, layout, libraryOpen]);
+  }, [artifact?.id, artifactOpen, filesOpen, layout, libraryOpen]);
 
   const usePlugin = useCallback(plugin => {
     if (plugin?.id?.startsWith('google-')) {
@@ -1486,6 +1511,7 @@ export default function App({bootstrap}) {
       setGooglePluginId(plugin.id);
       setGoogleDraft(input);
       setLibraryOpen(false);
+      setFilesOpen(false);
       if (layout !== 'desktop') setHistoryOpen(false);
       setSurfaceUrl('conversation', '', true);
       return;
@@ -1497,6 +1523,7 @@ export default function App({bootstrap}) {
     if (!prompt) return;
     setPluginsPageOpen(false);
     setLibraryOpen(false);
+    setFilesOpen(false);
     if (layout !== 'desktop') setHistoryOpen(false);
     setSurfaceUrl('conversation', '', true);
     setInput(prompt);
@@ -1543,7 +1570,7 @@ export default function App({bootstrap}) {
     window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
   }, []);
   const openHistory = useCallback(() => {
-    if (layout !== 'desktop') { setLibraryOpen(false); setArtifactOpen(false); }
+    if (layout !== 'desktop') { setLibraryOpen(false); setFilesOpen(false); setArtifactOpen(false); }
     setHistoryOpen(true);
     if (layout !== 'desktop') setSurfaceUrl('navigation');
   }, [layout]);
@@ -1559,6 +1586,7 @@ export default function App({bootstrap}) {
       if (layout !== 'desktop') setHistoryOpen(surface === 'navigation');
       if (surface === 'library') openLibrary(false);
       else setLibraryOpen(false);
+      setFilesOpen(surface === 'files');
       if (surface === 'artifact') {
         const id = params.get('artifact_id');
         const libraryRef = params.get('resource_ref');
@@ -1684,7 +1712,7 @@ export default function App({bootstrap}) {
       {dropActive && createPortal(<div className="cv-drop-overlay" role="status" aria-live="polite"><div className="cv-drop-overlay-card"><Icon name="file" size={28}/><strong>Solte o arquivo para anexar</strong><span>PDF, documento, planilha ou imagem</span></div></div>, document.body)}
         <div className="cv-conversation-stage cv-relative cv-flex cv-min-w-0 cv-flex-1">
           {pluginsPageOpen && <PluginsPage onClose={closePluginsPage} onUsePlugin={usePlugin} caduMark={bootstrap.caduMark || bootstrap.logo} exploreUrl={bootstrap.urls?.plugins || bootstrap.urls?.solutions?.connect || ''}/>}
-          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} caduMark={bootstrap.caduMark || bootstrap.logo} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} opening={Boolean(openingId)} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} projects={projects} brands={brands}/>
+          <Conversation inactive={layout === 'phone' && activeSurface !== 'conversation'} layout={layout} viewport={viewport} shellV2={shellV2} conversationId={conversationId} title={title} context={context} caduMark={bootstrap.caduMark || bootstrap.logo} starterProject={starterProject} starterBrand={starterBrand} starterHome={bootstrap.home} contextLoading={contextLoading} opening={Boolean(openingId)} runtime={runtime} diagnostics={diagnostics} activePlugin={activePlugin} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onPrompt={(prompt, selected, options = {}) => { if (options.submit && prompt) { submit(prompt, {selectedContext: selected}); return; } if (prompt) setInput(prompt); if (selected) { setComposerContext(selected); focusComposer(); } }} onOpenArtifact={showArtifact} onOpenResource={showResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} composerContext={composerContext} onClearContext={() => setComposerContext(null)} onAttach={addFiles} onContextDrop={dropContext} queuedTurns={queuedTurns} onUpdateQueuedTurn={(id, prompt) => persistQueuedTurns(updateQueued(queuedTurns, id, prompt))} onRemoveQueuedTurn={removeQueuedTurn} onMoveQueuedTurn={(id, direction) => persistQueuedTurns(moveQueued(queuedTurns, id, direction))} onOpenLibrary={openLibrary} onOpenFiles={openFiles} automation={activeConversationState} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} projects={projects} brands={brands}/>
           {googlePluginId && !pluginsPageOpen && <GooglePluginPanel pluginId={googlePluginId} connection={googleConnection} loading={googleLoading} error={googleError} draft={googleDraft} onDraftChange={setGoogleDraft} projects={projects} onLinkResource={(resourceId, projectRef) => request(`/workspace/api/v2/google/resources/${encodeURIComponent(resourceId)}/link`, {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({project_ref:projectRef})})} syncing={googleSyncing} syncPages={googleSyncPages} onSyncDrive={async () => {
             setGoogleSyncing(true);
             setGoogleSyncPages(0);
@@ -1725,6 +1753,7 @@ export default function App({bootstrap}) {
             window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
           }}/>}
           {libraryOpen && <LibraryView library={library} projectName={library.projectName} overview={library.overview} onClose={closeSurface} onOpenResource={showResource}/>}
+          {filesOpen && <div className="cv-conversation-files-panel"><header><button type="button" onClick={closeSurface}><Icon name="chevron" size={16}/>Conversa</button></header><div className="cv-conversation-files-panel__scroll"><WorkspaceFilesView files={conversationFiles} scope="conversation"/></div></div>}
           {artifactOpen && layout === 'desktop' && <div className="cv-artifact-resizer" role="separator" aria-label="Ajustar largura da entrega" aria-orientation="vertical" tabIndex={0} aria-valuemin={30} aria-valuemax={60} aria-valuenow={artifactWidth} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setArtifactWidth(value => Math.max(30, Math.min(60, value + (event.key === 'ArrowLeft' ? (artifactSide === 'right' ? 2 : -2) : artifactSide === 'right' ? -2 : 2)))); } }} onPointerDown={event => {
             event.currentTarget.setPointerCapture(event.pointerId);
             const stage = event.currentTarget.parentElement.getBoundingClientRect();

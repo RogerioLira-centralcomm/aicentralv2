@@ -1672,6 +1672,12 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-desktop-history { display:flex; height:100%; min-height:0; flex-direction:column; }
 #cadu-conversations-v2-root .cv-recent-show-all { width:100%; min-height:36px; padding:0 10px; border:0; background:transparent; color:#9fc7bf; font:600 11px Inter,ui-sans-serif,system-ui,sans-serif; text-align:left; cursor:pointer; }
 #cadu-conversations-v2-root .cv-library-view { position:relative; z-index:30; display:flex; width:var(--cv-artifact-width,45%); min-width:360px; height:100%; min-height:0; flex:none; flex-direction:column; border-left:1px solid rgba(181,218,211,.15); background:#111e21; color:#eaf4f1; }
+#cadu-conversations-v2-root .cv-conversation-files-panel { position:relative; z-index:30; display:flex; width:var(--cv-artifact-width,45%); min-width:360px; height:100%; min-height:0; flex:none; flex-direction:column; border-left:1px solid rgba(181,218,211,.15); background:#111e21; color:#eaf4f1; }
+#cadu-conversations-v2-root .cv-conversation-files-panel>header { display:flex; min-height:68px; align-items:center; gap:18px; padding:0 18px; border-bottom:1px solid rgba(181,218,211,.12); }
+#cadu-conversations-v2-root .cv-conversation-files-panel>header h2 { margin:0; font-size:17px; }
+#cadu-conversations-v2-root .cv-conversation-files-panel>header button { display:flex; align-items:center; gap:4px; min-height:40px; padding:0 8px; border:0; border-radius:8px; background:transparent; color:#9fc7bf; cursor:pointer; }
+#cadu-conversations-v2-root .cv-conversation-files-panel>header button svg { transform:rotate(180deg); }
+#cadu-conversations-v2-root .cv-conversation-files-panel__scroll { min-height:0; flex:1; overflow-y:auto; overscroll-behavior:contain; padding:18px 24px max(28px,env(safe-area-inset-bottom)); }
 #cadu-conversations-v2-root .cv-library-view__header { display:flex; min-height:68px; align-items:center; gap:18px; padding:0 18px; border-bottom:1px solid rgba(181,218,211,.12); }
 #cadu-conversations-v2-root .cv-library-view__header h2 { margin:0; font-size:17px; }
 #cadu-conversations-v2-root .cv-library-view__header button { display:flex; align-items:center; gap:4px; min-height:40px; padding:0 8px; border:0; border-radius:8px; background:transparent; color:#9fc7bf; cursor:pointer; }
@@ -1725,10 +1731,10 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-recent-sidebar { position:fixed; inset:0 auto auto 0; z-index:60; width:min(390px,85vw); min-width:0; height:var(--cv-visual-height,100dvh); }
   #cadu-conversations-v2-root .cv-recent-sidebar.is-closing { margin-left:0; transform:translateX(-100%); }
   #cadu-conversations-v2-root .cv-artifact-overlay { position:absolute!important; inset:0 0 0 auto!important; width:min(620px,85vw)!important; min-width:0; height:100%!important; }
-  #cadu-conversations-v2-root .cv-library-view { position:absolute; inset:0 0 0 auto; width:min(620px,85vw); min-width:0; box-shadow:-20px 0 60px rgba(0,0,0,.3); }
+  #cadu-conversations-v2-root .cv-library-view,#cadu-conversations-v2-root .cv-conversation-files-panel { position:absolute; inset:0 0 0 auto; width:min(620px,85vw); min-width:0; box-shadow:-20px 0 60px rgba(0,0,0,.3); }
 }
 @media (min-width:768px) and (max-width:1199px) and (orientation:landscape) {
-  #cadu-conversations-v2-root .cv-artifact-overlay,#cadu-conversations-v2-root .cv-library-view { position:relative!important; inset:auto!important; width:50%!important; flex-basis:50%; box-shadow:none; }
+  #cadu-conversations-v2-root .cv-artifact-overlay,#cadu-conversations-v2-root .cv-library-view,#cadu-conversations-v2-root .cv-conversation-files-panel { position:relative!important; inset:auto!important; width:50%!important; flex-basis:50%; box-shadow:none; }
 }
 @media (min-width:900px) and (max-width:1199px) and (orientation:landscape) {
   #cadu-conversations-v2-root .cv-conversations-workarea>.cadu-ds-dock { display:flex!important; width:56px; min-width:56px; max-width:56px; flex-basis:56px; min-height:0; height:100%; }
@@ -1809,12 +1815,15 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-mobile-navigation nav :is(button,a) svg { color:#82d9cd; }
   #cadu-conversations-v2-root .cv-mobile-navigation__solutions b { color:#edf8f5; }
   #cadu-conversations-v2-root .cv-mobile-navigation__solutions small { color:#a8bfba; }
-  #cadu-conversations-v2-root .cv-library-view,#cadu-conversations-v2-root .cv-artifact-overlay { position:absolute!important; inset:0!important; z-index:50; width:100%!important; height:100%!important; max-width:none!important; }
+  #cadu-conversations-v2-root .cv-library-view,#cadu-conversations-v2-root .cv-conversation-files-panel,#cadu-conversations-v2-root .cv-artifact-overlay { position:absolute!important; inset:0!important; z-index:50; width:100%!important; height:100%!important; max-width:none!important; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-surface="library"] .cv-conversation-shell,
+  #cadu-conversations-v2-root .cv-conversations-shell[data-surface="files"] .cv-conversation-shell,
   #cadu-conversations-v2-root .cv-conversations-shell[data-surface="artifact"] .cv-conversation-shell { visibility:hidden; pointer-events:none; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-surface="navigation"] .cv-conversation-stage { visibility:hidden; }
   #cadu-conversations-v2-root .cv-library-view__header { padding-top:env(safe-area-inset-top); min-height:calc(60px + env(safe-area-inset-top)); }
+  #cadu-conversations-v2-root .cv-conversation-files-panel>header { padding-top:env(safe-area-inset-top); min-height:calc(60px + env(safe-area-inset-top)); }
   #cadu-conversations-v2-root .cv-library-view__scroll { padding-inline:16px; }
+  #cadu-conversations-v2-root .cv-conversation-files-panel__scroll { padding-inline:16px; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-empty-state { visibility:hidden; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-empty-suggestions { display:none; }
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-conversation-support-popover { display:none; }

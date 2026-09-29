@@ -724,7 +724,9 @@ def prepare(data, selected, *, resolved_context=None):
             user_message_id = str(uuid4())
             cur.execute('''INSERT INTO cadu_conversation_messages (id, conversation_id, role, content, files, created_at)
                            VALUES (%s, %s, 'user', %s, %s::jsonb, NOW())''',
-                        (user_message_id, conversation_id, query, json.dumps([{'id': str(row['id']), 'name': row['name']} for row in uploads])))
+                        (user_message_id, conversation_id, query, json.dumps([
+                            {'id': str(row['id']), 'name': row['name'], 'kind': row.get('kind') or 'document',
+                             'execution_mode': execution_mode} for row in uploads])))
             # The database migration is additive; an older deployment must
             # continue chatting normally until its schema is upgraded.
             if repository.family_table_available('cadu_user_memories'):

@@ -104,14 +104,43 @@ function Team({bootstrap}) {
   </div>;
 }
 
-function Plan({account, urls, image}) {
-  const currentPlan = account.plan?.plan_definition_name || account.plan?.plan_type || 'Plano gratuito';
+function Plan({account, urls}) {
+  const currentPlan = account.plan?.plan_definition_name || account.plan?.plan_type || '';
   const options = account.plan_options || [];
-  const fallback = [{plan_name:'Essencial', tokens_monthly_limit:100000, max_users:3}, {plan_name:'Equipe', tokens_monthly_limit:500000, max_users:10}, {plan_name:'Agência', tokens_monthly_limit:2000000, max_users:25}];
-  const cards = options.length ? options : fallback;
-  const visiblePrices = {Essencial:297, Equipe:697, Agência:1497};
-  const families = [{name:'Workspace', detail:'Auditoria, conversas, projetos, arquivos e indexação automática.'},{name:'Studio', detail:'Criação, edição e produção de imagens, vídeo e áudio.'},{name:'Planner', detail:'Planejamento, pesquisa, canais, audiências e documentos.'},{name:'Connect', detail:'Contas, relatórios, integrações e dados multi-origem.'},{name:'Skills', detail:'Skills privadas, referências autorizadas e execução contextual.'}];
-  return <div className="cadu-ds-account-stack cadu-ds-conversion-page"><AccountPageHeader eyebrow="Seu acesso gratuito" title="Descubra o que seu time pode fazer com o Cadu" description="Você já pode criar projetos, trabalhar com marcas e experimentar todas as famílias. Primeiro encontre valor; escolha um plano apenas quando o uso do time pedir mais capacidade."/><section className="cadu-ds-plan-current cadu-ds-free-hero"><div><span>Você está no começo</span><strong>{currentPlan || 'Plano gratuito'}</strong><p>Sem cobrança automática · projetos e marcas ilimitados · ferramentas para explorar</p></div><a href={urls.usage}>Ver meu primeiro uso</a></section><section className="cadu-ds-account-section cadu-ds-next-step"><header><div><span>Próximo passo</span><h2>Use antes de decidir</h2></div></header><div className="cadu-ds-conversion-steps"><article><b>1</b><strong>Crie um projeto</strong><p>Junte contexto, arquivos e links para seu time trabalhar no mesmo lugar.</p></article><article><b>2</b><strong>Experimente as famílias</strong><p>Planeje, audite, converse e indexe arquivos com o acesso que você já tem.</p></article><article><b>3</b><strong>Amplie quando precisar</strong><p>Os planos aumentam equipe e volume; não escondem a experiência básica.</p></article></div></section><section className="cadu-ds-account-section"><header><div><span>Quando fizer sentido crescer</span><h2>Planos e preços</h2></div><small>Escolha com contexto</small></header><DataTable columns={['Plano', 'Preço mensal', 'Tokens de referência', 'Pessoas', 'Para quem']} empty="Os planos comerciais aparecerão aqui." rows={cards.map((option, index) => { const name = option.plan_name || option.plan_definition_name || option.plan_type || `Plano ${index + 1}`; const isCurrent = option.is_current || name === currentPlan; const price = option.monthly_price ?? option.price ?? visiblePrices[name] ?? 0; return <tr key={option.id || name}><td><b>{name}</b>{isCurrent && <small> · seu acesso</small>}</td><td>{price ? money(price) : 'Grátis'}</td><td>{number(option.tokens_monthly_limit || option.pd_tokens_monthly_limit || 0)}</td><td>{number(option.max_users || option.pd_max_users || 0)}</td><td>{index === 0 ? 'Quem está começando' : index === 1 ? 'Times em rotina' : 'Operações maiores'}</td></tr>; })}/></section><section className="cadu-ds-account-section cadu-ds-family-capabilities"><header><div><span>Já disponível no seu acesso</span><h2>O trabalho do time, por família</h2></div><small>Sem bloqueio artificial</small></header><p className="cadu-ds-account-section-copy">Projetos e marcas são ilimitados. Conversas e ações de IA usam créditos quando processam conteúdo ou geram trabalho; o acesso às famílias continua aberto para você conhecer o produto.</p><div className="cadu-ds-family-grid">{families.map(family => <article key={family.name}><strong>{family.name}</strong><p>{family.detail}</p><span>Explore agora</span></article>)}</div></section></div>;
+  const currentKey = String(account.plan?.id_plan_definition || currentPlan).toLocaleLowerCase('pt-BR');
+  const getName = option => option.plan_name || option.plan_definition_name || option.plan_type || 'Plano';
+  const isCurrent = option => String(option.id || getName(option)).toLocaleLowerCase('pt-BR') === currentKey || getName(option).toLocaleLowerCase('pt-BR') === currentKey;
+  const formatStorage = value => {
+    const bytes = Number(value) || 0;
+    if (!bytes) return '—';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return `${new Intl.NumberFormat('pt-BR', {maximumFractionDigits:1}).format(bytes / (1024 ** index))} ${units[index]}`;
+  };
+  const plans = options.map(option => {
+    const type = String(option.plan_type || option.slug || '').toLocaleLowerCase('pt-BR');
+    return {...option, name:getName(option), price:Number(option.price_monthly ?? option.monthly_price ?? option.price ?? 0), current:isCurrent(option), checkout:['pro','enterprise'].includes(type)};
+  });
+  const featureRows = [
+    {label:'Tokens por mês', value:plan => Number(plan.tokens_monthly_limit ?? plan.pd_tokens_monthly_limit) > 0 ? `${number(plan.tokens_monthly_limit ?? plan.pd_tokens_monthly_limit)} tokens` : '—'},
+    {label:'Créditos de imagem', value:plan => Number(plan.limit_image_generation ?? plan.image_credits_monthly) > 0 ? number(plan.limit_image_generation ?? plan.image_credits_monthly) : '—'},
+    {label:'Pessoas na equipe', value:plan => Number(plan.max_users ?? plan.pd_max_users) > 0 ? number(plan.max_users ?? plan.pd_max_users) : '—'},
+    {label:'Armazenamento', value:plan => formatStorage(plan.storage_bytes_limit ?? plan.pd_storage_bytes_limit)},
+  ];
+  return <div className="cadu-ds-account-stack cadu-ds-pricing-page">
+    <header className="cadu-ds-pricing-heading"><span>Planos</span><h1>Encontre o plano certo para sua equipe</h1><p>Compare os recursos e veja os valores mensais de cada opção.</p></header>
+    {currentPlan && <div className="cadu-ds-pricing-current"><span>Seu plano atual</span><strong>{currentPlan}</strong><a href={urls.usage}>Acompanhar uso</a></div>}
+    {plans.length ? <>
+      <section className="cadu-ds-pricing-cards" aria-label="Planos disponíveis">{plans.map(plan => <article className={`cadu-ds-pricing-card${plan.current ? ' is-current' : ''}`} key={plan.id || plan.name}>
+        {plan.current && <span className="cadu-ds-pricing-badge">Seu plano</span>}
+        <h2>{plan.name}</h2><p className="cadu-ds-pricing-description">{plan.description || 'Recursos para sua equipe trabalhar com o Cadu.'}</p>
+        <div className="cadu-ds-pricing-price"><strong>{plan.price > 0 ? money(plan.price) : 'Grátis'}</strong>{plan.price > 0 && <span>/ mês</span>}</div>
+        <ul><li>{Number(plan.tokens_monthly_limit || 0) > 0 ? `${number(plan.tokens_monthly_limit)} tokens por mês` : 'Limite de tokens não informado'}</li><li>{Number(plan.limit_image_generation || plan.image_credits_monthly || 0) > 0 ? `${number(plan.limit_image_generation || plan.image_credits_monthly)} créditos de imagem` : 'Créditos de imagem não informados'}</li><li>{Number(plan.max_users || 0) > 0 ? `Até ${number(plan.max_users)} pessoas` : 'Limite de equipe não informado'}</li></ul>
+        {plan.current ? <span className="cadu-ds-pricing-action is-selected">Plano atual</span> : plan.checkout ? <a className="cadu-ds-pricing-action" href="/assinatura/checkout">Ver contratação</a> : <span className="cadu-ds-pricing-action is-unavailable">Consulte a equipe</span>}
+      </article>)}</section>
+      <section className="cadu-ds-pricing-comparison"><header><span>Compare os planos</span><h2>Recursos incluídos</h2></header><div className="cadu-ds-account-table"><table><thead><tr><th>Recursos</th>{plans.map(plan => <th key={plan.id || plan.name}>{plan.name}</th>)}</tr></thead><tbody><tr><th scope="row">Preço mensal</th>{plans.map(plan => <td key={plan.id || plan.name}>{plan.price > 0 ? money(plan.price) : 'Grátis'}</td>)}</tr>{featureRows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>{plans.map(plan => <td key={plan.id || plan.name}>{row.value(plan)}</td>)}</tr>)}</tbody></table></div></section>
+    </> : <section className="cadu-ds-pricing-empty"><h2>Nenhum plano disponível agora</h2><p>As opções de assinatura ainda não foram publicadas para esta conta.</p></section>}
+  </div>;
 }
 
 function Usage({account, image}) {
@@ -178,7 +207,7 @@ export function WorkspaceAccount({bootstrap}) {
   const section = bootstrap.section;
   const menuProjects = bootstrap.projects || bootstrap.account.agency_context?.projects || [];
   const menuBrands = bootstrap.brands || bootstrap.account.agency_context?.brands || [];
-  const content = section === 'agencia' ? <Agency bootstrap={bootstrap}/> : section === 'perfil' ? <Profile bootstrap={bootstrap}/> : section === 'equipe' ? <Team bootstrap={bootstrap}/> : section === 'integracoes' ? <Integrations bootstrap={bootstrap}/> : section === 'planos' ? <Plan account={bootstrap.account} urls={bootstrap.urls} image={bootstrap.caduMark}/> : section === 'uso' ? <Usage account={bootstrap.account} image={bootstrap.caduMark}/> : section === 'creditos' ? <Credits account={bootstrap.account} bootstrap={bootstrap}/> : <Billing account={bootstrap.account} image={bootstrap.caduMark}/>;
+  const content = section === 'agencia' ? <Agency bootstrap={bootstrap}/> : section === 'perfil' ? <Profile bootstrap={bootstrap}/> : section === 'equipe' ? <Team bootstrap={bootstrap}/> : section === 'integracoes' ? <Integrations bootstrap={bootstrap}/> : section === 'planos' ? <Plan account={bootstrap.account} urls={bootstrap.urls}/> : section === 'uso' ? <Usage account={bootstrap.account} image={bootstrap.caduMark}/> : section === 'creditos' ? <Credits account={bootstrap.account} bootstrap={bootstrap}/> : <Billing account={bootstrap.account} image={bootstrap.caduMark}/>;
   const usagePercent = bootstrap.usagePercent ?? bootstrap.account.position?.usage_percentage ?? 0;
   return <div className="cadu-ds-home-shell cadu-ds-account-shell"><main className="cadu-ds-home-main"><div className="cadu-ds-home-workarea">{isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user.name} userAvatar={bootstrap.user.avatar} userInitials={bootstrap.user.name?.slice(0, 2).toUpperCase()} accountOpen={menuOpen} accountMenu={<WorkspaceAccountMenu open={menuOpen} onClose={() => setMenuOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={menuProjects} brands={menuBrands} usagePercent={usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setMenuOpen(current => !current)} shortcutItems={bootstrap.dock?.items || []} usagePercent={usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setMenuOpen(true)}/>} {!isMobile && <WorkspaceContextSidebar mode="account" active={section} links={bootstrap.urls}/>}<section className="cadu-ds-account-content"><nav className="cadu-ds-account-tabs" aria-label="Conta">{Object.entries(labels).map(([id, label]) => <a key={id} href={bootstrap.urls[id]} aria-current={id === section ? 'page' : undefined}>{label}</a>)}</nav>{content}</section></div></main><PurchaseModal bootstrap={bootstrap}/></div>;
 }

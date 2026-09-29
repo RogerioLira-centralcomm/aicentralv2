@@ -1054,7 +1054,8 @@ def prepare(data):
                 (id, conversation_id, role, content, files, metadata, created_at)
                 VALUES (%s, %s, 'user', %s, %s, %s, NOW())""",
                 (str(uuid4()), conversation_id, message,
-                 Json([{"id": str(row["id"]), "name": row["name"]} for row in uploads]),
+                 Json([{"id": str(row["id"]), "name": row["name"], "kind": row.get("kind") or "document",
+                       "execution_mode": execution["execution_mode"]} for row in uploads]),
                  Json({"runtime": "v2", "selected_context": execution.get("selected_context")})))
             for call in execution["resolved_context"].tool_calls:
                 cur.execute("""INSERT INTO cadu_agent_tool_calls

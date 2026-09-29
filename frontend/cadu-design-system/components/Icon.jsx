@@ -9,6 +9,7 @@ export function Icon({name, size = 18, className = ''}) {
     folder: <><path d="M3 7.5h7l2 2h9v9H3z"/><path d="M3 7.5V5h7l2 2"/></>,
     archive: <><path d="M4 4h16l1 4H3l1-4Z"/><path d="M4 8v12h16V8M10 12h4"/></>,
     file: <><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></>,
+    pdf: <><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M8 15h2a1.5 1.5 0 0 0 0-3H8v6M13 12h1.5a2 2 0 0 1 0 4H13z"/></>,
     library: <><path d="M4 4h6v16H4zM14 4h6v16h-6z"/><path d="M6 7h2M16 7h2M6 11h2M16 11h2"/></>,
     plugin: <><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/><rect x="6" y="6" width="12" height="12" rx="2"/></>,
     image: <><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2-2L20 18"/></>,

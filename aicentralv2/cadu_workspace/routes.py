@@ -6493,6 +6493,7 @@ def project_detail(project_id, project_view='overview'):
                        'classificationReason': str(item.get('classification_reason') or ''),
                        'createdAt': item.get('created_at'),
                        'createdBy': str(item.get('criado_por') or ''),
+                       'href': url_for('cadu_workspace.download_project_source', project_id=project_id, source_id=item.get('id')) if str(item.get('storage_path') or '').startswith('workspace_project_sources/') else '',
                        'actor': {'id': str(item.get('criado_por') or ''), 'name': str(item.get('actor_name') or '')},
                        'canIndex': int(item.get('word_count') or 0) >= 20,
                        'requiresReview': str(item.get('purpose') or 'project_attachment') == 'project_attachment' and str(item.get('indexing_status') or '') == 'paused' and str(item.get('classification_status') or '') in {'pending', 'classified', 'needs_review'},
@@ -6558,7 +6559,7 @@ def project_detail(project_id, project_view='overview'):
                 } for item in project_members],
             },
         }
-        allowed_project_views = {'overview', 'direction', 'tasks', 'activity', 'library', 'indexing', 'conversations', 'deliveries', 'views'}
+        allowed_project_views = {'overview', 'direction', 'tasks', 'activity', 'files', 'library', 'indexing', 'conversations', 'deliveries', 'views'}
         project_view = project_view if project_view in allowed_project_views else 'overview'
         return render_template(
             'cadu_workspace/project_detail_react.html', project_data=project_data,

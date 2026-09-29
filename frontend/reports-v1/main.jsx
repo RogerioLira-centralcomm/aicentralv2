@@ -131,8 +131,17 @@ function Overview({data, metrics, imported, filters, onFiltersChange, onRefresh}
     onFiltersChange({period, startDate: iso(start), endDate: iso(end)});
   };
   const latestMetrics = days.at(-1) || {};
+  const totals = chartMetrics?.totals || {};
+  const investment = chartMetrics?.source === 'export'
+    ? amount(totals.cost, chartMetrics.currency)
+    : money(totals.cost_micros, chartMetrics?.currency);
   const campaignHref = id => {const url = new URL(location.href);url.searchParams.set('client_id', String(data.client.client_id));url.searchParams.set('campaign_id', String(id));url.searchParams.delete('campaign_tab');url.hash = 'campaigns';return `${url.pathname}${url.search}${url.hash}`;};
   return <div className="reports-dashboard">
+    <section className="reports-dashboard-kpis" aria-label="Resumo de mídia">
+      <Kpi label="Impressões" value={hasMetrics ? integer(totals.impressions) : '—'} detail="No período selecionado" />
+      <Kpi label="Cliques" value={hasMetrics ? integer(totals.clicks) : '—'} detail="No período selecionado" />
+      <Kpi label="Investimento" value={hasMetrics ? investment : '—'} detail={hasMetrics ? `Moeda: ${chartMetrics?.currency || 'indisponível'}` : 'Aguardando dados de mídia'} />
+    </section>
     <section className="reports-dashboard-traffic" aria-labelledby="reports-traffic-title">
       <div className="reports-dashboard-traffic__heading">
         <div><h2 id="reports-traffic-title">Impressões da mídia</h2><p>{chartMetrics?.period_days || Number(filters.period) || 30} dias · {sourceLabel}</p></div>

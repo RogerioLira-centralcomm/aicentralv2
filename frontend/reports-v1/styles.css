@@ -276,7 +276,10 @@
 #cadu-reports-v1-root :is(input,select,textarea,button,a):focus-visible{outline:3px solid #84caff;outline-offset:2px}
 
 .reports-dashboard{display:grid;gap:20px;min-width:0}
-.reports-dashboard-traffic,.reports-dashboard-activity{min-width:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.reports-dashboard-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;min-width:0}
+.reports-dashboard-kpis .reports-kpi{min-height:100px;padding:16px 18px;border-color:var(--ui-line);border-radius:10px;background:#fff;box-shadow:0 1px 2px #1018280a}
+.reports-dashboard-kpis .reports-kpi strong{font-size:25px}
+.reports-dashboard-traffic,.reports-dashboard-activity{min-width:0;padding:20px;border:1px solid var(--ui-line);border-radius:10px;background:#fff;box-shadow:0 1px 2px #1018280a}
 .reports-dashboard-traffic__heading,.reports-dashboard-activity__heading{display:flex;align-items:center;justify-content:space-between;gap:18px}
 .reports-dashboard-traffic__heading h2,.reports-dashboard-activity__heading h2{margin:0;color:var(--ui-ink);font-size:16px;font-weight:600;letter-spacing:-.02em}
 .reports-dashboard-traffic__heading p,.reports-dashboard-activity__heading p{margin:4px 0 0;color:var(--ui-muted);font-size:13px}
@@ -293,7 +296,7 @@
 .reports-dashboard-empty strong{color:var(--ui-ink);font-size:14px;font-weight:600}
 .reports-dashboard-empty p{max-width:420px;margin:5px 0 12px;color:var(--ui-muted);font-size:13px}
 .reports-dashboard-empty a{display:inline-flex;margin-right:14px;color:var(--ui-blue);font-size:13px;font-weight:600;text-decoration:none}
-.reports-dashboard-activity{padding-top:18px;border-top:1px solid var(--ui-line)}
+.reports-dashboard-activity{padding-top:20px}
 .reports-dashboard-search{display:flex;align-items:center;gap:8px;width:min(280px,36%);min-height:38px;padding:0 11px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#98a2b3;box-shadow:0 1px 2px #1018280d}
 .reports-dashboard-search input{width:100%;min-width:0;border:0;outline:0;color:#344054;font:inherit;font-size:13px}
 .reports-dashboard-table-tools{display:flex;align-items:flex-start;gap:8px;margin:14px 0}
@@ -319,8 +322,8 @@
 .reports-dashboard-pagination{display:flex;align-items:center;justify-content:space-between;padding-top:12px;color:#667085;font-size:13px}
 .reports-dashboard-pagination button{min-height:36px;padding:0 12px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#344054;font:inherit;font-weight:500;box-shadow:0 1px 2px #1018280d;cursor:pointer}
 .reports-dashboard-pagination button:disabled{opacity:.5;cursor:default}
-@media(max-width:850px){.reports-dashboard-traffic__heading,.reports-dashboard-activity__heading{align-items:flex-start;flex-direction:column}.reports-dashboard-period{max-width:100%;overflow:auto}.reports-dashboard-search{width:100%}.reports-dashboard-filter-fields{width:100%}.reports-dashboard-filter-fields label{flex:1 1 160px}.reports-dashboard-table-tools{flex-wrap:wrap}.reports-dashboard-activity__heading{flex-direction:row;align-items:center}}
-@media(max-width:560px){.reports-dashboard-activity__heading{align-items:stretch;flex-direction:column}.reports-dashboard-period{width:100%;justify-content:space-between}.reports-dashboard-period button{flex:1;padding:0 6px;font-size:12px}.reports-dashboard-chart-summary{flex-wrap:wrap}.reports-dashboard-chart-summary__secondary{margin-left:0}.reports-dashboard-empty{align-items:flex-start;padding:22px 16px}.reports-dashboard-empty__icon{flex:none}.reports-modal{padding:18px}}
+@media(max-width:850px){.reports-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-dashboard-traffic__heading,.reports-dashboard-activity__heading{align-items:flex-start;flex-direction:column}.reports-dashboard-period{max-width:100%;overflow:auto}.reports-dashboard-search{width:100%}.reports-dashboard-filter-fields{width:100%}.reports-dashboard-filter-fields label{flex:1 1 160px}.reports-dashboard-table-tools{flex-wrap:wrap}.reports-dashboard-activity__heading{flex-direction:row;align-items:center}}
+@media(max-width:560px){.reports-dashboard-kpis{grid-template-columns:1fr}.reports-dashboard-traffic,.reports-dashboard-activity{padding:15px}.reports-dashboard-activity__heading{align-items:stretch;flex-direction:column}.reports-dashboard-period{width:100%;justify-content:space-between}.reports-dashboard-period button{flex:1;padding:0 6px;font-size:12px}.reports-dashboard-chart-summary{flex-wrap:wrap}.reports-dashboard-chart-summary__secondary{margin-left:0}.reports-dashboard-empty{align-items:flex-start;padding:22px 16px}.reports-dashboard-empty__icon{flex:none}.reports-modal{padding:18px}}
 
 /* Shared control rhythm for the flow editor and other data workspaces. */
 .reports-flow-views{align-items:center;margin:0 0 16px;padding:14px 16px;border:1px solid var(--ui-line);border-radius:10px;background:#fff}

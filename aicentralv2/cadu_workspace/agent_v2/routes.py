@@ -6,10 +6,12 @@ import re
 import secrets
 from dataclasses import replace
 from html import escape as html_escape
+from urllib.parse import quote
 from uuid import uuid4
 
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, session, stream_with_context, url_for
 from werkzeug.exceptions import HTTPException
+from werkzeug.utils import secure_filename
 
 from ...cadu_family import context as family_context, repository
 from .request_context import resolve
@@ -893,6 +895,63 @@ def upload():
         conn.rollback()
         raise
     return jsonify(file={"id": upload_id, "name": validated.filename, "kind": kind, "size": size}), 201
+
+
+@bp.get("/conversations/<uuid:conversation_id>/files/<uuid:upload_id>")
+def download_conversation_file(conversation_id, upload_id):
+    """Stream an attachment only when it belongs to this caller's conversation."""
+    current = resolve(conversation_id=str(conversation_id), surface="conversations")
+    if not repository.family_table_available("cadu_family_chat_uploads"):
+        abort(404)
+    upload_id = str(upload_id)
+    rows = repository.rows("""SELECT upload.provider_id,upload.name,upload.kind,message.files
+        FROM cadu_family_chat_uploads upload
+        JOIN cadu_conversation_messages message
+          ON message.conversation_id=%s AND message.role='user'
+         AND message.files @> %s::jsonb
+        JOIN cadu_conversations conversation ON conversation.id=message.conversation_id
+        WHERE upload.id=%s AND upload.user_id=%s AND upload.client_id=%s
+          AND conversation.id_contato_cliente=%s AND conversation.id_cliente=%s
+        LIMIT 1""",
+        (str(conversation_id), json.dumps([{"id": upload_id}]), upload_id,
+         current.user_id, current.client_id, current.user_id, current.client_id))
+    if not rows:
+        abort(404)
+
+    record = rows[0]
+    try:
+        message_files = record.get("files") or []
+        if isinstance(message_files, str):
+            message_files = json.loads(message_files)
+        metadata = next(item for item in message_files
+                        if isinstance(item, dict) and str(item.get("id")) == upload_id)
+    except (TypeError, ValueError, StopIteration):
+        abort(404)
+
+    from . import provider
+    try:
+        upstream = provider.download_file(
+            record["provider_id"], "user-" + str(current.user_id),
+            metadata.get("execution_mode") or "analysis")
+    except ProviderUnavailable:
+        abort(502, description="Não foi possível abrir o arquivo agora.")
+
+    def stream_file():
+        try:
+            for chunk in upstream.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    filename = str(record.get("name") or "arquivo")
+    fallback = secure_filename(filename) or "arquivo"
+    disposition = f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
+    return Response(stream_with_context(stream_file()),
+                    content_type=upstream.headers.get("Content-Type") or "application/octet-stream",
+                    headers={"Content-Disposition": disposition,
+                             "X-Content-Type-Options": "nosniff",
+                             "Cache-Control": "private, no-store"})
 
 
 @bp.post("/audio/transcriptions")

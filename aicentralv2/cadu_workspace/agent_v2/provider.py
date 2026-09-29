@@ -100,6 +100,26 @@ def upload_file(file, user: str, execution_mode="analysis") -> str:
         raise ProviderUnavailable("Não foi possível enviar o arquivo ao runtime V2.") from exc
 
 
+def download_file(file_id: str, user: str, execution_mode="analysis"):
+    """Return a provider response for an uploaded file after local authorization."""
+    if not file_id or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in file_id):
+        raise ProviderUnavailable("A referência do arquivo é inválida.")
+    runtime = _configuration(execution_mode)
+    try:
+        response = requests.get(
+            runtime["url"] + "/files/" + file_id + "/preview",
+            headers={"Authorization": "Bearer " + runtime["key"], "Accept": "application/octet-stream"},
+            params={"user": user, "as_attachment": "true"},
+            stream=True, timeout=(10, 60), allow_redirects=False,
+        )
+        if response.status_code != 200:
+            response.close()
+            raise ProviderUnavailable("O arquivo não está mais disponível no runtime.")
+        return response
+    except requests.RequestException as exc:
+        raise ProviderUnavailable("Não foi possível recuperar o arquivo do runtime.") from exc
+
+
 def events(payload, execution_mode="analysis"):
     url, headers = settings(execution_mode)
     read_timeout = {"fast": 30, "analysis": 120, "agentic": 240}.get(execution_mode, 120)

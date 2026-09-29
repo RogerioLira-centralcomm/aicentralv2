@@ -2,7 +2,8 @@ import React, {useEffect, useRef, useState} from 'react';
 import {CaduDock} from './CaduDock';
 import {VisualIdentity} from './VisualIdentity';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
-import {CaduDialog} from './CaduDialog';
+import {CaduModal} from './CaduModal';
+import {CaduButton} from './CaduButton';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {csrf, request} from '../../conversations-v2/lib/api';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
@@ -57,10 +58,10 @@ function writeDockResourcePayload(event, resource, projectId) {
 }
 
 function ProjectDialog({title, detail, onClose, children, className = ''}) {
-  return <CaduDialog className={`cadu-ds-project-dialog ${className}`} label={title} onClose={onClose}>
+  return <CaduModal className={`cadu-ds-project-dialog ${className}`} label={title} onClose={onClose}>
     <header className="cadu-ds-project-dialog__header"><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
     {children}
-  </CaduDialog>;
+  </CaduModal>;
 }
 
 function ProjectTitle({name}) {
@@ -199,7 +200,7 @@ function IdentityDialog({project, urls, csrfToken, onClose}) {
       <section className="cadu-ds-project-form__custom" aria-labelledby="project-custom-fields-title"><header><div><b id="project-custom-fields-title">Itens personalizados</b><small>Dados próprios deste projeto também entram no contexto das conversas.</small></div><button type="button" onClick={addField}>Adicionar item</button></header>{customFields.length ? <div>{customFields.map(field => <article key={field.key}><label>Nome do item<input value={field.label} maxLength="120" placeholder="Ex.: Orçamento mensal" onChange={event => updateField(field.key, {label:event.target.value})}/></label><label>Tipo<select value={field.type} onChange={event => updateField(field.key, {type:event.target.value})}><option value="text">Texto</option><option value="list">Lista</option><option value="number">Número</option><option value="currency">Moeda</option><option value="date">Data</option><option value="url">Link</option></select></label><label>Conteúdo<textarea rows="3" maxLength="12000" value={field.value} placeholder={field.type === 'list' ? 'Um item por linha' : 'Informação que deve orientar o projeto'} onChange={event => updateField(field.key, {value:event.target.value})}/></label><button type="button" onClick={() => removeField(field.key)} aria-label={`Remover ${field.label || 'item personalizado'}`}>Remover</button></article>)}</div> : <p>Nenhum item personalizado. Adicione objetivos, orçamento, canais, restrições ou qualquer dado específico deste trabalho.</p>}</section>
       {urls.directionHistory && <section className="cadu-ds-project-form__history" aria-labelledby="project-context-history-title"><header><div><b id="project-context-history-title">Histórico da direção</b><small>Acompanhe quando e por onde o contexto foi alterado.</small></div><button type="button" aria-expanded={historyOpen} onClick={toggleHistory}>{historyOpen ? 'Ocultar histórico' : 'Ver histórico'}</button></header>{historyOpen && <div className="cadu-ds-project-form__history-body">{historyLoading ? <p role="status">Carregando histórico…</p> : historyError ? <p className="is-error" role="alert">{historyError}</p> : historyItems.length ? <ol>{historyItems.map(item => <li key={`${item.revision}-${item.created_at}`}><div><b>Revisão {item.revision}</b><small>{PROJECT_CONTEXT_SOURCE_LABELS[item.source] || item.source || 'Atualização'}{contextHistoryDate(item.created_at) ? ` · ${contextHistoryDate(item.created_at)}` : ''}</small></div><p>{(item.changed_fields || []).map(contextHistoryField).join(', ') || 'Contexto atualizado'}</p></li>)}</ol> : <p>Nenhuma alteração registrada ainda.</p>}</div>}</section>}
       <label>Cor de referência<input name="color" type="color" defaultValue={project.color}/></label>
-      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Salvar contexto</button></footer>
+      <footer><button type="button" onClick={onClose}>Cancelar</button><CaduButton type="submit">Salvar contexto</CaduButton></footer>
     </form>
   </ProjectDialog>;
 }
@@ -242,7 +243,7 @@ function BrandPickerDialog({brands, currentBrandId, urls, csrfToken, canManageBr
         <button type="submit" className={String(brand.id) === String(currentBrandId) ? 'is-selected' : ''}><VisualIdentity src={brand.logoUrl} initials={brand.visualInitials || brand.name} label={brand.name} color={brand.visualColor} variant={brand.visualVariant}/><span><b>{brand.name}</b><small>{brand.description || 'Abrir esta identidade no projeto'}</small></span><i aria-hidden="true">{String(brand.id) === String(currentBrandId) ? 'Atual' : 'Usar'}</i></button>
       </form>) : <p className="cadu-ds-project-empty-copy">Ainda não há marcas cadastradas nesta agência.</p>}
     </div>
-    <footer className="cadu-ds-project-dialog__footer"><a href={urls.brands}>Ver marcas</a>{canManageBrand && <button type="button" className="is-primary" onClick={onCreate}>Criar e auditar marca</button>}</footer>
+    <footer className="cadu-ds-project-dialog__footer"><a href={urls.brands}>Ver marcas</a>{canManageBrand && <CaduButton type="button" onClick={onCreate}>Criar e auditar marca</CaduButton>}</footer>
   </ProjectDialog>;
 }
 
@@ -273,7 +274,7 @@ function ImportBrandDialog({urls, csrfToken, onClose}) {
       <label>Site oficial<input name="website_url" type="url" required maxLength="2000" placeholder="https://exemplo.com"/></label>
       <label>Logo principal <small>Opcional</small><BrandFileDrop name="logo" label="Solte o logo aqui" hint="Imagem principal da marca"/></label>
       <label>Referências visuais <small>Opcional · até 8 arquivos</small><BrandFileDrop name="images" multiple label="Solte referências aqui" hint="Imagens oficiais da marca"/></label>
-      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Criar e iniciar auditoria</button></footer>
+      <footer><button type="button" onClick={onClose}>Cancelar</button><CaduButton type="submit">Criar e iniciar auditoria</CaduButton></footer>
     </form>
   </ProjectDialog>;
 }
@@ -299,7 +300,7 @@ function NoteDialog({urls, csrfToken, onClose}) {
       <input type="hidden" name="_csrf" value={csrfToken}/>
       <label>Título<input autoFocus name="title" required minLength="2" maxLength="180"/></label>
       <label>Nota<textarea name="content" required minLength="20" maxLength="50000" rows="6"/></label>
-      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Salvar nota</button></footer>
+      <footer><button type="button" onClick={onClose}>Cancelar</button><CaduButton type="submit">Salvar nota</CaduButton></footer>
     </form>
   </ProjectDialog>;
 }
@@ -872,7 +873,7 @@ export function WorkspaceProject({bootstrap}) {
         {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
         <EntityNavigator label={project.name || 'Projeto'} items={projectNav} activeId={projectView} identity={<><span className="cadu-ds-entity-nav__project-mark"><ProjectIcon name="context"/></span><span><small>Projeto</small><b title={project.name}>{project.name}</b></span></>}>
           <span>Ações</span>
-          <button type="button" className="is-primary" onClick={startConversation}><ProjectIcon name="compose"/> Conversar no projeto</button>
+          <CaduButton type="button" onClick={startConversation} iconLeading={<ProjectIcon name="compose"/>}>Conversar no projeto</CaduButton>
           {canEdit && <button type="button" onClick={() => setDialog('identity')}><ProjectIcon name="text"/> Editar contexto</button>}
           {canEdit && <details className="cadu-ds-entity-nav__source-menu"><summary><ProjectIcon name="source"/> Adicionar ao projeto</summary><div><button type="button" onClick={() => setDialog('source-upload')}>Adicionar fonte</button><button type="button" onClick={() => setDialog('note')}>Adicionar nota</button><button type="button" onClick={() => setDialog('link')}>Adicionar link</button></div></details>}
           <details className="cadu-ds-entity-nav__source-menu"><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a>{canEdit && <form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button type="submit">{project.status === 'arquivado' ? 'Reativar projeto' : 'Arquivar projeto'}</button></form>}{bootstrap.canManageProjects && <><button type="button" onClick={() => setDialog('merge')}>Mesclar com outro projeto</button><button type="button" className="is-danger" onClick={() => setDialog('delete-project')}>Excluir projeto</button></>}</div></details>
@@ -885,7 +886,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'files' && <WorkspaceFilesView files={project.files || []} scope="project" onAdd={canEdit ? () => setDialog('source-upload') : undefined}/>}
         {projectView === 'library' && <><ProjectPageIntro title="Biblioteca" detail="Arquivos, links e notas."/><ProjectSourceExplorer project={project} conversationUrl={projectLinks.conversation} activityHref={sectionLinks.activity} currentUser={bootstrap.user} canEdit={canEdit} onManage={() => setDialog('source-upload')} onAddNote={() => setDialog('note')} onAddLink={() => setDialog('link')} onEditContext={() => setDialog('identity')}/></>}
         {projectView === 'indexing' && <><ProjectPageIntro title="Indexação" detail="Fontes e estado da indexação."/><ProjectIndexingSection files={project.files || []} onReview={() => setDialog('source-upload')} onAddLink={() => setDialog('link')}/></>}
-        {projectView === 'conversations' && <><ProjectPageIntro title="Conversas" detail="Histórico deste projeto." action={<button type="button" className="is-primary" onClick={startConversation}>Nova conversa</button>}/><ProjectMemorySection project={project} reviewBase={projectLinks.reviewMemoryBase} csrfToken={bootstrap.csrf || csrf()} canEdit={canEdit}/><ProjectContinuitySection project={project} onStartConversation={startConversation}/></>}
+        {projectView === 'conversations' && <><ProjectPageIntro title="Conversas" detail="Histórico deste projeto." action={<CaduButton type="button" onClick={startConversation}>Nova conversa</CaduButton>}/><ProjectMemorySection project={project} reviewBase={projectLinks.reviewMemoryBase} csrfToken={bootstrap.csrf || csrf()} canEdit={canEdit}/><ProjectContinuitySection project={project} onStartConversation={startConversation}/></>}
         {projectView === 'deliveries' && <ProjectDeliveriesPage project={project} onStartConversation={startConversation}/>}
         {projectView === 'views' && <ProjectViewsPage onStartConversation={startConversation}/>}
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta. Para reativar, use Mais ações.</span></aside>}

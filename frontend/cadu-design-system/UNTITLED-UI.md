@@ -10,7 +10,7 @@ This directory adopts Untitled UI React as its component source. The source of r
 
 The Workspace entry currently shares React 18, Vite 6, and one compiled stylesheet with Conversations. The official library v8 Vite starter currently uses Tailwind CSS 4 and React Aria Components. The existing application pipelines compile Tailwind CSS 3.4. Do not import the kit's global stylesheet into the shared entry until the isolated Tailwind 4 build decision is complete; a Tailwind preflight or broad selectors can change the dark Conversations surface.
 
-`tokens.css` contains the CADU-to-Untitled semantic token bridge. The official v8 Button is vendored in `untitled-kit/button.tsx` and used through `CaduButton`. Its Tailwind 4 stylesheet is compiled separately by `untitled-kit/package.json` without Tailwind preflight. Only the six React Workspace templates load that stylesheet; Conversations remains dark and does not load it.
+`tokens.css` contains the CADU-to-Untitled semantic token bridge. The official v8 Button and Modal are vendored in `untitled-kit` and used through `CaduButton` and `CaduModal`. The input is adapted from the official React Aria TextField pattern for this application's React 18 runtime and used through `CaduInput`. Their Tailwind 4 stylesheet is compiled separately by `untitled-kit/package.json` without Tailwind preflight. Only the six React Workspace templates load that stylesheet; Conversations remains dark and does not load it.
 
 ## Source and license handling
 
@@ -20,6 +20,6 @@ Use `npx untitledui@latest add <component> --type base --lib-version 8` from a d
 
 - Inventory completed for the shared Workspace/Conversations React entry and current Tailwind pipelines.
 - Dedicated Tailwind 4 build boundary implemented in `untitled-kit`, with no preflight or change to the application's Tailwind 3 build.
-- Official Untitled UI React v8 Button and Modal sources integrated through `CaduButton` and `CaduModal`; catalog actions and Brand/Project creation use them.
+- Untitled UI React v8 Button, Modal and TextField primitives integrated through `CaduButton`, `CaduModal` and `CaduInput`; catalog creation, detail dialogs and core account forms use them.
 - Brand scale maps to the Workspace teal tokens. Browser verification covers catalog and creation actions at desktop, tablet and phone widths.
-- Remaining migration: official Input, menus, tabs and tables, followed by the other Workspace forms, dialogs and page actions. Existing controls must remain usable while each surface is converted.
+- Remaining migration: menus, tabs, tables and other secondary Workspace forms and actions. Existing controls must remain usable while each surface is converted.

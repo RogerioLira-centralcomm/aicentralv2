@@ -1,4 +1,5 @@
 import React from 'react';
+import {Button as UntitledButton} from './untitled-kit/src/components/base/buttons/button.tsx';
 
 export const REPORT_FILTER_DEFAULTS = Object.freeze({
   platform: '', account: '', campaign: '', period: '30', startDate: '', endDate: '',
@@ -33,7 +34,7 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
       <p>{descriptionOverride || meta.description}</p>
     </div>
     <div className="reports-page-header__actions">
-      {onAction && <button type="button" className="reports-button reports-button--secondary" onClick={onAction.onClick}>{onAction.label}</button>}
+      {onAction && <UntitledButton color="secondary" onPress={onAction.onClick}>{onAction.label}</UntitledButton>}
       {clients.length > 1 ? <label className="reports-client-select"><span className="reports-sr-only">Cliente Reports</span>
         <select value={client?.client_id ?? ''} onChange={chooseClient} aria-label="Cliente Reports">
           {clients.map(item => {
@@ -53,8 +54,12 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
   const campaigns = (data?.campaigns || []).filter(item =>
     (!filters.platform || item.platform === filters.platform) &&
     (!filters.account || String(item.account_id) === filters.account));
+  const activeCount = [filters.platform, filters.account, filters.campaign].filter(Boolean).length;
+  const clearFilters = () => onChange({platform: '', account: '', campaign: ''});
 
   return <section className="reports-filter-bar" aria-label="Filtros da página">
+    <div className="reports-filter-bar__heading"><span className="reports-filter-bar__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14l-5.3 6.1v4.1l-3.4 1.7v-5.8L3 5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></span><div><strong>Filtros</strong><small>Refine os dados desta página</small></div></div>
+    <div className="reports-filter-bar__fields">
     <label><span>Plataforma</span><select value={filters.platform} onChange={event => onChange({platform: event.target.value, account: '', campaign: ''})}>
       <option value="">Todas</option>{platforms.map(value => <option key={value} value={value}>{{google_ads:'Google Ads',meta_ads:'Meta Ads',microsoft_ads:'Microsoft Ads',other:'Outra'}[value] || value.replaceAll('_',' ')}</option>)}
     </select></label>
@@ -64,14 +69,15 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
     <label><span>Campanha</span><select value={filters.campaign} onChange={event => onChange({campaign: event.target.value})}>
       <option value="">Todas</option>{campaigns.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </select></label>
-    <label><span>Período</span><select value={filters.period} onChange={event => {
+    <label className="reports-filter-bar__period"><span>Período</span><span className="reports-filter-bar__period-control"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3.25" y="4.5" width="13.5" height="12" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M6.5 3v3M13.5 3v3M3.5 8h13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg><select value={filters.period} onChange={event => {
       const period = event.target.value;
       const end = new Date();
       const start = new Date(end);
       start.setDate(start.getDate() - Number(period) + 1);
       const date = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
       onChange({period, startDate: date(start), endDate: date(end)});
-    }}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label>
-    <button type="button" className="reports-button reports-button--refresh" onClick={onRefresh}><span aria-hidden="true">↻</span> Atualizar</button>
+    }}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></span></label>
+    </div>
+    <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton size="sm" color="secondary" onPress={onRefresh}><span aria-hidden="true">↻</span>Atualizar</UntitledButton></div>
   </section>;
 }

@@ -111,6 +111,7 @@ def _fanout_flow_events(site, prepared, page_host):
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
         WHERE f.organization_id=%s AND f.client_id=%s AND f.status='published' AND t.revoked_at IS NULL''',
         (site['organization_id'], site['client_id']))
+    from .reports_flow_versions import session_snapshot, match_version_step
     for flow in flow_rows:
         if not _host_allowed(page_host, flow['allowed_host']):
             continue
@@ -136,48 +137,9 @@ def _fanout_flow_events(site, prepared, page_host):
             attribution = json.loads(attribution_json or '{}')
             event_data = json.loads(data_json or '{}')
             safe_path = _safe_path(path)
-            node = next((candidate for candidate in nodes if isinstance(candidate, dict)
-                and candidate.get('path') == safe_path
-                and (not candidate.get('host') or _host_allowed(page_host, candidate.get('host')))
-                and candidate.get('type') in {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}
-                and (candidate.get('type') != 'event' or
-                     (kind == 'custom_event' and candidate.get('event_name') == event_name))), None)
+            snapshot = session_snapshot(flow, session_id)
+            step = match_version_step(snapshot, safe_path, page_host, kind, event_name)
             mapped_kind = kind
-            if kind == 'page_view' and node and node.get('type') == 'conversion':
-                mapped_kind = 'conversion'
-            elif kind == 'page_view' and node and node.get('type') == 'error':
-                mapped_kind = 'error_view'
-            desired_step = {
-                'form': 'form', 'event': 'event', 'whatsapp': 'whatsapp',
-                'conversion': 'conversion', 'error': 'error',
-            }.get(node.get('type')) if node else {
-                'form_submit': 'form', 'whatsapp_click': 'whatsapp',
-                'custom_event': 'event', 'conversion': 'conversion',
-            }.get(kind)
-            matched = _rows('''SELECT id,campaign_id,step_kind FROM cadu_reports_flow_steps
-                WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND is_active=TRUE
-                    AND (page_host IS NULL OR page_host=%s)
-                    AND (path_prefix='/' OR %s=path_prefix OR %s LIKE rtrim(path_prefix,'/') || '/%%')
-                ORDER BY length(path_prefix) DESC,position,id LIMIT 1''',
-                (flow['tag_id'], flow['organization_id'], flow['client_id'],
-                 page_host, safe_path, safe_path))
-            if desired_step:
-                _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
-                      (str(flow['tag_id']), f'{safe_path}:{desired_step}'))
-                exact = _rows('''SELECT id,campaign_id,step_kind FROM cadu_reports_flow_steps
-                    WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND is_active=TRUE
-                        AND path_prefix=%s AND step_kind=%s ORDER BY position,id LIMIT 1''',
-                    (flow['tag_id'], flow['organization_id'], flow['client_id'], safe_path, desired_step))
-                if exact:
-                    matched = exact
-                elif node:
-                    matched = _rows('''INSERT INTO cadu_reports_flow_steps
-                        (organization_id,client_id,tag_id,name,path_prefix,page_host,step_kind,position)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,0) RETURNING id,campaign_id,step_kind''',
-                        (flow['organization_id'], flow['client_id'], flow['tag_id'],
-                         str(node.get('title') or desired_step)[:120], safe_path,
-                         page_host, desired_step))
-            step = matched[0] if matched else None
             if mapped_kind == 'page_view' and step and step.get('step_kind') == 'conversion':
                 mapped_kind = 'conversion'
             elif mapped_kind == 'page_view' and step and step.get('step_kind') == 'error':
@@ -188,13 +150,13 @@ def _fanout_flow_events(site, prepared, page_host):
             duration_ms = event_data.get('duration_ms') if kind == 'page_leave' else None
             _rows('''INSERT INTO cadu_reports_flow_events
                 (organization_id,client_id,tag_id,visitor_id,session_id,event_kind,event_name,page_host,page_path,
-                 referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method,duration_ms,occurred_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                 referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method,duration_ms,occurred_at,flow_revision)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
                 (flow['organization_id'], flow['client_id'], flow['tag_id'], flow_visitor_id, session_id,
                  mapped_kind, event_name, page_host, safe_path, referrer,
                  attribution.get('utm_source'), attribution.get('utm_medium'), attribution.get('utm_campaign'),
                  attribution.get('utm_id'), attribution.get('click_id'),
-                 step.get('id') if step else None, campaign_id, method, duration_ms, occurred_at))
+                 step.get('id') if step else None, campaign_id, method, duration_ms, occurred_at,snapshot['published_revision']))
 
 
 def _base_url():

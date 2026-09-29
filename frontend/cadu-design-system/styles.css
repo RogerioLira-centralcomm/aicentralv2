@@ -348,12 +348,20 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-home-chat-shell .cadu-ds-selector-menu { top:auto; bottom:calc(100% + 10px); z-index:60; }
 .cadu-ds-dialog { position:fixed; inset:0; width:min(560px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; overflow:auto; }
 [data-cadu-untitled-overlay] { box-sizing:border-box; width:auto; }
-.cadu-untitled-modal { box-sizing:border-box; width:min(920px,100%); background:var(--cadu-surface); color:var(--cadu-ink); }
+.cadu-untitled-modal { box-sizing:border-box; width:min(560px,100%); background:var(--cadu-surface); color:var(--cadu-ink); }
+.cadu-untitled-modal:has(.cadu-ds-brand-create-dialog) { width:min(920px,100%); }
 .cadu-untitled-modal:has(.cadu-ds-project-create-dialog) { width:min(520px,100%); }
 .cadu-untitled-modal-content { box-sizing:border-box; width:100%; min-width:0; max-width:100%; padding:22px; color:var(--cadu-ink); }
 .cadu-untitled-modal-content.cadu-ds-brand-create-dialog,.cadu-untitled-modal-content.cadu-ds-project-create-dialog { width:100%; max-width:100%; }
 .cadu-untitled-modal-content header { display:flex; justify-content:space-between; gap:16px; align-items:start; }
 .cadu-untitled-modal-content header button { border:0; background:transparent; color:var(--cadu-muted); cursor:pointer; font-size:22px; }
+.cadu-untitled-field { min-width:0; }
+.cadu-untitled-field .cadu-untitled-field__control { box-sizing:border-box; }
+.cadu-untitled-field input[data-cadu-untitled-input] { box-sizing:border-box; width:100%; min-height:0; border:0; border-radius:0; box-shadow:none; background:transparent; color:var(--cadu-ink); }
+.cadu-untitled-field input[data-cadu-untitled-input]:focus { outline:0; }
+.cadu-ds-account-shell .cadu-untitled-field label[data-label] { display:flex; align-items:center; gap:2px; }
+.cadu-ds-project-form .cadu-untitled-field label[data-label] { display:flex; align-items:center; gap:2px; }
+.cadu-ds-account-shell .cadu-ds-account-form select { box-sizing:border-box; width:100%; padding:0 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); color-scheme:light; }
 .cadu-ds-shortcut-dialog { width:min(560px,calc(100vw - 32px)); }
 .cadu-ds-project-dialog { max-height:calc(100dvh - 32px); }
 .cadu-ds-project-create-dialog { width:min(520px,calc(100vw - 32px)); }
@@ -990,7 +998,7 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 .cadu-ds-account-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; padding:26px; border:1px solid var(--cadu-line); border-radius:14px; background:var(--cadu-surface); }
 .cadu-ds-account-form label,.cadu-ds-account-inline-form label { display:grid; gap:7px; color:var(--cadu-ink); font-size:12px; font-weight:650; }
 .cadu-ds-account-form input,.cadu-ds-account-inline-form :is(input,select),.cadu-ds-account-row-actions select { width:100%; min-height:40px; box-sizing:border-box; padding:0 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); }
-.cadu-ds-account-form footer { grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:18px; padding-top:8px; }.cadu-ds-account-form footer span { color:var(--cadu-muted); font-size:11px; }
+.cadu-ds-account-form footer { grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:18px; padding-top:8px; }.cadu-ds-account-form footer>span { color:var(--cadu-muted); font-size:11px; }
 .cadu-ds-account-form button:not([data-cadu-untitled-button]),.cadu-ds-account-inline-form button,.cadu-ds-account-row-actions button { min-height:38px; padding:0 13px; border:0; border-radius:8px; background:var(--cadu-accent-strong); color:#fff; font-weight:680; }
 .cadu-ds-account-inline-form { display:grid; grid-template-columns:minmax(220px,1fr) 180px auto; gap:12px; align-items:end; margin-top:20px; }
 .cadu-ds-credit-request { border-color:color-mix(in srgb,var(--cadu-accent-strong) 28%,var(--cadu-line)); background:linear-gradient(135deg,color-mix(in srgb,var(--cadu-accent) 7%,var(--cadu-surface)),var(--cadu-surface)); }
@@ -2460,7 +2468,7 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
   padding-top:6px;
 }
 
-.cadu-ds-account-shell .cadu-ds-account-form footer span,
+.cadu-ds-account-shell .cadu-ds-account-form footer > span,
 .cadu-ds-account-shell .cadu-ds-account-section > header small {
   font-size:10px;
   line-height:1.45;
@@ -3776,6 +3784,9 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
   body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-dock { grid-column:1; width:64px; min-width:64px; }
   body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-context-sidebar { grid-column:2; width:var(--cadu-sidebar-width); min-width:var(--cadu-sidebar-width); margin:0; }
   body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-home-content { grid-column:3; min-width:0; }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar.is-collapsed) { grid-template-columns:64px 64px minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar.is-collapsed) > .cadu-ds-context-sidebar { width:64px; min-width:64px; }
+  body.portal--workspace .cadu-ds-context-sidebar.is-home.is-collapsed .cadu-ds-context-sidebar__brand-groups { display:none; }
   body.portal--workspace .cadu-ds-home-intro { width:min(920px,100%); margin:0 auto 26px; text-align:center; }
   body.portal--workspace .cadu-ds-home-intro h1,
   body.portal--workspace .cadu-ds-home-intro > p:last-child { margin-right:auto; margin-left:auto; text-align:center; }

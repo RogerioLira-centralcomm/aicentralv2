@@ -3,7 +3,8 @@ import './WorkspaceBrand.css';
 import {CaduDock} from './CaduDock';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
-import {CaduDialog} from './CaduDialog';
+import {CaduModal} from './CaduModal';
+import {CaduButton} from './CaduButton';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
@@ -51,10 +52,10 @@ function FilledReading({items, emptyLabel = 'Adicione contexto para orientar as 
 }
 
 function BrandDialog({title, detail, onClose, children, className = ''}) {
-  return <CaduDialog className={`cadu-ds-brand-dialog ${className}`} label={title} onClose={onClose}>
+  return <CaduModal className={`cadu-ds-brand-dialog ${className}`} label={title} onClose={onClose}>
     <header><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div>{onClose && <button type="button" onClick={onClose} aria-label="Fechar">×</button>}</header>
     {children}
-  </CaduDialog>;
+  </CaduModal>;
 }
 
 function IdentityDialog({brand, urls, csrfToken, onClose}) {
@@ -64,7 +65,7 @@ function IdentityDialog({brand, urls, csrfToken, onClose}) {
       <label>Nome da marca<input name="name" required minLength="2" maxLength="150" defaultValue={brand.name}/></label>
       <label>Site oficial<input name="website_url" type="url" maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/></label>
       <small className="cadu-ds-brand-form__note">Cores, tipografia, logo e direção não são editadas manualmente. Elas são extraídas das fontes, revisadas e aprovadas.</small>
-      <footer><button type="button" onClick={() => window.location.assign(urls.conversation)}>Atualizar em conversa</button><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Salvar metadados</button></footer>
+      <footer><button type="button" onClick={() => window.location.assign(urls.conversation)}>Atualizar em conversa</button><button type="button" onClick={onClose}>Cancelar</button><CaduButton type="submit">Salvar metadados</CaduButton></footer>
     </form>
   </BrandDialog>;
 }
@@ -82,7 +83,7 @@ function CreateBrandProjectDialog({brand, action, csrfToken, onClose}) {
       <label>Nome<input name="name" required minLength="2" maxLength="150" autoFocus/></label>
       <label>Contexto inicial<textarea name="description" rows="3" maxLength="4000"/></label>
       <label>Orientações para o Cadu<textarea name="instructions" rows="4" maxLength="12000"/></label>
-      <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Criar projeto</button></footer>
+      <footer><button type="button" onClick={onClose}>Cancelar</button><CaduButton type="submit">Criar projeto</CaduButton></footer>
     </form>
   </BrandDialog>;
 }
@@ -593,8 +594,8 @@ export function WorkspaceBrand({bootstrap}) {
         {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
           {!isProcessing && <>
             <span>Ações</span>
-            {verified && <button type="button" className="is-primary" onClick={openConversation}>Conversar sobre a marca</button>}
-            {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><button className="is-primary">Aprovar análise</button></form>}
+            {verified && <CaduButton type="button" onClick={openConversation}>Conversar sobre a marca</CaduButton>}
+            {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><CaduButton type="submit">Aprovar análise</CaduButton></form>}
             {canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar dados</button>}
             {canEdit && <button type="button" onClick={() => setDialog('audit')}>{status ? 'Atualizar auditoria' : 'Preparar auditoria'}</button>}
             {canEdit && auditHistory.length > 0 && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={bootstrap.csrf}/><button type="submit">Reavaliar dados salvos</button></form>}

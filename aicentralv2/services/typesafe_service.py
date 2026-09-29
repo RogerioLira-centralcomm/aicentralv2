@@ -19,7 +19,7 @@ class TypeSafeError(RuntimeError):
     """A safe-to-log TypeSafe API failure without credentials or raw payloads."""
 
 
-def system_one(state, questions, *, model=None, timeout=30):
+def system_one(state, questions, *, model=None, timeout=30, attempts=3):
     """Evaluate typed questions against application state and return the API body.
 
     Keep the question set narrow and include every answer needed from the same
@@ -54,7 +54,7 @@ def system_one(state, questions, *, model=None, timeout=30):
     ).strip()
     if not request_model or len(request_model) > 120:
         raise TypeSafeError("O modelo TypeSafe configurado é inválido.")
-    for attempt in range(3):
+    for attempt in range(max(1, min(3, attempts))):
         try:
             response = requests.post(
                 API_URL,
@@ -67,7 +67,7 @@ def system_one(state, questions, *, model=None, timeout=30):
             )
         except requests.RequestException as exc:
             raise TypeSafeError("Não foi possível conectar à API TypeSafe.") from exc
-        if response.status_code not in (429, 529) or attempt == 2:
+        if response.status_code not in (429, 529) or attempt == max(1, min(3, attempts)) - 1:
             break
         time.sleep(_typesafe_retry_delay(response.headers.get("Retry-After"), attempt))
 

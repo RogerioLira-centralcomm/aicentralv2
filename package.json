@@ -7,9 +7,9 @@
     "build:vanilla": "tailwindcss -c ./tailwind.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --minify",
     "build:artifact": "tailwindcss -c ./tailwind.artifact.config.js -i ./aicentralv2/static/css/tailwind/artifact.input.css -o ./aicentralv2/static/css/tailwind/artifact.css --minify",
     "build": "npm run build:vanilla && npm run build:artifact && npm run build:studio && npm run build:conversations && npm run build:auth && npm run build:editor && npm run build:audio && npm run build:reports && npm run build:planner",
-    "build:reports": "vite build --config vite.reports.config.mjs",
+    "build:reports": "npm ci --prefix frontend/reports-v1/untitled-kit --no-audit --no-fund --prefer-offline --progress=false && npm run build --prefix frontend/reports-v1/untitled-kit && vite build --config vite.reports.config.mjs",
     "build:planner": "vite build --config vite.planner.config.mjs",
-    "build:conversations": "npm run build --prefix frontend/cadu-design-system/untitled-kit && vite build --config vite.conversations.config.mjs",
+    "build:conversations": "npm ci --prefix frontend/cadu-design-system/untitled-kit --no-audit --no-fund --prefer-offline --progress=false && npm run build --prefix frontend/cadu-design-system/untitled-kit && vite build --config vite.conversations.config.mjs",
     "build:auth": "vite build --config vite.auth.config.mjs",
     "test:workspace-layout": "node tests/frontend/cadu-workspace-layout.test.cjs",
     "build:editor": "vite build --config vite.studio-editor.config.mjs",
@@ -18,9 +18,10 @@
     "build:studio": "tailwindcss -c ./tailwind.studio.config.js -i ./aicentralv2/static/css/tailwind/video-studio.input.css -o ./aicentralv2/static/css/video-studio.css --minify"
   },
   "dependencies": {
+    "@untitledui/icons": "^0.0.23",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "react-aria-components": "^1.21.1",
+    "react-dom": "^18.3.1",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {

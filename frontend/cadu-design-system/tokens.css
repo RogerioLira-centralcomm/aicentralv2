@@ -127,7 +127,7 @@
 }
 [data-cadu-skin="planner"] { --cadu-accent: #3f79d8; --cadu-accent-strong: #2c5bad; --cadu-accent-soft: #eaf1ff; }
 [data-cadu-skin="studio"] { --cadu-accent: #bd78e8; --cadu-accent-strong: #9452c2; --cadu-accent-soft: #f5ebfc; }
-[data-cadu-skin="reports"] { --cadu-accent: #c17b35; --cadu-accent-strong: #975b24; --cadu-accent-soft: #fff2e5; }
+[data-cadu-skin="reports"] { --cadu-accent: #175cd3; --cadu-accent-strong: #004eeb; --cadu-accent-soft: #eff8ff; }
 [data-cadu-skin="skills"] { --cadu-accent: #7a68d8; --cadu-accent-strong: #5c4cb2; --cadu-accent-soft: #f0edff; }
 
 [data-cadu-theme="light"] {

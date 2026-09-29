@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {VisualIdentity} from './VisualIdentity';
 import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 import {CaduDialog} from './CaduDialog';
+import {CaduModal} from './CaduModal';
 
 export function AgentActionDrop({action, onOpen, onDragStart}) {
   if (!action) return null;
@@ -28,22 +29,35 @@ export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onRe
   const pinned = items.filter(item => item.pinned);
   const available = items.filter(item => !item.pinned);
   const row = item => <article key={item.id} draggable={item.pinned} onDragStart={() => setDraggedId(item.id)} onDragEnd={() => setDraggedId('')} onDragOver={event => item.pinned && event.preventDefault()} onDrop={() => dropOn(item)} className={item.pinned ? 'is-pinned' : ''}><span className="cadu-ds-shortcut-grid__handle" aria-hidden="true">{item.pinned ? '⋮⋮' : ''}</span><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials || item.title} label={item.title} color={item.visualColor}/><span><b>{item.title}</b><small>{item.pinned ? 'Arraste para mudar a ordem' : 'Disponível para adicionar'}</small></span><button type="button" className={item.pinned ? 'is-danger' : ''} onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Adicionar'}</button></article>;
-  return <CaduDialog className="cadu-ds-shortcut-dialog" label="Configurar dock" onClose={onClose}><header><div><h2>Configurar dock</h2><p>Defina a ordem de marcas e projetos e remova o que não precisa ficar à mão.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><section className="cadu-ds-shortcut-section"><header><b>Na dock</b><span>{pinned.length}</span></header><div className="cadu-ds-shortcut-grid">{pinned.length ? pinned.map(row) : <p>Nenhum atalho fixado.</p>}</div></section>{available.length > 0 && <section className="cadu-ds-shortcut-section"><header><b>Disponíveis</b><span>{available.length}</span></header><div className="cadu-ds-shortcut-grid">{available.map(row)}</div></section>}</CaduDialog>;
+  return <CaduModal className="cadu-ds-shortcut-dialog" label="Configurar dock" onClose={onClose}><header><div><h2>Configurar dock</h2><p>Defina a ordem de marcas e projetos e remova o que não precisa ficar à mão.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><section className="cadu-ds-shortcut-section"><header><b>Na dock</b><span>{pinned.length}</span></header><div className="cadu-ds-shortcut-grid">{pinned.length ? pinned.map(row) : <p>Nenhum atalho fixado.</p>}</div></section>{available.length > 0 && <section className="cadu-ds-shortcut-section"><header><b>Disponíveis</b><span>{available.length}</span></header><div className="cadu-ds-shortcut-grid">{available.map(row)}</div></section>}</CaduModal>;
 }
 
 export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, projects = [], brands = [], usagePercent = 0, onManageShortcuts}) {
   const menuRef = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
+    const opener = document.activeElement;
+    const trigger = document.querySelector('.cadu-ds-dock-avatar-button[aria-expanded="true"],.cadu-ds-home-account[aria-expanded="true"]') || opener;
+    const focusFrame = window.requestAnimationFrame(() => menuRef.current?.querySelector('[role="menuitem"]')?.focus());
     const closeOutside = event => {
       const target = event.target instanceof Element ? event.target : null;
       const isAccountTrigger = target?.closest('.cadu-ds-home-account,.cadu-ds-dock-avatar-button');
       if (!menuRef.current?.contains(event.target) && !isAccountTrigger) onClose?.();
     };
-    const closeOnEscape = event => { if (event.key === 'Escape') onClose?.(); };
+    const handleMenuKeys = event => {
+      if (event.key === 'Escape') { onClose?.(); trigger?.focus?.(); return; }
+      if (!menuRef.current?.contains(document.activeElement)) return;
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      const items = [...menuRef.current.querySelectorAll('[role="menuitem"]')];
+      if (!items.length) return;
+      event.preventDefault();
+      const index = items.indexOf(document.activeElement);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : event.key === 'ArrowDown' ? (index + 1) % items.length : (index - 1 + items.length) % items.length;
+      items[next]?.focus();
+    };
     document.addEventListener('pointerdown', closeOutside);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
+    document.addEventListener('keydown', handleMenuKeys);
+    return () => { window.cancelAnimationFrame(focusFrame); document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', handleMenuKeys); };
   }, [open, onClose]);
   if (!open) return null;
   const percent = Math.max(0, Math.min(100, Number(usagePercent) || 0));

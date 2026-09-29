@@ -1,0 +1,12 @@
+{
+  "name": "cadu-reports-untitled-css",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {"build": "tailwindcss -i styles/reports-kit.css -o ../../../aicentralv2/static/cadu_connect/react/untitled.css --minify"},
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "tailwindcss-animate": "^1.0.7",
+    "tailwindcss-react-aria-components": "^2.2.0"
+  }
+}

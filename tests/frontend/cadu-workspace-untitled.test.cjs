@@ -19,7 +19,7 @@ const bootstrap = (mode, section = '') => ({
   endpoints: {updateOrganization: '/account/save-agency', updateProfile: '/account/save-profile'},
   urls: {home: '/workspace', brands: '/brands', projects: '/projects', newConversation: '/chat', createBrand: '/brands/new', createProject: '/projects/new', profile: '/account/perfil', usage: '/usage', plans: '/plans', team: '/team', agency: '/account/agencia', agencia: '/account/agencia', perfil: '/account/perfil', logout: '/logout', solutions: {}},
 });
-const pageHtml = (mode, section) => `<!doctype html><html lang="pt-BR" data-cadu-theme="light" data-cadu-skin="workspace"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/kit.css"></head><body class="portal portal--workspace"><main id="content" class="portal-content--workspace-react"><div id="cadu-conversations-v2-root" class="cv-home-root"></div><script id="cadu-conversations-v2-bootstrap" type="application/json">${JSON.stringify(bootstrap(mode, section))}</script><script type="module" src="/static/app.js"></script></main></body></html>`;
+const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-BR" data-cadu-theme="light" data-cadu-skin="workspace"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/kit.css"></head><body class="portal portal--workspace"><main id="content" class="portal-content--workspace-react"><div id="cadu-conversations-v2-root" class="cv-home-root"></div><script id="cadu-conversations-v2-bootstrap" type="application/json">${JSON.stringify({...bootstrap(mode, section), ...extra})}</script><script type="module" src="/static/app.js"></script></main></body></html>`;
 
 (async () => {
   const browser = await chromium.launch({headless: true});
@@ -33,7 +33,10 @@ const pageHtml = (mode, section) => `<!doctype html><html lang="pt-BR" data-cadu
       if (pathname === '/projects/new' && route.request().method() === 'POST') return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({project: {id: 'p1', href: '/projects/p1'}})});
       if (pathname.startsWith('/account/save-') && route.request().method() === 'POST') return route.fulfill({status: 200, contentType: 'text/html', body: '<!doctype html><title>Salvo</title>'});
       if (pathname === '/brands' || pathname === '/projects') return route.fulfill({status: 200, contentType: 'text/html', body: pageHtml(pathname === '/brands' ? 'brandsMode' : 'projectsMode')});
-      if (pathname === '/account/agencia' || pathname === '/account/perfil') return route.fulfill({status: 200, contentType: 'text/html', body: pageHtml('accountMode', pathname.split('/').pop())});
+      if (pathname === '/workspace') return route.fulfill({status:200, contentType:'text/html', body:pageHtml('homeMode', '', {home:{}, credit:{available:0}})});
+      if (pathname === '/brand-detail') return route.fulfill({status:200, contentType:'text/html', body:pageHtml('brandMode', '', {canManageBrand:true, brand:{id:'b1', name:'Marca teste', profile:{}, linkedProjects:[], assets:[], reviewPack:{status:'not_started'}}, brandLinks:{deleteBrand:'/brand/delete', updateIdentity:'/brand/identity'}})});
+      if (pathname === '/project-detail') return route.fulfill({status:200, contentType:'text/html', body:pageHtml('projectMode', '', {project:{id:'p1', name:'Projeto teste', status:'ativo', health:{missing:[]}, links:[], files:[], deliveries:[], memory:[]}, projectLinks:{deleteProject:'/project/delete'}})});
+      if (pathname.startsWith('/account/')) return route.fulfill({status: 200, contentType: 'text/html', body: pageHtml('accountMode', pathname.split('/').pop())});
       if (pathname === '/mark.svg') return route.fulfill({status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"/>'});
       if (pathname === '/static/kit.css') return route.fulfill({status: 200, contentType: 'text/css', body: fs.readFileSync(kitCss)});
       if (pathname.startsWith('/static/')) {
@@ -83,20 +86,81 @@ const pageHtml = (mode, section) => `<!doctype html><html lang="pt-BR" data-cadu
       }
     }
     for (const {pathname, label, endpoint} of [{pathname: '/account/agencia', label: 'Salvar dados da agência', endpoint: '/account/save-agency'}, {pathname: '/account/perfil', label: 'Salvar perfil', endpoint: '/account/save-profile'}]) {
-      for (const width of [1440, 390]) {
+      for (const width of [1440, 820, 390]) {
         await page.setViewportSize({width, height: 900});
         await page.goto(`http://workspace.test${pathname}`);
         const action = page.getByRole('button', {name: label});
         await action.waitFor();
         assert.equal(await action.getAttribute('data-cadu-untitled-button'), '', `${pathname} ${width}: official account Button mounted`);
+        const nameField = page.locator('input[data-cadu-untitled-input][name="' + (pathname.endsWith('agencia') ? 'trade_name' : 'name') + '"]');
+        assert.equal(await nameField.count(), 1, `${pathname} ${width}: Untitled UI text field mounted`);
+        if (pathname === '/account/agencia' && width === 820 && process.env.CADU_UNTITLED_ACCOUNT_SCREENSHOT) await page.screenshot({path:process.env.CADU_UNTITLED_ACCOUNT_SCREENSHOT, fullPage:true});
         assert.equal(await action.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(8, 119, 101)', `${pathname} ${width}: account action keeps Workspace skin`);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         assert.ok(overflow <= 1, `${pathname} ${width}: no horizontal overflow`);
         if (width === 1440) {
+          await nameField.fill('Nome atualizado');
           const requestPromise = page.waitForRequest(request => request.url().endsWith(endpoint) && request.method() === 'POST');
           await action.click();
-          await requestPromise;
+          const request = await requestPromise;
+          assert.ok(request.postData()?.includes('Nome+atualizado'), `${pathname}: field value reaches the form endpoint`);
         }
+      }
+    }
+    for (const section of ['equipe', 'planos', 'uso', 'creditos', 'faturamento', 'integracoes']) {
+      for (const width of [1440, 820, 390]) {
+        await page.setViewportSize({width, height: 900});
+        await page.goto(`http://workspace.test/account/${section}`);
+        await page.locator('.cadu-ds-account-content').waitFor();
+        assert.ok((await page.locator('h1').first().textContent())?.trim(), `${section} ${width}: page title is present`);
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        assert.ok(overflow <= 1, `${section} ${width}: no horizontal overflow`);
+      }
+    }
+    for (const pathname of ['/brand-detail?acao=apagar', '/project-detail?acao=excluir']) {
+      for (const width of [1440, 820, 390]) {
+        await page.setViewportSize({width, height:900});
+        await page.goto(`http://workspace.test${pathname}`);
+        const dialog = page.getByRole('dialog');
+        await dialog.waitFor({timeout:5000});
+        assert.equal(await dialog.getAttribute('data-rac'), '', `${pathname} ${width}: detail uses Untitled UI modal`);
+        const bounds = await dialog.boundingBox();
+        assert.ok(bounds && bounds.x >= 15 && bounds.x + bounds.width <= width - 15, `${pathname} ${width}: detail modal fits viewport`);
+        await page.keyboard.press('Escape');
+        await dialog.waitFor({state:'hidden'});
+      }
+    }
+    for (const width of [1440, 820, 390]) {
+      await page.setViewportSize({width, height:900});
+      await page.goto('http://workspace.test/workspace');
+      await page.locator('.cadu-ds-home-shell').waitFor();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      assert.ok(overflow <= 1, `Home ${width}: no horizontal overflow`);
+      await page.goto('http://workspace.test/workspace#atalhos');
+      await page.reload();
+      const shortcutDialog = page.getByRole('dialog', {name:'Configurar dock'});
+      await shortcutDialog.waitFor();
+      assert.equal(await shortcutDialog.getAttribute('data-rac'), '', `Home ${width}: Untitled UI shortcut modal`);
+      const shortcutBounds = await shortcutDialog.boundingBox();
+      assert.ok(shortcutBounds && shortcutBounds.x >= 15 && shortcutBounds.x + shortcutBounds.width <= width - 15, `Home ${width}: shortcut modal fits viewport`);
+      await page.keyboard.press('Escape');
+      await shortcutDialog.waitFor({state:'hidden'});
+      if (width > 760) {
+        const accountTrigger = page.getByRole('button', {name:'Abrir conta de Teste'});
+        await accountTrigger.click();
+        const menu = page.getByRole('menu', {name:'Conta e gestão'});
+        await menu.waitFor();
+        const menuBounds = await menu.boundingBox();
+        assert.ok(menuBounds && menuBounds.x >= 0 && menuBounds.x + menuBounds.width <= width, `Home ${width}: account menu fits viewport`);
+        const firstItem = menu.getByRole('menuitem').first();
+        await firstItem.waitFor();
+        await page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'menuitem');
+        assert.equal(await firstItem.evaluate(element => element === document.activeElement), true, `Home ${width}: account menu focuses first link`);
+        await page.keyboard.press('ArrowDown');
+        assert.equal(await menu.getByRole('menuitem').nth(1).evaluate(element => element === document.activeElement), true, `Home ${width}: account menu supports arrow keys`);
+        await page.keyboard.press('Escape');
+        await menu.waitFor({state:'hidden'});
+        assert.equal(await accountTrigger.evaluate(element => element === document.activeElement), true, `Home ${width}: account focus returns to trigger`);
       }
     }
     assert.deepEqual(errors, []);

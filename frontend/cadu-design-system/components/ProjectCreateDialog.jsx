@@ -1,6 +1,7 @@
 import React, {useRef, useState} from 'react';
 import {CaduModal} from './CaduModal';
 import {CaduButton} from './CaduButton';
+import {CaduInput} from './CaduInput';
 
 export function ProjectCreateDialog({action, csrfToken, brands = [], initialBrandId = '', onCreated, onClose}) {
   const nameInput = useRef(null);
@@ -58,7 +59,7 @@ export function ProjectCreateDialog({action, csrfToken, brands = [], initialBran
         <div><p className="cadu-ds-project-dialog__eyebrow">Novo espaço de trabalho</p><h2>Criar projeto</h2><p>Reúna conversas, referências, arquivos e conteúdos em um só lugar.</p></div>
         <button type="button" disabled={busy} onClick={close} aria-label="Fechar">×</button>
       </header>
-      <label>Nome do projeto<input ref={nameInput} name="name" required minLength="2" maxLength="150" autoComplete="off" placeholder="Ex.: Campanha de lançamento"/></label>
+      <CaduInput ref={nameInput} label="Nome do projeto" name="name" required minLength="2" maxLength="150" autoComplete="off" placeholder="Ex.: Campanha de lançamento"/>
       <label>O que é este projeto?<textarea name="description" required minLength="2" rows="3" maxLength="4000" placeholder="Conte em poucas palavras o que você vai reunir ou realizar aqui."/></label>
       <label>Marca associada <small>Você pode alterar depois.</small><select name="brand_id" defaultValue={initialBrandId}><option value="">Sem marca</option>{brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
       <section className="cadu-ds-project-create-folder"><span>Pastas de origem <small>Opcional</small></span><input ref={folderInput} type="file" multiple directory="" webkitdirectory="" hidden onChange={selectFolder}/>{files.length ? <div className="cadu-ds-project-create-folder__selected"><b>{files[0]?.webkitRelativePath?.split('/')[0] || 'Arquivos selecionados'}</b><small>{files.length} arquivo{files.length === 1 ? '' : 's'} · serão enviados para revisão no projeto</small><button type="button" disabled={busy} onClick={() => { setFiles([]); if (folderInput.current) folderInput.current.value = ''; }}>Remover pasta</button></div> : <button type="button" disabled={busy} onClick={() => folderInput.current?.click()}>Adicionar uma pasta neste computador <span aria-hidden="true">⌄</span></button>}</section>

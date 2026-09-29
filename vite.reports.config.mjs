@@ -3,6 +3,10 @@ import {resolve} from 'node:path';
 
 export default defineConfig({
   publicDir: false,
+  resolve: {
+    alias: {'@': resolve('frontend/reports-v1/untitled-kit')},
+    dedupe: ['react', 'react-dom'],
+  },
   build: {
     emptyOutDir: false,
     cssCodeSplit: false,

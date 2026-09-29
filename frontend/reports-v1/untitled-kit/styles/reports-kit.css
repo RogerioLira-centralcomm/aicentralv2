@@ -1,0 +1,13 @@
+/* Untitled UI v8 utilities for the Reports entry. No Tailwind preflight. */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+@import "./theme.css";
+@import "./typography.css";
+@plugin "tailwindcss-react-aria-components";
+@plugin "tailwindcss-animate";
+@source "../src/components/base";
+@utility transition-inherit-all {
+  transition-property: inherit;
+  transition-duration: inherit;
+  transition-timing-function: inherit;
+}

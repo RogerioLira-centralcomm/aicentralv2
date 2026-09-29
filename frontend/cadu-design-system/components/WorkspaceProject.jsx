@@ -56,8 +56,8 @@ function writeDockResourcePayload(event, resource, projectId) {
   event.dataTransfer.setData('text/plain', serialized);
 }
 
-function ProjectDialog({title, detail, onClose, children}) {
-  return <CaduDialog className="cadu-ds-project-dialog" label={title} onClose={onClose}>
+function ProjectDialog({title, detail, onClose, children, className = ''}) {
+  return <CaduDialog className={`cadu-ds-project-dialog ${className}`} label={title} onClose={onClose}>
     <header className="cadu-ds-project-dialog__header"><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
     {children}
   </CaduDialog>;
@@ -186,7 +186,7 @@ function IdentityDialog({project, urls, csrfToken, onClose}) {
   const serialized = JSON.stringify(Object.fromEntries(customFields.filter(item => item.label.trim()).map(item => [item.key, {
     label:item.label.trim(), type:item.type, value:item.type === 'list' ? item.value.split('\n').map(value => value.trim()).filter(Boolean) : item.value.trim(),
   }])));
-  return <ProjectDialog title="Editar contexto" detail="Registre apenas o que deve orientar conversas, planos e criações." onClose={onClose}>
+  return <ProjectDialog title="Editar contexto" detail="Registre apenas o que deve orientar conversas, planos e criações." onClose={onClose} className="cadu-ds-project-dialog--context">
     <form className="cadu-ds-project-form" method="post" action={urls.updateContext}>
       <input type="hidden" name="_csrf" value={csrfToken}/>
       <input type="hidden" name="expected_revision" value={project.contextRevision || 1}/>
@@ -870,8 +870,8 @@ export function WorkspaceProject({bootstrap}) {
       <div className="cadu-ds-home-workarea cadu-ds-project-workarea" onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleFileDrop}>
         {dropActive && <div className="cadu-ds-project-page-drop" role="status" aria-live="polite"><div className="cadu-ds-project-page-drop__card"><span className="cadu-ds-project-page-drop__icon"><ProjectIcon name="source"/></span><strong>Solte para adicionar ao projeto</strong><span>O arquivo será preservado e revisado antes de entrar na base do Cadu.</span></div></div>}
         {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
-        <EntityNavigator label={project.name || 'Projeto'} items={projectNav} activeId={projectView} identity={<span><small>Projeto</small><b title={project.name}>{project.name}</b></span>}>
-          <span>Trabalhar no projeto</span>
+        <EntityNavigator label={project.name || 'Projeto'} items={projectNav} activeId={projectView} identity={<><span className="cadu-ds-entity-nav__project-mark"><ProjectIcon name="context"/></span><span><small>Projeto</small><b title={project.name}>{project.name}</b></span></>}>
+          <span>Ações</span>
           <button type="button" className="is-primary" onClick={startConversation}><ProjectIcon name="compose"/> Conversar no projeto</button>
           {canEdit && <button type="button" onClick={() => setDialog('identity')}><ProjectIcon name="text"/> Editar contexto</button>}
           {canEdit && <details className="cadu-ds-entity-nav__source-menu"><summary><ProjectIcon name="source"/> Adicionar ao projeto</summary><div><button type="button" onClick={() => setDialog('source-upload')}>Adicionar fonte</button><button type="button" onClick={() => setDialog('note')}>Adicionar nota</button><button type="button" onClick={() => setDialog('link')}>Adicionar link</button></div></details>}

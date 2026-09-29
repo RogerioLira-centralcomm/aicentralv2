@@ -29,9 +29,71 @@
   --cadu-accent: #087765;
   --cadu-accent-strong: #055c50;
   --cadu-accent-soft: #e8f5f1;
+  --cadu-control-height: 40px;
+  --cadu-control-radius: 8px;
+  --cadu-control-gap: 6px;
+  --cadu-form-gap: 16px;
+  --cadu-button-primary-bg: var(--cadu-accent);
+  --cadu-button-primary-fg: #ffffff;
+  --cadu-button-secondary-bg: var(--cadu-surface, #ffffff);
+  --cadu-button-secondary-fg: var(--cadu-ink, #142b30);
+  --cadu-button-danger-bg: #b42318;
 }
 
-[data-cadu-skin="workspace"] { --cadu-accent: #087765; --cadu-accent-strong: #055c50; --cadu-accent-soft: #e8f5f1; }
+/* Untitled UI React v8 semantic bridge. Its official stylesheet is scoped to
+   Workspace's future isolated Tailwind 4 entry, keeping these names out of
+   Conversations' dark surface and the legacy utility builds. */
+[data-cadu-skin="workspace"] {
+  --colors-brand-25: #f2fbf8;
+  --colors-brand-50: var(--cadu-accent-soft, #e8f5f1);
+  --colors-brand-100: #d4eee7;
+  --colors-brand-200: #a8ddd0;
+  --colors-brand-300: #72c7b5;
+  --colors-brand-400: #3dae99;
+  --colors-brand-500: #168f7b;
+  --colors-brand-600: var(--cadu-accent, #087765);
+  --colors-brand-700: var(--cadu-accent-strong, #055c50);
+  --colors-brand-800: #084f44;
+  --colors-brand-900: #0b413a;
+  --colors-brand-950: #052b26;
+  --colors-gray-25: #fcfcfd;
+  --colors-gray-50: #f9fafb;
+  --colors-gray-100: #f2f4f7;
+  --colors-gray-200: #e4e7ec;
+  --colors-gray-300: #d0d5dd;
+  --colors-gray-400: #98a2b3;
+  --colors-gray-500: #667085;
+  --colors-gray-600: #475467;
+  --colors-gray-700: #344054;
+  --colors-gray-800: #1d2939;
+  --colors-gray-900: #101828;
+  --colors-gray-950: #0c111d;
+  --colors-error-500: #d92d20;
+  --colors-warning-500: #dc6803;
+  --colors-success-500: #079455;
+  --colors-blue-500: #2e90fa;
+  --colors-white: #ffffff;
+  --colors-black: #000000;
+  --radius-none: 0;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-full: 9999px;
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, .05);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, .10), 0 1px 2px rgba(16, 24, 40, .06);
+  --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, .10), 0 2px 4px -2px rgba(16, 24, 40, .06);
+  --shadow-lg: 0 12px 16px -4px rgba(16, 24, 40, .08), 0 4px 6px -2px rgba(16, 24, 40, .03);
+}
+
+[data-cadu-skin="workspace"] {
+  --cadu-accent: #087765;
+  --cadu-accent-strong: #055c50;
+  --cadu-accent-soft: #e8f5f1;
+}
 [data-cadu-skin="conversations"] {
   color-scheme: dark;
   --cadu-accent: #55d8c6;

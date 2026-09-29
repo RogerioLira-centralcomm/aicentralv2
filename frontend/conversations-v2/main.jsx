@@ -4,6 +4,7 @@ import App from './App';
 import './styles.css';
 import '../cadu-design-system/styles.css';
 import '../cadu-design-system/workspace-chrome.css';
+import '../cadu-design-system/workspace-normalization.css';
 import './components/ArtifactPane.css';
 import {ThemeProvider, WorkspaceAccount, WorkspaceBrand, WorkspaceBrands, WorkspaceHome, WorkspaceLegacyChrome, WorkspaceNotificationsProvider, WorkspaceProject, WorkspaceProjects} from '../cadu-design-system';
 

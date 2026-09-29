@@ -37,48 +37,14 @@ function CaduVectorMark() {
   </svg>;
 }
 
-const HOME_TITLES = [
-  'Por onde começamos?',
-  'O que merece atenção hoje?',
-  'Qual é o próximo passo?',
-  'Vamos tirar isso do papel?',
-  'O que você quer resolver?',
-  'Que ideia vamos organizar?',
-  'Qual decisão está na mesa?',
-  'Vamos dar forma ao trabalho?',
-  'Onde faz sentido começar?',
-  'Qual é a prioridade agora?',
-  'Vamos transformar contexto em ação?',
-  'O que precisa avançar?',
-  'Qual frente você quer destravar?',
-  'Que caminho seguimos hoje?',
-  'O que podemos simplificar?',
-  'Vamos encontrar o fio da meada?',
-  'Qual pergunta abre o trabalho?',
-  'Por onde seguimos?',
-  'O que está pedindo clareza?',
-  'Qual projeto chama agora?',
-  'Vamos organizar o próximo movimento?',
-  'O que você quer colocar em ordem?',
-  'Qual tarefa merece foco?',
-  'Vamos construir a próxima versão?',
-  'O que falta para avançar?',
-  'Qual contexto vamos explorar?',
-  'Vamos começar pelo que importa?',
-  'O que podemos decidir juntos?',
-  'Que trabalho começa agora?',
-  'Qual é o seu próximo movimento?',
-];
-
 export function WorkspaceHome({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
   const home = bootstrap.home || {};
   const [value, setValue] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
-  const [homeTitle] = useState(() => HOME_TITLES[Math.floor(Math.random() * HOME_TITLES.length)]);
   const [projectRef, setProjectRef] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(() => window.location.hash === '#atalhos');
   const [accountOpen, setAccountOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return window.localStorage.getItem('cadu:sidebar:home') === 'collapsed'; } catch (_) { return false; } });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return window.localStorage.getItem('cadu:sidebar:home') !== 'open'; } catch (_) { return true; } });
   const [toast, setToast] = useState('');
   const [executionMode, setExecutionMode] = useState('analysis');
   const [brandRef, setBrandRef] = useState('');
@@ -250,7 +216,7 @@ export function WorkspaceHome({bootstrap}) {
         resources={home.resources || []}
       />}
         <section className="cadu-ds-home-content">
-        <div className="cadu-ds-home-intro"><CaduVectorMark/><h1>{homeTitle}</h1><p>Escreva o que você quer resolver.</p></div>
+        <div className="cadu-ds-home-intro"><CaduVectorMark/><div className="cadu-ds-home-intro__copy"><span className="cadu-ds-home-intro__eyebrow">Workspace</span><h1>O que vamos resolver hoje?</h1><p>Descreva o trabalho. O Cadu ajuda a organizar o próximo passo.</p></div></div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
         <section className="cadu-ds-home-resume" aria-label="Retomar trabalho">
           {resumeSuggestionState === 'ready' && resumeSuggestion ? <a className="cadu-ds-home-resume__result" href={resumeSuggestion.href}>

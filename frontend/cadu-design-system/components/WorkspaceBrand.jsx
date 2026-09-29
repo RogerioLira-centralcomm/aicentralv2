@@ -576,7 +576,7 @@ export function WorkspaceBrand({bootstrap}) {
         <div className="cadu-ds-entity-portal cadu-ds-entity-portal--brand">
         {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
           {!isProcessing && <>
-            <span>Gestão</span>
+            <span>Ações</span>
             {verified && <button type="button" className="is-primary" onClick={openConversation}>Conversar sobre a marca</button>}
             {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><button className="is-primary">Aprovar análise</button></form>}
             {canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar dados</button>}

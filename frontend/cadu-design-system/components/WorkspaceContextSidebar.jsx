@@ -31,7 +31,8 @@ const ACCOUNT_ITEMS = [
 function readCollapsed(mode) {
   try {
     if (mode === 'home' && window.matchMedia('(max-width: 760px)').matches) return true;
-    return window.localStorage.getItem(`cadu:sidebar:${mode}`) === 'collapsed';
+    const saved = window.localStorage.getItem(`cadu:sidebar:${mode}`);
+    return mode === 'home' ? saved !== 'open' : saved === 'collapsed';
   } catch (_) { return false; }
 }
 

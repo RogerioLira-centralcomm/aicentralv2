@@ -154,3 +154,4 @@
 .reports-flow-version-picker select{min-height:40px;border:1px solid #d0d5dd;border-radius:7px;background:#fff;padding:6px 10px}
 .reports-flow-version-picker small{color:#667085}
 .reports-flow-builder[aria-busy=true]{opacity:.75;cursor:progress}
+.reports-flow-ai-confidence{display:block;margin:4px 0;color:#667085;font-size:11px;line-height:1.45}

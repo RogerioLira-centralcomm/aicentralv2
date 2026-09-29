@@ -271,7 +271,9 @@ def suggest_flow_page_role(page):
                         'A conversion-page suggestion does not prove any visitor converted.',
         'criteria': FLOW_PAGE_ROLES,
     }}
-    evaluation = system_one(state, questions, timeout=15, attempts=1)
+    # A single short retry handles transient provider throttling without an
+    # unbounded wait; system_one caps its Retry-After backoff.
+    evaluation = system_one(state, questions, timeout=12, attempts=2)
     answer = validate_choice(evaluation, 'page_role', FLOW_PAGE_ROLES, 'papel da página')
     return {'role': answer['choice'], 'probabilities': answer['probabilities'],
             'confidence': answer['confidence'], 'model': evaluation.get('model'),

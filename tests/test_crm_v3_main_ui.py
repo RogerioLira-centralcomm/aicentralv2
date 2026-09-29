@@ -78,6 +78,18 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn("clienteIdFromEntry()", self.js)
         self.assertIn("state.clientes.find(function (c) { return String(c.id) === String(entryClienteId); })", self.js)
 
+    def test_selection_respects_active_filters(self):
+        self.assertIn("function clientePassaFiltros(", self.js)
+        self.assertIn("function getClientesFiltrados(", self.js)
+        self.assertIn("function clearClienteSelecao(", self.js)
+        self.assertIn("function syncSelecaoComFiltros(", self.js)
+        load = self.js.split("function loadClientes()", 1)[1].split("function openContatoModal", 1)[0]
+        self.assertIn("getClientesFiltrados()", load)
+        self.assertIn("clearClienteSelecao()", load)
+        self.assertNotIn("state.clientes[0]", load)
+        render = self.js.split("function renderClientes()", 1)[1].split("function updateTabCounts()", 1)[0]
+        self.assertIn("syncSelecaoComFiltros()", render)
+
     def test_crm_activities_expose_the_linked_quote(self):
         self.assertIn('"cotacao_id": (', (ROOT / "aicentralv2/crm_v3_repository.py").read_text())
         self.assertIn("crm-v3-ativ-cotacao", self.js)

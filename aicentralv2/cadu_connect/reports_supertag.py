@@ -283,6 +283,74 @@ def _ip_digest():
     return hmac.new(key, address.encode(), hashlib.sha256).hexdigest()
 
 
+def _known_identity_digest(site, campaign_scope, kind, value):
+    secret = current_app.config.get('SECRET_KEY')
+    if not secret:
+        abort(503, description='Identificação temporariamente indisponível.')
+    key = secret.encode() if isinstance(secret, str) else secret
+    payload = f"supertag:v1:{site['id']}:{campaign_scope}:{kind}:{value}".encode()
+    return hmac.new(key, payload, hashlib.sha256).hexdigest()
+
+
+def _branding_metrics(site_id):
+    """Aggregate consented sessions without exposing contact or IP identifiers."""
+    rows = _rows('''WITH session_events AS (
+            SELECT session_id,
+                COUNT(*) FILTER (WHERE event_kind='page_view')::bigint AS page_views,
+                COUNT(*) FILTER (WHERE event_kind='conversion')::bigint AS conversions,
+                COUNT(*) FILTER (WHERE event_kind='form_submit')::bigint AS forms,
+                COUNT(*) FILTER (WHERE event_kind='whatsapp_click')::bigint AS whatsapp_clicks,
+                COUNT(*) FILTER (WHERE event_kind='page_leave')::bigint AS measured_pages,
+                COALESCE(SUM((event_data->>'duration_ms')::integer)
+                    FILTER (WHERE event_kind='page_leave'),0)::bigint AS active_ms,
+                MAX((event_data->>'depth')::integer)
+                    FILTER (WHERE event_kind='scroll_depth') AS deepest_scroll
+            FROM cadu_reports_supertag_events
+            WHERE site_id=%s AND expires_at>NOW()
+                AND occurred_at>=NOW()-INTERVAL '30 days'
+            GROUP BY session_id
+        ), measured AS (
+            SELECT s.campaign_scope,s.visitor_id,s.last_seen_at,e.*
+            FROM cadu_reports_supertag_sessions s JOIN session_events e ON e.session_id=s.session_id
+            WHERE s.site_id=%s AND s.expires_at>NOW() AND e.page_views>0
+        ) SELECT GROUPING(campaign_scope)::integer AS all_campaigns,campaign_scope,
+            COUNT(*)::bigint AS sessions,COUNT(DISTINCT visitor_id)::bigint AS visitors,
+            COUNT(*) FILTER (WHERE page_views>=2 OR active_ms>=10000 OR conversions>0)::bigint AS engaged_sessions,
+            COUNT(*) FILTER (WHERE page_views=1)::bigint AS single_page_sessions,
+            COUNT(*) FILTER (WHERE measured_pages>0)::bigint AS measured_sessions,
+            COUNT(*) FILTER (WHERE last_seen_at<NOW()-INTERVAL '30 minutes')::bigint AS closed_sessions,
+            ROUND(AVG(active_ms) FILTER (WHERE measured_pages>0)/1000,1) AS avg_active_seconds,
+            ROUND(AVG(page_views),1) AS avg_pages,
+            COUNT(*) FILTER (WHERE deepest_scroll>=75)::bigint AS deep_scroll_sessions,
+            SUM(conversions)::bigint AS conversions,SUM(forms)::bigint AS forms,
+            SUM(whatsapp_clicks)::bigint AS whatsapp_clicks
+        FROM measured GROUP BY GROUPING SETS ((),(campaign_scope))
+        ORDER BY all_campaigns DESC,sessions DESC''', (site_id, site_id))
+    overall = next((row for row in rows if row['all_campaigns']), None)
+    campaigns = [row for row in rows if not row['all_campaigns']]
+    cohorts = _rows('''WITH first_visits AS (
+            SELECT campaign_scope,visitor_id,MIN(started_at) AS first_at
+            FROM cadu_reports_supertag_sessions
+            WHERE site_id=%s AND expires_at>NOW()
+            GROUP BY campaign_scope,visitor_id
+        ), mature AS (
+            SELECT f.campaign_scope,f.visitor_id,f.first_at,
+                EXISTS (SELECT 1 FROM cadu_reports_supertag_sessions later
+                    WHERE later.site_id=%s AND later.campaign_scope=f.campaign_scope
+                        AND later.visitor_id=f.visitor_id AND later.expires_at>NOW()
+                        AND later.started_at>=f.first_at+INTERVAL '1 day'
+                        AND later.started_at<=f.first_at+INTERVAL '7 days') AS returned_7d
+            FROM first_visits f
+            WHERE f.first_at>=NOW()-INTERVAL '56 days'
+                AND f.first_at<NOW()-INTERVAL '7 days'
+        ) SELECT campaign_scope,DATE_TRUNC('week',first_at)::date AS cohort_week,
+            COUNT(*)::bigint AS visitors,
+            COUNT(*) FILTER (WHERE returned_7d)::bigint AS returned_7d
+        FROM mature GROUP BY campaign_scope,DATE_TRUNC('week',first_at)::date
+        ORDER BY cohort_week DESC,visitors DESC LIMIT 80''', (site_id, site_id))
+    return {'overall': overall, 'campaigns': campaigns, 'cohorts': cohorts}
+
+
 def _bounded_int(value, low, high):
     if value is None:
         return None
@@ -344,6 +412,85 @@ def register(bp):
             response.headers['Access-Control-Max-Age'] = '86400'
             response.headers['Vary'] = 'Origin'
         return response
+
+    @bp.route('/public/supertag/v1/<public_id>/identify', methods=['POST', 'OPTIONS'])
+    def supertag_public_identify(public_id):
+        site = _site_by_public_id(public_id)
+        request._supertag_allowed_host = site['allowed_host']
+        origin = request.headers.get('Origin') or ''
+        parsed = urlparse(origin)
+        if parsed.scheme not in ('https', 'http') or not _host_allowed(parsed.hostname or '', site['allowed_host']):
+            abort(403)
+        if request.method == 'OPTIONS':
+            return ('', 204)
+        payload = request.get_json(silent=True) or {}
+        allowed = {'visitor_id', 'session_id', 'name', 'email', 'phone', 'campaign', 'consent'}
+        if not isinstance(payload, dict) or set(payload) - allowed:
+            abort(400, description='Dados de identificação fora do contrato da Super Tag.')
+        if payload.get('consent') != 'granted':
+            abort(403, description='Consentimento de analytics não confirmado.')
+        visitor_id = _uuid(payload.get('visitor_id'), 'Visitante')
+        session_id = _uuid(payload.get('session_id'), 'Sessão')
+        name = payload.get('name') or ''
+        email = payload.get('email') or ''
+        phone = payload.get('phone') or ''
+        if not isinstance(name, str) or len(name.strip()) > 120:
+            abort(400, description='Nome inválido.')
+        if not isinstance(email, str) or len(email.strip()) > 254 or (email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email.strip())):
+            abort(400, description='E-mail inválido.')
+        if not isinstance(phone, str) or len(phone) > 40 or (phone and not re.fullmatch(r'\+?[0-9(). -]{7,40}', phone.strip())):
+            abort(400, description='Telefone inválido.')
+        normalized_email = email.strip().casefold()
+        normalized_phone = re.sub(r'[^0-9+]', '', phone.strip())
+        campaign = payload.get('campaign') or ''
+        if not isinstance(campaign, str) or len(campaign.strip()) > 160 or '@' in campaign:
+            abort(400, description='Campanha inválida.')
+        campaign_scope = campaign.strip().casefold()
+        if not normalized_email and not normalized_phone:
+            abort(400, description='Informe e-mail ou telefone para reconhecer o visitante.')
+        kind, value = ('email', normalized_email) if normalized_email else ('phone', normalized_phone)
+        identity_digest = _known_identity_digest(site, campaign_scope, kind, value)
+        retention_days = (site.get('config') or {}).get('retention_days', 90)
+        if isinstance(retention_days, bool) or retention_days not in (30, 60, 90, 180, 365):
+            retention_days = 90
+        session_row = _rows('''INSERT INTO cadu_reports_supertag_sessions
+                (site_id,session_id,visitor_id,ip_digest,started_at,last_seen_at,campaign_scope,expires_at)
+            VALUES (%s,%s,%s,%s,NOW(),NOW(),%s,NOW() + (%s * INTERVAL '1 day'))
+            ON CONFLICT (site_id,session_id) DO UPDATE SET
+                ip_digest=NULL,last_seen_at=NOW(),expires_at=EXCLUDED.expires_at,
+                campaign_scope=COALESCE(NULLIF(cadu_reports_supertag_sessions.campaign_scope,''),EXCLUDED.campaign_scope)
+            RETURNING visitor_id''', (site['id'], session_id, visitor_id, _ip_digest(), campaign_scope, retention_days))
+        if str(session_row[0]['visitor_id']) != visitor_id:
+            abort(409, description='A sessão não corresponde ao visitante atual.')
+        ip_quota = _rows('''INSERT INTO cadu_reports_supertag_ip_rate_limits
+                (site_id,ip_digest,bucket_start,event_count)
+            VALUES (%s,%s,date_trunc('minute',NOW()),1)
+            ON CONFLICT (site_id,ip_digest,bucket_start) DO UPDATE
+                SET event_count=cadu_reports_supertag_ip_rate_limits.event_count+1
+                WHERE cadu_reports_supertag_ip_rate_limits.event_count < %s
+            RETURNING event_count''', (site['id'], _ip_digest(), MAX_IP_EVENTS_PER_MINUTE))
+        if not ip_quota:
+            abort(429, description='Limite temporário de identificação atingido para esta origem.')
+        identity = _rows('''INSERT INTO cadu_reports_supertag_known_visitors
+                (id,site_id,campaign_scope,identity_digest,identity_kind,display_name,expires_at)
+            VALUES (%s,%s,%s,%s,%s,%s,NOW() + (%s * INTERVAL '1 day'))
+            ON CONFLICT (site_id,campaign_scope,identity_digest) DO UPDATE SET
+                identity_kind=EXCLUDED.identity_kind,
+                display_name=COALESCE(NULLIF(EXCLUDED.display_name,''),cadu_reports_supertag_known_visitors.display_name),
+                expires_at=EXCLUDED.expires_at,updated_at=NOW()
+            RETURNING id''', (str(uuid.uuid4()), site['id'], campaign_scope,
+                identity_digest, kind, ' '.join(name.split()), retention_days))[0]
+        _rows('''INSERT INTO cadu_reports_supertag_visitor_sessions
+                (site_id,session_id,campaign_scope,visitor_id,known_visitor_id,expires_at)
+            VALUES (%s,%s,%s,%s,%s,NOW() + (%s * INTERVAL '1 day'))
+            ON CONFLICT (site_id,session_id,campaign_scope) DO UPDATE SET
+                visitor_id=EXCLUDED.visitor_id,known_visitor_id=EXCLUDED.known_visitor_id,
+                expires_at=EXCLUDED.expires_at,last_seen_at=NOW()''',
+            (site['id'], session_id, campaign_scope, visitor_id, identity['id'], retention_days))
+        _rows('''UPDATE cadu_reports_supertag_sessions SET ip_digest=NULL
+            WHERE site_id=%s AND session_id=%s''', (site['id'], session_id))
+        get_db().commit()
+        return jsonify(identified=True), 200
 
     @bp.get('/api/v1/reports/supertag/sites')
     @login_required_api
@@ -546,6 +693,34 @@ def register(bp):
                         NOW() + (%s * INTERVAL '1 day'))
                     ON CONFLICT (site_id,event_id) DO NOTHING''',
                     [(*event, retention_days) for event in prepared])
+                session_rollup = {}
+                for event in prepared:
+                    session_id, visitor_id, occurred_at = event[5], event[4] or event[5], event[14]
+                    attribution = json.loads(event[10] or '{}')
+                    campaign_scope = (attribution.get('utm_id') or attribution.get('utm_campaign') or '').strip().casefold()
+                    current = session_rollup.get(session_id)
+                    if current:
+                        current[2] = min(current[2], occurred_at)
+                        current[3] = max(current[3], occurred_at)
+                        if not current[4] and campaign_scope:
+                            current[4] = campaign_scope
+                    else:
+                        session_rollup[session_id] = [visitor_id, ip_digest, occurred_at, occurred_at, campaign_scope]
+                cursor.executemany('''INSERT INTO cadu_reports_supertag_sessions
+                        (site_id,session_id,visitor_id,ip_digest,started_at,last_seen_at,campaign_scope,expires_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,NOW() + (%s * INTERVAL '1 day'))
+                    ON CONFLICT (site_id,session_id) DO UPDATE SET
+                        visitor_id=EXCLUDED.visitor_id,
+                        campaign_scope=COALESCE(NULLIF(cadu_reports_supertag_sessions.campaign_scope,''),EXCLUDED.campaign_scope),
+                        ip_digest=CASE WHEN EXISTS (
+                            SELECT 1 FROM cadu_reports_supertag_visitor_sessions vs
+                            WHERE vs.site_id=EXCLUDED.site_id AND vs.session_id=EXCLUDED.session_id
+                              AND vs.expires_at > NOW()) THEN NULL ELSE EXCLUDED.ip_digest END,
+                        started_at=LEAST(cadu_reports_supertag_sessions.started_at,EXCLUDED.started_at),
+                        last_seen_at=GREATEST(cadu_reports_supertag_sessions.last_seen_at,EXCLUDED.last_seen_at),
+                        expires_at=EXCLUDED.expires_at''',
+                    [(site['id'], str(session_id), str(visitor_id), digest, started, latest, campaign, retention_days)
+                     for session_id, (visitor_id, digest, started, latest, campaign) in session_rollup.items()])
             _fanout_flow_events(site, new_events, parsed.hostname.lower().rstrip('.'))
             conn.commit()
         except Exception:
@@ -567,15 +742,91 @@ def register(bp):
             FROM cadu_reports_supertag_events WHERE site_id=%s AND expires_at > NOW()
               AND occurred_at >= NOW() - INTERVAL '30 days' GROUP BY event_kind ORDER BY event_kind''',
             (str(site_id),))
-        pages = _rows('''SELECT page_path,COUNT(*) FILTER (WHERE event_kind='page_view')::bigint AS views,
-                COUNT(*) FILTER (WHERE event_kind='form_submit')::bigint AS form_submissions,
-                COUNT(*) FILTER (WHERE event_kind IN ('click','whatsapp_click'))::bigint AS clicks,
-                COUNT(*) FILTER (WHERE event_kind='conversion')::bigint AS conversions,
-                COUNT(*) FILTER (WHERE event_kind='visibility')::bigint AS visibility_events,
-                COUNT(*) FILTER (WHERE event_kind='scroll_depth')::bigint AS scroll_events
-            FROM cadu_reports_supertag_events WHERE site_id=%s AND expires_at > NOW()
-              AND occurred_at >= NOW() - INTERVAL '30 days'
-            GROUP BY page_path ORDER BY views DESC LIMIT 100''', (str(site_id),))
+        pages = _rows('''WITH latest_page AS (
+                SELECT DISTINCT ON (session_id) session_id,page_path
+                FROM cadu_reports_supertag_events
+                WHERE site_id=%s AND expires_at>NOW()
+                    AND occurred_at>=NOW()-INTERVAL '30 days' AND event_kind='page_view'
+                ORDER BY session_id,occurred_at DESC,id DESC
+            ), exits AS (
+                SELECT p.page_path,COUNT(*)::bigint AS total
+                FROM latest_page p JOIN cadu_reports_supertag_sessions s
+                    ON s.site_id=%s AND s.session_id=p.session_id
+                WHERE s.expires_at>NOW() AND s.last_seen_at<NOW()-INTERVAL '30 minutes'
+                GROUP BY p.page_path
+            ) SELECT e.page_path,
+                COUNT(*) FILTER (WHERE e.event_kind='page_view')::bigint AS views,
+                COALESCE(MAX(x.total),0)::bigint AS exits,
+                COUNT(*) FILTER (WHERE e.event_kind='form_submit')::bigint AS form_submissions,
+                COUNT(*) FILTER (WHERE e.event_kind IN ('click','whatsapp_click'))::bigint AS clicks,
+                COUNT(*) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions,
+                COUNT(*) FILTER (WHERE e.event_kind='visibility')::bigint AS visibility_events,
+                COUNT(*) FILTER (WHERE e.event_kind='scroll_depth')::bigint AS scroll_events,
+                ROUND(AVG((e.event_data->>'duration_ms')::integer)
+                    FILTER (WHERE e.event_kind='page_leave')/1000,1) AS avg_active_seconds,
+                COUNT(*) FILTER (WHERE e.event_kind='page_leave')::bigint AS measured_visits
+            FROM cadu_reports_supertag_events e LEFT JOIN exits x ON x.page_path=e.page_path
+            WHERE e.site_id=%s AND e.expires_at>NOW()
+                AND e.occurred_at>=NOW()-INTERVAL '30 days'
+            GROUP BY e.page_path ORDER BY views DESC LIMIT 100''',
+            (str(site_id),str(site_id),str(site_id)))
+        sessions = _rows('''WITH session_campaign AS (
+                SELECT site_id,session_id,COALESCE((ARRAY_AGG(TRIM(LOWER(COALESCE(
+                        NULLIF(attribution->>'utm_id',''),NULLIF(attribution->>'utm_campaign',''),'')))
+                    ORDER BY occurred_at,id) FILTER (WHERE event_kind='page_view'))[1],'') AS campaign_scope
+                FROM cadu_reports_supertag_events
+                WHERE site_id=%s AND expires_at > NOW()
+                  AND occurred_at >= NOW() - INTERVAL '30 days'
+                GROUP BY site_id,session_id
+            ) SELECT e.session_id,
+                MIN(e.visitor_id) FILTER (WHERE e.visitor_id IS NOT NULL) AS visitor_id,
+                MIN(e.occurred_at) AS started_at,MAX(e.occurred_at) AS last_activity_at,
+                COUNT(*)::bigint AS event_count,
+                CASE WHEN MAX(session_state.last_seen_at)<NOW()-INTERVAL '30 minutes' THEN
+                    (ARRAY_AGG(e.page_path ORDER BY e.occurred_at DESC,e.id DESC)
+                        FILTER (WHERE e.event_kind='page_view'))[1] END AS exit_page,
+                COALESCE(NULLIF(session_campaign.campaign_scope,''),'Sem campanha') AS campaign,
+                CASE WHEN %s THEN known.display_name END AS known_name,known.identity_kind,
+                JSONB_AGG(JSONB_BUILD_OBJECT('kind',e.event_kind,'page',e.page_path,
+                    'occurred_at',e.occurred_at,'duration_ms',e.event_data->>'duration_ms')
+                    ORDER BY e.occurred_at,e.id)
+                    FILTER (WHERE e.event_kind IN ('page_view','page_leave','form_submit','conversion')) AS journey
+            FROM cadu_reports_supertag_events e
+            JOIN cadu_reports_supertag_sessions session_state
+              ON session_state.site_id=e.site_id AND session_state.session_id=e.session_id
+            JOIN session_campaign ON session_campaign.site_id=e.site_id
+              AND session_campaign.session_id=e.session_id
+            LEFT JOIN cadu_reports_supertag_visitor_sessions known_session
+              ON known_session.site_id=e.site_id AND known_session.session_id=e.session_id
+              AND known_session.campaign_scope=session_campaign.campaign_scope
+              AND known_session.expires_at > NOW()
+            LEFT JOIN cadu_reports_supertag_known_visitors known
+              ON known.id=known_session.known_visitor_id AND known.site_id=e.site_id
+              AND known.expires_at > NOW()
+            WHERE e.site_id=%s AND e.expires_at > NOW()
+              AND e.occurred_at >= NOW() - INTERVAL '30 days'
+            GROUP BY e.session_id,session_campaign.campaign_scope,known.display_name,known.identity_kind
+            ORDER BY MAX(e.occurred_at) DESC LIMIT 100''',
+            (str(site_id),selected['role'] != 'viewer',str(site_id)))
+        known_sessions = _rows('''WITH session_campaign AS (
+                SELECT site_id,session_id,COALESCE((ARRAY_AGG(TRIM(LOWER(COALESCE(
+                        NULLIF(attribution->>'utm_id',''),NULLIF(attribution->>'utm_campaign',''),'')))
+                    ORDER BY occurred_at,id) FILTER (WHERE event_kind='page_view'))[1],'') AS campaign_scope
+                FROM cadu_reports_supertag_events
+                WHERE site_id=%s AND expires_at > NOW()
+                  AND occurred_at >= NOW() - INTERVAL '30 days'
+                GROUP BY site_id,session_id
+            ) SELECT COUNT(DISTINCT e.session_id)::bigint AS total
+            FROM cadu_reports_supertag_events e
+            JOIN session_campaign ON session_campaign.site_id=e.site_id
+              AND session_campaign.session_id=e.session_id
+            JOIN cadu_reports_supertag_visitor_sessions vs
+              ON vs.site_id=e.site_id AND vs.session_id=e.session_id
+              AND vs.campaign_scope=session_campaign.campaign_scope AND vs.expires_at > NOW()
+            JOIN cadu_reports_supertag_known_visitors kv
+              ON kv.id=vs.known_visitor_id AND kv.site_id=e.site_id AND kv.expires_at > NOW()
+            WHERE e.site_id=%s AND e.expires_at > NOW()
+              AND e.occurred_at >= NOW() - INTERVAL '30 days' ''', (str(site_id),str(site_id)))[0]['total']
         heatmap = _rows('''SELECT page_path,event_kind,event_data->>'element_id' AS element_id,
                 CASE WHEN event_kind IN ('click','whatsapp_click')
                     THEN (floor(LEAST((event_data->>'x')::numeric,999) / 50) * 50)::integer END AS x,
@@ -592,4 +843,6 @@ def register(bp):
                 CASE WHEN event_kind IN ('click','whatsapp_click')
                     THEN (floor(LEAST((event_data->>'y')::numeric,999) / 50) * 50)::integer END,
                 event_data->>'ratio',event_data->>'depth' ORDER BY total DESC LIMIT 500''', (str(site_id),))
-        return jsonify(site=site[0], summary=summary, pages=pages, heatmap=heatmap)
+        return jsonify(site=site[0], summary=summary, pages=pages, sessions=sessions,
+                       known_sessions=known_sessions, heatmap=heatmap,
+                       branding=_branding_metrics(str(site_id)))

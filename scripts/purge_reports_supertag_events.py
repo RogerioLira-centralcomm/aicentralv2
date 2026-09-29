@@ -29,6 +29,12 @@ def main():
                 WHERE bucket_start < NOW() - INTERVAL '2 days' ''')
             cursor.execute('''DELETE FROM cadu_reports_supertag_ip_rate_limits
                 WHERE bucket_start < NOW() - INTERVAL '2 days' ''')
+            cursor.execute('''DELETE FROM cadu_reports_supertag_visitor_sessions
+                WHERE expires_at <= NOW() ''')
+            cursor.execute('''DELETE FROM cadu_reports_supertag_sessions
+                WHERE expires_at <= NOW() ''')
+            cursor.execute('''DELETE FROM cadu_reports_supertag_known_visitors
+                WHERE expires_at <= NOW() ''')
         connection.commit()
     finally:
         connection.close()

@@ -108,11 +108,16 @@ def match_version_step(flow, path, host, kind, event_name=None):
              if node.get('path') == path and (not node.get('host') or node['host'] == host)
              and (node.get('type') == expected if expected else
                   node.get('type') in ('page','conversion','error'))
-             and (node.get('type') != 'event' or node.get('event_name') == event_name)]
+             and (node.get('type') != 'event' or node.get('event_name') == event_name)
+             and (node.get('type') != 'conversion' or
+                  (kind == 'page_view' and not node.get('event_name')) or
+                  (kind == 'conversion' and (not node.get('event_name') or node.get('event_name') == event_name)))]
     if not nodes:
         return None
     # Conversion/error page rules outrank a generic page at the same URL.
-    node = sorted(nodes, key=lambda n: n.get('type') == 'page')[0]
+    node = sorted(nodes, key=lambda n: (
+        n.get('type') == 'page',
+        kind == 'conversion' and n.get('type') == 'conversion' and not n.get('event_name')))[0]
     steps = _rows("""SELECT id,campaign_id,step_kind FROM cadu_reports_flow_steps
         WHERE tag_id=%s AND organization_id=%s AND client_id=%s
             AND flow_revision=%s AND node_id=%s""",

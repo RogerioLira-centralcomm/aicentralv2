@@ -15,6 +15,7 @@
   endpointUrl.hash = '';
   var endpoint = endpointUrl.href;
   var consentUrl = endpoint.replace(/\/collect$/, '/consent');
+  var identifyUrl = endpoint.replace(/\/collect$/, '/identify');
   var consentMode = script.getAttribute('data-cadu-consent') || 'auto';
   var config = null;
   var consented = false;
@@ -30,6 +31,10 @@
   var lastClickAt = 0;
   var seenVisibility = Object.create(null);
   var lastScrollDepth = 0;
+  var campaignScope = '';
+  var sessionAttribution = null;
+  var lastMeaningfulAt = 0;
+  var sessionIdleMs = 30 * 60 * 1000;
   var flushTimer = 0;
   var heartbeatTimer = 0;
   var flushInFlight = false;
@@ -64,6 +69,47 @@
     var clickId = query.get('gclid') || query.get('gbraid') || query.get('wbraid') || query.get('fbclid');
     if (clickId && clickId.length <= 160) values.click_id = clickId;
     return values;
+  }
+
+  function currentCampaignScope() {
+    if (!campaignScope) {
+      var attribution = readAttribution();
+      campaignScope = (attribution.utm_id || attribution.utm_campaign || '').trim().toLowerCase();
+      if (campaignScope) {
+        try { sessionStorage.setItem(cookieName + '_campaign', campaignScope); } catch (_) { /* Optional session persistence. */ }
+      }
+    }
+    return campaignScope;
+  }
+
+  function attributionForSession() {
+    if (!sessionAttribution) {
+      var current = readAttribution();
+      if (Object.keys(current).length) {
+        sessionAttribution = current;
+        try { sessionStorage.setItem(cookieName + '_attribution', JSON.stringify(current)); } catch (_) { /* Optional persistence. */ }
+      }
+    }
+    return sessionAttribution || {};
+  }
+
+  function freshSessionIfIdle() {
+    if (!lastMeaningfulAt || Date.now() - lastMeaningfulAt <= sessionIdleMs) return false;
+    sessionId = crypto.randomUUID();
+    lastMeaningfulAt = Date.now();
+    campaignScope = '';
+    sessionAttribution = null;
+    lastPath = '';
+    activePath = '';
+    pageActiveSince = 0;
+    pageActiveDuration = 0;
+    try {
+      sessionStorage.setItem(cookieName + '_session', sessionId);
+      sessionStorage.removeItem(cookieName + '_campaign');
+      sessionStorage.removeItem(cookieName + '_attribution');
+    } catch (_) { /* Storage may be blocked. */ }
+    currentCampaignScope();
+    return true;
   }
 
   function referrerHost() {
@@ -138,10 +184,15 @@
 
   function event(kind, data, name, pathOverride) {
     if (!started || !consented || buffer.length >= maxBuffer) return false;
+    if (kind !== 'heartbeat' && kind !== 'page_leave') {
+      if (freshSessionIfIdle() && kind !== 'page_view') trackPage();
+      lastMeaningfulAt = Date.now();
+      try { sessionStorage.setItem(cookieName + '_active_at', String(lastMeaningfulAt)); } catch (_) { /* Optional persistence. */ }
+    }
     var size = viewport();
     buffer.push({event_id: crypto.randomUUID(), visitor_id: visitorId, session_id: sessionId,
       kind: kind, event_name: name || undefined, path: pathOverride || location.pathname || '/', referrer_host: referrerHost(),
-      attribution: readAttribution(), data: data || {}, viewport_width: size.width,
+      attribution: attributionForSession(), data: data || {}, viewport_width: size.width,
       viewport_height: size.height, occurred_at: new Date().toISOString(), consent: 'granted'});
     if (buffer.length >= 10) flush(false);
     return true;
@@ -175,6 +226,7 @@
 
   function trackPage() {
     if (!started || !consented) return;
+    freshSessionIfIdle();
     var path = location.pathname || '/';
     if (location.hash && path === lastPath) path += location.hash.slice(0, 120);
     if (path === lastPath) return;
@@ -253,8 +305,12 @@
     writeCookie(visitorId, config.audience_days || 90);
     try {
       sessionId = sessionStorage.getItem(cookieName + '_session') || crypto.randomUUID();
+      lastMeaningfulAt = Number(sessionStorage.getItem(cookieName + '_active_at')) || Date.now();
+      sessionAttribution = JSON.parse(sessionStorage.getItem(cookieName + '_attribution') || 'null');
       sessionStorage.setItem(cookieName + '_session', sessionId);
-    } catch (_) { sessionId = crypto.randomUUID(); }
+      campaignScope = sessionStorage.getItem(cookieName + '_campaign') || '';
+    } catch (_) { sessionId = crypto.randomUUID(); lastMeaningfulAt = Date.now(); sessionAttribution = null; }
+    currentCampaignScope();
     trackPage();
     if (!listenersInstalled) {
       listenersInstalled = true;
@@ -321,7 +377,12 @@
       pageActiveDuration = 0;
       visitorId = null;
       sessionId = null;
+      sessionAttribution = null;
+      lastMeaningfulAt = 0;
       try { sessionStorage.removeItem(cookieName + '_session'); } catch (_) { /* Storage may be blocked. */ }
+      try { sessionStorage.removeItem(cookieName + '_campaign'); } catch (_) { /* Storage may be blocked. */ }
+      try { sessionStorage.removeItem(cookieName + '_attribution'); } catch (_) { /* Storage may be blocked. */ }
+      try { sessionStorage.removeItem(cookieName + '_active_at'); } catch (_) { /* Storage may be blocked. */ }
       if (flushTimer) window.clearInterval(flushTimer);
       if (heartbeatTimer) window.clearInterval(heartbeatTimer);
       if (activeController) activeController.abort();
@@ -339,6 +400,18 @@
     trackPage: trackPage,
     getVisitorId: function () { return consented ? visitorId : null; },
     getSessionId: function () { return consented ? sessionId : null; },
+    identify: function (identity) {
+      if (!started || !consented || !identity || typeof identity !== 'object') return Promise.resolve(false);
+      if (freshSessionIfIdle()) trackPage();
+      var name = typeof identity.name === 'string' ? identity.name.trim().slice(0, 120) : '';
+      var email = typeof identity.email === 'string' ? identity.email.trim().slice(0, 254) : '';
+      var phone = typeof identity.phone === 'string' ? identity.phone.trim().slice(0, 40) : '';
+      if (!email && !phone) return Promise.resolve(false);
+      return fetch(identifyUrl, {method:'POST', mode:'cors', credentials:'omit',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({visitor_id:visitorId,session_id:sessionId,name:name,email:email,phone:phone,campaign:currentCampaignScope(),consent:'granted'})
+      }).then(function (response) { return response.ok; }).catch(function () { return false; });
+    },
     trackEvent: function (name) {
       if (typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name)) return false;
       return event('custom_event', {}, name);

@@ -404,7 +404,8 @@ def _normalize_flow_config(config, allowed_host):
                 abort(400, description='O bloco precisa usar o domínio autorizado ou um subdomínio dele.')
         event_name = str(node.get('event_name') or node.get('event') or
                          ('evento_personalizado' if node_type == 'event' else ''))[:80]
-        if node_type == 'event' and not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,79}', event_name):
+        if (node_type == 'event' or (node_type == 'conversion' and event_name)) and not re.fullmatch(
+                r'[A-Za-z][A-Za-z0-9_]{0,79}', event_name):
             abort(400, description='Configure um nome válido para cada evento personalizado.')
         position = {}
         for axis, default in (('x', 80 + (index % 3) * 220), ('y', 60 + (index // 3) * 130)):
@@ -604,12 +605,56 @@ def register(bp):
             selected_flow['historical_view'] = revision != selected_flow['published_revision']
             selected_flow['active_config'] = snapshots[0]['config']
             selected_flow['published_revision'] = revision
+        view = request.args.get('view', 'monitor')
+        if view not in {'monitor', 'create', 'edit'}:
+            abort(400, description='Área de fluxos inválida.')
         try:
             days = int(request.args.get('days', 30))
         except (ValueError, TypeError):
             abort(400, description='Período inválido.')
         if days not in (7, 30, 90):
             abort(400, description='Período inválido.')
+        # The editor only needs definitions and tags. Do not touch the event,
+        # version, or monitoring schemas until the user opens analytics; those
+        # features may be deployed independently on older Reports databases.
+        if view in {'create', 'edit'}:
+            tags = _rows('''SELECT id,label,allowed_host,public_key,created_at,revoked_at,tag_kind
+                FROM cadu_reports_site_tags WHERE organization_id=%s AND client_id=%s
+                    AND (%s::uuid IS NULL OR id=%s::uuid) ORDER BY created_at DESC''',
+                (*params,selected_flow['tag_id'] if selected_flow else None,
+                 selected_flow['tag_id'] if selected_flow else None))
+            steps = _rows('''SELECT s.id,s.tag_id,s.name,s.path_prefix,s.page_host,s.step_kind,s.is_entry,s.campaign_id,s.position,
+                s.is_active,s.archived_at,c.name AS campaign_name
+                FROM cadu_reports_flow_steps s
+                LEFT JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
+                WHERE s.organization_id=%s AND s.client_id=%s
+                    AND ((%s::uuid IS NULL AND s.is_active=TRUE) OR (s.tag_id=%s::uuid AND s.flow_revision=%s))
+                ORDER BY s.is_entry DESC,s.position,s.id''',
+                (*params,selected_flow['tag_id'] if selected_flow else None,
+                 selected_flow['tag_id'] if selected_flow else None,
+                 selected_flow['published_revision'] if selected_flow else None))
+            flows = _rows('''SELECT f.id,f.flow_code,f.name,f.status,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,
+                    t.label AS tag_label,t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
+                    (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
+                        FROM cadu_reports_flow_steps s
+                        JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
+                            AND c.organization_id=s.organization_id AND c.client_id=s.client_id
+                        WHERE s.tag_id=f.tag_id AND s.organization_id=f.organization_id
+                            AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
+                FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
+                WHERE f.organization_id=%s AND f.client_id=%s ORDER BY f.created_at DESC''', params)
+            supertag_sites = _rows('''SELECT id,public_id,label,allowed_host,enabled,revoked_at
+                FROM cadu_reports_supertag_sites WHERE organization_id=%s AND client_id=%s
+                    AND enabled=TRUE AND revoked_at IS NULL ORDER BY created_at DESC''', params)
+            from .reports_supertag import _supertag_snippet
+            for site in supertag_sites:
+                site['snippet'] = _supertag_snippet(site)
+            return jsonify(tags=tags,steps=steps,flows=flows,events=[],event_group_count=0,
+                event_summary={},tag_urls=_client_tag_urls(selected['client_id']),activity=[],
+                online=0,conversions=0,site_pages=[],page_transitions=[],confirmed=[],period_days=days,
+                canvas_nodes=[],canvas_edges=[],monitor_checks=[],supertag_sites=supertag_sites,
+                performance_mode='configuration')
+
         scope_params = [*params, days]
         conversion_params = [*params, days]
         event_filter = ''
@@ -720,15 +765,6 @@ def register(bp):
                         AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
             FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.organization_id=%s AND f.client_id=%s ORDER BY f.created_at DESC''', params)
-        view = request.args.get('view', 'monitor')
-        if view in {'create', 'edit'}:
-            return jsonify(tags=tags,steps=steps,flows=flows,events=[],event_group_count=0,
-                event_summary={},tag_urls=_client_tag_urls(selected['client_id']),activity=[],
-                online=0,conversions=0,site_pages=[],page_transitions=[],confirmed=[],period_days=days,
-                canvas_nodes=[],canvas_edges=[],monitor_checks=[],supertag_sites=supertag_sites,
-                performance_mode='configuration')
-        if view not in {'monitor', 'create', 'edit'}:
-            abort(400,description='Área de fluxos inválida.')
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,
             COUNT(*) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS views,
             COUNT(*) FILTER (WHERE e.event_kind='form_submit') AS form_submissions,

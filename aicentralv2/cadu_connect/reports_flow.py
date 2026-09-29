@@ -10,7 +10,7 @@ from datetime import date
 from html.parser import HTMLParser
 from urllib.parse import unquote, urljoin, urlparse, urlunparse
 
-from flask import abort, jsonify, request, session
+from flask import abort, current_app, jsonify, request, session
 
 from ..auth import login_required_api
 from ..db import get_db
@@ -454,10 +454,10 @@ def _normalize_flow_config(config, allowed_host):
 
 def _client_tag_urls(client_id):
     client_id = int(client_id)
-    base = request.url_root.rstrip('/')
+    base = str(current_app.config.get('CONNECT_URL') or request.url_root).rstrip('/')
     return {
-        'flow': f'{base}/static/cadu_connect/cadu-flow-tag.js?client={client_id}',
-        'supertag': None,
+        'flow': f'{base}/v2/flow.js?client={client_id}',
+        'supertag': f'{base}/v1/supertag.js',
     }
 
 

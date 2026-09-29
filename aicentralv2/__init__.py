@@ -4,7 +4,7 @@ AICENTRAL V2 - Inicialização da Aplicação
 =====================================================
 """
 
-from flask import Blueprint, Flask, request, url_for
+from flask import Blueprint, Flask, request, send_from_directory, url_for
 from flask_mail import Mail
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
@@ -432,6 +432,27 @@ def create_app(config_class=Config):
 
         from .cadu_connect import bp as cadu_connect_bp
         app.register_blueprint(cadu_connect_bp)
+
+        # Public, path-versioned URLs for website installations. The original
+        # /static URLs remain available for snippets already deployed.
+        def serve_reports_tag(filename):
+            response = send_from_directory(
+                os.path.join(app.static_folder or 'static', 'cadu_connect'),
+                filename,
+                mimetype='application/javascript',
+                conditional=True,
+                max_age=3600,
+            )
+            response.headers['Cache-Control'] = 'public, max-age=3600, stale-while-revalidate=86400'
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            return response
+
+        app.add_url_rule('/v1/supertag.js', 'reports_supertag_v1_js',
+                         lambda: serve_reports_tag('cadu-supertag-v1.min.js'), methods=['GET', 'HEAD'])
+        app.add_url_rule('/v2/flow.js', 'reports_flow_v2_js',
+                         lambda: serve_reports_tag('cadu-flow-tag.js'), methods=['GET', 'HEAD'])
+        app.add_url_rule('/v1/flow.js', 'reports_flow_v1_compat_js',
+                         lambda: serve_reports_tag('cadu-flow-tag.js'), methods=['GET', 'HEAD'])
 
         from .cadu_identity import bp as cadu_identity_bp
         app.register_blueprint(cadu_identity_bp)

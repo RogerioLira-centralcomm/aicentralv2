@@ -71,7 +71,7 @@ def _uuid(value, field, *, optional=False):
 def _supertag_snippet(site):
     base = _base_url()
     public_id = site['public_id']
-    return (f'<script async src="{base}/static/cadu_connect/cadu-supertag-v1.min.js" '
+    return (f'<script async src="{base}/v1/supertag.js" '
             f'data-cadu-site="{public_id}" '
             f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json" '
             f'data-cadu-consent="auto"></script>')
@@ -398,7 +398,7 @@ def register(bp):
             GROUP BY s.id ORDER BY s.created_at DESC''', params)
         base = _base_url()
         for site in sites:
-            site['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.min.js'
+            site['script_url'] = f'{base}/v1/supertag.js'
             site['snippet'] = (f'<script async src="{site["script_url"]}" '
                 f'data-cadu-site="{site["public_id"]}" '
                 f'data-cadu-config="{base}/connect/public/supertag/v1/{site["public_id"]}/config.json" '
@@ -420,7 +420,7 @@ def register(bp):
         site, created = ensure_supertag_site(selected, host, label)
         get_db().commit()
         base = _base_url()
-        site['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.min.js'
+        site['script_url'] = f'{base}/v1/supertag.js'
         return jsonify(site=site, reused=not created), 201 if created else 200
 
     @bp.patch('/api/v1/reports/supertag/sites/<uuid:site_id>')
@@ -462,7 +462,7 @@ def register(bp):
             (label, host, json.dumps(config), str(site_id)))[0]
         get_db().commit()
         base = _base_url()
-        updated['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.min.js'
+        updated['script_url'] = f'{base}/v1/supertag.js'
         updated['snippet'] = (f'<script async src="{updated["script_url"]}" data-cadu-site="{updated["public_id"]}" '
             f'data-cadu-config="{base}/connect/public/supertag/v1/{updated["public_id"]}/config.json" '
             f'data-cadu-consent="{config.get("consent_mode", "auto")}"></script>')

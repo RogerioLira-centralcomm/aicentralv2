@@ -122,8 +122,16 @@ def register(bp):
         return response
 
     @bp.get('/app')
+    @bp.get('/app/<section>')
+    @bp.get('/app/supertag/sites/<uuid:site_id>')
     @login_required
-    def reports_v1_app():
+    def reports_v1_app(section=None, site_id=None):
+        if section and section not in {
+            'overview', 'accounts', 'campaigns', 'reports', 'imports',
+            'monitor', 'supertag', 'flow', 'events', 'links', 'access',
+            'data-library', 'conversions',
+        }:
+            abort(404)
         selected = reports_access.resolve(request.args.get('client_id'))
         if request.args.get('client_id'):
             session['cliente_id'] = selected['client_id']

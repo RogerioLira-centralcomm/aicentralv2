@@ -779,7 +779,8 @@ def register(bp):
                   AND occurred_at >= NOW() - INTERVAL '30 days'
                 GROUP BY site_id,session_id
             ) SELECT e.session_id,
-                MIN(e.visitor_id) FILTER (WHERE e.visitor_id IS NOT NULL) AS visitor_id,
+                (ARRAY_AGG(e.visitor_id ORDER BY e.occurred_at,e.id)
+                    FILTER (WHERE e.visitor_id IS NOT NULL))[1] AS visitor_id,
                 MIN(e.occurred_at) AS started_at,MAX(e.occurred_at) AS last_activity_at,
                 COUNT(*)::bigint AS event_count,
                 CASE WHEN MAX(session_state.last_seen_at)<NOW()-INTERVAL '30 minutes' THEN

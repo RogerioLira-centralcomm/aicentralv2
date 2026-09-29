@@ -390,6 +390,8 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_native_clients_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_workspace_project_links_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_funnel_management_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_versions_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_integrity_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_site_mapping_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_discovery_resume_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_site_journey_analytics.sql

@@ -670,6 +670,17 @@ def register(bp):
     @login_required_api
     def reports_flow():
         selected = _selection()
+        schema = _rows('''SELECT
+            to_regclass('public.cadu_reports_flow_versions') IS NOT NULL AS versions_ready,
+            EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+                AND table_name='cadu_reports_flow_registry' AND column_name='draft_config') AS draft_ready,
+            EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+                AND table_name='cadu_reports_flow_registry' AND column_name='published_revision') AS published_ready,
+            EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+                AND table_name='cadu_reports_flow_steps' AND column_name='flow_revision') AS steps_ready''')[0]
+        if not all(schema.values()):
+            return jsonify(error='Fluxos indisponíveis: aplique add_reports_flow_versions_v1.sql e '
+                         'add_reports_flow_integrity_v1.sql antes de abrir esta área.'), 503
         params = (selected['organization_id'], selected['client_id'])
         requested_flow_id = request.args.get('flow_id', '').strip()
         selected_flow = _flow_row(requested_flow_id, selected) if requested_flow_id else None

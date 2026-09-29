@@ -141,7 +141,7 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
     await keyboardPage.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.keyboardOpen === 'true');
     assert.equal(await keyboardPage.locator('.cv-conversations-workarea > .cadu-ds-dock').isVisible(), false, 'tablet landscape: dock oculta com teclado');
     await keyboardPage.close();
-    for (const {width, height} of [{width: 820, height: 1180}, {width: 1024, height: 768}]) {
+    for (const {width, height} of [{width: 820, height: 1180}, {width: 1024, height: 1366}, {width: 1024, height: 768}]) {
       await page.setViewportSize({width, height});
       await page.goto('http://cadu.test/chat?surface=artifact&artifact_id=a1');
       await page.locator('.cv-artifact-panel').waitFor();
@@ -154,9 +154,24 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
       }));
       assert.equal(dimensions.scrollWidth, dimensions.viewportWidth, `${width}: sem overflow horizontal`);
       assert.ok(dimensions.artifactWidth > 0 && dimensions.artifactWidth < width, `${width}: artefato visível no tablet`);
+      if (height > width) {
+        assert.ok(dimensions.artifactWidth >= width - 50, `${width}: artefato ocupa a área útil no retrato`);
+        assert.ok(await page.locator('.cv-artifact-return.is-mobile').isVisible(), `${width}: voltar à conversa visível`);
+        await page.locator('.cv-artifact-return.is-mobile').click();
+        await page.getByRole('button', {name: 'Biblioteca'}).click();
+        await page.locator('.cv-library-view').waitFor();
+        assert.ok(await page.locator('.cv-library-view').evaluate(element => element.getBoundingClientRect().width >= window.innerWidth - 50), `${width}: biblioteca ocupa a área útil no retrato`);
+        await page.locator('.cv-library-view').getByRole('button', {name: 'Voltar à conversa'}).click();
+        await page.getByRole('button', {name: 'Arquivos'}).click();
+        await page.locator('.cv-conversation-files-panel').waitFor();
+        assert.ok(await page.locator('.cv-conversation-files-panel').evaluate(element => element.getBoundingClientRect().width >= window.innerWidth - 50), `${width}: arquivos ocupam a área útil no retrato`);
+      }
       assert.equal(dimensions.stageLeft, 48, `${width}: conversa alinhada à navegação do tablet`);
       assert.equal(await page.locator('.cv-tablet-dock').isVisible(), false, `${width}: navegação legada recolhida`);
-      if (width === 820 && process.env.CADU_TABLET_SCREENSHOT) await page.screenshot({path: process.env.CADU_TABLET_SCREENSHOT});
+      if (width === 820 && process.env.CADU_TABLET_SCREENSHOT) {
+        await page.waitForFunction(() => getComputedStyle(document.querySelector('.cv-artifact-panel')).opacity === '1');
+        await page.screenshot({path: process.env.CADU_TABLET_SCREENSHOT});
+      }
     }
     await page.setViewportSize({width: 390, height: 844});
     await page.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.layout === 'phone');

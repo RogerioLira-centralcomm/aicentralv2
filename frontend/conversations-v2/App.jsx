@@ -1773,7 +1773,7 @@ export default function App({bootstrap}) {
             window.addEventListener('pointerup', stop, {once: true});
           }}/>}
           {artifactOpen && <ArtifactPane
-            artifact={artifact} mobile={layout === 'phone'} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
+            artifact={artifact} mobile={layout === 'phone' || (layout === 'tablet' && viewport.orientation === 'portrait')} dirty={artifactDirty} saving={saving} publishing={publishing} publishedUrl={publishedUrl}
             tabs={artifactTabs} activeTabKey={artifactKey(artifact)}
             onSelectTab={async next => {
               if (artifactDirty && !(await saveArtifact())) return;

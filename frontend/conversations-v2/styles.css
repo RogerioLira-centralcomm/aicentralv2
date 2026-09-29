@@ -1745,6 +1745,11 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-conversations-shell[data-keyboard-open="true"] .cv-conversations-workarea>.cadu-ds-dock { display:none!important; }
 }
 @media (min-width:768px) and (max-width:1199px) and (orientation:portrait) {
+  #cadu-conversations-v2-root .cv-artifact-overlay { inset:0!important; width:100%!important; max-width:none!important; min-width:0!important; height:100%!important; }
+  #cadu-conversations-v2-root .cv-library-view,#cadu-conversations-v2-root .cv-conversation-files-panel { inset:0!important; width:100%!important; max-width:none!important; min-width:0!important; height:100%!important; }
+  #cadu-conversations-v2-root .cv-conversations-shell:is([data-surface="artifact"],[data-surface="library"],[data-surface="files"]) .cv-conversation-shell { visibility:hidden; pointer-events:none; }
+  #cadu-conversations-v2-root .cv-artifact-return.is-mobile { display:flex; }
+  #cadu-conversations-v2-root .cv-artifact-resizer { display:none; }
   #cadu-conversations-v2-root .cv-tablet-dock { display:none; }
   #cadu-conversations-v2-root .cv-phone-navigation { display:none; }
   #cadu-conversations-v2-root .cv-tablet-dock :is(button,a) { display:flex; min-width:84px; max-width:128px; flex:1 1 0; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:3px 8px; border:0; border-radius:9px; background:transparent; color:#a8c7c1; font:600 10px/1.2 Inter,ui-sans-serif,system-ui,sans-serif; text-decoration:none; cursor:pointer; }

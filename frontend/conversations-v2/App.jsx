@@ -77,6 +77,7 @@ export default function App({bootstrap}) {
   const initialQuery = new URLSearchParams(window.location.search);
   const hasTransferredContext = initialQuery.get('context_mode') === 'free' || Boolean(initialQuery.get('project_ref') || initialQuery.get('project') || initialQuery.get('brand_ref'));
   const requestedConversationId = useRef(initialQuery.get('conversation_id') || '');
+  const requestedArtifactSurface = useRef(initialQuery.get('surface') === 'artifact' && Boolean(initialQuery.get('artifact_id') || initialQuery.get('resource_ref')));
   const [context, setContext] = useState({});
   const [projects, setProjects] = useState([]);
   const [brands, setBrands] = useState(() => bootstrap.brands || []);
@@ -351,17 +352,25 @@ export default function App({bootstrap}) {
       setQueuedTurns((data.queue || readQueue(id)).map(item => ({...item, executionMode: item.execution_mode, context: item.selected_context})));
       setTitle(conversationDisplayTitle(conversationTitle || data.conversation?.title, 'Conversa'));
       if (data.context) setContext(data.context);
-      setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false); setLibraryOpen(false); setFilesOpen(false);
+      setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null);
+      if (!requestedArtifactSurface.current) {
+        setArtifact(null); setArtifactTabs([]); artifactRef.current = null; setArtifactDirty(false); setPublishedUrl(''); setArtifactOpen(false);
+      }
+      setLibraryOpen(false); setFilesOpen(false);
       const {messages: restored, selectedContext: restoredContext, lastArtifact} = restoreConversationMessages(data.messages, uid);
       setMessages(restored);
       setComposerContext(restoredContext);
-      if (lastArtifact) {
+      if (lastArtifact && !requestedArtifactSurface.current) {
         await fetchArtifact(lastArtifact, {signal: controller.signal});
         if (sequence !== conversationOpenSequenceRef.current) return;
       }
       if (sequence !== conversationOpenSequenceRef.current) return;
-      setConversationUrl(id, true);
-      setSurfaceUrl(lastArtifact ? 'artifact' : 'conversation', lastArtifact || '', true);
+      const preserveArtifactLink = requestedArtifactSurface.current;
+      requestedArtifactSurface.current = false;
+      if (!preserveArtifactLink) {
+        setConversationUrl(id, true);
+        setSurfaceUrl(lastArtifact ? 'artifact' : 'conversation', lastArtifact || '', true);
+      }
       const active = {run: data.active_run || null};
       if (active.run?.id) {
         const pendingActions = restorePendingActions(active.run, uid);
@@ -440,7 +449,7 @@ export default function App({bootstrap}) {
         setMessages(recovered.messages);
         setComposerContext(recovered.selectedContext);
         setContext(restoredContext);
-        if (recovered.lastArtifact) {
+        if (recovered.lastArtifact && !requestedArtifactSurface.current) {
           await fetchArtifact(recovered.lastArtifact, {signal: controller.signal});
           if (sequence !== conversationOpenSequenceRef.current) return;
         }
@@ -451,7 +460,8 @@ export default function App({bootstrap}) {
           const pendingActions = restorePendingActions(active.run, uid);
           if (pendingActions.length) setMessages(items => [...items, ...pendingActions]);
         } catch (_) { /* The recovered history remains usable without an active action. */ }
-        setConversationUrl(id, true);
+        if (!requestedArtifactSurface.current) setConversationUrl(id, true);
+        requestedArtifactSurface.current = false;
         setRuntime('');
         trace('Conversa recuperada', `O histórico foi aberto pelo modo de compatibilidade. ${hasBoundEntity ? 'Vínculo de contexto recuperado do servidor.' : 'Nenhum vínculo de projeto ou marca foi encontrado; novos envios não herdarão o contexto da sessão.'} Falha original do bootstrap: ${error.message || 'sem detalhe'}${error.status ? ` (${error.status})` : ''}.`, 'warning');
       } catch (fallbackError) {

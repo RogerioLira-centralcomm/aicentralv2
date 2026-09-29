@@ -37,6 +37,7 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
       const body = url.pathname === '/api/context' ? {context: {}, entities: []}
         : url.pathname === '/api/history' ? {conversations: [{id: 'c1', title: 'Conversa de teste', section: 'recent'}]}
         : url.pathname === '/api/history/c1/messages' ? {messages: Array.from({length: 40}, (_, index) => ({role: index % 2 ? 'assistant' : 'user', content: `Mensagem de teste ${index + 1}: ${'conteúdo '.repeat(20)}`}))}
+        : url.pathname === '/workspace/api/v2/conversations/c1/bootstrap' ? {conversation: {id: 'c1', title: 'Conversa de teste'}, context: {}, messages: Array.from({length: 40}, (_, index) => ({id: `m${index + 1}`, role: index % 2 ? 'assistant' : 'user', content: `Mensagem de teste ${index + 1}: ${'conteúdo '.repeat(20)}`})), queue: []}
         : url.pathname === '/api/library' ? {project_ref: 'ci:1', brand_assets: [], personal_assets: [], resources: [
           {id: 'r1', title: 'Documento de referência', url: '/docs/test', type: 'file'},
           {id: 'r2', source_system: 'project_files', source_id: 'f2', title: 'Arquivo do registro', locator: '/docs/registry.pdf', resource_type: 'file'},
@@ -85,7 +86,7 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
     const scrollAfterArtifact = await page.locator('.cv-thread-scroll').evaluate(element => element.scrollTop);
     assert.ok(Math.abs(scrollAfterArtifact - scrollBefore) < 2, `posição preservada após artefato (${scrollBefore} → ${scrollAfterArtifact})`);
     await page.goto(resourceUrl);
-    await page.locator('.cv-artifact-panel').getByText('Documento de referência').first().waitFor();
+    await page.locator('.cv-artifact-panel').getByText('Documento de referência').first().waitFor({timeout:5000});
     await page.locator('.cv-artifact-panel').getByRole('link', {name: 'Abrir arquivo'}).waitFor();
     await page.locator('.cv-artifact-return.is-mobile').click();
     await page.getByRole('button', {name: 'Biblioteca'}).click();
@@ -134,7 +135,7 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
     await keyboardPage.setViewportSize({width: 1024, height: 768});
     await keyboardPage.evaluate(() => { window.visualViewport.width = 1024; window.setTestVisualHeight(768); });
     await keyboardPage.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.layout === 'tablet');
-    assert.ok(await keyboardPage.locator('.cv-conversations-workarea > .cadu-ds-dock').isVisible(), 'tablet landscape: dock visível sem teclado');
+    assert.equal(await keyboardPage.locator('.cv-conversations-workarea > .cadu-ds-dock').isVisible(), false, 'tablet landscape: dock recolhida na conversa');
     await keyboardPage.locator('.cv-composer-input').focus();
     await keyboardPage.evaluate(() => window.setTestVisualHeight(430));
     await keyboardPage.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.keyboardOpen === 'true');
@@ -153,26 +154,9 @@ const html = `<!doctype html><html lang="pt-BR" data-cadu-theme="dark" data-cadu
       }));
       assert.equal(dimensions.scrollWidth, dimensions.viewportWidth, `${width}: sem overflow horizontal`);
       assert.ok(dimensions.artifactWidth > 0 && dimensions.artifactWidth < width, `${width}: artefato visível no tablet`);
-      assert.equal(dimensions.stageLeft, width === 820 ? 0 : 56, `${width}: conversa alinhada à dock visível`);
-      assert.equal(await page.locator('.cv-tablet-dock').isVisible(), width === 820, `${width}: dock compacta só no retrato`);
-      if (width === 820) {
-        await page.locator('.cv-rich-document__canvas').fill('Edição pendente');
-        await page.locator('.cv-tablet-dock').getByRole('button', {name: 'Novo chat'}).click();
-        await page.getByRole('dialog', {name: 'Descartar alterações?'}).waitFor();
-        await page.getByRole('button', {name: 'Continuar editando'}).click();
-        assert.equal(await page.locator('.cv-conversations-shell').getAttribute('data-surface'), 'artifact');
-        assert.match(await page.locator('.cv-rich-document__canvas').innerText(), /Edição pendente/);
-        await page.locator('.cv-rich-document__canvas').fill('Nova edição pendente');
-        await page.locator('.cv-tablet-dock').getByRole('link', {name: 'Início'}).click();
-        await page.getByRole('dialog', {name: 'Descartar alterações?'}).waitFor();
-        await page.getByRole('button', {name: 'Continuar editando'}).click();
-        assert.equal(new URL(page.url()).pathname, '/chat', 'cancelar saída mantém a conversa');
-        await page.locator('.cv-tablet-dock').getByRole('button', {name: 'Conversa'}).click();
-        await page.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.surface === 'conversation');
-        if (process.env.CADU_TABLET_SCREENSHOT) await page.screenshot({path: process.env.CADU_TABLET_SCREENSHOT});
-        await page.locator('.cv-tablet-dock').getByRole('button', {name: 'Biblioteca'}).click();
-        await page.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.surface === 'library');
-      }
+      assert.equal(dimensions.stageLeft, 48, `${width}: conversa alinhada à navegação do tablet`);
+      assert.equal(await page.locator('.cv-tablet-dock').isVisible(), false, `${width}: navegação legada recolhida`);
+      if (width === 820 && process.env.CADU_TABLET_SCREENSHOT) await page.screenshot({path: process.env.CADU_TABLET_SCREENSHOT});
     }
     await page.setViewportSize({width: 390, height: 844});
     await page.waitForFunction(() => document.querySelector('.cv-conversations-shell')?.dataset.layout === 'phone');

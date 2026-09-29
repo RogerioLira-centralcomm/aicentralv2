@@ -556,7 +556,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(sidebar, /Chats recentes/);
   assert.match(sidebar, /if \(!open\) return undefined/);
   assert.doesNotMatch(sidebar, /rendered|setRendered/);
-  assert.match(app, /onProjectChange=\{ref => changeProject\(ref, \{showHistory: historyOpen\}\)\}/);
+  assert.match(app, /onProjectChange=\{ref => changeProject\(ref, \{showHistory: historyOpen, preserveDraft: true\}\)\}/);
   assert.match(styles, /cv-context-selector__projects\{display:grid;grid-template-columns:minmax\(0,1fr\)/);
   assert.doesNotMatch(styles, /cv-context-selector__projects\{[^}]*repeat\(2/);
   assert.doesNotMatch(styles, /cv-recent-open/);
@@ -588,8 +588,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-artifact-result/);
   assert.match(conversation, /Abrir material/);
   assert.match(artifact, /return textArtifact/);
-  assert.match(promptAssembler, /cada item tem `question`/);
-  assert.match(promptAssembler, /Não repita a pergunta/);
+  assert.match(promptAssembler, /não crie turnos sequenciais/);
+  assert.match(promptAssembler, /Não repita a mesma pergunta/);
   assert.match(pendingInteraction, /Adicionar referência/);
   assert.match(pendingInteraction, /Adicionar ao projeto/);
   assert.doesNotMatch(conversation, /cv-action-confirmation/);
@@ -1122,7 +1122,7 @@ test('image artifacts hand off editing context to Studio', () => {
   assert.match(artifactWorkspace, /setArtifactTabs/);
   assert.match(browser, /SameSite=Lax/);
   assert.match(browser, /navigator\.clipboard\?\.writeText/);
-  assert.match(app, /if \(lastArtifact\) \{\s*await fetchArtifact\(lastArtifact, \{signal: controller\.signal\}\);/);
+  assert.match(app, /if \(lastArtifact && !requestedArtifactSurface\.current\) \{\s*await fetchArtifact\(lastArtifact, \{signal: controller\.signal\}\);/);
   assert.match(conversation, /stickToLatest/);
   assert.match(conversation, /element\.scrollTop = element\.scrollHeight/);
   assert.match(conversation, /new ResizeObserver/);

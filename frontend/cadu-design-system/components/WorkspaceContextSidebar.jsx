@@ -67,7 +67,7 @@ function SidebarBrandProjects({brands, projects, links}) {
   </section>;
 }
 
-export function WorkspaceContextSidebar({mode = 'home', bootstrap = {}, links = {}, active = 'home', resources = [], projects = [], brands = [], onCollapsedChange}) {
+export function WorkspaceContextSidebar({mode = 'home', bootstrap = {}, links = {}, active = 'home', agencyName = '', resources = [], projects = [], brands = [], onCollapsedChange}) {
   // Account navigation is a persistent context on every account page. It
   // starts open even if the workspace/home rail was previously collapsed.
   const [collapsed, setCollapsed] = useState(() => mode === 'account' ? false : readCollapsed(mode));
@@ -84,6 +84,7 @@ export function WorkspaceContextSidebar({mode = 'home', bootstrap = {}, links = 
       {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel/></div> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>
     </header>
+    {mode === 'home' && !collapsed && <div className="cadu-ds-context-sidebar__heading"><span>Agência</span><strong>{agencyName || 'Cliente'}</strong></div>}
     {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
       {items.map(item => { const href = links[item.key]; if (!href) return null; return <a key={item.id} href={href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon} size={16}/><span>{item.label}</span></a>; })}
     </nav>}

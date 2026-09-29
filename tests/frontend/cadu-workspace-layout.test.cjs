@@ -137,9 +137,9 @@ async function dimensions(page, contentClass) {
       const conversation = document.querySelector('.cv-conversation-surface').getBoundingClientRect();
       return {dock, recent, conversation, viewport: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth};
     });
-    assert.equal(conversationDesktop.dock.width, 64, 'Conversas: Dock desktop');
-    assert.equal(conversationDesktop.recent.width, 272, 'Conversas: recentes desktop');
-    assert.equal(conversationDesktop.recent.left, conversationDesktop.dock.right, 'Conversas: recentes ao lado da Dock');
+    assert.equal(conversationDesktop.dock.width, 0, 'Conversas: Dock recolhida no desktop');
+    assert.equal(conversationDesktop.recent.width, 284, 'Conversas: recentes desktop');
+    assert.equal(conversationDesktop.recent.left, 0, 'Conversas: recentes iniciam na borda com a Dock recolhida');
     assert.equal(conversationDesktop.conversation.left, conversationDesktop.recent.right, 'Conversas: conteúdo após recentes');
     assert.equal(conversationDesktop.conversation.right, conversationDesktop.viewport, 'Conversas: conteúdo até a borda');
     assert.equal(conversationDesktop.scrollWidth, conversationDesktop.viewport, 'Conversas: sem overflow desktop');
@@ -252,7 +252,7 @@ async function dimensions(page, contentClass) {
     assert.ok(brand.railDangerTop > brand.railActionBottom, 'Marca: ações do rail não colidem');
     assert.equal(brand.navPosition, 'fixed', 'Marca: sidebar 1 permanece fixa na viewport');
     assert.equal(brand.navTop, 0, 'Marca: sidebar 1 começa no topo da página');
-    assert.ok(brand.railHeight >= brand.portalHeight - 1, 'Marca: sidebar 2 acompanha toda a altura do documento');
+    assert.ok(brand.railHeight > 0 && brand.railHeight < brand.portalHeight, 'Marca: gestão fica abaixo do conteúdo na largura de laptop');
     assert.notEqual(brand.leftColumnBackground, 'rgba(0, 0, 0, 0)', 'Marca: fundo da sidebar 1 cobre toda a coluna');
     assert.notEqual(brand.rightColumnBackground, 'rgba(0, 0, 0, 0)', 'Marca: fundo da sidebar 2 cobre toda a coluna');
     assert.equal(brand.overflow, 0, 'Marca: sem overflow desktop');
@@ -263,8 +263,8 @@ async function dimensions(page, contentClass) {
 
     await page.setViewportSize({width: 1024, height: 800});
     await page.setContent(brandDocument(false));
-    const compactBrandManagement = await page.$eval('.cadu-ds-brand-responsive-management', node => getComputedStyle(node).display);
-    assert.notEqual(compactBrandManagement, 'none', 'Marca: informações da sidebar continuam acessíveis no desktop compacto');
+    const compactBrandManagement = await page.$eval('.cadu-ds-entity-portal--brand > .cadu-ds-entity-rail', node => getComputedStyle(node).display);
+    assert.notEqual(compactBrandManagement, 'none', 'Marca: gestão continua acessível abaixo do conteúdo no desktop compacto');
 
     await page.setViewportSize({width: 390, height: 844});
     await page.setContent(brandDocument(false));
@@ -294,7 +294,7 @@ async function dimensions(page, contentClass) {
     assert.equal(projectBeforeScroll.navPosition, 'fixed', 'Projeto: sidebar 1 realmente fixa');
     assert.equal(projectBeforeScroll.navTop, 0, 'Projeto: sidebar 1 começa no topo');
     assert.equal(projectNavTopAfterScroll, 0, 'Projeto: sidebar 1 permanece fixa ao rolar');
-    assert.equal(projectBeforeScroll.navOverflow, 'hidden', 'Projeto: sidebar 1 não cria scroll concorrente');
+    assert.equal(projectBeforeScroll.navOverflow, 'auto', 'Projeto: sidebar 1 permite acesso a todos os itens quando não cabem');
     assert.equal(projectBeforeScroll.railOverflow, 'visible', 'Projeto: sidebar 2 usa o scroll do documento');
     assert.ok(projectBeforeScroll.titleSize <= 48, 'Projeto: título longo respeita a escala máxima');
     assert.equal(projectBeforeScroll.horizontalOverflow, 0, 'Projeto: nome longo não rompe a largura');

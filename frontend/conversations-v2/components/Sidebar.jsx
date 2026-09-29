@@ -402,6 +402,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
         <header><div><strong>Workspace</strong><small>{conversationDisplayTitle(currentTitle || activeConversation?.title, 'Novo chat')}</small></div><button type="button" onClick={onClose} aria-label="Fechar navegação"><NavIcon name="close"/></button></header>
         <div className="cv-mobile-navigation__scroll">
           <button type="button" className="cv-mobile-navigation__primary" onClick={onNewConversation}>Novo chat</button>
+          <nav className="cv-mobile-navigation__library" aria-label="Biblioteca"><button type="button" onClick={() => onOpenLibrary?.(true, activeProjectRef)}><NavIcon name="file"/><span>Biblioteca</span></button></nav>
           {activeProject && projectDetailsUrl && <a className="cv-mobile-navigation__project-link" href={projectDetailsUrl} onClick={onClose}><NavIcon name="folder"/><span>{activeProject.name || activeProject.title}</span></a>}
           <div className="cv-sidebar-project-tools"><button type="button" title="Buscar no projeto" aria-label="Buscar no projeto" onClick={() => { setSpotlightQuery(''); setSpotlightOpen(true); }}><NavIcon name="search"/></button></div>
           {!selectedBrandRef && !!automations.length && <section><h2>Automações</h2>{conversationList(automations.slice(0, 5))}</section>}

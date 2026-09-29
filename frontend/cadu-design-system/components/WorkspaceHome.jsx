@@ -208,6 +208,7 @@ export function WorkspaceHome({bootstrap}) {
       {!isMobile && <WorkspaceContextSidebar
         mode="home"
         bootstrap={bootstrap}
+        agencyName={home.agency?.name}
         active="home"
         links={bootstrap.urls}
         onCollapsedChange={setSidebarCollapsed}

@@ -4,17 +4,14 @@ import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects} from '../workspaceEntities.mjs';
 import {workspaceSolutionItems} from '../workspaceSolutions';
 
-// The dock owns global shortcuts. The context rail owns the stable information
-// architecture of the Workspace before listing project-specific content.
+// The context rail owns Workspace navigation and project-specific content.
 const HOME_ITEMS = [
   {id: 'conversas', label: 'Conversas', key: 'conversations', icon: 'compose'},
   {id: 'projetos', label: 'Projetos', key: 'projects', icon: 'folder'},
   {id: 'marcas', label: 'Marcas', key: 'brands', icon: 'brand'},
-];
-const MOBILE_HOME_ITEMS = [
-  ...HOME_ITEMS,
   {id: 'conta', label: 'Conta', key: 'agency', icon: 'home'},
 ];
+const MOBILE_HOME_ITEMS = HOME_ITEMS;
 
 const ACCOUNT_ITEMS = [
   {id: 'agencia', label: 'Agência', key: 'agencia', icon: 'home'},
@@ -56,7 +53,7 @@ function writeCollectionPayload(event, item, kind, label) {
 function SidebarBrandProjects({brands, projects, links}) {
   const {groups, ungrouped} = groupWorkspaceProjects(brands, projects);
   if (!groups.length && !ungrouped.length) return null;
-  const projectLink = project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')} draggable onDragStart={event => writeCollectionPayload(event, project, 'project', entityLabel(project, 'Projeto'))}><Icon name="folder" size={13}/><span>{entityLabel(project, 'Projeto')}</span></a>;
+  const projectLink = project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')}><Icon name="folder" size={13}/><span>{entityLabel(project, 'Projeto')}</span></a>;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
     <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
     {groups.slice(0, 4).map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={entityIdentity(brand) || entityLabel(brand)}>
@@ -81,7 +78,7 @@ export function WorkspaceContextSidebar({mode = 'home', bootstrap = {}, links = 
 
   return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
-      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel/></div> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
+      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel/></div> : mode === 'home' ? <a className="cadu-ds-context-sidebar__collapsed-home" href={links.home || '/workspace/app'} aria-label="Início do Workspace"><img src={bootstrap.caduMark} alt=""/></a> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>
     </header>
     {mode === 'home' && !collapsed && <div className="cadu-ds-context-sidebar__heading"><span>Agência</span><strong>{agencyName || 'Cliente'}</strong></div>}

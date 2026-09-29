@@ -235,7 +235,6 @@ export function WorkspaceHome({bootstrap}) {
         </section>
       </div>
     </main>
-    <ShortcutManagerDialog open={shortcutsOpen} onClose={() => { setShortcutsOpen(false); if (window.location.hash === '#atalhos') window.history.replaceState(null, '', window.location.pathname + window.location.search); }} items={managerItems} onToggle={toggleShortcut} onReorder={reorderShortcuts}/>
     <UndoToast message={toast} onDismiss={() => setToast('')}/>
   </div>;
 }

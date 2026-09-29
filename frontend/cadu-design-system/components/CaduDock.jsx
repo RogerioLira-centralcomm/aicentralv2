@@ -236,7 +236,13 @@ function DockPicker({candidates, items, busy, query, onQueryChange, linkUrl, onL
   </div>;
 }
 
-export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversationMode = false, userName = 'Minha conta', userAvatar, userInitials, accountOpen = false, accountMenu, accountUrl, onOpenAccount, onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, notifications = [], onOpenNotifications, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onShortcutAdded, onShortcutRemoved, onOpenUsage}) {
+// The Dock Station is retired from Workspace and Chat. Keep the public
+// component export while callers move their navigation into page chrome.
+export function CaduDock() {
+  return null;
+}
+
+function RetiredCaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversationMode = false, userName = 'Minha conta', userAvatar, userInitials, accountOpen = false, accountMenu, accountUrl, onOpenAccount, onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, notifications = [], onOpenNotifications, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onShortcutAdded, onShortcutRemoved, onOpenUsage}) {
   const notificationCenter = useWorkspaceNotifications();
   const resolvedNotifications = notifications.length ? notifications : notificationCenter.pending;
   const openNotifications = onOpenNotifications || notificationCenter.open;

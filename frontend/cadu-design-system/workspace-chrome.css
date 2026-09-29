@@ -206,3 +206,53 @@ body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-project-edit
     font-size:clamp(30px,8vw,40px);
   }
 }
+
+/* Dock Station was removed from Workspace and Chat. Reclaim its old 64px
+   grid track in the page shells and align fixed dossier navigation to the edge. */
+body.portal--workspace .cadu-ds-context-sidebar__collapsed-home {
+  display:grid;
+  width:36px;
+  height:36px;
+  place-items:center;
+  border-radius:9px;
+}
+body.portal--workspace .cadu-ds-context-sidebar__collapsed-home img {
+  width:25px;
+  height:25px;
+  object-fit:contain;
+}
+body.portal--workspace .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__header {
+  flex-direction:column;
+  gap:6px;
+}
+@media (min-width:761px) {
+  body.portal--workspace .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) {
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) {
+    grid-template-columns:var(--cadu-sidebar-width) minmax(0,1fr)!important;
+  }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar.is-collapsed) {
+    grid-template-columns:64px minmax(0,1fr)!important;
+  }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-context-sidebar {
+    grid-column:1!important;
+  }
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-home-content,
+  body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) > .cadu-ds-account-content {
+    grid-column:2!important;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea) {
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea) > .cadu-ds-entity-portal {
+    grid-column:1!important;
+  }
+}
+
+@media (min-width:901px) {
+  body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(.cadu-ds-brand-state--processing)) > .cadu-ds-entity-nav,
+  body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav {
+    left:0!important;
+  }
+}

@@ -964,37 +964,127 @@
             '</div>';
     }
 
+    function clientePassaFiltros(c) {
+        var termo = state.buscaCliente.toLowerCase();
+        var classif = String(c.classificacao_cliente || c.classificacao || '').toLowerCase();
+        var isGeladeira = classif === 'geladeira';
+        var sitFiltro = state.filtroSecundario || '';
+        if (sitFiltro === 'arquivo') {
+            if (!isGeladeira) return false;
+        } else {
+            if (isGeladeira) return false;
+            if (state.filtroPill === 'classif-ativo') {
+                if (classif !== 'ativo') return false;
+            } else if (state.filtroPill === 'classif-prospeccao') {
+                var isProsp = classif === 'prospeccao'
+                    || classif === 'prospecção'
+                    || classif.indexOf('prospec') === 0;
+                if (!isProsp) return false;
+            }
+            if (sitFiltro === 'atrasado' && situacaoCliente(c) !== 'atrasado') return false;
+            if (sitFiltro === 'sem-atividade' && situacaoCliente(c) !== 'sem-atividade') return false;
+        }
+        if (state.filtroExecutivo && c.responsavel !== state.filtroExecutivo) return false;
+        if (state.filtroTipo && String(c.tipo || c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
+        if (state.filtroPerfil && c.perfil !== state.filtroPerfil) return false;
+        if (termo && c.nome.toLowerCase().indexOf(termo) === -1) return false;
+        return true;
+    }
+
+    function getClientesFiltrados() {
+        return (state.clientes || []).filter(clientePassaFiltros);
+    }
+
+    function clearDetailPanel() {
+        var title = $('.crm-v3-detail-title');
+        if (title) {
+            title.textContent = '—';
+            title.title = '';
+        }
+        var wrap = $('#crm-v3-detail-avatar-wrap');
+        var img = $('#crm-v3-detail-avatar-img');
+        if (wrap) wrap.hidden = true;
+        if (img) {
+            img.hidden = true;
+            img.removeAttribute('src');
+            img.alt = '';
+        }
+        var metaResp = $('#crm-v3-meta-responsavel');
+        if (metaResp) metaResp.textContent = '—';
+        var metaCat = $('#crm-v3-meta-categoria');
+        if (metaCat) metaCat.textContent = '—';
+        var classifWrap = $('#crm-v3-meta-classif-wrap');
+        if (classifWrap) classifWrap.hidden = true;
+        var metaDate = $('#crm-v3-meta-date');
+        if (metaDate) metaDate.hidden = true;
+
+        var metricIds = [
+            '#crm-metric-contatos',
+            '#crm-metric-oportunidades',
+            '#crm-metric-tarefas'
+        ];
+        metricIds.forEach(function (sel) {
+            var el = $(sel);
+            if (el) el.textContent = '0';
+        });
+        var fat = $('#crm-metric-faturamento');
+        if (fat) fat.textContent = 'R$ 0,00';
+        var pis = $('#crm-metric-pis');
+        if (pis) pis.textContent = 'R$ 0,00';
+        var ult = $('#crm-metric-ultimo');
+        if (ult) ult.textContent = '—';
+
+        var vincSection = $('#crm-v3-sidebar-vinculos');
+        if (vincSection) vincSection.hidden = true;
+        renderSiteEditor(null);
+    }
+
+    function clearClienteSelecao() {
+        state.clienteId = null;
+        state.cliente = null;
+        state.contatos = [];
+        state.contatoId = null;
+        state.atividades = [];
+        state.objetivos = [];
+        state.cotacoes = [];
+        state.notas = [];
+        state.nextAction = null;
+        state.nextActionLoading = false;
+        state.nextActionLoadingMode = null;
+        if (window.CentralXAgent) {
+            window.CentralXAgent.setContext({
+                module: 'crm',
+                screen: 'clientes_lista'
+            });
+        }
+        clearDetailPanel();
+        updateClienteActiveCard();
+        renderContatos();
+        renderAtividades();
+        renderObjetivos();
+        renderCotacoes();
+        renderNotas();
+        renderNextAction();
+        showSidebarInformacoes();
+        if (isMobileCrm()) {
+            setMobileView('list');
+            syncClienteHash('', true);
+        }
+    }
+
+    function syncSelecaoComFiltros() {
+        if (!state.clienteId) return;
+        var visivel = getClientesFiltrados().some(function (c) {
+            return String(c.id) === String(state.clienteId);
+        });
+        if (!visivel) clearClienteSelecao();
+    }
+
     function renderClientes() {
         var container = $('#crm-v3-lista-clientes');
         if (!container) return;
 
-        var termo = state.buscaCliente.toLowerCase();
-        var filtrados = state.clientes.filter(function (c) {
-            var classif = String(c.classificacao_cliente || c.classificacao || '').toLowerCase();
-            var isGeladeira = classif === 'geladeira';
-            var sitFiltro = state.filtroSecundario || '';
-            // Arquivo = Geladeira. Classificação Ativo/Prospecção não se aplica.
-            if (sitFiltro === 'arquivo') {
-                if (!isGeladeira) return false;
-            } else {
-                if (isGeladeira) return false;
-                if (state.filtroPill === 'classif-ativo') {
-                    if (classif !== 'ativo') return false;
-                } else if (state.filtroPill === 'classif-prospeccao') {
-                    var isProsp = classif === 'prospeccao'
-                        || classif === 'prospecção'
-                        || classif.indexOf('prospec') === 0;
-                    if (!isProsp) return false;
-                }
-                if (sitFiltro === 'atrasado' && situacaoCliente(c) !== 'atrasado') return false;
-                if (sitFiltro === 'sem-atividade' && situacaoCliente(c) !== 'sem-atividade') return false;
-            }
-            if (state.filtroExecutivo && c.responsavel !== state.filtroExecutivo) return false;
-            if (state.filtroTipo && String(c.tipo || c.categoria || '').toLowerCase() !== state.filtroTipo) return false;
-            if (state.filtroPerfil && c.perfil !== state.filtroPerfil) return false;
-            if (termo && c.nome.toLowerCase().indexOf(termo) === -1) return false;
-            return true;
-        });
+        var filtrados = getClientesFiltrados();
 
         var countEl = $('.crm-v3-col-clientes .crm-v3-count');
         if (countEl) {
@@ -1006,6 +1096,7 @@
 
         if (!filtrados.length) {
             container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm text-slate-500">Nenhum cliente encontrado.</div>';
+            syncSelecaoComFiltros();
             return;
         }
 
@@ -1183,6 +1274,7 @@
 
         container.innerHTML = html;
         bindLogoImgs(container);
+        syncSelecaoComFiltros();
     }
 
     function updateTabCounts() {
@@ -3531,6 +3623,10 @@
         var container = $('#crm-v3-cotacao-list');
         if (!container) return;
         updateTabCounts();
+        if (!state.clienteId) {
+            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm">Selecione um cliente.</div>';
+            return;
+        }
 
         // Separa por grupo em uma única passada (mais barato que 3 filters).
         var emAndamento = [];
@@ -4121,25 +4217,29 @@
             renderClientes();
             if (state.clientes.length) {
                 var entryClienteId = clienteIdFromEntry();
+                var filtrados = getClientesFiltrados();
                 if (isMobileCrm()) {
-                    var doEntry = entryClienteId && state.clientes.some(function (c) {
+                    var entryRow = entryClienteId && state.clientes.find(function (c) {
                         return String(c.id) === String(entryClienteId);
                     });
-                    if (doEntry) {
+                    if (entryRow && clientePassaFiltros(entryRow)) {
                         selectCliente(entryClienteId, { replaceUrl: true, fromHistory: true });
                         setMobileView('detail');
                     } else {
+                        clearClienteSelecao();
                         setMobileView('list');
                     }
                 } else {
                     var sess = loadSession();
-                    var candidato =
-                        state.clientes.find(function (c) { return String(c.id) === String(entryClienteId); }) ||
-                        state.clientes.find(function (c) { return c.id === state.clienteId; }) ||
-                        state.clientes.find(function (c) { return c.id === sess.lastClientId; }) ||
-                        state.clientes[0];
-                    selectCliente(candidato.id);
+                    var preferId = entryClienteId || state.clienteId || sess.lastClientId;
+                    var candidato = preferId && filtrados.find(function (c) {
+                        return String(c.id) === String(preferId);
+                    });
+                    if (candidato) selectCliente(candidato.id);
+                    else clearClienteSelecao();
                 }
+            } else {
+                clearClienteSelecao();
             }
         }).catch(function (err) {
             var container = $('#crm-v3-lista-clientes');

@@ -839,6 +839,12 @@ export function WorkspaceProject({bootstrap}) {
     {id:'deliveries', label:'Artefatos e entregas', icon:'external', href:sectionLinks.deliveries},
     {id:'views', label:'Visualizações', icon:'analysis', href:sectionLinks.views},
   ];
+  const quickLinks = ['overview', 'tasks', 'library', 'conversations', 'deliveries', 'indexing']
+    .map(id => projectNav.find(item => item.id === id))
+    .filter(item => item?.href)
+    .map(item => ({...item, title:item.label, active:item.id === projectView}));
+  const savedProjectLinks = projectLinksPinned.filter(item => /^https?:\/\//i.test(item.url || ''))
+    .map(item => ({...item, title:projectLinkTitle(item), href:item.url, icon:'external', external:true, detail:''}));
   const derivedNotifications = [
     ...(project.files || []).filter(item => item.requiresReview || ['error', 'failed'].includes(item.status)).map(item => ({id:`source:${item.id}`, kind:item.requiresReview ? 'approval' : 'attention', title:item.requiresReview ? `Defina o papel de ${item.title}` : `Revise ${item.title}`, detail:item.requiresReview ? 'A fonte foi preparada e aguarda sua decisão para entrar na base.' : 'A indexação não foi concluída.', context:project.name, action:'sources'})),
     ...(project.activity || []).slice(0, 6).map((item, index) => ({id:`activity:${index}:${item.title}`, kind:'complete', title:item.title, detail:item.detail, context:project.name, action:'activity'})),
@@ -892,7 +898,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'views' && <ProjectViewsPage onStartConversation={startConversation}/>}
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta. Para reativar, use Mais ações.</span></aside>}
         </section>
-        <EntityContextRail title="Projeto agora" primaryGroup={{title:'Links do projeto', items:projectLinksPinned.map(item => ({...item, title:projectLinkTitle(item), href:item.url, external:true, detail:''})), maxVisible:10, moreHref:sectionLinks.library, moreLabel:'Ver todos os links', prominent:true, onReorder:canEdit ? reorderProjectLinks : undefined}}><div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div>{linkOrderStatus && <p className={`cadu-ds-entity-rail__feedback${/não|falh|erro/i.test(linkOrderStatus) ? ' is-error' : ''}`} role={/não|falh|erro/i.test(linkOrderStatus) ? 'alert' : 'status'}>{linkOrderStatus}</p>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><a href={sectionLinks.indexing}>Ver detalhes</a></div></EntityContextRail>
+        <EntityContextRail title="Projeto agora" primaryGroup={{title:'Acesso rápido', items:quickLinks, maxVisible:6, prominent:true}} secondaryGroup={savedProjectLinks.length ? {title:'Links salvos', items:savedProjectLinks, maxVisible:5, moreHref:sectionLinks.library, moreLabel:'Ver todos os links', onReorder:canEdit && savedProjectLinks.length === projectLinksPinned.length ? reorderProjectLinks : undefined} : undefined}><div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div>{!savedProjectLinks.length && <div className="cadu-ds-project-rail-links-empty"><strong>Links do projeto</strong><p>Sites e referências salvos aparecerão aqui.</p>{canEdit && <button type="button" onClick={() => setDialog('link')}>Adicionar link</button>}</div>}{linkOrderStatus && <p className={`cadu-ds-entity-rail__feedback${/não|falh|erro/i.test(linkOrderStatus) ? ' is-error' : ''}`} role={/não|falh|erro/i.test(linkOrderStatus) ? 'alert' : 'status'}>{linkOrderStatus}</p>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><a href={sectionLinks.indexing}>Ver detalhes</a></div></EntityContextRail>
         </div>
       </div>
     </main>

@@ -406,6 +406,28 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__ind
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__index > strong { font-size:14px!important; font-weight:500; letter-spacing:0; }
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__index > small { font-size:9px; }
 body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__index > a { margin-top:3px; font-size:10px; }
+body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-rail { padding:24px 18px 48px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__header { margin-bottom:18px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__group { margin-bottom:20px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__group.is-prominent { padding:14px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__group > div > :is(a,div) { min-height:38px; gap:10px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__group > div > a[aria-current="page"] { color:var(--cadu-accent-strong); font-weight:700; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail__group > div > :is(a,div) b { font-size:12px; line-height:1.35; white-space:normal; }
+body.portal--workspace .cadu-ds-project-rail-links-empty { display:grid; gap:7px; margin:0 0 20px; padding:14px 0; border-top:1px solid var(--cadu-line); border-bottom:1px solid var(--cadu-line); }
+body.portal--workspace .cadu-ds-project-rail-links-empty strong { color:var(--cadu-ink); font-size:12px; }
+body.portal--workspace .cadu-ds-project-rail-links-empty p { margin:0; color:var(--cadu-muted); font-size:11px; line-height:1.45; }
+body.portal--workspace .cadu-ds-project-rail-links-empty button { justify-self:start; min-height:32px; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 11px var(--cadu-font-sans); cursor:pointer; }
+body.portal--workspace .cadu-ds-project-rail-links-empty button:focus-visible { outline:2px solid var(--cadu-accent-strong); outline-offset:3px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-indexing { margin-top:16px; padding-top:20px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-indexing__summary { gap:10px; margin-top:18px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-indexing__summary > span { min-height:76px; align-content:center; padding:12px 14px; border:1px solid var(--cadu-line); border-radius:10px; background:var(--cadu-surface); }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-state.is-processing { grid-template-columns:96px minmax(0,1fr); max-width:none; gap:18px; margin:18px 0 0; padding:16px 20px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-state.is-processing .cadu-ds-project-state__illustration { max-width:96px; }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-indexing__sources { margin-top:26px; }
+@media (max-width:640px) {
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-state.is-processing { grid-template-columns:72px minmax(0,1fr); gap:12px; padding:14px; text-align:left; }
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-state.is-processing .cadu-ds-project-state__illustration { max-width:72px; }
+}
 
 /* Project dossier frame ---------------------------------------------------
    The browser owns the document scroll. Dock and primary navigation form a

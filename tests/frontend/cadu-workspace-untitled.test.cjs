@@ -164,6 +164,8 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
         assert.ok(bounds && bounds.x >= 15 && bounds.x + bounds.width <= width - 15, `${pathname} ${width}: detail modal fits viewport`);
         await page.keyboard.press('Escape');
         await dialog.waitFor({state:'hidden'});
+        const visiblePrimaryColors = await page.locator('button[data-cadu-untitled-button]:visible').evaluateAll(elements => elements.map(element => ({label:element.textContent.trim(), background:getComputedStyle(element).backgroundColor})));
+        for (const button of visiblePrimaryColors) assert.equal(button.background, 'rgb(8, 119, 101)', `${pathname} ${width}: ${button.label} keeps Workspace skin`);
       }
     }
     for (const width of [1440, 820, 390]) {
@@ -171,6 +173,10 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
       await page.goto('http://workspace.test/project-library');
       const tabs = page.getByRole('tablist', {name:'Visualização do projeto'});
       await tabs.waitFor();
+      if (width === 820 && process.env.CADU_UNTITLED_LIBRARY_SCREENSHOT) await page.screenshot({path:process.env.CADU_UNTITLED_LIBRARY_SCREENSHOT, fullPage:true});
+      const addSource = page.getByRole('button', {name:'Adicionar fonte'});
+      assert.equal(await addSource.getAttribute('data-cadu-untitled-button'), '', `Library ${width}: primary action uses Untitled UI Button`);
+      assert.equal(await addSource.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(8, 119, 101)', `Library ${width}: primary action keeps Workspace skin`);
       assert.equal(await tabs.getByRole('tab').count(), 3, `Library ${width}: three Untitled UI view tabs`);
       const visual = tabs.getByRole('tab', {name:'Visual'});
       await visual.focus();

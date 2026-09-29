@@ -17,7 +17,7 @@ from .reports_flow import _host_allowed, _safe_path
 from .reports_link_tester import _fetch
 from .reports_v1 import _rows
 
-MAX_MONITORED_PAGES = 20
+MAX_MONITORED_PAGES = 101
 
 
 def _page_targets(flow):
@@ -34,16 +34,6 @@ def _page_targets(flow):
         path = _safe_path(path)
         found[("https", page_host, path)] = {"host": page_host, "path": path,
             "label": str(node.get("title") or path)[:120]}
-    steps = _rows("""SELECT page_host,path_prefix,name FROM cadu_reports_flow_steps
-        WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND is_active=TRUE
-        ORDER BY is_entry DESC,position,id LIMIT 100""",
-        (flow["tag_id"], flow["organization_id"], flow["client_id"]))
-    for step in steps:
-        page_host = step.get("page_host") or host
-        if _host_allowed(page_host, host):
-            path = _safe_path(step.get("path_prefix") or "/")
-            found[("https", page_host, path)] = {"host": page_host, "path": path,
-                "label": str(step.get("name") or path)[:120]}
     return list(found.values())[:MAX_MONITORED_PAGES]
 
 
@@ -156,7 +146,7 @@ def process_one():
         connection = get_db()
         try:
             with connection.cursor() as cursor:
-                cursor.execute("""UPDATE cadu_reports_flow_registry SET monitor_status='offline',
+                cursor.execute("""UPDATE cadu_reports_flow_registry SET monitor_status='unknown',
                     monitor_checked_at=NOW(),monitor_next_check_at=NOW()+(monitor_interval_minutes*INTERVAL '1 minute')
                     WHERE id=%s""", (row["id"],))
             connection.commit()

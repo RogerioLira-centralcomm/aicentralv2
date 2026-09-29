@@ -41,17 +41,17 @@ class FlowVersionTests(TestCase):
     @patch.object(versions, '_rows')
     def test_publish_locks_exact_client_revision_and_preserves_snapshot(self, rows, sync):
         rows.side_effect = [
-            [{'draft_revision': 4, 'draft_config': {'nodes': []}, 'name': 'Flow'}],
-            [{'revision': 4}], [{'published_revision': 4}],
+            [{'draft_revision': 4, 'draft_config': {'nodes': []}, 'name': 'Flow', 'tag_id': 'tag'}],
+            [], [{'revision': 4}], [{'published_revision': 4}],
         ]
         self.assertEqual(versions.publish_draft('flow', self.scope, 4, 7)['published_revision'], 4)
         lock_sql, lock_params = rows.call_args_list[0].args
         self.assertIn('FOR UPDATE', lock_sql)
         self.assertEqual(lock_params, ('flow', 10, 20))
-        snapshot_sql, snapshot_params = rows.call_args_list[1].args
+        snapshot_sql, snapshot_params = rows.call_args_list[2].args
         self.assertIn('ON CONFLICT(flow_id,revision) DO NOTHING', snapshot_sql)
         self.assertEqual(snapshot_params[:4], ('flow', 10, 20, 4))
-        self.assertIn('SET config=draft_config', rows.call_args_list[2].args[0])
+        self.assertIn('SET config=draft_config', rows.call_args_list[3].args[0])
 
     @patch.object(versions, '_rows')
     def test_stale_or_other_client_cannot_publish(self, rows):
@@ -86,3 +86,11 @@ class FlowVersionTests(TestCase):
                 {'id':'e','from':'a','to':'b'},{'id':'e','from':'b','to':'a'}]}, 'example.com')
         with self.assertRaises(BadRequest):
             reports_flow._normalize_flow_config({'nodes':nodes,'viewport':{'zoom':float('nan')}}, 'example.com')
+
+    @patch.object(versions, 'sync_published_steps')
+    @patch.object(versions, '_rows')
+    def test_shared_tag_cannot_archive_another_flows_steps(self, rows, sync):
+        rows.side_effect = [[{'draft_revision': 1, 'tag_id': 'shared'}], [{'id': 'other'}]]
+        with self.assertRaises(Conflict):
+            versions.publish_draft('flow', self.scope, 1, 7)
+        sync.assert_not_called()

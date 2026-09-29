@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 
 export function FlowLiveValue({value, decimals = false}) {
+  const available = value !== null && value !== undefined && Number.isFinite(Number(value));
   const target = Number.isFinite(Number(value)) ? Number(value) : 0;
   const previous = useRef(target);
   const [display, setDisplay] = useState(target);
@@ -26,5 +27,6 @@ export function FlowLiveValue({value, decimals = false}) {
     return () => {cancelAnimationFrame(frame);window.clearTimeout(timer);};
   }, [target]);
   const format = number => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: decimals ? 1 : 0}).format(number);
+  if (!available) return <span aria-label="Indisponível">—</span>;
   return <span className={`reports-live-value${changed ? ' is-updated' : ''}`} aria-label={format(target)}><span aria-hidden="true">{format(display)}</span></span>;
 }

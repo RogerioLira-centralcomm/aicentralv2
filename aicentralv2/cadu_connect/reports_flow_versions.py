@@ -68,6 +68,10 @@ def sync_published_steps(flow, selected):
 
 def publish_draft(flow_id, selected, revision, actor_id):
     flow = lock_flow(flow_id, selected, revision)
+    shared = _rows('''SELECT id FROM cadu_reports_flow_registry
+        WHERE tag_id=%s AND id<>%s LIMIT 1''', (flow['tag_id'],flow_id))
+    if shared:
+        abort(409, description='Esta instalação compartilha uma tag interna. Aplique a migração de isolamento antes de publicar.')
     sync_published_steps(flow, selected)
     # Repeated requests for an unchanged revision do not create duplicate history.
     _rows('''INSERT INTO cadu_reports_flow_versions

@@ -29,9 +29,8 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
 
   return <header className="reports-page-header">
     <div className="reports-page-header__copy">
-      <span className="reports-page-header__eyebrow">Reports <i aria-hidden="true">/</i> {client?.client_name || 'Cliente'}</span>
       <h1>{titleOverride || meta.title}</h1>
-      <p>{descriptionOverride || meta.description}</p>
+      <p className="reports-sr-only">{descriptionOverride || meta.description}</p>
     </div>
     <div className="reports-page-header__actions">
       {onAction && <UntitledButton color="secondary" onPress={onAction.onClick}>{onAction.label}</UntitledButton>}
@@ -42,7 +41,7 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
             return <option key={item.id} value={item.id}>{item.name}{!isOrganization ? ' · Reports' : ''}</option>;
           })}
         </select>
-      </label> : <span className="reports-client-context">{client?.client_name || 'Cliente'}</span>}
+      </label> : null}
     </div>
   </header>;
 }

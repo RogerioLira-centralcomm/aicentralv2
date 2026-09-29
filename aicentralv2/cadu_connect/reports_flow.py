@@ -280,13 +280,16 @@ def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
         if key not in excluded_pages:
             queued.append(candidate)
     attempted = 0
+    visited_urls = set()
     while queued and len(found) < MAX_DISCOVERY_PAGES and attempted < MAX_DISCOVERY_PAGES:
         batch = []
         while (queued and len(batch) < 10
                and attempted + len(batch) < MAX_DISCOVERY_PAGES
                and len(found) + len(batch) < MAX_DISCOVERY_PAGES):
             candidate = queued.pop(0)
-            if candidate not in found and candidate not in batch: batch.append(candidate)
+            if candidate not in visited_urls and candidate not in batch:
+                batch.append(candidate)
+                visited_urls.add(candidate)
         if not batch: continue
         attempted += len(batch)
         with ThreadPoolExecutor(max_workers=5) as pool:
@@ -307,7 +310,7 @@ def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
                 candidate = _canonical_page_url(link, page['url'], allowed_host)
                 candidate_parsed = urlparse(candidate) if candidate else None
                 candidate_key = ((candidate_parsed.hostname or '').lower().rstrip('.'), candidate_parsed.path or '/') if candidate_parsed else None
-                if (candidate and candidate_key not in excluded_pages and candidate not in found
+                if (candidate and candidate_key not in excluded_pages and candidate not in visited_urls
                         and candidate not in queued and len(queued) < MAX_DISCOVERY_SITEMAP_URLS + 300):
                     # Keep discovery useful: ignore common asset and auth routes.
                     if not re.search(r'\.(?:pdf|png|jpe?g|webp|svg|css|js|zip|mp4|woff2?)$', urlparse(candidate).path, re.I):
@@ -330,6 +333,81 @@ def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
             queued_seen.add(candidate)
             remaining.append(candidate)
     return sorted(results, key=lambda page: (role_order[page['role']],page['host'],page['path'])), remaining, sitemap_truncated
+
+
+def _discovery_flow_groups(pages):
+    primary, groups = [], {}
+    for page in pages:
+        path = page['path_prefix'].strip('/')
+        section = path.split('/')[0] if path else ''
+        landing = bool(re.search(r'^(lp|landing|landing-page|campanha|campaign|oferta|promo)([-/]|$)', path, re.I))
+        if not landing and (not path or page['suggested_role'] in ('entry', 'form', 'conversion')
+                            or section in ('contato', 'contact', 'sobre', 'about', 'servicos', 'services', 'produtos', 'products')):
+            primary.append(page)
+        else:
+            if landing:
+                section = '/'.join(path.split('/')[:2])
+            key = f"{page['page_host']}/{section}"
+            item = groups.setdefault(key, {'id': key, 'name': f"{'Landing pages' if landing else 'Páginas'} · {section}",
+                                          'kind': 'landing' if landing else 'section', 'pages': []})
+            item['pages'].append(page)
+    return primary, list(groups.values())
+
+
+def _assemble_discovered_flow(config, pages, allowed_host):
+    """Add verified pages and observed hyperlinks without replacing authored nodes."""
+    nodes = [dict(node) for node in config.get('nodes', [])]
+    edges = [dict(edge) for edge in config.get('edges', [])]
+    by_page = {(node.get('host') or allowed_host, node.get('path')): node
+               for node in nodes if node.get('type') in ('page', 'form', 'conversion', 'error')}
+    groups = list(dict.fromkeys(node.get('pageGroup') for node in nodes if node.get('pageGroup')))
+    omitted = 0
+    for page in pages:
+        key = (page['page_host'], page['path_prefix'])
+        if key in by_page:
+            continue
+        if len(nodes) >= 100:
+            omitted += 1
+            continue
+        path = page['path_prefix']
+        section = path.strip('/').split('/')[0] if path.strip('/') else 'Início'
+        group = f"{page['page_host']} · {section}"
+        if group not in groups:
+            groups.append(group)
+        # Reserve a free rectangle, including authored positions and previous batches.
+        preferred_column = min(groups.index(group), 31)
+        columns = [preferred_column, *[col for col in range(32) if col != preferred_column]]
+        position = next(((80 + col * 300, 100 + row * 240)
+                         for col in columns for row in range(40)
+                         if all(abs(float(node.get('x', 0)) - (80 + col * 300)) >= 280
+                                or abs(float(node.get('y', 0)) - (100 + row * 240)) >= 220
+                                for node in nodes)), None)
+        if position is None:
+            omitted += 1
+            continue
+        role = page['suggested_role']
+        node = {'id': str(uuid.uuid4()), 'type': 'page', 'suggestedRole': role,
+                'title': (page['title'] or path)[:120], 'path': path, 'host': page['page_host'],
+                'isEntry': role == 'entry', 'discoveryPageId': str(page['id']),
+                'pageGroup': group, 'x': position[0],
+                'y': position[1], 'fields': page.get('form_fields') or []}
+        nodes.append(node)
+        by_page[key] = node
+    pairs = {(edge['from'], edge['to']) for edge in edges}
+    for page in pages:
+        source = by_page.get((page['page_host'], page['path_prefix']))
+        if not source:
+            continue
+        evidence = page.get('evidence') or {}
+        for url in evidence.get('links', []):
+            parsed = urlparse(url)
+            target = by_page.get((parsed.hostname, parsed.path or '/'))
+            pair = (source['id'], target['id']) if target else None
+            if target and target != source and pair not in pairs and len(edges) < 300:
+                edges.append({'id': str(uuid.uuid4()), 'from': pair[0], 'to': pair[1],
+                              'label': 'Link no site', 'kind': 'site_link'})
+                pairs.add(pair)
+    return {**config, 'nodes': nodes, 'edges': edges}, omitted
 
 
 def _uuid(value, field):
@@ -427,7 +505,7 @@ def _normalize_flow_config(config, allowed_host):
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
-        for field in ('source','event','discoveryPageId','stepId'):
+        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
         # Persist the complete authored document, including visual and future
@@ -536,6 +614,9 @@ def _flow_row(flow_id, selected):
         (flow_id, selected['organization_id'], selected['client_id']))
     if not found:
         abort(404, description='Fluxo não encontrado neste cliente.')
+    if _rows('SELECT id FROM cadu_reports_flow_registry WHERE tag_id=%s AND id<>%s LIMIT 1',
+             (found[0]['tag_id'], found[0]['id'])):
+        abort(409, description='Aplique a migração de isolamento das tags para acessar este fluxo com métricas confiáveis.')
     return found[0]
 
 
@@ -772,7 +853,7 @@ def register(bp):
             COUNT(DISTINCT e.visitor_id) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS visitors,
             COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view','heartbeat','form_submit','click','whatsapp_click','page_leave')
                 AND e.occurred_at > NOW() - INTERVAL '90 seconds') AS online,
-            COUNT(DISTINCT e.visitor_id) FILTER (WHERE e.event_kind='conversion') AS conversions
+            COUNT(*) FILTER (WHERE e.event_kind='conversion') AS conversions
             FROM selected_events e
             GROUP BY e.tag_id,e.page_path ORDER BY views DESC LIMIT 100''', tuple(scope_params))
         site_pages = _rows(event_scoped_events + ''', page_events AS (
@@ -825,7 +906,7 @@ def register(bp):
         totals = _rows(scoped_events + '''SELECT
             COUNT(DISTINCT session_id) FILTER (WHERE event_kind IN ('page_view','conversion','error_view','heartbeat','form_submit','click','whatsapp_click','page_leave')
                 AND occurred_at > NOW() - INTERVAL '90 seconds') AS online,
-            COUNT(DISTINCT visitor_id) FILTER (WHERE event_kind='conversion') AS conversions
+            COUNT(*) FILTER (WHERE event_kind='conversion') AS conversions
             FROM selected_events''', tuple(scope_params))[0]
         event_inventory_query = event_scoped_events + f'''SELECT event_kind,{event_name_expr} AS event_name,page_path,
             COALESCE(utm_source,referrer_host,'Website') AS source_label,
@@ -890,7 +971,8 @@ def register(bp):
                     JOIN configured_nodes n ON (n.host IS NULL OR n.host=e.page_host)
                         AND e.page_path=n.path
                     WHERE e.flow_revision=%s AND ((n.node_type='page' AND e.event_kind IN ('page_view','conversion','error_view'))
-                       OR (n.node_type='conversion' AND e.event_kind='conversion')
+                       OR (n.node_type='conversion' AND e.event_kind='conversion'
+                           AND (n.event_name='' OR n.event_name={canvas_event_name_expr}))
                        OR (n.node_type='error' AND e.event_kind='error_view')
                        OR (n.node_type='form' AND e.event_kind='form_submit')
                        OR (n.node_type='whatsapp' AND e.event_kind='whatsapp_click')
@@ -978,39 +1060,42 @@ def register(bp):
                     page.get('path') == node.get('path') and
                     page.get('host') == (node.get('host') or selected_flow['allowed_host'])
                     for page in checks)
-                node['tracking_status'] = 'healthy' if active and recent and not broken else 'warning'
+                node['tracking_status'] = 'warning' if broken or not active else 'healthy' if recent else 'quiet'
                 node['tracking_reason'] = 'Falha na última verificação da página' if broken else                     'Sinais recentes da tag' if active and recent else                     tracking_health['reason'] if not active else 'Sem sinais nesta página há 15 min; pode não haver visitas'
         canvas_edges = (selected_flow.get('config') or {}).get('edges', []) if selected_flow else []
-        if selected_flow and canvas_edges:
-            transitions = _rows("""WITH nodes AS (
-                SELECT * FROM jsonb_to_recordset(%s::jsonb)
-                    AS n(id TEXT,type TEXT,path TEXT,host TEXT,event_name TEXT)
-            ), matched AS (
-                SELECT n.id,e.session_id,e.occurred_at
-                FROM cadu_reports_flow_events e JOIN nodes n
-                    ON e.page_path=n.path AND (n.host IS NULL OR e.page_host=n.host)
-                WHERE e.organization_id=%s AND e.client_id=%s AND e.tag_id=%s
-                    AND e.flow_revision=%s AND e.occurred_at>NOW()-INTERVAL '15 minutes'
-                    AND ((n.type='page' AND e.event_kind IN ('page_view','conversion','error_view'))
-                    OR (n.type='form' AND e.event_kind='form_submit')
-                    OR (n.type='conversion' AND e.event_kind='conversion')
-                    OR (n.type='error' AND e.event_kind='error_view')
-                    OR (n.type='whatsapp' AND e.event_kind='whatsapp_click')
-                    OR (n.type='event' AND e.event_kind='custom_event' AND e.event_name=n.event_name))
-            ), edges AS (
-                SELECT * FROM jsonb_to_recordset(%s::jsonb) AS x(id TEXT,"from" TEXT,"to" TEXT)
-            ) SELECT edges.id,EXISTS(SELECT 1 FROM matched a JOIN matched b
-                    ON a.session_id=b.session_id AND b.occurred_at>a.occurred_at
-                    WHERE a.id=edges."from" AND b.id=edges."to") AS recent_transition
-                FROM edges""", (json.dumps((selected_flow.get('config') or {}).get('nodes', [])),
-                    *params,selected_flow['tag_id'],selected_flow['published_revision'],json.dumps(canvas_edges)))
-            recent_edges = {edge['id']:edge['recent_transition'] for edge in transitions}
-            canvas_edges = [{**edge,'recent_transition':recent_edges.get(edge.get('id'),False)} for edge in canvas_edges]
+        # Live presence has its own time window, independent of historical filters.
+        live = {'status': 'unavailable', 'active_sessions': None, 'node_presence': {},
+                'transitions': {}, 'sessions_on_conversion_pages': None, 'locations': []}
+        generated_at = datetime.now(timezone.utc)
+        if selected_flow and not selected_flow.get('historical_view') and selected_flow['status'] == 'published':
+            from .reports_flow_live import build_live_snapshot
+            recent = _rows(f"""SELECT id,session_id,page_host,page_path,event_kind,
+                    {"event_name" if has_event_name else "NULL::text"} AS event_name,occurred_at
+                FROM cadu_reports_flow_events
+                WHERE organization_id=%s AND client_id=%s AND tag_id=%s AND flow_revision=%s
+                  AND occurred_at>NOW()-INTERVAL '15 minutes' AND occurred_at<=NOW()
+                ORDER BY occurred_at DESC,id DESC LIMIT 5001""",
+                (*params,selected_flow['tag_id'],selected_flow['published_revision']))
+            if len(recent) <= 5000:
+                live = {**build_live_snapshot(recent, canvas_nodes, canvas_edges, generated_at), 'status': 'ready'}
+            else:
+                live['status'] = 'capacity_exceeded'
+        live.update(schema_version=1, generated_at=generated_at.isoformat(), poll_interval_ms=15000,
+                    flow_id=str(selected_flow['id']) if selected_flow else None,
+                    revision=selected_flow['published_revision'] if selected_flow else None,
+                    scope='current_publication_all_sources')
+        for node in canvas_nodes:
+            node['active_sessions_here'] = live['node_presence'].get(node['id']) if live['status']=='ready' else None
+        for row in activity:
+            row['online'] = (sum(item['active_sessions'] for item in live['locations']
+                                if item['path'] == row['page_path']) if live['status']=='ready' else None)
+        canvas_edges = [{**edge, 'last_transition_id':live['transitions'].get(edge.get('id'))}
+                        for edge in canvas_edges]
         return jsonify(tags=tags, steps=steps, flows=flows, events=event_inventory,
                        event_group_count=event_inventory[0]['group_count'] if event_inventory else 0,
                        event_summary=event_summary,
                        tag_urls=_client_tag_urls(selected['client_id']), activity=activity,
-                       online=totals['online'], conversions=totals['conversions'],
+                       online=live['active_sessions'], conversions=totals['conversions'], live=live,
                        site_pages=site_pages,page_transitions=page_transitions,
                        confirmed=confirmed, period_days=days,
                        supertag_sites=supertag_sites,
@@ -1118,7 +1203,9 @@ def register(bp):
         stored = []
         for page in pages:
             evidence = {'signals': page['evidence'], 'h1': page.get('h1',''),
-                        'integrations': page.get('integrations', [])}
+                        'integrations': page.get('integrations', []),
+                        'links': list(dict.fromkeys(url for link in page.get('links', [])
+                            if (url := _canonical_page_url(link, page['url'], flow['allowed_host']))))}
             prior_step = steps_by_page.get((page['host'],page['path']))
             if prior_step is None:
                 wildcard_matches = wildcard_steps.get(page['path'], [])
@@ -1150,10 +1237,71 @@ def register(bp):
             WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
             (status,run_counts['page_count'],json.dumps(pending_urls),pending_truncated,
              run_id,selected['organization_id'],selected['client_id']))
+        updated, omitted, suggestions = None, 0, []
+        if payload.get('assemble') is True:
+            revision = expected_revision(payload)
+            locked = lock_flow(flow_id, selected, revision)
+            all_pages = _rows('''SELECT * FROM cadu_reports_flow_discovered_pages
+                WHERE run_id=%s AND organization_id=%s AND client_id=%s
+                ORDER BY page_host,path_prefix''',
+                (run_id,selected['organization_id'],selected['client_id']))
+            primary, groups = _discovery_flow_groups(all_pages)
+            suggestions = [{'id': group['id'], 'name': group['name'], 'kind': group['kind'],
+                            'page_count': len(group['pages'])} for group in groups]
+            config, omitted = _assemble_discovered_flow(locked['draft_config'] or {}, primary, flow['allowed_host'])
+            config, _ = _normalize_flow_config(config, flow['allowed_host'])
+            updated = save_draft(flow_id, selected, revision, locked['name'], config)
         get_db().commit()
-        return jsonify(run={'id':run_id,'root_url':root_url,'status':status,
+        return jsonify(flow=updated, suggestions=suggestions, omitted_pages=omitted, run={'id':run_id,'root_url':root_url,'status':status,
                             'page_count':run_counts['page_count'],'pending_count':len(pending_urls),
                             'pending_truncated':pending_truncated},pages=stored)
+
+    @bp.post('/api/v1/reports/flow/flows/<flow_id>/discovery-flows')
+    @login_required_api
+    def reports_flow_create_discovered_flows(flow_id):
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict): abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        flow = _flow_row(flow_id, selected)
+        lock_flow(flow_id, selected, expected_revision(payload))
+        run_id = _uuid(payload.get('run_id'), 'Varredura')
+        requested = payload.get('groups')
+        if not isinstance(requested, list) or not requested or any(not isinstance(key, str) for key in requested):
+            abort(400, description='Selecione os fluxos que deseja criar.')
+        pages = _rows("""SELECT * FROM cadu_reports_flow_discovered_pages
+            WHERE run_id=%s AND tag_id=%s AND organization_id=%s AND client_id=%s
+            ORDER BY page_host,path_prefix""", (run_id, flow['tag_id'], selected['organization_id'], selected['client_id']))
+        _, groups = _discovery_flow_groups(pages)
+        available = {group['id']: group for group in groups}
+        if any(key not in available for key in requested):
+            abort(400, description='O grupo não pertence a este mapeamento.')
+        created = []
+        for key in dict.fromkeys(requested):
+            origin = f"{flow_id}:{key}"
+            existing = _rows("""SELECT id,name FROM cadu_reports_flow_registry
+                WHERE organization_id=%s AND client_id=%s AND draft_config->>'discovery_origin'=%s""",
+                (selected['organization_id'], selected['client_id'], origin))
+            if existing:
+                created.extend(existing)
+                continue
+            group = available[key]
+            config, omitted = _assemble_discovered_flow({'discovery_origin': origin}, group['pages'], flow['allowed_host'])
+            if omitted:
+                abort(400, description='Este grupo excede 100 páginas. Divida-o antes de criar o fluxo.')
+            config, _ = _normalize_flow_config(config, flow['allowed_host'])
+            private_tag = _rows('''INSERT INTO cadu_reports_site_tags
+                (id,organization_id,client_id,label,allowed_host,public_key,created_by,tag_kind)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'flow') RETURNING id''',
+                (str(uuid.uuid4()), selected['organization_id'], selected['client_id'], group['name'][:120],
+                 flow['allowed_host'], secrets.token_urlsafe(24), session['user_id']))[0]
+            created.extend(_rows("""INSERT INTO cadu_reports_flow_registry
+                (id,organization_id,client_id,flow_code,tag_id,name,draft_config,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s) RETURNING id,name""",
+                (str(uuid.uuid4()), selected['organization_id'], selected['client_id'], _new_flow_code(),
+                 private_tag['id'], group['name'][:120], json.dumps(config), session['user_id'])))
+        get_db().commit()
+        return jsonify(flows=created), 201
 
     @bp.get('/api/v1/reports/flow/flows/<flow_id>/discoveries')
     @login_required_api
@@ -1312,15 +1460,15 @@ def register(bp):
             abort(400, description='Informe o nome do fluxo.')
         requested_host = _host(payload.get('allowed_host') or (tag or {}).get('allowed_host'))
         supertag_site, _ = ensure_supertag_site(selected, requested_host, name)
-        if not tag:
-            label = ' '.join(str(payload.get('tag_label') or name).split())[:120]
-            host = requested_host
-            tag = _rows('''INSERT INTO cadu_reports_site_tags
-                (id,organization_id,client_id,label,allowed_host,public_key,created_by,tag_kind)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,'flow')
-                RETURNING id,label,allowed_host,public_key,created_at,revoked_at,tag_kind''',
-                (str(uuid.uuid4()), selected['organization_id'], selected['client_id'],
-                 label, host, secrets.token_urlsafe(24), session['user_id']))[0]
+        # Each flow owns an internal tag, even when created from an existing site tag.
+        label = ' '.join(str(payload.get('tag_label') or name).split())[:120]
+        host = requested_host
+        tag = _rows('''INSERT INTO cadu_reports_site_tags
+            (id,organization_id,client_id,label,allowed_host,public_key,created_by,tag_kind)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,'flow')
+            RETURNING id,label,allowed_host,public_key,created_at,revoked_at,tag_kind''',
+            (str(uuid.uuid4()), selected['organization_id'], selected['client_id'],
+             label, host, secrets.token_urlsafe(24), session['user_id']))[0]
         config, _ = _normalize_flow_config(
             payload.get('config') if isinstance(payload.get('config'), dict) else {}, tag['allowed_host'])
         _validate_flow_references(config, selected)

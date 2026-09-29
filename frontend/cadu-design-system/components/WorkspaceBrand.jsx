@@ -415,6 +415,21 @@ const enrichedField = value => {
   if (!content) return null;
   return {value:content, source_url:legacyStringField(value, 'source_url')};
 };
+const readableBrandItem = value => {
+  if (typeof value !== 'string' || !value.trim().startsWith('{')) return value;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch (_) { /* Older brand records may use single-quoted mappings. */ }
+  const fields = ['name', 'label', 'title', 'value', 'description', 'context', 'rationale', 'evidence', 'source_url'];
+  const parsed = Object.fromEntries(fields.map(key => [key, legacyStringField(value, key)]).filter(([, content]) => content));
+  return Object.keys(parsed).length ? parsed : value;
+};
+const readableBrandValue = value => {
+  if (Array.isArray(value)) return value.map(readableBrandValue).filter(Boolean).join(', ');
+  if (value && typeof value === 'object') return Object.values(value).map(readableBrandValue).filter(Boolean).join(' / ');
+  return String(value ?? '');
+};
 const normalizedUrl = value => { try { const url = new URL(String(value || '')); return `${url.hostname.replace(/^www\./, '').toLowerCase()}${url.pathname.replace(/\/$/, '')}`; } catch (_) { return String(value || '').split('?', 1)[0].replace(/\/$/, '').toLowerCase(); } };
 const uniqueSources = sources => [...new Map(asList(sources).filter(Boolean).map(source => {
   const item = typeof source === 'string' ? {url:source} : {...source, url:source.url || source.source_url || source.href};
@@ -431,11 +446,12 @@ function ListBlock({title, items}) {
   if (!list.length) return null;
   const hidden = new Set(['source_url', 'url', 'confidence']);
   const fieldNames = {needs:'Necessidades',context:'Contexto',rationale:'Justificativa',evidence:'Evidência',excerpt:'Trecho',relationship:'Relação',market:'Mercado',barriers:'Barreiras',channels:'Canais',status:'Status',role:'Papel',usage:'Uso',family:'Família'};
-  return <section className="cadu-ds-brand-data-block"><h3>{title}</h3><ul>{list.map((item, index) => {
+  return <section className="cadu-ds-brand-data-block"><h3>{title}</h3><ul>{list.map((rawItem, index) => {
+    const item = readableBrandItem(rawItem);
     if (typeof item === 'string') { const parts = item.length > 240 ? item.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(part => part.trim()).filter(Boolean) || [item] : [item]; return <li key={`${title}-${index}`} className={parts.length > 1 ? 'is-long' : ''}>{parts.length > 1 ? <div className="cadu-ds-brand-readable-copy">{parts.map((part, partIndex) => <p key={`${title}-${index}-${partIndex}`}>{part}</p>)}</div> : <b>{item}</b>}</li>; }
     const label = item.name || item.value || item.address || item.title || item.primary || item.family || 'Dado registrado';
-    const details = Object.entries(item).filter(([key, value]) => !hidden.has(key) && value != null && value !== '' && value !== label).map(([key, value]) => [fieldNames[key] || key.replaceAll('_', ' '), Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? Object.values(value).filter(Boolean).join(' / ') : String(value)]);
-    return <li key={`${title}-${index}`}><b>{label}</b>{details.map(([key, value]) => <small key={key}><strong>{key}:</strong> {value}</small>)}{Number.isFinite(Number(item.confidence)) && <small><strong>Confiança:</strong> {Math.round(Number(item.confidence) * 100)}%</small>}{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">Abrir fonte</a>}</li>;
+    const details = Object.entries(item).filter(([key, value]) => !hidden.has(key) && value != null && value !== '' && value !== label).map(([key, value]) => [fieldNames[key] || key.replaceAll('_', ' '), readableBrandValue(value)]);
+    return <li key={`${title}-${index}`}><b>{readableBrandValue(label)}</b>{details.map(([key, value]) => <small key={key}><strong>{key}:</strong> {value}</small>)}{Number.isFinite(Number(item.confidence)) && <small><strong>Confiança:</strong> {Math.round(Number(item.confidence) * 100)}%</small>}{item.source_url && <a href={item.source_url} target="_blank" rel="noreferrer">Abrir fonte</a>}</li>;
   })}</ul></section>;
 }
 
@@ -595,7 +611,7 @@ export function WorkspaceBrand({bootstrap}) {
             onAudit={() => setDialog('audit')}
             onIdentity={() => setDialog('identity')}
           />}
-          {showDossier ? <><header className="cadu-ds-brand-data-viewer__header"><span>Base completa da marca</span><h2>Informações organizadas para consulta e gestão</h2><p>Navegue pelas seções ao lado. A página reúne somente dados disponíveis para uso, com fontes e histórico preservados.</p></header><div className="cadu-ds-brand-layout cadu-ds-brand-data-viewer">
+          {showDossier ? <><header className="cadu-ds-brand-data-viewer__header"><span>Dossiê da marca</span><h2>Informações para orientar o trabalho</h2><p>Consulte direção, público, ativos e fontes nas seções abaixo.</p></header><div className="cadu-ds-brand-layout cadu-ds-brand-data-viewer">
             <div className="cadu-ds-brand-layout__main">
               <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><button type="button" onClick={openConversation}>Atualizar com o Cadu</button></header><div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{profile.brandSummary || profile.positioning}</p></div><FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:profile.productsServices},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:profile.differentiators},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
               <CampaignSection campaigns={campaigns} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
@@ -604,9 +620,9 @@ export function WorkspaceBrand({bootstrap}) {
               <BrandDossierSections profile={profile}/>
               <AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
               <AuditHistory history={auditHistory}/>
-              <EntityContextRail className="cadu-ds-brand-responsive-management" title="Informações rápidas da marca" groups={brandRailGroups}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/></EntityContextRail>
+              <EntityContextRail className="cadu-ds-brand-responsive-management" title="Informações rápidas da marca" groups={brandRailGroups}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail>
             </div>
-          </div></> : <><AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/><AuditHistory history={auditHistory}/></>}</>}
+          </div></> : <><AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/><AuditHistory history={auditHistory}/><EntityContextRail className="cadu-ds-brand-responsive-management" title="Gestão da marca"><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail></>}</>}
         </section>
         {!isProcessing && <EntityContextRail title="Gestão da marca" groups={showDossier ? brandRailGroups : []}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><div className="cadu-ds-entity-rail__readiness"><span>Base da marca</span><strong>{verified ? 'Pronta' : hasStrategicData ? 'Disponível' : 'Inicial'}</strong><small>{verified ? 'em uso nos projetos' : hasStrategicData ? 'pode ser enriquecida' : 'aguardando análise'}</small></div>{verified && <><a className="cadu-ds-entity-rail__studio" href={urls.createImage}>Criar imagem no Studio</a><a className="cadu-ds-entity-rail__studio" href={urls.createVideo}>Criar vídeo no Studio</a></>}<button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail>}
         </div>

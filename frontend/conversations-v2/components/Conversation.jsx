@@ -4,6 +4,7 @@ import {Markdown} from './Markdown';
 import {safeUrl} from '../lib/api';
 import {ResponseBlocks} from './ResponseBlocks';
 import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
+import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
 import {ExecutionQueue} from './ExecutionQueue';
 import {WorkspaceTaskProgress} from '../../cadu-design-system/components/WorkspaceTaskProgress';
 import {meaningfulResponseBlocks, normalizeAnswerText} from '../lib/responseModel.mjs';
@@ -185,7 +186,7 @@ function Thread({messages, interaction, onPrompt, onOpenArtifact, onOpenResource
   </div>;
 }
 
-export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, caduMark, caduMcpMark = '/static/images/cadu/products/cadu-mcp-48.png', starterProject, starterBrand, starterHome, contextLoading, opening = false, runtime, diagnostics, activePlugin, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, onOpenFiles, automation, audioTranscriptionEndpoint, csrfToken, projects = [], brands = []}) {
+export function Conversation({inactive, layout, viewport, shellV2 = true, conversationId, title, context, onProjectChange, caduMark, caduMcpMark = '/static/images/cadu/products/cadu-mcp-48.png', starterProject, starterBrand, starterHome, contextLoading, opening = false, runtime, diagnostics, activePlugin, messages, input, setInput, onSubmit, attachments, onRemoveAttachment, executionMode, onExecutionModeChange, running, onStop, onPrompt, onOpenArtifact, onOpenResource, onDecision, onRevisitPrompt, creditsUrl, onOpenHistory, historyOpen, artifactOpen, composerContext, onClearContext, onAttach, onContextDrop, queuedTurns, onUpdateQueuedTurn, onRemoveQueuedTurn, onMoveQueuedTurn, onOpenLibrary, onOpenFiles, automation, audioTranscriptionEndpoint, csrfToken, projects = [], brands = []}) {
   const details = useRef(null);
   const historyTrigger = useRef(null);
   const wasHistoryOpen = useRef(historyOpen);
@@ -250,6 +251,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
     <header className="cv-conversation-header cv-relative cv-z-50 cv-flex cv-h-[68px] cv-flex-none cv-items-center cv-gap-4 cv-px-4 md:cv-px-6">
       {!historyOpen && <button ref={historyTrigger} type="button" onClick={onOpenHistory} className="cv-grid cv-h-9 cv-w-9 cv-place-items-center cv-rounded-lg cv-border-0 cv-bg-transparent cv-text-mist hover:cv-bg-white/[.05]" aria-label="Abrir conversas recentes" aria-controls="cv-recent-sidebar" aria-expanded={historyOpen}><Icon name="menu"/></button>}
       {messages.length ? <h1 className={`cv-conversation-title cv-m-0 cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap ${artifactOpen ? 'cv-hidden 2xl:cv-block' : ''}`} title={displayTitle}>{displayTitle}</h1> : <span className="cv-flex-1"/>}
+      <ChatContextSelector context={context} projects={projects} onProjectChange={onProjectChange} disabled={running || contextLoading || opening} loading={contextLoading} projectsOnly/>
       {interaction && <span className="cv-conversation-needs-action" title={interaction.kind === 'question' ? 'Esta conversa aguarda sua resposta' : 'Esta conversa aguarda sua decisão'} aria-label={interaction.kind === 'question' ? 'Aguardando sua resposta' : 'Ação necessária'}><Icon name="alert" size={17}/></span>}
       <button type="button" onClick={onOpenLibrary} className="cv-conversation-library-link" title="Abrir biblioteca do contexto"><Icon name="file" size={14}/><span>Biblioteca</span></button>
       <button type="button" onClick={onOpenFiles} className="cv-conversation-library-link" title="Ver arquivos desta conversa"><Icon name="folder" size={14}/><span>Arquivos</span></button>

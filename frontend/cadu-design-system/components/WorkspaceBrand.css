@@ -1012,3 +1012,22 @@ body.portal--workspace .cadu-ds-brand-responsive-management { display:none; }
     background:transparent;
   }
 }
+
+/* Give the dossier a readable central column on laptop and tablet widths. */
+@media (min-width:901px) and (max-width:1800px) {
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand {
+    grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr);
+  }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand::after,
+  body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-responsive-management { display:none; }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail {
+    display:block; position:static; grid-column:2; height:auto; min-height:0;
+    padding:24px clamp(24px,3vw,42px); border-top:1px solid var(--cadu-line); border-left:0;
+  }
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-brand-content {
+    min-width:0; padding-right:clamp(24px,3vw,42px); padding-left:clamp(24px,3vw,42px);
+  }
+}
+body.portal--workspace .cadu-ds-brand-content :is(.cadu-ds-brand-layout,.cadu-ds-brand-layout__main,.cadu-ds-brand-atlas__columns,.cadu-ds-brand-data-block) { min-width:0; }
+body.portal--workspace .cadu-ds-brand-data-block :is(b,small) { overflow-wrap:anywhere; }
+body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group b { white-space:normal; overflow-wrap:anywhere; }

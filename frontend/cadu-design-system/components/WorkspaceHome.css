@@ -40,6 +40,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
 
 /* The empty home is one clear invitation, not a second navigation menu. */
 @media (max-width: 760px) {
+  body.portal--workspace #cadu-conversations-v2-root .is-workspace-home .cadu-ds-home-chat-shell .cv-composer-intensity { display:none; }
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-resume { flex-wrap:wrap; }
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content {
     min-height:calc(var(--workspace-visual-height,100dvh) - 56px);

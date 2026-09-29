@@ -11,6 +11,7 @@ import {CaduSelect} from './CaduSelect';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 
 const labels = {agencia: 'Agência', equipe: 'Equipe', faturamento: 'Faturamento', integracoes: 'Integrações', planos: 'Plano', perfil: 'Perfil', uso: 'Uso', creditos: 'Créditos'};
+const accountIcons = {agencia: 'home', equipe: 'folder', faturamento: 'file', integracoes: 'external', planos: 'pulse', perfil: 'brand', uso: 'pulse', creditos: 'history'};
 const number = value => new Intl.NumberFormat('pt-BR').format(Number(value) || 0);
 const money = value => new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(Number(value) || 0);
 const parseDate = value => {
@@ -208,7 +209,7 @@ export function WorkspaceAccount({bootstrap}) {
   const section = bootstrap.section;
   const content = section === 'agencia' ? <Agency bootstrap={bootstrap}/> : section === 'perfil' ? <Profile bootstrap={bootstrap}/> : section === 'equipe' ? <Team bootstrap={bootstrap}/> : section === 'integracoes' ? <Integrations bootstrap={bootstrap}/> : section === 'planos' ? <Plan account={bootstrap.account} urls={bootstrap.urls}/> : section === 'uso' ? <Usage account={bootstrap.account} image={bootstrap.caduMark}/> : section === 'creditos' ? <Credits account={bootstrap.account} bootstrap={bootstrap}/> : <Billing account={bootstrap.account} image={bootstrap.caduMark}/>;
   return <div className="cadu-ds-home-shell cadu-ds-account-shell"><main className="cadu-ds-home-main"><div className="cadu-ds-home-workarea">
-    {isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls}/> : <WorkspaceContextSidebar mode="account" preferenceKey="account-navigation" bootstrap={bootstrap} active={section} links={bootstrap.urls}/>}
+    {isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls} accountItems={Object.entries(labels).filter(([id]) => bootstrap.urls[id]).map(([id, name]) => ({id, name, href: bootstrap.urls[id], icon: accountIcons[id], active: id === section}))}/> : <WorkspaceContextSidebar mode="account" preferenceKey="account-navigation" bootstrap={bootstrap} active={section} links={bootstrap.urls}/>}
     <section className="cadu-ds-account-content"><nav className="cadu-ds-account-tabs" aria-label="Conta">{Object.entries(labels).map(([id, label]) => <a key={id} href={bootstrap.urls[id]} aria-current={id === section ? 'page' : undefined}>{label}</a>)}</nav>{content}</section>
   </div></main><PurchaseModal bootstrap={bootstrap}/></div>;
 }

@@ -1,7 +1,9 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Icon} from './Icon';
 import {CaduSolutionSwitcher} from './WorkspaceSelectors';
+import {VisualIdentity} from './VisualIdentity';
 import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects} from '../workspaceEntities.mjs';
+import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 import {workspaceSolutionItems} from '../workspaceSolutions';
 
 // The context rail owns Workspace navigation and project-specific content.
@@ -70,6 +72,22 @@ export function WorkspaceContextSidebar({mode = 'home', bootstrap = {}, links = 
   const [collapsed, setCollapsed] = useState(() => mode === 'account' ? false : readCollapsed(mode));
   const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
+  const userName = String(bootstrap.user?.name || '').trim();
+  const firstName = userName.split(/\s+/)[0] || 'Conta';
+  const initialUsage = bootstrap.usagePercent ?? bootstrap.home?.usagePercent ?? bootstrap.account?.position?.usage_percentage;
+  const [usagePercent, setUsagePercent] = useState(() => initialUsage !== undefined && initialUsage !== null && initialUsage !== '' && Number.isFinite(Number(initialUsage)) ? Number(initialUsage) : null);
+  const usageLabel = usagePercent === null ? '—' : `${new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(usagePercent)}%`;
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => fetch(bootstrap.endpoints?.creditSummary || '/workspace/api/creditos/resumo', {credentials: 'same-origin', headers: {Accept: 'application/json'}})
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('Resumo indisponível')))
+      .then(value => { const percent = value.monthly_usage_percentage; if (active && percent !== undefined && percent !== null && percent !== '' && Number.isFinite(Number(percent))) setUsagePercent(Number(percent)); })
+      .catch(() => {});
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [bootstrap.endpoints?.creditSummary]);
 
   useEffect(() => {
     try { window.localStorage.setItem(`cadu:sidebar:${mode}`, mode === 'account' ? 'open' : collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
@@ -94,5 +112,12 @@ export function WorkspaceContextSidebar({mode = 'home', bootstrap = {}, links = 
       {recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>)}
     </section>}
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
+    <footer className="cadu-ds-context-sidebar__footer">
+      <a className="cadu-ds-context-sidebar__profile" href={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} aria-label={`Abrir perfil de ${userName || firstName}`} title={userName || firstName}>
+        <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
+        <span>{firstName}</span>
+      </a>
+      <a className="cadu-ds-context-sidebar__usage" href={links.uso || links.creditos || links.agencia || links.home || '/workspace/app'} aria-label={`Uso mensal: ${usageLabel}`} title={`Uso mensal: ${usageLabel}`}>{usageLabel}</a>
+    </footer>
   </aside>;
 }

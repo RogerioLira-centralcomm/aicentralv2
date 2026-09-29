@@ -78,6 +78,7 @@ export function WorkspaceHome({bootstrap}) {
   const [projectRef, setProjectRef] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(() => window.location.hash === '#atalhos');
   const [accountOpen, setAccountOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return window.localStorage.getItem('cadu:sidebar:home') === 'collapsed'; } catch (_) { return false; } });
   const [toast, setToast] = useState('');
   const [executionMode, setExecutionMode] = useState('analysis');
   const [brandRef, setBrandRef] = useState('');
@@ -234,13 +235,16 @@ export function WorkspaceHome({bootstrap}) {
       {isMobile ? (
         <WorkspaceMobileChrome title={home.agency?.name || 'Workspace'} links={bootstrap.urls} contextItems={[...(home.recentConversations || home.conversations || []).map(item => ({...item, detail:'Conversa recente'})), ...projects.map(item => ({...item, detail:'Projeto'}))]}/>
       ) : (
-        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={sidebarBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={item => isDockResource(item) ? openWorkspaceResourceConversation(bootstrap.urls.newConversation, item) : openWorkspaceDetail(item)} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onShortcutAdded={(_, next) => setDockItems(next)} onShortcutRemoved={(_, next) => setDockItems(next)} onOpenUsage={() => setAccountOpen(true)}/>
+        <>
+        {sidebarCollapsed && <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={sidebarBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={item => isDockResource(item) ? openWorkspaceResourceConversation(bootstrap.urls.newConversation, item) : openWorkspaceDetail(item)} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onShortcutAdded={(_, next) => setDockItems(next)} onShortcutRemoved={(_, next) => setDockItems(next)} onOpenUsage={() => setAccountOpen(true)}/>}
+        </>
       )}
       {!isMobile && <WorkspaceContextSidebar
         mode="home"
         active="home"
         links={bootstrap.urls}
         agencyName={home.agency?.name}
+        onCollapsedChange={setSidebarCollapsed}
         projects={projects}
         brands={sidebarBrands}
         resources={home.resources || []}

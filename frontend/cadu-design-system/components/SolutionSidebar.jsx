@@ -11,7 +11,7 @@ function CreditsLink({percent, href}) {
   return <a className="cadu-solution-sidebar__usage" href={href} aria-label={`Créditos e consumo: utilização de ${formatted}%`} title="Créditos e consumo"><span>{formatted}%</span><i aria-hidden="true"><b style={{width:`${value}%`}}/></i></a>;
 }
 
-export function SolutionSidebar({solution, context = 'Cliente', icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', userAvatar = '', creditsUrl, profileUrl}) {
+export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', userAvatar = '', creditsUrl, profileUrl}) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(storageKey) === 'collapsed'; } catch (_) { return false; }
   });
@@ -35,7 +35,7 @@ export function SolutionSidebar({solution, context = 'Cliente', icon, accent, gr
   return <aside className={`cadu-solution-sidebar${collapsed ? ' is-collapsed' : ''}${mobileOpen ? ' is-mobile-open' : ''}`} style={{'--solution-accent': accent}} aria-label={`Navegação do ${solution}`}>
     <header className="cadu-solution-sidebar__header">
       <div className="cadu-solution-sidebar__switcher"><CaduSolutionSwitcher logo={solutionLogo} solutions={solutions} activeId={activeSolutionId}/></div>
-      <div className="cadu-solution-sidebar__heading"><span>{solution}</span><strong title={context}>{context}</strong></div>
+      <div className="cadu-solution-sidebar__heading"><span>{solution}</span></div>
       <button type="button" className="cadu-solution-sidebar__toggle" onClick={() => {if (matchMedia('(max-width: 760px)').matches) setMobileOpen(value => !value); else setCollapsed(value => !value);}} aria-label={mobileOpen ? 'Fechar navegação' : collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={matchMedia('(max-width: 760px)').matches ? mobileOpen : !collapsed}>
         <span className="cadu-solution-sidebar__toggle-mobile">{mobileOpen ? 'Fechar' : 'Menu'}</span><span className="cadu-solution-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span>
       </button>

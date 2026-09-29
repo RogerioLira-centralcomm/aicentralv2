@@ -137,7 +137,6 @@
 .reports-shell>.cadu-solution-sidebar.is-collapsed{flex-basis:62px;width:62px}
 .reports-shell:has(>.cadu-solution-sidebar.is-collapsed){grid-template-columns:62px minmax(0,1fr)}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__heading span,.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group-label{color:#738196;font-size:11px;font-weight:500;letter-spacing:.015em;text-transform:none}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__heading strong{color:var(--r-ink);font-size:14px;font-weight:600}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group{gap:4px}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group a{min-height:38px;border-radius:7px;color:#506078;font-size:13px}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group a svg{color:#526783}
@@ -221,15 +220,14 @@
 
 /* Reports dashboard skin: Untitled UI sidebar structure with Cadu blue identity. */
 #cadu-reports-v1-root{--r-bg:#f8f9fc;--r-surface:#fff;--r-ink:#101828;--r-muted:#667085;--r-line:#eaecf0;--r-blue:#175cd3;--r-soft:#eff8ff;background:var(--r-bg);color:var(--r-ink)}
-.reports-shell{grid-template-columns:256px minmax(0,1fr);background:var(--r-bg)}
-.reports-shell>.cadu-solution-sidebar{position:sticky;top:0;align-self:start;box-sizing:border-box;grid-column:1;width:256px;min-height:100dvh;height:100dvh;border-right:1px solid var(--r-line);background:#fff;color:var(--r-ink);--solution-accent:var(--r-blue)}
+.reports-shell{grid-template-columns:240px minmax(0,1fr);background:var(--r-bg)}
+.reports-shell>.cadu-solution-sidebar{position:sticky;top:0;align-self:start;box-sizing:border-box;grid-column:1;width:240px;min-height:100dvh;height:100dvh;border-right:1px solid var(--r-line);background:#fff;color:var(--r-ink);--solution-accent:var(--r-blue)}
 .reports-shell>.cadu-solution-sidebar.is-collapsed{width:62px}
 .reports-shell:has(>.cadu-solution-sidebar.is-collapsed){grid-template-columns:62px minmax(0,1fr)}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__header{min-height:68px;border-bottom:1px solid var(--r-line)}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__heading span,.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group-label{color:#98a2b3;font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__heading strong{color:var(--r-ink);font-size:14px;font-weight:600}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__header{min-height:50px;border-bottom-color:var(--r-line)}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__heading span{color:var(--r-ink);font-size:14px;font-weight:600;letter-spacing:-.02em;text-transform:none}.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group-label{color:#667085;font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group{gap:3px}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group a{min-height:38px;border-radius:6px;color:#475467;font-size:13px;font-weight:500}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group a{min-height:38px;border-radius:8px;color:#475467;font-size:13px;font-weight:500}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group a.is-active{background:#eff8ff;color:#175cd3;font-weight:600}
 .reports-main{min-width:0;max-width:1600px;margin:0 auto;padding:0 clamp(22px,2.4vw,40px) 44px}
 .reports-header{box-sizing:border-box;min-height:100px;max-height:none;border-bottom:0}
@@ -462,10 +460,6 @@
 .reports-accounts-toolbar>input{box-sizing:border-box;width:min(260px,55%);height:36px;padding:7px 10px;border:1px solid #d0d5dd;border-radius:7px;background:#fff;color:var(--r-ink)}
 .reports-accounts-page .reports-form{gap:11px}
 body.portal--connect .cadu-conversation-launcher{display:none!important}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__footer{grid-template-columns:minmax(0,1fr);grid-template-areas:"account" "usage";gap:2px}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__usage{display:flex;justify-content:flex-start;min-width:0;gap:5px;padding:5px 9px!important;color:#667085!important;font-size:11px}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__usage>small{font-size:10px;color:#98a2b3}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__usage>i{display:none}
 @media(max-width:900px){.reports-accounts-layout{grid-template-columns:minmax(0,1fr) minmax(280px,.85fr)}.reports-accounts-layout>.reports-panel{min-height:0}}
 @media(max-width:760px){.reports-accounts-layout{grid-template-columns:1fr}.reports-accounts-layout>.reports-panel{min-height:0}.reports-accounts-heading{align-items:center}}
 .reports-integration-hint{margin:0;padding:9px 11px;border:1px solid #ecd9a8;border-radius:7px;background:#fffaf0;color:#75520a;font-size:12px;line-height:1.45}.reports-form label>small{display:block;color:var(--r-muted);font-size:11px}

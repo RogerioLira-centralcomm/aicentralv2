@@ -204,6 +204,9 @@ def init_db(app):
         conn = get_db()
 
         with conn.cursor() as cursor:
+            # Gunicorn workers run init_db concurrently. Serialize the DDL and
+            # backfills so their table locks cannot deadlock during startup.
+            cursor.execute('SELECT pg_advisory_xact_lock(%s)', (87473103,))
             cursor.execute('CREATE EXTENSION IF NOT EXISTS unaccent')
 
             cursor.execute('''

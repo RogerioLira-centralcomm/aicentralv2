@@ -183,13 +183,26 @@
 }
 
 @media (min-width:901px) {
-  body.portal--workspace .cadu-ds-project-workarea { grid-template-columns:minmax(0,1fr); padding-left:0; }
+  body.portal--workspace :is(.cadu-ds-project-workarea,.cadu-ds-brand-workarea) { grid-template-columns:minmax(0,1fr); padding-left:0; }
   body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project { grid-column:1; }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand { grid-column:1; }
   body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand:not(:has(> .cadu-ds-entity-nav)) { grid-template-columns:minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
+  body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(> .cadu-ds-entity-nav)) > .cadu-ds-brand-content { grid-column:1; }
+  body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(> .cadu-ds-entity-nav)) > .cadu-ds-entity-rail { grid-column:2; }
   body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav { position:sticky; top:0; bottom:auto; left:auto; width:100%; min-width:0; }
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-nav { position:sticky; top:0; bottom:auto; left:auto; width:100%; min-width:0; }
 }
 @media (min-width:901px) and (max-width:1240px) {
   body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand:not(:has(> .cadu-ds-entity-nav)) { grid-template-columns:minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail { display:none; }
+}
+@media (max-width:900px) {
+  body.portal--workspace :is(.cadu-ds-entity-portal--project,.cadu-ds-entity-portal--brand) .cadu-ds-entity-nav__top { display:none; }
 }
 @media(max-width:760px) {
   [data-cadu-skin="workspace"] .cadu-ds-home-intro__copy>p { font-size:13px; }

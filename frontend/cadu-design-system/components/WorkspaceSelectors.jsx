@@ -1,8 +1,9 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Icon} from './Icon';
 import {markProjectUsed, recentProjectOptions} from '../projectOptions.mjs';
 
-function useDisclosure() {
+function useDisclosure(menuRef) {
   const root = useRef(null);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -12,7 +13,7 @@ function useDisclosure() {
         event.preventDefault();
         setOpen(false);
         root.current?.querySelector('summary')?.focus();
-      } else if (event.type === 'pointerdown' && !root.current?.contains(event.target)) setOpen(false);
+      } else if (event.type === 'pointerdown' && !root.current?.contains(event.target) && !menuRef?.current?.contains(event.target)) setOpen(false);
     };
     document.addEventListener('keydown', dismiss);
     document.addEventListener('pointerdown', dismiss);
@@ -42,15 +43,37 @@ function Selector({label, value, items = [], onChange, emptyLabel, className = '
   </details>;
 }
 
-export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, showActiveLabel = false}) {
-  const {root, open, setOpen} = useDisclosure();
+export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, showActiveLabel = false, overlay = false}) {
+  const menuRef = useRef(null);
+  const {root, open, setOpen} = useDisclosure(menuRef);
+  const [menuPosition, setMenuPosition] = useState(null);
+  useLayoutEffect(() => {
+    if (!overlay || !open) return undefined;
+    const positionMenu = () => {
+      const anchor = root.current?.querySelector('summary');
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const width = Math.min(280, window.innerWidth - 24);
+      const menuHeight = Math.min(solutions.length * 48 + 16, window.innerHeight - 24);
+      const top = rect.bottom + menuHeight + 8 <= window.innerHeight ? rect.bottom + 8 : Math.max(12, rect.top - menuHeight - 8);
+      setMenuPosition({top, left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)), width});
+    };
+    positionMenu();
+    window.addEventListener('resize', positionMenu);
+    window.addEventListener('scroll', positionMenu, true);
+    return () => {
+      window.removeEventListener('resize', positionMenu);
+      window.removeEventListener('scroll', positionMenu, true);
+    };
+  }, [overlay, open, solutions.length]);
   const choose = solution => { setOpen(false); onSelect?.(solution); };
   const activeSolution = solutions.find(solution => solution.id === activeId);
+  const menu = <nav ref={menuRef} className={overlay ? 'cadu-ds-solution-switcher__overlay' : undefined} style={overlay ? menuPosition || {visibility: 'hidden'} : undefined} aria-label="Soluções Cadu">{solutions.map(solution => solution.href
+    ? <a key={solution.id} href={solution.href} onClick={() => setOpen(false)} aria-current={activeId === solution.id ? 'page' : undefined}>{solution.icon && <img src={solution.icon} alt=""/>}<span><b>{solution.name}</b><small>{solution.description}</small></span></a>
+    : <button key={solution.id} type="button" onClick={() => choose(solution)} aria-pressed={activeId === solution.id}>{solution.icon && <img src={solution.icon} alt=""/>}<span><b>{solution.name}</b><small>{solution.description}</small></span></button>)}</nav>;
   return <details ref={root} open={open} onToggle={event => setOpen(event.currentTarget.open)} className="cadu-ds-solution-switcher">
     <summary aria-label={showActiveLabel ? `Selecionar solução: ${activeSolution?.name || 'Workspace'}` : 'Abrir soluções Cadu'}>{logo ? <img src={logo} alt="Cadu"/> : <span aria-hidden="true">❮❮</span>}{showActiveLabel && <span className="cadu-ds-solution-switcher__active-label">{activeSolution?.name || 'Workspace'}</span>}</summary>
-    <nav aria-label="Soluções Cadu">{solutions.map(solution => solution.href
-      ? <a key={solution.id} href={solution.href} onClick={() => setOpen(false)} aria-current={activeId === solution.id ? 'page' : undefined}>{solution.icon && <img src={solution.icon} alt=""/>}<span><b>{solution.name}</b><small>{solution.description}</small></span></a>
-      : <button key={solution.id} type="button" onClick={() => choose(solution)} aria-pressed={activeId === solution.id}>{solution.icon && <img src={solution.icon} alt=""/>}<span><b>{solution.name}</b><small>{solution.description}</small></span></button>)}</nav>
+    {overlay ? open && createPortal(<div className="cadu-ds-solution-switcher cadu-ds-solution-switcher__portal">{menu}</div>, document.body) : menu}
   </details>;
 }
 

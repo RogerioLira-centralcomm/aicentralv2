@@ -1837,9 +1837,9 @@ body.portal--workspace .cadu-ds-home-workarea {
   justify-content:flex-start;
   gap:9px;
   padding:0 9px;
-  border:1px solid var(--cadu-line);
-  border-radius:10px;
-  background:var(--cadu-surface);
+  border:0;
+  border-radius:0;
+  background:transparent;
 }
 
 .cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher__active-label {
@@ -1849,17 +1849,29 @@ body.portal--workspace .cadu-ds-home-workarea {
   letter-spacing:0;
 }
 
-.cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher summary:hover,
 .cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher summary:focus-visible {
-  border-color:var(--cadu-accent);
-  outline:2px solid color-mix(in srgb,var(--cadu-accent) 24%,transparent);
-  outline-offset:2px;
+  outline:2px solid var(--cadu-accent);
+  outline-offset:0;
 }
 
 .cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher nav {
   top:calc(100% + 8px);
   left:0;
   z-index:var(--cadu-z-popover);
+}
+
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay {
+  position:fixed;
+  z-index:1000;
+  box-sizing:border-box;
+  max-height:calc(100dvh - 24px);
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+
+.cadu-ds-solution-switcher__portal nav a[aria-current="page"] {
+  background:transparent;
+  color:var(--cadu-accent);
 }
 
 .cadu-ds-context-sidebar__heading {

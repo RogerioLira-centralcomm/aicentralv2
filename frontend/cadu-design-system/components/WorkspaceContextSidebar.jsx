@@ -112,7 +112,7 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
     <footer className="cadu-ds-context-sidebar__footer">
       <a className="cadu-ds-context-sidebar__profile" href={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} aria-label={`Abrir perfil de ${userName || firstName}`} title={userName || firstName}>
-        <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
+        <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} fallbackSrc={bootstrap.user?.photoFallback || ''} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
         <span>{firstName}</span>
       </a>
       <a className="cadu-ds-context-sidebar__usage" href={links.uso || links.usage || links.creditos || links.credits || links.agencia || links.agency || links.home || '/workspace/app'} aria-label={`Uso mensal: ${usageLabel}`} title={`Uso mensal: ${usageLabel}`}>{usageLabel}</a>

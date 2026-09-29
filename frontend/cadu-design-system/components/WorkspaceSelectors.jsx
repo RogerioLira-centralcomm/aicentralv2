@@ -55,8 +55,16 @@ export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, 
       const rect = anchor.getBoundingClientRect();
       const width = Math.min(280, window.innerWidth - 24);
       const menuHeight = Math.min(solutions.length * 48 + 16, window.innerHeight - 24);
-      const top = rect.bottom + menuHeight + 8 <= window.innerHeight ? rect.bottom + 8 : Math.max(12, rect.top - menuHeight - 8);
-      setMenuPosition({top, left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)), width});
+      const gap = 8;
+      const roomBelow = window.innerHeight - rect.bottom - gap;
+      const roomAbove = rect.top - gap;
+      const openBelow = roomBelow >= Math.min(menuHeight, 220) || roomBelow >= roomAbove;
+      const availableHeight = Math.max(120, Math.min(menuHeight, openBelow ? roomBelow : roomAbove));
+      const top = openBelow ? rect.bottom + gap : Math.max(12, rect.top - availableHeight - gap);
+      const sidebar = anchor.closest('.cadu-solution-sidebar');
+      const sidebarRect = sidebar?.getBoundingClientRect();
+      const left = sidebarRect ? sidebarRect.right + gap : rect.left;
+      setMenuPosition({top, left: Math.max(12, Math.min(left, window.innerWidth - width - 12)), width, maxHeight: availableHeight});
     };
     positionMenu();
     window.addEventListener('resize', positionMenu);

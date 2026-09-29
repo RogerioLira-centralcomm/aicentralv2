@@ -214,6 +214,48 @@
 @media(min-width:761px){#cadu-reports-v1-root small{font-size:12px;line-height:1.4}.reports-flow-node small,.reports-flow-node span,.reports-flow-node em,.reports-flow-node button{font-size:12px}.reports-campaign-crumb{font-size:12px}}
 @media(prefers-reduced-motion:reduce){#cadu-reports-v1-root *{scroll-behavior:auto;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
+/* Reports dashboard skin: Untitled UI sidebar structure with Cadu blue identity. */
+#cadu-reports-v1-root{--r-bg:#f8f9fc;--r-surface:#fff;--r-ink:#101828;--r-muted:#667085;--r-line:#eaecf0;--r-blue:#175cd3;--r-soft:#eff8ff;background:var(--r-bg);color:var(--r-ink)}
+.reports-shell{grid-template-columns:256px minmax(0,1fr);background:var(--r-bg)}
+.reports-shell>.cadu-solution-sidebar{position:sticky;top:0;align-self:start;box-sizing:border-box;grid-column:1;width:256px;min-height:100dvh;height:100dvh;border-right:1px solid var(--r-line);background:#fff;color:var(--r-ink);--solution-accent:var(--r-blue)}
+.reports-shell>.cadu-solution-sidebar.is-collapsed{width:62px}
+.reports-shell:has(>.cadu-solution-sidebar.is-collapsed){grid-template-columns:62px minmax(0,1fr)}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__header{min-height:68px;border-bottom:1px solid var(--r-line)}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__heading span,.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group-label{color:#98a2b3;font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__heading strong{color:var(--r-ink);font-size:14px;font-weight:600}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group{gap:3px}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group a{min-height:38px;border-radius:6px;color:#475467;font-size:13px;font-weight:500}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__group a.is-active{background:#eff8ff;color:#175cd3;font-weight:600}
+.reports-main{min-width:0;max-width:1600px;margin:0 auto;padding:0 clamp(22px,2.4vw,40px) 44px}
+.reports-header{box-sizing:border-box;min-height:100px;max-height:none;border-bottom:0}
+.reports-page-title{display:grid;gap:7px}
+.reports-page-title .reports-eyebrow{color:#667085;font-size:12px;font-weight:500}
+.reports-page-title .reports-eyebrow i{padding:0 5px;color:#b3bac5;font-style:normal}
+.reports-header p{display:none}
+.reports-header h1{font-size:26px;font-weight:600;letter-spacing:-.035em}
+.reports-header-actions{gap:14px}
+.reports-client-pill{min-height:38px;padding:8px 32px 8px 12px;border-color:#d0d5dd;border-radius:7px;background:#fff;color:#344054;font-size:13px}
+.reports-filters--combined{box-sizing:border-box;grid-template-columns:repeat(4,minmax(130px,1fr)) auto;gap:12px;min-height:76px;max-height:none;margin:0 0 22px;padding:14px 16px;border:1px solid var(--r-line);border-radius:10px;background:#fff;box-shadow:0 1px 2px #1018280a}
+.reports-filters--combined label{display:grid;grid-template-columns:1fr;gap:5px;align-items:stretch;color:#667085;font-size:11px;font-weight:500;white-space:normal}
+.reports-filters--combined select{box-sizing:border-box;height:36px;padding:0 10px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;color:#344054;font-size:12px}
+.reports-filters--combined button{height:36px;align-self:end;padding:0 12px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;color:#344054;font-size:12px;font-weight:600}
+.reports-content{padding-top:0}
+.reports-grid{gap:16px;margin-bottom:16px}
+.reports-panel,.reports-kpi{border-color:var(--r-line);border-radius:10px;box-shadow:0 1px 2px #1018280a}
+.reports-panel{padding:20px}
+.reports-panel-head{margin-bottom:18px}
+.reports-panel-head h2,.reports-panel h2{color:var(--r-ink);font-size:16px;font-weight:600;letter-spacing:-.02em}
+.reports-panel-head span{color:#667085;font-size:12px}
+.reports-kpi{min-height:116px;padding:18px}
+.reports-kpi span,.reports-kpi small{color:#667085;font-size:12px}
+.reports-kpi strong{color:var(--r-ink);font-size:30px;font-weight:600;letter-spacing:-.04em}
+.reports-table-wrap th{background:#f9fafb;color:#667085;font-size:11px;font-weight:600;text-transform:none;letter-spacing:0}
+.reports-table-wrap td{color:#344054}
+.reports-primary-link,.reports-form button,.reports-primary-button{background:#175cd3}
+.reports-inline-link,.reports-text-button{color:#175cd3}
+@media(max-width:1000px) and (min-width:761px){.reports-shell{grid-template-columns:220px minmax(0,1fr)}.reports-shell>.cadu-solution-sidebar{width:220px}.reports-shell:has(>.cadu-solution-sidebar.is-collapsed){grid-template-columns:58px minmax(0,1fr)}.reports-shell>.cadu-solution-sidebar.is-collapsed{width:58px}.reports-filters--combined{grid-template-columns:repeat(2,minmax(0,1fr)) auto}.reports-filters--combined label:nth-child(3),.reports-filters--combined label:nth-child(4){display:grid}}
+@media(max-width:760px){.reports-shell,.reports-shell:has(>.cadu-solution-sidebar.is-collapsed){display:block}.reports-shell>.cadu-solution-sidebar,.reports-shell>.cadu-solution-sidebar.is-collapsed{position:relative;top:auto;width:100%;height:auto;min-height:54px}.reports-main{padding:0 14px 28px}.reports-header{min-height:82px;padding:8px 0}.reports-header h1{font-size:22px}.reports-page-title{gap:4px}.reports-filters--combined{grid-template-columns:1fr 1fr;gap:9px;margin-bottom:15px;padding:12px}.reports-filters--combined button{grid-column:2;justify-self:end}.reports-panel{padding:15px}}
+
 /* Flow editor: a measured grid with clear entry, route, and exit states. */
 .reports-flow-canvas{min-width:0;background-size:20px 20px;scrollbar-gutter:stable;overscroll-behavior:contain}
 .reports-flow-canvas{position:relative;overflow:auto;isolation:isolate}.reports-flow-canvas-content{position:relative;min-width:100%;background-color:#f8fbff;background-image:radial-gradient(#d9e4f2 .8px,transparent .8px);background-size:20px 20px}.reports-flow-canvas.is-node-dragging{cursor:grabbing}.reports-flow-block.is-dragging{z-index:5;box-shadow:0 8px 24px #193b6430;transition:none;cursor:grabbing}

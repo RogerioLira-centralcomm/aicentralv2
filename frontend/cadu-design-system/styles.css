@@ -4033,7 +4033,7 @@ body.portal--workspace .cadu-ds-project-explorer { margin:32px 0; min-width:0; }
 body.portal--workspace .cadu-ds-project-explorer__header { display:flex; align-items:start; justify-content:space-between; gap:24px; padding-bottom:18px; border-bottom:1px solid var(--cadu-line); }
 body.portal--workspace .cadu-ds-project-explorer__header p { margin:0; color:var(--cadu-accent-strong); font-size:10px; font-weight:700; }
 body.portal--workspace .cadu-ds-project-explorer__header h2 { margin:4px 0 7px; font-size:22px; letter-spacing:-.03em; }
-body.portal--workspace .cadu-ds-project-explorer__header span { color:var(--cadu-muted); font-size:11px; line-height:1.5; }
+body.portal--workspace .cadu-ds-project-explorer__header > span { color:var(--cadu-muted); font-size:11px; line-height:1.5; }
 body.portal--workspace .cadu-ds-project-explorer__header > button,
 body.portal--workspace .cadu-ds-project-explorer__empty button { padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:inherit; font-size:11px; font-weight:700; white-space:nowrap; }
 body.portal--workspace .cadu-ds-project-explorer__toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; }

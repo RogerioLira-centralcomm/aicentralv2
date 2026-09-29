@@ -59,6 +59,16 @@ const pageHtml = (mode, section) => `<!doctype html><html lang="pt-BR" data-cadu
         } else await action.click();
         const dialog = page.getByRole('dialog');
         await dialog.waitFor();
+        assert.equal(await dialog.getAttribute('data-rac'), '', `${pathname} ${width}: Untitled UI React Aria modal mounted`);
+        const dialogBounds = await dialog.boundingBox();
+        assert.ok(dialogBounds && dialogBounds.x >= 15 && dialogBounds.x + dialogBounds.width <= width - 15, `${pathname} ${width}: modal fits viewport with gutters`);
+        if (pathname === '/brands' && width === 820 && process.env.CADU_UNTITLED_MODAL_SCREENSHOT) await page.screenshot({path: process.env.CADU_UNTITLED_MODAL_SCREENSHOT});
+        if (width === 820) {
+          await page.keyboard.press('Escape');
+          await dialog.waitFor({state: 'hidden'});
+          await action.click();
+          await dialog.waitFor();
+        }
         const submit = dialog.getByRole('button', {name: pathname === '/brands' ? 'Criar marca' : 'Criar projeto'});
         assert.equal(await submit.getAttribute('data-cadu-untitled-button'), '', `${pathname} ${width}: official submit Button mounted`);
         assert.equal(await submit.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(8, 119, 101)', `${pathname} ${width}: submit keeps Workspace skin`);

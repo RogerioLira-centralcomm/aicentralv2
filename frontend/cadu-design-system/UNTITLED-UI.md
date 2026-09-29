@@ -20,6 +20,6 @@ Use `npx untitledui@latest add <component> --type base --lib-version 8` from a d
 
 - Inventory completed for the shared Workspace/Conversations React entry and current Tailwind pipelines.
 - Dedicated Tailwind 4 build boundary implemented in `untitled-kit`, with no preflight or change to the application's Tailwind 3 build.
-- Official Untitled UI React v8 Button source integrated through `CaduButton`; catalog actions and the Brand/Project creation actions use it.
+- Official Untitled UI React v8 Button and Modal sources integrated through `CaduButton` and `CaduModal`; catalog actions and Brand/Project creation use them.
 - Brand scale maps to the Workspace teal tokens. Browser verification covers catalog and creation actions at desktop, tablet and phone widths.
-- Remaining migration: official Input, Dialog, menus, tabs and tables, followed by the other Workspace forms and page actions. Existing controls must remain usable while each surface is converted.
+- Remaining migration: official Input, menus, tabs and tables, followed by the other Workspace forms, dialogs and page actions. Existing controls must remain usable while each surface is converted.

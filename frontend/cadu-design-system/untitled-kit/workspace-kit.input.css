@@ -3,6 +3,7 @@
 @import "./theme.css";
 
 @source "./button.tsx";
+@source "./modal.tsx";
 
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));
 @custom-variant label (& [data-label]);

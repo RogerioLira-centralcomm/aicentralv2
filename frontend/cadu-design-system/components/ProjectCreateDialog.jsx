@@ -1,5 +1,5 @@
 import React, {useRef, useState} from 'react';
-import {CaduDialog} from './CaduDialog';
+import {CaduModal} from './CaduModal';
 import {CaduButton} from './CaduButton';
 
 export function ProjectCreateDialog({action, csrfToken, brands = [], initialBrandId = '', onCreated, onClose}) {
@@ -52,7 +52,7 @@ export function ProjectCreateDialog({action, csrfToken, brands = [], initialBran
     }
   };
 
-  return <CaduDialog className="cadu-ds-project-dialog cadu-ds-project-create-dialog" label="Criar projeto" initialFocusRef={nameInput} onClose={close}>
+  return <CaduModal className="cadu-ds-project-dialog cadu-ds-project-create-dialog" label="Criar projeto" initialFocusRef={nameInput} onClose={close}>
     <form className="cadu-ds-project-form" aria-busy={busy} onSubmit={submit}>
       <header className="cadu-ds-project-create-dialog__header">
         <div><p className="cadu-ds-project-dialog__eyebrow">Novo espaço de trabalho</p><h2>Criar projeto</h2><p>Reúna conversas, referências, arquivos e conteúdos em um só lugar.</p></div>
@@ -67,5 +67,5 @@ export function ProjectCreateDialog({action, csrfToken, brands = [], initialBran
       {error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}
       <footer><CaduButton type="submit" loading={busy} disabled={busy}>{busy ? 'Criando…' : 'Criar projeto'}</CaduButton></footer>
     </form>
-  </CaduDialog>;
+  </CaduModal>;
 }

@@ -158,6 +158,7 @@ Não executar `npx untitledui init` sobre a raiz do CentralX: o comando foi docu
 | Wrapper | Contrato mínimo |
 | --- | --- |
 | `CaduButton` | `variant`, `size`, `loading`, `disabled`, `iconLeading`, `iconTrailing`, `type`, `onPress`; loading anuncia estado e preserva largura |
+| `CaduModal` | `label`, `onClose`, `initialFocusRef`, `closeOnBackdrop`; usa o Modal de React Aria do kit, prende e restaura foco |
 | `CaduInput` | `label`, `hint`, `error`, `leading`, `trailing`, `required`, `disabled`; associações ARIA completas |
 | `CaduDialog` | `open`, `onOpenChange`, `title`, `description`, `size`, `closeOnEscape`; foco preso/restaurado e nome acessível |
 | `CaduTabs` | seleção controlada, URL opcional, navegação por teclado e painel associado |

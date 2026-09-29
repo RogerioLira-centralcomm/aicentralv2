@@ -689,7 +689,7 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-shell--accounts .reports-accounts-heading__actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .reports-shell--accounts .reports-accounts-heading__actions .reports-account-connect{min-height:38px;padding:0 4px;border:0!important;background:transparent!important;color:var(--ui-blue)!important;font-size:13px;font-weight:600;text-decoration:none!important;box-shadow:none!important}
 .reports-shell--accounts .reports-accounts-heading__actions .reports-account-connect:hover{text-decoration:none!important;color:#1849a9!important}
-.reports-shell--accounts .reports-accounts-heading__actions .reports-account-add{min-height:38px;padding:0 14px;border:1px solid var(--ui-blue)!important;border-radius:8px;background:var(--ui-blue)!important;color:#fff!important;font-size:13px;font-weight:600;text-decoration:none!important;box-shadow:0 1px 2px #1018280d}
+.reports-shell--accounts .reports-accounts-heading__actions .reports-account-add{min-height:32px;padding:0 11px;border:0!important;border-radius:6px;background:var(--ui-blue)!important;color:#fff!important;font-size:12px;font-weight:600;text-decoration:none!important;box-shadow:none}
 .reports-shell--accounts .reports-accounts-heading__actions .reports-account-add:hover{background:#1849a9!important;border-color:#1849a9!important}
 .reports-shell--accounts .reports-accounts-heading__actions :is(.reports-account-connect,.reports-account-add):focus-visible{outline:3px solid var(--ui-focus)!important;outline-offset:2px}
 .reports-shell--accounts .reports-accounts-list{min-height:300px}
@@ -736,10 +736,10 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 /* List-first work areas keep creation in a focused drawer. */
 .reports-campaigns-list-page,.reports-access-page,.reports-report-library{display:block;min-width:0}
 .reports-campaigns-list-page>.reports-panel,.reports-access-page>.reports-panel,.reports-report-library>.reports-panel{min-width:0;min-height:320px}
-.reports-campaigns-list-page .reports-list-head-actions .reports-campaign-add{min-height:38px;padding:0 14px;border:1px solid var(--ui-blue)!important;border-radius:8px;background:var(--ui-blue)!important;color:#fff!important;font-size:13px;font-weight:600;text-decoration:none!important;box-shadow:0 1px 2px #1018280d}
+.reports-campaigns-list-page .reports-list-head-actions .reports-campaign-add{min-height:32px;padding:0 11px;border:0!important;border-radius:6px;background:var(--ui-blue)!important;color:#fff!important;font-size:12px;font-weight:600;text-decoration:none!important;box-shadow:none}
 .reports-campaigns-list-page .reports-list-head-actions .reports-campaign-add:hover{background:#1849a9!important;border-color:#1849a9!important}
 .reports-campaigns-list-page .reports-list-head-actions .reports-campaign-add:focus-visible{outline:3px solid var(--ui-focus)!important;outline-offset:2px}
-.reports-report-library .reports-list-head-actions .reports-report-create{min-height:38px;padding:0 14px;border:1px solid var(--ui-blue)!important;border-radius:8px;background:var(--ui-blue)!important;color:#fff!important;font-size:13px;font-weight:600;text-decoration:none!important;box-shadow:0 1px 2px #1018280d}
+.reports-report-library .reports-list-head-actions .reports-report-create{min-height:32px;padding:0 11px;border:0!important;border-radius:6px;background:var(--ui-blue)!important;color:#fff!important;font-size:12px;font-weight:600;text-decoration:none!important;box-shadow:none}
 .reports-report-library .reports-list-head-actions .reports-report-create:hover{background:#1849a9!important;border-color:#1849a9!important}
 .reports-report-library .reports-list-head-actions .reports-report-create:focus-visible{outline:3px solid var(--ui-focus)!important;outline-offset:2px}
 .reports-report-library>.reports-panel:first-child{grid-column:auto}
@@ -847,3 +847,31 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-main .reports-page-header__actions .reports-ui-button{min-height:32px;padding:0 10px;border-radius:6px;box-shadow:none;font-size:12px}
 @media(max-width:850px){.reports-dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.reports-dashboard-activity__heading{display:block}.reports-dashboard-table-tools{flex-wrap:wrap}.reports-dashboard-search{flex:1 1 220px;width:auto}}
 @media(max-width:560px){.reports-dashboard-kpis{grid-template-columns:1fr}.reports-dashboard-kpis .reports-kpi{min-height:67px;border-right:0;border-bottom:1px solid var(--ui-line)}.reports-dashboard-kpis .reports-kpi:last-child{border-bottom:0}.reports-dashboard-traffic,.reports-dashboard-activity{padding:14px}.reports-dashboard-empty{min-height:0;padding:16px 0}.reports-dashboard-table-tools{gap:3px}.reports-dashboard-search{flex-basis:100%}}
+
+/* Reports chrome: the sidebar and page title share the top edge. Keep one
+   separator at the title and let controls, rather than nested cards, define the toolbar. */
+.portal--connect .reports-shell > .reports-main > .reports-page-header{min-height:56px;margin-bottom:16px;padding-block:7px;box-shadow:none}
+.reports-main .reports-page-header__actions .reports-page-header__action{min-height:32px;padding:0 8px;border:0;border-radius:6px;box-shadow:none;font-size:12px;font-weight:600}
+.reports-main .reports-client-select select{height:32px;min-height:32px;border-color:#e4e7ec;border-radius:6px;box-shadow:none;font-size:12px}
+.reports-main .reports-page-header__action:focus-visible{outline:2px solid #84caff;outline-offset:2px}
+
+.reports-main .reports-filter-bar{gap:8px 16px;margin-bottom:16px;padding:0 0 14px;border:0;border-bottom:1px solid #eaecf0;border-radius:0;background:transparent;box-shadow:none}
+.reports-main .reports-filter-bar__heading{min-height:30px;gap:7px}
+.reports-main .reports-filter-bar__icon{width:20px;height:20px;border:0;border-radius:0;background:transparent;color:#667085}
+.reports-main .reports-filter-bar__heading small{display:none}
+.reports-main .reports-filter-bar__fields{gap:8px;margin-top:4px}
+.reports-main .reports-filter-bar__fields select,.reports-main .reports-filter-bar__period-control{height:34px;border-radius:6px}
+.reports-main .reports-filter-bar__period-control svg{top:8px}
+.reports-main .reports-filter-bar__actions{min-height:30px;gap:4px}
+.reports-main .reports-filter-bar__refresh{min-height:30px;padding:0 7px;border:0;box-shadow:none;font-size:12px}
+.reports-main .reports-filter-bar__count{padding:0;border:0;border-radius:0;background:transparent}
+
+.reports-main .reports-accounts-page .reports-accounts-heading,.reports-main .reports-supertag-heading{padding-bottom:4px;border-bottom:0}
+.reports-main .reports-accounts-page .reports-accounts-heading h2,.reports-main .reports-supertag-heading h2{font-size:16px}
+.reports-main :is(.reports-accounts-heading__actions .reports-account-connect,.reports-list-head-actions .reports-ui-button){min-height:32px}
+@media(max-width:760px){
+  .portal--connect .reports-shell > .reports-main > .reports-page-header{min-height:52px;margin-bottom:12px}
+  .reports-main .reports-filter-bar{gap:8px;padding-bottom:12px}
+  .reports-main .reports-filter-bar__fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){.reports-main .reports-filter-bar__fields{grid-template-columns:1fr}.reports-main .reports-client-select{max-width:140px}}

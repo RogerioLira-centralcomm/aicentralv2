@@ -33,7 +33,7 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
       <p className="reports-sr-only">{descriptionOverride || meta.description}</p>
     </div>
     <div className="reports-page-header__actions">
-      {onAction && <UntitledButton color="secondary" onPress={onAction.onClick}>{onAction.label}</UntitledButton>}
+      {onAction && <UntitledButton className="reports-page-header__action" size="sm" color="tertiary" onPress={onAction.onClick}>{onAction.label}</UntitledButton>}
       {clients.length > 1 ? <label className="reports-client-select"><span className="reports-sr-only">Cliente Reports</span>
         <select value={client?.client_id ?? ''} onChange={chooseClient} aria-label="Cliente Reports">
           {clients.map(item => {
@@ -77,6 +77,6 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
       onChange({period, startDate: date(start), endDate: date(end)});
     }}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></span></label>
     </div>
-    <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton size="sm" color="secondary" onPress={onRefresh}><span aria-hidden="true">↻</span>Atualizar</UntitledButton></div>
+    <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton className="reports-filter-bar__refresh" size="sm" color="tertiary" onPress={onRefresh}><span aria-hidden="true">↻</span>Atualizar</UntitledButton></div>
   </section>;
 }

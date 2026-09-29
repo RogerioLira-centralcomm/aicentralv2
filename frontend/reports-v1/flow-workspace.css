@@ -1,10 +1,10 @@
 /* Flow workspace refresh: Untitled UI patterns, tuned for Reports operations. */
-.reports-main .reports-flow-views{align-items:center;gap:24px;margin:0 0 18px;padding:0 0 16px;border:0;border-bottom:1px solid #eaecf0;border-radius:0;background:transparent}
-.reports-main .reports-flow-views h2{color:#101828;font-size:22px;font-weight:600;letter-spacing:-.035em}
+.reports-main .reports-flow-views{align-items:center;gap:16px;margin:0 0 14px;padding:0;border:0;border-radius:0;background:transparent}
+.reports-main .reports-flow-views h2{color:#101828;font-size:16px;font-weight:600;letter-spacing:-.02em}
 .reports-main .reports-flow-views p{margin-top:5px;color:#667085;font-size:13px}
-.reports-main .reports-flow-views [role=tablist]{gap:3px;padding:4px;border-color:#eaecf0;border-radius:8px;background:#f9fafb}
-.reports-main .reports-flow-views [role=tab]{min-height:36px;padding:0 13px;border-radius:6px;color:#667085;font-size:13px;font-weight:500}
-.reports-main .reports-flow-views [role=tab].is-active{border-color:#eaecf0;color:#344054;box-shadow:0 1px 2px #1018280d}
+.reports-main .reports-flow-views [role=tablist]{gap:3px;padding:3px;border:0;border-radius:7px;background:#f2f4f7}
+.reports-main .reports-flow-views [role=tab]{min-height:32px;padding:0 10px;border:0;border-radius:5px;color:#667085;font-size:12px;font-weight:500}
+.reports-main .reports-flow-views [role=tab].is-active{border:0;color:#344054;box-shadow:none}
 .reports-main .reports-flow-views [role=tab] small{background:#eff8ff;color:#175cd3}
 
 .reports-main .reports-flow-create-page,.reports-main .reports-flow-list-panel,.reports-main .reports-flow-builder{border:1px solid #eaecf0;border-radius:10px;background:#fff;box-shadow:0 1px 2px #1018280a}
@@ -203,7 +203,7 @@
 .reports-main .reports-flow-actions{gap:4px;flex-wrap:wrap}
 .reports-main .reports-flow-actions button,.reports-main .reports-flow-actions select{min-height:32px;height:32px;font-size:12px;padding:0 9px}
 .reports-main .reports-flow-title-field input{min-height:32px;font-size:14px}
-.reports-main .reports-flow-views{margin-bottom:12px;padding-bottom:8px}
+.reports-main .reports-flow-views{margin-bottom:12px;padding-bottom:0}
 @media(max-width:1279px){
 .reports-main .reports-flow-designer--compact.has-inspector{grid-template-columns:minmax(0,1fr)}
 .reports-main .reports-flow-designer--compact.has-palette.has-inspector{grid-template-columns:180px minmax(0,1fr)}

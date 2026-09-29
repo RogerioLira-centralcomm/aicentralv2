@@ -2,11 +2,11 @@
 .cadu-solution-sidebar__header{display:flex;min-height:50px;align-items:center;gap:10px;min-width:0;padding:0 2px 10px;border-bottom:1px solid #e1e6e2}
 .cadu-solution-sidebar__switcher{position:relative;z-index:45;display:flex;min-width:0;height:38px;flex:1 1 auto;align-items:center}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher{width:100%}
-.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary{display:flex;width:100%;height:38px;align-items:center;gap:9px;padding:0 9px;border:1px solid #e1e6e2;border-radius:10px;background:#fff;list-style:none;cursor:pointer}
+.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary{display:flex;width:100%;height:38px;align-items:center;gap:9px;padding:0 9px;border:0;border-radius:0;background:transparent;list-style:none;cursor:pointer}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary::-webkit-details-marker{display:none}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary img{width:28px;height:28px;flex:0 0 28px;max-width:none;max-height:none;object-fit:contain}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher__active-label{overflow:hidden;color:#202b2b;font-size:12px;font-weight:650;letter-spacing:0;text-overflow:ellipsis;white-space:nowrap}
-.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary:hover,.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary:focus-visible{border-color:var(--solution-accent);outline:2px solid color-mix(in srgb,var(--solution-accent) 34%,transparent);outline-offset:2px}
+.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary:focus-visible{outline:2px solid var(--solution-accent);outline-offset:0}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav{position:absolute;top:0;left:calc(100% + 10px);z-index:60;display:grid;width:290px;max-height:calc(100dvh - 28px);overflow:auto;padding:8px;border:1px solid #d7dfda;border-radius:14px;background:#fff;box-shadow:0 18px 44px #16272130}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav a{display:flex;min-height:48px;align-items:center;gap:10px;padding:8px;border-radius:9px;color:#283530;text-decoration:none}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav a:hover,.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav a:focus-visible{background:#f2f6f3;outline:0}
@@ -15,7 +15,14 @@
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav a span{display:grid;gap:2px}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav b{font-size:12px}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav small{color:#78827e;font-size:10px}
-.cadu-solution-sidebar:has(.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher[open]){overflow:visible}
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay{position:fixed;z-index:1000;box-sizing:border-box;display:grid;max-height:calc(100dvh - 24px);overflow-y:auto;overflow-x:hidden;padding:8px;border:1px solid #d7dfda;border-radius:14px;background:#fff;box-shadow:0 18px 44px #16272130}
+.cadu-ds-solution-switcher__portal nav a{display:flex;min-height:48px;align-items:center;gap:10px;padding:8px;border-radius:9px;color:#283530;text-decoration:none}
+.cadu-ds-solution-switcher__portal nav a:hover,.cadu-ds-solution-switcher__portal nav a:focus-visible{background:#f2f6f3;outline:0}
+.cadu-ds-solution-switcher__portal nav a[aria-current=page]{background:transparent;color:var(--solution-accent)}
+.cadu-ds-solution-switcher__portal nav img{width:28px;height:28px;object-fit:contain}
+.cadu-ds-solution-switcher__portal nav a span{display:grid;gap:2px}
+.cadu-ds-solution-switcher__portal nav b{font-size:12px}
+.cadu-ds-solution-switcher__portal nav small{color:#78827e;font-size:10px}
 .cadu-solution-sidebar__group-label{color:#78827e;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .cadu-solution-sidebar__toggle{display:grid;width:26px;height:26px;flex:0 0 26px;place-items:center;border:1px solid #e1e6e2;border-radius:8px;background:#fff;color:#727e79;cursor:pointer;font-size:18px;line-height:1}
 .cadu-solution-sidebar__toggle:hover,.cadu-solution-sidebar__toggle:focus-visible{border-color:var(--solution-accent);color:var(--solution-accent);outline:0}

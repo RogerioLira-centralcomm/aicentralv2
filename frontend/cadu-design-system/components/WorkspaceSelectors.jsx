@@ -43,7 +43,7 @@ function Selector({label, value, items = [], onChange, emptyLabel, className = '
   </details>;
 }
 
-export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, showActiveLabel = false, overlay = false}) {
+export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, showActiveLabel = false, overlay = false, overlayAccent}) {
   const menuRef = useRef(null);
   const {root, open, setOpen} = useDisclosure(menuRef);
   const [menuPosition, setMenuPosition] = useState(null);
@@ -73,7 +73,7 @@ export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, 
     : <button key={solution.id} type="button" onClick={() => choose(solution)} aria-pressed={activeId === solution.id}>{solution.icon && <img src={solution.icon} alt=""/>}<span><b>{solution.name}</b><small>{solution.description}</small></span></button>)}</nav>;
   return <details ref={root} open={open} onToggle={event => setOpen(event.currentTarget.open)} className="cadu-ds-solution-switcher">
     <summary aria-label={showActiveLabel ? `Selecionar solução: ${activeSolution?.name || 'Workspace'}` : 'Abrir soluções Cadu'}>{logo ? <img src={logo} alt="Cadu"/> : <span aria-hidden="true">❮❮</span>}{showActiveLabel && <span className="cadu-ds-solution-switcher__active-label">{activeSolution?.name || 'Workspace'}</span>}</summary>
-    {overlay ? open && createPortal(<div className="cadu-ds-solution-switcher cadu-ds-solution-switcher__portal">{menu}</div>, document.body) : menu}
+    {overlay ? open && createPortal(<div className="cadu-ds-solution-switcher cadu-ds-solution-switcher__portal" style={overlayAccent ? {'--solution-accent': overlayAccent} : undefined}>{menu}</div>, document.body) : menu}
   </details>;
 }
 

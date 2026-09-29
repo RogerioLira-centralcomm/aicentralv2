@@ -131,7 +131,7 @@ def protect():
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         token = session.get("family_csrf")
         if not token or not secrets.compare_digest(token, request.headers.get("X-CSRF-Token", "")):
-            abort(403, description="Atualize a página e tente novamente.")
+            return jsonify(error="A sessão de trabalho precisa ser renovada.", code="csrf_invalid"), 403
 
 
 @bp.errorhandler(Exception)
@@ -165,6 +165,11 @@ def capabilities():
     return jsonify(runtime="v2", context=current.to_dict(), tools=load_builtin_tools().list(current),
                    plugins=plugins.catalog(), plugin_flows=plugins.flow_catalog(),
                    future_integrations=plugins.integrations())
+
+
+@bp.get("/csrf")
+def csrf_token():
+    return jsonify(csrf=session.setdefault("family_csrf", secrets.token_urlsafe(32)))
 
 
 @bp.get("/google/connection")
@@ -661,11 +666,12 @@ def conversation_message():
             yield event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"],
                         resolved_context=run["context"].to_dict())
             yield event("route.selected", route=run["route"], policy={**run["policy"], "long_job": True})
-            yield event("long_job.created", job={"id": job["id"], "title": spec.title, "kind": spec.kind,
-                                                   "source_target": spec.source_target,
-                                                   "token_budget": spec.token_budget})
             creates_artifact = not (spec.kind == "market_intelligence" and spec.mode == "quick"
                                     and not long_jobs.quick_artifact_requested(spec.objective))
+            yield event("long_job.created", job={"id": job["id"], "title": spec.title, "kind": spec.kind,
+                                                   "source_target": spec.source_target,
+                                                   "token_budget": spec.token_budget,
+                                                   "creates_artifact": creates_artifact})
             response = {"answer": ("Iniciei a pesquisa. O resultado aparecerá nesta conversa quando a revisão terminar."
                                    if not creates_artifact else
                                    "Iniciei o trabalho em segundo plano. O conteúdo será construído por etapas e a primeira versão editável aparecerá assim que estiver pronta."),

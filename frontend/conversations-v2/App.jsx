@@ -7,7 +7,7 @@ import {LibraryView} from './components/LibraryView';
 import {PluginsPage, pluginPrompt} from './components/PluginsPage';
 import {GooglePluginPanel} from './components/GooglePluginPanel';
 import {ConfirmDialog} from './components/ConfirmDialog';
-import {csrf, request, streamEvents, uid} from './lib/api';
+import {csrf, request, renewCsrfToken, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult, normalizeAnswerText, reconcileCompletedResponse} from './lib/responseModel.mjs';
 import {attachmentIssues, attachmentSubmissionMessage, createLongTextAttachment, createStagedAttachment, LONG_TEXT_ATTACHMENT_THRESHOLD, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
@@ -867,11 +867,15 @@ export default function App({bootstrap}) {
             const recovered = restoreConversationMessages(refreshed.messages, uid);
             setMessages(recovered.messages);
             if (recovered.lastArtifact && recovered.lastArtifact !== openedArtifact) await fetchArtifact(recovered.lastArtifact);
+            if (job.creates_artifact && !state.job?.artifact_id && !recovered.lastArtifact) {
+              failPendingArtifact('O trabalho terminou sem gerar a entrega esperada.');
+            }
             dispatchExecution({type: 'event', event: {event: 'long_job.completed', job: state.job}});
             longJobRef.current = null;
             setRuntime('');
           } else {
             const message = status === 'budget_exhausted' ? 'O limite de tokens deste trabalho foi atingido.' : 'O trabalho longo foi interrompido.';
+            failPendingArtifact(message);
             dispatchExecution({type: 'event', event: {event: 'long_job.failed', message}});
             longJobRef.current = null;
             setRuntime(message);
@@ -894,11 +898,7 @@ export default function App({bootstrap}) {
     streamControllerRef.current = controller;
     const seenEvents = new Set();
     try {
-      const response = await fetch(bootstrap.endpoints.messages, {
-        method: 'POST', credentials: 'same-origin',
-        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-        signal: controller.signal,
-        body: JSON.stringify(conversationPayload({
+      const payload = JSON.stringify(conversationPayload({
           message: clean,
           requestId: crypto.randomUUID(),
           conversationId: conversationRef.current,
@@ -907,9 +907,22 @@ export default function App({bootstrap}) {
           context,
           selectedContext: turnContext,
           activeArtifact: artifactRef.current,
-        })),
+        }));
+      const send = token => fetch(bootstrap.endpoints.messages, {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': token},
+        signal: controller.signal,
+        body: payload,
       });
-      await streamEvents(response, rawEvent => {
+      let response = await send(csrf());
+      if (response.status === 403) {
+        const error = await response.clone().json().catch(() => ({}));
+        if (error.code === 'csrf_invalid') {
+          response = await send(await renewCsrfToken(bootstrap.endpoints.csrf || '/workspace/api/v2/csrf'));
+        }
+      }
+      try {
+        await streamEvents(response, rawEvent => {
         const event = acceptAgentEvent(rawEvent, seenEvents);
         if (!event || controller.signal.aborted) return;
         dispatchExecution({type: 'event', event});
@@ -982,10 +995,12 @@ export default function App({bootstrap}) {
         else if (kind === 'long_job.created') {
           const job = event.job || {};
           longJobRef.current = job.id || null;
-          pendingArtifact = {tabKey: `long-job:${job.id}`, type: 'document', title: job.title || 'Trabalho em elaboração', pending: true};
-          setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== pendingArtifact.tabKey), pendingArtifact]);
-          if (!artifactRef.current || !artifactOpen) {
-            setArtifact(pendingArtifact); artifactRef.current = pendingArtifact; setArtifactOpen(true);
+          if (job.creates_artifact) {
+            pendingArtifact = {tabKey: `long-job:${job.id}`, type: 'document', title: job.title || 'Trabalho em elaboração', pending: true};
+            setArtifactTabs(items => [...items.filter(item => artifactKey(item) !== pendingArtifact.tabKey), pendingArtifact]);
+            if (!artifactRef.current || !artifactOpen) {
+              setArtifact(pendingArtifact); artifactRef.current = pendingArtifact; setArtifactOpen(true);
+            }
           }
           setRuntime('Organizando as etapas do trabalho');
           longJobPromise = monitorLongJob(job);
@@ -1065,8 +1080,15 @@ export default function App({bootstrap}) {
           setActivePlugin(null);
           trace(longJobPromise ? 'Trabalho aceito' : 'Execução concluída', event.status || '');
         }
-      });
-      if (longJobPromise) await longJobPromise;
+        });
+      } catch (streamError) {
+        if (!longJobPromise) throw streamError;
+        trace('Conexão de acompanhamento interrompida', 'O trabalho aceito continua sendo acompanhado pelo Workspace.');
+      }
+      if (longJobPromise) {
+        await longJobPromise;
+        terminal = true;
+      }
       if (!terminal) throw new Error('A conexão terminou antes da conclusão.');
     } catch (error) {
       if (error?.name === 'AbortError' || controller.signal.aborted) {
@@ -1077,6 +1099,7 @@ export default function App({bootstrap}) {
       }
       dispatchExecution({type: 'connection.lost', error: error?.message});
       const detail = String(error?.message || '').trim();
+      failPendingArtifact('A conexão foi interrompida antes de concluir a entrega.');
       setRuntime('Não foi possível concluir'); trace('Falha na conversa', detail, 'error');
       setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', kind: 'failure', failure: chatFailure(error), prompt: clean}]);
       setInput(clean);

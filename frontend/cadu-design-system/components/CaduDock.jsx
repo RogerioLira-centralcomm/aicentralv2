@@ -8,6 +8,7 @@ import {workspaceSolutionItems} from '../workspaceSolutions';
 import {useWorkspaceNotifications} from './WorkspaceNotifications';
 import {completeDockOrder, insertionIndexFromCenters, reorderAtInsertion} from '../dockPlacement.mjs';
 import {dockExternalPresentation, dockProviderLogo} from '../dockExternal.mjs';
+import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 
 function DockTooltip({label, children}) {
   const anchorRef = useRef(null);
@@ -105,16 +106,6 @@ function prepareDockRemovalFeedback() {
 
 function dockExitDelay() {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? Promise.resolve() : new Promise(resolve => window.setTimeout(resolve, 170));
-}
-
-function avatarSource(value, bootstrap) {
-  const raw = String(value || bootstrap?.user?.avatar || bootstrap?.user?.photoUrl || bootstrap?.user?.photo_url || bootstrap?.user?.foto_url || bootstrap?.user?.picture || '').trim();
-  if (raw) {
-    if (/^static\//i.test(raw)) return `/${raw}`;
-    if (/^(?:https?:|data:|blob:|\/)/i.test(raw)) return raw;
-    return `/${raw}`;
-  }
-  return '';
 }
 
 function avatarFallbackSource(bootstrap, userName) {
@@ -550,7 +541,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, conversa
     setExternalView({...presentation, title:item.title});
   };
   const solutions = bootstrap ? workspaceSolutionItems(bootstrap) : [];
-  const resolvedAvatar = avatarSource(userAvatar, bootstrap);
+  const resolvedAvatar = workspaceUserPhoto({...bootstrap?.user, avatar:userAvatar || bootstrap?.user?.avatar});
   const fallbackAvatar = avatarFallbackSource(bootstrap, userName);
   const resolvedUsagePercent = liveUsagePercent ?? usagePercent ?? bootstrap?.usagePercent ?? bootstrap?.usage_percent ?? bootstrap?.home?.usagePercent ?? 0;
   // The avatar is a stable navigation target across every Workspace surface.

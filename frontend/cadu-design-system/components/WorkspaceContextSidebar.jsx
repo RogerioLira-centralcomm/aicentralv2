@@ -1,6 +1,8 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Icon} from './Icon';
+import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects} from '../workspaceEntities.mjs';
+import {workspaceSolutionItems} from '../workspaceSolutions';
 
 // The dock owns global shortcuts. The context rail owns the stable information
 // architecture of the Workspace before listing project-specific content.
@@ -10,9 +12,7 @@ const HOME_ITEMS = [
   {id: 'marcas', label: 'Marcas', key: 'brands', icon: 'brand'},
 ];
 const MOBILE_HOME_ITEMS = [
-  {id: 'conversas', label: 'Conversas', key: 'conversations', icon: 'compose'},
-  {id: 'projetos', label: 'Projetos', key: 'projects', icon: 'folder'},
-  {id: 'marcas', label: 'Marcas', key: 'brands', icon: 'brand'},
+  ...HOME_ITEMS,
   {id: 'conta', label: 'Conta', key: 'agency', icon: 'home'},
 ];
 
@@ -66,7 +66,7 @@ function SidebarBrandProjects({brands, projects, links}) {
   </section>;
 }
 
-export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'home', resources = [], projects = [], brands = [], conversations = [], agencyName = '', onCollapsedChange}) {
+export function WorkspaceContextSidebar({mode = 'home', bootstrap = {}, links = {}, active = 'home', resources = [], projects = [], brands = [], onCollapsedChange}) {
   // Account navigation is a persistent context on every account page. It
   // starts open even if the workspace/home rail was previously collapsed.
   const [collapsed, setCollapsed] = useState(() => mode === 'account' ? false : readCollapsed(mode));
@@ -80,7 +80,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
 
   return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
-      <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span>{mode === 'account' && <strong>{agencyName || 'Conta'}</strong>}</div>
+      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel/></div> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>
     </header>
     {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>

@@ -5,12 +5,34 @@ function responseError(data, status) {
   error.status = status;
   error.code = String(data.code || '');
   error.details = data.details && typeof data.details === 'object' ? data.details : {};
+  error.retryable = Boolean(data.retryable);
   return error;
 }
 
-export async function request(url, options = {}) {
-  const response = await fetch(url, {credentials: 'same-origin', ...options});
+export async function renewCsrfToken(url) {
+  const response = await fetch(url, {credentials: 'same-origin', cache: 'no-store'});
   const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw responseError(data, response.status);
+  const token = String(data.csrf || '');
+  if (!token) throw new Error('Não foi possível renovar a sessão de trabalho.');
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (meta) meta.content = token;
+  return token;
+}
+
+export async function request(url, options = {}) {
+  const send = requestOptions => fetch(url, {credentials: 'same-origin', ...requestOptions});
+  let response = await send(options);
+  let data = await response.clone().json().catch(() => ({}));
+  if (!response.ok && response.status === 403 && data.code === 'csrf_invalid'
+      && (options.method || 'GET').toUpperCase() !== 'GET') {
+    const token = await renewCsrfToken('/workspace/api/v2/csrf');
+    response = await send({
+      ...options,
+      headers: {...(options.headers || {}), 'X-CSRF-Token': token},
+    });
+    data = await response.clone().json().catch(() => ({}));
+  }
   if (!response.ok) {
     throw responseError(data, response.status);
   }

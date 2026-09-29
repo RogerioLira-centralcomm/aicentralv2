@@ -34,8 +34,7 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
 
   return <aside className={`cadu-solution-sidebar${collapsed ? ' is-collapsed' : ''}${mobileOpen ? ' is-mobile-open' : ''}`} style={{'--solution-accent': accent}} aria-label={`Navegação do ${solution}`}>
     <header className="cadu-solution-sidebar__header">
-      <div className="cadu-solution-sidebar__switcher"><CaduSolutionSwitcher logo={solutionLogo} solutions={solutions} activeId={activeSolutionId}/></div>
-      <div className="cadu-solution-sidebar__heading"><span>{solution}</span></div>
+      <div className="cadu-solution-sidebar__switcher"><CaduSolutionSwitcher logo={solutionLogo} solutions={solutions} activeId={activeSolutionId} showActiveLabel={!collapsed}/></div>
       <button type="button" className="cadu-solution-sidebar__toggle" onClick={() => {if (matchMedia('(max-width: 760px)').matches) setMobileOpen(value => !value); else setCollapsed(value => !value);}} aria-label={mobileOpen ? 'Fechar navegação' : collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={matchMedia('(max-width: 760px)').matches ? mobileOpen : !collapsed}>
         <span className="cadu-solution-sidebar__toggle-mobile">{mobileOpen ? 'Fechar' : 'Menu'}</span><span className="cadu-solution-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span>
       </button>

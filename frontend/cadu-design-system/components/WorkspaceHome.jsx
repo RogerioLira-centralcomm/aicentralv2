@@ -233,7 +233,7 @@ export function WorkspaceHome({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea">
       {isMobile ? (
-        <WorkspaceMobileChrome title={home.agency?.name || 'Workspace'} links={bootstrap.urls} contextItems={[...(home.recentConversations || home.conversations || []).map(item => ({...item, detail:'Conversa recente'})), ...projects.map(item => ({...item, detail:'Projeto'}))]}/>
+        <WorkspaceMobileChrome title="Workspace" links={bootstrap.urls} contextItems={[...(home.recentConversations || home.conversations || []).map(item => ({...item, detail:'Conversa recente'})), ...projects.map(item => ({...item, detail:'Projeto'}))]}/>
       ) : (
         <>
         {sidebarCollapsed && <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={projects} brands={sidebarBrands} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={item => isDockResource(item) ? openWorkspaceResourceConversation(bootstrap.urls.newConversation, item) : openWorkspaceDetail(item)} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onShortcutAdded={(_, next) => setDockItems(next)} onShortcutRemoved={(_, next) => setDockItems(next)} onOpenUsage={() => setAccountOpen(true)}/>}
@@ -241,14 +241,13 @@ export function WorkspaceHome({bootstrap}) {
       )}
       {!isMobile && <WorkspaceContextSidebar
         mode="home"
+        bootstrap={bootstrap}
         active="home"
         links={bootstrap.urls}
-        agencyName={home.agency?.name}
         onCollapsedChange={setSidebarCollapsed}
         projects={projects}
         brands={sidebarBrands}
         resources={home.resources || []}
-        conversations={home.recentConversations || home.conversations || []}
       />}
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-intro"><CaduVectorMark/><h1>{homeTitle}</h1><p>Escreva o que você quer resolver.</p></div>

@@ -28,11 +28,18 @@ export function chatFailure(error) {
     };
   }
 
-  if (status === 403) return {
+  if (status === 403 && (error?.code === 'csrf_invalid' || /atualize a página e tente novamente|sessão de trabalho precisa ser renovada/i.test(raw))) return {
     kind: 'session',
     title: 'Atualize a página para continuar',
     detail: 'Sua sessão de trabalho precisa ser renovada antes de enviar esta mensagem.',
     guidance: 'A mensagem foi mantida no campo de edição.',
+  };
+
+  if (status === 403) return {
+    kind: 'permission',
+    title: 'Acesso não permitido',
+    detail: raw || 'Esta ação não está disponível para sua conta.',
+    guidance: 'Peça acesso a um administrador do Workspace.',
   };
 
   if (status === 400 || status === 422) return {

@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {VisualIdentity} from './VisualIdentity';
+import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 import {CaduDialog} from './CaduDialog';
 
 export function AgentActionDrop({action, onOpen, onDragStart}) {
@@ -58,7 +59,7 @@ export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, proj
   const firstName = nameParts.shift() || 'Minha conta';
   const lastName = nameParts.join(' ');
   return <div ref={menuRef} className="cadu-ds-account-menu" role="menu" aria-label="Conta e gestão">
-    <header><div className="cadu-ds-account-menu__identity"><div><b>{firstName}</b>{lastName && <em> {lastName}</em>}</div>{user.email && <small>{user.email}</small>}</div><span className="cadu-ds-account-menu__label">Conta</span></header>
+    <header><div className="cadu-ds-account-menu__identity"><VisualIdentity src={workspaceUserPhoto(user)} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`} className="cadu-ds-account-menu__avatar"/><div><b>{firstName}</b>{lastName && <em> {lastName}</em>}{user.email && <small>{user.email}</small>}</div></div><span className="cadu-ds-account-menu__label">Conta</span></header>
     <nav aria-label="Conta e gestão">
       {links.agency && <a role="menuitem" href={links.agency}>Agência</a>}<a role="menuitem" href={links.profile}>Perfil</a><a role="menuitem" href={links.team}>Equipe</a><a role="menuitem" href={links.plans}>Planos</a><a role="menuitem" href={usageLink}>Uso</a><a role="menuitem" href={creditsLink}>Créditos</a><a role="menuitem" href={billingLink}>Faturamento</a><a role="menuitem" href={integrationsLink}>Integrações</a>{links.observability && <a role="menuitem" href={links.observability}>Observabilidade</a>}
     </nav>
@@ -78,7 +79,7 @@ export function WorkspaceAccountControl({user = {}, open = false, onOpen}) {
   const firstName = nameParts.shift() || 'Minha conta';
   const lastName = nameParts.join(' ');
   return <button type="button" className="cadu-ds-home-account cadu-ds-home-account--identity" onClick={onOpen} aria-label={`Abrir conta de ${name}`} aria-haspopup="menu" aria-expanded={open}>
-    <VisualIdentity src={user.avatar} initials={name} label={name} color="#1b6d64"/>
+    <VisualIdentity src={workspaceUserPhoto(user)} initials={name} label={name} color="#1b6d64" imageAlt={`Foto de ${name}`}/>
     <span><strong>{firstName}</strong>{lastName && <em> {lastName}</em>}<small>{user.email || 'Conta e perfil'}</small></span>
     <i aria-hidden="true">⌄</i>
   </button>;

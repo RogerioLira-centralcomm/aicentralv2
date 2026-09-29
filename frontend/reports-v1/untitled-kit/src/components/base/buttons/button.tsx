@@ -1,4 +1,3 @@
-"use client";
 
 import type { FC, ReactElement, ReactNode } from "react";
 import { isValidElement } from "react";

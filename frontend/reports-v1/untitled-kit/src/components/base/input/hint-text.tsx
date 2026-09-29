@@ -1,4 +1,3 @@
-"use client";
 
 import type { ReactNode, Ref } from "react";
 import type { TextProps as AriaTextProps } from "react-aria-components";

@@ -1,4 +1,3 @@
-"use client";
 
 import type { ReactNode, Ref } from "react";
 import { HelpCircle } from "@untitledui/icons";

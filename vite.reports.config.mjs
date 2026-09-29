@@ -3,9 +3,9 @@ import {resolve} from 'node:path';
 
 export default defineConfig({
   publicDir: false,
-  // The Untitled UI components are authored for React's classic JSX runtime;
-  // several files use JSX without importing a `React` binding.
-  esbuild: {jsx: 'transform'},
+  // Untitled UI includes TSX modules without a React binding. The automatic
+  // runtime keeps those components renderable alongside our existing imports.
+  esbuild: {jsx: 'automatic'},
   // Source files are bundled directly; there are no source maps to report
   // errors against, and enabling the lookup only produces misleading warnings.
   build: {

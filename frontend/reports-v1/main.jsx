@@ -1471,4 +1471,26 @@ function App() {
   </div>;
 }
 
-createRoot(rootElement).render(<App />);
+class ReportsErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {failed: false};
+  }
+
+  static getDerivedStateFromError() {
+    return {failed: true};
+  }
+
+  componentDidCatch(error) {
+    console.error('Reports render failed:', error);
+  }
+
+  render() {
+    if (this.state.failed) return <main className="reports-content" role="alert">
+      <div className="reports-error">Não foi possível exibir o Reports. Atualize a página para tentar novamente.</div>
+    </main>;
+    return this.props.children;
+  }
+}
+
+createRoot(rootElement).render(<ReportsErrorBoundary><App /></ReportsErrorBoundary>);

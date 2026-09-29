@@ -202,7 +202,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-conversation-support__ui-state small { margin-top:2px; overflow-wrap:anywhere; color:#d1e1de; font-size:10px; }
 #cadu-conversations-v2-root .cv-recent-sidebar__header { display:flex; min-height:40px; align-items:center; justify-content:space-between; gap:6px; padding:0 12px; border-bottom:0; }
 #cadu-conversations-v2-root .cv-chat-solution-switcher { display:flex; min-width:0; align-items:center; gap:9px; }
-#cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-ds-solution-switcher>summary { width:34px; height:34px; border:1px solid rgba(0,0,0,.08); border-radius:10px; background:#fff; box-shadow:0 2px 7px rgba(0,0,0,.2); }
+#cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-ds-solution-switcher>summary { width:34px; height:34px; border:0; border-radius:0; background:transparent; box-shadow:none; }
+#cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-ds-solution-switcher>summary:focus-visible { outline:2px solid var(--cv-accent); outline-offset:2px; }
 #cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-ds-solution-switcher>summary img { width:26px; height:26px; max-width:none; max-height:none; object-fit:contain; }
 #cadu-conversations-v2-root .cv-chat-solution-switcher>span { color:#e8e8e8; font-size:13px; font-weight:450; }
 #cadu-conversations-v2-root .cv-recent-sidebar__header button { display:grid; width:30px; height:30px; place-items:center; border:0; border-radius:8px; background:transparent; color:#8ca49f; cursor:pointer; }

@@ -2,7 +2,7 @@
 {% block title %}Workspace — Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block content_class %}portal-content--workspace-react{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v={{ cadu_workspace_asset_version }}">{% include 'cadu_workspace/_untitled_styles.html' %}{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" class="cv-home-root" aria-label="Workspace inicial — Conversas 2.0"><noscript>Ative o JavaScript para usar o Workspace.</noscript></div>

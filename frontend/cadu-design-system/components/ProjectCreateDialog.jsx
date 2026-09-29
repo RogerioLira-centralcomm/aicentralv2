@@ -1,5 +1,6 @@
 import React, {useRef, useState} from 'react';
 import {CaduDialog} from './CaduDialog';
+import {CaduButton} from './CaduButton';
 
 export function ProjectCreateDialog({action, csrfToken, brands = [], initialBrandId = '', onCreated, onClose}) {
   const nameInput = useRef(null);
@@ -64,7 +65,7 @@ export function ProjectCreateDialog({action, csrfToken, brands = [], initialBran
       {uploadProgress && <p className="cadu-ds-project-create-dialog__progress" role="status">{uploadProgress}</p>}
       <p className="cadu-ds-project-create-dialog__scope">O projeto será criado no espaço deste cliente. Você pode associar uma marca depois.</p>
       {error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}
-      <footer><button className="is-primary" disabled={busy}>{busy ? 'Criando…' : 'Criar projeto'}</button></footer>
+      <footer><CaduButton type="submit" loading={busy} disabled={busy}>{busy ? 'Criando…' : 'Criar projeto'}</CaduButton></footer>
     </form>
   </CaduDialog>;
 }

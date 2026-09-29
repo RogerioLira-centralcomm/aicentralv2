@@ -1,5 +1,6 @@
 import React from 'react';
 import {Icon} from './Icon';
+import {CaduButton} from './CaduButton';
 
 export function CatalogError({message}) {
   if (!message) return null;
@@ -15,7 +16,7 @@ export function WorkspaceCatalog({eyebrow, title, description, actionLabel, onAc
     ? 'Identidades, ativos e projetos organizados por marca.'
     : title === 'Projetos' ? 'Contextos de trabalho prontos para continuar.' : '');
   return <section className="untitled-catalog-page">
-    <header className="untitled-catalog-header"><div>{eyebrow && <p>{eyebrow}</p>}<h1>{title}</h1>{supportingCopy && <span>{supportingCopy}</span>}</div>{actionLabel && <button type="button" onClick={onAction}><span aria-hidden="true">+</span>{actionLabel}</button>}</header>
+    <header className="untitled-catalog-header"><div>{eyebrow && <p>{eyebrow}</p>}<h1>{title}</h1>{supportingCopy && <span>{supportingCopy}</span>}</div>{actionLabel && <CaduButton type="button" size="md" iconLeading={<span aria-hidden="true">+</span>} onClick={onAction}>{actionLabel}</CaduButton>}</header>
     <CatalogError message={error}/>
     <div className="untitled-catalog-controls"><CatalogFilters items={filters}/><label className="untitled-catalog-search"><span aria-hidden="true"><Icon name="search" size={17}/></span><input ref={searchRef} type="search" value={query} onChange={event => onQueryChange(event.target.value)} placeholder={queryLabel} aria-label={queryLabel}/>{query && <button type="button" onClick={() => { onQueryChange(''); searchRef?.current?.focus(); }} aria-label="Limpar busca"><Icon name="close" size={16}/></button>}</label><small aria-live="polite">{resultCount !== undefined && totalCount !== undefined && resultCount !== totalCount ? `${resultCount} de ${totalCount} resultados` : countLabel}</small></div>
     {!error && children}

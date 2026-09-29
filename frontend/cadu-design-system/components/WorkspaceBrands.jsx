@@ -3,6 +3,7 @@ import {CaduDock} from './CaduDock';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduDialog} from './CaduDialog';
+import {CaduButton} from './CaduButton';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceCatalog} from './WorkspaceCatalog';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
@@ -118,7 +119,7 @@ function BrandCreateForm({bootstrap, onClose}) {
     <section className={`cadu-ds-brand-health${health ? (health.ok ? ' is-ready' : ' is-incomplete') : ''}`} aria-live="polite">
       {checking ? <span className="cadu-ds-brand-spinner" aria-label="Inspecionando site e logo"/> : health && <span role={health.ok ? 'status' : 'alert'}>{health.message}</span>}
     </section>
-    <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary" disabled={checking}>Criar marca</button></footer>
+    <footer><button type="button" onClick={onClose}>Cancelar</button><CaduButton type="submit" loading={checking} disabled={checking}>Criar marca</CaduButton></footer>
   </form>;
 }
 

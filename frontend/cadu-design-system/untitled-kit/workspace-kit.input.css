@@ -1,0 +1,31 @@
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
+@import "./theme.css";
+
+@source "./button.tsx";
+
+@custom-variant dark (&:where(.dark-mode, .dark-mode *));
+@custom-variant label (& [data-label]);
+@custom-variant focus-input-within (&:has(input:focus));
+
+@utility transition-inherit-all {
+  transition-property: inherit;
+  transition-duration: inherit;
+  transition-timing-function: inherit;
+}
+
+/* The kit is loaded only by Workspace templates. CADU owns the brand scale. */
+[data-cadu-skin="workspace"] {
+  --color-brand-25: var(--colors-brand-25);
+  --color-brand-50: var(--colors-brand-50);
+  --color-brand-100: var(--colors-brand-100);
+  --color-brand-200: var(--colors-brand-200);
+  --color-brand-300: var(--colors-brand-300);
+  --color-brand-400: var(--colors-brand-400);
+  --color-brand-500: var(--colors-brand-500);
+  --color-brand-600: var(--colors-brand-600);
+  --color-brand-700: var(--colors-brand-700);
+  --color-brand-800: var(--colors-brand-800);
+  --color-brand-900: var(--colors-brand-900);
+  --color-brand-950: var(--colors-brand-950);
+}

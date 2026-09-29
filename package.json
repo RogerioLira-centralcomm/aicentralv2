@@ -9,7 +9,7 @@
     "build": "npm run build:vanilla && npm run build:artifact && npm run build:studio && npm run build:conversations && npm run build:auth && npm run build:editor && npm run build:audio && npm run build:reports && npm run build:planner",
     "build:reports": "vite build --config vite.reports.config.mjs",
     "build:planner": "vite build --config vite.planner.config.mjs",
-    "build:conversations": "vite build --config vite.conversations.config.mjs",
+    "build:conversations": "npm run build --prefix frontend/cadu-design-system/untitled-kit && vite build --config vite.conversations.config.mjs",
     "build:auth": "vite build --config vite.auth.config.mjs",
     "test:workspace-layout": "node tests/frontend/cadu-workspace-layout.test.cjs",
     "build:editor": "vite build --config vite.studio-editor.config.mjs",
@@ -19,7 +19,9 @@
   },
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-aria-components": "^1.21.1",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

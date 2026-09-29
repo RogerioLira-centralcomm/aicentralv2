@@ -76,14 +76,34 @@ def _column_suggestion_answers(evaluation, headers):
     return suggestions
 
 
-def _column_suggestion_cache_is_current(result):
+def _column_suggestion_evidence(import_id, scope):
+    batches = _rows('''SELECT sha256,platform_hint FROM cadu_reports_import_files
+        WHERE id=%s AND organization_id=%s AND client_id=%s
+            AND file_kind IN ('csv','xlsx')''', (str(import_id), *scope))
+    if not batches:
+        return None
+    samples = _rows('''SELECT DISTINCT ON (sheet_name) sheet_name,raw
+        FROM cadu_reports_import_rows
+        WHERE import_id=%s AND organization_id=%s AND client_id=%s
+        ORDER BY sheet_name,id LIMIT 80''', (str(import_id), *scope))
+    headers = list(dict.fromkeys(header for row in samples for header in row['raw']))
+    platform_hint = batches[0]['platform_hint'] or ''
+    evidence = {'file_sha256': batches[0]['sha256'], 'platform_hint': platform_hint,
+                'samples': [(row['sheet_name'], row['raw']) for row in samples]}
+    fingerprint = hashlib.sha256(json.dumps(evidence, sort_keys=True,
+        ensure_ascii=False, default=str).encode('utf-8')).hexdigest()
+    return headers, platform_hint, fingerprint
+
+
+def _column_suggestion_cache_is_current(result, evidence_fingerprint):
     if isinstance(result, str):
         try:
             result = json.loads(result)
         except (TypeError, ValueError):
             return False
     return (isinstance(result, dict) and
-            result.get('prompt_version') == COLUMN_SUGGESTION_PROMPT_VERSION)
+            result.get('prompt_version') == COLUMN_SUGGESTION_PROMPT_VERSION and
+            result.get('evidence_fingerprint') == evidence_fingerprint)
 
 
 def _ready():
@@ -857,14 +877,19 @@ def register(bp):
             WHERE import_id=%s AND organization_id=%s AND client_id=%s
             ORDER BY id DESC LIMIT 10''', (str(import_id), *scope))
         suggestions = []
+        evidence = _column_suggestion_evidence(import_id, scope) if batch[0]['file_kind'] in ('csv', 'xlsx') else None
         if _suggestions_ready():
             suggestions = _rows('''SELECT result,model,created_at
                 FROM cadu_reports_import_column_suggestions
                 WHERE import_id=%s AND organization_id=%s AND client_id=%s''',
                 (str(import_id), *scope))
+            if suggestions and (not evidence or not _column_suggestion_cache_is_current(
+                    suggestions[0].get('result'), evidence[2])):
+                suggestions = []
         return jsonify(import_file=batch[0], rows=rows, visual=visual[0] if visual else None,
                        range_snapshots=snapshots, headers=mapped_headers,
                        column_maps=column_maps, column_suggestions=suggestions[0] if suggestions else None,
+                       column_evidence_fingerprint=evidence[2] if evidence else None,
                        custom_values=custom_values)
 
     @bp.post('/api/v1/reports/imports/<uuid:import_id>/suggest-columns')
@@ -879,27 +904,23 @@ def register(bp):
         scope = (selected['organization_id'], selected['client_id'])
         conn = get_db()
         try:
-            batches = _rows('''SELECT id,platform_hint FROM cadu_reports_import_files
-                WHERE id=%s AND organization_id=%s AND client_id=%s
-                    AND file_kind IN ('csv','xlsx')''', (str(import_id), *scope))
-            if not batches:
+            evidence = _column_suggestion_evidence(import_id, scope)
+            if not evidence:
                 abort(404)
+            headers, platform_hint, evidence_fingerprint = evidence
             previous = _rows('''SELECT result,model,created_at
                 FROM cadu_reports_import_column_suggestions
                 WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
-            if previous and _column_suggestion_cache_is_current(previous[0].get('result')):
+            if previous and _column_suggestion_cache_is_current(
+                    previous[0].get('result'), evidence_fingerprint):
                 conn.rollback()
                 return jsonify(suggestion=previous[0], duplicate=True)
-            samples = _rows('''SELECT DISTINCT ON (sheet_name) raw FROM cadu_reports_import_rows
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s
-                ORDER BY sheet_name,id LIMIT 80''', (str(import_id), *scope))
-            headers = list(dict.fromkeys(header for row in samples for header in row['raw']))
             unknown = [header for header in headers if not FIELD_BY_HEADER.get(normalized_header(header))]
             if not unknown:
                 conn.rollback()
-                return jsonify(suggestion={'result':{'suggestions':[], 'omitted_count':0}}, duplicate=False)
+                return jsonify(suggestion={'result':{'evidence_fingerprint':evidence_fingerprint,
+                    'suggestions':[], 'omitted_count':0}}, duplicate=False)
             target_headers = unknown[:16]
-            platform_hint = batches[0]['platform_hint'] or ''
             questions = {f'h{index}': {'type':'choice',
                 'instructions': {
                     'question': 'Which media-report field does `header` represent? Use `platform_hint` '
@@ -921,7 +942,15 @@ def register(bp):
             except TypeSafeError as exc:
                 conn.rollback()
                 return jsonify(error=str(exc)), 503
+            _rows('''SELECT id FROM cadu_reports_import_files
+                WHERE id=%s AND organization_id=%s AND client_id=%s FOR UPDATE''',
+                (str(import_id), *scope))
+            current_evidence = _column_suggestion_evidence(import_id, scope)
+            if not current_evidence or current_evidence[2] != evidence_fingerprint:
+                conn.rollback()
+                return jsonify(error='O arquivo mudou durante a análise. Solicite uma nova sugestão.'), 409
             result = {'prompt_version':COLUMN_SUGGESTION_PROMPT_VERSION,
+                'evidence_fingerprint':evidence_fingerprint,
                 'suggestions':suggestions,'omitted_count':max(0,len(unknown)-len(target_headers))}
             stored = _rows('''INSERT INTO cadu_reports_import_column_suggestions
                 (import_id,organization_id,client_id,result,model,usage,created_by)

@@ -372,11 +372,20 @@ function Reports({data, save, busy}) {
   const [suggesting, setSuggesting] = useState(false);
   const [typeSafeReview, setTypeSafeReview] = useState(null);
   const [reviewingTypeSafe, setReviewingTypeSafe] = useState(false);
+  const reviewRequestRef = useRef(0);
+  const reviewContextRef = useRef('');
+  reviewContextRef.current = JSON.stringify({clientId:data.client.client_id,
+    reportId:detail?.report?.id, sourceId:reviewSource?.id, metrics:reviewMetrics});
+  const invalidateTypeSafeReview = () => {
+    reviewRequestRef.current += 1;
+    setTypeSafeReview(null);
+    setReviewingTypeSafe(false);
+  };
   const [planSuggestion, setPlanSuggestion] = useState(null);
   const [planning, setPlanning] = useState(false);
-  useEffect(() => {setDetail(null); setDraft({}); setPlanSuggestion(null); setTypeSafeReview(null); setDetailError('');}, [data.client.client_id]);
+  useEffect(() => {setDetail(null); setDraft({}); setPlanSuggestion(null); invalidateTypeSafeReview(); setDetailError('');}, [data.client.client_id]);
   const submit = async event => {event.preventDefault(); try {await save('/workspaces', form); setForm({campaign_name: '', media_campaign_id: ''});} catch (_) { /* Global error banner shows the failure. */ }};
-  const open = async (event, reportId) => {event.preventDefault(); setDetailError(''); setPlanSuggestion(null); setReviewSource(null); setTypeSafeReview(null); try {const value = await json(`/connect/api/v1/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {}); setNote('');} catch (failure) {setDetailError(failure.message);}};
+  const open = async (event, reportId) => {event.preventDefault(); setDetailError(''); setPlanSuggestion(null); setReviewSource(null); invalidateTypeSafeReview(); try {const value = await json(`/connect/api/v1/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {}); setNote('');} catch (failure) {setDetailError(failure.message);}};
   const refresh = async reportId => {const value = await json(`/connect/api/v1/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {});};
   const update = async event => {event.preventDefault(); if (!detail) return; try {await save(`/workspaces/${detail.report.id}/document`, {revision: detail.report.revision, update_note: note, document: Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].map(field => [field, draft[field] || '']))}); await refresh(detail.report.id); setNote(''); setDetailError('');} catch (failure) {setDetailError(failure.message);}};
   const planNextAction = async () => {
@@ -400,35 +409,49 @@ function Reports({data, save, busy}) {
   const unpublish = async () => {if (!detail) return; try {await save(`/workspaces/${detail.report.id}/unpublish`, {}, false); await refresh(detail.report.id); setDetailError('');} catch (failure) {setDetailError(failure.message);}};
   const edit = (field, value) => {setDraft(current => ({...current, [field]: value})); if (field === 'objective' || field === 'goals') setPlanSuggestion(null);};
   const openReview = async source => {
-    try {const body = await json(`/connect/relatorios/${detail.report.id}/fontes/${source.id}/revisar`); setReviewSource(source); setReviewMetrics(body.metrics?.length ? body.metrics : [{name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''}]); setReviewHistory(body.history || []); setReviewNote(''); setTypeSafeReview(null); setDetailError('');}
+    invalidateTypeSafeReview();
+    const requestId = reviewRequestRef.current;
+    try {const body = await json(`/connect/relatorios/${detail.report.id}/fontes/${source.id}/revisar`); if (requestId !== reviewRequestRef.current) return; setReviewSource(source); setReviewMetrics(body.metrics?.length ? body.metrics : [{name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''}]); setReviewHistory(body.history || []); setReviewNote(''); setDetailError('');}
     catch (failure) {setDetailError(failure.message);}
   };
   const suggestReview = async () => {
     if (!reviewSource) return;
+    const requestId = reviewRequestRef.current;
+    const context = reviewContextRef.current;
     setSuggesting(true); setDetailError('');
     try {
       const payload = new FormData(); payload.append('_csrf', data.csrf);
       const response = await fetch(`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}/sugerir`, {method: 'POST', credentials: 'same-origin', body: payload});
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || `Falha HTTP ${response.status}`);
+      if (requestId !== reviewRequestRef.current || context !== reviewContextRef.current) return;
+      invalidateTypeSafeReview();
       setReviewMetrics(body.suggestion.metrics.length ? body.suggestion.metrics : [{name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''}]);
-      setTypeSafeReview(null);
     } catch (failure) {setDetailError(failure.message);} finally {setSuggesting(false);}
   };
   const reviewWithTypeSafe = async () => {
     if (!reviewSource) return;
+    const requestId = ++reviewRequestRef.current;
+    const context = reviewContextRef.current;
     setReviewingTypeSafe(true); setDetailError('');
+    setTypeSafeReview(null);
     try {
       const body = await json(`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}/revisar-typesafe`, {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
         body: JSON.stringify({metrics: reviewMetrics}),
       });
-      setTypeSafeReview(body.review);
-    } catch (failure) {setDetailError(failure.message);} finally {setReviewingTypeSafe(false);}
+      if (requestId === reviewRequestRef.current && context === reviewContextRef.current)
+        setTypeSafeReview(body.review);
+    } catch (failure) {
+      if (requestId === reviewRequestRef.current && context === reviewContextRef.current)
+        setDetailError(failure.message);
+    } finally {
+      if (requestId === reviewRequestRef.current) setReviewingTypeSafe(false);
+    }
   };
   const updateReviewMetric = (index, key, value) => {
+    invalidateTypeSafeReview();
     setReviewMetrics(current => current.map((item, itemIndex) => itemIndex === index ? {...item, [key]: value} : item));
-    setTypeSafeReview(null);
   };
   const saveReview = async event => {
     event.preventDefault(); if (!reviewSource) return;
@@ -442,7 +465,7 @@ function Reports({data, save, busy}) {
     {detailError && <p className="reports-error" role="alert">{detailError}</p>}
     {detail && <section className="reports-detail-layout" aria-label="Detalhe do relatório"><div className="reports-detail-main"><article className="reports-panel"><div className="reports-panel-head"><h2>{detail.report.campaign_name}</h2><span>Versão {detail.report.revision} · {shortDate(detail.report.updated_at)}</span></div><form className="reports-form" onSubmit={update}><label>Objetivo<textarea disabled={data.client.role === 'viewer'} maxLength="2000" rows="3" value={draft.objective || ''} onChange={event => edit('objective', event.target.value)} /></label><label>Metas<textarea disabled={data.client.role === 'viewer'} maxLength="4000" rows="3" value={draft.goals || ''} onChange={event => edit('goals', event.target.value)} /></label><label>Notas de gestão<textarea disabled={data.client.role === 'viewer'} maxLength="8000" rows="4" value={draft.management_notes || ''} onChange={event => edit('management_notes', event.target.value)} /></label><div className="reports-form-pair"><label>Início<input disabled={data.client.role === 'viewer'} type="date" value={draft.start_date || ''} onChange={event => edit('start_date', event.target.value)} /></label><label>Fim<input disabled={data.client.role === 'viewer'} type="date" value={draft.end_date || ''} onChange={event => edit('end_date', event.target.value)} /></label><label>Cor<input disabled={data.client.role === 'viewer'} type="color" value={draft.accent || '#1767c5'} onChange={event => edit('accent', event.target.value)} /></label></div>{data.client.role !== 'viewer' && <><label>Nota desta versão<input required maxLength="2000" value={note} onChange={event => setNote(event.target.value)} placeholder="O que mudou neste relatório?" /></label><button disabled={busy} type="submit">Salvar atualização</button></>}</form></article>
       <article className="reports-panel"><div className="reports-panel-head"><h2>Fontes e evidências</h2><span>{detail.sources.length} fontes</span></div>{detail.sources.length ? detail.sources.map(item => <div className="reports-row" key={item.id}><span>{item.original_name} · {item.supplier || 'Fornecedor não informado'} · {item.status === 'reviewed' ? 'Revisada' : 'Aguardando revisão'}</span><button className="reports-inline-link" type="button" onClick={() => openReview(item)}>Revisar ↗</button><a className="reports-inline-link" href={`/connect/relatorios/${detail.report.id}/fontes/${item.id}`} target="_blank" rel="noopener noreferrer">Abrir print ↗</a></div>) : <Empty message="As fontes recebidas aparecerão aqui." />}<div className="reports-form-pair"><label>Prints<input type="file" multiple accept="image/png,image/jpeg,image/webp" id="report-source-files" /></label><label>Origem<input maxLength="200" id="report-source-supplier" placeholder="Ex.: Meta Ads" /></label><label>Início<input type="date" id="report-source-start" /></label><label>Fim<input type="date" id="report-source-end" /></label></div>{data.client.role !== 'viewer' && <button type="button" disabled={busy} onClick={async () => {const files=document.getElementById('report-source-files')?.files;if(!files?.length)return;const payload=new FormData();Array.from(files).forEach(file=>payload.append('prints',file));payload.append('supplier',document.getElementById('report-source-supplier')?.value||'');payload.append('period_start',document.getElementById('report-source-start')?.value||'');payload.append('period_end',document.getElementById('report-source-end')?.value||'');payload.append('_csrf',data.csrf);try{const response=await fetch(`/connect/relatorios/${detail.report.id}/fontes`,{method:'POST',body:payload,credentials:'same-origin'});if(!response.ok)throw new Error(`Falha HTTP ${response.status}`);await refresh(detail.report.id);}catch(failure){setDetailError(failure.message);}}}>Receber fontes</button>}</article>
-      {reviewSource && <article className="reports-panel"><div className="reports-panel-head"><h2>Revisar fonte · {reviewSource.original_name}</h2><div><button type="button" className="reports-text-button" disabled={suggesting || data.client.role==='viewer'} onClick={suggestReview}>{suggesting ? 'Lendo print…' : 'Sugerir com IA'}</button><button type="button" className="reports-text-button" disabled={reviewingTypeSafe || data.client.role==='viewer' || !reviewMetrics.some(metric=>metric.name&&metric.raw&&metric.evidence)} onClick={reviewWithTypeSafe}>{reviewingTypeSafe ? 'Revisando evidências…' : 'Revisar evidências com TypeSafe'}</button><button type="button" className="reports-text-button" onClick={() => setReviewSource(null)}>Fechar</button></div></div><img className="reports-source-preview" src={`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}`} alt={`Print ${reviewSource.original_name}`} /><p>Confira cada valor e evidência no print antes de confirmar. A sugestão de extração não altera os dados até a revisão.</p>{typeSafeReview && <div className="reports-suggestion"><strong>Revisão TypeSafe · confira antes de confirmar</strong><p>A concentração descreve a distribuição das opções, não a chance de acerto. Verifique a evidência original antes de decidir.</p>{typeSafeReview.judgments.map(item=><p key={item.index}>{item.name}: {item.judgment==='supported'?'evidência direta':item.judgment==='contradicted'?'possível divergência':'evidência insuficiente'} · concentração {Math.round(item.confidence*100)}%</p>)}<p>Esta análise não alterou os valores. Revise os apontamentos e confirme manualmente.</p>{typeSafeReview.omitted_count>0&&<p>{typeSafeReview.omitted_count} indicadores ficaram fora desta revisão.</p>}</div>}{reviewHistory.map(item => <p key={item.report_revision}>Revisão v{item.report_revision} · {item.note} · {shortDate(item.created_at)}</p>)}<form className="reports-form" onSubmit={saveReview}><div className="reports-form-pair">{reviewMetrics.map((metric,index) => <fieldset className="reports-metric-review" key={index}><label>Indicador<input required maxLength="120" value={metric.name} onChange={event => updateReviewMetric(index,'name',event.target.value)} /></label><label>Valor (use vírgula decimal)<input inputMode="decimal" value={metric.raw || ''} onChange={event => updateReviewMetric(index,'raw',event.target.value)} /></label><label>Unidade<select value={metric.unit} onChange={event => updateReviewMetric(index,'unit',event.target.value)}>{['count','BRL','USD','percent','seconds'].map(unit => <option key={unit}>{unit}</option>)}</select></label>{[['definition','Definição'],['scope','Escopo'],['evidence','Evidência']].map(([key,label]) => <label key={key}>{label}<input required maxLength="1000" value={metric[key] || ''} onChange={event => updateReviewMetric(index,key,event.target.value)} /></label>)}{reviewMetrics.length>1 && <button type="button" className="reports-text-button" onClick={() => {setReviewMetrics(reviewMetrics.filter((_,i)=>i!==index)); setTypeSafeReview(null);}}>Remover</button>}</fieldset>)}</div>{reviewMetrics.length<60 && <button type="button" className="reports-text-button" onClick={() => {setReviewMetrics([...reviewMetrics,{name:'',raw:'',unit:'count',definition:'',scope:'',evidence:''}]); setTypeSafeReview(null);}}>+ Indicador</button>}<label>Nota da revisão<textarea required maxLength="2000" value={reviewNote} onChange={event => setReviewNote(event.target.value)} /></label><button disabled={busy || data.client.role==='viewer'} type="submit">Confirmar e registrar versão</button></form></article>}
+      {reviewSource && <article className="reports-panel"><div className="reports-panel-head"><h2>Revisar fonte · {reviewSource.original_name}</h2><div><button type="button" className="reports-text-button" disabled={suggesting || data.client.role==='viewer'} onClick={suggestReview}>{suggesting ? 'Lendo print…' : 'Sugerir com IA'}</button><button type="button" className="reports-text-button" disabled={reviewingTypeSafe || data.client.role==='viewer' || !reviewMetrics.some(metric=>metric.name&&metric.raw&&metric.evidence)} onClick={reviewWithTypeSafe}>{reviewingTypeSafe ? 'Revisando evidências…' : 'Revisar evidências com TypeSafe'}</button><button type="button" className="reports-text-button" onClick={() => {invalidateTypeSafeReview(); setReviewSource(null);}}>Fechar</button></div></div><img className="reports-source-preview" src={`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}`} alt={`Print ${reviewSource.original_name}`} /><p>Confira cada valor e evidência no print antes de confirmar. A sugestão de extração não altera os dados até a revisão.</p>{typeSafeReview && <div className="reports-suggestion"><strong>Revisão TypeSafe · confira antes de confirmar</strong><p>A concentração descreve a distribuição das opções, não a chance de acerto. Verifique a evidência original antes de decidir.</p>{typeSafeReview.judgments.map(item=><p key={item.index}>{item.name}: {item.judgment==='supported'?'evidência direta':item.judgment==='contradicted'?'possível divergência':'evidência insuficiente'} · concentração {Math.round(item.confidence*100)}%</p>)}<p>Esta análise não alterou os valores. Revise os apontamentos e confirme manualmente.</p>{typeSafeReview.omitted_count>0&&<p>{typeSafeReview.omitted_count} indicadores ficaram fora desta revisão.</p>}</div>}{reviewHistory.map(item => <p key={item.report_revision}>Revisão v{item.report_revision} · {item.note} · {shortDate(item.created_at)}</p>)}<form className="reports-form" onSubmit={saveReview}><div className="reports-form-pair">{reviewMetrics.map((metric,index) => <fieldset className="reports-metric-review" key={index}><label>Indicador<input required maxLength="120" value={metric.name} onChange={event => updateReviewMetric(index,'name',event.target.value)} /></label><label>Valor (use vírgula decimal)<input inputMode="decimal" value={metric.raw || ''} onChange={event => updateReviewMetric(index,'raw',event.target.value)} /></label><label>Unidade<select value={metric.unit} onChange={event => updateReviewMetric(index,'unit',event.target.value)}>{['count','BRL','USD','percent','seconds'].map(unit => <option key={unit}>{unit}</option>)}</select></label>{[['definition','Definição'],['scope','Escopo'],['evidence','Evidência']].map(([key,label]) => <label key={key}>{label}<input required maxLength="1000" value={metric[key] || ''} onChange={event => updateReviewMetric(index,key,event.target.value)} /></label>)}{reviewMetrics.length>1 && <button type="button" className="reports-text-button" onClick={() => {setReviewMetrics(reviewMetrics.filter((_,i)=>i!==index)); invalidateTypeSafeReview();}}>Remover</button>}</fieldset>)}</div>{reviewMetrics.length<60 && <button type="button" className="reports-text-button" onClick={() => {setReviewMetrics([...reviewMetrics,{name:'',raw:'',unit:'count',definition:'',scope:'',evidence:''}]); invalidateTypeSafeReview();}}>+ Indicador</button>}<label>Nota da revisão<textarea required maxLength="2000" value={reviewNote} onChange={event => setReviewNote(event.target.value)} /></label><button disabled={busy || data.client.role==='viewer'} type="submit">Confirmar e registrar versão</button></form></article>}
       </div><aside className="reports-detail-assistant" aria-label="Assistente do relatório"><article className="reports-panel reports-assistant-card"><div className="reports-assistant-heading"><span className="reports-assistant-avatar" aria-hidden="true">C</span><div><h2>Assistente</h2><small>Contexto do relatório</small></div></div><p>Use o TypeSafe para sugerir próximos passos com base no objetivo e nas métricas revisadas. A sugestão só entra no documento quando você escolher incorporar e salvar.</p>{data.client.role !== 'viewer' && <button type="button" className="reports-assistant-primary" disabled={planning} onClick={planNextAction}>{planning ? 'Preparando sugestão…' : 'Planejar próximo passo'}</button>}{planSuggestion && <div className="reports-suggestion"><strong>{planSuggestion.title}</strong><ul>{planSuggestion.steps.map((step,index)=><li key={index}>{step}</li>)}</ul><button type="button" className="reports-text-button" onClick={incorporatePlan}>Incorporar às notas</button></div>}<div className="reports-assistant-hint"><strong>Revisão de evidências</strong><span>{reviewSource ? `Revisando ${reviewSource.original_name}` : `${detail.sources.length} fontes disponíveis`}</span><small>{reviewSource ? 'A análise TypeSafe aparece junto da fonte e exige confirmação manual.' : 'Abra Revisar em uma fonte para conferir os valores e a evidência original.'}</small></div></article><article className="reports-panel reports-assistant-publication"><div className="reports-panel-head"><h2>Publicação</h2><span>{detail.public_link ? 'Link ativo' : 'Privado'}</span></div>{detail.public_link ? <><p>{detail.public_link.expires_at ? `Disponível até ${shortDate(detail.public_link.expires_at)}.` : 'Disponível sem data de expiração.'}</p><a className="reports-inline-link" href={`/connect/r/${detail.public_link.token}`} target="_blank" rel="noopener noreferrer">Abrir link público ↗</a>{data.client.role !== 'viewer' && <button className="reports-text-button" type="button" disabled={busy} onClick={unpublish}>Revogar link</button>}</> : data.client.role !== 'viewer' ? <div className="reports-form"><label>Validade<select value={expiresDays} onChange={event => setExpiresDays(event.target.value)}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="0">Sem expiração</option></select></label><button type="button" disabled={busy} onClick={publish}>Publicar relatório</button></div> : <p>Este relatório ainda não foi publicado.</p>}<div className="reports-association-history"><h3>Versões</h3>{detail.versions.map(item => <p key={item.revision}>v{item.revision} · {item.note} · {shortDate(item.created_at)}</p>)}</div></article></aside></section>}
   </>;
 }
@@ -1012,7 +1035,12 @@ function VisualConfirm({detail, data, busy, setBusy, setError, onRefresh}) {
 
 function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
   const [mapping, setMapping] = useState({});
-  const [suggestions, setSuggestions] = useState(detail.column_suggestions || null);
+  const [localSuggestion, setLocalSuggestion] = useState(null);
+  const evidenceKey = `${detail.import_file.id}:${detail.column_evidence_fingerprint || ''}`;
+  const evidenceKeyRef = useRef(evidenceKey);
+  evidenceKeyRef.current = evidenceKey;
+  const suggestions = localSuggestion?.key === evidenceKey
+    ? localSuggestion.value : detail.column_suggestions || null;
   const [platformHint, setPlatformHint] = useState(detail.import_file.platform_hint || '');
   const [currencyHint, setCurrencyHint] = useState('');
   const [dateOrder, setDateOrder] = useState('auto');
@@ -1022,11 +1050,14 @@ function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
     ['currency','Moeda'],['impressions','Impressões'],['clicks','Cliques'],['cost','Custo'],
     ['conversions','Conversões'],['conversion_value','Valor das conversões']];
   const suggest = async () => {
+    const requestedKey = evidenceKey;
     setBusy(true); setError('');
     try {
       const value = await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/suggest-columns?client_id=${data.client.client_id}`,
         {method:'POST', headers:{'X-CSRF-Token':data.csrf}});
-      setSuggestions(value.suggestion);
+      if (requestedKey === evidenceKeyRef.current &&
+          value.suggestion?.result?.evidence_fingerprint === detail.column_evidence_fingerprint)
+        setLocalSuggestion({key:requestedKey, value:value.suggestion});
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
   };
   const submit = async event => {

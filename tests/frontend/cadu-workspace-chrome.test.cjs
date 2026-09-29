@@ -34,7 +34,8 @@ test('visual identity exposes rendered-image and fallback states to the canonica
 test('conversation Dock routes account and usage controls directly to their Workspace pages', () => {
   const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
   assert.match(dock, /bootstrap\?\.urls\?\.profile[\s\S]*bootstrap\?\.urls\?\.agency/);
-  assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
+  assert.match(dock, /resolvedAccountUrl && !\(onOpenAccount && accountMenu\) \? <a href=\{resolvedAccountUrl\}/);
+  assert.match(dock, /\{accountOpen && accountMenu\}/);
   assert.match(dock, /bootstrap\?\.urls\?\.usage \|\| bootstrap\?\.urls\?\.credits/);
   assert.match(dock, /<DockUsageRing[^>]*href=\{usageUrl\}/);
   assert.match(dock, /href \? <a \{\.\.\.sharedProps\} href=\{href\}>/);

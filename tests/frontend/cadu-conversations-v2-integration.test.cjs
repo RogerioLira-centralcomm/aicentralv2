@@ -145,7 +145,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /role="tooltip"/);
   assert.match(dock, /const resolvedAccountUrl = accountUrl \|\| bootstrap\?\.urls\?\.profile/);
   assert.match(dock, /const usageUrl = bootstrap\?\.urls\?\.usage \|\| bootstrap\?\.urls\?\.credits/);
-  assert.match(dock, /resolvedAccountUrl \? <a href=\{resolvedAccountUrl\}/);
+  assert.match(dock, /resolvedAccountUrl && !\(onOpenAccount && accountMenu\) \? <a href=\{resolvedAccountUrl\}/);
   assert.match(dock, /<DockUsageRing[^>]*href=\{usageUrl\}/);
   assert.match(dock, /<nav className="cadu-ds-dock-primary"/);
   assert.match(dock, /<nav className="cadu-ds-dock-primary"[\s\S]+<DockDropZone/);
@@ -281,7 +281,7 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
   assert.match(brand, /export function WorkspaceBrand/);
   assert.match(brand, /<CaduDock/);
-  assert.match(brand, /<CaduDialog/);
+  assert.match(brand, /<CaduModal/);
   assert.match(brand, /IdentityDialog/);
   assert.match(brand, /LinkProjectsDialog/);
   assert.match(brand, /AuditDialog/);

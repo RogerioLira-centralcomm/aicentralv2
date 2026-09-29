@@ -73,6 +73,7 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
           await dialog.waitFor();
         }
         const submit = dialog.getByRole('button', {name: pathname === '/brands' ? 'Criar marca' : 'Criar projeto'});
+        if (pathname === '/projects') assert.equal(await dialog.locator('select[data-cadu-untitled-select][name="brand_id"]').count(), 1, `Project ${width}: Untitled UI native select mounted`);
         assert.equal(await submit.getAttribute('data-cadu-untitled-button'), '', `${pathname} ${width}: official submit Button mounted`);
         assert.equal(await submit.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(8, 119, 101)', `${pathname} ${width}: submit keeps Workspace skin`);
         if (width === 1440) {
@@ -94,6 +95,7 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
         assert.equal(await action.getAttribute('data-cadu-untitled-button'), '', `${pathname} ${width}: official account Button mounted`);
         const nameField = page.locator('input[data-cadu-untitled-input][name="' + (pathname.endsWith('agencia') ? 'trade_name' : 'name') + '"]');
         assert.equal(await nameField.count(), 1, `${pathname} ${width}: Untitled UI text field mounted`);
+        if (pathname.endsWith('agencia')) assert.equal(await page.locator('select[data-cadu-untitled-select][name="state"]').count(), 1, `Agency ${width}: Untitled UI native select mounted`);
         if (pathname === '/account/agencia' && width === 820 && process.env.CADU_UNTITLED_ACCOUNT_SCREENSHOT) await page.screenshot({path:process.env.CADU_UNTITLED_ACCOUNT_SCREENSHOT, fullPage:true});
         assert.equal(await action.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(8, 119, 101)', `${pathname} ${width}: account action keeps Workspace skin`);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -157,14 +159,14 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
         await page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'menuitem');
         assert.equal(await firstItem.evaluate(element => element === document.activeElement), true, `Home ${width}: account menu focuses first link`);
         await page.keyboard.press('ArrowDown');
-        assert.equal(await menu.getByRole('menuitem').nth(1).evaluate(element => element === document.activeElement), true, `Home ${width}: account menu supports arrow keys`);
+        await page.waitForFunction(() => document.querySelectorAll('.cadu-ds-account-menu [role="menuitem"]')[1] === document.activeElement);
         await page.keyboard.press('Escape');
         await menu.waitFor({state:'hidden'});
         assert.equal(await accountTrigger.evaluate(element => element === document.activeElement), true, `Home ${width}: account focus returns to trigger`);
       }
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: Untitled UI Button, CADU skin, catalog and account actions at desktop, tablet and phone widths.');
+    console.log('PASS: Workspace kit controls, dialogs, account navigation and page widths at desktop, tablet and phone sizes.');
   } finally {
     await browser.close();
   }

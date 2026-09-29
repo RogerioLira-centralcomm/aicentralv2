@@ -4,6 +4,7 @@ import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduModal} from './CaduModal';
 import {CaduButton} from './CaduButton';
+import {CaduInput} from './CaduInput';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceCatalog} from './WorkspaceCatalog';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
@@ -54,6 +55,7 @@ function BrandCreateForm({bootstrap, onClose}) {
   const autoSector = useRef('');
   const inspectionController = useRef(null);
   const [website, setWebsite] = useState('');
+  const [name, setName] = useState('');
   const [sector, setSector] = useState('');
   const [selectedLogo, setSelectedLogo] = useState('');
   const [health, setHealth] = useState(null);
@@ -82,9 +84,9 @@ function BrandCreateForm({bootstrap, onClose}) {
       const candidateCount = inspection.logo_candidates?.length || 0;
       const websiteUrl = inspection.final_url || inspection.website_url || normalized;
       setWebsite(websiteUrl);
-      const currentName = nameInput.current?.value.trim() || '';
+      const currentName = name.trim();
       if (inspection.suggested_name && (!currentName || currentName === autoName.current)) {
-        nameInput.current.value = inspection.suggested_name;
+        setName(inspection.suggested_name);
         autoName.current = inspection.suggested_name;
       }
       if (inspection.suggested_sector && (!sector.trim() || sector.trim() === autoSector.current)) {
@@ -103,15 +105,15 @@ function BrandCreateForm({bootstrap, onClose}) {
       if (inspectionController.current === controller) { inspectionController.current = null; setChecking(false); }
     }
   };
-  return <form className="cadu-ds-brand-create-form" method="post" encType="multipart/form-data" action={bootstrap.urls.createBrand} onSubmit={async event => { const form = event.currentTarget; const hasName = Boolean(nameInput.current?.value.trim()); const hasWebsite = Boolean(website.trim()); if (!hasName && !hasWebsite) { event.preventDefault(); setHealth({ok:false, message:'Informe um site ou o nome da marca.'}); nameInput.current?.focus(); return; } if (!hasWebsite) { form.elements.official_logo_url.value = ''; form.elements.suggested_logo_url.value = ''; return; } if (!health?.ok || !health.inspectionToken) { event.preventDefault(); const result = await checkHealth(); if (result.ok) { form.elements.website_url.value = result.websiteUrl; form.elements.inspection_token.value = result.inspectionToken; form.elements.official_logo_url.value = selectedLogo || ''; form.elements.suggested_logo_url.value = selectedLogo || ''; form.submit(); } } else { form.elements.official_logo_url.value = selectedLogo || ''; form.elements.suggested_logo_url.value = selectedLogo || ''; } }}>
+  return <form className="cadu-ds-brand-create-form" method="post" encType="multipart/form-data" action={bootstrap.urls.createBrand} onSubmit={async event => { const form = event.currentTarget; const hasName = Boolean(name.trim()); const hasWebsite = Boolean(website.trim()); if (!hasName && !hasWebsite) { event.preventDefault(); setHealth({ok:false, message:'Informe um site ou o nome da marca.'}); nameInput.current?.focus(); return; } if (!hasWebsite) { form.elements.official_logo_url.value = ''; form.elements.suggested_logo_url.value = ''; return; } if (!health?.ok || !health.inspectionToken) { event.preventDefault(); const result = await checkHealth(); if (result.ok) { form.elements.website_url.value = result.websiteUrl; form.elements.inspection_token.value = result.inspectionToken; form.elements.official_logo_url.value = selectedLogo || ''; form.elements.suggested_logo_url.value = selectedLogo || ''; form.submit(); } } else { form.elements.official_logo_url.value = selectedLogo || ''; form.elements.suggested_logo_url.value = selectedLogo || ''; } }}>
     <input type="hidden" name="_csrf" value={bootstrap.csrf}/>
     <input type="hidden" name="inspection_token" value={health?.inspectionToken || ''}/>
     <input type="hidden" name="official_logo_url" value={selectedLogo}/><input type="hidden" name="suggested_logo_url" value={selectedLogo}/>
     <header><div><h2>Nova marca</h2><p>Informe o site e selecione a logo.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
     <div className="cadu-ds-brand-create-fields">
-      <div className="cadu-ds-brand-create-field"><label htmlFor="new-brand-website">Site oficial</label><div className="cadu-ds-brand-create-site"><input id="new-brand-website" name="website_url" type="text" inputMode="url" maxLength="2000" placeholder="www.exemplo.com.br" value={website} onChange={event => { const next = event.target.value; setWebsite(next); setHealth(null); setSelectedLogo(''); if (nameInput.current?.value === autoName.current) nameInput.current.value = ''; if (sector === autoSector.current) setSector(''); autoName.current = ''; autoSector.current = ''; }} onBlur={() => setWebsite(normalizeBrandUrl(website))}/><button type="button" onClick={checkHealth} disabled={checking || !website.trim()}>{checking ? 'Buscando…' : 'Buscar'}</button></div></div>
-      <label>Nome da marca<input ref={nameInput} name="name" maxLength="150" autoFocus placeholder="Preenchido pelo site ou informe o nome" onChange={() => { autoName.current = ''; setHealth(null); }}/></label>
-      <label>Setor<input name="sector" maxLength="80" placeholder="Ex.: Varejo" value={sector} onChange={event => setSector(event.target.value)}/></label>
+      <div className="cadu-ds-brand-create-field"><label htmlFor="new-brand-website">Site oficial</label><div className="cadu-ds-brand-create-site"><input id="new-brand-website" name="website_url" type="text" inputMode="url" maxLength="2000" placeholder="www.exemplo.com.br" value={website} onChange={event => { const next = event.target.value; setWebsite(next); setHealth(null); setSelectedLogo(''); if (name === autoName.current) setName(''); if (sector === autoSector.current) setSector(''); autoName.current = ''; autoSector.current = ''; }} onBlur={() => setWebsite(normalizeBrandUrl(website))}/><button type="button" onClick={checkHealth} disabled={checking || !website.trim()}>{checking ? 'Buscando…' : 'Buscar'}</button></div></div>
+      <CaduInput ref={nameInput} label="Nome da marca" name="name" maxLength="150" autoFocus placeholder="Preenchido pelo site ou informe o nome" value={name} onChange={value => { setName(value); autoName.current = ''; setHealth(null); }}/>
+      <CaduInput label="Setor" name="sector" maxLength="80" placeholder="Ex.: Varejo" value={sector} onChange={setSector}/>
     </div>
     {health?.inspection && <fieldset className="cadu-ds-brand-create-logos"><legend>Logo do site</legend>{health.inspection.logo_candidates?.length > 0 ? <div>{health.inspection.logo_candidates.map((candidate, index) => <label key={`${candidate.url}-${index}`} className={selectedLogo === candidate.url ? 'is-selected' : ''}><input type="radio" name="logo_choice" checked={selectedLogo === candidate.url} onChange={() => setSelectedLogo(candidate.url)}/><span className={`cadu-ds-brand-logo-preview is-${index % 3}`}><img src={candidate.url} alt=""/></span></label>)}</div> : <p>Não encontramos uma logo compatível. Você pode enviar uma imagem abaixo.</p>}</fieldset>}
     <div className="cadu-ds-brand-create-upload-field"><span>Logo ou referências enviadas</span><BrandCreateDrop websiteLogoSelected={Boolean(selectedLogo)} onChooseUploadLogo={() => setSelectedLogo('')}/></div>

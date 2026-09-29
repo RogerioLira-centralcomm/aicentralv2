@@ -3,6 +3,7 @@ import {CaduModal} from './CaduModal';
 import {CaduButton} from './CaduButton';
 import {CaduInput} from './CaduInput';
 import {CaduSelect} from './CaduSelect';
+import {CaduTextarea} from './CaduTextarea';
 
 export function ProjectCreateDialog({action, csrfToken, brands = [], initialBrandId = '', onCreated, onClose}) {
   const nameInput = useRef(null);
@@ -61,7 +62,7 @@ export function ProjectCreateDialog({action, csrfToken, brands = [], initialBran
         <button type="button" disabled={busy} onClick={close} aria-label="Fechar">×</button>
       </header>
       <CaduInput ref={nameInput} label="Nome do projeto" name="name" required minLength="2" maxLength="150" autoComplete="off" placeholder="Ex.: Campanha de lançamento"/>
-      <label>O que é este projeto?<textarea name="description" required minLength="2" rows="3" maxLength="4000" placeholder="Conte em poucas palavras o que você vai reunir ou realizar aqui."/></label>
+      <CaduTextarea label="O que é este projeto?" name="description" required minLength="2" rows="3" maxLength="4000" placeholder="Conte em poucas palavras o que você vai reunir ou realizar aqui."/>
       <CaduSelect label="Marca associada" hint="Você pode alterar depois." name="brand_id" defaultValue={initialBrandId} options={[{value:'',label:'Sem marca'}, ...brands.map(brand => ({value:String(brand.id),label:brand.name}))]}/>
       <section className="cadu-ds-project-create-folder"><span>Pastas de origem <small>Opcional</small></span><input ref={folderInput} type="file" multiple directory="" webkitdirectory="" hidden onChange={selectFolder}/>{files.length ? <div className="cadu-ds-project-create-folder__selected"><b>{files[0]?.webkitRelativePath?.split('/')[0] || 'Arquivos selecionados'}</b><small>{files.length} arquivo{files.length === 1 ? '' : 's'} · serão enviados para revisão no projeto</small><button type="button" disabled={busy} onClick={() => { setFiles([]); if (folderInput.current) folderInput.current.value = ''; }}>Remover pasta</button></div> : <button type="button" disabled={busy} onClick={() => folderInput.current?.click()}>Adicionar uma pasta neste computador <span aria-hidden="true">⌄</span></button>}</section>
       {uploadProgress && <p className="cadu-ds-project-create-dialog__progress" role="status">{uploadProgress}</p>}

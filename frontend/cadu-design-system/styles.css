@@ -348,7 +348,7 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-home-chat-shell .cadu-ds-selector-menu { top:auto; bottom:calc(100% + 10px); z-index:60; }
 .cadu-ds-dialog { position:fixed; inset:0; width:min(560px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; overflow:auto; }
 [data-cadu-untitled-overlay] { box-sizing:border-box; width:auto; }
-.cadu-untitled-modal { box-sizing:border-box; width:min(560px,100%); background:var(--cadu-surface); color:var(--cadu-ink); }
+.cadu-untitled-modal { box-sizing:border-box; width:min(560px,100%); background:var(--cadu-surface); color:var(--cadu-ink); font-family:var(--cadu-font-sans); }
 .cadu-untitled-modal:has(.cadu-ds-brand-create-dialog) { width:min(920px,100%); }
 .cadu-untitled-modal:has(.cadu-ds-project-create-dialog) { width:min(520px,100%); }
 .cadu-untitled-modal-content { box-sizing:border-box; width:100%; min-width:0; max-width:100%; padding:22px; color:var(--cadu-ink); }
@@ -364,6 +364,11 @@ body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-heigh
 .cadu-ds-account-shell .cadu-ds-account-form select { box-sizing:border-box; width:100%; padding:0 10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); color-scheme:light; }
 .cadu-untitled-select select[data-cadu-untitled-select] { box-sizing:border-box; width:100%; min-height:40px; padding-right:36px; border:0; background:var(--cadu-surface); color:var(--cadu-ink); color-scheme:light; }
 .cadu-untitled-select label[data-label] { display:block; color:var(--cadu-ink); }
+.cadu-untitled-textarea textarea[data-cadu-untitled-textarea] { box-sizing:border-box; width:100%; min-height:80px; border:0; background:var(--cadu-surface); color:var(--cadu-ink); font:400 13px/1.45 var(--cadu-font-sans); }
+.cadu-untitled-textarea label[data-label] { display:flex; align-items:center; gap:2px; color:var(--cadu-ink); }
+body.portal--workspace .cadu-ds-project-explorer__toolbar .cadu-untitled-tab-list { display:flex; flex:none; gap:3px; padding:3px; border-radius:10px; }
+body.portal--workspace .cadu-ds-project-explorer__toolbar .cadu-untitled-tab-list [role=tab] { min-height:28px; padding:0 10px; border:0; border-radius:7px; cursor:pointer; }
+body.portal--workspace .cadu-ds-project-explorer__toolbar .cadu-untitled-tab-list [role=tab][data-selected] { background:var(--cadu-surface); color:var(--cadu-ink); box-shadow:0 1px 2px rgba(10,31,34,.08); }
 .cadu-ds-shortcut-dialog { width:min(560px,calc(100vw - 32px)); }
 .cadu-ds-project-dialog { max-height:calc(100dvh - 32px); }
 .cadu-ds-project-create-dialog { width:min(520px,calc(100vw - 32px)); }
@@ -1035,7 +1040,7 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 .cadu-ds-purchase-modal__card label { display:grid; gap:7px; margin-top:14px; font-size:12px; font-weight:650; }
 .cadu-ds-purchase-modal__card select,.cadu-ds-purchase-modal__card textarea { width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:inherit; }
 .cadu-ds-purchase-modal__card footer { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
-.cadu-ds-purchase-modal__card footer button { min-height:38px; padding:0 14px; border:1px solid var(--cadu-line); border-radius:8px; background:transparent; color:var(--cadu-ink); cursor:pointer; }
+.cadu-ds-purchase-modal__card footer button:not([data-cadu-untitled-button]) { min-height:38px; padding:0 14px; border:1px solid var(--cadu-line); border-radius:8px; background:transparent; color:var(--cadu-ink); cursor:pointer; }
 .cadu-ds-purchase-modal__card footer button.is-primary { border-color:var(--cadu-accent-strong); background:var(--cadu-accent-strong); color:#fff; }
 .cadu-ds-account-section { min-width:0; padding-top:28px; border-top:1px solid var(--cadu-line); }.cadu-ds-account-section>header small { color:var(--cadu-muted); }
 .cadu-ds-account-section-copy { margin:10px 0 0; color:var(--cadu-muted); font-size:13px; }
@@ -4489,7 +4494,7 @@ body.portal--workspace .cadu-ds-project-triage>article{gap:9px;padding:11px 0;bo
 .cadu-ds-purchase-modal__card label { display:grid; gap:6px; color:var(--cadu-ink); font-size:13px; font-weight:550; }
 .cadu-ds-purchase-modal__card :is(select,textarea) { width:100%; min-height:var(--cadu-control-height,40px); padding:9px 11px; border:1px solid var(--cadu-line); border-radius:var(--cadu-control-radius,8px); background:var(--cadu-surface); color:var(--cadu-ink); font:400 13px/1.45 var(--cadu-font-sans); }
 .cadu-ds-purchase-modal__card footer { display:flex; justify-content:flex-end; gap:8px; }
-.cadu-ds-purchase-modal__card footer button { min-height:40px; padding:9px 14px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:600 13px var(--cadu-font-sans); cursor:pointer; }
+.cadu-ds-purchase-modal__card footer button:not([data-cadu-untitled-button]) { min-height:40px; padding:9px 14px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font:600 13px var(--cadu-font-sans); cursor:pointer; }
 .cadu-ds-purchase-modal__card footer button.is-primary { border-color:var(--cadu-accent); background:var(--cadu-accent); color:#fff; }
 .cadu-ds-project-task-editor { position:fixed; inset:0 0 0 auto; z-index:70; width:min(520px,100vw); max-height:100dvh; overflow:auto; padding:24px; border-left:1px solid var(--cadu-line); background:var(--cadu-surface); box-shadow:-18px 0 48px rgba(16,24,40,.18); }
 .cadu-ds-project-dialog--context { width:min(900px,calc(100vw - 40px)); max-width:none; }

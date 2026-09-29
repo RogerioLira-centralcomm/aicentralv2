@@ -2,9 +2,17 @@ import React, {useEffect, useState} from 'react';
 import './WorkspaceEntityPortal.css';
 import {Icon} from './Icon';
 
-export function EntityNavigator({label, items = [], context, children, identity, activeId: controlledActiveId}) {
+export function EntityNavigator({label, items = [], context, children, identity, activeId: controlledActiveId, collapsible = false, storageKey = ''}) {
   const [observedActiveId, setObservedActiveId] = useState(() => items[0]?.target || items[0]?.id || '');
+  const [collapsed, setCollapsed] = useState(() => {
+    if (!collapsible) return false;
+    try { return window.localStorage.getItem(storageKey) !== 'open'; } catch (_) { return true; }
+  });
   const activeId = controlledActiveId || observedActiveId;
+  useEffect(() => {
+    if (!collapsible || !storageKey) return;
+    try { window.localStorage.setItem(storageKey, collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
+  }, [collapsed, collapsible, storageKey]);
   useEffect(() => {
     if (controlledActiveId) return undefined;
     const sections = items.map(item => document.getElementById(item.target || item.id)).filter(Boolean);
@@ -16,10 +24,10 @@ export function EntityNavigator({label, items = [], context, children, identity,
     sections.forEach(section => observer.observe(section));
     return () => observer.disconnect();
   }, [items, controlledActiveId]);
-  return <aside className="cadu-ds-entity-nav" aria-label={`Navegação de ${label}`}>
-    {identity && <div className="cadu-ds-entity-nav__identity">{identity}</div>}
+  return <aside className={`cadu-ds-entity-nav${collapsible && collapsed ? ' is-collapsed' : ''}`} aria-label={`Navegação de ${label}`}>
+    {collapsible ? <div className="cadu-ds-entity-nav__top">{identity && <div className="cadu-ds-entity-nav__identity">{identity}</div>}<button type="button" className="cadu-ds-entity-nav__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? `Expandir navegação de ${label}` : `Recolher navegação de ${label}`} aria-expanded={!collapsed}><span aria-hidden="true">{collapsed ? '›' : '‹'}</span></button></div> : identity && <div className="cadu-ds-entity-nav__identity">{identity}</div>}
     {!identity && <span className="cadu-ds-entity-nav__label">{label}</span>}
-    <nav>{items.map(item => { const target = item.target || item.id; const selected = activeId === item.id || activeId === target; return <a key={item.id} href={item.href || `#${target}`} className={selected ? 'is-active' : ''} aria-current={selected ? 'page' : undefined}><Icon name={item.icon || 'file'} size={14}/><span>{item.label}</span>{Number.isFinite(item.count) && item.count > 0 && <small>{item.count}</small>}</a>; })}</nav>
+    <nav>{items.map(item => { const target = item.target || item.id; const selected = activeId === item.id || activeId === target; return <a key={item.id} href={item.href || `#${target}`} className={selected ? 'is-active' : ''} aria-current={selected ? 'page' : undefined} aria-label={collapsed ? item.label : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon || 'file'} size={14}/><span>{item.label}</span>{Number.isFinite(item.count) && item.count > 0 && <small>{item.count}</small>}</a>; })}</nav>
     {context && <div className="cadu-ds-entity-nav__context">{context}</div>}
     {children && <div className="cadu-ds-entity-nav__actions">{children}</div>}
   </aside>;

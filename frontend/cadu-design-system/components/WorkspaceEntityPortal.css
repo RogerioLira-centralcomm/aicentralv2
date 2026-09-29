@@ -694,3 +694,76 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__acti
   background:var(--cadu-accent-soft);
   color:var(--cadu-accent-strong);
 }
+
+/* Project detail: the left rail can collapse without leaving dock space behind. */
+@media (min-width:901px) {
+  body.portal--workspace .cadu-ds-project-workarea { grid-template-columns:minmax(0,1fr); padding-left:0; }
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project {
+    grid-column:1;
+    grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px);
+  }
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project:has(> .cadu-ds-entity-nav.is-collapsed) {
+    grid-template-columns:64px minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px);
+  }
+  body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav {
+    position:sticky;
+    top:0;
+    bottom:auto;
+    left:auto;
+    width:100%;
+    min-width:0;
+    height:100dvh;
+    min-height:0;
+    max-height:100dvh;
+  }
+}
+
+@media (min-width:901px) and (max-width:1240px) {
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project,
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr); }
+}
+
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__top {
+  display:flex;
+  min-width:0;
+  align-items:flex-start;
+  gap:5px;
+  margin-bottom:12px;
+  border-bottom:1px solid var(--cadu-line);
+}
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__top .cadu-ds-entity-nav__identity {
+  flex:1 1 auto;
+  margin:0;
+  padding-bottom:13px;
+  border:0;
+}
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__toggle {
+  display:grid;
+  width:26px;
+  height:26px;
+  flex:0 0 26px;
+  place-items:center;
+  padding:0;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:var(--cadu-muted);
+  font:600 18px/1 var(--cadu-font-sans);
+  cursor:pointer;
+}
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__toggle:hover { background:var(--cadu-surface); color:var(--cadu-ink); }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav__toggle:focus-visible { outline:2px solid var(--cadu-accent); outline-offset:2px; }
+
+@media (min-width:901px) {
+  body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav.is-collapsed { padding:16px 9px; }
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed .cadu-ds-entity-nav__top { align-items:center; flex-direction:column; gap:3px; margin-bottom:9px; }
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed .cadu-ds-entity-nav__identity { flex:0 0 auto; padding-bottom:3px; }
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed .cadu-ds-entity-nav__identity > span:last-child,
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed .cadu-ds-entity-nav__label,
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed nav a span,
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed nav a small,
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed .cadu-ds-entity-nav__context,
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed .cadu-ds-entity-nav__actions { display:none; }
+  body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-nav.is-collapsed nav a { display:grid; grid-template-columns:1fr; min-height:38px; justify-items:center; padding:0; }
+}

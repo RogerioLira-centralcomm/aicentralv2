@@ -181,6 +181,16 @@
 @media (max-width:760px) {
   [data-cadu-skin="workspace"] .cadu-ds-brands-shell--projects .untitled-catalog-header > button[data-cadu-untitled-button] { align-self:flex-start; }
 }
+
+@media (min-width:901px) {
+  body.portal--workspace .cadu-ds-project-workarea { grid-template-columns:minmax(0,1fr); padding-left:0; }
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project { grid-column:1; }
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px); }
+  body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-nav { position:sticky; top:0; bottom:auto; left:auto; width:100%; min-width:0; }
+}
+@media (min-width:901px) and (max-width:1240px) {
+  body.portal--workspace .cadu-ds-project-workarea > .cadu-ds-entity-portal--project:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr); }
+}
 @media(max-width:760px) {
   [data-cadu-skin="workspace"] .cadu-ds-home-intro__copy>p { font-size:13px; }
   [data-cadu-skin="workspace"] .cadu-ds-brand-section>header { flex-wrap:wrap; gap:10px; }

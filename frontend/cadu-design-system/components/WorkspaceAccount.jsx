@@ -1,10 +1,7 @@
 import React, {useEffect, useState} from 'react';
-import {CaduDock} from './CaduDock';
-import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
 import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
-import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {CaduButton} from './CaduButton';
 import {CaduModal} from './CaduModal';
@@ -208,11 +205,10 @@ function Billing({account, image}) {
 
 export function WorkspaceAccount({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
-  const [menuOpen, setMenuOpen] = useState(false);
   const section = bootstrap.section;
-  const menuProjects = bootstrap.projects || bootstrap.account.agency_context?.projects || [];
-  const menuBrands = bootstrap.brands || bootstrap.account.agency_context?.brands || [];
   const content = section === 'agencia' ? <Agency bootstrap={bootstrap}/> : section === 'perfil' ? <Profile bootstrap={bootstrap}/> : section === 'equipe' ? <Team bootstrap={bootstrap}/> : section === 'integracoes' ? <Integrations bootstrap={bootstrap}/> : section === 'planos' ? <Plan account={bootstrap.account} urls={bootstrap.urls}/> : section === 'uso' ? <Usage account={bootstrap.account} image={bootstrap.caduMark}/> : section === 'creditos' ? <Credits account={bootstrap.account} bootstrap={bootstrap}/> : <Billing account={bootstrap.account} image={bootstrap.caduMark}/>;
-  const usagePercent = bootstrap.usagePercent ?? bootstrap.account.position?.usage_percentage ?? 0;
-  return <div className="cadu-ds-home-shell cadu-ds-account-shell"><main className="cadu-ds-home-main"><div className="cadu-ds-home-workarea">{isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user.name} userAvatar={bootstrap.user.avatar} userInitials={bootstrap.user.name?.slice(0, 2).toUpperCase()} accountOpen={menuOpen} accountMenu={<WorkspaceAccountMenu open={menuOpen} onClose={() => setMenuOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={menuProjects} brands={menuBrands} usagePercent={usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setMenuOpen(current => !current)} shortcutItems={bootstrap.dock?.items || []} usagePercent={usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setMenuOpen(true)}/>} {!isMobile && <WorkspaceContextSidebar mode="account" bootstrap={bootstrap} active={section} links={bootstrap.urls}/>}<section className="cadu-ds-account-content"><nav className="cadu-ds-account-tabs" aria-label="Conta">{Object.entries(labels).map(([id, label]) => <a key={id} href={bootstrap.urls[id]} aria-current={id === section ? 'page' : undefined}>{label}</a>)}</nav>{content}</section></div></main><PurchaseModal bootstrap={bootstrap}/></div>;
+  return <div className="cadu-ds-home-shell cadu-ds-account-shell"><main className="cadu-ds-home-main"><div className="cadu-ds-home-workarea">
+    {isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls}/> : <WorkspaceContextSidebar mode="account" preferenceKey="account-navigation" bootstrap={bootstrap} active={section} links={bootstrap.urls}/>}
+    <section className="cadu-ds-account-content"><nav className="cadu-ds-account-tabs" aria-label="Conta">{Object.entries(labels).map(([id, label]) => <a key={id} href={bootstrap.urls[id]} aria-current={id === section ? 'page' : undefined}>{label}</a>)}</nav>{content}</section>
+  </div></main><PurchaseModal bootstrap={bootstrap}/></div>;
 }

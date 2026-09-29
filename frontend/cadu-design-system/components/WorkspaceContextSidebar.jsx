@@ -31,8 +31,8 @@ function readCollapsed(mode, preferenceKey) {
   try {
     if (mode === 'home' && window.matchMedia('(max-width: 760px)').matches) return true;
     const saved = window.localStorage.getItem(`cadu:sidebar:${preferenceKey}`);
-    return mode === 'home' ? saved !== 'open' : saved === 'collapsed';
-  } catch (_) { return false; }
+    return mode === 'home' || mode === 'account' ? saved !== 'open' : saved === 'collapsed';
+  } catch (_) { return mode === 'home' || mode === 'account'; }
 }
 
 function writeCollectionPayload(event, item, kind, label) {
@@ -67,9 +67,7 @@ function SidebarBrandProjects({brands, projects, links}) {
 }
 
 export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bootstrap = {}, links = {}, active = 'home', agencyName = '', resources = [], projects = [], brands = [], onCollapsedChange}) {
-  // Account navigation is a persistent context on every account page. It
-  // starts open even if the workspace/home rail was previously collapsed.
-  const [collapsed, setCollapsed] = useState(() => mode === 'account' ? false : readCollapsed(mode, preferenceKey));
+  const [collapsed, setCollapsed] = useState(() => readCollapsed(mode, preferenceKey));
   const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
   const userName = String(bootstrap.user?.name || '').trim();
@@ -90,13 +88,13 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   }, [bootstrap.endpoints?.creditSummary]);
 
   useEffect(() => {
-    try { window.localStorage.setItem(`cadu:sidebar:${preferenceKey}`, mode === 'account' ? 'open' : collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
-  }, [collapsed, mode, preferenceKey]);
+    try { window.localStorage.setItem(`cadu:sidebar:${preferenceKey}`, collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
+  }, [collapsed, preferenceKey]);
   useEffect(() => { onCollapsedChange?.(collapsed); }, [collapsed, onCollapsedChange]);
 
   return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
-      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel overlay/></div> : mode === 'home' ? <a className="cadu-ds-context-sidebar__collapsed-home" href={links.home || '/workspace/app'} aria-label="Início do Workspace"><img src={bootstrap.caduMark} alt=""/></a> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
+      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel overlay/></div> : (mode === 'home' || (mode === 'account' && collapsed)) ? <a className="cadu-ds-context-sidebar__collapsed-home" href={links.home || '/workspace/app'} aria-label="Início do Workspace"><img src={bootstrap.caduMark} alt=""/></a> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>
     </header>
     {mode === 'home' && !collapsed && <div className="cadu-ds-context-sidebar__heading"><span>Agência</span><strong>{agencyName || 'Cliente'}</strong></div>}

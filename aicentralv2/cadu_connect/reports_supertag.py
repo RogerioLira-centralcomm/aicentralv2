@@ -6,21 +6,48 @@ import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
+from html import unescape
+from urllib.parse import urljoin, urlparse
 
+import urllib3
 from flask import abort, current_app, jsonify, make_response, request, session
+from werkzeug.exceptions import BadRequest
 
 from ..auth import login_required_api
 from ..db import get_db
-from .reports_flow import _safe_path
+from ..cadu_workspace.brand_site_inspector import (
+    _public_addresses,
+    _pinned_get,
+    normalize_public_url,
+)
+from .reports_flow import _campaign_match, _host_allowed, _safe_path
 from .reports_v1 import _rows, _selection, _write_guard
 
 MAX_BATCH_EVENTS = 25
 MAX_BATCH_BYTES = 32 * 1024
 MAX_SITE_EVENTS_PER_MINUTE = 10_000
 MAX_IP_EVENTS_PER_MINUTE = 1_000
-EVENT_KINDS = {'page_view', 'click', 'whatsapp_click', 'form_submit',
+EVENT_KINDS = {'page_view', 'page_leave', 'heartbeat', 'click', 'whatsapp_click', 'form_submit',
                'visibility', 'scroll_depth', 'custom_event', 'conversion'}
+SITE_CHECK_MAX_BYTES = 256_000
+
+
+def _check_site_url(value):
+    try:
+        normalized = normalize_public_url(value, label='site')
+        parsed = urlparse(normalized)
+        host = (parsed.hostname or '').lower().rstrip('.')
+        addresses = _public_addresses(normalized)
+    except BadRequest as exc:
+        abort(400, description=getattr(exc, 'description', 'Informe uma URL pública HTTP ou HTTPS válida.'))
+    return parsed, host, addresses
+
+
+def _site_preview(html):
+    match = re.search(r'<title[^>]*>(.*?)</title>', html, re.I | re.S)
+    title = re.sub(r'\s+', ' ', unescape(match.group(1))).strip()[:200] if match else ''
+    icon = re.search(r'<link[^>]+rel=["\'](?:shortcut )?icon["\'][^>]+href=["\']([^"\']+)', html, re.I)
+    return title, icon.group(1)[:1000] if icon else '/favicon.ico'
 
 
 def _host(value):
@@ -41,8 +68,133 @@ def _uuid(value, field, *, optional=False):
         abort(400, description=f'{field} inválido.')
 
 
-def _public_id():
-    return secrets.token_urlsafe(18).replace('-', 'a').replace('_', 'b')[:24]
+def _supertag_snippet(site):
+    base = _base_url()
+    public_id = site['public_id']
+    return (f'<script async src="{base}/static/cadu_connect/cadu-supertag-v1.min.js" '
+            f'data-cadu-site="{public_id}" '
+            f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json" '
+            f'data-cadu-consent="auto"></script>')
+
+
+def ensure_supertag_site(selected, host, label):
+    """Reuse or create the one browser installation shared by this client's flows."""
+    canonical_host = host[4:] if host.startswith('www.') else host
+    _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
+          (f"reports-supertag:{selected['organization_id']}:{selected['client_id']}", canonical_host))
+    candidates = _rows('''SELECT id,organization_id,client_id,public_id,label,allowed_host,enabled,config,
+            config_version,created_at,updated_at,revoked_at
+        FROM cadu_reports_supertag_sites WHERE organization_id=%s AND client_id=%s
+            AND enabled=TRUE AND revoked_at IS NULL ORDER BY created_at DESC''',
+        (selected['organization_id'], selected['client_id']))
+    site = next((item for item in candidates if _host_allowed(host, item['allowed_host'])), None)
+    if site:
+        site['snippet'] = _supertag_snippet(site)
+        return site, False
+    public_id = secrets.token_urlsafe(18).replace('-', 'a').replace('_', 'b')[:24]
+    site = _rows('''INSERT INTO cadu_reports_supertag_sites
+        (id,organization_id,client_id,public_id,label,allowed_host,config,created_by)
+        VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
+        RETURNING id,organization_id,client_id,public_id,label,allowed_host,enabled,config,
+            config_version,created_at,updated_at,revoked_at''',
+        (str(uuid.uuid4()), selected['organization_id'], selected['client_id'], public_id,
+         label[:120], host,
+         json.dumps({'consent_required': True, 'consent_mode': 'auto', 'audience_days': 90,
+                     'retention_days': 90, 'visibility_enabled': True}), session.get('user_id')))[0]
+    site['snippet'] = _supertag_snippet(site)
+    return site, True
+
+
+def _fanout_flow_events(site, prepared, page_host):
+    """Mirror consented Super Tag events into published flows on the same site."""
+    flow_rows = _rows('''SELECT f.id,f.organization_id,f.client_id,f.flow_code,f.config,t.id AS tag_id,t.allowed_host
+        FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
+        WHERE f.organization_id=%s AND f.client_id=%s AND f.status='published' AND t.revoked_at IS NULL''',
+        (site['organization_id'], site['client_id']))
+    for flow in flow_rows:
+        if not _host_allowed(page_host, flow['allowed_host']):
+            continue
+        nodes = (flow.get('config') or {}).get('nodes', [])
+        for item in prepared:
+            (event_id, _site_id, _org_id, _client_id, visitor_id, session_id, kind,
+             event_name, path, referrer, attribution_json, data_json, _width, _height,
+             occurred_at) = item
+            if kind not in {'page_view', 'page_leave', 'heartbeat', 'click', 'whatsapp_click',
+                            'form_submit', 'custom_event', 'conversion'}:
+                continue
+            # The Flow schema requires a visitor id; when audience identity is absent,
+            # preserve session-level aggregation instead of dropping consented events.
+            flow_visitor_id = visitor_id or session_id
+            quota = _rows('''INSERT INTO cadu_reports_flow_rate_limits (tag_id,bucket_start,event_count)
+                VALUES (%s,date_trunc('minute',NOW()),1)
+                ON CONFLICT (tag_id,bucket_start) DO UPDATE
+                    SET event_count=cadu_reports_flow_rate_limits.event_count+1
+                    WHERE cadu_reports_flow_rate_limits.event_count < 1200
+                RETURNING event_count''', (flow['tag_id'],))
+            if not quota:
+                continue
+            attribution = json.loads(attribution_json or '{}')
+            event_data = json.loads(data_json or '{}')
+            safe_path = _safe_path(path)
+            node = next((candidate for candidate in nodes if isinstance(candidate, dict)
+                and candidate.get('path') == safe_path
+                and (not candidate.get('host') or _host_allowed(page_host, candidate.get('host')))
+                and candidate.get('type') in {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}
+                and (candidate.get('type') != 'event' or
+                     (kind == 'custom_event' and candidate.get('event_name') == event_name))), None)
+            mapped_kind = kind
+            if kind == 'page_view' and node and node.get('type') == 'conversion':
+                mapped_kind = 'conversion'
+            elif kind == 'page_view' and node and node.get('type') == 'error':
+                mapped_kind = 'error_view'
+            desired_step = {
+                'form': 'form', 'event': 'event', 'whatsapp': 'whatsapp',
+                'conversion': 'conversion', 'error': 'error',
+            }.get(node.get('type')) if node else {
+                'form_submit': 'form', 'whatsapp_click': 'whatsapp',
+                'custom_event': 'event', 'conversion': 'conversion',
+            }.get(kind)
+            matched = _rows('''SELECT id,campaign_id,step_kind FROM cadu_reports_flow_steps
+                WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND is_active=TRUE
+                    AND (page_host IS NULL OR page_host=%s)
+                    AND (path_prefix='/' OR %s=path_prefix OR %s LIKE rtrim(path_prefix,'/') || '/%%')
+                ORDER BY length(path_prefix) DESC,position,id LIMIT 1''',
+                (flow['tag_id'], flow['organization_id'], flow['client_id'],
+                 page_host, safe_path, safe_path))
+            if desired_step:
+                _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
+                      (str(flow['tag_id']), f'{safe_path}:{desired_step}'))
+                exact = _rows('''SELECT id,campaign_id,step_kind FROM cadu_reports_flow_steps
+                    WHERE tag_id=%s AND organization_id=%s AND client_id=%s AND is_active=TRUE
+                        AND path_prefix=%s AND step_kind=%s ORDER BY position,id LIMIT 1''',
+                    (flow['tag_id'], flow['organization_id'], flow['client_id'], safe_path, desired_step))
+                if exact:
+                    matched = exact
+                elif node:
+                    matched = _rows('''INSERT INTO cadu_reports_flow_steps
+                        (organization_id,client_id,tag_id,name,path_prefix,page_host,step_kind,position)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,0) RETURNING id,campaign_id,step_kind''',
+                        (flow['organization_id'], flow['client_id'], flow['tag_id'],
+                         str(node.get('title') or desired_step)[:120], safe_path,
+                         page_host, desired_step))
+            step = matched[0] if matched else None
+            if mapped_kind == 'page_view' and step and step.get('step_kind') == 'conversion':
+                mapped_kind = 'conversion'
+            elif mapped_kind == 'page_view' and step and step.get('step_kind') == 'error':
+                mapped_kind = 'error_view'
+            campaign_id, method = _campaign_match(
+                {'organization_id': flow['organization_id'], 'client_id': flow['client_id']},
+                attribution, step)
+            duration_ms = event_data.get('duration_ms') if kind == 'page_leave' else None
+            _rows('''INSERT INTO cadu_reports_flow_events
+                (organization_id,client_id,tag_id,visitor_id,session_id,event_kind,event_name,page_host,page_path,
+                 referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method,duration_ms,occurred_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                (flow['organization_id'], flow['client_id'], flow['tag_id'], flow_visitor_id, session_id,
+                 mapped_kind, event_name, page_host, safe_path, referrer,
+                 attribution.get('utm_source'), attribution.get('utm_medium'), attribution.get('utm_campaign'),
+                 attribution.get('utm_id'), attribution.get('click_id'),
+                 step.get('id') if step else None, campaign_id, method, duration_ms, occurred_at))
 
 
 def _base_url():
@@ -85,6 +237,7 @@ def _event(raw, site):
         'click': {'x', 'y', 'element_id'}, 'whatsapp_click': {'x', 'y', 'element_id'},
         'visibility': {'element_id', 'ratio'}, 'scroll_depth': {'depth'},
         'form_submit': {'form_id'}, 'custom_event': set(), 'conversion': set(), 'page_view': set(),
+        'page_leave': {'duration_ms'}, 'heartbeat': set(),
     }[kind]
     if set(data) - allowed_data:
         abort(400, description='Metadados não permitidos. Valores de campos não podem ser enviados.')
@@ -112,6 +265,11 @@ def _event(raw, site):
         if data.get('depth') not in (25, 50, 75, 100):
             abort(400, description='Profundidade de rolagem inválida.')
         clean_data = {'depth': data['depth']}
+    elif kind == 'page_leave':
+        duration_ms = data.get('duration_ms')
+        if isinstance(duration_ms, bool) or not isinstance(duration_ms, (int, float)) or not 0 <= duration_ms <= 600000:
+            abort(400, description='Duração da página inválida.')
+        clean_data = {'duration_ms': int(duration_ms)}
     elif kind == 'form_submit':
         form_id = data.get('form_id')
         if form_id is not None:
@@ -172,6 +330,40 @@ def _bounded_int(value, low, high):
 
 
 def register(bp):
+    @bp.get('/api/v1/reports/supertag/site-check')
+    @login_required_api
+    def supertag_site_check():
+        selected = _selection()
+        parsed, host, addresses = _check_site_url(request.args.get('url'))
+        response = None
+        try:
+            response = _pinned_get(parsed.geturl(), addresses, accept='text/html')
+            response.max_bytes = SITE_CHECK_MAX_BYTES
+            if response.status_code in {301, 302, 303, 307, 308}:
+                target = urlparse(response.headers.get('Location') or '')
+                if target.hostname and target.hostname.lower().rstrip('.') != host:
+                    abort(400, description='O site redireciona para outro domínio; informe a URL final que será autorizada.')
+            content_type = response.headers.get('Content-Type', '').lower()
+            chunks, size = [], 0
+            if 'html' in content_type:
+                for chunk in response.iter_content(16_384):
+                    size += len(chunk)
+                    if size > SITE_CHECK_MAX_BYTES:
+                        break
+                    chunks.append(chunk)
+            html = b''.join(chunks).decode(response.encoding or 'utf-8', errors='replace')
+            title, icon = _site_preview(html)
+            return jsonify(host=host, status=response.status_code, title=title,
+                favicon=urljoin(parsed.geturl(), icon),
+                client_id=selected['client_id'])
+        except BadRequest:
+            raise
+        except (OSError, ValueError, urllib3.exceptions.HTTPError):
+            abort(400, description='O site não respondeu. Confira a URL e tente novamente.')
+        finally:
+            if response is not None:
+                response.close()
+
     @bp.after_request
     def supertag_public_cors(response):
         if not request.path.startswith('/connect/public/supertag/v1/'):
@@ -183,7 +375,7 @@ def register(bp):
         parsed = urlparse(origin)
         if parsed.scheme not in ('https', 'http'):
             return response
-        if (parsed.hostname or '').lower().rstrip('.') == allowed_host:
+        if _host_allowed(parsed.hostname or '', allowed_host):
             response.headers['Access-Control-Allow-Origin'] = f'{parsed.scheme}://{parsed.netloc}'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
@@ -217,7 +409,7 @@ def register(bp):
     @login_required_api
     def supertag_site_create():
         payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict) or set(payload) != {'label', 'allowed_host'}:
+        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'client_id'} or not {'label', 'allowed_host'} <= set(payload):
             abort(400, description='Informe o nome da instalação e o domínio permitido.')
         selected = _selection(payload)
         _write_guard(selected)
@@ -225,29 +417,17 @@ def register(bp):
         if not label:
             abort(400, description='Informe o nome da instalação.')
         host = _host(payload['allowed_host'])
-        site_id = str(uuid.uuid4())
-        public_id = _public_id()
-        site = _rows('''INSERT INTO cadu_reports_supertag_sites
-            (id,organization_id,client_id,public_id,label,allowed_host,config,created_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
-            RETURNING id,public_id,label,allowed_host,enabled,config,config_version,created_at,updated_at,revoked_at''',
-            (site_id, selected['organization_id'], selected['client_id'], public_id, label, host,
-             json.dumps({'consent_required': True, 'consent_mode': 'auto', 'audience_days': 90, 'retention_days': 90,
-                         'visibility_enabled': True}),
-             session['user_id']))[0]
+        site, created = ensure_supertag_site(selected, host, label)
         get_db().commit()
         base = _base_url()
         site['script_url'] = f'{base}/static/cadu_connect/cadu-supertag-v1.min.js'
-        site['snippet'] = (f'<script async src="{site["script_url"]}" data-cadu-site="{public_id}" '
-            f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json" '
-            'data-cadu-consent="auto"></script>')
-        return jsonify(site=site), 201
+        return jsonify(site=site, reused=not created), 201 if created else 200
 
     @bp.patch('/api/v1/reports/supertag/sites/<uuid:site_id>')
     @login_required_api
     def supertag_site_update(site_id):
         payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days', 'consent_mode'}:
+        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days', 'consent_mode', 'client_id'}:
             abort(400, description='Configuração da Super Tag inválida.')
         selected = _selection(payload)
         _write_guard(selected)
@@ -308,7 +488,7 @@ def register(bp):
         request._supertag_allowed_host = site['allowed_host']
         origin = request.headers.get('Origin') or ''
         parsed = urlparse(origin)
-        if parsed.scheme not in ('https', 'http') or (parsed.hostname or '').lower().rstrip('.') != site['allowed_host']:
+        if parsed.scheme not in ('https', 'http') or not _host_allowed(parsed.hostname or '', site['allowed_host']):
             abort(403)
         response = make_response(jsonify(site_id=site['public_id'], config_version=site['config_version'],
             consent_required=True, consent_mode=(site.get('config') or {}).get('consent_mode', 'auto'),
@@ -324,7 +504,7 @@ def register(bp):
         request._supertag_allowed_host = site['allowed_host']
         origin = request.headers.get('Origin') or ''
         parsed = urlparse(origin)
-        if parsed.scheme not in ('https', 'http') or (parsed.hostname or '').lower().rstrip('.') != site['allowed_host']:
+        if parsed.scheme not in ('https', 'http') or not _host_allowed(parsed.hostname or '', site['allowed_host']):
             abort(403)
         if request.method == 'OPTIONS':
             return ('', 204)
@@ -357,7 +537,7 @@ def register(bp):
         request._supertag_allowed_host = site['allowed_host']
         origin = request.headers.get('Origin') or ''
         parsed = urlparse(origin)
-        if parsed.scheme not in ('https', 'http') or (parsed.hostname or '').lower().rstrip('.') != site['allowed_host']:
+        if parsed.scheme not in ('https', 'http') or not _host_allowed(parsed.hostname or '', site['allowed_host']):
             abort(403)
         prepared = [_event(item, site) for item in events]
         ip_digest = _ip_digest()
@@ -366,6 +546,19 @@ def register(bp):
             retention_days = 90
         conn = get_db()
         try:
+            for event_id in sorted(str(item[0]) for item in prepared):
+                _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
+                      (str(site['id']), event_id))
+            existing_events = _rows('''SELECT event_id FROM cadu_reports_supertag_events
+                WHERE site_id=%s AND event_id = ANY(%s::uuid[])''',
+                (site['id'], [item[0] for item in prepared]))
+            existing_ids = {str(item['event_id']) for item in existing_events}
+            new_events = []
+            for item in prepared:
+                event_id = str(item[0])
+                if event_id not in existing_ids:
+                    new_events.append(item)
+                    existing_ids.add(event_id)
             quota = _rows('''INSERT INTO cadu_reports_supertag_rate_limits (site_id,bucket_start,event_count)
                 VALUES (%s,date_trunc('minute',NOW()),%s)
                 ON CONFLICT (site_id,bucket_start) DO UPDATE
@@ -391,6 +584,7 @@ def register(bp):
                         NOW() + (%s * INTERVAL '1 day'))
                     ON CONFLICT (site_id,event_id) DO NOTHING''',
                     [(*event, retention_days) for event in prepared])
+            _fanout_flow_events(site, new_events, parsed.hostname.lower().rstrip('.'))
             conn.commit()
         except Exception:
             conn.rollback()

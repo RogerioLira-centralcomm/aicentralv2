@@ -24,10 +24,14 @@
   var visitorId = null;
   var sessionId = null;
   var lastPath = '';
+  var activePath = '';
+  var pageActiveSince = 0;
+  var pageActiveDuration = 0;
   var lastClickAt = 0;
   var seenVisibility = Object.create(null);
   var lastScrollDepth = 0;
   var flushTimer = 0;
+  var heartbeatTimer = 0;
   var flushInFlight = false;
   var observers = [];
   var listenersInstalled = false;
@@ -132,11 +136,11 @@
     return {width: Math.min(window.innerWidth || 0, 10000), height: Math.min(window.innerHeight || 0, 10000)};
   }
 
-  function event(kind, data, name) {
+  function event(kind, data, name, pathOverride) {
     if (!started || !consented || buffer.length >= maxBuffer) return false;
     var size = viewport();
     buffer.push({event_id: crypto.randomUUID(), visitor_id: visitorId, session_id: sessionId,
-      kind: kind, event_name: name || undefined, path: location.pathname || '/', referrer_host: referrerHost(),
+      kind: kind, event_name: name || undefined, path: pathOverride || location.pathname || '/', referrer_host: referrerHost(),
       attribution: readAttribution(), data: data || {}, viewport_width: size.width,
       viewport_height: size.height, occurred_at: new Date().toISOString(), consent: 'granted'});
     if (buffer.length >= 10) flush(false);
@@ -174,11 +178,36 @@
     var path = location.pathname || '/';
     if (location.hash && path === lastPath) path += location.hash.slice(0, 120);
     if (path === lastPath) return;
+    if (lastPath) leaveCurrentPage();
     lastPath = path;
+    activePath = location.pathname || '/';
+    pageActiveDuration = 0;
+    pageActiveSince = document.visibilityState === 'visible' ? Date.now() : 0;
     seenVisibility = Object.create(null);
     lastScrollDepth = 0;
-    event('page_view');
+    event('page_view', {}, undefined, activePath);
     observeMarkedElements();
+  }
+
+  function pauseActivePage() {
+    if (!pageActiveSince) return;
+    pageActiveDuration += Math.max(0, Date.now() - pageActiveSince);
+    pageActiveSince = 0;
+  }
+
+  function resumeActivePage() {
+    if (started && consented && lastPath && !pageActiveSince && document.visibilityState === 'visible') {
+      pageActiveSince = Date.now();
+    }
+  }
+
+  function leaveCurrentPage() {
+    if (!lastPath) return;
+    pauseActivePage();
+    event('page_leave', {duration_ms: Math.min(600000, Math.round(pageActiveDuration))}, undefined, activePath || '/');
+    lastPath = '';
+    activePath = '';
+    pageActiveDuration = 0;
   }
 
   function elementId(target) {
@@ -264,9 +293,16 @@
       if (window.navigation && window.navigation.addEventListener) {
         window.navigation.addEventListener('navigatesuccess', trackPage);
       }
-      window.addEventListener('pagehide', function () { flush(true); });
+      window.addEventListener('pagehide', function () { leaveCurrentPage(); flush(true); });
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') pauseActivePage();
+        else resumeActivePage();
+      });
     }
     flushTimer = window.setInterval(function () { flush(false); }, 5000);
+    heartbeatTimer = window.setInterval(function () {
+      if (started && consented && document.visibilityState === 'visible') event('heartbeat');
+    }, 30000);
     observeMarkedElements();
   }
 
@@ -280,12 +316,17 @@
       started = false;
       buffer = [];
       lastPath = '';
+      activePath = '';
+      pageActiveSince = 0;
+      pageActiveDuration = 0;
       visitorId = null;
       sessionId = null;
       try { sessionStorage.removeItem(cookieName + '_session'); } catch (_) { /* Storage may be blocked. */ }
       if (flushTimer) window.clearInterval(flushTimer);
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer);
       if (activeController) activeController.abort();
       flushTimer = 0;
+      heartbeatTimer = 0;
       observers.forEach(function (observer) { observer.disconnect(); });
       observers = [];
       document.cookie = cookieName + '=; Max-Age=0; Path=/; SameSite=Lax' +
@@ -296,6 +337,8 @@
   window.CaduSuperTag = Object.freeze({
     setConsent: setConsent,
     trackPage: trackPage,
+    getVisitorId: function () { return consented ? visitorId : null; },
+    getSessionId: function () { return consented ? sessionId : null; },
     trackEvent: function (name) {
       if (typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name)) return false;
       return event('custom_event', {}, name);

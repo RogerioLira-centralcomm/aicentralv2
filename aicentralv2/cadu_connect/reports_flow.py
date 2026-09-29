@@ -619,6 +619,32 @@ def register(bp):
             ORDER BY s.is_entry DESC,s.position,s.id''',
             (*params,selected_flow['tag_id'] if selected_flow else None,
              selected_flow['tag_id'] if selected_flow else None))
+        supertag_sites = _rows('''SELECT id,public_id,label,allowed_host,enabled,revoked_at
+            FROM cadu_reports_supertag_sites WHERE organization_id=%s AND client_id=%s
+                AND enabled=TRUE AND revoked_at IS NULL ORDER BY created_at DESC''', params)
+        from .reports_supertag import _supertag_snippet
+        for site in supertag_sites:
+            site['snippet'] = _supertag_snippet(site)
+        flows = _rows('''SELECT f.id,f.flow_code,f.name,f.status,f.config,f.tag_id,t.label AS tag_label,
+                t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
+                f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at,
+                (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
+                    FROM cadu_reports_flow_steps s
+                    JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
+                        AND c.organization_id=s.organization_id AND c.client_id=s.client_id
+                    WHERE s.tag_id=f.tag_id AND s.organization_id=f.organization_id
+                        AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
+            FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
+            WHERE f.organization_id=%s AND f.client_id=%s ORDER BY f.created_at DESC''', params)
+        view = request.args.get('view', 'monitor')
+        if view in {'create', 'edit'}:
+            return jsonify(tags=tags,steps=steps,flows=flows,events=[],event_group_count=0,
+                event_summary={},tag_urls=_client_tag_urls(selected['client_id']),activity=[],
+                online=0,conversions=0,site_pages=[],page_transitions=[],confirmed=[],period_days=days,
+                canvas_nodes=[],canvas_edges=[],monitor_checks=[],supertag_sites=supertag_sites,
+                performance_mode='configuration')
+        if view not in {'monitor', 'create', 'edit'}:
+            abort(400,description='Área de fluxos inválida.')
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,
             COUNT(*) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS views,
             COUNT(*) FILTER (WHERE e.event_kind='form_submit') AS form_submissions,
@@ -786,17 +812,6 @@ def register(bp):
             WHERE x.organization_id=%s AND x.client_id=%s
                 AND ''' + confirmed_time_filter + conversion_filter +
             ' GROUP BY x.conversion_kind ORDER BY x.conversion_kind', tuple(confirmed_params))
-        flows = _rows('''SELECT f.id,f.flow_code,f.name,f.status,f.config,f.tag_id,t.label AS tag_label,
-                t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
-                f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at,
-                (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
-                    FROM cadu_reports_flow_steps s
-                    JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
-                        AND c.organization_id=s.organization_id AND c.client_id=s.client_id
-                    WHERE s.tag_id=f.tag_id AND s.organization_id=f.organization_id
-                        AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
-            FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-            WHERE f.organization_id=%s AND f.client_id=%s ORDER BY f.created_at DESC''', params)
         monitor_checks = []
         if selected_flow:
             monitor_checks = _rows('''SELECT id,status,checked_at,duration_ms,pages
@@ -810,6 +825,7 @@ def register(bp):
                        online=totals['online'], conversions=totals['conversions'],
                        site_pages=site_pages,page_transitions=page_transitions,
                        confirmed=confirmed, period_days=days,
+                       supertag_sites=supertag_sites,
                        canvas_nodes=canvas_nodes if selected_flow else [],
                        canvas_edges=(selected_flow.get('config') or {}).get('edges', []) if selected_flow else [],
                        monitor_checks=monitor_checks)
@@ -1126,6 +1142,7 @@ def register(bp):
     @bp.post('/api/v1/reports/flow/flows')
     @login_required_api
     def reports_flow_create_flow():
+        from .reports_supertag import ensure_supertag_site
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             abort(400)
@@ -1136,9 +1153,11 @@ def register(bp):
         tag = _tag_for_client(tag_id, selected) if tag_id else None
         if not name:
             abort(400, description='Informe o nome do fluxo.')
+        requested_host = _host(payload.get('allowed_host') or (tag or {}).get('allowed_host'))
+        supertag_site, _ = ensure_supertag_site(selected, requested_host, name)
         if not tag:
             label = ' '.join(str(payload.get('tag_label') or name).split())[:120]
-            host = _host(payload.get('allowed_host'))
+            host = requested_host
             tag = _rows('''INSERT INTO cadu_reports_site_tags
                 (id,organization_id,client_id,label,allowed_host,public_key,created_by,tag_kind)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,'flow')
@@ -1156,7 +1175,8 @@ def register(bp):
             (flow_id, selected['organization_id'], selected['client_id'], flow_code,
              tag['id'], name, json.dumps(config), session['user_id']))[0]
         get_db().commit()
-        return jsonify(flow=created, tag=tag, tag_urls=_client_tag_urls(selected['client_id'])), 201
+        return jsonify(flow=created, tag=tag, supertag_site=supertag_site,
+                       tag_urls=_client_tag_urls(selected['client_id'])), 201
 
     @bp.patch('/api/v1/reports/flow/flows/<flow_id>')
     @login_required_api
@@ -1445,6 +1465,11 @@ def register(bp):
             abort(404)
         tag = tag[0]
         request._cadu_flow_cors_tag = [{'allowed_host': tag['allowed_host']}]
+        shared_site = _rows('''SELECT allowed_host FROM cadu_reports_supertag_sites
+            WHERE organization_id=%s AND client_id=%s AND enabled=TRUE AND revoked_at IS NULL''',
+            (tag['organization_id'], tag['client_id']))
+        if any(_host_allowed(tag['allowed_host'], item['allowed_host']) for item in shared_site):
+            abort(410, description='Este domínio usa a Super Tag compartilhada. Remova a tag antiga de Fluxos.')
         origin = request.headers.get('Origin') or request.headers.get('Referer') or ''
         parsed_origin = urlparse(origin)
         if parsed_origin.scheme not in ('https', 'http') or not _host_allowed(parsed_origin.hostname or '',tag['allowed_host']):
@@ -1516,6 +1541,11 @@ def register(bp):
             abort(404)
         flow = flow[0]
         request._cadu_flow_cors_tag = [{'allowed_host': flow['allowed_host']}]
+        shared_site = _rows('''SELECT allowed_host FROM cadu_reports_supertag_sites
+            WHERE organization_id=%s AND client_id=%s AND enabled=TRUE AND revoked_at IS NULL''',
+            (flow['organization_id'], flow['client_id']))
+        if any(_host_allowed(flow['allowed_host'], item['allowed_host']) for item in shared_site):
+            abort(410, description='Este domínio usa a Super Tag compartilhada. Remova a tag antiga de Fluxos.')
         raw = request.stream.read(4097)
         if len(raw) > 4096:
             abort(413)

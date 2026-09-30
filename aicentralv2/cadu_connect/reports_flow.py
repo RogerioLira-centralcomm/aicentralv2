@@ -17,6 +17,7 @@ from ..db import get_db
 from .reports_v1 import _rows, _selection, _write_guard
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
+from .reports_flow_validation import validate_flow_config
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -1616,6 +1617,9 @@ def register(bp):
         config, has_measured_steps = _normalize_flow_config(flow.get('config') or {}, flow['allowed_host'])
         if not has_measured_steps:
             abort(409, description='Adicione ao menos uma página, formulário, evento, conversão ou clique de WhatsApp antes de publicar.')
+        blocking = [issue for issue in validate_flow_config(config) if issue['severity'] == 'error']
+        if blocking:
+            abort(409, description=f"Corrija {len(blocking)} problema(s) antes de publicar. {blocking[0]['message']}")
         _validate_flow_references(config, selected)
         changed = publish_draft(flow['id'], selected, expected_revision(payload), session['user_id'])
         get_db().commit()
@@ -1633,6 +1637,19 @@ def register(bp):
             ORDER BY revision DESC LIMIT 100""",
             (flow_id,selected['organization_id'],selected['client_id']))
         return jsonify(versions=versions)
+
+    @bp.get('/api/v1/reports/flow/flows/<flow_id>/versions/<int:revision>')
+    @login_required_api
+    def reports_flow_version_detail(flow_id, revision):
+        selected = _selection()
+        _flow_row(flow_id, selected)
+        versions = _rows("""SELECT revision,name,config,created_at
+            FROM cadu_reports_flow_versions WHERE flow_id=%s AND organization_id=%s
+                AND client_id=%s AND revision=%s""",
+            (flow_id, selected['organization_id'], selected['client_id'], revision))
+        if not versions:
+            abort(404, description='Versão não encontrada neste cliente.')
+        return jsonify(version=versions[0])
 
     @bp.post('/api/v1/reports/flow/flows/<flow_id>/versions/<int:revision>/restore')
     @login_required_api

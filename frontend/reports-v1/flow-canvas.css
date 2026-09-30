@@ -64,4 +64,28 @@
 .flow-inspector__status small{color:var(--color-text-tertiary);line-height:1.4}
 .flow-inspector__body .flow-inspector__checkbox{display:flex;align-items:center;gap:8px}
 .flow-inspector__footer{margin-top:auto;padding:12px 18px;border-top:1px solid var(--color-border-secondary)}
+.reports-flow-validation{position:fixed;right:20px;top:68px;z-index:80;width:min(390px,calc(100vw - 40px));max-height:60vh;overflow:auto;padding:15px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.reports-flow-validation>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.reports-flow-validation>div button{border:0;background:transparent;color:var(--color-text-secondary);font-size:20px;cursor:pointer}
+.reports-flow-validation ul{display:grid;gap:8px;margin:12px 0 0;padding:0;list-style:none}
+.reports-flow-validation li{display:flex;align-items:start;justify-content:space-between;gap:8px;padding:9px;border-radius:7px;background:var(--color-bg-secondary);font-size:12px;line-height:1.4}
+.reports-flow-validation li.is-error{border-left:3px solid var(--color-border-error)}
+.reports-flow-validation li button{flex-shrink:0;border:0;background:transparent;color:var(--color-text-brand-secondary);cursor:pointer}
+.flow-publication-dialog{display:grid;gap:14px}
+.flow-publication-dialog label{display:grid;gap:7px;font-size:12px;font-weight:600}
+.flow-publication-summary{display:grid;gap:5px;padding:12px;border-radius:8px;background:var(--color-bg-secondary);font-size:12px}
+.flow-publication-errors{padding:12px;border-radius:8px;background:var(--color-bg-error-secondary);color:var(--color-text-error-primary);font-size:12px}
+.flow-publication-errors ul{margin:7px 0 0;padding-left:20px}
+.flow-react-canvas .react-flow__node.is-simulated .flow-shape-body{outline:3px solid var(--color-border-success);outline-offset:4px}
+.flow-simulator{position:absolute;z-index:15;right:24px;bottom:24px;left:50%;width:min(620px,calc(100% - 48px));max-height:42vh;overflow:auto;padding:16px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg);transform:translateX(-50%)}
+.flow-simulator__head,.flow-simulator__controls,.flow-simulator__step>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.flow-simulator__head{justify-content:space-between}
+.flow-simulator__head>div{display:grid;gap:3px}
+.flow-simulator__head small,.flow-simulator__step small{color:var(--color-text-tertiary);font-size:11px}
+.flow-simulator__controls{margin-top:14px}
+.flow-simulator__controls label{display:grid;gap:4px;font-size:11px}
+.flow-simulator__controls select{min-width:180px}
+.flow-simulator__controls>span{margin-left:auto;color:var(--color-text-tertiary);font-size:11px}
+.flow-simulator__step{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--color-border-secondary);font-size:12px}
+.flow-simulator__warning{margin:12px 0 0;padding:9px;border-radius:7px;background:var(--color-bg-warning-secondary);color:var(--color-text-warning-primary);font-size:12px;line-height:1.4}
 @media(prefers-reduced-motion:reduce){.flow-shape-node .react-flow__handle{transition:none}}

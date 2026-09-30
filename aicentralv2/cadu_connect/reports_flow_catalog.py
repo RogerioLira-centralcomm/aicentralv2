@@ -76,7 +76,37 @@ def build_catalog(pages, host, nodes=()):
         if len({page['normalized_path'] for page in members})<3:continue
         identifier=hashlib.sha256((page_host+pattern+signature).encode()).hexdigest()[:16]
         for page in members:page['template_id']=identifier;page['template_pattern']=pattern
+    # Pages without an HTML signature are still grouped by URL folder. That is a
+    # separate field (`section_*`): template_id keeps meaning "same HTML structure".
+    folders=defaultdict(list)
+    for page in unique.values():
+        if page.get('template_id'):continue
+        parts=page['normalized_path'].strip('/').split('/')
+        if len(parts)>=2:folders[(page['page_host'],'/'+'/'.join(parts[:-1])+'/*')].append(page)
+    for (page_host,pattern),members in folders.items():
+        if len({page['normalized_path'] for page in members})<3:continue
+        identifier=hashlib.sha256((page_host+pattern+'caminho').encode()).hexdigest()[:16]
+        for page in members:page['section_id']=identifier;page['section_pattern']=pattern
     return list(unique.values())
+
+
+def catalog_groups(catalog):
+    """One summary row per group, so a client can list groups without loading every page.
+
+    `kind` is "template" (same HTML structure) or "path" (same URL folder only)."""
+    groups={}
+    for page in catalog:
+        identifier=page.get('template_id') or page.get('section_id')
+        if not identifier:continue
+        kind='template' if page.get('template_id') else 'path'
+        group=groups.setdefault(identifier,{'id':identifier,'pattern':page.get('template_pattern') or page.get('section_pattern'),'kind':kind,
+                                            'count':0,'in_flow':0,'locales':set(),'roles':Counter()})
+        group['count']+=1
+        group['in_flow']+=1 if page.get('in_flow_node_id') else 0
+        group['locales'].add(page.get('locale') or 'pt')
+        group['roles'][page['role']]+=1
+    rows=[{**group,'locales':sorted(group['locales']),'roles':dict(group['roles'])} for group in groups.values()]
+    return sorted(rows,key=lambda group:(-group['count'],group['pattern'] or ''))
 
 
 def catalog_summary(pages, catalog):
@@ -118,7 +148,7 @@ def register(bp):
         if template:items=[p for p in items if p['template_id']==template]
         try:offset=max(0,int(request.args.get('offset',0)));limit=max(1,min(100,int(request.args.get('limit',50))))
         except ValueError:abort(400,description='Paginação inválida.')
-        return jsonify(items=items[offset:offset+limit],total=len(items),next_offset=offset+limit if offset+limit<len(items) else None)
+        return jsonify(items=items[offset:offset+limit],total=len(items),groups=catalog_groups(items),next_offset=offset+limit if offset+limit<len(items) else None)
 
     @bp.post('/api/v2/reports/flow/sites/<host>/catalog/classify')
     @login_required_api

@@ -58,11 +58,11 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
     assert.match(await page.locator('.reports-flow-empty-guide').innerText(),/Comece sua jornada/);
     failNextSave=true;
     await page.getByRole('textbox',{name:'Nome do fluxo'}).fill('Jornada revisada');
-    await page.getByText('Rascunho · Falha ao salvar').waitFor({timeout:10000});
+    await page.getByText('Falha ao salvar').waitFor({timeout:10000});
     assert.equal(await page.getByRole('textbox',{name:'Nome do fluxo'}).inputValue(),'Jornada revisada');
     await page.locator('.reports-flow-save-state summary').click();
     await page.getByRole('button',{name:'Tentar salvar novamente'}).click();
-    await page.getByText(/Rascunho · Salvo/).first().waitFor({timeout:10000});
+    await page.getByText(/Salvo/).first().waitFor({timeout:10000});
     assert.equal(flow.name,'Jornada revisada');
     assert.deepEqual(errors,[]);
     console.log('M1 navegador: publicação, toast fixo, bloqueio, início guiado e recuperação aprovados');

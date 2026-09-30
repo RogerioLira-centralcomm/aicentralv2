@@ -25,6 +25,16 @@ from .reports_flow_metrics import edge_observation
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
+MAX_DISCOVERY_TOTAL_PAGES = 100
+
+
+def _discovery_budget(already_found, requested=None):
+    """Pages this call may crawl: a bounded batch, never past the total cap per mapping."""
+    try:
+        per_call = min(MAX_DISCOVERY_PAGES, max(1, int(requested))) if requested else MAX_DISCOVERY_PAGES
+    except (TypeError, ValueError):
+        per_call = MAX_DISCOVERY_PAGES
+    return max(0, min(per_call, MAX_DISCOVERY_TOTAL_PAGES - max(0, int(already_found or 0))))
 MAX_DISCOVERY_SITEMAP_URLS = 500
 
 
@@ -1358,8 +1368,11 @@ def register(bp):
                 VALUES (%s,%s,%s,%s,'partial',0,%s) RETURNING id''',
                 (run_id,selected['client_id'],flow['tag_id'],
                  root_url,session['user_id']))
+        budget = _discovery_budget(active_run['page_count'] if active_run else 0, payload.get('max_pages'))
+        if budget <= 0:
+            abort(409, description=f'Limite de {MAX_DISCOVERY_TOTAL_PAGES} páginas por mapeamento atingido. Remova páginas que não importam ou inicie um novo mapeamento.')
         pages, pending_urls, sitemap_truncated = _discover_site(
-            root_url,flow['allowed_host'],seed_urls=seed_urls,excluded_pages=excluded_pages)
+            root_url,flow['allowed_host'],seed_urls=seed_urls,excluded_pages=excluded_pages,max_pages=budget)
         pending_truncated = bool(sitemap_truncated or (active_run and active_run['pending_truncated']))
         mapped_steps = _rows('''SELECT id,page_host,path_prefix,step_kind,is_entry
             FROM cadu_reports_flow_steps WHERE tag_id=%s AND client_id=%s
@@ -1413,7 +1426,8 @@ def register(bp):
         run_counts = _rows('''SELECT COUNT(*)::integer AS page_count FROM cadu_reports_flow_discovered_pages
             WHERE run_id=%s AND client_id=%s''',
             (run_id,selected['client_id']))[0]
-        status='partial' if pending_urls or pending_truncated else 'completed' if run_counts['page_count'] else 'failed'
+        cap_reached = run_counts['page_count'] >= MAX_DISCOVERY_TOTAL_PAGES
+        status='partial' if (pending_urls or pending_truncated) and not cap_reached else 'completed' if run_counts['page_count'] else 'failed'
         _rows('''UPDATE cadu_reports_flow_discovery_runs SET status=%s,page_count=%s,
                 pending_urls=%s::jsonb,pending_truncated=%s
             WHERE id=%s AND client_id=%s RETURNING id''',
@@ -1436,7 +1450,9 @@ def register(bp):
         get_db().commit()
         return jsonify(flow=updated, suggestions=suggestions, omitted_pages=omitted, run={'id':run_id,'root_url':root_url,'status':status,
                             'page_count':run_counts['page_count'],'pending_count':len(pending_urls),
-                            'pending_truncated':pending_truncated},pages=stored)
+                            'pending_truncated':pending_truncated},
+                       limit={'cap':MAX_DISCOVERY_TOTAL_PAGES,'reached':cap_reached,'more_available':bool((pending_urls or pending_truncated) and cap_reached)},
+                       pages=stored)
 
     @bp.post('/api/v2/reports/flow/flows/<flow_id>/discovery-flows')
     @login_required_api
@@ -1518,9 +1534,9 @@ def register(bp):
                     summary['pages'] += 1
                     if len(summary['evidence']) < 3:
                         summary['evidence'].append(signal.get('evidence'))
-        from .reports_flow_catalog import build_catalog, catalog_summary
+        from .reports_flow_catalog import build_catalog, catalog_groups, catalog_summary
         catalog=build_catalog(pages,flow['allowed_host'],(flow.get('config') or {}).get('nodes',[]))
-        return jsonify(catalog=catalog,summary=catalog_summary(pages,catalog),run=runs[0] if runs else None,pages=pages,
+        return jsonify(catalog=catalog,groups=catalog_groups(catalog),limit={'cap':MAX_DISCOVERY_TOTAL_PAGES},summary=catalog_summary(pages,catalog),run=runs[0] if runs else None,pages=pages,
                        platform_integrations=list(integration_summary.values()),
                        integration_scan_pages=scanned_pages)
 

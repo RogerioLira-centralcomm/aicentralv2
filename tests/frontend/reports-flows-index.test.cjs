@@ -95,3 +95,20 @@ test('Reports adapters delegate to the shared Cadu design system', () => {
   assert.match(primitives, /\.cadu-ds-drawer\[data-entering\]/);
   assert.match(primitives, /prefers-reduced-motion: reduce/);
 });
+
+test('site discovery runs one bounded batch per click and the explorer never lists every link', () => {
+  assert.doesNotMatch(main, /while\(run\?\.status==='partial'/);
+  assert.match(main, /Mapear mais páginas/);
+  assert.match(main, /limite de \$\{discovery\.limit\?\.cap\|\|100\} páginas por mapeamento/);
+  const catalog = read('frontend/reports-v1/FlowCatalog.jsx');
+  assert.match(catalog, /pageWindow\(/);
+  assert.doesNotMatch(catalog, /setShown\(count=>count\+100\)/);
+  assert.match(read('frontend/reports-v1/flowCatalogModel.js'), /CATALOG_PAGE_SIZE=10/);
+});
+
+test('editor feedback messages are shown and dead editor code is gone', () => {
+  assert.match(main, /<FlowToast message=\{flowLayoutNote\}/);
+  for (const dead of ['associatePageCampaign', 'verifyInstall', 'visibleSitePages', 'scannedPageCount', 'discoveryLoadedId']) {
+    assert.doesNotMatch(main, new RegExp(dead), dead);
+  }
+});

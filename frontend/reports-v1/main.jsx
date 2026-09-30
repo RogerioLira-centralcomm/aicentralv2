@@ -16,6 +16,8 @@ import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {ReportsConfirmDialog} from './ReportsConfirmDialog.jsx';
 import {ReportsTabs} from './ReportsTabs.jsx';
 import {REPORT_FILTER_DEFAULTS, REPORT_PAGE_META, ReportsFilterBar, ReportsPageHeader} from './PageChrome.jsx';
+import {DocumentsIllustration} from './untitled-kit/src/components/shared-assets/illustrations/documents.tsx';
+import {CheckCircle, FilterLines, RefreshCw01, SearchLg} from '@untitledui/icons';
 
 const SECTIONS = [
   ['overview', 'Visão geral', '◫'], ['accounts', 'Contas', '▤'],
@@ -142,7 +144,36 @@ function Kpi({label, value, detail}) {
   return <article className="reports-kpi"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-function Overview({data, metrics, imported, filters, onFiltersChange, onRefresh}) {
+function OverviewSetup({data, sites, sources, imported}) {
+  const activeSource = sources?.find(source => source.source_kind === 'google_ads_script' && !source.revoked_at);
+  const sourceRegistered = Boolean(activeSource);
+  const campaignRegistered = data.campaigns.length > 0;
+  const activeSite = sites?.find(site => site.enabled && !site.revoked_at && Number(site.events_30d) > 0);
+  const siteRegistered = sites?.some(site => site.enabled && !site.revoked_at);
+  const nextAction = imported?.conflicts
+    ? {title:'Revise os dados importados', description:'Há valores divergentes que precisam de confirmação antes de aparecerem nos relatórios.', label:'Revisar importações', href:reportUrl('imports')}
+    : sources === null
+      ? {title:'Confira os dados de mídia', description:'Não conseguimos confirmar o estado da integração. Verifique as fontes conectadas e os últimos envios.', label:'Ver fontes de dados', href:reportUrl('monitor')}
+      : !sourceRegistered
+      ? {title:'Comece pelos dados de mídia', description:'Conecte uma fonte de mídia para acompanhar impressões, cliques e investimento aqui.', label:'Conectar fonte de mídia', href:reportUrl('monitor')}
+      : !campaignRegistered
+        ? {title:'Organize as campanhas deste cliente', description:'A conta já está cadastrada. Associe uma campanha para reunir seus resultados.', label:'Adicionar campanha', href:reportUrl('campaigns')}
+        : {title:'Aguardando os primeiros dados de mídia', description:'As contas e campanhas estão cadastradas. Confira o envio de dados para preencher esta visão.', label:'Ver fontes de dados', href:reportUrl('monitor')};
+  const steps = [
+    {label:'Fonte de mídia', detail:activeSource?.last_used_at ? 'Dados recebidos' : sourceRegistered ? 'Conectada; aguardando envio' : sources ? 'Nenhuma fonte conectada' : 'Verificar integração', done:sourceRegistered, href:reportUrl('monitor')},
+    {label:'Site e eventos', detail:activeSite ? 'Eventos recebidos' : siteRegistered ? 'Site cadastrado; aguardando eventos' : sites ? 'Nenhum site conectado' : 'Verificar instalação', done:Boolean(activeSite), href:reportUrl('supertag')},
+    {label:'Campanhas', detail:campaignRegistered ? `${data.campaigns.length} cadastrada${data.campaigns.length === 1 ? '' : 's'}` : 'Nenhuma campanha cadastrada', done:campaignRegistered, href:reportUrl('campaigns')},
+  ];
+  return <div className="reports-overview-setup mx-auto flex w-full max-w-container flex-col gap-8">
+    <section className="reports-overview-setup__hero grid grid-cols-[minmax(0,1fr)_minmax(180px,0.55fr)] items-center gap-8 rounded-xl border border-secondary bg-primary px-10 py-9 max-md:grid-cols-1 max-md:px-6" aria-labelledby="reports-overview-next-title">
+      <div className="reports-overview-setup__copy"><span className="text-sm font-semibold text-brand-secondary">Visão geral da operação</span><h2 id="reports-overview-next-title" className="mt-3 text-display-xs font-semibold text-primary">{nextAction.title}</h2><p className="mt-3 max-w-xl text-md text-secondary">{nextAction.description}</p><div className="reports-overview-setup__actions mt-6 flex flex-wrap items-center gap-3"><UntitledButton color="primary" size="sm" href={nextAction.href}>{nextAction.label}</UntitledButton><UntitledButton color="link-color" size="sm" href={reportUrl('imports')}>Enviar arquivo</UntitledButton></div></div>
+      <div className="reports-overview-setup__art flex justify-center" aria-hidden="true"><DocumentsIllustration size="md" /></div>
+    </section>
+    <section className="reports-overview-setup__steps" aria-label="Preparação do Reports"><div className="reports-overview-setup__steps-heading"><h3 className="text-lg font-semibold text-primary">Preparação</h3><p className="mt-1 text-sm text-secondary">Veja o que já está pronto e continue de onde parou.</p></div><ol className="mt-4 grid list-none grid-cols-3 gap-5 p-0 max-lg:grid-cols-1">{steps.map((step, index) => <li className="flex items-start gap-3 border-t border-secondary pt-4" key={step.label}><span className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${step.done ? 'bg-success-secondary text-success-primary' : 'bg-secondary text-secondary'}`} aria-hidden="true">{step.done ? <CheckCircle size={18}/> : index + 1}</span><div className="flex min-w-0 flex-1 flex-col gap-1"><strong className="text-sm font-semibold text-primary">{step.label}</strong><small className="text-sm text-secondary">{step.detail}</small><a className="mt-2 text-sm font-semibold text-brand-secondary" href={step.href}>{step.done ? 'Ver' : 'Configurar'}</a></div></li>)}</ol></section>
+  </div>;
+}
+
+function Overview({data, setupData, metrics, imported, sites, sources, loading, loadFailed, filters, onFiltersChange, onRefresh}) {
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [tablePage, setTablePage] = useState(1);
@@ -163,7 +194,7 @@ function Overview({data, metrics, imported, filters, onFiltersChange, onRefresh}
   const chartMetrics = metrics?.days?.length ? metrics : imported?.days?.length ? imported : metrics;
   const days = chartMetrics?.days || [];
   const hasMetrics = days.length > 0;
-  const sourceLabel = chartMetrics?.source === 'export' ? 'Exportação importada' : 'Google Ads Script';
+  const sourceLabel = chartMetrics?.source === 'export' ? 'Arquivo importado' : chartMetrics?.source === 'google_ads_script' ? 'Google Ads Script' : 'Dados de mídia';
   const periodOptions = [['90', '90 dias'], ['30', '30 dias'], ['7', '7 dias']];
   const setPeriod = period => {
     const end = new Date();
@@ -178,6 +209,9 @@ function Overview({data, metrics, imported, filters, onFiltersChange, onRefresh}
     ? amount(totals.cost, chartMetrics.currency)
     : money(totals.cost_micros, chartMetrics?.currency);
   const campaignHref = id => reportUrl('campaigns', {client_id:data.client.client_id, campaign_id:id});
+  if (loading) return <div className="reports-overview-loading" role="status">Carregando dados de mídia…</div>;
+  if (loadFailed) return <section className="reports-overview-loading" role="alert"><h2>Não foi possível carregar a visão geral</h2><p>Confira a conexão e tente novamente.</p><UntitledButton color="secondary" size="sm" onPress={onRefresh}>Tentar novamente</UntitledButton></section>;
+  if (!hasMetrics) return <OverviewSetup data={setupData || data} sites={sites} sources={sources} imported={imported}/>;
   return <div className="reports-dashboard">
     <section className="reports-dashboard-kpis" aria-label="Resumo de mídia">
       <Kpi label="Impressões" value={hasMetrics ? integer(totals.impressions) : '—'} detail="No período selecionado" />
@@ -197,12 +231,12 @@ function Overview({data, metrics, imported, filters, onFiltersChange, onRefresh}
     </section>
     <section className="reports-dashboard-activity" aria-labelledby="reports-campaign-list-title">
       <div className="reports-dashboard-activity__heading"><div><h2 id="reports-campaign-list-title">Campanhas acompanhadas</h2><p>{campaigns.length} {campaigns.length === 1 ? 'campanha' : 'campanhas'} neste cliente</p></div></div>
-      <div className="reports-dashboard-table-tools"><label className="reports-dashboard-search"><span aria-hidden="true">⌕</span><ReportsFieldInput type="search" placeholder="Buscar campanha" value={query} onChange={event => setQuery(event.target.value)} aria-label="Buscar campanhas" /></label><ReportsActionButton type="button" className={showFilters ? 'is-active' : ''} aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><span aria-hidden="true">☷</span>Filtros{activeFilterCount > 0 && <small>{activeFilterCount}</small>}</ReportsActionButton>{showFilters && <div className="reports-dashboard-filter-panel"><div className="reports-dashboard-filter-panel__heading"><div><strong>Filtrar campanhas</strong><span>Escolha os dados que deseja consultar</span></div>{activeFilterCount > 0 && <ReportsActionButton type="button" onClick={() => onFiltersChange({platform: '', account: '', campaign: ''})}>Limpar filtros</ReportsActionButton>}</div><div className="reports-dashboard-filter-fields">
+      {data.campaigns.length > 0 && <div className="reports-dashboard-table-tools"><div className="reports-dashboard-search"><SearchLg size={16} aria-hidden="true"/><ReportsFieldInput type="search" placeholder="Buscar campanha" value={query} onChange={event => setQuery(event.target.value)} aria-label="Buscar campanhas" /></div><ReportsActionButton type="button" className={showFilters ? 'is-active' : ''} aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><FilterLines size={16} aria-hidden="true"/>Filtros{activeFilterCount > 0 && <small>{activeFilterCount}</small>}</ReportsActionButton>{showFilters && <div className="reports-dashboard-filter-panel"><div className="reports-dashboard-filter-panel__heading"><div><strong>Filtrar campanhas</strong><span>Escolha os dados que deseja consultar</span></div>{activeFilterCount > 0 && <ReportsActionButton type="button" onClick={() => onFiltersChange({platform: '', account: '', campaign: ''})}>Limpar filtros</ReportsActionButton>}</div><div className="reports-dashboard-filter-fields">
         <label>Plataforma<ReportsNativeSelect value={filters.platform} onChange={event => onFiltersChange({platform: event.target.value, account: '', campaign: ''})}><option value="">Todas as plataformas</option>{[...new Set(data.accounts.map(item => item.platform))].map(platform => <option key={platform} value={platform}>{platformName(platform)}</option>)}</ReportsNativeSelect></label>
         <label>Conta<ReportsNativeSelect value={filters.account} onChange={event => onFiltersChange({account: event.target.value, campaign: ''})}><option value="">Todas as contas</option>{data.accounts.filter(item => item.account_kind === 'advertiser' && (!filters.platform || item.platform === filters.platform)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
         <label>Campanha<ReportsNativeSelect value={filters.campaign} onChange={event => onFiltersChange({campaign: event.target.value})}><option value="">Todas as campanhas</option>{data.campaigns.filter(item => (!filters.platform || item.platform === filters.platform) && (!filters.account || String(item.account_id) === filters.account)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
-      </div></div>}<ReportsActionButton type="button" className="reports-dashboard-refresh" onClick={onRefresh}>Atualizar</ReportsActionButton></div>
-      <div className="reports-dashboard-table-wrap"><table className="reports-dashboard-table"><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Status</th><th>ID da campanha</th></tr></thead><tbody>{visibleCampaigns.map(campaign => {const status = ({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',active:'Ativa',paused:'Pausada',disabled:'Desativada'})[campaign.status] || 'Não informado'; return <tr key={campaign.id}><td><a href={campaignHref(campaign.id)}>{campaign.name}</a></td><td>{accounts.get(String(campaign.account_id))?.name || '—'}</td><td>{platformName(campaign.platform)}</td><td><span className={`reports-dashboard-status ${campaign.status === 'PAUSED' || campaign.status === 'paused' ? 'is-paused' : ''}`}>{status}</span></td><td>{campaign.external_id || '—'}</td></tr>;})}</tbody></table>{!campaigns.length && <div className="reports-dashboard-table-empty"><strong>{data.campaigns.length ? 'Nenhuma campanha corresponde a esses filtros.' : 'Ainda não há campanhas para este cliente.'}</strong>{!data.campaigns.length && <a href={reportUrl('campaigns')}>Cadastrar campanha</a>}</div>}</div>
+      </div></div>}<ReportsActionButton type="button" className="reports-dashboard-refresh" aria-label="Atualizar campanhas" onClick={onRefresh}><RefreshCw01 size={16} aria-hidden="true"/>Atualizar</ReportsActionButton></div>}
+      {data.campaigns.length ? <div className="reports-dashboard-table-wrap"><table className="reports-dashboard-table"><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Status</th><th>ID da campanha</th></tr></thead><tbody>{visibleCampaigns.map(campaign => {const status = ({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',active:'Ativa',paused:'Pausada',disabled:'Desativada'})[campaign.status] || 'Não informado'; return <tr key={campaign.id}><td><a href={campaignHref(campaign.id)}>{campaign.name}</a></td><td>{accounts.get(String(campaign.account_id))?.name || '—'}</td><td>{platformName(campaign.platform)}</td><td><span className={`reports-dashboard-status ${campaign.status === 'PAUSED' || campaign.status === 'paused' ? 'is-paused' : ''}`}>{status}</span></td><td>{campaign.external_id || '—'}</td></tr>;})}</tbody></table>{!campaigns.length && <div className="reports-dashboard-table-empty"><strong>Nenhuma campanha corresponde à busca ou aos filtros.</strong><ReportsActionButton color="link-color" type="button" onClick={() => {setQuery('');onFiltersChange({platform:'',account:'',campaign:''});}}>Limpar filtros</ReportsActionButton></div>}</div> : <div className="reports-dashboard-table-empty"><strong>Adicione uma campanha para acompanhar seus resultados.</strong><UntitledButton color="link-color" size="sm" href={reportUrl('campaigns')}>Adicionar campanha</UntitledButton></div>}
       {campaigns.length > pageSize && <nav className="reports-dashboard-pagination" aria-label="Paginação de campanhas"><ReportsActionButton type="button" disabled={tablePage <= 1} onClick={() => setTablePage(value => Math.max(1, value - 1))}>← Anterior</ReportsActionButton><span>Página {tablePage} de {pageCount}</span><ReportsActionButton type="button" disabled={tablePage >= pageCount} onClick={() => setTablePage(value => Math.min(pageCount, value + 1))}>Próxima →</ReportsActionButton></nav>}
     </section>
   </div>;
@@ -288,7 +322,7 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   const closeCampaign = () => {setCampaignId('');setCampaignDetail(null);setDetailError('');history.replaceState(history.state,'',campaignUrl({id:'',view:''}));};
   const submit = async event => {event.preventDefault(); try {await save('/campaigns', form); setForm({...form, external_id: '', name: '', objective: '', channel_type: ''}); setCreateOpen(false);} catch (_) { /* Global error banner shows the failure. */ }};
   if (campaignId) return <CampaignDetail data={data} detail={campaignDetail} error={detailError} tab={tab} setTab={changeCampaignTab} close={closeCampaign} filters={filters} refreshRevision={refreshRevision} save={save} busy={busy} updateDetail={setCampaignDetail} />;
-  return <section className="reports-campaigns-page reports-campaigns-list-page"><article className="reports-panel"><div className="reports-panel-head"><div><h2>Campanhas cadastradas</h2><p>Campanhas deste cliente. O projeto do Workspace pode ser associado depois.</p></div><div className="reports-list-head-actions"><span>{visibleCampaigns.length} de {data.campaigns.length}</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-campaign-add" onClick={() => setCreateOpen(true)} color="primary">Adicionar campanha</ReportsActionButton>}</div></div>
+  return <section className="reports-campaigns-page reports-campaigns-list-page"><article className="reports-panel"><div className="reports-panel-head"><div><h2>Campanhas cadastradas</h2><p>Consulte as campanhas deste cliente e acompanhe seus resultados.</p></div><div className="reports-list-head-actions"><span>{visibleCampaigns.length} de {data.campaigns.length}</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-campaign-add" onClick={() => setCreateOpen(true)} color="primary">Adicionar campanha</ReportsActionButton>}</div></div>
     {visibleCampaigns.length ? <div className="reports-table-wrap"><table><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Tipo</th><th>ID externo</th><th>Projeto Workspace (opcional)</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}><td><ReportsActionButton type="button" className="reports-campaign-open" onClick={()=>openCampaign(item)}><strong>{item.name}</strong><small>Abrir detalhes ↗</small></ReportsActionButton></td><td>{item.account_name}</td><td>{item.platform}</td><td>{item.channel_type || item.objective || '—'}</td><td>{item.external_id}</td><td><ReportsNativeSelect aria-label={`Projeto Workspace da campanha ${item.name}`} value={item.workspace_project_id || ''} disabled={busy || data.client.role !== 'admin'} onChange={event=>save(`/campaigns/${item.id}/workspace-project`,{workspace_project_id:event.target.value||null}).catch(()=>{})}><option value="">Sem associação</option>{!(data.workspace_projects||[]).length&&<option disabled value="__none__">Nenhum projeto acessível</option>}{(data.workspace_projects||[]).map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</ReportsNativeSelect></td><td>{({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',unknown:'Não informado'})[item.status] || item.status}</td></tr>)}</tbody></table></div> : <Empty message={data.campaigns.length ? 'Nenhuma campanha corresponde aos filtros desta página.' : 'As campanhas cadastradas e sincronizadas aparecerão aqui.'} />}</article>
     <ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} title="Adicionar campanha" description="Associe a campanha à conta de mídia deste cliente." context={data.client.client_name}>{data.client.role==='viewer'?<Empty message="Seu acesso permite consultar as campanhas, sem cadastrar ou editar."/>:<form className="reports-form" onSubmit={submit}>
       {!accounts.length && <p className="reports-suggestion">Cadastre primeiro uma conta de mídia em <a href={reportUrl('accounts')}>Contas</a>. A campanha ficará vinculada ao cliente Reports selecionado.</p>}
@@ -370,7 +404,7 @@ function CampaignDetail({data, detail, error, tab, setTab, close, filters, refre
   const dimensionalDaily=(detail.metric_observations||[]).filter(item=>item.metric_date>=filters.startDate&&item.metric_date<=filters.endDate);
   const queryText=collectionQuery.trim().toLocaleLowerCase('pt-BR');
   const matchesQuery=value=>!queryText||String(value||'').toLocaleLowerCase('pt-BR').includes(queryText);
-  const collectionToolbar=(placeholder, options=[], metricOptions=false)=><div className="reports-collection-toolbar"><label className="reports-collection-search"><span aria-hidden="true">⌕</span><ReportsFieldInput type="search" value={collectionQuery} onChange={event=>setCollectionQuery(event.target.value)} placeholder={placeholder}/></label>{options.length>0&&<label className="reports-collection-filter"><span>Origem</span><ReportsNativeSelect value={collectionSource} onChange={event=>setCollectionSource(event.target.value)}><option value="all">Todas</option>{options.map(option=><option key={option} value={option}>{option}</option>)}</ReportsNativeSelect></label>}{metricOptions&&<label className="reports-collection-filter"><span>Métrica</span><ReportsNativeSelect value={metricFilter} onChange={event=>setMetricFilter(event.target.value)}><option value="all">Todas</option>{Object.entries(metricLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</ReportsNativeSelect></label>}</div>;
+  const collectionToolbar=(placeholder, options=[], metricOptions=false)=><div className="reports-collection-toolbar"><label className="reports-collection-search"><SearchLg size={16} aria-hidden="true"/><ReportsFieldInput type="search" value={collectionQuery} onChange={event=>setCollectionQuery(event.target.value)} placeholder={placeholder}/></label>{options.length>0&&<label className="reports-collection-filter"><span>Origem</span><ReportsNativeSelect value={collectionSource} onChange={event=>setCollectionSource(event.target.value)}><option value="all">Todas</option>{options.map(option=><option key={option} value={option}>{option}</option>)}</ReportsNativeSelect></label>}{metricOptions&&<label className="reports-collection-filter"><span>Métrica</span><ReportsNativeSelect value={metricFilter} onChange={event=>setMetricFilter(event.target.value)}><option value="all">Todas</option>{Object.entries(metricLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</ReportsNativeSelect></label>}</div>;
   const visibleChannelEvents=channelEvents.filter(item=>(collectionSource==='all'||item.source_label===collectionSource)&&matchesQuery(item.source_label));
   const pageRows=(flowData?.activity||[]).filter(item=>matchesQuery(item.page_path));
   const formRows=forms.filter(item=>(collectionSource==='all'||item.source_label===collectionSource)&&matchesQuery(`${item.event_name} ${item.page_path} ${item.source_label}`));
@@ -1322,7 +1356,7 @@ function Events({data, filters, initialKind = 'all', refreshRevision}) {
   return <>
     <section className="reports-events-layout"><article className="reports-panel reports-events-main"><div className="reports-panel-head"><div><h2>Atividade recebida</h2><p>Veja as interações recebidas pela Super Tag e prepare eventos personalizados.</p></div><a className="reports-inline-link" href={reportUrl('flow')}>Abrir Funnel Flow ↗</a></div>
       <ReportsTabs className="reports-event-tabs" label="Tipos de evento" items={[{id:'all',label:'Todos os eventos'},{id:'standard',label:'Padrão'},{id:'custom',label:'Personalizados'},{id:'conversion',label:'Conversões'}]} value={kindFilter} onChange={setKindFilter} />
-      <div className="reports-event-filters"><ReportsFieldInput type="search" aria-label="Buscar eventos" placeholder="Buscar evento ou página…" value={query} onChange={event=>setQuery(event.target.value)}/><ReportsNativeSelect aria-label="Filtrar fonte" value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)}><option value="all">Todas as fontes</option>{sources.map(source=><option key={source}>{source}</option>)}</ReportsNativeSelect><ReportsActionButton type="button" onClick={loadEvents}>↻ Atualizar</ReportsActionButton></div>
+      <div className="reports-event-filters"><ReportsFieldInput type="search" aria-label="Buscar eventos" placeholder="Buscar evento ou página…" value={query} onChange={event=>setQuery(event.target.value)}/><ReportsNativeSelect aria-label="Filtrar fonte" value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)}><option value="all">Todas as fontes</option>{sources.map(source=><option key={source}>{source}</option>)}</ReportsNativeSelect><ReportsActionButton type="button" onClick={loadEvents}><RefreshCw01 size={16} aria-hidden="true"/>Atualizar</ReportsActionButton></div>
       {error&&<div className="reports-error" role="alert">{error}</div>}
       <div className="reports-table-wrap"><table className="reports-events-table"><thead><tr><th>Evento</th><th>Tipo</th><th>Fonte / Página</th><th>Última ocorrência</th><th>Mapeamento</th></tr></thead><tbody>{visible.map((item,index)=><tr key={`${item.event_kind}:${item.event_name}:${item.page_path}:${item.source_label}:${index}`}><td><span className="reports-event-icon">{item.event_kind==='conversion'?'✓':item.event_kind==='form_submit'?'▤':item.event_kind==='whatsapp_click'?'◉':item.event_kind==='custom_event'?'✳':'⌖'}</span><span><strong>{item.event_name}</strong><small>{item.page_path}</small></span></td><td><span className={`reports-event-type ${item.event_kind==='custom_event'?'is-custom':item.event_kind==='conversion'?'is-conversion':''}`}>{item.event_kind==='custom_event'?'Personalizado':item.event_kind==='conversion'?'Conversão':'Automático'}</span></td><td>{item.source_label}<small>{item.total} ocorrências · {item.page_path}</small></td><td>{timeAgo(item.last_occurred_at)}<small>{shortDate(item.last_occurred_at)}</small></td><td><span className={`reports-event-status ${Number(item.mapped)>0?'is-mapped':''}`}><i/>{Number(item.mapped)>0?'URL mapeada':'Sem etapa'}</span></td></tr>)}</tbody></table>{!visible.length&&<Empty message="Nenhum evento corresponde aos filtros. A atividade aparecerá quando a tag enviar eventos." />}</div>
       <div className="reports-events-foot">Mostrando {visible.length} de {integer(result.event_group_count ?? allEvents.length)} combinações de evento, página e origem · {shortDate(filters.startDate)} – {shortDate(filters.endDate)}{Number(result.event_group_count)>allEvents.length?' · exibindo as 300 mais recentes':''}</div>
@@ -1609,6 +1643,10 @@ function App() {
   const [data, setData] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [importedMetrics, setImportedMetrics] = useState(null);
+  const [overviewSites, setOverviewSites] = useState(null);
+  const [overviewSources, setOverviewSources] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewFailed, setOverviewFailed] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const dateToday = new Date();
@@ -1660,12 +1698,30 @@ function App() {
   useEffect(() => {
     if (!data?.ready || pageSection !== 'overview') return undefined;
     let cancelled = false;
+    setOverviewLoading(true);
+    setOverviewFailed(false);
+    setMetrics(null);
+    setImportedMetrics(null);
+    setOverviewSites(null);
+    setOverviewSources(null);
     const params = new URLSearchParams({client_id: String(data.client.client_id), days: filters.period, start_date: filters.startDate, end_date: filters.endDate});
     if (filters.platform) params.set('platform', filters.platform);
     if (filters.account) params.set('account_id', filters.account);
     if (filters.campaign) params.set('campaign_id', filters.campaign);
-    json(`/connect/api/v1/reports/metrics?${params}`).then(value => {if (!cancelled) setMetrics(value);}).catch(failure => {if (!cancelled) setError(failure.message);});
-    json(`/connect/api/v1/reports/import-metrics?${params}`).then(value => {if (!cancelled) setImportedMetrics(value);}).catch(failure => {if (!cancelled) setError(failure.message);});
+    Promise.allSettled([
+      json(`/connect/api/v1/reports/metrics?${params}`),
+      json(`/connect/api/v1/reports/import-metrics?${params}`),
+      json(`/connect/api/v1/reports/supertag/sites?client_id=${encodeURIComponent(data.client.client_id)}`),
+      json(`/connect/api/v1/reports/ingest-keys?client_id=${encodeURIComponent(data.client.client_id)}`),
+    ]).then(([media, imported, sites, sources]) => {
+      if (cancelled) return;
+      setMetrics(media.status === 'fulfilled' ? media.value : null);
+      setImportedMetrics(imported.status === 'fulfilled' ? imported.value : null);
+      setOverviewSites(sites.status === 'fulfilled' ? sites.value.sites || [] : null);
+      setOverviewSources(sources.status === 'fulfilled' ? sources.value.keys || [] : null);
+      setOverviewFailed(media.status === 'rejected' && imported.status === 'rejected');
+      setOverviewLoading(false);
+    });
     return () => {cancelled = true;};
   }, [data?.client?.client_id, data?.ready, pageSection, filters.platform, filters.account, filters.campaign, filters.period, filters.startDate, filters.endDate, refreshRevision]);
   const save = async (path, payload, reload = true, method = 'POST') => {
@@ -1697,7 +1753,7 @@ function App() {
         onAction={pageSection === 'overview' ? {label: 'Biblioteca de dados', onClick: () => {location.assign(reportUrl('data-library'));}} : undefined} />}
       {data?.ready && ['campaigns', 'flow', 'events'].includes(pageSection) && <ReportsFilterBar
         data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
-      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} metrics={metrics} imported={importedMetrics} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
+      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
     </main>
   </div>;
 }

@@ -6,6 +6,8 @@
 @plugin "tailwindcss-react-aria-components";
 @plugin "tailwindcss-animate";
 @source "../src/components/base";
+@source "../src/components/shared-assets/illustrations/documents.tsx";
+@source "../../main.jsx";
 @utility transition-inherit-all {
   transition-property: inherit;
   transition-duration: inherit;

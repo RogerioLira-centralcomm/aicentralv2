@@ -1,5 +1,6 @@
 import React from 'react';
 import {Button as UntitledButton} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {FilterLines, RefreshCw01} from '@untitledui/icons';
 
 export const REPORT_FILTER_DEFAULTS = Object.freeze({
   platform: '', account: '', campaign: '', period: '30', startDate: '', endDate: '',
@@ -27,7 +28,7 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
     window.location.assign(url.href);
   };
 
-  return <header className="reports-page-header">
+  return <header className="reports-page-header"><div className="reports-page-header__inner">
     <div className="reports-page-header__copy">
       <h1>{titleOverride || meta.title}</h1>
       <p className="reports-sr-only">{descriptionOverride || meta.description}</p>
@@ -43,7 +44,7 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
         </select>
       </label> : null}
     </div>
-  </header>;
+  </div></header>;
 }
 
 export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
@@ -57,7 +58,7 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
   const clearFilters = () => onChange({platform: '', account: '', campaign: ''});
 
   return <section className="reports-filter-bar" aria-label="Filtros da página">
-    <div className="reports-filter-bar__heading"><span className="reports-filter-bar__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14l-5.3 6.1v4.1l-3.4 1.7v-5.8L3 5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></span><div><strong>Filtros</strong><small>Refine os dados desta página</small></div></div>
+    <div className="reports-filter-bar__heading"><span className="reports-filter-bar__icon" aria-hidden="true"><FilterLines size={16}/></span><div><strong>Filtros</strong><small>Refine os dados desta página</small></div></div>
     <div className="reports-filter-bar__fields">
     <label><span>Plataforma</span><select value={filters.platform} onChange={event => onChange({platform: event.target.value, account: '', campaign: ''})}>
       <option value="">Todas</option>{platforms.map(value => <option key={value} value={value}>{{google_ads:'Google Ads',meta_ads:'Meta Ads',microsoft_ads:'Microsoft Ads',other:'Outra'}[value] || value.replaceAll('_',' ')}</option>)}
@@ -77,6 +78,6 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
       onChange({period, startDate: date(start), endDate: date(end)});
     }}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></span></label>
     </div>
-    <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton className="reports-filter-bar__refresh" size="sm" color="tertiary" onPress={onRefresh}><span aria-hidden="true">↻</span>Atualizar</UntitledButton></div>
+    <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton className="reports-filter-bar__refresh" size="sm" color="tertiary" onPress={onRefresh}><RefreshCw01 size={16} aria-hidden="true"/>Atualizar</UntitledButton></div>
   </section>;
 }

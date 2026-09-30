@@ -875,3 +875,49 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
   .reports-main .reports-filter-bar__fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:480px){.reports-main .reports-filter-bar__fields{grid-template-columns:1fr}.reports-main .reports-client-select{max-width:140px}}
+
+/* Reports shell: align the page toolbar with the solution mark and keep the
+   content at the same readable width as the Untitled dashboard examples. */
+.portal--connect .reports-shell > .reports-main > .reports-page-header{min-height:70px;margin-bottom:24px;padding-block:0}
+.reports-page-header__inner{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;max-width:1280px;margin:0 auto}
+.reports-shell:not(.reports-shell--flow) .reports-content{width:100%;max-width:1280px;margin-inline:auto}
+.reports-shell > .cadu-solution-sidebar{overflow:hidden;border-right:1px solid var(--color-border-secondary);background:var(--color-bg-primary)}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__header{min-height:54px}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__nav{flex:1 1 auto;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--color-border-secondary) transparent}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__group-label{color:var(--color-text-tertiary);font-size:11px;font-weight:600;letter-spacing:0;text-transform:none}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__group a{min-height:38px;color:var(--color-text-secondary)}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__group a:hover{background:var(--color-bg-primary_hover);color:var(--color-text-primary);box-shadow:none}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__group a:focus-visible{background:var(--color-bg-primary_hover);color:var(--color-text-primary);outline:2px solid var(--color-border-brand);outline-offset:1px;box-shadow:none}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__group a.is-active,.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__group a.is-active:hover{background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary);box-shadow:none}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__footer{flex:0 0 auto;grid-template-columns:minmax(0,1fr);grid-template-areas:"account" "usage";gap:2px;background:var(--color-bg-primary)}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__account{width:100%;color:var(--color-text-primary)!important}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__account-name{font-size:12px}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__avatar{width:32px;height:32px;flex-basis:32px}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__usage{justify-content:space-between;width:100%;color:var(--color-text-secondary)!important}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__usage>i{width:60px;background:var(--color-bg-secondary)}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__usage>i>b{background:var(--color-bg-brand-solid)}
+.reports-main .reports-dashboard-search{position:relative;gap:0;padding:0;border:0;box-shadow:none}
+.reports-main .reports-dashboard-search>svg{position:absolute;z-index:1;left:12px;color:var(--color-fg-quaternary);pointer-events:none}
+.reports-main .reports-dashboard-search .reports-ui-field{width:100%;border:1px solid var(--color-border-secondary);box-shadow:none}
+.reports-main .reports-dashboard-search .reports-ui-field input{padding-left:35px}
+.reports-main .reports-collection-toolbar{padding:0;border:0;background:transparent}
+.reports-main .reports-collection-search{position:relative;gap:0;height:auto;padding:0;border:0;background:transparent}
+.reports-main .reports-collection-search>svg{position:absolute;z-index:1;left:12px;color:var(--color-fg-quaternary);pointer-events:none}
+.reports-main .reports-collection-search .reports-ui-field{width:100%;border:1px solid var(--color-border-secondary);box-shadow:none}
+.reports-main .reports-collection-search .reports-ui-field input{padding-left:35px}
+.reports-main .reports-dashboard-table-tools>button{gap:7px}
+.reports-main :is(.reports-campaign-add,.reports-account-add,.reports-site-index__actions .reports-ui-button):not(:disabled){color:var(--color-text-primary_on-brand)!important}
+.reports-overview-loading{min-height:220px;padding:36px;color:var(--color-text-secondary);font-size:14px}
+.reports-overview-loading h2{margin:0 0 6px;color:var(--color-text-primary);font-size:18px;font-weight:600}
+.reports-overview-loading p{margin:0 0 18px}
+.reports-overview-setup__copy h2{line-height:1.2;letter-spacing:-.03em}
+.reports-overview-setup__actions a{text-decoration:none}
+.reports-overview-setup__art{min-width:0}
+@media(max-width:760px){
+  .portal--connect .reports-shell > .reports-main > .reports-page-header{min-height:54px;margin-bottom:16px}
+  .reports-page-header__inner{min-width:0}
+  .reports-overview-setup__hero{gap:16px}
+  .reports-overview-setup__art>div{width:160px;height:120px}
+  .reports-shell > .cadu-solution-sidebar,.reports-shell > .cadu-solution-sidebar.is-collapsed{overflow-y:auto}
+  .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__nav{overflow-y:visible}
+}

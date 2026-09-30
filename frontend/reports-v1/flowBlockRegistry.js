@@ -1,17 +1,58 @@
 import {AlertCircle, CheckCircle, Clock, File01, Flag01, Globe01, Mail01, Target01, Zap} from '@untitledui/icons';
 
-export const flowBlockRegistry = Object.freeze({
-  source: {kind:'traffic.source',label:'Origem de tráfego',shape:'circle',icon:Globe01,trackable:false},
-  page: {kind:'page.generic',label:'Página',shape:'page',icon:Globe01,trackable:true},
-  form: {kind:'page.form',label:'Formulário',shape:'page',icon:File01,trackable:true},
-  event: {kind:'event.custom',label:'Evento',shape:'diamond',icon:Flag01,trackable:true},
-  condition: {kind:'logic.condition',label:'Condição',shape:'diamond',icon:Target01,trackable:false},
-  delay: {kind:'logic.delay',label:'Espera',shape:'circle',icon:Clock,trackable:false},
-  segment: {kind:'crm.segment',label:'Segmento',shape:'diamond',icon:Target01,trackable:false},
-  conversion: {kind:'conversion.generic',label:'Conversão',shape:'diamond',icon:CheckCircle,trackable:true},
-  webhook: {kind:'utility.webhook',label:'Webhook',shape:'circle',icon:Zap,trackable:false},
-  whatsapp: {kind:'event.whatsapp',label:'Clique WhatsApp',shape:'circle',icon:Mail01,trackable:true},
-  error: {kind:'page.error',label:'Página de erro',shape:'page',icon:AlertCircle,trackable:true},
-});
+// One registry drives palette, canvas shape and inspector metadata. These
+// entries describe a journey; they do not execute CRM or communication actions.
+const groups = [
+  ['Tráfego pago','source','circle','paid',[
+    ['traffic.google_search','Google Ads · Search','google'],['traffic.google_display','Google Ads · Display','google'],
+    ['traffic.youtube','YouTube Ads','youtube'],['traffic.meta','Meta Ads','facebook'],['traffic.instagram','Instagram Ads','instagram'],
+    ['traffic.tiktok','TikTok Ads','tiktok'],['traffic.linkedin','LinkedIn Ads','linkedin'],['traffic.dv360','DV360','dv360'],
+    ['traffic.retargeting','Retargeting','retargeting']]],
+  ['Tráfego orgânico','source','circle','neutral',[
+    ['traffic.organic_search','Busca orgânica','organic'],['traffic.organic_social','Redes sociais','social'],
+    ['traffic.direct','Acesso direto','direct'],['traffic.referral','Referência','referral'],
+    ['traffic.affiliate','Afiliado','affiliate'],['traffic.qr','QR Code','qr']]],
+  ['Comunicação','source','circle','communication',[
+    ['communication.email','E-mail','email'],['communication.email_sequence','Sequência de e-mail','email'],
+    ['communication.sms','SMS','sms'],['communication.whatsapp','WhatsApp','whatsapp'],
+    ['communication.push','Push','push'],['communication.call','Ligação','phone']]],
+  ['Páginas','page','page','neutral',[
+    ['page.generic','Página / URL','generic'],['page.landing','Landing page','landing'],['page.blog','Blog','blog'],
+    ['page.sales','Página de vendas','sales'],['page.form','Formulário','form'],['page.checkout','Checkout','checkout'],
+    ['page.thanks','Obrigado','thanks'],['page.webinar','Webinar','webinar'],['page.calendar','Agendamento','calendar'],
+    ['page.error','Página de erro','error']]],
+  ['Eventos','event','diamond','capture',[
+    ['event.custom','Evento personalizado'],['event.button','Clique em botão'],['event.whatsapp','Clique WhatsApp'],
+    ['event.form_submit','Envio de formulário'],['event.scroll','Rolagem'],['event.video','Vídeo assistido'],['event.download','Download']]],
+  ['Conversão','conversion','diamond','success',[
+    ['conversion.lead','Lead'],['conversion.signup','Cadastro'],['conversion.purchase','Compra'],
+    ['conversion.upsell','Upsell'],['conversion.customer','Cliente'],['conversion.generic','Conversão personalizada']]],
+  ['Segmentação e CRM','segment','diamond','warning',[
+    ['crm.segment','Segmento'],['logic.condition','Divisão / condição'],['crm.pipeline','Pipeline'],
+    ['crm.deal_won','Negócio ganho'],['crm.deal_lost','Negócio perdido'],['crm.meeting','Reunião agendada']]],
+  ['Utilitários','webhook','circle','neutral',[
+    ['logic.delay','Espera'],['utility.webhook','Webhook']]],
+];
 
-export const flowBlockFor = node => flowBlockRegistry[node?.type] || flowBlockRegistry.event;
+const typeFor = (kind,base) => ({'page.form':'form','page.thanks':'conversion','page.error':'error',
+  'event.whatsapp':'whatsapp','event.form_submit':'form','logic.condition':'condition','logic.delay':'delay',
+  'utility.webhook':'webhook'})[kind] || base;
+const iconFor = (kind,type) => kind.includes('error')||kind.includes('lost')?AlertCircle:
+  kind.includes('email')||kind.includes('whatsapp')||kind.includes('sms')?Mail01:
+  kind.includes('delay')||kind.includes('meeting')||kind.includes('calendar')?Clock:
+  type==='conversion'?CheckCircle:type==='form'?File01:type==='condition'||type==='segment'?Target01:
+  type==='event'?Flag01:type==='webhook'?Zap:Globe01;
+const toneFor = (kind,base) => kind.includes('error')||kind.includes('lost')?'error':
+  kind.includes('thanks')||kind.includes('won')?'success':base;
+export const flowBlocks = Object.freeze(groups.flatMap(([category,baseType,shape,tone,entries])=>entries.map(([kind,label,detail])=>{
+  const type=typeFor(kind,baseType);
+  return {kind,type,category,label,shape:kind==='page.form'||kind==='page.thanks'||kind==='page.error'?'page':shape,
+    icon:iconFor(kind,type),tone:toneFor(kind,tone),trackable:['page','form','event','conversion','whatsapp','error'].includes(type),
+    source:baseType==='source'?detail:undefined,preview:baseType==='page'?detail:undefined};
+})));
+export const flowBlockRegistry = Object.freeze(Object.fromEntries(flowBlocks.map(item=>[item.kind,item])));
+const fallbackKinds = {source:'traffic.direct',page:'page.generic',form:'page.form',event:'event.custom',
+  condition:'logic.condition',delay:'logic.delay',segment:'crm.segment',conversion:'conversion.generic',
+  webhook:'utility.webhook',whatsapp:'event.whatsapp',error:'page.error'};
+export const flowBlockFor = node => flowBlockRegistry[node?.kind] || flowBlockRegistry[fallbackKinds[node?.type]] || flowBlockRegistry['event.custom'];
+export const flowPaletteGroups = Object.freeze(groups.map(([category])=>[category,flowBlocks.filter(item=>item.category===category)]));

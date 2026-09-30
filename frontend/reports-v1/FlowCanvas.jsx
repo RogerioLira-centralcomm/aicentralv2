@@ -24,11 +24,11 @@ function ShapeNode({data,selected,shape}) {
   const {node,readOnly,onLabelChange}=data;
   const block=flowBlockFor(node);
   const Icon=block.icon;
-  return <div className={`flow-shape-node is-${shape}${selected?' is-selected':''}${node.type==='conversion'?' is-success':''}${node.type==='error'?' is-error':''}`}>
+  return <div className={`flow-shape-node is-${shape} is-tone-${block.tone}${selected?' is-selected':''}`}>
     <NodeLabel node={node} selected={selected} readOnly={readOnly} onChange={onLabelChange}/>
-    <div className="flow-shape-body" aria-hidden="true">{shape==='page'?<div className="flow-page-preview"><div className="flow-page-preview__bar"><i/><i/><i/></div><div className="flow-page-preview__image"/><div className="flow-page-preview__line"/><div className="flow-page-preview__line is-short"/></div>:<Icon size={22}/>}</div>
-    {node.path&&node.path!=='/'&&<small>{node.path}</small>}
-    {block.trackable&&!node.path&&<span className="flow-shape-warning" title="Configure a URL desta etapa">!</span>}
+    <div className="flow-shape-body" aria-hidden="true">{shape==='page'?<div className={`flow-page-preview is-${block.preview||'generic'}`}><div className="flow-page-preview__bar"><i/><i/><i/></div><div className="flow-page-preview__image"/><div className="flow-page-preview__line"/><div className="flow-page-preview__line is-short"/></div>:<Icon size={22}/>}</div>
+    {node.path&&node.path!=='/'&&!node.path.startsWith('/configurar-')&&<small>{node.path}</small>}
+    {block.trackable&&(!node.path||node.path.startsWith('/configurar-'))&&<span className="flow-shape-warning" title="Configure a URL real desta etapa">!</span>}
     <NodeHandles/>
   </div>;
 }

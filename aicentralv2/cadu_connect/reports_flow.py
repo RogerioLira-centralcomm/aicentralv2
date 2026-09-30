@@ -16,7 +16,7 @@ from ..auth import login_required_api
 from ..db import get_db
 from .reports_v1 import _rows, _selection, _write_guard
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
-from .reports_flow_schema import legacy_projection, migrate_v1_to_v2
+from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -505,11 +505,12 @@ def _normalize_flow_config(config, allowed_host):
         item = {'id': node_id, 'type': node_type, 'title': title,
                 'x': position['x'], 'y': position['y']}
         if config.get('schema_version') == 2:
-            if not isinstance(node.get('kind'), str) or len(node['kind']) > 80:
+            kind = node.get('kind') or LEGACY_KINDS.get(node_type)
+            if not isinstance(kind, str) or len(kind) > 80:
                 abort(400, description='Tipo visual de bloco inválido.')
             if 'data' in node and not isinstance(node['data'], dict):
                 abort(400, description='Dados de bloco inválidos.')
-            item['kind'] = node['kind']
+            item['kind'] = kind
             item['data'] = node.get('data') or {}
         if isinstance(path, str) and path:
             item['path'] = path

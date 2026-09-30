@@ -24,3 +24,7 @@ Use `npx untitledui@latest add <component> --type base --lib-version 8` from a d
 - The Workspace Dock account control now displays its menu when the caller supplies one; keyboard arrows, Escape and focus return are covered by browser verification. Conversation Dock still uses its direct account link.
 - Brand scale maps to the Workspace teal tokens. Browser verification covers catalog and creation actions at desktop, tablet and phone widths.
 - Remaining migration: rich menus, account tables and secondary Workspace forms and actions. Existing controls must remain usable while each surface is converted.
+
+## Kit único (Workspace e Reports)
+
+Todos os componentes Untitled vivem em `untitled-kit/`. O Reports deixou de ter cópia própria: seus adaptadores importam `button`, `input-base`, `textarea-base`, `native-select-base` e `illustrations/documents` daqui, e mantém em `frontend/reports-v1/untitled-kit/` apenas a skin de CSS. Cada produto compila o próprio CSS (`workspace-kit.input.css` e `reports-kit.css`) com os temas dele, listando em `@source` apenas os arquivos que usa. A convergência de `input`, `textarea` e `native-select` adaptados com as versões `*-base` fica para uma fase própria, com verificação visual do Workspace.

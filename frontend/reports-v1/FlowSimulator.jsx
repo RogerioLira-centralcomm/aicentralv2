@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Button} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 
 export function FlowSimulator({config,onPathChange,onClose}) {

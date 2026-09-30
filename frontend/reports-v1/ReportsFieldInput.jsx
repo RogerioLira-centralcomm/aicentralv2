@@ -1,5 +1,5 @@
 import React from 'react';
-import {InputBase} from './untitled-kit/src/components/base/input/input.tsx';
+import {InputBase} from '../cadu-design-system/untitled-kit/input-base.tsx';
 
 const NATIVE_TYPES = new Set(['checkbox', 'radio', 'file', 'color', 'hidden', 'range', 'date', 'datetime-local', 'time', 'month', 'week']);
 

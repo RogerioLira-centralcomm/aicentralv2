@@ -1,6 +1,6 @@
 import React from 'react';
 import {Dialog, Modal, ModalOverlay} from 'react-aria-components';
-import {Button} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 
 export function ReportsConfirmDialog({open, title, description, confirmLabel, busy, onCancel, onConfirm}) {
   if (!open) return null;

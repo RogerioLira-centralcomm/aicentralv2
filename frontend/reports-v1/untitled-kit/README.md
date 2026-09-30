@@ -1,9 +1,12 @@
-# Untitled UI React no Reports
+# Skin Untitled UI do Reports
 
-Esta pasta contém os componentes base gerados pela CLI oficial `untitledui` v0.1.68 em 29/09/2026, com `--lib-version 8`: `button`, `input`, `select-native`, `textarea`, `tooltip`, utilitários e os arquivos de tema/tipografia necessários. O código foi gerado em um projeto temporário e copiado para o entry point de Reports. O `select-native` recebeu ajustes locais para preservar `id`, rótulos acessíveis e opções desativadas. Não contém componentes PRO.
+Esta pasta contém só o **tema e o build de CSS** do Reports (`styles/`, `package.json`). Os componentes base (`button`, `label`, `hint-text`, `tooltip`, `input-base`, `textarea-base`, `native-select-base`, ilustração de documentos) e os utilitários vivem no kit único do design system: `frontend/cadu-design-system/untitled-kit/`.
 
-O projeto principal usa Tailwind 3. Por isso, `npm run build:reports` executa o Tailwind 4 desta pasta para gerar `aicentralv2/static/cadu_connect/react/untitled.css` e depois executa o Vite de Reports. `styles/reports-kit.css` inclui tema e utilitários sem preflight; o template de Reports carrega esse CSS após `app.css`. Alterações em componentes base devem ser feitas via CLI no projeto temporário e revisadas no diff antes de substituir a fonte local.
+O kit único tem duas camadas de formulário:
 
-Integração em uso: Button, Input, NativeSelect e TextArea nas áreas de Reports fora de Fluxos, com adaptadores em `ReportsActionButton.jsx`, `ReportsFieldInput.jsx`, `ReportsNativeSelect.jsx` e `ReportsTextArea.jsx` que preservam os eventos e valores dos formulários existentes. O cabeçalho e os filtros compartilhados usam Button oficial. Drawers e confirmações usam React Aria Dialog/Modal; as abas das áreas convertidas oferecem setas, Home e End. O canvas de Fluxos é mantido por outra frente de trabalho.
+- **Adaptações Cadu** (`input.tsx`, `textarea.tsx`, `native-select.tsx`, `modal.tsx`, `tabs.tsx`): usadas pelo Workspace por meio dos `Cadu*`.
+- **Versões completas da CLI `untitledui` v8** (`input-base.tsx`, `textarea-base.tsx`, `native-select-base.tsx`): usadas pelos adaptadores `Reports*`. O `native-select-base` tem ajustes locais para preservar `id`, rótulos acessíveis e opções desativadas.
+
+`npm run build:reports` executa o Tailwind 4 desta pasta e gera `aicentralv2/static/cadu_connect/react/untitled.css` a partir das fontes listadas em `styles/reports-kit.css` (sem preflight), depois roda o Vite de Reports. Ao adicionar um componente ao kit, inclua o arquivo no `@source` da skin que o usa. Alterações em componentes oficiais devem vir da CLI num projeto temporário e ser revisadas no diff.
 
 Referências: [instalação](https://www.untitledui.com/react/docs/installation), [CLI](https://www.untitledui.com/react/docs/cli), [Vite](https://www.untitledui.com/react/integrations/vite).

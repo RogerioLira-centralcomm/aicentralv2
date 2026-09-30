@@ -1,7 +1,7 @@
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import React,{useState,useEffect,useRef} from 'react';
 import {Dialog, Modal, ModalOverlay} from 'react-aria-components';
-import {Button} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 
 export function ReportsDrawer({open, onOpenChange, onDiscard, title, description, context, children}) {
   const confirmButton=useRef(null),body=useRef(null),baseline=useRef(null);

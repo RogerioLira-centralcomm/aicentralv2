@@ -1,4 +1,4 @@
-import {DocumentsIllustration} from './untitled-kit/src/components/shared-assets/illustrations/documents.tsx';
+import {DocumentsIllustration} from '../cadu-design-system/untitled-kit/illustrations/documents.tsx';
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {useFlowReadiness} from './useFlowReadiness.js';
 import {FlowBlueprintNotice} from './FlowBlueprintNotice.jsx';
@@ -19,8 +19,8 @@ import './reports-refinement.css';
 import {FlowLiveEdge} from './FlowLiveEdge.jsx';
 import {FlowLiveValue} from './FlowLiveValue.jsx';
 import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.jsx';
-import {Button as UntitledButton} from './untitled-kit/src/components/base/buttons/button.tsx';
-import {Input as UntitledInput} from './untitled-kit/src/components/base/input/input.tsx';
+import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
+import {Input as UntitledInput} from '../cadu-design-system/untitled-kit/input-base.tsx';
 import {Dialog, Modal, ModalOverlay} from 'react-aria-components';
 import {ReportsActionButton} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';

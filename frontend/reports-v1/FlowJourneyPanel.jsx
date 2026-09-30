@@ -1,5 +1,5 @@
 import React from 'react';
-import {Button} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 
 export function FlowJourneyPanel({journey,days,onDaysChange,onAddSuggestion,onClose,loading,error}) {
   const suggestions=journey?.suggestions||[];

@@ -1,6 +1,6 @@
 import React,{useId} from 'react';
 import {XClose,LayersTwo01} from '@untitledui/icons';
-import {Button} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 
 /** Shared visual structure; modal focus is owned by the enclosing React Aria Dialog. */
 export function ReportsPanelShell({title,description,context,icon:Icon=LayersTwo01,onClose,closeLabel,children,footer,className='',as:Element='aside'}) {

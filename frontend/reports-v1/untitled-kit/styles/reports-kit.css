@@ -5,8 +5,14 @@
 @import "./typography.css";
 @plugin "tailwindcss-react-aria-components";
 @plugin "tailwindcss-animate";
-@source "../src/components/base";
-@source "../src/components/shared-assets/illustrations/documents.tsx";
+@source "../../../cadu-design-system/untitled-kit/button.tsx";
+@source "../../../cadu-design-system/untitled-kit/label.tsx";
+@source "../../../cadu-design-system/untitled-kit/hint-text.tsx";
+@source "../../../cadu-design-system/untitled-kit/tooltip.tsx";
+@source "../../../cadu-design-system/untitled-kit/input-base.tsx";
+@source "../../../cadu-design-system/untitled-kit/textarea-base.tsx";
+@source "../../../cadu-design-system/untitled-kit/native-select-base.tsx";
+@source "../../../cadu-design-system/untitled-kit/illustrations/documents.tsx";
 @source "../../main.jsx";
 @utility transition-inherit-all {
   transition-property: inherit;

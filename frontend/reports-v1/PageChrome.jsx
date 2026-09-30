@@ -1,6 +1,6 @@
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import React from 'react';
-import {Button as UntitledButton} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
 import {FilterLines, RefreshCw01} from '@untitledui/icons';
 
 export const REPORT_FILTER_DEFAULTS = Object.freeze({

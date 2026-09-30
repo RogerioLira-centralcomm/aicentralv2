@@ -4,7 +4,7 @@ import {FLOW_STAGES,editableStage} from './flowStages.js';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import React,{useId,useState} from 'react';
 import {eventMatchesNode} from './flowEventIdentity.js';
-import {Button as UntitledButton} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {flowBlockFor} from './flowBlockRegistry.js';

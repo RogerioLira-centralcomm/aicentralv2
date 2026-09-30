@@ -1,5 +1,5 @@
 import React from 'react';
-import {Button} from './untitled-kit/src/components/base/buttons/button.tsx';
+import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 
 /** Untitled UI button with the legacy Reports action contract. */
 export function ReportsActionButton({

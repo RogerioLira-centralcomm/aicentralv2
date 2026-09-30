@@ -1,5 +1,5 @@
 import React from 'react';
-import {NativeSelect} from './untitled-kit/src/components/base/select/select-native.tsx';
+import {NativeSelect} from '../cadu-design-system/untitled-kit/native-select-base.tsx';
 
 const optionText = value => {
   if (value == null || typeof value === 'boolean') return '';

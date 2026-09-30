@@ -26,7 +26,6 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {'@': resolve('frontend/reports-v1/untitled-kit')},
     dedupe: ['react', 'react-dom'],
   },
 });

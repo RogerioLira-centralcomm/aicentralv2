@@ -54,6 +54,8 @@ class _SitePageParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.structure=[]
         self.canonical=None
+        self.hreflang={}
+        self.noindex=False
         self.links, self.script_sources, self.resource_sources, self.forms, self.form_fields = [], [], [], 0, []
         self.title_parts, self.h1_parts = [], []
         self.inline_scripts, self.inline_script_size = [], 0
@@ -63,6 +65,10 @@ class _SitePageParser(HTMLParser):
         attrs = dict(attrs)
         if tag in ('h1','h2','h3','main','article','section','form') and len(self.structure)<100:self.structure.append(tag)
         if tag=='link' and attrs.get('rel')=='canonical':self.canonical=attrs.get('href')
+        if tag=='link' and 'alternate' in str(attrs.get('rel') or '').split() and attrs.get('hreflang') and attrs.get('href'):
+            self.hreflang[attrs['hreflang']]=attrs['href']
+        if tag=='meta' and str(attrs.get('name') or '').lower()=='robots' and 'noindex' in str(attrs.get('content') or '').lower():
+            self.noindex=True
         if tag == 'a' and attrs.get('href'):
             self.links.append(attrs['href'])
         if tag == 'script' and attrs.get('src') and len(self.script_sources) < 300:
@@ -144,7 +150,10 @@ def _fetch_site_page(url, allowed_host):
                 'inline_scripts': '\n'.join(parser.inline_scripts),
                 'forms': parser.forms, 'form_fields': parser.form_fields,
                 'structure_signature': '|'.join(parser.structure),
-                'canonical': _canonical_page_url(parser.canonical,current,allowed_host) if parser.canonical else None}
+                'canonical': _canonical_page_url(parser.canonical,current,allowed_host) if parser.canonical else None,
+                'hreflang': {locale: target for locale, href in parser.hreflang.items()
+                             if (target := _canonical_page_url(href,current,allowed_host))},
+                'noindex':parser.noindex or 'noindex' in str(headers.get('X-Robots-Tag','')).lower()}
     return None
 
 
@@ -1356,9 +1365,18 @@ def register(bp):
                 steps_by_page[(step['page_host'],step['path_prefix'])] = step
             else:
                 wildcard_steps.setdefault(step['path_prefix'], []).append(step)
+        from .reports_page_paths import normalize_page_path
+        previous_keys={ (item['page_host'],item['path_prefix']):item['translation_key'] for item in _rows('''
+            SELECT DISTINCT ON (page_host,path_prefix) page_host,path_prefix,translation_key
+            FROM cadu_reports_flow_discovered_pages
+            WHERE client_id=%s AND tag_id=%s AND translation_key IS NOT NULL
+            ORDER BY page_host,path_prefix,created_at DESC''',
+            (selected['client_id'],flow['tag_id'])) }
         stored = []
         for page in pages:
+            normalized=normalize_page_path(page['path'])
             evidence = {'signals': page['evidence'], 'h1': page.get('h1',''), 'structure_signature': page.get('structure_signature'), 'canonical':page.get('canonical'),
+                        'hreflang': page.get('hreflang', {}),
                         'integrations': page.get('integrations', []),
                         'links': list(dict.fromkeys(url for link in page.get('links', [])
                             if (url := _canonical_page_url(link, page['url'], flow['allowed_host']))))}
@@ -1370,16 +1388,19 @@ def register(bp):
             selected_kind = prior_step['step_kind'] if prior_step else None
             selected_as_entry = bool(prior_step and prior_step['is_entry'])
             row = _rows('''INSERT INTO cadu_reports_flow_discovered_pages
-                (id,run_id,client_id,tag_id,url,page_host,path_prefix,title,suggested_role,confidence,evidence,form_count,form_fields,selected_kind,selected_as_entry,step_id)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s,%s,%s)
+                (id,run_id,client_id,tag_id,url,page_host,path_prefix,locale,normalized_path,translation_key,page_status,title,suggested_role,confidence,evidence,form_count,form_fields,selected_kind,selected_as_entry,step_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s,%s,%s)
                 ON CONFLICT (run_id,page_host,path_prefix) DO UPDATE SET
-                    url=EXCLUDED.url,title=EXCLUDED.title,suggested_role=EXCLUDED.suggested_role,
+                    url=EXCLUDED.url,locale=EXCLUDED.locale,normalized_path=EXCLUDED.normalized_path,page_status=EXCLUDED.page_status,
+                    translation_key=COALESCE(cadu_reports_flow_discovered_pages.translation_key,EXCLUDED.translation_key),
+                    title=EXCLUDED.title,suggested_role=EXCLUDED.suggested_role,
                     confidence=EXCLUDED.confidence,evidence=EXCLUDED.evidence,
                     form_count=EXCLUDED.form_count,form_fields=EXCLUDED.form_fields
                 RETURNING id,url,page_host,path_prefix,title,suggested_role,confidence,evidence,
                     form_count,form_fields,selected_kind,selected_as_entry,step_id''',
                 (str(uuid.uuid4()),run_id,selected['client_id'],
-                 flow['tag_id'],page['url'],page['host'],page['path'],page['title'],page['role'],
+                 flow['tag_id'],page['url'],page['host'],page['path'],normalized['locale'],normalized['path'],
+                 previous_keys.get((page['host'],page['path'])),'noindex' if page.get('noindex') else 'valida',page['title'],page['role'],
                  page['confidence'],json.dumps(evidence),page['forms'],json.dumps(page['form_fields']),
                  selected_kind,selected_as_entry,prior_step['id'] if prior_step else None))[0]
             stored.append(row)
@@ -1470,7 +1491,8 @@ def register(bp):
             (selected['client_id'],flow['tag_id']))
         pages = []
         if runs:
-            pages = _rows('''SELECT p.id,p.url,p.page_host,p.path_prefix,p.title,p.suggested_role,p.confidence,p.evidence,
+            pages = _rows('''SELECT p.id,p.url,p.page_host,p.path_prefix,p.locale,p.normalized_path,p.translation_key,p.page_status,
+                p.title,p.suggested_role,p.confidence,p.evidence,
                 p.form_count,p.form_fields,p.selected_kind,p.selected_as_entry,p.step_id,s.campaign_id
                 FROM cadu_reports_flow_discovered_pages p
                 LEFT JOIN cadu_reports_flow_steps s ON s.id=p.step_id AND s.client_id=p.client_id
@@ -1490,11 +1512,43 @@ def register(bp):
                     summary['pages'] += 1
                     if len(summary['evidence']) < 3:
                         summary['evidence'].append(signal.get('evidence'))
-        from .reports_flow_catalog import build_catalog
+        from .reports_flow_catalog import build_catalog, catalog_summary
         catalog=build_catalog(pages,flow['allowed_host'],(flow.get('config') or {}).get('nodes',[]))
-        return jsonify(catalog=catalog,run=runs[0] if runs else None,pages=pages,
+        return jsonify(catalog=catalog,summary=catalog_summary(pages,catalog),run=runs[0] if runs else None,pages=pages,
                        platform_integrations=list(integration_summary.values()),
                        integration_scan_pages=scanned_pages)
+
+    @bp.post('/api/v2/reports/flow/flows/<flow_id>/translations')
+    @login_required_api
+    def reports_flow_link_translation(flow_id):
+        from .reports_page_paths import normalize_page_path
+        payload=request.get_json(silent=True) or {}
+        selected=_selection(payload)
+        _write_guard(selected)
+        flow=_flow_row(flow_id,selected)
+        identifiers=[payload.get('page_id'),payload.get('translation_page_id')]
+        if not all(isinstance(value,str) for value in identifiers) or identifiers[0]==identifiers[1]:
+            abort(400,description='Selecione duas páginas diferentes.')
+        pages=_rows('''SELECT id,path_prefix,locale,normalized_path,translation_key
+            FROM cadu_reports_flow_discovered_pages
+            WHERE id=ANY(%s::uuid[]) AND client_id=%s AND tag_id=%s
+              AND run_id=(SELECT id FROM cadu_reports_flow_discovery_runs
+                WHERE client_id=%s AND tag_id=%s ORDER BY created_at DESC LIMIT 1)
+            FOR UPDATE''',(identifiers,selected['client_id'],flow['tag_id'],selected['client_id'],flow['tag_id']))
+        if len(pages)!=2:abort(404,description='Página fora do inventário atual.')
+        by_id={str(page['id']):page for page in pages}
+        first,second=(by_id[identifier] for identifier in identifiers)
+        source=normalize_page_path(first['path_prefix'])
+        target=normalize_page_path(second['path_prefix'])
+        if source['locale']==target['locale']:
+            abort(400,description='Escolha páginas de idiomas diferentes.')
+        key=(first if source['locale']=='pt' else second if target['locale']=='pt' else first)
+        key_path=normalize_page_path(key['path_prefix'])['path']
+        _rows('''UPDATE cadu_reports_flow_discovered_pages SET translation_key=%s
+            WHERE id=ANY(%s::uuid[]) AND client_id=%s AND tag_id=%s''',
+            (key_path,identifiers,selected['client_id'],flow['tag_id']))
+        get_db().commit()
+        return jsonify(translation_key=key_path,page_ids=identifiers)
 
     @bp.post('/api/v2/reports/flow/flows/<flow_id>/discoveries/<page_id>/suggest')
     @login_required_api

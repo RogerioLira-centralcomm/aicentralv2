@@ -138,6 +138,10 @@
 .reports-flow-empty-guide{position:absolute;z-index:8;top:50%;left:50%;transform:translate(-50%,-50%);width:min(390px,calc(100% - 96px));padding:20px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg);font-size:13px;line-height:1.5}
 .reports-flow-empty-guide strong{font-size:16px}.reports-flow-empty-guide p{color:var(--color-text-secondary)}.reports-flow-empty-guide>div{display:flex;gap:8px;flex-wrap:wrap}
 .flow-assist-actions kbd{margin-left:8px;padding:2px 5px;border-radius:4px;background:var(--color-bg-secondary);font-size:11px}
+.flow-catalog-row__text{position:relative;min-width:0}.flow-catalog-row__text strong,.flow-catalog-row__text small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flow-catalog-tooltip{display:none;position:absolute;z-index:35;left:0;top:100%;width:min(280px,70vw);padding:8px;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg);white-space:normal;overflow-wrap:anywhere;font-size:11px}
+.flow-catalog-row__text:hover .flow-catalog-tooltip,.flow-catalog-row__text:focus-within .flow-catalog-tooltip{display:block}
+.flow-catalog-group-preview{display:grid;gap:8px;padding:12px;border:1px solid var(--color-border-brand);border-radius:8px;background:var(--color-bg-primary)}.flow-catalog-group-preview ul{max-height:160px;overflow-y:auto;padding-left:18px}.flow-catalog-group-preview>div{display:flex;gap:8px;flex-wrap:wrap}
 .reports-flow-history>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0}
 .reports-flow-history button{min-height:36px;padding:6px 12px;border:1px solid #b2ccff;border-radius:6px;background:white;color:#175cd3}
 @media(min-width:768px) and (max-width:1179px){.reports-main .reports-flow-designer{grid-template-columns:180px minmax(0,1fr)}.reports-main .reports-node-settings{grid-column:1/-1;max-height:320px;overflow:auto}.reports-main .reports-flow-designer button{min-height:44px}.reports-main .reports-node-settings input{font-size:16px}}

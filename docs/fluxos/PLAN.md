@@ -48,7 +48,7 @@ As lacunas acima passam a ter critérios de aceite próprios; o checklist origin
 
 - [x] M0 — Reconhecimento estático e plano ajustado à infraestrutura (2026-09-30) — `RECON.md`; commit neste histórico
 - [x] M1 — Estabilidade do editor e publicação coerente (2026-09-30 18:45) — toast fixo, status, publicação 422 e recuperação — commit neste histórico
-- [ ] M2 — Inventário confiável e agrupamento por idioma
+- [x] M2 — Inventário confiável e agrupamento por idioma (2026-09-30 18:51) — identidade aditiva, resumo e grupos únicos — commit neste histórico
 - [ ] M3 — Etapas consistentes e layout do canvas
 - [ ] M4 — Conexões planejadas e tráfego observado
 - [ ] M5 — Pendências acionáveis com paridade servidor/cliente
@@ -161,6 +161,9 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 - S6 (M1): o erro 409 também é usado para conflito de revisão; só o bloqueio de publicação passou a 422. A interface mantém resolução explícita do conflito e agora mostra revisões local/remota (`main.jsx`, `reports_flow.py`).
 - S7 (M1): as “faixas amarelas” do relato não apareceram na captura de navegador com fluxo de teste em 1440×900. Não há origem inequívoca no CSS do editor; validar novamente no fluxo Centralcomm em M7 antes de remover um indicador possivelmente legítimo.
 - S8 (M1): o build de Reports emite avisos preexistentes de sourcemap, diretiva `use client` e tamanho de bundle, mas conclui. Os testes Python emitem um aviso de depreciação de `reportlab`.
+- S9 (M2): a descoberta persiste somente respostas HTML 200. Redirecionamentos e erros são descartados antes do inventário (`_fetch_site_page` em `reports_flow.py`), portanto não há evidência para contar seus motivos históricos. O resumo conta páginas registradas, duplicatas canônicas e `noindex` detectado nas novas análises; não inventa totais de URLs descartadas.
+- S10 (M2): o mesmo `template_id` era renderizado sob cada papel em `FlowCatalog.jsx`, permitindo que um grupo aparecesse mais de uma vez. A lista agora agrupa globalmente por padrão e assinatura; páginas avulsas continuam por classificação. A triplicação exata de Centralcomm não foi reproduzida sem o inventário real.
+- S11 (M2): o banco deste checkout não foi migrado nem contém uma amostra Centralcomm acessível nos testes. Migration e backfill foram adicionados ao `deploy.sh`; a verificação de dados reais fica para a implantação/QA de M7. Páginas antigas marcadas `noindex` só serão reconhecidas após nova descoberta.
 
 ## Decision Log
 
@@ -176,9 +179,14 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 | D8 | Manter planejado, observado, simulado e sugerido identificados em todos os modos. | Evita decisões baseadas em números ou caminhos de natureza diferente. |
 | D9 | Responder 422 estruturado apenas para pendências bloqueantes de publicação; manter 409 para conflito de revisão. | Cada condição tem uma ação de recuperação distinta e o frontend já trata 409 para rascunhos concorrentes. |
 | D10 | Renderizar avisos do editor como toast React fixo, sem helper PHP. | O layout do Reports é React e `versionMessage` é estado local. |
+| D11 | Contar apenas páginas HTML verificadas no resumo atual e explicitar a cobertura. | A descoberta não armazena redirecionamentos/erros, logo não há base para exibir seus totais. |
+| D12 | Manter páginas por idioma no catálogo e unir grupos pelo caminho normalizado; a fusão visual de nós fica no M3. | Preserva seleção e métricas até existir uma apresentação reversível. |
+| D13 | Registrar vínculo manual no inventário da varredura atual e reaplicá-lo à próxima varredura da mesma URL. | Crawler já expõe `hreflang` novo; URLs traduzidas sem evidência precisam de escolha humana. |
 
 ## Outcomes & Retrospective
 
 - M0: diagnóstico estático em `RECON.md`; plano ajustado à infraestrutura e aos contratos atuais. Cenário Centralcomm e problemas puramente visuais ainda precisam de verificação no navegador durante os milestones correspondentes.
 - M1: mensagens de criação/publicação não ocupam espaço no documento; salvamento mostra estado e tempo relativo; conflito preserva o rascunho e expõe revisões; publicação bloqueada usa 422 com itens; confirmação informa site, revisão, contagens e avisos; fluxo vazio orienta o próximo passo. Teste de navegador com fluxo simulado confirmou posição idêntica de header/canvas antes/depois do toast, bloqueio, guia inicial e recuperação após falha 503. O fluxo Centralcomm real e suas faixas amarelas não foram verificados neste milestone.
 - M1 — comandos: `git diff --check`; `npm run build:reports` (passou com avisos descritos em S8); `node tests/frontend/reports-flow-m1-browser.test.cjs`; `node tests/frontend/reports-flow-feedback.test.cjs`; `node tests/frontend/reports-flow-studio.test.cjs`; `node tests/frontend/reports-flow-workspace.test.cjs`; `.venv/bin/python -m pytest -q tests/test_reports_flow_publish_m1.py tests/test_reports_flow_studio.py tests/test_reports_flow_schema_v2.py tests/test_reports_flow_versions.py` (23 passaram). Não há script lint no `package.json`.
+- M2: normalização de idioma/caminho, coleta de `hreflang` e `noindex`, vínculo manual, migration idempotente e backfill em lotes, contagens por catálogo único, grupos globais com prévia e lista carregada em partes. O navegador com fixture de 539 páginas confirmou busca pelo caminho, grupo `/cases/*` único PT/EN e prévia. Redirecionamentos/erros não aparecem nos motivos porque o crawler não os persiste (S9). Migration não foi aplicada a banco real neste checkout (S11).
+- M2 — comandos: `git diff --check`; `npm run build:reports` (passou com avisos do bundler); `node tests/frontend/reports-flow-catalog-m2.test.cjs`; `node tests/frontend/reports-flow-m2-browser.test.cjs`; `node tests/frontend/reports-flow-workspace.test.cjs`; `.venv/bin/python -m pytest -q tests/test_reports_page_paths.py tests/test_reports_flow_translation_m2.py tests/test_reports_flow_studio.py tests/test_reports_flow_auto.py tests/test_reports_flow_publish_m1.py tests/test_reports_flow_schema_v2.py tests/test_reports_flow_versions.py` (34 passaram); `.venv/bin/python -m py_compile aicentralv2/cadu_connect/reports_flow.py aicentralv2/cadu_connect/reports_flow_catalog.py aicentralv2/cadu_connect/reports_page_paths.py scripts/backfill_reports_flow_page_identity.py`. Não há script lint no `package.json`.

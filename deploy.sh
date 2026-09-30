@@ -395,6 +395,8 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_site_mapping_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_discovery_resume_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_site_journey_analytics.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_page_identity_m2.sql
+"$VENV_PYTHON" scripts/backfill_reports_flow_page_identity.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_page_monitoring.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_flow_lifecycle_events.sql

@@ -1,8 +1,9 @@
 """Deterministic page catalog. Evidence and suggestions never imply measured traffic."""
 from collections import Counter, defaultdict
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, unquote
 import hashlib
 import re
+from .reports_page_paths import normalize_page_path, translation_key
 
 ROLE_STAGE = {'entry':'entry','institutional':'exploration','offer':'exploration','content':'exploration',
               'intent':'intent','form':'intent','conversion':'conversion','checkout':'intent',
@@ -17,7 +18,10 @@ def canonical_url(url, allowed_host):
     allowed=allowed_host.lower().removeprefix('www.')
     if host.removeprefix('www.')!=allowed and not host.endswith('.'+allowed):
         return None
-    path=re.sub(r'/page/\d+/?$', '', parsed.path).rstrip('/') or '/'
+    path=re.sub(r'/+', '/', unquote(parsed.path).lower())
+    path=re.sub(r'/page/\d+/?$', '', path).rstrip('/') or '/'
+    path=re.sub(r'/index\.(?:php|html?)$', '', path).rstrip('/') or '/'
+    if len(path)>500 or any(part in ('.','..') for part in path.split('/')):return None
     query=[(key,value) for key,value in parse_qsl(parsed.query) if not key.lower().startswith('utm_') and key.lower() not in ('gclid','fbclid','msclkid','page')]
     return urlunsplit(('https',allowed if host.removeprefix('www.')==allowed else host,path,urlencode(sorted(query)),''))
 
@@ -36,6 +40,7 @@ def role_for(page):
     return 'none','Sem evidência suficiente; escolha o papel'
 
 def build_catalog(pages, host, nodes=()):
+    pages=[page for page in pages if page.get('page_status','valida') == 'valida']
     suffixes=Counter(re.split(r'\s+[|–-]\s+',p.get('title') or '')[-1] for p in pages if re.search(r'\s+[|–-]\s+',p.get('title') or ''))
     suffix=next((s for s,n in suffixes.items() if n>=len(pages)*.6),None)
     unique={}
@@ -45,24 +50,43 @@ def build_catalog(pages, host, nodes=()):
         if url in unique:
             unique[url]['aliases'].append(page.get('url') or url);continue
         parsed=urlsplit(url)
-        page={**page,'page_host':parsed.hostname,'path_prefix':parsed.path}
+        normalized=normalize_page_path(parsed.path)
+        page={**page,'page_host':parsed.hostname,'path_prefix':parsed.path,
+              'locale':normalized['locale'],'normalized_path':normalized['path']}
         role,evidence=role_for(page)
         title=page.get('title') or page['path_prefix']
         clean=re.sub(r'\s+[|–-]\s+'+re.escape(suffix)+r'$', '', title) if suffix else title
-        matching=next((n['id'] for n in nodes if canonical_url(f"https://{n.get('host') or host}{n.get('path') or ''}",host)==url and n.get('type')=='page'),None)
+        matching=next((n['id'] for n in nodes if n.get('type') in ('page','form','conversion','error') and
+                       (str(n.get('discoveryPageId'))==str(page.get('id')) or
+                        canonical_url(f"https://{n.get('host') or host}{n.get('path') or ''}",host)==url)),None)
         unique[url]={**page,'canonical_url':url,'aliases':[page.get('url') or url],'title_clean':clean,'role':role,'stage':ROLE_STAGE[role],
                      'role_source':'regra','evidence_text':evidence,'template_id':None,'sessions_30d':None,'in_flow_node_id':matching}
+    locale_paths=defaultdict(set)
+    for page in unique.values():
+        locale_paths[(page['page_host'],page['normalized_path'])].add(page['locale'])
+    for page in unique.values():
+        page['translation_key']=translation_key(page,{page['normalized_path']:locale_paths[(page['page_host'],page['normalized_path'])]})
     templates=defaultdict(list)
     for page in unique.values():
-        parts=urlsplit(page['canonical_url']).path.strip('/').split('/')
+        parts=page['normalized_path'].strip('/').split('/')
         # Do not invent HTML similarity from URL prefixes alone.
         signature=(page.get('evidence') or {}).get('structure_signature')
-        if len(parts)>=2 and signature:templates[('/'+ '/'.join(parts[:-1])+'/*',signature)].append(page)
-    for (pattern,signature),members in templates.items():
-        if len(members)<3:continue
-        identifier=hashlib.sha256((pattern+signature).encode()).hexdigest()[:16]
+        if len(parts)>=2 and signature:templates[(page['page_host'],'/'+ '/'.join(parts[:-1])+'/*',signature)].append(page)
+    for (page_host,pattern,signature),members in templates.items():
+        if len({page['normalized_path'] for page in members})<3:continue
+        identifier=hashlib.sha256((page_host+pattern+signature).encode()).hexdigest()[:16]
         for page in members:page['template_id']=identifier;page['template_pattern']=pattern
     return list(unique.values())
+
+
+def catalog_summary(pages, catalog):
+    excluded=Counter(page.get('page_status') for page in pages if page.get('page_status','valida')!='valida')
+    excluded['duplicada']=sum(page.get('page_status','valida')=='valida' for page in pages)-len(catalog)
+    classified=sum(page['role']!='none' for page in catalog)
+    return {'descobertas':len(pages),'validas':len(catalog),'classificadas':classified,
+            'sem_tipo':len(catalog)-classified,
+            'no_fluxo':len({page['in_flow_node_id'] for page in catalog if page['in_flow_node_id']}),
+            'excluidas':dict(excluded)}
 
 
 def register(bp):

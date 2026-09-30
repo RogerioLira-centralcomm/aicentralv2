@@ -35,6 +35,13 @@ function readCollapsed(mode, preferenceKey) {
   } catch (_) { return mode === 'home' || mode === 'account'; }
 }
 
+const AVATAR_BADGES = ['badge-comet.png', 'badge-ribbon.png', 'badge-orbit.png', 'badge-prism.png', 'badge-sunburst.png', 'badge-sphere.png'];
+function avatarBadgeSource(user = {}) {
+  const configured = String(user.avatarBadge || '').trim();
+  const seed = Array.from(String(user.name || '')).reduce((total, character) => total + character.charCodeAt(0), 0);
+  return `/static/images/cadu/avatars/${configured || AVATAR_BADGES[seed % AVATAR_BADGES.length]}`;
+}
+
 function writeCollectionPayload(event, item, kind, label) {
   if (!event.dataTransfer) return;
   const payload = {
@@ -57,12 +64,15 @@ function SidebarBrandProjects({brands, projects, links}) {
   if (!groups.length && !ungrouped.length) return null;
   const projectLink = project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')}><Icon name="folder" size={13}/><span>{entityLabel(project, 'Projeto')}</span></a>;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
-    <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span></div>
+    <div className="cadu-ds-context-sidebar__section-label"><span>Projetos</span></div>
     {groups.slice(0, 4).map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={entityIdentity(brand) || entityLabel(brand)}>
       <a className="cadu-ds-context-sidebar__brand-heading" href={entityHref(brand) || links.brands || '#'} title={entityLabel(brand, 'Marca')}><b>{entityLabel(brand, 'Marca')}</b></a>
       {brand.projects.length > 0 && <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.slice(0, 3).map(projectLink)}</div>}
     </section>)}
-    {ungrouped.length > 0 && <div className="cadu-ds-context-sidebar__project-tree cadu-ds-context-sidebar__project-tree--standalone">{ungrouped.slice(0, 3).map(projectLink)}</div>}
+    {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group">
+      {groups.length > 0 && <span className="cadu-ds-context-sidebar__group-note">Sem marca</span>}
+      <div className="cadu-ds-context-sidebar__project-tree cadu-ds-context-sidebar__project-tree--standalone">{ungrouped.slice(0, 3).map(projectLink)}</div>
+    </section>}
   </section>;
 }
 
@@ -81,7 +91,8 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   const firstName = userName.split(/\s+/)[0] || 'Conta';
   const initialUsage = bootstrap.usagePercent ?? bootstrap.home?.usagePercent ?? bootstrap.account?.position?.usage_percentage;
   const [usagePercent, setUsagePercent] = useState(() => initialUsage !== undefined && initialUsage !== null && initialUsage !== '' && Number.isFinite(Number(initialUsage)) ? Number(initialUsage) : null);
-  const usageLabel = usagePercent === null ? '—' : `${new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(usagePercent)}%`;
+  const usageLabel = usagePercent === null ? '' : `${new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 0}).format(usagePercent)}%`;
+  const creditAlertVisible = usagePercent !== null && usagePercent >= 80;
 
   useEffect(() => {
     let active = true;
@@ -117,12 +128,12 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
       {recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>)}
     </section>}
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
+    {creditAlertVisible && <a className="cadu-ds-context-sidebar__credit-alert" href={links.creditos || links.credits || links.uso || links.usage || links.home || '/workspace/app'}><span>Créditos em {usageLabel}</span><small>Ver créditos</small></a>}
     <footer className="cadu-ds-context-sidebar__footer">
       <a className="cadu-ds-context-sidebar__profile" href={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} aria-label={`Abrir perfil de ${userName || firstName}`} title={userName || firstName}>
-        <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} fallbackSrc={bootstrap.user?.photoFallback || ''} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
+        <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} fallbackSrc={bootstrap.user?.photoFallback || avatarBadgeSource(bootstrap.user)} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
         <span className="cadu-ds-context-sidebar__profile-text"><strong>{firstName}</strong>{agencyName && <small>{agencyName}</small>}</span>
       </a>
-      <span className="cadu-ds-context-sidebar__usage" role="img" aria-label={`Uso mensal: ${usageLabel}`} title={`Uso mensal: ${usageLabel}`}>{usageLabel}</span>
     </footer>
   </aside>;
 }

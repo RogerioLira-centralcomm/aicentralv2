@@ -56,7 +56,7 @@ export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, 
       const width = Math.min(280, window.innerWidth - 24);
       const menuHeight = Math.min(solutions.length * 56 + 18, window.innerHeight - 24);
       const gap = 8;
-      const sidebar = anchor.closest('.cadu-solution-sidebar');
+      const sidebar = anchor.closest('.cadu-solution-sidebar, .cadu-ds-context-sidebar');
       const sidebarRect = sidebar?.getBoundingClientRect();
       // Expanded product sidebars open the menu right under the brand row and
       // inside the sidebar, so it never covers the page title or content.

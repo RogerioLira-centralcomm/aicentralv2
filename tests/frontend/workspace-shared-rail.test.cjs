@@ -27,7 +27,12 @@ test('the sidebar tree comes from one server payload and agency sits beside the 
   assert.match(sidebar, /cadu-ds-context-sidebar__profile-text/);
   assert.doesNotMatch(sidebar, /<span>Agência<\/span>/);
   assert.doesNotMatch(sidebar, /Ver todos<\/a><\/div>\s*\{groups/);
-  assert.match(sidebar, /<span className="cadu-ds-context-sidebar__usage"/);
+  assert.doesNotMatch(sidebar, /cadu-ds-context-sidebar__usage/);
+  assert.match(sidebar, /creditAlertVisible = usagePercent !== null && usagePercent >= 80/);
+  assert.match(sidebar, /avatarBadgeSource\(bootstrap\.user\)/);
+  assert.match(sidebar, /<span>Projetos<\/span>/);
+  assert.match(sidebar, /Sem marca/);
+  assert.doesNotMatch(read(`${components}/WorkspaceSelectors.jsx`), /closest\('\.cadu-solution-sidebar'\);/);
   for (const template of ['brands_react', 'projects_react', 'account_react', 'brand_detail_react', 'project_detail_react', 'workspace_home_chat']) {
     assert.match(read(`aicentralv2/templates/cadu_workspace/${template}.html`), /workspace_sidebar\(\)/, template);
   }

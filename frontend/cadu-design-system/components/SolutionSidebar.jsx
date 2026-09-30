@@ -11,7 +11,7 @@ function CreditsLink({percent, href}) {
   return <a className="cadu-solution-sidebar__usage" href={href} aria-label={`Créditos e consumo: utilização de ${formatted}%`} title="Créditos e consumo"><span>{formatted}%</span><i aria-hidden="true"><b style={{width:`${value}%`}}/></i></a>;
 }
 
-export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', userAvatar = '', creditsUrl, profileUrl}) {
+export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', accountLabel, userAvatar = '', creditsUrl, profileUrl}) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(storageKey) === 'collapsed'; } catch (_) { return false; }
   });
@@ -48,7 +48,7 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
     <footer className="cadu-solution-sidebar__footer">
       {profileUrl && <a className="cadu-solution-sidebar__account" href={profileUrl} aria-label={`Abrir perfil de ${userName}`} title={userName}>
         <VisualIdentity src={userAvatar} initials={userName} label={userName} className="cadu-solution-sidebar__avatar" imageAlt={`Foto de ${userName || 'usuário'}`}/>
-        <span className="cadu-solution-sidebar__account-name">{userName || 'Minha conta'}</span>
+        <span className="cadu-solution-sidebar__account-name">{accountLabel || userName || 'Minha conta'}</span>
       </a>}
       {creditsUrl && <CreditsLink percent={usagePercent} href={creditsUrl}/>}
       {footer && <div className="cadu-solution-sidebar__footer-extra">{footer}</div>}

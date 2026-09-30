@@ -15,8 +15,8 @@
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav a span{display:grid;gap:2px}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav b{font-size:12px}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav small{color:#78827e;font-size:10px}
-.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay{position:fixed;z-index:1000;box-sizing:border-box;display:grid;max-height:calc(100dvh - 24px);overflow-y:auto;overflow-x:hidden;padding:8px;border:1px solid #d7dfda;border-radius:14px;background:#fff;box-shadow:0 18px 44px #16272130}
-.cadu-ds-solution-switcher__portal nav a{display:flex;min-height:48px;align-items:center;gap:10px;padding:8px;border-radius:9px;color:#283530;text-decoration:none}
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay{position:fixed;z-index:1000;box-sizing:border-box;display:grid;grid-auto-rows:56px;align-content:start;max-height:calc(100dvh - 24px);overflow-y:auto;overflow-x:hidden;padding:8px;border:1px solid #d7dfda;border-radius:14px;background:#fff;box-shadow:0 18px 44px #16272130}
+.cadu-ds-solution-switcher__portal nav a{box-sizing:border-box;display:flex;min-height:0;align-items:center;gap:10px;padding:7px 8px;border-radius:9px;color:#283530;text-decoration:none}
 .cadu-ds-solution-switcher__portal nav a:hover,.cadu-ds-solution-switcher__portal nav a:focus-visible{background:#f2f6f3;outline:0}
 .cadu-ds-solution-switcher__portal nav a[aria-current=page]{background:transparent;color:var(--solution-accent)}
 .cadu-ds-solution-switcher__portal nav img{width:28px;height:28px;object-fit:contain}

@@ -54,15 +54,20 @@ export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, 
       if (!anchor) return;
       const rect = anchor.getBoundingClientRect();
       const width = Math.min(280, window.innerWidth - 24);
-      const menuHeight = Math.min(solutions.length * 48 + 16, window.innerHeight - 24);
+      const menuHeight = Math.min(solutions.length * 56 + 18, window.innerHeight - 24);
       const gap = 8;
+      const sidebar = anchor.closest('.cadu-solution-sidebar');
+      const sidebarRect = sidebar?.getBoundingClientRect();
+      const besideSidebar = Boolean(sidebarRect && window.innerWidth > 760);
       const roomBelow = window.innerHeight - rect.bottom - gap;
       const roomAbove = rect.top - gap;
       const openBelow = roomBelow >= Math.min(menuHeight, 220) || roomBelow >= roomAbove;
-      const availableHeight = Math.max(120, Math.min(menuHeight, openBelow ? roomBelow : roomAbove));
-      const top = openBelow ? rect.bottom + gap : Math.max(12, rect.top - availableHeight - gap);
-      const sidebar = anchor.closest('.cadu-solution-sidebar');
-      const sidebarRect = sidebar?.getBoundingClientRect();
+      const availableHeight = besideSidebar
+        ? Math.min(menuHeight, window.innerHeight - 24)
+        : Math.max(120, Math.min(menuHeight, openBelow ? roomBelow : roomAbove));
+      const top = besideSidebar
+        ? Math.max(12, Math.min(rect.top, window.innerHeight - availableHeight - 12))
+        : openBelow ? rect.bottom + gap : Math.max(12, rect.top - availableHeight - gap);
       const left = sidebarRect ? sidebarRect.right + gap : rect.left;
       setMenuPosition({top, left: Math.max(12, Math.min(left, window.innerWidth - width - 12)), width, maxHeight: availableHeight});
     };

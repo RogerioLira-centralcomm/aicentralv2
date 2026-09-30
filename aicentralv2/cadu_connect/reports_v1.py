@@ -135,7 +135,10 @@ def register(bp):
         selected = reports_access.resolve(request.args.get('client_id'))
         if request.args.get('client_id'):
             session['cliente_id'] = selected['client_id']
-        return render_template('cadu_connect/app_v1.html')
+        agency = _rows('''SELECT COALESCE(NULLIF(nome_fantasia,''),NULLIF(razao_social,'')) AS name
+            FROM tbl_cliente WHERE id_cliente=%s AND status=TRUE''',
+            (selected['organization_id'],))
+        return render_template('cadu_connect/app_v1.html', agency_name=agency[0]['name'] if agency else '')
 
     @bp.get('/api/v1/reports/bootstrap')
     @login_required_api

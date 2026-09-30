@@ -921,3 +921,112 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
   .reports-shell > .cadu-solution-sidebar,.reports-shell > .cadu-solution-sidebar.is-collapsed{overflow-y:auto}
   .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__nav{overflow-y:visible}
 }
+
+/* Reports navigation: keep the solution control, links and profile in one rail. */
+@media(min-width:761px){
+  .reports-shell > .cadu-solution-sidebar{gap:8px;padding-top:12px;padding-bottom:12px}
+  .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__header{min-height:42px;padding:0;border:0}
+  .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__nav{min-height:0;overflow-y:auto}
+  .reports-shell > .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__header{display:grid;min-height:72px;justify-items:center;align-content:start;gap:2px}
+  .reports-shell > .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__toggle{position:static;width:26px;height:26px;margin:0}
+  .reports-shell > .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group a:not(.is-active) svg{color:var(--color-fg-quaternary)}
+  .reports-shell > .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group a:hover svg{color:var(--solution-accent)}
+}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__account{box-sizing:border-box;min-width:0}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__avatar{box-sizing:border-box;display:grid;width:32px;height:32px;min-width:32px;max-width:32px;min-height:32px;max-height:32px;flex:0 0 32px;place-items:center;overflow:hidden;border-radius:50%}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__avatar img{width:100%;height:100%;padding:0;object-fit:cover}
+.reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__avatar>img{display:block;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;border-radius:inherit}
+.reports-shell > .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__account{width:auto}
+
+/* Overview: the action and readiness state share a single, aligned surface. */
+.portal--connect .reports-shell > .reports-main > .reports-page-header--overview{min-height:92px;margin-bottom:24px}
+.reports-page-header--overview .reports-page-header__copy{gap:5px}
+.reports-page-header--overview h1{font-size:28px;line-height:1.15}
+.reports-page-header--overview .reports-page-header__copy p{display:block;color:var(--color-text-secondary);font-size:13px}
+.reports-overview-setup{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);width:100%;max-width:1280px;min-height:286px;margin:0 auto;overflow:hidden;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:0 1px 2px #10182808}
+.reports-overview-setup__next{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;padding:36px clamp(28px,3vw,48px)}
+.reports-overview-setup__eyebrow{margin-bottom:12px;color:var(--color-text-brand-secondary);font-size:12px;font-weight:650}
+.reports-overview-setup__next h2{max-width:620px;margin:0;color:var(--color-text-primary);font-size:26px;font-weight:650;line-height:1.2;letter-spacing:-.035em}
+.reports-overview-setup__next p{max-width:540px;margin:12px 0 0;color:var(--color-text-secondary);font-size:14px;line-height:1.55}
+.reports-overview-setup__actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:24px}
+.reports-overview-setup__actions a{text-decoration:none}
+.reports-overview-setup__progress{min-width:0;padding:28px clamp(24px,2.4vw,36px);border-left:1px solid var(--color-border-secondary);background:var(--color-bg-secondary)}
+.reports-overview-setup__progress-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
+.reports-overview-setup__progress-heading h3{margin:0;color:var(--color-text-primary);font-size:15px;font-weight:650}
+.reports-overview-setup__progress-heading span{color:var(--color-text-tertiary);font-size:12px;white-space:nowrap}
+.reports-overview-setup__progress ol{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.reports-overview-setup__progress li a{display:flex;align-items:center;gap:12px;min-height:59px;padding:8px 9px;border-radius:8px;color:var(--color-text-primary);text-decoration:none}
+.reports-overview-setup__progress li a:hover,.reports-overview-setup__progress li a:focus-visible{background:var(--color-bg-primary);outline:0}
+.reports-overview-setup__progress li a:focus-visible{box-shadow:0 0 0 2px var(--color-border-brand)}
+.reports-overview-setup__step-icon{display:grid;width:32px;height:32px;flex:0 0 32px;place-items:center;border-radius:8px;background:var(--color-bg-primary);color:var(--color-text-secondary);font-size:12px;font-weight:650}
+.reports-overview-setup__step-icon.is-done{background:var(--color-bg-success-secondary);color:var(--color-text-success-primary)}
+.reports-overview-setup__step-copy{display:grid;min-width:0;gap:2px;flex:1}
+.reports-overview-setup__step-copy strong{font-size:13px;font-weight:650}
+.reports-overview-setup__step-copy small{overflow:hidden;color:var(--color-text-secondary);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.reports-overview-setup__step-arrow{color:var(--color-text-tertiary);font-size:18px}
+@media(max-width:980px){.reports-overview-setup{grid-template-columns:1fr}.reports-overview-setup__progress{border-top:1px solid var(--color-border-secondary);border-left:0}.reports-overview-setup__next{padding:30px}}
+@media(max-width:760px){.portal--connect .reports-shell > .reports-main > .reports-page-header--overview{min-height:0}.reports-page-header--overview .reports-page-header__inner{align-items:flex-start}.reports-page-header--overview h1{font-size:24px}.reports-overview-setup__next,.reports-overview-setup__progress{padding:22px}.reports-overview-setup__next h2{font-size:23px}}
+
+/* Accounts: one card, a readable table, and quiet row actions. */
+.reports-shell--accounts .reports-accounts-page{gap:16px}
+.reports-shell--accounts .reports-accounts-heading{min-height:44px;padding:0;border:0}
+.reports-shell--accounts .reports-accounts-heading p{font-size:13px}
+.reports-shell--accounts .reports-accounts-list{min-height:0;padding:0;overflow:hidden}
+.reports-shell--accounts .reports-accounts-toolbar{min-height:76px;margin:0;padding:16px 20px}
+.reports-shell--accounts .reports-accounts-toolbar strong{color:var(--color-text-primary);font-size:16px;font-weight:650}
+.reports-shell--accounts .reports-accounts-list .reports-table-wrap{overflow-x:auto;border:0;border-top:1px solid var(--color-border-secondary);border-radius:0;box-shadow:none}
+.reports-shell--accounts .reports-accounts-list table{min-width:760px}
+.reports-shell--accounts .reports-accounts-list th{height:40px;padding:9px 16px;background:var(--color-bg-secondary);color:var(--color-text-tertiary);font-size:11px;font-weight:600}
+.reports-shell--accounts .reports-accounts-list td{height:56px;padding:10px 16px;color:var(--color-text-secondary)}
+.reports-shell--accounts .reports-accounts-list td:first-child{max-width:320px;color:var(--color-text-primary)}
+.reports-shell--accounts .reports-accounts-list th:last-child,.reports-shell--accounts .reports-accounts-list td:last-child{text-align:right}
+.reports-shell--accounts .reports-accounts-list .reports-account-edit{display:inline-flex;min-height:32px;padding:4px 6px;border:0!important;border-radius:6px;background:transparent!important;color:var(--color-text-brand-secondary)!important;font-size:12px;font-weight:650;text-decoration:none!important;box-shadow:none!important}
+.reports-shell--accounts .reports-accounts-list .reports-account-edit:hover{background:var(--color-bg-brand-secondary)!important}
+.reports-shell--accounts .reports-accounts-list .reports-account-edit:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+.reports-shell--accounts .reports-account-row__actions{justify-content:flex-end}
+.reports-shell--accounts .reports-accounts-list .reports-empty{padding:42px 20px}
+@media(max-width:760px){.reports-shell--accounts .reports-accounts-toolbar{align-items:stretch;padding:16px}.reports-shell--accounts .reports-accounts-list th,.reports-shell--accounts .reports-accounts-list td{padding-inline:12px}}
+
+/* Account and site setup drawers use one clear completion action. */
+.reports-untitled-drawer__head{align-items:flex-start;padding-bottom:20px}
+.reports-untitled-drawer__head>div{min-width:0}
+.reports-untitled-drawer__head .reports-drawer-close{display:grid;width:32px;min-width:32px;height:32px;min-height:32px;flex:0 0 32px;place-items:center;padding:0;border:0!important;border-radius:7px;background:transparent!important;color:var(--color-text-tertiary)!important;font-size:23px;font-weight:400;line-height:1;box-shadow:none!important}
+.reports-untitled-drawer__head .reports-drawer-close:hover{background:var(--color-bg-secondary)!important;color:var(--color-text-primary)!important}
+.reports-untitled-drawer__head .reports-drawer-close:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+.reports-account-create-form{gap:18px;padding-top:22px}
+.reports-account-create-form>label{gap:6px;color:var(--color-text-secondary)}
+.reports-untitled-drawer .reports-account-create-form input:not([type=checkbox]){border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important}
+.reports-account-create-form .reports-untitled-drawer__actions{position:sticky;bottom:-28px;justify-content:flex-end;margin-top:8px;padding:16px 0 0;background:var(--color-bg-primary)}
+.reports-account-create-form .reports-untitled-drawer__actions>button{min-width:118px}
+
+/* Super Tag: keep the site list and installation actions visually quiet. */
+.reports-supertag-page{gap:16px}
+.reports-supertag-heading{min-height:0;padding:0;border:0}
+.reports-supertag-heading>div{display:grid;justify-items:start;gap:4px}
+.reports-supertag-heading h2{font-size:20px}
+.reports-supertag-heading p{margin:0;font-size:13px}
+.reports-supertag-heading .reports-site-back{min-height:28px;margin:0 0 4px;padding:0;border:0!important;background:transparent!important;color:var(--color-text-brand-secondary)!important;text-decoration:none!important;box-shadow:none!important}
+.reports-supertag-heading .reports-site-back:hover{text-decoration:none!important}
+.reports-site-index__empty{display:grid;justify-items:start;gap:8px;padding:38px 24px 42px;border-top:1px solid var(--color-border-secondary)}
+.reports-site-index__empty strong{color:var(--color-text-primary);font-size:17px;font-weight:650}
+.reports-site-index__empty p{max-width:430px;margin:0 0 8px;color:var(--color-text-secondary);font-size:13px;line-height:1.5}
+.reports-site-index__loading{margin:0;padding:32px 20px;border-top:1px solid var(--color-border-secondary);color:var(--color-text-secondary);font-size:13px}
+.reports-main .reports-site-index__toolbar{min-height:70px;padding:14px 20px}
+.reports-main .reports-site-index__actions .reports-ui-button{border:0!important}
+.reports-site-index__toolbar strong{font-size:15px}
+.reports-main .reports-site-index .reports-table-wrap th{background:var(--color-bg-secondary)}
+.reports-main .reports-site-index .reports-table-wrap td:last-child .reports-ui-button{border:0!important;background:transparent!important;color:var(--color-text-brand-secondary)!important;text-decoration:none!important;box-shadow:none!important}
+.reports-main .reports-site-index .reports-table-wrap td:last-child .reports-ui-button:hover{background:var(--color-bg-brand-secondary)!important}
+.reports-tag-card-head{align-items:flex-start}
+.reports-tag-actions{align-items:center;gap:4px 10px}
+.reports-tag-actions .reports-ui-button{min-height:34px;padding:5px 9px;border:0!important;box-shadow:none!important;text-decoration:none!important}
+.reports-tag-actions .reports-ui-button:not(:first-child){background:transparent!important;color:var(--color-text-brand-secondary)!important}
+.reports-tag-actions .reports-ui-button:not(:first-child):hover{background:var(--color-bg-brand-secondary)!important}
+.reports-supertag-setup .reports-panel-head{align-items:flex-start}
+.reports-supertag-setup .reports-panel-head p{margin:4px 0 0}
+.reports-supertag-setup .reports-tag-card{padding:16px 0;border-top:1px solid var(--color-border-secondary)}
+.reports-supertag-setup .reports-tag-card code{border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-secondary)}
+.reports-untitled-drawer .reports-modal-actions{margin-top:8px;padding-top:16px;border-top:1px solid var(--color-border-secondary)}
+.reports-untitled-drawer .reports-modal-actions>.reports-primary-button{min-height:40px;padding:0 14px;border:0!important;border-radius:8px;background:var(--color-bg-brand-solid)!important;color:var(--color-text-primary_on-brand)!important;font-size:13px;font-weight:650;box-shadow:none}
+.reports-untitled-drawer .reports-modal-actions>.reports-primary-button:hover:not(:disabled){background:#1849a9!important}
+@media(max-width:760px){.reports-main .reports-site-index__toolbar{padding:14px}.reports-tag-card-head{align-items:stretch}.reports-tag-actions{width:100%}.reports-account-create-form .reports-untitled-drawer__actions{bottom:-20px}}

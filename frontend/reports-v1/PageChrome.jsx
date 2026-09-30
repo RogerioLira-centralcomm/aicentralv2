@@ -7,7 +7,7 @@ export const REPORT_FILTER_DEFAULTS = Object.freeze({
 });
 
 export const REPORT_PAGE_META = {
-  overview: {title: 'Visão geral', description: 'Acompanhe mídia, dados importados e resultados deste cliente.'},
+  overview: {title: 'Visão geral', description: 'Dados de mídia, atividade do site e campanhas em um só lugar.'},
   accounts: {title: 'Contas', description: 'Organize as contas de mídia vinculadas a este cliente.'},
   campaigns: {title: 'Campanhas', description: 'Consulte campanhas, identifique sua origem e abra os resultados.'},
   reports: {title: 'Relatórios', description: 'Crie e consulte relatórios de mídia deste cliente.'},
@@ -28,10 +28,10 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
     window.location.assign(url.href);
   };
 
-  return <header className="reports-page-header"><div className="reports-page-header__inner">
+  return <header className={`reports-page-header${page === 'overview' ? ' reports-page-header--overview' : ''}`}><div className="reports-page-header__inner">
     <div className="reports-page-header__copy">
       <h1>{titleOverride || meta.title}</h1>
-      <p className="reports-sr-only">{descriptionOverride || meta.description}</p>
+      <p className={page === 'overview' ? undefined : 'reports-sr-only'}>{descriptionOverride || meta.description}</p>
     </div>
     <div className="reports-page-header__actions">
       {onAction && <UntitledButton className="reports-page-header__action" size="sm" color="tertiary" onPress={onAction.onClick}>{onAction.label}</UntitledButton>}

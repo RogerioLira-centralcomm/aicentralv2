@@ -131,6 +131,13 @@
 .reports-flow-device-message h2{font-size:22px;line-height:1.25}.reports-flow-device-message p{line-height:1.6;color:#637591}
 .reports-flow-device-message button,.reports-flow-device-message a{display:inline-block;margin:12px 12px 0 0;padding:10px 14px;min-height:44px;border:1px solid #d0d5dd;border-radius:7px;background:white;color:#175cd3}
 .reports-flow-feedback,.reports-flow-history{margin:12px 0;padding:14px 18px;background:#eff8ff;border:1px solid #b2ddff;border-radius:8px;color:#1849a9}
+.flow-toast-root{position:fixed;right:16px;bottom:16px;z-index:120;pointer-events:none;width:min(360px,calc(100vw - 32px))}
+.flow-toast{display:flex;align-items:start;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#101828;color:#fff;box-shadow:0 12px 28px #10182833;font-size:13px;line-height:1.4;pointer-events:auto}
+.flow-toast button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:20px;line-height:1}
+.reports-flow-publish-hint{max-width:220px;border:0;background:transparent;color:var(--color-text-error-primary);font-size:11px;line-height:1.25;text-align:left;cursor:pointer}
+.reports-flow-empty-guide{position:absolute;z-index:8;top:50%;left:50%;transform:translate(-50%,-50%);width:min(390px,calc(100% - 96px));padding:20px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg);font-size:13px;line-height:1.5}
+.reports-flow-empty-guide strong{font-size:16px}.reports-flow-empty-guide p{color:var(--color-text-secondary)}.reports-flow-empty-guide>div{display:flex;gap:8px;flex-wrap:wrap}
+.flow-assist-actions kbd{margin-left:8px;padding:2px 5px;border-radius:4px;background:var(--color-bg-secondary);font-size:11px}
 .reports-flow-history>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0}
 .reports-flow-history button{min-height:36px;padding:6px 12px;border:1px solid #b2ccff;border-radius:6px;background:white;color:#175cd3}
 @media(min-width:768px) and (max-width:1179px){.reports-main .reports-flow-designer{grid-template-columns:180px minmax(0,1fr)}.reports-main .reports-node-settings{grid-column:1/-1;max-height:320px;overflow:auto}.reports-main .reports-flow-designer button{min-height:44px}.reports-main .reports-node-settings input{font-size:16px}}

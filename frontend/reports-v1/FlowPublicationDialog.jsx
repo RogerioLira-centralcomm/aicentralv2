@@ -14,14 +14,15 @@ export const flowChangeSummary=(before,after)=>({
   nodes:changed(before?.nodes,after?.nodes),edges:changed(before?.edges,after?.edges),
 });
 
-export function FlowPublicationDialog({open,config,previous,issues,note,onNoteChange,busy,onClose,onPublish}) {
+export function FlowPublicationDialog({open,name,host,revision,config,previous,issues,note,onNoteChange,busy,onClose,onPublish}) {
   if(!open)return null;
   const nodes=changed(previous?.nodes,config.nodes);
   const edges=changed(previous?.edges,config.edges);
   const errors=issues.filter(item=>item.severity==='error');
   return <ModalOverlay className="reports-untitled-overlay reports-confirm-overlay" isOpen={open} onOpenChange={value=>{if(!value&&!busy)onClose();}} isDismissable={!busy}>
     <Modal className="reports-confirm-modal"><Dialog aria-label="Publicar fluxo" className="reports-confirm-dialog flow-publication-dialog">
-      <h2>Publicar fluxo</h2><p>Revise o desenho que ficará ativo para os próximos eventos do site.</p>
+      <h2>Publicar fluxo</h2><p><strong>{name}</strong> · {host} · rascunho r{revision}. Esta versão será usada no monitoramento dos próximos eventos; os dados anteriores continuam ligados às versões em que foram coletados.</p>
+      <p>{config.nodes.length} nós · {config.edges.length} conexões · {issues.filter(item=>item.severity==='warning').length} avisos permanecem após a publicação.</p>
       <div className="flow-publication-summary"><strong>Mudanças desde a publicação anterior</strong><span>Etapas: +{nodes.added} · {nodes.updated} alteradas · −{nodes.removed}</span><span>Conexões: +{edges.added} · {edges.updated} alteradas · −{edges.removed}</span></div>
       {errors.length>0&&<section className="flow-publication-errors" role="alert"><strong>{errors.length} problema{errors.length===1?'':'s'} impedem a publicação</strong><ul>{errors.slice(0,5).map((issue,index)=><li key={`${issue.code}:${index}`}>{issue.message}</li>)}</ul></section>}
       <label>Nota desta versão (opcional)<ReportsTextArea value={note} maxLength="500" rows={3} onChange={event=>onNoteChange(event.target.value)} placeholder="O que mudou nesta publicação?"/></label>

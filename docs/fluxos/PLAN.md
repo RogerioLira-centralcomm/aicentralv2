@@ -47,7 +47,7 @@ As lacunas acima passam a ter critérios de aceite próprios; o checklist origin
 ## Progress
 
 - [x] M0 — Reconhecimento estático e plano ajustado à infraestrutura (2026-09-30) — `RECON.md`; commit neste histórico
-- [ ] M1 — Estabilidade do editor e publicação coerente
+- [x] M1 — Estabilidade do editor e publicação coerente (2026-09-30 18:45) — toast fixo, status, publicação 422 e recuperação — commit neste histórico
 - [ ] M2 — Inventário confiável e agrupamento por idioma
 - [ ] M3 — Etapas consistentes e layout do canvas
 - [ ] M4 — Conexões planejadas e tráfego observado
@@ -158,6 +158,9 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 - S3 (2026-09-30): `elkjs` e layout em worker já existem (`package.json:23`, `flowLayout.js:19-26`).
 - S4 (2026-09-30): o backend já valida publicação, mas usa HTTP 409 e mensagem textual (`reports_flow.py:1719-1723`); o frontend mantém duas superfícies de revisão.
 - S5 (2026-09-30): há uma sexta etapa `support` e tipos de nó além de página/canal (`flowStages.js:1-5`, `flowBlockRegistry.js`). Reduzir diretamente a cinco etapas quebraria fluxos existentes.
+- S6 (M1): o erro 409 também é usado para conflito de revisão; só o bloqueio de publicação passou a 422. A interface mantém resolução explícita do conflito e agora mostra revisões local/remota (`main.jsx`, `reports_flow.py`).
+- S7 (M1): as “faixas amarelas” do relato não apareceram na captura de navegador com fluxo de teste em 1440×900. Não há origem inequívoca no CSS do editor; validar novamente no fluxo Centralcomm em M7 antes de remover um indicador possivelmente legítimo.
+- S8 (M1): o build de Reports emite avisos preexistentes de sourcemap, diretiva `use client` e tamanho de bundle, mas conclui. Os testes Python emitem um aviso de depreciação de `reportlab`.
 
 ## Decision Log
 
@@ -171,7 +174,11 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 | D6 | M8 depende de aprovação e gera somente proposta. | Nova separação de visões é decisão de produto. |
 | D7 | Priorizar o percurso criar → revisar → publicar → acompanhar, além da correção dos 47 itens. | O checklist visual não cobre orientação, confiança dos dados e recuperação de trabalho. |
 | D8 | Manter planejado, observado, simulado e sugerido identificados em todos os modos. | Evita decisões baseadas em números ou caminhos de natureza diferente. |
+| D9 | Responder 422 estruturado apenas para pendências bloqueantes de publicação; manter 409 para conflito de revisão. | Cada condição tem uma ação de recuperação distinta e o frontend já trata 409 para rascunhos concorrentes. |
+| D10 | Renderizar avisos do editor como toast React fixo, sem helper PHP. | O layout do Reports é React e `versionMessage` é estado local. |
 
 ## Outcomes & Retrospective
 
 - M0: diagnóstico estático em `RECON.md`; plano ajustado à infraestrutura e aos contratos atuais. Cenário Centralcomm e problemas puramente visuais ainda precisam de verificação no navegador durante os milestones correspondentes.
+- M1: mensagens de criação/publicação não ocupam espaço no documento; salvamento mostra estado e tempo relativo; conflito preserva o rascunho e expõe revisões; publicação bloqueada usa 422 com itens; confirmação informa site, revisão, contagens e avisos; fluxo vazio orienta o próximo passo. Teste de navegador com fluxo simulado confirmou posição idêntica de header/canvas antes/depois do toast, bloqueio, guia inicial e recuperação após falha 503. O fluxo Centralcomm real e suas faixas amarelas não foram verificados neste milestone.
+- M1 — comandos: `git diff --check`; `npm run build:reports` (passou com avisos descritos em S8); `node tests/frontend/reports-flow-m1-browser.test.cjs`; `node tests/frontend/reports-flow-feedback.test.cjs`; `node tests/frontend/reports-flow-studio.test.cjs`; `node tests/frontend/reports-flow-workspace.test.cjs`; `.venv/bin/python -m pytest -q tests/test_reports_flow_publish_m1.py tests/test_reports_flow_studio.py tests/test_reports_flow_schema_v2.py tests/test_reports_flow_versions.py` (23 passaram). Não há script lint no `package.json`.

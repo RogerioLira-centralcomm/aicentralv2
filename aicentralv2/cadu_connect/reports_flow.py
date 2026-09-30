@@ -1715,11 +1715,14 @@ def register(bp):
         lock_flow(flow_id, selected, expected_revision(payload))
         flow = _flow_row(flow_id, selected)
         config, has_measured_steps = _normalize_flow_config(flow.get('config') or {}, flow['allowed_host'])
-        if not has_measured_steps:
-            abort(409, description='Adicione ao menos uma página, formulário, evento, conversão ou clique de WhatsApp antes de publicar.')
         blocking = [issue for issue in validate_flow_config(config, flow['allowed_host']) if issue['severity'] == 'error']
+        if not has_measured_steps:
+            blocking.insert(0, {'severity': 'error', 'code': 'no_measured_steps',
+                                'message': 'Adicione ao menos uma página, formulário, evento, conversão ou clique de WhatsApp antes de publicar.'})
         if blocking:
-            abort(409, description=f"Corrija {len(blocking)} problema(s) antes de publicar. {blocking[0]['message']}")
+            return jsonify(error='pendencias_bloqueantes',
+                           description=f"Resolva {len(blocking)} pendência(s) bloqueante(s) antes de publicar.",
+                           items=blocking), 422
         _validate_flow_references(config, selected)
         changed = publish_draft(flow['id'], selected, expected_revision(payload), session['user_id'])
         get_db().commit()

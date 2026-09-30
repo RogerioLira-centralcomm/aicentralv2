@@ -45,3 +45,18 @@ class LiveContractTests(TestCase):
     def test_out_of_order_input_is_sorted(self):
         result=self.build([self.event(2,'b',10),self.event(1,'a',50)])
         self.assertEqual(result['transitions'],{'ab':'2'})
+
+    def test_page_visit_to_conversion_emits_transition(self):
+        self.nodes.append(dict(id='sale',type='conversion',path='/thanks'))
+        self.edges.append(dict(id='as',**{'from':'a','to':'sale'}))
+        result=self.build([self.event(1,'a',50),self.event(2,'thanks',20)])
+        self.assertEqual(result['transitions'],{'as':'2'})
+        self.assertEqual(set(result['edge_activity']),{'as'})
+
+    def test_page_visit_to_error_emits_transition(self):
+        self.nodes.append(dict(id='error',type='error',path='/error'))
+        self.edges.append(dict(id='ae',**{'from':'a','to':'error'}))
+        self.assertEqual(self.build([self.event(1,'a',50),self.event(2,'error',20)])['transitions'],{'ae':'2'})
+
+    def test_heartbeat_does_not_mark_unobserved_edges(self):
+        self.assertEqual(self.build([self.event(1,'a',10,'heartbeat')])['edge_activity'],{})

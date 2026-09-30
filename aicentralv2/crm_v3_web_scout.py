@@ -387,6 +387,7 @@ def _firecrawl_scrape(
     formats: Optional[list] = None,
     timeout_s: Optional[int] = None,
     only_main_content: bool = False,
+    max_age_ms: int = 3_600_000,
 ) -> Dict[str, Any]:
     """Chama Firecrawl /v2/scrape e devolve `data` bruto.
 
@@ -409,7 +410,7 @@ def _firecrawl_scrape(
         "formats": formats or ["branding", "links"],
         "onlyMainContent": bool(only_main_content),
         "timeout": max(5_000, (timeout_s - 5) * 1_000),
-        "maxAge": 3_600_000,
+        "maxAge": max_age_ms,
         "storeInCache": True,
     }
     endpoint = _firecrawl_url()

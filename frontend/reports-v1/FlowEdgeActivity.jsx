@@ -14,5 +14,5 @@ export function FlowEdgeActivity({path, operational, transitionId, ready, scope}
     const timer=setTimeout(()=>setPulse(false),1800);
     return()=>clearTimeout(timer);
   },[transitionId,ready,scope]);
-  return <>{operational&&<circle className="flow-operational-dot" r="3.5" fill="var(--color-fg-success-primary)"><title>Coleta operacional · não representa visitantes</title><animateMotion dur="4s" repeatCount="indefinite" path={path}/></circle>}{pulse&&<circle className="flow-transition-dot" r="5" fill="var(--color-fg-brand-primary)"><title>Nova passagem observada</title><animateMotion dur="1.8s" repeatCount="1" path={path}/></circle>}</>;
+  return <>{operational&&<circle className="flow-operational-dot" r="3.5" fill="var(--color-fg-success-primary)"><title>Passagem observada nos últimos 90 segundos · não representa visitantes</title><animateMotion dur="4s" repeatCount="indefinite" path={path}/></circle>}{pulse&&<circle className="flow-transition-dot" r="5" fill="var(--color-fg-brand-primary)"><title>Nova passagem observada</title><animateMotion dur="1.8s" repeatCount="1" path={path}/></circle>}</>;
 }

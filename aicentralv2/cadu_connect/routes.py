@@ -152,3 +152,6 @@ def campaign_project(campaign_id):
         return jsonify({"success": True, "message": "Projeto relacionado à campanha."})
     except (ValueError, TypeError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
+
+from .reports_flow_previews import register as register_flow_previews
+register_flow_previews(bp)

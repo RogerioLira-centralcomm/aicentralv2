@@ -1,3 +1,5 @@
+import {useFlowPreviews} from './useFlowPreviews.js';
+import {RefreshCw01} from '@untitledui/icons';
 import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {ReactFlow, Background, BackgroundVariant, BaseEdge, EdgeLabelRenderer, Handle, MarkerType, MiniMap, Controls, ControlButton, NodeToolbar, NodeResizer, useViewport, Position, ReactFlowProvider, getBezierPath} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -25,16 +27,17 @@ function NodeHandles() {
 }
 
 function ShapeNode({data,selected,shape}) {
-  const {node,readOnly,onLabelChange,metric,onDuplicate,onRemove}=data;
+  const {node,readOnly,onLabelChange,metric,onDuplicate,onRemove,preview,onRegenerate,canCapture}=data;
   const {zoom}=useViewport();
+  const [brokenImage,setBrokenImage]=useState(null);
   const block=flowBlockFor(node);
   const Icon=block.icon;
   return <div className={`flow-shape-node is-${shape} is-tone-${block.tone}${zoom<.65?' is-compact-zoom':''}${selected?' is-selected':''}`}>
     <NodeToolbar isVisible={selected&&!readOnly} position={Position.Top}><ReportsActionButton onClick={()=>onDuplicate(node.id)}>Duplicar</ReportsActionButton><ReportsActionButton onClick={()=>onRemove(node.id)}>Excluir</ReportsActionButton></NodeToolbar><NodeLabel node={node} selected={selected} readOnly={readOnly} onChange={onLabelChange}/>
-    <div className="flow-shape-body" aria-hidden="true">{shape==='page'?<div className={`flow-page-preview is-${block.preview||'generic'}`}><div className="flow-page-preview__bar"><i/><i/><i/></div><div className="flow-page-preview__image"/><div className="flow-page-preview__line"/><div className="flow-page-preview__line is-short"/></div>:node.type==='source'&&FLOW_PLATFORMS[block.source||node.source]?<FlowPlatformLogo platform={block.source||node.source}/>:<Icon size={22}/>}</div>
+    <div className="flow-shape-body" aria-hidden="true">{shape==='page'&&preview?.url&&brokenImage!==preview.url?<img className="flow-page-capture" src={preview.url} alt="" loading="lazy" onError={()=>setBrokenImage(preview.url)}/>:shape==='page'?<div className={`flow-page-preview is-${block.preview||'generic'}`}><div className="flow-page-preview__bar"><i/><i/><i/></div><div className="flow-page-preview__image"/><div className="flow-page-preview__line"/><div className="flow-page-preview__line is-short"/></div>:node.type==='source'&&FLOW_PLATFORMS[block.source||node.source]?<FlowPlatformLogo platform={block.source||node.source}/>:<Icon size={22}/>}</div>
     {node.path&&!node.path.startsWith('/configurar-')&&<small>{node.path}</small>}
     {block.trackable&&(!node.path||node.path.startsWith('/configurar-'))&&<span className="flow-shape-warning" title="Configure a URL real desta etapa">!</span>}
-    {metric&&<span className="flow-journey-count">{metric.sessions==null?(node.type==='source'?'Sem vínculo':'Não disponível'):`${Number(metric.sessions).toLocaleString('pt-BR')} sessões`}</span>}{metric?.presence!=null&&<small className="flow-presence">{metric.presence} sessões agora</small>}{shape==='page'&&<small className="flow-preview-caption">Prévia ilustrativa</small>}{shape==='visual'&&<small>Etapa visual · não medida</small>}
+    {metric&&<span className="flow-journey-count">{metric.sessions==null?(node.type==='source'?'Sem vínculo':'Não disponível'):`${Number(metric.sessions).toLocaleString('pt-BR')} sessões`}</span>}{metric?.presence!=null&&<small className="flow-presence">{metric.presence} sessões agora</small>}{shape==='page'&&<div className="flow-capture-footer"><small className="flow-preview-caption" title={preview?.message}>{preview?.unavailable?'Firecrawl indisponível':preview?.message?'Captura indisponível':preview?.url===brokenImage?'Imagem indisponível':preview?.status==='capturing'?'Capturando…':preview?.status==='failed'?'Falha na captura':preview?.url?'Captura real':'Sem captura'}</small>{canCapture&&<button className="nodrag nopan" type="button" disabled={preview?.status==='capturing'} aria-label={`Regenerar captura de ${node.title||node.path}`} title="Regenerar captura" onClick={event=>{event.stopPropagation();onRegenerate(node.id);}}><RefreshCw01 size={13}/></button>}</div>}{shape==='visual'&&<small>Etapa visual · não medida</small>}
     <NodeHandles/>
   </div>;
 }
@@ -59,7 +62,8 @@ function FlowEdge({id,sourceX,sourceY,targetX,targetY,sourcePosition,targetPosit
 
 const edgeTypes={flow:FlowEdge};
 
-function FlowCanvasInner({config,setConfig,selectedNodeId,setSelectedNodeId,onSelectedIdsChange=()=>{},onAddNode,onInsertEdge,onDuplicateSelection,readOnly,simulatedPath=[],journey=null,snapToGrid,onReady=()=>{},onZoomChange=()=>{},onSelectedEdge,onOrganize,live=null,liveScope='',operational=false,fitOnMount=false,onGestureStart=()=>{},onGestureEnd=()=>{}}) {
+function FlowCanvasInner({config,setConfig,selectedNodeId,setSelectedNodeId,onSelectedIdsChange=()=>{},onAddNode,onInsertEdge,onDuplicateSelection,readOnly,simulatedPath=[],journey=null,snapToGrid,onReady=()=>{},onZoomChange=()=>{},onSelectedEdge,onOrganize,live=null,liveScope='',operational=false,fitOnMount=false,onGestureStart=()=>{},onGestureEnd=()=>{},previewContext} ) {
+  const previews=useFlowPreviews(previewContext);
   const [instance,setInstance]=useState(null);
   const [measurements,setMeasurements]=useState({});
   const [selectedIds,setSelectedIds]=useState([]);
@@ -74,12 +78,12 @@ function FlowCanvasInner({config,setConfig,selectedNodeId,setSelectedNodeId,onSe
       const parent=groups.find(g=>g.id===node.groupId);
       return {id:node.id,measured:measurements[node.id],type:flowBlockFor(node).shape,parentId:parent?.id,extent:parent?'parent':undefined,
         className:simulatedPath.includes(node.id)?'is-simulated':'',position:{x:(Number(node.x)||0)-(parent?.bounds.x||0),y:(Number(node.y)||0)-(parent?.bounds.y||0)},
-        data:{node,readOnly,onLabelChange,onDuplicate:onDuplicateSelection,onRemove:id=>setConfig(current=>syncGroups({...current,nodes:current.nodes.filter(n=>n.id!==id),edges:current.edges.filter(e=>e.from!==id&&e.to!==id)})),metric:journey?.nodes?.find(item=>item.id===node.id)},draggable:!readOnly,selectable:true,selected:selectedIds.length?selectedIds.includes(node.id):node.id===selectedNodeId};
+        data:{node,preview:{...previews.items[node.id],message:previews.error||previews.items[node.id]?.message,unavailable:!previews.available},onRegenerate:previews.regenerate,canCapture:previewContext?.canCapture&&previews.available,readOnly,onLabelChange,onDuplicate:onDuplicateSelection,onRemove:id=>setConfig(current=>syncGroups({...current,nodes:current.nodes.filter(n=>n.id!==id),edges:current.edges.filter(e=>e.from!==id&&e.to!==id)})),metric:journey?.nodes?.find(item=>item.id===node.id)},draggable:!readOnly,selectable:true,selected:selectedIds.length?selectedIds.includes(node.id):node.id===selectedNodeId};
     });return [...parents,...items];
-  },[config,readOnly,onLabelChange,selectedNodeId,selectedIds,simulatedPath,journey,onDuplicateSelection,setConfig,measurements]);
+  },[config,readOnly,onLabelChange,selectedNodeId,selectedIds,simulatedPath,journey,onDuplicateSelection,setConfig,measurements,previews.items,previews.regenerate,previews.available,previews.error,previewContext?.canCapture]);
   const removeEdge=useCallback(id=>setConfig(current=>({...current,edges:current.edges.filter(edge=>edge.id!==id)})),[setConfig]);
   const edges=useMemo(()=>{
-    const authored=(config.edges||[]).map(edge=>{const planned=edge.variant==='planned'||edge.kind==='site_link';const simulated=simulatedPath.some((id,index)=>id===edge.from&&simulatedPath[index+1]===edge.to);const metric=journey?.edges?.find(item=>item.id===edge.id);const color=simulated?'var(--color-fg-success-primary)':planned?'var(--color-fg-quaternary)':'var(--color-fg-brand-primary)';return {id:edge.id,source:edge.from,target:edge.to,label:metric?`${metric.sessions==null?'Não disponível':Number(metric.sessions).toLocaleString('pt-BR')} · ${metric.rate==null?'Taxa indisponível':`${metric.rate}%`}`:edge.label==='Próximo'?undefined:edge.label,sourceHandle:edge.from_port||'right-out',targetHandle:edge.to_port||'left-in',type:'flow',animated:simulated,style:{strokeWidth:metric?Math.min(5,1.5+Math.log10(Number(metric.sessions||0)+1)):simulated?3:2,stroke:color,strokeDasharray:planned&&!simulated?'6 6':undefined},markerEnd:{type:MarkerType.ArrowClosed,color},data:{readOnly,onRemove:removeEdge,onInsert:onInsertEdge,hasMetric:Boolean(metric),onInspect:onSelectedEdge,liveReady:live?.status==='ready',liveScope,transitionId:live?.transitions?.[edge.id],operational:operational&&edge.variant!=='planned'&&edge.kind!=='site_link'}};});
+    const authored=(config.edges||[]).map(edge=>{const planned=edge.variant==='planned'||edge.kind==='site_link';const simulated=simulatedPath.some((id,index)=>id===edge.from&&simulatedPath[index+1]===edge.to);const metric=journey?.edges?.find(item=>item.id===edge.id);const color=simulated?'var(--color-fg-success-primary)':planned?'var(--color-fg-quaternary)':'var(--color-fg-brand-primary)';return {id:edge.id,source:edge.from,target:edge.to,label:metric?`${metric.sessions==null?'Não disponível':Number(metric.sessions).toLocaleString('pt-BR')} · ${metric.rate==null?'Taxa indisponível':`${metric.rate}%`}`:edge.label==='Próximo'?undefined:edge.label,sourceHandle:edge.from_port||'right-out',targetHandle:edge.to_port||'left-in',type:'flow',animated:simulated,style:{strokeWidth:metric?Math.min(5,1.5+Math.log10(Number(metric.sessions||0)+1)):simulated?3:2,stroke:color,strokeDasharray:planned&&!simulated?'6 6':undefined},markerEnd:{type:MarkerType.ArrowClosed,color},data:{readOnly,onRemove:removeEdge,onInsert:onInsertEdge,hasMetric:Boolean(metric),onInspect:onSelectedEdge,liveReady:live?.status==='ready',liveScope,transitionId:live?.transitions?.[edge.id],operational:operational&&Date.now()-Date.parse(live?.edge_activity?.[edge.id])<90000&&edge.variant!=='planned'&&edge.kind!=='site_link'}};});
     if(!journey?.suggestions?.length)return authored;
     const ids=new Set((config.nodes||[]).map(node=>node.id));
     const suggestions=journey.suggestions.filter(item=>ids.has(item.from)&&ids.has(item.to)).map(item=>({id:`suggested:${item.from}:${item.to}`,source:item.from,target:item.to,type:'flow',label:`Sugerido · ${Number(item.sessions).toLocaleString('pt-BR')}`,style:{strokeWidth:2,stroke:'var(--color-fg-quaternary)',strokeDasharray:'3 6'},markerEnd:{type:MarkerType.ArrowClosed,color:'var(--color-fg-quaternary)'},data:{readOnly:true}}));

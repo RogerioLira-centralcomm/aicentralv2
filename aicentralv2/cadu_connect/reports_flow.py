@@ -1703,7 +1703,7 @@ def register(bp):
                            active_window_seconds=90, next_cursor=since or None)
         if flow['status'] != 'published' or flow.get('revoked_at') or revision is None:
             return jsonify(**unavailable)
-        events = _rows("""SELECT id,session_id,page_host,page_path,event_kind,event_name,occurred_at
+        events = _rows("""SELECT id,visitor_id,session_id,page_host,page_path,event_kind,event_name,occurred_at
             FROM cadu_reports_flow_events WHERE organization_id=%s AND client_id=%s
               AND tag_id=%s AND flow_revision=%s
               AND occurred_at>NOW()-INTERVAL '15 minutes' AND occurred_at<=NOW()
@@ -1713,6 +1713,31 @@ def register(bp):
             return jsonify(**dict(unavailable,status='capacity_exceeded'))
         config=flow.get('active_config') or {}
         snapshot=build_live_snapshot(events,[{**node,'host':node.get('host') or flow['allowed_host']} for node in config.get('nodes',[])],config.get('edges',[]),now)
+        # Identity is explicit and scoped to the site, session, visitor and campaign.
+        identities = {}
+        identity_available = bool(_rows("SELECT to_regclass('cadu_reports_supertag_visitor_sessions') AS table_name")[0]['table_name'])
+        sessions = snapshot.get('sessions', [])
+        if identity_available and sessions:
+            links = _rows("""SELECT vs.session_id,vs.visitor_id,kv.id,kv.display_name,s.allowed_host
+                FROM cadu_reports_supertag_visitor_sessions vs
+                JOIN cadu_reports_supertag_sites s ON s.id=vs.site_id
+                JOIN cadu_reports_supertag_sessions ss ON ss.site_id=vs.site_id AND ss.session_id=vs.session_id
+                  AND ss.visitor_id=vs.visitor_id AND ss.campaign_scope=vs.campaign_scope AND ss.expires_at>NOW()
+                JOIN cadu_reports_supertag_known_visitors kv ON kv.id=vs.known_visitor_id
+                  AND kv.site_id=vs.site_id AND kv.campaign_scope=vs.campaign_scope AND kv.expires_at>NOW()
+                WHERE s.organization_id=%s AND s.client_id=%s AND s.enabled=TRUE AND s.revoked_at IS NULL
+                  AND vs.expires_at>NOW() AND vs.session_id=ANY(%s::uuid[])""",
+                (selected['organization_id'],selected['client_id'],[item['session_id'] for item in sessions]))
+            for link in links:
+                if _host_allowed(flow['allowed_host'],link['allowed_host']):
+                    identities.setdefault((str(link['session_id']),str(link['visitor_id'])),{})[str(link['id'])]=link
+        for item in sessions:
+            matches=identities.get((item['session_id'],item['visitor_id']),{})
+            known=next(iter(matches.values())) if len(matches)==1 else None
+            item['identity_status']='known' if known else 'anonymous' if identity_available and not matches else 'unavailable'
+            item['display_name']=known['display_name'] if known and selected['role']!='viewer' else None
+            del item['visitor_id']
+        snapshot['identity_available']=identity_available
         cursor=max([int(since or 0),*(int(value) for value in snapshot['transitions'].values())])
         if since:
             snapshot['transitions']={key:value for key,value in snapshot['transitions'].items() if int(value)>int(since)}

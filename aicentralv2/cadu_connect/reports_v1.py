@@ -35,6 +35,8 @@ def _column_exists(table, column):
 
 
 def _selection(payload=None):
+    if payload is not None and not isinstance(payload, dict):
+        abort(400, description='O corpo da requisição deve ser um objeto JSON.')
     supplied = (payload or {}).get('client_id') if payload is not None else request.args.get('client_id')
     return reports_access.resolve(supplied)
 

@@ -1,5 +1,6 @@
 """Independent public Cadu Super Tag configuration and event collection."""
 import json
+import codecs
 import hashlib
 import hmac
 import re
@@ -48,6 +49,16 @@ def _site_preview(html):
     title = re.sub(r'\s+', ' ', unescape(match.group(1))).strip()[:200] if match else ''
     icon = re.search(r'<link[^>]+rel=["\'](?:shortcut )?icon["\'][^>]+href=["\']([^"\']+)', html, re.I)
     return title, icon.group(1)[:1000] if icon else '/favicon.ico'
+
+
+def _html_charset(content_type):
+    match = re.search(r'charset\s*=\s*["\']?([A-Za-z0-9._-]+)', content_type or '', re.I)
+    if match:
+        try:
+            return codecs.lookup(match.group(1)).name
+        except LookupError:
+            pass
+    return 'utf-8'
 
 
 def _host(value):
@@ -380,7 +391,7 @@ def register(bp):
                     if size > SITE_CHECK_MAX_BYTES:
                         break
                     chunks.append(chunk)
-            html = b''.join(chunks).decode(response.encoding or 'utf-8', errors='replace')
+            html = b''.join(chunks).decode(_html_charset(content_type), errors='replace')
             title, icon = _site_preview(html)
             return jsonify(host=host, status=response.status_code, title=title,
                 favicon=urljoin(parsed.geturl(), icon),

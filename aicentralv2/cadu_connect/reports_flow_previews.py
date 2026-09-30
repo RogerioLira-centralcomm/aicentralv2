@@ -146,18 +146,18 @@ def register(bp):
         available = True
         if request.method=='POST':
             _write_guard(selected)
-            from ..services.integration_credentials import resolve_firecrawl_api_key
-            available = bool(resolve_firecrawl_api_key())
             payload = request.get_json(silent=True) or {}
             if not isinstance(payload,dict): abort(400)
             node_id = payload.get('node_id')
-            if node_id and node_id not in targets: abort(404)
+            if not isinstance(node_id,str) or not node_id: abort(400,description='Selecione o nó para capturar a página.')
+            if node_id not in targets: abort(404)
+            from ..services.integration_credentials import resolve_firecrawl_api_key
+            available = bool(resolve_firecrawl_api_key())
             if available and not flow.get('revoked_at'):
-                for id,url in targets.items():
-                    if node_id and id!=node_id: continue
-                    scheduled = _schedule(root,_key(selected,url),url,flow['allowed_host'],force=bool(node_id))
-                    if node_id and not scheduled:
-                        abort(429,description='Aguarde as capturas em andamento e tente regenerar novamente em 30 segundos.')
+                url = targets[node_id]
+                scheduled = _schedule(root,_key(selected,url),url,flow['allowed_host'],force=True)
+                if not scheduled:
+                    abort(429,description='Aguarde as capturas em andamento e tente novamente em 30 segundos.')
         items = {}
         for id,url in targets.items():
             key = _key(selected,url)

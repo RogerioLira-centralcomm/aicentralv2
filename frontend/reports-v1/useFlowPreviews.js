@@ -4,19 +4,19 @@ export function useFlowPreviews({flowId,clientId,csrf,canCapture=false,revision}
   const url=flowId&&clientId?`/connect/api/v2/reports/flow/flows/${flowId}/previews?client_id=${clientId}${revision?`&revision=${revision}`:''}`:null;
   const [state,setState]=useState({url:null,items:{},available:true,error:null});
   const [refresh,setRefresh]=useState(0);
-  const regenerate=useRef(null);
+  const requestedCapture=useRef(null);
   const capture=useCallback(id=>{
-    if(!url||!canCapture)return;
-    regenerate.current={url,nodeId:id};
+    if(!url||!canCapture||!id)return;
+    requestedCapture.current={url,nodeId:id};
     setRefresh(n=>n+1);
   },[url,canCapture]);
   useEffect(()=>{
     if(!url)return;
     let disposed=false,timer,pending=false;
     let controller;
-    // Consume exactly once, and only in the context where the user clicked.
-    const requested=regenerate.current?.url===url?regenerate.current.nodeId:null;
-    regenerate.current=null;
+    // A captura só é solicitada pelo clique; consultas e tentativas seguintes usam GET.
+    const requested=requestedCapture.current?.url===url?requestedCapture.current.nodeId:null;
+    requestedCapture.current=null;
     let nextRequest=requested;
     const poll=async()=>{
       if(pending||disposed||document.hidden)return;
@@ -27,11 +27,11 @@ export function useFlowPreviews({flowId,clientId,csrf,canCapture=false,revision}
       const nodeId=nextRequest;
       nextRequest=null;
       try {
-        const response=await fetch(url,{method:canCapture?'POST':'GET',credentials:'same-origin',signal:controller.signal,headers:canCapture?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{},...(canCapture?{body:JSON.stringify(nodeId?{node_id:nodeId}:{})}:{})});
+        const response=await fetch(url,{method:nodeId?'POST':'GET',credentials:'same-origin',signal:controller.signal,headers:nodeId?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{},...(nodeId?{body:JSON.stringify({node_id:nodeId})}:{})});
         const result=await response.json();
         if(!response.ok)throw new Error(result.message||'Captura indisponível');
         if(!disposed)setState({url,items:result.items||{},available:result.available!==false,error:null});
-        if(!disposed&&result.available!==false)timer=setTimeout(poll,Object.values(result.items||{}).some(item=>['missing','capturing'].includes(item.status))?5000:30000);
+        if(!disposed&&result.available!==false)timer=setTimeout(poll,Object.values(result.items||{}).some(item=>item.status==='capturing')?5000:30000);
       }catch(error){
         if(!disposed&&(!controller.signal.aborted||timedOut)){
           const message=timedOut?'A consulta de capturas demorou mais que o esperado. Tentando novamente…':error.message||'Não foi possível consultar as capturas.';

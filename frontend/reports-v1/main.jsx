@@ -1064,6 +1064,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     if (!selectedFlowId || !selectedFlow || readOnly || !editorDirty || editorSaveState==='error') return;
     const timer=window.setTimeout(()=>saveFlow(),900);
     return()=>window.clearTimeout(timer);
+  },[selectedFlowId,selectedFlow?.draft_revision,flowName,flowConfig,editorDirty,readOnly,editorSaveState]);
   useEffect(()=>{
     if(flowView!=='edit')return;
     const shortcut=event=>{
@@ -1082,7 +1083,6 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     window.addEventListener('keydown',shortcut);
     return()=>window.removeEventListener('keydown',shortcut);
   },[flowView,flowHistory.undo,flowHistory.redo,canvasZoom,readOnly,selectedNodeIds,selectedNodeId,flowConfig]);
-  },[selectedFlowId,selectedFlow?.draft_revision,flowName,flowConfig,editorDirty,readOnly,editorSaveState]);
   useEffect(()=>{const protect=event=>{if(editorDirty){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);},[editorDirty]);
   const scannedIntegrations = discovery.platform_integrations || [];
   const scannedPageCount = Number(discovery.integration_scan_pages || 0);

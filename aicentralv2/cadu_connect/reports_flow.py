@@ -1683,17 +1683,6 @@ def register(bp):
         node_totals = {str(row['node_id']): row for row in node_rows}
         authored_edges = [edge for edge in config.get('edges', [])
             if isinstance(edge, dict) and edge.get('from') and edge.get('to')]
-        edge_json = json.dumps([{'edge_id': str(edge.get('id') or ''),
-            'source_id': edge['from'], 'target_id': edge['to']} for edge in authored_edges])
-        edge_rows = _rows(hits_cte + """, authored AS (
-            SELECT * FROM jsonb_to_recordset(%s::jsonb)
-                AS edge(edge_id TEXT,source_id TEXT,target_id TEXT)
-        ) SELECT a.edge_id,COUNT(DISTINCT source.session_id)::bigint AS sessions
-        FROM authored a JOIN hits source ON source.node_id=a.source_id
-        JOIN hits target ON target.node_id=a.target_id
-            AND target.session_id=source.session_id AND target.first_at>source.first_at
-        GROUP BY a.edge_id""", (*scope, edge_json))
-        edge_totals = {row['edge_id']: row['sessions'] for row in edge_rows}
         transitions = _rows("""WITH ordered AS (
             SELECT s.node_id AS source_id,
                 LEAD(s.node_id) OVER (PARTITION BY e.session_id ORDER BY e.occurred_at,e.id) AS target_id,
@@ -1705,14 +1694,18 @@ def register(bp):
                 AND e.flow_revision=%s AND e.occurred_at >= NOW() - (%s * INTERVAL '1 day')
         ) SELECT source_id,target_id,COUNT(DISTINCT session_id)::bigint AS sessions
           FROM ordered WHERE target_id IS NOT NULL AND source_id<>target_id
-          GROUP BY source_id,target_id ORDER BY sessions DESC LIMIT 100""", scope)
+          GROUP BY source_id,target_id ORDER BY sessions DESC""", scope)
+        # An authored edge represents a direct passage. Counting any later hit
+        # at the target would attribute skipped pages to edges never traversed.
+        transition_totals = {(row['source_id'], row['target_id']): int(row['sessions'])
+                             for row in transitions}
         authored_pairs = {(edge['from'], edge['to']) for edge in authored_edges}
         nodes = [{'id': node['id'], 'sessions': int(node_totals.get(node['id'], {}).get('sessions') or 0),
                   'events': int(node_totals.get(node['id'], {}).get('events') or 0)}
                  for node in config.get('nodes', []) if isinstance(node, dict) and node.get('id')]
         edges = [{'id': edge['id'], 'from': edge['from'], 'to': edge['to'],
-                  'sessions': int(edge_totals.get(edge['id']) or 0),
-                  'rate': round(100 * int(edge_totals.get(edge['id']) or 0) /
+                  'sessions': transition_totals.get((edge['from'], edge['to']), 0),
+                  'rate': round(100 * transition_totals.get((edge['from'], edge['to']), 0) /
                                 max(1, int(node_totals.get(edge['from'], {}).get('sessions') or 0)), 1)}
                  for edge in authored_edges if edge.get('id')]
         suggestions = [{'from': row['source_id'], 'to': row['target_id'],

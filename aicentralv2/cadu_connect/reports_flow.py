@@ -16,6 +16,7 @@ from ..auth import login_required_api
 from ..db import get_db
 from .reports_v1 import _rows, _selection, _write_guard
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
+from .reports_flow_schema import legacy_projection, migrate_v1_to_v2
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -456,6 +457,10 @@ def _new_flow_code():
 def _normalize_flow_config(config, allowed_host):
     if not isinstance(config, dict):
         abort(400, description='A configuração do fluxo precisa ser um objeto.')
+    if config.get('schema_version', 1) not in (1, 2):
+        abort(400, description='Versão de fluxo não suportada.')
+    if config.get('schema_version') == 2:
+        config = legacy_projection(config)
     nodes, edges = config.get('nodes', []), config.get('edges', [])
     known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error'}
     measured_types = {'page','form','event','conversion','whatsapp','error'}
@@ -499,6 +504,13 @@ def _normalize_flow_config(config, allowed_host):
             position[axis] = round(numeric)
         item = {'id': node_id, 'type': node_type, 'title': title,
                 'x': position['x'], 'y': position['y']}
+        if config.get('schema_version') == 2:
+            if not isinstance(node.get('kind'), str) or len(node['kind']) > 80:
+                abort(400, description='Tipo visual de bloco inválido.')
+            if 'data' in node and not isinstance(node['data'], dict):
+                abort(400, description='Dados de bloco inválidos.')
+            item['kind'] = node['kind']
+            item['data'] = node.get('data') or {}
         if isinstance(path, str) and path:
             item['path'] = path
         if host:
@@ -562,6 +574,10 @@ def _normalize_flow_config(config, allowed_host):
         edge_ids.add(edge_id)
         normalized_edge = {'id':edge_id, 'from':source,'to':target,
                            'label':' '.join(str(edge.get('label') or 'Próximo').split())[:80]}
+        if config.get('schema_version') == 2:
+            if edge.get('variant', 'direct') not in ('direct', 'planned'):
+                abort(400, description='Tipo visual de conexão inválido.')
+            normalized_edge['variant'] = edge.get('variant', 'direct')
         for field in ('from_port','to_port','kind','condition_ref'):
             if field in edge:
                 if not isinstance(edge[field], str) or len(edge[field]) > 120:
@@ -577,6 +593,8 @@ def _normalize_flow_config(config, allowed_host):
             abort(400,description='Dois blocos observam o mesmo evento na mesma página. Use um bloco com várias conexões ou eventos com nomes diferentes.')
         identities.add(identity)
     result = {**config, 'nodes':normalized, 'edges':normalized_edges}
+    if config.get('schema_version') == 2:
+        result = migrate_v1_to_v2(result)
     try:
         encoded = json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8')
     except (ValueError, TypeError, RecursionError):
@@ -928,6 +946,7 @@ def register(bp):
                         AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
             FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.organization_id=%s AND f.client_id=%s ORDER BY f.created_at DESC''', params)
+        flows = [{**item, 'config': migrate_v1_to_v2(item['config'])} for item in flows]
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,
             COUNT(*) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS views,
             COUNT(*) FILTER (WHERE e.event_kind='form_submit') AS form_submissions,

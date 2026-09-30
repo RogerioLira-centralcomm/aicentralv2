@@ -48,7 +48,12 @@
 .flow-edge-actions button:hover,.flow-edge-actions button:focus-visible{background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary);outline:0}
 .flow-react-canvas .react-flow__attribution{font-size:9px;opacity:.55}
 .flow-minimap-toggle{position:absolute;bottom:18px;left:18px;z-index:8;padding:6px 9px;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font-size:11px;cursor:pointer}
-.flow-react-canvas .react-flow__minimap{bottom:52px;left:18px;width:170px;height:110px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.flow-react-canvas .react-flow__minimap{bottom:52px;right:18px;left:auto;width:170px;height:110px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.has-inspector .flow-react-canvas .react-flow__minimap{right:390px}
+@media(max-width:900px){.has-inspector .flow-react-canvas .react-flow__minimap{display:none}}
+.flow-hidden-connections{border:0;background:transparent;color:var(--color-text-brand-secondary);font-size:11px;text-decoration:underline;cursor:pointer}
+.flow-react-canvas :is(button,input,summary,[tabindex]):focus-visible,.reports-flow-validation :is(button,summary):focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.flow-shape-node .react-flow__handle,.flow-edge-actions{transition:none!important}.flow-react-canvas *{scroll-behavior:auto!important}}
 .flow-quick-add{position:fixed;z-index:100;display:grid;min-width:148px;padding:7px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
 .flow-quick-add strong{padding:6px;color:var(--color-text-secondary);font-size:11px}
 .flow-quick-add button{padding:7px;border:0;border-radius:5px;background:transparent;color:var(--color-text-primary);text-align:left;cursor:pointer}

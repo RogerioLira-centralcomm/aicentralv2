@@ -67,7 +67,7 @@ O Reports já possui `typesafe_service.system_one`, credencial no servidor, `rep
 - [x] M3 — Etapas consistentes e layout do canvas (2026-09-30) — Etapa determina X, Tipo de página separado, traduções reversíveis e edição sem arrasto — commit neste histórico
 - [x] M4 — Conexões planejadas e tráfego observado (2026-09-30) — conexões completas, retorno distinto e escopo de coleta — commit neste histórico
 - [x] M5 — Pendências acionáveis com paridade servidor/cliente (2026-09-30) — ações, consequências e fixture compartilhado — commit neste histórico
-- [ ] M6 — Painéis, controles e legibilidade
+- [x] M6 — Painéis, controles e legibilidade (2026-09-30) — painéis exclusivos, foco e legibilidade em 1280×800 — commit neste histórico
 - [ ] M7 — Vocabulário e QA dos 47 problemas
 - [ ] M8 — Proposta de novas visões, somente com aprovação explícita
 
@@ -189,6 +189,7 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 - S16 (M4): o endpoint `/journey` já conta sessões distintas para grupos, inclusive páginas em idiomas diferentes, e separa o fluxo de eventos da Super Tag independente. O banco local não contém uma amostra de eventos do cenário Centralcomm; a comparação com dados reais fica no QA de M7.
 - S17 (M4): `sessions` e `rate` legados retornavam zero/null em períodos sem qualquer evento. Campos aditivos `observation` por conexão e `collection` no resultado distinguem falta de coleta, ausência de sessões na origem, conexão não medida e zero observado sem mudar os campos antigos.
 - S18 (M5): `python3` do sistema é 3.9 e falha na coleta de testes por anotações `str | None` já existentes; `.venv/bin/python3` é 3.13 e executa a suíte. O teste de navegador M1 precisava acompanhar o novo nome acessível do painel de Pendências.
+- S19 (M6): o editor v2 usa painéis sobrepostos ao canvas, mesmo em desktop; o CSS de grade antigo não determina a largura útil. A seleção passou a fechar o explorador e enquadrar o nó antes da inspeção. A captura de 1280×800 prova a área útil, mas o cenário denso de 200 nós e a leitura sem permissão seguem no QA M7.
 
 ## Decision Log
 
@@ -216,6 +217,7 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 | D20 | Renderizar todas as conexões estruturais no Funil e mostrar Retornos por opção explícita. | O corte de 20 escondia caminhos desenhados; retorno precisa de direção e traço próprios. |
 | D21 | Acrescentar `observation` e `collection` à resposta `/journey`, preservando `sessions` e `rate`. | Mantém consumidores antigos e permite distinguir ausência de dados de zero medido na UI. |
 | D22 | Manter os códigos e severidades de publicação; acrescentar `action`, `consequence` e ID da Conexão quando houver Retorno. | Contrato aditivo, com bloqueios idênticos no cliente e servidor; avisos da Super Tag continuam informativos. |
+| D23 | Manter a atribuição React Flow visível. | Não foi confirmada condição de licença para ocultá-la; a marca discreta não cobre ações. |
 
 ## Outcomes & Retrospective
 
@@ -231,3 +233,5 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 - M4 — comandos: `git diff --check`; `npm run build:reports` (passou com avisos do bundler); `node tests/frontend/reports-flow-metrics-m4.test.cjs`; `node tests/frontend/reports-flow-studio.test.cjs`; `node tests/frontend/reports-flow-workspace.test.cjs`; `.venv/bin/python -m pytest -q tests/test_reports_flow_metrics_m4.py tests/test_reports_flow_stage_m3.py tests/test_reports_flow_studio.py tests/test_reports_flow_versions.py` (23 testes Python passaram). Não há script lint no `package.json`.
 - M5: painel separa bloqueios e avisos, descreve consequência e oferece ação para cada item; a ação localiza nós e Conexões, abre a revisão do objetivo, verifica Super Tag ou adiciona Conversão. A confirmação lista avisos remanescentes; QR Code usa ícone próprio. Cinco cenários compartilhados validam bloqueios e avisos nos dois lados, inclusive Conversão válida e Canal isolado. A chamada direta de publicação com pendência permanece protegida pelo servidor.
 - M5 — comandos: `git diff --check`; `npm run build:reports` (passou com avisos do bundler); `node tests/frontend/reports-flow-validation-parity.test.cjs`; `node tests/frontend/reports-flow-m1-browser.test.cjs` (painel e ação); `node tests/frontend/reports-flow-studio.test.cjs`; `node tests/frontend/reports-flow-workspace.test.cjs`; `.venv/bin/python3 -m pytest -q tests/test_reports_flow_validation_parity.py tests/test_reports_flow_publish_m1.py tests/test_reports_flow_studio.py tests/test_reports_flow_schema_v2.py tests/test_reports_flow_versions.py` (24 passaram). Não há script lint no `package.json`.
+- M6: o explorador e o inspector não ficam abertos juntos; a seleção enquadra o nó sem cobri-lo em 1280×800. A contagem de Conexões fora do Funil abre a navegação completa. Ações do nó usam os termos do glossário; controles têm rótulos acessíveis, foco visível e redução de movimento. O minimapa foi deslocado para não disputar o rodapé do rail ou o inspector. A captura [m6-studio-1280.png](screens/m6-studio-1280.png) registra o estado selecionado. A atribuição permanece por D23.
+- M6 — comandos: `git diff --check`; `npm run build:reports` (passou com avisos do bundler); `node tests/frontend/reports-flow-workspace.test.cjs` (1280×800 sem scroll/nó coberto, navegação e monitor); `node tests/frontend/reports-flow-studio.test.cjs`; `.venv/bin/python3 -m pytest -q tests/test_reports_flow_studio.py tests/test_reports_flow_workspace_v2.py` (13 passaram). Não há script lint no `package.json`.

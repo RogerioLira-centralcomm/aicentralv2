@@ -296,3 +296,62 @@
 .reports-flow-return{display:inline-flex;margin-bottom:14px;color:var(--color-text-brand-secondary);font-size:13px;text-decoration:none}
 @media(max-width:1279px){.reports-shell--flow-editor .reports-flow-editor-topbar{gap:8px;padding:0 12px!important}.reports-flow-editor-identity{gap:6px}.reports-flow-editor-identity>input{width:190px}.reports-flow-editor-identity>small{display:none}.reports-flow-editor-modes>*{padding:0 7px}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette{width:248px}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{width:280px}}
 @media(max-width:900px){.reports-flow-editor-modes{display:none}.reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions>button:first-child{display:none}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette{width:min(280px,calc(100vw - 32px))}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{width:min(320px,calc(100vw - 32px))}}
+/* Flow Studio: controls occupy their own column; panels never cover the rail. */
+.reports-shell--flow-editor .reports-flow-builder{min-height:0}
+.reports-shell--flow-editor .reports-editor-controls{inset:56px auto 0 0;width:48px;background:var(--color-bg-primary);border-right:1px solid var(--color-border-secondary);z-index:25}
+.reports-shell--flow-editor .reports-flow-palette-switch{position:static;display:flex;flex-direction:column;border:0;box-shadow:none;padding:8px 4px;gap:8px}
+.reports-shell--flow-editor .reports-flow-palette-switch>button{width:40px;height:36px;overflow:hidden;font-size:11px;padding:2px;border:0!important}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-flow-canvas{left:48px;width:calc(100% - 48px);background-image:none!important}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette{left:64px;top:52px;bottom:74px}
+.reports-shell--flow-editor .reports-zoom-controls{display:none}
+.reports-shell--flow-editor .reports-editor-tools{bottom:16px;left:4px;right:auto}
+.reports-flow-extra-actions{z-index:80}
+.reports-flow-save-state{position:relative;cursor:pointer}
+.reports-flow-save-state>div{position:absolute;top:28px;left:0;width:300px;max-width:80vw;white-space:normal;padding:16px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg);z-index:90}
+.reports-flow-save-state small{display:block;margin-top:8px}
+.reports-shell--flow-editor .reports-flow-editor-identity>input{width:clamp(130px,24vw,320px);border-color:transparent;box-shadow:none}
+.flow-catalog-search{display:flex;align-items:center;gap:8px;border:1px solid var(--color-border-primary);border-radius:8px;padding:8px}
+.flow-catalog-search input{min-width:0;width:100%;padding:0!important;border:0!important;box-shadow:none!important;background:transparent}
+.flow-catalog-filters{display:flex;gap:4px;flex-wrap:wrap;margin:12px 0}
+.flow-catalog-filters button{padding:4px 6px;border:0;border-radius:6px;font-size:11px;background:transparent}
+.flow-catalog-filters [aria-pressed=true]{background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary)}
+.flow-catalog details{margin-top:12px}.flow-catalog summary{font-size:12px;font-weight:600;cursor:pointer}
+.flow-catalog-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:4px 0}
+.flow-catalog-row>span{flex:1;min-width:0}.flow-catalog-row strong,.flow-catalog-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.flow-catalog-row small{font-size:11px;color:var(--color-text-tertiary)}
+.flow-catalog-row>button{opacity:0}.flow-catalog-row:hover>button,.flow-catalog-row:focus-within>button{opacity:1}
+@media(hover:none){.flow-catalog-row>button{opacity:1}}
+.flow-inspector-toggle{display:flex;align-items:center;gap:10px;font-size:12px;cursor:pointer;padding:8px 0}.flow-toggle-track{width:32px;height:18px;border-radius:12px;background:var(--color-bg-quaternary);padding:2px}.flow-toggle-track:after{content:'';display:block;width:14px;height:14px;border-radius:50%;background:white}.flow-inspector-toggle[data-selected] .flow-toggle-track{background:var(--color-bg-brand-solid)}.flow-inspector-toggle[data-selected] .flow-toggle-track:after{transform:translateX(14px)}.flow-inspector-toggle[data-focus-visible]{outline:2px solid var(--color-border-brand)}
+.flow-inspector ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0}.flow-inspector li{padding:3px 6px;border-radius:6px;background:var(--color-bg-secondary);font-size:11px}
+.flow-blueprint-panel{position:absolute;z-index:45;right:16px;top:16px;bottom:16px;width:min(360px,calc(100% - 80px));overflow:auto;padding:18px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.flow-blueprint-panel header{display:flex;align-items:center;justify-content:space-between}.flow-blueprint-panel p,.flow-blueprint-panel label{font-size:12px;margin:12px 0}.flow-blueprint-choice{display:flex;gap:8px}.flow-blueprint-choice small{display:block;color:var(--color-text-tertiary);font-size:11px}.flow-ghost-node{opacity:.4;pointer-events:none}.flow-ghost-node .flow-shape-body{border-style:dashed!important}
+.flow-assist-actions{position:absolute;left:64px;bottom:18px;z-index:20;display:flex;gap:6px;background:var(--color-bg-primary);border-radius:8px}
+.flow-assist-panel{position:absolute;left:64px;top:54px;bottom:72px;width:300px;overflow:auto;z-index:30;padding:16px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.flow-assist-panel section{padding:12px 0;border-bottom:1px solid var(--color-border-secondary)}.flow-assist-panel p{font-size:12px}.flow-assist-panel small{font-size:11px;color:var(--color-text-tertiary)}
+.flow-command-dialog{position:fixed;z-index:100;left:50%;top:15vh;transform:translateX(-50%);width:min(520px,90vw);max-height:70vh;overflow:auto;display:grid;padding:16px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}.flow-command-dialog header{display:flex;gap:12px}.flow-command-dialog input{min-width:0;flex:1;padding:10px;border:1px solid var(--color-border-primary);border-radius:8px}.flow-command-dialog>button{justify-content:start}
+/* Studio owns two grid columns; tools never compete with the canvas viewport. */
+.reports-shell--flow-editor .reports-flow-builder{display:grid!important;grid-template-columns:48px minmax(0,1fr);grid-template-rows:64px minmax(0,1fr);position:relative;gap:0;padding:0!important}
+.reports-shell--flow-editor .reports-flow-editor-topbar{grid-column:1/-1;grid-row:1;height:64px!important;min-height:64px!important;margin:0!important}
+.reports-shell--flow-editor .reports-editor-controls{position:relative;inset:auto;grid-column:1;grid-row:2;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:flex-start;width:48px;padding:8px 4px;gap:8px;pointer-events:auto}
+.reports-shell--flow-editor .reports-editor-controls>button{width:36px;height:36px;padding:8px;overflow:hidden;border:0;box-shadow:none}
+.reports-shell--flow-editor .reports-flow-designer--compact{grid-column:2;grid-row:2;min-width:0;min-height:0}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-flow-canvas{left:0;right:0;width:100%;overflow:hidden;scrollbar-gutter:auto}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette{left:16px}
+.reports-shell--flow-editor .reports-flow-palette-switch{padding:0;gap:8px}
+.reports-shell--flow-editor .reports-editor-tools{position:relative;inset:auto;margin-top:auto}
+.reports-shell--flow-editor .reports-editor-tools>summary{font-size:0;border:0;padding:8px;width:36px;height:36px}
+.reports-shell--flow-editor .reports-editor-tools>summary:after{content:'⋯';font-size:20px}
+.reports-shell--flow-editor .reports-editor-tools>div{left:44px;right:auto;bottom:0;min-width:180px}
+.reports-shell--flow-editor .reports-flow-designer button:not(.react-flow__controls-button){border-width:1px;border-style:solid;border-color:var(--color-border-secondary);box-shadow:none}
+.reports-shell--flow-editor .reports-node-palette>button{float:right;width:28px;height:28px;min-height:28px!important;padding:4px!important;border:0!important}
+.flow-assist-actions{left:16px;bottom:16px}.flow-assist-panel{left:16px}
+.reports-shell--flow-editor .is-workspace-v2 .reports-flow-designer--compact>.reports-flow-canvas{width:auto!important;right:var(--right,0px);left:var(--left,0px)}
+.reports-shell--flow-editor .reports-flow-designer .reports-ui-button{appearance:none;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:12px;line-height:18px;padding:5px 9px;min-height:28px}
+.reports-shell--flow-editor .reports-flow-designer .reports-ui-button:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+.flow-command-dialog{margin:0}.flow-command-dialog::backdrop{background:rgb(16 24 40 / .25)}
+.reports-shell--flow-editor .flow-catalog-filters button{border:0!important;min-height:26px!important;padding:4px 6px!important}
+.reports-shell--flow-editor .reports-editor-tools>summary:after{content:'\22EF'}
+.flow-blueprint-notice{position:absolute;z-index:40;top:16px;right:16px;padding:8px;border-radius:8px;background:var(--color-bg-success-secondary)}
+.reports-shell--flow-editor .flow-catalog-row>input[type=checkbox]{width:14px;height:14px;min-height:0;padding:0;flex:none}
+.reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions{flex:0 0 auto}
+.reports-shell--flow-editor .reports-flow-editor-topbar{flex-wrap:nowrap;padding-block:0!important}
+.reports-shell--flow-editor .reports-flow-editor-identity{flex:1 1 auto}

@@ -41,8 +41,8 @@ def legacy_projection(config):
         item = dict(edge)
         item.setdefault('from', item.get('source'))
         item.setdefault('to', item.get('target'))
-        item.setdefault('from_port', item.get('source_handle'))
-        item.setdefault('to_port', item.get('target_handle'))
+        if item.get('from_port') is None:item['from_port']=item.get('source_handle') or 'right-out'
+        if item.get('to_port') is None:item['to_port']=item.get('target_handle') or 'left-in'
         edges.append(item)
     projected.update(nodes=nodes, edges=edges)
     return projected

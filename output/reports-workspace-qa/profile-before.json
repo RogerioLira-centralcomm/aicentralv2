@@ -1,0 +1,7 @@
+{
+  "nodes": 200,
+  "medianFrameMs": 40.69999998807907,
+  "p95FrameMs": 59,
+  "averageFps": 23.481068388611682,
+  "panelMutations": 0
+}

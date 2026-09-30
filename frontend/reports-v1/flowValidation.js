@@ -18,6 +18,10 @@ export function flowValidation(config,allowedHost='') {
   }
   const byId=new Map(nodes.map(node=>[node.id,node]));
   const next=new Map(nodes.map(node=>[node.id,edges.filter(edge=>edge.from===node.id).map(edge=>edge.to)]));
+  const reachable=new Set(nodes.filter(n=>n.type==='conversion').map(n=>n.id));
+  let changed=true;while(changed){const size=reachable.size;edges.forEach(e=>{if(reachable.has(e.to))reachable.add(e.from);});changed=size!==reachable.size;}
+  nodes.filter(n=>(n.stage==='intent'||['form','whatsapp'].includes(n.type))&&!reachable.has(n.id)).forEach(n=>issues.push({severity:'error',code:'intent_without_goal',nodeId:n.id,message:`Conecte ${n.title||'a etapa de intenção'} a uma conversão.`}));
+  if(nodes.some(n=>n.origin==='blueprint')&&config.blueprintGoalConfirmed!==true)issues.push({severity:'error',code:'unconfirmed_goal',message:'Confirme o objetivo da montagem antes de publicar.'});
   const stack=[],visited=new Set();let unsafeCycle=false;
   const walk=id=>{if(stack.includes(id)){unsafeCycle ||= !stack.slice(stack.indexOf(id)).some(item=>byId.get(item)?.type==='condition');return;}if(visited.has(id))return;stack.push(id);(next.get(id)||[]).forEach(walk);stack.pop();visited.add(id);};
   nodes.forEach(node=>walk(node.id));

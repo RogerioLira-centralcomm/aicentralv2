@@ -165,6 +165,7 @@ def register(bp):
             params = {'client_id':selected['client_id'],'v':state.get('captured_at',0)}
             if request.args.get('revision'): params['revision']=request.args['revision']
             items[id] = {**state,'url':f'/connect/api/v2/reports/flow/flows/{flow_id}/previews/{id}/image?{urlencode(params)}' if (root / f'{key}.webp').exists() else None}
+            items[id]['canvas_url']=(items[id]['url']+'&size=240') if items[id]['url'] else None
         return jsonify(items=items,available=available)
 
     @bp.get('/api/v2/reports/flow/flows/<flow_id>/previews/<node_id>/image')
@@ -174,6 +175,11 @@ def register(bp):
         if node_id not in targets: abort(404)
         path = _root() / f'{_key(selected,targets[node_id])}.webp'
         if not path.exists(): abort(404)
-        response = send_file(path,mimetype='image/webp',conditional=True,max_age=0)
+        if request.args.get('size')=='240':
+            with Image.open(path) as image:
+                image.thumbnail((240,150));buffer=io.BytesIO();image.convert('RGB').save(buffer,format='WEBP',quality=78);buffer.seek(0)
+            response=send_file(buffer,mimetype='image/webp',max_age=0)
+        else:
+            response = send_file(path,mimetype='image/webp',conditional=True,max_age=0)
         response.headers['Cache-Control']='private, no-cache'
         return response

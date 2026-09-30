@@ -8009,6 +8009,22 @@ def merge_project(project_id):
                                      AND source.project_ref=%s AND target.project_ref=%s
                                      AND source.resource_id=target.resource_id''',
                                (client_id, client_id, source_ref, target_ref))
+            if table_exists('cadu_reports_workspace_links'):
+                cursor.execute('''DELETE FROM cadu_reports_workspace_links source
+                                   USING cadu_reports_workspace_links target
+                                   WHERE source.client_id=%s AND target.client_id=%s
+                                     AND source.project_ref=%s AND target.project_ref=%s
+                                     AND (source.site_id=target.site_id
+                                          OR source.flow_id=target.flow_id
+                                          OR source.campaign_id=target.campaign_id)''',
+                               (client_id, client_id, source_ref, target_ref))
+                cursor.execute('''UPDATE cadu_reports_workspace_links SET project_ref=%s
+                                   WHERE client_id=%s AND project_ref=%s''',
+                               (target_ref, client_id, source_ref))
+            if table_exists('cadu_reports_workspace_operations'):
+                cursor.execute('''UPDATE cadu_reports_workspace_operations SET project_ref=%s
+                                   WHERE client_id=%s AND project_ref=%s''',
+                               (target_ref, client_id, source_ref))
             for table in ('cadu_workspace_artifacts', 'studio_creative_analyses',
                           'cadu_project_resources', 'cadu_workspace_notifications',
                           'cadu_planner_plans', 'cadu_family_conversation_context',

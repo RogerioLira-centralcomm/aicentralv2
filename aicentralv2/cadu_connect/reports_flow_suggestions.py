@@ -14,7 +14,7 @@ def evidence_hash(page):
     return hashlib.sha256(json.dumps(evidence,sort_keys=True,default=str).encode()).hexdigest()
 
 
-def suggest(flow, page, selected):
+def suggest(flow, page, selected, actor_id=None):
     digest = evidence_hash(page)
     scope = (selected['client_id'],)
     # This transaction lock protects both the cache lookup and daily reservation.
@@ -43,7 +43,7 @@ def suggest(flow, page, selected):
     _rows("""INSERT INTO cadu_reports_flow_suggestions
         (id,flow_id,client_id,page_id,base_revision,evidence_hash,created_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-        (suggestion_id,flow['id'],*scope,page['id'],flow['draft_revision'],digest,session['user_id']))
+        (suggestion_id,flow['id'],*scope,page['id'],flow['draft_revision'],digest,actor_id if actor_id is not None else session['user_id']))
     get_db().commit()  # Never hold a DB lock during the network request.
     try:
         result = suggest_flow_page_role(page)

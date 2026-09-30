@@ -163,3 +163,9 @@ def campaign_project(campaign_id):
 
 from .reports_flow_previews import register as register_flow_previews
 register_flow_previews(bp)
+
+from .reports_flow_blueprint import register as register_flow_blueprint
+register_flow_blueprint(bp)
+
+from .reports_flow_catalog import register as register_flow_catalog
+register_flow_catalog(bp)

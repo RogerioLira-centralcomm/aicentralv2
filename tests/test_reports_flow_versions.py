@@ -29,7 +29,7 @@ class FlowVersionTests(TestCase):
         self.assertNotIn('SET config=', sql)
         self.assertNotIn("status <> 'published'", sql)
         self.assertIn('AND draft_revision=%s', sql)
-        self.assertEqual(params[-3:], (10, 20, 3))
+        self.assertEqual(params[-3:], ('flow', 20, 3))
         self.assertEqual(result['draft_revision'], 4)
 
     @patch.object(versions, '_rows', return_value=[])
@@ -47,10 +47,10 @@ class FlowVersionTests(TestCase):
         self.assertEqual(versions.publish_draft('flow', self.scope, 4, 7)['published_revision'], 4)
         lock_sql, lock_params = rows.call_args_list[0].args
         self.assertIn('FOR UPDATE', lock_sql)
-        self.assertEqual(lock_params, ('flow', 10, 20))
+        self.assertEqual(lock_params, ('flow', 20))
         snapshot_sql, snapshot_params = rows.call_args_list[2].args
         self.assertIn('ON CONFLICT(flow_id,revision) DO NOTHING', snapshot_sql)
-        self.assertEqual(snapshot_params[:4], ('flow', 10, 20, 4))
+        self.assertEqual(snapshot_params[:3], ('flow', 20, 4))
         self.assertIn('SET config=draft_config', rows.call_args_list[3].args[0])
 
     @patch.object(versions, '_rows')

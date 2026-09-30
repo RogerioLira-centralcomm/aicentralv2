@@ -23,7 +23,7 @@ from .reports_flow_validation import validate_flow_config
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
-MAX_DISCOVERY_SITEMAP_URLS = 50000
+MAX_DISCOVERY_SITEMAP_URLS = 500
 
 
 def _host(value):
@@ -52,6 +52,8 @@ def _host_allowed(candidate, allowed_host):
 class _SitePageParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
+        self.structure=[]
+        self.canonical=None
         self.links, self.script_sources, self.resource_sources, self.forms, self.form_fields = [], [], [], 0, []
         self.title_parts, self.h1_parts = [], []
         self.inline_scripts, self.inline_script_size = [], 0
@@ -59,6 +61,8 @@ class _SitePageParser(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag in ('h1','h2','h3','main','article','section','form') and len(self.structure)<100:self.structure.append(tag)
+        if tag=='link' and attrs.get('rel')=='canonical':self.canonical=attrs.get('href')
         if tag == 'a' and attrs.get('href'):
             self.links.append(attrs['href'])
         if tag == 'script' and attrs.get('src') and len(self.script_sources) < 300:
@@ -138,7 +142,9 @@ def _fetch_site_page(url, allowed_host):
                 'h1': ' '.join(parser.h1_parts)[:300], 'links': parser.links[:500],
                 'script_sources': parser.script_sources, 'resource_sources': parser.resource_sources,
                 'inline_scripts': '\n'.join(parser.inline_scripts),
-                'forms': parser.forms, 'form_fields': parser.form_fields}
+                'forms': parser.forms, 'form_fields': parser.form_fields,
+                'structure_signature': '|'.join(parser.structure),
+                'canonical': _canonical_page_url(parser.canonical,current,allowed_host) if parser.canonical else None}
     return None
 
 
@@ -268,7 +274,8 @@ def _classify_discovered_page(page, root_host):
     return {'role': role, 'confidence': confidence, 'evidence': evidence}
 
 
-def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
+def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None, max_pages=None, checkpoint=None, extra_urls=None):
+    page_limit=min(500, max_pages or MAX_DISCOVERY_PAGES)
     canonical_root = _canonical_page_url(root_url, root_url, allowed_host)
     if not canonical_root:
         abort(400, description='Use uma URL pública do domínio autorizado ou de um subdomínio dele.')
@@ -276,20 +283,22 @@ def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
     if seed_urls is None:
         sitemap_urls, sitemap_truncated = _site_sitemap_urls(canonical_root, allowed_host)
         seed_urls = [canonical_root, *sitemap_urls]
+    seed_urls=[*seed_urls,*(extra_urls or [])]
     excluded_pages = set(excluded_pages or ())
     found, queued = {}, []
     for candidate in dict.fromkeys(seed_urls):
         parsed_candidate = urlparse(candidate)
         key = ((parsed_candidate.hostname or '').lower().rstrip('.'), parsed_candidate.path or '/')
-        if key not in excluded_pages:
+        if key not in excluded_pages and len([part for part in parsed_candidate.path.split('/') if part])<=4:
             queued.append(candidate)
     attempted = 0
     visited_urls = set()
-    while queued and len(found) < MAX_DISCOVERY_PAGES and attempted < MAX_DISCOVERY_PAGES:
+    while queued and len(found) < page_limit and attempted < page_limit:
+        if checkpoint and not checkpoint():break
         batch = []
         while (queued and len(batch) < 10
-               and attempted + len(batch) < MAX_DISCOVERY_PAGES
-               and len(found) + len(batch) < MAX_DISCOVERY_PAGES):
+               and attempted + len(batch) < page_limit
+               and len(found) + len(batch) < page_limit):
             candidate = queued.pop(0)
             if candidate not in visited_urls and candidate not in batch:
                 batch.append(candidate)
@@ -314,7 +323,7 @@ def _discover_site(root_url, allowed_host, seed_urls=None, excluded_pages=None):
                 candidate = _canonical_page_url(link, page['url'], allowed_host)
                 candidate_parsed = urlparse(candidate) if candidate else None
                 candidate_key = ((candidate_parsed.hostname or '').lower().rstrip('.'), candidate_parsed.path or '/') if candidate_parsed else None
-                if (candidate and candidate_key not in excluded_pages and candidate not in visited_urls
+                if (candidate and len([p for p in candidate_parsed.path.split('/') if p])<=4 and candidate_key not in excluded_pages and candidate not in visited_urls
                         and candidate not in queued and len(queued) < MAX_DISCOVERY_SITEMAP_URLS + 300):
                     # Keep discovery useful: ignore common asset and auth routes.
                     if not re.search(r'\.(?:pdf|png|jpe?g|webp|svg|css|js|zip|mp4|woff2?)$', urlparse(candidate).path, re.I):
@@ -520,7 +529,7 @@ def _normalize_flow_config(config, allowed_host):
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
-        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId'):
+        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
         # Persist the complete authored document, including visual and future
@@ -560,6 +569,11 @@ def _normalize_flow_config(config, allowed_host):
                 'label':str(field.get('label') or '')[:100],
                 'required':bool(field.get('required'))}
                 for field in node['fields'][:30] if isinstance(field, dict)]
+        if node.get('stage') and node['stage'] not in ('source','entry','exploration','intent','conversion','support'):
+            abort(400, description='Etapa do funil inválida.')
+        for flag in ('locked','manuallyEdited'):
+            if isinstance(node.get(flag), bool):item[flag]=node[flag]
+        if isinstance(node.get('evidence'), str):item['evidence']=node['evidence'][:2000]
         if isinstance(node.get('isEntry'), bool):
             item['isEntry'] = node['isEntry']
         normalized.append(item)
@@ -581,7 +595,7 @@ def _normalize_flow_config(config, allowed_host):
             if edge.get('variant', 'direct') not in ('direct', 'planned'):
                 abort(400, description='Tipo visual de conexão inválido.')
             normalized_edge['variant'] = edge.get('variant', 'direct')
-        for field in ('from_port','to_port','kind','condition_ref'):
+        for field in ('from_port','to_port','kind','condition_ref','origin','evidence'):
             if field in edge:
                 if not isinstance(edge[field], str) or len(edge[field]) > 120:
                     abort(400, description='Propriedade de conexão inválida.')
@@ -1326,7 +1340,7 @@ def register(bp):
                 wildcard_steps.setdefault(step['path_prefix'], []).append(step)
         stored = []
         for page in pages:
-            evidence = {'signals': page['evidence'], 'h1': page.get('h1',''),
+            evidence = {'signals': page['evidence'], 'h1': page.get('h1',''), 'structure_signature': page.get('structure_signature'), 'canonical':page.get('canonical'),
                         'integrations': page.get('integrations', []),
                         'links': list(dict.fromkeys(url for link in page.get('links', [])
                             if (url := _canonical_page_url(link, page['url'], flow['allowed_host']))))}
@@ -1458,7 +1472,9 @@ def register(bp):
                     summary['pages'] += 1
                     if len(summary['evidence']) < 3:
                         summary['evidence'].append(signal.get('evidence'))
-        return jsonify(run=runs[0] if runs else None,pages=pages,
+        from .reports_flow_catalog import build_catalog
+        catalog=build_catalog(pages,flow['allowed_host'],(flow.get('config') or {}).get('nodes',[]))
+        return jsonify(catalog=catalog,run=runs[0] if runs else None,pages=pages,
                        platform_integrations=list(integration_summary.values()),
                        integration_scan_pages=scanned_pages)
 
@@ -1636,6 +1652,17 @@ def register(bp):
         updated = save_draft(current['id'], selected, expected_revision(payload), name, config)
         get_db().commit()
         return jsonify(flow=updated)
+
+    @bp.get('/api/v2/reports/flow/flows/<flow_id>/readiness')
+    @login_required_api
+    def reports_flow_readiness(flow_id):
+        selected=_selection();flow=_flow_row(flow_id,selected)
+        ready=bool(flow.get('site_id') and _rows("""SELECT EXISTS(SELECT 1 FROM cadu_reports_supertag_events
+          WHERE client_id=%s AND site_id=%s AND occurred_at>NOW()-INTERVAL '24 hours'
+          AND expires_at>NOW()) AS ready""",(selected['client_id'],flow['site_id']))[0]['ready'])
+        issues=validate_flow_config(flow.get('config') or {},flow['allowed_host'])
+        if not ready:issues.append({'severity':'warning','code':'tracking_not_ready','message':'Super Tag sem eventos recebidos nas últimas 24 horas. Verifique a instalação.'})
+        return jsonify(issues=issues,tracking_ready=ready,draft_revision=flow['draft_revision'])
 
     @bp.post('/api/v2/reports/flow/flows/<flow_id>/publish')
     @login_required_api
@@ -1887,13 +1914,34 @@ def register(bp):
         suggestions = [{'from': row['source_id'], 'to': row['target_id'],
                         'sessions': int(row['sessions'])}
                        for row in transitions if (row['source_id'], row['target_id']) not in authored_pairs][:20]
+        # Distinct sessions over the union of members, never the sum of page totals.
+        group_map={member:group['id'] for group in config.get('groups',[]) for member in group.get('memberIds',[])}
+        group_nodes=[];group_edges=[]
+        if group_map:
+            projection=json.dumps(group_map)
+            projected_cte=visits_cte+""", projected AS (
+                SELECT *,COALESCE(%s::jsonb->>node_id,node_id) AS visual_id FROM visits
+            ), numbered_groups AS (
+                SELECT *,LAG(visual_id) OVER w AS prior,ROW_NUMBER() OVER w AS sequence
+                FROM projected WINDOW w AS (PARTITION BY session_id ORDER BY occurred_at,id)
+            ), collapsed_groups AS (
+                SELECT * FROM numbered_groups WHERE sequence=1 OR visual_id IS DISTINCT FROM prior
+            ), paths_groups AS (
+                SELECT visual_id AS source,session_id,
+                  LEAD(visual_id) OVER (PARTITION BY session_id ORDER BY occurred_at,id) AS target
+                FROM collapsed_groups
+            ) """
+            group_nodes=_rows(projected_cte+"SELECT visual_id AS id,COUNT(DISTINCT session_id)::bigint AS sessions,COUNT(*)::bigint AS events FROM projected WHERE visual_id IS NOT NULL GROUP BY visual_id",(*scope,projection))
+            group_edges=_rows(projected_cte+"SELECT source AS \"from\",target AS \"to\",COUNT(DISTINCT session_id)::bigint AS sessions FROM paths_groups WHERE source IS NOT NULL AND target IS NOT NULL AND source<>target GROUP BY source,target",(*scope,projection))
+            denominators={row['id']:row['sessions'] for row in group_nodes}
+            for edge in group_edges:edge['rate']=round(100*edge['sessions']/denominators[edge['from']],1) if denominators.get(edge['from']) else None
         entries = int(funnel['entries'] or 0)
         conversions = int(funnel['conversions'] or 0)
         return jsonify(status='ready', revision=revision, period_days=days, config=migrate_v1_to_v2(config),
                        timezone='America/Sao_Paulo',generated_at=now.isoformat(),
                        scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
                               'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
-                       nodes=nodes, edges=edges, suggestions=suggestions,
+                       nodes=nodes, edges=edges, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
                        funnel={'entries': entries, 'conversions': conversions,
                                'rate': round(100 * conversions / entries, 1) if entries else None})
 

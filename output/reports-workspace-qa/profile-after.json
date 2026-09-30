@@ -1,0 +1,8 @@
+{
+  "nodes": 200,
+  "medianFrameMs": 16.69999998807907,
+  "p95FrameMs": 17.400000005960464,
+  "averageFps": 60.38647342940832,
+  "panelMutations": 0,
+  "dragChangedPosition": true
+}

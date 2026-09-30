@@ -35,6 +35,19 @@ def validate_flow_config(config, allowed_host=''):
         if len(nodes) > 1 and not incoming[node_id] and not outgoing[node_id]:
             issues.append({'severity': 'warning', 'code': 'orphan', 'node_id': node_id,
                            'message': f"{node.get('title') or 'Uma etapa'} está sem conexões."})
+    goals={node['id'] for node in nodes if node.get('type')=='conversion'}
+    reachable=set(goals)
+    changed=True
+    while changed:
+        before=len(reachable)
+        for edge in edges:
+            if edge.get('to') in reachable:reachable.add(edge.get('from'))
+        changed=len(reachable)!=before
+    for node in nodes:
+        if (node.get('stage')=='intent' or node.get('type') in ('form','whatsapp')) and node['id'] not in reachable:
+            issues.append({'severity':'error','code':'intent_without_goal','node_id':node['id'],'message':f"Conecte {node.get('title') or 'a etapa de intenção'} a uma conversão."})
+    if any(n.get('origin')=='blueprint' for n in nodes) and config.get('blueprintGoalConfirmed') is not True:
+        issues.append({'severity':'error','code':'unconfirmed_goal','message':'Confirme o objetivo da montagem antes de publicar.'})
     stack, visited = [], set()
     unsafe_cycle = False
 

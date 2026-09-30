@@ -37,14 +37,15 @@ def register(bp):
         if request.method!='GET' and not isinstance(payload,dict): abort(400)
         selected=_selection(payload)
         column=resource(selected,kind,resource_id)
-        items=workspace_items(selected)
+        items=workspace_items(selected) if request.method!='DELETE' else []
         visible={i['ref']:i for i in items if i['kind']=='project'}
         if request.method=='GET':
             links=_rows(f'SELECT project_ref FROM cadu_reports_workspace_links WHERE {column}::text=%s AND client_id=%s',(resource_id,selected['client_id']))
-            return jsonify(links=[visible[l['project_ref']] for l in links if l['project_ref'] in visible])
+            return jsonify(links=[visible.get(l['project_ref'], {'ref': l['project_ref'], 'kind': 'project', 'name': 'Projeto indisponível no Workspace', 'accessible': False}) for l in links])
         _write_guard(selected)
         ref=payload.get('project_ref')
-        if ref not in visible: abort(403,description='Projeto não acessível no Workspace.')
+        if not isinstance(ref, str) or not ref.strip(): abort(400)
+        if request.method=='POST' and ref not in visible: abort(403,description='Projeto não acessível no Workspace.')
         if request.method=='DELETE':
             _rows(f'DELETE FROM cadu_reports_workspace_links WHERE client_id=%s AND {column}::text=%s AND project_ref=%s RETURNING project_ref',(selected['client_id'],resource_id,ref))
         else:
@@ -79,6 +80,12 @@ def register(bp):
         try:
             ref=repository.create_entity(selected['client_id'],selected['user_id'],{'kind':'project','name':name,'idempotency_key':f'reports:{key}'},commit=False)
         except ValueError as error: abort(400,description=str(error))
+        # Keep ownership, project creation and the Reports association atomic.
+        _rows('''INSERT INTO cadu_family_project_access
+            (client_id,project_ref,user_id,role,source,granted_by)
+            VALUES(%s,%s,%s,'owner','owner',%s)
+            ON CONFLICT (client_id,project_ref,user_id) DO NOTHING RETURNING user_id''',
+            (selected['client_id'],ref,selected['user_id'],selected['user_id']))
         _rows(f'INSERT INTO cadu_reports_workspace_links(client_id,{column},project_ref,created_by) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING project_ref',(selected['client_id'],resource_id,ref,selected['user_id']))
         _rows('UPDATE cadu_reports_workspace_operations SET project_ref=%s,completed=TRUE WHERE client_id=%s AND operation_key=%s RETURNING operation_key',(ref,selected['client_id'],key))
         get_db().commit()

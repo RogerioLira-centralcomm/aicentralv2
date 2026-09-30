@@ -179,7 +179,7 @@ class ReportsTypeSafeRoutesTest(TestCase):
                 patch.object(reports_v1, '_rows', side_effect=query), \
                 patch('aicentralv2.cadu_connect.reports_typesafe.suggest_report_plan',
                       return_value=plan) as suggest:
-            response = self.client.post('/api/v1/reports/workspaces/5/plan',
+            response = self.client.post('/api/v2/reports/workspaces/5/plan',
                                         json={'client_id': 1000000000},
                                         headers={'X-CSRF-Token': 'csrf-test'})
         self.assertEqual(response.status_code, 200)
@@ -193,7 +193,7 @@ class ReportsTypeSafeRoutesTest(TestCase):
                     'client_name': 'Reports', 'role': 'viewer', 'client_kind': 'reports'}
         with patch.object(reports_v1, '_selection', return_value=selected), \
                 patch.object(reports_v1, '_rows') as query:
-            response = self.client.post('/api/v1/reports/workspaces/5/plan',
+            response = self.client.post('/api/v2/reports/workspaces/5/plan',
                                         json={'client_id': 1000000000},
                                         headers={'X-CSRF-Token': 'csrf-test'})
         self.assertEqual(response.status_code, 403)

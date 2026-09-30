@@ -127,3 +127,16 @@
 .flow-capture-footer button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:0;border-radius:5px;background:transparent;color:var(--color-text-tertiary);cursor:pointer}
 .flow-capture-footer button:hover{background:var(--color-bg-secondary);color:var(--color-text-brand-secondary)}
 .flow-capture-footer button:disabled{opacity:.45;cursor:wait}
+.flow-view-policy{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:7;display:flex;align-items:center;gap:8px;background:var(--color-bg-primary);padding:4px 8px;border:1px solid var(--color-border-secondary);border-radius:12px;font-size:11px;white-space:nowrap}
+.flow-view-policy button{border:0;padding:6px;background:transparent;border-radius:6px;font:inherit}.flow-view-policy button[aria-pressed=true]{background:var(--color-bg-brand-secondary)}
+.flow-view-policy label{display:flex;align-items:center;gap:4px}
+.flow-react-canvas .react-flow__node-toolbar button{width:28px;height:28px;padding:4px;border:0!important;box-shadow:none!important}
+.flow-react-canvas .react-flow__node{transition:none!important;filter:none!important;backdrop-filter:none!important}
+.flow-shape-node small{font-size:11px!important}.flow-shape-label{font-size:13px;font-weight:600}
+.flow-shape-body{position:relative}.flow-shape-body .react-flow__handle{width:10px;height:10px}
+.flow-react-canvas button:focus:not(:focus-visible){outline:none;box-shadow:none}
+.flow-react-canvas .flow-shape-body{box-shadow:none}.flow-react-canvas .is-selected .flow-shape-body{box-shadow:var(--shadow-sm)}
+.flow-group-stack{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;width:180px;height:130px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:4px 4px 0 var(--color-bg-secondary),8px 8px 0 var(--color-border-secondary);font-size:13px}.flow-group-stack small{font-size:11px;color:var(--color-text-tertiary)}.flow-group-stack button,.flow-group-node>button{border:0;background:transparent;color:var(--color-text-brand-secondary);font-size:11px;cursor:pointer}
+.flow-lanes{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}.flow-lanes>div{position:absolute;top:0;bottom:0;border-left:1px solid color-mix(in srgb,var(--color-border-secondary) 45%,transparent)}.flow-lanes span{position:absolute;top:54px;left:16px;font-size:11px;font-weight:600;color:var(--color-text-tertiary)}
+.flow-react-canvas .react-flow__node-toolbar.flow-node-hover{display:grid;gap:5px;width:240px;max-width:80vw;padding:12px;border:1px solid var(--color-border-secondary);font-size:12px;pointer-events:none;text-align:left}
+.flow-node-hover small,.flow-node-hover p{font-size:11px;margin:0;color:var(--color-text-tertiary);overflow-wrap:anywhere}

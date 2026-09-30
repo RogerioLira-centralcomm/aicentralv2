@@ -58,6 +58,13 @@ export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, 
       const gap = 8;
       const sidebar = anchor.closest('.cadu-solution-sidebar');
       const sidebarRect = sidebar?.getBoundingClientRect();
+      // Expanded product sidebars open the menu right under the brand row and
+      // inside the sidebar, so it never covers the page title or content.
+      if (sidebarRect && sidebarRect.width >= 160 && window.innerWidth > 760) {
+        const top = rect.bottom + 6;
+        setMenuPosition({top, left: sidebarRect.left + 8, width: sidebarRect.width - 16, maxHeight: Math.max(120, window.innerHeight - top - 12)});
+        return;
+      }
       const besideSidebar = Boolean(sidebarRect && window.innerWidth > 760);
       const roomBelow = window.innerHeight - rect.bottom - gap;
       const roomAbove = rect.top - gap;

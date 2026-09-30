@@ -1593,7 +1593,7 @@ def register(bp):
         page = pages[0]
         choice = payload.get('selection')
         if choice not in ('ignore','entry','intermediate','form','conversion','error'):
-            abort(400, description='Escolha uma etapa válida.')
+            abort(400, description='Escolha uma função válida para a página.')
         if payload.get('suggestion_id'):
             from .reports_flow_suggestions import validate_application
             validate_application(payload['suggestion_id'],flow_id,page,selected,revision,choice)

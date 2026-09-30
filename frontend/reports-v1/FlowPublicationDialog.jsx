@@ -10,6 +10,9 @@ const changed=(before,after)=>{
     removed:[...old.keys()].filter(id=>!next.has(id)).length,
     updated:[...next.keys()].filter(id=>old.has(id)&&JSON.stringify(next.get(id))!==JSON.stringify(old.get(id))).length};
 };
+export const flowChangeSummary=(before,after)=>({
+  nodes:changed(before?.nodes,after?.nodes),edges:changed(before?.edges,after?.edges),
+});
 
 export function FlowPublicationDialog({open,config,previous,issues,note,onNoteChange,busy,onClose,onPublish}) {
   if(!open)return null;

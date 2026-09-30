@@ -368,7 +368,7 @@ def _assemble_discovered_flow(config, pages, allowed_host):
         key = (page['page_host'], page['path_prefix'])
         if key in by_page:
             continue
-        if len(nodes) >= 100:
+        if len(nodes) >= 200:
             omitted += 1
             continue
         path = page['path_prefix']
@@ -465,8 +465,8 @@ def _normalize_flow_config(config, allowed_host):
     nodes, edges = config.get('nodes', []), config.get('edges', [])
     known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error'}
     measured_types = {'page','form','event','conversion','whatsapp','error'}
-    if not isinstance(nodes, list) or len(nodes) > 100 or not isinstance(edges, list) or len(edges) > 300:
-        abort(400, description='O fluxo aceita até 100 blocos e 300 conexões.')
+    if not isinstance(nodes, list) or len(nodes) > 200 or not isinstance(edges, list) or len(edges) > 300:
+        abort(400, description='O fluxo aceita até 200 blocos e 300 conexões.')
     normalized, ids = [], set()
     for index, node in enumerate(nodes):
         if not isinstance(node, dict) or node.get('type') not in known_types:
@@ -591,7 +591,7 @@ def _normalize_flow_config(config, allowed_host):
         if node['type'] not in measured_types:
             continue
         identity = (node['type'],node.get('host') or allowed_host,node.get('path'),node.get('event_name'))
-        if identity in identities:
+        if identity in identities and node['type'] != 'page':
             abort(400,description='Dois blocos observam o mesmo evento na mesma página. Use um bloco com várias conexões ou eventos com nomes diferentes.')
         identities.add(identity)
     result = {**config, 'nodes':normalized, 'edges':normalized_edges}
@@ -1055,7 +1055,7 @@ def register(bp):
             configured_nodes = [node for node in selected_flow['config'].get('nodes', [])
                 if isinstance(node, dict) and node.get('type') in ('page','form','event','conversion','whatsapp','error')
                 and isinstance(node.get('path'), str) and node['path'].startswith('/')]
-            configured_nodes = configured_nodes[:100]
+            configured_nodes = configured_nodes[:200]
             configured_edges = [edge for edge in selected_flow['config'].get('edges', [])
                 if isinstance(edge, dict) and isinstance(edge.get('from'), str)
                 and isinstance(edge.get('to'), str)]
@@ -1391,7 +1391,7 @@ def register(bp):
             group = available[key]
             config, omitted = _assemble_discovered_flow({'discovery_origin': origin}, group['pages'], flow['allowed_host'])
             if omitted:
-                abort(400, description='Este grupo excede 100 páginas. Divida-o antes de criar o fluxo.')
+                abort(400, description='Este grupo excede 200 páginas. Divida-o antes de criar o fluxo.')
             config, _ = _normalize_flow_config(config, flow['allowed_host'])
             private_tag = _rows('''INSERT INTO cadu_reports_site_tags
                 (id,organization_id,client_id,label,allowed_host,public_key,created_by,tag_kind)
@@ -1547,6 +1547,18 @@ def register(bp):
         get_db().commit()
         return jsonify(tag=created[0]), 201
 
+    @bp.get('/api/v1/reports/flow/templates')
+    @login_required_api
+    def reports_flow_templates():
+        _selection()
+        return jsonify(templates=[
+            {'id': 'blank', 'label': 'Começar em branco'},
+            {'id': 'lead', 'label': 'Captação de leads'},
+            {'id': 'commerce', 'label': 'Compra no site'},
+            {'id': 'webinar', 'label': 'Inscrição em webinar'},
+            {'id': 'whatsapp', 'label': 'Contato pelo WhatsApp'},
+        ])
+
     @bp.post('/api/v1/reports/flow/flows')
     @login_required_api
     def reports_flow_create_flow():
@@ -1617,7 +1629,7 @@ def register(bp):
         config, has_measured_steps = _normalize_flow_config(flow.get('config') or {}, flow['allowed_host'])
         if not has_measured_steps:
             abort(409, description='Adicione ao menos uma página, formulário, evento, conversão ou clique de WhatsApp antes de publicar.')
-        blocking = [issue for issue in validate_flow_config(config) if issue['severity'] == 'error']
+        blocking = [issue for issue in validate_flow_config(config, flow['allowed_host']) if issue['severity'] == 'error']
         if blocking:
             abort(409, description=f"Corrija {len(blocking)} problema(s) antes de publicar. {blocking[0]['message']}")
         _validate_flow_references(config, selected)
@@ -1681,6 +1693,22 @@ def register(bp):
         node_rows = _rows(hits_cte + """SELECT node_id,COUNT(*)::bigint AS sessions,
             SUM(events)::bigint AS events FROM hits GROUP BY node_id""", scope)
         node_totals = {str(row['node_id']): row for row in node_rows}
+        measured_nodes = [node for node in config.get('nodes', []) if isinstance(node, dict)
+                          and node.get('id') and node.get('type') in {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}]
+        measured_ids = {node['id'] for node in measured_nodes}
+        incoming_measured = {edge.get('to') for edge in config.get('edges', [])
+                             if isinstance(edge, dict) and edge.get('from') in measured_ids}
+        entry_ids = [node['id'] for node in measured_nodes
+                     if node.get('isEntry') or node['id'] not in incoming_measured]
+        if not entry_ids and measured_nodes:
+            entry_ids = [measured_nodes[0]['id']]
+        conversion_ids = [node['id'] for node in measured_nodes if node.get('type') == 'conversion']
+        funnel = _rows(hits_cte + """, entered AS (
+            SELECT DISTINCT session_id FROM hits WHERE node_id=ANY(%s::text[])
+        ) SELECT (SELECT COUNT(*) FROM entered)::bigint AS entries,
+            (SELECT COUNT(DISTINCT h.session_id) FROM hits h JOIN entered e USING(session_id)
+                WHERE h.node_id=ANY(%s::text[]))::bigint AS conversions""",
+            (*scope, entry_ids, conversion_ids))[0]
         authored_edges = [edge for edge in config.get('edges', [])
             if isinstance(edge, dict) and edge.get('from') and edge.get('to')]
         transitions = _rows("""WITH ordered AS (
@@ -1711,8 +1739,12 @@ def register(bp):
         suggestions = [{'from': row['source_id'], 'to': row['target_id'],
                         'sessions': int(row['sessions'])}
                        for row in transitions if (row['source_id'], row['target_id']) not in authored_pairs][:20]
+        entries = int(funnel['entries'] or 0)
+        conversions = int(funnel['conversions'] or 0)
         return jsonify(status='ready', revision=revision, period_days=days, config=migrate_v1_to_v2(config),
-                       nodes=nodes, edges=edges, suggestions=suggestions)
+                       nodes=nodes, edges=edges, suggestions=suggestions,
+                       funnel={'entries': entries, 'conversions': conversions,
+                               'rate': round(100 * conversions / entries, 1) if entries else None})
 
     @bp.post('/api/v1/reports/flow/flows/<flow_id>/versions/<int:revision>/restore')
     @login_required_api

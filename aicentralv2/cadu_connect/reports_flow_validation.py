@@ -3,13 +3,14 @@
 MEASURED = {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}
 
 
-def validate_flow_config(config):
+def validate_flow_config(config, allowed_host=''):
     nodes = config.get('nodes') or []
     edges = config.get('edges') or []
     issues = []
     by_id = {node['id']: node for node in nodes}
     outgoing = {node['id']: [] for node in nodes}
     incoming = {node['id']: [] for node in nodes}
+    page_paths = set()
     for edge in edges:
         if edge.get('from') in outgoing and edge.get('to') in incoming:
             outgoing[edge['from']].append(edge['to'])
@@ -25,6 +26,12 @@ def validate_flow_config(config):
         if node.get('type') == 'event' and (not node.get('event_name') or node['event_name'].startswith('evento_')):
             issues.append({'severity': 'error', 'code': 'unmapped_event', 'node_id': node_id,
                            'message': f"Configure o nome do evento de {node.get('title') or 'uma etapa'}."})
+        if node.get('type') == 'page' and node.get('path') and not node['path'].startswith('/configurar-'):
+            key = (node.get('host') or allowed_host, node['path'])
+            if key in page_paths:
+                issues.append({'severity': 'error', 'code': 'duplicate_page', 'node_id': node_id,
+                               'message': f"A URL {node['path']} já está em outra página do fluxo."})
+            page_paths.add(key)
         if len(nodes) > 1 and not incoming[node_id] and not outgoing[node_id]:
             issues.append({'severity': 'warning', 'code': 'orphan', 'node_id': node_id,
                            'message': f"{node.get('title') or 'Uma etapa'} está sem conexões."})

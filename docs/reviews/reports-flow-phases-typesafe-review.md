@@ -6,19 +6,23 @@ Base: commits `b7dfa56a`–`18c65b44` sobre `1bcd4b4e`. Conferidos o plano de re
 
 - **P0 — Editor quebrava ao renderizar:** o efeito dos atalhos estava declarado dentro do efeito de autosave em `frontend/reports-v1/main.jsx`. Hooks precisam ser chamados no nível superior do componente. Os efeitos agora são irmãos.
 - **P1 — Jornada atribuía passagens inexistentes:** `reports_flow.py` contava qualquer visita posterior ao nó de destino como travessia da aresta. Agora a métrica usa pares de etapas consecutivas da sessão; os caminhos sugeridos usam a mesma definição. A consulta retorna todos os pares para não zerar arestas menos frequentes.
+- **P1 — Conflito de autosave:** o cliente agora identifica HTTP 409 e oferece recarregar a revisão recente ou substituí-la com o rascunho local; a substituição usa a revisão mais recente como precondição. Esc e o link de retorno aguardam o save; o debounce passou a 1,5 s.
+- **P1 — Validação de páginas:** URLs duplicadas no mesmo domínio aparecem no painel e bloqueiam a publicação no servidor. O rascunho pode ser salvo enquanto o usuário corrige essa duplicidade.
+- **P2 — Limite e teclado:** backend, descoberta e inclusão manual aceitam 200 etapas; adição, inserção e cópia mostram erro antes de exceder o limite. Setas movem a seleção em 12 px e Esc volta à lista após salvar.
+- **P2 — Extras:** o simulador pausa em divisões para o usuário escolher o ramo; o histórico compara contagens de etapas/conexões entre uma publicação e o rascunho; webinar e WhatsApp entram nos modelos servidos pela API. A Jornada mostra conversões observadas entre sessões que passaram pelas entradas medidas e apresenta sessões/eventos do nó publicado no inspetor.
+- **Correção da própria revisão:** as regras da rota `.reports-shell--flow-editor` já sobrepõem as regras genéricas de grid e colocam os painéis sobre um canvas de altura `100dvh`. A observação anterior de canvas preso a `100dvh - 280px` estava incorreta para esta rota.
 
 ## Pendências de aceite antes de integrar
 
 | Prioridade | Fase | Evidência | Trabalho necessário |
 | --- | --- | --- | --- |
-| Alta | 1/3 | `main.jsx` mantém autosave em 900 ms, bloqueia a saída com `beforeunload` e apenas mostra erro para um 409. | Implementar o fluxo de conflito (recarregar ou sobrescrever com decisão explícita), salvar na navegação da aplicação e verificar recarga durante edição. |
-| Alta | 3/4 | `FlowCanvas.jsx` não implementa deslocamento de nós com setas, retorno com Esc ou atalhos de inspeção. | Completar teclado e teste de interação com foco no canvas. |
-| Alta | 4 | `flow-workspace.css` reserva colunas de 200 px e 264 px para paleta/inspetor e altura `100dvh - 280px`; os painéis continuam dentro do grid. | Validar a meta de ≥90% do viewport no editor em 1440×900 e 1280 px; converter painéis em superfícies sobre o canvas se necessário. |
-| Alta | 5 | `flowValidation.js` e `reports_flow_validation.py` só cobrem conversão, mapeamento, órfão e ciclo sem condição; a duplicidade de URL não aparece no painel (o servidor barra apenas identidades medidas idênticas). | Alinhar validação cliente/servidor, incluir duplicidade e testar publicações com ramos. |
-| Média | 2/3 | `_normalize_flow_config` limita a 100 nós, enquanto o checklist pede uma verificação com 200; `addNode` não bloqueia o limite antes do autosave. | Definir o limite suportado, ajustar servidor e UI juntos e medir pan/zoom com fluxo grande. |
-| Média | 5/6 | A lista de versões permite restaurar, mas não oferece comparação visual; o simulador percorre o primeiro ramo automaticamente. | Comparação de versões e escolhas de ramo no modo automático. |
-| Média | 6 | Templates são locais e cobrem branco, lead e compra; o plano também lista webinar e WhatsApp e endpoint de templates. | Completar templates e decidir se a API é necessária para distribuição/versionamento. |
-| Média | 6 | Jornada não apresenta taxa de conversão fim a fim nem série temporal/origens no inspetor. | Usar métricas da publicação selecionada, separar evidência observada de inferência e acrescentar visões com testes de totais contra Eventos. |
+| Alta | 1/3 | O fluxo de conflito foi implementado, mas não há teste de recarga no meio da edição em uma sessão autenticada. | Verificar a recuperação de rascunhos e uma disputa entre duas abas no navegador. |
+| Alta | 3/4 | As setas e Esc estão implementados; faltam testes de interação com foco e inspeção por teclado. | Completar a verificação de acessibilidade no canvas. |
+| Alta | 4 | A rota de foco usa canvas de altura `100dvh` menos a barra de 56 px, com painéis sobrepostos. | Medir em 1440×900 e 1280 px com sessão autenticada, inclusive menus abertos. |
+| Alta | 5 | A regra de URL duplicada está alinhada; outras regras de mapeamento dependem de eventos reais da tag. | Testar publicação e ramos com fixtures e no ambiente integrado. |
+| Média | 2/3 | O limite passou a 200 nós; ainda não foi medida a fluidez do canvas sob essa carga. | Medir pan/zoom com um fluxo de 200 etapas. |
+| Média | 5/6 | A comparação do histórico é numérica, sem diff visual de nós ou arestas. | Adicionar inspeção lado a lado se a comparação detalhada for necessária na operação. |
+| Média | 6 | Jornada mostra taxa fim a fim, mas não série temporal nem origens no inspetor. | Acrescentar visões e verificar totais contra Eventos em sessão com dados reais. |
 
 ## Aplicação da skill TypeSafe AI
 
@@ -27,7 +31,7 @@ As regras de grafo, revisões, contagens e permissão são determinísticas e de
 ## Verificação desta revisão
 
 - `npm run build:reports`: passou; Vite ainda informa bundles grandes.
-- `python3 -m unittest discover -s tests -p test_reports_flow_schema_v2.py` com o Python 3.12 do runtime: 3 testes passaram.
+- `python3 -m unittest discover -s tests -p test_reports_flow_schema_v2.py` com o Python 3.12 do runtime: 4 testes passaram.
 - `git diff --check`: passou.
 
 Não houve revisão visual em sessão autenticada, teste de carga de 200 nós nem consulta à base de produção neste ambiente isolado. Os critérios de aceite correspondentes permanecem abertos.

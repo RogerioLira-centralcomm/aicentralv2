@@ -18,7 +18,7 @@ import {ReportsTabs} from './ReportsTabs.jsx';
 import {REPORT_FILTER_DEFAULTS, REPORT_PAGE_META, ReportsFilterBar, ReportsPageHeader} from './PageChrome.jsx';
 import {FlowCanvas} from './FlowCanvas.jsx';
 import {FlowInspector} from './FlowInspector.jsx';
-import {FlowPublicationDialog} from './FlowPublicationDialog.jsx';
+import {FlowPublicationDialog, flowChangeSummary} from './FlowPublicationDialog.jsx';
 import {FlowSimulator} from './FlowSimulator.jsx';
 import {FlowJourneyPanel} from './FlowJourneyPanel.jsx';
 import {flowValidation} from './flowValidation.js';
@@ -66,7 +66,11 @@ async function json(url, options = {}) {
   const response = await fetch(url, {credentials: 'same-origin', ...options});
   let body = {};
   try { body = await response.json(); } catch (_) { /* The response may be an HTML error page. */ }
-  if (!response.ok) throw new Error(body.error || body.description || `Falha HTTP ${response.status}`);
+  if (!response.ok) {
+    const failure = new Error(body.error || body.description || `Falha HTTP ${response.status}`);
+    failure.status = response.status;
+    throw failure;
+  }
   return body;
 }
 
@@ -759,11 +763,13 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const startCommand = () => {if(commandLock.current)return false;commandLock.current=true;setCommandBusy(true);return true;};
   const endCommand = () => {commandLock.current=false;setCommandBusy(false);};
   const [versions, setVersions] = useState(null);
+  const [versionComparison,setVersionComparison]=useState(null);
   const [paletteQuery, setPaletteQuery] = useState('');
   const [siteQuery, setSiteQuery] = useState('');
   const [pageSuggestions, setPageSuggestions] = useState({});
   const [suggestingPage, setSuggestingPage] = useState('');
   const [editorSaveState, setEditorSaveState] = useState('saved');
+  const [draftConflict, setDraftConflict] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [paletteOpen, setPaletteOpen] = useState(()=>window.innerWidth>=1180);
@@ -772,11 +778,6 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const canvasFlowRef = useRef(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState([]);
   const copiedNodesRef = useRef(null);
-  useEffect(() => {
-    const exitFocus = event => {if (event.key === 'Escape' && !event.defaultPrevented && !event.target.closest('input,textarea,select,[role=dialog]')) location.assign(reportUrl('flows',{client_id:data.client.client_id}));};
-    window.addEventListener('keydown', exitFocus);
-    return () => window.removeEventListener('keydown', exitFocus);
-  }, [flowView, data.client.client_id]);
   useEffect(()=>{if(selectedNodeId)setInspectorOpen(true);},[selectedNodeId]);
   const changeZoom = value => {
     const next=Math.max(.25,Math.min(2,Math.round(value*100)/100));
@@ -802,6 +803,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const [journeyLoading,setJourneyLoading]=useState(false);
   const [journeyError,setJourneyError]=useState('');
   const [flowTemplate,setFlowTemplate]=useState('blank');
+  const [flowTemplateOptions,setFlowTemplateOptions]=useState([{id:'blank',label:'Começar em branco'},{id:'lead',label:'Captação de leads'},{id:'commerce',label:'Compra no site'},{id:'webinar',label:'Inscrição em webinar'},{id:'whatsapp',label:'Contato pelo WhatsApp'}]);
   const [verifyUrl, setVerifyUrl] = useState('');
   const [verifyState, setVerifyState] = useState('');
   const [copyState, setCopyState] = useState('');
@@ -845,6 +847,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     if(liveEditorRef.current?.id===flowId){setDiscovery(result);setDiscoveryLoadedId(flowId);}
   };
   useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id, filters.period, filters.startDate, filters.endDate, filters.platform, filters.account, filters.campaign, selectedFlowId,flowView,refreshRevision,analysisRevision]);
+  useEffect(()=>{if(flowView!=='create')return;let cancelled=false;json(`/connect/api/v1/reports/flow/templates?client_id=${data.client.client_id}`).then(result=>{if(!cancelled&&Array.isArray(result.templates))setFlowTemplateOptions(result.templates);}).catch(()=>{});return()=>{cancelled=true;};},[flowView,data.client.client_id]);
   useEffect(() => {setDiscoveryLoadedId('');loadDiscoveries(selectedFlowId).catch(failure => setLocalError(failure.message));}, [selectedFlowId,data.client.client_id]);
   useEffect(() => {if(flowView==='edit'&&selectedFlowId&&autoDiscoverFlowRef.current===selectedFlowId){autoDiscoverFlowRef.current='';discoverSite();}}, [flowView,selectedFlowId]);
   useEffect(() => {
@@ -852,7 +855,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     autoDiscoveryAttemptRef.current=selectedFlowId;
     discoverSite();
   }, [flowView,selectedFlowId,discoveryLoadedId,discovery.run,data.client.role,flow.flows]);
-  useEffect(() => {const found = flow.flows.find(item => item.id === selectedFlowId); if (found && flowInitializedRef.current !== selectedFlowId) {setFlowName(found.name); setFlowHost(found.allowed_host); setFlowConfig(found.config || {nodes: [], edges: []});flowHistory.reset(found.config || {nodes:[],edges:[]});copiedNodesRef.current=null; revisionRef.current=found.draft_revision;savedSnapshotRef.current=JSON.stringify({name:found.name,config:found.config||{nodes:[],edges:[]}});flowInitializedRef.current=selectedFlowId;setVersions(null);setPageSuggestions({});setVersionMessage('');}}, [selectedFlowId, flow.flows]);
+  useEffect(() => {const found = flow.flows.find(item => item.id === selectedFlowId); if (found && flowInitializedRef.current !== selectedFlowId) {setFlowName(found.name); setFlowHost(found.allowed_host); setFlowConfig(found.config || {nodes: [], edges: []});flowHistory.reset(found.config || {nodes:[],edges:[]});copiedNodesRef.current=null; revisionRef.current=found.draft_revision;savedSnapshotRef.current=JSON.stringify({name:found.name,config:found.config||{nodes:[],edges:[]}});flowInitializedRef.current=selectedFlowId;setVersions(null);setVersionComparison(null);setPageSuggestions({});setVersionMessage('');}}, [selectedFlowId, flow.flows]);
   useEffect(() => {const found=flow.flows.find(item=>item.id===selectedFlowId);if(found)setMonitorInterval(Number(found.monitor_interval_minutes)||15);}, [selectedFlowId,flow.flows]);
   useEffect(() => {
     if(flowView !== 'monitor' || !selectedFlowId) return;
@@ -873,10 +876,10 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl('flows',{client_id:data.client.client_id,flow_id:item.id,flow_view:'monitor'}));};
   const checkFlowSite = async () => {if(!flowHost.trim())return;setFlowSiteChecking(true);setFlowSiteCheck(null);setLocalError('');try{setFlowSiteCheck(await json(`/connect/api/v1/reports/supertag/site-check?client_id=${data.client.client_id}&url=${encodeURIComponent(flowHost.trim())}`));}catch(failure){setFlowSiteCheck({error:failure.message});}finally{setFlowSiteChecking(false);}};
   const newFlow = async event => {event.preventDefault(); try {if(!flowSiteCheck||flowSiteCheck.error)throw new Error('Verifique um domínio público antes de criar o fluxo.');const name=flowName||flowSiteCheck.title||flowSiteCheck.host;const result = await save('/flow/flows', {name, allowed_host: flowSiteCheck.host}, false);if(flowTemplate!=='blank')await save(`/flow/flows/${result.flow.id}`,{name,config:flowTemplateConfig(flowTemplate),expected_revision:result.flow.draft_revision},false,'PATCH');location.assign(flowEditorUrl(result.flow.id,data.client.client_id));} catch (failure) {setLocalError(failure.message);}};
-  const addNode = (type, options = {}, point = null, connectedFrom = '') => {const defaults={source:'Origem de tráfego',page:'Página / URL',form:'Formulário',event:'Evento',conversion:'Conversão',whatsapp:'Clique WhatsApp',error:'Página de erro'};const index=flowConfig.nodes.length;const title=options.title||options.label||defaults[type]||type;const nodeId=crypto.randomUUID();const node={id:nodeId,type,kind:options.kind||flowBlockFor({type}).kind,title,data:{label:title,url:''},path:['page','form','event','conversion','whatsapp','error'].includes(type)?`/configurar-${nodeId.slice(0,8)}`:'',event_name:type==='event'?`evento_${nodeId.slice(0,8)}`:undefined,source:type==='source'?(options.source||'google'):undefined,x:point?Math.max(0,snap(point.x)):24+(index%3)*(FLOW_CARD_WIDTH+48),y:point?Math.max(0,snap(point.y)):100+Math.floor(index/3)*(FLOW_CARD_HEIGHT+48),fields:type==='form'?[{name:'nome',label:'Nome',required:true},{name:'email',label:'E-mail',required:true}]:[]};node.data.url=node.path;setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:connectedFrom?[...current.edges,{id:crypto.randomUUID(),from:connectedFrom,to:node.id,variant:'direct',label:'Próximo'}]:current.edges}));setSelectedNodeId(node.id);};
-  const insertOnEdge = edgeId => {const edge=flowConfig.edges.find(item=>item.id===edgeId);if(!edge)return;const from=flowConfig.nodes.find(item=>item.id===edge.from),to=flowConfig.nodes.find(item=>item.id===edge.to);if(!from||!to)return;const id=crypto.randomUUID();const node={id,type:'condition',kind:'logic.condition',title:'Nova etapa',data:{label:'Nova etapa',url:''},x:snap((Number(from.x)+Number(to.x))/2),y:snap((Number(from.y)+Number(to.y))/2)};setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:current.edges.flatMap(item=>item.id===edgeId?[{...item,id:crypto.randomUUID(),to:id},{...item,id:crypto.randomUUID(),from:id}]:[item])}));setSelectedNodeId(id);setInspectorOpen(true);};
+  const addNode = (type, options = {}, point = null, connectedFrom = '') => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 etapas. Crie outro fluxo para continuar.');return;}const defaults={source:'Origem de tráfego',page:'Página / URL',form:'Formulário',event:'Evento',conversion:'Conversão',whatsapp:'Clique WhatsApp',error:'Página de erro'};const index=flowConfig.nodes.length;const title=options.title||options.label||defaults[type]||type;const nodeId=crypto.randomUUID();const node={id:nodeId,type,kind:options.kind||flowBlockFor({type}).kind,title,data:{label:title,url:''},path:['page','form','event','conversion','whatsapp','error'].includes(type)?`/configurar-${nodeId.slice(0,8)}`:'',event_name:type==='event'?`evento_${nodeId.slice(0,8)}`:undefined,source:type==='source'?(options.source||'google'):undefined,x:point?Math.max(0,snap(point.x)):24+(index%3)*(FLOW_CARD_WIDTH+48),y:point?Math.max(0,snap(point.y)):100+Math.floor(index/3)*(FLOW_CARD_HEIGHT+48),fields:type==='form'?[{name:'nome',label:'Nome',required:true},{name:'email',label:'E-mail',required:true}]:[]};node.data.url=node.path;setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:connectedFrom?[...current.edges,{id:crypto.randomUUID(),from:connectedFrom,to:node.id,variant:'direct',label:'Próximo'}]:current.edges}));setSelectedNodeId(node.id);};
+  const insertOnEdge = edgeId => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 etapas.');return;}const edge=flowConfig.edges.find(item=>item.id===edgeId);if(!edge)return;const from=flowConfig.nodes.find(item=>item.id===edge.from),to=flowConfig.nodes.find(item=>item.id===edge.to);if(!from||!to)return;const id=crypto.randomUUID();const node={id,type:'condition',kind:'logic.condition',title:'Nova etapa',data:{label:'Nova etapa',url:''},x:snap((Number(from.x)+Number(to.x))/2),y:snap((Number(from.y)+Number(to.y))/2)};setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:current.edges.flatMap(item=>item.id===edgeId?[{...item,id:crypto.randomUUID(),to:id},{...item,id:crypto.randomUUID(),from:id}]:[item])}));setSelectedNodeId(id);setInspectorOpen(true);};
   const copySelection=()=>{const ids=new Set(selectedNodeIds.length?selectedNodeIds:[selectedNodeId]);const nodes=flowConfig.nodes.filter(node=>ids.has(node.id));if(!nodes.length)return;copiedNodesRef.current={nodes,edges:flowConfig.edges.filter(edge=>ids.has(edge.from)&&ids.has(edge.to))};};
-  const pasteSelection=()=>{const copied=copiedNodesRef.current;if(!copied?.nodes.length||readOnly)return;const ids=new Map(copied.nodes.map(node=>[node.id,crypto.randomUUID()]));const suffix=Math.random().toString(36).slice(2,7);const nodes=copied.nodes.map(node=>({...node,id:ids.get(node.id),title:`${node.title} (cópia)`,x:Math.min(9950,Number(node.x)+48),y:Math.min(9950,Number(node.y)+48),path:node.path?`/nova-etapa-${suffix}-${ids.get(node.id).slice(0,4)}`:node.path,event_name:node.event_name?`${node.event_name.slice(0,65)}_copy_${suffix}`:node.event_name,discoveryPageId:undefined,stepId:undefined}));const edges=copied.edges.map(edge=>({...edge,id:crypto.randomUUID(),from:ids.get(edge.from),to:ids.get(edge.to)}));setFlowConfig(current=>({...current,nodes:[...current.nodes,...nodes],edges:[...current.edges,...edges]}));setSelectedNodeIds(nodes.map(node=>node.id));setSelectedNodeId(nodes[0].id);};
+  const pasteSelection=()=>{const copied=copiedNodesRef.current;if(!copied?.nodes.length||readOnly)return;if(flowConfig.nodes.length+copied.nodes.length>200){setLocalError('A cópia excede o limite de 200 etapas deste fluxo.');return;}const ids=new Map(copied.nodes.map(node=>[node.id,crypto.randomUUID()]));const suffix=Math.random().toString(36).slice(2,7);const nodes=copied.nodes.map(node=>({...node,id:ids.get(node.id),title:`${node.title} (cópia)`,x:Math.min(9950,Number(node.x)+48),y:Math.min(9950,Number(node.y)+48),path:node.path?`/nova-etapa-${suffix}-${ids.get(node.id).slice(0,4)}`:node.path,event_name:node.event_name?`${node.event_name.slice(0,65)}_copy_${suffix}`:node.event_name,discoveryPageId:undefined,stepId:undefined}));const edges=copied.edges.map(edge=>({...edge,id:crypto.randomUUID(),from:ids.get(edge.from),to:ids.get(edge.to)}));setFlowConfig(current=>({...current,nodes:[...current.nodes,...nodes],edges:[...current.edges,...edges]}));setSelectedNodeIds(nodes.map(node=>node.id));setSelectedNodeId(nodes[0].id);};
   const duplicateSelection=id=>{if(id){const node=flowConfig.nodes.find(item=>item.id===id);if(node)copiedNodesRef.current={nodes:[node],edges:[]};}else copySelection();pasteSelection();};
   const startPaletteDrag = (event, item) => {event.dataTransfer.effectAllowed='copy';event.dataTransfer.setData('application/x-cadu-flow-node',JSON.stringify(item));};
   const clickPaletteNode = item => addNode(item.type,item);
@@ -929,11 +932,32 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
         setFlow(current=>({...current,flows:current.flows.map(item=>item.id===snapshot.id?{...item,...result.flow}:item)}));
         setEditorSaveState('saved');
         return result.flow.draft_revision;
-      } catch(failure){setEditorSaveState('error');setLocalError(failure.message);return false;}
+      } catch(failure){setEditorSaveState('error');setLocalError(failure.message);if(failure.status===409)setDraftConflict(true);return false;}
       finally{editorSavingRef.current=false;}
     })();
     savePromiseRef.current=pending;
     try{return await pending;}finally{if(savePromiseRef.current===pending)savePromiseRef.current=null;}
+  };
+  const resolveDraftConflict = async overwrite => {
+    const snapshot = {...liveEditorRef.current};
+    try {
+      const result = await json(`/connect/api/v1/reports/flow?client_id=${data.client.client_id}&flow_id=${selectedFlowId}&view=edit`);
+      const latest = result.flows.find(item=>item.id===selectedFlowId);
+      if(!latest)throw new Error('O fluxo não está mais disponível para este cliente.');
+      if(overwrite){
+        const saved = await save(`/flow/flows/${selectedFlowId}`,{name:snapshot.name,config:snapshot.config,expected_revision:latest.draft_revision},false,'PATCH');
+        adoptDraft(saved.flow);
+      }else{
+        adoptDraft(latest);
+        flowHistory.reset(latest.config);
+      }
+      setDraftConflict(false);setEditorSaveState('saved');setLocalError('');
+    }catch(failure){setLocalError(failure.message);if(failure.status!==409)setDraftConflict(false);}
+  };
+  const leaveEditor = async () => {
+    if(draftConflict)return;
+    if(editorDirty && !await saveFlow())return;
+    location.assign(reportUrl('flows',{client_id:data.client.client_id}));
   };
   const openPublication = async () => {
     if(!selectedFlowId)return;
@@ -956,6 +980,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     }catch(failure){setLocalError(failure.message);}finally{setPublicationBusy(false);}
   };
   const loadVersions = async () => {try{const result=await json(`/connect/api/v1/reports/flow/flows/${selectedFlowId}/versions?client_id=${data.client.client_id}`);setVersions(result.versions);}catch(failure){setLocalError(failure.message);}};
+  const compareVersion = async revision => {try{const result=await json(`/connect/api/v1/reports/flow/flows/${selectedFlowId}/versions/${revision}?client_id=${data.client.client_id}`);setVersionComparison({revision,...flowChangeSummary(result.version.config,flowConfig)});}catch(failure){setLocalError(failure.message);}};
   const restoreVersion = async revision => {
     if(!window.confirm('Restaurar esta versão como rascunho? A publicação atual continuará ativa.')||!startCommand())return;
     try{
@@ -993,7 +1018,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
         await loadDiscoveries(selectedFlowId);
         if(run.status==='failed'){setLocalError('Não encontramos páginas acessíveis. Confira o domínio e o sitemap.');break;}
         setFlowLayoutNote(`${run.page_count} páginas analisadas · grupos por seção · conexões por links do site`);
-        if(result.omitted_pages){setLocalError('O rascunho atingiu 100 blocos. As demais páginas ficam na lista de descoberta.');break;}
+        if(result.omitted_pages){setLocalError('O rascunho atingiu 200 blocos. As demais páginas ficam na lista de descoberta.');break;}
       } while(run?.status==='partial'&&Number(run.pending_count)>0);
     }catch(failure){setLocalError(failure.message);}
     finally{setDiscoveryBusy(false);endCommand();}
@@ -1057,20 +1082,29 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
       .finally(()=>{if(!cancelled)setJourneyLoading(false);});
     return()=>{cancelled=true;};
   },[editorMode,selectedFlowId,journeyDays,selectedFlow?.published_revision,data.client.client_id]);
-  const validationIssues = useMemo(()=>flowValidation(flowConfig),[flowConfig]);
+  const validationIssues = useMemo(()=>flowValidation(flowConfig,selectedFlow?.allowed_host),[flowConfig,selectedFlow?.allowed_host]);
   const readOnly = data.client.role === 'viewer' || commandBusy;
   const editorDirty = Boolean(selectedFlow && (flowName !== selectedFlow.name || JSON.stringify(flowConfig) !== JSON.stringify(selectedFlow.config || {nodes:[],edges:[]})));
   useEffect(() => {
-    if (!selectedFlowId || !selectedFlow || readOnly || !editorDirty || editorSaveState==='error') return;
-    const timer=window.setTimeout(()=>saveFlow(),900);
+    if (!selectedFlowId || !selectedFlow || readOnly || !editorDirty || editorSaveState==='error' || draftConflict) return;
+    const timer=window.setTimeout(()=>saveFlow(),1500);
     return()=>window.clearTimeout(timer);
-  },[selectedFlowId,selectedFlow?.draft_revision,flowName,flowConfig,editorDirty,readOnly,editorSaveState]);
+  },[selectedFlowId,selectedFlow?.draft_revision,flowName,flowConfig,editorDirty,readOnly,editorSaveState,draftConflict]);
   useEffect(()=>{
     if(flowView!=='edit')return;
     const shortcut=event=>{
+      if(event.key==='Escape'&&!event.defaultPrevented&&!event.target.closest('input,textarea,select,[role="dialog"]')){event.preventDefault();leaveEditor();return;}
+      if(editorMode!=='edit')return;
       if(event.target.closest('input,textarea,select,[contenteditable="true"],[role="dialog"]'))return;
       const mod=event.metaKey||event.ctrlKey;
       const key=event.key.toLowerCase();
+      const movement={arrowleft:[-12,0],arrowright:[12,0],arrowup:[0,-12],arrowdown:[0,12]}[key];
+      if(movement&&!mod&&!readOnly&&(selectedNodeIds.length||selectedNodeId)){
+        event.preventDefault();
+        const ids=new Set(selectedNodeIds.length?selectedNodeIds:[selectedNodeId]);
+        setFlowConfig(current=>({...current,nodes:current.nodes.map(node=>ids.has(node.id)?{...node,x:Math.max(0,Math.min(10000,Number(node.x)+movement[0])),y:Math.max(0,Math.min(10000,Number(node.y)+movement[1]))}:node)}));
+        return;
+      }
       if(mod&&key==='z'&&!readOnly){event.preventDefault();if(event.shiftKey)flowHistory.redo();else flowHistory.undo();}
       else if(mod&&key==='c'&&!readOnly){copySelection();}
       else if(mod&&key==='v'&&!readOnly&&copiedNodesRef.current){event.preventDefault();pasteSelection();}
@@ -1082,8 +1116,8 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     };
     window.addEventListener('keydown',shortcut);
     return()=>window.removeEventListener('keydown',shortcut);
-  },[flowView,flowHistory.undo,flowHistory.redo,canvasZoom,readOnly,selectedNodeIds,selectedNodeId,flowConfig]);
-  useEffect(()=>{const protect=event=>{if(editorDirty){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);},[editorDirty]);
+  },[flowView,editorMode,flowHistory.undo,flowHistory.redo,canvasZoom,readOnly,selectedNodeIds,selectedNodeId,flowConfig,draftConflict]);
+  useEffect(()=>{const protect=event=>{const current=liveEditorRef.current;if(flowView==='edit'&&selectedFlowId&&revisionRef.current&&current&&JSON.stringify({name:current.name,config:current.config})!==savedSnapshotRef.current){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);},[flowView,selectedFlowId]);
   const scannedIntegrations = discovery.platform_integrations || [];
   const scannedPageCount = Number(discovery.integration_scan_pages || 0);
   const channelOrigins = FLOW_CHANNELS.map(channel => {
@@ -1110,13 +1144,14 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     {flowView==='monitor'&&<a className="reports-flow-return" href={reportUrl('flows',{client_id:data.client.client_id})}>← Voltar aos fluxos</a>}
     {localError&&<div className="reports-error" role="alert">{localError}</div>}
     {versionMessage&&<div className="reports-flow-feedback" role="status">{versionMessage}</div>}
+    {draftConflict&&<ModalOverlay className="reports-untitled-overlay reports-confirm-overlay" isOpen isDismissable={false}><Modal className="reports-confirm-modal"><Dialog aria-label="Conflito no rascunho" className="reports-confirm-dialog flow-publication-dialog"><h2>Este fluxo mudou em outra aba</h2><p>As alterações desta aba continuam aqui. Escolha qual versão manter antes de continuar a editar.</p><div className="reports-confirm-actions"><UntitledButton color="secondary" size="sm" isDisabled={busy} onPress={()=>resolveDraftConflict(false)}>Recarregar versão recente</UntitledButton><UntitledButton color="primary" size="sm" isDisabled={busy} onPress={()=>resolveDraftConflict(true)}>Substituir com minhas alterações</UntitledButton></div></Dialog></Modal></ModalOverlay>}
     {flowView==='edit'&&validationOpen&&<section className="reports-flow-validation" aria-label="Revisão do fluxo"><div><strong>{validationIssues.length?`${validationIssues.filter(item=>item.severity==='error').length} erros · ${validationIssues.filter(item=>item.severity==='warning').length} avisos`:'Fluxo pronto para publicar'}</strong><button type="button" onClick={()=>setValidationOpen(false)} aria-label="Fechar revisão">×</button></div>{validationIssues.length?<ul>{validationIssues.map((issue,index)=><li className={`is-${issue.severity}`} key={`${issue.code}:${issue.nodeId||index}`}><span>{issue.message}</span>{issue.nodeId&&<button type="button" onClick={()=>{setSelectedNodeId(issue.nodeId);setInspectorOpen(true);setValidationOpen(false);}}>Abrir etapa</button>}</li>)}</ul>:<p>Nenhum problema encontrado nesta revisão.</p>}</section>}
     <FlowPublicationDialog open={publicationOpen} config={flowConfig} previous={publishedConfig} issues={validationIssues} note={publicationNote} onNoteChange={setPublicationNote} busy={publicationBusy} onClose={()=>setPublicationOpen(false)} onPublish={publishFlow}/>
-    {versions&&<section className="reports-flow-history"><h3>Versões publicadas</h3><button type="button" onClick={()=>setVersions(null)}>Fechar histórico</button>{versions.length?versions.map(item=><div key={item.revision}><span>Versão {item.revision} — {item.name}</span><button type="button" disabled={readOnly||busy} onClick={()=>restoreVersion(item.revision)}>Restaurar como rascunho</button></div>):<p>Nenhuma versão publicada.</p>}</section>}
+    {versions&&<section className="reports-flow-history"><h3>Versões publicadas</h3><button type="button" onClick={()=>{setVersions(null);setVersionComparison(null);}}>Fechar histórico</button>{versionComparison&&<p role="status">v{versionComparison.revision} → rascunho: etapas +{versionComparison.nodes.added} / −{versionComparison.nodes.removed} / {versionComparison.nodes.updated} alteradas; conexões +{versionComparison.edges.added} / −{versionComparison.edges.removed} / {versionComparison.edges.updated} alteradas.</p>}{versions.length?versions.map(item=><div key={item.revision}><span>Versão {item.revision} — {item.name}</span><button type="button" onClick={()=>compareVersion(item.revision)}>Comparar com rascunho</button><button type="button" disabled={readOnly||busy} onClick={()=>restoreVersion(item.revision)}>Restaurar como rascunho</button></div>):<p>Nenhuma versão publicada.</p>}</section>}
     {flowView==='create'&&<>
       <section className="reports-panel reports-flow-create-page">
         <div className="reports-panel-head"><div><h3>Criar um fluxo</h3><p>Defina o site e dê um nome para começar a mapear a jornada. A Super Tag do domínio pode ser compartilhada entre fluxos.</p></div><span>Cliente · {data.client.client_name}</span></div>
-        {data.client.role!=='viewer'?<form className="reports-form reports-flow-create" onSubmit={newFlow}><label>URL real do site<input required type="url" value={flowHost} onChange={event=>{setFlowHost(event.target.value);setFlowSiteCheck(null);}} placeholder="https://www.exemplo.com.br" /></label><button type="button" className="reports-text-button" disabled={!flowHost.trim()||flowSiteChecking} onClick={checkFlowSite}>{flowSiteChecking?'Verificando…':'Validar domínio'}</button>{flowSiteCheck&&<div className={`reports-flow-site-check${flowSiteCheck.error?' has-error':''}`}>{flowSiteCheck.error?<p>{flowSiteCheck.error}</p>:<><strong>{flowSiteCheck.title||flowSiteCheck.host}</strong><small>{flowSiteCheck.host} · HTTP {flowSiteCheck.status}</small>{superTagForFlow({allowed_host:flowSiteCheck.host})?<span className="is-connected">Super Tag deste domínio já existe · <a href={reportUrl('supertag')}>abrir instalação</a></span>:<span>A Super Tag será criada automaticamente para este domínio</span>}</>}</div>}<label>Modelo inicial<ReportsNativeSelect value={flowTemplate} onChange={event=>setFlowTemplate(event.target.value)}><option value="blank">Começar em branco</option><option value="lead">Captação de leads</option><option value="commerce">Compra no site</option></ReportsNativeSelect><small>Os caminhos do modelo são marcadores e precisam ser vinculados às páginas reais antes da publicação.</small></label><label>Nome do fluxo<input maxLength="120" value={flowName} onChange={event=>setFlowName(event.target.value)} placeholder={flowSiteCheck?.title||'Ex.: Campanha de aquisição 2026'} /></label><button disabled={busy||flowSiteChecking||!flowSiteCheck||Boolean(flowSiteCheck.error)}>{flowSiteCheck&&superTagForFlow({allowed_host:flowSiteCheck.host})?'Criar fluxo':'Criar fluxo e Super Tag única'}</button></form>:<p>Seu acesso permite acompanhar fluxos existentes.</p>}
+        {data.client.role!=='viewer'?<form className="reports-form reports-flow-create" onSubmit={newFlow}><label>URL real do site<input required type="url" value={flowHost} onChange={event=>{setFlowHost(event.target.value);setFlowSiteCheck(null);}} placeholder="https://www.exemplo.com.br" /></label><button type="button" className="reports-text-button" disabled={!flowHost.trim()||flowSiteChecking} onClick={checkFlowSite}>{flowSiteChecking?'Verificando…':'Validar domínio'}</button>{flowSiteCheck&&<div className={`reports-flow-site-check${flowSiteCheck.error?' has-error':''}`}>{flowSiteCheck.error?<p>{flowSiteCheck.error}</p>:<><strong>{flowSiteCheck.title||flowSiteCheck.host}</strong><small>{flowSiteCheck.host} · HTTP {flowSiteCheck.status}</small>{superTagForFlow({allowed_host:flowSiteCheck.host})?<span className="is-connected">Super Tag deste domínio já existe · <a href={reportUrl('supertag')}>abrir instalação</a></span>:<span>A Super Tag será criada automaticamente para este domínio</span>}</>}</div>}<label>Modelo inicial<ReportsNativeSelect value={flowTemplate} onChange={event=>setFlowTemplate(event.target.value)}>{flowTemplateOptions.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</ReportsNativeSelect><small>Os caminhos do modelo são marcadores e precisam ser vinculados às páginas reais antes da publicação.</small></label><label>Nome do fluxo<input maxLength="120" value={flowName} onChange={event=>setFlowName(event.target.value)} placeholder={flowSiteCheck?.title||'Ex.: Campanha de aquisição 2026'} /></label><button disabled={busy||flowSiteChecking||!flowSiteCheck||Boolean(flowSiteCheck.error)}>{flowSiteCheck&&superTagForFlow({allowed_host:flowSiteCheck.host})?'Criar fluxo':'Criar fluxo e Super Tag única'}</button></form>:<p>Seu acesso permite acompanhar fluxos existentes.</p>}
       </section>
       <section className="reports-panel reports-flow-list-panel"><div className="reports-panel-head"><div><h3>Fluxos deste cliente</h3><p>Abra o editor visual ou acompanhe os resultados de cada domínio.</p></div><span>{flow.flows.length} fluxos</span></div>
         {flow.flows.length?<div className="reports-flow-list">{flow.flows.map(item=><article className="reports-flow-list-item" key={item.id}><div><small>{item.flow_code} · {item.status==='published'?'Publicado':'Rascunho'}</small><strong>{item.name}</strong><span>{item.allowed_host}{item.campaign_names?` · Campanhas: ${item.campaign_names}`:''}</span><small>Monitoramento: {item.monitor_enabled?({online:'online',degraded:'com falhas',offline:'offline',checking:'verificando',unknown:'aguardando checagem'})[item.monitor_status]||'ativo':'não ativado'}</small></div><div className="reports-flow-list-actions"><button type="button" onClick={()=>openFlow(item,'edit')}>Editar fluxo</button><button type="button" onClick={()=>openFlow(item,'monitor')}>Monitorar</button></div></article>)}</div>:<Empty message="Nenhum fluxo foi criado para este cliente." />}
@@ -1125,7 +1160,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     {flowView==='edit'&&(selectedFlow?<>
       <section className={`reports-panel reports-flow-builder is-${editorMode}`} {...(commandBusy?{inert:'','aria-busy':true}:{})}>
         <header className="reports-flow-topbar reports-flow-editor-topbar">
-          <div className="reports-flow-editor-identity"><a href={reportUrl('flows',{client_id:data.client.client_id})} aria-label="Voltar aos fluxos">← Fluxos</a><span aria-hidden="true">/</span><input aria-label="Nome do fluxo" value={flowName} readOnly={readOnly} onChange={event=>setFlowName(event.target.value)} maxLength="120"/><small>{selectedFlow?.status==='published'?`Publicado v${selectedFlow.published_revision}`:'Rascunho'}</small><span className={`reports-flow-save-state is-${editorSaveState}`} role="status">{editorSaveState==='saving'?'Salvando…':editorSaveState==='pending'?'Alterações pendentes':editorSaveState==='error'?'Falha ao salvar':'Salvo'}</span></div>
+          <div className="reports-flow-editor-identity"><a href={reportUrl('flows',{client_id:data.client.client_id})} aria-label="Voltar aos fluxos" onClick={event=>{event.preventDefault();leaveEditor();}}>← Fluxos</a><span aria-hidden="true">/</span><input aria-label="Nome do fluxo" value={flowName} readOnly={readOnly} onChange={event=>setFlowName(event.target.value)} maxLength="120"/><small>{selectedFlow?.status==='published'?`Publicado v${selectedFlow.published_revision}`:'Rascunho'}</small><span className={`reports-flow-save-state is-${editorSaveState}`} role="status">{editorSaveState==='saving'?'Salvando…':editorSaveState==='pending'?'Alterações pendentes':editorSaveState==='error'?'Falha ao salvar':'Salvo'}</span></div>
           <div className="reports-flow-editor-modes" role="group" aria-label="Modo do fluxo"><button type="button" aria-current={editorMode==='edit'?'page':undefined} onClick={()=>{setEditorMode('edit');setSimulatedPath([]);}}>Editar</button><button type="button" aria-current={editorMode==='simulate'?'page':undefined} onClick={()=>setEditorMode('simulate')} disabled={!flowConfig.nodes.length}>Simular</button><button type="button" aria-current={editorMode==='journey'?'page':undefined} onClick={()=>setEditorMode('journey')} disabled={selectedFlow?.status!=='published'} title={selectedFlow?.status!=='published'?'Publique o fluxo para acompanhar a jornada':undefined}>Jornada</button></div>
           <div className="reports-flow-actions"><ReportsActionButton aria-label="Desfazer" title="Desfazer (⌘Z)" onClick={flowHistory.undo} disabled={!flowHistory.canUndo||readOnly}>↶</ReportsActionButton><ReportsActionButton aria-label="Refazer" title="Refazer (⌘⇧Z)" onClick={flowHistory.redo} disabled={!flowHistory.canRedo||readOnly}>↷</ReportsActionButton>{snippet(selectedFlow)?<ReportsActionButton onClick={()=>copy(snippet(selectedFlow))}>Copiar Super Tag</ReportsActionButton>:null}<ReportsActionButton className="reports-flow-issues-button" aria-label={`${validationIssues.length} problemas ou avisos no fluxo`} onClick={()=>setValidationOpen(value=>!value)}>Revisão {validationIssues.length}</ReportsActionButton><ReportsActionButton color="primary" className="reports-flow-publish" onClick={openPublication} disabled={!selectedFlowId||busy||!flowConfig.nodes.length||readOnly}>{selectedFlow?.status==='published'?'Publicar alterações':'Publicar'}</ReportsActionButton><details className="reports-flow-extra-actions"><summary aria-label="Mais ações">⋯</summary><div><ReportsActionButton onClick={saveFlow} disabled={!selectedFlowId||busy||readOnly}>Salvar agora</ReportsActionButton><ReportsActionButton onClick={loadVersions}>Histórico</ReportsActionButton><ReportsActionButton onClick={()=>downloadFlowSvg(flowConfig,flowName||'fluxo')}>Exportar SVG</ReportsActionButton><ReportsActionButton onClick={()=>downloadFlowPng(flowConfig,flowName||'fluxo').catch(failure=>setLocalError(failure.message))}>Exportar PNG</ReportsActionButton><ReportsActionButton onClick={testFlow} disabled={!selectedFlowId||busy||readOnly}>Testar fluxo</ReportsActionButton>{!snippet(selectedFlow)&&<ReportsActionButton onClick={()=>selectedFlow?.revoked_at?location.assign(reportUrl('supertag')):copy(flowFallbackSnippet(selectedFlow))} disabled={(!flowFallbackSnippet(selectedFlow)&&!selectedFlow?.revoked_at)||data.client.role==='viewer'}>{selectedFlow?.revoked_at?'Conectar Super Tag':'Copiar snippet'}</ReportsActionButton>}</div></details></div>
         </header>
@@ -1144,7 +1179,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
         <div className={`reports-flow-designer reports-flow-designer--compact${paletteOpen?' has-palette':''}${inspectorOpen?' has-inspector':''}`}><aside className="reports-node-palette">{paletteMode==='site'?<><div className="reports-palette-group reports-discovered-palette"><div className="reports-discovered-head"><strong>Páginas reais do site</strong><button type="button" disabled={discoveryBusy||busy||readOnly||(discovery.run?.status==='partial'&&!Number(discovery.run?.pending_count))} onClick={discoverSite} title="Mapear páginas verificadas do domínio">{discoveryBusy?'Mapeando…':discovery.run?.status==='partial'&&Number(discovery.run.pending_count)>0?'Continuar análise':discovery.run?'Atualizar mapa':'Mapear site'}</button></div><p className="reports-discovered-summary">{discovery.run ? `${discovery.pages?.length||0} páginas encontradas · ${mappedSitePages} no fluxo` : 'Analise o domínio e o sitemap para usar páginas reais neste fluxo.'}</p><ReportsFieldInput type="search" className="reports-site-page-search" aria-label="Buscar páginas do site" placeholder="Buscar página ou URL" value={siteQuery} onChange={event=>setSiteQuery(event.target.value)}/>{visibleSitePages.length?visibleSitePages.map(page=>{const defaultChoice=page.suggested_role==='entry'?'entry':page.suggested_role==='form'?'form':page.suggested_role==='conversion'?'conversion':page.suggested_role==='error'?'error':'intermediate';const draftNode=flowConfig.nodes.find(node=>node.discoveryPageId===String(page.id));const choice=draftNode?(draftNode.type==='page'?(draftNode.isEntry?'entry':'intermediate'):draftNode.type):'';return <div className="reports-discovered-page" key={page.id}><span><strong>{page.title||page.path_prefix}</strong><small>{page.page_host}{page.path_prefix}</small></span><select aria-label={`Etapa para ${page.path_prefix}`} value={choice} disabled={discoveryBusy||busy||readOnly} onChange={event=>chooseDiscoveredPage(page,event.target.value||defaultChoice)}><option value="">Adicionar como…</option><option value="entry">Entrada</option><option value="intermediate">Página</option>{page.form_count>0&&<option value="form">Formulário</option>}<option value="conversion">Conversão</option><option value="error">Erro</option></select>{!readOnly&&<button type="button" disabled={Boolean(suggestingPage)||busy} onClick={()=>suggestPageRole(page)}>{suggestingPage===String(page.id)?'Analisando…':'Sugerir etapa'}</button>}{pageSuggestions[page.id]&&<small role="status">{pageSuggestions[page.id].base_revision!==revisionRef.current?'Sugestão desatualizada; analise novamente.':pageSuggestions[page.id].suggestion.role==='none'?'Evidência insuficiente; escolha manualmente.':<>Sugestão: {FLOW_ROLE_LABELS[pageSuggestions[page.id].suggestion.role]||'Etapa'} <FlowSuggestionConfidence suggestion={pageSuggestions[page.id].suggestion}/> <button type="button" disabled={busy||readOnly} onClick={()=>chooseDiscoveredPage(page,pageSuggestions[page.id].suggestion.role,undefined,pageSuggestions[page.id])}>Aplicar ao rascunho</button></>}</small>}{choice&&<button type="button" aria-label={`Remover ${page.path_prefix} do fluxo`} disabled={discoveryBusy||busy||readOnly} onClick={()=>chooseDiscoveredPage(page,'ignore')}>×</button>}</div>; }):<p className="reports-discovered-empty">{discoveryBusy?'Analisando páginas e links…':siteQuery&&discovery.pages?.length?'Nenhuma página corresponde à busca.':'As páginas verificadas do domínio aparecerão aqui.'}</p>}</div></>:<><div className="reports-palette-heading"><strong>Blocos do fluxo</strong><small>Arraste para o canvas ou selecione</small></div><input aria-label="Buscar blocos" placeholder="Buscar blocos…" value={paletteQuery} onChange={event=>setPaletteQuery(event.target.value)}/>{flowPaletteGroups.map(([heading,items])=><div className="reports-palette-group" key={heading}><strong>{heading}</strong>{items.filter(item=>item.label.toLowerCase().includes(paletteQuery.toLowerCase())).map((item,index)=><button type="button" key={`${item.type}:${item.source||''}:${index}`} draggable={!readOnly} disabled={readOnly} onDragStart={event=>startPaletteDrag(event,item)} onClick={()=>clickPaletteNode(item)}><span className="reports-palette-icon">{item.source&&FLOW_PLATFORMS[item.source]?<FlowPlatformLogo platform={item.source}/>:<item.icon size={18}/>}</span>{item.label}</button>)}</div>)}</>}</aside>
           <FlowCanvas config={editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig} journey={editorMode==='journey'?journeyData:null} setConfig={setFlowConfig} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} onAddNode={(item,point,source)=>addNode(item.type,item,point,source)} onInsertEdge={insertOnEdge} onSelectedIdsChange={setSelectedNodeIds} onDuplicateSelection={duplicateSelection} readOnly={readOnly||editorMode!=='edit'} simulatedPath={simulatedPath} snapToGrid={snapToGrid} onReady={instance=>{canvasFlowRef.current=instance;}} onZoomChange={setCanvasZoom}/>
 
-          {inspectorOpen&&<FlowInspector node={flowConfig.nodes.find(item=>item.id===selectedNodeId)} activity={flow.activity} readOnly={readOnly} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
+          {inspectorOpen&&<FlowInspector node={(editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig).nodes.find(item=>item.id===selectedNodeId)} activity={flow.activity} journeyMetric={editorMode==='journey'?journeyData?.nodes?.find(item=>item.id===selectedNodeId):null} readOnly={readOnly||editorMode!=='edit'} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
         </div>
         {editorMode==='simulate'&&<FlowSimulator config={flowConfig} onPathChange={setSimulatedPath} onClose={()=>{setEditorMode('edit');setSimulatedPath([]);}}/>}
         {editorMode==='journey'&&<FlowJourneyPanel journey={journeyData} days={journeyDays} onDaysChange={setJourneyDays} onAddSuggestion={addJourneySuggestion} onClose={()=>setEditorMode('edit')} loading={journeyLoading} error={journeyError}/> }

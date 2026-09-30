@@ -47,3 +47,12 @@ class FlowSchemaV2Tests(TestCase):
         self.assertIn('unmapped_page', {issue['code'] for issue in issues})
         config['nodes'][0]['path'] = '/landing'
         self.assertEqual([issue for issue in validation.validate_flow_config(config) if issue['severity'] == 'error'], [])
+
+    def test_duplicate_page_path_is_blocked_at_publish(self):
+        config = {'nodes': [
+            {'id': 'first', 'type': 'page', 'title': 'Entrada', 'path': '/'},
+            {'id': 'second', 'type': 'page', 'title': 'Entrada duplicada', 'host': 'site.example', 'path': '/'},
+            {'id': 'lead', 'type': 'conversion', 'title': 'Lead', 'path': '/obrigado'},
+        ], 'edges': [{'from': 'first', 'to': 'lead'}, {'from': 'second', 'to': 'lead'}]}
+        issues = validation.validate_flow_config(config, 'site.example')
+        self.assertIn('duplicate_page', {issue['code'] for issue in issues})

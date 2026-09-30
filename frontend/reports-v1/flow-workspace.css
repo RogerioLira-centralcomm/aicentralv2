@@ -216,3 +216,41 @@
 .reports-flow-monitor-canvas .reports-flow-live-edge{animation:none;stroke-dasharray:none;stroke:#98a2b3}
 .reports-flow-monitor-canvas .reports-flow-live-edge.is-new-transition{stroke:#16a36a;stroke-dasharray:7 6;animation:reports-flow-signal .6s linear 3}
 @media(prefers-reduced-motion:reduce){.reports-flow-monitor-canvas .reports-flow-live-edge.is-new-transition{animation:none}}
+
+/* The site inventory is the primary source for this editor. Keep it readable
+   beside a canvas that starts at actual size instead of a reduced zoom. */
+.reports-main .reports-flow-designer--compact.has-palette{grid-template-columns:224px minmax(0,1fr)}
+.reports-main .reports-flow-designer--compact.has-palette.has-inspector{grid-template-columns:224px minmax(0,1fr) 264px}
+.reports-main .reports-discovered-palette{margin-top:0;padding-top:0;border-top:0}
+.reports-main .reports-discovered-head{align-items:flex-start;gap:10px}
+.reports-main .reports-discovered-head strong{font-size:13px;line-height:1.3;color:var(--color-text-primary)}
+.reports-main .reports-discovered-head>button{flex:0 0 auto;min-height:28px;padding:3px 8px;border:0;background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary);font-size:11px;font-weight:600}
+.reports-main .reports-discovered-summary{margin:2px 0 7px;color:var(--color-text-tertiary);font-size:11px;line-height:1.4}
+.reports-main .reports-discovered-palette>.reports-ui-field{width:100%;margin-bottom:3px;box-shadow:none}
+.reports-main .reports-discovered-palette .reports-site-page-search{width:100%;border:0;outline:0;box-shadow:none;background:transparent;font-size:11px}
+.reports-main .reports-discovered-page{grid-template-columns:minmax(0,1fr) auto;gap:6px;padding:9px 0}
+.reports-main .reports-discovered-page>span{grid-column:1/-1}
+.reports-main .reports-discovered-page strong{font-size:11px;line-height:1.4}
+.reports-main .reports-discovered-page small{font-size:10px}
+.reports-main .reports-discovered-page select{grid-column:1/-1;min-height:30px;font-size:11px}
+.reports-main .reports-discovered-page>button{width:auto;min-width:28px;height:28px;padding:0 6px;border:0;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:11px}
+.reports-main .reports-discovered-page>small[role=status]{grid-column:1/-1;white-space:normal}
+.reports-editor-count{display:inline-flex;min-width:18px;justify-content:center;margin-left:4px;padding:1px 4px;border-radius:4px;background:var(--color-bg-secondary);font-size:10px;font-variant-numeric:tabular-nums}
+.reports-main .reports-editor-controls button[aria-pressed=true] .reports-editor-count{background:var(--color-bg-brand-secondary)}
+.reports-flow-extra-actions{position:relative;z-index:25}
+.reports-flow-extra-actions>summary{display:flex;align-items:center;min-height:32px;padding:0 9px;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font-size:12px;font-weight:600;cursor:pointer;list-style:none}
+.reports-flow-extra-actions>summary::-webkit-details-marker{display:none}
+.reports-flow-extra-actions>summary:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+.reports-flow-extra-actions>div{position:absolute;top:calc(100% + 5px);right:0;display:grid;gap:3px;width:195px;padding:6px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.reports-main .reports-flow-extra-actions>div>button{justify-content:flex-start;width:100%;border:0;box-shadow:none;text-align:left}
+@media(max-width:1279px){
+  .reports-main .reports-flow-designer--compact.has-palette,.reports-main .reports-flow-designer--compact.has-palette.has-inspector{grid-template-columns:200px minmax(0,1fr)}
+}
+body.reports-flow-focus-active .reports-shell{grid-template-columns:minmax(0,1fr)!important}
+body.reports-flow-focus-active .reports-shell>.cadu-solution-sidebar,
+body.reports-flow-focus-active .reports-shell>.reports-main>.reports-page-header,
+body.reports-flow-focus-active .reports-flow-views{display:none!important}
+body.reports-flow-focus-active .reports-shell>.reports-main{grid-column:1!important;width:100%!important;padding:0 12px!important}
+body.reports-flow-focus-active .reports-content{max-width:none!important}
+body.reports-flow-focus-active .reports-flow-builder{height:calc(100dvh - 16px)!important;margin:8px 0!important}
+body.reports-flow-focus-active .reports-flow-designer--compact{height:100%!important;flex:1 1 auto}

@@ -1651,6 +1651,76 @@ def register(bp):
             abort(404, description='Versão não encontrada neste cliente.')
         return jsonify(version=versions[0])
 
+    @bp.get('/api/v1/reports/flow/flows/<flow_id>/journey')
+    @login_required_api
+    def reports_flow_journey(flow_id):
+        selected = _selection()
+        flow = _flow_row(flow_id, selected)
+        try:
+            days = int(request.args.get('days', 30))
+        except (TypeError, ValueError):
+            abort(400, description='Período inválido.')
+        if days not in (7, 30, 90):
+            abort(400, description='Período inválido.')
+        revision = flow.get('published_revision')
+        config = flow.get('active_config') or {}
+        if flow['status'] != 'published' or revision is None or flow.get('revoked_at'):
+            return jsonify(status='unavailable', revision=revision, period_days=days, config=None,
+                           nodes=[], edges=[], suggestions=[])
+        scope = (selected['organization_id'], selected['client_id'], flow['tag_id'], revision, days)
+        hits_cte = """WITH hits AS (
+            SELECT s.node_id,e.session_id,MIN(e.occurred_at) AS first_at,
+                COUNT(*)::bigint AS events
+            FROM cadu_reports_flow_events e JOIN cadu_reports_flow_steps s
+                ON s.id=e.step_id AND s.organization_id=e.organization_id
+                AND s.client_id=e.client_id AND s.flow_revision=e.flow_revision
+            WHERE e.organization_id=%s AND e.client_id=%s AND e.tag_id=%s
+                AND e.flow_revision=%s AND e.occurred_at >= NOW() - (%s * INTERVAL '1 day')
+            GROUP BY s.node_id,e.session_id
+        ) """
+        node_rows = _rows(hits_cte + """SELECT node_id,COUNT(*)::bigint AS sessions,
+            SUM(events)::bigint AS events FROM hits GROUP BY node_id""", scope)
+        node_totals = {str(row['node_id']): row for row in node_rows}
+        authored_edges = [edge for edge in config.get('edges', [])
+            if isinstance(edge, dict) and edge.get('from') and edge.get('to')]
+        edge_json = json.dumps([{'edge_id': str(edge.get('id') or ''),
+            'source_id': edge['from'], 'target_id': edge['to']} for edge in authored_edges])
+        edge_rows = _rows(hits_cte + """, authored AS (
+            SELECT * FROM jsonb_to_recordset(%s::jsonb)
+                AS edge(edge_id TEXT,source_id TEXT,target_id TEXT)
+        ) SELECT a.edge_id,COUNT(DISTINCT source.session_id)::bigint AS sessions
+        FROM authored a JOIN hits source ON source.node_id=a.source_id
+        JOIN hits target ON target.node_id=a.target_id
+            AND target.session_id=source.session_id AND target.first_at>source.first_at
+        GROUP BY a.edge_id""", (*scope, edge_json))
+        edge_totals = {row['edge_id']: row['sessions'] for row in edge_rows}
+        transitions = _rows("""WITH ordered AS (
+            SELECT s.node_id AS source_id,
+                LEAD(s.node_id) OVER (PARTITION BY e.session_id ORDER BY e.occurred_at,e.id) AS target_id,
+                e.session_id
+            FROM cadu_reports_flow_events e JOIN cadu_reports_flow_steps s
+                ON s.id=e.step_id AND s.organization_id=e.organization_id
+                AND s.client_id=e.client_id AND s.flow_revision=e.flow_revision
+            WHERE e.organization_id=%s AND e.client_id=%s AND e.tag_id=%s
+                AND e.flow_revision=%s AND e.occurred_at >= NOW() - (%s * INTERVAL '1 day')
+        ) SELECT source_id,target_id,COUNT(DISTINCT session_id)::bigint AS sessions
+          FROM ordered WHERE target_id IS NOT NULL AND source_id<>target_id
+          GROUP BY source_id,target_id ORDER BY sessions DESC LIMIT 100""", scope)
+        authored_pairs = {(edge['from'], edge['to']) for edge in authored_edges}
+        nodes = [{'id': node['id'], 'sessions': int(node_totals.get(node['id'], {}).get('sessions') or 0),
+                  'events': int(node_totals.get(node['id'], {}).get('events') or 0)}
+                 for node in config.get('nodes', []) if isinstance(node, dict) and node.get('id')]
+        edges = [{'id': edge['id'], 'from': edge['from'], 'to': edge['to'],
+                  'sessions': int(edge_totals.get(edge['id']) or 0),
+                  'rate': round(100 * int(edge_totals.get(edge['id']) or 0) /
+                                max(1, int(node_totals.get(edge['from'], {}).get('sessions') or 0)), 1)}
+                 for edge in authored_edges if edge.get('id')]
+        suggestions = [{'from': row['source_id'], 'to': row['target_id'],
+                        'sessions': int(row['sessions'])}
+                       for row in transitions if (row['source_id'], row['target_id']) not in authored_pairs][:20]
+        return jsonify(status='ready', revision=revision, period_days=days, config=migrate_v1_to_v2(config),
+                       nodes=nodes, edges=edges, suggestions=suggestions)
+
     @bp.post('/api/v1/reports/flow/flows/<flow_id>/versions/<int:revision>/restore')
     @login_required_api
     def reports_flow_restore(flow_id, revision):

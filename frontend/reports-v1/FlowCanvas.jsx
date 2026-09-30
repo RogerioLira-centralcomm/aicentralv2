@@ -21,7 +21,7 @@ function NodeHandles() {
 }
 
 function ShapeNode({data,selected,shape}) {
-  const {node,readOnly,onLabelChange}=data;
+  const {node,readOnly,onLabelChange,metric}=data;
   const block=flowBlockFor(node);
   const Icon=block.icon;
   return <div className={`flow-shape-node is-${shape} is-tone-${block.tone}${selected?' is-selected':''}`}>
@@ -29,6 +29,7 @@ function ShapeNode({data,selected,shape}) {
     <div className="flow-shape-body" aria-hidden="true">{shape==='page'?<div className={`flow-page-preview is-${block.preview||'generic'}`}><div className="flow-page-preview__bar"><i/><i/><i/></div><div className="flow-page-preview__image"/><div className="flow-page-preview__line"/><div className="flow-page-preview__line is-short"/></div>:<Icon size={22}/>}</div>
     {node.path&&node.path!=='/'&&!node.path.startsWith('/configurar-')&&<small>{node.path}</small>}
     {block.trackable&&(!node.path||node.path.startsWith('/configurar-'))&&<span className="flow-shape-warning" title="Configure a URL real desta etapa">!</span>}
+    {metric&&<span className="flow-journey-count" aria-label={`${metric.sessions} sessões nesta etapa`}>{Number(metric.sessions||0).toLocaleString('pt-BR')}</span>}
     <NodeHandles/>
   </div>;
 }
@@ -47,16 +48,22 @@ function FlowEdge({id,sourceX,sourceY,targetX,targetY,sourcePosition,targetPosit
 
 const edgeTypes={flow:FlowEdge};
 
-function FlowCanvasInner({config,setConfig,selectedNodeId,setSelectedNodeId,onSelectedIdsChange,onAddNode,onInsertEdge,onDuplicateSelection,readOnly,simulatedPath=[],snapToGrid,onReady,onZoomChange}) {
+function FlowCanvasInner({config,setConfig,selectedNodeId,setSelectedNodeId,onSelectedIdsChange,onAddNode,onInsertEdge,onDuplicateSelection,readOnly,simulatedPath=[],journey=null,snapToGrid,onReady,onZoomChange}) {
   const [instance,setInstance]=useState(null);
   const [selectedIds,setSelectedIds]=useState([]);
   const [showMiniMap,setShowMiniMap]=useState(false);
   const [quickAdd,setQuickAdd]=useState(null);
   const [contextMenu,setContextMenu]=useState(null);
   const onLabelChange=useCallback((id,title)=>setConfig(current=>({...current,nodes:current.nodes.map(node=>node.id===id?{...node,title}:node)})),[setConfig]);
-  const nodes=useMemo(()=>(config.nodes||[]).map(node=>({id:node.id,type:flowBlockFor(node).shape,className:simulatedPath.includes(node.id)?'is-simulated':'',position:{x:Number(node.x)||0,y:Number(node.y)||0},data:{node,readOnly,onLabelChange},draggable:!readOnly,selectable:true,selected:selectedIds.length?selectedIds.includes(node.id):node.id===selectedNodeId})),[config.nodes,readOnly,onLabelChange,selectedNodeId,selectedIds,simulatedPath]);
+  const nodes=useMemo(()=>(config.nodes||[]).map(node=>({id:node.id,type:flowBlockFor(node).shape,className:simulatedPath.includes(node.id)?'is-simulated':'',position:{x:Number(node.x)||0,y:Number(node.y)||0},data:{node,readOnly,onLabelChange,metric:journey?.nodes?.find(item=>item.id===node.id)},draggable:!readOnly,selectable:true,selected:selectedIds.length?selectedIds.includes(node.id):node.id===selectedNodeId})),[config.nodes,readOnly,onLabelChange,selectedNodeId,selectedIds,simulatedPath,journey]);
   const removeEdge=useCallback(id=>setConfig(current=>({...current,edges:current.edges.filter(edge=>edge.id!==id)})),[setConfig]);
-  const edges=useMemo(()=>(config.edges||[]).map(edge=>{const planned=edge.variant==='planned'||edge.kind==='site_link';const simulated=simulatedPath.some((id,index)=>id===edge.from&&simulatedPath[index+1]===edge.to);const color=simulated?'var(--color-fg-success-primary)':planned?'var(--color-fg-quaternary)':'var(--color-fg-brand-primary)';return {id:edge.id,source:edge.from,target:edge.to,label:edge.label==='Próximo'?undefined:edge.label,sourceHandle:edge.from_port||'right-out',targetHandle:edge.to_port||'left-in',type:'flow',animated:simulated,style:{strokeWidth:simulated?3:2,stroke:color,strokeDasharray:planned&&!simulated?'6 6':undefined},markerEnd:{type:MarkerType.ArrowClosed,color},data:{readOnly,onRemove:removeEdge,onInsert:onInsertEdge}};}),[config.edges,readOnly,removeEdge,onInsertEdge,simulatedPath]);
+  const edges=useMemo(()=>{
+    const authored=(config.edges||[]).map(edge=>{const planned=edge.variant==='planned'||edge.kind==='site_link';const simulated=simulatedPath.some((id,index)=>id===edge.from&&simulatedPath[index+1]===edge.to);const metric=journey?.edges?.find(item=>item.id===edge.id);const color=simulated?'var(--color-fg-success-primary)':planned?'var(--color-fg-quaternary)':'var(--color-fg-brand-primary)';return {id:edge.id,source:edge.from,target:edge.to,label:metric?`${Number(metric.sessions).toLocaleString('pt-BR')} · ${metric.rate}%`:edge.label==='Próximo'?undefined:edge.label,sourceHandle:edge.from_port||'right-out',targetHandle:edge.to_port||'left-in',type:'flow',animated:simulated,style:{strokeWidth:metric?2+Math.min(4,Math.log10(Number(metric.sessions)+1)):simulated?3:2,stroke:color,strokeDasharray:planned&&!simulated?'6 6':undefined},markerEnd:{type:MarkerType.ArrowClosed,color},data:{readOnly,onRemove:removeEdge,onInsert:onInsertEdge}};});
+    if(!journey?.suggestions?.length)return authored;
+    const ids=new Set((config.nodes||[]).map(node=>node.id));
+    const suggestions=journey.suggestions.filter(item=>ids.has(item.from)&&ids.has(item.to)).map(item=>({id:`suggested:${item.from}:${item.to}`,source:item.from,target:item.to,type:'flow',label:`Sugerido · ${Number(item.sessions).toLocaleString('pt-BR')}`,style:{strokeWidth:2,stroke:'var(--color-fg-quaternary)',strokeDasharray:'3 6'},markerEnd:{type:MarkerType.ArrowClosed,color:'var(--color-fg-quaternary)'},data:{readOnly:true}}));
+    return [...authored,...suggestions];
+  },[config.edges,config.nodes,readOnly,removeEdge,onInsertEdge,simulatedPath,journey]);
   const onNodesChange=useCallback(changes=>{const moved=changes.filter(change=>change.type==='position'&&change.position);const removed=new Set(changes.filter(change=>change.type==='remove').map(change=>change.id));if(moved.length||removed.size)setConfig(current=>({...current,nodes:current.nodes.filter(node=>!removed.has(node.id)).map(node=>{const change=moved.find(item=>item.id===node.id);return change?{...node,x:Math.max(0,Math.round(change.position.x)),y:Math.max(0,Math.round(change.position.y))}:node;}),edges:removed.size?current.edges.filter(edge=>!removed.has(edge.from)&&!removed.has(edge.to)):current.edges}));},[setConfig]);
   const onEdgesChange=useCallback(changes=>{const removed=new Set(changes.filter(change=>change.type==='remove').map(change=>change.id));if(removed.size)setConfig(current=>({...current,edges:current.edges.filter(edge=>!removed.has(edge.id))}));},[setConfig]);
   const onConnect=useCallback(connection=>{if(readOnly||!connection.source||!connection.target||connection.source===connection.target)return;setConfig(current=>{if(current.edges.some(edge=>edge.from===connection.source&&edge.to===connection.target)||current.edges.length>=300)return current;const sourceNode=current.nodes.find(node=>node.id===connection.source);return {...current,edges:[...current.edges,{id:crypto.randomUUID(),from:connection.source,to:connection.target,from_port:connection.sourceHandle||'right-out',to_port:connection.targetHandle||'left-in',variant:sourceNode?.type==='source'?'planned':'direct',label:'Próximo'}]};});},[readOnly,setConfig]);

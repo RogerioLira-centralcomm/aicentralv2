@@ -1,7 +1,8 @@
 import React from 'react';
 
 export const FLOW_PLATFORMS = {
-  google: {label: 'Google Ads', logo: '/static/images/cadu/technology-logos/google.svg'},
+  google: {label: 'Google Ads', logo: '/static/images/canais/google-ads.png'},
+  organic: {label: 'Google orgânico', logo: '/static/images/cadu/technology-logos/google.svg'},
   youtube: {label: 'YouTube Ads', logo: '/static/images/creative-viewers/youtube.svg'},
   facebook: {label: 'Facebook Ads', logo: '/static/images/creative-viewers/facebook.svg'},
   instagram: {label: 'Instagram Ads', logo: '/static/images/creative-viewers/instagram.svg'},
@@ -26,6 +27,6 @@ export function FlowPlatformLogo({platform}) {
   if (brand.wordmark === 'amazon') return <svg className="reports-flow-brand-mark is-amazon" viewBox="0 0 48 28" role="img" aria-label="Amazon"><text x="2" y="17" fontSize="15" fontWeight="700" fill="currentColor">amazon</text><path d="M10 21c10 6 23 6 32-1m0 0-5-1m5 1-2 4" fill="none" stroke="#f0a323" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>;
   if (brand.wordmark === 'serasa') return <span className="reports-brand-wordmark is-serasa" aria-label="Serasa">serasa</span>;
   if (brand.wordmark === 'email') return <svg className="reports-flow-brand-mark is-email" viewBox="0 0 24 24" role="img" aria-label="E-mail"><path d="M3 5h18v14H3zM4 7l8 6 8-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>;
-  return <img className="reports-flow-brand-mark" src={brand.logo} alt={brand.label} draggable="false" />;
+  return <img onError={event=>{event.currentTarget.style.display="none";event.currentTarget.parentElement.title=brand.label;}} className="reports-flow-brand-mark" src={brand.logo} alt={brand.label} draggable="false" />;
 }
 

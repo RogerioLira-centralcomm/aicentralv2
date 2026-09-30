@@ -1,6 +1,7 @@
 """Reports V1 media inventory and Link Tester API, scoped to one authorized client."""
 import json
 import math
+import os
 import re
 import secrets
 import uuid
@@ -124,6 +125,8 @@ def register(bp):
     @bp.get('/app')
     @bp.get('/app/<section>')
     @bp.get('/app/flows/<uuid:flow_id>')
+    @bp.get('/app/flows/<uuid:flow_id>/monitor')
+    @bp.get('/app/flows/new')
     @bp.get('/app/supertag/sites/<uuid:site_id>')
     @login_required
     def reports_v1_app(section=None, site_id=None, flow_id=None):
@@ -188,7 +191,7 @@ def register(bp):
                     AND w.organization_id=%s AND w.client_id=%s
                 WHERE r.client_id=%s ORDER BY r.created_at DESC LIMIT 20''',
                 (*params, *params, selected['client_id'])) if link_tests_ready else [])
-        return jsonify(ready=True, client=selected, clients=clients, csrf=session['family_csrf'],
+        return jsonify(ready=True, features={'flows_workspace_v2': str(selected['client_id']) in os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS','').split(',') or os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS') == '*'}, client=selected, clients=clients, csrf=session['family_csrf'],
                        can_manage_access=selected['role'] == 'admin' and
                            session.get('user_type') in ('admin', 'superadmin') and not reports_access.reports_only(),
                        can_manage_clients=selected['role'] == 'admin',

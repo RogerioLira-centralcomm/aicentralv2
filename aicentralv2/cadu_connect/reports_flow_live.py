@@ -41,6 +41,8 @@ def build_live_snapshot(events, nodes, edges, now):
         locations[key] = locations.get(key, 0) + 1
     node_presence = {}
     for node in nodes:
+        if node['type'] != 'page':
+            continue
         node_presence[node['id']] = sum(count for (host, path), count in locations.items()
             if path == node.get('path') and (not node.get('host') or node['host'] == host))
     conversion_pages = {(e['page_host'], e['page_path']) for e in active

@@ -1,5 +1,6 @@
 """Área autenticada do produto Cadu Agentes."""
 from typing import Optional
+from uuid import uuid4
 from datetime import date
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
@@ -19,7 +20,11 @@ bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 @bp.errorhandler(HTTPException)
 def reports_api_error(error):
     if request.path.startswith('/connect/api/v1/reports/'):
-        return jsonify(error=error.description), error.code
+        return jsonify(error=error.description,message=error.description,
+                       code=getattr(error,'flow_code',f'http_{error.code}'),
+                       field_errors=getattr(error,'field_errors',{}),
+                       node_ids=getattr(error,'node_ids',[]),edge_ids=getattr(error,'edge_ids',[]),
+                       request_id=str(uuid4())), error.code
     return error
 
 from .report_workspace import register as register_report_workspace

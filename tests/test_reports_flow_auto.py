@@ -20,7 +20,7 @@ class AutomaticFlowTests(TestCase):
         self.assertEqual(config, again)
 
     def test_preserves_authored_nodes_and_respects_limit(self):
-        original = {'nodes': [dict(id=str(i), type='page', path=f'/{i}', title='Authored') for i in range(100)], 'edges': []}
+        original = {'nodes': [dict(id=str(i), type='page', path=f'/{i}', title='Authored') for i in range(200)], 'edges': []}
         config, omitted = _assemble_discovered_flow(original, [self.page('/new')], 'example.com')
         self.assertEqual(config, original)
         self.assertEqual(omitted, 1)

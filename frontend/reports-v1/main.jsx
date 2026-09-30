@@ -16,6 +16,11 @@ import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {ReportsConfirmDialog} from './ReportsConfirmDialog.jsx';
 import {ReportsTabs} from './ReportsTabs.jsx';
 import {REPORT_FILTER_DEFAULTS, REPORT_PAGE_META, ReportsFilterBar, ReportsPageHeader} from './PageChrome.jsx';
+import {usePanelLayout} from './usePanelLayout.js';
+import {groupNodes,syncGroups,fitGroups} from './flowGroups.js';
+import {uniqueFlowEvents} from './flowEventIdentity.js';
+import {FlowLibrary} from './FlowLibrary.jsx';
+import {FlowMonitorWorkspace} from './FlowMonitorWorkspace.jsx';
 import {FlowCanvas} from './FlowCanvas.jsx';
 import {FlowInspector} from './FlowInspector.jsx';
 import {FlowPublicationDialog, flowChangeSummary} from './FlowPublicationDialog.jsx';
@@ -39,7 +44,7 @@ const SECTIONS = [
   ['access', 'Acessos', '♙'],
 ];
 const SECTION_ALIASES = {'data-library': 'imports', conversions: 'events', flows: 'flow'};
-const flowEditorId = () => location.pathname.match(/^\/connect\/app\/flows\/([0-9a-f-]{36})\/?$/i)?.[1] || '';
+const flowEditorId = () => location.pathname.match(/^\/connect\/app\/flows\/([0-9a-f-]{36})(?:\/monitor)?\/?$/i)?.[1] || '';
 const reportSection = () => {
   const parts = location.pathname.split('/').filter(Boolean);
   return parts[0] === 'connect' && parts[1] === 'app' ? parts[2] || 'overview' : 'overview';
@@ -70,6 +75,7 @@ async function json(url, options = {}) {
   if (!response.ok) {
     const failure = new Error(body.error || body.description || `Falha HTTP ${response.status}`);
     failure.status = response.status;
+    failure.details = body;
     throw failure;
   }
   return body;
@@ -701,11 +707,12 @@ function Flow(props) {
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
-  return <>{!supported && <section className="reports-flow-device-message"><h2>Abra este fluxo em um tablet ou computador.</h2><p>A mesa de fluxos precisa de uma tela maior para organizar etapas e conexões. Se estiver em um computador, amplie a janela.</p><button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(location.href);setLinkCopied(true);}catch(_){setLinkCopied(false);}}}>{linkCopied?'Link copiado':'Copiar link'}</button><a href={reportUrl('overview')}>Voltar ao Reports</a></section>}{(supported || hasOpened) && <div hidden={!supported}><FlowDesktop key={props.data.client.client_id} {...props}/></div>}</>;
+  return <>{!supported && !(/\/monitor\/?$/.test(location.pathname)&&props.data.features?.flows_workspace_v2) && <section className="reports-flow-device-message"><h2>Abra este fluxo em um tablet ou computador.</h2><p>A mesa de fluxos precisa de uma tela maior para organizar etapas e conexões. Se estiver em um computador, amplie a janela.</p><button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(location.href);setLinkCopied(true);}catch(_){setLinkCopied(false);}}}>{linkCopied?'Link copiado':'Copiar link'}</button><a href={reportUrl('overview')}>Voltar ao Reports</a></section>}{(supported || (props.data.features?.flows_workspace_v2&&/\/monitor\/?$/.test(location.pathname))) && <div><FlowDesktop key={props.data.client.client_id} {...props}/></div>}</>;
 }
 
 function FlowDesktop({data, save, busy, filters, refreshRevision}) {
-  const flowView = flowEditorId() ? 'edit' : new URLSearchParams(location.search).get('flow_view')==='monitor' ? 'monitor' : 'create';
+  const workspaceV2=Boolean(data.features?.flows_workspace_v2);
+  const flowView = flowEditorId() ? (/\/monitor\/?$/.test(location.pathname)?'monitor':'edit') : new URLSearchParams(location.search).get('flow_view')==='monitor' ? 'monitor' : 'create';
   const [flow, setFlow] = useState({tags: [], steps: [], flows: [], tests: [], tag_urls: {}, activity: [], online: 0, conversions: 0, confirmed: [], supertag_sites: []});
   const [discovery, setDiscovery] = useState({run:null,pages:[]});
   const [discoveryLoadedId, setDiscoveryLoadedId] = useState('');
@@ -752,6 +759,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const [paletteOpen, setPaletteOpen] = useState(()=>window.innerWidth>=1180);
   const [paletteMode, setPaletteMode] = useState('site');
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const panelLayout=usePanelLayout(paletteOpen,inspectorOpen,setPaletteOpen,setInspectorOpen);
   const canvasFlowRef = useRef(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState([]);
   const copiedNodesRef = useRef(null);
@@ -796,7 +804,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     const sequence = ++requestSequence.current;
     const scope = liveScope;
     const params = new URLSearchParams({client_id: String(data.client.client_id), days: filters.period,
-      start_date: filters.startDate, end_date: filters.endDate, view:flowView});
+      start_date: filters.startDate, end_date: filters.endDate, view:workspaceV2&&flowView==='monitor'?'edit':flowView});
     if (selectedFlowId) params.set('flow_id', selectedFlowId);
     if(flowView==='monitor'&&analysisRevision)params.set('revision',analysisRevision);
     if (filters.platform) params.set('platform', filters.platform);
@@ -825,7 +833,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   };
   useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id, filters.period, filters.startDate, filters.endDate, filters.platform, filters.account, filters.campaign, selectedFlowId,flowView,refreshRevision,analysisRevision]);
   useEffect(()=>{if(flowView!=='create')return;let cancelled=false;json(`/connect/api/v1/reports/flow/templates?client_id=${data.client.client_id}`).then(result=>{if(!cancelled&&Array.isArray(result.templates))setFlowTemplateOptions(result.templates);}).catch(()=>{});return()=>{cancelled=true;};},[flowView,data.client.client_id]);
-  useEffect(() => {setDiscoveryLoadedId('');loadDiscoveries(selectedFlowId).catch(failure => setLocalError(failure.message));}, [selectedFlowId,data.client.client_id]);
+  useEffect(() => {if(flowView!=='edit')return;setDiscoveryLoadedId('');loadDiscoveries(selectedFlowId).catch(failure => setLocalError(failure.message));}, [selectedFlowId,data.client.client_id]);
   useEffect(() => {if(flowView==='edit'&&selectedFlowId&&autoDiscoverFlowRef.current===selectedFlowId){autoDiscoverFlowRef.current='';discoverSite();}}, [flowView,selectedFlowId]);
   useEffect(() => {
     if(flowView!=='edit'||!selectedFlowId||discoveryLoadedId!==selectedFlowId||discovery.run||data.client.role==='viewer'||autoDiscoveryAttemptRef.current===selectedFlowId||!flow.flows.some(item=>item.id===selectedFlowId))return;
@@ -835,7 +843,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   useEffect(() => {const found = flow.flows.find(item => item.id === selectedFlowId); if (found && flowInitializedRef.current !== selectedFlowId) {setFlowName(found.name); setFlowHost(found.allowed_host); setFlowConfig(found.config || {nodes: [], edges: []});flowHistory.reset(found.config || {nodes:[],edges:[]});copiedNodesRef.current=null; revisionRef.current=found.draft_revision;savedSnapshotRef.current=JSON.stringify({name:found.name,config:found.config||{nodes:[],edges:[]}});flowInitializedRef.current=selectedFlowId;setVersions(null);setVersionComparison(null);setPageSuggestions({});setVersionMessage('');}}, [selectedFlowId, flow.flows]);
   useEffect(() => {const found=flow.flows.find(item=>item.id===selectedFlowId);if(found)setMonitorInterval(Number(found.monitor_interval_minutes)||15);}, [selectedFlowId,flow.flows]);
   useEffect(() => {
-    if(flowView !== 'monitor' || !selectedFlowId) return;
+    if(flowView !== 'monitor' || !selectedFlowId || workspaceV2) return;
     let stopped = false, pending = false, timer;
     const poll = async () => {
       window.clearTimeout(timer);
@@ -850,10 +858,10 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     return()=>{stopped=true;window.clearTimeout(timer);document.removeEventListener('visibilitychange',visibility);};
   }, [liveScope]);
   const chooseFlow = id => {if(commandLock.current)return;setSelectedFlowId(id);const url=new URL(location.href);if(id)url.searchParams.set('flow_id',id);else url.searchParams.delete('flow_id');history.replaceState(null,'',url);};
-  const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl('flows',{client_id:data.client.client_id,flow_id:item.id,flow_view:'monitor'}));};
+  const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
   const checkFlowSite = async () => {if(!flowHost.trim())return;setFlowSiteChecking(true);setFlowSiteCheck(null);setLocalError('');try{setFlowSiteCheck(await json(`/connect/api/v1/reports/supertag/site-check?client_id=${data.client.client_id}&url=${encodeURIComponent(flowHost.trim())}`));}catch(failure){setFlowSiteCheck({error:failure.message});}finally{setFlowSiteChecking(false);}};
   const newFlow = async event => {event.preventDefault(); try {if(!flowSiteCheck||flowSiteCheck.error)throw new Error('Verifique um domínio público antes de criar o fluxo.');const name=flowName||flowSiteCheck.title||flowSiteCheck.host;const result = await save('/flow/flows', {name, allowed_host: flowSiteCheck.host}, false);if(flowTemplate!=='blank')await save(`/flow/flows/${result.flow.id}`,{name,config:flowTemplateConfig(flowTemplate),expected_revision:result.flow.draft_revision},false,'PATCH');location.assign(flowEditorUrl(result.flow.id,data.client.client_id));} catch (failure) {setLocalError(failure.message);}};
-  const addNode = (type, options = {}, point = null, connectedFrom = '') => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 etapas. Crie outro fluxo para continuar.');return;}const defaults={source:'Origem de tráfego',page:'Página / URL',form:'Formulário',event:'Evento',conversion:'Conversão',whatsapp:'Clique WhatsApp',error:'Página de erro'};const index=flowConfig.nodes.length;const title=options.title||options.label||defaults[type]||type;const nodeId=crypto.randomUUID();const node={id:nodeId,type,kind:options.kind||flowBlockFor({type}).kind,title,data:{label:title,url:''},path:options.path&&options.path.startsWith('/')?options.path:['page','form','event','conversion','whatsapp','error'].includes(type)?`/configurar-${nodeId.slice(0,8)}`:'',event_name:type==='event'?(options.event_name||`evento_${nodeId.slice(0,8)}`):undefined,source:type==='source'?(options.source||'google'):undefined,x:point?Math.max(0,snap(point.x)):24+(index%3)*(FLOW_CARD_WIDTH+48),y:point?Math.max(0,snap(point.y)):100+Math.floor(index/3)*(FLOW_CARD_HEIGHT+48),fields:type==='form'?[{name:'nome',label:'Nome',required:true},{name:'email',label:'E-mail',required:true}]:[]};node.data.url=node.path;setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:connectedFrom?[...current.edges,{id:crypto.randomUUID(),from:connectedFrom,to:node.id,variant:'direct',label:'Próximo'}]:current.edges}));setSelectedNodeId(node.id);};
+  const addNode = (type, options = {}, point = null, connectedFrom = '') => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 etapas. Crie outro fluxo para continuar.');return;}const defaults={source:'Origem de tráfego',page:'Página / URL',form:'Formulário',event:'Evento',conversion:'Conversão',whatsapp:'Clique WhatsApp',error:'Página de erro'};const index=flowConfig.nodes.length;const title=options.title||options.label||defaults[type]||type;const nodeId=crypto.randomUUID();const node={id:nodeId,type,kind:options.kind||flowBlockFor({type}).kind,title,data:{label:title,url:''},path:options.path&&options.path.startsWith('/')?options.path:['page','form','event','conversion','whatsapp','error'].includes(type)?`/configurar-${nodeId.slice(0,8)}`:'',event_name:type==='event'?(options.event_name||''):undefined,source:type==='source'?(options.source||'google'):undefined,x:point?Math.max(0,snap(point.x)):24+(index%3)*(FLOW_CARD_WIDTH+48),y:point?Math.max(0,snap(point.y)):100+Math.floor(index/3)*(FLOW_CARD_HEIGHT+48),fields:type==='form'?[{name:'nome',label:'Nome',required:true},{name:'email',label:'E-mail',required:true}]:[]};node.data.url=node.path;setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:connectedFrom?[...current.edges,{id:crypto.randomUUID(),from:connectedFrom,to:node.id,variant:'direct',label:'Próximo'}]:current.edges}));setSelectedNodeId(node.id);};
   const insertOnEdge = edgeId => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 etapas.');return;}const edge=flowConfig.edges.find(item=>item.id===edgeId);if(!edge)return;const from=flowConfig.nodes.find(item=>item.id===edge.from),to=flowConfig.nodes.find(item=>item.id===edge.to);if(!from||!to)return;const id=crypto.randomUUID();const node={id,type:'condition',kind:'logic.condition',title:'Nova etapa',data:{label:'Nova etapa',url:''},x:snap((Number(from.x)+Number(to.x))/2),y:snap((Number(from.y)+Number(to.y))/2)};setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:current.edges.flatMap(item=>item.id===edgeId?[{...item,id:crypto.randomUUID(),to:id},{...item,id:crypto.randomUUID(),from:id}]:[item])}));setSelectedNodeId(id);setInspectorOpen(true);};
   const copySelection=()=>{const ids=new Set(selectedNodeIds.length?selectedNodeIds:[selectedNodeId]);const nodes=flowConfig.nodes.filter(node=>ids.has(node.id));if(!nodes.length)return;copiedNodesRef.current={nodes,edges:flowConfig.edges.filter(edge=>ids.has(edge.from)&&ids.has(edge.to))};};
   const pasteSelection=()=>{const copied=copiedNodesRef.current;if(!copied?.nodes.length||readOnly)return;if(flowConfig.nodes.length+copied.nodes.length>200){setLocalError('A cópia excede o limite de 200 etapas deste fluxo.');return;}const ids=new Map(copied.nodes.map(node=>[node.id,crypto.randomUUID()]));const suffix=Math.random().toString(36).slice(2,7);const nodes=copied.nodes.map(node=>({...node,id:ids.get(node.id),title:`${node.title} (cópia)`,x:Math.min(9950,Number(node.x)+48),y:Math.min(9950,Number(node.y)+48),path:node.path?`/nova-etapa-${suffix}-${ids.get(node.id).slice(0,4)}`:node.path,event_name:node.event_name?`${node.event_name.slice(0,65)}_copy_${suffix}`:node.event_name,discoveryPageId:undefined,stepId:undefined}));const edges=copied.edges.map(edge=>({...edge,id:crypto.randomUUID(),from:ids.get(edge.from),to:ids.get(edge.to)}));setFlowConfig(current=>({...current,nodes:[...current.nodes,...nodes],edges:[...current.edges,...edges]}));setSelectedNodeIds(nodes.map(node=>node.id));setSelectedNodeId(nodes[0].id);};
@@ -865,10 +873,15 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const autoArrange = async () => {
     if(!flowConfig.nodes.length)return;
     try {
+      const documentAtStart=JSON.stringify(flowConfig);
+      const flowIdAtStart=selectedFlowId;
       const nodes=await layoutFlow(flowConfig);
-      setFlowConfig(current=>({...current,nodes}));
+      if(liveEditorRef.current?.id!==flowIdAtStart||JSON.stringify(liveEditorRef.current?.config)!==documentAtStart){
+        setFlowLayoutNote('O fluxo mudou durante a organização. Organize novamente.');return;
+      }
+      const positions=new Map(nodes.map(node=>[node.id,{x:node.x,y:node.y}]));
+      setFlowConfig(current=>fitGroups({...current,nodes:current.nodes.map(node=>({...node,...positions.get(node.id)}))}));
       setFlowLayoutNote('Etapas organizadas da esquerda para a direita.');
-      window.setTimeout(fitCanvas,80);
     } catch (failure) {
       setFlowLayoutNote(`Não foi possível organizar: ${failure.message}`);
     }
@@ -903,13 +916,13 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     editorSavingRef.current=true;setEditorSaveState('saving');setLocalError('');
     const pending = (async()=>{
       try {
-        const result=await save(`/flow/flows/${snapshot.id}`,{name:snapshot.name,config:snapshot.config,expected_revision:revisionRef.current},false,'PATCH');
+        const result=await save(`/flow/flows/${snapshot.id}`,{name:snapshot.name,config:syncGroups(snapshot.config),expected_revision:revisionRef.current},false,'PATCH');
         revisionRef.current=result.flow.draft_revision;
         savedSnapshotRef.current=serialized;
         setFlow(current=>({...current,flows:current.flows.map(item=>item.id===snapshot.id?{...item,...result.flow}:item)}));
         setEditorSaveState('saved');
         return result.flow.draft_revision;
-      } catch(failure){setEditorSaveState('error');setLocalError(failure.message);if(failure.status===409)setDraftConflict(true);return false;}
+      } catch(failure){setEditorSaveState('error');if(failure.details?.node_ids?.length){setSelectedNodeIds(failure.details.node_ids);setSelectedNodeId(failure.details.node_ids[0]);setInspectorOpen(true);}setLocalError(failure.message);if(failure.status===409)setDraftConflict(true);return false;}
       finally{editorSavingRef.current=false;}
     })();
     savePromiseRef.current=pending;
@@ -922,7 +935,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
       const latest = result.flows.find(item=>item.id===selectedFlowId);
       if(!latest)throw new Error('O fluxo não está mais disponível para este cliente.');
       if(overwrite){
-        const saved = await save(`/flow/flows/${selectedFlowId}`,{name:snapshot.name,config:snapshot.config,expected_revision:latest.draft_revision},false,'PATCH');
+        const saved = await save(`/flow/flows/${selectedFlowId}`,{name:snapshot.name,config:syncGroups(snapshot.config),expected_revision:latest.draft_revision},false,'PATCH');
         adoptDraft(saved.flow);
       }else{
         adoptDraft(latest);
@@ -1063,14 +1076,14 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const readOnly = data.client.role === 'viewer' || commandBusy;
   const editorDirty = Boolean(selectedFlow && (flowName !== selectedFlow.name || JSON.stringify(flowConfig) !== JSON.stringify(selectedFlow.config || {nodes:[],edges:[]})));
   useEffect(() => {
-    if (!selectedFlowId || !selectedFlow || readOnly || !editorDirty || editorSaveState==='error' || draftConflict) return;
-    const timer=window.setTimeout(()=>saveFlow(),1500);
+    if (flowView!=='edit' || flowHistory.isInteracting || !selectedFlowId || !selectedFlow || readOnly || !editorDirty || editorSaveState==='error' || draftConflict) return;
+    const timer=window.setTimeout(()=>saveFlow(),1000);
     return()=>window.clearTimeout(timer);
-  },[selectedFlowId,selectedFlow?.draft_revision,flowName,flowConfig,editorDirty,readOnly,editorSaveState,draftConflict]);
+  },[selectedFlowId,selectedFlow?.draft_revision,flowName,flowConfig,editorDirty,readOnly,editorSaveState,draftConflict,flowHistory.isInteracting,flowView]);
   useEffect(()=>{
     if(flowView!=='edit')return;
     const shortcut=event=>{
-      if(event.key==='Escape'&&!event.defaultPrevented&&!event.target.closest('input,textarea,select,[role="dialog"]')){event.preventDefault();leaveEditor();return;}
+      if(event.key==='Escape'&&!event.defaultPrevented&&!event.target.closest('input,textarea,select,[role="dialog"]')){event.preventDefault();if(validationOpen)setValidationOpen(false);else if(inspectorOpen){setInspectorOpen(false);setSelectedNodeId('');}else if(paletteOpen)setPaletteOpen(false);else if(editorMode!=='edit')setEditorMode('edit');return;}
       if(editorMode!=='edit')return;
       if(event.target.closest('input,textarea,select,[contenteditable="true"],[role="dialog"]'))return;
       const mod=event.metaKey||event.ctrlKey;
@@ -1093,7 +1106,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     };
     window.addEventListener('keydown',shortcut);
     return()=>window.removeEventListener('keydown',shortcut);
-  },[flowView,editorMode,flowHistory.undo,flowHistory.redo,canvasZoom,readOnly,selectedNodeIds,selectedNodeId,flowConfig,draftConflict]);
+  },[flowView,editorMode,flowHistory.undo,flowHistory.redo,canvasZoom,readOnly,selectedNodeIds,selectedNodeId,flowConfig,draftConflict,paletteOpen,inspectorOpen,validationOpen]);
   useEffect(()=>{const protect=event=>{const current=liveEditorRef.current;if(flowView==='edit'&&selectedFlowId&&revisionRef.current&&current&&JSON.stringify({name:current.name,config:current.config})!==savedSnapshotRef.current){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);},[flowView,selectedFlowId]);
   const scannedIntegrations = discovery.platform_integrations || [];
   const scannedPageCount = Number(discovery.integration_scan_pages || 0);
@@ -1111,7 +1124,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const monitorGraphKey = JSON.stringify({nodes:(flow.canvas_nodes||[]).map(node=>node.id),edges:(flow.canvas_edges||[]).map(edge=>[edge.from,edge.to])});
   const [monitorLayout,setMonitorLayout] = useState({key:'',positions:{}});
   useEffect(()=>{
-    if(flowView!=='monitor'||!flow.canvas_nodes?.length)return;
+    if(workspaceV2||flowView!=='monitor'||!flow.canvas_nodes?.length)return;
     let cancelled=false;
     layoutFlow({nodes:flow.canvas_nodes,edges:flow.canvas_edges||[]},{width:248,height:144,nodeSpacing:64,layerSpacing:112})
       .then(nodes=>{if(!cancelled)setMonitorLayout({key:monitorGraphKey,positions:Object.fromEntries(nodes.map(node=>[String(node.id),{x:node.x,y:node.y}]))});})
@@ -1126,6 +1139,8 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const monitorCanvasHeight = Math.max(190, ...monitorCanvasNodes.map(node => node.y + 200));
   const mappedSitePages = flowConfig.nodes.filter(node => node.discoveryPageId).length;
   const visibleSitePages = (discovery.pages || []).filter(page => `${page.title || ''} ${page.page_host || ''} ${page.path_prefix || ''}`.toLocaleLowerCase().includes(siteQuery.trim().toLocaleLowerCase()));
+  if(workspaceV2&&flowView==='create'&&!location.pathname.endsWith('/new'))return <FlowLibrary flows={flow.flows} readOnly={data.client.role==='viewer'} onOpen={openFlow} onCreate={()=>location.assign(reportUrl('flows/new',{client_id:data.client.client_id}))}/>;
+  if(workspaceV2&&flowView==='monitor'&&selectedFlow)return <FlowMonitorWorkspace flow={selectedFlow} client={data.client} versions={monitorVersions} filters={filters} baseConfig={selectedFlow.config} onEdit={()=>location.assign(flowEditorUrl(selectedFlowId,data.client.client_id))} onBack={()=>location.assign(reportUrl('flows',{client_id:data.client.client_id}))}/>;
   return <>
     {flowView==='create'&&<header className="reports-flow-index-heading"><div><h2>Fluxos de captura e conversão</h2><p>Crie um fluxo para um site ou abra um existente.</p></div></header>}
     {flowView==='monitor'&&<a className="reports-flow-return" href={reportUrl('flows',{client_id:data.client.client_id})}>← Voltar aos fluxos</a>}
@@ -1145,10 +1160,10 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
       </section>
     </>}
     {flowView==='edit'&&(selectedFlow?<>
-      <section className={`reports-panel reports-flow-builder is-${editorMode}`} {...(commandBusy?{inert:'','aria-busy':true}:{})}>
+      <section className={`reports-panel reports-flow-builder is-${editorMode}${workspaceV2?' is-workspace-v2':''}`} {...(commandBusy?{inert:'','aria-busy':true}:{})}>
         <header className="reports-flow-topbar reports-flow-editor-topbar">
           <div className="reports-flow-editor-identity"><img className="reports-flow-editor-logo" src="/static/images/cadu/products/connect-icon.png" alt="Reports"/><a href={reportUrl('flows',{client_id:data.client.client_id})} aria-label="Voltar aos fluxos" onClick={event=>{event.preventDefault();leaveEditor();}}>← Fluxos</a><span aria-hidden="true">/</span><input aria-label="Nome do fluxo" value={flowName} readOnly={readOnly} onChange={event=>setFlowName(event.target.value)} maxLength="120"/><small>{selectedFlow?.status==='published'?`Publicado v${selectedFlow.published_revision}`:'Rascunho'}</small><span className={`reports-flow-save-state is-${editorSaveState}`} role="status">{editorSaveState==='saving'?'Salvando…':editorSaveState==='pending'?'Alterações pendentes':editorSaveState==='error'?'Falha ao salvar':'Salvo'}</span></div>
-          <div className="reports-flow-editor-modes" role="group" aria-label="Modo do fluxo"><button type="button" aria-current={editorMode==='edit'?'page':undefined} onClick={()=>{setEditorMode('edit');setSimulatedPath([]);}}>Editar</button><button type="button" aria-current={editorMode==='simulate'?'page':undefined} onClick={()=>setEditorMode('simulate')} disabled={!flowConfig.nodes.length}>Simular</button><button type="button" aria-current={editorMode==='journey'?'page':undefined} onClick={()=>setEditorMode('journey')} disabled={selectedFlow?.status!=='published'} title={selectedFlow?.status!=='published'?'Publique o fluxo para acompanhar a jornada':undefined}>Jornada</button></div>
+          <div className="reports-flow-editor-modes" role="group" aria-label="Modo do fluxo"><button type="button" aria-current={editorMode==='edit'?'page':undefined} onClick={()=>{setEditorMode('edit');setSimulatedPath([]);}}>Editar</button><button type="button" aria-current={editorMode==='simulate'?'page':undefined} onClick={()=>setEditorMode('simulate')} disabled={!flowConfig.nodes.length}>Simular</button><button type="button" aria-current={editorMode==='journey'?'page':undefined} onClick={()=>workspaceV2?openFlow(selectedFlow,'monitor'):setEditorMode('journey')} disabled={selectedFlow?.status!=='published'} title={selectedFlow?.status!=='published'?'Publique o fluxo para acompanhar a jornada':undefined}>{workspaceV2?'Monitorar':'Jornada'}</button></div>
           <div className="reports-flow-actions"><ReportsActionButton aria-label="Desfazer" title="Desfazer (⌘Z)" onClick={flowHistory.undo} disabled={!flowHistory.canUndo||readOnly}>↶</ReportsActionButton><ReportsActionButton aria-label="Refazer" title="Refazer (⌘⇧Z)" onClick={flowHistory.redo} disabled={!flowHistory.canRedo||readOnly}>↷</ReportsActionButton>{snippet(selectedFlow)?<ReportsActionButton onClick={()=>copy(snippet(selectedFlow))}>Copiar Super Tag</ReportsActionButton>:null}<ReportsActionButton className="reports-flow-issues-button" aria-label={`${validationIssues.length} problemas ou avisos no fluxo`} onClick={()=>setValidationOpen(value=>!value)}>Revisão {validationIssues.length}</ReportsActionButton><ReportsActionButton color="primary" className="reports-flow-publish" onClick={openPublication} disabled={!selectedFlowId||busy||!flowConfig.nodes.length||readOnly}>{selectedFlow?.status==='published'?'Publicar alterações':'Publicar'}</ReportsActionButton><details className="reports-flow-extra-actions"><summary aria-label="Mais ações">⋯</summary><div><ReportsActionButton onClick={saveFlow} disabled={!selectedFlowId||busy||readOnly}>Salvar agora</ReportsActionButton><ReportsActionButton onClick={loadVersions}>Histórico</ReportsActionButton><ReportsActionButton onClick={()=>downloadFlowSvg(flowConfig,flowName||'fluxo')}>Exportar SVG</ReportsActionButton><ReportsActionButton onClick={()=>downloadFlowPng(flowConfig,flowName||'fluxo').catch(failure=>setLocalError(failure.message))}>Exportar PNG</ReportsActionButton><ReportsActionButton onClick={testFlow} disabled={!selectedFlowId||busy||readOnly}>Testar fluxo</ReportsActionButton>{!snippet(selectedFlow)&&<ReportsActionButton onClick={()=>selectedFlow?.revoked_at?location.assign(reportUrl('supertag')):copy(flowFallbackSnippet(selectedFlow))} disabled={(!flowFallbackSnippet(selectedFlow)&&!selectedFlow?.revoked_at)||data.client.role==='viewer'}>{selectedFlow?.revoked_at?'Conectar Super Tag':'Copiar snippet'}</ReportsActionButton>}</div></details></div>
         </header>
         {flowSuggestions?.flowId===selectedFlowId&&flowSuggestions.items.length>0&&!discoveryBusy&&<section className="reports-panel" aria-label="Outros fluxos identificados">
@@ -1159,14 +1174,14 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
         </section>}
 
         <div className="reports-editor-controls" role="toolbar" aria-label="Visualização do editor">
-          <div className="reports-flow-palette-switch"><ReportsActionButton aria-pressed={paletteOpen&&paletteMode==='site'} onClick={()=>{setPaletteMode('site');setPaletteOpen(value=>paletteMode==='site'?!value:true);}}>Páginas do site <span className="reports-editor-count">{discovery.pages?.length||0}</span></ReportsActionButton><ReportsActionButton aria-pressed={paletteOpen&&paletteMode==='blocks'} onClick={()=>{setPaletteMode('blocks');setPaletteOpen(value=>paletteMode==='blocks'?!value:true);}}>Blocos</ReportsActionButton></div>
+          <div className="reports-flow-palette-switch"><ReportsActionButton aria-pressed={paletteOpen&&paletteMode==='site'} onClick={()=>{setPaletteMode('site');if(paletteMode==='site'&&paletteOpen)setPaletteOpen(false);else panelLayout.openExplorer();}}>Páginas do site <span className="reports-editor-count">{discovery.pages?.length||0}</span></ReportsActionButton><ReportsActionButton aria-pressed={paletteOpen&&paletteMode==='blocks'} onClick={()=>{setPaletteMode('blocks');if(paletteMode==='blocks'&&paletteOpen)setPaletteOpen(false);else panelLayout.openExplorer();}}>Blocos</ReportsActionButton></div>
           <div className="reports-zoom-controls"><ReportsActionButton aria-label="Diminuir zoom" disabled={canvasZoom<=.25} onClick={()=>changeZoom(canvasZoom-.1)}>−</ReportsActionButton><ReportsActionButton aria-label="Restaurar zoom a 100%" onClick={()=>changeZoom(1)}>{Math.round(canvasZoom*100)}%</ReportsActionButton><ReportsActionButton aria-label="Aumentar zoom" disabled={canvasZoom>=2} onClick={()=>changeZoom(canvasZoom+.1)}>+</ReportsActionButton><ReportsActionButton onClick={fitCanvas}>Ajustar à tela</ReportsActionButton><ReportsActionButton onClick={autoArrange} disabled={readOnly||!flowConfig.nodes.length} title="Organizar etapas da esquerda para a direita">Organizar fluxo</ReportsActionButton></div>
-          <details className="reports-editor-tools"><summary>Ferramentas</summary><div><ReportsActionButton onClick={()=>setSnapToGrid(value=>!value)} aria-pressed={snapToGrid}>{snapToGrid?'Desativar grade':'Ativar grade'}</ReportsActionButton><ReportsActionButton onClick={autoConnect} disabled={readOnly||flowConfig.nodes.length<2}>Conectar sequência</ReportsActionButton><ReportsActionButton onClick={testFlow} disabled={readOnly}>Testar fluxo</ReportsActionButton></div></details>
+          <ReportsActionButton disabled={readOnly||selectedNodeIds.length<2} onClick={()=>setFlowConfig(current=>groupNodes(current,selectedNodeIds))}>Agrupar seleção</ReportsActionButton><details className="reports-editor-tools"><summary>Ferramentas</summary><div><ReportsActionButton onClick={()=>setSnapToGrid(value=>!value)} aria-pressed={snapToGrid}>{snapToGrid?'Desativar grade':'Ativar grade'}</ReportsActionButton><ReportsActionButton onClick={autoConnect} disabled={readOnly||flowConfig.nodes.length<2}>Conectar sequência</ReportsActionButton><ReportsActionButton onClick={testFlow} disabled={readOnly}>Testar fluxo</ReportsActionButton></div></details>
         </div>
-        <div className={`reports-flow-designer reports-flow-designer--compact${paletteOpen?' has-palette':''}${inspectorOpen?' has-inspector':''}`}><aside className="reports-node-palette">{paletteMode==='site'?<><div className="reports-palette-group reports-discovered-palette"><div className="reports-discovered-head"><strong>Páginas reais do site</strong><button type="button" disabled={discoveryBusy||busy||readOnly||(discovery.run?.status==='partial'&&!Number(discovery.run?.pending_count))} onClick={discoverSite} title="Mapear páginas verificadas do domínio">{discoveryBusy?'Mapeando…':discovery.run?.status==='partial'&&Number(discovery.run.pending_count)>0?'Continuar análise':discovery.run?'Atualizar mapa':'Mapear site'}</button></div><p className="reports-discovered-summary">{discovery.run ? `${discovery.pages?.length||0} páginas encontradas · ${mappedSitePages} no fluxo` : 'Analise o domínio e o sitemap para usar páginas reais neste fluxo.'}</p><ReportsFieldInput type="search" className="reports-site-page-search" aria-label="Buscar páginas do site" placeholder="Buscar página ou URL" value={siteQuery} onChange={event=>setSiteQuery(event.target.value)}/>{visibleSitePages.length?visibleSitePages.map(page=>{const defaultChoice=page.suggested_role==='entry'?'entry':page.suggested_role==='form'?'form':page.suggested_role==='conversion'?'conversion':page.suggested_role==='error'?'error':'intermediate';const draftNode=flowConfig.nodes.find(node=>node.discoveryPageId===String(page.id));const choice=draftNode?(draftNode.type==='page'?(draftNode.isEntry?'entry':'intermediate'):draftNode.type):'';return <div className="reports-discovered-page" key={page.id}><span><strong>{page.title||page.path_prefix}</strong><small>{page.page_host}{page.path_prefix}</small></span><select aria-label={`Etapa para ${page.path_prefix}`} value={choice} disabled={discoveryBusy||busy||readOnly} onChange={event=>chooseDiscoveredPage(page,event.target.value||defaultChoice)}><option value="">Adicionar como…</option><option value="entry">Entrada</option><option value="intermediate">Página</option>{page.form_count>0&&<option value="form">Formulário</option>}<option value="conversion">Conversão</option><option value="error">Erro</option></select>{!readOnly&&<button type="button" disabled={Boolean(suggestingPage)||busy} onClick={()=>suggestPageRole(page)}>{suggestingPage===String(page.id)?'Analisando…':'Sugerir etapa'}</button>}{pageSuggestions[page.id]&&<small role="status">{pageSuggestions[page.id].base_revision!==revisionRef.current?'Sugestão desatualizada; analise novamente.':pageSuggestions[page.id].suggestion.role==='none'?'Evidência insuficiente; escolha manualmente.':<>Sugestão: {FLOW_ROLE_LABELS[pageSuggestions[page.id].suggestion.role]||'Etapa'} <FlowSuggestionConfidence suggestion={pageSuggestions[page.id].suggestion}/> <button type="button" disabled={busy||readOnly} onClick={()=>chooseDiscoveredPage(page,pageSuggestions[page.id].suggestion.role,undefined,pageSuggestions[page.id])}>Aplicar ao rascunho</button></>}</small>}{choice&&<button type="button" aria-label={`Remover ${page.path_prefix} do fluxo`} disabled={discoveryBusy||busy||readOnly} onClick={()=>chooseDiscoveredPage(page,'ignore')}>×</button>}</div>; }):<p className="reports-discovered-empty">{discoveryBusy?'Analisando páginas e links…':siteQuery&&discovery.pages?.length?'Nenhuma página corresponde à busca.':'As páginas verificadas do domínio aparecerão aqui.'}</p>}</div></>:<><div className="reports-palette-heading"><strong>Blocos do fluxo</strong><small>Arraste para o canvas ou selecione</small><button type="button" onClick={()=>document.getElementById("reports-palette-events")?.scrollIntoView({block:"start",behavior:"smooth"})}>Ir para eventos ↓</button></div><input aria-label="Buscar blocos" placeholder="Buscar blocos…" value={paletteQuery} onChange={event=>setPaletteQuery(event.target.value)}/>{flowPaletteGroups.map(([heading,items])=><div className="reports-palette-group" id={heading==='Eventos'?'reports-palette-events':undefined} key={heading}><strong>{heading}</strong>{heading==='Eventos'&&<><small>Use eventos recebidos pela Super Tag. Nome e URL precisam corresponder ao site conectado.</small>{flow.events?.filter(event=>event.event_kind==='custom_event'&&/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(event.event_name||'')&&/^\/[^?#]*$/.test(event.page_path||'')).slice(0,5).map(event=><button type="button" className="reports-observed-event" key={`${event.event_name}:${event.page_path}`} disabled={readOnly} onClick={()=>addNode('event',{kind:'event.custom',title:event.event_name,path:event.page_path,event_name:event.event_name})}><span className="reports-palette-icon">◉</span><span>{event.event_name}<small>{event.page_path} · {integer(event.total)} eventos</small></span></button>)}</>}{heading==='Segmentação e CRM'&&<small>Etapas visuais. Confirmações do CRM chegam por webhook nas Integrações deste cliente; API para CRM próprio em breve.</small>}{items.filter(item=>item.label.toLowerCase().includes(paletteQuery.toLowerCase())).map((item,index)=><button type="button" key={`${item.type}:${item.source||''}:${index}`} draggable={!readOnly} disabled={readOnly} onDragStart={event=>startPaletteDrag(event,item)} onClick={()=>clickPaletteNode(item)}><span className="reports-palette-icon">{item.source&&FLOW_PLATFORMS[item.source]?<FlowPlatformLogo platform={item.source}/>:<item.icon size={18}/>}</span>{item.label}</button>)}</div>)}</>}</aside>
-          <FlowCanvas config={editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig} journey={editorMode==='journey'?journeyData:null} setConfig={setFlowConfig} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} onAddNode={(item,point,source)=>addNode(item.type,item,point,source)} onInsertEdge={insertOnEdge} onSelectedIdsChange={setSelectedNodeIds} onDuplicateSelection={duplicateSelection} readOnly={readOnly||editorMode!=='edit'} simulatedPath={simulatedPath} snapToGrid={snapToGrid} onReady={instance=>{canvasFlowRef.current=instance;}} onZoomChange={setCanvasZoom}/>
+        <div className={`reports-flow-designer reports-flow-designer--compact${paletteOpen?' has-palette':''}${inspectorOpen?' has-inspector':''}`}><aside className="reports-node-palette">{workspaceV2&&<ReportsActionButton color="tertiary" aria-label="Fechar explorador" onClick={()=>setPaletteOpen(false)}>Fechar ×</ReportsActionButton>}{paletteMode==='site'?<><div className="reports-palette-group reports-discovered-palette"><div className="reports-discovered-head"><strong>Páginas reais do site</strong><button type="button" disabled={discoveryBusy||busy||readOnly||(discovery.run?.status==='partial'&&!Number(discovery.run?.pending_count))} onClick={discoverSite} title="Mapear páginas verificadas do domínio">{discoveryBusy?'Mapeando…':discovery.run?.status==='partial'&&Number(discovery.run.pending_count)>0?'Continuar análise':discovery.run?'Atualizar mapa':'Mapear site'}</button></div><p className="reports-discovered-summary">{discovery.run ? `${discovery.pages?.length||0} páginas encontradas · ${mappedSitePages} no fluxo` : 'Analise o domínio e o sitemap para usar páginas reais neste fluxo.'}</p><ReportsFieldInput type="search" className="reports-site-page-search" aria-label="Buscar páginas do site" placeholder="Buscar página ou URL" value={siteQuery} onChange={event=>setSiteQuery(event.target.value)}/>{visibleSitePages.length?visibleSitePages.map(page=>{const defaultChoice=page.suggested_role==='entry'?'entry':page.suggested_role==='form'?'form':page.suggested_role==='conversion'?'conversion':page.suggested_role==='error'?'error':'intermediate';const draftNode=flowConfig.nodes.find(node=>node.discoveryPageId===String(page.id));const choice=draftNode?(draftNode.type==='page'?(draftNode.isEntry?'entry':'intermediate'):draftNode.type):'';return <div className="reports-discovered-page" key={page.id}><span><strong>{page.title||page.path_prefix}</strong><small>{page.page_host}{page.path_prefix}</small></span><select aria-label={`Etapa para ${page.path_prefix}`} value={choice} disabled={discoveryBusy||busy||readOnly} onChange={event=>chooseDiscoveredPage(page,event.target.value||defaultChoice)}><option value="">Adicionar como…</option><option value="entry">Entrada</option><option value="intermediate">Página</option>{page.form_count>0&&<option value="form">Formulário</option>}<option value="conversion">Conversão</option><option value="error">Erro</option></select>{!readOnly&&<button type="button" disabled={Boolean(suggestingPage)||busy} onClick={()=>suggestPageRole(page)}>{suggestingPage===String(page.id)?'Analisando…':'Sugerir etapa'}</button>}{pageSuggestions[page.id]&&<small role="status">{pageSuggestions[page.id].base_revision!==revisionRef.current?'Sugestão desatualizada; analise novamente.':pageSuggestions[page.id].suggestion.role==='none'?'Evidência insuficiente; escolha manualmente.':<>Sugestão: {FLOW_ROLE_LABELS[pageSuggestions[page.id].suggestion.role]||'Etapa'} <FlowSuggestionConfidence suggestion={pageSuggestions[page.id].suggestion}/> <button type="button" disabled={busy||readOnly} onClick={()=>chooseDiscoveredPage(page,pageSuggestions[page.id].suggestion.role,undefined,pageSuggestions[page.id])}>Aplicar ao rascunho</button></>}</small>}{choice&&<button type="button" aria-label={`Remover ${page.path_prefix} do fluxo`} disabled={discoveryBusy||busy||readOnly} onClick={()=>chooseDiscoveredPage(page,'ignore')}>×</button>}</div>; }):<p className="reports-discovered-empty">{discoveryBusy?'Analisando páginas e links…':siteQuery&&discovery.pages?.length?'Nenhuma página corresponde à busca.':'As páginas verificadas do domínio aparecerão aqui.'}</p>}</div></>:<><div className="reports-palette-heading"><strong>Blocos do fluxo</strong><small>Arraste para o canvas ou selecione</small><button type="button" onClick={()=>document.getElementById("reports-palette-events")?.scrollIntoView({block:"start",behavior:"smooth"})}>Ir para eventos ↓</button></div><input aria-label="Buscar blocos" placeholder="Buscar blocos…" value={paletteQuery} onChange={event=>setPaletteQuery(event.target.value)}/>{flowPaletteGroups.map(([heading,items])=><div className="reports-palette-group" id={heading==='Eventos'?'reports-palette-events':undefined} key={heading}><strong>{heading}</strong>{heading==='Eventos'&&<><small>Use eventos recebidos pela Super Tag. Nome e URL precisam corresponder ao site conectado.</small>{uniqueFlowEvents(flow.events).filter(event=>event.event_kind==='custom_event'&&/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(event.event_name||'')&&/^\/[^?#]*$/.test(event.page_path||'')).map(event=><button type="button" className="reports-observed-event" key={`${event.event_name}:${event.page_path}`} disabled={readOnly} onClick={()=>addNode('event',{kind:'event.custom',title:event.event_name,path:event.page_path,event_name:event.event_name})}><span className="reports-palette-icon">◉</span><span>{event.event_name}<small>{event.page_path} · {integer(event.total)} eventos</small></span></button>)}</>}{heading==='Segmentação e CRM'&&<small>Etapas visuais. Confirmações do CRM chegam por webhook nas Integrações deste cliente; API para CRM próprio em breve.</small>}{items.filter(item=>item.label.toLowerCase().includes(paletteQuery.toLowerCase())).map((item,index)=><button type="button" key={`${item.type}:${item.source||''}:${index}`} draggable={!readOnly} disabled={readOnly} onDragStart={event=>startPaletteDrag(event,item)} onClick={()=>clickPaletteNode(item)}><span className="reports-palette-icon">{item.source&&FLOW_PLATFORMS[item.source]?<FlowPlatformLogo platform={item.source}/>:<item.icon size={18}/>}</span>{item.label}</button>)}</div>)}</>}</aside>
+          <FlowCanvas config={editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig} journey={editorMode==='journey'?journeyData:null} setConfig={setFlowConfig} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} onAddNode={(item,point,source)=>addNode(item.type,item,point,source)} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} onInsertEdge={insertOnEdge} onSelectedIdsChange={setSelectedNodeIds} onDuplicateSelection={duplicateSelection} readOnly={readOnly||editorMode!=='edit'} simulatedPath={simulatedPath} snapToGrid={snapToGrid} fitOnMount={workspaceV2} onOrganize={autoArrange} onReady={instance=>{canvasFlowRef.current=instance;}} onZoomChange={setCanvasZoom}/>
 
-          {inspectorOpen&&<FlowInspector integrationsUrl={reportUrl('monitor',{client_id:data.client.client_id})} node={(editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig).nodes.find(item=>item.id===selectedNodeId)} activity={flow.activity} journeyMetric={editorMode==='journey'?journeyData?.nodes?.find(item=>item.id===selectedNodeId):null} readOnly={readOnly||editorMode!=='edit'} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
+          {inspectorOpen&&<FlowInspector integrationsUrl={reportUrl('monitor',{client_id:data.client.client_id})} node={(editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig).nodes.find(item=>item.id===selectedNodeId)} activity={flow.events} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} journeyMetric={editorMode==='journey'?journeyData?.nodes?.find(item=>item.id===selectedNodeId):null} readOnly={readOnly||editorMode!=='edit'} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
         </div>
         {editorMode==='simulate'&&<FlowSimulator config={flowConfig} onPathChange={setSimulatedPath} onClose={()=>{setEditorMode('edit');setSimulatedPath([]);}}/>}
         {editorMode==='journey'&&<FlowJourneyPanel journey={journeyData} days={journeyDays} onDaysChange={setJourneyDays} onAddSuggestion={addJourneySuggestion} onClose={()=>setEditorMode('edit')} loading={journeyLoading} error={journeyError}/> }
@@ -1265,7 +1280,7 @@ function SuperTag({data}) {
   const [sites, setSites] = useState([]);
   const [sitesLoading, setSitesLoading] = useState(true);
   const [sitesLoadFailed, setSitesLoadFailed] = useState(false);
-  const [selectedId, setSelectedId] = useState(() => location.pathname.match(/^\/connect\/app\/supertag\/sites\/([0-9a-f-]{36})\/?$/i)?.[1] || '');
+  const [selectedId, setSelectedId] = useState(() => location.pathname.match(/^\/connect\/app\/supertag\/sites\/([0-9a-f-]{36})(?:\/monitor)?\/?$/i)?.[1] || '');
   const [siteTab, setSiteTab] = useState('overview');
   const [siteFlows, setSiteFlows] = useState([]);
   const [siteQuery, setSiteQuery] = useState('');
@@ -1746,10 +1761,11 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
 
 function App() {
   const [section, setSection] = useState(reportSection);
-  const isFlowEditor = Boolean(flowEditorId());
+
   const requestedSection = SECTION_ALIASES[section] || section;
   const pageSection = REPORT_PAGE_META[requestedSection] ? requestedSection : 'overview';
   const [data, setData] = useState(null);
+  const isFlowEditor = Boolean(flowEditorId())&&(!/\/monitor\/?$/.test(location.pathname)||Boolean(data?.features?.flows_workspace_v2));
   const [metrics, setMetrics] = useState(null);
   const [importedMetrics, setImportedMetrics] = useState(null);
   const [overviewSites, setOverviewSites] = useState(null);
@@ -1839,7 +1855,7 @@ function App() {
       const result = await json(`/connect/api/v1/reports${path}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload, client_id: data.client.client_id})});
       if (reload) await load();
       return result;
-    } catch (failure) {setError(failure.message); throw failure;} finally {setBusy(false);}
+    } catch (failure) {if(!path.startsWith('/flow/'))setError(failure.message); throw failure;} finally {setBusy(false);}
   };
   const selected = useMemo(() => {
     if (!data) return null;

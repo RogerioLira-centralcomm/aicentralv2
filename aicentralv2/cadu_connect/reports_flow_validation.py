@@ -23,7 +23,7 @@ def validate_flow_config(config, allowed_host=''):
         if node.get('type') in MEASURED and (not node.get('path') or node['path'].startswith('/configurar-')):
             issues.append({'severity': 'error', 'code': 'unmapped_page', 'node_id': node_id,
                            'message': f"Configure a URL real de {node.get('title') or 'uma etapa'}."})
-        if node.get('type') == 'event' and (not node.get('event_name') or node['event_name'].startswith('evento_')):
+        if node.get('type') == 'event' and (not node.get('event_name') or node.get('placeholder') is True):
             issues.append({'severity': 'error', 'code': 'unmapped_event', 'node_id': node_id,
                            'message': f"Configure o nome do evento de {node.get('title') or 'uma etapa'}."})
         if node.get('type') == 'page' and node.get('path') and not node['path'].startswith('/configurar-'):

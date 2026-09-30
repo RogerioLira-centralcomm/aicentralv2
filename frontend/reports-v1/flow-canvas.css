@@ -103,3 +103,22 @@
 .flow-journey-panel__suggestions li{display:flex;align-items:center;justify-content:space-between;gap:7px}
 .flow-journey-panel__suggestions li span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 @media(prefers-reduced-motion:reduce){.flow-shape-node .react-flow__handle{transition:none}}
+
+/* Shared editor/monitor shapes: only pages receive a preview frame. */
+.flow-shape-node.is-visual .flow-shape-body{border:1px dashed var(--color-border-primary);border-radius:10px;background:var(--color-bg-primary);color:var(--color-text-tertiary)}
+.flow-shape-node.is-circle .flow-shape-body{width:56px;height:56px;background:var(--color-bg-primary);color:var(--color-fg-brand-primary);border-color:var(--color-border-secondary)}
+.flow-shape-node .flow-journey-count{position:static;margin-top:8px;padding:3px 8px;font-size:11px;box-shadow:none;font-variant-numeric:tabular-nums}
+.flow-shape-node .flow-presence{color:var(--color-text-success-primary)}
+.flow-preview-caption{font-size:9px!important;opacity:.7}
+.flow-react-canvas .react-flow__controls{bottom:16px;left:16px;display:flex;flex-direction:row;border-radius:8px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.flow-react-canvas .react-flow__controls-button{width:34px;height:34px;border:0;border-right:1px solid var(--color-border-secondary);background:var(--color-bg-primary);color:var(--color-text-primary)}
+.flow-react-canvas .react-flow__minimap{left:auto;right:16px;bottom:16px;width:150px;height:95px;box-shadow:none}
+.flow-minimap-toggle{left:16px;bottom:64px;border:0;font-size:10px}
+.flow-edge-actions span{max-width:180px;font-variant-numeric:tabular-nums;cursor:pointer}
+.flow-react-canvas .react-flow__node-toolbar{display:flex;gap:4px;padding:4px;border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-sm)}
+@media(prefers-reduced-motion:reduce){.flow-operational-dot,.flow-transition-dot{display:none}}
+
+.flow-group-node{width:100%;height:100%;padding:12px 16px;border:1px dashed var(--color-border-secondary);border-radius:12px;background:color-mix(in srgb,var(--color-bg-brand-secondary) 20%,transparent);text-align:left}
+.flow-group-node>strong{font-size:13px}.flow-group-node>small{margin-left:12px;color:var(--color-text-tertiary);font-size:11px}
+
+.flow-shape-node.is-compact-zoom>small,.flow-shape-node.is-compact-zoom>.flow-preview-caption{display:none}

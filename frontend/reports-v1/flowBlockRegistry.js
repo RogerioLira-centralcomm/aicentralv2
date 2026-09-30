@@ -5,7 +5,7 @@ import {AlertCircle, CheckCircle, Clock, File01, Flag01, Globe01, Mail01, Target
 const groups = [
   ['Tráfego pago','source','circle','paid',[
     ['traffic.google_search','Google Ads · Search','google'],['traffic.google_display','Google Ads · Display','google'],
-    ['traffic.youtube','YouTube Ads','youtube'],['traffic.meta','Meta Ads','facebook'],['traffic.instagram','Instagram Ads','instagram'],
+    ['traffic.youtube','YouTube Ads','youtube'],['traffic.meta','Meta Ads','meta'],['traffic.instagram','Instagram Ads','instagram'],
     ['traffic.tiktok','TikTok Ads','tiktok'],['traffic.linkedin','LinkedIn Ads','linkedin'],['traffic.dv360','DV360','dv360'],
     ['traffic.retargeting','Retargeting','retargeting']]],
   ['Tráfego orgânico','source','circle','neutral',[
@@ -46,7 +46,7 @@ const toneFor = (kind,base) => kind.includes('error')||kind.includes('lost')?'er
   kind.includes('thanks')||kind.includes('won')?'success':base;
 export const flowBlocks = Object.freeze(groups.flatMap(([category,baseType,shape,tone,entries])=>entries.map(([kind,label,detail])=>{
   const type=typeFor(kind,baseType);
-  return {kind,type,category,label,shape:kind==='page.form'||kind==='page.thanks'||kind==='page.error'?'page':shape,
+  return {kind,type,category,label,shape:['segment','condition','webhook','delay'].includes(type)?'visual':kind==='page.form'||kind==='page.thanks'||kind==='page.error'?'page':shape,
     icon:iconFor(kind,type),tone:toneFor(kind,tone),trackable:['page','form','event','conversion','whatsapp','error'].includes(type),
     source:baseType==='source'?detail:undefined,preview:baseType==='page'?detail:undefined};
 })));

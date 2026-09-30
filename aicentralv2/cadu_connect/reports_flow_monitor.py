@@ -17,7 +17,7 @@ from .reports_flow import _host_allowed, _safe_path
 from .reports_link_tester import _fetch
 from .reports_v1 import _rows
 
-MAX_MONITORED_PAGES = 101
+MAX_MONITORED_PAGES = 201
 
 
 def _page_targets(flow):
@@ -111,7 +111,7 @@ def check_flow(flow_id, organization_id, client_id):
                     WHERE flow_id=%s ORDER BY checked_at DESC LIMIT 200)""", (flow_id, flow_id))
         connection.commit()
         return {"id": check["id"], "status": status, "checked_at": check["checked_at"],
-                "duration_ms": duration, "pages": pages}
+                "duration_ms": duration, "pages": pages, "checked_pages": len(pages), "total_pages": len(_page_targets(flow)), "revision": flow.get("published_revision")}
     except Exception:
         connection.rollback()
         raise

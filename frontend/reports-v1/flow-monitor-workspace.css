@@ -1,0 +1,52 @@
+.flow-monitor-workspace{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;background:var(--color-bg-secondary);color:var(--color-text-primary)}
+.flow-workspace-header{height:56px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 16px;background:var(--color-bg-primary);border-bottom:1px solid var(--color-border-secondary)}
+.flow-workspace-identity,.flow-workspace-header nav,.flow-workspace-header-actions{display:flex;align-items:center;gap:10px;min-width:0}
+.flow-workspace-identity img{width:25px;height:25px;object-fit:contain}
+.flow-workspace-identity>span{max-width:260px;margin-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.flow-workspace-header-actions select{max-width:160px;font-size:12px}
+.flow-monitor-summary{display:flex;align-items:center;gap:32px;flex:none;padding:14px 24px 14px 72px;background:var(--color-bg-primary);border-bottom:1px solid var(--color-border-secondary)}
+.flow-monitor-summary>div{display:grid;gap:4px;min-width:130px}
+.flow-monitor-summary small{color:var(--color-text-tertiary);font-size:11px;font-weight:400}
+.flow-monitor-summary strong{font-size:21px;font-variant-numeric:tabular-nums}
+.flow-monitor-summary>span{display:grid;gap:5px;margin-left:auto;font-size:12px}
+.flow-monitor-body{display:flex;min-height:0;flex:1}
+.flow-workspace-rail{display:flex;flex-direction:column;align-items:center;gap:8px;width:48px;flex:none;padding:12px 0;background:var(--color-bg-primary);border-right:1px solid var(--color-border-secondary)}
+.flow-monitor-stage{position:relative;flex:1;min-width:0;--left-panel:0px;--right-panel:0px}
+.flow-monitor-stage.has-explorer{--left-panel:304px}.flow-monitor-stage.has-inspector{--right-panel:336px}
+.flow-monitor-stage>.flow-react-canvas{position:absolute;left:var(--left-panel);right:var(--right-panel);top:0;bottom:52px;width:auto;height:auto!important;min-height:0!important}
+.flow-workspace-panel{position:absolute;top:16px;bottom:62px;z-index:8;display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-primary);box-shadow:var(--shadow-sm)}
+.flow-workspace-panel.is-explorer{left:12px;width:288px}.flow-workspace-panel.is-inspector{right:12px;width:320px}
+.flow-workspace-panel header{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
+.flow-panel-scroll{overflow:auto;display:flex;flex-direction:column;gap:12px;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.flow-panel-scroll>button{justify-content:flex-start;text-align:left;white-space:normal}
+.flow-panel-scroll small{display:block;color:var(--color-text-tertiary)}
+.flow-detail-number{font-size:28px;font-variant-numeric:tabular-nums}
+.flow-monitor-legend{position:absolute;bottom:0;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--color-text-tertiary)}
+.flow-monitor-legend select{max-width:180px;font-size:11px;height:30px}
+.flow-workspace-notice{position:absolute;top:12px;left:calc(var(--left-panel) + 16px);right:calc(var(--right-panel) + 16px);z-index:10;background:var(--color-bg-primary);padding:12px;border-radius:8px;font-size:12px}
+.flow-monitor-list{position:absolute;inset:12px 16px 60px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+@media(max-width:1100px){.flow-monitor-summary{gap:16px;padding-left:64px}.flow-monitor-summary>div{min-width:100px}.flow-workspace-identity>span{max-width:170px}.flow-monitor-summary>span{max-width:170px}}
+@media(max-width:767px){.flow-workspace-header{gap:6px;padding:0 8px}.flow-workspace-identity>strong,.flow-workspace-header nav{display:none}.flow-workspace-identity>span{margin:0;max-width:120px}.flow-monitor-summary{flex-wrap:wrap;gap:12px;padding:12px}.flow-monitor-summary strong{font-size:17px}.flow-monitor-summary>span{display:none}.flow-monitor-stage.has-inspector{--right-panel:0px}.flow-workspace-panel.is-inspector{width:min(320px,calc(100% - 24px))}.flow-monitor-legend>span{display:none}}
+
+.flow-library>header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}.flow-library h2{font-size:24px;margin:0 0 6px}.flow-library p{color:var(--color-text-tertiary);font-size:13px}
+.flow-library-tools{display:flex;align-items:center;gap:12px;margin-bottom:20px}.flow-library-tools>div{max-width:360px}.flow-library-tools select{max-width:180px}.flow-library-tools small{margin-left:auto;color:var(--color-text-tertiary)}
+.flow-library-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}.flow-library-grid>article{overflow:hidden;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary)}
+.flow-library-preview{height:200px;pointer-events:none}.flow-library-preview .react-flow__controls,.flow-library-preview .react-flow__minimap,.flow-library-preview .flow-minimap-toggle,.flow-library-preview .react-flow__attribution{display:none!important}
+.flow-library-description{padding:18px}.flow-library-description h3{font-size:16px;margin:0 0 6px}.flow-library-description small{color:var(--color-text-tertiary)}.flow-library-description>div{display:flex;gap:8px;margin-top:16px}
+/* V2 keeps the available canvas separate from the floating panels. */
+.reports-shell--flow-editor .is-workspace-v2 .reports-flow-designer--compact{--left:0px;--right:0px}
+.reports-shell--flow-editor .is-workspace-v2 .reports-flow-designer--compact.has-palette{--left:312px}
+.reports-shell--flow-editor .is-workspace-v2 .reports-flow-designer--compact.has-inspector{--right:344px}
+.reports-shell--flow-editor .is-workspace-v2 .reports-flow-designer--compact>.reports-flow-canvas{left:var(--left);right:var(--right);width:auto}
+.reports-shell--flow-editor .is-workspace-v2 .reports-node-palette{width:288px;top:16px;bottom:16px}
+.reports-shell--flow-editor .is-workspace-v2 .reports-node-settings{top:16px;bottom:16px}
+
+.flow-monitor-workspace .reports-ui-button{border:1px solid transparent;border-radius:7px;box-shadow:none;background:transparent;color:var(--color-text-secondary);font:inherit;font-size:12px;padding:7px 10px;cursor:pointer}
+.flow-monitor-workspace .reports-ui-button:hover{background:var(--color-bg-tertiary)}
+.flow-monitor-workspace nav .reports-ui-button[aria-current="page"]{color:var(--color-text-brand-secondary);background:var(--color-bg-brand-secondary)}
+.flow-workspace-panel input{border:1px solid var(--color-border-secondary);border-radius:7px;box-shadow:none;outline:none}
+.flow-monitor-workspace select{border:1px solid var(--color-border-secondary);border-radius:7px;box-shadow:none;padding:6px;font-size:12px;background:var(--color-bg-primary)}
+
+.flow-monitor-workspace,.flow-monitor-workspace *{box-sizing:border-box}
+.flow-monitor-legend .reports-ui-select{width:180px;flex:none}
+.flow-monitor-workspace .react-flow__handle{opacity:0;pointer-events:none}

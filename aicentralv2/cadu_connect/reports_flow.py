@@ -6,10 +6,12 @@ import secrets
 import string
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from html.parser import HTMLParser
 from urllib.parse import unquote, urljoin, urlparse, urlunparse
 
+from werkzeug.exceptions import BadRequest
 from flask import abort, current_app, jsonify, request, session
 
 from ..auth import login_required_api
@@ -486,9 +488,8 @@ def _normalize_flow_config(config, allowed_host):
             host = _host(host)
             if not _host_allowed(host, allowed_host):
                 abort(400, description='O bloco precisa usar o domínio autorizado ou um subdomínio dele.')
-        event_name = str(node.get('event_name') or node.get('event') or
-                         ('evento_personalizado' if node_type == 'event' else ''))[:80]
-        if (node_type == 'event' or (node_type == 'conversion' and event_name)) and not re.fullmatch(
+        event_name = str(node.get('event_name') or node.get('event') or '')[:80]
+        if event_name and node_type in ('event','conversion') and not re.fullmatch(
                 r'[A-Za-z][A-Za-z0-9_]{0,79}', event_name):
             abort(400, description='Configure um nome válido para cada evento personalizado.')
         position = {}
@@ -519,7 +520,7 @@ def _normalize_flow_config(config, allowed_host):
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
-        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole'):
+        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
         # Persist the complete authored document, including visual and future
@@ -586,15 +587,38 @@ def _normalize_flow_config(config, allowed_host):
                     abort(400, description='Propriedade de conexão inválida.')
                 normalized_edge[field] = edge[field]
         normalized_edges.append(normalized_edge)
-    identities = set()
+    identities = {}
     for node in normalized:
         if node['type'] not in measured_types:
             continue
         identity = (node['type'],node.get('host') or allowed_host,node.get('path'),node.get('event_name'))
         if identity in identities and node['type'] != 'page':
-            abort(400,description='Dois blocos observam o mesmo evento na mesma página. Use um bloco com várias conexões ou eventos com nomes diferentes.')
-        identities.add(identity)
-    result = {**config, 'nodes':normalized, 'edges':normalized_edges}
+            failure=BadRequest('Dois blocos observam o mesmo evento na mesma página. Use um bloco com várias conexões ou eventos com nomes diferentes.')
+            failure.flow_code='duplicate_event';failure.node_ids=[identities[identity],node['id']]
+            raise failure
+        identities[identity]=node['id']
+    groups=config.get('groups',[])
+    if not isinstance(groups,list) or len(groups)>50:
+        abort(400,description='O fluxo aceita até 50 grupos.')
+    clean_groups=[];group_ids=set();members=set()
+    for group in groups:
+        if not isinstance(group,dict):abort(400,description='Grupo inválido.')
+        group_id=group.get('id');bounds=group.get('bounds');member_ids=group.get('memberIds')
+        if not isinstance(group_id,str) or not group_id or len(group_id)>80 or group_id in group_ids or group_id in ids:
+            abort(400,description='Identificador de grupo inválido.')
+        if not isinstance(member_ids,list) or not member_ids or any(not isinstance(n,str) or n not in ids or n in members for n in member_ids) or len(set(member_ids))!=len(member_ids):
+            abort(400,description='Cada etapa pode pertencer a um único grupo válido.')
+        if not isinstance(bounds,dict) or any(isinstance(bounds.get(k),bool) or not isinstance(bounds.get(k),(float,int)) or not math.isfinite(bounds[k]) or not 0<=bounds[k]<=10000 for k in ('x','y','width','height')) or bounds['width']<100 or bounds['height']<100:
+            abort(400,description='Dimensões de grupo inválidas.')
+        group_ids.add(group_id);members.update(member_ids)
+        clean_groups.append({'id':group_id,'name':str(group.get('name') or 'Grupo')[:60],
+                             'bounds':{k:round(bounds[k]) for k in ('x','y','width','height')},'memberIds':member_ids})
+    membership={member:g['id'] for g in clean_groups for member in g['memberIds']}
+    for node in normalized:
+        if node.get('groupId') and membership.get(node['id'])!=node['groupId']:
+            abort(400,description='A etapa referencia um grupo incompatível.')
+        if node['id'] in membership:node['groupId']=membership[node['id']]
+    result = {**config, 'nodes':normalized, 'edges':normalized_edges, 'groups':clean_groups}
     if config.get('schema_version') == 2:
         result = migrate_v1_to_v2(result)
     try:
@@ -1663,6 +1687,40 @@ def register(bp):
             abort(404, description='Versão não encontrada neste cliente.')
         return jsonify(version=versions[0])
 
+    @bp.get('/api/v1/reports/flow/flows/<flow_id>/live')
+    @login_required_api
+    def reports_flow_live(flow_id):
+        from .reports_flow_live import build_live_snapshot
+        selected = _selection()
+        flow = _flow_row(flow_id, selected)
+        now = datetime.now(timezone.utc)
+        since = request.args.get('since', '')
+        if since and not re.fullmatch(r'[0-9]{1,20}', since):
+            abort(400, description='Cursor inválido.')
+        revision = flow.get('published_revision')
+        unavailable = dict(status='unavailable', active_sessions=None, node_presence={},
+                           transitions={}, generated_at=now.isoformat(), revision=revision,
+                           active_window_seconds=90, next_cursor=since or None)
+        if flow['status'] != 'published' or flow.get('revoked_at') or revision is None:
+            return jsonify(**unavailable)
+        events = _rows("""SELECT id,session_id,page_host,page_path,event_kind,event_name,occurred_at
+            FROM cadu_reports_flow_events WHERE organization_id=%s AND client_id=%s
+              AND tag_id=%s AND flow_revision=%s
+              AND occurred_at>NOW()-INTERVAL '15 minutes' AND occurred_at<=NOW()
+            ORDER BY occurred_at DESC,id DESC LIMIT 5001""",
+            (selected['organization_id'],selected['client_id'],flow['tag_id'],revision))
+        if len(events)>5000:
+            return jsonify(**dict(unavailable,status='capacity_exceeded'))
+        config=flow.get('active_config') or {}
+        snapshot=build_live_snapshot(events,[{**node,'host':node.get('host') or flow['allowed_host']} for node in config.get('nodes',[])],config.get('edges',[]),now)
+        cursor=max([int(since or 0),*(int(value) for value in snapshot['transitions'].values())])
+        if since:
+            snapshot['transitions']={key:value for key,value in snapshot['transitions'].items() if int(value)>int(since)}
+        return jsonify(**snapshot,status='ready',generated_at=now.isoformat(),revision=revision,
+                       next_cursor=str(cursor),poll_interval_ms=15000,scope='current_publication_all_sources',
+                       tracking_health={'status':'healthy' if events else 'quiet',
+                                        'window_seconds':900})
+
     @bp.get('/api/v1/reports/flow/flows/<flow_id>/journey')
     @login_required_api
     def reports_flow_journey(flow_id):
@@ -1679,17 +1737,72 @@ def register(bp):
         if flow['status'] != 'published' or revision is None or flow.get('revoked_at'):
             return jsonify(status='unavailable', revision=revision, period_days=days, config=None,
                            nodes=[], edges=[], suggestions=[])
-        scope = (selected['organization_id'], selected['client_id'], flow['tag_id'], revision, days)
-        hits_cte = """WITH hits AS (
-            SELECT s.node_id,e.session_id,MIN(e.occurred_at) AS first_at,
-                COUNT(*)::bigint AS events
-            FROM cadu_reports_flow_events e JOIN cadu_reports_flow_steps s
-                ON s.id=e.step_id AND s.organization_id=e.organization_id
-                AND s.client_id=e.client_id AND s.flow_revision=e.flow_revision
-            WHERE e.organization_id=%s AND e.client_id=%s AND e.tag_id=%s
-                AND e.flow_revision=%s AND e.occurred_at >= NOW() - (%s * INTERVAL '1 day')
-            GROUP BY s.node_id,e.session_id
+        requested_revision=request.args.get('revision','')
+        if requested_revision:
+            try:
+                revision=int(requested_revision)
+            except ValueError:
+                abort(400,description='Publicação inválida.')
+            versions=_rows("""SELECT config FROM cadu_reports_flow_versions WHERE flow_id=%s
+                AND organization_id=%s AND client_id=%s AND revision=%s""",
+                (flow_id,selected['organization_id'],selected['client_id'],revision))
+            if not versions:
+                abort(404,description='Publicação não encontrada neste cliente.')
+            config=versions[0]['config']
+        now=datetime.now(timezone.utc)
+        zone=ZoneInfo('America/Sao_Paulo')
+        start_arg=request.args.get('start_date') or request.args.get('from')
+        end_arg=request.args.get('end_date') or request.args.get('to')
+        try:
+            if start_arg or end_arg:
+                start_day=date.fromisoformat(start_arg or '')
+                end_day=date.fromisoformat(end_arg or '')
+                if start_day>end_day or (end_day-start_day).days>366:
+                    raise ValueError()
+                start=datetime.combine(start_day,datetime.min.time(),zone)
+                end=datetime.combine(end_day+timedelta(days=1),datetime.min.time(),zone)
+            else:
+                start=datetime.combine(now.astimezone(zone).date()-timedelta(days=days-1),datetime.min.time(),zone)
+                end=now
+        except ValueError:
+            abort(400,description='Informe um intervalo válido de até 367 dias.')
+        scope=[selected['organization_id'],selected['client_id'],flow['tag_id'],revision,start,end]
+        extra=''
+        for field,column in [('account_id','c.account_id'),('campaign_id','e.campaign_id')]:
+            raw=request.args.get(field,'')
+            if raw:
+                try:
+                    number=int(raw)
+                    if number<1: raise ValueError()
+                except ValueError:
+                    abort(400,description='Filtro inválido.')
+                extra+=f' AND {column}=%s'
+                scope.append(number)
+        platform=request.args.get('platform','')
+        if platform:
+            if not re.fullmatch(r'[a-z][a-z0-9_]{0,31}',platform):
+                abort(400,description='Plataforma inválida.')
+            extra+=' AND a.platform=%s';scope.append(platform)
+        # Keep unmapped visits in the sequence. Match IDs were frozen at ingestion.
+        visits_cte="""WITH visits AS (
+            SELECT e.id,e.session_id,e.occurred_at,s.node_id
+            FROM cadu_reports_flow_events e
+            LEFT JOIN cadu_reports_flow_steps s ON s.id=e.step_id
+              AND s.organization_id=e.organization_id AND s.client_id=e.client_id
+              AND s.flow_revision=e.flow_revision
+            LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id
+              AND c.organization_id=e.organization_id AND c.client_id=e.client_id
+            LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+              AND a.organization_id=e.organization_id AND a.client_id=e.client_id
+            WHERE e.organization_id=%s AND e.client_id=%s AND e.tag_id=%s AND e.flow_revision=%s
+              AND e.occurred_at >= %s AND e.occurred_at < %s
+              AND (e.event_kind IN ('page_view','conversion','error_view')
+                OR (s.node_id IS NOT NULL AND e.event_kind NOT IN ('heartbeat','page_leave','click')))
+        """+extra+"""), hits AS (
+            SELECT node_id,session_id,COUNT(*)::bigint AS events FROM visits
+            WHERE node_id IS NOT NULL GROUP BY node_id,session_id
         ) """
+        hits_cte=visits_cte
         node_rows = _rows(hits_cte + """SELECT node_id,COUNT(*)::bigint AS sessions,
             SUM(events)::bigint AS events FROM hits GROUP BY node_id""", scope)
         node_totals = {str(row['node_id']): row for row in node_rows}
@@ -1703,38 +1816,39 @@ def register(bp):
         if not entry_ids and measured_nodes:
             entry_ids = [measured_nodes[0]['id']]
         conversion_ids = [node['id'] for node in measured_nodes if node.get('type') == 'conversion']
-        funnel = _rows(hits_cte + """, entered AS (
-            SELECT DISTINCT session_id FROM hits WHERE node_id=ANY(%s::text[])
+        funnel = _rows(visits_cte + """, entered AS (
+            SELECT DISTINCT ON (session_id) session_id,occurred_at,id FROM visits
+            WHERE node_id=ANY(%s::text[]) ORDER BY session_id,occurred_at,id
         ) SELECT (SELECT COUNT(*) FROM entered)::bigint AS entries,
-            (SELECT COUNT(DISTINCT h.session_id) FROM hits h JOIN entered e USING(session_id)
-                WHERE h.node_id=ANY(%s::text[]))::bigint AS conversions""",
+            (SELECT COUNT(DISTINCT v.session_id) FROM visits v JOIN entered e USING(session_id)
+                WHERE v.node_id=ANY(%s::text[]) AND (v.occurred_at,v.id)>(e.occurred_at,e.id))::bigint AS conversions""",
             (*scope, entry_ids, conversion_ids))[0]
         authored_edges = [edge for edge in config.get('edges', [])
             if isinstance(edge, dict) and edge.get('from') and edge.get('to')]
-        transitions = _rows("""WITH ordered AS (
-            SELECT s.node_id AS source_id,
-                LEAD(s.node_id) OVER (PARTITION BY e.session_id ORDER BY e.occurred_at,e.id) AS target_id,
-                e.session_id
-            FROM cadu_reports_flow_events e JOIN cadu_reports_flow_steps s
-                ON s.id=e.step_id AND s.organization_id=e.organization_id
-                AND s.client_id=e.client_id AND s.flow_revision=e.flow_revision
-            WHERE e.organization_id=%s AND e.client_id=%s AND e.tag_id=%s
-                AND e.flow_revision=%s AND e.occurred_at >= NOW() - (%s * INTERVAL '1 day')
+        transitions = _rows(visits_cte + """, numbered AS (
+            SELECT *,LAG(node_id) OVER w AS previous_node,ROW_NUMBER() OVER w AS visit_number
+            FROM visits WINDOW w AS (PARTITION BY session_id ORDER BY occurred_at,id)
+        ), collapsed AS (
+            SELECT * FROM numbered WHERE visit_number=1 OR node_id IS DISTINCT FROM previous_node
+        ), ordered AS (
+            SELECT node_id AS source_id,session_id,
+                LEAD(node_id) OVER (PARTITION BY session_id ORDER BY occurred_at,id) AS target_id
+            FROM collapsed
         ) SELECT source_id,target_id,COUNT(DISTINCT session_id)::bigint AS sessions
-          FROM ordered WHERE target_id IS NOT NULL AND source_id<>target_id
-          GROUP BY source_id,target_id ORDER BY sessions DESC""", scope)
+          FROM ordered WHERE source_id IS NOT NULL AND target_id IS NOT NULL AND source_id<>target_id
+          GROUP BY source_id,target_id ORDER BY sessions DESC""", tuple(scope))
         # An authored edge represents a direct passage. Counting any later hit
         # at the target would attribute skipped pages to edges never traversed.
         transition_totals = {(row['source_id'], row['target_id']): int(row['sessions'])
                              for row in transitions}
         authored_pairs = {(edge['from'], edge['to']) for edge in authored_edges}
-        nodes = [{'id': node['id'], 'sessions': int(node_totals.get(node['id'], {}).get('sessions') or 0),
-                  'events': int(node_totals.get(node['id'], {}).get('events') or 0)}
+        nodes = [{'id': node['id'], 'sessions': int(node_totals.get(node['id'], {}).get('sessions') or 0) if node['id'] in measured_ids else None,
+                  'events': int(node_totals.get(node['id'], {}).get('events') or 0) if node['id'] in measured_ids else None}
                  for node in config.get('nodes', []) if isinstance(node, dict) and node.get('id')]
         edges = [{'id': edge['id'], 'from': edge['from'], 'to': edge['to'],
-                  'sessions': transition_totals.get((edge['from'], edge['to']), 0),
+                  'sessions': transition_totals.get((edge['from'], edge['to']), 0) if edge['from'] in measured_ids and edge['to'] in measured_ids else None,
                   'rate': round(100 * transition_totals.get((edge['from'], edge['to']), 0) /
-                                max(1, int(node_totals.get(edge['from'], {}).get('sessions') or 0)), 1)}
+                                int(node_totals[edge['from']]['sessions']), 1) if node_totals.get(edge['from'], {}).get('sessions') else None}
                  for edge in authored_edges if edge.get('id')]
         suggestions = [{'from': row['source_id'], 'to': row['target_id'],
                         'sessions': int(row['sessions'])}
@@ -1742,6 +1856,9 @@ def register(bp):
         entries = int(funnel['entries'] or 0)
         conversions = int(funnel['conversions'] or 0)
         return jsonify(status='ready', revision=revision, period_days=days, config=migrate_v1_to_v2(config),
+                       timezone='America/Sao_Paulo',generated_at=now.isoformat(),
+                       scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
+                              'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
                        nodes=nodes, edges=edges, suggestions=suggestions,
                        funnel={'entries': entries, 'conversions': conversions,
                                'rate': round(100 * conversions / entries, 1) if entries else None})

@@ -58,10 +58,10 @@ def migrate_v1_to_v2(config):
         item = dict(node)
         data = dict(item.get('data') or {}) if isinstance(item.get('data'), dict) else {}
         tracking = dict(data.get('tracking') or {}) if isinstance(data.get('tracking'), dict) else {}
-        tracking['event'] = item.get('event_name') or tracking.get('event') or ''
+        tracking['event'] = (item.get('event_name') or '') if 'event_name' in item else (tracking.get('event') or '')
         tracking['params'] = tracking.get('params') if isinstance(tracking.get('params'), dict) else {}
-        data.update(label=item.get('title') or data.get('label') or item.get('type') or 'Etapa',
-                    url=item.get('path') or data.get('url') or '',
+        data.update(label=item.get('title') if 'title' in item else (data.get('label') or item.get('type') or 'Etapa'),
+                    url=(item.get('path') or '') if 'path' in item else (data.get('url') or ''),
                     tracking=tracking)
         item.update(kind=item.get('kind') or LEGACY_KINDS.get(item.get('type'), 'utility.unknown'),
                     position={'x': item.get('x', 0), 'y': item.get('y', 0)}, data=data)

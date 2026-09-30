@@ -7,6 +7,9 @@
 .flow-shape-label>input{width:100%;min-height:28px;padding:3px 6px;border:1px solid var(--color-border-brand);border-radius:5px;background:var(--color-bg-primary);font:inherit;text-align:center;outline:none}
 .flow-shape-node>small{max-width:155px;margin-top:6px;overflow:hidden;color:var(--color-text-tertiary);font-size:11px;text-overflow:ellipsis;white-space:nowrap}
 .flow-shape-body{display:grid;place-items:center;width:52px;height:52px;border:1px solid var(--color-border-brand);border-radius:50%;background:var(--color-bg-brand-solid);color:white;box-shadow:var(--shadow-sm)}
+.flow-shape-node.is-circle .flow-shape-body:has(.reports-flow-brand-mark){border-color:var(--color-border-secondary);background:var(--color-bg-primary)}
+.flow-shape-body .reports-flow-brand-mark{width:29px;height:29px;object-fit:contain}
+.flow-shape-body .reports-flow-brand-mark.is-meta{width:32px;height:24px}
 .flow-shape-node.is-tone-success .flow-shape-body{border-color:var(--color-border-success);background:var(--color-bg-success-solid)}
 .flow-shape-node.is-tone-error .flow-shape-body{border-color:var(--color-border-error);background:var(--color-bg-error-solid)}
 .flow-shape-node.is-tone-warning .flow-shape-body,.flow-shape-node.is-tone-capture .flow-shape-body{border-color:var(--color-border-warning);background:var(--color-bg-warning-solid)}

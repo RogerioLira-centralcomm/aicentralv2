@@ -488,26 +488,26 @@ def _normalize_flow_config(config, allowed_host):
     known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error'}
     measured_types = {'page','form','event','conversion','whatsapp','error'}
     if not isinstance(nodes, list) or len(nodes) > 200 or not isinstance(edges, list) or len(edges) > 300:
-        abort(400, description='O fluxo aceita até 200 blocos e 300 conexões.')
+        abort(400, description='O fluxo aceita até 200 nós e 300 conexões.')
     normalized, ids = [], set()
     for index, node in enumerate(nodes):
         if not isinstance(node, dict) or node.get('type') not in known_types:
-            abort(400, description='O fluxo contém um bloco inválido.')
+            abort(400, description='O fluxo contém um nó inválido.')
         node_id = node.get('id')
         if not isinstance(node_id, str) or not node_id or len(node_id) > 80 or node_id in ids:
-            abort(400, description='Cada bloco precisa ter um identificador único.')
+            abort(400, description='Cada nó precisa ter um identificador único.')
         ids.add(node_id)
         node_type = node['type']
         title = ' '.join(str(node.get('title') or node_type).split())[:120]
         path = node.get('path', '')
         if node_type in measured_types and (not isinstance(path, str) or not path.startswith('/')
                 or '?' in path or '#' in path or len(path) > 500):
-            abort(400, description='Cada etapa medida precisa de um caminho interno válido.')
+            abort(400, description='Cada nó medido precisa de um caminho interno válido.')
         host = node.get('host') or None
         if host:
             host = _host(host)
             if not _host_allowed(host, allowed_host):
-                abort(400, description='O bloco precisa usar o domínio autorizado ou um subdomínio dele.')
+                abort(400, description='O nó precisa usar o domínio autorizado ou um subdomínio dele.')
         event_name = str(node.get('event_name') or node.get('event') or '')[:80]
         if event_name and node_type in ('event','conversion') and not re.fullmatch(
                 r'[A-Za-z][A-Za-z0-9_]{0,79}', event_name):
@@ -516,22 +516,22 @@ def _normalize_flow_config(config, allowed_host):
         for axis, default in (('x', 80 + (index % 3) * 220), ('y', 60 + (index // 3) * 130)):
             value = node.get(axis, default)
             if isinstance(value, bool):
-                abort(400, description='A posição de um bloco é inválida.')
+                abort(400, description='A posição de um nó é inválida.')
             try:
                 numeric = float(value)
             except (TypeError, ValueError):
-                abort(400, description='A posição de um bloco é inválida.')
+                abort(400, description='A posição de um nó é inválida.')
             if not math.isfinite(numeric) or not 0 <= numeric <= 10000:
-                abort(400, description='Mantenha os blocos dentro da área do editor.')
+                abort(400, description='Mantenha os nós dentro da área do editor.')
             position[axis] = round(numeric)
         item = {'id': node_id, 'type': node_type, 'title': title,
                 'x': position['x'], 'y': position['y']}
         if config.get('schema_version') == 2:
             kind = node.get('kind') or LEGACY_KINDS.get(node_type)
             if not isinstance(kind, str) or len(kind) > 80:
-                abort(400, description='Tipo visual de bloco inválido.')
+                abort(400, description='Tipo visual de nó inválido.')
             if 'data' in node and not isinstance(node['data'], dict):
-                abort(400, description='Dados de bloco inválidos.')
+                abort(400, description='Dados de nó inválidos.')
             item['kind'] = kind
             item['data'] = node.get('data') or {}
         if isinstance(path, str) and path:
@@ -548,18 +548,18 @@ def _normalize_flow_config(config, allowed_host):
         for field in ('description','thumbnail_asset_id','platform_id'):
             if field in node:
                 if not isinstance(node[field], str) or len(node[field]) > 2000:
-                    abort(400, description='Propriedade de bloco inválida.')
+                    abort(400, description='Propriedade de nó inválida.')
                 item[field] = node[field]
         for field in ('appearance','condition','duration','segment_ref','growth','action'):
             if field in node:
                 if not isinstance(node[field], dict):
-                    abort(400, description='A configuração do bloco precisa ser um objeto.')
+                    abort(400, description='A configuração do nó precisa ser um objeto.')
                 item[field] = node[field]
         for field in ('width','height'):
             if field in node:
                 value = node[field]
                 if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or not 40 <= value <= 2000:
-                    abort(400, description='Dimensão de bloco inválida.')
+                    abort(400, description='Dimensão de nó inválida.')
                 item[field] = round(value)
         for field in ('stepId','campaign_id'):
             value = node.get(field)
@@ -567,13 +567,13 @@ def _normalize_flow_config(config, allowed_host):
                 item[field] = None
             if value is not None:
                 if isinstance(value, bool):
-                    abort(400, description='Referência de bloco inválida.')
+                    abort(400, description='Referência de nó inválida.')
                 try:
                     value = int(value)
                 except (TypeError, ValueError):
-                    abort(400, description='Referência de bloco inválida.')
+                    abort(400, description='Referência de nó inválida.')
                 if value < 1:
-                    abort(400, description='Referência de bloco inválida.')
+                    abort(400, description='Referência de nó inválida.')
                 item[field] = value
         if isinstance(node.get('fields'), list):
             item['fields'] = [{'name':str(field.get('name') or '')[:80],
@@ -597,7 +597,7 @@ def _normalize_flow_config(config, allowed_host):
             abort(400, description='O fluxo contém uma conexão inválida.')
         source, target = edge.get('from'), edge.get('to')
         if not isinstance(source, str) or not isinstance(target, str) or source not in ids or target not in ids or source == target:
-            abort(400, description='Conecte blocos existentes e diferentes.')
+            abort(400, description='Conecte nós existentes e diferentes.')
         edge_id = str(edge.get('id') or uuid.uuid4())
         if not edge_id or len(edge_id) > 80 or edge_id in edge_ids:
             abort(400, description='Cada conexão precisa de um identificador único.')
@@ -620,7 +620,7 @@ def _normalize_flow_config(config, allowed_host):
             continue
         identity = (node['type'],node.get('host') or allowed_host,node.get('path'),node.get('event_name'))
         if identity in identities and node['type'] != 'page':
-            failure=BadRequest('Dois blocos observam o mesmo evento na mesma página. Use um bloco com várias conexões ou eventos com nomes diferentes.')
+            failure=BadRequest('Dois nós observam o mesmo evento na mesma página. Use um nó com várias conexões ou eventos com nomes diferentes.')
             failure.flow_code='duplicate_event';failure.node_ids=[identities[identity],node['id']]
             raise failure
         identities[identity]=node['id']
@@ -634,7 +634,7 @@ def _normalize_flow_config(config, allowed_host):
         if not isinstance(group_id,str) or not group_id or len(group_id)>80 or group_id in group_ids or group_id in ids:
             abort(400,description='Identificador de grupo inválido.')
         if not isinstance(member_ids,list) or not member_ids or any(not isinstance(n,str) or n not in ids or n in members for n in member_ids) or len(set(member_ids))!=len(member_ids):
-            abort(400,description='Cada etapa pode pertencer a um único grupo válido.')
+            abort(400,description='Cada nó pode pertencer a um único grupo válido.')
         if not isinstance(bounds,dict) or any(isinstance(bounds.get(k),bool) or not isinstance(bounds.get(k),(float,int)) or not math.isfinite(bounds[k]) or not 0<=bounds[k]<=10000 for k in ('x','y','width','height')) or bounds['width']<100 or bounds['height']<100:
             abort(400,description='Dimensões de grupo inválidas.')
         group_ids.add(group_id);members.update(member_ids)
@@ -643,7 +643,7 @@ def _normalize_flow_config(config, allowed_host):
     membership={member:g['id'] for g in clean_groups for member in g['memberIds']}
     for node in normalized:
         if node.get('groupId') and membership.get(node['id'])!=node['groupId']:
-            abort(400,description='A etapa referencia um grupo incompatível.')
+            abort(400,description='A nó referencia um grupo incompatível.')
         if node['id'] in membership:node['groupId']=membership[node['id']]
     result = {**config, 'nodes':normalized, 'edges':normalized_edges, 'groups':clean_groups}
     if config.get('schema_version') == 2:
@@ -663,7 +663,7 @@ def _validate_flow_references(config, selected):
             if node.get(field) is not None and not _rows(
                     f'SELECT id FROM {table} WHERE id=%s AND client_id=%s',
                     (node[field],selected['client_id'])):
-                abort(400, description='O bloco referencia um item indisponível neste cliente.')
+                abort(400, description='O nó referencia um item indisponível neste cliente.')
 
 
 def _client_tag_urls(client_id):
@@ -1575,7 +1575,7 @@ def register(bp):
         try:
             suggestion = suggest(flow, pages[0], selected)
         except TypeSafeError:
-            return jsonify(error='A sugestão está indisponível. Selecione a etapa manualmente.'), 503
+            return jsonify(error='A sugestão está indisponível. Selecione a função do nó manualmente.'), 503
         return jsonify(suggestion)
 
     @bp.post('/api/v2/reports/flow/flows/<flow_id>/discoveries/<page_id>/select')

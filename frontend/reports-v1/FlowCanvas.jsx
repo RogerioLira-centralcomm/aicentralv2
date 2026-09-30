@@ -1,5 +1,6 @@
 import {FLOW_STAGES,stageFor,stageAtX,stageX,funnelEdges,isReturnEdge,FLOW_STAGE_WIDTH} from './flowStages.js';
 import {edgeMetricLabel} from './flowMetricLabels.js';
+import {flowRoleLabel,flowRoleSourceLabel,flowStageLabel} from './flowUiLabels.js';
 import {useFlowPreviews} from './useFlowPreviews.js';
 import {RefreshCw01, Copy01, Trash01, LayoutGrid01, LayersTwo01} from '@untitledui/icons';
 import React, {useEffect, useCallback, useMemo, useRef, useState} from 'react';
@@ -55,7 +56,7 @@ function ShapeNode({id,data,selected,shape}) {
   const block=flowBlockFor(node);
   const Icon=block.icon;
   return <div onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)} className={`flow-shape-node is-${shape} is-tone-${block.tone}${zoom<.65?' is-compact-zoom':''}${selected?' is-selected':''}`}>
-    <NodeToolbar className="flow-node-hover" isVisible={hovered&&!selected} position={Position.Bottom}><strong>{node.title}</strong><small>{node.host}{node.path}</small><small>{node.role||stageFor(node)} · {node.role_source||'usuário'}</small>{node.evidence&&<p>{node.evidence}</p>}{metric&&<small>{metric.sessions==null?'Sessões não disponíveis':`${metric.sessions} sessões no período`}</small>}{data.paths?.map(path=><small key={path.id}>{path.label} · {path.sessions} sessões</small>)}</NodeToolbar>
+    <NodeToolbar className="flow-node-hover" isVisible={hovered&&!selected} position={Position.Bottom}><strong>{node.title}</strong><small>{node.host}{node.path}</small><small>Etapa: {flowStageLabel(node)} · Função: {flowRoleLabel(node.role)} · {flowRoleSourceLabel(node.role_source)}</small>{node.evidence&&<p>{node.evidence}</p>}{metric&&<small>{metric.sessions==null?'Sessões não disponíveis':`${metric.sessions} sessões no período`}</small>}{data.paths?.map(path=><small key={path.id}>{path.label} · {path.sessions} sessões</small>)}</NodeToolbar>
     <NodeToolbar isVisible={selected&&!readOnly} position={Position.Top}><ReportsActionButton aria-label="Duplicar nó" onClick={()=>onDuplicate(node.id)}><Copy01 size={16}/></ReportsActionButton><ReportsActionButton aria-label="Remover do fluxo" onClick={()=>onRemove(node.id)}><Trash01 size={16}/></ReportsActionButton>{shape==='page'&&canCapture&&<ReportsActionButton aria-label="Atualizar captura" onClick={()=>onRegenerate(node.id)}><RefreshCw01 size={16}/></ReportsActionButton>}</NodeToolbar><NodeLabel node={node} selected={selected} readOnly={readOnly} onChange={onLabelChange}/>
     <div className="flow-shape-body">{shape==='page'&&zoom>=.4&&preview?.url&&brokenImage!==preview.url?<img className="flow-page-capture" src={preview.canvas_url||preview.url} alt="" loading="lazy" decoding="async" onLoad={()=>updateInternals(id)} onError={()=>setBrokenImage(preview.url)}/>:shape==='page'?<div className={`flow-page-preview is-${block.preview||'generic'}`}><div className="flow-page-preview__bar"><i/><i/><i/></div><div className="flow-page-preview__image"/><div className="flow-page-preview__line"/><div className="flow-page-preview__line is-short"/></div>:node.type==='source'&&FLOW_PLATFORMS[block.source||node.source]?<FlowPlatformLogo platform={block.source||node.source}/>:<Icon size={22}/>}<NodeHandles/></div>
     {node.path&&!node.path.startsWith('/configurar-')&&<small>{node.path}</small>}
@@ -68,7 +69,7 @@ function GroupNode({id,data,selected}) {
   const update=useUpdateNodeInternals();
   useEffect(()=>{update(id);},[id,data.collapsed,update]);
   if(data.collapsed)return <div className="flow-group-stack" onDoubleClick={data.toggle}><strong>{data.group.name}</strong><small>{data.group.memberIds.length} páginas</small>{data.metric&&<small>{Number(data.metric.sessions).toLocaleString('pt-BR')} sessões únicas</small>}<NodeHandles/><button className="nodrag" onClick={data.toggle}>Ver páginas</button>{!data.readOnly&&<button className="nodrag" onClick={()=>data.ungroup(id)}>Separar páginas</button>}</div>;
-  return <div className="flow-group-node"><NodeResizer isVisible={selected&&!data.readOnly} minWidth={220} minHeight={180} onResizeEnd={(_,size)=>data.resize(id,size)}/><strong>{data.group.name}</strong><small>{data.group.memberIds.length} etapas</small><button className="nodrag" onClick={data.toggle}>Recolher</button><NodeToolbar isVisible={selected&&!data.readOnly}><ReportsActionButton onClick={()=>data.ungroup(id)}>Desagrupar</ReportsActionButton></NodeToolbar></div>;
+  return <div className="flow-group-node"><NodeResizer isVisible={selected&&!data.readOnly} minWidth={220} minHeight={180} onResizeEnd={(_,size)=>data.resize(id,size)}/><strong>{data.group.name}</strong><small>{data.group.memberIds.length} nós</small><button className="nodrag" onClick={data.toggle}>Recolher</button><NodeToolbar isVisible={selected&&!data.readOnly}><ReportsActionButton onClick={()=>data.ungroup(id)}>Desagrupar</ReportsActionButton></NodeToolbar></div>;
 }
 
 const MemoShapeNode=React.memo(ShapeNode);

@@ -1,3 +1,6 @@
+import {ReportsCustomers} from './ReportsCustomers.jsx';
+import {ReportsRelationships} from './ReportsRelationships.jsx';
+import {SharedReports} from './SharedReports.jsx';
 import {FlowSolutionSwitcher,FlowNavbarAccount} from './FlowNavbarAccount.jsx';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -37,7 +40,7 @@ import {useFlowHistory} from './useFlowHistory.js';
 import {CheckCircle, FilterLines, RefreshCw01, SearchLg} from '@untitledui/icons';
 
 const SECTIONS = [
-  ['overview', 'Visão geral', '◫'], ['accounts', 'Contas', '▤'],
+  ['overview', 'Visão geral', '◫'], ['customers','Clientes e anunciantes','◎'], ['accounts', 'Contas', '▤'],
   ['campaigns', 'Campanhas', '◎'], ['reports', 'Relatórios', '▥'],
   ['imports', 'Importações', '⇧'], ['monitor', 'Dados de mídia', '⌘'],
   ['supertag', 'Super Tag', '</>'], ['flow', 'Fluxos', '◇'],
@@ -64,7 +67,7 @@ const integer = value => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 
 const decimal = value => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(value || 0);
 const money = (micros, currency) => micros == null || !currency ? '—' : new Intl.NumberFormat('pt-BR', {style: 'currency', currency}).format(micros / 1_000_000);
 const amount = (value, currency) => value == null || !currency ? '—' : new Intl.NumberFormat('pt-BR', {style: 'currency', currency}).format(Number(value));
-const platformName = value => ({google_ads: 'Google Ads', meta_ads: 'Meta Ads', microsoft_ads: 'Microsoft Ads', other: 'Outra'})[value] || value.replaceAll('_', ' ');
+const platformName = value => ({manual:'Manual',google_ads: 'Google Ads', meta_ads: 'Meta Ads', microsoft_ads: 'Microsoft Ads', other: 'Outra'})[value||'manual'] || String(value).replaceAll('_', ' ');
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const sourceHealth = item => item.revoked_at ? 'Revogada' : !item.last_used_at ? 'Aguardando primeiro envio' : item.source_kind === 'google_ads_script' && Date.now() - new Date(item.last_used_at).getTime() > 48 * 3600 * 1000 ? 'Sem envio há 48 h' : 'Ativa';
 const rootElement = document.getElementById('cadu-reports-v1-root');
@@ -248,8 +251,10 @@ function Overview({data, setupData, metrics, imported, sites, sources, loading, 
   </div>;
 }
 
+function CustomerSelect({data,value,onChange}) {return <label>Cliente / anunciante<ReportsNativeSelect value={value} onChange={e=>onChange(e.target.value)}><option value="">Operação própria</option>{(data.customers||[]).filter(c=>c.status==='active').map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</ReportsNativeSelect></label>;}
+
 function Accounts({data, save, busy}) {
-  const [form, setForm] = useState({platform: 'google_ads', account_kind: 'advertiser', external_id: '', name: '', parent_account_id: ''});
+  const [form, setForm] = useState({customer_id:'',platform: 'google_ads', account_kind: 'advertiser', external_id: '', name: '', parent_account_id: ''});
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const managers = data.accounts.filter(account => account.account_kind === 'manager' && account.platform === form.platform);
@@ -287,11 +292,11 @@ function AccountRow({item, data, save, busy}) {
   const managers = data.accounts.filter(account => account.platform === item.platform && account.account_kind === 'manager' && account.status !== 'disabled' && account.id !== item.id);
   const update = async event => {event.preventDefault(); setSaved(false); try {await save(`/accounts/${item.id}`, draft, true, 'PATCH'); setSaved(true);setEditing(false);} catch (_) { /* Global error banner shows the failure. */ }};
   const cancel = () => {setDraft({name:item.name,external_id:item.external_id,status:item.status||'active',parent_account_id:item.parent_account_id||''});setEditing(false);};
-  return <tr className={editing?'reports-account-row is-editing':'reports-account-row'} onKeyDown={event => {if (editing && event.key === 'Escape') {event.preventDefault();cancel();}}}><td>{editing?<ReportsFieldInput form={formId} className="reports-account-field" aria-label={`Nome da conta ${item.external_id}`} value={draft.name} onChange={event => setDraft({...draft, name: event.target.value})} required maxLength="240" />:<strong>{item.name}</strong>}</td><td>{platformName(item.platform)}</td><td>{editing?<ReportsFieldInput form={formId} className="reports-account-field" aria-label={`ID externo ${item.external_id}`} value={draft.external_id} onChange={event => setDraft({...draft, external_id: event.target.value})} required maxLength="160" />:item.external_id}</td><td>{item.account_kind === 'manager' ? 'Gerente' : 'Anunciante'}</td><td>{editing&&item.account_kind==='advertiser'?<ReportsNativeSelect form={formId} className="reports-account-field" aria-label={`Gerente da conta ${item.external_id}`} value={draft.parent_account_id} onChange={event => setDraft({...draft, parent_account_id: event.target.value})}><option value="">Sem gerente</option>{managers.map(manager => <option key={manager.id} value={manager.id}>{manager.name}</option>)}</ReportsNativeSelect>:data.accounts.find(parent => parent.id === item.parent_account_id)?.name || '—'}</td><td>{editing?<ReportsNativeSelect form={formId} className="reports-account-field" aria-label={`Estado da conta ${item.external_id}`} value={draft.status} onChange={event => setDraft({...draft, status: event.target.value})}><option value="active">Ativa</option><option value="paused">Pausada</option><option value="disabled">Desativada</option></ReportsNativeSelect>:({active:'Ativa',paused:'Pausada',disabled:'Desativada'})[item.status]||item.status}</td><td>{data.client.role!=='viewer'&&(editing?<form id={formId} className="reports-account-row__actions" onSubmit={update}><UntitledButton size="xs" type="submit" isDisabled={busy} isLoading={busy}>Salvar</UntitledButton></form>:<UntitledButton className="reports-account-edit" size="xs" color="link-color" onPress={()=>{setSaved(false);setEditing(true);}}>Editar</UntitledButton>)}{saved&&<span className="reports-account-saved" role="status">Salva</span>}</td></tr>;
+  return <tr className={editing?'reports-account-row is-editing':'reports-account-row'} onKeyDown={event => {if (editing && event.key === 'Escape') {event.preventDefault();cancel();}}}><td>{editing?<ReportsFieldInput form={formId} className="reports-account-field" aria-label={`Nome da conta ${item.external_id}`} value={draft.name} onChange={event => setDraft({...draft, name: event.target.value})} required maxLength="240" />:<><strong>{item.name}</strong><ReportsRelationships data={data} kind="account" id={item.id} name={item.name}/></>}</td><td>{platformName(item.platform)}</td><td>{editing?<ReportsFieldInput form={formId} className="reports-account-field" aria-label={`ID externo ${item.external_id}`} value={draft.external_id} onChange={event => setDraft({...draft, external_id: event.target.value})} required maxLength="160" />:item.external_id}</td><td>{item.account_kind === 'manager' ? 'Gerente' : 'Anunciante'}</td><td>{editing&&item.account_kind==='advertiser'?<ReportsNativeSelect form={formId} className="reports-account-field" aria-label={`Gerente da conta ${item.external_id}`} value={draft.parent_account_id} onChange={event => setDraft({...draft, parent_account_id: event.target.value})}><option value="">Sem gerente</option>{managers.map(manager => <option key={manager.id} value={manager.id}>{manager.name}</option>)}</ReportsNativeSelect>:data.accounts.find(parent => parent.id === item.parent_account_id)?.name || '—'}</td><td>{editing?<ReportsNativeSelect form={formId} className="reports-account-field" aria-label={`Estado da conta ${item.external_id}`} value={draft.status} onChange={event => setDraft({...draft, status: event.target.value})}><option value="active">Ativa</option><option value="paused">Pausada</option><option value="disabled">Desativada</option></ReportsNativeSelect>:({active:'Ativa',paused:'Pausada',disabled:'Desativada'})[item.status]||item.status}</td><td>{data.client.role!=='viewer'&&(editing?<form id={formId} className="reports-account-row__actions" onSubmit={update}><UntitledButton size="xs" type="submit" isDisabled={busy} isLoading={busy}>Salvar</UntitledButton></form>:<UntitledButton className="reports-account-edit" size="xs" color="link-color" onPress={()=>{setSaved(false);setEditing(true);}}>Editar</UntitledButton>)}{saved&&<span className="reports-account-saved" role="status">Salva</span>}</td></tr>;
 }
 
 function Campaigns({data, save, busy, filters, refreshRevision}) {
-  const [form, setForm] = useState({account_id: '', external_id: '', name: '', objective: '', channel_type: ''});
+  const [form, setForm] = useState({customer_id:'',account_id: '', external_id: '', name: '', objective: '', channel_type: ''});
   const [createOpen, setCreateOpen] = useState(false);
   const [campaignId, setCampaignId] = useState(new URLSearchParams(location.search).get('campaign_id') || '');
   const [campaignDetail, setCampaignDetail] = useState(null);
@@ -308,7 +313,7 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   useEffect(() => {
     let live = true;
     if (!campaignId) {setCampaignDetail(null); return () => {live=false;};}
-    json(`/connect/api/v1/reports/campaigns/${campaignId}?client_id=${data.client.client_id}`)
+    json(`/connect/api/v2/reports/campaigns/${campaignId}?client_id=${data.client.client_id}`)
       .then(value => {if(live){setCampaignDetail(value);setDetailError('');}})
       .catch(error => {if(live)setDetailError(error.message);});
     return () => {live=false;};
@@ -329,15 +334,15 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   const submit = async event => {event.preventDefault(); try {await save('/campaigns', form); setForm({...form, external_id: '', name: '', objective: '', channel_type: ''}); setCreateOpen(false);} catch (_) { /* Global error banner shows the failure. */ }};
   if (campaignId) return <CampaignDetail data={data} detail={campaignDetail} error={detailError} tab={tab} setTab={changeCampaignTab} close={closeCampaign} filters={filters} refreshRevision={refreshRevision} save={save} busy={busy} updateDetail={setCampaignDetail} />;
   return <section className="reports-campaigns-page reports-campaigns-list-page"><article className="reports-panel"><div className="reports-panel-head"><div><h2>Campanhas cadastradas</h2><p>Consulte as campanhas deste cliente e acompanhe seus resultados.</p></div><div className="reports-list-head-actions"><span>{visibleCampaigns.length} de {data.campaigns.length}</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-campaign-add" onClick={() => setCreateOpen(true)} color="primary">Adicionar campanha</ReportsActionButton>}</div></div>
-    {visibleCampaigns.length ? <div className="reports-table-wrap"><table><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Tipo</th><th>ID externo</th><th>Projeto Workspace (opcional)</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}><td><ReportsActionButton type="button" className="reports-campaign-open" onClick={()=>openCampaign(item)}><strong>{item.name}</strong><small>Abrir detalhes ↗</small></ReportsActionButton></td><td>{item.account_name}</td><td>{item.platform}</td><td>{item.channel_type || item.objective || '—'}</td><td>{item.external_id}</td><td><ReportsNativeSelect aria-label={`Projeto Workspace da campanha ${item.name}`} value={item.workspace_project_id || ''} disabled={busy || data.client.role !== 'admin'} onChange={event=>save(`/campaigns/${item.id}/workspace-project`,{workspace_project_id:event.target.value||null}).catch(()=>{})}><option value="">Sem associação</option>{!(data.workspace_projects||[]).length&&<option disabled value="__none__">Nenhum projeto acessível</option>}{(data.workspace_projects||[]).map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</ReportsNativeSelect></td><td>{({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',unknown:'Não informado'})[item.status] || item.status}</td></tr>)}</tbody></table></div> : <Empty message={data.campaigns.length ? 'Nenhuma campanha corresponde aos filtros desta página.' : 'As campanhas cadastradas e sincronizadas aparecerão aqui.'} />}</article>
-    <ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} title="Adicionar campanha" description="Associe a campanha à conta de mídia deste cliente." context={data.client.client_name}>{data.client.role==='viewer'?<Empty message="Seu acesso permite consultar as campanhas, sem cadastrar ou editar."/>:<form className="reports-form" onSubmit={submit}>
-      {!accounts.length && <p className="reports-suggestion">Cadastre primeiro uma conta de mídia em <a href={reportUrl('accounts')}>Contas</a>. A campanha ficará vinculada ao cliente Reports selecionado.</p>}
-      <label>Conta<ReportsNativeSelect required value={form.account_id} onChange={event => setForm({...form, account_id: event.target.value})}><option value="">Selecione</option>{accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
+    {visibleCampaigns.length ? <div className="reports-table-wrap"><table><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Tipo</th><th>ID externo</th><th>Projeto Workspace (opcional)</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}><td><ReportsActionButton type="button" className="reports-campaign-open" onClick={()=>openCampaign(item)}><strong>{item.name}</strong><small>Abrir detalhes ↗</small></ReportsActionButton></td><td>{item.account_name||'Sem conta de mídia'}</td><td>{item.platform||'Manual'}</td><td>{item.channel_type || item.objective || '—'}</td><td>{item.external_id}</td><td><ReportsRelationships data={data} kind="campaign" id={item.id} name={item.name}/></td><td>{({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',unknown:'Não informado'})[item.status] || item.status}</td></tr>)}</tbody></table></div> : <Empty message={data.campaigns.length ? 'Nenhuma campanha corresponde aos filtros desta página.' : 'As campanhas cadastradas e sincronizadas aparecerão aqui.'} />}</article>
+    <ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} title="Adicionar campanha" description="Crie uma campanha manual ou associe uma conta de mídia." context={data.client.client_name}>{data.client.role==='viewer'?<Empty message="Seu acesso permite consultar as campanhas, sem cadastrar ou editar."/>:<form className="reports-form" onSubmit={submit}>
+      <CustomerSelect data={data} value={form.customer_id} onChange={value=>setForm({...form,customer_id:value,account_id:''})}/>
+      <label>Conta de mídia (opcional)<ReportsNativeSelect value={form.account_id} onChange={event=>setForm({...form,account_id:event.target.value})}><option value="">Campanha manual</option>{accounts.filter(a=>String(a.customer_id||'')===form.customer_id).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
       <label>Nome<ReportsFieldInput required maxLength="240" value={form.name} onChange={event => setForm({...form, name: event.target.value})} /></label>
-      <label>{accounts.find(item => String(item.id) === String(form.account_id))?.platform === 'microsoft_ads' ? 'ID da campanha' : 'ID da campanha ou PI'}<ReportsFieldInput required maxLength="160" value={form.external_id} onChange={event => setForm({...form, external_id: event.target.value})} placeholder="Identificador informado pela plataforma" /><small>Use o identificador correspondente à conta selecionada. Ele será usado para relacionar os dados importados.</small></label>
+      <label>{accounts.find(item => String(item.id) === String(form.account_id))?.platform === 'microsoft_ads' ? 'ID da campanha' : 'ID da campanha ou PI'}<ReportsFieldInput required={Boolean(form.account_id)} disabled={!form.account_id} maxLength="160" value={form.external_id} onChange={event => setForm({...form, external_id: event.target.value})} placeholder="Identificador informado pela plataforma" /><small>Use o identificador correspondente à conta selecionada. Ele será usado para relacionar os dados importados.</small></label>
       <label>Objetivo (opcional)<ReportsFieldInput maxLength="160" value={form.objective} onChange={event => setForm({...form, objective: event.target.value})} placeholder="Ex.: geração de leads" /></label>
       <label>Tipo de canal (opcional)<ReportsFieldInput maxLength="64" value={form.channel_type} onChange={event => setForm({...form, channel_type: event.target.value})} placeholder="Ex.: pesquisa, social, vídeo" /></label>
-      <ReportsActionButton disabled={busy || !accounts.length} type="submit">Salvar campanha</ReportsActionButton>
+      <ReportsActionButton disabled={busy} type="submit">Salvar campanha</ReportsActionButton>
     </form>}</ReportsDrawer></section>;
 }
 
@@ -362,8 +367,8 @@ function CampaignDetail({data, detail, error, tab, setTab, close, filters, refre
       end_date: filters.endDate,
     });
     Promise.all([
-      json(`/connect/api/v1/reports/metrics?${params}`),
-      json(`/connect/api/v1/reports/flow?${params}`),
+      json(`/connect/api/v2/reports/metrics?${params}`),
+      json(`/connect/api/v2/reports/flow?${params}`),
     ]).then(([metrics, flow]) => {
       if (active) {setChannelData(metrics);setFlowData(flow);setAnalysisError('');}
     }).catch(failure => {if(active)setAnalysisError(failure.message);});
@@ -371,7 +376,7 @@ function CampaignDetail({data, detail, error, tab, setTab, close, filters, refre
   }, [campaignId, data.client.client_id, filters.period, filters.startDate, filters.endDate, refreshRevision]);
   useEffect(() => {
     if (!detail?.campaign) return;
-    setSettings({name: detail.campaign.name || '', objective: detail.campaign.objective || '', channel_type: detail.campaign.channel_type || ''});
+    setSettings({account_id:detail.campaign.account_id||'',external_id:detail.campaign.external_id||'',name: detail.campaign.name || '', objective: detail.campaign.objective || '', channel_type: detail.campaign.channel_type || ''});
     setSettingsNotice('');
   }, [detail?.campaign?.id, detail?.campaign?.name, detail?.campaign?.objective, detail?.campaign?.channel_type]);
   if(error)return <section className="reports-grid"><article className="reports-panel"><ReportsActionButton type="button" className="reports-text-button" onClick={close}>← Voltar às campanhas</ReportsActionButton><p className="reports-error">{error}</p></article></section>;
@@ -381,7 +386,7 @@ function CampaignDetail({data, detail, error, tab, setTab, close, filters, refre
     event.preventDefault();
     try {
       await save(`/campaigns/${campaign.id}`, settings, true, 'PATCH');
-      const updated = await json(`/connect/api/v1/reports/campaigns/${campaign.id}?client_id=${data.client.client_id}`);
+      const updated = await json(`/connect/api/v2/reports/campaigns/${campaign.id}?client_id=${data.client.client_id}`);
       updateDetail(updated);
       setSettingsNotice('Campanha atualizada.');
     } catch (failure) {setAnalysisError(failure.message); setSettingsNotice('');}
@@ -441,7 +446,7 @@ function CampaignDetail({data, detail, error, tab, setTab, close, filters, refre
     {tab==='performance'&&<><article className="reports-panel reports-span-four"><div className="reports-panel-head"><div><h3>Métricas por data</h3><p>{periodLabel} · valores mantidos por origem e unidade</p></div><span>{performanceRows.length} de {ingestedDaily.length+importedDaily.length} linhas</span></div>{collectionToolbar('Buscar data, origem ou métrica',['Google Ads','Importação'],true)}{ingestedDaily.length+importedDaily.length?(performanceRows.length?<div className="reports-table-wrap"><table><thead><tr><th>Data</th><th>Métrica</th><th>Valor</th><th>Moeda</th><th>Fonte / estado</th></tr></thead><tbody>{performanceRows.map((item,index)=><tr key={`${item.metric_date}:${item.metric_key}:${index}`}><td>{shortDate(item.metric_date)}</td><td>{metricLabels[item.metric_key]||item.metric_key}</td><td>{item.metric_key==='cost'||item.metric_key==='conversion_value'?amount(item.value_numeric,item.currency):integer(item.value_numeric)}</td><td>{item.currency||'—'}</td><td>{item.source==='google_ads_script'?'Google Ads':item.version_count>1?'Revisar divergência':'Importação'}</td></tr>)}</tbody></table></div>:<Empty message="Nenhuma métrica corresponde à busca e aos filtros."/>):<Empty message="Ainda não há dados de performance no período."/>}</article><article className="reports-panel reports-span-four"><div className="reports-panel-head"><div><h3>Detalhe por anúncio e dimensão</h3><p>Valores de origem apresentados sem soma entre dimensões</p></div><span>{dimensionRows.length} de {dimensionalDaily.length} observações</span></div>{collectionToolbar('Buscar anúncio, dimensão ou métrica',[],true)}{dimensionalDaily.length?(dimensionRows.length?<div className="reports-table-wrap"><table><thead><tr><th>Data</th><th>Métrica</th><th>Valor</th><th>Dimensões do export</th></tr></thead><tbody>{dimensionRows.slice(0,500).map((item,index)=><tr key={`${item.metric_date}:${item.metric_key}:${index}`}><td>{shortDate(item.metric_date)}</td><td>{metricLabels[item.metric_key]||item.metric_key}</td><td>{item.metric_key==='cost'||item.metric_key==='conversion_value'?amount(item.value_numeric,item.currency):integer(item.value_numeric)}</td><td>{Object.values(item.dimensions||{}).map(value=>`${value.label}: ${value.value}`).join(' · ')||'Campanha'}</td></tr>)}</tbody></table></div>:<Empty message="Nenhuma observação corresponde à busca e à métrica escolhida."/>):<Empty message="O detalhamento por anúncio aparece quando o export traz essa dimensão."/>}</article></>}
     {tab==='reports'&&<article className="reports-panel reports-span-four"><div className="reports-panel-head"><h3>Relatórios associados</h3><span>{detail.reports.length}</span></div>{detail.reports.length?detail.reports.map(item=><div className="reports-row" key={item.id}><span>{item.campaign_name}<small>Versão {item.revision} · {shortDate(item.updated_at)}</small></span><a className="reports-inline-link" href={reportUrl('reports')}>Abrir relatório ↗</a></div>):<Empty message="Nenhum relatório está associado a esta campanha."/>}</article>}
     {tab==='imports'&&<><article className="reports-panel reports-span-two"><div className="reports-panel-head"><h3>Arquivos de origem</h3><span>{detail.imports.length}</span></div>{detail.imports.length?detail.imports.map(item=><div className="reports-row" key={item.id}><span>{item.original_name}<small>{item.file_kind} · {item.observations} métricas · {shortDate(item.created_at)}</small></span><a className="reports-inline-link" href={reportUrl('imports')}>Abrir Importações ↗</a></div>):<Empty message="Nenhum arquivo importado para esta campanha."/>}</article><article className="reports-panel reports-span-two"><div className="reports-panel-head"><h3>Totais por intervalo</h3><span>{detail.range_snapshots.length}</span></div>{detail.range_snapshots.length?detail.range_snapshots.map(item=><div className="reports-row" key={item.id}><span>{shortDate(item.period_start)} – {shortDate(item.period_end)}<small>{item.original_name}</small></span><b>{item.metrics.map(metric=>`${metric.metric_label}: ${metric.value_numeric} ${metric.currency||metric.unit}`).join(' · ')}</b></div>):<Empty message="Snapshots de período aparecem separados dos dados diários."/>}</article></>}
-    {tab==='settings'&&<><article className="reports-panel reports-span-two"><div className="reports-panel-head"><h3>Identificação da campanha</h3><span>Dados da conta de mídia</span></div><div className="reports-campaign-settings"><p><small>Plataforma</small><b>{campaign.platform}</b></p><p><small>Conta anunciante</small><b>{campaign.account_name}</b></p><p><small>ID externo da conta</small><b>{campaign.account_external_id}</b></p><p><small>ID externo da campanha</small><b>{campaign.external_id}</b></p><p><small>Status na plataforma</small><b>{stateLabel}</b></p><p><small>Última atualização</small><b>{shortDate(campaign.updated_at)}</b></p></div></article><article className="reports-panel reports-span-two"><div className="reports-panel-head"><h3>Editar classificação</h3><span>Nome e contexto Reports</span></div>{data.client.role==='viewer'?<Empty message="Seu acesso permite consultar a campanha, sem editar seus dados."/>:<form className="reports-form" onSubmit={saveSettings}><label>Nome<ReportsFieldInput required maxLength="240" value={settings.name} onChange={event=>setSettings({...settings,name:event.target.value})}/></label><label>Objetivo<ReportsFieldInput maxLength="160" value={settings.objective} onChange={event=>setSettings({...settings,objective:event.target.value})} placeholder="Ex.: geração de leads"/></label><label>Tipo de canal<ReportsFieldInput maxLength="64" value={settings.channel_type} onChange={event=>setSettings({...settings,channel_type:event.target.value})} placeholder="Ex.: pesquisa, social, vídeo"/></label><ReportsActionButton disabled={busy}>Salvar alterações</ReportsActionButton>{settingsNotice&&<small role="status">{settingsNotice}</small>}</form>}</article></>}
+    {tab==='settings'&&<><article className="reports-panel reports-span-two"><div className="reports-panel-head"><h3>Identificação da campanha</h3><span>Dados da conta de mídia</span></div><div className="reports-campaign-settings"><p><small>Plataforma</small><b>{campaign.platform}</b></p><p><small>Conta anunciante</small><b>{campaign.account_name}</b></p><p><small>ID externo da conta</small><b>{campaign.account_external_id}</b></p><p><small>ID externo da campanha</small><b>{campaign.external_id}</b></p><p><small>Status na plataforma</small><b>{stateLabel}</b></p><p><small>Última atualização</small><b>{shortDate(campaign.updated_at)}</b></p></div></article><article className="reports-panel reports-span-two"><div className="reports-panel-head"><h3>Editar classificação</h3><span>Nome e contexto Reports</span></div>{data.client.role==='viewer'?<Empty message="Seu acesso permite consultar a campanha, sem editar seus dados."/>:<form className="reports-form" onSubmit={saveSettings}>{!campaign.account_id&&<><label>Conectar conta de mídia (opcional)<ReportsNativeSelect value={settings.account_id||''} onChange={e=>setSettings({...settings,account_id:e.target.value})}><option value="">Manter campanha manual</option>{data.accounts.filter(a=>a.account_kind==='advertiser'&&a.customer_id===campaign.customer_id).map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</ReportsNativeSelect></label>{settings.account_id&&<label>ID da campanha na plataforma<ReportsFieldInput required value={settings.external_id||''} onChange={e=>setSettings({...settings,external_id:e.target.value})}/></label>}</>}<label>Nome<ReportsFieldInput required maxLength="240" value={settings.name} onChange={event=>setSettings({...settings,name:event.target.value})}/></label><label>Objetivo<ReportsFieldInput maxLength="160" value={settings.objective} onChange={event=>setSettings({...settings,objective:event.target.value})} placeholder="Ex.: geração de leads"/></label><label>Tipo de canal<ReportsFieldInput maxLength="64" value={settings.channel_type} onChange={event=>setSettings({...settings,channel_type:event.target.value})} placeholder="Ex.: pesquisa, social, vídeo"/></label><ReportsActionButton disabled={busy}>Salvar alterações</ReportsActionButton>{settingsNotice&&<small role="status">{settingsNotice}</small>}</form>}</article></>}
   </section>;
 }
 
@@ -473,14 +478,14 @@ function Reports({data, save, busy}) {
   const [planning, setPlanning] = useState(false);
   useEffect(() => {setDetail(null); setDraft({}); setPlanSuggestion(null); invalidateTypeSafeReview(); setDetailError('');}, [data.client.client_id]);
   const submit = async event => {event.preventDefault(); try {await save('/workspaces', form); setForm({campaign_name: '', media_campaign_id: ''}); setCreateOpen(false);} catch (_) { /* Global error banner shows the failure. */ }};
-  const open = async (event, reportId) => {event.preventDefault(); setDetailError(''); setPlanSuggestion(null); setReviewSource(null); invalidateTypeSafeReview(); try {const value = await json(`/connect/api/v1/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {}); setNote('');} catch (failure) {setDetailError(failure.message);}};
-  const refresh = async reportId => {const value = await json(`/connect/api/v1/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {});};
+  const open = async (event, reportId) => {event.preventDefault(); setDetailError(''); setPlanSuggestion(null); setReviewSource(null); invalidateTypeSafeReview(); try {const value = await json(`/connect/api/v2/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {}); setNote('');} catch (failure) {setDetailError(failure.message);}};
+  const refresh = async reportId => {const value = await json(`/connect/api/v2/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {});};
   const update = async event => {event.preventDefault(); if (!detail) return; try {await save(`/workspaces/${detail.report.id}/document`, {revision: detail.report.revision, update_note: note, document: Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].map(field => [field, draft[field] || '']))}); await refresh(detail.report.id); setNote(''); setDetailError('');} catch (failure) {setDetailError(failure.message);}};
   const planNextAction = async () => {
     if (!detail) return;
     setPlanning(true); setDetailError('');
     try {
-      const body = await json(`/connect/api/v1/reports/workspaces/${detail.report.id}/plan`, {
+      const body = await json(`/connect/api/v2/reports/workspaces/${detail.report.id}/plan`, {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
         body: JSON.stringify({client_id: data.client.client_id}),
       });
@@ -569,13 +574,13 @@ function Links({data, save, busy}) {
   const [aiStatus, setAiStatus] = useState(null);
   const shareUrl = token => `${location.origin}/connect/public/link-tests/${encodeURIComponent(token)}`;
   const copyShare = async token => {try {await navigator.clipboard.writeText(shareUrl(token));} catch (_) { /* Browser may deny clipboard access. */ }};
-  useEffect(() => {json('/connect/api/v1/reports/ai/status').then(setAiStatus).catch(() => setAiStatus(null));}, []);
+  useEffect(() => {json('/connect/api/v2/reports/ai/status').then(setAiStatus).catch(() => setAiStatus(null));}, []);
   useEffect(() => {setEditing(null); setSuggestion(null); setHistory(null);}, [data.client.client_id]);
   const submit = async event => {event.preventDefault(); try {const body = await save('/link-tests', form); setResult(body.result);} catch (_) { /* Global error banner shows the failure. */ }};
   const choose = run => {setEditing(run); setSuggestion(null); setCampaignId(run.media_campaign_id ? String(run.media_campaign_id) : ''); setReportId(run.report_workspace_id ? String(run.report_workspace_id) : ''); setHistory(null);};
   const suggest = async run => {choose(run); try {const body = await save(`/link-tests/${run.id}/suggest-campaign`, {}, false); setSuggestion(body); if (body.suggestion) {setCampaignId(String(body.suggestion.id)); setReportId('');}} catch (_) { /* Global error banner shows the failure. */ }};
   const confirm = async event => {event.preventDefault(); if (!editing) return; try {await save(`/link-tests/${editing.id}/association`, {campaign_id: campaignId || null, report_id: reportId || null}); setEditing(null); setSuggestion(null); setHistory(null);} catch (_) { /* Global error banner shows the failure. */ }};
-  const showHistory = async run => {choose(run); try {const body = await json(`/connect/api/v1/reports/link-tests/${run.id}/association-history?client_id=${data.client.client_id}`); setHistory(body.history);} catch (_) { /* Global error banner shows the failure. */ }};
+  const showHistory = async run => {choose(run); try {const body = await json(`/connect/api/v2/reports/link-tests/${run.id}/association-history?client_id=${data.client.client_id}`); setHistory(body.history);} catch (_) { /* Global error banner shows the failure. */ }};
   const selectedCampaign = data.campaigns.find(item => String(item.id) === campaignId);
   const availableReports = data.reports.filter(item => !item.media_campaign_id || String(item.media_campaign_id) === campaignId).filter(item => !item.account_id || item.account_id === selectedCampaign?.account_id);
   return <section className="reports-grid reports-grid--three"><article className="reports-panel"><div className="reports-panel-head"><h2>Testar destino</h2><span>Link Tester</span></div><form className="reports-form" onSubmit={submit}>
@@ -611,7 +616,7 @@ function Monitor({data, save, busy}) {
       (account.account_kind === 'advertiser' && !account.parent_account_id) ||
       (account.account_kind === 'manager' && data.accounts.some(child => child.account_kind === 'advertiser' && child.status !== 'disabled' && String(child.parent_account_id || '') === String(account.id))));
   const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
-  const reload = () => json(`/connect/api/v1/reports/ingest-keys?client_id=${data.client.client_id}`).then(value => {setKeys(value.keys); setRuns(value.runs || []);});
+  const reload = () => json(`/connect/api/v2/reports/ingest-keys?client_id=${data.client.client_id}`).then(value => {setKeys(value.keys); setRuns(value.runs || []);});
   useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id]);
   const create = async event => {
     event.preventDefault();
@@ -648,7 +653,7 @@ function Access({data, save, busy}) {
   const [role, setRole] = useState('viewer');
   const [exclusive, setExclusive] = useState(false);
   const [localError, setLocalError] = useState('');
-  const reload = () => json(`/connect/api/v1/reports/access?client_id=${data.client.client_id}`).then(value => setUsers(value.users));
+  const reload = () => json(`/connect/api/v2/reports/access?client_id=${data.client.client_id}`).then(value => setUsers(value.users));
   useEffect(() => {reload().catch(error => setLocalError(error.message));}, [data.client.client_id]);
   const choose = value => {
     setUserId(value);
@@ -667,12 +672,12 @@ function Access({data, save, busy}) {
   };
   return <section className="reports-access-page">
     <ReportsDrawer open={grantOpen} onOpenChange={setGrantOpen} title="Conceder acesso" description="Defina quem pode consultar ou operar os dados deste cliente." context={data.client.client_name}>
-      <p>Selecione uma conta existente da organização. O acesso exclusivo permite usar Reports sem abrir os demais módulos do Cadu.</p>
+      <p>Defina o acesso à conta principal do Reports. Compartilhamentos restritos são feitos no site ou fluxo.</p>
       {localError && <p className="reports-error" role="alert">{localError}</p>}
-      <form className="reports-form" onSubmit={grant}><label>Usuário<ReportsNativeSelect required value={userId} onChange={event => choose(event.target.value)}><option value="">Selecione</option>{users.map(user => <option key={user.id} value={user.id}>{user.name} · {user.email}</option>)}</ReportsNativeSelect></label><label>Papel<ReportsNativeSelect value={role} onChange={event => setRole(event.target.value)}><option value="viewer">Visualização</option><option value="member">Operação</option><option value="admin">Administração de dados</option></ReportsNativeSelect></label><label className="reports-checkbox"><ReportsFieldInput type="checkbox" checked={exclusive} onChange={event => setExclusive(event.target.checked)} />Acesso exclusivo ao Reports</label><ReportsActionButton disabled={busy || !userId} type="submit">Salvar acesso</ReportsActionButton></form>
+      <form className="reports-form" onSubmit={grant}><label>Usuário<ReportsNativeSelect required value={userId} onChange={event => choose(event.target.value)}><option value="">Selecione</option>{users.map(user => <option key={user.id} value={user.id}>{user.name} · {user.email}</option>)}</ReportsNativeSelect></label><label>Papel<ReportsNativeSelect value={role} onChange={event => setRole(event.target.value)}><option value="viewer">Visualização</option><option value="member">Operação</option><option value="admin">Administração de dados</option></ReportsNativeSelect></label><ReportsActionButton disabled={busy || !userId} type="submit">Salvar acesso</ReportsActionButton></form>
     </ReportsDrawer>
     <article className="reports-panel"><div className="reports-panel-head"><h2>Usuários deste cliente</h2><div className="reports-list-head-actions"><span>{users.filter(user => user.role && !user.revoked_at).length} ativos</span><ReportsActionButton color="primary" onClick={() => setGrantOpen(true)}>Conceder acesso</ReportsActionButton></div></div>
-      {users.some(user => user.role && !user.revoked_at) ? <div className="reports-table-wrap"><table><thead><tr><th>Usuário</th><th>Papel</th><th>Tipo</th><th></th></tr></thead><tbody>{users.filter(user => user.role && !user.revoked_at).map(user => <tr key={user.id}><td>{user.name}</td><td>{user.role}</td><td>{user.reports_only ? 'Só Reports' : 'Cadu + Reports'}</td><td><ReportsActionButton className="reports-text-button" disabled={busy} onClick={() => setRevokeUser(user)}>Revogar</ReportsActionButton></td></tr>)}</tbody></table></div> : <Empty message="Nenhum acesso próprio do Reports concedido para este cliente." />}
+      {users.some(user => user.role && !user.revoked_at) ? <div className="reports-table-wrap"><table><thead><tr><th>Usuário</th><th>Papel</th><th>Tipo</th><th></th></tr></thead><tbody>{users.filter(user => user.role && !user.revoked_at).map(user => <tr key={user.id}><td>{user.name}</td><td>{user.role}</td><td>{user.access_scope==='shared'?'Recursos compartilhados':'Conta principal'}</td><td><ReportsActionButton className="reports-text-button" disabled={busy} onClick={() => setRevokeUser(user)}>Revogar</ReportsActionButton></td></tr>)}</tbody></table></div> : <Empty message="Nenhum acesso próprio do Reports concedido para este cliente." />}
     </article>
     <ReportsConfirmDialog open={Boolean(revokeUser)} title="Revogar acesso" description={revokeUser ? `Remover o acesso de ${revokeUser.name} a este cliente no Reports?` : ''} confirmLabel="Revogar acesso" busy={busy} onCancel={() => setRevokeUser(null)} onConfirm={() => revoke(revokeUser)} />
   </section>;
@@ -811,7 +816,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     if (filters.platform) params.set('platform', filters.platform);
     if (filters.account) params.set('account_id', filters.account);
     if (filters.campaign) params.set('campaign_id', filters.campaign);
-    return json(`/connect/api/v1/reports/flow?${params}`).then(result => {
+    return json(`/connect/api/v2/reports/flow?${params}`).then(result => {
       if(sequence !== requestSequence.current || scope !== liveScopeRef.current) return;
       setFlow(result);setLiveUpdatedAt(new Date());setLiveFailure(false);return result;
     }).catch(failure => {
@@ -822,18 +827,18 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   useEffect(()=>{
     if(flowView!=='monitor'||!selectedFlowId)return;
     let cancelled=false;
-    json(`/connect/api/v1/reports/flow/flows/${selectedFlowId}/versions?client_id=${data.client.client_id}`)
+    json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions?client_id=${data.client.client_id}`)
       .then(result=>{if(!cancelled)setMonitorVersions(result.versions);})
       .catch(()=>{if(!cancelled)setMonitorVersions([]);});
     return()=>{cancelled=true;};
   },[selectedFlowId,flowView,data.client.client_id,refreshRevision]);
   const loadDiscoveries = async flowId => {
     if (!flowId) {setDiscovery({run:null,pages:[]});setDiscoveryLoadedId('');return;}
-    const result=await json(`/connect/api/v1/reports/flow/flows/${flowId}/discoveries?client_id=${data.client.client_id}`);
+    const result=await json(`/connect/api/v2/reports/flow/flows/${flowId}/discoveries?client_id=${data.client.client_id}`);
     if(liveEditorRef.current?.id===flowId){setDiscovery(result);setDiscoveryLoadedId(flowId);}
   };
   useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id, filters.period, filters.startDate, filters.endDate, filters.platform, filters.account, filters.campaign, selectedFlowId,flowView,refreshRevision,analysisRevision]);
-  useEffect(()=>{if(flowView!=='create')return;let cancelled=false;json(`/connect/api/v1/reports/flow/templates?client_id=${data.client.client_id}`).then(result=>{if(!cancelled&&Array.isArray(result.templates))setFlowTemplateOptions(result.templates);}).catch(()=>{});return()=>{cancelled=true;};},[flowView,data.client.client_id]);
+  useEffect(()=>{if(flowView!=='create')return;let cancelled=false;json(`/connect/api/v2/reports/flow/templates?client_id=${data.client.client_id}`).then(result=>{if(!cancelled&&Array.isArray(result.templates))setFlowTemplateOptions(result.templates);}).catch(()=>{});return()=>{cancelled=true;};},[flowView,data.client.client_id]);
   useEffect(() => {if(flowView!=='edit')return;setDiscoveryLoadedId('');loadDiscoveries(selectedFlowId).catch(failure => setLocalError(failure.message));}, [selectedFlowId,data.client.client_id]);
   useEffect(() => {if(flowView==='edit'&&selectedFlowId&&autoDiscoverFlowRef.current===selectedFlowId){autoDiscoverFlowRef.current='';discoverSite();}}, [flowView,selectedFlowId]);
   useEffect(() => {
@@ -860,7 +865,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   }, [liveScope]);
   const chooseFlow = id => {if(commandLock.current)return;setSelectedFlowId(id);const url=new URL(location.href);if(id)url.searchParams.set('flow_id',id);else url.searchParams.delete('flow_id');history.replaceState(null,'',url);};
   const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
-  const checkFlowSite = async () => {if(!flowHost.trim())return;setFlowSiteChecking(true);setFlowSiteCheck(null);setLocalError('');try{setFlowSiteCheck(await json(`/connect/api/v1/reports/supertag/site-check?client_id=${data.client.client_id}&url=${encodeURIComponent(flowHost.trim())}`));}catch(failure){setFlowSiteCheck({error:failure.message});}finally{setFlowSiteChecking(false);}};
+  const checkFlowSite = async () => {if(!flowHost.trim())return;setFlowSiteChecking(true);setFlowSiteCheck(null);setLocalError('');try{setFlowSiteCheck(await json(`/connect/api/v2/reports/supertag/site-check?client_id=${data.client.client_id}&url=${encodeURIComponent(flowHost.trim())}`));}catch(failure){setFlowSiteCheck({error:failure.message});}finally{setFlowSiteChecking(false);}};
   const newFlow = async event => {event.preventDefault(); try {if(!flowSiteCheck||flowSiteCheck.error)throw new Error('Verifique um domínio público antes de criar o fluxo.');const name=flowName||flowSiteCheck.title||flowSiteCheck.host;const result = await save('/flow/flows', {name, allowed_host: flowSiteCheck.host}, false);if(flowTemplate!=='blank')await save(`/flow/flows/${result.flow.id}`,{name,config:flowTemplateConfig(flowTemplate),expected_revision:result.flow.draft_revision},false,'PATCH');location.assign(flowEditorUrl(result.flow.id,data.client.client_id));} catch (failure) {setLocalError(failure.message);}};
   const addNode = (type, options = {}, point = null, connectedFrom = '') => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 etapas. Crie outro fluxo para continuar.');return;}const defaults={source:'Origem de tráfego',page:'Página / URL',form:'Formulário',event:'Evento',conversion:'Conversão',whatsapp:'Clique WhatsApp',error:'Página de erro'};const index=flowConfig.nodes.length;const title=options.title||options.label||defaults[type]||type;const nodeId=crypto.randomUUID();const node={id:nodeId,type,kind:options.kind||flowBlockFor({type}).kind,title,data:{label:title,url:''},path:options.path&&options.path.startsWith('/')?options.path:['page','form','event','conversion','whatsapp','error'].includes(type)?`/configurar-${nodeId.slice(0,8)}`:'',event_name:type==='event'?(options.event_name||''):undefined,source:type==='source'?(options.source||'google'):undefined,x:point?Math.max(0,snap(point.x)):24+(index%3)*(FLOW_CARD_WIDTH+48),y:point?Math.max(0,snap(point.y)):100+Math.floor(index/3)*(FLOW_CARD_HEIGHT+48),fields:type==='form'?[{name:'nome',label:'Nome',required:true},{name:'email',label:'E-mail',required:true}]:[]};node.data.url=node.path;setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:connectedFrom?[...current.edges,{id:crypto.randomUUID(),from:connectedFrom,to:node.id,variant:'direct',label:'Próximo'}]:current.edges}));setSelectedNodeId(node.id);};
   const insertOnEdge = edgeId => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 etapas.');return;}const edge=flowConfig.edges.find(item=>item.id===edgeId);if(!edge)return;const from=flowConfig.nodes.find(item=>item.id===edge.from),to=flowConfig.nodes.find(item=>item.id===edge.to);if(!from||!to)return;const id=crypto.randomUUID();const node={id,type:'condition',kind:'logic.condition',title:'Nova etapa',data:{label:'Nova etapa',url:''},x:snap((Number(from.x)+Number(to.x))/2),y:snap((Number(from.y)+Number(to.y))/2)};setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:current.edges.flatMap(item=>item.id===edgeId?[{...item,id:crypto.randomUUID(),to:id},{...item,id:crypto.randomUUID(),from:id}]:[item])}));setSelectedNodeId(id);setInspectorOpen(true);};
@@ -932,7 +937,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const resolveDraftConflict = async overwrite => {
     const snapshot = {...liveEditorRef.current};
     try {
-      const result = await json(`/connect/api/v1/reports/flow?client_id=${data.client.client_id}&flow_id=${selectedFlowId}&view=edit`);
+      const result = await json(`/connect/api/v2/reports/flow?client_id=${data.client.client_id}&flow_id=${selectedFlowId}&view=edit`);
       const latest = result.flows.find(item=>item.id===selectedFlowId);
       if(!latest)throw new Error('O fluxo não está mais disponível para este cliente.');
       if(overwrite){
@@ -954,7 +959,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     if(!selectedFlowId)return;
     setPublishedConfig(null);setPublicationNote('');
     if(selectedFlow?.published_revision)try{
-      const result=await json(`/connect/api/v1/reports/flow/flows/${selectedFlowId}/versions/${selectedFlow.published_revision}?client_id=${data.client.client_id}`);
+      const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions/${selectedFlow.published_revision}?client_id=${data.client.client_id}`);
       setPublishedConfig(result.version.config);
     }catch(failure){setLocalError(`Não foi possível comparar com a publicação atual: ${failure.message}`);return;}
     setPublicationOpen(true);
@@ -970,8 +975,8 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
       setPublicationOpen(false);await reload();setVersionMessage(`Versão ${result.flow.published_revision} publicada. Aguardando os próximos eventos reais.`);
     }catch(failure){setLocalError(failure.message);}finally{setPublicationBusy(false);}
   };
-  const loadVersions = async () => {try{const result=await json(`/connect/api/v1/reports/flow/flows/${selectedFlowId}/versions?client_id=${data.client.client_id}`);setVersions(result.versions);}catch(failure){setLocalError(failure.message);}};
-  const compareVersion = async revision => {try{const result=await json(`/connect/api/v1/reports/flow/flows/${selectedFlowId}/versions/${revision}?client_id=${data.client.client_id}`);setVersionComparison({revision,...flowChangeSummary(result.version.config,flowConfig)});}catch(failure){setLocalError(failure.message);}};
+  const loadVersions = async () => {try{const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions?client_id=${data.client.client_id}`);setVersions(result.versions);}catch(failure){setLocalError(failure.message);}};
+  const compareVersion = async revision => {try{const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions/${revision}?client_id=${data.client.client_id}`);setVersionComparison({revision,...flowChangeSummary(result.version.config,flowConfig)});}catch(failure){setLocalError(failure.message);}};
   const restoreVersion = async revision => {
     if(!window.confirm('Restaurar esta versão como rascunho? A publicação atual continuará ativa.')||!startCommand())return;
     try{
@@ -1067,7 +1072,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   useEffect(()=>{
     if(editorMode!=='journey'||!selectedFlowId)return;
     let cancelled=false;setJourneyLoading(true);setJourneyError('');
-    json(`/connect/api/v1/reports/flow/flows/${selectedFlowId}/journey?client_id=${data.client.client_id}&days=${journeyDays}`)
+    json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/journey?client_id=${data.client.client_id}&days=${journeyDays}`)
       .then(result=>{if(!cancelled)setJourneyData(result);})
       .catch(failure=>{if(!cancelled)setJourneyError(failure.message);})
       .finally(()=>{if(!cancelled)setJourneyLoading(false);});
@@ -1140,7 +1145,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const monitorCanvasHeight = Math.max(190, ...monitorCanvasNodes.map(node => node.y + 200));
   const mappedSitePages = flowConfig.nodes.filter(node => node.discoveryPageId).length;
   const visibleSitePages = (discovery.pages || []).filter(page => `${page.title || ''} ${page.page_host || ''} ${page.path_prefix || ''}`.toLocaleLowerCase().includes(siteQuery.trim().toLocaleLowerCase()));
-  if(workspaceV2&&flowView==='create'&&!location.pathname.endsWith('/new'))return <FlowLibrary flows={flow.flows} readOnly={data.client.role==='viewer'} onOpen={openFlow} onCreate={()=>location.assign(reportUrl('flows/new',{client_id:data.client.client_id}))}/>;
+  if(workspaceV2&&flowView==='create'&&!location.pathname.endsWith('/new'))return <FlowLibrary data={data} flows={flow.flows} readOnly={data.client.role==='viewer'} onOpen={openFlow} onCreate={()=>location.assign(reportUrl('flows/new',{client_id:data.client.client_id}))}/>;
   if(workspaceV2&&flowView==='monitor'&&selectedFlow)return <FlowMonitorWorkspace csrf={data.csrf} flow={selectedFlow} client={data.client} versions={monitorVersions} filters={filters} baseConfig={selectedFlow.config} onEdit={()=>location.assign(flowEditorUrl(selectedFlowId,data.client.client_id))} onBack={()=>location.assign(reportUrl('flows',{client_id:data.client.client_id}))}/>;
   return <>
     {flowView==='create'&&<header className="reports-flow-index-heading"><div><h2>Fluxos de captura e conversão</h2><p>Crie um fluxo para um site ou abra um existente.</p></div></header>}
@@ -1264,7 +1269,7 @@ function SiteFavicon({site}) {
     }
     setChecked(true);
     try {
-      const preview = await json(`/connect/api/v1/reports/supertag/site-check?url=${encodeURIComponent(`https://${host}`)}`);
+      const preview = await json(`/connect/api/v2/reports/supertag/site-check?url=${encodeURIComponent(`https://${host}`)}`);
       const next = preview.favicon || '';
       siteFaviconCache.set(host, next);
       setFavicon(next);
@@ -1298,7 +1303,7 @@ function SuperTag({data}) {
   const [siteCheck, setSiteCheck] = useState(null);
   const [checkingSite, setCheckingSite] = useState(false);
   const load = async () => {
-    const value = await json(`/connect/api/v1/reports/supertag/sites?client_id=${data.client.client_id}`);
+    const value = await json(`/connect/api/v2/reports/supertag/sites?client_id=${data.client.client_id}`);
     setSites(value.sites || []);
     if (selectedId && value.sites.some(item => item.id === selectedId)) return;
     setSelectedId('');
@@ -1308,7 +1313,7 @@ function SuperTag({data}) {
     setSites([]);
     setSitesLoading(true);
     setSitesLoadFailed(false);
-    json(`/connect/api/v1/reports/supertag/sites?client_id=${data.client.client_id}`)
+    json(`/connect/api/v2/reports/supertag/sites?client_id=${data.client.client_id}`)
       .then(value => {
         if (!active) return;
         const nextSites = value.sites || [];
@@ -1324,8 +1329,8 @@ function SuperTag({data}) {
     if (!selectedId) {setDetailLoading(false);return;}
     let cancelled=false;setDetailLoading(true);
     Promise.allSettled([
-      json(`/connect/api/v1/reports/supertag/sites/${selectedId}/events?client_id=${data.client.client_id}`),
-      json(`/connect/api/v1/reports/flow?client_id=${data.client.client_id}&view=create`)
+      json(`/connect/api/v2/reports/supertag/sites/${selectedId}/events?client_id=${data.client.client_id}`),
+      json(`/connect/api/v2/reports/flow?client_id=${data.client.client_id}&view=create`)
     ]).then(([events,flows])=>{
       if(cancelled)return;
       if(events.status==='fulfilled')setDetail(events.value);
@@ -1342,7 +1347,7 @@ function SuperTag({data}) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
       const checkedHost = new URL(host.includes('://') ? host : `https://${host}`).host;
-      const result = await json(`/connect/api/v1/reports/supertag/sites?client_id=${data.client.client_id}`, {
+      const result = await json(`/connect/api/v2/reports/supertag/sites?client_id=${data.client.client_id}`, {
         method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf},
         body:JSON.stringify({label,allowed_host:checkedHost})});
       if (siteCheck?.favicon) siteFaviconCache.set(checkedHost, siteCheck.favicon);
@@ -1353,10 +1358,10 @@ function SuperTag({data}) {
     if (!selectedId) return;
     setBusy(true); setError('');
     try {
-      await json(`/connect/api/v1/reports/supertag/sites/${selectedId}?client_id=${data.client.client_id}`, {
+      await json(`/connect/api/v2/reports/supertag/sites/${selectedId}?client_id=${data.client.client_id}`, {
         method:'PATCH', headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf}, body:JSON.stringify(changes)});
       await load();
-      const latest = await json(`/connect/api/v1/reports/supertag/sites/${selectedId}/events?client_id=${data.client.client_id}`);
+      const latest = await json(`/connect/api/v2/reports/supertag/sites/${selectedId}/events?client_id=${data.client.client_id}`);
       setDetail(latest);
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
   };
@@ -1364,7 +1369,7 @@ function SuperTag({data}) {
     if (!selectedId) return;
     setBusy(true); setError('');
     try {
-      await json(`/connect/api/v1/reports/supertag/sites/${selectedId}/revoke?client_id=${data.client.client_id}`, {
+      await json(`/connect/api/v2/reports/supertag/sites/${selectedId}/revoke?client_id=${data.client.client_id}`, {
         method:'POST', headers:{'X-CSRF-Token':data.csrf}, body:JSON.stringify({})});
       setSelectedId(''); setDetail(null); setRevokeConfirmOpen(false); await load(); location.assign(reportUrl('supertag'));
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
@@ -1378,7 +1383,7 @@ function SuperTag({data}) {
   const checkSite = async () => {
     if (!host.trim()) return;
     setCheckingSite(true); setSiteCheck(null); setError('');
-    try {setSiteCheck(await json(`/connect/api/v1/reports/supertag/site-check?url=${encodeURIComponent(host.trim())}`));}
+    try {setSiteCheck(await json(`/connect/api/v2/reports/supertag/site-check?url=${encodeURIComponent(host.trim())}`));}
     catch (failure) {setSiteCheck({error:failure.message});}
     finally {setCheckingSite(false);}
   };
@@ -1404,7 +1409,7 @@ function SuperTag({data}) {
     {error&&<p className="reports-error" role="alert">{error}</p>}{notice&&<p className="reports-success" role="status">{notice}</p>}
     {selected&&<ReportsTabs className="reports-site-tabs" label="Áreas do site" value={siteTab} onChange={setSiteTab} items={[{id:'overview',label:'Visão geral'},{id:'flows',label:'Fluxos'},{id:'settings',label:'Configurações da tag'}]}/>}
     <div className="reports-site-workspace">
-    {!selected&&<section className="reports-site-index" aria-label="Sites conectados"><div className="reports-site-index__toolbar"><div><strong>Sites conectados</strong><span>{sites.length} {sites.length===1?'site':'sites'}</span></div><div className="reports-site-index__actions">{sites.length>0&&<ReportsFieldInput aria-label="Buscar site" placeholder="Buscar nome ou domínio" value={siteQuery} onChange={event=>setSiteQuery(event.target.value)}/>} {sites.length>0&&data.client.role!=='viewer'&&<ReportsActionButton color="primary" onClick={()=>{setInstallOpen(true);setSiteCheck(null);}}>Conectar site</ReportsActionButton>}</div></div>{sitesLoading&&<p className="reports-site-index__loading" role="status">Carregando sites…</p>}{!sitesLoading&&visibleSites.length>0&&<div className="reports-table-wrap"><table><thead><tr><th>Site</th><th>Domínio</th><th>Coleta</th><th>Eventos · 30 dias</th><th/></tr></thead><tbody>{visibleSites.map(site=><tr key={site.id}><td><span className="reports-site-index__identity"><SiteFavicon site={site}/><strong>{site.label}</strong></span></td><td>{site.allowed_host}</td><td>{site.revoked_at?'Revogada':!site.enabled?'Desativada':Number(site.events_30d)>0?'Eventos recebidos':'Sem eventos · 30 dias'}</td><td>{integer(site.events_30d||0)}</td><td><ReportsActionButton className="reports-text-button" color="link-color" href={reportUrl('supertag', {client_id:data.client.client_id}, site.id)}>Abrir site</ReportsActionButton></td></tr>)}</tbody></table></div>}{!sitesLoading&&!sitesLoadFailed&&!sites.length&&<div className="reports-site-index__empty"><strong>{data.client.role==='viewer'?'Nenhum site conectado':'Conecte seu primeiro site'}</strong><p>{data.client.role==='viewer'?'Os sites autorizados para este cliente aparecerão aqui.':'Instale a Super Tag para acompanhar visitas e eventos consentidos.'}</p>{data.client.role!=='viewer'&&<ReportsActionButton color="primary" onClick={()=>{setInstallOpen(true);setSiteCheck(null);}}>Conectar site</ReportsActionButton>}</div>}{!sitesLoading&&sites.length>0&&!visibleSites.length&&<Empty message="Nenhum site corresponde à busca."/>}</section>}
+    {!selected&&<section className="reports-site-index" aria-label="Sites conectados"><div className="reports-site-index__toolbar"><div><strong>Sites conectados</strong><span>{sites.length} {sites.length===1?'site':'sites'}</span></div><div className="reports-site-index__actions">{sites.length>0&&<ReportsFieldInput aria-label="Buscar site" placeholder="Buscar nome ou domínio" value={siteQuery} onChange={event=>setSiteQuery(event.target.value)}/>} {sites.length>0&&data.client.role!=='viewer'&&<ReportsActionButton color="primary" onClick={()=>{setInstallOpen(true);setSiteCheck(null);}}>Conectar site</ReportsActionButton>}</div></div>{sitesLoading&&<p className="reports-site-index__loading" role="status">Carregando sites…</p>}{!sitesLoading&&visibleSites.length>0&&<div className="reports-table-wrap"><table><thead><tr><th>Site</th><th>Domínio</th><th>Coleta</th><th>Eventos · 30 dias</th><th/></tr></thead><tbody>{visibleSites.map(site=><tr key={site.id}><td><span className="reports-site-index__identity"><SiteFavicon site={site}/><strong>{site.label}</strong></span></td><td>{site.allowed_host}</td><td>{site.revoked_at?'Revogada':!site.enabled?'Desativada':Number(site.events_30d)>0?'Eventos recebidos':'Sem eventos · 30 dias'}</td><td>{integer(site.events_30d||0)}</td><td><ReportsActionButton className="reports-text-button" color="link-color" href={reportUrl('supertag', {client_id:data.client.client_id}, site.id)}>Abrir site</ReportsActionButton><ReportsRelationships data={data} kind="site" id={site.id} name={site.label}/></td></tr>)}</tbody></table></div>}{!sitesLoading&&!sitesLoadFailed&&!sites.length&&<div className="reports-site-index__empty"><strong>{data.client.role==='viewer'?'Nenhum site conectado':'Conecte seu primeiro site'}</strong><p>{data.client.role==='viewer'?'Os sites autorizados para este cliente aparecerão aqui.':'Instale a Super Tag para acompanhar visitas e eventos consentidos.'}</p>{data.client.role!=='viewer'&&<ReportsActionButton color="primary" onClick={()=>{setInstallOpen(true);setSiteCheck(null);}}>Conectar site</ReportsActionButton>}</div>}{!sitesLoading&&sites.length>0&&!visibleSites.length&&<Empty message="Nenhum site corresponde à busca."/>}</section>}
     {selected&&detailLoading&&<p role="status">Carregando dados do site…</p>}
     {selected&&siteTab==='flows'&&<article className="reports-panel"><h3>Fluxos de {selected.allowed_host}</h3><p>Abra um rascunho para organizar as etapas ou acompanhe uma versão publicada.</p>{siteFlows.filter(item=>item.allowed_host?.replace(/^www\./,'')===selected.allowed_host.replace(/^www\./,'')).map(item=><div className="reports-site-flow-row" key={item.id}><div><strong>{item.name}</strong><small>{item.status==='published'?'Publicado':'Rascunho'}</small></div><ReportsActionButton href={reportUrl('flow',{client_id:data.client.client_id,flow_id:item.id,flow_view:item.status==='published'?'monitor':'edit'})}>Abrir fluxo</ReportsActionButton></div>)}<ReportsActionButton color="primary" href={reportUrl('flow',{client_id:data.client.client_id,site_host:selected.allowed_host,flow_view:'create'})}>Criar fluxo neste site</ReportsActionButton></article>}
     {selected&&siteTab==='settings'&&
@@ -1456,7 +1461,7 @@ function Events({data, filters, initialKind = 'all', refreshRevision}) {
     if (filters.platform) params.set('platform', filters.platform);
     if (filters.account) params.set('account_id', filters.account);
     if (filters.campaign) params.set('campaign_id', filters.campaign);
-    json(`/connect/api/v1/reports/flow/events?${params}`).then(value => {
+    json(`/connect/api/v2/reports/flow/events?${params}`).then(value => {
       if (currentRequest === requestVersion.current) {setResult(value); setError('');}
     }).catch(failure => {if (currentRequest === requestVersion.current) setError(failure.message);});
   };
@@ -1525,7 +1530,7 @@ function VisualConfirm({detail, data, busy, setBusy, setError, onRefresh}) {
     }
     const params = new URLSearchParams({client_id: String(data.client.client_id), platform: draft.platform,
       account_id: draft.external_account_id, campaign_id: draft.external_campaign_id});
-    fetch(`/connect/api/v1/reports/imports/${detail.import_file.id}/campaign-match?${params}`, {credentials:'same-origin'})
+    fetch(`/connect/api/v2/reports/imports/${detail.import_file.id}/campaign-match?${params}`, {credentials:'same-origin'})
       .then(response => response.ok ? response.json() : Promise.reject(new Error('Falha ao verificar campanha')))
       .then(value => {if (live) {setCampaignMatch(value.match); setCreateCampaign(value.match?.state === 'missing');}})
       .catch(() => {if (live) setCampaignMatch({state:'unmatched'});});
@@ -1537,7 +1542,7 @@ function VisualConfirm({detail, data, busy, setBusy, setError, onRefresh}) {
       const {metric_date, period_start, period_end, ...shared} = draft;
       const payload = daily ? {...shared, metric_date, create_campaign:createCampaign} : {...shared, period_start, period_end, create_campaign:createCampaign};
       const action = daily ? 'confirm' : 'range';
-      await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/visual/${active}/${action}?client_id=${data.client.client_id}`,
+      await json(`/connect/api/v2/reports/imports/${detail.import_file.id}/visual/${active}/${action}?client_id=${data.client.client_id}`,
         {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-Token':data.csrf}, body:JSON.stringify(payload)});
       setActive(null); await onRefresh();
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
@@ -1549,7 +1554,7 @@ function VisualConfirm({detail, data, busy, setBusy, setError, onRefresh}) {
     ['cost','Custo'], ['conversions','Conversões'], ['conversion_value','Valor das conversões']];
   return <article className="reports-panel reports-span-three">
     <div className="reports-panel-head"><h2>Conferir print</h2><span>Imagem original normalizada</span></div>
-    <img className="reports-import-image" src={`/connect/api/v1/reports/imports/${detail.import_file.id}/image?client_id=${data.client.client_id}`} alt={`Print enviado: ${detail.import_file.original_name}`} />
+    <img className="reports-import-image" src={`/connect/api/v2/reports/imports/${detail.import_file.id}/image?client_id=${data.client.client_id}`} alt={`Print enviado: ${detail.import_file.original_name}`} />
     {scopes.map((scope, index) => {
       const daily = scope.granularity === 'day' && scope.period_start && scope.period_start === scope.period_end;
       const range = scope.granularity === 'range' || Boolean(scope.period_start && scope.period_end && scope.period_start !== scope.period_end);
@@ -1593,7 +1598,7 @@ function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
     const requestedKey = evidenceKey;
     setBusy(true); setError('');
     try {
-      const value = await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/suggest-columns?client_id=${data.client.client_id}`,
+      const value = await json(`/connect/api/v2/reports/imports/${detail.import_file.id}/suggest-columns?client_id=${data.client.client_id}`,
         {method:'POST', headers:{'X-CSRF-Token':data.csrf}});
       if (requestedKey === evidenceKeyRef.current &&
           value.suggestion?.result?.evidence_fingerprint === detail.column_evidence_fingerprint)
@@ -1604,7 +1609,7 @@ function ColumnMapping({detail, data, busy, setBusy, setError, onRefresh}) {
     event.preventDefault(); setBusy(true); setError('');
     try {
       const chosen = Object.fromEntries(Object.entries(mapping).filter(([,header]) => header));
-      await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/map-columns?client_id=${data.client.client_id}`,
+      await json(`/connect/api/v2/reports/imports/${detail.import_file.id}/map-columns?client_id=${data.client.client_id}`,
         {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf},
           body:JSON.stringify({mapping:chosen, platform_hint:platformHint, currency_hint:currencyHint,
             date_order:dateOrder, note})});
@@ -1647,13 +1652,13 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
   const fileInputRef = useRef(null);
   const activeClientRef = useRef(String(data.client.client_id));
   activeClientRef.current = String(data.client.client_id);
-  const base = `/connect/api/v1/reports/imports?client_id=${data.client.client_id}`;
+  const base = `/connect/api/v2/reports/imports?client_id=${data.client.client_id}`;
   const refresh = async () => {
     const clientId = String(data.client.client_id);
     const [body, pending, ranges] = await Promise.all([
-      json(`/connect/api/v1/reports/imports?client_id=${clientId}`),
-      json(`/connect/api/v1/reports/import-conflicts?client_id=${clientId}`),
-      json(`/connect/api/v1/reports/import-ranges?client_id=${clientId}`),
+      json(`/connect/api/v2/reports/imports?client_id=${clientId}`),
+      json(`/connect/api/v2/reports/import-conflicts?client_id=${clientId}`),
+      json(`/connect/api/v2/reports/import-ranges?client_id=${clientId}`),
     ]);
     if (activeClientRef.current !== clientId) return;
     setReady(body.ready); setItems(body.imports || []);
@@ -1675,7 +1680,7 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
   const open = async id => {
     const clientId = String(data.client.client_id);
     try {
-      const result = await json(`/connect/api/v1/reports/imports/${id}?client_id=${clientId}`);
+      const result = await json(`/connect/api/v2/reports/imports/${id}?client_id=${clientId}`);
       if (activeClientRef.current !== clientId) return;
       setDetail(result); setImportsView('review'); setError('');
     } catch (failure) {
@@ -1698,14 +1703,14 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
     try {
       const payload = Object.fromEntries(['platform','external_account_id','account_name','external_campaign_id','campaign_name','metric_date','currency','impressions','clicks','cost','conversions','conversion_value','note'].map(key => [key, String(draft[key] || '')]));
       payload.create_campaign = Boolean(draft.create_campaign);
-      await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/rows/${editing}/resolve?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json','X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
+      await json(`/connect/api/v2/reports/imports/${detail.import_file.id}/rows/${editing}/resolve?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json','X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
       setEditing(null); await open(detail.import_file.id); await refresh(); await reloadBootstrap();
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
   };
   const extract = async () => {
     setBusy(true); setError('');
     try {
-      await json(`/connect/api/v1/reports/imports/${detail.import_file.id}/extract?client_id=${data.client.client_id}`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}});
+      await json(`/connect/api/v2/reports/imports/${detail.import_file.id}/extract?client_id=${data.client.client_id}`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}});
       await open(detail.import_file.id); await refresh();
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
   };
@@ -1713,7 +1718,7 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
     event.preventDefault(); setBusy(true); setError('');
     const key = `${conflict.campaign_id}:${conflict.metric_date}:${conflict.metric_key}`;
     try {
-      await json(`/connect/api/v1/reports/import-conflicts/${conflict.campaign_id}/${conflict.metric_date}/${conflict.metric_key}/resolve?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json','X-CSRF-Token': data.csrf}, body: JSON.stringify({observation_id: choices[key] || conflict.candidates[0]?.id, note: reasons[key] || ''})});
+      await json(`/connect/api/v2/reports/import-conflicts/${conflict.campaign_id}/${conflict.metric_date}/${conflict.metric_key}/resolve?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json','X-CSRF-Token': data.csrf}, body: JSON.stringify({observation_id: choices[key] || conflict.candidates[0]?.id, note: reasons[key] || ''})});
       await refresh(); await reloadBootstrap();
       setChoices(current => {const next = {...current}; delete next[key]; return next;});
       setReasons(current => {const next = {...current}; delete next[key]; return next;});
@@ -1791,7 +1796,7 @@ function App() {
   const [refreshRevision, setRefreshRevision] = useState(0);
   const clientId = new URLSearchParams(location.search).get('client_id');
   const load = async () => {
-    try {setData(await json(`/connect/api/v1/reports/bootstrap${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`)); setError('');}
+    try {setData(await json(`/connect/api/v2/reports/bootstrap${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`)); setError('');}
     catch (failure) {setError(failure.message);}
   };
   useEffect(() => {
@@ -1823,7 +1828,7 @@ function App() {
     return () => {removeEventListener('popstate', syncRoute);};
   }, []);
   useEffect(() => {
-    if (!data?.ready || pageSection !== 'overview') return undefined;
+    if (!data?.ready || data.shared || pageSection !== 'overview') return undefined;
     let cancelled = false;
     setOverviewLoading(true);
     setOverviewFailed(false);
@@ -1836,10 +1841,10 @@ function App() {
     if (filters.account) params.set('account_id', filters.account);
     if (filters.campaign) params.set('campaign_id', filters.campaign);
     Promise.allSettled([
-      json(`/connect/api/v1/reports/metrics?${params}`),
-      json(`/connect/api/v1/reports/import-metrics?${params}`),
-      json(`/connect/api/v1/reports/supertag/sites?client_id=${encodeURIComponent(data.client.client_id)}`),
-      json(`/connect/api/v1/reports/ingest-keys?client_id=${encodeURIComponent(data.client.client_id)}`),
+      json(`/connect/api/v2/reports/metrics?${params}`),
+      json(`/connect/api/v2/reports/import-metrics?${params}`),
+      json(`/connect/api/v2/reports/supertag/sites?client_id=${encodeURIComponent(data.client.client_id)}`),
+      json(`/connect/api/v2/reports/ingest-keys?client_id=${encodeURIComponent(data.client.client_id)}`),
     ]).then(([media, imported, sites, sources]) => {
       if (cancelled) return;
       setMetrics(media.status === 'fulfilled' ? media.value : null);
@@ -1854,7 +1859,7 @@ function App() {
   const save = async (path, payload, reload = true, method = 'POST') => {
     setBusy(true); setError('');
     try {
-      const result = await json(`/connect/api/v1/reports${path}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload, client_id: data.client.client_id})});
+      const result = await json(`/connect/api/v2/reports${path}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload, client_id: data.client.client_id})});
       if (reload) await load();
       return result;
     } catch (failure) {if(!path.startsWith('/flow/'))setError(failure.message); throw failure;} finally {setBusy(false);}
@@ -1863,24 +1868,25 @@ function App() {
     if (!data) return null;
     const accounts = data.accounts.filter(item => (!filters.platform || item.platform === filters.platform) && (!filters.account || String(item.id) === filters.account));
     const ids = new Set(accounts.map(item => item.id));
-    return {...data, accounts, campaigns: data.campaigns.filter(item => ids.has(item.account_id) && (!filters.campaign || String(item.id) === filters.campaign))};
+    return {...data, accounts, campaigns: data.campaigns.filter(item => ((!item.account_id&&!filters.account&&!filters.platform)||ids.has(item.account_id)) && (!filters.campaign || String(item.id) === filters.campaign))};
   }, [data, filters]);
-  const reportIcons = {overview:'home',accounts:'users',campaigns:'plan',reports:'analysis',imports:'download',monitor:'pulse',supertag:'plugin',flow:'branch',events:'calendar',links:'link',access:'folder'};
+  const reportIcons = {overview:'home',customers:'users',accounts:'users',campaigns:'plan',reports:'analysis',imports:'download',monitor:'pulse',supertag:'plugin',flow:'branch',events:'calendar',links:'link',access:'folder'};
   const navItems = ids => SECTIONS.filter(([id]) => ids.includes(id) && (id !== 'access' || data?.can_manage_access)).map(([id,title]) => ({id,label:title,icon:reportIcons[id],href:reportUrl(id==='flow'?'flows':id)}));
   const solutionUrls={workspace:rootElement.dataset.workspaceUrl,planner:rootElement.dataset.plannerUrl,studio:rootElement.dataset.studioUrl,connect:location.pathname+location.search,skills:rootElement.dataset.skillsUrl};
   const solutionIcons={workspace:'/static/images/cadu/products/cadu-icon.png',planner:'/static/images/cadu/products/planner-icon.png',studio:'/static/images/cadu/products/studio-icon.png',connect:'/static/images/cadu/products/connect-icon.png',skills:'/static/images/cadu/products/skills-icon.png'};
   const onRefresh = () => {setRefreshRevision(value => value + 1); load();};
   const headerTitle = section === 'data-library' ? 'Biblioteca de dados' : undefined;
   const headerDescription = section === 'data-library' ? 'Consulte os campos personalizados e os dados preservados dos arquivos.' : undefined;
+  if(data?.shared)return <SharedReports key={data.client.client_id} data={data}/>;
   return <div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}`}>
-    {!isFlowEditor&&<SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={pageSection} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={[{label:'Visão geral',items:navItems(['overview'])},{label:'Operação de mídia',items:navItems(['accounts','campaigns','reports','imports','monitor'])},{label:'Mensuração',items:navItems(['supertag','flow','events','links'])},{label:'Administração',items:navItems(['access'])}]} />}
+    {!isFlowEditor&&<SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={pageSection} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={[{label:'Visão geral',items:navItems(['overview'])},{label:'Operação de mídia',items:navItems(['customers','accounts','campaigns','reports','imports','monitor'])},{label:'Mensuração',items:navItems(['supertag','flow','events','links'])},{label:'Administração',items:navItems(['access'])}]} />}
     <main className="reports-main">
       {data && !isFlowEditor && <ReportsPageHeader page={pageSection} clients={data.clients} client={data.client}
         titleOverride={headerTitle} descriptionOverride={headerDescription}
         onAction={pageSection === 'overview' ? {label: 'Biblioteca de dados', onClick: () => {location.assign(reportUrl('data-library'));}} : undefined} />}
       {data?.ready && !isFlowEditor && ['campaigns', 'flow', 'events'].includes(pageSection) && <ReportsFilterBar
         data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
-      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
+      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <Empty message="Carregando Reports…" /> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'customers' ? <ReportsCustomers data={data} save={save} busy={busy}/> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
     </main>
   </div>;
 }

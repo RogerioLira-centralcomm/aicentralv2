@@ -28,7 +28,7 @@ def _root():
 
 
 def _key(selected, url):
-    return hashlib.sha256(f"{selected['organization_id']}:{selected['client_id']}:{url}".encode()).hexdigest()
+    return hashlib.sha256(f"v2:{selected['client_id']}:{selected.get('site_id','')}:{url}".encode()).hexdigest()
 
 
 def _state(root, key):
@@ -38,6 +38,13 @@ def _state(root, key):
         state = {'status': 'missing'}
     if state.get('status') == 'capturing' and time.time() - state.get('updated', 0) > 180:
         state['status'] = 'missing'
+    if state.get('status') == 'ready':
+        image = root / f'{key}.webp'
+        try:
+            if image.stat().st_size == 0:
+                state['status'] = 'missing'
+        except OSError:
+            state['status'] = 'missing'
     return state
 
 
@@ -114,11 +121,12 @@ def register(bp):
     def context(flow_id):
         selected = _selection()
         flow = _flow_row(flow_id,selected)
-        config = flow['config'] or {}
+        selected = dict(selected,site_id=flow['site_id'])
+        config = (flow['active_config'] if selected.get('access_scope')=='shared' else flow['config']) or {}
         revision = request.args.get('revision')
         if revision:
             if not revision.isdigit(): abort(400)
-            versions = _rows('SELECT config FROM cadu_reports_flow_versions WHERE flow_id=%s AND organization_id=%s AND client_id=%s AND revision=%s', (flow_id,selected['organization_id'],selected['client_id'],int(revision)))
+            versions = _rows('SELECT config FROM cadu_reports_flow_versions WHERE flow_id=%s AND client_id=%s AND revision=%s', (flow_id,selected['client_id'],int(revision)))
             if not versions: abort(404)
             config = versions[0]['config']
         targets = {}
@@ -130,7 +138,7 @@ def register(bp):
             targets[node['id']] = f'https://{host}{_safe_path(path)}'
         return selected,flow,targets
 
-    @bp.route('/api/v1/reports/flow/flows/<flow_id>/previews',methods=['GET','POST'])
+    @bp.route('/api/v2/reports/flow/flows/<flow_id>/previews',methods=['GET','POST'])
     @login_required_api
     def previews(flow_id):
         selected,flow,targets = context(flow_id)
@@ -156,10 +164,10 @@ def register(bp):
             state = _state(root,key)
             params = {'client_id':selected['client_id'],'v':state.get('captured_at',0)}
             if request.args.get('revision'): params['revision']=request.args['revision']
-            items[id] = {**state,'url':f'/connect/api/v1/reports/flow/flows/{flow_id}/previews/{id}/image?{urlencode(params)}' if (root / f'{key}.webp').exists() else None}
+            items[id] = {**state,'url':f'/connect/api/v2/reports/flow/flows/{flow_id}/previews/{id}/image?{urlencode(params)}' if (root / f'{key}.webp').exists() else None}
         return jsonify(items=items,available=available)
 
-    @bp.get('/api/v1/reports/flow/flows/<flow_id>/previews/<node_id>/image')
+    @bp.get('/api/v2/reports/flow/flows/<flow_id>/previews/<node_id>/image')
     @login_required_api
     def preview_image(flow_id,node_id):
         selected,_,targets = context(flow_id)

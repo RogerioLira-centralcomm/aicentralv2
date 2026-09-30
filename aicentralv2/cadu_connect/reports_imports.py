@@ -78,13 +78,13 @@ def _column_suggestion_answers(evaluation, headers):
 
 def _column_suggestion_evidence(import_id, scope):
     batches = _rows('''SELECT sha256,platform_hint FROM cadu_reports_import_files
-        WHERE id=%s AND organization_id=%s AND client_id=%s
+        WHERE id=%s AND client_id=%s
             AND file_kind IN ('csv','xlsx')''', (str(import_id), *scope))
     if not batches:
         return None
     samples = _rows('''SELECT DISTINCT ON (sheet_name) sheet_name,raw
         FROM cadu_reports_import_rows
-        WHERE import_id=%s AND organization_id=%s AND client_id=%s
+        WHERE import_id=%s AND client_id=%s
         ORDER BY sheet_name,id LIMIT 80''', (str(import_id), *scope))
     headers = list(dict.fromkeys(header for row in samples for header in row['raw']))
     platform_hint = batches[0]['platform_hint'] or ''
@@ -173,11 +173,11 @@ def _source_row_identity(parsed):
 
 def _ensure_import_account(selected, parsed):
     """Use a unique advertiser, or create a clearly synthetic import account."""
-    scope = (selected['organization_id'], selected['client_id'])
+    scope = (selected['client_id'],)
     if parsed.get('external_account_id'):
         return _ensure_account(selected, parsed)
     matches = _rows('''SELECT id,name,account_kind FROM cadu_reports_accounts
-        WHERE organization_id=%s AND client_id=%s AND platform=%s
+        WHERE client_id=%s AND platform=%s
           AND account_kind='advertiser' ORDER BY id''', (*scope, parsed['platform']))
     if parsed.get('account_name'):
         named = [row for row in matches
@@ -193,9 +193,9 @@ def _ensure_import_account(selected, parsed):
     synthetic_id = f"reports-import:{selected['client_id']}:{parsed['platform']}"
     synthetic_name = parsed.get('account_name') or f"{parsed['platform'].replace('_',' ').title()} · Imports"
     account = _rows('''INSERT INTO cadu_reports_accounts
-        (organization_id,client_id,platform,external_id,name,account_kind,currency,metadata)
-        VALUES (%s,%s,%s,%s,%s,'advertiser',%s,%s::jsonb)
-        ON CONFLICT (organization_id,client_id,platform,external_id)
+        (client_id,platform,external_id,name,account_kind,currency,metadata)
+        VALUES (%s,%s,%s,%s,'advertiser',%s,%s::jsonb)
+        ON CONFLICT (client_id,platform,external_id)
         DO UPDATE SET updated_at=NOW() RETURNING id,account_kind,currency''',
         (*scope, parsed['platform'], synthetic_id, synthetic_name,
          parsed.get('currency') or None,
@@ -213,11 +213,11 @@ def _create_import_campaign(selected, parsed):
     external_id = parsed.get('external_campaign_id') or _internal_campaign_key(parsed)
     provider_campaign_id = parsed.get('external_campaign_id') or None
     rows = _rows('''INSERT INTO cadu_reports_campaigns
-        (organization_id,client_id,account_id,external_id,name,metadata)
-        VALUES (%s,%s,%s,%s,%s,%s::jsonb)
+        (client_id,account_id,external_id,name,metadata)
+        VALUES (%s,%s,%s,%s,%s::jsonb)
         ON CONFLICT (account_id,external_id) DO UPDATE SET updated_at=NOW()
         RETURNING id''',
-        (selected['organization_id'], selected['client_id'], account_id,
+        (selected['client_id'], account_id,
          external_id, parsed['campaign_name'],
          json.dumps({'identity_source':'reports_import',
                      'provider_campaign_id':provider_campaign_id})))
@@ -271,9 +271,8 @@ def _store_custom_metrics(row_id, scope, campaign_id, metric_date, metrics, dime
     for metric in metrics:
         currency = metric['unit'] if re.fullmatch(r'[A-Z]{3}', str(metric['unit'])) else None
         _rows('''INSERT INTO cadu_reports_import_custom_values
-            (import_row_id,organization_id,client_id,campaign_id,metric_date,channel,
-             metric_key,metric_label,value_numeric,unit,currency,dimensions)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
+            (import_row_id,client_id,campaign_id,metric_date,channel,metric_key,metric_label,value_numeric,unit,currency,dimensions)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
             (row_id, *scope, campaign_id, metric_date, metric.get('channel') or 'other', metric['key'],
              metric['label'], Decimal(metric['value']),
              'currency' if currency else metric['unit'][:32], currency, json.dumps(dimensions or {})))
@@ -286,8 +285,8 @@ def _campaign_match(parsed, selected):
         account = None
         if parsed.get('external_account_id'):
             account_rows = _rows('''SELECT id,name,account_kind,currency FROM cadu_reports_accounts
-                WHERE organization_id=%s AND client_id=%s AND platform=%s AND external_id=%s''',
-                (selected['organization_id'], selected['client_id'], parsed['platform'],
+                WHERE client_id=%s AND platform=%s AND external_id=%s''',
+                (selected['client_id'], parsed['platform'],
                  parsed['external_account_id']))
             if not account_rows:
                 return {'state':'missing','campaign_id':None,'account_id':None,
@@ -304,14 +303,14 @@ def _campaign_match(parsed, selected):
                         'account_name':account['name'],'reason':'moeda difere da conta cadastrada'}
         if parsed.get('external_campaign_id'):
             account_filter = 'AND a.id=%s' if account else ''
-            campaign_params = [selected['organization_id'], selected['client_id'], parsed['platform'],
+            campaign_params = [selected['client_id'], parsed['platform'],
                                parsed['external_campaign_id']]
             if account:
                 campaign_params.append(account['id'])
             campaigns = _rows('''SELECT c.id,c.name,c.external_id,a.id AS account_id,a.name AS account_name,
                     a.account_kind,a.currency FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a
-                  ON a.id=c.account_id AND a.organization_id=c.organization_id AND a.client_id=c.client_id
-                WHERE c.organization_id=%s AND c.client_id=%s AND a.platform=%s
+                  ON a.id=c.account_id AND a.client_id=c.client_id
+                WHERE c.client_id=%s AND a.platform=%s
                   AND c.external_id=%s {account_filter} ORDER BY c.id'''.format(
                       account_filter=account_filter), tuple(campaign_params))
             if not account and parsed.get('account_name'):
@@ -337,11 +336,11 @@ def _campaign_match(parsed, selected):
             internal_campaigns = _rows('''SELECT c.id,c.name,c.external_id,a.id AS account_id,
                     a.name AS account_name,a.currency
                 FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a
-                  ON a.id=c.account_id AND a.organization_id=c.organization_id AND a.client_id=c.client_id
-                WHERE c.organization_id=%s AND c.client_id=%s AND a.platform=%s
+                  ON a.id=c.account_id AND a.client_id=c.client_id
+                WHERE c.client_id=%s AND a.platform=%s
                   AND a.account_kind='advertiser' AND c.external_id=%s
                   AND c.metadata->>'identity_source'='reports_import'
-                ORDER BY c.id''', (selected['organization_id'],selected['client_id'],
+                ORDER BY c.id''', (selected['client_id'],
                                     parsed['platform'],internal_campaign_id))
             if len(internal_campaigns) == 1:
                 item = internal_campaigns[0]
@@ -357,15 +356,15 @@ def _campaign_match(parsed, selected):
                 return {'state':'ambiguous','campaign_id':None,
                         'reason':'A chave interna da campanha existe em mais de uma conta'}
         name_filter = 'AND a.id=%s' if account else ''
-        params = [selected['organization_id'], selected['client_id'], parsed['platform'],
+        params = [selected['client_id'], parsed['platform'],
                   parsed.get('campaign_name') or '']
         if account:
             params.append(account['id'])
         named = _rows(f'''SELECT c.id,c.name,c.external_id,a.id AS account_id,a.name AS account_name,
                 a.account_kind,a.currency
             FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a
-              ON a.id=c.account_id AND a.organization_id=c.organization_id AND a.client_id=c.client_id
-            WHERE c.organization_id=%s AND c.client_id=%s AND a.platform=%s
+              ON a.id=c.account_id AND a.client_id=c.client_id
+            WHERE c.client_id=%s AND a.platform=%s
               AND a.account_kind='advertiser' AND lower(trim(c.name))=lower(trim(%s)) {name_filter}
             ORDER BY c.id''', tuple(params)) if parsed.get('campaign_name') else []
         if not account and parsed.get('account_name'):
@@ -387,8 +386,8 @@ def _campaign_match(parsed, selected):
             return {'state':'missing','campaign_id':None,'account_id':account['id'],
                     'account_name':account['name'],'reason':'Campanha não encontrada; confirme a criação para importar os dados'}
         accounts = _rows('''SELECT id,name,account_kind,currency FROM cadu_reports_accounts
-            WHERE organization_id=%s AND client_id=%s AND platform=%s AND account_kind='advertiser'
-            ORDER BY id''', (selected['organization_id'], selected['client_id'], parsed['platform']))
+            WHERE client_id=%s AND platform=%s AND account_kind='advertiser'
+            ORDER BY id''', (selected['client_id'], parsed['platform']))
         if parsed.get('account_name'):
             accounts = [account for account in accounts
                         if normalized_header(account['name']) == normalized_header(parsed['account_name'])]
@@ -407,8 +406,8 @@ def _campaign_match(parsed, selected):
             a.account_kind,a.currency
         FROM cadu_reports_accounts a LEFT JOIN cadu_reports_campaigns c
           ON c.account_id=a.id AND c.external_id=%s
-        WHERE a.organization_id=%s AND a.client_id=%s AND a.platform=%s AND a.external_id=%s''',
-        (parsed['external_campaign_id'], selected['organization_id'], selected['client_id'],
+        WHERE a.client_id=%s AND a.platform=%s AND a.external_id=%s''',
+        (parsed['external_campaign_id'], selected['client_id'],
          parsed['platform'], parsed['external_account_id']))
     if not found:
         return {'state': 'missing', 'campaign_id': None, 'account_id': found[0]['account_id'] if found else None,
@@ -435,17 +434,17 @@ def _campaign_match(parsed, selected):
 def _ensure_account(selected, parsed):
     if not all(parsed.get(key) for key in ('platform','external_account_id','account_name')):
         return None
-    scope = (selected['organization_id'], selected['client_id'])
+    scope = (selected['client_id'],)
     account = _rows('''INSERT INTO cadu_reports_accounts
-        (organization_id,client_id,platform,external_id,name,account_kind,currency)
-        VALUES (%s,%s,%s,%s,%s,'advertiser',%s)
-        ON CONFLICT (organization_id,client_id,platform,external_id)
+        (client_id,platform,external_id,name,account_kind,currency)
+        VALUES (%s,%s,%s,%s,'advertiser',%s)
+        ON CONFLICT (client_id,platform,external_id)
         DO UPDATE SET updated_at=NOW() RETURNING id,account_kind,currency''',
         (*scope, parsed['platform'], parsed['external_account_id'], parsed['account_name'], parsed.get('currency') or None))[0]
     if account['account_kind'] != 'advertiser':
         abort(409, description='O identificador da conta pertence a uma conta gerente.')
     existing = _rows('''SELECT name FROM cadu_reports_accounts
-        WHERE id=%s AND organization_id=%s AND client_id=%s''',
+        WHERE id=%s AND client_id=%s''',
         (account['id'], *scope))
     if existing and normalized_header(existing[0]['name']) != normalized_header(parsed['account_name']):
         abort(409, description='O ID da conta já está associado a outro nome.')
@@ -467,16 +466,16 @@ def _classify_update(parsed, campaign_id, *, period_start=None, period_end=None)
     if period_start and period_end:
         prior = _rows('''SELECT s.id,m.metric_key,m.value_numeric,m.currency FROM cadu_reports_import_range_snapshots s
             LEFT JOIN cadu_reports_import_range_metrics m ON m.snapshot_id=s.id
-              AND m.organization_id=s.organization_id AND m.client_id=s.client_id
-            WHERE s.organization_id=%s AND s.client_id=%s AND s.campaign_id=%s
+              AND m.client_id=s.client_id
+            WHERE s.client_id=%s AND s.campaign_id=%s
               AND s.period_start=%s AND s.period_end=%s''',
-            (parsed['_organization_id'], parsed['_client_id'], campaign_id, period_start, period_end))
+            (parsed['_client_id'], campaign_id, period_start, period_end))
         custom_prior = _rows('''SELECT m.metric_key,m.value_numeric,m.unit,m.currency
             FROM cadu_reports_import_range_snapshots s JOIN cadu_reports_import_range_metrics m
-              ON m.snapshot_id=s.id AND m.organization_id=s.organization_id AND m.client_id=s.client_id
-            WHERE s.organization_id=%s AND s.client_id=%s AND s.campaign_id=%s
+              ON m.snapshot_id=s.id AND m.client_id=s.client_id
+            WHERE s.client_id=%s AND s.campaign_id=%s
               AND s.period_start=%s AND s.period_end=%s''',
-            (parsed['_organization_id'], parsed['_client_id'], campaign_id, period_start, period_end))
+            (parsed['_client_id'], campaign_id, period_start, period_end))
         if prior or custom_prior:
             old = {}
             for row in prior:
@@ -491,32 +490,32 @@ def _classify_update(parsed, campaign_id, *, period_start=None, period_end=None)
                 return 'revision'
             return 'duplicate' if set(current).issubset(old) else 'incremental'
         any_prior = _rows('''SELECT 1 FROM cadu_reports_import_range_snapshots
-            WHERE organization_id=%s AND client_id=%s AND campaign_id=%s LIMIT 1''',
-            (parsed['_organization_id'], parsed['_client_id'], campaign_id))
+            WHERE client_id=%s AND campaign_id=%s LIMIT 1''',
+            (parsed['_client_id'], campaign_id))
         daily_prior = _rows('''SELECT 1 FROM cadu_reports_import_observations
-            WHERE organization_id=%s AND client_id=%s AND campaign_id=%s LIMIT 1''',
-            (parsed['_organization_id'], parsed['_client_id'], campaign_id))
+            WHERE client_id=%s AND campaign_id=%s LIMIT 1''',
+            (parsed['_client_id'], campaign_id))
         return 'incremental' if any_prior or daily_prior else 'first'
     prior = _rows('''SELECT DISTINCT ON (metric_key) metric_key,value_numeric,currency,unit
         FROM cadu_reports_import_observations
-        WHERE organization_id=%s AND client_id=%s AND campaign_id=%s AND metric_date=%s
+        WHERE client_id=%s AND campaign_id=%s AND metric_date=%s
           AND dimensions=%s::jsonb ORDER BY metric_key,id DESC''',
-        (parsed['_organization_id'], parsed['_client_id'], campaign_id, parsed['metric_date'],
+        (parsed['_client_id'], campaign_id, parsed['metric_date'],
          json.dumps(parsed.get('grain_dimensions') or {}, sort_keys=True, ensure_ascii=False)))
     custom_prior = _rows('''SELECT DISTINCT ON (metric_key) metric_key,value_numeric,unit,currency
         FROM cadu_reports_import_custom_values
-        WHERE organization_id=%s AND client_id=%s AND campaign_id=%s AND metric_date=%s
+        WHERE client_id=%s AND campaign_id=%s AND metric_date=%s
           AND dimensions=%s::jsonb ORDER BY metric_key,id DESC''',
-        (parsed['_organization_id'], parsed['_client_id'], campaign_id, parsed['metric_date'],
+        (parsed['_client_id'], campaign_id, parsed['metric_date'],
          json.dumps(parsed.get('source_dimensions') or {}, sort_keys=True, ensure_ascii=False)))
     if not prior and not custom_prior:
         any_prior = _rows('''SELECT 1 FROM cadu_reports_import_observations
-            WHERE organization_id=%s AND client_id=%s AND campaign_id=%s LIMIT 1''',
-            (parsed['_organization_id'], parsed['_client_id'], campaign_id))
+            WHERE client_id=%s AND campaign_id=%s LIMIT 1''',
+            (parsed['_client_id'], campaign_id))
         if not any_prior:
             any_prior = _rows('''SELECT 1 FROM cadu_reports_import_custom_values
-                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s LIMIT 1''',
-                (parsed['_organization_id'], parsed['_client_id'], campaign_id))
+                WHERE client_id=%s AND campaign_id=%s LIMIT 1''',
+                (parsed['_client_id'], campaign_id))
         return 'incremental' if any_prior else 'first'
     old = {row['metric_key']: ((Decimal(row['value_numeric']) if row['value_numeric'] is not None else None),
         'currency' if row['metric_key'] in ('cost','conversion_value') else row['unit'],row['currency'])
@@ -568,29 +567,29 @@ def _custom_from_visual(source, parsed):
 
 
 def register(bp):
-    @bp.get('/api/v1/reports/import-ranges')
+    @bp.get('/api/v2/reports/import-ranges')
     @login_required_api
     def reports_import_ranges():
         selected = _selection()
         if not _ready():
             return jsonify(ready=False, snapshots=[])
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         snapshots = _rows('''SELECT s.id,s.import_id,s.scope_index,s.period_start,s.period_end,
             s.note,s.created_at,c.name AS campaign_name,a.name AS account_name,a.platform,
             f.original_name
             FROM cadu_reports_import_range_snapshots s
             JOIN cadu_reports_import_files f ON f.id=s.import_id
-                AND f.organization_id=s.organization_id AND f.client_id=s.client_id
+                AND f.client_id=s.client_id
             JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
-                AND c.organization_id=s.organization_id AND c.client_id=s.client_id
+                AND c.client_id=s.client_id
             JOIN cadu_reports_accounts a ON a.id=s.account_id
-                AND a.organization_id=s.organization_id AND a.client_id=s.client_id
-            WHERE s.organization_id=%s AND s.client_id=%s
+                AND a.client_id=s.client_id
+            WHERE s.client_id=%s
             ORDER BY s.created_at DESC,s.id DESC LIMIT 100''', scope)
         if snapshots:
             metrics = _rows('''SELECT snapshot_id,metric_key,value_numeric,unit,currency
                 FROM cadu_reports_import_range_metrics
-                WHERE organization_id=%s AND client_id=%s AND snapshot_id=ANY(%s)
+                WHERE client_id=%s AND snapshot_id=ANY(%s)
                 ORDER BY snapshot_id,metric_key''', (*scope, [row['id'] for row in snapshots]))
             metric_map = {}
             for metric in metrics:
@@ -605,35 +604,35 @@ def register(bp):
                 dimensions,COUNT(*) OVER (PARTITION BY campaign_id,channel,metric_key,
                     metric_label,unit,currency,metric_date,dimensions)::bigint AS observations,
                 value_numeric AS latest_value
-                FROM cadu_reports_import_custom_values WHERE organization_id=%s AND client_id=%s
+                FROM cadu_reports_import_custom_values WHERE client_id=%s
                 ORDER BY campaign_id,channel,metric_key,metric_label,unit,currency,metric_date,
                     dimensions,id DESC LIMIT 300''', scope)
         else:
             custom_metrics = []
         return jsonify(ready=True, snapshots=snapshots, custom_metrics=custom_metrics)
 
-    @bp.get('/api/v1/reports/import-conflicts')
+    @bp.get('/api/v2/reports/import-conflicts')
     @login_required_api
     def reports_import_conflicts():
         selected = _selection()
         if not _ready():
             return jsonify(ready=False, conflicts=[])
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         conflicts = _rows('''SELECT p.campaign_id,p.metric_date,p.metric_key,p.observation_count,
             p.version_count,c.name AS campaign_name,a.name AS account_name,a.platform
             FROM cadu_reports_import_metric_projection p
             JOIN cadu_reports_campaigns c ON c.id=p.campaign_id
-                AND c.organization_id=p.organization_id AND c.client_id=p.client_id
+                AND c.client_id=p.client_id
             JOIN cadu_reports_accounts a ON a.id=c.account_id
-                AND a.organization_id=c.organization_id AND a.client_id=c.client_id
-            WHERE p.organization_id=%s AND p.client_id=%s
+                AND a.client_id=c.client_id
+            WHERE p.client_id=%s
                 AND p.version_count>1 AND p.value_numeric IS NULL
             ORDER BY p.metric_date DESC,p.campaign_id,p.metric_key LIMIT 50''', scope)
         for conflict in conflicts:
             conflict['metric_date'] = conflict['metric_date'].isoformat()
             conflict['candidates'] = _rows('''WITH conflicting_dimensions AS (
                 SELECT dimensions FROM cadu_reports_import_observations
-                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                WHERE client_id=%s AND campaign_id=%s
                     AND metric_date=%s AND metric_key=%s
                 GROUP BY dimensions
                 HAVING COUNT(DISTINCT (value_numeric,COALESCE(currency,'')))>1
@@ -643,21 +642,21 @@ def register(bp):
                 FROM cadu_reports_import_observations o
                 JOIN conflicting_dimensions d ON d.dimensions=o.dimensions
                 JOIN cadu_reports_import_rows r ON r.id=o.import_row_id
-                    AND r.organization_id=o.organization_id AND r.client_id=o.client_id
-                WHERE o.organization_id=%s AND o.client_id=%s AND o.campaign_id=%s
+                    AND r.client_id=o.client_id
+                WHERE o.client_id=%s AND o.campaign_id=%s
                     AND o.metric_date=%s AND o.metric_key=%s
                 ORDER BY o.dimensions,o.value_numeric,COALESCE(o.currency,''),o.id DESC
             )
             SELECT v.id,v.value_numeric,v.currency,v.dimensions,f.original_name,
                 f.created_at,f.id AS import_id
                 FROM distinct_versions v JOIN cadu_reports_import_files f ON f.id=v.import_id
-                    AND f.organization_id=%s AND f.client_id=%s
+                    AND f.client_id=%s
                 ORDER BY v.dimensions,v.id DESC LIMIT 20''',
                 (*scope, conflict['campaign_id'], conflict['metric_date'], conflict['metric_key'],
                  *scope, conflict['campaign_id'], conflict['metric_date'], conflict['metric_key'], *scope))
         return jsonify(ready=True, conflicts=conflicts)
 
-    @bp.post('/api/v1/reports/import-conflicts/<int:campaign_id>/<metric_date>/<metric_key>/resolve')
+    @bp.post('/api/v2/reports/import-conflicts/<int:campaign_id>/<metric_date>/<metric_key>/resolve')
     @login_required_api
     def reports_import_conflict_resolve(campaign_id, metric_date, metric_key):
         selected = _selection()
@@ -682,18 +681,18 @@ def register(bp):
         note = payload['note']
         if not isinstance(note, str) or not note.strip() or len(note.strip()) > 1000:
             abort(400, description='Justificativa obrigatória, com até 1.000 caracteres.')
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         key = (*scope, campaign_id, parsed_date, metric_key)
         conn = get_db()
         try:
             projection = _rows('''SELECT version_count,value_numeric
                 FROM cadu_reports_import_metric_projection
-                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                WHERE client_id=%s AND campaign_id=%s
                     AND metric_date=%s AND metric_key=%s''', key)
             if not projection or projection[0]['version_count'] < 2 or projection[0]['value_numeric'] is not None:
                 abort(409, description='O conflito já foi resolvido ou não existe neste cliente.')
             candidates = _rows('''SELECT id,dimensions FROM cadu_reports_import_observations
-                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                WHERE client_id=%s AND campaign_id=%s
                 AND metric_date=%s AND metric_key=%s ORDER BY id DESC''', key)
             selected_observation = next((item for item in candidates if item['id'] == observation_id), None)
             if not selected_observation:
@@ -701,9 +700,8 @@ def register(bp):
             dimension_candidates = [item for item in candidates
                                     if (item['dimensions'] or {}) == (selected_observation['dimensions'] or {})]
             _rows('''INSERT INTO cadu_reports_import_projection_decisions
-                (organization_id,client_id,campaign_id,metric_date,metric_key,
-                 selected_observation_id,seen_observation_id,note,created_by,dimensions)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
+                (client_id,campaign_id,metric_date,metric_key,selected_observation_id,seen_observation_id,note,created_by,dimensions)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
                 (*key, observation_id, dimension_candidates[0]['id'], note.strip(),
                  session['user_id'], json.dumps(selected_observation['dimensions'] or {}, sort_keys=True)))
             conn.commit()
@@ -712,7 +710,7 @@ def register(bp):
             raise
         return jsonify(resolved=True)
 
-    @bp.get('/api/v1/reports/import-metrics')
+    @bp.get('/api/v2/reports/import-metrics')
     @login_required_api
     def reports_import_metrics():
         selected = _selection()
@@ -735,7 +733,7 @@ def register(bp):
         period_days = (period_end - period_start).days + 1
         end_exclusive = period_end + timedelta(days=1)
         filters = ''
-        params = [selected['organization_id'], selected['client_id'], period_start, end_exclusive]
+        params = [selected['client_id'], period_start, end_exclusive]
         platform = request.args.get('platform', '').strip()
         if platform:
             if not re.fullmatch(r'[a-z][a-z0-9_]{0,31}', platform):
@@ -758,10 +756,10 @@ def register(bp):
             COUNT(*) FILTER (WHERE p.version_count>1 AND p.value_numeric IS NULL)::bigint AS conflicts
             FROM cadu_reports_import_metric_projection p
             JOIN cadu_reports_campaigns c ON c.id=p.campaign_id
-                AND c.organization_id=p.organization_id AND c.client_id=p.client_id
+                AND c.client_id=p.client_id
             JOIN cadu_reports_accounts a ON a.id=c.account_id
-                AND a.organization_id=c.organization_id AND a.client_id=c.client_id
-            WHERE p.organization_id=%s AND p.client_id=%s AND p.metric_date >= %s AND p.metric_date < %s'''
+                AND a.client_id=c.client_id
+            WHERE p.client_id=%s AND p.metric_date >= %s AND p.metric_date < %s'''
             + filters + ''' GROUP BY p.metric_date,p.metric_key,p.currency,a.platform
             ORDER BY p.metric_date,a.platform,p.metric_key''', tuple(params))
         by_day = {}
@@ -803,7 +801,7 @@ def register(bp):
                     'cost': str(grand_cost[shared_currency]) if shared_currency else None},
             currency=shared_currency)
 
-    @bp.get('/api/v1/reports/imports')
+    @bp.get('/api/v2/reports/imports')
     @login_required_api
     def reports_import_list():
         selected = _selection()
@@ -811,8 +809,8 @@ def register(bp):
             return jsonify(ready=False, imports=[])
         batches = _rows('''SELECT id,original_name,file_kind,status,platform_hint,row_count,applied_count,
             created_at FROM cadu_reports_import_files
-            WHERE organization_id=%s AND client_id=%s ORDER BY created_at DESC LIMIT 60''',
-            (selected['organization_id'], selected['client_id']))
+            WHERE client_id=%s ORDER BY created_at DESC LIMIT 60''',
+            (selected['client_id'],))
         custom_ready = _rows("SELECT to_regclass('public.cadu_reports_import_custom_values') IS NOT NULL AS ready")[0]['ready']
         custom_metrics = _rows('''SELECT DISTINCT ON (campaign_id,channel,metric_key,
                 metric_label,unit,currency,metric_date,dimensions)
@@ -820,68 +818,68 @@ def register(bp):
             dimensions,COUNT(*) OVER (PARTITION BY campaign_id,channel,metric_key,
                 metric_label,unit,currency,metric_date,dimensions)::bigint AS observations,
             value_numeric AS latest_value
-            FROM cadu_reports_import_custom_values WHERE organization_id=%s AND client_id=%s
+            FROM cadu_reports_import_custom_values WHERE client_id=%s
             ORDER BY campaign_id,channel,metric_key,metric_label,unit,currency,metric_date,
                 dimensions,id DESC LIMIT 300''',
-            (selected['organization_id'], selected['client_id'])) if custom_ready else []
+            (selected['client_id'],)) if custom_ready else []
         return jsonify(ready=True, imports=batches, custom_metrics=custom_metrics)
 
-    @bp.get('/api/v1/reports/imports/<uuid:import_id>')
+    @bp.get('/api/v2/reports/imports/<uuid:import_id>')
     @login_required_api
     def reports_import_detail(import_id):
         selected = _selection()
         if not _ready():
             abort(503, description='Instale as migrações de importações do Reports.')
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         batch = _rows('''SELECT id,original_name,file_kind,status,platform_hint,row_count,
             applied_count,created_at FROM cadu_reports_import_files
-            WHERE id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+            WHERE id=%s AND client_id=%s''', (str(import_id), *scope))
         if not batch:
             abort(404)
         rows = _rows('''SELECT r.id,r.source_row,r.sheet_name,r.parsed,r.status,r.reason,
             r.account_id,r.campaign_id,r.metric_date,d.note AS decision_note,d.created_at AS decided_at
             FROM cadu_reports_import_rows r LEFT JOIN cadu_reports_import_decisions d
-                ON d.import_row_id=r.id AND d.organization_id=r.organization_id AND d.client_id=r.client_id
-            WHERE r.import_id=%s AND r.organization_id=%s AND r.client_id=%s
+                ON d.import_row_id=r.id AND d.client_id=r.client_id
+            WHERE r.import_id=%s AND r.client_id=%s
             ORDER BY (r.status='needs_review') DESC,r.id LIMIT 100''', (str(import_id), *scope))
         visual = _rows('''SELECT result,model,created_at FROM cadu_reports_import_visual_runs
-            WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+            WHERE import_id=%s AND client_id=%s''', (str(import_id), *scope))
         snapshots = _rows('''SELECT s.id,s.scope_index,s.period_start,s.period_end,s.note,s.created_at,
             c.name AS campaign_name,a.name AS account_name,a.platform
             FROM cadu_reports_import_range_snapshots s
             JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
-                AND c.organization_id=s.organization_id AND c.client_id=s.client_id
+                AND c.client_id=s.client_id
             JOIN cadu_reports_accounts a ON a.id=s.account_id
-                AND a.organization_id=s.organization_id AND a.client_id=s.client_id
-            WHERE s.import_id=%s AND s.organization_id=%s AND s.client_id=%s
+                AND a.client_id=s.client_id
+            WHERE s.import_id=%s AND s.client_id=%s
             ORDER BY s.scope_index''', (str(import_id), *scope))
         for snapshot in snapshots:
             snapshot['metrics'] = _rows('''SELECT metric_key,COALESCE(metric_label,metric_key) AS metric_label,
                 value_numeric,unit,currency,channel
                 FROM cadu_reports_import_range_metrics
-                WHERE snapshot_id=%s AND organization_id=%s AND client_id=%s
+                WHERE snapshot_id=%s AND client_id=%s
                 ORDER BY metric_key''', (snapshot['id'], *scope))
         custom_values = _rows('''SELECT v.import_row_id,v.metric_date,v.channel,v.metric_key,v.metric_label,
             v.value_numeric,v.unit,v.currency,v.dimensions,c.name AS campaign_name
             FROM cadu_reports_import_custom_values v JOIN cadu_reports_campaigns c
-              ON c.id=v.campaign_id AND c.organization_id=v.organization_id AND c.client_id=v.client_id
+              ON c.id=v.campaign_id AND c.client_id=v.client_id
             WHERE v.import_row_id IN (SELECT id FROM cadu_reports_import_rows
-              WHERE import_id=%s AND organization_id=%s AND client_id=%s)
+              WHERE import_id=%s AND client_id=%s)
             ORDER BY v.metric_date DESC,v.metric_key LIMIT 500''', (str(import_id), *scope))
         headers = _rows('''SELECT DISTINCT ON (sheet_name) raw FROM cadu_reports_import_rows
-            WHERE import_id=%s AND organization_id=%s AND client_id=%s
+            WHERE import_id=%s AND client_id=%s
             ORDER BY sheet_name,id LIMIT 80''', (str(import_id), *scope))
         mapped_headers = list(dict.fromkeys(header for row in headers for header in row['raw']))
         column_maps = _rows('''SELECT mapping,platform_hint,currency_hint,date_order,
             applied_rows,note,created_at FROM cadu_reports_import_column_maps
-            WHERE import_id=%s AND organization_id=%s AND client_id=%s
+            WHERE import_id=%s AND client_id=%s
             ORDER BY id DESC LIMIT 10''', (str(import_id), *scope))
         suggestions = []
         evidence = _column_suggestion_evidence(import_id, scope) if batch[0]['file_kind'] in ('csv', 'xlsx') else None
         if _suggestions_ready():
             suggestions = _rows('''SELECT result,model,created_at
                 FROM cadu_reports_import_column_suggestions
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s''',
+                WHERE import_id=%s AND client_id=%s''',
                 (str(import_id), *scope))
             if suggestions and (not evidence or not _column_suggestion_cache_is_current(
                     suggestions[0].get('result'), evidence[2])):
@@ -892,7 +890,7 @@ def register(bp):
                        column_evidence_fingerprint=evidence[2] if evidence else None,
                        custom_values=custom_values)
 
-    @bp.post('/api/v1/reports/imports/<uuid:import_id>/suggest-columns')
+    @bp.post('/api/v2/reports/imports/<uuid:import_id>/suggest-columns')
     @login_required_api
     def reports_import_suggest_columns(import_id):
         selected = _selection()
@@ -901,7 +899,7 @@ def register(bp):
             abort(503, description='Instale as migrações de importações do Reports.')
         if not _suggestions_ready():
             abort(503, description='Instale a migração de sugestões TypeSafe do Reports.')
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         conn = get_db()
         try:
             evidence = _column_suggestion_evidence(import_id, scope)
@@ -910,7 +908,7 @@ def register(bp):
             headers, platform_hint, evidence_fingerprint = evidence
             previous = _rows('''SELECT result,model,created_at
                 FROM cadu_reports_import_column_suggestions
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+                WHERE import_id=%s AND client_id=%s''', (str(import_id), *scope))
             if previous and _column_suggestion_cache_is_current(
                     previous[0].get('result'), evidence_fingerprint):
                 conn.rollback()
@@ -943,7 +941,7 @@ def register(bp):
                 conn.rollback()
                 return jsonify(error=str(exc)), 503
             _rows('''SELECT id FROM cadu_reports_import_files
-                WHERE id=%s AND organization_id=%s AND client_id=%s FOR UPDATE''',
+                WHERE id=%s AND client_id=%s FOR UPDATE''',
                 (str(import_id), *scope))
             current_evidence = _column_suggestion_evidence(import_id, scope)
             if not current_evidence or current_evidence[2] != evidence_fingerprint:
@@ -953,8 +951,8 @@ def register(bp):
                 'evidence_fingerprint':evidence_fingerprint,
                 'suggestions':suggestions,'omitted_count':max(0,len(unknown)-len(target_headers))}
             stored = _rows('''INSERT INTO cadu_reports_import_column_suggestions
-                (import_id,organization_id,client_id,result,model,usage,created_by)
-                VALUES (%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s)
+                (import_id,client_id,result,model,usage,created_by)
+                VALUES (%s,%s,%s::jsonb,%s,%s::jsonb,%s)
                 ON CONFLICT (import_id) DO UPDATE SET
                     result=EXCLUDED.result,model=EXCLUDED.model,usage=EXCLUDED.usage,
                     created_by=EXCLUDED.created_by,created_at=NOW()
@@ -968,7 +966,7 @@ def register(bp):
             conn.rollback()
             raise
 
-    @bp.post('/api/v1/reports/imports/<uuid:import_id>/map-columns')
+    @bp.post('/api/v2/reports/imports/<uuid:import_id>/map-columns')
     @login_required_api
     def reports_import_map_columns(import_id):
         selected = _selection()
@@ -1003,22 +1001,22 @@ def register(bp):
             abort(400, description='Selecione ao menos uma coluna ou informe um parâmetro de leitura.')
         if not isinstance(note, str) or not note.strip() or len(note.strip()) > 1000:
             abort(400, description='Justifique o mapeamento (até 1.000 caracteres).')
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         conn = get_db()
         try:
             files = _rows('''SELECT id,row_count,applied_count FROM cadu_reports_import_files
-                WHERE id=%s AND organization_id=%s AND client_id=%s
+                WHERE id=%s AND client_id=%s
                     AND file_kind IN ('csv','xlsx') FOR UPDATE''', (str(import_id), *scope))
             if not files:
                 abort(404)
             header_rows = _rows('''SELECT DISTINCT ON (sheet_name) raw FROM cadu_reports_import_rows
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                WHERE import_id=%s AND client_id=%s
                 ORDER BY sheet_name,id LIMIT 80''', (str(import_id), *scope))
             available = {header for row in header_rows for header in row['raw']}
             if any(header not in available for header in mapping.values()):
                 abort(400, description='Uma coluna selecionada não existe no arquivo.')
             pending = _rows('''SELECT id,raw,status FROM cadu_reports_import_rows
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                WHERE import_id=%s AND client_id=%s
                     AND status='needs_review' ORDER BY id FOR UPDATE''', (str(import_id), *scope))
             prepared = []
             for row in pending:
@@ -1036,7 +1034,7 @@ def register(bp):
                                  if (identity := _source_row_identity(item)) is not None)
             previous = _rows('''SELECT r.parsed
                 FROM cadu_reports_import_rows r
-                WHERE r.import_id=%s AND r.organization_id=%s AND r.client_id=%s
+                WHERE r.import_id=%s AND r.client_id=%s
                     AND r.status='applied' ''', (str(import_id), *scope))
             applied_keys = {_source_row_identity(row['parsed']) for row in previous}
             applied = 0
@@ -1048,13 +1046,13 @@ def register(bp):
                 account_id, campaign_id = match.get('account_id'), match.get('campaign_id')
                 parsed['campaign_match'] = match
                 if campaign_id:
-                    parsed['update_kind'] = _classify_update({**parsed, '_organization_id':scope[0], '_client_id':scope[1]}, campaign_id)
+                    parsed['update_kind'] = _classify_update({**parsed, '_client_id':scope[0]}, campaign_id)
                 elif not parsed['issues']:
                     parsed['update_kind'] = 'campaign_missing'
                 status = 'applied' if not parsed['issues'] and campaign_id else 'needs_review'
                 _rows('''UPDATE cadu_reports_import_rows
                     SET parsed=%s::jsonb,status=%s,reason=%s,account_id=%s,campaign_id=%s,metric_date=%s
-                    WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                    WHERE id=%s AND client_id=%s RETURNING id''',
                     (json.dumps(parsed), status, '; '.join(parsed['issues']) or None,
                      account_id, campaign_id, parsed['metric_date'], row['id'], *scope))
                 if status == 'applied':
@@ -1064,23 +1062,21 @@ def register(bp):
                     for key, value in parsed['metrics'].items():
                         monetary = key in ('cost','conversion_value')
                         _rows('''INSERT INTO cadu_reports_import_observations
-                            (import_row_id,organization_id,client_id,campaign_id,metric_date,
-                             metric_key,value_numeric,unit,currency,dimensions)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
+                            (import_row_id,client_id,campaign_id,metric_date,metric_key,value_numeric,unit,currency,dimensions)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
                             (row['id'], *scope, campaign_id, parsed['metric_date'], key,
                              Decimal(value), 'currency' if monetary else 'count',
                              parsed['currency'] if monetary else None,
                              json.dumps(parsed.get('grain_dimensions') or {}, sort_keys=True, ensure_ascii=False)))
                     _store_custom_metrics(row['id'], scope, campaign_id, parsed['metric_date'], parsed.get('custom_metrics', []), parsed.get('source_dimensions'))
             _rows('''INSERT INTO cadu_reports_import_column_maps
-                (import_id,organization_id,client_id,mapping,platform_hint,currency_hint,
-                 date_order,applied_rows,note,created_by)
-                VALUES (%s,%s,%s,%s::jsonb,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                (import_id,client_id,mapping,platform_hint,currency_hint,date_order,applied_rows,note,created_by)
+                VALUES (%s,%s,%s::jsonb,%s,%s,%s,%s,%s,%s) RETURNING id''',
                 (str(import_id), *scope, json.dumps(mapping), platform_hint or None,
                  currency_hint or None, date_order, applied, note.strip(), session['user_id']))
             _rows('''UPDATE cadu_reports_import_files SET applied_count=applied_count+%s,
                 status=CASE WHEN applied_count+%s=row_count THEN 'parsed' ELSE 'needs_review' END
-                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                WHERE id=%s AND client_id=%s RETURNING id''',
                 (applied, applied, str(import_id), *scope))
             conn.commit()
         except Exception:
@@ -1088,28 +1084,28 @@ def register(bp):
             raise
         return jsonify(mapped=True, applied_rows=applied)
 
-    @bp.get('/api/v1/reports/imports/<uuid:import_id>/image')
+    @bp.get('/api/v2/reports/imports/<uuid:import_id>/image')
     @login_required_api
     def reports_import_image(import_id):
         selected = _selection()
         found = _rows('''SELECT raw_bytes FROM cadu_reports_import_files
-            WHERE id=%s AND organization_id=%s AND client_id=%s AND file_kind='image' ''',
-            (str(import_id), selected['organization_id'], selected['client_id']))
+            WHERE id=%s AND client_id=%s AND file_kind='image' ''',
+            (str(import_id), selected['client_id']))
         if not found:
             abort(404)
         response = send_file(io.BytesIO(bytes(found[0]['raw_bytes'])), mimetype='image/png')
         response.headers['Cache-Control'] = 'private, no-store'
         return response
 
-    @bp.get('/api/v1/reports/imports/<uuid:import_id>/campaign-match')
+    @bp.get('/api/v2/reports/imports/<uuid:import_id>/campaign-match')
     @login_required_api
     def reports_import_campaign_match(import_id):
         selected = _selection()
         if not _ready():
             abort(503, description='Instale as migrações de importações do Reports.')
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         found = _rows('''SELECT id FROM cadu_reports_import_files
-            WHERE id=%s AND organization_id=%s AND client_id=%s AND file_kind='image' ''',
+            WHERE id=%s AND client_id=%s AND file_kind='image' ''',
             (str(import_id), *scope))
         if not found:
             abort(404)
@@ -1122,7 +1118,7 @@ def register(bp):
                                  'external_campaign_id':campaign_id}, selected)
         return jsonify(match=match)
 
-    @bp.post('/api/v1/reports/imports/<uuid:import_id>/visual/<int:scope_index>/confirm')
+    @bp.post('/api/v2/reports/imports/<uuid:import_id>/visual/<int:scope_index>/confirm')
     @login_required_api
     def reports_import_visual_confirm(import_id, scope_index):
         selected = _selection()
@@ -1149,21 +1145,21 @@ def register(bp):
                 abort(400, description=f'{key} inválido.')
             values[header] = value
         raw_row = _rows('''SELECT r.raw FROM cadu_reports_import_rows r
-            WHERE r.id=%s AND r.import_id=%s AND r.organization_id=%s AND r.client_id=%s''',
-            (row_id, str(import_id), selected['organization_id'], selected['client_id']))
+            WHERE r.id=%s AND r.import_id=%s AND r.client_id=%s''',
+            (row_id, str(import_id), selected['client_id']))
         parsed = parse_record({'raw': {**(raw_row[0]['raw'] if raw_row else {}), **values}}, date_order='auto')
         if parsed['issues']:
             abort(400, description='Revise: ' + '; '.join(parsed['issues']))
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         conn = get_db()
         try:
             file_rows = _rows('''SELECT id,row_count,applied_count FROM cadu_reports_import_files
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND file_kind='image'
+                WHERE id=%s AND client_id=%s AND file_kind='image'
                 FOR UPDATE''', (str(import_id), *scope))
             if not file_rows:
                 abort(404)
             visual = _rows('''SELECT result FROM cadu_reports_import_visual_runs
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+                WHERE import_id=%s AND client_id=%s''', (str(import_id), *scope))
             scopes = visual[0]['result'].get('scopes', []) if visual else []
             if scope_index < 0 or scope_index >= len(scopes):
                 abort(404)
@@ -1171,7 +1167,7 @@ def register(bp):
             if source.get('granularity') != 'day' or not source.get('period_start') or source.get('period_start') != source.get('period_end'):
                 abort(409, description='Este bloco representa um intervalo ou período indefinido; não pode virar um valor diário.')
             if _rows('''SELECT id FROM cadu_reports_import_rows
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                WHERE import_id=%s AND client_id=%s
                     AND sheet_name='Print' AND source_row=%s''',
                     (str(import_id), *scope, scope_index + 1)):
                 abort(409, description='Este bloco do print já foi confirmado.')
@@ -1183,37 +1179,35 @@ def register(bp):
                 abort(409, description='A conta ou campanha entrou em conflito; revise a identidade.')
             parsed['campaign_match'] = {**match, 'campaign_id': campaign_id,
                 'state': 'created' if match['state'] == 'missing' else 'matched'}
-            parsed['update_kind'] = _classify_update({**parsed, '_organization_id':scope[0], '_client_id':scope[1]}, campaign_id)
+            parsed['update_kind'] = _classify_update({**parsed, '_client_id':scope[0]}, campaign_id)
             parsed['custom_metrics'] = _custom_from_visual(source, parsed)
             if _rows('''SELECT id FROM cadu_reports_import_rows
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                WHERE import_id=%s AND client_id=%s
                     AND campaign_id=%s AND metric_date=%s AND status='applied' LIMIT 1''',
                 (str(import_id), *scope, campaign_id, parsed['metric_date'])):
                 abort(409, description='Já há um bloco confirmado para esta campanha e data no print.')
             row_id = _rows('''INSERT INTO cadu_reports_import_rows
-                (import_id,organization_id,client_id,sheet_name,source_row,raw,parsed,status,
-                 account_id,campaign_id,metric_date)
-                VALUES (%s,%s,%s,'Print',%s,%s::jsonb,%s::jsonb,'applied',%s,%s,%s)
+                (import_id,client_id,sheet_name,source_row,raw,parsed,status,account_id,campaign_id,metric_date)
+                VALUES (%s,%s,'Print',%s,%s::jsonb,%s::jsonb,'applied',%s,%s,%s)
                 RETURNING id''',
                 (str(import_id), *scope, scope_index + 1, json.dumps(source), json.dumps(parsed),
                  account_id, campaign_id, parsed['metric_date']))[0]['id']
             _rows('''INSERT INTO cadu_reports_import_decisions
-                (import_row_id,organization_id,client_id,before_parsed,after_parsed,note,created_by)
-                VALUES (%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s) RETURNING id''',
+                (import_row_id,client_id,before_parsed,after_parsed,note,created_by)
+                VALUES (%s,%s,%s::jsonb,%s::jsonb,%s,%s) RETURNING id''',
                 (row_id, *scope, json.dumps(source), json.dumps(parsed), note.strip(), session['user_id']))
             for key, value in parsed['metrics'].items():
                 monetary = key in ('cost', 'conversion_value')
                 _rows('''INSERT INTO cadu_reports_import_observations
-                    (import_row_id,organization_id,client_id,campaign_id,metric_date,
-                     metric_key,value_numeric,unit,currency,dimensions)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
+                    (import_row_id,client_id,campaign_id,metric_date,metric_key,value_numeric,unit,currency,dimensions)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
                     (row_id, *scope, campaign_id, parsed['metric_date'], key, Decimal(value),
                      'currency' if monetary else 'count', parsed['currency'] if monetary else None,
                      json.dumps(parsed.get('grain_dimensions') or {}, sort_keys=True, ensure_ascii=False)))
             _store_custom_metrics(row_id, scope, campaign_id, parsed['metric_date'], parsed['custom_metrics'], parsed.get('source_dimensions'))
             _rows('''UPDATE cadu_reports_import_files SET applied_count=applied_count+1,
                 status=CASE WHEN applied_count+1=row_count THEN 'parsed' ELSE 'needs_review' END
-                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                WHERE id=%s AND client_id=%s RETURNING id''',
                 (str(import_id), *scope))
             conn.commit()
         except Exception:
@@ -1221,7 +1215,7 @@ def register(bp):
             raise
         return jsonify(confirmed=True, row_id=row_id)
 
-    @bp.post('/api/v1/reports/imports/<uuid:import_id>/visual/<int:scope_index>/range')
+    @bp.post('/api/v2/reports/imports/<uuid:import_id>/visual/<int:scope_index>/range')
     @login_required_api
     def reports_import_visual_range(import_id, scope_index):
         selected = _selection()
@@ -1257,16 +1251,16 @@ def register(bp):
         parsed = parse_record({'raw': values}, date_order='auto')
         if parsed['issues']:
             abort(400, description='Revise: ' + '; '.join(parsed['issues']))
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         conn = get_db()
         try:
             batches = _rows('''SELECT id,row_count,applied_count FROM cadu_reports_import_files
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND file_kind='image'
+                WHERE id=%s AND client_id=%s AND file_kind='image'
                 FOR UPDATE''', (str(import_id), *scope))
             if not batches:
                 abort(404)
             visual = _rows('''SELECT result FROM cadu_reports_import_visual_runs
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+                WHERE import_id=%s AND client_id=%s''', (str(import_id), *scope))
             scopes = visual[0]['result'].get('scopes', []) if visual else []
             if scope_index < 0 or scope_index >= len(scopes):
                 abort(404)
@@ -1276,11 +1270,11 @@ def register(bp):
                     and source['period_start'] != source['period_end']):
                 abort(409, description='O bloco não foi identificado como total de intervalo.')
             if _rows('''SELECT id FROM cadu_reports_import_rows WHERE import_id=%s
-                AND organization_id=%s AND client_id=%s AND sheet_name='Print' AND source_row=%s''',
+                AND client_id=%s AND sheet_name='Print' AND source_row=%s''',
                 (str(import_id), *scope, scope_index + 1)):
                 abort(409, description='Este bloco já foi confirmado como dado diário.')
             if _rows('''SELECT id FROM cadu_reports_import_range_snapshots WHERE import_id=%s
-                AND organization_id=%s AND client_id=%s AND scope_index=%s''',
+                AND client_id=%s AND scope_index=%s''',
                 (str(import_id), *scope, scope_index)):
                 abort(409, description='Este intervalo já foi confirmado.')
             match = _campaign_match(parsed, selected)
@@ -1291,34 +1285,33 @@ def register(bp):
                 abort(409, description='A conta ou campanha entrou em conflito; revise a identidade.')
             parsed['campaign_match'] = {**match, 'campaign_id': campaign_id,
                 'state': 'created' if match['state'] == 'missing' else 'matched'}
-            parsed['update_kind'] = _classify_update({**parsed, '_organization_id':scope[0], '_client_id':scope[1]}, campaign_id,
+            parsed['update_kind'] = _classify_update({**parsed, '_client_id':scope[0]}, campaign_id,
                                                        period_start=period_start, period_end=period_end)
             parsed['custom_metrics'] = _custom_from_visual(source, parsed)
             snapshot_id = _rows('''INSERT INTO cadu_reports_import_range_snapshots
-                (import_id,organization_id,client_id,scope_index,account_id,campaign_id,
-                 period_start,period_end,source_evidence,note,created_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s) RETURNING id''',
+                (import_id,client_id,scope_index,account_id,campaign_id,period_start,period_end,source_evidence,note,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s) RETURNING id''',
                 (str(import_id), *scope, scope_index, account_id, campaign_id,
                  period_start, period_end, json.dumps(source), note.strip(), session['user_id']))[0]['id']
             for key, value in parsed['metrics'].items():
                 monetary = key in ('cost', 'conversion_value')
                 _rows('''INSERT INTO cadu_reports_import_range_metrics
-                    (snapshot_id,organization_id,client_id,metric_key,value_numeric,unit,currency,metric_label,channel)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                    (snapshot_id,client_id,metric_key,value_numeric,unit,currency,metric_label,channel)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
                     (snapshot_id, *scope, key, Decimal(value),
                      'currency' if monetary else 'count', parsed['currency'] if monetary else None,
                      key.replace('_',' ').title(), parsed['platform']))
             for metric in parsed['custom_metrics']:
                 _rows('''INSERT INTO cadu_reports_import_range_metrics
-                    (snapshot_id,organization_id,client_id,metric_key,value_numeric,unit,currency,metric_label,channel)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                    (snapshot_id,client_id,metric_key,value_numeric,unit,currency,metric_label,channel)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
                     (snapshot_id, *scope, metric['key'], Decimal(metric['value']),
                      'currency' if re.fullmatch(r'[A-Z]{3}', str(metric['unit'])) else metric['unit'][:32],
                      metric['unit'] if re.fullmatch(r'[A-Z]{3}', str(metric['unit'])) else None,
                      metric['label'],metric['channel']))
             _rows('''UPDATE cadu_reports_import_files SET applied_count=applied_count+1,
                 status=CASE WHEN applied_count+1=row_count THEN 'parsed' ELSE 'needs_review' END
-                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                WHERE id=%s AND client_id=%s RETURNING id''',
                 (str(import_id), *scope))
             conn.commit()
         except Exception:
@@ -1326,23 +1319,23 @@ def register(bp):
             raise
         return jsonify(confirmed=True, snapshot_id=snapshot_id)
 
-    @bp.post('/api/v1/reports/imports/<uuid:import_id>/extract')
+    @bp.post('/api/v2/reports/imports/<uuid:import_id>/extract')
     @login_required_api
     def reports_import_extract(import_id):
         selected = _selection()
         _write_guard(selected)
         if not _ready():
             abort(503, description='Instale as migrações de importações do Reports.')
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         conn = get_db()
         try:
             batch = _rows('''SELECT id,raw_bytes FROM cadu_reports_import_files
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND file_kind='image'
+                WHERE id=%s AND client_id=%s AND file_kind='image'
                 FOR UPDATE''', (str(import_id), *scope))
             if not batch:
                 abort(404)
             existing = _rows('''SELECT result,model,created_at FROM cadu_reports_import_visual_runs
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s''', (str(import_id), *scope))
+                WHERE import_id=%s AND client_id=%s''', (str(import_id), *scope))
             if existing:
                 conn.rollback()
                 return jsonify(visual=existing[0], duplicate=True)
@@ -1373,13 +1366,13 @@ def register(bp):
                 conn.rollback()
                 return jsonify(error='Não foi possível ler o print agora. Tente novamente.'), 502
             visual = _rows('''INSERT INTO cadu_reports_import_visual_runs
-                (id,import_id,organization_id,client_id,result,model,usage,created_by)
-                VALUES (%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s)
+                (id,import_id,client_id,result,model,usage,created_by)
+                VALUES (%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s)
                 RETURNING result,model,created_at''',
                 (run_id, str(import_id), *scope, json.dumps(result), model,
                  json.dumps(usage), session['user_id']))[0]
             _rows('''UPDATE cadu_reports_import_files SET status='needs_review',row_count=%s
-                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                WHERE id=%s AND client_id=%s RETURNING id''',
                 (len(result['scopes']), str(import_id), *scope))
             conn.commit()
             return jsonify(visual=visual, duplicate=False)
@@ -1387,7 +1380,7 @@ def register(bp):
             conn.rollback()
             raise
 
-    @bp.post('/api/v1/reports/imports/<uuid:import_id>/rows/<int:row_id>/resolve')
+    @bp.post('/api/v2/reports/imports/<uuid:import_id>/rows/<int:row_id>/resolve')
     @login_required_api
     def reports_import_resolve(import_id, row_id):
         selected = _selection()
@@ -1419,13 +1412,13 @@ def register(bp):
         parsed = parse_record({'raw': values}, date_order='auto')
         if parsed['issues']:
             abort(400, description='Revise: ' + '; '.join(parsed['issues']))
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         conn = get_db()
         try:
             found = _rows('''SELECT r.id,r.parsed,r.status FROM cadu_reports_import_rows r
                 JOIN cadu_reports_import_files f ON f.id=r.import_id
-                    AND f.organization_id=r.organization_id AND f.client_id=r.client_id
-                WHERE r.id=%s AND r.import_id=%s AND r.organization_id=%s AND r.client_id=%s
+                    AND f.client_id=r.client_id
+                WHERE r.id=%s AND r.import_id=%s AND r.client_id=%s
                     AND f.file_kind IN ('csv','xlsx') FOR UPDATE OF r''',
                 (row_id, str(import_id), *scope))
             if not found:
@@ -1440,17 +1433,17 @@ def register(bp):
                 abort(409, description='A conta ou campanha entrou em conflito; revise a identidade.')
             parsed['campaign_match'] = {**match, 'campaign_id': campaign_id,
                 'state': 'created' if match['state'] == 'missing' else 'matched'}
-            parsed['update_kind'] = _classify_update({**parsed, '_organization_id':scope[0], '_client_id':scope[1]}, campaign_id)
+            parsed['update_kind'] = _classify_update({**parsed, '_client_id':scope[0]}, campaign_id)
             parsed['custom_metrics'] = found[0]['parsed'].get('custom_metrics', [])
             collisions = _rows('''SELECT id FROM cadu_reports_import_rows
-                WHERE import_id=%s AND organization_id=%s AND client_id=%s
+                WHERE import_id=%s AND client_id=%s
                     AND campaign_id=%s AND metric_date=%s AND status='applied' AND id<>%s LIMIT 1''',
                 (str(import_id), *scope, campaign_id, parsed['metric_date'], row_id))
             if collisions:
                 abort(409, description='Já existe uma linha confirmada da campanha nesta data e arquivo.')
             _rows('''INSERT INTO cadu_reports_import_decisions
-                (import_row_id,organization_id,client_id,before_parsed,after_parsed,note,created_by)
-                VALUES (%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s) RETURNING id''',
+                (import_row_id,client_id,before_parsed,after_parsed,note,created_by)
+                VALUES (%s,%s,%s::jsonb,%s::jsonb,%s,%s) RETURNING id''',
                 (row_id, *scope, json.dumps(found[0]['parsed']), json.dumps(parsed), note, session['user_id']))
             _rows('''UPDATE cadu_reports_import_rows SET parsed=%s::jsonb,status='applied',reason=NULL,
                 account_id=%s,campaign_id=%s,metric_date=%s WHERE id=%s RETURNING id''',
@@ -1458,9 +1451,8 @@ def register(bp):
             for key, value in parsed['metrics'].items():
                 monetary = key in ('cost', 'conversion_value')
                 _rows('''INSERT INTO cadu_reports_import_observations
-                    (import_row_id,organization_id,client_id,campaign_id,metric_date,
-                     metric_key,value_numeric,unit,currency,dimensions)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
+                    (import_row_id,client_id,campaign_id,metric_date,metric_key,value_numeric,unit,currency,dimensions)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
                     (row_id, *scope, campaign_id, parsed['metric_date'], key,
                      Decimal(value), 'currency' if monetary else 'count',
                      parsed['currency'] if monetary else None,
@@ -1468,7 +1460,7 @@ def register(bp):
             _store_custom_metrics(row_id, scope, campaign_id, parsed['metric_date'], parsed.get('custom_metrics', []), parsed.get('source_dimensions'))
             _rows('''UPDATE cadu_reports_import_files SET applied_count=applied_count+1,
                 status=CASE WHEN applied_count+1=row_count THEN 'parsed' ELSE 'needs_review' END
-                WHERE id=%s AND organization_id=%s AND client_id=%s RETURNING id''',
+                WHERE id=%s AND client_id=%s RETURNING id''',
                 (str(import_id), *scope))
             conn.commit()
         except Exception:
@@ -1476,7 +1468,7 @@ def register(bp):
             raise
         return jsonify(resolved=True, row_id=row_id)
 
-    @bp.post('/api/v1/reports/imports')
+    @bp.post('/api/v2/reports/imports')
     @login_required_api
     def reports_import_upload():
         selected = _selection()
@@ -1521,18 +1513,17 @@ def register(bp):
             parsed_rows.append((record, parsed))
         identities = Counter(identity for _, item in parsed_rows
                              if (identity := _source_row_identity(item)) is not None)
-        scope = (selected['organization_id'], selected['client_id'])
+        scope = (selected['client_id'],)
         existing = _rows('''SELECT id FROM cadu_reports_import_files
-            WHERE organization_id=%s AND client_id=%s AND sha256=%s''', (*scope, sha256))
+            WHERE client_id=%s AND sha256=%s''', (*scope, sha256))
         if existing:
             return jsonify(import_id=existing[0]['id'], duplicate=True), 200
         import_id = str(uuid.uuid4())
         conn = get_db()
         try:
             _rows('''INSERT INTO cadu_reports_import_files
-                (id,organization_id,client_id,original_name,sha256,mime_type,file_kind,raw_bytes,
-                 status,platform_hint,row_count,created_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                (id,client_id,original_name,sha256,mime_type,file_kind,raw_bytes,status,platform_hint,row_count,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
                 (import_id, *scope, filename, sha256, mime_type, kind, raw,
                  'awaiting_extraction' if kind == 'image' else 'received',
                  platform_hint or None, len(records), session['user_id']))
@@ -1544,13 +1535,11 @@ def register(bp):
                 account_id, campaign_id = _resolve_import_identity(selected, parsed)
                 match = _campaign_match(parsed, selected)
                 parsed['campaign_match'] = match
-                parsed['update_kind'] = (_classify_update({**parsed, '_organization_id':scope[0],
-                    '_client_id':scope[1]}, campaign_id) if campaign_id else 'campaign_missing')
+                parsed['update_kind'] = (_classify_update({**parsed, '_client_id':scope[0]}, campaign_id) if campaign_id else 'campaign_missing')
                 status = 'applied' if not parsed['issues'] and campaign_id else 'needs_review'
                 row_id = _rows('''INSERT INTO cadu_reports_import_rows
-                    (import_id,organization_id,client_id,sheet_name,source_row,raw,parsed,status,
-                     reason,account_id,campaign_id,metric_date)
-                    VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s) RETURNING id''',
+                    (import_id,client_id,sheet_name,source_row,raw,parsed,status,reason,account_id,campaign_id,metric_date)
+                    VALUES (%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s) RETURNING id''',
                     (import_id, *scope, record['sheet'], record['row'], json.dumps(record['raw']),
                      json.dumps(parsed), status, '; '.join(parsed['issues']) or (match.get('reason') if status == 'needs_review' else None),
                      account_id, campaign_id, parsed['metric_date']))[0]['id']
@@ -1559,9 +1548,8 @@ def register(bp):
                     for key, value in parsed['metrics'].items():
                         monetary = key in ('cost', 'conversion_value')
                         _rows('''INSERT INTO cadu_reports_import_observations
-                            (import_row_id,organization_id,client_id,campaign_id,metric_date,
-                             metric_key,value_numeric,unit,currency,dimensions)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
+                            (import_row_id,client_id,campaign_id,metric_date,metric_key,value_numeric,unit,currency,dimensions)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id''',
                             (row_id, *scope, campaign_id, parsed['metric_date'], key,
                              Decimal(value), 'currency' if monetary else 'count',
                              parsed['currency'] if monetary else None,

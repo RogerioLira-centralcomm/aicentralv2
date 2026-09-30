@@ -74,6 +74,8 @@ def get_link_test(context: RequestContext, arguments: dict) -> dict:
 
 
 def _reports(context: RequestContext, report_id=None):
+    from ....cadu_connect.reports_access import can_read_all
+    if not can_read_all(context.client_id,context.user_id): return []
     where = "AND w.id = %s" if report_id is not None else ""
     params = [context.client_id]
     if report_id is not None:

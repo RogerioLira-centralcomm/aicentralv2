@@ -62,6 +62,9 @@ def project_summaries(client_id: int, records: list[dict]) -> dict[str, dict]:
         ):
             if not _relation_exists(cursor, table):
                 continue
+            if field=='reports':
+                from ..cadu_connect.reports_access import can_read_all
+                if not can_read_all(client_id):continue
             extra = " AND archived_at IS NULL" if table == "cadu_planner_plans" else ""
             cursor.execute(f"""SELECT project_ref, COUNT(*) AS total FROM {table}
                                 WHERE client_id = %s AND project_ref = ANY(%s){extra}

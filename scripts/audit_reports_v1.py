@@ -42,40 +42,40 @@ DIMENSION_COLUMNS = {
 CHECKS = {
     'MCC em outro cliente': '''SELECT COUNT(*) FROM cadu_reports_accounts a
         JOIN cadu_reports_accounts p ON p.id=a.parent_account_id
-        WHERE (a.organization_id,a.client_id) IS DISTINCT FROM
-              (p.organization_id,p.client_id)''',
+        WHERE (a.client_id) IS DISTINCT FROM
+              (p.client_id)''',
     'Campanha em conta de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_campaigns c
         JOIN cadu_reports_accounts a ON a.id=c.account_id
-        WHERE (c.organization_id,c.client_id) IS DISTINCT FROM
-              (a.organization_id,a.client_id)''',
+        WHERE (c.client_id) IS DISTINCT FROM
+              (a.client_id)''',
     'Métrica em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_campaign_daily_metrics m
         JOIN cadu_reports_campaigns c ON c.id=m.campaign_id
-        WHERE (m.organization_id,m.client_id) IS DISTINCT FROM
-              (c.organization_id,c.client_id)''',
+        WHERE (m.client_id) IS DISTINCT FROM
+              (c.client_id)''',
     'Relatório em conta de outro cliente': '''SELECT COUNT(*) FROM cadu_connect_report_workspaces w
         JOIN cadu_reports_accounts a ON a.id=w.account_id
-        WHERE (w.organization_id,w.client_id) IS DISTINCT FROM
-              (a.organization_id,a.client_id)''',
+        WHERE (w.client_id) IS DISTINCT FROM
+              (a.client_id)''',
     'Relatório em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_connect_report_workspaces w
         JOIN cadu_reports_campaigns c ON c.id=w.media_campaign_id
-        WHERE (w.organization_id,w.client_id) IS DISTINCT FROM
-              (c.organization_id,c.client_id)''',
+        WHERE (w.client_id) IS DISTINCT FROM
+              (c.client_id)''',
     'Etapa em tag de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_flow_steps s
         JOIN cadu_reports_site_tags t ON t.id=s.tag_id
-        WHERE (s.organization_id,s.client_id) IS DISTINCT FROM
-              (t.organization_id,t.client_id)''',
+        WHERE (s.client_id) IS DISTINCT FROM
+              (t.client_id)''',
     'Evento em tag de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_flow_events e
         JOIN cadu_reports_site_tags t ON t.id=e.tag_id
-        WHERE (e.organization_id,e.client_id) IS DISTINCT FROM
-              (t.organization_id,t.client_id)''',
+        WHERE (e.client_id) IS DISTINCT FROM
+              (t.client_id)''',
     'Evento em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_flow_events e
         JOIN cadu_reports_campaigns c ON c.id=e.campaign_id
-        WHERE (e.organization_id,e.client_id) IS DISTINCT FROM
-              (c.organization_id,c.client_id)''',
+        WHERE (e.client_id) IS DISTINCT FROM
+              (c.client_id)''',
     'Conversão CRM em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_external_conversions x
         JOIN cadu_reports_campaigns c ON c.id=x.campaign_id
-        WHERE (x.organization_id,x.client_id) IS DISTINCT FROM
-              (c.organization_id,c.client_id)''',
+        WHERE (x.client_id) IS DISTINCT FROM
+              (c.client_id)''',
     'Link em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_link_test_runs r
         JOIN cadu_reports_campaigns c ON c.id=r.media_campaign_id
         WHERE r.client_id IS DISTINCT FROM c.client_id''',
@@ -87,13 +87,13 @@ CHECKS = {
         WHERE h.client_id IS DISTINCT FROM r.client_id''',
     'Linha de importação em arquivo de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_import_rows r
         JOIN cadu_reports_import_files f ON f.id=r.import_id
-        WHERE (r.organization_id,r.client_id) IS DISTINCT FROM (f.organization_id,f.client_id)''',
+        WHERE (r.client_id) IS DISTINCT FROM (f.client_id)''',
     'Métrica importada em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_import_observations o
         JOIN cadu_reports_campaigns c ON c.id=o.campaign_id
-        WHERE (o.organization_id,o.client_id) IS DISTINCT FROM (c.organization_id,c.client_id)''',
+        WHERE (o.client_id) IS DISTINCT FROM (c.client_id)''',
     'Métrica personalizada em campanha de outro cliente': '''SELECT COUNT(*) FROM cadu_reports_import_custom_values v
         JOIN cadu_reports_campaigns c ON c.id=v.campaign_id
-        WHERE (v.organization_id,v.client_id) IS DISTINCT FROM (c.organization_id,c.client_id)''',
+        WHERE (v.client_id) IS DISTINCT FROM (c.client_id)''',
 }
 
 

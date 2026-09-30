@@ -19,7 +19,7 @@ bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 
 @bp.errorhandler(HTTPException)
 def reports_api_error(error):
-    if request.path.startswith('/connect/api/v1/reports/'):
+    if request.path.startswith(('/connect/api/v1/reports/','/connect/api/v2/reports/')):
         return jsonify(error=error.description,message=error.description,
                        code=getattr(error,'flow_code',f'http_{error.code}'),
                        field_errors=getattr(error,'field_errors',{}),
@@ -41,10 +41,18 @@ from .reports_imports import register as register_reports_imports
 register_reports_imports(bp)
 from .reports_access import register as register_reports_access
 register_reports_access(bp)
+from .reports_management import register as register_reports_management
+register_reports_management(bp)
 from .reports_flow_monitor import worker_once_command as reports_flow_monitor_once_command
 from .reports_flow_monitor import worker_loop_command as reports_flow_monitor_loop_command
 bp.cli.add_command(reports_flow_monitor_once_command)
 bp.cli.add_command(reports_flow_monitor_loop_command)
+
+
+@bp.before_request
+def reports_retired_private_contract():
+    if request.path.startswith('/connect/api/v1/reports/') and not request.path.startswith(('/connect/api/v1/reports/ingest/', '/connect/api/v1/reports/flow/collect')):
+        return jsonify(error='Reports atualizado. Recarregue a página para usar a versão atual.'),410
 
 
 @bp.before_request

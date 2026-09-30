@@ -371,12 +371,14 @@ function LinkDialog({urls, csrfToken, onClose}) {
 
 function ResourceDialog({resource, onClose}) {
   const externalUrl = /^https:\/\//i.test(resource.locator || '') ? resource.locator : '';
+  const reportsUrl = /^\/connect\/app\/(?:flows|supertag\/sites|campaigns)(?:[/?]|$)/.test(resource.locator || '') ? resource.locator : '';
+  const destination = reportsUrl || externalUrl;
   const isImage = resource.resourceType === 'image' && externalUrl;
   return <ProjectDialog title={resource.title} detail="Recurso conectado ao projeto" onClose={onClose}>
     <div className="cadu-ds-project-resource-inspector">
       {isImage && <img src={externalUrl} alt=""/>}
       <dl><div><dt>Tipo</dt><dd>{resource.kind || 'Recurso'}</dd></div><div><dt>Status</dt><dd>{resource.status || 'Disponível'}</dd></div>{resource.mime && <div><dt>Formato</dt><dd>{resource.mime}</dd></div>}</dl>
-      {externalUrl ? <a className="is-primary" href={externalUrl} target="_blank" rel="noreferrer">Abrir recurso</a> : <p>Este recurso está organizado neste projeto. A prévia ou edição será aberta quando o sistema de origem disponibilizar um destino próprio.</p>}
+      {destination ? <a className="is-primary" href={destination} target="_blank" rel="noreferrer">Abrir recurso</a> : <p>Este recurso está organizado neste projeto. A prévia ou edição será aberta quando o sistema de origem disponibilizar um destino próprio.</p>}
     </div>
   </ProjectDialog>;
 }

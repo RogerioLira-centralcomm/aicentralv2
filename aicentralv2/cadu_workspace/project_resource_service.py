@@ -21,6 +21,23 @@ RESOURCE_TYPES = {
 }
 
 
+REPORTS_SOURCES = {'cadu_connect_report_workspaces', 'cadu_reports_supertag_sites',
+                   'cadu_reports_flow_registry', 'cadu_reports_campaigns'}
+
+
+def _reports_visible(items, client_id, actor_id=None):
+    def is_reports(item):
+        return any(item.get(key) in REPORTS_SOURCES for key in
+                   ('source_system', 'source_source_system', 'target_source_system'))
+    if not any(is_reports(i) for i in items):
+        return items
+    from ..cadu_connect.reports_access import can_read_all
+    if can_read_all(client_id, actor_id):
+        return items
+    # Workspace membership never grants Reports access.
+    return [i for i in items if not is_reports(i)]
+
+
 def _project_id(project_ref: str) -> str:
     if not str(project_ref or "").startswith("ci:"):
         raise ValueError("O registro de recursos exige um projeto nativo do Cadu.")
@@ -146,6 +163,25 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
             records.append(_record(table, row["id"], resource_type, row.get("title"), category=category,
                 status=row.get("status"), version=row.get("version"), created_by=row.get("created_by"),
                 source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at")))
+
+    if _relation(cursor, "cadu_reports_workspace_links"):
+        linked_sources = (
+            ("cadu_reports_supertag_sites", "site_id", "label", "supertag/sites", "site"),
+            ("cadu_reports_flow_registry", "flow_id", "name", "flows", "flow"),
+            ("cadu_reports_campaigns", "campaign_id", "name", "campaigns", "campaign"),
+        )
+        for table, column, title_column, route, category in linked_sources:
+            cursor.execute(f"""SELECT r.id::text AS id, r.{title_column} AS title
+                FROM cadu_reports_workspace_links l JOIN {table} r
+                  ON r.id=l.{column} AND r.client_id=l.client_id
+                WHERE l.client_id=%s AND l.project_ref=%s""", (client_id, project_ref))
+            for row in cursor.fetchall():
+                destination = (f"/connect/app/{route}?client_id={client_id}&campaign_id={row['id']}"
+                               if category == "campaign" else
+                               f"/connect/app/{route}/{row['id']}?client_id={client_id}")
+                records.append(_record(table, row["id"], "link", row["title"],
+                    category=category, locator=destination,
+                    metadata={"product": "reports", "reports_resource_type": category}))
 
     if _relation(cursor, "cadu_artifacts"):
         cursor.execute("""SELECT id::text AS id, titulo, tipo, status, created_at, updated_at
@@ -347,7 +383,7 @@ def reconcile(client_id: int, project_ref: str, actor_id=None, *, include_archiv
         connection.rollback()
         raise
     return {"available": True, **list_resources(
-        client_id, project_ref, reconcile_first=False, include_archived=include_archived,
+        client_id, project_ref, reconcile_first=False, actor_id=actor_id, include_archived=include_archived,
     )}
 
 
@@ -372,7 +408,7 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
                             WHERE client_id=%s AND project_ref=%s{status_filter}
                          ORDER BY COALESCE(source_updated_at, source_created_at, last_seen_at) DESC, title""",
                        (client_id, project_ref))
-        resources = [dict(row) for row in cursor.fetchall()]
+        resources = _reports_visible([dict(row) for row in cursor.fetchall()],client_id,actor_id)
         _refresh_link_icons(cursor, client_id, project_ref, resources)
         relations = []
         if _relation(cursor, "cadu_project_resource_relations"):
@@ -381,7 +417,10 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
                                  FROM cadu_project_resource_relations
                                 WHERE client_id=%s AND project_ref=%s
                              ORDER BY relation_type, source_resource_id""", (client_id, project_ref))
-            relations = [dict(row) for row in cursor.fetchall()]
+            visible_ids = {str(item['id']) for item in resources}
+            relations = [dict(row) for row in cursor.fetchall()
+                         if str(row['source_resource_id']) in visible_ids
+                         and str(row['target_resource_id']) in visible_ids]
     counts = Counter(item["resource_type"] for item in resources)
     hashes = Counter(item["content_hash"] for item in resources if item.get("content_hash"))
     for item in resources:
@@ -418,7 +457,7 @@ def list_recent_resources(client_id: int, project_refs: list[str], *, limit: int
                 LIMIT %s""",
             (client_id, refs, min(int(limit), 100)),
         )
-        return [dict(row) for row in cursor.fetchall()]
+        return _reports_visible([dict(row) for row in cursor.fetchall()],client_id)
 
 
 def list_for_context(context: RequestContext, *, include_archived=False) -> dict:
@@ -449,6 +488,7 @@ def list_for_context(context: RequestContext, *, include_archived=False) -> dict
                                               item["source_system"], item["source_id"])}
         for item in records if include_archived or item.get("status") != "archived"
     ]
+    resources=_reports_visible(resources,context.client_id,context.user_id)
     counts = Counter(item["resource_type"] for item in resources)
     return {"resources": resources, "relations": materialized.get("relations") or [],
             "summary": {"total": len(resources), **dict(counts)},
@@ -468,7 +508,8 @@ def get_resource(client_id: int, project_ref: str, resource_id: str) -> dict | N
             (str(resource_id), int(client_id), project_ref),
         )
         row = cursor.fetchone()
-        result = dict(row) if row else None
+        visible=_reports_visible([dict(row)] if row else [],client_id)
+        result = visible[0] if visible else None
         if result:
             _refresh_link_icons(cursor, client_id, project_ref, [result])
     return result
@@ -481,7 +522,7 @@ def search_resources(client_id: int, project_ref: str, query: str, *, limit: int
     if len(query) < 2:
         raise ValueError("Informe o que deve ser pesquisado nos recursos do projeto.")
     result = list_resources(
-        client_id, project_ref, reconcile_first=False, include_archived=include_archived,
+        client_id, project_ref, reconcile_first=False, actor_id=actor_id, include_archived=include_archived,
     ).get("resources", [])
     terms = [item for item in query.split() if item]
     if resource_type:
@@ -524,7 +565,7 @@ def search_project_items(context: RequestContext, query: str, *, limit: int = 30
                 "id": row["id"], "kind": "resource", "title": row["title"],
                 "detail": " · ".join(part for part in (row.get("category"), row.get("resource_type"), row.get("source_system")) if part),
                 "resource_type": row.get("resource_type"), "updated_at": row.get("source_updated_at") or row.get("source_created_at"),
-            } for row in cursor.fetchall())
+            } for row in _reports_visible([dict(row) for row in cursor.fetchall()], context.client_id, context.user_id))
         if _relation(cursor, "cadu_project_tasks"):
             cursor.execute(
                 """SELECT id::text, title, status, priority, due_at, updated_at
@@ -784,7 +825,9 @@ def list_resource_relations(client_id: int, project_ref: str, resource_id: str) 
         cursor.execute("""SELECT relation.id,relation.source_resource_id::text,
                                   relation.target_resource_id::text,relation.relation_type,
                                   relation.confidence,relation.metadata,relation.created_at,
-                                  source.title AS source_title,target.title AS target_title
+                                  source.title AS source_title,target.title AS target_title,
+                                  source.source_system AS source_source_system,
+                                  target.source_system AS target_source_system
                              FROM cadu_project_resource_relations relation
                              JOIN cadu_project_resources source ON source.id=relation.source_resource_id
                              JOIN cadu_project_resources target ON target.id=relation.target_resource_id
@@ -792,7 +835,7 @@ def list_resource_relations(client_id: int, project_ref: str, resource_id: str) 
                               AND (relation.source_resource_id=%s OR relation.target_resource_id=%s)
                          ORDER BY relation.updated_at DESC,relation.id DESC""",
                        (client_id, project_ref, str(resource_id), str(resource_id)))
-        return [dict(row) for row in cursor.fetchall()]
+        return _reports_visible([dict(row) for row in cursor.fetchall()],client_id)
 
 
 def update_resource_metadata(context: RequestContext, resource_id: str, changes: dict) -> dict:

@@ -81,23 +81,23 @@ def ensure_supertag_site(selected, host, label):
     """Reuse or create the one browser installation shared by this client's flows."""
     canonical_host = host[4:] if host.startswith('www.') else host
     _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
-          (f"reports-supertag:{selected['organization_id']}:{selected['client_id']}", canonical_host))
-    candidates = _rows('''SELECT id,organization_id,client_id,public_id,label,allowed_host,enabled,config,
+          (f"reports-supertag:{selected['client_id']}", canonical_host))
+    candidates = _rows('''SELECT id,client_id,public_id,label,allowed_host,enabled,config,
             config_version,created_at,updated_at,revoked_at
-        FROM cadu_reports_supertag_sites WHERE organization_id=%s AND client_id=%s
+        FROM cadu_reports_supertag_sites WHERE client_id=%s
             AND enabled=TRUE AND revoked_at IS NULL ORDER BY created_at DESC''',
-        (selected['organization_id'], selected['client_id']))
+        (selected['client_id'],))
     site = next((item for item in candidates if _host_allowed(host, item['allowed_host'])), None)
     if site:
         site['snippet'] = _supertag_snippet(site)
         return site, False
     public_id = secrets.token_urlsafe(18).replace('-', 'a').replace('_', 'b')[:24]
     site = _rows('''INSERT INTO cadu_reports_supertag_sites
-        (id,organization_id,client_id,public_id,label,allowed_host,config,created_by)
-        VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
-        RETURNING id,organization_id,client_id,public_id,label,allowed_host,enabled,config,
+        (id,client_id,public_id,label,allowed_host,config,created_by)
+        VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s)
+        RETURNING id,client_id,public_id,label,allowed_host,enabled,config,
             config_version,created_at,updated_at,revoked_at''',
-        (str(uuid.uuid4()), selected['organization_id'], selected['client_id'], public_id,
+        (str(uuid.uuid4()), selected['client_id'], public_id,
          label[:120], host,
          json.dumps({'consent_required': True, 'consent_mode': 'auto', 'audience_days': 90,
                      'retention_days': 90, 'visibility_enabled': True}), session.get('user_id')))[0]
@@ -107,17 +107,17 @@ def ensure_supertag_site(selected, host, label):
 
 def _fanout_flow_events(site, prepared, page_host):
     """Mirror consented Super Tag events into published flows on the same site."""
-    flow_rows = _rows('''SELECT f.id,f.organization_id,f.client_id,f.flow_code,f.config,t.id AS tag_id,t.allowed_host
+    flow_rows = _rows('''SELECT f.id,f.client_id,f.flow_code,f.config,t.id AS tag_id,t.allowed_host
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-        WHERE f.organization_id=%s AND f.client_id=%s AND f.status='published' AND t.revoked_at IS NULL''',
-        (site['organization_id'], site['client_id']))
+        WHERE f.client_id=%s AND f.site_id=%s AND f.status='published' AND t.revoked_at IS NULL''',
+        (site['client_id'],site['id']))
     from .reports_flow_versions import session_snapshot, match_version_step
     for flow in flow_rows:
         if not _host_allowed(page_host, flow['allowed_host']):
             continue
         nodes = (flow.get('config') or {}).get('nodes', [])
         for item in prepared:
-            (event_id, _site_id, _org_id, _client_id, visitor_id, session_id, kind,
+            (event_id, _site_id, _client_id, visitor_id, session_id, kind,
              event_name, path, referrer, attribution_json, data_json, _width, _height,
              occurred_at) = item
             if kind not in {'page_view', 'page_leave', 'heartbeat', 'click', 'whatsapp_click',
@@ -145,18 +145,17 @@ def _fanout_flow_events(site, prepared, page_host):
             elif mapped_kind == 'page_view' and step and step.get('step_kind') == 'error':
                 mapped_kind = 'error_view'
             campaign_id, method = _campaign_match(
-                {'organization_id': flow['organization_id'], 'client_id': flow['client_id']},
+                {'client_id': flow['client_id']},
                 attribution, step)
             duration_ms = event_data.get('duration_ms') if kind == 'page_leave' else None
             _rows('''INSERT INTO cadu_reports_flow_events
-                (organization_id,client_id,tag_id,visitor_id,session_id,event_kind,event_name,page_host,page_path,
-                 referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method,duration_ms,occurred_at,flow_revision)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
-                (flow['organization_id'], flow['client_id'], flow['tag_id'], flow_visitor_id, session_id,
+                (client_id,tag_id,visitor_id,session_id,event_kind,event_name,page_host,page_path,referrer_host,utm_source,utm_medium,utm_campaign,utm_id,click_id,step_id,campaign_id,attribution_method,duration_ms,occurred_at,flow_revision,source_event_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING''',
+                (flow['client_id'], flow['tag_id'], flow_visitor_id, session_id,
                  mapped_kind, event_name, page_host, safe_path, referrer,
                  attribution.get('utm_source'), attribution.get('utm_medium'), attribution.get('utm_campaign'),
                  attribution.get('utm_id'), attribution.get('click_id'),
-                 step.get('id') if step else None, campaign_id, method, duration_ms, occurred_at,snapshot['published_revision']))
+                 step.get('id') if step else None, campaign_id, method, duration_ms, occurred_at,snapshot['published_revision'],event_id))
 
 
 def _base_url():
@@ -164,7 +163,7 @@ def _base_url():
 
 
 def _site_by_public_id(public_id):
-    found = _rows('''SELECT id,organization_id,client_id,public_id,label,allowed_host,
+    found = _rows('''SELECT id,client_id,public_id,label,allowed_host,
             enabled,config,config_version,created_at,updated_at,revoked_at
         FROM cadu_reports_supertag_sites WHERE public_id=%s AND enabled=TRUE AND revoked_at IS NULL''',
         (public_id,))
@@ -265,7 +264,7 @@ def _event(raw, site):
     if kind == 'visibility' and not config.get('visibility_enabled', True):
         abort(400, description='Coleta de visibilidade desativada para este site.')
     return (
-        _uuid(raw.get('event_id'), 'Evento'), site['id'], site['organization_id'], site['client_id'],
+        _uuid(raw.get('event_id'), 'Evento'), site['id'], site['client_id'],
         _uuid(raw.get('visitor_id'), 'Visitante', optional=True), _uuid(raw.get('session_id'), 'Sessão'),
         kind, event_name, _safe_path(path)[:500], referrer_host, json.dumps(clean_attribution),
         json.dumps(clean_data), _bounded_int(raw.get('viewport_width'), 0, 10000),
@@ -360,7 +359,7 @@ def _bounded_int(value, low, high):
 
 
 def register(bp):
-    @bp.get('/api/v1/reports/supertag/site-check')
+    @bp.get('/api/v2/reports/supertag/site-check')
     @login_required_api
     def supertag_site_check():
         selected = _selection()
@@ -492,18 +491,18 @@ def register(bp):
         get_db().commit()
         return jsonify(identified=True), 200
 
-    @bp.get('/api/v1/reports/supertag/sites')
+    @bp.get('/api/v2/reports/supertag/sites')
     @login_required_api
     def supertag_sites():
         selected = _selection()
-        params = (selected['organization_id'], selected['client_id'])
+        params = (selected['client_id'],)
         sites = _rows('''SELECT s.id,s.public_id,s.label,s.allowed_host,s.enabled,s.config,
                 s.config_version,s.created_at,s.updated_at,s.revoked_at,
                 COUNT(e.id)::bigint AS events_30d,
                 COUNT(e.id) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions_30d
             FROM cadu_reports_supertag_sites s LEFT JOIN cadu_reports_supertag_events e
               ON e.site_id=s.id AND e.expires_at > NOW() AND e.occurred_at >= NOW() - INTERVAL '30 days'
-            WHERE s.organization_id=%s AND s.client_id=%s
+            WHERE s.client_id=%s
             GROUP BY s.id ORDER BY s.created_at DESC''', params)
         base = _base_url()
         for site in sites:
@@ -514,7 +513,7 @@ def register(bp):
                 f'data-cadu-consent="{(site.get("config") or {}).get("consent_mode", "auto")}"></script>')
         return jsonify(sites=sites)
 
-    @bp.post('/api/v1/reports/supertag/sites')
+    @bp.post('/api/v2/reports/supertag/sites')
     @login_required_api
     def supertag_site_create():
         payload = request.get_json(silent=True) or {}
@@ -532,7 +531,7 @@ def register(bp):
         site['script_url'] = f'{base}/v1/supertag.js'
         return jsonify(site=site, reused=not created), 201 if created else 200
 
-    @bp.patch('/api/v1/reports/supertag/sites/<uuid:site_id>')
+    @bp.patch('/api/v2/reports/supertag/sites/<uuid:site_id>')
     @login_required_api
     def supertag_site_update(site_id):
         payload = request.get_json(silent=True) or {}
@@ -541,8 +540,8 @@ def register(bp):
         selected = _selection(payload)
         _write_guard(selected)
         found = _rows('''SELECT id,label,allowed_host,config,config_version FROM cadu_reports_supertag_sites
-            WHERE id=%s AND organization_id=%s AND client_id=%s AND revoked_at IS NULL FOR UPDATE''',
-            (str(site_id), selected['organization_id'], selected['client_id']))
+            WHERE id=%s AND client_id=%s AND revoked_at IS NULL FOR UPDATE''',
+            (str(site_id), selected['client_id']))
         if not found:
             abort(404)
         current = found[0]
@@ -577,15 +576,15 @@ def register(bp):
             f'data-cadu-consent="{config.get("consent_mode", "auto")}"></script>')
         return jsonify(site=updated)
 
-    @bp.post('/api/v1/reports/supertag/sites/<uuid:site_id>/revoke')
+    @bp.post('/api/v2/reports/supertag/sites/<uuid:site_id>/revoke')
     @login_required_api
     def supertag_site_revoke(site_id):
         payload = request.get_json(silent=True) or {}
         selected = _selection(payload)
         _write_guard(selected)
         changed = _rows('''UPDATE cadu_reports_supertag_sites SET enabled=FALSE,revoked_at=NOW(),updated_at=NOW()
-            WHERE id=%s AND organization_id=%s AND client_id=%s AND revoked_at IS NULL RETURNING id''',
-            (str(site_id), selected['organization_id'], selected['client_id']))
+            WHERE id=%s AND client_id=%s AND revoked_at IS NULL RETURNING id''',
+            (str(site_id), selected['client_id']))
         if not changed:
             abort(404)
         get_db().commit()
@@ -687,16 +686,15 @@ def register(bp):
                 abort(429, description='Limite temporário de envio atingido para esta origem.')
             with conn.cursor() as cursor:
                 cursor.executemany('''INSERT INTO cadu_reports_supertag_events
-                    (event_id,site_id,organization_id,client_id,visitor_id,session_id,event_kind,event_name,
-                     page_path,referrer_host,attribution,event_data,viewport_width,viewport_height,occurred_at,expires_at)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,
+                    (event_id,site_id,client_id,visitor_id,session_id,event_kind,event_name,page_path,referrer_host,attribution,event_data,viewport_width,viewport_height,occurred_at,expires_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,
                         NOW() + (%s * INTERVAL '1 day'))
                     ON CONFLICT (site_id,event_id) DO NOTHING''',
                     [(*event, retention_days) for event in prepared])
                 session_rollup = {}
                 for event in prepared:
-                    session_id, visitor_id, occurred_at = event[5], event[4] or event[5], event[14]
-                    attribution = json.loads(event[10] or '{}')
+                    session_id, visitor_id, occurred_at = event[4], event[3] or event[4], event[13]
+                    attribution = json.loads(event[9] or '{}')
                     campaign_scope = (attribution.get('utm_id') or attribution.get('utm_campaign') or '').strip().casefold()
                     current = session_rollup.get(session_id)
                     if current:
@@ -728,13 +726,13 @@ def register(bp):
             raise
         return jsonify(accepted=len(prepared)), 202
 
-    @bp.get('/api/v1/reports/supertag/sites/<uuid:site_id>/events')
+    @bp.get('/api/v2/reports/supertag/sites/<uuid:site_id>/events')
     @login_required_api
     def supertag_site_events(site_id):
         selected = _selection()
-        params = (str(site_id), selected['organization_id'], selected['client_id'])
+        params = (str(site_id), selected['client_id'])
         site = _rows('''SELECT id,public_id,label,allowed_host,config FROM cadu_reports_supertag_sites
-            WHERE id=%s AND organization_id=%s AND client_id=%s''', params)
+            WHERE id=%s AND client_id=%s''', params)
         if not site:
             abort(404)
         summary = _rows('''SELECT event_kind,COUNT(*)::bigint AS total,

@@ -1,11 +1,8 @@
-"""Reports entitlements independent of Workspace projects and brands."""
-
+"""Reports ownership and memberships. Workspace is an optional integration."""
 import re
 import unicodedata
 from flask import abort, g, jsonify, request, session
-
 from ..auth import login_required_api
-from ..cadu_family import context
 from ..db import get_db
 
 
@@ -14,196 +11,178 @@ def reports_only():
         return False
     if not hasattr(g, 'reports_only'):
         with get_db().cursor() as cursor:
-            cursor.execute("SELECT to_regclass('public.cadu_reports_user_access') IS NOT NULL AS ready")
-            ready = bool(cursor.fetchone()['ready'])
-            if not ready:
-                g.reports_only = False
-            else:
-                cursor.execute('''SELECT COALESCE(reports_only,FALSE) AS reports_only
-                    FROM tbl_contato_cliente WHERE id_contato_cliente=%s AND status=TRUE''',
-                    (session['user_id'],))
-                row = cursor.fetchone()
-                g.reports_only = bool(row and row['reports_only'])
+            cursor.execute('SELECT COALESCE(reports_only,FALSE) AS reports_only FROM tbl_contato_cliente WHERE id_contato_cliente=%s AND status=TRUE', (session['user_id'],))
+            row = cursor.fetchone()
+            g.reports_only = bool(row and row['reports_only'])
     return g.reports_only
 
 
 def authorized_clients():
-    actor = context.identity()
-    legacy = [] if reports_only() else context.authorized_clients()
+    if not session.get('user_id'):
+        abort(401)
     with get_db().cursor() as cursor:
-        if reports_only():
-            cursor.execute('''SELECT c.id_cliente AS id,c.nome_fantasia AS name,a.role,
-                    'centralcomm' AS kind
-                FROM cadu_reports_user_access a JOIN tbl_cliente c ON c.id_cliente=a.client_id
-                WHERE a.organization_id=%s AND a.user_id=%s AND a.revoked_at IS NULL
-                    AND c.status=TRUE ORDER BY c.nome_fantasia,c.id_cliente''',
-                (actor['organization_id'], actor['id']))
-            legacy = [dict(row) for row in cursor.fetchall()]
-        cursor.execute('''SELECT c.id,c.name,a.role,'reports' AS kind
-            FROM cadu_reports_user_access a JOIN cadu_reports_clients c
-                ON c.id=a.client_id AND c.organization_id=a.organization_id
-            WHERE a.organization_id=%s AND a.user_id=%s AND a.revoked_at IS NULL
-                AND c.status='active' ORDER BY c.name,c.id''',
-            (actor['organization_id'], actor['id']))
-        native = [dict(row) for row in cursor.fetchall()]
-    normalized = [dict(item, kind=item.get('kind', 'centralcomm')) for item in legacy]
-    known = {int(item['id']) for item in normalized}
-    return normalized + [item for item in native if int(item['id']) not in known]
+        cursor.execute("SELECT to_regclass('public.cadu_reports_client_memberships') IS NOT NULL AS ready")
+        if not cursor.fetchone()['ready']:
+            abort(503, description='Reports requer a migração de contas v2 antes de iniciar.')
+        cursor.execute('''SELECT c.id_cliente AS id,c.nome_fantasia AS name,m.role,m.access_scope
+            FROM cadu_reports_client_memberships m JOIN tbl_cliente c ON c.id_cliente=m.client_id
+            JOIN tbl_contato_cliente u ON u.id_contato_cliente=m.user_id
+            WHERE m.user_id=%s AND m.revoked_at IS NULL AND c.status=TRUE AND u.status=TRUE
+            ORDER BY c.nome_fantasia,c.id_cliente''', (session['user_id'],))
+        return [dict(row) for row in cursor.fetchall()]
 
 
 def resolve(client_id=None):
-    actor = context.identity()
     clients = authorized_clients()
     if client_id is None:
-        preferred = session.get('cliente_id') or actor['organization_id']
-        try:
-            preferred_id = int(preferred)
-        except (TypeError, ValueError):
-            preferred_id = None
-        client_id = preferred_id if any(int(item['id']) == preferred_id for item in clients) else \
-            (clients[0]['id'] if clients else None)
+        preferred = session.get('reports_client_id')
+        client_id = next((c['id'] for c in clients if str(c['id']) == str(preferred)), clients[0]['id'] if clients else None)
+    if isinstance(client_id, (bool, float, list, dict)):
+        abort(400, description='Conta principal inválida.')
     try:
         client_id = int(client_id)
     except (TypeError, ValueError):
-        abort(400, description='Cliente inválido.')
-    client = next((item for item in clients if int(item['id']) == client_id), None)
+        abort(403, description='Nenhuma conta Reports autorizada.')
+    client = next((c for c in clients if int(c['id']) == client_id), None)
     if not client:
-        abort(403, description='Este login não tem acesso ao cliente no Reports.')
-    if client.get('kind') == 'reports' or reports_only():
-        return {'organization_id': actor['organization_id'], 'client_id': client_id,
-                'client_name': client['name'], 'role': client['role'],
-                'client_kind': client.get('kind', 'centralcomm')}
-    selected = context.resolve(client_id)
-    selected['client_kind'] = 'centralcomm'
+        abort(403, description='Sem acesso a esta conta Reports.')
+    selected = dict(user_id=session['user_id'],client_id=client_id,client_name=client['name'],role=client['role'],access_scope=client['access_scope'])
+    if selected['access_scope'] == 'shared':
+        # Resource guests use the restricted viewer endpoints only. Never expose aggregate APIs.
+        if not request.path.startswith('/connect/app') and not request.path.endswith('/bootstrap') and not request.path.endswith('/shared/resources'):
+            match=re.fullmatch(r'/connect/api/v2/reports/flow/flows/([0-9a-fA-F-]{36})/(journey|live|previews(?:/[^/]+/image)?)',request.path)
+            allowed=False
+            if match and request.method=='GET':
+                with get_db().cursor() as cursor:
+                    cursor.execute('''SELECT f.id FROM cadu_reports_flow_registry f WHERE f.id=%s AND f.client_id=%s AND
+                        (EXISTS(SELECT 1 FROM cadu_reports_flow_grants g WHERE g.flow_id=f.id AND g.client_id=f.client_id AND g.user_id=%s)
+                         OR EXISTS(SELECT 1 FROM cadu_reports_site_grants g WHERE g.site_id=f.site_id AND g.client_id=f.client_id AND g.user_id=%s))''',(match[1],client_id,selected['user_id'],selected['user_id']))
+                    allowed=bool(cursor.fetchone())
+            if not allowed: abort(403, description='Este acesso está limitado aos recursos compartilhados.')
     return selected
 
 
 def inventory(client_id):
+    # Called only by an explicit Workspace integration; Reports core does not depend on it.
     if reports_only():
         return []
-    with get_db().cursor() as cursor:
-        cursor.execute('SELECT 1 FROM cadu_reports_clients WHERE id=%s', (client_id,))
-        if cursor.fetchone():
-            return []
+    from ..cadu_family import context
     return context.inventory(client_id)
+
+
+def can_read_all(client_id,user_id=None):
+    """Cross-product readers must independently check Reports permissions."""
+    from flask import has_request_context
+    if user_id is None and has_request_context(): user_id=session.get('user_id')
+    if not user_id:return False
+    with get_db().cursor() as cursor:
+        cursor.execute("SELECT to_regclass('public.cadu_reports_client_memberships') IS NOT NULL AS ready")
+        if not cursor.fetchone()['ready']:return False
+        cursor.execute('''SELECT 1 FROM cadu_reports_client_memberships m
+            JOIN tbl_contato_cliente u ON u.id_contato_cliente=m.user_id AND u.status=TRUE
+            JOIN tbl_cliente c ON c.id_cliente=m.client_id AND c.status=TRUE
+            WHERE m.client_id=%s AND m.user_id=%s AND m.revoked_at IS NULL AND m.access_scope='all' ''',(client_id,user_id))
+        return bool(cursor.fetchone())
 
 
 def register(bp):
     def admin_scope(payload=None):
         from .reports_v1 import _selection, _write_guard
         selected = _selection(payload)
-        if selected['role'] != 'admin' or reports_only():
-            abort(403, description='A gestão de acesso requer um administrador da organização.')
-        context.require_admin()
+        if selected['role'] != 'admin' or selected['access_scope'] != 'all':
+            abort(403, description='A gestão requer administrador desta conta Reports.')
         if request.method != 'GET':
             _write_guard(selected)
         return selected
 
-    @bp.post('/api/v1/reports/clients')
+    @bp.get('/api/v2/reports/customers')
     @login_required_api
-    def reports_client_create():
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            abort(400)
-        from .reports_v1 import _selection, _write_guard
-        selected = _selection(payload)
-        if selected['role'] != 'admin':
-            abort(403, description='A criação de clientes exige perfil administrador no Reports.')
-        _write_guard(selected)
-        name = payload.get('name')
-        if not isinstance(name, str):
-            abort(400, description='Informe o nome do cliente Reports.')
-        name = ' '.join(name.strip().split())
-        if not name or len(name) > 200:
-            abort(400, description='O nome deve ter entre 1 e 200 caracteres.')
-        slug = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii').lower()
-        slug = re.sub(r'[^a-z0-9]+', '-', slug).strip('-')[:160]
-        if not slug:
-            abort(400, description='O nome precisa conter letras ou números.')
-        conn = get_db()
-        with conn.cursor() as cursor:
-            cursor.execute('''INSERT INTO cadu_reports_clients
-                (organization_id,name,slug,created_by)
-                VALUES (%s,%s,%s,%s)
-                ON CONFLICT (organization_id,slug) DO NOTHING
-                RETURNING id,name,slug,status''',
-                (selected['organization_id'], name, slug, session['user_id']))
-            row = cursor.fetchone()
-            if not row:
-                abort(409, description='Já existe um cliente Reports com esse nome.')
-            client = dict(row)
-            cursor.execute('''INSERT INTO cadu_reports_user_access
-                (organization_id,user_id,client_id,role,granted_by)
-                VALUES (%s,%s,%s,'admin',%s)''',
-                (selected['organization_id'], session['user_id'], client['id'], session['user_id']))
-        conn.commit()
-        return jsonify(client=client), 201
+    def reports_customers_list():
+        from .reports_v1 import _selection, _rows
+        selected = _selection()
+        return jsonify(customers=_rows('SELECT id,name,slug,status FROM cadu_reports_customers WHERE client_id=%s ORDER BY name', (selected['client_id'],)))
 
-    @bp.get('/api/v1/reports/access')
+    @bp.post('/api/v2/reports/customers')
+    @login_required_api
+    def reports_customer_create():
+        from .reports_v1 import _required_text, _rows
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict): abort(400)
+        selected = admin_scope(payload)
+        name = _required_text(payload,'name',200)
+        slug = re.sub(r'[^a-z0-9]+','-',unicodedata.normalize('NFKD',name).encode('ascii','ignore').decode().lower()).strip('-')[:160]
+        if not slug: abort(400,description='Informe um nome com letras ou números.')
+        rows = _rows('''INSERT INTO cadu_reports_customers(client_id,name,slug,created_by) VALUES(%s,%s,%s,%s)
+            ON CONFLICT(client_id,slug) DO NOTHING RETURNING id,name,slug,status''', (selected['client_id'],name,slug,session['user_id']))
+        if not rows: abort(409,description='Já existe um cliente com esse nome.')
+        get_db().commit()
+        return jsonify(customer=rows[0]),201
+
+    @bp.patch('/api/v2/reports/customers/<int:customer_id>')
+    @login_required_api
+    def reports_customer_update(customer_id):
+        from .reports_v1 import _required_text,_rows
+        payload=request.get_json(silent=True)
+        if not isinstance(payload,dict): abort(400)
+        selected=admin_scope(payload)
+        name=_required_text(payload,'name',200)
+        status=payload.get('status','active')
+        if status not in ('active','archived'): abort(400)
+        rows=_rows('UPDATE cadu_reports_customers SET name=%s,status=%s,updated_at=NOW() WHERE id=%s AND client_id=%s RETURNING id,name,status',(name,status,customer_id,selected['client_id']))
+        if not rows: abort(404)
+        get_db().commit()
+        return jsonify(customer=rows[0])
+
+    @bp.get('/api/v2/reports/access')
     @login_required_api
     def reports_access_list():
-        selected = admin_scope()
-        with get_db().cursor() as cursor:
-            cursor.execute('''SELECT u.id_contato_cliente AS id,u.nome_completo AS name,
-                    u.email,u.reports_only,a.role,a.revoked_at
-                FROM tbl_contato_cliente u
-                LEFT JOIN cadu_reports_user_access a
-                    ON a.user_id=u.id_contato_cliente AND a.organization_id=%s AND a.client_id=%s
-                WHERE u.pk_id_tbl_cliente=%s AND u.status=TRUE
-                ORDER BY lower(u.nome_completo),u.id_contato_cliente''',
-                (selected['organization_id'], selected['client_id'], selected['organization_id']))
-            users = [dict(row) for row in cursor.fetchall()]
+        from .reports_v1 import _rows
+        selected=admin_scope()
+        users=_rows('''SELECT u.id_contato_cliente AS id,u.nome_completo AS name,u.email,
+            FALSE AS reports_only,m.role,m.access_scope,m.revoked_at
+            FROM tbl_contato_cliente u LEFT JOIN cadu_reports_client_memberships m
+                ON m.user_id=u.id_contato_cliente AND m.client_id=%s
+            WHERE u.status=TRUE AND (u.pk_id_tbl_cliente=%s OR m.user_id IS NOT NULL)
+            ORDER BY lower(u.nome_completo)''',(selected['client_id'],selected['client_id']))
         return jsonify(users=users)
 
-    @bp.post('/api/v1/reports/access')
+    @bp.post('/api/v2/reports/access')
     @login_required_api
     def reports_access_grant():
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            abort(400)
-        selected = admin_scope(payload)
-        try:
-            user_id = int(payload.get('user_id'))
-        except (TypeError, ValueError):
-            abort(400, description='Usuário inválido.')
-        role = payload.get('role')
-        if role not in {'viewer', 'member', 'admin'} or not isinstance(payload.get('exclusive'), bool):
-            abort(400, description='Informe o papel e se o acesso será exclusivo ao Reports.')
-        with get_db().cursor() as cursor:
-            cursor.execute('''SELECT id_contato_cliente,user_type FROM tbl_contato_cliente
-                WHERE id_contato_cliente=%s AND pk_id_tbl_cliente=%s AND status=TRUE FOR UPDATE''',
-                (user_id, selected['organization_id']))
-            user = cursor.fetchone()
-            if not user:
-                abort(404, description='Usuário fora desta organização.')
-            if payload['exclusive'] and (user_id == session['user_id'] or user['user_type'] in ('admin', 'superadmin')):
-                abort(400, description='Não é possível tornar esta conta administrativa exclusiva do Reports.')
-            cursor.execute('''INSERT INTO cadu_reports_user_access
-                (organization_id,user_id,client_id,role,granted_by)
-                VALUES (%s,%s,%s,%s,%s)
-                ON CONFLICT (organization_id,user_id,client_id)
-                DO UPDATE SET role=EXCLUDED.role,granted_by=EXCLUDED.granted_by,
-                    granted_at=NOW(),revoked_at=NULL''',
-                (selected['organization_id'], user_id, selected['client_id'], role, session['user_id']))
-            cursor.execute('''UPDATE tbl_contato_cliente SET reports_only=%s
-                WHERE id_contato_cliente=%s''', (payload['exclusive'], user_id))
-        get_db().commit()
+        from .reports_v1 import _optional_positive_id,_rows
+        payload=request.get_json(silent=True)
+        if not isinstance(payload,dict): abort(400)
+        selected=admin_scope(payload)
+        user_id=_optional_positive_id(payload.get('user_id'),'Usuário')
+        role=payload.get('role')
+        if role not in ('admin','member','viewer'): abort(400)
+        conn=get_db()
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT client_id FROM cadu_reports_client_memberships WHERE client_id=%s AND role=\'admin\' AND revoked_at IS NULL FOR UPDATE',(selected['client_id'],))
+            cursor.fetchall()
+            if user_id==session['user_id'] and role!='admin': abort(400,description='Peça a outro administrador para alterar seu acesso.')
+            cursor.execute('SELECT id_contato_cliente FROM tbl_contato_cliente u WHERE id_contato_cliente=%s AND (pk_id_tbl_cliente=%s OR EXISTS(SELECT 1 FROM cadu_reports_client_memberships m WHERE m.user_id=u.id_contato_cliente AND m.client_id=%s)) AND status=TRUE',(user_id,selected['client_id'],selected['client_id']))
+            if not cursor.fetchone(): abort(404,description='Usuário não encontrado nesta conta.')
+            cursor.execute('''INSERT INTO cadu_reports_client_memberships(client_id,user_id,role,granted_by)
+                VALUES(%s,%s,%s,%s) ON CONFLICT(client_id,user_id) DO UPDATE SET role=EXCLUDED.role,
+                access_scope='all',granted_by=EXCLUDED.granted_by,revoked_at=NULL''',(selected['client_id'],user_id,role,session['user_id']))
+        conn.commit()
         return jsonify(granted=True)
 
-    @bp.post('/api/v1/reports/access/<int:user_id>/revoke')
+    @bp.post('/api/v2/reports/access/<int:user_id>/revoke')
     @login_required_api
     def reports_access_revoke(user_id):
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            abort(400)
-        selected = admin_scope(payload)
-        with get_db().cursor() as cursor:
-            cursor.execute('''UPDATE cadu_reports_user_access SET revoked_at=NOW()
-                WHERE organization_id=%s AND user_id=%s AND client_id=%s AND revoked_at IS NULL
-                RETURNING user_id''',
-                (selected['organization_id'], user_id, selected['client_id']))
-            revoked = cursor.fetchone()
-        if not revoked:
-            abort(404)
+        from .reports_v1 import _rows
+        payload=request.get_json(silent=True)
+        if not isinstance(payload,dict): abort(400)
+        selected=admin_scope(payload)
+        admins=_rows("SELECT user_id FROM cadu_reports_client_memberships WHERE client_id=%s AND role='admin' AND revoked_at IS NULL FOR UPDATE",(selected['client_id'],))
+        if user_id==session['user_id'] or (len(admins)==1 and admins[0]['user_id']==user_id): abort(400,description='Mantenha pelo menos um administrador ativo.')
+        rows=_rows('UPDATE cadu_reports_client_memberships SET revoked_at=NOW() WHERE client_id=%s AND user_id=%s AND revoked_at IS NULL RETURNING user_id',(selected['client_id'],user_id))
+        if not rows: abort(404)
+        # Revocation ends all resource grants, including grants created before full access.
+        for table in ('cadu_reports_site_grants', 'cadu_reports_flow_grants'):
+            _rows(f'DELETE FROM {table} WHERE client_id=%s AND user_id=%s RETURNING user_id',
+                  (selected['client_id'], user_id))
         get_db().commit()
         return jsonify(revoked=True)

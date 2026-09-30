@@ -198,8 +198,8 @@ def create_app(config_class=Config):
         if not reports_only():
             return None
         path = request.path
-        allowed = (path in {'/connect', '/connect/', '/connect/app', '/login', '/logout', '/perfil', '/favicon.ico'}
-                   or path.startswith(('/connect/api/v1/reports/', '/connect/relatorios',
+        allowed = (path in {'/connect', '/connect/', '/connect/app', '/login', '/logout', '/perfil', '/favicon.ico', '/workspace/api/creditos/resumo'}
+                   or path.startswith(('/connect/app/', '/connect/public/supertag/', '/connect/api/v1/reports/', '/connect/api/v2/reports/', '/connect/relatorios',
                                        '/connect/importacoes', '/connect/r/')))
         if allowed:
             return None

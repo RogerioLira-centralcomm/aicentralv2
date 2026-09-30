@@ -985,7 +985,7 @@ def active_entity_count(client_id):
     return count_distinct_entities([row['ref'] for row in active], entity_links(client_id))
 
 
-def create_entity(client_id, user_id, payload, *, return_created=False):
+def create_entity(client_id, user_id, payload, *, return_created=False, commit=True):
     """Write to the PHP source of truth and serialize the plan limit per client."""
     from uuid import NAMESPACE_URL, uuid4, uuid5
     conn = get_db()
@@ -1012,10 +1012,10 @@ def create_entity(client_id, user_id, payload, *, return_created=False):
                                      payload.get('audience', ''), payload.get('positioning', ''),
                                      payload.get('color'), Json(payload.get('custom_fields') or {}),
                                      entity_id, client_id))
-                        conn.commit()
+                        if commit: conn.commit()
                         ref = 'ci:' + str(existing['id'])
                         return (ref, True) if return_created else ref
-                    conn.commit()
+                    if commit: conn.commit()
                     ref = 'ci:' + str(existing['id'])
                     return (ref, False) if return_created else ref
             cur.execute('''SELECT plan_type FROM cadu_client_plans
@@ -1035,7 +1035,7 @@ def create_entity(client_id, user_id, payload, *, return_created=False):
                  payload.get('tone_of_voice', ''), payload.get('audience', ''),
                  payload.get('positioning', ''), payload.get('color'), Json(payload.get('custom_fields') or {}),
                  entity_id))
-        conn.commit()
+        if commit: conn.commit()
         ref = 'ci:' + entity_id
         return (ref, True) if return_created else ref
     except Exception:

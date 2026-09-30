@@ -83,11 +83,11 @@ def run_check(flow):
     return status, results, round((time.monotonic() - started) * 1000)
 
 
-def check_flow(flow_id, organization_id, client_id):
-    flow = _rows("""SELECT f.id,f.organization_id,f.client_id,f.config,f.tag_id,t.allowed_host
+def check_flow(flow_id, client_id):
+    flow = _rows("""SELECT f.id,f.client_id,f.config,f.tag_id,t.allowed_host
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-        WHERE f.id=%s AND f.organization_id=%s AND f.client_id=%s AND f.status='published'
-            AND t.revoked_at IS NULL""", (flow_id, organization_id, client_id))
+        WHERE f.id=%s AND f.client_id=%s AND f.status='published'
+            AND t.revoked_at IS NULL""", (flow_id, client_id))
     if not flow:
         return None
     flow = flow[0]
@@ -96,16 +96,16 @@ def check_flow(flow_id, organization_id, client_id):
     try:
         with connection.cursor() as cursor:
             cursor.execute("""INSERT INTO cadu_reports_flow_monitor_checks
-                    (flow_id,organization_id,client_id,status,duration_ms,pages)
-                VALUES (%s,%s,%s,%s,%s,%s::jsonb) RETURNING id,checked_at""",
-                (flow_id, organization_id, client_id, status, duration,
+                    (flow_id,client_id,status,duration_ms,pages)
+                VALUES (%s,%s,%s,%s,%s::jsonb) RETURNING id,checked_at""",
+                (flow_id, client_id, status, duration,
                  json.dumps(pages, ensure_ascii=False)))
             check = cursor.fetchone()
             cursor.execute("""UPDATE cadu_reports_flow_registry SET monitor_status=%s,
                     monitor_checked_at=%s,monitor_next_check_at=CASE WHEN monitor_enabled
                         THEN NOW()+(monitor_interval_minutes*INTERVAL '1 minute') ELSE NULL END
-                WHERE id=%s AND organization_id=%s AND client_id=%s""",
-                (status, check["checked_at"], flow_id, organization_id, client_id))
+                WHERE id=%s AND client_id=%s""",
+                (status, check["checked_at"], flow_id, client_id))
             cursor.execute("""DELETE FROM cadu_reports_flow_monitor_checks
                 WHERE flow_id=%s AND id NOT IN (SELECT id FROM cadu_reports_flow_monitor_checks
                     WHERE flow_id=%s ORDER BY checked_at DESC LIMIT 200)""", (flow_id, flow_id))
@@ -131,7 +131,7 @@ def process_one():
                 ) UPDATE cadu_reports_flow_registry f SET monitor_status='checking',
                     monitor_next_check_at=NOW()+(monitor_interval_minutes*INTERVAL '1 minute')
                 FROM due WHERE f.id=due.id
-                RETURNING f.id::text,f.organization_id,f.client_id""")
+                RETURNING f.id::text,f.client_id""")
             row = cursor.fetchone()
         connection.commit()
     except Exception:
@@ -140,7 +140,7 @@ def process_one():
     if not row:
         return False
     try:
-        check_flow(row["id"], row["organization_id"], row["client_id"])
+        check_flow(row["id"], row["client_id"])
     except Exception:
         current_app.logger.exception("Falha ao verificar disponibilidade do fluxo %s", row["id"])
         connection = get_db()

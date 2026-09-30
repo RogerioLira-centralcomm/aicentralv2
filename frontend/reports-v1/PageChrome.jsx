@@ -8,6 +8,7 @@ export const REPORT_FILTER_DEFAULTS = Object.freeze({
 
 export const REPORT_PAGE_META = {
   overview: {title: 'Visão geral', description: 'Dados de mídia, atividade do site e campanhas em um só lugar.'},
+  customers: {title: 'Clientes e anunciantes', description: 'Organize seus clientes no Reports.'},
   accounts: {title: 'Contas', description: 'Organize as contas de mídia vinculadas a este cliente.'},
   campaigns: {title: 'Campanhas', description: 'Consulte campanhas, identifique sua origem e abra os resultados.'},
   reports: {title: 'Relatórios', description: 'Crie e consulte relatórios de mídia deste cliente.'},
@@ -24,6 +25,7 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
   const meta = REPORT_PAGE_META[page] || REPORT_PAGE_META.overview;
   const chooseClient = event => {
     const url = new URL(window.location.href);
+    url.pathname='/connect/app/overview';url.search='';url.hash='';
     url.searchParams.set('client_id', event.target.value);
     window.location.assign(url.href);
   };
@@ -35,12 +37,9 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
     </div>
     <div className="reports-page-header__actions">
       {onAction && <UntitledButton className="reports-page-header__action" size="sm" color="tertiary" onPress={onAction.onClick}>{onAction.label}</UntitledButton>}
-      {clients.length > 1 ? <label className="reports-client-select"><span className="reports-sr-only">Cliente Reports</span>
-        <select value={client?.client_id ?? ''} onChange={chooseClient} aria-label="Cliente Reports">
-          {clients.map(item => {
-            const isOrganization = Number(item.id) === Number(client?.organization_id);
-            return <option key={item.id} value={item.id}>{item.name}{!isOrganization ? ' · Reports' : ''}</option>;
-          })}
+      {clients.length > 1 ? <label className="reports-client-select"><span className="reports-sr-only">Conta principal</span>
+        <select value={client?.client_id ?? ''} onChange={chooseClient} aria-label="Conta principal">
+          {clients.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </label> : null}
     </div>

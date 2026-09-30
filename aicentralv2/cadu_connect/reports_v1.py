@@ -19,7 +19,7 @@ from .report_rules import planned_phase
 def _rows(sql, params=()):
     with get_db().cursor() as cursor:
         cursor.execute(sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+        return [dict(row) for row in cursor.fetchall()] if cursor.description else []
 
 
 def _ready():
@@ -45,11 +45,11 @@ def _visible_workspace_projects(selected):
         return []
     projects = _rows('''SELECT id::text AS id,nome AS name,status
         FROM cadu_ci_projetos WHERE id_cliente=%s AND status <> 'deletado'
-        ORDER BY lower(nome),id''', (selected['organization_id'],))
+        ORDER BY lower(nome),id''', (selected['client_id'],))
     from ..cadu_family import repository as family_repository
     actor_id = int(session['user_id'])
     return [project for project in projects if family_repository.project_user_can_view(
-        int(selected['organization_id']), f"ci:{project['id']}", actor_id)]
+        int(selected['client_id'],), f"ci:{project['id']}", actor_id)]
 
 
 def _write_guard(selected):
@@ -100,6 +100,13 @@ def _optional_positive_id(value, field):
     return number
 
 
+def _customer_id(selected,value):
+    customer_id=_optional_positive_id(value,'Cliente/anunciante')
+    if customer_id and not _rows("SELECT id FROM cadu_reports_customers WHERE id=%s AND client_id=%s AND status='active'",(customer_id,selected['client_id'])):
+        abort(404,description='Cliente/anunciante indisponível nesta conta.')
+    return customer_id
+
+
 def _redact_ai_text(value, limit):
     """Minimize page-derived text before sending it to semantic suggestions."""
     text = str(value or '')[:limit]
@@ -131,20 +138,20 @@ def register(bp):
     @login_required
     def reports_v1_app(section=None, site_id=None, flow_id=None):
         if section and section not in {
-            'overview', 'accounts', 'campaigns', 'reports', 'imports',
+            'overview', 'customers', 'accounts', 'campaigns', 'reports', 'imports',
             'monitor', 'supertag', 'flow', 'flows', 'events', 'links', 'access',
             'data-library', 'conversions',
         }:
             abort(404)
         selected = reports_access.resolve(request.args.get('client_id'))
         if request.args.get('client_id'):
-            session['cliente_id'] = selected['client_id']
+            session['reports_client_id'] = selected['client_id']
         agency = _rows('''SELECT COALESCE(NULLIF(nome_fantasia,''),NULLIF(razao_social,'')) AS name
             FROM tbl_cliente WHERE id_cliente=%s AND status=TRUE''',
-            (selected['organization_id'],))
+            (selected['client_id'],))
         return render_template('cadu_connect/app_v1.html', agency_name=agency[0]['name'] if agency else '')
 
-    @bp.get('/api/v1/reports/bootstrap')
+    @bp.get('/api/v2/reports/bootstrap')
     @login_required_api
     def reports_v1_bootstrap():
         selected = _selection()
@@ -155,30 +162,31 @@ def register(bp):
         if not _ready():
             return jsonify(ready=False, client=selected, csrf=session['family_csrf'],
                            clients=clients, accounts=[], campaigns=[], reports=[], link_tests=[])
-        params = (selected['organization_id'], selected['client_id'])
-        accounts = _rows('''SELECT id,platform,external_id,name,parent_account_id,account_kind,
+        if selected['access_scope']=='shared':
+            return jsonify(ready=True,shared=True,client=selected,clients=clients,csrf=session['family_csrf'],accounts=[],campaigns=[],reports=[],link_tests=[],customers=[])
+        params = (selected['client_id'],)
+        accounts = _rows('''SELECT id,customer_id,platform,external_id,name,parent_account_id,account_kind,
                 currency,time_zone,status,updated_at FROM cadu_reports_accounts
-                WHERE organization_id=%s AND client_id=%s ORDER BY platform,account_kind DESC,name''', params)
-        workspace_projects = _visible_workspace_projects(selected)
+                WHERE client_id=%s ORDER BY platform,account_kind DESC,name''', params)
+        workspace_projects = []  # Loaded only when the user requests a Workspace integration.
         has_channel_type = _column_exists('cadu_reports_campaigns', 'channel_type')
         has_workspace_project = _column_exists('cadu_reports_campaigns', 'workspace_project_id')
         optional_campaign_fields = (
             f"c.{ 'channel_type' if has_channel_type else 'objective' } AS channel_type, "
             + ("c.workspace_project_id::text AS workspace_project_id, " if has_workspace_project
                else "NULL::text AS workspace_project_id, "))
-        campaign_project_join = ("LEFT JOIN cadu_ci_projetos p ON p.id=c.workspace_project_id "
-            "AND p.id_cliente=c.organization_id AND p.status <> 'deletado'" if has_workspace_project else "")
-        campaign_project_select = "p.nome AS workspace_project_name" if has_workspace_project else "NULL::text AS workspace_project_name"
-        campaigns = _rows(f'''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,
+        campaign_project_join = ''
+        campaign_project_select = 'NULL::text AS workspace_project_name'
+        campaigns = _rows(f'''SELECT c.id,c.customer_id,c.origin,c.account_id,c.external_id,c.name,c.status,c.objective,
                 {optional_campaign_fields}
                 {campaign_project_select},a.name AS account_name,a.platform
-            FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
+            FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
             {campaign_project_join}
-                WHERE c.organization_id=%s AND c.client_id=%s ORDER BY a.name,c.name''', params)
+                WHERE c.client_id=%s ORDER BY a.name,c.name''', params)
         reports_ready = _rows("SELECT to_regclass('public.cadu_connect_report_workspaces') IS NOT NULL AS ready")[0]['ready']
         reports = (_rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
                 revision,updated_at FROM cadu_connect_report_workspaces
-                WHERE organization_id=%s AND client_id=%s ORDER BY updated_at DESC LIMIT 60''', params)
+                WHERE client_id=%s ORDER BY updated_at DESC LIMIT 60''', params)
             if reports_ready else [])
         link_tests_ready = _rows("SELECT to_regclass('public.cadu_reports_link_test_runs') IS NOT NULL AS ready")[0]['ready']
         link_tests = (_rows('''SELECT r.id,r.mode,r.original_url,r.final_url,r.score,r.status_label,r.public_token,
@@ -186,19 +194,19 @@ def register(bp):
                 r.association_updated_at,c.name AS campaign_name,w.campaign_name AS report_name
                 FROM cadu_reports_link_test_runs r
                 LEFT JOIN cadu_reports_campaigns c ON c.id=r.media_campaign_id
-                    AND c.organization_id=%s AND c.client_id=%s
+                    AND c.client_id=%s
                 LEFT JOIN cadu_connect_report_workspaces w ON w.id=r.report_workspace_id
-                    AND w.organization_id=%s AND w.client_id=%s
+                    AND w.client_id=%s
                 WHERE r.client_id=%s ORDER BY r.created_at DESC LIMIT 20''',
                 (*params, *params, selected['client_id'])) if link_tests_ready else [])
-        return jsonify(ready=True, features={'flows_workspace_v2': str(selected['client_id']) in os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS','').split(',') or os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS') == '*'}, client=selected, clients=clients, csrf=session['family_csrf'],
-                       can_manage_access=selected['role'] == 'admin' and
-                           session.get('user_type') in ('admin', 'superadmin') and not reports_access.reports_only(),
+        return jsonify(ready=True, features={'flows_workspace_v2': str(selected['client_id'],) in os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS','').split(',') or os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS') == '*'}, client=selected, clients=clients, csrf=session['family_csrf'],
+                       can_manage_access=selected['role'] == 'admin',
                        can_manage_clients=selected['role'] == 'admin',
+                       customers=_rows('SELECT id,name,status FROM cadu_reports_customers WHERE client_id=%s ORDER BY name',params),
                        accounts=accounts, campaigns=campaigns, reports=reports, link_tests=link_tests,
                        workspace_projects=workspace_projects)
 
-    @bp.post('/api/v1/reports/accounts')
+    @bp.post('/api/v2/reports/accounts')
     @login_required_api
     def reports_v1_create_account():
         payload = request.get_json(silent=True) or {}
@@ -227,21 +235,21 @@ def register(bp):
             except (TypeError, ValueError):
                 abort(400, description='Conta gerente inválida.')
             parent = _rows('''SELECT id FROM cadu_reports_accounts WHERE id=%s
-                    AND organization_id=%s AND client_id=%s AND platform=%s AND account_kind='manager' ''',
-                    (parent_id, selected['organization_id'], selected['client_id'], platform))
+                    AND client_id=%s AND platform=%s AND account_kind='manager' ''',
+                    (parent_id, selected['client_id'], platform))
             if not parent:
                 abort(400, description='A conta gerente precisa pertencer ao mesmo cliente e plataforma.')
         created = _rows('''INSERT INTO cadu_reports_accounts
-                (organization_id,client_id,platform,external_id,name,parent_account_id,account_kind)
+                (client_id,platform,external_id,name,parent_account_id,account_kind,customer_id)
                 VALUES (%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (organization_id,client_id,platform,external_id)
+                ON CONFLICT (client_id,platform,external_id)
                 DO UPDATE SET name=EXCLUDED.name,updated_at=NOW()
                 RETURNING id,platform,external_id,name,parent_account_id,account_kind,status''',
-                (selected['organization_id'], selected['client_id'], platform, external_id, name, parent_id, kind))
+                (selected['client_id'], platform, external_id, name, parent_id, kind,_customer_id(selected,payload.get('customer_id'))))
         get_db().commit()
         return jsonify(account=created[0]), 201
 
-    @bp.patch('/api/v1/reports/accounts/<int:account_id>')
+    @bp.patch('/api/v2/reports/accounts/<int:account_id>')
     @login_required_api
     def reports_v1_update_account(account_id):
         payload = request.get_json(silent=True)
@@ -249,9 +257,9 @@ def register(bp):
             abort(400)
         selected = _selection(payload)
         _write_guard(selected)
-        current = _rows('''SELECT id,platform,external_id,name,parent_account_id,account_kind,status
-            FROM cadu_reports_accounts WHERE id=%s AND organization_id=%s AND client_id=%s FOR UPDATE''',
-            (account_id, selected['organization_id'], selected['client_id']))
+        current = _rows('''SELECT id,customer_id,platform,external_id,name,parent_account_id,account_kind,status
+            FROM cadu_reports_accounts WHERE id=%s AND client_id=%s FOR UPDATE''',
+            (account_id, selected['client_id']))
         if not current:
             abort(404)
         account = current[0]
@@ -271,19 +279,19 @@ def register(bp):
             except (TypeError, ValueError):
                 abort(400, description='Conta gerente inválida.')
             parent = _rows('''SELECT id FROM cadu_reports_accounts
-                WHERE id=%s AND organization_id=%s AND client_id=%s AND platform=%s
+                WHERE id=%s AND client_id=%s AND platform=%s
                     AND account_kind='manager' AND status <> 'disabled' ''',
-                (parent_id, selected['organization_id'], selected['client_id'], account['platform']))
+                (parent_id, selected['client_id'], account['platform']))
             if not parent or account['account_kind'] != 'advertiser':
                 abort(400, description='Selecione uma MCC ativa da mesma plataforma para o anunciante.')
         if external_id != account['external_id']:
             duplicate_sql = ('''SELECT id FROM cadu_reports_accounts
-                WHERE organization_id=%s AND client_id=%s AND platform=%s
+                WHERE client_id=%s AND platform=%s
                   AND regexp_replace(external_id,'[^0-9]','','g')=%s AND id<>%s''' if account['platform'] == 'google_ads'
                 else '''SELECT id FROM cadu_reports_accounts
-                WHERE organization_id=%s AND client_id=%s AND platform=%s AND external_id=%s AND id<>%s''')
+                WHERE client_id=%s AND platform=%s AND external_id=%s AND id<>%s''')
             duplicate = _rows(duplicate_sql,
-                (selected['organization_id'], selected['client_id'], account['platform'], external_id, account_id))
+                (selected['client_id'], account['platform'], external_id, account_id))
             if duplicate:
                 abort(409, description='Este ID externo já está cadastrado para outra conta desta plataforma.')
             if account['platform'] == 'google_ads':
@@ -291,17 +299,17 @@ def register(bp):
                         allowed_account_ids=array_replace(allowed_account_ids,%s,%s),
                         bound_account_id=CASE WHEN bound_account_id=%s THEN %s ELSE bound_account_id END,
                         manager_external_id=CASE WHEN manager_external_id=%s THEN %s ELSE manager_external_id END
-                    WHERE organization_id=%s AND client_id=%s''',
+                    WHERE client_id=%s''',
                     (account['external_id'], external_id, account['external_id'], external_id,
-                     account['external_id'], external_id, selected['organization_id'], selected['client_id']))
+                     account['external_id'], external_id, selected['client_id']))
         changed = _rows('''UPDATE cadu_reports_accounts SET name=%s,external_id=%s,parent_account_id=%s,status=%s,updated_at=NOW()
-            WHERE id=%s AND organization_id=%s AND client_id=%s
+            WHERE id=%s AND client_id=%s
             RETURNING id,platform,external_id,name,parent_account_id,account_kind,status,updated_at''',
-            (name, external_id, parent_id, status, account_id, selected['organization_id'], selected['client_id']))
+            (name, external_id, parent_id, status, account_id, selected['client_id']))
         get_db().commit()
         return jsonify(account=changed[0])
 
-    @bp.post('/api/v1/reports/campaigns')
+    @bp.post('/api/v2/reports/campaigns')
     @login_required_api
     def reports_v1_create_campaign():
         payload = request.get_json(silent=True) or {}
@@ -311,16 +319,17 @@ def register(bp):
         _write_guard(selected)
         if not _ready():
             abort(503)
-        try:
-            account_id = int(payload.get('account_id'))
-        except (TypeError, ValueError):
-            abort(400, description='Selecione uma conta.')
-        account = _rows('''SELECT id FROM cadu_reports_accounts WHERE id=%s
-                AND organization_id=%s AND client_id=%s AND account_kind='advertiser' ''',
-                (account_id, selected['organization_id'], selected['client_id']))
-        if not account:
-            abort(404, description='Conta de mídia não encontrada neste cliente.')
-        external_id = _required_text(payload, 'external_id', 160)
+        account_id = _optional_positive_id(payload.get('account_id'), 'Conta')
+        customer_id = _customer_id(selected, payload.get('customer_id'))
+        if account_id:
+            account = _rows("SELECT id,customer_id FROM cadu_reports_accounts WHERE id=%s AND client_id=%s AND account_kind='advertiser'", (account_id,selected['client_id']))
+            if not account: abort(404,description='Conta não encontrada.')
+            owner = account[0]['customer_id']
+            if customer_id is not None and owner != customer_id:
+                abort(400,description='A campanha e a conta devem pertencer ao mesmo anunciante.')
+            customer_id = owner
+        external_id = _required_text(payload, 'external_id', 160) if account_id else None
+        origin = 'platform' if account_id else 'manual'
         name = _required_text(payload, 'name', 240)
         objective = payload.get('objective')
         channel_type = payload.get('channel_type')
@@ -331,18 +340,18 @@ def register(bp):
         objective = ' '.join((objective or '').split())[:160] or None
         channel_type = ' '.join((channel_type or '').split())[:64] or None
         created = _rows('''INSERT INTO cadu_reports_campaigns
-                (organization_id,client_id,account_id,external_id,name,objective,channel_type)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                (client_id,account_id,external_id,name,objective,channel_type,customer_id,origin)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (account_id,external_id)
                 DO UPDATE SET name=EXCLUDED.name,objective=COALESCE(EXCLUDED.objective,cadu_reports_campaigns.objective),
                     channel_type=COALESCE(EXCLUDED.channel_type,cadu_reports_campaigns.channel_type),updated_at=NOW()
                 RETURNING id,account_id,external_id,name,status,objective,channel_type''',
-                (selected['organization_id'], selected['client_id'], account_id, external_id, name,
-                 objective, channel_type))
+                (selected['client_id'], account_id, external_id, name,
+                 objective, channel_type,customer_id,origin))
         get_db().commit()
         return jsonify(campaign=created[0]), 201
 
-    @bp.patch('/api/v1/reports/campaigns/<int:campaign_id>')
+    @bp.patch('/api/v2/reports/campaigns/<int:campaign_id>')
     @login_required_api
     def reports_v1_update_campaign(campaign_id):
         payload = request.get_json(silent=True)
@@ -350,6 +359,19 @@ def register(bp):
             abort(400)
         selected = _selection(payload)
         _write_guard(selected)
+        current = _rows('SELECT id,account_id,external_id,customer_id,origin FROM cadu_reports_campaigns WHERE id=%s AND client_id=%s FOR UPDATE',(campaign_id,selected['client_id']))
+        if not current: abort(404)
+        current=current[0]
+        account_id=current['account_id'];external_id=current['external_id'];origin=current['origin']
+        if 'account_id' in payload and str(payload.get('account_id') or '')!=str(account_id or ''):
+            if account_id: abort(409,description='Uma campanha já conectada não pode ser movida para outra conta.')
+            account_id=_optional_positive_id(payload.get('account_id'),'Conta')
+            if account_id:
+                account=_rows("SELECT id,customer_id FROM cadu_reports_accounts WHERE id=%s AND client_id=%s AND account_kind='advertiser' AND status<>'disabled'",(account_id,selected['client_id']))
+                if not account or account[0]['customer_id']!=current['customer_id']: abort(400,description='Selecione uma conta do mesmo anunciante.')
+                external_id=_required_text(payload,'external_id',160)
+                if _rows('SELECT id FROM cadu_reports_campaigns WHERE account_id=%s AND external_id=%s',(account_id,external_id)):abort(409,description='Esta campanha externa já está cadastrada. A conexão não pode duplicar o histórico.')
+                origin='platform'
         name = _required_text(payload, 'name', 240)
         objective = payload.get('objective')
         channel_type = payload.get('channel_type')
@@ -360,30 +382,28 @@ def register(bp):
         objective = ' '.join((objective or '').split())[:160] or None
         channel_type = ' '.join((channel_type or '').split())[:64] or None
         updated = _rows('''UPDATE cadu_reports_campaigns
-            SET name=%s,objective=%s,channel_type=%s,updated_at=NOW()
-            WHERE id=%s AND organization_id=%s AND client_id=%s
-            RETURNING id,name,objective,channel_type,status,updated_at''',
-            (name, objective, channel_type, campaign_id,
-             selected['organization_id'], selected['client_id']))
+            SET name=%s,objective=%s,channel_type=%s,account_id=%s,external_id=%s,origin=%s,updated_at=NOW()
+            WHERE id=%s AND client_id=%s
+            RETURNING id,name,objective,channel_type,status,updated_at,account_id,external_id,origin''',
+            (name, objective, channel_type, account_id,external_id,origin,campaign_id,
+             selected['client_id']))
         if not updated:
             abort(404, description='Campanha não encontrada neste cliente.')
         get_db().commit()
         return jsonify(campaign=updated[0])
 
-    @bp.get('/api/v1/reports/campaigns/<int:campaign_id>')
+    @bp.get('/api/v2/reports/campaigns/<int:campaign_id>')
     @login_required_api
     def reports_v1_campaign_detail(campaign_id):
         selected = _selection()
-        scope = (selected['organization_id'], selected['client_id'])
-        campaigns = _rows('''SELECT c.id,c.account_id,c.external_id,c.name,c.status,c.objective,c.channel_type,
-                c.workspace_project_id::text AS workspace_project_id,p.nome AS workspace_project_name,
+        scope = (selected['client_id'],)
+        campaigns = _rows('''SELECT c.id,c.customer_id,c.origin,c.account_id,c.external_id,c.name,c.status,c.objective,c.channel_type,
+                c.workspace_project_id::text AS workspace_project_id,NULL::text AS workspace_project_name,
                 c.metadata,c.created_at,c.updated_at,a.name AS account_name,a.platform,
                 a.external_id AS account_external_id,a.parent_account_id
-            FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a
-              ON a.id=c.account_id AND a.organization_id=c.organization_id AND a.client_id=c.client_id
-            LEFT JOIN cadu_ci_projetos p ON p.id=c.workspace_project_id
-                AND p.id_cliente=c.organization_id AND p.status <> 'deletado'
-            WHERE c.id=%s AND c.organization_id=%s AND c.client_id=%s''', (campaign_id, *scope))
+            FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a
+              ON a.id=c.account_id AND a.client_id=c.client_id
+            WHERE c.id=%s AND c.client_id=%s''', (campaign_id, *scope))
         if not campaigns:
             abort(404, description='Campanha não encontrada neste cliente.')
         projection_ready = _rows("SELECT to_regclass('public.cadu_reports_import_metric_projection') IS NOT NULL AS ready")[0]['ready']
@@ -393,7 +413,7 @@ def register(bp):
         if projection_ready:
             metrics = _rows('''SELECT metric_date,metric_key,currency,value_numeric,observation_count,version_count
                 FROM cadu_reports_import_metric_projection
-                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                WHERE client_id=%s AND campaign_id=%s
                 ORDER BY metric_date DESC,metric_key LIMIT 1000''', (*scope,campaign_id))
             totals = _rows('''SELECT metric_key,currency,
                 SUM(value_numeric) FILTER (WHERE value_numeric IS NOT NULL) AS total_value,
@@ -401,27 +421,27 @@ def register(bp):
                 COUNT(*) FILTER (WHERE value_numeric IS NULL)::bigint AS conflict_count,
                 MAX(metric_date) AS latest_date
                 FROM cadu_reports_import_metric_projection
-                WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                WHERE client_id=%s AND campaign_id=%s
                 GROUP BY metric_key,currency ORDER BY metric_key,currency''', (*scope,campaign_id))
         else:
             metrics, totals = [], []
         metric_observations = _rows('''SELECT DISTINCT ON (metric_date,metric_key,dimensions)
                 metric_date,metric_key,value_numeric,currency,dimensions
             FROM cadu_reports_import_observations
-            WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+            WHERE client_id=%s AND campaign_id=%s
             ORDER BY metric_date,metric_key,dimensions,id DESC LIMIT 3000''',
             (*scope,campaign_id)) if dimensions_ready else []
         ranges_ready = _rows("SELECT to_regclass('public.cadu_reports_import_range_snapshots') IS NOT NULL "
                              "AND to_regclass('public.cadu_reports_import_files') IS NOT NULL AS ready")[0]['ready']
         snapshots = _rows('''SELECT s.id,s.import_id,s.period_start,s.period_end,s.note,s.created_at,f.original_name
             FROM cadu_reports_import_range_snapshots s JOIN cadu_reports_import_files f
-              ON f.id=s.import_id AND f.organization_id=s.organization_id AND f.client_id=s.client_id
-            WHERE s.organization_id=%s AND s.client_id=%s AND s.campaign_id=%s
+              ON f.id=s.import_id AND f.client_id=s.client_id
+            WHERE s.client_id=%s AND s.campaign_id=%s
             ORDER BY s.created_at DESC LIMIT 100''', (*scope,campaign_id)) if ranges_ready else []
         for snapshot in snapshots:
             snapshot['metrics'] = _rows('''SELECT metric_key,COALESCE(metric_label,metric_key) AS metric_label,
                     value_numeric,unit,currency,channel FROM cadu_reports_import_range_metrics
-                WHERE snapshot_id=%s AND organization_id=%s AND client_id=%s ORDER BY metric_key''',
+                WHERE snapshot_id=%s AND client_id=%s ORDER BY metric_key''',
                 (snapshot['id'], *scope))
         custom_values = []
         custom_ready = _rows("SELECT to_regclass('public.cadu_reports_import_custom_values') IS NOT NULL "
@@ -430,59 +450,29 @@ def register(bp):
         if custom_ready:
             custom_values = _rows('''SELECT DISTINCT ON (metric_date,channel,metric_key,dimensions)
                 metric_date,channel,metric_key,metric_label,value_numeric,unit,currency,dimensions
-                FROM cadu_reports_import_custom_values WHERE organization_id=%s AND client_id=%s AND campaign_id=%s
+                FROM cadu_reports_import_custom_values WHERE client_id=%s AND campaign_id=%s
                 ORDER BY metric_date DESC,channel,metric_key,dimensions,id DESC LIMIT 500''', (*scope,campaign_id))
         reports = _rows('''SELECT id,campaign_name,revision,updated_at FROM cadu_connect_report_workspaces
-            WHERE organization_id=%s AND client_id=%s AND media_campaign_id=%s
+            WHERE client_id=%s AND media_campaign_id=%s
             ORDER BY updated_at DESC LIMIT 100''', (*scope,campaign_id))
         imports = _rows('''SELECT DISTINCT f.id,f.original_name,f.file_kind,f.created_at,f.status,
                 COUNT(DISTINCT o.id)::bigint AS observations
             FROM cadu_reports_import_files f JOIN cadu_reports_import_rows r
-              ON r.import_id=f.id AND r.organization_id=f.organization_id AND r.client_id=f.client_id
+              ON r.import_id=f.id AND r.client_id=f.client_id
             LEFT JOIN cadu_reports_import_observations o
-              ON o.import_row_id=r.id AND o.organization_id=r.organization_id AND o.client_id=r.client_id
-            WHERE f.organization_id=%s AND f.client_id=%s AND r.campaign_id=%s
+              ON o.import_row_id=r.id AND o.client_id=r.client_id
+            WHERE f.client_id=%s AND r.campaign_id=%s
             GROUP BY f.id ORDER BY f.created_at DESC LIMIT 100''', (*scope,campaign_id))
         return jsonify(campaign=campaigns[0],metrics=metrics,metric_totals=totals,range_snapshots=snapshots,
                        custom_values=custom_values,metric_observations=metric_observations,
                        reports=reports,imports=imports)
 
-    @bp.patch('/api/v1/reports/campaigns/<int:campaign_id>/workspace-project')
+    @bp.patch('/api/v2/reports/campaigns/<int:campaign_id>/workspace-project')
     @login_required_api
     def reports_v1_campaign_workspace_project(campaign_id):
-        payload = request.get_json(silent=True)
-        if not isinstance(payload, dict):
-            abort(400)
-        selected = _selection(payload)
-        _write_guard(selected)
-        if selected['role'] != 'admin':
-            abort(403, description='A associação com projetos do Workspace requer perfil admin neste cliente.')
-        project_id = payload.get('workspace_project_id')
-        project = None
-        if project_id not in (None, ''):
-            if not isinstance(project_id, str) or not project_id.strip() or len(project_id) > 160:
-                abort(400, description='Projeto do Workspace inválido.')
-            project_id = project_id.strip()
-            project = _rows('''SELECT id::text AS id,nome AS name FROM cadu_ci_projetos
-                WHERE id=%s AND id_cliente=%s AND status <> 'deletado' ''',
-                (project_id, selected['organization_id']))
-            if not project:
-                abort(404, description='O projeto não pertence à organização ou não está disponível.')
-            from ..cadu_family import repository as family_repository
-            if not family_repository.project_user_can_view(
-                    int(selected['organization_id']), f'ci:{project_id}', int(session['user_id'])):
-                abort(403, description='Você não tem acesso a esse projeto do Workspace.')
-        changed = _rows('''UPDATE cadu_reports_campaigns
-            SET workspace_project_id=%s,updated_at=NOW()
-            WHERE id=%s AND organization_id=%s AND client_id=%s
-            RETURNING id,workspace_project_id::text AS workspace_project_id''',
-            (project_id or None, campaign_id, selected['organization_id'], selected['client_id']))
-        if not changed:
-            abort(404, description='Campanha não encontrada neste cliente.')
-        get_db().commit()
-        return jsonify(campaign=changed[0], project=project[0] if project else None)
+        abort(410, description='Use os vínculos opcionais do Workspace na campanha.')
 
-    @bp.post('/api/v1/reports/workspaces')
+    @bp.post('/api/v2/reports/workspaces')
     @login_required_api
     def reports_v1_create_workspace():
         payload = request.get_json(silent=True) or {}
@@ -504,9 +494,9 @@ def register(bp):
             except (TypeError, ValueError):
                 abort(400, description='Campanha inválida.')
             matched = _rows('''SELECT c.id,c.account_id,c.external_id,a.external_id AS account_external_id,
-                    a.platform FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
-                    WHERE c.id=%s AND c.organization_id=%s AND c.client_id=%s''',
-                    (campaign_id, selected['organization_id'], selected['client_id']))
+                    a.platform FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+                    WHERE c.id=%s AND c.client_id=%s''',
+                    (campaign_id, selected['client_id']))
             if not matched:
                 abort(404, description='Campanha não encontrada neste cliente.')
             row = matched[0]
@@ -521,10 +511,9 @@ def register(bp):
         }
         campaign_key = f"media:{campaign_id}" if campaign_id else f"standalone:{uuid.uuid4()}"
         created = _rows('''INSERT INTO cadu_connect_report_workspaces
-                (organization_id,client_id,project_ref,campaign_name,campaign_key,document,
-                 account_id,media_campaign_id,created_by,updated_by)
-                VALUES (%s,%s,NULL,%s,%s,%s::jsonb,%s,%s,%s,%s) RETURNING id,revision''',
-                (selected['organization_id'], selected['client_id'], name, campaign_key,
+                (client_id,project_ref,campaign_name,campaign_key,document,account_id,media_campaign_id,created_by,updated_by)
+                VALUES (%s,NULL,%s,%s,%s::jsonb,%s,%s,%s,%s) RETURNING id,revision''',
+                (selected['client_id'], name, campaign_key,
                  json.dumps(document), account_id, campaign_id, session['user_id'], session['user_id']))
         report = created[0]
         _rows('''INSERT INTO cadu_connect_report_workspace_versions
@@ -535,14 +524,14 @@ def register(bp):
         get_db().commit()
         return jsonify(report=report), 201
 
-    @bp.get('/api/v1/reports/workspaces/<int:report_id>')
+    @bp.get('/api/v2/reports/workspaces/<int:report_id>')
     @login_required_api
     def reports_v1_workspace_detail(report_id):
         selected = _selection()
-        params = (report_id, selected['organization_id'], selected['client_id'])
+        params = (report_id, selected['client_id'])
         found = _rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
             document,revision,created_at,updated_at FROM cadu_connect_report_workspaces
-            WHERE id=%s AND organization_id=%s AND client_id=%s''', params)
+            WHERE id=%s AND client_id=%s''', params)
         if not found:
             abort(404)
         versions = _rows('''SELECT revision,note,created_by,created_at
@@ -558,7 +547,7 @@ def register(bp):
         return jsonify(report=found[0], versions=versions, sources=sources,
                        public_link=published[0] if published else None)
 
-    @bp.post('/api/v1/reports/workspaces/<int:report_id>/plan')
+    @bp.post('/api/v2/reports/workspaces/<int:report_id>/plan')
     @login_required_api
     def reports_v1_plan_workspace(report_id):
         payload = request.get_json(silent=True)
@@ -570,8 +559,8 @@ def register(bp):
             abort(403, description='O planejamento exige acesso de operação ou administração.')
         report = _rows('''SELECT id,campaign_name,document,revision
             FROM cadu_connect_report_workspaces
-            WHERE id=%s AND organization_id=%s AND client_id=%s''',
-            (report_id, selected['organization_id'], selected['client_id']))
+            WHERE id=%s AND client_id=%s''',
+            (report_id, selected['client_id']))
         if not report:
             abort(404)
         reviewed_metrics = []
@@ -615,7 +604,7 @@ def register(bp):
         record_run(report_id, None, 'plan_next_action', plan, session['user_id'])
         return jsonify(plan=plan, report_id=report_id, revision=report[0]['revision'])
 
-    @bp.post('/api/v1/reports/workspaces/<int:report_id>/document')
+    @bp.post('/api/v2/reports/workspaces/<int:report_id>/document')
     @login_required_api
     def reports_v1_update_workspace_document(report_id):
         payload = request.get_json(silent=True)
@@ -628,8 +617,8 @@ def register(bp):
             abort(400, description='Informe a versão atual.')
         note = _required_text(payload, 'update_note', 2000)
         found = _rows('''SELECT id,document,revision FROM cadu_connect_report_workspaces
-            WHERE id=%s AND organization_id=%s AND client_id=%s FOR UPDATE''',
-            (report_id, selected['organization_id'], selected['client_id']))
+            WHERE id=%s AND client_id=%s FOR UPDATE''',
+            (report_id, selected['client_id']))
         if not found:
             abort(404)
         current = found[0]
@@ -671,7 +660,7 @@ def register(bp):
         get_db().commit()
         return jsonify(unchanged=False, revision=next_revision)
 
-    @bp.post('/api/v1/reports/workspaces/<int:report_id>/publish')
+    @bp.post('/api/v2/reports/workspaces/<int:report_id>/publish')
     @login_required_api
     def reports_v1_publish_workspace(report_id):
         payload = request.get_json(silent=True)
@@ -686,8 +675,8 @@ def register(bp):
         if days not in (0, 7, 30, 90):
             abort(400, description='Prazo inválido.')
         if not _rows('''SELECT id FROM cadu_connect_report_workspaces
-            WHERE id=%s AND organization_id=%s AND client_id=%s''',
-            (report_id, selected['organization_id'], selected['client_id'])):
+            WHERE id=%s AND client_id=%s''',
+            (report_id, selected['client_id'])):
             abort(404)
         token = secrets.token_urlsafe(32)
         expires = None if days == 0 else datetime.now(timezone.utc) + timedelta(days=days)
@@ -700,7 +689,7 @@ def register(bp):
         get_db().commit()
         return jsonify(public_url=f'/connect/r/{token}', expires_at=expires)
 
-    @bp.post('/api/v1/reports/workspaces/<int:report_id>/unpublish')
+    @bp.post('/api/v2/reports/workspaces/<int:report_id>/unpublish')
     @login_required_api
     def reports_v1_unpublish_workspace(report_id):
         payload = request.get_json(silent=True)
@@ -709,15 +698,15 @@ def register(bp):
         selected = _selection(payload)
         _write_guard(selected)
         if not _rows('''SELECT id FROM cadu_connect_report_workspaces
-            WHERE id=%s AND organization_id=%s AND client_id=%s''',
-            (report_id, selected['organization_id'], selected['client_id'])):
+            WHERE id=%s AND client_id=%s''',
+            (report_id, selected['client_id'])):
             abort(404)
         _rows('''UPDATE cadu_connect_report_public_links SET revoked_at=NOW()
             WHERE report_id=%s AND revoked_at IS NULL RETURNING id''', (report_id,))
         get_db().commit()
         return jsonify(revoked=True)
 
-    @bp.post('/api/v1/reports/link-tests')
+    @bp.post('/api/v2/reports/link-tests')
     @login_required_api
     def reports_v1_test_link():
         payload = request.get_json(silent=True) or {}
@@ -730,13 +719,13 @@ def register(bp):
                                   selected['client_id'], session['user_id'])
         return jsonify(result=result)
 
-    @bp.get('/api/v1/reports/ai/status')
+    @bp.get('/api/v2/reports/ai/status')
     @login_required_api
     def reports_v1_ai_status():
         from ..services.integration_credentials import resolve_typesafe_api_key
         return jsonify(provider='typesafe', configured=bool(resolve_typesafe_api_key()))
 
-    @bp.post('/api/v1/reports/link-tests/<run_id>/suggest-campaign')
+    @bp.post('/api/v2/reports/link-tests/<run_id>/suggest-campaign')
     @login_required_api
     def reports_v1_suggest_link_campaign(run_id):
         """Suggest a campaign for a tested URL; a person confirms any association."""
@@ -770,18 +759,18 @@ def register(bp):
         hint_values = list(dict.fromkeys(id_hints + name_hints))
         for hint in id_hints:
             exact = _rows('''SELECT c.id,c.name,c.external_id,a.name AS account_name,a.platform
-                FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
-                WHERE c.organization_id=%s AND c.client_id=%s AND lower(c.external_id)=%s LIMIT 2''',
-                (selected['organization_id'], selected['client_id'], hint))
+                FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+                WHERE c.client_id=%s AND lower(c.external_id)=%s LIMIT 2''',
+                (selected['client_id'], hint))
             if len(exact) == 1:
                 return jsonify(suggestion=exact[0], confidence=1,
                                probabilities={str(exact[0]['id']): 1},
                                model='exact_id', requires_confirmation=True, page_role=None)
         for hint in name_hints:
             exact = _rows('''SELECT c.id,c.name,c.external_id,a.name AS account_name,a.platform
-                FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
-                WHERE c.organization_id=%s AND c.client_id=%s AND lower(c.name)=%s LIMIT 2''',
-                (selected['organization_id'], selected['client_id'], hint))
+                FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+                WHERE c.client_id=%s AND lower(c.name)=%s LIMIT 2''',
+                (selected['client_id'], hint))
             if len(exact) == 1:
                 return jsonify(suggestion=exact[0], confidence=1,
                                probabilities={str(exact[0]['id']): 1},
@@ -791,11 +780,11 @@ def register(bp):
         campaigns = []
         if compact_hints:
             campaigns = _rows('''SELECT c.id,c.name,c.external_id,a.name AS account_name,a.platform
-                FROM cadu_reports_campaigns c JOIN cadu_reports_accounts a ON a.id=c.account_id
-                WHERE c.organization_id=%s AND c.client_id=%s
+                FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+                WHERE c.client_id=%s
                   AND regexp_replace(lower(c.name),'[^a-z0-9]','','g') LIKE ANY(%s)
                 ORDER BY c.name,c.id LIMIT 26''',
-                (selected['organization_id'], selected['client_id'],
+                (selected['client_id'],
                  ['%' + hint + '%' for hint in compact_hints]))
         too_many = len(campaigns) > 25
         if too_many:
@@ -878,7 +867,7 @@ def register(bp):
                        page_role_confidence=role_answer.get('confidence'),
                        model=evaluation.get('model'), requires_confirmation=True)
 
-    @bp.post('/api/v1/reports/link-tests/<run_id>/association')
+    @bp.post('/api/v2/reports/link-tests/<run_id>/association')
     @login_required_api
     def reports_v1_associate_link(run_id):
         payload = request.get_json(silent=True)
@@ -898,7 +887,7 @@ def register(bp):
         report_id = _optional_positive_id(payload.get('report_id'), 'Relatório')
         if not campaign_id and report_id:
             abort(400, description='Escolha uma campanha antes de associar um relatório.')
-        params = (selected['organization_id'], selected['client_id'])
+        params = (selected['client_id'],)
         run = _rows('''SELECT id,account_id,media_campaign_id,report_workspace_id
             FROM cadu_reports_link_test_runs WHERE id=%s AND client_id=%s FOR UPDATE''',
             (run_uuid, selected['client_id']))
@@ -907,14 +896,14 @@ def register(bp):
         account_id = None
         if campaign_id:
             campaign = _rows('''SELECT id,account_id FROM cadu_reports_campaigns
-                WHERE id=%s AND organization_id=%s AND client_id=%s''', (campaign_id, *params))
+                WHERE id=%s AND client_id=%s''', (campaign_id, *params))
             if not campaign:
                 abort(404, description='Campanha fora deste cliente.')
             account_id = campaign[0]['account_id']
         if report_id:
             report = _rows('''SELECT id,account_id,media_campaign_id
                 FROM cadu_connect_report_workspaces
-                WHERE id=%s AND organization_id=%s AND client_id=%s''', (report_id, *params))
+                WHERE id=%s AND client_id=%s''', (report_id, *params))
             if not report:
                 abort(404, description='Relatório fora deste cliente.')
             if (report[0]['account_id'] and report[0]['account_id'] != account_id) or \
@@ -931,9 +920,8 @@ def register(bp):
                 association_updated_at=NOW() WHERE id=%s RETURNING id''',
             (account_id, campaign_id, report_id, run_uuid))
         _rows('''INSERT INTO cadu_reports_link_association_history
-            (run_id,organization_id,client_id,previous_account_id,previous_campaign_id,
-             previous_report_id,account_id,campaign_id,report_id,action,decided_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+            (run_id,client_id,previous_account_id,previous_campaign_id,previous_report_id,account_id,campaign_id,report_id,action,decided_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
             (run_uuid, *params, previous['account_id'], previous['media_campaign_id'],
              previous['report_workspace_id'], account_id, campaign_id, report_id,
              'associate' if campaign_id else 'clear', session['user_id']))
@@ -941,7 +929,7 @@ def register(bp):
         return jsonify(unchanged=False, account_id=account_id,
                        campaign_id=campaign_id, report_id=report_id)
 
-    @bp.get('/api/v1/reports/link-tests/<run_id>/association-history')
+    @bp.get('/api/v2/reports/link-tests/<run_id>/association-history')
     @login_required_api
     def reports_v1_link_association_history(run_id):
         selected = _selection()
@@ -954,7 +942,7 @@ def register(bp):
             abort(404)
         history = _rows('''SELECT action,previous_campaign_id,previous_report_id,campaign_id,
             report_id,decided_by,decided_at FROM cadu_reports_link_association_history
-            WHERE run_id=%s AND organization_id=%s AND client_id=%s
+            WHERE run_id=%s AND client_id=%s
             ORDER BY decided_at DESC,id DESC LIMIT 50''',
-            (run_uuid, selected['organization_id'], selected['client_id']))
+            (run_uuid, selected['client_id']))
         return jsonify(history=history)

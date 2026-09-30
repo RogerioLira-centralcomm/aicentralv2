@@ -160,23 +160,23 @@ def _webhook_event(value):
 
 
 def register(bp):
-    @bp.get('/api/v1/reports/ingest-keys')
+    @bp.get('/api/v2/reports/ingest-keys')
     @login_required_api
     def reports_ingest_keys():
         selected = _selection()
         if not _ready():
             return jsonify(keys=[])
         keys = _rows('''SELECT id,label,source_kind,allowed_account_ids,bound_account_id,manager_external_id,created_at,last_used_at,revoked_at
-                FROM cadu_reports_ingest_keys WHERE organization_id=%s AND client_id=%s
-                ORDER BY created_at DESC''', (selected['organization_id'], selected['client_id']))
+                FROM cadu_reports_ingest_keys WHERE client_id=%s
+                ORDER BY created_at DESC''', (selected['client_id'],))
         runs = _rows('''SELECT id,source_kind,status,record_count,period_start,period_end,
                 created_at,finished_at FROM cadu_reports_source_runs
-                WHERE organization_id=%s AND client_id=%s
+                WHERE client_id=%s
                 ORDER BY created_at DESC LIMIT 20''',
-                (selected['organization_id'], selected['client_id']))
+                (selected['client_id'],))
         return jsonify(keys=keys, runs=runs)
 
-    @bp.post('/api/v1/reports/ingest-keys')
+    @bp.post('/api/v2/reports/ingest-keys')
     @login_required_api
     def reports_create_ingest_key():
         payload = request.get_json(silent=True) or {}
@@ -194,42 +194,41 @@ def register(bp):
         manager_external_id = None
         if source_kind == 'google_ads_script' and payload.get('manager_account_id'):
             manager_external_id = _google_id(payload.get('manager_account_id'), 'ID da MCC', account=True)
-            managers = _rows('''SELECT id FROM cadu_reports_accounts WHERE organization_id=%s AND client_id=%s
+            managers = _rows('''SELECT id FROM cadu_reports_accounts WHERE client_id=%s
                 AND platform='google_ads' AND external_id=%s AND account_kind='manager' AND status <> 'disabled' ''',
-                (selected['organization_id'], selected['client_id'], manager_external_id))
+                (selected['client_id'], manager_external_id))
             if not managers:
                 abort(400, description='Cadastre a MCC na área Contas antes de gerar o script.')
             if not allowed_accounts:
                 abort(400, description='Selecione ao menos um anunciante da MCC.')
             advertisers = _rows('''SELECT a.external_id FROM cadu_reports_accounts a
                 JOIN cadu_reports_accounts m ON m.id=a.parent_account_id
-                WHERE a.organization_id=%s AND a.client_id=%s AND a.platform='google_ads'
+                WHERE a.client_id=%s AND a.platform='google_ads'
                     AND a.account_kind='advertiser' AND a.status <> 'disabled' AND m.external_id=%s
                     AND a.external_id = ANY(%s)''',
-                (selected['organization_id'], selected['client_id'], manager_external_id, allowed_accounts))
+                (selected['client_id'], manager_external_id, allowed_accounts))
             if {row['external_id'] for row in advertisers} != set(allowed_accounts):
                 abort(400, description='Todos os anunciantes selecionados precisam estar vinculados a esta MCC.')
         elif source_kind == 'google_ads_script' and len(allowed_accounts) > 1:
             abort(400, description='Sem MCC, gere uma chave para uma conta anunciante por vez.')
         elif source_kind == 'google_ads_script' and allowed_accounts:
-            known = _rows('''SELECT external_id FROM cadu_reports_accounts WHERE organization_id=%s
-                AND client_id=%s AND platform='google_ads' AND account_kind='advertiser'
+            known = _rows('''SELECT external_id FROM cadu_reports_accounts WHERE client_id=%s AND platform='google_ads' AND account_kind='advertiser'
                 AND status <> 'disabled' AND external_id=ANY(%s)''',
-                (selected['organization_id'], selected['client_id'], allowed_accounts))
+                (selected['client_id'], allowed_accounts))
             if {row['external_id'] for row in known} != set(allowed_accounts):
                 abort(400, description='Cadastre a conta anunciante no Reports antes de gerar o script.')
         token = secrets.token_urlsafe(32)
         key_id = str(uuid.uuid4())
         _rows('''INSERT INTO cadu_reports_ingest_keys
-                (id,organization_id,client_id,label,token_hash,source_kind,allowed_account_ids,created_by,manager_external_id)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
-                (key_id, selected['organization_id'], selected['client_id'], label,
+                (id,client_id,label,token_hash,source_kind,allowed_account_ids,created_by,manager_external_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
+                (key_id, selected['client_id'], label,
                  hashlib.sha256(token.encode()).hexdigest(), source_kind, allowed_accounts, session['user_id'], manager_external_id))
         get_db().commit()
         return jsonify(id=key_id, token=token, label=label, source_kind=source_kind,
                        allowed_account_ids=allowed_accounts, manager_account_id=manager_external_id), 201
 
-    @bp.post('/api/v1/reports/ingest-keys/<key_id>/revoke')
+    @bp.post('/api/v2/reports/ingest-keys/<key_id>/revoke')
     @login_required_api
     def reports_revoke_ingest_key(key_id):
         payload = request.get_json(silent=True) or {}
@@ -238,8 +237,8 @@ def register(bp):
         selected = _selection(payload)
         _write_guard(selected)
         updated = _rows('''UPDATE cadu_reports_ingest_keys SET revoked_at=NOW()
-                WHERE id::text=%s AND organization_id=%s AND client_id=%s AND revoked_at IS NULL
-                RETURNING id''', (key_id, selected['organization_id'], selected['client_id']))
+                WHERE id::text=%s AND client_id=%s AND revoked_at IS NULL
+                RETURNING id''', (key_id, selected['client_id']))
         get_db().commit()
         if not updated:
             abort(404)
@@ -256,7 +255,7 @@ def register(bp):
         token = bearer[7:].strip() if bearer.startswith('Bearer ') else ''
         if not token or len(token) > 128:
             abort(401)
-        key = _rows('''SELECT id,organization_id,client_id,allowed_account_ids,bound_account_id,manager_external_id
+        key = _rows('''SELECT id,client_id,allowed_account_ids,bound_account_id,manager_external_id
                 FROM cadu_reports_ingest_keys
                 WHERE token_hash=%s AND source_kind='google_ads_script' AND revoked_at IS NULL FOR UPDATE''',
                 (hashlib.sha256(token.encode()).hexdigest(),))
@@ -285,10 +284,10 @@ def register(bp):
         if manager_id:
             linked = _rows('''SELECT a.external_id FROM cadu_reports_accounts a
                 JOIN cadu_reports_accounts m ON m.id=a.parent_account_id
-                WHERE a.organization_id=%s AND a.client_id=%s AND a.platform='google_ads'
+                WHERE a.client_id=%s AND a.platform='google_ads'
                     AND a.account_kind='advertiser' AND a.status <> 'disabled'
                     AND m.external_id=%s AND a.external_id=ANY(%s)''',
-                (key['organization_id'], key['client_id'], manager_id, list(record_accounts)))
+                (key['client_id'], manager_id, list(record_accounts)))
             if {row['external_id'] for row in linked} != record_accounts:
                 abort(403, description='As contas do lote não estão vinculadas a esta MCC no Reports.')
         if not manager_id:
@@ -300,13 +299,13 @@ def register(bp):
             if not allowed_accounts and not key['bound_account_id']:
                 _rows('''UPDATE cadu_reports_ingest_keys SET bound_account_id=%s
                     WHERE id=%s RETURNING id''', (account_external_id, key['id']))
-        org, client = key['organization_id'], key['client_id']
+        client = key['client_id']
         run_id = str(uuid.uuid4())
         inserted = _rows('''INSERT INTO cadu_reports_source_runs
-                (id,organization_id,client_id,source_kind,external_run_key,period_start,period_end,status,record_count)
-                VALUES (%s,%s,%s,'google_ads_script',%s,%s,%s,'processing',%s)
-                ON CONFLICT (organization_id,client_id,source_kind,external_run_key) DO NOTHING RETURNING id''',
-                (run_id, org, client, run_key, min(item['date'] for item in records),
+                (id,client_id,source_kind,external_run_key,period_start,period_end,status,record_count)
+                VALUES (%s,%s,'google_ads_script',%s,%s,%s,'processing',%s)
+                ON CONFLICT (client_id,source_kind,external_run_key) DO NOTHING RETURNING id''',
+                (run_id, client, run_key, min(item['date'] for item in records),
                  max(item['date'] for item in records), len(records)))
         if not inserted:
             get_db().rollback()
@@ -314,11 +313,11 @@ def register(bp):
         manager_pk = None
         if manager_id:
             manager = _rows('''INSERT INTO cadu_reports_accounts
-                    (organization_id,client_id,platform,external_id,name,account_kind)
-                    VALUES (%s,%s,'google_ads',%s,%s,'manager')
-                    ON CONFLICT (organization_id,client_id,platform,external_id)
+                    (client_id,platform,external_id,name,account_kind)
+                    VALUES (%s,'google_ads',%s,%s,'manager')
+                    ON CONFLICT (client_id,platform,external_id)
                     DO UPDATE SET updated_at=NOW() RETURNING id''',
-                    (org, client, manager_id, f'MCC {manager_id}'))
+                    (client, manager_id, f'MCC {manager_id}'))
             manager_pk = manager[0]['id']
         account_cache = {}
         campaign_cache = {}
@@ -326,38 +325,37 @@ def register(bp):
             account_pk = account_cache.get(item['account_id'])
             if not account_pk:
                 account = _rows('''INSERT INTO cadu_reports_accounts
-                        (organization_id,client_id,platform,external_id,name,parent_account_id,account_kind,currency)
-                        VALUES (%s,%s,'google_ads',%s,%s,%s,'advertiser',%s)
-                        ON CONFLICT (organization_id,client_id,platform,external_id)
+                        (client_id,platform,external_id,name,parent_account_id,account_kind,currency)
+                        VALUES (%s,'google_ads',%s,%s,%s,'advertiser',%s)
+                        ON CONFLICT (client_id,platform,external_id)
                         DO UPDATE SET name=EXCLUDED.name,
                           currency=COALESCE(EXCLUDED.currency,cadu_reports_accounts.currency),
                           parent_account_id=COALESCE(EXCLUDED.parent_account_id,cadu_reports_accounts.parent_account_id),
                           updated_at=NOW()
-                        RETURNING id''', (org, client, item['account_id'], item['account_name'], manager_pk, item['currency']))
+                        RETURNING id''', (client, item['account_id'], item['account_name'], manager_pk, item['currency']))
                 account_pk = account_cache[item['account_id']] = account[0]['id']
             campaign_key = (account_pk, item['campaign_id'])
             campaign_pk = campaign_cache.get(campaign_key)
             if not campaign_pk:
                 campaign = _rows('''INSERT INTO cadu_reports_campaigns
-                        (organization_id,client_id,account_id,external_id,name,status,channel_type)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                        (client_id,account_id,external_id,name,status,channel_type)
+                VALUES (%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (account_id,external_id)
                 DO UPDATE SET name=EXCLUDED.name,status=EXCLUDED.status,
                     channel_type=COALESCE(EXCLUDED.channel_type,cadu_reports_campaigns.channel_type),
                     updated_at=NOW() RETURNING id''',
-                (org, client, account_pk, item['campaign_id'], item['campaign_name'],
+                (client, account_pk, item['campaign_id'], item['campaign_name'],
                  item['campaign_status'], item['channel_type']))
                 campaign_pk = campaign_cache[campaign_key] = campaign[0]['id']
             _rows('''INSERT INTO cadu_reports_campaign_daily_metrics
-                    (organization_id,client_id,campaign_id,metric_date,source_kind,impressions,clicks,
-                     cost_micros,conversions,conversion_value_micros,last_run_id)
-                    VALUES (%s,%s,%s,%s,'google_ads_script',%s,%s,%s,%s,%s,%s)
+                    (client_id,campaign_id,metric_date,source_kind,impressions,clicks,cost_micros,conversions,conversion_value_micros,last_run_id)
+                    VALUES (%s,%s,%s,'google_ads_script',%s,%s,%s,%s,%s,%s)
                     ON CONFLICT (campaign_id,metric_date,source_kind)
                     DO UPDATE SET impressions=EXCLUDED.impressions,clicks=EXCLUDED.clicks,
                       cost_micros=EXCLUDED.cost_micros,conversions=EXCLUDED.conversions,
                       conversion_value_micros=EXCLUDED.conversion_value_micros,
                       last_run_id=EXCLUDED.last_run_id,updated_at=NOW() RETURNING campaign_id''',
-                    (org, client, campaign_pk, item['date'], item['impressions'], item['clicks'],
+                    (client, campaign_pk, item['date'], item['impressions'], item['clicks'],
                      item['cost_micros'], item['conversions'], item['conversion_value_micros'], run_id))
         _rows("UPDATE cadu_reports_source_runs SET status='completed',finished_at=NOW() WHERE id=%s RETURNING id", (run_id,))
         _rows('UPDATE cadu_reports_ingest_keys SET last_used_at=NOW() WHERE id=%s RETURNING id', (key['id'],))
@@ -375,7 +373,7 @@ def register(bp):
         token = bearer[7:].strip() if bearer.startswith('Bearer ') else ''
         if not token or len(token) > 128:
             abort(401)
-        keys = _rows('''SELECT id,organization_id,client_id FROM cadu_reports_ingest_keys
+        keys = _rows('''SELECT id,client_id FROM cadu_reports_ingest_keys
             WHERE token_hash=%s AND source_kind='conversion_webhook' AND revoked_at IS NULL''',
             (hashlib.sha256(token.encode()).hexdigest(),))
         if not keys:
@@ -388,27 +386,26 @@ def register(bp):
         events = [_webhook_event(value) for value in values]
         if len({event['external_event_id'] for event in events}) != len(events):
             abort(400, description='O lote contém IDs de evento duplicados.')
-        params = (key['organization_id'], key['client_id'])
+        params = (key['client_id'],)
         accepted = 0
         for event in events:
             campaign_id = event['campaign_id']
             method = 'explicit_campaign' if campaign_id else None
             if campaign_id and not _rows('''SELECT id FROM cadu_reports_campaigns
-                    WHERE organization_id=%s AND client_id=%s AND id=%s''', (*params, campaign_id)):
+                    WHERE client_id=%s AND id=%s''', (*params, campaign_id)):
                 abort(404, description='Campanha fora deste cliente.')
             if not campaign_id and event['visitor_id']:
                 candidates = _rows('''SELECT DISTINCT campaign_id FROM cadu_reports_flow_events
-                    WHERE organization_id=%s AND client_id=%s AND visitor_id=%s
+                    WHERE client_id=%s AND visitor_id=%s
                         AND campaign_id IS NOT NULL AND occurred_at <= %s
-                        AND occurred_at >= %s - INTERVAL '90 days' LIMIT 2''',
+                        AND occurred_at >= %s::timestamptz - INTERVAL '90 days' LIMIT 2''',
                     (*params, event['visitor_id'], event['occurred_at'], event['occurred_at']))
                 if len(candidates) == 1:
                     campaign_id, method = candidates[0]['campaign_id'], 'visitor'
             inserted = _rows('''INSERT INTO cadu_reports_external_conversions
-                (organization_id,client_id,external_event_id,visitor_id,campaign_id,attribution_method,
-                 conversion_kind,occurred_at,value_micros,currency)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (organization_id,client_id,source_kind,external_event_id)
+                (client_id,external_event_id,visitor_id,campaign_id,attribution_method,conversion_kind,occurred_at,value_micros,currency)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (client_id,source_kind,external_event_id)
                 DO NOTHING RETURNING id''',
                 (*params, event['external_event_id'], event['visitor_id'], campaign_id, method,
                  event['kind'], event['occurred_at'], event['value_micros'], event['currency']))
@@ -417,7 +414,7 @@ def register(bp):
         get_db().commit()
         return jsonify(accepted=accepted, duplicates=len(events) - accepted)
 
-    @bp.get('/api/v1/reports/metrics')
+    @bp.get('/api/v2/reports/metrics')
     @login_required_api
     def reports_metrics():
         selected = _selection()
@@ -440,7 +437,7 @@ def register(bp):
         period_days = (period_end - period_start).days + 1
         end_exclusive = period_end + timedelta(days=1)
         filters = ''
-        params = [selected['organization_id'], selected['client_id'], period_start, end_exclusive]
+        params = [selected['client_id'], period_start, end_exclusive]
         platform = request.args.get('platform', '').strip()
         if platform:
             if not re.fullmatch(r'[a-z][a-z0-9_]{0,31}', platform):
@@ -464,17 +461,17 @@ def register(bp):
                 SUM(m.clicks)::bigint AS clicks,SUM(m.cost_micros)::bigint AS cost_micros,
                 SUM(m.conversions)::numeric AS conversions
                 FROM cadu_reports_campaign_daily_metrics m ''' + joins + '''
-                WHERE m.organization_id=%s AND m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
+                WHERE m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
                 ''' + filters + ''' GROUP BY m.metric_date ORDER BY m.metric_date''', tuple(params))
         platforms = _rows('''SELECT a.platform,SUM(m.impressions)::bigint AS impressions,
                 SUM(m.clicks)::bigint AS clicks,SUM(m.cost_micros)::bigint AS cost_micros,
                 SUM(m.conversions)::numeric AS conversions
                 FROM cadu_reports_campaign_daily_metrics m ''' + joins + '''
-                WHERE m.organization_id=%s AND m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
+                WHERE m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
                 ''' + filters + ''' GROUP BY a.platform ORDER BY cost_micros DESC''', tuple(params))
         currencies = _rows('''SELECT DISTINCT COALESCE(a.currency,'') AS currency
                 FROM cadu_reports_campaign_daily_metrics m ''' + joins + '''
-                WHERE m.organization_id=%s AND m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
+                WHERE m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
                 ''' + filters, tuple(params))
         currency = currencies[0]['currency'] if len(currencies) == 1 and currencies[0]['currency'] else None
         if not currency:
@@ -488,13 +485,13 @@ def register(bp):
                 FROM cadu_reports_flow_events e
                 LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id
                 LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
-                WHERE e.organization_id=%s AND e.client_id=%s AND e.occurred_at >= %s AND e.occurred_at < %s
+                WHERE e.client_id=%s AND e.occurred_at >= %s AND e.occurred_at < %s
                     AND e.event_kind='conversion' ''' + filters, tuple(params))[0]['total']
         confirmed = _rows('''SELECT COUNT(*)::bigint AS total
                 FROM cadu_reports_external_conversions x
                 LEFT JOIN cadu_reports_campaigns c ON c.id=x.campaign_id
                 LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
-                WHERE x.organization_id=%s AND x.client_id=%s AND x.occurred_at >= %s AND x.occurred_at < %s
+                WHERE x.client_id=%s AND x.occurred_at >= %s AND x.occurred_at < %s
                 ''' + filters, tuple(params))[0]['total']
         return jsonify(days=daily, totals=totals, by_platform=platforms, period_days=period_days,
                        currency=currency, source='google_ads_script',

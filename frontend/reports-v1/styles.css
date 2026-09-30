@@ -1030,3 +1030,9 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-untitled-drawer .reports-modal-actions>.reports-primary-button{min-height:40px;padding:0 14px;border:0!important;border-radius:8px;background:var(--color-bg-brand-solid)!important;color:var(--color-text-primary_on-brand)!important;font-size:13px;font-weight:650;box-shadow:none}
 .reports-untitled-drawer .reports-modal-actions>.reports-primary-button:hover:not(:disabled){background:#1849a9!important}
 @media(max-width:760px){.reports-main .reports-site-index__toolbar{padding:14px}.reports-tag-card-head{align-items:stretch}.reports-tag-actions{width:100%}.reports-account-create-form .reports-untitled-drawer__actions{bottom:-20px}}
+
+.reports-shared-page{min-height:100dvh;padding:0 clamp(16px,3vw,40px) 32px;background:var(--r-bg)}
+.reports-shared-page>.reports-page-header{min-height:70px;display:flex;align-items:center;margin-bottom:24px}
+.reports-shared-page .reports-page-header__inner{width:100%}
+.reports-shared-page section+section{margin-top:24px}
+.reports-shared-page section>p{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}

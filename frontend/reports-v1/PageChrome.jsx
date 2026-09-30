@@ -21,14 +21,23 @@ export const REPORT_PAGE_META = {
   access: {title: 'Acessos', description: 'Gerencie quem pode consultar e operar os dados deste cliente.'},
 };
 
-export function ReportsPageHeader({page, clients = [], client, onAction, titleOverride, descriptionOverride}) {
-  const meta = REPORT_PAGE_META[page] || REPORT_PAGE_META.overview;
+export function ReportsClientSelect({clients = [], client}) {
   const chooseClient = event => {
     const url = new URL(window.location.href);
     url.pathname='/connect/app/overview';url.search='';url.hash='';
     url.searchParams.set('client_id', event.target.value);
     window.location.assign(url.href);
   };
+  return clients.length > 1 ? <label className="reports-client-select"><span className="reports-sr-only">Conta principal</span>
+        <select value={client?.client_id ?? ''} onChange={chooseClient} aria-label="Conta principal">
+          {clients.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label> : null;
+}
+
+export function ReportsPageHeader({page, clients = [], client, onAction, titleOverride, descriptionOverride}) {
+  const meta = REPORT_PAGE_META[page] || REPORT_PAGE_META.overview;
+
 
   return <header className={`reports-page-header${page === 'overview' ? ' reports-page-header--overview' : ''}`}><div className="reports-page-header__inner">
     <div className="reports-page-header__copy">
@@ -37,11 +46,7 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
     </div>
     <div className="reports-page-header__actions">
       {onAction && <UntitledButton className="reports-page-header__action" size="sm" color="tertiary" onPress={onAction.onClick}>{onAction.label}</UntitledButton>}
-      {clients.length > 1 ? <label className="reports-client-select"><span className="reports-sr-only">Conta principal</span>
-        <select value={client?.client_id ?? ''} onChange={chooseClient} aria-label="Conta principal">
-          {clients.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-      </label> : null}
+      <ReportsClientSelect clients={clients} client={client}/>
     </div>
   </div></header>;
 }

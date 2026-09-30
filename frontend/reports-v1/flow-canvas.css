@@ -130,6 +130,7 @@
 .flow-view-policy{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:7;display:flex;align-items:center;gap:8px;background:var(--color-bg-primary);padding:4px 8px;border:1px solid var(--color-border-secondary);border-radius:12px;font-size:11px;white-space:nowrap}
 .flow-view-policy button{border:0;padding:6px;background:transparent;border-radius:6px;font:inherit}.flow-view-policy button[aria-pressed=true]{background:var(--color-bg-brand-secondary)}
 .flow-view-policy label{display:flex;align-items:center;gap:4px}
+.flow-map-legend summary{cursor:pointer}.flow-map-legend p{position:absolute;top:32px;right:0;width:min(280px,calc(100vw - 24px));margin:0;padding:10px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-md);line-height:1.5;white-space:normal}.flow-map-legend strong{position:absolute;top:100%;left:0;padding:5px 8px;border-radius:5px;background:var(--color-bg-warning-secondary);white-space:nowrap}
 .flow-react-canvas .react-flow__node-toolbar button{width:28px;height:28px;padding:4px;border:0!important;box-shadow:none!important}
 .flow-react-canvas .react-flow__node{transition:none!important;filter:none!important;backdrop-filter:none!important}
 .flow-shape-node small{font-size:11px!important}.flow-shape-label{font-size:13px;font-weight:600}

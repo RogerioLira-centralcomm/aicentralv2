@@ -21,6 +21,7 @@ from .reports_flow_versions import expected_revision, lock_flow, save_draft, pub
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
 from .reports_flow_validation import validate_flow_config
 from .reports_flow_stage import normalize_stage_position
+from .reports_flow_metrics import edge_observation
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -1977,6 +1978,10 @@ def register(bp):
         node_rows = _rows(hits_cte + """SELECT node_id,COUNT(*)::bigint AS sessions,
             SUM(events)::bigint AS events FROM hits GROUP BY node_id""", scope)
         node_totals = {str(row['node_id']): row for row in node_rows}
+        collection = _rows(visits_cte + """SELECT COUNT(*)::bigint AS event_count,
+            COUNT(*) FILTER (WHERE node_id IS NOT NULL)::bigint AS mapped_event_count,
+            MAX(occurred_at) AS last_event_at FROM visits""", scope)[0]
+        has_events = bool(collection['event_count'])
         measured_nodes = [node for node in config.get('nodes', []) if isinstance(node, dict)
                           and node.get('id') and node.get('type') in {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}]
         measured_ids = {node['id'] for node in measured_nodes}
@@ -2019,7 +2024,8 @@ def register(bp):
         edges = [{'id': edge['id'], 'from': edge['from'], 'to': edge['to'],
                   'sessions': transition_totals.get((edge['from'], edge['to']), 0) if edge['from'] in measured_ids and edge['to'] in measured_ids else None,
                   'rate': round(100 * transition_totals.get((edge['from'], edge['to']), 0) /
-                                int(node_totals[edge['from']]['sessions']), 1) if node_totals.get(edge['from'], {}).get('sessions') else None}
+                                int(node_totals[edge['from']]['sessions']), 1) if node_totals.get(edge['from'], {}).get('sessions') else None,
+                  'observation': edge_observation(edge,measured_ids,node_totals,transition_totals,has_events)}
                  for edge in authored_edges if edge.get('id')]
         suggestions = [{'from': row['source_id'], 'to': row['target_id'],
                         'sessions': int(row['sessions'])}
@@ -2049,6 +2055,12 @@ def register(bp):
         conversions = int(funnel['conversions'] or 0)
         return jsonify(status='ready', revision=revision, period_days=days, config=migrate_v1_to_v2(config),
                        timezone='America/Sao_Paulo',generated_at=now.isoformat(),
+                       collection={'status':'observed' if has_events else 'no_data',
+                                   'event_count':int(collection['event_count']),
+                                   'mapped_event_count':int(collection['mapped_event_count']),
+                                   'coverage_percent':round(100*collection['mapped_event_count']/collection['event_count'],1) if has_events else None,
+                                   'last_event_at':collection['last_event_at'].isoformat() if collection['last_event_at'] else None,
+                                   'source':'Super Tag deste fluxo'},
                        scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
                               'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
                        nodes=nodes, edges=edges, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,

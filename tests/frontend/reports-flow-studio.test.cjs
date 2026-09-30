@@ -35,7 +35,7 @@ const moduleAt=async name=>import('data:text/javascript;base64,'+Buffer.from(fs.
  assert.equal(translationConfig.groups,undefined);
  const {funnelEdges}=await moduleAt('flowStages.js');
  const graph={nodes:[{id:'a',stage:'entry'},{id:'b',stage:'intent'},{id:'c',stage:'conversion'}],edges:[{id:'ab',from:'a',to:'b'},{id:'ba',from:'b',to:'a'},{id:'bc',from:'b',to:'c',kind:'site_link'}]};
- assert.deepEqual(funnelEdges(graph).map(e=>e.id),['ab']);assert.equal(funnelEdges(graph,{full:true}).length,3);assert.equal(graph.edges.length,3);
+ assert.deepEqual(funnelEdges(graph).map(e=>e.id),['ab','bc']);assert.equal(funnelEdges(graph,{full:true}).length,3);assert.equal(graph.edges.length,3);
  for(const name of ['FlowCanvas.jsx','FlowInspector.jsx','FlowBlueprint.jsx','FlowCatalog.jsx','FlowStudioAssist.jsx'])assert(!/\bborder-2\b/.test(fs.readFileSync(path.join(root,'frontend/reports-v1',name),'utf8')),name);
  console.log('Studio: rebuild preservation, edge policy, immutable view and border guard passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

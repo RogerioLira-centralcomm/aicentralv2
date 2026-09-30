@@ -4,6 +4,7 @@
 .flow-workspace-identity img{width:25px;height:25px;object-fit:contain}
 .flow-workspace-identity>span{max-width:260px;margin-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 .flow-workspace-header-actions select{max-width:160px;font-size:12px}
+.flow-monitor-scope{flex:none;padding:7px 24px 7px 72px;border-bottom:1px solid var(--color-border-secondary);background:var(--color-bg-primary);color:var(--color-text-secondary);font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 .flow-monitor-summary{display:flex;align-items:center;gap:32px;flex:none;padding:14px 24px 14px 72px;background:var(--color-bg-primary);border-bottom:1px solid var(--color-border-secondary)}
 .flow-monitor-summary>div{display:grid;gap:4px;min-width:130px}
 .flow-monitor-summary small{color:var(--color-text-tertiary);font-size:11px;font-weight:400}
@@ -27,6 +28,7 @@
 .flow-monitor-list{position:absolute;inset:12px 16px 60px;overflow:auto;display:flex;flex-direction:column;gap:8px}
 @media(max-width:1100px){.flow-monitor-summary{gap:16px;padding-left:64px}.flow-monitor-summary>div{min-width:100px}.flow-workspace-identity>span{max-width:170px}.flow-monitor-summary>span{max-width:170px}}
 @media(max-width:767px){.flow-workspace-header{gap:6px;padding:0 8px}.flow-workspace-identity>strong,.flow-workspace-header nav{display:none}.flow-workspace-identity>span{margin:0;max-width:120px}.flow-monitor-summary{flex-wrap:wrap;gap:12px;padding:12px}.flow-monitor-summary strong{font-size:17px}.flow-monitor-summary>span{display:none}.flow-monitor-stage.has-inspector{--right-panel:0px}.flow-workspace-panel.is-inspector{width:min(320px,calc(100% - 24px))}.flow-monitor-legend>span{display:none}}
+@media(max-width:767px){.flow-monitor-scope{padding:7px 12px}}
 
 .flow-library>header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}.flow-library h2{font-size:24px;margin:0 0 6px}.flow-library p{color:var(--color-text-tertiary);font-size:13px}
 .flow-library-tools{display:flex;align-items:center;gap:12px;margin-bottom:20px}.flow-library-tools>div{max-width:360px}.flow-library-tools select{max-width:180px}.flow-library-tools small{margin-left:auto;color:var(--color-text-tertiary)}

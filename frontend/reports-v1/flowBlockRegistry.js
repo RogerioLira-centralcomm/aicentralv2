@@ -1,4 +1,4 @@
-import {AlertCircle, CheckCircle, Clock, File01, Flag01, Globe01, Mail01, Target01, Zap} from '@untitledui/icons';
+import {AlertCircle, CheckCircle, Clock, File01, Flag01, Globe01, Mail01, QrCode01, Target01, Zap} from '@untitledui/icons';
 
 // One registry drives palette, canvas shape and inspector metadata. These
 // entries describe a journey; they do not execute CRM or communication actions.
@@ -37,7 +37,7 @@ const groups = [
 const typeFor = (kind,base) => ({'page.form':'form','page.thanks':'conversion','page.error':'error',
   'event.whatsapp':'whatsapp','event.form_submit':'form','logic.condition':'condition','logic.delay':'delay',
   'utility.webhook':'webhook'})[kind] || base;
-const iconFor = (kind,type) => kind.includes('error')||kind.includes('lost')?AlertCircle:
+const iconFor = (kind,type) => kind==='traffic.qr'?QrCode01:kind.includes('error')||kind.includes('lost')?AlertCircle:
   kind.includes('email')||kind.includes('whatsapp')||kind.includes('sms')?Mail01:
   kind.includes('delay')||kind.includes('meeting')||kind.includes('calendar')?Clock:
   type==='conversion'?CheckCircle:type==='form'?File01:type==='condition'||type==='segment'?Target01:

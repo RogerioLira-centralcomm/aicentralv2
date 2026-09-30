@@ -71,9 +71,12 @@
 .reports-flow-validation>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .reports-flow-validation>div button{border:0;background:transparent;color:var(--color-text-secondary);font-size:20px;cursor:pointer}
 .reports-flow-validation ul{display:grid;gap:8px;margin:12px 0 0;padding:0;list-style:none}
-.reports-flow-validation li{display:flex;align-items:start;justify-content:space-between;gap:8px;padding:9px;border-radius:7px;background:var(--color-bg-secondary);font-size:12px;line-height:1.4}
+.reports-flow-validation h3{font-size:12px;margin:16px 0 0;color:var(--color-text-secondary)}
+.reports-flow-validation li{display:grid;gap:6px;padding:9px;border-radius:7px;background:var(--color-bg-secondary);font-size:12px;line-height:1.4}
+.reports-flow-validation li small{font-size:11px;color:var(--color-text-secondary)}
 .reports-flow-validation li.is-error{border-left:3px solid var(--color-border-error)}
-.reports-flow-validation li button{flex-shrink:0;border:0;background:transparent;color:var(--color-text-brand-secondary);cursor:pointer}
+.reports-flow-validation li.is-warning{border-left:3px solid var(--color-border-warning)}
+.reports-flow-validation li button{justify-self:start;border:0;background:transparent;color:var(--color-text-brand-secondary);cursor:pointer;padding:0;text-decoration:underline}
 .flow-publication-dialog{display:grid;gap:14px}
 .flow-publication-dialog label{display:grid;gap:7px;font-size:12px;font-weight:600}
 .flow-publication-summary{display:grid;gap:5px;padding:12px;border-radius:8px;background:var(--color-bg-secondary);font-size:12px}

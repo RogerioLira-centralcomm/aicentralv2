@@ -1,0 +1,7 @@
+[
+  {"name":"conversao_valida","config":{"nodes":[{"id":"origem","type":"source","title":"Busca","stage":"source"},{"id":"fim","type":"conversion","title":"Compra","path":"/obrigado","stage":"conversion"}],"edges":[{"id":"c1","from":"origem","to":"fim"}]},"expected_errors":[],"expected_warnings":[]},
+  {"name":"canal_isolado","config":{"nodes":[{"id":"origem","type":"source","title":"QR Code","stage":"source"},{"id":"fim","type":"conversion","title":"Compra","path":"/obrigado","stage":"conversion"}],"edges":[]},"expected_errors":[],"expected_warnings":["orphan:origem","orphan:fim"]},
+  {"name":"sem_conversao","config":{"nodes":[{"id":"pagina","type":"page","title":"Início","path":"/","stage":"entry"}],"edges":[]},"expected_errors":["no_conversion"],"expected_warnings":[]},
+  {"name":"evento_sem_url_e_nome","config":{"nodes":[{"id":"evento","type":"event","title":"Clique","stage":"intent"},{"id":"fim","type":"conversion","path":"/obrigado","title":"Fim"}],"edges":[{"id":"c1","from":"evento","to":"fim"}]},"expected_errors":["unmapped_page:evento","unmapped_event:evento"],"expected_warnings":[]},
+  {"name":"retorno_sem_condicao","config":{"nodes":[{"id":"a","type":"page","path":"/a","title":"A"},{"id":"b","type":"conversion","path":"/b","title":"B"}],"edges":[{"id":"ida","from":"a","to":"b"},{"id":"volta","from":"b","to":"a"}]},"expected_errors":["cycle_without_condition"],"expected_warnings":[]}
+]

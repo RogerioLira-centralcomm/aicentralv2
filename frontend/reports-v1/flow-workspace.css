@@ -246,11 +246,43 @@
 @media(max-width:1279px){
   .reports-main .reports-flow-designer--compact.has-palette,.reports-main .reports-flow-designer--compact.has-palette.has-inspector{grid-template-columns:200px minmax(0,1fr)}
 }
-body.reports-flow-focus-active .reports-shell{grid-template-columns:minmax(0,1fr)!important}
-body.reports-flow-focus-active .reports-shell>.cadu-solution-sidebar,
-body.reports-flow-focus-active .reports-shell>.reports-main>.reports-page-header,
-body.reports-flow-focus-active .reports-flow-views{display:none!important}
-body.reports-flow-focus-active .reports-shell>.reports-main{grid-column:1!important;width:100%!important;padding:0 12px!important}
-body.reports-flow-focus-active .reports-content{max-width:none!important}
-body.reports-flow-focus-active .reports-flow-builder{height:calc(100dvh - 16px)!important;margin:8px 0!important}
-body.reports-flow-focus-active .reports-flow-designer--compact{height:100%!important;flex:1 1 auto}
+/* Dedicated editor route: one compact bar, with tools layered over the map. */
+.reports-shell--flow-editor{display:block!important;min-height:100dvh}
+.reports-shell--flow-editor>.reports-main{width:100%!important;max-width:none!important;padding:0!important}
+.reports-shell--flow-editor .reports-content{max-width:none!important;padding:0!important}
+.reports-shell--flow-editor .reports-flow-builder{position:relative;display:flex;flex-direction:column;height:100dvh!important;min-height:620px;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:var(--color-bg-secondary)}
+.reports-shell--flow-editor .reports-flow-editor-topbar{position:relative;z-index:30;display:flex;align-items:center;flex:0 0 56px;gap:16px;min-height:56px;margin:0!important;padding:0 18px!important;border-bottom:1px solid var(--color-border-secondary);background:var(--color-bg-primary)}
+.reports-flow-editor-identity{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 330px;white-space:nowrap}
+.reports-flow-editor-identity>a{flex:none;color:var(--color-text-secondary);font-size:13px;font-weight:600;text-decoration:none}
+.reports-flow-editor-identity>a:hover{color:var(--color-text-brand-secondary)}
+.reports-flow-editor-identity>span[aria-hidden]{color:var(--color-text-quaternary)}
+.reports-flow-editor-identity>input{width:min(280px,30vw);min-width:105px;padding:5px 6px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--color-text-primary);font-size:15px;font-weight:600;text-overflow:ellipsis}
+.reports-flow-editor-identity>input:hover,.reports-flow-editor-identity>input:focus{border-color:var(--color-border-secondary);background:var(--color-bg-primary)}
+.reports-flow-editor-identity>small{color:var(--color-text-tertiary);font-size:11px}
+.reports-flow-editor-identity .reports-flow-save-state{padding:0;background:transparent;color:var(--color-text-tertiary);font-size:11px;white-space:nowrap}
+.reports-flow-editor-identity .reports-flow-save-state.is-error{color:var(--color-text-error-primary)}
+.reports-flow-editor-modes{display:flex;align-items:center;gap:2px;flex:none;padding:3px;border-radius:8px;background:var(--color-bg-secondary)}
+.reports-flow-editor-modes>*{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:0 10px;border:0;border-radius:5px;background:transparent;color:var(--color-text-tertiary);font-size:12px;font-weight:600}
+.reports-flow-editor-modes>[aria-current=page]{background:var(--color-bg-primary);color:var(--color-text-primary);box-shadow:var(--shadow-xs)}
+.reports-flow-editor-modes>button:disabled{cursor:not-allowed;opacity:.55}
+.reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions{display:flex;align-items:center;justify-content:flex-end;flex:1 1 230px;gap:8px;max-width:none;flex-wrap:nowrap}
+.reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions>button{white-space:nowrap}
+.reports-shell--flow-editor .reports-flow-extra-actions>summary{justify-content:center;width:32px;min-height:32px;padding:0;font-size:20px;line-height:1}
+.reports-shell--flow-editor .reports-flow-designer--compact,.reports-shell--flow-editor .reports-flow-designer--compact.has-palette,.reports-shell--flow-editor .reports-flow-designer--compact.has-inspector,.reports-shell--flow-editor .reports-flow-designer--compact.has-palette.has-inspector{display:block!important;position:relative;flex:1 1 auto;min-height:0;height:auto!important;border:0;border-radius:0;background:var(--color-bg-secondary)}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-flow-canvas{position:absolute;inset:0;width:100%;height:100%!important;min-height:0!important;background-color:var(--color-bg-secondary);background-image:linear-gradient(to right,var(--color-border-secondary) 1px,transparent 1px),linear-gradient(to bottom,var(--color-border-secondary) 1px,transparent 1px);background-size:24px 24px}
+.reports-shell--flow-editor .reports-flow-scaled-area>.reports-flow-canvas-content{background:transparent}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette,.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{position:absolute;z-index:12;top:56px;bottom:74px;max-height:none;width:280px;padding:14px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette{left:16px;overflow:auto}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{right:16px;width:320px;overflow:auto}
+.reports-shell--flow-editor .reports-flow-designer--compact:not(.has-palette)>.reports-node-palette,.reports-shell--flow-editor .reports-flow-designer--compact:not(.has-inspector)>.reports-node-settings{display:none}
+.reports-shell--flow-editor .reports-editor-controls{position:absolute;inset:0;z-index:22;pointer-events:none}
+.reports-shell--flow-editor .reports-editor-controls>*{pointer-events:auto}
+.reports-shell--flow-editor .reports-flow-palette-switch{position:absolute;top:68px;left:16px;display:flex;gap:4px;padding:4px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-sm)}
+.reports-shell--flow-editor .reports-zoom-controls{position:absolute;bottom:18px;left:16px;display:flex;gap:3px;padding:4px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-sm)}
+.reports-shell--flow-editor .reports-editor-tools{position:absolute;right:16px;bottom:18px}
+.reports-shell--flow-editor .reports-flow-history{position:absolute;z-index:40;top:64px;right:16px;max-height:70dvh;overflow:auto;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.reports-shell--flow-editor .reports-flow-builder>section[aria-label="Outros fluxos identificados"]{position:absolute;z-index:24;top:124px;right:16px;width:min(340px,calc(100vw - 32px));max-height:65dvh;overflow:auto;box-shadow:var(--shadow-lg)}
+.reports-flow-index-heading{margin:0 0 18px}.reports-flow-index-heading h2{font-size:18px;font-weight:600}.reports-flow-index-heading p{margin-top:4px;color:var(--color-text-tertiary);font-size:13px}
+.reports-flow-return{display:inline-flex;margin-bottom:14px;color:var(--color-text-brand-secondary);font-size:13px;text-decoration:none}
+@media(max-width:1279px){.reports-shell--flow-editor .reports-flow-editor-topbar{gap:8px;padding:0 12px!important}.reports-flow-editor-identity{gap:6px}.reports-flow-editor-identity>input{width:190px}.reports-flow-editor-identity>small{display:none}.reports-flow-editor-modes>*{padding:0 7px}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette{width:248px}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{width:280px}}
+@media(max-width:900px){.reports-flow-editor-modes{display:none}.reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions>button:first-child{display:none}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-palette{width:min(280px,calc(100vw - 32px))}.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{width:min(320px,calc(100vw - 32px))}}

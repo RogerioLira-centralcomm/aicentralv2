@@ -49,6 +49,16 @@ Este retrato vale para o banco acessado nesta auditoria. Antes de migrar ou publ
 - O estado de autosave já usa debounce de **900 ms** e revisão otimista. O plano propõe 1,5 s: é uma escolha de UX, não um contrato novo. A UI atual preserva alterações locais em conflito, mas não oferece a resolução visual proposta.
 - O índice de eventos Super Tag existente cobre `(site_id, session_id, occurred_at)` e `(site_id, page_path, occurred_at)`; **não** há índice específico `(site_id, event_name, occurred_at)`. Antes do modo Jornada, examinar consulta e cardinalidade reais; criar índice apenas com migração e medida de necessidade.
 
+## Revisão TypeSafe: sugestões e evidência
+
+O plano visual omite uma capacidade que já existe. `reports_flow.py` classifica páginas descobertas por regras de URL, título e formulário; `reports_typesafe.py` oferece uma **sugestão opcional** do papel da página (`entry`, `intermediate`, `form`, `conversion`, `error`, `none`) via uma pergunta `Choice`. `reports_flow_suggestions.py` guarda resultado, versão da pergunta, revisão do rascunho e hash da evidência, limita chamadas por cliente e revalida tudo quando o usuário aplica a sugestão. A escolha da página e a escrita do fluxo continuam no código e exigem ação do usuário.
+
+Há duas medidas diferentes chamadas de “confiança”: `_classify_discovered_page` atribui números fixos como `.91` a heurísticas; o TypeSafe retorna `probabilities` e `confidence` calculada da distribuição da resposta. **Não são intercambiáveis nem prova de que uma conversão aconteceu.** A nova biblioteca/inspetor deve mostrar origem e evidência da sugestão, manter a opção “não sei” e permitir correção manual. Não usar a classificação para criar arestas, publicar ou afirmar rastreio automaticamente. Uma página sugerida como “obrigado” continua sendo uma hipótese sobre a função da página; visitas e conversões exigem eventos observados.
+
+Para a Fase 2, preservar `discoveryPageId` e a referência à evidência ao converter nós. Uma sugestão recebida após mudança de página, evidência ou revisão deve ser descartada. Se novos blocos pedirem julgamento semântico (por exemplo, identificar função de uma página de produto), formular uma decisão fechada e estreita sobre dados observáveis; regras exatas de URL, identidade, conexão, permissões e métricas continuam determinísticas. Não acrescentar chamada TypeSafe ao pan, ao zoom, ao salvamento ou à migração do JSON. Avaliar sugestões em páginas rotuladas antes de definir limiares de automação; a `confidence` de `Choice` expressa concentração entre opções, não correção garantida.
+
+Base desta revisão: [modelo de construção](https://docs.typesafe.ai/concepts/how-to-build-with-system-one), [Choice](https://docs.typesafe.ai/primitives/choice) e [confiança](https://docs.typesafe.ai/confidence), consultados em 29/09/2026. Ver também `docs/reviews/reports-flow-typesafe-review-2026-09-29.md` para os achados e correções anteriores.
+
 ## Migração segura proposta
 
 1. Definir `schema_version` ausente como v1. Criar adaptador puro v1→v2 que preserve IDs, posições, caminhos, hosts, nomes de eventos, referências de descoberta e arestas **existentes**. Não inventar conexões para os quatro nós desconectados.

@@ -9,6 +9,15 @@ const moduleAt=async name=>import('data:text/javascript;base64,'+Buffer.from(fs.
  assert.deepEqual(next.nodes.map(n=>n.id),['manual','edited','locked','endpoint','new']);assert.deepEqual(next.edges,current.edges);assert.equal(current.nodes.length,5);
  const canvas=fs.readFileSync(path.join(root,'frontend/reports-v1/FlowCanvas.jsx'),'utf8');
  assert(canvas.includes("origin:'manual',from:connection.source,to:connection.target"));
+ assert(canvas.includes('old.data?.aggregate'));
+ assert.equal((canvas.match(/groupMoved\?\{manuallyEdited:true\}/g)||[]).length,2);
+ assert(canvas.includes('reconnectable:!readOnly'));
+ const drawer=fs.readFileSync(path.join(root,'frontend/reports-v1/ReportsDrawer.jsx'),'utf8');
+ assert(drawer.includes('hidden={confirmClose}'));
+ assert(drawer.includes('onChangeCapture'));
+ const shell=fs.readFileSync(path.join(root,'frontend/reports-v1/ReportsPanelShell.jsx'),'utf8');
+ assert(shell.includes('aria-labelledby={titleId}'));
+ assert(shell.includes('reports-panel-shell__footer'));
  const editedGraph={nodes:[{id:'a',origin:'blueprint'},{id:'b',origin:'blueprint'}],edges:[{id:'ab',origin:'manual',from:'a',to:'b'}],groups:[]};
  const rebuilt=applyBlueprint(editedGraph,{nodes:[],edges:[],groups:[]},[]);
  assert.deepEqual(rebuilt.nodes,editedGraph.nodes);assert.deepEqual(rebuilt.edges,editedGraph.edges);

@@ -12,7 +12,7 @@ export function ReportsActionButton({
   children,
   ...rest
 }) {
-  const resolvedType = type || (onClick ? 'button' : 'submit');
+  const resolvedType = type || 'button';
   const resolvedColor = color || (className.includes('danger')
     ? 'secondary-destructive'
     : /(?:text-button|inline-link|campaign-open|report-inline)/.test(className)

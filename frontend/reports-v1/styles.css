@@ -702,10 +702,6 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-untitled-overlay{position:fixed;inset:0;z-index:var(--cadu-z-dialog,60);display:flex;justify-content:flex-end;background:#1018288c;backdrop-filter:blur(2px)}
 .reports-untitled-drawer{width:min(100%,500px);height:100%;overflow:auto;background:#fff;box-shadow:-16px 0 48px #10182830;outline:0}
 .reports-untitled-drawer__dialog{display:flex;flex-direction:column;min-height:100%;padding:28px;outline:0}
-.reports-untitled-drawer__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:24px;border-bottom:1px solid #eaecf0}
-.reports-untitled-drawer__head span{color:#175cd3;font-size:12px;font-weight:600}
-.reports-untitled-drawer__head h2{margin:7px 0;font-size:24px;letter-spacing:-.03em}
-.reports-untitled-drawer__head p{margin:0;color:#667085;font-size:14px;line-height:1.5}
 .reports-account-create-form{display:grid;align-content:start;gap:20px;padding-top:24px}
 .reports-account-create-form>label{display:grid;gap:7px;color:#344054;font-size:13px;font-weight:600}
 .reports-account-create-form>label select{width:100%;min-height:44px;padding:10px 12px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#344054;font:inherit}
@@ -988,11 +984,6 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 @media(max-width:760px){.reports-shell--accounts .reports-accounts-toolbar{align-items:stretch;padding:16px}.reports-shell--accounts .reports-accounts-list th,.reports-shell--accounts .reports-accounts-list td{padding-inline:12px}}
 
 /* Account and site setup drawers use one clear completion action. */
-.reports-untitled-drawer__head{align-items:flex-start;padding-bottom:20px}
-.reports-untitled-drawer__head>div{min-width:0}
-.reports-untitled-drawer__head .reports-drawer-close{display:grid;width:32px;min-width:32px;height:32px;min-height:32px;flex:0 0 32px;place-items:center;padding:0;border:0!important;border-radius:7px;background:transparent!important;color:var(--color-text-tertiary)!important;font-size:23px;font-weight:400;line-height:1;box-shadow:none!important}
-.reports-untitled-drawer__head .reports-drawer-close:hover{background:var(--color-bg-secondary)!important;color:var(--color-text-primary)!important}
-.reports-untitled-drawer__head .reports-drawer-close:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
 .reports-account-create-form{gap:18px;padding-top:22px}
 .reports-account-create-form>label{gap:6px;color:var(--color-text-secondary)}
 .reports-untitled-drawer .reports-account-create-form input:not([type=checkbox]){border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important}

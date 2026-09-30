@@ -15,10 +15,12 @@ export function ReportsTabs({items, value, onChange, label, className = ''}) {
     onChange(item.id);
     event.currentTarget.querySelector(`[data-report-tab="${item.id}"]`)?.focus();
   };
-  return <div className={className} role="tablist" aria-label={label} onKeyDown={onKeyDown}>
+  return <div className={`reports-tabs ${className}`} role="tablist" aria-label={label} onKeyDown={onKeyDown}>
     {items.map(item => <ReportsActionButton
       key={item.id}
       type="button"
+      color="tertiary"
+      disabled={item.disabled}
       role="tab"
       data-report-tab={item.id}
       aria-selected={value === item.id}

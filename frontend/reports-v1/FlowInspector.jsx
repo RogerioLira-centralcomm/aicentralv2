@@ -1,7 +1,8 @@
+import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {Switch} from 'react-aria-components';
 import {FLOW_STAGES,stageFor} from './flowStages.js';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
-import React from 'react';
+import React,{useId,useState} from 'react';
 import {eventMatchesNode} from './flowEventIdentity.js';
 import {Button as UntitledButton} from './untitled-kit/src/components/base/buttons/button.tsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
@@ -9,14 +10,17 @@ import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {flowBlockFor} from './flowBlockRegistry.js';
 
 export function FlowInspector({node,groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
+  const [tab,setTab]=useState('configuration');
+  const tabId=useId();
   if(!node)return null;
   const block=flowBlockFor(node);
   const configured=Boolean(node.path&&!node.path.startsWith('/configurar-'));
   const observed=activity.find(item=>eventMatchesNode(item,node));
   const status=!block.trackable?'Etapa visual':!configured?'Configure a URL real':journeyMetric?.sessions>0?'Passagens observadas':observed?'Eventos recebidos':'Sem eventos no período';
-  return <aside className="reports-node-settings flow-inspector" aria-label={`Propriedades de ${node.title}`}>
-    <div className="flow-inspector__head"><div><span>{block.category}</span><h3>{node.title}</h3></div><UntitledButton color="tertiary" size="sm" aria-label="Fechar propriedades" onPress={onClose}>×</UntitledButton></div>
-    <div className="flow-inspector__body" onFocus={onGestureStart} onBlur={onGestureEnd}>
+  return <ReportsPanelShell className="reports-node-settings flow-inspector" title={node.title} context={block.category} onClose={onClose} closeLabel="Fechar propriedades" footer={!readOnly&&<UntitledButton type="button" color="tertiary-destructive" size="sm" onPress={onRemove}>Excluir etapa</UntitledButton>}>
+    <div className="reports-tabs" role="tablist" aria-label="Detalhes da etapa">{[['summary','Resumo'],['configuration','Configuração']].map(([id,label])=><UntitledButton key={id} type="button" color="tertiary" role="tab" id={`${tabId}-${id}`} aria-controls={`${tabId}-${id}-panel`} aria-selected={tab===id} tabIndex={tab===id?0:-1} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?'summary':event.key==='End'?'configuration':tab==='summary'?'configuration':'summary';setTab(next);document.getElementById(`${tabId}-${next}`)?.focus();}}} onPress={()=>setTab(id)}>{label}</UntitledButton>)}</div>
+    <section role="tabpanel" id={`${tabId}-summary-panel`} aria-labelledby={`${tabId}-summary`} hidden={tab!=='summary'}><h3>{status}</h3><p>{node.path||'Etapa visual'}</p><p>{node.evidence||'Acompanhe os eventos recebidos para verificar esta etapa.'}</p>{journeyMetric&&<p>{Number(journeyMetric.sessions||0).toLocaleString('pt-BR')} sessões no período</p>}</section>
+    <div role="tabpanel" id={`${tabId}-configuration-panel`} aria-labelledby={`${tabId}-configuration`} hidden={tab!=='configuration'} className="flow-inspector__body" onFocus={onGestureStart} onBlur={onGestureEnd}>
       <section className="flow-inspector__status" aria-live="polite"><strong>Super Tag</strong><span className={observed||journeyMetric?'is-receiving':''}>{status}</span>{journeyMetric&&<small>{Number(journeyMetric.sessions||0).toLocaleString('pt-BR')} sessões únicas · {Number(journeyMetric.events||0).toLocaleString('pt-BR')} eventos nesta etapa</small>}{observed&&!journeyMetric&&<small>{Number(observed.total??observed.views??0).toLocaleString('pt-BR')} eventos no período selecionado</small>}{!block.trackable&&<small>Este bloco organiza o desenho da jornada. Nenhuma ação é executada.</small>}</section>
       {block.category==='Segmentação e CRM'&&<section className="flow-inspector__integration"><strong>Integração de CRM</strong><p>Esta etapa pertence ao cliente selecionado em Reports. O webhook de conversões desse cliente recebe confirmações de lead, qualificação e venda; este bloco ainda não dispara ações nem lê segmentos do CRM.</p>{integrationsUrl&&<a href={integrationsUrl}>Ver integração e webhook do cliente ↗</a>}<small>API para CRM próprio e vínculo com contas individuais: em breve.</small></section>}
       <label>Nome<ReportsFieldInput disabled={readOnly} value={node.title||''} maxLength="60" onChange={event=>onChange('title',event.target.value)}/></label>
@@ -32,6 +36,5 @@ export function FlowInspector({node,groups=[],activity=[],journeyMetric=null,int
       <details><summary>Mais detalhes</summary><label>Descrição<ReportsTextArea disabled={readOnly} value={node.description||''} maxLength="500" rows={3} onChange={event=>onChange('description',event.target.value)}/></label></details>
       {node.type==='form'&&<section><strong>Campos observados</strong>{(node.fields||[]).length?<ul>{node.fields.map((field,index)=><li key={`${field.name}:${index}`}>{field.label||field.name}</li>)}</ul>:<p>Os campos aparecem após o mapeamento da página.</p>}</section>}
     </div>
-    {!readOnly&&<div className="flow-inspector__footer"><UntitledButton color="tertiary-destructive" size="sm" onPress={onRemove}>Excluir etapa</UntitledButton></div>}
-  </aside>;
+  </ReportsPanelShell>;
 }

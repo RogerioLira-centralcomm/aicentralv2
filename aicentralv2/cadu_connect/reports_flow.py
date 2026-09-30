@@ -540,7 +540,7 @@ def _normalize_flow_config(config, allowed_host):
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
-        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source','pageType'):
+        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source','pageType','pageTypeStatus'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
         # Persist the complete authored document, including visual and future
@@ -584,6 +584,8 @@ def _normalize_flow_config(config, allowed_host):
             abort(400, description='Etapa do funil inválida.')
         if node.get('pageType') and node['pageType'] not in ('home','service','institutional','contact','case','content','other'):
             abort(400, description='Tipo de página inválido.')
+        if node.get('pageTypeStatus') and node['pageTypeStatus'] not in ('confirmed','unresolved'):
+            abort(400, description='Estado do Tipo de página inválido.')
         for flag in ('locked','manuallyEdited'):
             if isinstance(node.get(flag), bool):item[flag]=node[flag]
         if isinstance(node.get('evidence'), str):item['evidence']=node['evidence'][:2000]
@@ -1598,9 +1600,12 @@ def register(bp):
         choice = payload.get('selection')
         if choice not in ('ignore','entry','intermediate','form','conversion','error'):
             abort(400, description='Escolha uma função válida para a página.')
+        page_type_choice = payload.get('page_type_selection')
+        if page_type_choice is not None and not payload.get('suggestion_id'):
+            abort(400, description='A revisão do Tipo de página exige uma sugestão válida.')
         if payload.get('suggestion_id'):
             from .reports_flow_suggestions import validate_application
-            accepted_suggestion = validate_application(payload['suggestion_id'],flow_id,page,selected,revision,choice)
+            accepted_suggestion = validate_application(payload['suggestion_id'],flow_id,page,selected,revision,choice,page_type_choice)
         else:
             accepted_suggestion = None
         campaign_id = payload.get('campaign_id') or None
@@ -1635,8 +1640,12 @@ def register(bp):
                             pageType='other',suggestedRole=choice)
                 nodes.append(node)
             if accepted_suggestion:
-                node['pageType'] = accepted_suggestion.get('page_type') if accepted_suggestion.get('page_type') in (
-                    'home','service','institutional','contact','case','content','other') else 'other'
+                reviewed_type = page_type_choice if page_type_choice is not None else accepted_suggestion.get('page_type')
+                if reviewed_type in ('home','service','institutional','contact','case','content','other'):
+                    node['pageType'] = reviewed_type
+                    node['pageTypeStatus'] = 'confirmed'
+                else:
+                    node['pageTypeStatus'] = 'unresolved'
         ids = {node['id'] for node in nodes}
         config.update(nodes=nodes, edges=[edge for edge in config.get('edges', [])
                       if edge['from'] in ids and edge['to'] in ids])

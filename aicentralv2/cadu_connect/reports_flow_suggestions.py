@@ -58,7 +58,7 @@ def suggest(flow, page, selected, actor_id=None):
             'base_revision':flow['draft_revision'],'page_id':str(page['id'])}
 
 
-def validate_application(suggestion_id, flow_id, page, selected, revision, choice):
+def validate_application(suggestion_id, flow_id, page, selected, revision, choice, page_type_choice=None):
     try:
         identifier = str(uuid.UUID(str(suggestion_id)))
     except ValueError:
@@ -70,9 +70,19 @@ def validate_application(suggestion_id, flow_id, page, selected, revision, choic
     if not items:
         abort(409,description='Sugestão indisponível ou expirada. Analise novamente.')
     item = items[0]
+    independent_review = page_type_choice is not None
     if (item['base_revision'] != revision or item['evidence_hash'] != evidence_hash(page)
-            or item['result'].get('role') != choice or choice == 'none'
+            or (not independent_review and (item['result'].get('role') != choice or choice == 'none'))
+            or (independent_review and (choice == 'ignore' or page_type_choice not in
+                ('home','service','institutional','contact','case','content','other','unknown')))
             or item['result'].get('question_version') != FLOW_PAGE_PROMPT_VERSION):
         abort(409,description='O rascunho ou a evidência mudou. Analise novamente.')
-    _rows("UPDATE cadu_reports_flow_suggestions SET status='applied',applied_at=NOW() WHERE id=%s RETURNING id",(identifier,))
+    if independent_review:
+        review = json.dumps({'role': choice, 'page_type': page_type_choice,
+                             'actor_id': session.get('user_id')})
+        _rows("""UPDATE cadu_reports_flow_suggestions SET status='applied',applied_at=NOW(),
+            result=jsonb_set(result,'{review}',%s::jsonb,true) WHERE id=%s RETURNING id""",
+            (review,identifier))
+    else:
+        _rows("UPDATE cadu_reports_flow_suggestions SET status='applied',applied_at=NOW() WHERE id=%s RETURNING id",(identifier,))
     return item['result']

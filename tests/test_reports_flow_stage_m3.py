@@ -34,6 +34,43 @@ def test_draft_normalization_preserves_page_type_and_legacy_role():
         'exploration', 'contact', 'intent', 720, 120)
 
 
+def test_draft_normalization_preserves_unresolved_page_type():
+    from aicentralv2.cadu_connect.reports_flow import _normalize_flow_config
+
+    config = {'nodes': [{'id': 'p', 'type': 'page', 'title': 'Serviços', 'path': '/servicos',
+                         'stage': 'exploration', 'pageType': 'other',
+                         'pageTypeStatus': 'unresolved', 'x': 720, 'y': 120}], 'edges': []}
+    normalized, _ = _normalize_flow_config(config, 'example.com')
+    assert normalized['nodes'][0]['pageTypeStatus'] == 'unresolved'
+
+
+def test_typesafe_review_allows_independent_human_choices(monkeypatch):
+    from aicentralv2.cadu_connect import reports_flow_suggestions as suggestions
+
+    page = {'id': 'page', 'title': 'Serviços', 'path_prefix': '/servicos'}
+    item = {'base_revision': 4, 'evidence_hash': suggestions.evidence_hash(page),
+            'result': {'role': 'none', 'page_type': 'service',
+                       'question_version': suggestions.FLOW_PAGE_PROMPT_VERSION}}
+    statements = []
+
+    def rows(statement, params):
+        statements.append((statement, params))
+        return [item]
+
+    monkeypatch.setattr(suggestions, '_rows', rows)
+    from flask import Flask
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    with app.test_request_context('/'):
+        result = suggestions.validate_application('11111111-1111-4111-8111-111111111111',
+                                                   'flow', page, {'client_id': 1}, 4,
+                                                   'intermediate', 'service')
+    assert result['page_type'] == 'service'
+    assert any("status='applied'" in statement for statement, _ in statements)
+    assert any('"role": "intermediate"' in params[0] and '"page_type": "service"' in params[0]
+               for statement, params in statements if 'jsonb_set' in statement)
+
+
 def test_typesafe_judges_journey_role_and_content_type_independently(monkeypatch):
     from aicentralv2.cadu_connect import reports_typesafe
 

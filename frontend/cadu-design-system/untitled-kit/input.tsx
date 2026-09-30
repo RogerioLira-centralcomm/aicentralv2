@@ -30,7 +30,7 @@ export function Input({label, description, hint, error, size = 'md', className, 
     {label && <label data-label="true" htmlFor={id} className="text-sm font-medium text-secondary">{label}{isRequiredField && <span className="ml-0.5 text-brand-tertiary" aria-hidden="true">*</span>}</label>}
     <span className={cx('cadu-untitled-field__control group relative flex w-full min-w-0 items-center rounded-lg bg-primary shadow-xs ring-1 ring-primary ring-inset transition-shadow duration-100 ease-linear focus-within:ring-2 focus-within:ring-brand', size === 'sm' ? 'min-h-9' : 'min-h-10', isDisabledField && 'opacity-60', wrapperClassName)}>
       {leading}
-      <input {...inputProps} id={id} ref={inputRef} disabled={isDisabledField} required={isRequiredField} aria-invalid={error ? true : inputProps['aria-invalid']} aria-describedby={describedBy} className={cx('m-0 w-full min-w-0 bg-transparent px-3 py-2 text-sm text-primary outline-hidden placeholder:text-placeholder disabled:cursor-not-allowed', inputClassName)} />
+      <input {...inputProps} id={id} ref={inputRef} disabled={isDisabledField} required={isRequiredField} aria-invalid={error ? true : inputProps['aria-invalid']} aria-describedby={describedBy} className={cx('m-0 w-full min-w-0 appearance-none border-0 bg-transparent px-3 py-2 text-sm text-primary outline-hidden placeholder:text-placeholder disabled:cursor-not-allowed', inputClassName)} />
     </span>
     {helper && <span id={`${id}-hint`} className="text-xs text-tertiary">{helper}</span>}
     {error && <span id={`${id}-error`} className="text-xs text-error-primary" role="alert">{error}</span>}

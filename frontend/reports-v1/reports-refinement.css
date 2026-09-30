@@ -16,9 +16,6 @@
 .reports-node-settings.flow-inspector.reports-panel-shell{padding:0;overflow:hidden;border-radius:16px}
 .reports-panel-shell .flow-inspector__body{padding:0;overflow:visible;display:flex;flex-direction:column;gap:18px}
 .reports-panel-shell .flow-inspector__status{padding:12px;background:var(--color-bg-secondary,#f9fafb);border:0;border-radius:8px}
-.reports-untitled-drawer .reports-panel-shell{height:100%;max-height:100%;width:100%;border-radius:16px}
-.reports-untitled-drawer__dialog{height:100%;min-height:0;padding:0;outline:none}
-.reports-untitled-drawer{margin:16px;width:min(440px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);background:transparent;border:0;box-shadow:none;padding:0}
 .reports-panel-shell :is(input,select,textarea){font-size:14px}
 .reports-panel-shell :is(input,select):not([type=checkbox]):not([type=radio]){min-height:40px}
 .reports-panel-shell :is(button,a):focus-visible{outline:2px solid var(--color-fg-brand-primary,#155eef);outline-offset:2px}
@@ -39,7 +36,7 @@
 .reports-panel-shell details{padding-block:8px}
 .reports-panel-shell summary{cursor:pointer;font-size:14px;font-weight:500}
 @media(max-width:1100px){.flow-blueprint-panel.reports-panel-shell{width:360px}.reports-panel-shell__header{padding:16px}.reports-panel-shell__body{padding:4px 16px 20px}.reports-panel-shell__footer{padding:12px 16px}}
-@media(max-width:600px){.reports-untitled-drawer{margin:0;width:100vw;height:100dvh;max-height:100dvh}.reports-untitled-drawer .reports-panel-shell{border-radius:0}.reports-panel-shell__footer{padding-bottom:max(16px,env(safe-area-inset-bottom))}.reports-panel-shell button{min-height:44px}.flow-blueprint-panel.reports-panel-shell{inset:0;width:100%;max-width:100%;border-radius:0}}
+@media(max-width:600px){.reports-panel-shell__footer{padding-bottom:max(16px,env(safe-area-inset-bottom))}.reports-panel-shell button{min-height:44px}.flow-blueprint-panel.reports-panel-shell{inset:0;width:100%;max-width:100%;border-radius:0}}
 @media(prefers-reduced-motion:reduce){.reports-panel-shell *{scroll-behavior:auto}}
 .flow-workspace-panel.reports-panel-shell,.flow-assist-panel.reports-panel-shell{padding:0;overflow:hidden;border-radius:16px}
 .flow-workspace-panel.reports-panel-shell .flow-panel-scroll{overflow:visible;max-height:none;padding:16px 0 0}
@@ -82,11 +79,8 @@
 /* Fluxos: lista em tabela com busca e estado; criação em drawer. */
 .reports-flow-index{display:grid;gap:16px}
 .reports-flow-index__tools{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-.reports-flow-index__tools .reports-ui-field{flex:1 1 280px;max-width:360px}
-.reports-flow-index__tools .reports-ui-field{min-height:40px;border:1px solid var(--color-border-primary,#d0d5dd);border-radius:8px;background:#fff;box-shadow:0 1px 2px #1018280d}
-.reports-flow-index__tools .reports-ui-field:focus-within{border-color:#175cd3;box-shadow:0 0 0 3px #d1e9ff}
-.reports-flow-index__tools .reports-ui-field input{box-sizing:border-box;width:100%;min-height:38px;border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important}
-.reports-flow-index__tools .reports-ui-select{flex:0 0 200px}
+.reports-flow-index__tools .cadu-untitled-field{flex:1 1 280px;max-width:360px}
+.reports-flow-index__tools .reports-ui-select{flex:0 0 200px;width:200px}
 .reports-flow-index__count{margin-left:auto;color:var(--color-text-tertiary,#475467);font-size:13px}
 .reports-flow-index__new{flex:none}
 .reports-main .reports-flow-index__panel{padding:0;overflow:hidden}
@@ -110,7 +104,7 @@
 .reports-flow-new__optional[open]>label:last-child{padding-bottom:14px}
 .reports-flow-new__actions{display:grid;gap:10px;padding-top:4px}
 .reports-flow-new__actions p{margin:0;color:var(--color-text-tertiary,#475467);font-size:12px;line-height:1.45}
-@media(max-width:760px){.reports-flow-index__tools .reports-ui-field,.reports-flow-index__tools .reports-ui-select{flex:1 1 100%;max-width:none}.reports-flow-index__count{margin-left:0}.reports-flow-new__domain{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){.reports-flow-index__tools .cadu-untitled-field,.reports-flow-index__tools .reports-ui-select{flex:1 1 100%;max-width:none}.reports-flow-index__count{margin-left:0}.reports-flow-new__domain{grid-template-columns:minmax(0,1fr)}}
 
 /* Shell: marca compacta, cabeçalho enxuto e filtros em uma só linha. */
 .reports-shell>.cadu-solution-sidebar{gap:10px;padding:12px 14px}

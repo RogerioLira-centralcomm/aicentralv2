@@ -1,4 +1,4 @@
-import {DocumentsIllustration} from '../cadu-design-system/untitled-kit/illustrations/documents.tsx';
+import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {useFlowReadiness} from './useFlowReadiness.js';
 import {FlowBlueprintNotice} from './FlowBlueprintNotice.jsx';
@@ -13,14 +13,15 @@ import {SharedReports} from './SharedReports.jsx';
 import {FlowSolutionSwitcher,FlowNavbarAccount} from './FlowNavbarAccount.jsx';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
+import '../cadu-design-system/tokens.css';
 import './styles.css';
 import './flow-workspace.css';
 import './reports-refinement.css';
+import '../cadu-design-system/primitives.css';
 import {FlowLiveEdge} from './FlowLiveEdge.jsx';
 import {FlowLiveValue} from './FlowLiveValue.jsx';
 import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.jsx';
 import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
-import {Input as UntitledInput} from '../cadu-design-system/untitled-kit/input-base.tsx';
 import {Dialog, Modal, ModalOverlay} from 'react-aria-components';
 import {ReportsActionButton} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
@@ -85,6 +86,7 @@ const platformName = value => ({manual:'Manual',google_ads: 'Google Ads', meta_a
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const sourceHealth = item => item.revoked_at ? 'Revogada' : !item.last_used_at ? 'Aguardando primeiro envio' : item.source_kind === 'google_ads_script' && Date.now() - new Date(item.last_used_at).getTime() > 48 * 3600 * 1000 ? 'Sem envio há 48 h' : 'Ativa';
 const rootElement = document.getElementById('cadu-reports-v1-root');
+document.documentElement.dataset.caduSkin = 'reports';
 
 async function json(url, options = {}) {
   const response = await fetch(url, {credentials: 'same-origin', ...options});
@@ -124,7 +126,7 @@ function Chart({type = 'bar', labels, values, height = 260, horizontal = false})
   return values?.length ? <div ref={host} className="reports-chart" /> : <Empty message="O gráfico aparece quando houver dados para esta seleção." />;
 }
 
-function Empty({message}) { return <div className="reports-empty reports-empty-state"><DocumentsIllustration size="sm" aria-hidden="true"/><p>{message}</p></div>; }
+function Empty({message}) { return <CaduEmptyState className="reports-empty reports-empty-state" description={message}/>; }
 
 const FLOW_CHANNELS = [
   {id:'netflix_ads',label:'Netflix Ads',aliases:['netflix']},
@@ -282,17 +284,18 @@ function Accounts({data, save, busy}) {
   return <section className="reports-accounts-page">
     <header className="reports-accounts-heading"><div><p>{data.client.client_name || `Cliente ${data.client.client_id}`} <span>·</span> {integer(data.accounts.length)} {data.accounts.length === 1 ? 'conta' : 'contas'}</p></div><div className="reports-accounts-heading__actions"><UntitledButton className="reports-account-connect" color="tertiary" href={reportUrl('monitor')}>Conectar fonte</UntitledButton>{data.client.role!=='viewer'&&<UntitledButton className="reports-account-add" onPress={()=>setCreateOpen(true)}>Adicionar conta</UntitledButton>}</div></header>
     <div className="reports-accounts-layout">
-    <article className="reports-panel reports-accounts-list"><div className="reports-accounts-toolbar"><div className="reports-accounts-search"><UntitledInput size="sm" type="search" aria-label="Buscar contas" placeholder="Nome, ID ou plataforma" value={query} onChange={setQuery}/></div></div>
+    <article className="reports-panel reports-accounts-list"><div className="reports-accounts-toolbar"><div className="reports-accounts-search"><ReportsFieldInput type="search" aria-label="Buscar contas" placeholder="Nome, ID ou plataforma" value={query} onChange={event => setQuery(event.target.value)}/></div></div>
       {visibleAccounts.length ? <div className="reports-table-wrap"><table><thead><tr><th>Nome</th><th>Plataforma</th><th>ID externo</th><th>Tipo</th><th>MCC</th><th>Status</th><th></th></tr></thead><tbody>{visibleAccounts.map(item => <AccountRow key={item.id} item={item} data={data} save={save} busy={busy} />)}</tbody></table></div> : <Empty message={data.accounts.length?'Nenhuma conta encontrada.':'Nenhuma conta ainda. Conecte uma fonte ou adicione uma conta.'} />}
     </article>
-    {createOpen&&<ModalOverlay className="reports-untitled-overlay" isOpen={createOpen} onOpenChange={setCreateOpen} isDismissable><Modal className="reports-untitled-drawer"><Dialog aria-label="Adicionar conta de mídia" className="reports-untitled-drawer__dialog"><div className="reports-untitled-drawer__head"><div><span>Reports · {data.client.client_name}</span><h2>Adicionar conta de mídia</h2><p>Identifique a conta e seu vínculo com uma gerenciadora, se houver.</p></div><UntitledButton className="reports-drawer-close" color="tertiary" onPress={()=>setCreateOpen(false)} aria-label="Fechar cadastro">×</UntitledButton></div><form className="reports-account-create-form" onSubmit={submit}>
+    <ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} title="Adicionar conta de mídia" description="Identifique a conta e seu vínculo com uma gerenciadora, se houver." context={data.client.client_name}>
+      <form className="reports-account-create-form" onSubmit={submit}>
       <label>Plataforma<ReportsNativeSelect value={form.platform} onChange={event => setForm({...form, platform: event.target.value, parent_account_id: ''})}><option value="google_ads">Google Ads</option><option value="meta_ads">Meta Ads</option><option value="microsoft_ads">Microsoft Ads</option><option value="other">Outra</option></ReportsNativeSelect></label>
       <label>Tipo<ReportsNativeSelect value={form.account_kind} onChange={event => setForm({...form, account_kind: event.target.value, parent_account_id: ''})}><option value="advertiser">Conta de mídia</option><option value="manager">MCC / gerente</option></ReportsNativeSelect></label>
-      <UntitledInput label="Nome da conta" isRequired maxLength={240} value={form.name} onChange={name => setForm({...form,name})} placeholder="Nome exibido na plataforma" hint="Use um nome que ajude a identificar a conta na lista." />
-      <UntitledInput label="ID da conta" isRequired maxLength={160} value={form.external_id} onChange={external_id => setForm({...form,external_id})} placeholder={form.platform === 'google_ads' ? '123-456-7890' : 'ID fornecido pela plataforma'} hint={form.platform === 'google_ads' ? 'ID Google Ads com 10 dígitos, com ou sem hífens.' : 'Copie o identificador exibido pela plataforma escolhida.'}/>
+      <ReportsFieldInput label="Nome da conta" required maxLength={240} value={form.name} onChange={event => setForm({...form,name:event.target.value})} placeholder="Nome exibido na plataforma" hint="Use um nome que ajude a identificar a conta na lista." />
+      <ReportsFieldInput label="ID da conta" required maxLength={160} value={form.external_id} onChange={event => setForm({...form,external_id:event.target.value})} placeholder={form.platform === 'google_ads' ? '123-456-7890' : 'ID fornecido pela plataforma'} hint={form.platform === 'google_ads' ? 'ID Google Ads com 10 dígitos, com ou sem hífens.' : 'Copie o identificador exibido pela plataforma escolhida.'}/>
       {form.account_kind === 'advertiser' && managers.length > 0 && <label>Conta gerente<ReportsNativeSelect value={form.parent_account_id} onChange={event => setForm({...form, parent_account_id: event.target.value})}><option value="">Sem gerente</option>{managers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>}
       <div className="reports-untitled-drawer__actions"><UntitledButton type="submit" isDisabled={busy} isLoading={busy}>Salvar conta</UntitledButton></div>
-    </form></Dialog></Modal></ModalOverlay>}
+    </form></ReportsDrawer>
     </div>
   </section>;
 }
@@ -739,8 +742,6 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const [flow, setFlow] = useState({tags: [], steps: [], flows: [], tests: [], tag_urls: {}, activity: [], online: 0, conversions: 0, confirmed: [], supertag_sites: []});
   const [discovery, setDiscovery] = useState({run:null,pages:[]});
   const [discoveryLoadedId, setDiscoveryLoadedId] = useState('');
-  const autoDiscoverFlowRef = useRef('');
-  const autoDiscoveryAttemptRef = useRef('');
   useEffect(() => {
     document.body.classList.toggle('reports-flow-editor-active', flowView === 'edit');
     return () => document.body.classList.remove('reports-flow-editor-active');
@@ -871,12 +872,6 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id, filters.period, filters.startDate, filters.endDate, filters.platform, filters.account, filters.campaign, selectedFlowId,flowView,refreshRevision,analysisRevision]);
   useEffect(()=>{if(flowView!=='create')return;let cancelled=false;json(`/connect/api/v2/reports/flow/templates?client_id=${data.client.client_id}`).then(result=>{if(!cancelled&&Array.isArray(result.templates))setFlowTemplateOptions(result.templates);}).catch(()=>{});return()=>{cancelled=true;};},[flowView,data.client.client_id]);
   useEffect(() => {if(flowView!=='edit')return;setDiscoveryLoadedId('');loadDiscoveries(selectedFlowId).catch(failure => setLocalError(failure.message));}, [selectedFlowId,data.client.client_id]);
-  useEffect(() => {if(flowView==='edit'&&selectedFlowId&&autoDiscoverFlowRef.current===selectedFlowId){autoDiscoverFlowRef.current='';discoverSite();}}, [flowView,selectedFlowId]);
-  useEffect(() => {
-    if(flowView!=='edit'||!selectedFlowId||discoveryLoadedId!==selectedFlowId||discovery.run||data.client.role==='viewer'||autoDiscoveryAttemptRef.current===selectedFlowId||!flow.flows.some(item=>item.id===selectedFlowId))return;
-    autoDiscoveryAttemptRef.current=selectedFlowId;
-    discoverSite();
-  }, [flowView,selectedFlowId,discoveryLoadedId,discovery.run,data.client.role,flow.flows]);
   useEffect(() => {const found = flow.flows.find(item => item.id === selectedFlowId); if (found && flowInitializedRef.current !== selectedFlowId) {setFlowName(found.name); setFlowHost(found.allowed_host); setFlowConfig(found.config || {nodes: [], edges: []});flowHistory.reset(found.config || {nodes:[],edges:[]});copiedNodesRef.current=null; revisionRef.current=found.draft_revision;savedSnapshotRef.current=JSON.stringify({name:found.name,config:found.config||{nodes:[],edges:[]}});flowInitializedRef.current=selectedFlowId;setVersions(null);setVersionComparison(null);setPageSuggestions({});setVersionMessage('');}}, [selectedFlowId, flow.flows]);
   useEffect(() => {const found=flow.flows.find(item=>item.id===selectedFlowId);if(found)setMonitorInterval(Number(found.monitor_interval_minutes)||15);}, [selectedFlowId,flow.flows]);
   useEffect(() => {
@@ -1217,7 +1212,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     {flowView==='monitor'&&<a className="reports-flow-return" href={reportUrl('flows',{client_id:data.client.client_id})}>← Voltar aos fluxos</a>}
     {localError&&flowView!=='edit'&&<div className="reports-error" role="alert">{localError}</div>}
     <FlowToast message={versionMessage} onDismiss={()=>setVersionMessage('')}/>
-    {draftConflict&&<ModalOverlay className="reports-untitled-overlay reports-confirm-overlay" isOpen isDismissable={false}><Modal className="reports-confirm-modal"><Dialog aria-label="Conflito no rascunho" className="reports-confirm-dialog flow-publication-dialog"><h2>Este fluxo mudou em outra aba</h2><p>As alterações desta aba continuam aqui. Revisão local: r{revisionRef.current}. {remoteRevision==null?'Consultando a revisão mais recente…':`Revisão mais recente: r${remoteRevision}.`} Escolha qual versão manter antes de continuar a editar.</p><div className="reports-confirm-actions"><UntitledButton color="secondary" size="sm" isDisabled={busy} onPress={()=>resolveDraftConflict(false)}>Recarregar versão recente</UntitledButton><UntitledButton color="primary" size="sm" isDisabled={busy} onPress={()=>resolveDraftConflict(true)}>Substituir com minhas alterações</UntitledButton></div></Dialog></Modal></ModalOverlay>}
+    {draftConflict&&<ModalOverlay className="cadu-ds-overlay cadu-ds-overlay--center" isOpen isDismissable={false}><Modal className="cadu-ds-confirm"><Dialog aria-label="Conflito no rascunho" className="cadu-ds-confirm__dialog flow-publication-dialog"><h2>Este fluxo mudou em outra aba</h2><p>As alterações desta aba continuam aqui. Revisão local: r{revisionRef.current}. {remoteRevision==null?'Consultando a revisão mais recente…':`Revisão mais recente: r${remoteRevision}.`} Escolha qual versão manter antes de continuar a editar.</p><div className="cadu-ds-confirm__actions"><UntitledButton color="secondary" size="sm" isDisabled={busy} onPress={()=>resolveDraftConflict(false)}>Recarregar versão recente</UntitledButton><UntitledButton color="primary" size="sm" isDisabled={busy} onPress={()=>resolveDraftConflict(true)}>Substituir com minhas alterações</UntitledButton></div></Dialog></Modal></ModalOverlay>}
     {flowView==='edit'&&validationOpen&&<section className="reports-flow-validation" aria-label="Pendências do fluxo"><div><strong>{validationIssues.length?`${blockingIssues.length} bloqueantes · ${validationIssues.length-blockingIssues.length} avisos`:'Fluxo pronto para publicar'}</strong><button type="button" onClick={()=>setValidationOpen(false)} aria-label="Fechar pendências">×</button></div>{validationIssues.length?<>{[['Pendências que impedem publicar',blockingIssues],['Avisos de leitura e coleta',validationIssues.filter(item=>item.severity==='warning')]].map(([heading,items])=>items.length>0&&<div key={heading}><h3>{heading}</h3><ul>{items.map((issue,index)=><li className={`is-${issue.severity}`} key={`${issue.code}:${issue.nodeId||issue.edgeId||index}`}><span>{issue.message}</span><small>{issue.consequence}</small><button type="button" onClick={()=>focusIssue(issue)}>{issueActionLabel(issue)}</button></li>)}</ul></div>)}</>:<p>Nenhuma pendência encontrada nesta revisão.</p>}</section>}
     <FlowPublicationDialog open={publicationOpen} name={flowName} host={selectedFlow?.allowed_host} revision={revisionRef.current} config={flowConfig} previous={publishedConfig} issues={validationIssues} note={publicationNote} onNoteChange={setPublicationNote} busy={publicationBusy} onClose={()=>setPublicationOpen(false)} onPublish={publishFlow}/>
     {versions&&<section className="reports-flow-history"><h3>Versões publicadas</h3><button type="button" onClick={()=>{setVersions(null);setVersionComparison(null);}}>Fechar histórico</button>{versionComparison&&<p role="status">v{versionComparison.revision} → rascunho: etapas +{versionComparison.nodes.added} / −{versionComparison.nodes.removed} / {versionComparison.nodes.updated} alteradas; conexões +{versionComparison.edges.added} / −{versionComparison.edges.removed} / {versionComparison.edges.updated} alteradas.</p>}{versions.length?versions.map(item=><div key={item.revision}><span>Versão {item.revision} — {item.name}</span><button type="button" onClick={()=>compareVersion(item.revision)}>Comparar com rascunho</button><button type="button" disabled={readOnly||busy} onClick={()=>restoreVersion(item.revision)}>Restaurar como rascunho</button></div>):<p>Nenhuma versão publicada.</p>}</section>}

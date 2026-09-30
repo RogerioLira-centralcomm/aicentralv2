@@ -80,3 +80,18 @@ test('primary buttons inside panel heads keep their own text color', () => {
   assert.match(css, /\.reports-main \.reports-panel-head button span\{color:inherit;font-size:inherit\}/);
   assert.match(css, /\.reports-campaign-open>span\{display:grid/);
 });
+
+test('opening a flow never maps the site on its own; mapping is an explicit action', () => {
+  assert.doesNotMatch(main, /autoDiscover/);
+  assert.match(main, /Mapear site/);
+});
+
+test('Reports adapters delegate to the shared Cadu design system', () => {
+  for (const [file, component] of [['ReportsFieldInput', 'CaduTextField'], ['ReportsNativeSelect', 'CaduSelectField'], ['ReportsTextArea', 'CaduTextAreaField'], ['ReportsDrawer', 'CaduDrawer'], ['ReportsConfirmDialog', 'CaduConfirmDialog'], ['ReportsTabs', 'CaduTabs']]) {
+    assert.match(read(`frontend/reports-v1/${file}.jsx`), new RegExp(component), file);
+  }
+  assert.doesNotMatch(main, /UntitledInput|reports-untitled-drawer\b/);
+  const primitives = read('frontend/cadu-design-system/primitives.css');
+  assert.match(primitives, /\.cadu-ds-drawer\[data-entering\]/);
+  assert.match(primitives, /prefers-reduced-motion: reduce/);
+});

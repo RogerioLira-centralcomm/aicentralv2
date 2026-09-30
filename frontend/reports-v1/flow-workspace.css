@@ -246,7 +246,7 @@
 .reports-main .reports-discovered-head strong{font-size:13px;line-height:1.3;color:var(--color-text-primary)}
 .reports-main .reports-discovered-head>button{flex:0 0 auto;min-height:28px;padding:3px 8px;border:0;background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary);font-size:11px;font-weight:600}
 .reports-main .reports-discovered-summary{margin:2px 0 7px;color:var(--color-text-tertiary);font-size:11px;line-height:1.4}
-.reports-main .reports-discovered-palette>.reports-ui-field{width:100%;margin-bottom:3px;box-shadow:none}
+.reports-main .reports-discovered-palette>.cadu-untitled-field{width:100%;margin-bottom:3px}
 .reports-main .reports-discovered-palette .reports-site-page-search{width:100%;border:0;outline:0;box-shadow:none;background:transparent;font-size:11px}
 .reports-main .reports-discovered-page{grid-template-columns:minmax(0,1fr) auto;gap:6px;padding:9px 0}
 .reports-main .reports-discovered-page>span{grid-column:1/-1}

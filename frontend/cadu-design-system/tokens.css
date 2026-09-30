@@ -12,6 +12,12 @@
   --cadu-navbar-height: 56px;
   --cadu-content-gutter: clamp(24px, 4vw, 56px);
   --cadu-motion-fast: 140ms ease;
+  --cadu-ease-out: cubic-bezier(.2, .8, .2, 1);
+  --cadu-motion-base: 200ms var(--cadu-ease-out);
+  --cadu-motion-slow: 320ms var(--cadu-ease-out);
+  --cadu-control-height: 40px;
+  --cadu-content-max: 1120px;
+  --cadu-overlay: rgba(16, 24, 40, .32);
   --cadu-focus: #20a797;
   --cadu-success: #207456;
   --cadu-warning: #a36b16;

@@ -1,0 +1,111 @@
+/* Cadu Design System primitives. Namespaced and skin-aware: every color comes
+   from tokens or the Untitled theme, so each product only swaps the skin.
+   Direction: minimal chrome, calm motion, content first. */
+
+@keyframes cadu-ds-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cadu-ds-fade-out { to { opacity: 0; } }
+@keyframes cadu-ds-drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cadu-ds-drawer-out { to { transform: translateX(24px); opacity: 0; } }
+@keyframes cadu-ds-pop-in { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cadu-ds-pop-out { to { transform: translateY(4px) scale(.98); opacity: 0; } }
+
+/* Overlay, drawer and confirmation */
+.cadu-ds-overlay { position: fixed; inset: 0; z-index: var(--cadu-z-dialog, 60); display: flex; background: var(--cadu-overlay, rgba(16, 24, 40, .32)); }
+.cadu-ds-overlay--drawer { justify-content: flex-end; }
+.cadu-ds-overlay--center { align-items: center; justify-content: center; padding: 16px; }
+.cadu-ds-drawer { width: min(100%, 480px); height: 100%; overflow: hidden; background: var(--color-bg-primary, #fff); box-shadow: -8px 0 32px rgba(16, 24, 40, .12); outline: 0; }
+.cadu-ds-drawer--lg { width: min(100%, 640px); }
+.cadu-ds-drawer__dialog { display: flex; height: 100%; flex-direction: column; outline: 0; }
+.cadu-ds-drawer__dialog > .cadu-ds-panel { flex: 1; min-height: 0; border: 0; border-radius: 0; }
+.cadu-ds-confirm { width: min(100%, 440px); max-height: min(90dvh, 640px); overflow: auto; border-radius: 14px; background: var(--color-bg-primary, #fff); box-shadow: 0 16px 48px rgba(16, 24, 40, .18); outline: 0; }
+.cadu-ds-confirm__dialog { padding: 24px; outline: 0; }
+.cadu-ds-confirm h2 { margin: 0 0 8px; color: var(--color-text-primary, #101828); font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.cadu-ds-confirm p { margin: 0; color: var(--color-text-tertiary, #475467); font-size: 14px; line-height: 1.55; }
+.cadu-ds-confirm__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.cadu-ds-overlay[data-entering] { animation: cadu-ds-fade-in var(--cadu-motion-base); }
+.cadu-ds-overlay[data-exiting] { animation: cadu-ds-fade-out 160ms ease-in forwards; }
+.cadu-ds-drawer[data-entering] { animation: cadu-ds-drawer-in var(--cadu-motion-base); }
+.cadu-ds-drawer[data-exiting] { animation: cadu-ds-drawer-out 160ms ease-in forwards; }
+.cadu-ds-confirm[data-entering] { animation: cadu-ds-pop-in var(--cadu-motion-base); }
+.cadu-ds-confirm[data-exiting] { animation: cadu-ds-pop-out 140ms ease-in forwards; }
+
+/* Panel: header, scrollable body and footer */
+.cadu-ds-panel { display: flex; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-bg-primary, #fff); }
+.cadu-ds-panel__header { flex: none; padding: 20px 24px 8px; }
+.cadu-ds-panel__top { display: flex; align-items: center; justify-content: space-between; min-height: 24px; margin-bottom: 4px; }
+.cadu-ds-panel__icon { display: grid; width: 32px; height: 32px; place-items: center; color: var(--color-fg-brand-primary, var(--cadu-accent)); }
+.cadu-ds-panel__header small { display: block; color: var(--color-text-tertiary, #475467); font-size: 12px; }
+.cadu-ds-panel__header h2 { margin: 2px 0 0; color: var(--color-text-primary, #101828); font-size: 18px; font-weight: 600; line-height: 28px; letter-spacing: -.01em; }
+.cadu-ds-panel__header p { margin: 4px 0 0; color: var(--color-text-tertiary, #475467); font-size: 14px; line-height: 20px; }
+.cadu-ds-panel__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 12px 24px 28px; scrollbar-width: thin; }
+.cadu-ds-panel__body form { display: grid; align-content: start; gap: 20px; margin: 0; }
+.cadu-ds-panel__body label:not([data-label]) { display: grid; gap: 6px; color: var(--color-text-secondary, #344054); font-size: 14px; font-weight: 500; line-height: 20px; }
+.cadu-ds-panel__body label:not([data-label]) small { color: var(--color-text-tertiary, #475467); font-size: 12px; font-weight: 400; line-height: 18px; }
+.cadu-ds-panel__body label:has(input[type=checkbox]) { display: flex; align-items: flex-start; gap: 8px; font-weight: 400; }
+.cadu-ds-panel__body input[type=checkbox] { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.cadu-ds-panel__body p { color: var(--color-text-tertiary, #475467); font-size: 14px; line-height: 1.55; }
+.cadu-ds-panel__footer { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--color-border-secondary, #eaecf0); }
+.cadu-ds-drawer__discard { display: grid; gap: 8px; padding: 16px; border-radius: 10px; background: var(--color-bg-secondary, #f9fafb); }
+.cadu-ds-drawer__discard h3 { margin: 0; font-size: 15px; }
+.cadu-ds-drawer__discard p { margin: 0; }
+.cadu-ds-drawer__discard div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+/* Fields: one look in every page and shell */
+.cadu-ds-field { min-height: var(--cadu-control-height, 40px); border-radius: 8px; background: var(--color-bg-primary, #fff); }
+.cadu-ds-field input { min-height: 38px; font-size: 14px; }
+.cadu-ds-select select, .cadu-ds-textarea textarea { font-size: 14px; }
+@media (max-width: 1199px) { .cadu-ds-field input, .cadu-ds-select select, .cadu-ds-textarea textarea { font-size: 16px; } }
+
+/* Tabs: text with an underline, no boxes */
+.cadu-ds-tabs { display: flex; flex-wrap: wrap; gap: 4px 20px; border-bottom: 1px solid var(--color-border-secondary, #eaecf0); }
+.cadu-ds-tabs > button { position: relative; min-height: 40px; padding: 0 2px; border: 0 !important; border-radius: 0; background: transparent !important; box-shadow: none !important; color: var(--color-text-tertiary, #475467); font-size: 14px; font-weight: 500; transition: color var(--cadu-motion-fast, 140ms ease); }
+.cadu-ds-tabs > button:hover { color: var(--color-text-primary, #101828); }
+.cadu-ds-tabs > button.is-active, .cadu-ds-tabs > button[aria-selected=true] { color: var(--color-text-primary, #101828); }
+.cadu-ds-tabs > button::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; border-radius: 2px; background: transparent; transition: background var(--cadu-motion-fast, 140ms ease); }
+.cadu-ds-tabs > button[aria-selected=true]::after { background: var(--color-fg-brand-primary, var(--cadu-accent)); }
+.cadu-ds-tabs small { margin-left: 6px; color: var(--color-text-quaternary, #667085); font-size: 12px; font-weight: 400; }
+
+/* Badge and empty state */
+.cadu-ds-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; line-height: 18px; white-space: nowrap; }
+.cadu-ds-badge--neutral { background: var(--color-bg-secondary, #f2f4f7); color: var(--color-text-secondary, #344054); }
+.cadu-ds-badge--success { background: #ecfdf3; color: #067647; }
+.cadu-ds-badge--warning { background: #fffaeb; color: #b54708; }
+.cadu-ds-badge--danger { background: #fef3f2; color: #b42318; }
+.cadu-ds-badge--brand { background: var(--cadu-accent-soft, #eff8ff); color: var(--cadu-accent-strong, #175cd3); }
+.cadu-ds-empty { display: grid; justify-items: center; gap: 6px; padding: 48px 16px; color: var(--color-text-tertiary, #475467); text-align: center; }
+.cadu-ds-empty strong { color: var(--color-text-primary, #101828); font-size: 15px; font-weight: 600; }
+.cadu-ds-empty p { max-width: 44ch; margin: 0; font-size: 14px; line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cadu-ds-overlay, .cadu-ds-drawer, .cadu-ds-confirm { animation: none !important; }
+  .cadu-ds-tabs > button, .cadu-ds-tabs > button::after { transition: none; }
+}
+
+/* Contract guard: a Cadu field draws its own ring. Generic form rules from
+   older product stylesheets must not add a second border or resize it.
+   Remove once those legacy rules are retired. */
+.cadu-untitled-field__control > input {
+  height: auto !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.cadu-untitled-select select,
+.cadu-untitled-textarea > textarea {
+  border: 0 !important;
+  border-radius: 8px;
+  background: var(--color-bg-primary, #fff) !important;
+}
+.cadu-untitled-select select { height: 40px !important; min-height: 0 !important; }
+.cadu-untitled-textarea > textarea { min-height: 80px !important; }
+.cadu-untitled-select select,
+.cadu-untitled-textarea > textarea {
+  box-shadow: inset 0 0 0 1px var(--color-border-primary, #d0d5dd), 0 1px 2px rgba(16, 24, 40, .05) !important;
+}
+.cadu-untitled-select select:focus-visible,
+.cadu-untitled-textarea > textarea:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 2px var(--color-border-brand, var(--cadu-accent, #175cd3)) !important;
+}

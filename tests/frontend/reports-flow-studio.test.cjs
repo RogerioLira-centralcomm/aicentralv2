@@ -12,7 +12,7 @@ const moduleAt=async name=>import('data:text/javascript;base64,'+Buffer.from(fs.
  assert(canvas.includes('old.data?.aggregate'));
  assert.equal((canvas.match(/groupMoved\?\{manuallyEdited:true\}/g)||[]).length,2);
  assert(canvas.includes('reconnectable:!readOnly'));
- const drawer=fs.readFileSync(path.join(root,'frontend/reports-v1/ReportsDrawer.jsx'),'utf8');
+ const drawer=fs.readFileSync(path.join(root,'frontend/cadu-design-system/components/CaduDrawer.jsx'),'utf8');
  assert(drawer.includes('hidden={confirmClose}'));
  assert(drawer.includes('onChangeCapture'));
  const shell=fs.readFileSync(path.join(root,'frontend/reports-v1/ReportsPanelShell.jsx'),'utf8');

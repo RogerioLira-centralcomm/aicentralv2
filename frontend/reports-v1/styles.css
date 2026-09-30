@@ -699,9 +699,6 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-shell--accounts .reports-account-row td{height:50px;vertical-align:middle}
 .reports-shell--accounts .reports-account-row.is-editing{background:#f8fbff}
 .reports-account-row__actions{display:flex;align-items:center;gap:6px}
-.reports-untitled-overlay{position:fixed;inset:0;z-index:var(--cadu-z-dialog,60);display:flex;justify-content:flex-end;background:#1018288c;backdrop-filter:blur(2px)}
-.reports-untitled-drawer{width:min(100%,500px);height:100%;overflow:auto;background:#fff;box-shadow:-16px 0 48px #10182830;outline:0}
-.reports-untitled-drawer__dialog{display:flex;flex-direction:column;min-height:100%;padding:28px;outline:0}
 .reports-account-create-form{display:grid;align-content:start;gap:20px;padding-top:24px}
 .reports-account-create-form>label{display:grid;gap:7px;color:#344054;font-size:13px;font-weight:600}
 .reports-account-create-form>label select{width:100%;min-height:44px;padding:10px 12px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#344054;font:inherit}
@@ -709,25 +706,13 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-account-create-form [data-input-wrapper] input{min-height:44px;font-size:16px}
 .reports-untitled-drawer__actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px;padding-top:20px;border-top:1px solid #eaecf0}
 @media(max-width:1000px){.reports-shell--accounts .reports-accounts-heading{align-items:flex-start;flex-wrap:wrap}.reports-shell--accounts .reports-accounts-search{width:min(100%,270px)}.reports-account-create-form>label select{font-size:16px}}
-@media(max-width:760px){.reports-shell--accounts .reports-accounts-toolbar{align-items:stretch;flex-direction:column}.reports-shell--accounts .reports-accounts-search{width:100%}.reports-untitled-drawer__dialog{padding:20px}}
-@media(prefers-reduced-motion:no-preference){.reports-untitled-drawer{animation:reports-drawer-in .18s ease-out}}
-@keyframes reports-drawer-in{from{transform:translateX(12px);opacity:.75}to{transform:translateX(0);opacity:1}}
+@media(max-width:760px){.reports-shell--accounts .reports-accounts-toolbar{align-items:stretch;flex-direction:column}.reports-shell--accounts .reports-accounts-search{width:100%}}
 
 /* Untitled UI controls across Reports; the flow canvas keeps its own controls. */
 .reports-shell:not(.reports-shell--flow) .reports-ui-button{min-height:38px;border-radius:8px;font-size:13px;font-weight:600;line-height:1.2;white-space:normal}
 .reports-shell:not(.reports-shell--flow) .reports-ui-button:focus-visible{outline:3px solid #84caff;outline-offset:2px}
-.reports-shell:not(.reports-shell--flow) .reports-ui-field{min-height:40px;border:1px solid #d0d5dd;box-shadow:0 1px 2px #1018280d}
-.reports-shell:not(.reports-shell--flow) .reports-ui-field:focus-within{border-color:#175cd3;box-shadow:0 0 0 3px #d1e9ff}
-.reports-shell:not(.reports-shell--flow) .reports-ui-field input{box-sizing:border-box;width:100%;min-height:38px;border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;font-size:14px}
-.reports-shell:not(.reports-shell--flow) .reports-ui-select{min-width:0}
-.reports-shell:not(.reports-shell--flow) .reports-ui-select select{box-sizing:border-box;width:100%;min-height:40px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#344054;box-shadow:0 1px 2px #1018280d;font-size:14px}
-.reports-shell:not(.reports-shell--flow) .reports-ui-select select:focus-visible{border-color:#175cd3;outline:3px solid #d1e9ff;outline-offset:1px}
-.reports-shell:not(.reports-shell--flow) .reports-ui-select select:disabled{background:#f9fafb;color:#667085}
-.reports-shell:not(.reports-shell--flow) .reports-dashboard-search .reports-ui-field,.reports-shell:not(.reports-shell--flow) .reports-event-filters .reports-ui-field{flex:1;min-width:0}
-.reports-shell:not(.reports-shell--flow) .reports-account-row .reports-ui-select.reports-account-field{width:100%;height:auto;padding:0;border:0;box-shadow:none}
-.reports-shell:not(.reports-shell--flow) .reports-account-row .reports-ui-select select{min-width:150px}
-.reports-shell:not(.reports-shell--flow) .reports-account-row .reports-ui-field{min-width:150px}
-@media(max-width:1199px){.reports-shell:not(.reports-shell--flow) .reports-ui-field input,.reports-shell:not(.reports-shell--flow) .reports-ui-select select{font-size:16px}}
+.reports-shell:not(.reports-shell--flow) .reports-dashboard-search .cadu-untitled-field,.reports-shell:not(.reports-shell--flow) .reports-event-filters .cadu-untitled-field{flex:1;min-width:0}
+.reports-shell:not(.reports-shell--flow) .reports-account-row .cadu-untitled-field{min-width:150px}
 
 /* List-first work areas keep creation in a focused drawer. */
 .reports-campaigns-list-page,.reports-access-page,.reports-report-library{display:block;min-width:0}
@@ -741,22 +726,7 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-report-library>.reports-panel:first-child{grid-column:auto}
 .reports-list-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}
 .reports-list-head-actions>span{color:#667085;font-size:13px;white-space:nowrap}
-.reports-untitled-drawer .reports-form{display:grid;align-content:start;gap:19px;margin:0;padding:24px 0 0}
-.reports-untitled-drawer .reports-form>label{display:grid;gap:7px;color:#344054;font-size:13px;font-weight:600}
-.reports-untitled-drawer .reports-form>label>small{color:#667085;font-size:12px;font-weight:400;line-height:1.5}
-.reports-untitled-drawer .reports-ui-field{min-height:42px;border:1px solid #d0d5dd;border-radius:8px}
-.reports-untitled-drawer .reports-ui-field:focus-within{border-color:#175cd3;box-shadow:0 0 0 3px #d1e9ff}
-.reports-untitled-drawer .reports-ui-field input{width:100%;min-height:40px;border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;font-size:16px}
-.reports-untitled-drawer .reports-ui-select select{width:100%;min-height:42px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;font-size:16px}
-.reports-untitled-drawer .reports-ui-button{min-height:42px;font-size:13px}
-.reports-untitled-drawer .reports-form>button[type=submit]{justify-self:end;margin-top:4px}
-@media(max-width:900px){.reports-list-head-actions{justify-content:flex-start}.reports-untitled-drawer{width:min(100%,560px)}}
-.reports-confirm-overlay{align-items:center;justify-content:center;padding:20px}
-.reports-confirm-modal{width:min(100%,480px);max-height:min(90dvh,650px);overflow:auto;border-radius:12px;background:#fff;box-shadow:0 24px 64px #10182838}
-.reports-confirm-dialog{padding:24px;outline:0}
-.reports-confirm-dialog h2{margin:0 0 10px;color:#101828;font-size:19px;letter-spacing:-.02em}
-.reports-confirm-dialog p{margin:0;color:#475467;font-size:14px;line-height:1.55}
-.reports-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+@media(max-width:900px){.reports-list-head-actions{justify-content:flex-start}}
 
 /* Shared compact header for every Reports section, including the flow editor. */
 .reports-main{padding-top:0}
@@ -791,7 +761,7 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-site-index__toolbar strong{color:#101828;font-size:14px;font-weight:600}
 .reports-site-index__toolbar span{color:#667085;font-size:12px}
 .reports-site-index__actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0}
-.reports-site-index__actions .reports-ui-field{width:min(310px,32vw);min-width:180px;box-shadow:none}
+.reports-site-index__actions .cadu-untitled-field{width:min(310px,32vw);min-width:180px;box-shadow:none}
 .reports-main .reports-site-index__actions .reports-ui-button{min-height:34px;height:34px;padding:0 12px;border-radius:6px;box-shadow:none;white-space:nowrap}
 .reports-main .reports-site-index__actions .reports-ui-button:focus-visible{outline:2px solid #84adff;outline-offset:2px}
 .reports-main .reports-site-index .reports-table-wrap{border:0;border-radius:0;box-shadow:none}
@@ -809,9 +779,9 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
   .portal--connect .reports-shell > .reports-main > .reports-page-header{min-height:52px;margin-bottom:14px}
   .reports-main .reports-site-index__toolbar{align-items:flex-start;flex-direction:column;gap:9px;padding:12px}
   .reports-site-index__actions{width:100%}
-  .reports-site-index__actions .reports-ui-field{flex:1;width:auto;min-width:0}
+  .reports-site-index__actions .cadu-untitled-field{flex:1;width:auto;min-width:0}
 }
-@media(max-width:420px){.reports-site-index__actions{align-items:stretch;flex-direction:column}.reports-site-index__actions .reports-ui-field{width:100%}.reports-main .reports-site-index__actions .reports-ui-button{align-self:flex-start}}
+@media(max-width:420px){.reports-site-index__actions{align-items:stretch;flex-direction:column}.reports-site-index__actions .cadu-untitled-field{width:100%}.reports-main .reports-site-index__actions .reports-ui-button{align-self:flex-start}}
 
 /* Reports overview: calm metric strip and one toolbar attached to its table. */
 .reports-dashboard{gap:16px}
@@ -831,7 +801,6 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-dashboard-activity__heading{margin-bottom:12px}
 .reports-dashboard-table-tools{gap:6px;min-height:44px;margin:0;padding:7px 0;border-top:1px solid var(--ui-line)}
 .reports-dashboard-search{width:min(320px,45%);min-height:32px;box-shadow:none}
-.reports-dashboard-search .reports-ui-field{min-height:30px;box-shadow:none}
 .reports-dashboard-table-tools>button{min-height:32px;padding:0 9px;border-color:transparent;border-radius:6px;box-shadow:none;font-size:12px}
 .reports-dashboard-table-tools>button:first-of-type{border-color:transparent;font-weight:500}
 .reports-dashboard-table-tools>button:hover{background:#f9fafb}
@@ -894,13 +863,13 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__usage>i>b{background:var(--color-bg-brand-solid)}
 .reports-main .reports-dashboard-search{position:relative;gap:0;padding:0;border:0;box-shadow:none}
 .reports-main .reports-dashboard-search>svg{position:absolute;z-index:1;left:12px;color:var(--color-fg-quaternary);pointer-events:none}
-.reports-main .reports-dashboard-search .reports-ui-field{width:100%;border:1px solid var(--color-border-secondary);box-shadow:none}
-.reports-main .reports-dashboard-search .reports-ui-field input{padding-left:35px}
+.reports-main .reports-dashboard-search .cadu-untitled-field{width:100%}
+.reports-main .reports-dashboard-search .cadu-untitled-field input{padding-left:35px}
 .reports-main .reports-collection-toolbar{padding:0;border:0;background:transparent}
 .reports-main .reports-collection-search{position:relative;gap:0;height:auto;padding:0;border:0;background:transparent}
 .reports-main .reports-collection-search>svg{position:absolute;z-index:1;left:12px;color:var(--color-fg-quaternary);pointer-events:none}
-.reports-main .reports-collection-search .reports-ui-field{width:100%;border:1px solid var(--color-border-secondary);box-shadow:none}
-.reports-main .reports-collection-search .reports-ui-field input{padding-left:35px}
+.reports-main .reports-collection-search .cadu-untitled-field{width:100%}
+.reports-main .reports-collection-search .cadu-untitled-field input{padding-left:35px}
 .reports-main .reports-dashboard-table-tools>button{gap:7px}
 .reports-main :is(.reports-campaign-add,.reports-account-add,.reports-site-index__actions .reports-ui-button):not(:disabled){color:var(--color-text-primary_on-brand)!important}
 .reports-overview-loading{min-height:220px;padding:36px;color:var(--color-text-secondary);font-size:14px}
@@ -986,7 +955,6 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 /* Account and site setup drawers use one clear completion action. */
 .reports-account-create-form{gap:18px;padding-top:22px}
 .reports-account-create-form>label{gap:6px;color:var(--color-text-secondary)}
-.reports-untitled-drawer .reports-account-create-form input:not([type=checkbox]){border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important}
 .reports-account-create-form .reports-untitled-drawer__actions{position:sticky;bottom:-28px;justify-content:flex-end;margin-top:8px;padding:16px 0 0;background:var(--color-bg-primary)}
 .reports-account-create-form .reports-untitled-drawer__actions>button{min-width:118px}
 
@@ -1017,9 +985,6 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-supertag-setup .reports-panel-head p{margin:4px 0 0}
 .reports-supertag-setup .reports-tag-card{padding:16px 0;border-top:1px solid var(--color-border-secondary)}
 .reports-supertag-setup .reports-tag-card code{border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-secondary)}
-.reports-untitled-drawer .reports-modal-actions{margin-top:8px;padding-top:16px;border-top:1px solid var(--color-border-secondary)}
-.reports-untitled-drawer .reports-modal-actions>.reports-primary-button{min-height:40px;padding:0 14px;border:0!important;border-radius:8px;background:var(--color-bg-brand-solid)!important;color:var(--color-text-primary_on-brand)!important;font-size:13px;font-weight:650;box-shadow:none}
-.reports-untitled-drawer .reports-modal-actions>.reports-primary-button:hover:not(:disabled){background:#1849a9!important}
 @media(max-width:760px){.reports-main .reports-site-index__toolbar{padding:14px}.reports-tag-card-head{align-items:stretch}.reports-tag-actions{width:100%}.reports-account-create-form .reports-untitled-drawer__actions{bottom:-20px}}
 
 .reports-shared-page{min-height:100dvh;padding:0 clamp(16px,3vw,40px) 32px;background:var(--r-bg)}

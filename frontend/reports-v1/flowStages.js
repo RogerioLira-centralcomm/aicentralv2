@@ -3,9 +3,24 @@ export const FLOW_STAGES = Object.freeze([
   {id:'exploration',label:'Exploração'}, {id:'intent',label:'Intenção'},
   {id:'conversion',label:'Conversão'}, {id:'support',label:'Suporte e erros'},
 ]);
-export function stageFor(node) {
-  if(FLOW_STAGES.some(stage=>stage.id===node.stage))return node.stage;
+export const FLOW_STAGE_WIDTH=320;
+export const FLOW_STAGE_NODE_X=80;
+export const PAGE_TYPES=Object.freeze(['home','service','institutional','contact','case','content','other']);
+export function stageX(stage){const index=FLOW_STAGES.findIndex(item=>item.id===stage);return FLOW_STAGE_NODE_X+Math.max(0,index)*FLOW_STAGE_WIDTH;}
+export function stageAtX(x){
+  const index=Math.floor((Number(x)-48)/FLOW_STAGE_WIDTH);
+  return FLOW_STAGES[Math.max(0,Math.min(FLOW_STAGES.length-1,index))].id;
+}
+export function editableStage(node){
   if(node.type==='source')return 'source';
+  if(node.stage==='source'&&['page','form','conversion','error'].includes(node.type))return node.isEntry||node.path==='/'?'entry':'exploration';
+  return stageFor(node);
+}
+export function placeNodeInStage(node,stage){const target=node.type==='source'?'source':stage==='source'?'entry':stage;return {...node,stage:target,x:stageX(target)};}
+export function stageFor(node) {
+  if(node.type==='source')return 'source';
+  if(node.stage==='source'&&['page','form','conversion','error'].includes(node.type))return node.isEntry||node.path==='/'?'entry':'exploration';
+  if(FLOW_STAGES.some(stage=>stage.id===node.stage))return node.stage;
   if(node.type==='conversion'||node.suggestedRole==='conversion')return 'conversion';
   if(node.type==='error'||['legal','error'].includes(node.role))return 'support';
   if(['form','whatsapp'].includes(node.type)||['intent','form','checkout'].includes(node.role)||/\/(contato|orcamento|agendar)(\/|$)/i.test(node.path||''))return 'intent';

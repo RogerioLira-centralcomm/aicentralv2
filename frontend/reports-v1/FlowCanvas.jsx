@@ -1,4 +1,4 @@
-import {FLOW_STAGES,stageFor,funnelEdges} from './flowStages.js';
+import {FLOW_STAGES,stageFor,stageAtX,stageX,funnelEdges,FLOW_STAGE_WIDTH} from './flowStages.js';
 import {useFlowPreviews} from './useFlowPreviews.js';
 import {RefreshCw01, Copy01, Trash01, LayoutGrid01, LayersTwo01} from '@untitledui/icons';
 import React, {useEffect, useCallback, useMemo, useRef, useState} from 'react';
@@ -26,7 +26,7 @@ function FitLoadedGraph({enabled}) {
 
 function FlowLanes(){
   const {x,zoom}=useViewport();
-  return <div className="flow-lanes" aria-hidden="true">{FLOW_STAGES.slice(0,5).map((stage,index)=><div key={stage.id} style={{left:x+(48+index*320)*zoom,width:320*zoom}}><span>{stage.label}</span></div>)}</div>;
+  return <div className="flow-lanes" aria-hidden="true">{FLOW_STAGES.map((stage,index)=><div key={stage.id} style={{left:x+(48+index*FLOW_STAGE_WIDTH)*zoom,width:FLOW_STAGE_WIDTH*zoom}}><span>{stage.label}</span></div>)}</div>;
 }
 
 function NodeLabel({node, selected, readOnly, onChange}) {
@@ -66,7 +66,7 @@ function ShapeNode({id,data,selected,shape}) {
 function GroupNode({id,data,selected}) {
   const update=useUpdateNodeInternals();
   useEffect(()=>{update(id);},[id,data.collapsed,update]);
-  if(data.collapsed)return <div className="flow-group-stack" onDoubleClick={data.toggle}><strong>{data.group.name}</strong><small>{data.group.memberIds.length} páginas</small>{data.metric&&<small>{Number(data.metric.sessions).toLocaleString('pt-BR')} sessões únicas</small>}<NodeHandles/><button className="nodrag" onClick={data.toggle}>Expandir</button></div>;
+  if(data.collapsed)return <div className="flow-group-stack" onDoubleClick={data.toggle}><strong>{data.group.name}</strong><small>{data.group.memberIds.length} páginas</small>{data.metric&&<small>{Number(data.metric.sessions).toLocaleString('pt-BR')} sessões únicas</small>}<NodeHandles/><button className="nodrag" onClick={data.toggle}>Ver páginas</button>{!data.readOnly&&<button className="nodrag" onClick={()=>data.ungroup(id)}>Separar páginas</button>}</div>;
   return <div className="flow-group-node"><NodeResizer isVisible={selected&&!data.readOnly} minWidth={220} minHeight={180} onResizeEnd={(_,size)=>data.resize(id,size)}/><strong>{data.group.name}</strong><small>{data.group.memberIds.length} etapas</small><button className="nodrag" onClick={data.toggle}>Recolher</button><NodeToolbar isVisible={selected&&!data.readOnly}><ReportsActionButton onClick={()=>data.ungroup(id)}>Desagrupar</ReportsActionButton></NodeToolbar></div>;
 }
 
@@ -111,7 +111,7 @@ function FlowCanvasInner({onNavigationModeChange,ghostEdges=[],ghostNodes=[],con
     const items=(config.nodes||[]).map(node=>{
       const parent=groups.find(g=>g.id===node.groupId);
       return {id:node.id,hidden:Boolean(parent&&!expandedGroups.has(parent.id)),measured:measurements[node.id],type:flowBlockFor(node).shape,parentId:parent?.id,extent:parent?'parent':undefined,
-        className:simulatedPath.includes(node.id)?'is-simulated':'',position:{x:(Number(node.x)||0)-(parent?.bounds.x||0),y:(Number(node.y)||0)-(parent?.bounds.y||0)},
+        className:simulatedPath.includes(node.id)?'is-simulated':'',position:{x:(node.stage&&!parent?stageX(stageFor(node)):(Number(node.x)||0))-(parent?.bounds.x||0),y:(Number(node.y)||0)-(parent?.bounds.y||0)},
         data:{node,paths:journey?.edges?.filter(e=>(e.from===node.id||e.to===node.id)&&e.sessions>0).sort((a,b)=>b.sessions-a.sessions).slice(0,3).map(e=>({id:e.id,sessions:e.sessions,label:`${e.to===node.id?'De':'Para'} ${config.nodes.find(n=>n.id===(e.to===node.id?e.from:e.to))?.title||'etapa'}`})),preview:{...previews.items[node.id],message:previews.error||previews.items[node.id]?.message,unavailable:!previews.available},onRegenerate:previews.regenerate,canCapture:previewContext?.canCapture&&previews.available,readOnly:readOnly||fullNavigation,onLabelChange,onDuplicate:onDuplicateSelection,onRemove:id=>setConfig(current=>syncGroups({...current,nodes:current.nodes.filter(n=>n.id!==id),edges:current.edges.filter(e=>e.from!==id&&e.to!==id)})),metric:journey?.nodes?.find(item=>item.id===node.id)},draggable:!readOnly&&!fullNavigation&&!node.locked,selectable:true,selected:selectedIds.length?selectedIds.includes(node.id):node.id===selectedNodeId};
     });return [...parents,...items,...ghostNodes.map(node=>({id:`ghost:${node.id}`,type:flowBlockFor(node).shape,position:{x:node.x,y:node.y},className:"flow-ghost-node",data:{node,readOnly:true},draggable:false,selectable:false}))];
   },[config,ghostNodes,expandedGroups,readOnly,onLabelChange,selectedNodeId,selectedIds,simulatedPath,journey,onDuplicateSelection,setConfig,measurements,fullNavigation,previews.items,previews.regenerate,previews.available,previews.error,previewContext?.canCapture]);
@@ -142,7 +142,7 @@ function FlowCanvasInner({onNavigationModeChange,ghostEdges=[],ghostNodes=[],con
         const oldParent=(current.groups||[]).find(g=>g.id===node.groupId),parent=groups.find(g=>g.id===node.groupId),move=moved.get(node.id),groupMoved=Boolean(parent&&moved.has(parent.id));
         const x=move?move.x+(parent?.bounds.x||0):Number(node.x)+(parent&&oldParent?parent.bounds.x-oldParent.bounds.x:0);
         const y=move?move.y+(parent?.bounds.y||0):Number(node.y)+(parent&&oldParent?parent.bounds.y-oldParent.bounds.y:0);
-        return {...node,...(groupMoved?{manuallyEdited:true}:{}),...(move?{manuallyEdited:true,stage:FLOW_STAGES[Math.max(0,Math.min(FLOW_STAGES.length-1,Math.floor((x-48)/320)))].id}:{}),groupId:parent?.id,x:Math.max(0,Math.min(10000,Math.round(x))),y:Math.max(0,Math.min(10000,Math.round(y)))};
+        return {...node,...(groupMoved?{manuallyEdited:true}:{}),...(move?{manuallyEdited:true,stage:node.type==='source'?'source':stageAtX(x)}:{}),groupId:parent?.id,x:move?stageX(node.type==='source'?'source':stageAtX(x)):Math.max(0,Math.min(10000,Math.round(x))),y:Math.max(0,Math.min(10000,Math.round(y)))};
       }),edges:current.edges.filter(e=>!removed.has(e.from)&&!removed.has(e.to))});
     });
   },[setConfig,readOnly,fullNavigation]);
@@ -155,7 +155,7 @@ function FlowCanvasInner({onNavigationModeChange,ghostEdges=[],ghostNodes=[],con
         const oldParent=(current.groups||[]).find(g=>g.id===node.groupId),parent=groups.find(g=>g.id===node.groupId),move=moved.get(node.id),groupMoved=Boolean(parent&&moved.has(parent.id));
         const x=move?move.x+(parent?.bounds.x||0):Number(node.x)+(parent&&oldParent?parent.bounds.x-oldParent.bounds.x:0);
         const y=move?move.y+(parent?.bounds.y||0):Number(node.y)+(parent&&oldParent?parent.bounds.y-oldParent.bounds.y:0);
-        return {...node,...(groupMoved?{manuallyEdited:true}:{}),...(move?{manuallyEdited:true,stage:FLOW_STAGES[Math.max(0,Math.min(FLOW_STAGES.length-1,Math.floor((x-48)/320)))].id}:{}),groupId:parent?.id,x:Math.max(0,Math.min(10000,Math.round(x))),y:Math.max(0,Math.min(10000,Math.round(y)))};
+        return {...node,...(groupMoved?{manuallyEdited:true}:{}),...(move?{manuallyEdited:true,stage:node.type==='source'?'source':stageAtX(x)}:{}),groupId:parent?.id,x:move?stageX(node.type==='source'?'source':stageAtX(x)):Math.max(0,Math.min(10000,Math.round(x))),y:Math.max(0,Math.min(10000,Math.round(y)))};
       }),edges:current.edges.filter(e=>!removed.has(e.from)&&!removed.has(e.to))});
     });
     }

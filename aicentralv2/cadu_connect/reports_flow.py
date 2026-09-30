@@ -20,6 +20,7 @@ from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
 from .reports_flow_validation import validate_flow_config
+from .reports_flow_stage import normalize_stage_position
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -538,7 +539,7 @@ def _normalize_flow_config(config, allowed_host):
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
-        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source'):
+        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source','pageType'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
         # Persist the complete authored document, including visual and future
@@ -580,12 +581,14 @@ def _normalize_flow_config(config, allowed_host):
                 for field in node['fields'][:30] if isinstance(field, dict)]
         if node.get('stage') and node['stage'] not in ('source','entry','exploration','intent','conversion','support'):
             abort(400, description='Etapa do funil inválida.')
+        if node.get('pageType') and node['pageType'] not in ('home','service','institutional','contact','case','content','other'):
+            abort(400, description='Tipo de página inválido.')
         for flag in ('locked','manuallyEdited'):
             if isinstance(node.get(flag), bool):item[flag]=node[flag]
         if isinstance(node.get('evidence'), str):item['evidence']=node['evidence'][:2000]
         if isinstance(node.get('isEntry'), bool):
             item['isEntry'] = node['isEntry']
-        normalized.append(item)
+        normalized.append(normalize_stage_position(item))
     normalized_edges = []
     edge_ids = set()
     for edge in edges:
@@ -1596,7 +1599,9 @@ def register(bp):
             abort(400, description='Escolha uma função válida para a página.')
         if payload.get('suggestion_id'):
             from .reports_flow_suggestions import validate_application
-            validate_application(payload['suggestion_id'],flow_id,page,selected,revision,choice)
+            accepted_suggestion = validate_application(payload['suggestion_id'],flow_id,page,selected,revision,choice)
+        else:
+            accepted_suggestion = None
         campaign_id = payload.get('campaign_id') or None
         if campaign_id is not None:
             if isinstance(campaign_id, bool):
@@ -1624,7 +1629,13 @@ def register(bp):
                          'isEntry':choice=='entry','discoveryPageId':str(page['id']),
                          'campaign_id':campaign_id})
             if existing is None:
+                node.update(stage={'entry':'entry','intermediate':'exploration','form':'intent',
+                                   'conversion':'conversion','error':'support'}[choice],
+                            pageType='other',suggestedRole=choice)
                 nodes.append(node)
+            if accepted_suggestion:
+                node['pageType'] = accepted_suggestion.get('page_type') if accepted_suggestion.get('page_type') in (
+                    'home','service','institutional','contact','case','content','other') else 'other'
         ids = {node['id'] for node in nodes}
         config.update(nodes=nodes, edges=[edge for edge in config.get('edges', [])
                       if edge['from'] in ids and edge['to'] in ids])

@@ -1,4 +1,4 @@
-import {FLOW_STAGES,stageFor} from './flowStages.js';
+import {FLOW_STAGES,stageFor,stageX} from './flowStages.js';
 export async function layoutFlow(config,{width=180,height=180,nodeSpacing=64,layerSpacing=112,mode='stages'}={}) {
   // Layout collapsed groups as one unit; preserve their internal coordinates.
   if(config.groups?.length){
@@ -22,10 +22,10 @@ export async function layoutFlow(config,{width=180,height=180,nodeSpacing=64,lay
   });
   const positions=new Map(result.children.map(node=>[node.id,{x:Math.round(node.x+80),y:Math.round(node.y+80)}]));
   const stages=new Map();
-  if(mode==='stages')for(const stage of FLOW_STAGES){const members=config.nodes.filter(n=>stageFor(n)===stage.id).sort((a,b)=>positions.get(a.id).y-positions.get(b.id).y||a.id.localeCompare(b.id));members.forEach((node,index)=>stages.set(node.id,{x:80+FLOW_STAGES.indexOf(stage)*320,y:100+index*Math.min(260,9400/Math.max(1,members.length))}));}
-  const occupied=config.nodes.filter(n=>n.locked).map(n=>({...n,width:n.width||width,height:n.height||height}));
+  if(mode==='stages')for(const stage of FLOW_STAGES){const members=config.nodes.filter(n=>stageFor(n)===stage.id).sort((a,b)=>positions.get(a.id).y-positions.get(b.id).y||a.id.localeCompare(b.id));members.forEach((node,index)=>stages.set(node.id,{x:stageX(stage.id),y:100+index*Math.min(260,9400/Math.max(1,members.length))}));}
+  const occupied=config.nodes.filter(n=>n.locked).map(n=>({...n,x:mode==='stages'?stageX(stageFor(n)):n.x,width:n.width||width,height:n.height||height}));
   const nodes=config.nodes.map(node=>{
-    if(node.locked)return node;
+    if(node.locked)return mode==='stages'?{...node,stage:stageFor(node),x:stageX(stageFor(node))}:node;
     const next={...node,stage:stageFor(node),...(mode==='stages'?stages:positions).get(node.id)};
     while(occupied.some(other=>next.x<other.x+other.width+24&&next.x+(node.width||width)+24>other.x&&next.y<other.y+other.height+24&&next.y+(node.height||height)+24>other.y)){next.y+=height+32;if(next.y>10000)break;}
     occupied.push({...next,width:node.width||width,height:node.height||height});return next;

@@ -21,10 +21,18 @@ const moduleAt=async name=>import('data:text/javascript;base64,'+Buffer.from(fs.
  const editedGraph={nodes:[{id:'a',origin:'blueprint'},{id:'b',origin:'blueprint'}],edges:[{id:'ab',origin:'manual',from:'a',to:'b'}],groups:[]};
  const rebuilt=applyBlueprint(editedGraph,{nodes:[],edges:[],groups:[]},[]);
  assert.deepEqual(rebuilt.nodes,editedGraph.nodes);assert.deepEqual(rebuilt.edges,editedGraph.edges);
- const {FLOW_STAGES}=await moduleAt('flowStages.js');
- const stageExpressions=[...canvas.matchAll(/stage:(FLOW_STAGES\[Math\.max.*?\]\.id)/g)];
- assert.equal(stageExpressions.length,2);
- for(const [,expression] of stageExpressions){const stageAt=new Function('FLOW_STAGES','x',`return ${expression}`);FLOW_STAGES.forEach((stage,index)=>assert.equal(stageAt(FLOW_STAGES,48+index*320+100),stage.id));}
+ const {FLOW_STAGES,stageAtX,stageX,stageFor,placeNodeInStage}=await moduleAt('flowStages.js');
+ FLOW_STAGES.forEach(stage=>assert.equal(stageAtX(stageX(stage.id)),stage.id));
+ assert.equal(stageFor({type:'page',stage:'source',path:'/'}),'entry');
+ assert.equal(stageFor({type:'page',stage:'source',path:'/servico'}),'exploration');
+ assert.equal(placeNodeInStage({type:'source',stage:'source',x:500},'intent').x,stageX('source'));
+ assert.equal(placeNodeInStage({type:'page',stage:'entry',x:80},'conversion').x,stageX('conversion'));
+ const {groupNodes,ungroupNodes}=await moduleAt('flowGroups.js');
+ const translationConfig={nodes:[{id:'pt',type:'page',path:'/contato',x:720,y:100},{id:'en',type:'page',path:'/en/contact',x:720,y:340}],edges:[]};
+ const grouped=groupNodes(translationConfig,['pt','en'],'Traduções: Contato','translations');
+ assert.deepEqual(grouped.groups[0].memberIds,['pt','en']);
+ assert.deepEqual(ungroupNodes(grouped,'translations').nodes.map(node=>node.path),['/contato','/en/contact']);
+ assert.equal(translationConfig.groups,undefined);
  const {funnelEdges}=await moduleAt('flowStages.js');
  const graph={nodes:[{id:'a',stage:'entry'},{id:'b',stage:'intent'},{id:'c',stage:'conversion'}],edges:[{id:'ab',from:'a',to:'b'},{id:'ba',from:'b',to:'a'},{id:'bc',from:'b',to:'c',kind:'site_link'}]};
  assert.deepEqual(funnelEdges(graph).map(e=>e.id),['ab']);assert.equal(funnelEdges(graph,{full:true}).length,3);assert.equal(graph.edges.length,3);

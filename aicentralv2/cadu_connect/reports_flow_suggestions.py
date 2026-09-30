@@ -75,3 +75,4 @@ def validate_application(suggestion_id, flow_id, page, selected, revision, choic
             or item['result'].get('question_version') != FLOW_PAGE_PROMPT_VERSION):
         abort(409,description='O rascunho ou a evidência mudou. Analise novamente.')
     _rows("UPDATE cadu_reports_flow_suggestions SET status='applied',applied_at=NOW() WHERE id=%s RETURNING id",(identifier,))
+    return item['result']

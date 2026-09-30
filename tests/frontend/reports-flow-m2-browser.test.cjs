@@ -4,7 +4,7 @@ const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'../..'),id='11111111-1111-4111-8111-111111111111';
 const config={nodes:[],edges:[]};
 const flow={id,name:'Jornada de teste',status:'draft',draft_revision:1,allowed_host:'example.test',config};
-const items=['/cases/a','/cases/b','/cases/c','/en/cases/a','/en/cases/b','/en/cases/c'].map((url,index)=>({id:String(index),canonical_url:'https://example.test'+url,title:'Página '+index,title_clean:'Página '+index,path_prefix:url,locale:url.startsWith('/en/')?'en':'pt',role:index%2?'content':'entry',template_id:'cases',template_pattern:'/cases/*'}));
+const items=['/cases/a','/cases/b','/cases/c','/en/cases/a','/en/cases/b','/en/cases/c'].map((url,index)=>({id:String(index),canonical_url:'https://example.test'+url,title:'Página '+index,title_clean:'Página '+index,path_prefix:url,locale:url.startsWith('/en/')?'en':'pt',role:index%2?'content':'entry',translation_key:index===0||index===3?'/cases/a':undefined,template_id:'cases',template_pattern:'/cases/*'}));
 for(let i=0;i<533;i++)items.push({id:String(i+6),canonical_url:'https://example.test/p/'+i,title:'Página extra '+i,title_clean:'Página extra '+i,path_prefix:'/p/'+i,locale:'pt',role:'none',template_id:null});
 const summary={descobertas:539,validas:539,classificadas:6,sem_tipo:533,no_fluxo:0,excluidas:{duplicada:0}};
 const html='<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/static/cadu_connect/react/app.css"><link rel="stylesheet" href="/static/cadu_connect/react/untitled.css"></head><body><div id="cadu-reports-v1-root"></div><script type="module" src="/static/cadu_connect/react/app.js"></script></body></html>';
@@ -18,6 +18,9 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
  assert(await page.getByText('/cases/*').first().innerText().then(text=>text.includes('EN')&&text.includes('PT')));
  await page.getByRole('button',{name:'Agrupar no fluxo'}).click();
  assert.equal(await page.locator('.flow-catalog-group-preview li').count(),6);
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ await page.getByRole('button',{name:'Reunir traduções'}).first().click();
+ assert.equal(await page.locator('.flow-catalog-group-preview li').count(),2);
  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
  await page.getByRole('textbox',{name:'Buscar páginas'}).fill('/p/532');
  await page.getByText('Página extra 532',{exact:true}).waitFor();

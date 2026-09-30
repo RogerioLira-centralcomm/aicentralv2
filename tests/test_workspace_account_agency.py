@@ -11,7 +11,7 @@ def test_account_journey_is_centered_on_the_agency_team():
 
     for tab in ("perfil: 'Perfil'", "equipe: 'Equipe'", "planos: 'Plano'", "uso: 'Uso'", "creditos: 'Créditos'", "faturamento: 'Faturamento'"):
         assert tab in component
-    assert 'CaduDock' in component
+    assert 'WorkspaceContextSidebar' in component
     assert "'accountMode': True" in template
     assert '"organizacao": "agencia"' in routes
     assert 'cadu_workspace/account_react.html' in routes

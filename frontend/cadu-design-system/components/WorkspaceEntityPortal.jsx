@@ -6,7 +6,7 @@ export function EntityNavigator({label, items = [], context, children, identity,
   const [observedActiveId, setObservedActiveId] = useState(() => items[0]?.target || items[0]?.id || '');
   const [collapsed, setCollapsed] = useState(() => {
     if (!collapsible) return false;
-    try { return window.localStorage.getItem(storageKey) !== 'open'; } catch (_) { return true; }
+    try { return window.localStorage.getItem(storageKey) === 'collapsed'; } catch (_) { return false; }
   });
   const activeId = controlledActiveId || observedActiveId;
   useEffect(() => {

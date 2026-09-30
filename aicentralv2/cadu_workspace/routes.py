@@ -3936,9 +3936,70 @@ def workspace_sidebar_context():
         usage_percent = 0
     return {
         'workspace_sidebar_projects': _workspace_sidebar_projects(client_id),
+        'workspace_sidebar': lambda: _workspace_sidebar_payload(client_id),
         'workspace_dock_items': dock_items,
         'workspace_usage_percent': usage_percent,
     }
+
+
+def _workspace_sidebar_payload(client_id: int) -> dict:
+    """One source for the Workspace rail: agency, active brands and active projects.
+
+    Catalog pages filter their own lists by status and search text; the rail
+    must not follow those filters or every page would show a different tree.
+    """
+    cached = getattr(g, '_workspace_sidebar_payload', None)
+    if cached is not None and cached.get('client_id') == client_id:
+        return cached['payload']
+    try:
+        from .. import db
+        organization = dict(db.obter_cliente_por_id(client_id) or {})
+    except Exception:
+        organization = {}
+    agency_name = str(
+        organization.get('nome_fantasia')
+        or organization.get('razao_social')
+        or session.get('client_name')
+        or session.get('cliente_nome')
+        or session.get('organization_name')
+        or ''
+    ).strip()
+    try:
+        all_brands = _workspace_brands(client_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar as marcas da sidebar do cliente %s', client_id, exc_info=True)
+        all_brands = []
+    try:
+        links = family_repository.project_brand_links(client_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar os vínculos da sidebar do cliente %s', client_id, exc_info=True)
+        links = []
+    try:
+        projects = _workspace_projects(client_id, identity_brands=all_brands, identity_links=links)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar os projetos da sidebar do cliente %s', client_id, exc_info=True)
+        projects = []
+    brand_items = [{
+        'id': str(item.get('id')), 'kind': 'brand',
+        'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'),
+        'logoUrl': str(item.get('display_logo') or ''),
+        'visualInitials': str(item.get('display_initials') or 'M'),
+        'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
+        'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
+    } for item in all_brands if item.get('id') and not (item.get('brand_profile') or {}).get('workspace_archived_at')]
+    project_items = [{
+        'id': f"ci:{item.get('id')}", 'kind': 'project',
+        'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'),
+        'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
+        'projectRef': f"ci:{item.get('id')}",
+        'updatedAt': str(item.get('updated_at') or ''),
+        'brandRef': str(item.get('brand_ref') or ''),
+        'related_refs': list(item.get('related_refs') or []),
+        'brandName': str(item.get('thumbnail_label') or ''),
+    } for item in projects if item.get('id')]
+    payload = {'agency': {'id': str(client_id), 'name': agency_name}, 'brands': brand_items, 'projects': project_items}
+    g._workspace_sidebar_payload = {'client_id': client_id, 'payload': payload}
+    return payload
 
 
 def _project_context_health(project: dict) -> dict:
@@ -9521,7 +9582,8 @@ def account_page(section):
                     'logoUrl': str((item.get('logo_variants') or {}).get('256') or item.get('display_logo') or ''),
                     'visualColor': str(item.get('display_color') or item.get('primary_color') or ''),
                     'assetCount': int(item.get('asset_count') or 0),
-                    'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in brands],
+                    'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in brands
+                   if not (item.get('brand_profile') or {}).get('workspace_archived_at')],
     }
     if section == 'faturamento':
         account.update(_workspace_billing_data(client_id))

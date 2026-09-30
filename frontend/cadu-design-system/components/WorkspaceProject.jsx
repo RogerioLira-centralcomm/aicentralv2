@@ -1,7 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {CaduDock} from './CaduDock';
+import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
-import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {CaduModal} from './CaduModal';
 import {CaduButton} from './CaduButton';
 import {CaduViewTabs} from './CaduViewTabs';
@@ -280,6 +279,30 @@ function ImportBrandDialog({urls, csrfToken, onClose}) {
   </ProjectDialog>;
 }
 
+async function copyColorCode(value) {
+  try { await navigator.clipboard.writeText(value); return true; } catch (_) { /* falls back to a hidden field below */ }
+  try {
+    const field = document.createElement('textarea');
+    field.value = value; field.setAttribute('readonly', ''); field.style.position = 'fixed'; field.style.opacity = '0';
+    document.body.appendChild(field); field.select();
+    const copied = document.execCommand('copy');
+    field.remove();
+    return copied;
+  } catch (_) { return false; }
+}
+
+function BrandSwatches({colors}) {
+  const [picked, setPicked] = useState(null);
+  const pick = async token => {
+    const copied = await copyColorCode(token.value);
+    setPicked({value: token.value, label: token.label, copied});
+  };
+  return <span className="cadu-ds-project-brand-feature__swatchbox">
+    <span className="cadu-ds-project-brand-feature__swatches">{colors.map(token => <button type="button" key={token.value} className={picked?.value === token.value ? 'is-picked' : ''} style={{background: token.value}} onClick={() => pick(token)} aria-label={`Copiar ${token.label || 'cor'} ${token.value}`} title={`${token.label ? `${token.label}: ` : ''}${token.value}`}/>)}</span>
+    <output className="cadu-ds-project-brand-feature__code" aria-live="polite">{picked ? <><code>{picked.value}</code><em>{picked.copied ? 'Copiado' : 'Copie manualmente'}</em></> : null}</output>
+  </span>;
+}
+
 function ProjectBrandCard({brand, urls, canEdit, canManageBrand, onDialog}) {
   const colors = brandTokens(brand);
   const fonts = brandFonts(brand);
@@ -289,7 +312,7 @@ function ProjectBrandCard({brand, urls, canEdit, canManageBrand, onDialog}) {
     <header><div><h2 id="project-brand-feature-title">{hasBrand ? 'A marca que orienta este trabalho' : 'Defina a marca deste projeto'}</h2></div>{hasBrand && <span className="cadu-ds-project-brand-feature__status">{identityCount === 3 ? 'Completa' : 'Parcial'}</span>}</header>
     {hasBrand ? <div className="cadu-ds-project-brand-feature__body">
       <a className="cadu-ds-project-brand-feature__identity" href={brand.href}><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color} variant={brand.visualVariant}/><span><b>{brand.name}</b></span></a>
-      <div className="cadu-ds-project-brand-feature__tokens">{colors.length > 0 && <div><b>Cores</b><span className="cadu-ds-project-brand-feature__swatches">{colors.map(token => <i key={token.value} title={`${token.label}: ${token.value}`} style={{background: token.value}}/> )}</span></div>}{fonts.length > 0 && <div><b>Tipografia</b><span className="cadu-ds-project-brand-feature__fonts">{fonts.map(font => <span key={`${font.role}-${font.family}`}><strong>{font.family}</strong><small>{font.role}</small></span>)}</span></div>}</div>
+      <div className="cadu-ds-project-brand-feature__tokens">{colors.length > 0 && <div><b>Cores</b><BrandSwatches colors={colors}/></div>}{fonts.length > 0 && <div><b>Tipografia</b><span className="cadu-ds-project-brand-feature__fonts">{fonts.map(font => <span key={`${font.role}-${font.family}`}><strong>{font.family}</strong><small>{font.role}</small></span>)}</span></div>}</div>
       <div className="cadu-ds-project-brand-feature__actions"><a href={brand.href}>{identityCount === 3 ? 'Identidade' : 'Definir identidade'}</a>{canEdit && <button type="button" onClick={() => onDialog('brand-picker')}>Trocar marca</button>}{canManageBrand && brand.auditHref && <a href={brand.auditHref}>Auditar</a>}</div>
     </div> : <div className="cadu-ds-project-brand-feature__empty"><div className="cadu-ds-project-brand-feature__empty-mark"><ProjectIcon name="spark"/></div><div><h3>Nenhuma marca vinculada</h3><p>Escolha uma marca existente ou crie uma nova já com auditoria ligada a este projeto.</p></div><div className="cadu-ds-project-brand-feature__actions">{canEdit && <CaduButton type="button" onClick={() => onDialog('brand-picker')}>Definir marca</CaduButton>}{canManageBrand && <button type="button" onClick={() => onDialog('brand-import')}>Criar e auditar marca</button>}</div></div>}
   </section>;
@@ -688,7 +711,6 @@ export function WorkspaceProject({bootstrap}) {
   const [dropQueue, setDropQueue] = useState([]);
   const dragDepth = useRef(0);
   const [resourceId, setResourceId] = useState(() => new URLSearchParams(window.location.search).get('resource') || '');
-  const [accountOpen, setAccountOpen] = useState(false);
   const [sharing, setSharing] = useState(project.sharing || {});
   const [projectLinksPinned, setProjectLinksPinned] = useState(() => project.links || []);
   const [linkOrderStatus, setLinkOrderStatus] = useState('');
@@ -841,10 +863,6 @@ export function WorkspaceProject({bootstrap}) {
     {id:'deliveries', label:'Artefatos e entregas', icon:'external', href:sectionLinks.deliveries},
     {id:'views', label:'Visualizações', icon:'analysis', href:sectionLinks.views},
   ];
-  const quickLinks = ['overview', 'tasks', 'library', 'conversations', 'deliveries', 'indexing']
-    .map(id => projectNav.find(item => item.id === id))
-    .filter(item => item?.href)
-    .map(item => ({...item, title:item.label, active:item.id === projectView}));
   const savedProjectLinks = projectLinksPinned.filter(item => /^https?:\/\//i.test(item.url || ''))
     .map(item => ({...item, title:projectLinkTitle(item), href:item.url, icon:'external', external:true, detail:''}));
   const derivedNotifications = [
@@ -879,7 +897,7 @@ export function WorkspaceProject({bootstrap}) {
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-project-workarea" onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleFileDrop}>
         {dropActive && <div className="cadu-ds-project-page-drop" role="status" aria-live="polite"><div className="cadu-ds-project-page-drop__card"><span className="cadu-ds-project-page-drop__icon"><ProjectIcon name="source"/></span><strong>Solte para adicionar ao projeto</strong><span>O arquivo será preservado e revisado antes de entrar na base do Cadu.</span></div></div>}
-        {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
+        {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="projetos" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
         <EntityNavigator label={project.name || 'Projeto'} items={projectNav} activeId={projectView} collapsible storageKey="cadu:project-sidebar" identity={<><span className="cadu-ds-entity-nav__project-mark"><ProjectIcon name="context"/></span><span><small>Projeto</small><b title={project.name}>{project.name}</b></span></>}>
           <span>Ações</span>
           <button type="button" className="cadu-ds-entity-nav__conversation" onClick={startConversation}><ProjectIcon name="compose"/> Nova conversa</button>
@@ -900,7 +918,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'views' && <ProjectViewsPage onStartConversation={startConversation}/>}
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta. Para reativar, use Mais ações.</span></aside>}
         </section>
-        <EntityContextRail title="Projeto agora" primaryGroup={{title:'Acesso rápido', items:quickLinks, maxVisible:6, prominent:true}} secondaryGroup={savedProjectLinks.length ? {title:'Links salvos', items:savedProjectLinks, maxVisible:5, moreHref:sectionLinks.library, moreLabel:'Ver todos os links', onReorder:canEdit && savedProjectLinks.length === projectLinksPinned.length ? reorderProjectLinks : undefined} : undefined}><div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div>{!savedProjectLinks.length && <div className="cadu-ds-project-rail-links-empty"><strong>Links do projeto</strong><p>Sites e referências salvos aparecerão aqui.</p>{canEdit && <button type="button" onClick={() => setDialog('link')}>Adicionar link</button>}</div>}{linkOrderStatus && <p className={`cadu-ds-entity-rail__feedback${/não|falh|erro/i.test(linkOrderStatus) ? ' is-error' : ''}`} role={/não|falh|erro/i.test(linkOrderStatus) ? 'alert' : 'status'}>{linkOrderStatus}</p>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><a href={sectionLinks.indexing}>Ver detalhes</a></div></EntityContextRail>
+        <EntityContextRail title="Projeto agora" groups={savedProjectLinks.length ? [{title:'Links do projeto', items:savedProjectLinks, maxVisible:5, moreHref:sectionLinks.library, moreLabel:'Ver todos os links', onReorder:canEdit && savedProjectLinks.length === projectLinksPinned.length ? reorderProjectLinks : undefined}] : []}><div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div>{!savedProjectLinks.length && <div className="cadu-ds-project-rail-links-empty"><strong>Links do projeto</strong><p>Sites e referências salvos aparecerão aqui.</p>{canEdit && <button type="button" onClick={() => setDialog('link')}>Adicionar link</button>}</div>}{linkOrderStatus && <p className={`cadu-ds-entity-rail__feedback${/não|falh|erro/i.test(linkOrderStatus) ? ' is-error' : ''}`} role={/não|falh|erro/i.test(linkOrderStatus) ? 'alert' : 'status'}>{linkOrderStatus}</p>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><a href={sectionLinks.indexing}>Ver detalhes</a></div></EntityContextRail>
         </div>
       </div>
     </main>

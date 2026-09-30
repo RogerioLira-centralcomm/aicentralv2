@@ -57,17 +57,24 @@ function SidebarBrandProjects({brands, projects, links}) {
   if (!groups.length && !ungrouped.length) return null;
   const projectLink = project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')}><Icon name="folder" size={13}/><span>{entityLabel(project, 'Projeto')}</span></a>;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
-    <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span>{links.projects && <a href={links.projects}>Ver todos</a>}</div>
+    <div className="cadu-ds-context-sidebar__section-label"><span>Marcas e projetos</span></div>
     {groups.slice(0, 4).map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={entityIdentity(brand) || entityLabel(brand)}>
-      <a className="cadu-ds-context-sidebar__brand-heading" href={entityHref(brand) || links.brands || '#'} title={entityLabel(brand, 'Marca')}><Icon name="brand" size={15}/><b>{entityLabel(brand, 'Marca')}</b></a>
+      <a className="cadu-ds-context-sidebar__brand-heading" href={entityHref(brand) || links.brands || '#'} title={entityLabel(brand, 'Marca')}><b>{entityLabel(brand, 'Marca')}</b></a>
       {brand.projects.length > 0 && <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.slice(0, 3).map(projectLink)}</div>}
     </section>)}
     {ungrouped.length > 0 && <div className="cadu-ds-context-sidebar__project-tree cadu-ds-context-sidebar__project-tree--standalone">{ungrouped.slice(0, 3).map(projectLink)}</div>}
   </section>;
 }
 
-export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bootstrap = {}, links = {}, active = 'home', agencyName = '', resources = [], projects = [], brands = [], onCollapsedChange}) {
-  const [collapsed, setCollapsed] = useState(() => readCollapsed(mode, preferenceKey));
+export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bootstrap = {}, links = {}, active = 'home', agencyName: agencyNameProp = '', resources = [], projects: projectsProp = [], brands: brandsProp = [], rail = false, onCollapsedChange}) {
+  // Every Workspace page receives the same unfiltered tree from the server.
+  // Catalog pages filter their own lists, so those must never feed the rail.
+  const shared = bootstrap.sidebar || {};
+  const agencyName = shared.agency?.name || agencyNameProp;
+  const brands = Array.isArray(shared.brands) ? shared.brands : brandsProp;
+  const projects = Array.isArray(shared.projects) ? shared.projects : projectsProp;
+  const [storedCollapsed, setCollapsed] = useState(() => readCollapsed(mode, preferenceKey));
+  const collapsed = rail || storedCollapsed;
   const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
   const userName = String(bootstrap.user?.name || '').trim();
@@ -88,16 +95,16 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   }, [bootstrap.endpoints?.creditSummary]);
 
   useEffect(() => {
+    if (rail) return;
     try { window.localStorage.setItem(`cadu:sidebar:${preferenceKey}`, collapsed ? 'collapsed' : 'open'); } catch (_) { /* local preference is optional */ }
-  }, [collapsed, preferenceKey]);
+  }, [collapsed, preferenceKey, rail]);
   useEffect(() => { onCollapsedChange?.(collapsed); }, [collapsed, onCollapsedChange]);
 
-  return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
+  return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}${rail ? ' is-rail' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
       {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel overlay/></div> : (mode === 'home' || (mode === 'account' && collapsed)) ? <a className="cadu-ds-context-sidebar__collapsed-home" href={links.home || '/workspace/app'} aria-label="Início do Workspace"><img src={bootstrap.caduMark} alt=""/></a> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
-      <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>
+      {!rail && <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>}
     </header>
-    {mode === 'home' && !collapsed && <div className="cadu-ds-context-sidebar__heading"><span>Agência</span><strong>{agencyName || 'Cliente'}</strong></div>}
     {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
       {items.map(item => { const href = links[item.key]; if (!href) return null; return <a key={item.id} href={href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon} size={16}/><span>{item.label}</span></a>; })}
     </nav>}
@@ -113,9 +120,9 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
     <footer className="cadu-ds-context-sidebar__footer">
       <a className="cadu-ds-context-sidebar__profile" href={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} aria-label={`Abrir perfil de ${userName || firstName}`} title={userName || firstName}>
         <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} fallbackSrc={bootstrap.user?.photoFallback || ''} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
-        <span>{firstName}</span>
+        <span className="cadu-ds-context-sidebar__profile-text"><strong>{firstName}</strong>{agencyName && <small>{agencyName}</small>}</span>
       </a>
-      <a className="cadu-ds-context-sidebar__usage" href={links.uso || links.usage || links.creditos || links.credits || links.agencia || links.agency || links.home || '/workspace/app'} aria-label={`Uso mensal: ${usageLabel}`} title={`Uso mensal: ${usageLabel}`}>{usageLabel}</a>
+      <span className="cadu-ds-context-sidebar__usage" role="img" aria-label={`Uso mensal: ${usageLabel}`} title={`Uso mensal: ${usageLabel}`}>{usageLabel}</span>
     </footer>
   </aside>;
 }

@@ -227,7 +227,11 @@ body.portal--workspace .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-si
 }
 @media (min-width:761px) {
   body.portal--workspace .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root) {
-    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-columns:64px minmax(0,1fr)!important;
+  }
+  body.portal--workspace .cadu-workspace-legacy-chrome-root > .cadu-ds-context-sidebar.is-rail {
+    grid-column:1;
+    grid-row:1;
   }
   body.portal--workspace .cadu-ds-home-workarea:has(> .cadu-ds-context-sidebar) {
     grid-template-columns:var(--cadu-sidebar-width) minmax(0,1fr)!important;
@@ -256,3 +260,99 @@ body.portal--workspace .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-si
     left:0!important;
   }
 }
+
+/* Closed Workspace rail on Project, Brand and Account pages. The rail is a
+   fixed 64px track; the page's own navigation sits beside it, never on top. */
+body.portal--workspace .cadu-ds-context-sidebar.is-rail {
+  position:sticky;
+  top:0;
+  align-self:start;
+  height:100dvh;
+  min-height:0;
+}
+@media (min-width:761px) {
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea):has(> .cadu-ds-context-sidebar.is-rail) {
+    grid-template-columns:64px minmax(0,1fr)!important;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea) > .cadu-ds-context-sidebar.is-rail {
+    grid-column:1!important;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea):has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal {
+    grid-column:2!important;
+  }
+}
+
+/* One geometry for the Project and Brand navigation: fixed beside the rail. */
+@media (min-width:901px) {
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea):has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal > .cadu-ds-entity-nav {
+    position:fixed!important;
+    z-index:12;
+    top:0!important;
+    bottom:0!important;
+    left:64px!important;
+    box-sizing:border-box;
+    width:var(--cadu-sidebar-width,239px)!important;
+    min-width:0!important;
+    height:100dvh!important;
+    min-height:0!important;
+    max-height:100dvh!important;
+    overflow-x:hidden;
+    overflow-y:auto;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea):has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal:not(:has(> .cadu-ds-entity-nav.is-collapsed)) {
+    grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px)!important;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea):has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal > .cadu-ds-entity-nav.is-collapsed {
+    width:64px!important;
+  }
+  body.portal--workspace :is(.cadu-ds-brand-workarea,.cadu-ds-project-workarea):has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal:has(> .cadu-ds-entity-nav.is-collapsed) {
+    grid-template-columns:64px minmax(0,1fr) var(--cadu-secondary-sidebar-width,270px)!important;
+  }
+  body.portal--workspace .cadu-ds-brand-workarea:has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal--brand > .cadu-ds-brand-content { grid-column:2; }
+  body.portal--workspace .cadu-ds-brand-workarea:has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail { grid-column:3; }
+}
+@media (min-width:901px) and (max-width:1240px) {
+  body.portal--workspace .cadu-ds-project-workarea:has(> .cadu-ds-context-sidebar.is-rail) > .cadu-ds-entity-portal--project:not(:has(> .cadu-ds-entity-nav.is-collapsed)) {
+    grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr)!important;
+  }
+}
+
+/* Project side column: flat sections, no stacked cards. */
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature__tokens { grid-template-columns:minmax(0,1fr); }
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature__actions {
+  display:grid;
+  gap:0;
+  justify-items:start;
+}
+body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-entity-rail .cadu-ds-project-brand-feature__actions :is(a,button:not([data-cadu-untitled-button])) {
+  min-height:28px;
+  padding:0;
+}
+body.portal--workspace .cadu-ds-project-brand-feature__swatchbox { display:grid; gap:6px; }
+body.portal--workspace .cadu-ds-project-brand-feature__swatches { display:flex; flex-wrap:wrap; gap:6px; }
+body.portal--workspace .cadu-ds-project-brand-feature__swatches button {
+  width:22px;
+  height:22px;
+  padding:0;
+  border:1px solid rgba(20,40,58,.16);
+  border-radius:6px;
+  cursor:copy;
+}
+body.portal--workspace .cadu-ds-project-brand-feature__swatches button:hover { transform:translateY(-1px); }
+body.portal--workspace .cadu-ds-project-brand-feature__swatches button:focus-visible,
+body.portal--workspace .cadu-ds-project-brand-feature__swatches button.is-picked { outline:2px solid var(--cadu-accent-strong); outline-offset:2px; }
+body.portal--workspace .cadu-ds-project-brand-feature__code { display:flex; align-items:baseline; gap:8px; min-height:16px; }
+body.portal--workspace .cadu-ds-project-brand-feature__code:empty { display:none; }
+body.portal--workspace .cadu-ds-project-brand-feature__code code { color:var(--cadu-ink); font:650 11px ui-monospace,SFMono-Regular,Menlo,monospace; text-transform:uppercase; }
+body.portal--workspace .cadu-ds-project-brand-feature__code em { color:var(--cadu-accent-strong); font-size:10px; font-style:normal; font-weight:650; }
+
+/* Account: brands and projects read as one list, not a stack of grey cards. */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups { gap:0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups > article {
+  padding:14px 0;
+  border:0;
+  border-top:1px solid var(--cadu-line);
+  border-radius:0;
+  background:transparent;
+}
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups > article:first-child { border-top:0; }

@@ -1,14 +1,11 @@
-import React, {useEffect, useState} from 'react';
-import {CaduDock} from './CaduDock';
-import {WorkspaceAccountMenu} from './WorkspaceFeedback';
-import {openWorkspaceDetail} from '../workspaceNavigation';
+import React, {useEffect} from 'react';
+import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 
 export function WorkspaceLegacyChrome({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
-  const [accountOpen, setAccountOpen] = useState(false);
-  const active = {inicio: 'home', projetos: 'projects', marcas: 'brands', docs: 'docs', skills: 'skills'}[bootstrap.active] || bootstrap.active;
+  const railActive = {conversas: 'conversas', 'conversas-v2': 'conversas', projetos: 'projetos', marcas: 'marcas'}[bootstrap.active] || '';
   useEffect(() => {
     const root = document.getElementById('cadu-workspace-legacy-chrome-root');
     const shell = root?.closest('.workspace-app-shell');
@@ -23,6 +20,6 @@ export function WorkspaceLegacyChrome({bootstrap}) {
     };
   }, [bootstrap.active, bootstrap.surface]);
   return <>
-    {isMobile ? <WorkspaceMobileChrome title={bootstrap.title || bootstrap.contextName || 'Workspace'} links={bootstrap.urls}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}
+    {isMobile ? <WorkspaceMobileChrome title={bootstrap.title || bootstrap.contextName || 'Workspace'} links={bootstrap.urls}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active={railActive}/>}
   </>;
 }

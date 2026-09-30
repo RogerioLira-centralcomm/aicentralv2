@@ -1,7 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import './WorkspaceBrand.css';
-import {CaduDock} from './CaduDock';
-import {WorkspaceAccountMenu} from './WorkspaceFeedback';
+import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduModal} from './CaduModal';
 import {CaduButton} from './CaduButton';
@@ -491,7 +490,6 @@ export function WorkspaceBrand({bootstrap}) {
     if (params.get('acao') === 'apagar' && bootstrap.canManageBrand) return 'delete';
     return params.get('audit') === 'start' ? 'audit' : '';
   });
-  const [accountOpen, setAccountOpen] = useState(false);
   const dockItems = bootstrap.dock?.items || [];
   const [reviewTitle, reviewDescription] = reviewCopy(brand);
   const canEdit = Boolean(bootstrap.canManageBrand);
@@ -589,7 +587,7 @@ export function WorkspaceBrand({bootstrap}) {
   return <div className={`cadu-ds-home-shell cadu-ds-brand-shell is-${lifecycle}`}>
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-brand-workarea">
-        {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} projects={bootstrap.projects || []} brands={bootstrap.brands || []} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems} usagePercent={bootstrap.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>}
+        {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="marcas" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}
         <div className="cadu-ds-entity-portal cadu-ds-entity-portal--brand">
         {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} collapsible storageKey="cadu:brand-sidebar" identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
           {!isProcessing && <>

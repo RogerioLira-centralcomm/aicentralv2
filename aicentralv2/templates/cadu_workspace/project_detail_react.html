@@ -12,7 +12,7 @@
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'csrf': session.get('family_csrf', ''),
   'usagePercent': usage_percent,
-  'user': {'id': session.get('user_id'), 'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url') or session.get('google_picture', ''), 'photoFallback': session.get('google_picture', ''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge', '')},
+  'sidebar': (workspace_sidebar() if workspace_sidebar is defined else {}), 'user': {'id': session.get('user_id'), 'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url') or session.get('google_picture', ''), 'photoFallback': session.get('google_picture', ''), 'avatarBadge': (perfil_contato or {}).get('cadu_avatar_badge') or session.get('cadu_avatar_badge', '')},
   'project': project_data,
   'projects': project_items,
   'brands': brand_items,

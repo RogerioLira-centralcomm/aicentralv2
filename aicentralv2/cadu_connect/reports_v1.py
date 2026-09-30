@@ -123,12 +123,13 @@ def register(bp):
 
     @bp.get('/app')
     @bp.get('/app/<section>')
+    @bp.get('/app/flows/<uuid:flow_id>')
     @bp.get('/app/supertag/sites/<uuid:site_id>')
     @login_required
-    def reports_v1_app(section=None, site_id=None):
+    def reports_v1_app(section=None, site_id=None, flow_id=None):
         if section and section not in {
             'overview', 'accounts', 'campaigns', 'reports', 'imports',
-            'monitor', 'supertag', 'flow', 'events', 'links', 'access',
+            'monitor', 'supertag', 'flow', 'flows', 'events', 'links', 'access',
             'data-library', 'conversions',
         }:
             abort(404)

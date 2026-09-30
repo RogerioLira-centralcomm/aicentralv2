@@ -17,11 +17,12 @@ export function ReportsActionButton({
     ? 'secondary-destructive'
     : /(?:text-button|inline-link|campaign-open|report-inline)/.test(className)
       ? 'link-color'
-      : resolvedType === 'submit' ? 'primary' : 'secondary');
+      : resolvedType === 'submit' ? 'primary' : 'tertiary');
   return <Button
     {...rest}
     type={resolvedType}
     color={resolvedColor}
+    data-reports-tone={resolvedColor}
     isDisabled={Boolean(disabled || isDisabled)}
     onPress={onClick}
     className={`reports-ui-button ${className}`.trim()}

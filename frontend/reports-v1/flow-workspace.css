@@ -8,6 +8,13 @@
 .reports-main .reports-flow-views [role=tab] small{background:#eff8ff;color:#175cd3}
 
 .reports-main .reports-flow-create-page,.reports-main .reports-flow-list-panel,.reports-main .reports-flow-builder{border:1px solid #eaecf0;border-radius:10px;background:#fff;box-shadow:0 1px 2px #1018280a}
+.reports-flow-index-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,340px);align-items:start;gap:20px}
+.reports-flow-index-layout>.reports-flow-list-panel{grid-column:1;grid-row:1;min-width:0}
+.reports-flow-index-layout>.reports-flow-create-page{grid-column:2;grid-row:1;min-width:0;margin:0;padding:22px}
+.reports-flow-index-layout .reports-flow-create-fields{grid-template-columns:1fr;gap:14px}
+.reports-flow-index-layout .reports-flow-create{gap:16px}
+.reports-flow-index-layout .reports-flow-create-actions{align-items:stretch;flex-direction:column}
+@media(max-width:800px){.reports-flow-index-layout{grid-template-columns:1fr}.reports-flow-index-layout>.reports-flow-create-page{grid-column:1;grid-row:1}.reports-flow-index-layout>.reports-flow-list-panel{grid-column:1;grid-row:2}}
 .reports-main .reports-flow-create-page{max-width:960px;margin:0 auto 16px;padding:28px 32px}
 .reports-main .reports-flow-create{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;max-width:none;margin:0}
 .reports-main .reports-flow-create-domain{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px}
@@ -348,6 +355,27 @@
 .reports-shell--flow-editor .reports-node-palette>button{float:right;width:28px;height:28px;min-height:28px!important;padding:4px!important;border:0!important}
 .flow-assist-actions{left:16px;bottom:16px}.flow-assist-panel{left:16px}
 .reports-shell--flow-editor .is-workspace-v2 .reports-flow-designer--compact>.reports-flow-canvas{width:auto!important;right:var(--right,0px);left:var(--left,0px)}
+
+/* The editor toolbar uses one filled CTA; the remaining controls are compact actions. */
+.reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions>.reports-ui-button:not([data-reports-tone="primary"]){border:0!important;background:transparent;box-shadow:none!important}
+.reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions>.reports-ui-button:not([data-reports-tone="primary"]):hover{background:var(--color-bg-primary_hover)}
+.reports-shell--flow-editor .reports-flow-extra-actions>summary{border:0;background:transparent}
+.reports-shell--flow-editor .reports-flow-extra-actions>summary:hover{background:var(--color-bg-primary_hover)}
+.reports-shell--flow-editor .reports-flow-palette-switch{border:0;box-shadow:0 2px 8px #1018280d}
+.reports-shell--flow-editor .reports-flow-palette-switch>.reports-ui-button{border:0!important;box-shadow:none!important}
+.reports-shell--flow-editor .reports-canvas-toolbar button,
+.reports-shell--flow-editor .reports-editor-controls button{border:0!important;box-shadow:none!important}
+.reports-shell--flow-editor .reports-canvas-toolbar button:hover,
+.reports-shell--flow-editor .reports-editor-controls button:hover{background:var(--color-bg-primary_hover)}
+.reports-shell--flow-editor .reports-flow-extra-actions>summary:focus-visible,
+.reports-shell--flow-editor .reports-canvas-toolbar button:focus-visible,
+.reports-shell--flow-editor .reports-editor-controls button:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+
+/* The classic route keeps the same list-left, creation-right composition. */
+.reports-main .reports-flow-index-layout>.reports-flow-create-page{width:100%;max-width:none;margin:0;padding:22px}
+.reports-main .reports-flow-index-layout .reports-flow-create-fields{grid-template-columns:1fr;gap:14px}
+.reports-main .reports-flow-index-layout .reports-flow-create{gap:16px}
+.reports-main .reports-flow-index-layout .reports-flow-create-actions{align-items:stretch;flex-direction:column}
 .reports-shell--flow-editor .reports-flow-designer .reports-ui-button{appearance:none;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:12px;line-height:18px;padding:5px 9px;min-height:28px}
 .reports-shell--flow-editor .reports-flow-designer .reports-ui-button:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
 .flow-command-dialog{margin:0}.flow-command-dialog::backdrop{background:rgb(16 24 40 / .25)}

@@ -16,7 +16,7 @@ from flask import abort, current_app, jsonify, request, session
 
 from ..auth import login_required_api
 from ..db import get_db
-from .reports_v1 import _rows, _selection, _write_guard
+from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional_positive_id
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
 from .reports_flow_validation import validate_flow_config
@@ -662,8 +662,26 @@ def _client_tag_urls(client_id):
     }
 
 
+def _flow_associations(payload, selected, current=None):
+    customer_id = (_customer_id(selected, payload.get('customer_id'))
+                   if current is None or 'customer_id' in payload else current.get('customer_id'))
+    campaign_id = (_optional_positive_id(payload.get('campaign_id'), 'Campanha')
+                   if current is None or 'campaign_id' in payload else current.get('campaign_id'))
+    if campaign_id and (current is None or 'customer_id' in payload or 'campaign_id' in payload):
+        campaign = _rows('''SELECT customer_id FROM cadu_reports_campaigns
+            WHERE id=%s AND client_id=%s''', (campaign_id, selected['client_id']))
+        if not campaign:
+            abort(404, description='Campanha indisponível neste cliente.')
+        campaign_customer = campaign[0]['customer_id']
+        if customer_id and campaign_customer and customer_id != campaign_customer:
+            abort(400, description='A campanha pertence a outro cliente/anunciante.')
+        if not customer_id:
+            customer_id = campaign_customer
+    return customer_id, campaign_id
+
+
 def _flow_row(flow_id, selected):
-    found = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.draft_config AS config,f.config AS active_config,
+    found = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.customer_id,f.campaign_id,f.draft_config AS config,f.config AS active_config,
             f.draft_revision,f.published_revision,f.created_at,f.updated_at,
             f.published_at,t.id AS tag_id,t.label AS tag_label,t.allowed_host,t.public_key,t.revoked_at
         FROM cadu_reports_flow_registry f
@@ -854,7 +872,7 @@ def register(bp):
                 (*params,selected_flow['tag_id'] if selected_flow else None,
                  selected_flow['tag_id'] if selected_flow else None,
                  selected_flow['published_revision'] if selected_flow else None))
-            flows = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,
+            flows = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.customer_id,f.campaign_id,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,
                     t.label AS tag_label,t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
                     (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
                         FROM cadu_reports_flow_steps s
@@ -973,7 +991,7 @@ def register(bp):
         from .reports_supertag import _supertag_snippet
         for site in supertag_sites:
             site['snippet'] = _supertag_snippet(site)
-        flows = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,t.label AS tag_label,
+        flows = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.customer_id,f.campaign_id,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,t.label AS tag_label,
                 t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
                 f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at,
                 (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
@@ -1608,6 +1626,7 @@ def register(bp):
         tag = _tag_for_client(tag_id, selected) if tag_id else None
         if not name:
             abort(400, description='Informe o nome do fluxo.')
+        customer_id, campaign_id = _flow_associations(payload, selected)
         requested_host = _host(payload.get('allowed_host') or (tag or {}).get('allowed_host'))
         supertag_site, _ = ensure_supertag_site(selected, requested_host, name)
         # Each flow owns an internal tag, even when created from an existing site tag.
@@ -1625,14 +1644,32 @@ def register(bp):
         flow_id = str(uuid.uuid4())
         flow_code = _new_flow_code()
         created = _rows('''INSERT INTO cadu_reports_flow_registry
-            (id,client_id,flow_code,tag_id,name,draft_config,created_by,site_id)
-            VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s,%s)
-            RETURNING id,site_id,flow_code,name,status,draft_config AS config,draft_revision,published_revision,tag_id,created_at,updated_at''',
+            (id,client_id,flow_code,tag_id,name,draft_config,created_by,site_id,customer_id,campaign_id)
+            VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s)
+            RETURNING id,site_id,flow_code,name,status,customer_id,campaign_id,draft_config AS config,draft_revision,published_revision,tag_id,created_at,updated_at''',
             (flow_id, selected['client_id'], flow_code,
-             tag['id'], name, json.dumps(config), session['user_id'],supertag_site['id']))[0]
+             tag['id'], name, json.dumps(config), session['user_id'],supertag_site['id'],customer_id,campaign_id))[0]
         get_db().commit()
         return jsonify(flow=created, tag=tag, supertag_site=supertag_site,
                        tag_urls=_client_tag_urls(selected['client_id'],)), 201
+
+    @bp.patch('/api/v2/reports/flow/flows/<flow_id>/associations')
+    @login_required_api
+    def reports_flow_update_associations(flow_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or set(payload) - {'client_id', 'customer_id', 'campaign_id'}:
+            abort(400, description='Associação do fluxo inválida.')
+        selected = _selection(payload)
+        _write_guard(selected)
+        current = _flow_row(flow_id, selected)
+        customer_id, campaign_id = _flow_associations(payload, selected, current)
+        updated = _rows('''UPDATE cadu_reports_flow_registry
+            SET customer_id=%s,campaign_id=%s,updated_at=NOW()
+            WHERE id=%s AND client_id=%s
+            RETURNING id,customer_id,campaign_id,updated_at''',
+            (customer_id,campaign_id,current['id'],selected['client_id']))[0]
+        get_db().commit()
+        return jsonify(flow=updated)
 
     @bp.patch('/api/v2/reports/flow/flows/<flow_id>')
     @login_required_api
@@ -1643,6 +1680,7 @@ def register(bp):
         selected = _selection(payload)
         _write_guard(selected)
         current = _flow_row(flow_id, selected)
+        customer_id, campaign_id = _flow_associations(payload, selected, current)
         name = ' '.join(str(payload.get('name', current['name']) or '').split())[:120]
         config = payload.get('config', current['config'])
         if not name or not isinstance(config, dict):
@@ -1650,6 +1688,10 @@ def register(bp):
         config, _ = _normalize_flow_config(config, current['allowed_host'])
         _validate_flow_references(config, selected)
         updated = save_draft(current['id'], selected, expected_revision(payload), name, config)
+        if (customer_id, campaign_id) != (current['customer_id'], current['campaign_id']):
+            _rows('''UPDATE cadu_reports_flow_registry SET customer_id=%s,campaign_id=%s
+                WHERE id=%s AND client_id=%s''', (customer_id,campaign_id,current['id'],selected['client_id']))
+            updated['customer_id'], updated['campaign_id'] = customer_id, campaign_id
         get_db().commit()
         return jsonify(flow=updated)
 

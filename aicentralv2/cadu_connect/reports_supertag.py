@@ -383,6 +383,9 @@ def register(bp):
                 target = urlparse(response.headers.get('Location') or '')
                 if target.hostname and target.hostname.lower().rstrip('.') != host:
                     abort(400, description='O site redireciona para outro domínio; informe a URL final que será autorizada.')
+                abort(400, description='O endereço redireciona; informe a URL final do site.')
+            if response.status_code >= 400:
+                abort(400, description=f'O site respondeu HTTP {response.status_code}. Confira a URL e tente novamente.')
             content_type = response.headers.get('Content-Type', '').lower()
             chunks, size = [], 0
             if 'html' in content_type:

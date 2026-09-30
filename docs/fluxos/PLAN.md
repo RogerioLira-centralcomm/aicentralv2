@@ -44,6 +44,21 @@ As lacunas acima passam a ter critérios de aceite próprios; o checklist origin
 6. **Linguagem:** texto visível em PT-BR. Usar Fluxo, Etapa, Nó, Canal, Tipo de página, Conexão, Retorno e Pendência; ações “Remover do fluxo”, “Duplicar nó”, “Atualizar captura”. IDs técnicos podem permanecer em APIs e no banco.
 7. **Entrega:** um milestone de cada vez, na ordem. Cada um gera commit `fluxos(Mx): <resumo>`. Antes do commit, rodar verificações proporcionais ao código alterado e registrar os comandos e resultados neste arquivo. Uma falha de aceite fica documentada; não marcar concluído como se tivesse passado.
 
+## Revisão com TypeSafe AI: onde a inteligência ajuda
+
+O Reports já possui `typesafe_service.system_one`, credencial no servidor, `reports_typesafe.suggest_flow_page_role`, sugestão auditada em `reports_flow_suggestions.py` e aceite explícito da pessoa. Reusar esse caminho. O valor mais próximo para o Fluxo é reduzir trabalho de classificação e revisão do inventário, sem tornar uma inferência em fato observado. A documentação atual de [Choice](https://docs.typesafe.ai/primitives/choice), [confiança](https://docs.typesafe.ai/confidence) e [alinhamento de entidades](https://docs.typesafe.ai/cookbooks/entity_alignment) fundamenta os formatos abaixo.
+
+| Necessidade da pessoa | Julgamento TypeSafe possível | Decisão que permanece no código ou com a pessoa |
+|---|---|---|
+| Entender uma página sem tipo definido | `Choice` entre os **Tipos de página** do glossário e `sem evidência`, usando título, caminho, H1 e sinais de formulário. | Regras para casos inequívocos; pessoa confirma ou corrige o tipo. `stage` é uma escolha separada; página de contato não vira conversão medida. |
+| Encontrar possíveis traduções com caminhos diferentes | Gerar pares candidatos do mesmo domínio em código; `Score` de correspondência semântica e sinais independentes de conflito entre títulos, conteúdo e finalidade. | `hreflang`, caminho normalizado e vínculo manual continuam fontes de identidade. Par sem evidência explícita só aparece para revisão; nunca é unido automaticamente. |
+| Localizar uma página entre centenas | Busca textual e filtros atuais geram candidatos; julgamento de relevância pode reordenar uma lista curta quando a consulta expressa intenção, como “onde pedir orçamento”. | Resultados devem mostrar página e caminho reais. Busca exata por título/URL funciona sem IA; nenhuma URL é inventada. |
+| Decidir qual pendência resolver primeiro | Escolha entre **ações já permitidas** derivadas das pendências e do objetivo declarado, com opção “reunir evidência”. | Gravidade, bloqueio de publicação, contagens, alcançabilidade e ação continuam determinísticos. IA não cria nem remove pendências e não publica. |
+
+**Sequência de adoção:** (1) no M3, corrigir a confusão atual entre `role` de jornada e **Tipo de página**, mantendo a sugestão existente como recurso opcional; (2) no M5, apresentar ações determinísticas claras antes de considerar ordenação semântica; (3) no M7, avaliar offline pares de tradução e busca semântica com exemplos revisados, decidindo se merecem implementação posterior. Não adicionar chamada TypeSafe ao carregamento do canvas nem transformar a revisão em novo requisito para publicar.
+
+**Contrato para qualquer evolução de IA:** enviar ao servidor apenas os campos necessários, com limites e tratamento de dados pessoais; tratar conteúdo do site como evidência não confiável; preservar ID, revisão, versão da pergunta, hash da evidência, modelo, uso e decisão humana no registro apropriado. Perguntas independentes sobre o mesmo estado podem ser avaliadas juntas. Validar tipos, opções e distribuições de resposta; usar probabilidade e concentração para encaminhar casos incertos à revisão, sem apresentá-las como precisão ou chance de acerto. Definir limiares com amostra rotulada do próprio produto. Erro, ausência de credencial, limite ou latência não podem impedir busca, edição, validação determinística nem publicação válida. Medir custo, tempo e taxa de correção humana antes de ampliar o uso.
+
 ## Progress
 
 - [x] M0 — Reconhecimento estático e plano ajustado à infraestrutura (2026-09-30) — `RECON.md`; commit neste histórico
@@ -92,6 +107,7 @@ As lacunas acima passam a ter critérios de aceite próprios; o checklist origin
 
 - Fazer `stage` persistido a fonte de verdade; `x` resulta da etapa. Migrar conservadoramente somente nós de página que estejam em Origem. Preservar a sexta etapa legada `support` durante a transição: levantar fluxos existentes e decidir tratamento sem apagar nós ou alterar jornadas publicadas.
 - Separar `pageType` de `stage` sem remover `role` até migrar todos os consumidores. Tratar canais (`type: source`) como Origem. Arrasto muda etapa; inspector muda etapa e reposiciona; canal/página fora da etapa permitida recebe explicação.
+- Mapear explicitamente os seis `role` usados pela sugestão TypeSafe existente para o novo `pageType`, sem converter `entry` ou `conversion` automaticamente em Tipo de página nem gravar uma Etapa com base só na sugestão. Exibir evidência e revisão humana; a edição manual funciona sem TypeSafe.
 - Reusar `flowLayout.js`/worker ELK. Centralizar largura e X das faixas e nós; `pinned` conserva apenas ordem vertical. A primeira abertura enquadra os nós sem zoom excessivo. Grupos e nós fixos precisam de casos próprios para evitar sobreposição.
 - Consolidar traduções pareadas em um nó de apresentação com opção de separar. Persistir reversivelmente e manter métricas por idioma rastreáveis; registrar log antes de qualquer fusão física. Tornar thumbnail e título legíveis.
 - Oferecer alternativa ao arrasto: adicionar por clique, mover para outra Etapa pelo inspector ou teclado e criar Conexão por seleção de origem/destino. Distinguir “página em Conversão” de “evento de conversão confirmado” com texto de ajuda junto ao campo.
@@ -116,6 +132,7 @@ As lacunas acima passam a ter critérios de aceite próprios; o checklist origin
 - Evoluir `flowValidation.js` e `reports_flow_validation.py` a partir das regras existentes, mantendo paridade em fixture JSON compartilhado. A regra de conversão considera a definição persistida correta, não confunde `role`, `type` e `stage`; não descarta regras atuais de URL, evento, objetivo ou alcançabilidade sem decisão registrada.
 - Cada pendência tem `code`, severidade estável, `nodeId`/`edgeId` quando aplicável e ação. O painel separa bloqueantes/avisos, mostra texto completo, remove itens resolvidos e foca o nó ou a conexão. O header usa a mesma lista. QR Code usa ícone e tipo de Canal coerentes.
 - Separar pendências que bloqueiam publicação das que apenas afetam leitura de dados. Para cada item, explicar consequência e ação concreta, por exemplo “Sem conversão definida: não será possível medir a conclusão desta jornada”. Revisar antes da publicação deve mostrar o que mudou desde a versão anterior e quais avisos permanecem.
+- Ordenar primeiro por bloqueio e consequência definidos em código. Se uma sugestão TypeSafe de próximo passo for experimentada, limitar as opções às ações reais do painel e registrá-la como sugestão, sem alterar a lista de pendências nem a decisão do servidor.
 
 **Aceite:** conversão válida não gera falso bloqueio; canal isolado gera pendência com ação; clicar centraliza e seleciona; frontend/servidor concordam nos bloqueios do fixture; publicação é impedida por chamada direta.
 
@@ -137,6 +154,7 @@ As lacunas acima passam a ter critérios de aceite próprios; o checklist origin
 - Centralizar rótulos visíveis do módulo sem reescrever IDs de API. Aplicar o glossário e revisar pluralização, aria-labels, tooltips, vazios e erros. Nenhum ID como `exploration` aparece na UI.
 - Percorrer os 47 itens do `RECON.md`, marcando resolvido com teste/captura ou justificativa e risco residual. Validar fluxos antigos, rascunho, publicação, monitoramento e Centralcomm em desktop responsivo.
 - Executar um roteiro de tarefa com pelo menos três perspectivas: criar fluxo do zero, corrigir uma pendência e publicar; interpretar um período sem eventos e outro com dados; revisar uma versão publicada sem permissão de edição. Medir passos, ambiguidades e falhas, corrigindo as que impedem a tarefa antes de encerrar M7. Medir tempo de abertura, busca e enquadramento com inventário de 539 páginas e fluxo denso; registrar limite observado.
+- Avaliar a sugestão TypeSafe existente e as hipóteses de pareamento/busca em amostra rotulada do domínio: acertos, falsos vínculos, casos sem resposta, correções humanas, custo e latência. Registrar decisão de produto antes de disponibilizar novas inferências; nenhuma chamada externa é requisito para o QA do fluxo principal.
 
 **Aceite:** todos os itens têm evidência ou decisão registrada; build Reports, testes Python/JS e revisão visual passam; nenhum texto visível fora do glossário. As três tarefas podem ser concluídas sem depender de conhecimento do código; versão/período/fonte aparecem corretamente na leitura; desempenho com inventário grande é registrado e não impede a tarefa.
 
@@ -164,6 +182,7 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 - S9 (M2): a descoberta persiste somente respostas HTML 200. Redirecionamentos e erros são descartados antes do inventário (`_fetch_site_page` em `reports_flow.py`), portanto não há evidência para contar seus motivos históricos. O resumo conta páginas registradas, duplicatas canônicas e `noindex` detectado nas novas análises; não inventa totais de URLs descartadas.
 - S10 (M2): o mesmo `template_id` era renderizado sob cada papel em `FlowCatalog.jsx`, permitindo que um grupo aparecesse mais de uma vez. A lista agora agrupa globalmente por padrão e assinatura; páginas avulsas continuam por classificação. A triplicação exata de Centralcomm não foi reproduzida sem o inventário real.
 - S11 (M2): o banco deste checkout não foi migrado nem contém uma amostra Centralcomm acessível nos testes. Migration e backfill foram adicionados ao `deploy.sh`; a verificação de dados reais fica para a implantação/QA de M7. Páginas antigas marcadas `noindex` só serão reconhecidas após nova descoberta.
+- S12 (revisão TypeSafe): já existe serviço TypeSafe no backend, sugestão auditada de papel da página e aceite humano. A sugestão usa `entry/intermediate/form/conversion/error/none`, que descrevem posição/função na jornada e não equivalem ao novo **Tipo de página**; é preciso separar os conceitos antes de ampliar a IA.
 
 ## Decision Log
 
@@ -182,6 +201,8 @@ Separação conceitual em “Mapa do site”, “Fluxo planejado” e “Jornada
 | D11 | Contar apenas páginas HTML verificadas no resumo atual e explicitar a cobertura. | A descoberta não armazena redirecionamentos/erros, logo não há base para exibir seus totais. |
 | D12 | Manter páginas por idioma no catálogo e unir grupos pelo caminho normalizado; a fusão visual de nós fica no M3. | Preserva seleção e métricas até existir uma apresentação reversível. |
 | D13 | Registrar vínculo manual no inventário da varredura atual e reaplicá-lo à próxima varredura da mesma URL. | Crawler já expõe `hreflang` novo; URLs traduzidas sem evidência precisam de escolha humana. |
+| D14 | Reusar a integração TypeSafe existente apenas para julgamentos semânticos opcionais e revisáveis. | O produto já dispõe de chamada, cache, limite e auditoria; regras e observações continuam determinísticas. |
+| D15 | Não usar sugestão de página como confirmação de conversão, tradução ou Etapa. | `role` atual, `pageType`, `stage` e evento observado respondem a perguntas diferentes. |
 
 ## Outcomes & Retrospective
 

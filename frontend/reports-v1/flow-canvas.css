@@ -165,3 +165,14 @@
 .flow-source-picker__row small{color:var(--color-text-tertiary);font-size:11px}
 .fnode__time{flex:1 0 100%;color:var(--color-text-tertiary);font-size:11px}
 .fnode__note{color:var(--color-text-tertiary);font-size:11px;line-height:1.4}
+/* Nota e checklist: anotação do plano, sem medição */
+.fnote{position:relative;display:grid;gap:6px;width:232px;padding:12px 14px;border:1px solid var(--color-border-warning-subtle,#fedf89);border-radius:4px 14px 14px 14px;background:var(--color-bg-warning-primary,#fffaeb);color:var(--color-text-primary);box-shadow:0 1px 2px rgb(16 24 40/.06)}
+.fnote.is-selected{outline:2px solid var(--color-border-brand);outline-offset:2px}
+.fnote__head{display:flex;align-items:center;justify-content:space-between;color:var(--color-text-warning-primary,#b54708);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.fnote__head small{color:inherit;font-size:11px;text-transform:none}
+.fnote__text{margin:0;color:var(--color-text-secondary);font-size:12px;line-height:1.45;white-space:pre-wrap;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.fnote__checklist{display:grid;gap:2px;margin:0;padding:0;list-style:none;color:var(--color-text-secondary);font-size:12px}
+.fnote__checklist li{display:flex;gap:6px}
+.fnote__checklist li.is-done{color:var(--color-text-tertiary);text-decoration:line-through}
+.fnote__more{color:var(--color-text-tertiary)}
+.fnote .flow-shape-label{text-align:left;justify-content:flex-start;font-size:14px;font-weight:600}

@@ -9,7 +9,7 @@ LEGACY_KINDS = {
     'event': 'event.custom', 'condition': 'logic.condition',
     'delay': 'logic.delay', 'segment': 'crm.segment',
     'conversion': 'conversion.generic', 'webhook': 'utility.webhook',
-    'whatsapp': 'event.whatsapp', 'error': 'page.error',
+    'whatsapp': 'event.whatsapp', 'error': 'page.error', 'note': 'annotation.note',
 }
 KIND_TYPES = {kind: legacy for legacy, kind in LEGACY_KINDS.items()}
 

@@ -49,7 +49,7 @@ export function flowValidation(config,allowedHost='') {
       if(pagePaths.has(key))issues.push({severity:'error',code:'duplicate_page',nodeId:node.id,message:`A URL ${node.path} já está em outra página do fluxo.`});
       else pagePaths.set(key,node.id);
     }
-    if(nodes.length>1&&!connected.has(node.id))issues.push({severity:'warning',code:'orphan',nodeId:node.id,message:`${node.title||'Um nó'} está sem conexões.`});
+    if(node.type!=='note'&&nodes.length>1&&!connected.has(node.id))issues.push({severity:'warning',code:'orphan',nodeId:node.id,message:`${node.title||'Um nó'} está sem conexões.`});
   }
   const byId=new Map(nodes.map(node=>[node.id,node]));
   const reachable=new Set(nodes.filter(n=>n.type==='conversion').map(n=>n.id));

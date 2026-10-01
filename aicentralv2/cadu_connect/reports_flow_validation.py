@@ -90,7 +90,7 @@ def validate_flow_config(config, allowed_host=''):
                 issues.append({'severity': 'error', 'code': 'duplicate_page', 'node_id': node_id,
                                'message': f"A URL {node['path']} já está em outra página do fluxo."})
             page_paths.add(key)
-        if len(nodes) > 1 and not incoming[node_id] and not outgoing[node_id]:
+        if node.get('type') != 'note' and len(nodes) > 1 and not incoming[node_id] and not outgoing[node_id]:
             issues.append({'severity': 'warning', 'code': 'orphan', 'node_id': node_id,
                            'message': f"{node.get('title') or 'Um nó'} está sem conexões."})
     goals={node['id'] for node in nodes if node.get('type')=='conversion'}

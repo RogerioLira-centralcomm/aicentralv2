@@ -386,5 +386,44 @@
     "expected_warnings": [
       "planned_conversion"
     ]
+  },
+  {
+    "name": "nota_solta_nao_e_pendencia",
+    "config": {
+      "nodes": [
+        {
+          "id": "inicio",
+          "type": "page",
+          "title": "Início",
+          "path": "/"
+        },
+        {
+          "id": "lead",
+          "type": "conversion",
+          "title": "Lead",
+          "path": "/obrigado"
+        },
+        {
+          "id": "nota",
+          "type": "note",
+          "title": "Combinar oferta",
+          "checklist": [
+            {
+              "text": "Aprovar",
+              "done": false
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "inicio",
+          "to": "lead"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": []
   }
 ]

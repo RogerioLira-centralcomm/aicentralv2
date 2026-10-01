@@ -22,9 +22,10 @@ export async function layoutFlow(config,{width=240,height=150,nodeSpacing=48,lay
     .finally(()=>{clearTimeout(timer);elk.terminateWorker();});
   const positions=new Map(result.children.map(node=>[node.id,{x:Math.round(node.x+80),y:Math.round(node.y+80)}]));
   // Stages order the layers (ELK partitions); rows come from the graph itself, so busy paths stay together.
-  const occupied=config.nodes.filter(n=>n.locked).map(n=>({...n,x:n.x,width:n.width||width,height:n.height||height}));
+  // Notes are free annotations: arranging the journey never moves them.
+  const occupied=config.nodes.filter(n=>n.locked||n.type==='note').map(n=>({...n,x:n.x,width:n.width||width,height:n.height||height}));
   const nodes=config.nodes.map(node=>{
-    if(node.locked)return node;
+    if(node.locked||node.type==='note')return node;
     const next={...node,stage:stageFor(node),...positions.get(node.id)};
     while(occupied.some(other=>next.x<other.x+other.width+24&&next.x+(node.width||width)+24>other.x&&next.y<other.y+other.height+24&&next.y+(node.height||height)+24>other.y)){next.y+=height+32;if(next.y>10000)break;}
     occupied.push({...next,width:node.width||width,height:node.height||height});return next;

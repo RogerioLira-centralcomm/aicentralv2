@@ -511,7 +511,7 @@ def _normalize_flow_config(config, allowed_host):
     if config.get('schema_version') == 2:
         config = legacy_projection(config)
     nodes, edges = config.get('nodes', []), config.get('edges', [])
-    known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error'}
+    known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error','note'}
     if not isinstance(nodes, list) or len(nodes) > 200 or not isinstance(edges, list) or len(edges) > 300:
         abort(400, description='O fluxo aceita até 200 nós e 300 conexões.')
     normalized, ids = [], set()
@@ -623,6 +623,13 @@ def _normalize_flow_config(config, allowed_host):
             item['isEntry'] = node['isEntry']
         if 'status' in node:
             item['status'] = node['status']
+        if node_type == 'note' and 'checklist' in node:
+            checklist = node['checklist']
+            if not isinstance(checklist, list) or len(checklist) > 30 or any(
+                    not isinstance(entry, dict) or not isinstance(entry.get('text'), str) for entry in checklist):
+                abort(400, description='O checklist aceita até 30 itens de texto.')
+            item['checklist'] = [{'text': ' '.join(entry['text'].split())[:200], 'done': entry.get('done') is True}
+                                 for entry in checklist if entry['text'].strip()]
         spec = normalize_spec(node.get('spec'))
         if spec:
             item['spec'] = spec

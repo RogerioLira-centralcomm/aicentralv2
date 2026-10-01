@@ -143,7 +143,23 @@ function ExitSinkNode({data}) {
 }
 
 const MemoShapeNode=React.memo(ShapeNode);
-const nodeTypes = {exitSink:ExitSinkNode,groupFrame:GroupNode,visual:MemoShapeNode,circle:MemoShapeNode,diamond:MemoShapeNode,page:MemoShapeNode};
+function NoteNode({id,data,selected}) {
+  const updateInternals=useUpdateNodeInternals();
+  const {node,readOnly,onLabelChange,onDuplicate,onRemove}=data;
+  const checklist=node.checklist||[];
+  useEffect(()=>{updateInternals(id);},[id,node.title,node.description,checklist.length,updateInternals]);
+  const done=checklist.filter(item=>item.done).length;
+  return <div className={`fnote${selected?' is-selected':''}`}>
+    <NodeHandles/>
+    <NodeToolbar isVisible={selected&&!readOnly} position={Position.Top}><ReportsActionButton aria-label="Duplicar nota" onClick={()=>onDuplicate(node.id)}><Copy01 size={16}/></ReportsActionButton><ReportsActionButton aria-label="Remover nota" onClick={()=>onRemove(node.id)}><Trash01 size={16}/></ReportsActionButton></NodeToolbar>
+    <div className="fnote__head"><span>Nota</span>{checklist.length>0&&<small>{done}/{checklist.length}</small>}</div>
+    <NodeLabel node={node} selected={selected} readOnly={readOnly} onChange={onLabelChange}/>
+    {node.description&&<p className="fnote__text">{node.description}</p>}
+    {checklist.length>0&&<ul className="fnote__checklist">{checklist.slice(0,6).map((item,index)=><li key={index} className={item.done?'is-done':''}><span aria-hidden="true">{item.done?'☑':'☐'}</span>{item.text}</li>)}{checklist.length>6&&<li className="fnote__more">+{checklist.length-6} itens</li>}</ul>}
+  </div>;
+}
+
+const nodeTypes = {exitSink:ExitSinkNode,groupFrame:GroupNode,visual:MemoShapeNode,circle:MemoShapeNode,diamond:MemoShapeNode,page:MemoShapeNode,note:React.memo(NoteNode)};
 
 function FlowEdge({id,sourceX,sourceY,targetX,targetY,sourcePosition,targetPosition,markerEnd,markerStart,style,data,label,selected}) {
   const [hovered,setHovered]=useState(false);

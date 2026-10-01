@@ -1,4 +1,4 @@
-import {AlertCircle, CheckCircle, Clock, File01, Flag01, Globe01, Mail01, QrCode01, Target01, Zap} from '@untitledui/icons';
+import {AlertCircle, Annotation, CheckCircle, Clock, File01, Flag01, Globe01, Mail01, QrCode01, Target01, Zap} from '@untitledui/icons';
 
 // One registry drives palette, canvas shape and inspector metadata. These
 // entries describe a journey; they do not execute CRM or communication actions.
@@ -30,6 +30,8 @@ const groups = [
   ['Segmentação e CRM','segment','diamond','warning',[
     ['crm.segment','Segmento'],['logic.condition','Divisão / condição'],['crm.pipeline','Pipeline'],
     ['crm.deal_won','Negócio ganho'],['crm.deal_lost','Negócio perdido'],['crm.meeting','Reunião agendada']]],
+  ['Anotações','note','note','neutral',[
+    ['annotation.note','Nota e checklist']]],
   ['Utilitários','webhook','circle','neutral',[
     ['logic.delay','Espera'],['utility.webhook','Webhook']]],
 ];
@@ -37,7 +39,7 @@ const groups = [
 const typeFor = (kind,base) => ({'page.form':'form','page.thanks':'conversion','page.error':'error',
   'event.whatsapp':'whatsapp','event.form_submit':'form','logic.condition':'condition','logic.delay':'delay',
   'utility.webhook':'webhook'})[kind] || base;
-const iconFor = (kind,type) => kind==='traffic.qr'?QrCode01:kind.includes('error')||kind.includes('lost')?AlertCircle:
+const iconFor = (kind,type) => type==='note'?Annotation:kind==='traffic.qr'?QrCode01:kind.includes('error')||kind.includes('lost')?AlertCircle:
   kind.includes('email')||kind.includes('whatsapp')||kind.includes('sms')?Mail01:
   kind.includes('delay')||kind.includes('meeting')||kind.includes('calendar')?Clock:
   type==='conversion'?CheckCircle:type==='form'?File01:type==='condition'||type==='segment'?Target01:
@@ -53,7 +55,7 @@ export const flowBlocks = Object.freeze(groups.flatMap(([category,baseType,shape
 export const flowBlockRegistry = Object.freeze(Object.fromEntries(flowBlocks.map(item=>[item.kind,item])));
 const fallbackKinds = {source:'traffic.direct',page:'page.generic',form:'page.form',event:'event.custom',
   condition:'logic.condition',delay:'logic.delay',segment:'crm.segment',conversion:'conversion.generic',
-  webhook:'utility.webhook',whatsapp:'event.whatsapp',error:'page.error'};
+  webhook:'utility.webhook',whatsapp:'event.whatsapp',error:'page.error',note:'annotation.note'};
 const sourceBlocks = new Map(flowBlocks.filter(item=>item.source).reverse().map(item=>[item.source,item]));
 // Older configs keep only the platform in `source`; resolve it before the generic fallback.
 export const flowBlockFor = node => flowBlockRegistry[node?.kind] || (node?.type==='source'&&sourceBlocks.get(node?.source)) || flowBlockRegistry[fallbackKinds[node?.type]] || flowBlockRegistry['event.custom'];

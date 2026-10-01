@@ -109,6 +109,26 @@ class PlannedNormalizationTests(unittest.TestCase):
         nodes = [conversion(status='planned', event_name='lead'), conversion(id='lead2', status='planned', event_name='lead')]
         _normalize_flow_config({'nodes': nodes, 'edges': []}, HOST)
 
+    def test_notes_keep_text_and_a_clean_checklist_and_are_never_measured(self):
+        note = {'id': 'nota', 'type': 'note', 'title': 'Combinados', 'description': 'Aprovar com o cliente', 'x': 500, 'y': 40,
+                'checklist': [{'text': '  Aprovar   oferta ', 'done': True}, {'text': '   '}, {'text': 'Revisar LGPD', 'done': 'sim'}]}
+        config, measured = _normalize_flow_config({'nodes': [note], 'edges': []}, HOST)
+        self.assertFalse(measured)
+        saved = config['nodes'][0]
+        self.assertEqual(saved['checklist'], [{'text': 'Aprovar oferta', 'done': True}, {'text': 'Revisar LGPD', 'done': False}])
+        self.assertEqual((saved['x'], saved['y'], saved['description']), (500, 40, 'Aprovar com o cliente'))
+        self.assertNotIn('stage', saved)
+        for invalid in ('item', [{'text': 3}], [{'text': 'x'}] * 31):
+            with self.assertRaises(BadRequest):
+                _normalize_flow_config({'nodes': [{**note, 'checklist': invalid}], 'edges': []}, HOST)
+
+    def test_notes_survive_the_v2_document(self):
+        note = {'id': 'nota', 'type': 'note', 'kind': 'annotation.note', 'title': 'Combinados', 'x': 0, 'y': 0, 'data': {'label': 'Combinados', 'url': ''},
+                'checklist': [{'text': 'Aprovar', 'done': False}]}
+        config, _ = _normalize_flow_config({'schema_version': 2, 'nodes': [note], 'edges': []}, HOST)
+        self.assertEqual((config['nodes'][0]['type'], config['nodes'][0]['kind']), ('note', 'annotation.note'))
+        self.assertEqual(config['nodes'][0]['checklist'], [{'text': 'Aprovar', 'done': False}])
+
     def test_tags_are_trimmed_deduplicated_and_limited(self):
         config, _ = _normalize_flow_config({'nodes': [], 'edges': [], 'tags': ['  Black  Friday ', 'black friday', 'Leads', 'x' * 60]}, HOST)
         self.assertEqual(config['tags'], ['Black Friday', 'Leads', 'x' * 40])

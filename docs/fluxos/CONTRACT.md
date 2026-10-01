@@ -22,7 +22,8 @@ Tamanho máximo serializado: 256 KB.
 | Campo | Regra |
 |---|---|
 | `id` | string única, até 80 |
-| `type` | `source`, `page`, `form`, `event`, `condition`, `delay`, `segment`, `conversion`, `webhook`, `whatsapp`, `error` |
+| `type` | `source`, `page`, `form`, `event`, `condition`, `delay`, `segment`, `conversion`, `webhook`, `whatsapp`, `error`, `note` (anotação do plano: não é medida, não conta como passo solto e não é movida por “Organizar”) |
+| `checklist` | só em `note`: até 30 itens `{text, done}`; texto até 200, itens vazios descartados |
 | `title` | até 120, espaços normalizados |
 | `path` | quando presente, começa com `/`, sem `?`/`#`, até 500. Um passo medido sem `path` real só publica se estiver `planned` ou `in_production` |
 | `status` | opcional: `planned`, `in_production`, `ready`, `live`. Sem `status`, vale `live` com endereço real e `ready` sem ele. Só `ready`/`live` com endereço real entram na medição (publicação de passos, jornada, ao vivo, monitor e ingestão) |

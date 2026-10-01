@@ -411,3 +411,10 @@
 .flow-plan-item__missing{color:var(--color-text-warning-primary,#b54708)}
 .flow-plan-panel__exports{display:flex;flex-wrap:wrap;gap:8px}
 .flow-blueprint-panel.flow-plan-panel>.reports-panel-shell__header{display:grid;justify-content:stretch}
+.flow-inspector__checklist{display:grid;gap:6px;margin:0;padding:0;border:0}
+.flow-inspector__checklist legend{display:flex;gap:6px;margin-bottom:6px;color:var(--color-text-secondary);font-size:13px;font-weight:600}
+.flow-inspector__checklist legend small{color:var(--color-text-tertiary);font-weight:500}
+.flow-inspector__checklist>small{color:var(--color-text-tertiary);font-size:12px}
+.flow-inspector__check{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}
+.flow-inspector__check input[type=checkbox]{width:16px;height:16px;min-height:0;margin:0}
+.flow-inspector__check-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}

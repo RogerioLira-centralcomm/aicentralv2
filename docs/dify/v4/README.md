@@ -27,6 +27,26 @@ Cada app tem um JSON com o registro completo: configuração, entradas e o promp
 
 Se os três modos usam a mesma credencial de reserva (mesmo app), cole só o arquivo do `cadu-analyst`.
 
+## Estrutura real dos apps no Dify (verificada em 01/10/2026)
+
+Cada app é um Chatflow com 3 nós: INICIAR (6 variáveis), LLM e RESPOSTA (devolve `LLM / structured_output`).
+
+- **Mensagem do SISTEMA do nó LLM:** o texto do `system_prompt_chatflow` do JSON (só referencia `core`).
+- **Mensagem do USUÁRIO do nó LLM (já existe, não mexer):** seções `PEDIDO DO USUÁRIO` (`query`), `TAREFA`, `CONTEXTO ATUAL`, `EVIDÊNCIAS E RESULTADOS AUTORIZADOS`, `POLÍTICA DE RESPOSTA` e `CONTRATO DE SAÍDA`, cada uma com sua variável. Os dados do turno vão só aqui; por isso o prompt do sistema não repete `task`, `evidence` etc.
+- **Saída estruturada (Structured Output) ligada** nos apps novos, com este esquema, todos os campos obrigatórios: `actions`, `answer`, `artifact_patch` (`fields`, `summary`, `title`), `assumptions`, `citations`, `confidence`, `questions`.
+- O app em produção hoje é o **Cadu Conversations V2 Runtime** (`gpt-5.4-mini`, memória desligada). Os apps Fast, Analyst e Operator são novos e, em 01/10/2026, ainda não recebiam tráfego do backend.
+
+### Incompatibilidade de formato (precisa de decisão)
+
+O backend envia `output_contract` com `{"text":{"content":...},"ui":{...}}`, mas o esquema dos apps novos só tem `answer` e campos soltos. Teste em 01/10/2026, mesmas entradas, mesmo modelo:
+
+| Contrato enviado | Resultado |
+|---|---|
+| `text.content` / `ui` (formato atual do backend) | `answer` **vazio**; o conteúdo vai para `artifact_patch` |
+| `answer` e campos soltos (formato do esquema) | `answer` preenchido corretamente, `artifact_patch` vazio |
+
+O backend aceita os dois formatos na leitura (`guardrails.normalize_response`), então a correção pode ser feita de qualquer lado: mudar o contrato do backend para o formato do esquema, ou trocar o esquema do Dify para `text.content`/`ui`. Enquanto isso não for decidido, o prompt do sistema manda seguir o esquema do nó.
+
 ## Configuração recomendada por app
 
 | | cadu-fast | cadu-analyst | cadu-operator |
@@ -35,7 +55,7 @@ Se os três modos usam a mesma credencial de reserva (mesmo app), cole só o arq
 | Esforço de raciocínio | baixo | médio | alto |
 | Temperatura (se o Dify expuser) | 0,3 | 0,4 | 0,2 |
 | Máx. tokens de saída | 3.000 | 10.000 | 14.000 |
-| Memória da conversa | **desligada** | **desligada** | **desligada** |
+| Memória da conversa | **desligada** | **desligada** (o Analyst já está) | **desligada** |
 | Base de conhecimento | nenhuma | nenhuma | nenhuma |
 
 Valores sugeridos, a ajustar pelo que o Dify permitir para o GPT 5.4. Em modelos com raciocínio, o limite de tokens de saída inclui o raciocínio, por isso é maior que o tamanho da resposta visível. Se o modelo não aceitar temperatura, ignore essa linha.

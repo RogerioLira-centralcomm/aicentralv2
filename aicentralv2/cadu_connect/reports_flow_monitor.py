@@ -85,7 +85,7 @@ def run_check(flow):
 
 
 def check_flow(flow_id, client_id):
-    flow = _rows("""SELECT f.id,f.client_id,f.config,f.tag_id,t.allowed_host
+    flow = _rows("""SELECT f.id,f.client_id,f.config,f.tag_id,f.published_revision,t.allowed_host
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
         WHERE f.id=%s AND f.client_id=%s AND f.status='published'
             AND t.revoked_at IS NULL""", (flow_id, client_id))

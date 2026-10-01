@@ -1295,12 +1295,13 @@ def register(bp):
                 GROUP BY page_host,page_path""", (*params,selected_flow['tag_id'],selected_flow['published_revision']))
             healthy = any(signal['recent'] for signal in signals)
             active = selected_flow['status'] == 'published' and not selected_flow.get('revoked_at')
+            last_received = max((row['last_received_at'] for row in signals), default=None)
             tracking_health = {'status': 'healthy' if active and healthy else 'warning',
                 'reason': 'Sinais recebidos nos últimos 15 min' if active and healthy else
                     'Fluxo não publicado ou tag revogada' if not active else
                     'Sem sinais há 15 min; pode não haver visitantes',
                 'window_seconds': 900,
-                'last_received_at': max((row['last_received_at'] for row in signals), default=None)}
+                'last_received_at': last_received.isoformat() if last_received else None}
             measured_ids = {node['id'] for node in canvas_nodes}
             canvas_nodes.extend(dict(node, reached=None, progressed=None)
                 for node in (selected_flow.get('config') or {}).get('nodes', [])

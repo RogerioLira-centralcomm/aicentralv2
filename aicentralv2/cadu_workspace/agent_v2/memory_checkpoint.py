@@ -68,6 +68,17 @@ def claim():
         raise
 
 
+def _index_conversation(conversation_id):
+    """Refresh retrievable excerpts; the next turn retries, so failure must not fail memory."""
+    from .. import conversation_index
+    try:
+        if conversation_index.available():
+            conversation_index.index_conversation(conversation_id)
+    except Exception:
+        repository.get_db().rollback()
+        current_app.logger.exception("Indexação da conversa falhou; conversa=%s", conversation_id)
+
+
 def process_one():
     job = claim()
     if not job:
@@ -79,6 +90,7 @@ def process_one():
             conversation_id=job['conversation_id'], organization_id=job['organization_id'],
             client_id=job['client_id'], user_id=job['user_id'],
         )
+        _index_conversation(job['conversation_id'])
         with conn.cursor() as cur:
             cur.execute('''UPDATE cadu_conversation_memory_jobs SET
                 finished_at=CASE WHEN requested_at > claimed_at THEN NULL ELSE NOW() END,

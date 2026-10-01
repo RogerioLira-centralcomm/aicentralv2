@@ -14,9 +14,11 @@ def register(app):
         worker_command as memory_worker_command,
         worker_loop_command as memory_worker_loop_command,
     )
+    from ..cadu_workspace.conversation_index import backfill_command as conversation_index_backfill_command
     app.cli.add_command(rebuild_command)
     app.cli.add_command(memory_worker_command)
     app.cli.add_command(memory_worker_loop_command)
+    app.cli.add_command(conversation_index_backfill_command)
 
     @app.context_processor
     def family_flags():

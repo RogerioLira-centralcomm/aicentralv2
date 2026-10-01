@@ -249,28 +249,41 @@ def test_search_does_not_report_unavailable_sources_as_no_matches(monkeypatch):
     assert "indexed_sources" in result["unavailable_scopes"]
 
 
-def test_historical_project_search_uses_user_and_project_scope(monkeypatch):
+def test_historical_project_search_covers_the_whole_project_team(monkeypatch):
     captured = []
     def rows(sql, params):
         captured.append((sql, params))
-        return [{"message_id": "m1" if params[7] == 'user' else "m2", "conversation_id": "c1",
-                 "content": "Decidimos focar em B2B.",
+        return [{"message_id": "m1" if params[5] == 'user' else "m2", "conversation_id": "c1",
+                 "content": "Decidimos focar em B2B.", "author_name": "Ana Souza",
                  "conversation_title": "Planejamento", "created_at": "2026-09-20", "text_rank": 0.4}]
+    monkeypatch.setattr(workspace.conversation_index, "available", lambda: False)
     monkeypatch.setattr(workspace.repository, "rows", rows)
 
     results = workspace._search_project_conversation_history(CONTEXT, "decisões B2B", False)
 
     assert len(captured) == 2
-    assert "binding.client_id=%s" in captured[0][0]
-    assert "binding.organization_id" not in captured[0][0]
-    assert "binding.project_ref=%s AND binding.user_id=%s" in captured[0][0]
-    assert "message.role=%s" in captured[0][0]
-    assert captured[0][1][2:8] == (12, "ci:project-1", 7, 12, 7, 'user')
-    assert captured[1][1][7] == 'assistant'
+    assert "binding.client_id=%s AND binding.project_ref=%s" in captured[0][0]
+    assert "binding.user_id" not in captured[0][0]
+    assert "id_contato_cliente=%s" not in captured[0][0]
+    assert captured[0][1][2:6] == (12, "ci:project-1", 12, 'user')
+    assert captured[1][1][5] == 'assistant'
     assert results[0]["evidence_level"] == "user_statement"
-    assert results[0]["message_id"] == "m1"
+    assert results[0]["author"] == "Ana"
     assert results[1]["evidence_level"] == "prior_assistant_output_unverified"
-    assert results[1]["message_id"] == "m2"
+    assert "author" not in results[1]
+
+
+def test_historical_project_search_prefers_indexed_conversation_excerpts(monkeypatch):
+    monkeypatch.setattr(workspace.conversation_index, "available", lambda: True)
+    monkeypatch.setattr(workspace.conversation_index, "project_has_chunks", lambda *_: True)
+    monkeypatch.setattr(workspace.conversation_index, "search_project", lambda **kwargs: [
+        {"result_type": "conversation_excerpt", "evidence_level": "conversation_excerpt", **kwargs}])
+    monkeypatch.setattr(workspace.repository, "rows", lambda *_: pytest.fail("lexical fallback"))
+
+    results = workspace._search_project_conversation_history(CONTEXT, "verba Google Ads", False)
+
+    assert results[0]["evidence_level"] == "conversation_excerpt"
+    assert results[0]["project_ref"] == "ci:project-1" and results[0]["client_id"] == 12
 
 
 def test_historical_project_search_skips_generic_question(monkeypatch):

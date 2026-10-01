@@ -13,7 +13,7 @@ from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
 from ...project_query import is_overview_query
 from ...project_portfolio_service import attach_summaries
-from ... import project_context_service, project_resource_service, project_task_service, project_source_service, workspace_ingestion_service
+from ... import conversation_index, project_context_service, project_resource_service, project_task_service, project_source_service, workspace_ingestion_service
 from .. import operations
 from ..registry import ToolInputError, register_tool
 
@@ -46,15 +46,25 @@ def _require_project_editor(context: RequestContext) -> None:
 
 
 def _search_project_conversation_history(context: RequestContext, query: str, overview: bool) -> list[dict]:
-    """Retrieve earlier user statements and separately labelled assistant outputs."""
+    """Retrieve earlier conversations of the project, by any member who can view it.
+
+    Callers have already authorized the project (``_native_project_id``); a
+    shared project's conversations are part of its working context.
+    """
     search_terms = [word for word in re.findall(r"[^\W_]{3,}", query, re.UNICODE)
                     if _history_search_terms(word)][:8]
     search_expression = " | ".join(search_terms)
     if not search_expression and not overview:
         return []
+    if search_expression and conversation_index.available() \
+            and conversation_index.project_has_chunks(context.client_id, context.project_ref):
+        return conversation_index.search_project(
+            client_id=context.client_id, project_ref=context.project_ref, query=query,
+            exclude_conversation_id=context.conversation_id,
+        )
     statement = """SELECT message.id AS message_id,
             message.conversation_id, message.content, message.created_at,
-            conversation.titulo AS conversation_title,
+            conversation.titulo AS conversation_title, author.nome_completo AS author_name,
             CASE WHEN %s = '' THEN 0 ELSE
                 ts_rank(to_tsvector('portuguese', message.content),
                         to_tsquery('portuguese', %s)) END AS text_rank
@@ -62,9 +72,9 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
         JOIN cadu_family_conversation_context binding
           ON binding.conversation_id=message.conversation_id
         JOIN cadu_conversations conversation ON conversation.id=message.conversation_id
-        WHERE binding.client_id=%s
-          AND binding.project_ref=%s AND binding.user_id=%s
-          AND conversation.id_cliente=%s AND conversation.id_contato_cliente=%s
+        LEFT JOIN tbl_contato_cliente author ON author.id_contato_cliente=conversation.id_contato_cliente
+        WHERE binding.client_id=%s AND binding.project_ref=%s
+          AND conversation.id_cliente=%s
           AND message.role=%s AND message.conversation_id<>COALESCE(%s,'')
           AND length(message.content) BETWEEN 20 AND 12000
           AND (%s = '' OR to_tsvector('portuguese', message.content)
@@ -77,7 +87,7 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
     ):
         historical = repository.rows(statement, (
             search_expression, search_expression, context.client_id,
-            context.project_ref, context.user_id, context.client_id, context.user_id,
+            context.project_ref, context.client_id,
             role, context.conversation_id, search_expression, search_expression,
         ))
         results.extend({
@@ -85,6 +95,8 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
             "message_id": str(item["message_id"]),
             "conversation_id": str(item["conversation_id"]),
             "title": str(item.get("conversation_title") or "Conversa anterior")[:160],
+            **({"author": str(item["author_name"]).split(" ")[0]}
+               if role == "user" and item.get("author_name") else {}),
             "description": " ".join(str(item.get("content") or "").split())[:900],
             "created_at": str(item.get("created_at") or ""),
             "score": base_score + float(item.get("text_rank") or 0),
@@ -738,9 +750,11 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     else:
         ranked = _fuse_ranked_lists([
             (context_ranked, 1.2), (memory_results, 1.2), (source_ranked, 1.2),
-            ([row for row in conversation_results if row.get("evidence_level") == "user_statement"], 0.8),
+            ([row for row in conversation_results
+              if row.get("evidence_level") in {"user_statement", "conversation_excerpt"}], 0.8),
             (task_results, 0.7), (resource_results, 0.5),
-            ([row for row in conversation_results if row.get("evidence_level") != "user_statement"], 0.4),
+            ([row for row in conversation_results
+              if row.get("evidence_level") == "prior_assistant_output_unverified"], 0.4),
         ])
     return {
         "project_ref": context.project_ref,

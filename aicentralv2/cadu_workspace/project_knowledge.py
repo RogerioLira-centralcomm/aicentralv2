@@ -11,6 +11,7 @@ import hashlib
 import os
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
 import requests
 
@@ -137,5 +138,11 @@ def vector_literal(values: list[float]) -> str:
 
 
 def query_embedding(query: str) -> list[float]:
-    values, _tokens, _model = _embed([" ".join(str(query or "").split())[:1200]])
-    return values[0]
+    return list(_cached_query_embedding(" ".join(str(query or "").split())[:1200]))
+
+
+@lru_cache(maxsize=256)
+def _cached_query_embedding(query: str) -> tuple[float, ...]:
+    # One chat turn embeds the same query for files and for conversations.
+    values, _tokens, _model = _embed([query])
+    return tuple(values[0])

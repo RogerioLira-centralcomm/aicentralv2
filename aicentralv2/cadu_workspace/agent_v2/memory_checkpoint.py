@@ -79,6 +79,11 @@ def _index_conversation(conversation_id):
         current_app.logger.exception("Indexação da conversa falhou; conversa=%s", conversation_id)
 
 
+def _extract_memory(conversation_id):
+    from ..conversations import memory_extractor
+    memory_extractor.safe_extract(conversation_id)
+
+
 def process_one():
     job = claim()
     if not job:
@@ -91,6 +96,7 @@ def process_one():
             client_id=job['client_id'], user_id=job['user_id'],
         )
         _index_conversation(job['conversation_id'])
+        _extract_memory(job['conversation_id'])
         with conn.cursor() as cur:
             cur.execute('''UPDATE cadu_conversation_memory_jobs SET
                 finished_at=CASE WHEN requested_at > claimed_at THEN NULL ELSE NOW() END,

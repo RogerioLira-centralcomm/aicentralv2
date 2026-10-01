@@ -35,7 +35,7 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
     const positions=()=>page.evaluate(()=>({header:document.querySelector('.reports-flow-editor-topbar').getBoundingClientRect().top,canvas:document.querySelector('.reports-flow-canvas').getBoundingClientRect().top}));
     const before=await positions();
     await page.getByRole('button',{name:'Publicar',exact:true}).click();
-    await page.getByRole('button',{name:'Publicar versão',exact:true}).click();
+    await page.getByRole('button',{name:'Ativar medição',exact:true}).click();
     await page.waitForTimeout(1000);
     await page.locator('.flow-toast-root').waitFor({timeout:5000});
     assert.match(await page.locator('.flow-toast-root').innerText(),/Versão 2 publicada/);
@@ -45,7 +45,14 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
     flow={...flow,status:'draft',published_revision:null,draft_revision:1,config:{nodes:[{id:'page',type:'page',title:'Entrada',path:'/',x:300,y:100}],edges:[]}};
     await page.reload();
     await page.locator('.react-flow__node').first().waitFor();
-    assert.equal(await page.getByRole('button',{name:'Publicar',exact:true}).isDisabled(),true);
+    // A blocked flow can still publish its plan; only activating measurement is blocked.
+    await page.getByRole('button',{name:'Publicar',exact:true}).click();
+    const publication=page.getByRole('dialog',{name:'Publicar'});
+    await publication.getByRole('radio',{name:/Ativar medição/}).check();
+    assert.equal(await publication.getByRole('button',{name:'Ativar medição',exact:true}).isDisabled(),true);
+    await publication.getByRole('radio',{name:/Publicar plano/}).check();
+    assert.equal(await publication.getByRole('button',{name:'Publicar plano',exact:true}).isDisabled(),false);
+    await publication.getByRole('button',{name:'Cancelar',exact:true}).click();
     await page.getByRole('button',{name:/Resolva 1 pendência bloqueante para publicar/}).click();
     const pending=page.getByRole('region',{name:'Pendências do fluxo'});
     assert(await pending.isVisible());

@@ -42,6 +42,12 @@ Tamanho máximo serializado: 256 KB.
 
 `{id, from, to, from_port?, to_port?, variant?, label?, origin?, kind?}`. As portas são `left-in`, `right-in`, `top-in` (entrada) e `right-out`, `left-out`, `bottom-out` (saída). `variant: planned` desenha a conexão tracejada, sem medição direta.
 
+## Versões do plano (`GET|POST …/flows/<id>/plan-versions`)
+
+- `POST {expected_revision, note?}` congela o rascunho atual em `cadu_reports_flow_plan_versions` para aprovação. Não altera `status`, `published_revision`, passos publicados nem a Super Tag. Rascunho vazio → 422; tabela ausente → 503. Publicar de novo a mesma revisão só atualiza a nota.
+- `GET` devolve `{ready, versions[{revision, name, note, created_by, created_at}]}`, da mais recente para a mais antiga (até 50).
+- “Ativar medição” continua sendo `POST …/publish`, com as pendências bloqueantes de sempre.
+
 ## Jornada medida (`GET …/flows/<id>/journey`)
 
 - `nodes[]`: `{id, sessions, events, entrances?, exits?, estimated_from?}`. Nós de origem recebem `sessions` pela origem da sessão (`estimated_from: 'origin'`).

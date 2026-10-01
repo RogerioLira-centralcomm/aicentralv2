@@ -418,3 +418,14 @@
 .flow-inspector__check{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}
 .flow-inspector__check input[type=checkbox]{width:16px;height:16px;min-height:0;margin:0}
 .flow-inspector__check-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.flow-plan-panel__versions ol{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.flow-plan-panel__versions li{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;padding:8px 10px;border:1px solid var(--color-border-secondary);border-radius:8px;font-size:12px}
+.flow-plan-panel__versions li span{color:var(--color-text-tertiary)}
+.flow-plan-panel__versions li small{grid-column:1/-1;color:var(--color-text-secondary)}
+.flow-plan-panel__versions>small{color:var(--color-text-tertiary);font-size:12px}
+.flow-publication-mode{display:grid;gap:8px;margin:12px 0;padding:0;border:0}
+.flow-publication-mode label{display:flex;align-items:flex-start;gap:10px;margin:0;padding:12px;border:1px solid var(--color-border-secondary);border-radius:10px;cursor:pointer}
+.flow-publication-mode label.is-selected{border-color:var(--color-border-brand);background:var(--color-bg-brand-primary)}
+.flow-publication-mode input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none}
+.flow-publication-mode span{display:grid;gap:2px}
+.flow-publication-mode small{color:var(--color-text-tertiary);font-size:12px;line-height:1.45}

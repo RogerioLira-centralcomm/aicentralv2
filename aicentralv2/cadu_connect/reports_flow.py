@@ -1870,6 +1870,48 @@ def register(bp):
             (flow_id,selected['client_id']))
         return jsonify(versions=versions)
 
+    def _plan_versions_ready():
+        return _rows("SELECT to_regclass('public.cadu_reports_flow_plan_versions') IS NOT NULL AS ready")[0]['ready']
+
+    @bp.get('/api/v2/reports/flow/flows/<flow_id>/plan-versions')
+    @login_required_api
+    def reports_flow_plan_versions(flow_id):
+        selected = _selection()
+        _flow_row(flow_id, selected)
+        if not _plan_versions_ready():
+            return jsonify(versions=[], ready=False)
+        versions = _rows("""SELECT revision,name,note,created_by,created_at
+            FROM cadu_reports_flow_plan_versions WHERE flow_id=%s AND client_id=%s
+            ORDER BY revision DESC LIMIT 50""", (flow_id, selected['client_id']))
+        return jsonify(versions=versions, ready=True)
+
+    @bp.post('/api/v2/reports/flow/flows/<flow_id>/plan-versions')
+    @login_required_api
+    def reports_flow_publish_plan(flow_id):
+        """Freeze the current draft for approval; measurement and the Super Tag stay untouched."""
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if not _plan_versions_ready():
+            abort(503, description='Publicação de plano indisponível: aplique add_reports_flow_plan_versions_v1.sql.')
+        flow = lock_flow(flow_id, selected, expected_revision(payload))
+        config = flow.get('draft_config') or {}
+        if not config.get('nodes'):
+            abort(422, description='Adicione passos ao plano antes de publicá-lo.')
+        note = ' '.join(str(payload.get('note') or '').split())[:500]
+        version = _rows('''INSERT INTO cadu_reports_flow_plan_versions
+            (flow_id,client_id,revision,name,config,note,created_by)
+            VALUES (%s,%s,%s,%s,%s::jsonb,%s,%s)
+            ON CONFLICT(flow_id,revision) DO UPDATE
+                SET note=CASE WHEN EXCLUDED.note<>'' THEN EXCLUDED.note ELSE cadu_reports_flow_plan_versions.note END
+            RETURNING revision,name,note,created_by,created_at''',
+            (flow['id'], selected['client_id'], flow['draft_revision'], flow['name'],
+             json.dumps(config, allow_nan=False), note, session['user_id']))[0]
+        get_db().commit()
+        return jsonify(version=version), 201
+
     @bp.get('/api/v2/reports/flow/flows/<flow_id>/versions/<int:revision>')
     @login_required_api
     def reports_flow_version_detail(flow_id, revision):

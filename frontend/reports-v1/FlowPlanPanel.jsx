@@ -1,10 +1,11 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {ClipboardCheck} from '@untitledui/icons';
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {ReportsActionButton as Button} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {buildProductionSheet, productionSheetCsv, productionSheetHtml} from './flowProductionSheet.js';
 import {FLOW_STRATEGIES} from './flowStrategies.js';
+import {json} from './reportsCommon.jsx';
 
 export const MAX_FLOW_TAGS = 12;
 export const normalizeFlowTag = value => value.replace(/\s+/g, ' ').trim().slice(0, 40);
@@ -20,9 +21,16 @@ const download = (content, type, filename) => {
 const fileName = name => (name || 'fluxo').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'fluxo';
 
 /** The plan as a deliverable: labels for the team and the production sheet of what must be built. */
-export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectNode, onClose}) {
+export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectNode, onClose, versionsUrl = '', versionsKey = 0}) {
   const sheet = useMemo(() => buildProductionSheet(config), [config]);
   const [draftTag, setDraftTag] = useState('');
+  const [versions, setVersions] = useState(null);
+  useEffect(() => {
+    if (!versionsUrl) return undefined;
+    let current = true;
+    json(versionsUrl).then(result => {if (current) setVersions(result.ready === false ? null : result.versions || []);}).catch(() => {if (current) setVersions(null);});
+    return () => {current = false;};
+  }, [versionsUrl, versionsKey]);
   const tags = config.tags || [];
   const strategy = FLOW_STRATEGIES.find(item => item.id === config.strategy_id);
   const addTag = () => {
@@ -51,6 +59,11 @@ export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectN
         <Button type="submit" color="secondary" disabled={!normalizeFlowTag(draftTag)}>Adicionar</Button>
       </form>}
     </section>
+    {versions && <section className="flow-plan-panel__versions" aria-label="Versões do plano">
+      <h3>Versões do plano <small>{versions.length}</small></h3>
+      {versions.length ? <ol>{versions.map(version => <li key={version.revision}><strong>v{version.revision}</strong><span>{new Date(version.created_at).toLocaleString('pt-BR', {day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'})}</span>{version.note && <small>{version.note}</small>}</li>)}</ol>
+        : <small>Use Publicar › Publicar plano para congelar uma versão para aprovação, sem ligar a medição.</small>}
+    </section>}
     {sheet.sections.length ? sheet.sections.map(section => <section key={section.id} className="flow-plan-panel__section" aria-label={section.label}>
       <h3>{section.label} <small>{section.items.length}</small></h3>
       <ul>{section.items.map(item => <li key={item.id}>

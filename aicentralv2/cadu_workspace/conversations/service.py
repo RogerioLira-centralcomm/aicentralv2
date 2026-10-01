@@ -402,7 +402,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                           AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente
                     )) AS indexed,
                     COUNT(*) FILTER (WHERE indexing_status='completed'
-                       AND classification_metadata->>'rag_pipeline_version'='workspace-rag-v2'
+                       AND classification_metadata->>'rag_pipeline_version' IN ('workspace-rag-v2','workspace-rag-v3')
                        AND EXISTS (SELECT 1 FROM cadu_ci_chunks c WHERE c.arquivo_id=s.id
                          AND c.projeto_id=s.projeto_id AND c.id_cliente=s.id_cliente)) AS v2_indexed,
                     COUNT(*) FILTER (WHERE indexing_status IS DISTINCT FROM 'completed' OR NOT EXISTS (

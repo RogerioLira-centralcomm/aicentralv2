@@ -131,3 +131,20 @@ def _fail(job_id: str, error: str):
 def worker_command():
     """Processa no máximo uma reindexação de fonte."""
     click.echo("Processado." if process_one() else "Fila vazia.")
+
+
+@click.command("project-index-drain")
+@click.option("--limit", type=int, default=0, help="Máximo de fontes (0 = fila inteira).")
+@with_appcontext
+def drain_command(limit):
+    """Processa a fila de reindexação até esvaziar; falhas ficam registradas na fila."""
+    done = failed = 0
+    while not limit or done + failed < limit:
+        try:
+            if not process_one():
+                break
+            done += 1
+        except Exception:
+            failed += 1
+            get_db().rollback()
+    click.echo(f"Fontes reindexadas: {done}; falhas: {failed}.")

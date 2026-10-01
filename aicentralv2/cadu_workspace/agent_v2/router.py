@@ -487,7 +487,12 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("studio", "studio_plan_video", "medium", "analysis",
                            (), ("media.creation_capabilities",), None, True)
     prompt_only = _has(text, r"\b(?:prompt|comando)\b.{0,70}\b(?:imagem|foto|visual|ilustra[cç][aã]o|arte|criativo)\b")
-    visual_subject = r"(?:imagem|foto|visual|ilustra[cç][aã]o|arte|criativo)"
+    # "conceito criativo", "rotas criativas", "direção criativa" are strategy
+    # work for the creative-concept plugin, not a request to generate an image.
+    creative_strategy = _has(text, r"\b(?:conceitos?|rotas?|dire[cç][oõ]es|dire[cç][aã]o|plataformas?|ideias?|"
+                                   r"estrat[eé]gias?|[âa]ngulos?|abordagens?|territ[oó]rios?)\s+criativ[oa]s?\b")
+    visual_subject = (r"(?:imagem|foto|visual|ilustra[cç][aã]o|arte)" if creative_strategy
+                      else r"(?:imagem|foto|visual|ilustra[cç][aã]o|arte|criativo)")
     if not prompt_only and _has(
         text,
         rf"\b(?:edit\w*|alter\w*|transform\w*)\b.{{0,55}}\b{visual_subject}\b|"

@@ -720,10 +720,13 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "como exige artifact_first. Confira as somas e não invente métricas ou fontes."
         )
     depth_instruction = ""
-    person_query = any(token in message.lower() for token in (
-        "quem é", "quem foi", "morreu", "biografia", "história", "historia", "carreira", "obra", "artista", "cantor", "autor",
-        "marca", "campanha", "campanhas", "case", "trajetória", "trajetoria", "legado", "lançamento", "lancamento",
-    ))
+    # Entity depth guidance applies to questions *about* a person, brand or
+    # campaign ("quem é...", "fale sobre..."), not to every task that merely
+    # mentions "campanha" or "lançamento".
+    person_query = bool(re.search(
+        r"\b(?:quem\s+(?:[eé]|foi|era|criou|fundou)|o\s+que\s+(?:[eé]|foi)|fale\s+sobre|me\s+fale\s+sobre|"
+        r"conte(?:-me)?\s+sobre|biografia|trajet[oó]ria\s+d[aeo]s?|hist[oó]ria\s+d[aeo]s?|legado\s+d[aeo]s?|"
+        r"morreu|qual\s+(?:a|é\s+a)\s+(?:hist[oó]ria|trajet[oó]ria|obra))\b", message, re.I))
     if person_query and execution_mode == "fast":
         depth_instruction = "Entidade identificada: responda em dois ou três parágrafos curtos, com o fato principal, contexto essencial e um card entity simples; não faça uma pesquisa longa nem invente dados."
     elif person_query and execution_mode == "analysis":
@@ -749,8 +752,11 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         }, max_context_chars),
         # Output-size budgets are internal. Showing them to the model only pushes
         # it toward terse or truncated answers; they protect nothing.
+        # plugin_instruction already travels inside `core`; the fallback title and
+        # chat message are server-side strings the model never needs.
         "response_policy": json.dumps({key: value for key, value in policy.items()
-                                       if key not in {"max_output_tokens", "max_duration_ms"}},
+                                       if key not in {"max_output_tokens", "max_duration_ms", "plugin_instruction",
+                                                      "artifact_fallback_title", "artifact_chat_message"}},
                                       ensure_ascii=False, separators=(",", ":")),
         "briefing_instruction": briefing_instruction,
         "output_contract": json.dumps({

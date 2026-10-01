@@ -10,6 +10,8 @@ SURFACES = frozenset({"conversations", "workspace", "planner", "studio", "report
 RESPONSE_MODES = frozenset({"direct", "analysis", "decision", "artifact_first", "clarification"})
 COMPLEXITIES = frozenset({"low", "medium", "high"})
 EXECUTION_MODES = frozenset({"fast", "analysis", "agentic"})
+# Artifact types whose patch is only title, summary and fields.
+FLAT_SCHEMA_ARTIFACTS = frozenset({"brief", "meeting_summary", "meeting_agenda"})
 
 
 @dataclass(frozen=True)
@@ -86,13 +88,16 @@ def execution_mode_for(route: IntentRoute, requested: str = "") -> str:
     aliases = {"focus": "fast", "deep": "analysis"}
     requested = aliases.get(requested, requested)
     # Confirmations, executable HTML, project maps and genuinely complex work
-    # need the operator runtime. Text artifacts remain on the analysis runtime:
-    # opening an editor must not promote a short note or meeting summary to the
-    # most expensive execution path.
+    # need the operator runtime. Only artifacts that fit the analysis app's flat
+    # schema (title, summary and fields) stay on it: a document (html), plan,
+    # scenario, research or note carries html/tables/metrics that the flat
+    # schema cannot hold, so those run on the operator's free-form JSON.
     if route.requires_confirmation or route.artifact_type in {"html", "project_map"} or route.complexity == "high":
         return "agentic"
-    if route.artifact_type:
+    if route.artifact_type in FLAT_SCHEMA_ARTIFACTS:
         return "analysis"
+    if route.artifact_type:
+        return "agentic"
     if requested in EXECUTION_MODES:
         if requested == "agentic" and not (route.artifact_type or route.requires_confirmation or route.complexity == "high"):
             return "analysis"

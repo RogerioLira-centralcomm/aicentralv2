@@ -1,7 +1,7 @@
 #cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-flow-shelf ul {
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
 }
 
 #cadu-conversations-v2-root .cv-plugin-flow-card {
@@ -9,11 +9,17 @@
   min-height: 0;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid rgba(176,225,216,.16);
   border-radius: 10px;
   background: #101f21;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card:hover {
+  border-color: rgba(176,225,216,.24);
+  background: #14272a;
 }
 
 #cadu-conversations-v2-root .cv-plugin-flow-card__heading {
@@ -24,17 +30,18 @@
 
 #cadu-conversations-v2-root .cv-plugin-flow-card__heading > div { min-width: 0; }
 #cadu-conversations-v2-root .cv-plugin-flow-card h3 {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   color: #ecf5f2;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 #cadu-conversations-v2-root .cv-plugin-flow-card p {
   margin: 0;
   color: #adc5bf;
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.5;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -44,18 +51,83 @@
 #cadu-conversations-v2-root .cv-plugin-flow-card__modes {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes .cv-btn--sm {
+  flex: 1;
+  min-width: 90px;
+  padding: 5px 12px;
+  min-height: 32px;
+  font-size: 12px;
 }
 
 #cadu-conversations-v2-root .cv-plugin-flow-card__modes .is-upcoming {
   display: inline-flex;
-  min-height: 28px;
+  min-height: 32px;
   align-items: center;
-  padding: 3px 10px;
+  padding: 5px 12px;
   border: 1px solid rgba(159,199,191,.12);
   border-radius: 6px;
   color: #94aea8;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Google Workspace section improvements */
+#cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-shelf--google {
+  margin: 0 0 28px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-shelf--google > header {
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-shelf--google ul {
+  gap: 12px;
+  margin-top: 16px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-shelf--google .cv-plugin-card {
+  min-height: 68px;
+  padding: 12px 14px;
+  gap: 12px;
+}
+
+/* Plugin integrations section improvements */
+#cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-shelf--integrations {
+  margin: 0 0 24px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-shelf--integrations ul {
+  gap: 12px;
+}
+
+/* Generic plugin card improvements */
+#cadu-conversations-v2-root .cv-plugin-shelf ul {
+  margin-top: 16px;
+  gap: 12px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-shelf > header {
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-card {
+  min-height: 64px;
+  padding: 12px 14px;
+  gap: 12px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-card__copy strong {
+  font-size: 13px;
+}
+
+#cadu-conversations-v2-root .cv-plugin-card__copy small {
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 @media (max-width: 700px) {

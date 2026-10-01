@@ -2,7 +2,6 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {request} from '../lib/api';
 import {Icon} from '../lib/icons';
 import {availableFlows, flowPluginIds} from '../lib/pluginFlows';
-import './plugins.css';
 import './pluginFlows.css';
 export {pluginPrompt} from '../lib/pluginPrompts';
 
@@ -77,8 +76,8 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
           <header><div><h2>Google Workspace</h2><p>Conecte sua conta para usar Drive, Calendar e Meet dentro dos fluxos.</p></div><span>INTEGRAÇÕES</span></header>
           <ul>{googlePlugins.map(plugin => <li key={plugin.id}><button type="button" className="cv-plugin-card" onClick={() => onUsePlugin?.(plugin)} aria-label={`Abrir ${plugin.name}`}>
             <CaduPluginMark caduMark={caduMark} name={plugin.name} pluginId={plugin.id}/>
-            <span className="cv-plugin-card__copy"><strong>{plugin.name}</strong><small>{plugin.description}</small></span>
-            <span className="cv-plugin-status is-active">{plugin.id === 'google-connect' ? (googleState?.connected ? 'Conectado' : 'Conectar') : !googleState?.connected ? 'Requer conexão' : googleState?.services?.find(item => item.key === plugin.id.replace('google-', ''))?.enabled ? 'Usar' : 'Atualizar acesso'}</span>
+            <span className="cv-plugin-card__copy"><strong>{plugin.name}</strong><small title={plugin.description}>{plugin.description}</small></span>
+            <span className={`cv-plugin-status${plugin.id === 'google-connect' || googleState?.connected ? ' is-active' : ''}`}>{plugin.id === 'google-connect' ? (googleState?.connected ? 'Conectado' : 'Conectar') : !googleState?.connected ? 'Requer conexão' : googleState?.services?.find(item => item.key === plugin.id.replace('google-', ''))?.enabled ? 'Usar' : 'Atualizar acesso'}</span>
           </button></li>)}</ul>
         </section>}
         {!!developing.length && <section className="cv-plugin-shelf">

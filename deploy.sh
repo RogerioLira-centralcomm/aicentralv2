@@ -271,6 +271,7 @@ if ! {
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_conversation_memory.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_conversation_chunks.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_working_memory_extraction.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_conversation_project_suggestions.sql
 "$VENV_PYTHON" migrations/run_add_cadu_tool_token_ledger.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_credit_requests.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_credit_request_lot.sql

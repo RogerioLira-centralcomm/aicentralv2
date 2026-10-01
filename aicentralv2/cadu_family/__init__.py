@@ -21,6 +21,8 @@ def register(app):
     from ..cadu_workspace.retrieval_eval import eval_command as retrieval_eval_command
     app.cli.add_command(conversation_index_backfill_command)
     app.cli.add_command(retrieval_eval_command)
+    from ..cadu_workspace.conversation_project_suggestions import suggest_command as project_suggest_command
+    app.cli.add_command(project_suggest_command)
 
     @app.context_processor
     def family_flags():

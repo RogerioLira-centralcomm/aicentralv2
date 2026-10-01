@@ -477,6 +477,31 @@ def conversation_update(conversation_id):
     return jsonify(conversation=result)
 
 
+@bp.get('/api/conversations/<conversation_id>/project-suggestion')
+def conversation_project_suggestion(conversation_id):
+    """Open project suggestion for the caller's own project-less conversation, if any."""
+    from ..cadu_workspace import conversation_project_suggestions as suggestions
+    user, selected = context.identity(), context.resolve()
+    if not repository.family_table_available('cadu_conversation_project_suggestions'):
+        return jsonify(suggestion=None)
+    result = suggestions.pending_for_owner(user['id'], selected['client_id'], conversation_id)
+    if result and not any(entity.get('ref') == result['project_ref'] and entity.get('kind') == 'project'
+                          for entity in context.inventory(selected['client_id'])):
+        result = None
+    response = jsonify(suggestion=result)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@bp.post('/api/conversations/<conversation_id>/project-suggestion/dismiss')
+def conversation_project_suggestion_dismiss(conversation_id):
+    from ..cadu_workspace import conversation_project_suggestions as suggestions
+    selected, user = writable_context(), context.identity()
+    if not suggestions.dismiss(user['id'], selected['client_id'], conversation_id):
+        abort(404)
+    return jsonify(dismissed=True)
+
+
 @bp.post('/api/conversations/<conversation_id>/fork')
 def conversation_fork(conversation_id):
     selected, user = writable_context(), context.identity()

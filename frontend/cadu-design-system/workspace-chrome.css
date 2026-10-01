@@ -394,7 +394,9 @@ body.portal--workspace .cadu-ds-context-sidebar .cadu-ds-context-sidebar__fade {
 
 /* Footer, as in Reports: photo + name/agency (opens Conta) and credit use beside it. */
 body.portal--workspace .cadu-ds-context-sidebar__footer { gap:0; padding-top:10px; }
-body.portal--workspace .cadu-ds-context-sidebar__avatar { width:32px; height:32px; flex:0 0 32px; }
+body.portal--workspace .cadu-ds-context-sidebar__avatar { width:32px; height:32px; flex:0 0 32px; overflow:hidden; border-radius:50%; }
+/* The base identity pads and contains images for logos; a person's photo fills the circle. */
+body.portal--workspace :is(.cadu-ds-context-sidebar__avatar, .cadu-ds-account-menu__avatar) img { padding:0; border-radius:50%; object-fit:cover; object-position:center; }
 
 body.portal--workspace .cadu-ds-context-sidebar__group-note { display:block; padding:5px 8px; color:var(--cadu-muted); font-size:11.5px; font-weight:500; }
 

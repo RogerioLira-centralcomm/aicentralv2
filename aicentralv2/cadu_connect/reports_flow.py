@@ -215,7 +215,7 @@ def _detect_page_integrations(page):
     return matches
 
 
-def _site_sitemap_urls(root_url, allowed_host):
+def _site_sitemap_urls(root_url, allowed_host, limit=MAX_DISCOVERY_SITEMAP_URLS):
     from .reports_link_tester import _fetch
     parsed = urlparse(root_url)
     base = f'{parsed.scheme}://{parsed.netloc}'
@@ -253,7 +253,7 @@ def _site_sitemap_urls(root_url, allowed_host):
                     else:
                         truncated = True
                 elif item:
-                    if len(page_urls) < MAX_DISCOVERY_SITEMAP_URLS:
+                    if len(page_urls) < limit:
                         page_urls.append(item)
                     else:
                         truncated = True

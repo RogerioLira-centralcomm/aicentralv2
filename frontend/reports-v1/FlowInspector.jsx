@@ -9,7 +9,7 @@ import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {flowBlockFor} from './flowBlockRegistry.js';
 import {SPEC_FIELDS,hasRealPath,isPlanned} from './flowLifecycle.js';
-import {pageUrl,parsePageUrl} from './flowPageUrl.js';
+import {FlowPagePicker} from './FlowPagePicker.jsx';
 import {SEGMENT_KINDS} from './flowMedia.js';
 
 // How the Super Tag counts this step; tells the person whether the site needs any change.
@@ -25,7 +25,7 @@ export function measurementHint(node){
   return 'Nó visual, sem medição.';
 }
 
-export function FlowInspector({onSplitSegment,node,nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
+export function FlowInspector({sitePages,onSplitSegment,node,nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
   if(!node)return null;
   const block=flowBlockFor(node);
   const planned=isPlanned(node);
@@ -38,7 +38,7 @@ export function FlowInspector({onSplitSegment,node,nodes=[],groups=[],activity=[
       <div className="flow-inspector__kind"><span>{block.category}</span>{chip&&<em className={chip[1]} aria-live="polite">{chip[0]}</em>}</div>
       <label>Nome<ReportsFieldInput disabled={readOnly} value={node.title||''} maxLength="60" onChange={event=>onChange('title',event.target.value)}/></label>
       {node.type==='note'&&<NoteEditor node={node} readOnly={readOnly} onChange={onChange}/>}
-      {pageLike&&<PageSource node={node} spec={spec} planned={planned} readOnly={readOnly} onChange={onChange}/>}
+      {pageLike&&<PageSource node={node} spec={spec} planned={planned} readOnly={readOnly} onChange={onChange} sitePages={sitePages}/>}
       {['event','conversion'].includes(node.type)&&<label>Nome do evento{node.type==='conversion'?' (opcional)':''}<ReportsFieldInput disabled={readOnly} value={node.event_name||''} placeholder="lead_enviado" onChange={event=>onChange('event_name',event.target.value)}/>{node.event_name&&<small>{measurementHint(node)}</small>}</label>}
       {node.type==='source'&&<>
         <label>Público<ReportsFieldInput disabled={readOnly} maxLength="80" value={node.segment?.name||''} placeholder="Ex.: Remarketing 30 dias" onChange={event=>onChange('segment',{...(node.segment||{}),name:event.target.value})}/></label>
@@ -85,15 +85,11 @@ function NoteEditor({node,readOnly,onChange}){
   </>;
 }
 
-function PageSource({node,spec,planned,readOnly,onChange}){
-  const [draft,setDraft]=useState(null);
-  const [error,setError]=useState('');
-  const shown=draft??pageUrl(node);
+function PageSource({node,spec,planned,readOnly,onChange,sitePages}){
   const setMode=create=>{onChange('status',create?'planned':'ready');};
-  const commit=value=>{
-    const parsed=parsePageUrl(value);
-    if(parsed.error){setError(parsed.error);return;}
-    setError('');
+  const placeholderTitle=!node.title||/^(P[aá]gina( \/ URL)?|Formul[aá]rio|Convers[aã]o|Erro|Evento|Clique WhatsApp)$/i.test(node.title.trim());
+  const pick=({host,path,name})=>{onChange('host',host);onChange('path',path);if(placeholderTitle&&name)onChange('title',name.slice(0,60));};
+  const setUrl=parsed=>{
     if(parsed.empty){onChange('path','');onChange('host','');return;}
     onChange('path',parsed.path);onChange('host',parsed.host);
   };
@@ -104,10 +100,7 @@ function PageSource({node,spec,planned,readOnly,onChange}){
       <button type="button" role="radio" aria-checked={!planned} disabled={readOnly} onClick={()=>setMode(false)}>Já existe</button>
       <button type="button" role="radio" aria-checked={planned} disabled={readOnly} onClick={()=>setMode(true)}>Vai ser criada</button>
     </div>
-    <label>{planned?'URL prevista (opcional)':'URL da página'}<ReportsFieldInput disabled={readOnly} inputMode="url" value={shown} placeholder={spec.suggested_path||'https://www.seusite.com.br/pagina'} aria-invalid={error?'true':undefined}
-      onFocus={()=>setDraft(pageUrl(node))} onBlur={()=>{if(draft!==null)commit(draft);setDraft(null);}} onChange={event=>{setDraft(event.target.value);setError('');}}
-      onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commit(event.currentTarget.value);setDraft(null);}}}/>
-      {error&&<small className="is-error" role="alert">{error}</small>}</label>
+    <FlowPagePicker node={node} readOnly={readOnly} planned={planned} clientId={sitePages?.clientId} csrf={sitePages?.csrf} hosts={sitePages?.hosts||[]} notice={sitePages?.notice||''} defaultHost={sitePages?.defaultHost||''} onPick={pick} onUrl={setUrl}/>
     {planned&&<div className="flow-inspector__brief">
       <label>O que a página precisa ter<ReportsTextArea disabled={readOnly} rows={2} maxLength="500" value={spec.goal||''} placeholder="Objetivo, oferta e chamada principal" onChange={event=>setSpec('goal',event.target.value)}/></label>
       <div className="flow-inspector__pair"><label>Responsável<ReportsFieldInput disabled={readOnly} maxLength="120" value={spec.owner||''} onChange={event=>setSpec('owner',event.target.value)}/></label>

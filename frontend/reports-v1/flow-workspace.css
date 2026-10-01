@@ -474,9 +474,10 @@
 .flow-media-creative>:first-child,.flow-media-creative>:nth-child(4){grid-column:1/-1}
 .flow-media-remove{position:absolute;top:6px;right:6px;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--color-text-tertiary);cursor:pointer}
 .flow-media-remove:hover,.flow-media-remove:focus-visible{background:var(--color-bg-secondary);outline:0}
-.flow-media-source .flow-media-check{position:relative;display:flex;align-items:flex-start;gap:8px;padding-right:24px;font-size:12px}
+.flow-media-source .flow-media-check{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px;font-size:12px}
+.flow-media-check label{display:flex;align-items:flex-start;gap:8px;margin:0!important;cursor:pointer}
 .flow-media-check input{width:16px;height:16px;min-height:0;margin:1px 0 0;flex:none}
-.flow-media-check .flow-media-remove{top:0;right:0}
+.flow-media-check .flow-media-remove{position:static}
 .flow-media-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-top:6px}
 .flow-inspector__segment{display:grid;gap:8px;margin:0;padding:12px;border:1px solid var(--color-border-secondary);border-radius:10px}
 .flow-inspector__segment legend{padding:0 4px;color:var(--color-text-secondary);font-size:13px;font-weight:600}
@@ -551,3 +552,48 @@
 .reports-panel-shell.is-compact .cadu-untitled-field{gap:3px!important}
 .reports-panel-shell.is-compact .cadu-untitled-select,.reports-panel-shell.is-compact .cadu-untitled-textarea{gap:3px!important}
 .reports-panel-shell.is-compact .flow-inspector__mode button{min-height:26px}
+/* Busca de páginas do site */
+.flow-page-picker{display:grid;gap:8px}
+.flow-page-picker label{display:grid;gap:3px}
+.flow-page-picker__search{position:relative}
+.flow-page-picker__list{position:absolute;z-index:30;top:100%;left:0;right:0;max-height:240px;margin:2px 0 0;padding:4px;overflow:auto;list-style:none;border:1px solid var(--color-border-primary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.flow-page-picker__list button{display:grid;gap:1px;width:100%;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.flow-page-picker__list button:hover,.flow-page-picker__list button.is-active{background:var(--color-bg-secondary)}
+.flow-page-picker__list strong{overflow:hidden;color:var(--color-text-primary);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.flow-page-picker__list small,.flow-page-picker__empty{color:var(--color-text-tertiary);font-size:11px}
+.flow-page-picker__empty{padding:8px}
+.flow-site-pages{display:grid;gap:8px}
+.flow-site-pages__host,.flow-site-pages__notice{color:var(--color-text-tertiary);font-size:11px}
+.flow-site-pages__list{display:grid;gap:2px;max-height:calc(100dvh - 330px);margin:0;padding:0;overflow:auto;list-style:none}
+.flow-site-pages__list li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px;border-radius:8px}
+.flow-site-pages__list li:hover{background:var(--color-bg-secondary)}
+.flow-site-pages__list li.is-mapped label{opacity:.7;cursor:default}
+.flow-site-pages__list label{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-width:0;padding:6px 8px;cursor:pointer}
+.flow-site-pages__list input{width:14px;height:14px;min-height:0;margin:0}
+.flow-site-pages__list span{display:grid;min-width:0}
+.flow-site-pages__list strong{overflow:hidden;color:var(--color-text-primary);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.flow-site-pages__list small{overflow:hidden;color:var(--color-text-tertiary);font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.flow-site-pages__locate{padding:0 6px;border:0;background:transparent;color:var(--color-text-brand-secondary,#175cd3);font:inherit;font-size:11px;font-weight:600;cursor:pointer}
+.flow-site-pages__empty{padding:12px 8px;color:var(--color-text-tertiary);font-size:12px}
+.flow-site-pages__bar{position:sticky;bottom:0;padding:8px 0 0;background:linear-gradient(transparent,var(--color-bg-primary) 30%)}
+.flow-site-advanced{margin-top:10px;padding:6px 10px;border:1px solid var(--color-border-secondary);border-radius:10px}
+.flow-site-advanced>summary{color:var(--color-text-secondary);font-size:12px;font-weight:600;cursor:pointer}
+
+/* Simetria dos painéis: mesma escala de títulos, texto, cartões e botões */
+.reports-panel-shell.is-compact .reports-panel-shell__body{align-content:start}
+.flow-plan-panel .reports-panel-shell__body,.flow-forecast-panel .reports-panel-shell__body,.flow-media-panel .reports-panel-shell__body{display:grid;gap:14px;align-content:start}
+.flow-blueprint-panel.is-compact p,.flow-blueprint-panel.is-compact label{margin:0;font-size:11px}
+.flow-plan-panel h3,.flow-forecast-group h3,.flow-media-source h4,.flow-plan-panel__tags h3{display:flex;align-items:baseline;gap:6px;margin:0 0 6px;color:var(--color-text-primary);font-size:12px;font-weight:600;line-height:1.3}
+.flow-plan-panel h3 small,.flow-forecast-group h3 small,.flow-media-source h4 small{color:var(--color-text-quaternary,#667085);font-size:11px;font-weight:500}
+.flow-plan-item,.flow-media-source,.flow-forecast-row,.flow-plan-panel__template,.flow-inspector details,.flow-media-creative{padding:10px 12px;border:1px solid var(--color-border-secondary);border-radius:10px}
+.flow-media-creative{padding:8px 28px 8px 8px;border-radius:8px}
+.flow-media-source,.flow-forecast-row{background:var(--color-bg-primary)}
+.flow-media-panel .flow-media-source>header{display:grid;gap:2px}
+.flow-media-panel .flow-media-source .flow-media-source__title,.flow-review .flow-media-source .flow-media-source__title{display:grid!important;gap:1px;min-height:0!important;padding:0!important;border:0!important;border-radius:4px;background:none!important;box-shadow:none!important;color:inherit;text-align:left}
+.flow-media-source__title strong{color:var(--color-text-primary);font-size:12px;font-weight:600}
+.flow-media-source__title small,.flow-media-source__progress{color:var(--color-text-tertiary);font-size:11px}
+.flow-forecast-row.is-edge{grid-template-columns:1fr}
+.flow-forecast-row.is-edge>small{grid-column:1/-1}
+.flow-forecast-field{display:grid;gap:3px;margin:0!important;color:var(--color-text-tertiary);font-size:11px}
+.flow-plan-panel__chips small,.flow-plan-panel__progress small{font-size:11px}
+.reports-flow-validation li button,.flow-plan-panel__exports button{font-size:11px}

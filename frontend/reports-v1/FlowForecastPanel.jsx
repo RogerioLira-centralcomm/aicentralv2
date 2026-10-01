@@ -14,13 +14,14 @@ const ROWS = [
 const parse = value => {const text = String(value).trim().replace(/\./g, '').replace(',', '.'); if (!text) return ''; const parsed = Number(text); return Number.isFinite(parsed) ? parsed : '';};
 
 function NumberField({label, value, suffix, max, readOnly, onChange}) {
+  const caption = suffix ? `${label} (${suffix})` : label;
   const [draft, setDraft] = useState(null);
   const shown = draft ?? (value == null ? '' : String(value).replace('.', ','));
-  return <label className="flow-forecast-field"><span>{label}</span><span className="flow-forecast-field__input">
-    <ReportsFieldInput disabled={readOnly} inputMode="decimal" value={shown} placeholder="0" aria-label={label}
+  return <label className="flow-forecast-field"><span>{caption}</span>
+    <ReportsFieldInput disabled={readOnly} inputMode="decimal" value={shown} placeholder="0" aria-label={caption}
       onFocus={() => setDraft(shown)} onBlur={() => setDraft(null)}
       onChange={event => {setDraft(event.target.value); const next = parse(event.target.value); onChange(next === '' ? '' : Math.min(max ?? Infinity, Math.max(0, next)));}}/>
-    {suffix && <small>{suffix}</small>}</span></label>;
+  </label>;
 }
 
 /** Plan numbers before investing: visits and cost per origin, rates per connection, value per conversion. */

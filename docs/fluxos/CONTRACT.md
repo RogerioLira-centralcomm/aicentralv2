@@ -56,6 +56,15 @@ Tamanho máximo serializado: 256 KB.
 
 `migrations/run_reset_reports_flows_v3.py` apaga todos os dados de fluxo (desenhos, versões, passos, sessões e eventos de fluxo, descobertas, monitor, prévias registradas) e as tags internas de fluxo que nenhuma tabela de fora do Fluxos usa. Mantém Super Tag, sites, eventos do site e chaves de importação. Por padrão só simula; para apagar: `RESET_REPORTS_FLOWS=1 python migrations/run_reset_reports_flows_v3.py --confirm`. Nunca roda no deploy.
 
+## Catálogo de páginas do site
+
+Por cliente e domínio, a partir do sitemap; não pertence a um fluxo (`cadu_reports_site_pages`, `cadu_reports_site_catalogs`). Só os domínios do cliente com Super Tag ativa são lidos.
+
+- `GET …/flow/site-pages?host=&q=` → `{hosts, host, pages[{host, path, name, title, url}], page_count, truncated, notice}`. Atualiza o catálogo sozinho quando vazio ou com mais de 24 h. Sem site do cliente devolve `notice`, sem erro. Domínio fora dos sites do cliente → 400.
+- `POST …/flow/site-pages/refresh {host}` força a releitura do sitemap (até 5000 caminhos).
+- `POST …/flow/site-pages/titles {host, paths[≤8]}` busca o título real das páginas ainda sem título e o guarda; o nome inicial vem do endereço (`/audiencia/empresarios-pro` → “Audiencia · Empresarios Pro”).
+- Páginas de outros domínios continuam aceitas por URL completa; o catálogo não as lê.
+
 ## Plano sem site
 
 - `POST …/flows` com `{name, plan_only: true, config}` e sem `allowed_host` cria o fluxo sem tag interna e sem instalação da Super Tag (`tag_id` e `site_id` nulos, `allowed_host` devolvido como `''`). Só aceita passos não medidos.

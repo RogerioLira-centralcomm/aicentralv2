@@ -173,5 +173,8 @@ register_flow_blueprint(bp)
 from .reports_flow_templates import register as register_flow_templates
 register_flow_templates(bp)
 
+from .reports_site_pages import register as register_site_pages
+register_site_pages(bp)
+
 from .reports_flow_catalog import register as register_flow_catalog
 register_flow_catalog(bp)

@@ -5,7 +5,6 @@ import {useFlowDocument} from './useFlowDocument.js';
 import {FlowStudioAssist} from './FlowStudioAssist.jsx';
 import {FlowBlueprint} from './FlowBlueprint.jsx';
 import {FlowConversionProbe} from './FlowConversionProbe.jsx';
-import {flowNextAction} from './flowNextAction.js';
 import {FlowCatalog} from './FlowCatalog.jsx';
 import {Lightbulb02, FlipBackward, FlipForward, Plus, LayoutGrid01, CheckDone01} from '@untitledui/icons';
 import {FlowSolutionSwitcher} from './FlowNavbarAccount.jsx';
@@ -22,6 +21,7 @@ import {groupNodes, syncGroups, fitGroups} from './flowGroups.js';
 import {uniqueFlowEvents} from './flowEventIdentity.js';
 import {FlowCanvas} from './FlowCanvas.jsx';
 import {FlowMonitorWorkspace} from './FlowMonitorWorkspace.jsx';
+import {FlowsIndex} from './FlowsIndex.jsx';
 import {FlowInspector} from './FlowInspector.jsx';
 import {FlowPublicationDialog, flowChangeSummary} from './FlowPublicationDialog.jsx';
 import {FlowSimulator} from './FlowSimulator.jsx';
@@ -78,12 +78,6 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const [blueprintPreview,setBlueprintPreview]=useState({nodes:[],edges:[]});
   const [navigationOnly,setNavigationOnly]=useState(false);
   const [suggestionToggle,setSuggestionToggle]=useState(0);
-  const [flowHost, setFlowHost] = useState(()=>new URLSearchParams(location.search).get('site_host')||'');
-  const [flowCreateOpen,setFlowCreateOpen]=useState(()=>Boolean(new URLSearchParams(location.search).get('site_host')));
-  const [flowQuery,setFlowQuery]=useState('');
-  const [flowStatusFilter,setFlowStatusFilter]=useState('all');
-  const [flowSiteCheck, setFlowSiteCheck] = useState(null);
-  const [flowSiteChecking, setFlowSiteChecking] = useState(false);
   const [saveFailure,setSaveFailure]=useState(null);
   const [flowConfig, setFlowConfig] = useFlowDocument({nodes: [], edges: []});
   const flowInitializedRef = useRef('');
@@ -145,9 +139,6 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const [journeyData,setJourneyData]=useState(null);
   const [journeyLoading,setJourneyLoading]=useState(false);
   const [journeyError,setJourneyError]=useState('');
-  const [flowSiteKind,setFlowSiteKind]=useState('');
-  const [flowCustomerId,setFlowCustomerId]=useState('');
-  const [flowCampaignId,setFlowCampaignId]=useState('');
   const [copyState, setCopyState] = useState('');
   const [localError, setLocalError] = useState('');
   const [monitorInterval, setMonitorInterval] = useState(15);
@@ -190,7 +181,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   };
   useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id, filters.period, filters.startDate, filters.endDate, filters.platform, filters.account, filters.campaign, selectedFlowId,flowView,refreshRevision,analysisRevision]);
   useEffect(() => {if(flowView!=='edit')return;loadDiscoveries(selectedFlowId).catch(failure => setLocalError(failure.message));}, [selectedFlowId,data.client.client_id]);
-  useEffect(() => {const found = flow.flows.find(item => item.id === selectedFlowId); if (found && flowInitializedRef.current !== selectedFlowId) {setFlowName(found.name); setFlowHost(found.allowed_host); setFlowConfig(found.config || {nodes: [], edges: []});flowHistory.reset(found.config || {nodes:[],edges:[]});copiedNodesRef.current=null; revisionRef.current=found.draft_revision;savedSnapshotRef.current=JSON.stringify({name:found.name,config:found.config||{nodes:[],edges:[]}});flowInitializedRef.current=selectedFlowId;setVersions(null);setVersionComparison(null);setPageSuggestions({});setVersionMessage('');}}, [selectedFlowId, flow.flows]);
+  useEffect(() => {const found = flow.flows.find(item => item.id === selectedFlowId); if (found && flowInitializedRef.current !== selectedFlowId) {setFlowName(found.name); setFlowConfig(found.config || {nodes: [], edges: []});flowHistory.reset(found.config || {nodes:[],edges:[]});copiedNodesRef.current=null; revisionRef.current=found.draft_revision;savedSnapshotRef.current=JSON.stringify({name:found.name,config:found.config||{nodes:[],edges:[]}});flowInitializedRef.current=selectedFlowId;setVersions(null);setVersionComparison(null);setPageSuggestions({});setVersionMessage('');}}, [selectedFlowId, flow.flows]);
   useEffect(() => {const found=flow.flows.find(item=>item.id===selectedFlowId);if(found)setMonitorInterval(Number(found.monitor_interval_minutes)||15);}, [selectedFlowId,flow.flows]);
   useEffect(() => {
     if(flowView !== 'monitor' || !selectedFlowId || workspaceV2) return;
@@ -209,9 +200,6 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   }, [liveScope]);
   const chooseFlow = id => {if(commandLock.current)return;setSelectedFlowId(id);const url=new URL(location.href);if(id)url.searchParams.set('flow_id',id);else url.searchParams.delete('flow_id');history.replaceState(null,'',url);};
   const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
-  const siteCheckSequence=useRef(0);
-  const checkFlowSite = async () => {const url=flowHost.trim();if(!url)return;const sequence=++siteCheckSequence.current;setFlowSiteChecking(true);setFlowSiteCheck(null);setLocalError('');try{const result=await json(`/connect/api/v2/reports/supertag/site-check?client_id=${data.client.client_id}&url=${encodeURIComponent(url)}`);if(sequence===siteCheckSequence.current)setFlowSiteCheck({...result,verifiedUrl:url});}catch(failure){if(sequence===siteCheckSequence.current)setFlowSiteCheck({error:failure.message});}finally{if(sequence===siteCheckSequence.current)setFlowSiteChecking(false);}};
-  const newFlow = async event => {event.preventDefault(); try {if(!flowSiteCheck||flowSiteCheck.error||flowSiteCheck.verifiedUrl!==flowHost.trim())throw new Error('Verifique o domínio atual antes de criar o fluxo.');const name=flowName||flowSiteCheck.title||flowSiteCheck.host;const result = await save('/flow/flows', {name, allowed_host: flowSiteCheck.host, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config:{nodes:[],edges:[],...(flowSiteKind?{site_kind:flowSiteKind}:{})}}, false);location.assign(`${flowEditorUrl(result.flow.id,data.client.client_id)}&testar=1`);} catch (failure) {setLocalError(failure.message);}};
   const addNode = (type, options = {}, point = null, connectedFrom = '') => {const existing=flowConfig.nodes.find(n=>n.type===type&&options.path&&n.path===options.path&&(n.event_name||'')===(options.event_name||''));if(existing){setSelectedNodeId(existing.id);canvasFlowRef.current?.fitView({nodes:[{id:existing.id}],padding:.6,duration:200});return;}if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 nós. Crie outro fluxo para continuar.');return;}const defaults={source:'Origem de tráfego',page:'Página / URL',form:'Formulário',event:'Evento',conversion:'Conversão',whatsapp:'Clique WhatsApp',error:'Página de erro'};const index=flowConfig.nodes.length;const title=options.title||options.label||defaults[type]||type;const nodeId=crypto.randomUUID();const node={id:nodeId,type,stage:type==='source'?'source':point?stageAtX(point.x):type==='conversion'?'conversion':type==='form'?'intent':type==='error'?'support':'exploration',pageType:['page','form','conversion','error'].includes(type)?'other':undefined,origin:'manual',kind:options.kind||flowBlockFor({type}).kind,title,data:{label:title,url:''},path:options.path&&options.path.startsWith('/')?options.path:['page','form','event','conversion','whatsapp','error'].includes(type)?`/configurar-${nodeId.slice(0,8)}`:'',event_name:type==='event'?(options.event_name||''):undefined,source:type==='source'?(options.source||'google'):undefined,x:stageX(type==='source'?'source':point?stageAtX(point.x):type==='conversion'?'conversion':type==='form'?'intent':type==='error'?'support':'exploration'),y:point?Math.max(0,snap(point.y)):100+Math.floor(index/3)*(FLOW_CARD_HEIGHT+48),fields:type==='form'?[{name:'nome',label:'Nome',required:true},{name:'email',label:'E-mail',required:true}]:[]};node.data.url=node.path;setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:connectedFrom?[...current.edges,{id:crypto.randomUUID(),from:connectedFrom,to:node.id,variant:'direct',label:'Próximo'}]:current.edges}));setSelectedNodeId(node.id);};
   const insertOnEdge = edgeId => {if(flowConfig.nodes.length>=200){setLocalError('O fluxo aceita até 200 nós.');return;}const edge=flowConfig.edges.find(item=>item.id===edgeId);if(!edge)return;const from=flowConfig.nodes.find(item=>item.id===edge.from),to=flowConfig.nodes.find(item=>item.id===edge.to);if(!from||!to)return;const id=crypto.randomUUID();const node={id,type:'condition',kind:'logic.condition',title:'Novo nó',data:{label:'Novo nó',url:''},x:snap((Number(from.x)+Number(to.x))/2),y:snap((Number(from.y)+Number(to.y))/2)};setFlowConfig(current=>({...current,schema_version:2,nodes:[...current.nodes,node],edges:current.edges.flatMap(item=>item.id===edgeId?[{...item,id:crypto.randomUUID(),to:id},{...item,id:crypto.randomUUID(),from:id}]:[item])}));setSelectedNodeId(id);setInspectorOpen(true);};
   const copySelection=()=>{const ids=new Set(selectedNodeIds.length?selectedNodeIds:[selectedNodeId]);const nodes=flowConfig.nodes.filter(node=>ids.has(node.id));if(!nodes.length)return;copiedNodesRef.current={nodes,edges:flowConfig.edges.filter(edge=>ids.has(edge.from)&&ids.has(edge.to))};};
@@ -487,17 +475,13 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const addCatalogGroup=pages=>{
     setFlowConfig(current=>{
       const ids=[];const nodes=[...current.nodes];
-      for(const page of pages){let node=nodes.find(n=>n.path===page.path_prefix&&(n.host||flowHost)===page.page_host&&n.type==='page');if(!node){if(nodes.length>=200)break;const stage=page.stage==='source'?'entry':page.stage||'exploration';node={id:crypto.randomUUID(),type:'page',title:page.title_clean,path:page.path_prefix,host:page.page_host,stage,pageType:'other',role:page.role,origin:'manual',discoveryPageId:String(page.id),x:stageX(stage),y:100+ids.length*240};nodes.push(node);}ids.push(node.id);}
+      for(const page of pages){let node=nodes.find(n=>n.path===page.path_prefix&&(n.host||selectedFlow?.allowed_host)===page.page_host&&n.type==='page');if(!node){if(nodes.length>=200)break;const stage=page.stage==='source'?'entry':page.stage||'exploration';node={id:crypto.randomUUID(),type:'page',title:page.title_clean,path:page.path_prefix,host:page.page_host,stage,pageType:'other',role:page.role,origin:'manual',discoveryPageId:String(page.id),x:stageX(stage),y:100+ids.length*240};nodes.push(node);}ids.push(node.id);}
       if(ids.length<2)return current;
       const translations=pages.length>1&&pages.every(page=>page.translation_key&&page.translation_key===pages[0].translation_key);
       return groupNodes({...current,nodes},ids,translations?`Traduções: ${pages[0].title_clean}`:pages[0]?.template_pattern||'Páginas');
     });
   };
   const mappedSitePages = flowConfig.nodes.filter(node => node.discoveryPageId).length;
-  const visibleFlows=(flow.flows||[]).filter(item=>(flowStatusFilter==='all'||(flowStatusFilter==='published'?item.status==='published':item.status!=='published'))&&`${item.name} ${item.allowed_host}`.toLocaleLowerCase('pt-BR').includes(flowQuery.trim().toLocaleLowerCase('pt-BR')));
-  const flowMonitorLabel=item=>item.monitor_enabled?({online:'Online',degraded:'Com falhas',offline:'Offline',checking:'Verificando',unknown:'Aguardando checagem'})[item.monitor_status]||'Ativo':'Não ativado';
-  const flowUpdatedLabel=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});};
-  const flowCreateHint=!flowHost.trim()?'Informe a URL do site e valide o domínio.':!flowSiteCheck?'Valide o domínio para continuar.':flowSiteCheck.error?'Corrija o domínio para continuar.':superTagForFlow({allowed_host:flowSiteCheck.host})?'A Super Tag deste domínio já existe e será reutilizada.':'A Super Tag será criada automaticamente para este domínio.';
   if(workspaceV2&&flowView==='monitor'&&selectedFlow)return <FlowMonitorWorkspace csrf={data.csrf} flow={selectedFlow} client={data.client} versions={monitorVersions} filters={filters} baseConfig={selectedFlow.config} onEdit={()=>location.assign(flowEditorUrl(selectedFlowId,data.client.client_id))} onBack={()=>location.assign(reportUrl('flows',{client_id:data.client.client_id}))}/>;
   return <>
     {flowView==='monitor'&&<a className="reports-flow-return" href={reportUrl('flows',{client_id:data.client.client_id})}>← Voltar aos fluxos</a>}
@@ -508,38 +492,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     {flowView==='edit'&&validationOpen&&<section className="reports-flow-validation" aria-label="Pendências do fluxo"><div><strong>{validationIssues.length?`${blockingIssues.length} bloqueantes · ${validationIssues.length-blockingIssues.length} avisos`:'Fluxo pronto para publicar'}</strong><button type="button" onClick={()=>setValidationOpen(false)} aria-label="Fechar pendências">×</button></div>{validationIssues.length?<>{[['Pendências que impedem publicar',blockingIssues],['Avisos de leitura e coleta',validationIssues.filter(item=>item.severity==='warning')]].map(([heading,items])=>items.length>0&&<div key={heading}><h3>{heading}</h3><ul>{items.map((issue,index)=><li className={`is-${issue.severity}`} key={`${issue.code}:${issue.nodeId||issue.edgeId||index}`}><span>{issue.message}</span><small>{issue.consequence}</small><button type="button" onClick={()=>focusIssue(issue)}>{issueActionLabel(issue)}</button></li>)}</ul></div>)}</>:<p>Nenhuma pendência encontrada nesta revisão.</p>}</section>}
     <FlowPublicationDialog open={publicationOpen} name={flowName} host={selectedFlow?.allowed_host} revision={revisionRef.current} config={flowConfig} previous={publishedConfig} issues={validationIssues} note={publicationNote} onNoteChange={setPublicationNote} busy={publicationBusy} onClose={()=>setPublicationOpen(false)} onPublish={publishFlow}/>
     {versions&&<section className="reports-flow-history"><h3>Versões publicadas</h3><button type="button" onClick={()=>{setVersions(null);setVersionComparison(null);}}>Fechar histórico</button>{versionComparison&&<p role="status">v{versionComparison.revision} → rascunho: etapas +{versionComparison.nodes.added} / −{versionComparison.nodes.removed} / {versionComparison.nodes.updated} alteradas; conexões +{versionComparison.edges.added} / −{versionComparison.edges.removed} / {versionComparison.edges.updated} alteradas.</p>}{versions.length?versions.map(item=><div key={item.revision}><span>Versão {item.revision} — {item.name}</span><button type="button" onClick={()=>compareVersion(item.revision)}>Comparar com rascunho</button><button type="button" disabled={readOnly||busy} onClick={()=>restoreVersion(item.revision)}>Restaurar como rascunho</button></div>):<p>Nenhuma versão publicada.</p>}</section>}
-    {flowView==='create'&&<section className="reports-flow-index">
-      <div className="reports-flow-index__tools">
-        <ReportsFieldInput type="search" aria-label="Buscar fluxo" placeholder="Buscar por nome ou domínio" value={flowQuery} onChange={event=>setFlowQuery(event.target.value)}/>
-        <ReportsNativeSelect aria-label="Estado do fluxo" value={flowStatusFilter} onChange={event=>setFlowStatusFilter(event.target.value)}><option value="all">Todos os estados</option><option value="published">Publicados</option><option value="draft">Rascunhos</option></ReportsNativeSelect>
-        <span className="reports-flow-index__count">{plural(visibleFlows.length,'fluxo','fluxos')}</span>
-        {data.client.role!=='viewer'&&<ReportsActionButton color="primary" className="reports-flow-index__new" onClick={()=>setFlowCreateOpen(true)}>Novo fluxo</ReportsActionButton>}
-      </div>
-      <article className="reports-panel reports-flow-index__panel">
-        {visibleFlows.length?<div className="reports-table-wrap"><table className="reports-flow-table"><thead><tr><th>Fluxo</th><th>Estado</th><th>Coleta</th><th>Próxima ação</th><th>Atualizado</th><th><span className="reports-sr-only">Ações</span></th></tr></thead><tbody>{visibleFlows.map(item=>{const next=flowNextAction(item);return <tr key={item.id}>
-          <td><strong>{item.name}</strong><small>{item.allowed_host}{item.campaign_names?` · ${item.campaign_names}`:''}</small></td>
-          <td><span className={`reports-status-badge is-${item.status==='published'?'published':'draft'}`} title={item.flow_code}>{item.status==='published'?'Publicado':'Rascunho'}</span></td>
-          <td>{flowMonitorLabel(item)}</td>
-          <td><button type="button" className={`reports-flow-next is-${next.tone}`} onClick={()=>openFlow(item,next.view)}>{next.label}</button></td>
-          <td>{flowUpdatedLabel(item.updated_at)}</td>
-          <td className="reports-flow-table__actions"><ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'edit')}>Editar</ReportsActionButton>{item.status==='published'&&<ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'monitor')}>Monitorar</ReportsActionButton>}</td>
-        </tr>;})}</tbody></table></div>:<Empty message={(flow.flows||[]).length?'Nenhum fluxo corresponde à busca.':'Nenhum fluxo ainda. Crie o primeiro para mapear a jornada de um site.'}/>}
-      </article>
-    </section>}
-    {flowView==='create'&&<ReportsDrawer open={flowCreateOpen} onOpenChange={setFlowCreateOpen} onDiscard={()=>{setFlowName('');setFlowCustomerId('');setFlowCampaignId('');}} title="Novo fluxo" description="Defina o site e o ponto de partida da jornada." context={data.client.client_name}>
-      {localError&&<div className="reports-error" role="alert">{localError}</div>}
-      {data.client.role!=='viewer'?<form className="reports-form reports-flow-new" onSubmit={newFlow}>
-        <div className="reports-flow-new__domain"><label>URL do site<ReportsFieldInput required type="url" value={flowHost} onChange={event=>{siteCheckSequence.current++;setFlowHost(event.target.value);setFlowSiteCheck(null);setFlowSiteChecking(false);}} placeholder="https://www.exemplo.com.br"/></label><ReportsActionButton color="secondary" disabled={!flowHost.trim()||flowSiteChecking} onClick={checkFlowSite}>{flowSiteChecking?'Verificando…':'Validar domínio'}</ReportsActionButton></div>
-        {flowSiteCheck&&<div className={`reports-flow-site-check${flowSiteCheck.error?' has-error':''}`} role={flowSiteCheck.error?'alert':'status'}>{flowSiteCheck.error?<p>{flowSiteCheck.error}</p>:<><strong>{flowSiteCheck.title||flowSiteCheck.host}</strong><small>{flowSiteCheck.host} · HTTP {flowSiteCheck.status}</small></>}</div>}
-        <label>Nome do fluxo<ReportsFieldInput maxLength="120" value={flowName} onChange={event=>setFlowName(event.target.value)} placeholder={flowSiteCheck?.title||'Ex.: Campanha de aquisição 2026'}/></label>
-        <label>Tipo de site<ReportsNativeSelect value={flowSiteKind} onChange={event=>setFlowSiteKind(event.target.value)}><option value="">Descobrir no teste da página inicial</option><option value="landing">Landing page · passos dentro da página</option><option value="institucional">Institucional · menu e contato</option><option value="multipagina">Muitas páginas · conteúdo e leads</option><option value="ecommerce">E-commerce · produto, carrinho e compra</option></ReportsNativeSelect><small>Define como o caminho até a conversão é montado. Você pode mudar depois.</small></label>
-        <details className="reports-flow-new__optional"><summary>Associações <small>Opcional</small></summary>
-          <label>Cliente / anunciante<ReportsNativeSelect value={flowCustomerId} onChange={event=>{setFlowCustomerId(event.target.value);setFlowCampaignId('');}}><option value="">Sem anunciante</option>{(data.customers||[]).filter(item=>item.status==='active').map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
-          <label>Campanha<ReportsNativeSelect value={flowCampaignId} onChange={event=>setFlowCampaignId(event.target.value)}><option value="">Sem campanha</option>{(data.campaigns||[]).filter(item=>!flowCustomerId||String(item.customer_id)===flowCustomerId).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
-        </details>
-        <div className="reports-flow-new__actions"><p id="flow-create-hint">{flowCreateHint}</p><ReportsActionButton type="submit" color="primary" disabled={busy||flowSiteChecking||!flowSiteCheck||Boolean(flowSiteCheck.error)} aria-describedby="flow-create-hint">Criar fluxo</ReportsActionButton></div>
-      </form>:<Empty message="Seu acesso permite acompanhar fluxos existentes."/>}
-    </ReportsDrawer>}
+    {flowView==='create'&&<FlowsIndex data={data} flows={flow.flows||[]} supertagSites={flow.supertag_sites||[]} save={save} busy={busy}/>}
     {flowView==='edit'&&(selectedFlow?<>
       <section className={`reports-panel reports-flow-builder is-${editorMode}${workspaceV2?' is-workspace-v2':''}`} {...(commandBusy?{inert:'','aria-busy':true}:{})}>
         <header className="reports-flow-topbar reports-flow-editor-topbar">

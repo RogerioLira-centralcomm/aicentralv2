@@ -9,7 +9,6 @@ import '@xyflow/react/dist/style.css';
 import {flowBlockFor} from './flowBlockRegistry.js';
 import {FLOW_PLATFORMS, FlowPlatformLogo} from './FlowPlatformLogo.jsx';
 import './flow-canvas.css';
-import './flow-node.css';
 import {FlowEdgeActivity} from './FlowEdgeActivity.jsx';
 import {ungroupNodes,syncGroups} from './flowGroups.js';
 import {ReportsActionButton} from './ReportsActionButton.jsx';

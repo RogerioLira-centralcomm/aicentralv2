@@ -6,7 +6,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 // The flows page moved out of main.jsx; static checks read the whole Reports entry.
-const main = ['main.jsx','FlowsPage.jsx','reportsCommon.jsx'].map(file=>read(`frontend/reports-v1/${file}`)).join('\n');
+const main = ['main.jsx','FlowsPage.jsx','FlowsIndex.jsx','reportsCommon.jsx'].map(file=>read(`frontend/reports-v1/${file}`)).join('\n');
 const css = read('frontend/reports-v1/reports-refinement.css');
 
 test('flow list is a searchable table with one primary action and creation in a drawer', () => {

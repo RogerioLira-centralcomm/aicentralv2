@@ -8,11 +8,13 @@ O Cadu (backend) é o orquestrador:
 
 Os apps Dify só geram a resposta. Por isso **não devem ter** nós de classificação, roteamento, base de conhecimento nem memória própria. Isso duplicaria o trabalho do backend e geraria respostas contraditórias.
 
-| App | `execution_mode` | Credencial | Prompt |
+| App | `execution_mode` | Credencial | Arquivo (cole o campo `system_prompt`) |
 |---|---|---|---|
-| cadu-fast | `fast` | `CADU_DIFY_FAST_URL` / `_KEY` | `00-base-orquestrador.md` + `cadu-fast.md` |
-| cadu-analyst | `analysis` | `CADU_DIFY_ANALYST_URL` / `_KEY` | `00-base-orquestrador.md` + `cadu-analyst.md` |
-| cadu-operator | `agentic` | `CADU_DIFY_OPERATOR_URL` / `_KEY` | `00-base-orquestrador.md` + `cadu-operator.md` |
+| cadu-fast | `fast` | `CADU_DIFY_FAST_URL` / `_KEY` | [cadu-fast.json](cadu-fast.json) |
+| cadu-analyst | `analysis` | `CADU_DIFY_ANALYST_URL` / `_KEY` | [cadu-analyst.json](cadu-analyst.json) |
+| cadu-operator | `agentic` | `CADU_DIFY_OPERATOR_URL` / `_KEY` | [cadu-operator.json](cadu-operator.json) |
+
+Os JSON seguem o formato do `cadu-conversations-orchestrator-v3.json`: `system_prompt` já traz o prompt-base mais o bloco do app, e `settings` traz modelo, temperatura e memória desligada. Os `.md` são a fonte de edição; depois de alterá-los, rode `python scripts/build_dify_prompts.py` para regenerar os JSON (um teste falha se ficarem fora de sincronia).
 
 Se as variáveis específicas não existirem, os três modos usam a mesma credencial de reserva, ou seja, o mesmo app e o mesmo prompt. Nesse caso cole só o prompt base e o bloco `cadu-analyst.md`.
 

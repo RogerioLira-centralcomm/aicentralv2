@@ -491,6 +491,18 @@ def _new_flow_code():
     abort(503, description='Não foi possível reservar o código do fluxo. Tente novamente.')
 
 
+def _normalize_flow_tags(tags):
+    if not isinstance(tags, list) or len(tags) > 12 or any(not isinstance(tag, str) for tag in tags):
+        abort(400, description='Use até 12 etiquetas de texto.')
+    clean, seen = [], set()
+    for tag in tags:
+        tag = ' '.join(tag.split())[:40]
+        if tag and tag.casefold() not in seen:
+            seen.add(tag.casefold())
+            clean.append(tag)
+    return clean
+
+
 def _normalize_flow_config(config, allowed_host):
     if not isinstance(config, dict):
         abort(400, description='A configuração do fluxo precisa ser um objeto.')
@@ -671,6 +683,8 @@ def _normalize_flow_config(config, allowed_host):
             abort(400,description='A nó referencia um grupo incompatível.')
         if node['id'] in membership:node['groupId']=membership[node['id']]
     result = {**config, 'nodes':normalized, 'edges':normalized_edges, 'groups':clean_groups}
+    if 'tags' in config:
+        result['tags'] = _normalize_flow_tags(config['tags'])
     if result.get('site_kind') not in (None, 'landing', 'institucional', 'multipagina', 'ecommerce'):
         abort(400, description='Tipo de site inválido.')
     if config.get('schema_version') == 2:

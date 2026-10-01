@@ -15,6 +15,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const [flowCreateOpen,setFlowCreateOpen]=useState(()=>Boolean(new URLSearchParams(location.search).get('site_host')));
   const [flowQuery,setFlowQuery]=useState('');
   const [flowStatusFilter,setFlowStatusFilter]=useState('all');
+  const [flowTagFilter,setFlowTagFilter]=useState('');
   const [flowSiteCheck, setFlowSiteCheck] = useState(null);
   const [flowSiteChecking, setFlowSiteChecking] = useState(false);
   const [flowSiteKind,setFlowSiteKind]=useState('');
@@ -36,7 +37,9 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
     return target === allowed || target.endsWith(`.${allowed}`);
   });
   const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
-  const visibleFlows=flows.filter(item=>(flowStatusFilter==='all'||(flowStatusFilter==='published'?item.status==='published':item.status!=='published'))&&`${item.name} ${item.allowed_host}`.toLocaleLowerCase('pt-BR').includes(flowQuery.trim().toLocaleLowerCase('pt-BR')));
+  const flowTags=item=>Array.isArray(item.config?.tags)?item.config.tags:[];
+  const allTags=[...new Set(flows.flatMap(flowTags))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(flowStatusFilter==='all'||(flowStatusFilter==='published'?item.status==='published':item.status!=='published'))&&`${item.name} ${item.allowed_host}`.toLocaleLowerCase('pt-BR').includes(flowQuery.trim().toLocaleLowerCase('pt-BR')));
   const flowMonitorLabel=item=>item.monitor_enabled?({online:'Online',degraded:'Com falhas',offline:'Offline',checking:'Verificando',unknown:'Aguardando checagem'})[item.monitor_status]||'Ativo':'Não ativado';
   const flowUpdatedLabel=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});};
   const flowCreateHint=!strategyReady?'Escolha uma estratégia e ao menos um canal.':!flowHost.trim()?'Informe a URL do site e valide o domínio.':!flowSiteCheck?'Valide o domínio para continuar.':flowSiteCheck.error?'Corrija o domínio para continuar.':superTagForFlow({allowed_host:flowSiteCheck.host})?'A Super Tag deste domínio já existe e será reutilizada.':'A Super Tag será criada automaticamente para este domínio.';
@@ -49,12 +52,13 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
       <div className="reports-flow-index__tools">
         <ReportsFieldInput type="search" aria-label="Buscar fluxo" placeholder="Buscar por nome ou domínio" value={flowQuery} onChange={event=>setFlowQuery(event.target.value)}/>
         <ReportsNativeSelect aria-label="Estado do fluxo" value={flowStatusFilter} onChange={event=>setFlowStatusFilter(event.target.value)}><option value="all">Todos os estados</option><option value="published">Publicados</option><option value="draft">Rascunhos</option></ReportsNativeSelect>
+        {allTags.length>0&&<ReportsNativeSelect aria-label="Etiqueta" value={flowTagFilter} onChange={event=>setFlowTagFilter(event.target.value)}><option value="">Todas as etiquetas</option>{allTags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</ReportsNativeSelect>}
         <span className="reports-flow-index__count">{plural(visibleFlows.length,'fluxo','fluxos')}</span>
         {data.client.role!=='viewer'&&<ReportsActionButton color="primary" className="reports-flow-index__new" onClick={()=>setFlowCreateOpen(true)}>Novo fluxo</ReportsActionButton>}
       </div>
       <article className="reports-panel reports-flow-index__panel">
         {visibleFlows.length?<div className="reports-table-wrap"><table className="reports-flow-table"><thead><tr><th>Fluxo</th><th>Estado</th><th>Coleta</th><th>Próxima ação</th><th>Atualizado</th><th><span className="reports-sr-only">Ações</span></th></tr></thead><tbody>{visibleFlows.map(item=>{const next=flowNextAction(item);return <tr key={item.id}>
-          <td><strong>{item.name}</strong><small>{item.allowed_host}{item.campaign_names?` · ${item.campaign_names}`:''}</small></td>
+          <td><strong>{item.name}</strong><small>{item.allowed_host}{item.campaign_names?` · ${item.campaign_names}`:''}</small>{flowTags(item).length>0&&<span className="reports-flow-tags">{flowTags(item).map(tag=><span key={tag}>{tag}</span>)}</span>}</td>
           <td><span className={`reports-status-badge is-${item.status==='published'?'published':'draft'}`} title={item.flow_code}>{item.status==='published'?'Publicado':'Rascunho'}</span></td>
           <td>{flowMonitorLabel(item)}</td>
           <td><button type="button" className={`reports-flow-next is-${next.tone}`} onClick={()=>openFlow(item,next.view)}>{next.label}</button></td>

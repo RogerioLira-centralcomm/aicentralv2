@@ -383,3 +383,31 @@
 .reports-shell--flow-editor .reports-flow-editor-topbar .reports-flow-actions{flex:0 0 auto}
 .reports-shell--flow-editor .reports-flow-editor-topbar{flex-wrap:nowrap;padding-block:0!important}
 .reports-shell--flow-editor .reports-flow-editor-identity{flex:1 1 auto}
+/* Plano e produção */
+.flow-plan-panel .reports-panel-shell__body{display:grid;gap:18px}
+.flow-plan-panel h3{display:flex;align-items:center;gap:6px;margin:0 0 8px;color:var(--color-text-primary);font-size:13px;font-weight:600}
+.flow-plan-panel h3 small{color:var(--color-text-tertiary);font-weight:500}
+.flow-plan-panel__progress{display:grid;gap:6px}
+.flow-plan-panel__progress>div:first-child{display:flex;align-items:baseline;gap:6px;color:var(--color-text-tertiary);font-size:12px}
+.flow-plan-panel__progress strong{color:var(--color-text-primary);font-size:18px}
+.flow-plan-panel__progress small{color:var(--color-text-warning-primary,#b54708);font-size:12px}
+.flow-plan-panel__bar{height:6px;overflow:hidden;border-radius:999px;background:var(--color-bg-tertiary,#f2f4f7)}
+.flow-plan-panel__bar span{display:block;height:100%;border-radius:inherit;background:var(--color-bg-brand-solid,#175cd3);transition:width .2s ease}
+.flow-plan-panel__chips{display:flex;flex-wrap:wrap;gap:6px}
+.flow-plan-panel__chips small{color:var(--color-text-tertiary);font-size:12px}
+.flow-plan-panel__chip{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 10px;border:1px solid var(--color-border-secondary);border-radius:999px;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:12px;font-weight:500}
+.flow-plan-panel__chip button{display:grid;width:18px;height:18px;place-items:center;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer}
+.flow-plan-panel__chip button:hover,.flow-plan-panel__chip button:focus-visible{background:var(--color-bg-tertiary);outline:0}
+.flow-plan-panel__tag-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:8px}
+.flow-plan-panel__section ul{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.flow-plan-item{display:grid;gap:3px;width:100%;padding:10px 12px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-primary);color:var(--color-text-tertiary);font:inherit;font-size:12px;text-align:left;cursor:pointer}
+.flow-plan-item:hover{border-color:var(--color-border-primary)}
+.flow-plan-item:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+.flow-plan-item.is-done{background:var(--color-bg-secondary)}
+.flow-plan-item__head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.flow-plan-item__head strong{color:var(--color-text-primary);font-size:13px}
+.flow-plan-item__head em{flex:none;padding:1px 8px;border:1px dashed var(--color-border-primary);border-radius:999px;color:var(--color-text-secondary);font-size:11px;font-style:normal;font-weight:600}
+.flow-plan-item.is-done .flow-plan-item__head em{border-style:solid;border-color:var(--color-border-success,#abefc6);color:var(--color-text-success-primary,#067647)}
+.flow-plan-item__missing{color:var(--color-text-warning-primary,#b54708)}
+.flow-plan-panel__exports{display:flex;flex-wrap:wrap;gap:8px}
+.flow-blueprint-panel.flow-plan-panel>.reports-panel-shell__header{display:grid;justify-content:stretch}

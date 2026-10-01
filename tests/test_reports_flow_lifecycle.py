@@ -109,6 +109,14 @@ class PlannedNormalizationTests(unittest.TestCase):
         nodes = [conversion(status='planned', event_name='lead'), conversion(id='lead2', status='planned', event_name='lead')]
         _normalize_flow_config({'nodes': nodes, 'edges': []}, HOST)
 
+    def test_tags_are_trimmed_deduplicated_and_limited(self):
+        config, _ = _normalize_flow_config({'nodes': [], 'edges': [], 'tags': ['  Black  Friday ', 'black friday', 'Leads', 'x' * 60]}, HOST)
+        self.assertEqual(config['tags'], ['Black Friday', 'Leads', 'x' * 40])
+        for invalid in ('Leads', ['ok', 3], ['t'] * 13):
+            with self.assertRaises(BadRequest):
+                _normalize_flow_config({'nodes': [], 'edges': [], 'tags': invalid}, HOST)
+        self.assertNotIn('tags', _normalize_flow_config({'nodes': [], 'edges': []}, HOST)[0])
+
     def test_invalid_status_and_spec_are_rejected(self):
         with self.assertRaises(BadRequest):
             _normalize_flow_config({'nodes': [page(status='archived')], 'edges': []}, HOST)

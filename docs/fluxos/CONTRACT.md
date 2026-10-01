@@ -11,6 +11,7 @@ Fonte da verdade: `_normalize_flow_config` em `aicentralv2/cadu_connect/reports_
 | `edges` | lista | até 300 |
 | `groups` | lista | `{id, name, memberIds[], bounds{x,y,width,height}}` |
 | `site_kind` | opcional | `landing` \| `institucional` \| `multipagina` \| `ecommerce`; outro valor → 400 |
+| `tags` | opcional | até 12 etiquetas de texto, até 40 caracteres cada; espaços normalizados e repetidas (sem diferenciar maiúsculas) descartadas |
 | `strategy_id` | opcional | estratégia de origem do plano (`flowStrategies.js`), só informativo |
 | demais chaves | livre | preservadas (`viewport`, `settings`, `dismissedSuggestions`…) |
 

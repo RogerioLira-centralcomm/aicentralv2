@@ -195,3 +195,5 @@
 .reports-shell .reports-flow-next.is-warning{border-color:var(--color-border-warning);color:var(--color-text-warning-primary)}
 .reports-shell .reports-flow-next:hover{background:var(--color-bg-secondary)}
 .reports-shell .reports-monitor-mesa__canvas{position:relative;height:min(68vh,640px);margin-top:12px;overflow:hidden;border:1px solid var(--color-border-secondary);border-radius:12px}
+.reports-flow-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.reports-flow-tags span{padding:1px 8px;border:1px solid var(--color-border-secondary,#eaecf0);border-radius:999px;background:var(--color-bg-secondary,#f9fafb);color:var(--color-text-secondary,#344054);font-size:11px;font-weight:500}

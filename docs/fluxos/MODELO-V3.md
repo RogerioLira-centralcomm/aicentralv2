@@ -260,3 +260,13 @@ Acrescentadas às fases conforme a prioridade:
 - Fluxos com pelo menos uma origem com UTM e uma meta definidas.
 - Fluxos monitorados semanalmente por pessoas diferentes do criador.
 - Redução de nós de página importados em massa (substituídos por grupos).
+
+## 10. Progresso
+
+| Data | Entrega | Commit |
+|---|---|---|
+| 01/10/2026 | Fase 1a: situação do passo (planejado, em produção, pronto, no ar), especificação para produção, passos planejados fora de toda a medição, aviso de conversão só planejada, passo novo da paleta nasce planejado. | `30f679ee`, `734d1fb6` |
+
+Decisão registrada: planejar é uma escolha explícita. Um passo antigo sem situação e sem URL continua bloqueando a publicação (com a opção de marcá-lo como planejado), para nenhum passo sair da medição sem que a pessoa perceba.
+
+Pendente na Fase 1: domínio opcional na criação (exige migração do registro de fluxo e da tag), metas no fluxo com etapa e entrada derivadas do grafo, e `page_group`.

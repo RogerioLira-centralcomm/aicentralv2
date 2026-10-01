@@ -1,3 +1,2 @@
-import ELK from 'elkjs/lib/elk.bundled.js';
-const elk=new ELK();
-self.onmessage=async({data})=>{try{self.postMessage({graph:await elk.layout(data)});}catch(error){self.postMessage({error:error.message});}};
+// ELK's own worker script registers its message protocol on the worker global; elk-api talks to it from the page.
+import 'elkjs/lib/elk-worker.min.js';

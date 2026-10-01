@@ -169,3 +169,9 @@
 .flow-catalog-section__head>button:first-child{min-width:0}
 .flow-catalog-section__head>button:not(:first-child){flex:none}
 .reports-shell .flow-catalog-section__head>button:not(:first-child){flex:none!important;min-width:max-content;padding-inline:8px}
+
+/* Flow list: the next action is the row's main affordance. */
+.reports-shell .reports-flow-next{padding:4px 10px;border:1px solid var(--color-border-secondary);border-radius:999px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.reports-shell .reports-flow-next.is-brand{border-color:var(--color-border-brand);color:var(--color-text-brand-secondary)}
+.reports-shell .reports-flow-next.is-warning{border-color:var(--color-border-warning);color:var(--color-text-warning-primary)}
+.reports-shell .reports-flow-next:hover{background:var(--color-bg-secondary)}

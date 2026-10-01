@@ -1,5 +1,8 @@
-import {FLOW_STAGES,stageFor,stageX} from './flowStages.js';
-export async function layoutFlow(config,{width=180,height=180,nodeSpacing=64,layerSpacing=112,mode='stages'}={}) {
+import * as elkApi from 'elkjs/lib/elk-api.js';
+import {FLOW_STAGES,stageFor} from './flowStages.js';
+// elk-api is CommonJS; the constructor arrives as default, default.default or the namespace depending on the bundler.
+const ELK=[elkApi.default?.default,elkApi.default,elkApi].find(candidate=>typeof candidate==='function');
+export async function layoutFlow(config,{width=240,height=150,nodeSpacing=48,layerSpacing=120,mode='stages'}={}) {
   // Layout collapsed groups as one unit; preserve their internal coordinates.
   if(config.groups?.length){
     const membership=new Map(config.groups.flatMap(g=>g.memberIds.map(id=>[id,g])));
@@ -11,22 +14,18 @@ export async function layoutFlow(config,{width=180,height=180,nodeSpacing=64,lay
     return config.nodes.map(n=>{const group=membership.get(n.id);if(!group)return placed.get(n.id)||n;const target=placed.get(group.id);return {...n,stage:stageFor(n),x:n.x+target.x-group.bounds.x,y:n.y+target.y-group.bounds.y};});
   }
   const ids=new Set(config.nodes.map(n=>n.id));
-  const graph={id:'flow',layoutOptions:{'elk.algorithm':'layered','elk.direction':'RIGHT','elk.edgeRouting':'ORTHOGONAL','elk.partitioning.activate':String(mode==='stages'),'elk.spacing.nodeNode':String(nodeSpacing),'elk.layered.spacing.nodeNodeBetweenLayers':String(layerSpacing)},children:config.nodes.map(node=>({id:node.id,width:node.width||width,height:node.height||height,layoutOptions:{'elk.partitioning.partition':String(FLOW_STAGES.findIndex(s=>s.id===stageFor(node)))}})),edges:config.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)&&e.kind!=='site_link').map(e=>({id:e.id,sources:[e.from],targets:[e.to]}))};
-  const result=await new Promise((resolve,reject)=>{
-    const worker=new Worker(new URL('./flowLayout.worker.js',import.meta.url),{type:'module'});
-    const timer=setTimeout(()=>{worker.terminate();reject(new Error('A organização excedeu o tempo disponível.'));},20000);
-    const finish=()=>{clearTimeout(timer);worker.terminate();};
-    worker.onmessage=({data})=>{finish();data.error?reject(new Error(data.error)):resolve(data.graph);};
-    worker.onerror=()=>{finish();reject(new Error('Não foi possível organizar o fluxo.'));};
-    worker.postMessage(graph);
-  });
+  const graph={id:'flow',layoutOptions:{'elk.algorithm':'layered','elk.direction':'RIGHT','elk.edgeRouting':'SPLINES','elk.layered.nodePlacement.strategy':'BRANDES_KOEPF','elk.partitioning.activate':String(mode==='stages'),'elk.spacing.nodeNode':String(nodeSpacing),'elk.layered.spacing.nodeNodeBetweenLayers':String(layerSpacing)},children:config.nodes.map(node=>({id:node.id,width:node.width||width,height:node.height||height,layoutOptions:{'elk.partitioning.partition':String(FLOW_STAGES.findIndex(s=>s.id===stageFor(node)))}})),edges:config.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)&&e.kind!=='site_link').map(e=>({id:e.id,sources:[e.from],targets:[e.to]}))};
+  const elk=new ELK({workerFactory:()=>new Worker(new URL('./flowLayout.worker.js',import.meta.url),{type:'module'})});
+  let timer;
+  const result=await Promise.race([elk.layout(graph),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('A organização excedeu o tempo disponível.')),20000);})])
+    .catch(error=>{throw new Error(error?.message?.includes('tempo')?error.message:'Não foi possível organizar o fluxo.');})
+    .finally(()=>{clearTimeout(timer);elk.terminateWorker();});
   const positions=new Map(result.children.map(node=>[node.id,{x:Math.round(node.x+80),y:Math.round(node.y+80)}]));
-  const stages=new Map();
-  if(mode==='stages')for(const stage of FLOW_STAGES){const members=config.nodes.filter(n=>stageFor(n)===stage.id).sort((a,b)=>positions.get(a.id).y-positions.get(b.id).y||a.id.localeCompare(b.id));members.forEach((node,index)=>stages.set(node.id,{x:stageX(stage.id),y:100+index*Math.min(260,9400/Math.max(1,members.length))}));}
-  const occupied=config.nodes.filter(n=>n.locked).map(n=>({...n,x:mode==='stages'?stageX(stageFor(n)):n.x,width:n.width||width,height:n.height||height}));
+  // Stages order the layers (ELK partitions); rows come from the graph itself, so busy paths stay together.
+  const occupied=config.nodes.filter(n=>n.locked).map(n=>({...n,x:n.x,width:n.width||width,height:n.height||height}));
   const nodes=config.nodes.map(node=>{
-    if(node.locked)return mode==='stages'?{...node,stage:stageFor(node),x:stageX(stageFor(node))}:node;
-    const next={...node,stage:stageFor(node),...(mode==='stages'?stages:positions).get(node.id)};
+    if(node.locked)return node;
+    const next={...node,stage:stageFor(node),...positions.get(node.id)};
     while(occupied.some(other=>next.x<other.x+other.width+24&&next.x+(node.width||width)+24>other.x&&next.y<other.y+other.height+24&&next.y+(node.height||height)+24>other.y)){next.y+=height+32;if(next.y>10000)break;}
     occupied.push({...next,width:node.width||width,height:node.height||height});return next;
   });

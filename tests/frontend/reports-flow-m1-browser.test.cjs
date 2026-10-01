@@ -55,7 +55,7 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
     flow={...flow,config:{nodes:[],edges:[]}};
     await page.reload();
     await page.locator('.reports-flow-empty-guide').waitFor();
-    assert.match(await page.locator('.reports-flow-empty-guide').innerText(),/Comece sua jornada/);
+    assert.match(await page.locator('.reports-flow-empty-guide').innerText(),/Comece pela página inicial/);
     failNextSave=true;
     await page.getByRole('textbox',{name:'Nome do fluxo'}).fill('Jornada revisada');
     await page.getByText('Falha ao salvar').waitFor({timeout:10000});

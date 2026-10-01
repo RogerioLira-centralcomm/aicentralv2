@@ -54,5 +54,7 @@ export const flowBlockRegistry = Object.freeze(Object.fromEntries(flowBlocks.map
 const fallbackKinds = {source:'traffic.direct',page:'page.generic',form:'page.form',event:'event.custom',
   condition:'logic.condition',delay:'logic.delay',segment:'crm.segment',conversion:'conversion.generic',
   webhook:'utility.webhook',whatsapp:'event.whatsapp',error:'page.error'};
-export const flowBlockFor = node => flowBlockRegistry[node?.kind] || flowBlockRegistry[fallbackKinds[node?.type]] || flowBlockRegistry['event.custom'];
+const sourceBlocks = new Map(flowBlocks.filter(item=>item.source).reverse().map(item=>[item.source,item]));
+// Older configs keep only the platform in `source`; resolve it before the generic fallback.
+export const flowBlockFor = node => flowBlockRegistry[node?.kind] || (node?.type==='source'&&sourceBlocks.get(node?.source)) || flowBlockRegistry[fallbackKinds[node?.type]] || flowBlockRegistry['event.custom'];
 export const flowPaletteGroups = Object.freeze(groups.map(([category])=>[category,flowBlocks.filter(item=>item.category===category)]));

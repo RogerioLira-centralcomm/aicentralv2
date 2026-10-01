@@ -21,7 +21,7 @@ from .reports_flow_versions import expected_revision, lock_flow, save_draft, pub
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
 from .reports_flow_validation import validate_flow_config
 from .reports_flow_stage import normalize_stage_position
-from .reports_flow_metrics import edge_observation
+from .reports_flow_metrics import apply_session_bounds, edge_observation, origin_summary
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -550,6 +550,8 @@ def _normalize_flow_config(config, allowed_host):
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
+        if 'kind' not in item and isinstance(node.get('kind'), str) and re.fullmatch(r'[a-z_]+\.[a-z0-9_]+', node['kind']):
+            item['kind'] = node['kind'][:80]
         for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source','pageType','pageTypeStatus'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
@@ -658,6 +660,8 @@ def _normalize_flow_config(config, allowed_host):
             abort(400,description='A nó referencia um grupo incompatível.')
         if node['id'] in membership:node['groupId']=membership[node['id']]
     result = {**config, 'nodes':normalized, 'edges':normalized_edges, 'groups':clean_groups}
+    if result.get('site_kind') not in (None, 'landing', 'institucional', 'multipagina', 'ecommerce'):
+        abort(400, description='Tipo de site inválido.')
     if config.get('schema_version') == 2:
         result = migrate_v1_to_v2(result)
     try:
@@ -1982,7 +1986,8 @@ def register(bp):
             extra+=' AND a.platform=%s';scope.append(platform)
         # Keep unmapped visits in the sequence. Match IDs were frozen at ingestion.
         visits_cte="""WITH visits AS (
-            SELECT e.id,e.session_id,e.occurred_at,s.node_id
+            SELECT e.id,e.session_id,e.occurred_at,s.node_id,
+                COALESCE('utm:'||NULLIF(LOWER(e.utm_source),''),'ref:'||NULLIF(LOWER(e.referrer_host),'')) AS origin
             FROM cadu_reports_flow_events e
             LEFT JOIN cadu_reports_flow_steps s ON s.id=e.step_id
               AND s.client_id=e.client_id
@@ -2076,6 +2081,17 @@ def register(bp):
             group_edges=_rows(projected_cte+"SELECT source AS \"from\",target AS \"to\",COUNT(DISTINCT session_id)::bigint AS sessions FROM paths_groups WHERE source IS NOT NULL AND target IS NOT NULL AND source<>target GROUP BY source,target",(*scope,projection))
             denominators={row['id']:row['sessions'] for row in group_nodes}
             for edge in group_edges:edge['rate']=round(100*edge['sessions']/denominators[edge['from']],1) if denominators.get(edge['from']) else None
+        # First and last mapped page of each session: where people land, where they leave, and from which origin.
+        bounds = _rows(visits_cte + """, bounds AS (
+            SELECT session_id,
+                (ARRAY_AGG(node_id ORDER BY occurred_at,id))[1] AS first_node,
+                (ARRAY_AGG(node_id ORDER BY occurred_at DESC,id DESC))[1] AS last_node,
+                (ARRAY_AGG(origin ORDER BY occurred_at,id))[1] AS origin
+            FROM visits WHERE node_id IS NOT NULL GROUP BY session_id
+        ) SELECT first_node,last_node,origin,COUNT(*)::bigint AS sessions
+          FROM bounds GROUP BY first_node,last_node,origin""", tuple(scope))
+        apply_session_bounds(config, nodes, edges, bounds, measured_ids)
+        origins = origin_summary(bounds)
         entries = int(funnel['entries'] or 0)
         conversions = int(funnel['conversions'] or 0)
         return jsonify(status='ready', revision=revision, period_days=days, config=migrate_v1_to_v2(config),
@@ -2088,7 +2104,7 @@ def register(bp):
                                    'source':'Super Tag deste fluxo'},
                        scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
                               'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
-                       nodes=nodes, edges=edges, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
+                       nodes=nodes, edges=edges, origins=origins, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
                        funnel={'entries': entries, 'conversions': conversions,
                                'rate': round(100 * conversions / entries, 1) if entries else None})
 

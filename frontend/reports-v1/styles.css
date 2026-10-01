@@ -34,6 +34,29 @@
 @media(max-width:1000px){.reports-filters--secondary{grid-template-columns:1fr 1fr 1fr auto}.reports-filter-source{display:none}}
 @media(max-width:760px){.reports-shell{display:block}.reports-main{padding:0 14px 24px}.reports-header{min-height:68px}.reports-header-actions a{display:none}.reports-client-pill{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reports-filters,.reports-filters--secondary{grid-template-columns:1fr 1fr;max-height:none;min-height:0;padding:8px 0}.reports-filter-source{display:none}.reports-filters button{grid-column:2;justify-self:end}.reports-grid--four,.reports-grid--three,.reports-confirmed-grid{grid-template-columns:1fr}.reports-span-two,.reports-span-three{grid-column:span 1}}
 
+.reports-shell--accounts-view{grid-template-columns:1fr}
+.reports-breadcrumb{padding:0 0 16px;border-bottom:1px solid var(--r-line);margin-bottom:16px}
+.reports-3col-layout{display:grid;grid-template-columns:repeat(3,minmax(280px,1fr));gap:16px;min-height:70vh}
+.reports-col{display:grid;grid-template-rows:auto 1fr;border:1px solid var(--r-line);border-radius:10px;background:var(--r-surface);overflow:hidden;box-shadow:0 2px 10px #1b36540a}
+.reports-col-header{padding:14px 16px;border-bottom:1px solid var(--r-line);background:var(--r-soft)}
+.reports-col-header h3{margin:0;font-size:13px;font-weight:650}
+.reports-col-list{overflow-y:auto;min-height:300px}
+.reports-col-item{padding:12px 14px;border-bottom:1px solid #f0f5fa;cursor:pointer;transition:background .15s ease;background:#fff}
+.reports-col-item:last-child{border-bottom:0}
+.reports-col-item:hover{background:#f9fbff}
+.reports-col-item.active{background:#eff8ff;border-left:3px solid var(--r-blue)}
+.reports-col-item-label{font-size:12px;font-weight:600;color:var(--r-ink);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reports-col-item-meta{font-size:11px;color:var(--r-muted)}
+.reports-col-empty{padding:24px 16px;text-align:center;color:var(--r-muted);font-size:12px}
+.reports-campaign-detail{padding:24px;background:var(--r-surface);border:1px solid var(--r-line);border-radius:10px;margin-top:16px}
+.reports-campaign-detail h2{margin:0 0 16px;font-size:18px}
+.reports-campaign-info{display:grid;gap:12px;font-size:12px}
+.reports-campaign-info div{display:grid;grid-template-columns:120px 1fr;gap:12px}
+.reports-campaign-info strong{color:var(--r-muted);font-weight:600}
+
+@media(max-width:1200px){.reports-3col-layout{grid-template-columns:repeat(2,minmax(280px,1fr))}}
+@media(max-width:760px){.reports-3col-layout{grid-template-columns:1fr}.reports-col{min-height:400px}}
+
 /* Reports UI scale: one full-width workspace, readable data density, no dock shell. */
 #cadu-reports-v1-root{font-size:14px;line-height:1.45;overflow-x:clip}
 .reports-shell{grid-template-columns:274px minmax(0,1fr);min-height:100vh;min-height:100dvh}

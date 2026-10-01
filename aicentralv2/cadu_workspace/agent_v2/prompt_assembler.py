@@ -786,3 +786,43 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         "is_first_message": "false" if history else "true",
     })
     return {"query": message, "user": user_label, "inputs": inputs, "response_mode": "streaming"}
+
+
+FLAT_OUTPUT_CONTRACT = {
+    "answer": "string",
+    "questions": [], "actions": [], "assumptions": [], "citations": [],
+    "confidence": "low|medium|high",
+    "artifact_patch": {"title": "string", "summary": "string",
+                        "fields": [{"key": "string", "value": "string",
+                                    "state": "confirmed|inferred|assumed|missing|conflicting"}]},
+}
+_FLAT_REPLACEMENTS = (
+    ("`text.content` é a resposta visível, escrita como conversa normal; `ui` carrega elementos de interface apenas quando úteis.",
+     "`answer` é a resposta visível, escrita como conversa normal; `questions`, `actions`, `assumptions`, `citations` e "
+     "`confidence` só levam conteúdo quando úteis e ficam vazios caso contrário."),
+    ("`ui.questions`", "`questions`"),
+    ("`text.content`", "`answer`"),
+    ("text.content", "answer"),
+)
+_FLAT_NOTE = (
+    "\n\nFormato de saída: o esquema do runtime tem somente `answer`, `questions`, `actions`, `assumptions`, `citations`, "
+    "`confidence` e `artifact_patch` (com `title`, `summary` e `fields`). Quando não houver artefato a entregar, devolva "
+    "`artifact_patch` vazio (`title` e `summary` vazios, `fields` vazio) e nunca invente conteúdo para preenchê-lo. "
+    "Tabelas, métricas e listas de um artefato vão em Markdown dentro do `value` do campo correspondente."
+)
+
+
+def adapt_output_format(payload: dict, output_format: str) -> dict:
+    """Align the contract text with the structured-output schema of the target Dify app."""
+    if output_format != "flat":
+        return payload
+    inputs = payload.get("inputs") or {}
+    core = str(inputs.get("core") or "")
+    for old, new in _FLAT_REPLACEMENTS:
+        core = core.replace(old, new)
+    core += _FLAT_NOTE
+    inputs["core"] = core
+    if "skill_context" in inputs:
+        inputs["skill_context"] = core
+    inputs["output_contract"] = json.dumps(FLAT_OUTPUT_CONTRACT, ensure_ascii=False, separators=(",", ":"))
+    return payload

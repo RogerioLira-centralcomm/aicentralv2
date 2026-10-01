@@ -40,6 +40,7 @@ from .context_builder import (
 )
 from .conversation_runtime import RuntimeRollout, TurnIdentity
 from .memory_checkpoint import schedule as schedule_memory_checkpoint
+from .prompt_assembler import adapt_output_format
 from ..workspace_action_policy import WORKSPACE_ONLY_ACTIONS, action_link
 from ...cadu_planner import docs
 
@@ -993,6 +994,7 @@ def prepare(data):
             for row in uploads
         ]
     runtime = provider.runtime_for(execution["execution_mode"])
+    adapt_output_format(execution["provider_payload"], runtime.get("output_format"))
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:

@@ -1,6 +1,7 @@
 """Dify adapter for Conversations V2 with a reversible runtime rollout."""
 
 import json
+import os
 from urllib.parse import urlparse
 
 import requests
@@ -34,6 +35,20 @@ def _chat_configuration():
     return str(url or "").rstrip("/"), str(key or "")
 
 
+def _output_format(source: str) -> str:
+    """Contract shape the Dify app's structured output expects.
+
+    Apps configured through the mode-specific variables (CADU_DIFY_*_URL/KEY) use
+    the flat schema (answer, questions, ...). The fallback credential keeps the
+    historical nested shape (text.content / ui). CADU_DIFY_OUTPUT_FORMAT forces
+    either one.
+    """
+    forced = str(current_app.config.get("CADU_DIFY_OUTPUT_FORMAT") or os.getenv("CADU_DIFY_OUTPUT_FORMAT") or "auto").strip().lower()
+    if forced in {"flat", "nested"}:
+        return forced
+    return "flat" if source == "mode-specific" else "nested"
+
+
 def _configuration(execution_mode="analysis") -> dict:
     mode = execution_mode if execution_mode in RUNTIMES else "analysis"
     runtime_id, url_key, secret_key = RUNTIMES[mode]
@@ -64,7 +79,8 @@ def _configuration(execution_mode="analysis") -> dict:
     if not key or parsed.scheme != "https" or not parsed.hostname:
         raise ProviderUnavailable(f"O runtime {runtime_id} ainda não foi configurado.")
     return {"id": runtime_id, "mode": mode, "url": url, "key": key, "source": source,
-            "transport": "chat-messages", "config_version": "2026-10-01.v4"}
+            "transport": "chat-messages", "config_version": "2026-10-01.v4",
+            "output_format": _output_format(source)}
 
 
 def runtime_for(execution_mode="analysis") -> dict:

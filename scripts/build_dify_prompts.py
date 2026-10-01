@@ -8,6 +8,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "docs" / "dify" / "v4"
 INPUTS = ["core", "task", "current_context", "evidence", "response_policy", "output_contract"]
+SYSTEM_VARIABLES = ["core"]  # as demais ficam na mensagem do USUÁRIO do nó LLM
+USER_MESSAGE = [
+    ("PEDIDO DO USUÁRIO", "query"), ("TAREFA", "task"), ("CONTEXTO ATUAL", "current_context"),
+    ("EVIDÊNCIAS E RESULTADOS AUTORIZADOS", "evidence"), ("POLÍTICA DE RESPOSTA", "response_policy"),
+    ("CONTRATO DE SAÍDA", "output_contract"),
+]
 LEGACY_UNUSED = ["user_request", "prompt_boundary", "briefing_instruction", "skill_context", "projeto_context", "files_context",
                  "user_memory_context", "user_profile_context", "is_first_message"]
 APPS = {
@@ -40,7 +46,7 @@ START_NODE_ID = "1789813203378"  # nó INICIAR do app de conversas (informado pe
 
 def chatflow_syntax(text: str, node_id: str = START_NODE_ID) -> str:
     """{{core}} -> {{#<node>.core#}}, the variable syntax of a Dify Chatflow."""
-    return re.sub(r"\{\{(" + "|".join(INPUTS) + r")\}\}", lambda m: "{{#" + node_id + "." + m.group(1) + "#}}", text)
+    return re.sub(r"\{\{(" + "|".join(SYSTEM_VARIABLES) + r")\}\}", lambda m: "{{#" + node_id + "." + m.group(1) + "#}}", text)
 
 
 def build() -> dict:
@@ -56,6 +62,7 @@ def build() -> dict:
             "uso": spec["uso"],
             "settings": {**spec["settings"], "conversation_memory": False, "knowledge_base": False, "tools": []},
             "inputs": INPUTS,
+            "mensagem_do_usuario_no_no_llm": [{"secao": titulo, "variavel": variavel} for titulo, variavel in USER_MESSAGE],
             "output_contract": {
                 "format": "json",
                 "text_field": "text.content",

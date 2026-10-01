@@ -76,7 +76,67 @@ const FLOW_ROLE_LABELS = {
   entry:'Entrada', intermediate:'Página', form:'Formulário',
   conversion:'Conversão', error:'Erro', none:'Sem correspondência',
 };
-const FLOW_NODE_LABELS = {page:'Página', form:'Formulário', event:'Evento', whatsapp:'WhatsApp', conversion:'Conversão', error:'Erro'};
+const FLOW_NODE_LABELS = {page:'Página', form:'Formulário', event:'Evento', whatsapp:'WhatsApp', conversion:'Conversão', erro:'Erro'};
+
+function AccountsManagementView({data, selectedCustomer, setSelectedCustomer, selectedAccount, setSelectedAccount, selectedCampaign, setSelectedCampaign, save, busy, onExit}) {
+  const accountsOfCustomer = selectedCustomer ? data.accounts.filter(a => a.customer_id === selectedCustomer.id) : data.accounts;
+  const campaignsOfAccount = selectedAccount ? data.campaigns.filter(c => c.account_id === selectedAccount.id) : [];
+
+  return <div className="reports-accounts-view">
+    <div className="reports-breadcrumb"><button onClick={onExit} className="reports-text-button">← Voltar</button></div>
+    <div className="reports-3col-layout">
+      <div className="reports-col reports-col--customers">
+        <div className="reports-col-header"><h3>Clientes</h3></div>
+        <div className="reports-col-list">
+          {(data.customers || []).map(c => (
+            <div key={c.id} className={`reports-col-item ${selectedCustomer?.id === c.id ? 'active' : ''}`} onClick={() => setSelectedCustomer(c)}>
+              <div className="reports-col-item-label">{c.name}</div>
+              <div className="reports-col-item-meta">{data.accounts.filter(a => a.customer_id === c.id).length} contas</div>
+            </div>
+          ))}
+          {!data.customers?.length && <div className="reports-col-empty">Nenhum cliente</div>}
+        </div>
+      </div>
+
+      <div className="reports-col reports-col--accounts">
+        <div className="reports-col-header"><h3>Contas</h3></div>
+        <div className="reports-col-list">
+          {accountsOfCustomer.map(a => (
+            <div key={a.id} className={`reports-col-item ${selectedAccount?.id === a.id ? 'active' : ''}`} onClick={() => setSelectedAccount(a)}>
+              <div className="reports-col-item-label">{a.name}</div>
+              <div className="reports-col-item-meta">{a.platform || 'Manual'}</div>
+            </div>
+          ))}
+          {!accountsOfCustomer.length && <div className="reports-col-empty">{selectedCustomer ? 'Nenhuma conta' : 'Selecione um cliente'}</div>}
+        </div>
+      </div>
+
+      <div className="reports-col reports-col--campaigns">
+        <div className="reports-col-header"><h3>Campanhas</h3></div>
+        <div className="reports-col-list">
+          {campaignsOfAccount.map(c => (
+            <div key={c.id} className={`reports-col-item ${selectedCampaign?.id === c.id ? 'active' : ''}`} onClick={() => setSelectedCampaign(c)}>
+              <div className="reports-col-item-label">{c.name}</div>
+              <div className="reports-col-item-meta">{c.id}</div>
+            </div>
+          ))}
+          {!campaignsOfAccount.length && <div className="reports-col-empty">{selectedAccount ? 'Nenhuma campanha' : 'Selecione uma conta'}</div>}
+        </div>
+      </div>
+    </div>
+
+    {selectedCampaign && (
+      <div className="reports-campaign-detail">
+        <h2>{selectedCampaign.name}</h2>
+        <div className="reports-campaign-info">
+          <div><strong>ID:</strong> {selectedCampaign.id}</div>
+          <div><strong>Conta:</strong> {selectedAccount?.name}</div>
+          <div><strong>Plataforma:</strong> {selectedAccount?.platform || 'Manual'}</div>
+        </div>
+      </div>
+    )}
+  </div>;
+}
 
 function FlowSuggestionConfidence({suggestion}) {
   const alternatives = Object.entries(suggestion?.probabilities || {})
@@ -1338,6 +1398,10 @@ function App() {
   const requestedSection = SECTION_ALIASES[section] || section;
   const pageSection = REPORT_PAGE_META[requestedSection] ? requestedSection : 'overview';
   const [data, setData] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [accountsView, setAccountsView] = useState(() => new URLSearchParams(location.search).get('view') === 'management');
   const isFlowEditor = Boolean(flowEditorId())&&(!/\/monitor\/?$/.test(location.pathname)||Boolean(data?.features?.flows_workspace_v2));
   const [metrics, setMetrics] = useState(null);
   const [importedMetrics, setImportedMetrics] = useState(null);
@@ -1386,6 +1450,7 @@ function App() {
         history.replaceState(history.state, '', url);
       }
       setSection(nextSection);
+      setAccountsView(url.searchParams.get('view') === 'management' && nextSection === 'accounts');
       window.scrollTo(0, 0);
     };
     load();
@@ -1444,15 +1509,22 @@ function App() {
   const headerTitle = section === 'data-library' ? 'Biblioteca de dados' : undefined;
   const headerDescription = section === 'data-library' ? 'Consulte os campos personalizados e os dados preservados dos arquivos.' : undefined;
   if(data?.shared)return <SharedReports key={data.client.client_id} data={data}/>;
-  return <div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}`}>
-    {!isFlowEditor&&<SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={pageSection} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={[{label:'',items:navItems(['overview'])},{label:'Operação de mídia',items:navItems(['customers','accounts','campaigns','reports','imports','monitor'])},{label:'Mensuração',items:navItems(['supertag','flow','events','links'])},{label:'Administração',items:navItems(['access'])}]} />}
+  const showAccountsView = accountsView && pageSection === 'accounts' && data?.ready;
+  return <div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}${showAccountsView ? ' reports-shell--accounts-view' : ''}`}>
+    {!isFlowEditor && !showAccountsView && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={pageSection} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={[{label:'',items:navItems(['overview'])},{label:'Operação de mídia',items:navItems(['customers','accounts','campaigns','reports','imports','monitor'])},{label:'Mensuração',items:navItems(['supertag','flow','events','links'])},{label:'Administração',items:navItems(['access'])}]} />}
     <main className="reports-main">
-      {data && !isFlowEditor && <ReportsPageHeader page={pageSection} clients={data.clients} client={data.client}
-        titleOverride={headerTitle} descriptionOverride={headerDescription}
-        onAction={pageSection === 'overview' ? {label: 'Biblioteca de dados', onClick: () => {location.assign(reportUrl('data-library'));}} : undefined} />}
-      {data?.ready && !isFlowEditor && (['campaigns', 'events'].includes(pageSection) || (pageSection === 'flow' && new URLSearchParams(location.search).get('flow_view') === 'monitor')) && <ReportsFilterBar
-        data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
-      <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <div className="reports-loading" role="status">Carregando Reports…</div> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'customers' ? <ReportsCustomers data={data} save={save} busy={busy}/> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
+      {showAccountsView ? (
+        <AccountsManagementView data={data} selectedCustomer={selectedCustomer} setSelectedCustomer={setSelectedCustomer} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} selectedCampaign={selectedCampaign} setSelectedCampaign={setSelectedCampaign} save={save} busy={busy} onExit={() => setAccountsView(false)} />
+      ) : (
+        <>
+          {data && !isFlowEditor && <ReportsPageHeader page={pageSection} clients={data.clients} client={data.client}
+            titleOverride={headerTitle} descriptionOverride={headerDescription}
+            onAction={pageSection === 'overview' ? {label: 'Biblioteca de dados', onClick: () => {location.assign(reportUrl('data-library'));}} : undefined} />}
+          {data?.ready && !isFlowEditor && (['campaigns', 'events'].includes(pageSection) || (pageSection === 'flow' && new URLSearchParams(location.search).get('flow_view') === 'monitor')) && <ReportsFilterBar
+            data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
+          <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <div className="reports-loading" role="status">Carregando Reports…</div> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'customers' ? <ReportsCustomers data={data} save={save} busy={busy}/> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
+        </>
+      )}
     </main>
   </div>;
 }

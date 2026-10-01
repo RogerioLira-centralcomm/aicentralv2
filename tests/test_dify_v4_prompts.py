@@ -16,17 +16,19 @@ def test_json_files_match_the_markdown_sources():
             f"{name} desatualizado: rode python scripts/build_dify_prompts.py"
 
 
-def test_chatflow_prompt_uses_only_the_six_start_node_variables():
+def test_system_prompt_only_references_core_because_data_lives_in_the_user_message():
     for name, content in builder.build().items():
         text = content["system_prompt_chatflow"]
-        found = set(re.findall(r"\{\{#" + builder.START_NODE_ID + r"\.(\w+)#\}\}", text))
-        assert found == set(builder.INPUTS), name
+        assert re.findall(r"\{\{#" + builder.START_NODE_ID + r"\.(\w+)#\}\}", text) == ["core"], name
         assert not re.search(r"\{\{(?!#)", text), "variável sem a sintaxe do Chatflow"
+        assert re.findall(r"\{\{(\w+)\}\}", content["system_prompt"]) == ["core"], name
         assert "user_request" not in text and "Valores sugeridos" not in text and text.startswith("Você é o Cadu")
+        for section, _variable in builder.USER_MESSAGE:
+            assert section in text, f"{name}: seção {section} não descrita"
 
 
 def test_every_input_variable_is_used_and_memory_is_off():
     for name, content in builder.build().items():
-        assert all("{{" + variable + "}}" in content["system_prompt"] for variable in content["inputs"]), name
+        assert "{{core}}" in content["system_prompt"], name
         assert content["settings"]["conversation_memory"] is False and content["settings"]["tools"] == []
         assert not any("{{" + legacy + "}}" in content["system_prompt"] for legacy in builder.LEGACY_UNUSED), name

@@ -15,7 +15,7 @@ Fonte de edição do bloco do `cadu-operator`; já vem incluído no campo `syste
 - **Documento completo e fechado.** Feche todo HTML, CSS e JSON. Se o espaço for curto, reduza o número de seções em vez de cortar no meio.
 - **Título.** Nomeie o assunto real do documento, nunca um rótulo genérico.
 - **Fidelidade.** Preserve números, nomes, datas e fontes da evidência. Lacunas aparecem como lacunas.
-- **Chat.** `text.content` resume em duas ou três frases o que foi criado ou alterado e o que precisa de revisão. O conteúdo completo fica no artefato.
+- **Chat.** A resposta visível resume em duas ou três frases o que foi criado ou alterado e o que precisa de revisão. O conteúdo completo fica no artefato.
 - **Atualizações** (`task.action` começa com `update_`). Devolva a versão completa revisada:
   - preserve o que não foi contradito;
   - incorpore as decisões novas;

@@ -54,6 +54,19 @@ _PUBLIC_TERMS = frozenset({
 })
 
 
+# Work that needs the whole project picture, not the few fields a keyword happens to match.
+PROJECT_WIDE_ACTIONS = frozenset({
+    "project_readout", "create_brief", "update_brief", "describe_project", "create_client_delivery",
+    "create_meeting_summary", "create_meeting_agenda",
+})
+_PROJECT_WIDE_MESSAGE = re.compile(
+    r"\b(?:o\s+que|quais?)\b.{0,25}\b(?:falta|faltam|pendente|pendentes|em\s+aberto|ainda\s+(?:n[aã]o|precisa))\b|"
+    r"\b(?:n[aã]o\s+(?:foi|foram)\s+definid[oa]s?|precisa\s+ser\s+decidid[oa]|falta\s+(?:decidir|definir))\b|"
+    r"\b(?:briefing|resumo|status|situa[cç][aã]o|pend[eê]ncias|vis[aã]o\s+geral)\b.{0,40}\b(?:d[eoa]s?|desse|deste|este|esse)\s+(?:projeto|campanha)\b",
+    re.IGNORECASE,
+)
+
+
 def public_web_query(message: str, *, project_selected: bool = False, min_terms: int = 2) -> str:
     """Use only an independently meaningful public topic in external search."""
     text = " ".join(str(message or "").split())[:400]
@@ -200,7 +213,8 @@ def _arguments(tool_name: str, request: RequestContext, message: str, execution_
     if tool_name == "artifacts.get" and request.active_object and request.active_object.type.startswith("artifact:"):
         return {"artifact_id": request.active_object.id}
     if tool_name == "workspace.search_project_content":
-        return {"query": message[:400], "mode": "overview" if route_action == "project_readout" or is_overview_query(message) else "search"}
+        wide = route_action in PROJECT_WIDE_ACTIONS or is_overview_query(message) or bool(_PROJECT_WIDE_MESSAGE.search(message))
+        return {"query": message[:400], "mode": "overview" if wide else "search"}
     if tool_name == "workspace.get_project_context":
         return {"query": message[:400]}
     if tool_name == "brands.get_context" and request.brand_ref:

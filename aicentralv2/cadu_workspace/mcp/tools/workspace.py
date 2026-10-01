@@ -738,10 +738,13 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
     resource_results.sort(key=lambda item: item["score"], reverse=True)
     task_results.extend(reference_activity_results)
     task_results.sort(key=lambda item: item["score"], reverse=True)
-    context_ranked = [{**item, "result_type": "project_context", "score": score,
-                "evidence_level": "saved_project_data"}
-               for item in context_results
-               if (score := relevance(item.get("label"), item.get("display_value"), base=6))]
+    # Saved project fields are few and the most trustworthy evidence, so they
+    # always accompany a search; a keyword match only moves them up the list.
+    context_ranked = sorted(
+        ({**item, "result_type": "project_context", "evidence_level": "saved_project_data",
+          "score": relevance(item.get("label"), item.get("display_value"), base=6) or 1}
+         for item in context_results if str(item.get("display_value") or "").strip()),
+        key=lambda item: item["score"], reverse=True)[:12]
     source_ranked = [{**item, "score": 4 + float(item.get("score") or 0),
                       "evidence_level": "indexed_content"} for item in source_results]
     if overview:

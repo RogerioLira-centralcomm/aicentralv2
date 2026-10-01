@@ -597,3 +597,8 @@
 .flow-forecast-field{display:grid;gap:3px;margin:0!important;color:var(--color-text-tertiary);font-size:11px}
 .flow-plan-panel__chips small,.flow-plan-panel__progress small{font-size:11px}
 .reports-flow-validation li button,.flow-plan-panel__exports button{font-size:11px}
+/* Inspector: flat "Mais opções" (no card inside the card), quiet remove, panel reaches the top edge */
+.flow-inspector details.flow-inspector__more{padding:0;border:0;border-top:1px solid var(--color-border-secondary);border-radius:0;padding-top:8px}
+.flow-inspector details.flow-inspector__more>summary{padding:2px 0}
+.reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{top:12px}
+.reports-panel-shell__footer .flow-inspector__remove{min-height:24px;padding:0 6px;font-size:12px;font-weight:500;margin-right:auto}

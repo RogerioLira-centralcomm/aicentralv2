@@ -1,6 +1,6 @@
 # cadu-analyst — bloco do agente
 
-Fonte de edição do bloco do `cadu-analyst`; já vem incluído em `cadu-analyst.prompt.txt`. O backend usa este app quando `task.execution_mode` é `analysis`, o modo padrão de trabalho: perguntas sobre o projeto, análises, recomendações, briefings, planejamento de mídia e pesquisa.
+Fonte de edição do bloco do `cadu-analyst`; já vem incluído no campo `system_prompt_chatflow` de `cadu-analyst.json`. O backend usa este app quando `task.execution_mode` é `analysis`, o modo padrão de trabalho: perguntas sobre o projeto, análises, recomendações, briefings, planejamento de mídia e pesquisa.
 
 ---
 

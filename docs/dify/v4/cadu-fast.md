@@ -1,6 +1,6 @@
 # cadu-fast — bloco do agente
 
-Fonte de edição do bloco do `cadu-fast`; já vem incluído em `cadu-fast.prompt.txt`. O backend usa este app quando `task.execution_mode` é `fast`: saudações, conversas gerais sem projeto e planos pedidos como "rápidos" ou "resumidos".
+Fonte de edição do bloco do `cadu-fast`; já vem incluído no campo `system_prompt_chatflow` de `cadu-fast.json`. O backend usa este app quando `task.execution_mode` é `fast`: saudações, conversas gerais sem projeto e planos pedidos como "rápidos" ou "resumidos".
 
 ---
 

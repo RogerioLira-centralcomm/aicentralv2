@@ -1,6 +1,6 @@
 # Prompt base (orquestrador) — Cadu Conversations v4
 
-Fonte de edição do prompt-base dos três apps (`cadu-fast`, `cadu-analyst`, `cadu-operator`). Não cole este arquivo no Dify: use o arquivo `<app>.prompt.txt`, que já traz este texto mais o bloco do app. O que está acima da linha `---` nunca vai para o Dify.
+Fonte de edição do prompt-base dos três apps (`cadu-fast`, `cadu-analyst`, `cadu-operator`). Não cole este arquivo no Dify: use o campo `system_prompt_chatflow` do JSON do app, que já traz este texto mais o bloco do app. O que está acima da linha `---` nunca vai para o Dify.
 
 ---
 

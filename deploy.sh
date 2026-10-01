@@ -42,28 +42,33 @@ echo "========================================"
 echo "  Log detalhado: $DEPLOY_LOG"
 echo ""
 
-# 1. Parar servico ANTES de tudo
-echo "[1/7] Parando servico..."
-sudo systemctl stop "$APP_SERVICE" 2>/dev/null || true
-SERVICE_STOPPED=1
-sleep 2
-
-# Garantir que nenhum worker órfão ficou vivo. O stop explícito acima evita que
-# o Restart=always do systemd recrie o processo durante esta limpeza.
-sudo pkill -9 -f "gunicorn.*run:app" 2>/dev/null || true
-sleep 1
-
-# Verificar que a porta 8001 esta livre
-if sudo ss -tlnp 2>/dev/null | grep -q ':8001'; then
-    echo "  > Porta 8001 ainda ocupada, matando processo..."
-    sudo fuser -k 8001/tcp 2>/dev/null || true
+# 1. Atualizar com o serviço no ar (a parada acontece em stop_service_for_deploy)
+# Parar o serviço só depois de código, build e dependências estarem prontos:
+# o site continua no ar durante a parte lenta do deploy.
+stop_service_for_deploy() {
+    echo ""
+    echo "[parada] Parando servico (codigo, build e dependencias prontos)..."
+    sudo systemctl stop "$APP_SERVICE" 2>/dev/null || true
+    SERVICE_STOPPED=1
     sleep 2
-fi
 
-# Compatibilidade com versões anteriores do service, que criavam esse pidfile.
-# A unidade atual não usa mais PID file: o systemd é a única fonte de estado.
-sudo rm -f /var/www/aicentralv2/gunicorn.pid
-echo "  > OK"
+    # Garantir que nenhum worker órfão ficou vivo. O stop explícito acima evita que
+    # o Restart=always do systemd recrie o processo durante esta limpeza.
+    sudo pkill -9 -f "gunicorn.*run:app" 2>/dev/null || true
+    sleep 1
+
+    # Verificar que a porta 8001 esta livre
+    if sudo ss -tlnp 2>/dev/null | grep -q ':8001'; then
+        echo "  > Porta 8001 ainda ocupada, matando processo..."
+        sudo fuser -k 8001/tcp 2>/dev/null || true
+        sleep 2
+    fi
+
+    # Compatibilidade com versões anteriores do service, que criavam esse pidfile.
+    # A unidade atual não usa mais PID file: o systemd é a única fonte de estado.
+    sudo rm -f /var/www/aicentralv2/gunicorn.pid
+    echo "  > OK"
+}
 
 # 2. Atualizar codigo
 echo ""
@@ -133,8 +138,11 @@ if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; the
            frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
            aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
            package-lock.json build_frontend.sh postcss.config.js \
-           tailwind.config.js vite.auth.config.mjs vite.conversations.config.mjs \
-           vite.studio-editor.config.mjs && \
+           tailwind.config.js tailwind.artifact.config.js \
+           tailwind.conversations.config.js tailwind.studio.config.js \
+           vite.auth.config.mjs vite.conversations.config.mjs \
+           vite.reports.config.mjs vite.planner.config.mjs \
+           vite.studio-editor.config.mjs vite.studio-audio.config.mjs && \
        [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
         RUN_FRONTEND_BUILD=0
     fi
@@ -214,6 +222,8 @@ else
     echo "  > requirements.txt sem alteracoes; pulando instalacao Python."
 fi
 echo "  > OK"
+
+stop_service_for_deploy
 
 # 4. Criar diretorios e dependencias do sistema
 mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
@@ -447,14 +457,36 @@ else
     echo "Catálogo CentralComm ausente; importação de interativos ignorada: $INTERACTIVES_SOURCE" >> "$DEPLOY_LOG"
 fi
 
-# Worker de mídia: dependências, modelo local e serviço supervisionado.
-MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1
-ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh >> "$DEPLOY_LOG" 2>&1
-LINK_ICON_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_link_icon_worker.sh >> "$DEPLOY_LOG" 2>&1
-# These consumers depend on the migrations above. Keep their installation in
-# the normal Git deploy so new queue entries cannot accumulate unnoticed.
-RESOURCE_REGISTRY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_resource_registry_worker.sh >> "$DEPLOY_LOG" 2>&1
-CONVERSATION_MEMORY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_conversation_memory_worker.sh >> "$DEPLOY_LOG" 2>&1
+# Workers: instaladores só rodam quando deploy/ ou as dependências de mídia
+# mudaram. O worker de mídia executa código da aplicação, então é reiniciado
+# em todo deploy para não ficar com a versão anterior.
+WORKERS_STATE_FILE="${WORKERS_STATE_FILE:-logs/.last-workers-revision}"
+WORKERS_REVISION="$(git rev-parse HEAD)"
+RUN_WORKER_INSTALLERS=1
+if [ "${FORCE_WORKERS:-0}" != "1" ] && [ -s "$WORKERS_STATE_FILE" ]; then
+    LAST_WORKERS_REVISION="$(head -n 1 "$WORKERS_STATE_FILE")"
+    if git cat-file -e "${LAST_WORKERS_REVISION}^{commit}" 2>/dev/null && \
+       git diff --quiet "$LAST_WORKERS_REVISION" "$WORKERS_REVISION" -- \
+           deploy requirements.txt requirements-media.txt; then
+        RUN_WORKER_INSTALLERS=0
+    fi
+fi
+
+if [ "$RUN_WORKER_INSTALLERS" = "1" ]; then
+    MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1
+    ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh >> "$DEPLOY_LOG" 2>&1
+    LINK_ICON_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_link_icon_worker.sh >> "$DEPLOY_LOG" 2>&1
+    # These consumers depend on the migrations above. Keep their installation in
+    # the normal Git deploy so new queue entries cannot accumulate unnoticed.
+    RESOURCE_REGISTRY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_resource_registry_worker.sh >> "$DEPLOY_LOG" 2>&1
+    CONVERSATION_MEMORY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_conversation_memory_worker.sh >> "$DEPLOY_LOG" 2>&1
+    mkdir -p "$(dirname "$WORKERS_STATE_FILE")"
+    printf '%s\n' "$WORKERS_REVISION" > "${WORKERS_STATE_FILE}.tmp"
+    mv "${WORKERS_STATE_FILE}.tmp" "$WORKERS_STATE_FILE"
+else
+    echo "  > Workers sem alteracoes; reiniciando apenas o worker de midia."
+    sudo systemctl restart cadu-media-worker >> "$DEPLOY_LOG" 2>&1
+fi
 
 # 9. Iniciar servico
 echo ""

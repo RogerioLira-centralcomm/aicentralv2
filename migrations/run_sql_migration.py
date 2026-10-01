@@ -3,6 +3,7 @@
 Uso: python migrations/run_sql_migration.py arquivo.sql
 """
 
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,13 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 load_dotenv(ROOT / ".env")
+
+
+LEDGER_DDL = """CREATE TABLE IF NOT EXISTS deploy_sql_migrations (
+    filename TEXT PRIMARY KEY,
+    sha256 TEXT NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)"""
 
 
 def main(filename: str) -> None:
@@ -29,7 +37,22 @@ def main(filename: str) -> None:
         password=os.getenv("DB_PASSWORD", ""),
     ) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(path.read_text(encoding="utf-8"))
+            sql = path.read_text(encoding="utf-8")
+            digest = hashlib.sha256(sql.encode("utf-8")).hexdigest()
+            cursor.execute(LEDGER_DDL)
+            if os.getenv("FORCE_SQL_MIGRATIONS") != "1":
+                cursor.execute("SELECT sha256 FROM deploy_sql_migrations WHERE filename = %s", (path.name,))
+                row = cursor.fetchone()
+                if row and row[0] == digest:
+                    conn.commit()
+                    print(f"Migration já aplicada: {path.name}")
+                    return
+            cursor.execute(sql)
+            cursor.execute(
+                """INSERT INTO deploy_sql_migrations (filename, sha256) VALUES (%s, %s)
+                   ON CONFLICT (filename) DO UPDATE SET sha256 = EXCLUDED.sha256, applied_at = now()""",
+                (path.name, digest),
+            )
         conn.commit()
     print(f"Migration executada: {path.name}")
 

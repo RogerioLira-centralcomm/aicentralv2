@@ -1068,21 +1068,23 @@ function SuperTag({data}) {
   const canEdit = data.client.role !== 'viewer';
   const activeSites = sites.filter(site => Number(site.events_30d) > 0).length;
   const openInstall = () => {setInstallOpen(true);setSiteCheck(null);};
+  const hostKey = value => String(value || '').replace(/^www\./, '');
+  const linkedFlowsCount = selected ? siteFlows.filter(item => hostKey(item.allowed_host) === hostKey(selected.allowed_host)).length : 0;
   const tabs = [{id:'overview',label:'Visão geral'},{id:'install',label:'Instalação'},{id:'flows',label:'Fluxos'},{id:'settings',label:'Configurações'}];
   return <section className="st-page">
     <header className="st-topbar"><p>Instale uma única tag e acompanhe a coleta consentida de cada site.</p>
-      <div className="st-topbar__side">{sitesTotal>0&&<><StatusBadge tone="gray">{sitesTotal} {sitesTotal===1?'site conectado':'sites conectados'}</StatusBadge><StatusBadge tone={activeSites?'success':'warning'}>{activeSites?`${activeSites} com coleta ativa`:'Sem coleta ativa'}</StatusBadge></>}{canEdit&&<ReportsActionButton color="primary" iconLeading={Plus} onClick={openInstall}>Conectar site</ReportsActionButton>}</div></header>
+      <div className="st-topbar__side">{sitesTotal>0&&<><StatusBadge tone="gray">{sitesTotal} {sitesTotal===1?'site conectado':'sites conectados'}</StatusBadge><StatusBadge tone={activeSites?'success':'warning'}>{activeSites?`${activeSites} com coleta ativa`:'Sem coleta ativa'}</StatusBadge></>}{canEdit&&<ReportsActionButton color={selected?'secondary':'primary'} iconLeading={Plus} onClick={openInstall}>Conectar site</ReportsActionButton>}</div></header>
     {error&&<p className="reports-error" role="alert">{error}</p>}{notice&&<p className="reports-success" role="status">{notice}</p>}
     <div className="st-layout">
       <SiteSidebar sites={sites} loading={sitesLoading} query={siteQuery} onQuery={setSiteQuery} selectedId={selectedId} clientId={data.client.client_id} canAdd={canEdit} onAdd={openInstall} renderFavicon={renderFavicon}/>
       <main className="st-main">
         {!selected&&!sitesLoading&&<div className="st-empty"><h2>{sitesTotal?'Selecione um site':canEdit?'Conecte seu primeiro site':'Nenhum site conectado'}</h2><p>{sitesTotal?'Escolha um site na lista para ver a instalação, os eventos e os fluxos vinculados.':canEdit?'Instale a Super Tag para acompanhar visitas e eventos consentidos.':'Os sites autorizados para este cliente aparecerão aqui.'}</p>{!sitesTotal&&canEdit&&<ReportsActionButton color="primary" onClick={openInstall}>Conectar site</ReportsActionButton>}</div>}
         {selected&&<>
-          <SiteSummary site={selected} renderFavicon={renderFavicon}/>
+          <SiteSummary site={selected} flowsCount={detailLoading?null:linkedFlowsCount} hasEvents={hasEvents} renderFavicon={renderFavicon}/>
           <ReportsTabs className="reports-site-tabs" label="Áreas do site" value={siteTab} onChange={setSiteTab} items={tabs}/>
           {detailLoading&&<p className="st-muted" role="status">Carregando dados do site…</p>}
           {siteTab==='overview'&&<>
-            <InstallStatus site={selected} hasEvents={hasEvents} verify={verify} verifying={verifying} onVerify={verifyInstall} onCopy={()=>copy(selected.snippet)} canEdit={canEdit}/>
+            <InstallStatus site={selected} hasEvents={hasEvents} verify={verify} verifying={verifying} onVerify={verifyInstall} onCopy={()=>copy(selected.snippet)} onGuide={()=>setSiteTab('install')}/>
             <div className="st-grid"><InstallCard site={selected} onCopy={()=>copy(selected.snippet)} onDownload={downloadSnippet} onEmail={emailSnippet}/>{hasEvents?<RecentEvents summary={detail?.summary}/>:<InstallGuide/>}</div>
             <div className="st-grid st-grid--wide"><LinkedFlows flows={siteFlows} site={selected} clientId={data.client.client_id}/><AccessCard data={data} site={selected}/></div>
           </>}

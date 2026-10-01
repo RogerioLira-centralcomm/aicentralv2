@@ -40,34 +40,51 @@ export function StatusBadge({tone = 'gray', children}) {
 
 export function SiteSidebar({sites, loading, query, onQuery, selectedId, clientId, onAdd, canAdd, renderFavicon}) {
   const visible = sites.filter(site => `${site.label} ${site.allowed_host}`.toLowerCase().includes(query.toLowerCase()));
+  const groups = [
+    {id: 'active', label: 'Coleta ativa', items: visible.filter(site => siteState(site).tone === 'success')},
+    {id: 'other', label: 'Precisam de atenção', items: visible.filter(site => siteState(site).tone !== 'success')},
+  ].filter(group => group.items.length);
+  const showLabels = groups.length > 1;
   return <aside className="st-sites" aria-label="Sites de medição">
-    <header><h2>Sites</h2><span>{sites.length}</span></header>
+    <header><div><h2>Sites</h2><p>{sites.length} {sites.length === 1 ? 'site conectado' : 'sites conectados'}</p></div></header>
     <label className="st-search"><SearchLg size={16} aria-hidden="true"/><ReportsFieldInput aria-label="Buscar site" placeholder="Buscar site…" value={query} onChange={event => onQuery(event.target.value)}/></label>
-    <nav>
+    <nav aria-label="Lista de sites">
       {loading && <p className="st-muted" role="status">Carregando sites…</p>}
-      {!loading && visible.map(site => {
-        const state = siteState(site);
-        return <a key={site.id} className={`st-site${site.id === selectedId ? ' is-active' : ''}`} href={reportUrl('supertag', {client_id: clientId}, site.id)} aria-current={site.id === selectedId ? 'page' : undefined}>
-          {renderFavicon(site)}
-          <span><strong>{site.allowed_host}</strong><small className={`st-dot st-dot--${state.tone}`}><i aria-hidden="true"/>{state.label}</small></span>
-        </a>;
-      })}
+      {!loading && groups.map(group => <div className="st-group" key={group.id}>
+        {showLabels && <h3>{group.label}</h3>}
+        {group.items.map(site => {
+          const state = siteState(site);
+          const active = site.id === selectedId;
+          return <a key={site.id} className={`st-site${active ? ' is-active' : ''}`} href={reportUrl('supertag', {client_id: clientId}, site.id)} aria-current={active ? 'page' : undefined}>
+            <span className="st-avatar">{renderFavicon(site)}</span>
+            <span className="st-site__text"><strong>{site.allowed_host}</strong><small className={`st-dot st-dot--${state.tone}`}><i aria-hidden="true"/>{state.label}</small></span>
+            <span className="st-site__count" title="Eventos nos últimos 30 dias">{integer(site.events_30d || 0)}</span>
+          </a>;
+        })}
+      </div>)}
       {!loading && sites.length > 0 && !visible.length && <p className="st-muted">Nenhum site corresponde à busca.</p>}
     </nav>
-    {canAdd && <button type="button" className="st-add" onClick={onAdd}><Plus size={16} aria-hidden="true"/>Adicionar site</button>}
+    {canAdd && <ReportsActionButton className="st-add" color="secondary" iconLeading={Plus} onClick={onAdd}>Adicionar site</ReportsActionButton>}
   </aside>;
 }
 
-export function SiteSummary({site, renderFavicon}) {
+export function SiteSummary({site, flowsCount, hasEvents, renderFavicon}) {
   const state = siteState(site);
   const events = Number(site.events_30d || 0);
   const last = site.last_event_at;
+  const metrics = [
+    {label: 'Eventos · 30 dias', value: integer(events), hint: hasEvents ? 'Eventos aceitos pelo coletor' : 'Nenhum evento consentido'},
+    {label: 'Último evento', value: last ? relativeTime(last) : 'Nenhum ainda', hint: last ? longDate(last) : 'Aguardando a primeira visita'},
+    {label: 'Fluxos vinculados', value: flowsCount == null ? '—' : integer(flowsCount), hint: 'Usam os dados deste site'},
+    {label: 'Instalação', value: hasEvents ? 'Verificada' : 'Pendente', hint: hasEvents ? 'Confirmada pelos eventos' : 'Verifique o código no site'},
+  ];
   return <header className="st-summary">
-    <div className="st-summary__identity">{renderFavicon(site)}<div><div className="st-summary__title"><h2>{site.allowed_host}</h2><StatusBadge tone={state.tone}>{state.label}</StatusBadge></div><p>{site.label}</p></div></div>
-    <dl className="st-summary__metrics">
-      <div><dt>Eventos · 30 dias</dt><dd>{integer(events)}</dd></div>
-      <div><dt>Último evento</dt><dd>{last ? relativeTime(last) : 'Nenhum ainda'}{last && <small>{longDate(last)}</small>}</dd></div>
-    </dl>
+    <div className="st-summary__top">
+      <div className="st-summary__identity"><span className="st-avatar st-avatar--lg">{renderFavicon(site)}</span>
+        <div><div className="st-summary__title"><h2>{site.allowed_host}</h2><StatusBadge tone={state.tone}>{state.label}</StatusBadge></div><p>{site.label}</p></div></div>
+      <div className="st-summary__actions"><ReportsActionButton color="secondary" iconTrailing={ArrowUpRight} href={`https://${site.allowed_host}`} target="_blank" rel="noopener noreferrer">Visitar site</ReportsActionButton></div>
+    </div>
+    <dl className="st-summary__metrics">{metrics.map(item => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd><small>{item.hint}</small></div>)}</dl>
   </header>;
 }
 
@@ -89,7 +106,7 @@ function checkRows({site, verify, hasEvents}) {
 }
 
 /** Two stages of the same panel: a stepper once data flows, a verification checklist before that. */
-export function InstallStatus({site, hasEvents, verify, verifying, onVerify, onCopy, canEdit}) {
+export function InstallStatus({site, hasEvents, verify, verifying, onVerify, onCopy, onGuide}) {
   const rows = checkRows({site, verify, hasEvents});
   if (hasEvents) return <section className="st-card st-stages" aria-label="Status da instalação">
     <h3>Status da instalação</h3>
@@ -101,6 +118,7 @@ export function InstallStatus({site, hasEvents, verify, verifying, onVerify, onC
     <footer>
       <ReportsActionButton color="primary" iconLeading={RefreshCw01} onClick={onVerify} disabled={verifying}>{verifying ? 'Verificando…' : 'Verificar instalação'}</ReportsActionButton>
       <ReportsActionButton color="secondary" iconLeading={Copy01} onClick={onCopy}>Copiar código</ReportsActionButton>
+      <ReportsActionButton color="link-color" iconTrailing={ChevronRight} onClick={onGuide}>Ver como instalar</ReportsActionButton>
     </footer>
     {verify && !verify.tag_in_html && verify.reachable && <p className="st-verify__note">Se a tag foi instalada pelo Google Tag Manager, ela não aparece no HTML. Abra o site com o modo Visualizar do GTM para confirmar.</p>}
   </section>;
